@@ -1,0 +1,20 @@
+[package]
+name = "aoscpt"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists", rev = "0df4611ec7293010551f95659f28f1b1da9cc0c8" }
+anyhow = "1.0" 
+nix = "0.26"
+reqwest = { version = "0.11", features = ["blocking"] }
+log = "0.4"
+env_logger = "0.10"
+eight-deep-parser = "0.2"
+lazy_static = "1.4"
+nom = "7.1"
+serde = { version = "1.0", features = ["derive"] }
+xz2 = "0.1"
+sequoia-openpgp = "1.13"
