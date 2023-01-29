@@ -1,8 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     io::Read,
-    path::{Path, PathBuf},
-    str::FromStr,
+    path::{Path},
 };
 
 use anyhow::{anyhow, Ok, Result};
@@ -10,11 +9,6 @@ use apt_sources_lists::*;
 use eight_deep_parser::Item;
 use log::info;
 use reqwest::blocking::Client;
-use sequoia_openpgp::{
-    parse::{stream::VerifierBuilder, Parse},
-    policy::StandardPolicy,
-    Cert,
-};
 
 use crate::{pkgversion::PkgVersion, utils::get_arch_name, verify};
 
@@ -53,7 +47,14 @@ fn download(url: &str, client: &Client) -> Result<(FileName, FileBuf)> {
 #[derive(Debug)]
 struct InReleaseParser {
     source: HashMap<String, Item>,
-    checksums: HashMap<String, (u64, String)>,
+    checksums: Vec<ChecksumItem>,
+}
+
+#[derive(Debug)]
+struct ChecksumItem {
+    name: String,
+    size: u64,
+    checksum: String,
 }
 
 impl InReleaseParser {
@@ -88,17 +89,25 @@ impl InReleaseParser {
             checksums_res.push(checksum);
         }
 
-        let mut map = HashMap::new();
         let arch = get_arch_name().ok_or_else(|| anyhow!("Can not get arch!"))?;
-        for (name, size, checksum) in checksums_res {
-            if name.contains("all") || name.contains(arch) {
-                map.insert(name.to_owned(), (size.parse::<u64>()?, checksum.to_owned()));
-            }
+
+        let mut res = vec![];
+
+        let c = checksums_res
+                .into_iter()
+                .filter(|(name, _, _)| name.contains("all") || name.contains(arch));
+
+        for i in c {
+            res.push(ChecksumItem {
+                name: i.0.to_owned(),
+                size: i.1.parse::<u64>()?,
+                checksum: i.2.to_owned(),
+            })
         }
 
         Ok(Self {
             source,
-            checksums: map,
+            checksums: res
         })
     }
 }
@@ -147,62 +156,9 @@ pub fn update() -> Result<()> {
         }
 
         let in_release = InReleaseParser::new(&p)?;
+
         dbg!(in_release);
     }
-
-    // // like: mirrors.bfsu.edu.cn_anthon_debs_dists_stable_InRelease
-    // let release_file_names = url_to_file_names(&dists)?;
-
-    // let client = reqwest::blocking::ClientBuilder::new()
-    //     .user_agent("aoscpt")
-    //     .build()?;
-
-    // let files = downloads_and_extract(&client, &dists, false)?;
-
-    // let apt_dists = Path::new(APT_LIST_DISTS);
-
-    // if !apt_dists.is_dir() {
-    //     std::fs::create_dir_all(APT_LIST_DISTS)?;
-    // }
-
-    // let mut urls = vec![];
-
-    // for i in &sources {
-    //     let v = package_list_single(&i)?;
-    //     for j in v {
-    //         urls.push(j);
-    //     }
-    // }
-
-    // // like: mirrors.bfsu.edu.cn_anthon_debs_dists_stable_main_binary-all_Packages
-    // let package_list_paths = package_list_file_names(&urls, true)?;
-
-    // for (i, c) in release_file_names.iter().enumerate() {
-    //     let p = apt_dists.join(c);
-    //     // If InRelease File not exist
-    //     if !p.is_file() {
-    //         info!("InRelease file doesn't not exist, Downloading Package list!");
-    //         update_package_list(&p, &files[i], &sources[i], &client)?;
-    //     }
-
-    //     let mut exist_file = std::fs::File::open(&p)?;
-    //     let mut buf = vec![];
-    //     exist_file.read_to_end(&mut buf)?;
-
-    //     // If InRelease File local and mirror mismatch
-    //     if buf != files[i] {
-    //         info!("InRelease file is olded, Downloading Package list!");
-    //         update_package_list(&p, &files[i], &sources[i], &client)?;
-    //     }
-    // }
-
-    // let list = need_update_list(&package_list_paths)?;
-
-    // for i in &list {
-    //     println!("{} {} {}", i.0, i.1, i.2);
-    // }
-
-    // dbg!(list.len());
 
     Ok(())
 }

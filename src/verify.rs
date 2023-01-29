@@ -20,6 +20,7 @@ impl InReleaseVerifier {
         for path in cert_paths.iter() {
             certs.push(Cert::from_file(path)?);
         }
+
         Ok(InReleaseVerifier { certs })
     }
 }
@@ -34,6 +35,7 @@ impl VerificationHelper for InReleaseVerifier {
                 }
             }
         }
+
         Ok(certs)
     }
 
