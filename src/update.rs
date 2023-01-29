@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     io::Read,
-    path::{Path},
+    path::Path,
 };
 
 use anyhow::{anyhow, Ok, Result};
@@ -31,7 +31,7 @@ impl FileName {
     }
 }
 
-fn download(url: &str, client: &Client) -> Result<(FileName, FileBuf)> {
+fn download_db(url: &str, client: &Client) -> Result<(FileName, FileBuf)> {
     info!("Downloading {}", url);
 
     let v = client
@@ -55,6 +55,16 @@ struct ChecksumItem {
     name: String,
     size: u64,
     checksum: String,
+    file_type: DistFileType,
+}
+
+#[derive(Debug, PartialEq)]
+enum DistFileType {
+    BinaryContents,
+    Contents,
+    CompressContents,
+    PackageList,
+    CompressPackageList,
 }
 
 impl InReleaseParser {
@@ -94,20 +104,35 @@ impl InReleaseParser {
         let mut res = vec![];
 
         let c = checksums_res
-                .into_iter()
-                .filter(|(name, _, _)| name.contains("all") || name.contains(arch));
+            .into_iter()
+            .filter(|(name, _, _)| name.contains("all") || name.contains(arch));
 
         for i in c {
+            let t = if i.0.contains("BinContents") {
+                DistFileType::BinaryContents
+            } else if i.0.contains("/Contents-") && i.0.contains(".") {
+                DistFileType::CompressContents
+            } else if i.0.contains("/Contents-") && !i.0.contains(".") {
+                DistFileType::Contents
+            } else if i.0.contains("Packages") && !i.0.contains(".") {
+                DistFileType::PackageList
+            } else if i.0.contains("Packages") && i.0.contains(".") {
+                DistFileType::CompressPackageList
+            } else {
+                panic!("I Dont known why ...")
+            };
+
             res.push(ChecksumItem {
                 name: i.0.to_owned(),
                 size: i.1.parse::<u64>()?,
                 checksum: i.2.to_owned(),
+                file_type: t,
             })
         }
 
         Ok(Self {
             source,
-            checksums: res
+            checksums: res,
         })
     }
 }
@@ -127,23 +152,24 @@ fn get_sources() -> Result<Vec<SourceEntry>> {
     Ok(res)
 }
 
-pub fn update() -> Result<()> {
+pub fn update(client: &Client) -> Result<()> {
     let sources = get_sources()?;
 
-    let dists_in_releases = sources
+    let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
+    let dists_in_releases = dist_urls.iter().map(|x| format!("{}/{}", x, "InRelease"));
+
+    let components = sources
         .iter()
-        .map(|x| format!("{}/{}", x.dist_path(), "InRelease"));
+        .map(|x| x.components.to_owned())
+        .collect::<Vec<_>>();
 
-    let client = reqwest::blocking::ClientBuilder::new()
-        .user_agent("aoscpt")
-        .build()?;
+    let dist_files = dists_in_releases.flat_map(|x| download_db(&x, &client));
 
-    let dist_files = dists_in_releases.flat_map(|x| download(&x, &client));
-
-    for (name, file) in dist_files {
+    for (index, (name, file)) in dist_files.enumerate() {
         let p = Path::new(APT_LIST_DISTS).join(name.0);
 
-        if !p.exists() || !p.is_dir() {
+        if !p.exists() || !p.is_file() {
+            std::fs::create_dir_all(APT_LIST_DISTS)?;
             std::fs::write(&p, &file.0)?;
         } else {
             let mut f = std::fs::File::open(&p)?;
@@ -152,15 +178,33 @@ pub fn update() -> Result<()> {
 
             if buf != file.0 {
                 std::fs::write(&p, &file.0)?;
+            } else {
+                continue;
             }
         }
 
         let in_release = InReleaseParser::new(&p)?;
 
-        dbg!(in_release);
+        let checksums = in_release
+            .checksums
+            .iter()
+            .filter(|x| components[index].contains(&x.name.split('/').nth(0).unwrap().to_string()));
+
+        for i in checksums {
+            if i.file_type == DistFileType::CompressContents
+                || i.file_type == DistFileType::CompressPackageList
+            {
+                let (name, buf) = download_db(&format!("{}/{}", dist_urls[index], i.name), &client)?;
+                // checksum()
+            }
+        }
     }
 
     Ok(())
+}
+
+fn checksum(buf: &[u8], hash: &str) -> Result<()> {
+    todo!()
 }
 
 // fn update_package_list(
