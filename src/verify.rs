@@ -56,6 +56,7 @@ impl VerificationHelper for InReleaseVerifier {
     }
 }
 
+/// Verify InRelease PGP signature
 pub fn verify(s: &str) -> Result<String> {
     let mut cert_files = vec![Path::new("/etc/apt/trusted.gpg").to_path_buf()];
     let dir = std::fs::read_dir("/etc/apt/trusted.gpg.d")?;

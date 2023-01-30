@@ -40,6 +40,7 @@ pub enum AptAction {
     Purge,
 }
 
+/// Use apt -s to calculate dependencies and action order (Install after Configure or Purge after install or ...?)
 pub fn apt_calc(list: &[Package]) -> Result<Vec<AptPackage>> {
     let mut result = vec![];
     let names = list.iter().map(|x| x.name.clone()).collect::<Vec<_>>();
@@ -125,17 +126,6 @@ pub fn apt_calc(list: &[Package]) -> Result<Vec<AptPackage>> {
         } else {
             info_inner(ready, &mut info)?;
         }
-        // if action == AptAction::Configure {
-        //     info = same_item_2.strip_prefix("(").and_then(|x| x.strip_suffix(")")).map(|x| x.to_string());
-        // }
-
-        // let same_item_2 = ready.nth(0);
-
-        // if let Some(same_item_2) = same_item_2 {
-        //     if same_item_2.starts_with("(") && same_item_2.ends_with(")") {
-        //         info = same_item_2.strip_prefix("(").and_then(|x| x.strip_suffix(")")).map(|x| x.to_string());
-        //     }
-        // }
 
         result.push(AptPackage {
             name,

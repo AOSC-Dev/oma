@@ -147,6 +147,8 @@ impl InReleaseParser {
     }
 }
 
+
+/// Get /etc/apt/sources.list and /etc/apt/sources.list.d
 fn get_sources() -> Result<Vec<SourceEntry>> {
     let mut res = Vec::new();
     let list = SourcesLists::scan()?;
@@ -162,6 +164,7 @@ fn get_sources() -> Result<Vec<SourceEntry>> {
     Ok(res)
 }
 
+/// Update mirror database and Get all update, like apt update && apt full-upgrade
 pub fn update(client: &Client) -> Result<()> {
     let sources = get_sources()?;
 
@@ -251,6 +254,7 @@ pub fn update(client: &Client) -> Result<()> {
     Ok(())
 }
 
+/// Download and extract package list database 
 fn download_and_extract(
     dist_url: &str,
     i: &ChecksumItem,
@@ -267,6 +271,7 @@ fn download_and_extract(
     Ok(())
 }
 
+/// Check download is success
 fn checksum(buf: &[u8], hash: &str) -> Result<()> {
     let mut hasher = Sha256::new();
     hasher.write_all(buf)?;
@@ -284,6 +289,7 @@ fn checksum(buf: &[u8], hash: &str) -> Result<()> {
     Ok(())
 }
 
+/// Extract database
 fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
     let buf = if name.ends_with(".gz") {
         let mut decompressor = GzDecoder::new(buf);
@@ -316,6 +322,7 @@ struct UpdatePackage {
     apt_installed_size: u64,
 }
 
+/// Find needed packages (like apt update && apt list --upgradable)
 fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
     let mut res = Vec::new();
     let mut apt = vec![];
@@ -390,6 +397,7 @@ fn get_from(filename: &str) -> Result<String> {
     Ok(format!("{}/{}", branch, component))
 }
 
+/// Handle /var/apt/lists/*.Packages list
 fn package_list(list_path: &Path) -> Result<Vec<HashMap<String, Item>>> {
     info!("Handling package list at {}", list_path.display());
     let mut buf = String::new();
