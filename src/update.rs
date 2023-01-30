@@ -215,12 +215,12 @@ pub fn update(client: &Client) -> Result<()> {
                     let mut buf = Vec::new();
                     f.read_to_end(&mut buf)?;
 
-                    let index = checksums
+                    let checksums_index = checksums
                         .iter()
                         .position(|x| x.name == not_compress_file)
                         .unwrap();
 
-                    let hash = checksums[index].checksum.to_owned();
+                    let hash = checksums[checksums_index].checksum.to_owned();
 
                     if checksum(&buf, &hash).is_err() {
                         download_and_extract(&dist_urls[index], i, client, &file_name.0)?;
@@ -298,6 +298,8 @@ struct UpdatePackage {
     package: String,
     old_version: String,
     new_version: String,
+    file_name: String,
+    from: String,
 }
 
 fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
@@ -325,8 +327,10 @@ fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
         if let Some(index) = index {
             let Item::OneLine(ref apt_version) = apt[index]["Version"] else { panic!("8d") };
             let Item::OneLine(ref apt_installed_size) = apt[index]["Installed-Size"] else { panic!("8d") };
+            let Item::OneLine(ref apt_filename) = apt[index]["Filename"] else { panic!("8d") };
 
             let apt_installed_size = apt_installed_size.parse::<u64>()?;
+            let from = get_from(apt_filename)?;
 
             let parse_apt_version = PkgVersion::try_from(apt_version.as_str())?;
             let parse_dpkg_version = PkgVersion::try_from(dpkg_version.as_str())?;
@@ -336,6 +340,8 @@ fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
                     package: package.to_string(),
                     new_version: apt_version.to_string(),
                     old_version: dpkg_version.to_string(),
+                    file_name: apt_filename.to_string(),
+                    from,
                 });
             } else if parse_dpkg_version == parse_apt_version
                 && apt_installed_size != dpkg_installed_size
@@ -344,12 +350,22 @@ fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
                     package: package.to_string(),
                     new_version: apt_version.to_string(),
                     old_version: dpkg_version.to_string(),
+                    file_name: apt_filename.to_string(),
+                    from,
                 });
             }
         }
     }
 
     Ok(res)
+}
+
+fn get_from(filename: &str) -> Result<String> {
+    let mut s = filename.split('/');
+    let a = s.nth(1).ok_or_else(|| anyhow!("invalid filename"))?;
+    let b = s.nth(0).ok_or_else(|| anyhow!("invalid filename"))?;
+
+    Ok(format!("{}/{}", a, b))
 }
 
 fn package_list(list_path: &Path) -> Result<Vec<HashMap<String, Item>>> {
