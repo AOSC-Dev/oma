@@ -4,6 +4,7 @@ mod pkgversion;
 mod update;
 mod utils;
 mod verify;
+mod blackbox;
 
 fn main() {
     env_logger::init();

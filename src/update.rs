@@ -15,7 +15,7 @@ use sha2::{Digest, Sha256};
 use std::io::Write;
 use xz2::read::XzDecoder;
 
-use crate::{pkgversion::PkgVersion, utils::get_arch_name, verify};
+use crate::{pkgversion::PkgVersion, utils::get_arch_name, verify, blackbox::{Package, Action, apt_calc}};
 
 const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
 const DPKG_STATUS: &str = "/var/lib/dpkg/status";
@@ -38,7 +38,12 @@ impl FileName {
 
 fn download_db(url: &str, client: &Client) -> Result<(FileName, FileBuf)> {
     info!("Downloading {}", url);
+    let v = download(url, client)?;
 
+    Ok((FileName::new(url)?, FileBuf(v)))
+}
+
+fn download(url: &str, client: &Client) -> Result<Vec<u8>> {
     let v = client
         .get(url)
         .send()?
@@ -46,7 +51,7 @@ fn download_db(url: &str, client: &Client) -> Result<(FileName, FileBuf)> {
         .bytes()?
         .to_vec();
 
-    Ok((FileName::new(url)?, FileBuf(v)))
+    Ok(v)
 }
 
 #[derive(Debug)]
@@ -235,7 +240,13 @@ pub fn update(client: &Client) -> Result<()> {
     }
 
     let u = find_upgrade(&db_file_paths)?;
-    dbg!(u);
+    let uu = u.iter().map(|x| Package {
+        name: x.package.to_string(),
+        action: Action::Install,
+    }).collect::<Vec<_>>();
+
+    let apt = apt_calc(&uu)?;
+    dbg!(apt);
 
     Ok(())
 }
