@@ -240,9 +240,13 @@ pub fn update(client: &Client) -> Result<()> {
     Ok(())
 }
 
-fn download_and_extract(dist_url: &str, i: &ChecksumItem, client: &Client, not_compress_file: &str) -> Result<()> {
-    let (name, buf) =
-        download_db(&format!("{}/{}", dist_url, i.name), &client)?;
+fn download_and_extract(
+    dist_url: &str,
+    i: &ChecksumItem,
+    client: &Client,
+    not_compress_file: &str,
+) -> Result<()> {
+    let (name, buf) = download_db(&format!("{}/{}", dist_url, i.name), &client)?;
     checksum(&buf.0, &i.checksum)?;
 
     let buf = decompress(&buf.0, &name.0)?;
@@ -312,11 +316,30 @@ fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
     for i in dpkg {
         let Item::OneLine(ref package) = i["Package"] else { panic!("8d") };
         let Item::OneLine(ref dpkg_version) = i["Version"] else { panic!("8d") };
-        let index = apt.iter().position(|p| p["Package"] == Item::OneLine(package.to_string()));
+        let Item::OneLine(ref dpkg_installed_size) = i["Installed-Size"] else { panic!("8d") };
+        let dpkg_installed_size = dpkg_installed_size.parse::<u64>()?;
+        let index = apt
+            .iter()
+            .position(|p| p["Package"] == Item::OneLine(package.to_string()));
 
         if let Some(index) = index {
             let Item::OneLine(ref apt_version) = apt[index]["Version"] else { panic!("8d") };
-            if PkgVersion::try_from(apt_version.as_str())? > PkgVersion::try_from(dpkg_version.as_str())? {
+            let Item::OneLine(ref apt_installed_size) = apt[index]["Installed-Size"] else { panic!("8d") };
+
+            let apt_installed_size = apt_installed_size.parse::<u64>()?;
+
+            let parse_apt_version = PkgVersion::try_from(apt_version.as_str())?;
+            let parse_dpkg_version = PkgVersion::try_from(dpkg_version.as_str())?;
+
+            if parse_apt_version > parse_dpkg_version {
+                res.push(UpdatePackage {
+                    package: package.to_string(),
+                    new_version: apt_version.to_string(),
+                    old_version: dpkg_version.to_string(),
+                });
+            } else if parse_dpkg_version == parse_apt_version
+                && apt_installed_size != dpkg_installed_size
+            {
                 res.push(UpdatePackage {
                     package: package.to_string(),
                     new_version: apt_version.to_string(),
