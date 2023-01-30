@@ -300,6 +300,9 @@ struct UpdatePackage {
     new_version: String,
     file_name: String,
     from: String,
+    dpkg_installed_size: u64,
+    apt_size: u64,
+    apt_installed_size: u64,
 }
 
 fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
@@ -327,9 +330,11 @@ fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
         if let Some(index) = index {
             let Item::OneLine(ref apt_version) = apt[index]["Version"] else { panic!("8d") };
             let Item::OneLine(ref apt_installed_size) = apt[index]["Installed-Size"] else { panic!("8d") };
+            let Item::OneLine(ref apt_size) = apt[index]["Size"] else { panic!("8d") };
             let Item::OneLine(ref apt_filename) = apt[index]["Filename"] else { panic!("8d") };
 
             let apt_installed_size = apt_installed_size.parse::<u64>()?;
+            let apt_size = apt_size.parse::<u64>()?;
             let from = get_from(apt_filename)?;
 
             let parse_apt_version = PkgVersion::try_from(apt_version.as_str())?;
@@ -342,6 +347,9 @@ fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
                     old_version: dpkg_version.to_string(),
                     file_name: apt_filename.to_string(),
                     from,
+                    dpkg_installed_size,
+                    apt_size,
+                    apt_installed_size,
                 });
             } else if parse_dpkg_version == parse_apt_version
                 && apt_installed_size != dpkg_installed_size
@@ -352,6 +360,9 @@ fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
                     old_version: dpkg_version.to_string(),
                     file_name: apt_filename.to_string(),
                     from,
+                    dpkg_installed_size,
+                    apt_size,
+                    apt_installed_size,
                 });
             }
         }
@@ -362,10 +373,10 @@ fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
 
 fn get_from(filename: &str) -> Result<String> {
     let mut s = filename.split('/');
-    let a = s.nth(1).ok_or_else(|| anyhow!("invalid filename"))?;
-    let b = s.nth(0).ok_or_else(|| anyhow!("invalid filename"))?;
+    let branch = s.nth(1).ok_or_else(|| anyhow!("invalid filename"))?;
+    let component = s.nth(0).ok_or_else(|| anyhow!("invalid filename"))?;
 
-    Ok(format!("{}/{}", a, b))
+    Ok(format!("{}/{}", branch, component))
 }
 
 fn package_list(list_path: &Path) -> Result<Vec<HashMap<String, Item>>> {
