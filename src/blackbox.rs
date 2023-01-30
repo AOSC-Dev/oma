@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use log::debug;
 
 #[derive(Debug)]
 pub struct Package {
@@ -62,6 +63,10 @@ pub fn apt_calc(list: &[Package]) -> Result<Vec<AptPackage>> {
             Some("Remv") => AptAction::Remove,
             Some("Conf") => AptAction::Configure,
             Some("Purg") => AptAction::Purge,
+            Some(x) => {
+                debug!("Useless line: {}", x);
+                continue;
+            },
             _ => continue,
         };
 
