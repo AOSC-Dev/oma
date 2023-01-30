@@ -28,6 +28,7 @@ pub enum AptAction {
     Install,
     Remove,
     Configure,
+    Purge,
 }
 
 pub fn apt_calc(list: &[Package]) -> Result<Vec<AptPackage>> {
@@ -52,6 +53,8 @@ pub fn apt_calc(list: &[Package]) -> Result<Vec<AptPackage>> {
             AptAction::Remove
         } else if i.starts_with("Conf ") {
             AptAction::Configure
+        } else if i.starts_with("Purg "){
+            AptAction::Purge
         } else {
             continue;
         };
