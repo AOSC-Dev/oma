@@ -360,6 +360,7 @@ mod test {
             ("1.5~rc1", Less, "1.5+1"),
             ("1.5~rc1", Less, "1.5~rc2"),
             ("1.5~rc1", Greater, "1.5~dev0"),
+            ("22.04.3", Equal, "22.4.3"),
         ];
 
         for e in source {

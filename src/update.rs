@@ -1,14 +1,19 @@
+use core::panic;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     io::Read,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{anyhow, Ok, Result};
 use apt_sources_lists::*;
 use eight_deep_parser::Item;
+use flate2::bufread::GzDecoder;
 use log::info;
 use reqwest::blocking::Client;
+use sha2::{Digest, Sha256};
+use std::io::Write;
+use xz2::read::XzDecoder;
 
 use crate::{pkgversion::PkgVersion, utils::get_arch_name, verify};
 
@@ -165,6 +170,8 @@ pub fn update(client: &Client) -> Result<()> {
 
     let dist_files = dists_in_releases.flat_map(|x| download_db(&x, &client));
 
+    let mut db_file_paths = vec![];
+
     for (index, (name, file)) in dist_files.enumerate() {
         let p = Path::new(APT_LIST_DISTS).join(name.0);
 
@@ -178,8 +185,6 @@ pub fn update(client: &Client) -> Result<()> {
 
             if buf != file.0 {
                 std::fs::write(&p, &file.0)?;
-            } else {
-                continue;
             }
         }
 
@@ -188,205 +193,178 @@ pub fn update(client: &Client) -> Result<()> {
         let checksums = in_release
             .checksums
             .iter()
-            .filter(|x| components[index].contains(&x.name.split('/').nth(0).unwrap().to_string()));
+            .filter(|x| components[index].contains(&x.name.split('/').nth(0).unwrap().to_string()))
+            .collect::<Vec<_>>();
 
-        for i in checksums {
+        for i in &checksums {
             if i.file_type == DistFileType::CompressContents
                 || i.file_type == DistFileType::CompressPackageList
             {
-                let (name, buf) = download_db(&format!("{}/{}", dist_urls[index], i.name), &client)?;
-                // checksum()
+                let not_compress_file = i.name.replace(".xz", "").replace(".gz", "");
+                let file_name =
+                    FileName::new(&format!("{}/{}", dist_urls[index], not_compress_file))?;
+
+                let p = Path::new(APT_LIST_DISTS).join(&file_name.0);
+
+                if i.file_type == DistFileType::CompressPackageList {
+                    db_file_paths.push(p.to_path_buf());
+                }
+
+                if p.exists() {
+                    let mut f = std::fs::File::open(&p)?;
+                    let mut buf = Vec::new();
+                    f.read_to_end(&mut buf)?;
+
+                    let index = checksums
+                        .iter()
+                        .position(|x| x.name == not_compress_file)
+                        .unwrap();
+
+                    let hash = checksums[index].checksum.to_owned();
+
+                    if checksum(&buf, &hash).is_err() {
+                        download_and_extract(&dist_urls[index], i, client, &file_name.0)?;
+                    } else {
+                        continue;
+                    }
+                } else {
+                    download_and_extract(&dist_urls[index], i, client, &file_name.0)?;
+                }
             }
         }
     }
+
+    let u = find_upgrade(&db_file_paths)?;
+    dbg!(u);
+
+    Ok(())
+}
+
+fn download_and_extract(dist_url: &str, i: &ChecksumItem, client: &Client, not_compress_file: &str) -> Result<()> {
+    let (name, buf) =
+        download_db(&format!("{}/{}", dist_url, i.name), &client)?;
+    checksum(&buf.0, &i.checksum)?;
+
+    let buf = decompress(&buf.0, &name.0)?;
+    let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
+    std::fs::write(&p, buf)?;
 
     Ok(())
 }
 
 fn checksum(buf: &[u8], hash: &str) -> Result<()> {
-    todo!()
+    let mut hasher = Sha256::new();
+    hasher.write_all(buf)?;
+    let buf_hash = hasher.finalize();
+    let buf_hash = format!("{:2x}", buf_hash);
+
+    if hash != buf_hash {
+        return Err(anyhow!(
+            "Checksum mismatch. Expected {}, got {}",
+            hash,
+            buf_hash
+        ));
+    }
+
+    Ok(())
 }
 
-// fn update_package_list(
-//     p: &Path,
-//     file: &[u8],
-//     source: &SourceEntry,
-//     client: &Client,
-// ) -> Result<Vec<PathBuf>> {
-//     std::fs::write(p, file)?;
-//     let list = package_list_single(source)?;
-//     let files = downloads_and_extract(client, &list, true)?;
-//     let paths = package_list_file_names(&list, true)?;
-//     let mut result = vec![];
+fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
+    let buf = if name.ends_with(".gz") {
+        let mut decompressor = GzDecoder::new(buf);
+        let mut buf = Vec::new();
+        decompressor.read_to_end(&mut buf)?;
 
-//     for (i, c) in paths.iter().enumerate() {
-//         std::fs::write(&c, &files[i])?;
-//         result.push(c.to_path_buf());
-//     }
+        buf
+    } else if name.ends_with(".xz") {
+        let mut decompressor = XzDecoder::new(buf);
+        let mut buf = Vec::new();
+        decompressor.read_to_end(&mut buf)?;
 
-//     Ok(result)
-// }
+        buf
+    } else {
+        return Err(anyhow!("Unsupported compression format."));
+    };
 
-// fn downloads_and_extract(client: &Client, urls: &[String], is_xz: bool) -> Result<Vec<Vec<u8>>> {
-//     let mut files = vec![];
+    Ok(buf)
+}
 
-//     for i in urls {
-//         info!("Downloading {} ...", i);
-//         let file = client.get(i).send()?.error_for_status()?.bytes()?.to_vec();
-//         files.push(file);
-//     }
+#[derive(Debug)]
+struct UpdatePackage {
+    package: String,
+    old_version: String,
+    new_version: String,
+}
 
-//     let mut result = vec![];
+fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
+    let mut res = Vec::new();
+    let mut apt = vec![];
+    for i in db_paths {
+        let p = package_list(&i)?;
+        apt.extend(p);
+    }
 
-//     if is_xz {
-//         for i in files {
-//             let mut decompress = xz2::read::XzDecoder::new(&*i);
+    let mut dpkg = String::new();
+    let mut f = std::fs::File::open(DPKG_STATUS)?;
+    f.read_to_string(&mut dpkg)?;
+    let dpkg = eight_deep_parser::parse_multi(&dpkg)?;
 
-//             let mut buf = vec![];
-//             decompress.read_to_end(&mut buf)?;
+    for i in dpkg {
+        let Item::OneLine(ref package) = i["Package"] else { panic!("8d") };
+        let Item::OneLine(ref dpkg_version) = i["Version"] else { panic!("8d") };
+        let index = apt.iter().position(|p| p["Package"] == Item::OneLine(package.to_string()));
 
-//             result.push(buf);
-//         }
+        if let Some(index) = index {
+            let Item::OneLine(ref apt_version) = apt[index]["Version"] else { panic!("8d") };
+            if PkgVersion::try_from(apt_version.as_str())? > PkgVersion::try_from(dpkg_version.as_str())? {
+                res.push(UpdatePackage {
+                    package: package.to_string(),
+                    new_version: apt_version.to_string(),
+                    old_version: dpkg_version.to_string(),
+                });
+            }
+        }
+    }
 
-//         return Ok(result);
-//     } else {
-//         return Ok(files);
-//     }
-// }
+    Ok(res)
+}
 
-// fn url_to_file_names(urls: &[String]) -> Result<Vec<String>> {
-//     let mut file_names = vec![];
+fn package_list(list_path: &Path) -> Result<Vec<HashMap<String, Item>>> {
+    info!("Handling package list at {}", list_path.display());
+    let mut buf = String::new();
+    let mut f = std::fs::File::open(list_path)?;
+    f.read_to_string(&mut buf)?;
 
-//     for i in urls {
-//         let url = reqwest::Url::parse(&i)?;
-//         let scheme = url.scheme();
-//         let url = i
-//             .strip_prefix(&format!("{}://", scheme))
-//             .ok_or_else(|| anyhow!("Can not get url without url scheme"))?
-//             .replace("/", "_");
+    let mut map = eight_deep_parser::parse_multi(&buf)?;
 
-//         file_names.push(url);
-//     }
+    map.sort_by(|x, y| {
+        let Item::OneLine(ref a) = x["Package"] else { panic!("8d") };
+        let Item::OneLine(ref b) = y["Package"] else { panic!("8d") };
 
-//     Ok(file_names)
-// }
+        a.cmp(b)
+    });
 
-// fn need_update_list(list: &[PathBuf]) -> Result<Vec<(String, String, String)>> {
-//     let mut result = vec![];
-//     let mirror_package_list = mirror_package_list(&list)?;
-//     let dpkg_status = dpkg_package_list()?;
+    let Item::OneLine(ref last_name) = map[0]["Package"] else { panic!("8d") };
+    let mut last_name = last_name.to_owned();
+    let mut list = vec![];
+    let mut tmp = vec![];
 
-//     let mirror_package_list = remove_useless_in_apt_list(&mirror_package_list)?;
-//     let dpkg_status = to_package_version_map(&dpkg_status);
+    for i in map {
+        let Item::OneLine(ref package) = i["Package"] else { panic!("8d") };
+        let Item::OneLine(ref version) = i["Version"] else { panic!("8d") };
 
-//     for (package, local_version) in dpkg_status {
-//         if let Some(mirror_version) = mirror_package_list.get(&package) {
-//             if PkgVersion::try_from(local_version.as_str())?
-//                 < PkgVersion::try_from(mirror_version.as_str())?
-//             {
-//                 result.push((package, local_version, mirror_version.to_owned()));
-//             }
-//         }
-//     }
+        if package.to_owned() == last_name {
+            tmp.push((PkgVersion::try_from(version.as_str())?, i.to_owned()));
+        } else {
+            tmp.sort_by(|x, y| x.0.cmp(&y.0));
+            list.push(tmp.last().unwrap().to_owned());
+            tmp.clear();
+            last_name = package.to_string();
+            tmp.push((PkgVersion::try_from(version.as_str())?, i));
+        }
+    }
 
-//     Ok(result)
-// }
+    let res = list.into_iter().map(|x| x.1).collect::<Vec<_>>();
 
-// fn mirror_package_list(file_list: &[PathBuf]) -> Result<Vec<HashMap<String, Item>>> {
-//     let mut result = vec![];
-
-//     for i in file_list {
-//         let mut buf = vec![];
-
-//         let mut f = std::fs::File::open(i)?;
-//         f.read_to_end(&mut buf)?;
-//         let map = eight_deep_parser::parse_multi(std::str::from_utf8(&buf)?)?;
-
-//         map.into_iter().for_each(|x| result.push(x));
-//     }
-
-//     Ok(result)
-// }
-
-// fn dpkg_package_list() -> Result<Vec<HashMap<String, Item>>> {
-//     let mut buf = vec![];
-//     let mut f = std::fs::File::open(DPKG_STATUS)?;
-//     f.read_to_end(&mut buf)?;
-
-//     let map = eight_deep_parser::parse_multi(std::str::from_utf8(&buf)?)?;
-
-//     Ok(map)
-// }
-
-// fn to_package_version_map(items: &[HashMap<String, Item>]) -> HashMap<String, String> {
-//     let mut map = HashMap::new();
-//     for i in items {
-//         if let Some(Item::OneLine(p)) = i.get("Package") {
-//             if let Some(Item::OneLine(v)) = i.get("Version") {
-//                 map.insert(p.to_owned(), v.to_owned());
-//             }
-//         }
-//     }
-
-//     map
-// }
-
-// fn remove_useless_in_apt_list(items: &[HashMap<String, Item>]) -> Result<HashMap<String, String>> {
-//     let mut result = HashMap::new();
-//     let mut pushed_package = Vec::new();
-
-//     for (i, c) in items.iter().enumerate() {
-//         let name = if let Some(Item::OneLine(name)) = c.get("Package") {
-//             name
-//         } else {
-//             panic!("");
-//         };
-
-//         if pushed_package.contains(name) {
-//             continue;
-//         }
-
-//         let mut eq = Vec::new();
-//         for (h, j) in items.iter().enumerate() {
-//             if h < i {
-//                 continue;
-//             }
-
-//             if let Some(Item::OneLine(x)) = j.get("Package") {
-//                 if x == name {
-//                     eq.push(j);
-//                 }
-//             }
-//         }
-
-//         let mut parse_vec = Vec::new();
-
-//         for i in eq {
-//             if let Some(Item::OneLine(n)) = i.get("Package") {
-//                 if let Some(Item::OneLine(v)) = i.get("Version") {
-//                     parse_vec.push((n, PkgVersion::try_from(v.as_str()).unwrap(), v))
-//                 }
-//             }
-//         }
-
-//         parse_vec.sort_by(|x, y| x.1.cmp(&y.1));
-
-//         let (name, _, v) = parse_vec.last().unwrap();
-//         result.insert(name.to_string(), v.to_string());
-//         pushed_package.push(name.to_string());
-//     }
-
-//     Ok(result)
-// }
-
-// #[test]
-// fn test() {
-//     let sources = get_sources().unwrap();
-//     let a = sources
-//         .first()
-//         .unwrap()
-//         .dist_components()
-//         .collect::<Vec<_>>();
-//     dbg!(a);
-//     dbg!(package_list(&sources));
-// }
+    Ok(res)
+}
