@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fmt::format,
     io::Read,
+    path::Path,
     process::{Command, Stdio},
 };
 
@@ -9,7 +10,10 @@ use anyhow::{bail, Context, Result};
 use eight_deep_parser::{parse_back, IndexMap, Item};
 use log::debug;
 
-use crate::{update::DOWNLOAD_DIR, utils::get_arch_name};
+use crate::{
+    update::{APT_LIST_DISTS, DOWNLOAD_DIR},
+    utils::get_arch_name,
+};
 
 #[derive(Debug)]
 pub struct Package {
@@ -204,6 +208,13 @@ fn parse_simu_inner(i: &str, list: Option<&[Package]>) -> Result<AptPackage> {
 
 pub fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Result<()> {
     let mut s = String::new();
+    let p = Path::new("/var/lib/apt/extended_states");
+
+    if !p.is_file() {
+        std::fs::create_dir_all(APT_LIST_DISTS)?;
+        std::fs::File::create(&p)?;
+    }
+
     let mut f = std::fs::File::open("/var/lib/apt/extended_states")?;
     f.read_to_string(&mut s)?;
     let mut extend = eight_deep_parser::parse_multi(&s)?;
@@ -221,7 +232,12 @@ pub fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> 
                     "--force-depends",
                 ]);
                 let name = i.name.as_str();
-                let info = i.info.clone().take().context("Invaild happen")?;
+                let info = i
+                    .info
+                    .clone()
+                    .take()
+                    .context(format!("Unexpect error in package: {}", i.name))?;
+
                 let version = info.new_version;
 
                 // Handle 1.0.0-0
@@ -282,6 +298,7 @@ pub fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> 
                 ]);
                 cmd.arg("--configure");
                 cmd.arg(i.name.clone());
+
                 dpkg_execute_ineer(&mut cmd)?;
 
                 if i.is_auto {
@@ -314,7 +331,7 @@ pub fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> 
     Ok(())
 }
 
-fn dpkg_execute_ineer(cmd: &mut Command) -> Result<()> {
+fn dpkg_execute_ineer(cmd: &mut Command,) -> Result<()> {
     let res = cmd.status().context("Failed to execute dpkg command(s).")?;
 
     if !res.success() {

@@ -332,9 +332,9 @@ checksum = "c9b0705efd4599c15a38151f4721f7bc388306f61084d3bfd50bd07fbca5cb60"
 
 [[package]]
 name = "eight-deep-parser"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "872d470a213ccb28ad42544092b8cf9e7876070ada5a6538ea0e5e966eee0426"
+checksum = "bd98765567cad050b919aa7e9d67f56cb04f46521bab0d17b739df5b9c226fc8"
 dependencies = [
  "indexmap",
  "nom",

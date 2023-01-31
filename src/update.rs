@@ -25,7 +25,7 @@ use crate::{
 
 use eight_deep_parser::IndexMap;
 
-const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
+pub const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
 const DPKG_STATUS: &str = "/var/lib/dpkg/status";
 pub const DOWNLOAD_DIR: &str = "/var/cache/aoscpt/archives";
 
@@ -303,7 +303,14 @@ pub fn update(client: &Client) -> Result<()> {
         }
     }
 
-    dpkg_executer(&apt_blackbox, None)?;
+    let mut count = 0;
+    while let Err(e) = dpkg_executer(&apt_blackbox, None) {
+        if count == 3 {
+            return Err(e);
+        }
+
+        count += 1;
+    }
 
     Ok(())
 }
