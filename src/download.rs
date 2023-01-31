@@ -10,12 +10,12 @@ use sha2::{Digest, Sha256};
 
 use crate::update::DOWNLOAD_DIR;
 
-pub fn download_package(
+pub fn download_package<'a>(
     url: &str,
     download_dir: Option<&str>,
     client: &Client,
     hash: &str,
-) -> Result<()> {
+) -> Result<String> {
     fn download_inner(
         download_dir: Option<&str>,
         p: &Path,
@@ -23,14 +23,21 @@ pub fn download_package(
         url: &str,
         client: &Client,
     ) -> Result<()> {
-        info!("Downloading {} to dir {}", filename, download_dir.unwrap_or(DOWNLOAD_DIR));
+        info!(
+            "Downloading {} to dir {}",
+            filename,
+            download_dir.unwrap_or(DOWNLOAD_DIR)
+        );
         let v = download(url, client)?;
-        Ok(if download_dir.is_none() {
+
+        if download_dir.is_none() {
             std::fs::create_dir_all(DOWNLOAD_DIR)?;
             std::fs::write(p, v)?;
         } else {
             std::fs::write(Path::new(download_dir.unwrap()).join(filename), v)?;
-        })
+        }
+
+        Ok(())
     }
 
     let filename = url
@@ -48,13 +55,13 @@ pub fn download_package(
         if checksum(&buf, hash).is_err() {
             download_inner(download_dir, &p, filename, url, client)?;
         } else {
-            return Ok(());
+            return Ok(filename.to_string());
         }
     } else {
         download_inner(download_dir, &p, filename, url, client)?;
     }
 
-    Ok(())
+    Ok(filename.to_string())
 }
 
 pub fn download(url: &str, client: &Client) -> Result<Vec<u8>> {
