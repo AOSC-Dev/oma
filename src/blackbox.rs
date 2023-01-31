@@ -20,15 +20,15 @@ pub enum Action {
 
 #[derive(Debug)]
 pub struct AptPackage {
-    name: String,
-    action: AptAction,
-    now_version: Option<String>,
-    info: Option<AptPackageInfo>,
+    pub name: String,
+    pub action: AptAction,
+    pub now_version: Option<String>,
+    pub info: Option<AptPackageInfo>,
 }
 
 #[derive(Debug)]
 pub struct AptPackageInfo {
-    new_version: String,
+    pub new_version: String,
     branch_and_arch: String,
 }
 

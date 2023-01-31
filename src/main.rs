@@ -5,6 +5,7 @@ mod update;
 mod utils;
 mod verify;
 mod blackbox;
+mod download;
 
 fn main() {
     env_logger::init();

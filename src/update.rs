@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{anyhow, bail, Context, Ok, Result};
 use apt_sources_lists::*;
 use eight_deep_parser::Item;
 use flate2::bufread::GzDecoder;
@@ -15,10 +15,16 @@ use sha2::{Digest, Sha256};
 use std::io::Write;
 use xz2::read::XzDecoder;
 
-use crate::{pkgversion::PkgVersion, utils::get_arch_name, verify, blackbox::{Package, Action, apt_calc}};
+use crate::{
+    blackbox::{apt_calc, Action, AptAction, Package},
+    pkgversion::PkgVersion,
+    utils::get_arch_name,
+    verify, download::{download, download_package},
+};
 
 const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
 const DPKG_STATUS: &str = "/var/lib/dpkg/status";
+pub const DOWNLOAD_DIR: &str = "/var/cache/aoscpt/archives";
 
 struct FileBuf(Vec<u8>);
 struct FileName(String);
@@ -41,17 +47,6 @@ fn download_db(url: &str, client: &Client) -> Result<(FileName, FileBuf)> {
     let v = download(url, client)?;
 
     Ok((FileName::new(url)?, FileBuf(v)))
-}
-
-fn download(url: &str, client: &Client) -> Result<Vec<u8>> {
-    let v = client
-        .get(url)
-        .send()?
-        .error_for_status()?
-        .bytes()?
-        .to_vec();
-
-    Ok(v)
 }
 
 #[derive(Debug)]
@@ -147,7 +142,6 @@ impl InReleaseParser {
     }
 }
 
-
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
 fn get_sources() -> Result<Vec<SourceEntry>> {
     let mut res = Vec::new();
@@ -242,19 +236,60 @@ pub fn update(client: &Client) -> Result<()> {
         }
     }
 
-    let u = find_upgrade(&db_file_paths)?;
-    let uu = u.iter().map(|x| Package {
-        name: x.package.to_string(),
-        action: Action::Install,
-    }).collect::<Vec<_>>();
+    let apt = package_list(&db_file_paths)?;
 
-    let apt = apt_calc(&uu)?;
-    dbg!(apt);
+    let u = find_upgrade(&apt)?;
+    let uu = u
+        .iter()
+        .map(|x| Package {
+            name: x.package.to_string(),
+            action: Action::Install,
+        })
+        .collect::<Vec<_>>();
+
+    let apt_blackbox = apt_calc(&uu)?;
+    let need_install = apt_blackbox
+        .iter()
+        .filter(|x| x.action == AptAction::Install);
+
+    for i in need_install {
+        let v = apt
+            .iter()
+            .find(|x| x.get("Package") == Some(&Item::OneLine(i.name.clone())));
+
+        let Some(v) = v else { bail!("Can not get package {} from list", i.name) };
+        let Some(Item::OneLine(file_name)) = v.get("Filename") else { bail!("Can not get package {} from list", i.name) };
+        let Some(Item::OneLine(checksum))  = v.get("SHA256") else { bail!("Can not get package {} from list", i.name) };
+        let mut file_name_split = file_name.split("/");
+
+        let branch = file_name_split
+            .nth(1)
+            .take()
+            .context(format!("Can not parse package {} Filename field!", i.name))?;
+
+        let component = file_name_split
+            .nth(0)
+            .take()
+            .context(format!("Can not parse package {} Filename field!", i.name))?;
+
+        let mirror = sources
+            .iter()
+            .filter(|x| x.components.contains(&component.to_string()))
+            .filter(|x| x.suite == branch)
+            .map(|x| x.url());
+
+        let available_download = mirror.map(|x| format!("{}/{}", x, file_name));
+
+        for i in available_download {
+            download_package(&i, None, client, checksum)?;
+        }
+    }
+    // dbg!(apt);
 
     Ok(())
 }
 
-/// Download and extract package list database 
+/// Download and extract package list database
 fn download_and_extract(
     dist_url: &str,
     i: &ChecksumItem,
@@ -323,13 +358,8 @@ struct UpdatePackage {
 }
 
 /// Find needed packages (like apt update && apt list --upgradable)
-fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
+fn find_upgrade(apt: &[HashMap<String, Item>]) -> Result<Vec<UpdatePackage>> {
     let mut res = Vec::new();
-    let mut apt = vec![];
-    for i in db_paths {
-        let p = package_list(&i)?;
-        apt.extend(p);
-    }
 
     let mut dpkg = String::new();
     let mut f = std::fs::File::open(DPKG_STATUS)?;
@@ -389,6 +419,16 @@ fn find_upgrade(db_paths: &[PathBuf]) -> Result<Vec<UpdatePackage>> {
     Ok(res)
 }
 
+fn package_list(db_paths: &[PathBuf]) -> Result<Vec<HashMap<String, Item>>> {
+    let mut apt = vec![];
+    for i in db_paths {
+        let p = package_list_inner(&i)?;
+        apt.extend(p);
+    }
+
+    Ok(apt)
+}
+
 fn get_from(filename: &str) -> Result<String> {
     let mut s = filename.split('/');
     let branch = s.nth(1).ok_or_else(|| anyhow!("invalid filename"))?;
@@ -398,7 +438,7 @@ fn get_from(filename: &str) -> Result<String> {
 }
 
 /// Handle /var/apt/lists/*.Packages list
-fn package_list(list_path: &Path) -> Result<Vec<HashMap<String, Item>>> {
+fn package_list_inner(list_path: &Path) -> Result<Vec<HashMap<String, Item>>> {
     info!("Handling package list at {}", list_path.display());
     let mut buf = String::new();
     let mut f = std::fs::File::open(list_path)?;
