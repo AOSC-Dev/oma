@@ -16,7 +16,7 @@ use std::io::Write;
 use xz2::read::XzDecoder;
 
 use crate::{
-    blackbox::{apt_install_calc, dpkg_executer, Action, AptAction, Package},
+    blackbox::{apt_install_calc, Action, AptAction, Package, dpkg_run},
     download::{download, download_package},
     pkgversion::PkgVersion,
     utils::get_arch_name,
@@ -303,14 +303,7 @@ pub fn update(client: &Client) -> Result<()> {
         }
     }
 
-    let mut count = 0;
-    while let Err(e) = dpkg_executer(&apt_blackbox, None) {
-        if count == 3 {
-            return Err(e);
-        }
-
-        count += 1;
-    }
+    dpkg_run(&apt_blackbox)?;
 
     Ok(())
 }

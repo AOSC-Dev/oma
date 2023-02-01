@@ -206,7 +206,7 @@ fn parse_simu_inner(i: &str, list: Option<&[Package]>) -> Result<AptPackage> {
     Ok(res)
 }
 
-pub fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Result<()> {
+fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Result<()> {
     let mut s = String::new();
     let p = Path::new("/var/lib/apt/extended_states");
 
@@ -331,7 +331,20 @@ pub fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> 
     Ok(())
 }
 
-fn dpkg_execute_ineer(cmd: &mut Command,) -> Result<()> {
+pub fn dpkg_run(list: &[AptPackage]) -> Result<()> {
+    let mut count = 0;
+    while let Err(e) = dpkg_executer(list, None) {
+        if count == 3 {
+            return Err(e);
+        }
+
+        count += 1;
+    }
+
+    Ok(())
+}
+
+fn dpkg_execute_ineer(cmd: &mut Command) -> Result<()> {
     let res = cmd.status().context("Failed to execute dpkg command(s).")?;
 
     if !res.success() {
