@@ -222,15 +222,8 @@ fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Resu
     for i in action_list {
         match i.action {
             AptAction::Install => {
-                let mut cmd = Command::new("dpkg");
+                let mut cmd = dpkg_cmd();
 
-                // Ignore dependency/break and checks. These will be guaranteed by aoscpt
-                cmd.args(&[
-                    "--force-downgrade",
-                    "--force-breaks",
-                    "--force-conflicts",
-                    "--force-depends",
-                ]);
                 let name = i.name.as_str();
                 let info = i
                     .info
@@ -287,15 +280,7 @@ fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Resu
                 dpkg_execute_ineer(&mut cmd)?;
             }
             AptAction::Configure => {
-                let mut cmd = Command::new("dpkg");
-
-                // Ignore dependency/break and checks. These will be guaranteed by aoscpt
-                cmd.args(&[
-                    "--force-downgrade",
-                    "--force-breaks",
-                    "--force-conflicts",
-                    "--force-depends",
-                ]);
+                let mut cmd = dpkg_cmd();
                 cmd.arg("--configure");
                 cmd.arg(i.name.clone());
 
@@ -320,8 +305,36 @@ fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Resu
                 }
             }
 
-            AptAction::Remove => todo!(),
-            AptAction::Purge => todo!(),
+            AptAction::Remove => {
+                let mut cmd = dpkg_cmd();
+                cmd.arg("--remove");
+                cmd.arg(i.name.clone());
+
+                dpkg_execute_ineer(&mut cmd)?;
+
+                let index = extend
+                    .iter()
+                    .position(|x| x.get("Package") == Some(&Item::OneLine(i.name.clone())));
+
+                if let Some(index) = index {
+                    extend.remove(index);
+                }
+            }
+            AptAction::Purge => {
+                let mut cmd = dpkg_cmd();
+                cmd.arg("--purge");
+                cmd.arg(i.name.clone());
+
+                dpkg_execute_ineer(&mut cmd)?;
+
+                let index = extend
+                    .iter()
+                    .position(|x| x.get("Package") == Some(&Item::OneLine(i.name.clone())));
+
+                if let Some(index) = index {
+                    extend.remove(index);
+                }
+            }
         }
     }
 
@@ -331,8 +344,24 @@ fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Resu
     Ok(())
 }
 
+fn dpkg_cmd() -> Command {
+    let mut cmd = Command::new("dpkg");
+
+    // Ignore dependency/break and checks. These will be guaranteed by aoscpt
+    cmd.args(&[
+        "--force-downgrade",
+        "--force-breaks",
+        "--force-conflicts",
+        "--force-depends",
+    ]);
+
+    cmd
+}
+
 pub fn dpkg_run(list: &[AptPackage]) -> Result<()> {
     let mut count = 0;
+
+    // If have errpr, retry 3 times
     while let Err(e) = dpkg_executer(list, None) {
         if count == 3 {
             return Err(e);
