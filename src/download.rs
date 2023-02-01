@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 
 use crate::update::DOWNLOAD_DIR;
 
-pub fn download_package<'a>(
+pub fn download_package(
     url: &str,
     download_dir: Option<&str>,
     client: &Client,

@@ -16,7 +16,7 @@ use std::io::Write;
 use xz2::read::XzDecoder;
 
 use crate::{
-    blackbox::{apt_install_calc, Action, AptAction, Package, dpkg_run},
+    blackbox::{apt_install_calc, dpkg_run, Action, AptAction, AptPackage, Package},
     download::{download, download_package},
     pkgversion::PkgVersion,
     utils::get_arch_name,
@@ -146,7 +146,7 @@ impl InReleaseParser {
 }
 
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
-fn get_sources() -> Result<Vec<SourceEntry>> {
+pub fn get_sources() -> Result<Vec<SourceEntry>> {
     let mut res = Vec::new();
     let list = SourcesLists::scan()?;
 
@@ -161,10 +161,80 @@ fn get_sources() -> Result<Vec<SourceEntry>> {
     Ok(res)
 }
 
-/// Update mirror database and Get all update, like apt update && apt full-upgrade
-pub fn update(client: &Client) -> Result<()> {
-    let sources = get_sources()?;
 
+pub fn packages_download(
+    apt_blackbox: &[AptPackage],
+    apt: &[IndexMap<String, Item>],
+    sources: &[SourceEntry],
+    client: &Client,
+) -> Result<()> {
+    let need_install = apt_blackbox
+        .iter()
+        .filter(|x| x.action == AptAction::Install);
+
+    for i in need_install {
+        let v = apt
+            .iter()
+            .find(|x| x.get("Package") == Some(&Item::OneLine(i.name.clone())));
+
+        let Some(v) = v else { bail!("Can not get package {} from list", i.name) };
+        let Some(Item::OneLine(file_name)) = v.get("Filename") else { bail!("Can not get package {} from list", i.name) };
+        let Some(Item::OneLine(checksum))  = v.get("SHA256") else { bail!("Can not get package {} from list", i.name) };
+        let mut file_name_split = file_name.split("/");
+
+        let branch = file_name_split
+            .nth(1)
+            .take()
+            .context(format!("Can not parse package {} Filename field!", i.name))?;
+
+        let component = file_name_split
+            .nth(0)
+            .take()
+            .context(format!("Can not parse package {} Filename field!", i.name))?;
+
+        let mirror = sources
+            .iter()
+            .filter(|x| x.components.contains(&component.to_string()))
+            .filter(|x| x.suite == branch)
+            .map(|x| x.url());
+
+        let available_download = mirror.map(|x| format!("{}/{}", x, file_name));
+
+        let mut deb_filename = vec![];
+
+        for i in available_download {
+            if let Ok(filename) = download_package(&i, None, client, checksum) {
+                deb_filename.push(filename);
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn package_list(db_file_paths: Vec<PathBuf>) -> Result<Vec<IndexMap<String, Item>>> {
+    let mut apt = vec![];
+    for i in db_file_paths {
+        let mut f = std::fs::File::open(i)?;
+        let mut buf = String::new();
+        f.read_to_string(&mut buf)?;
+
+        let parse = eight_deep_parser::parse_multi(&buf)?;
+        apt.extend(parse);
+    }
+
+    apt.sort_by(|x, y| {
+        let Item::OneLine(ref a) = x["Package"] else { panic!("8d") };
+        let Item::OneLine(ref b) = y["Package"] else { panic!("8d") };
+
+        a.cmp(b)
+    });
+
+    Ok(apt)
+}
+
+pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<Vec<PathBuf>> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
     let dists_in_releases = dist_urls.iter().map(|x| format!("{}/{}", x, "InRelease"));
 
@@ -174,7 +244,6 @@ pub fn update(client: &Client) -> Result<()> {
         .collect::<Vec<_>>();
 
     let dist_files = dists_in_releases.flat_map(|x| download_db(&x, &client));
-
     let mut db_file_paths = vec![];
 
     for (index, (name, file)) in dist_files.enumerate() {
@@ -239,73 +308,7 @@ pub fn update(client: &Client) -> Result<()> {
         }
     }
 
-    let apt = package_list(&db_file_paths)?;
-
-    let u = find_upgrade(&apt)?;
-    let uu = u
-        .iter()
-        .map(|x| Package {
-            name: x.package.to_string(),
-            action: Action::Install,
-        })
-        .collect::<Vec<_>>();
-
-    let apt_blackbox = apt_install_calc(&uu)?;
-
-    // let test = apt_blackbox.iter().map(|x| x.name.clone() ).collect::<Vec<_>>();
-    // let mut test_s = String::new();
-
-    // for i in test {
-    //     test_s += &format!(" {}", i);
-    // }
-
-    // dbg!(test_s);
-
-    let need_install = apt_blackbox
-        .iter()
-        .filter(|x| x.action == AptAction::Install);
-
-    for i in need_install {
-        let v = apt
-            .iter()
-            .find(|x| x.get("Package") == Some(&Item::OneLine(i.name.clone())));
-
-        let Some(v) = v else { bail!("Can not get package {} from list", i.name) };
-        let Some(Item::OneLine(file_name)) = v.get("Filename") else { bail!("Can not get package {} from list", i.name) };
-        let Some(Item::OneLine(checksum))  = v.get("SHA256") else { bail!("Can not get package {} from list", i.name) };
-        let mut file_name_split = file_name.split("/");
-
-        let branch = file_name_split
-            .nth(1)
-            .take()
-            .context(format!("Can not parse package {} Filename field!", i.name))?;
-
-        let component = file_name_split
-            .nth(0)
-            .take()
-            .context(format!("Can not parse package {} Filename field!", i.name))?;
-
-        let mirror = sources
-            .iter()
-            .filter(|x| x.components.contains(&component.to_string()))
-            .filter(|x| x.suite == branch)
-            .map(|x| x.url());
-
-        let available_download = mirror.map(|x| format!("{}/{}", x, file_name));
-
-        let mut deb_filename = vec![];
-
-        for i in available_download {
-            if let Ok(filename) = download_package(&i, None, client, checksum) {
-                deb_filename.push(filename);
-                break;
-            }
-        }
-    }
-
-    dpkg_run(&apt_blackbox)?;
-
-    Ok(())
+    Ok(db_file_paths)
 }
 
 /// Download and extract package list database
@@ -365,19 +368,19 @@ fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
 }
 
 #[derive(Debug)]
-struct UpdatePackage {
-    package: String,
-    old_version: String,
-    new_version: String,
-    file_name: String,
-    from: String,
-    dpkg_installed_size: u64,
-    apt_size: u64,
-    apt_installed_size: u64,
+pub struct UpdatePackage {
+    pub package: String,
+    pub old_version: String,
+    pub new_version: String,
+    pub file_name: String,
+    pub from: String,
+    pub dpkg_installed_size: u64,
+    pub apt_size: u64,
+    pub apt_installed_size: u64,
 }
 
 /// Find needed packages (like apt update && apt list --upgradable)
-fn find_upgrade(apt: &[IndexMap<String, Item>]) -> Result<Vec<UpdatePackage>> {
+pub fn find_upgrade(apt: &[IndexMap<String, Item>]) -> Result<Vec<UpdatePackage>> {
     let mut res = Vec::new();
 
     let mut dpkg = String::new();
@@ -438,21 +441,17 @@ fn find_upgrade(apt: &[IndexMap<String, Item>]) -> Result<Vec<UpdatePackage>> {
     Ok(res)
 }
 
-fn package_list(db_paths: &[PathBuf]) -> Result<Vec<IndexMap<String, Item>>> {
-    let mut apt = vec![];
-    for i in db_paths {
-        let p = package_list_inner(&i)?;
-        apt.extend(p);
-    }
+pub fn newest_package_list(input: &[IndexMap<String, Item>]) -> Result<Vec<IndexMap<String, Item>>> {
+    let mut input = input.to_vec();
 
-    apt.sort_by(|x, y| {
+    input.sort_by(|x, y| {
         let Item::OneLine(ref a) = x["Package"] else { panic!("8d") };
         let Item::OneLine(ref b) = y["Package"] else { panic!("8d") };
 
         a.cmp(b)
     });
 
-    let apt = version_sort(apt)?
+    let apt = version_sort(input)?
         .into_iter()
         .map(|x| x.1)
         .collect::<Vec<_>>();
@@ -468,28 +467,28 @@ fn get_from(filename: &str) -> Result<String> {
     Ok(format!("{}/{}", branch, component))
 }
 
-/// Handle /var/apt/lists/*.Packages list
-fn package_list_inner(list_path: &Path) -> Result<Vec<IndexMap<String, Item>>> {
-    info!("Handling package list at {}", list_path.display());
-    let mut buf = String::new();
-    let mut f = std::fs::File::open(list_path)?;
-    f.read_to_string(&mut buf)?;
+// /// Handle /var/apt/lists/*.Packages list
+// fn package_list_inner(list_path: &Path) -> Result<Vec<IndexMap<String, Item>>> {
+//     info!("Handling package list at {}", list_path.display());
+//     let mut buf = String::new();
+//     let mut f = std::fs::File::open(list_path)?;
+//     f.read_to_string(&mut buf)?;
 
-    let mut map = eight_deep_parser::parse_multi(&buf)?;
+//     let mut map = eight_deep_parser::parse_multi(&buf)?;
 
-    map.sort_by(|x, y| {
-        let Item::OneLine(ref a) = x["Package"] else { panic!("8d") };
-        let Item::OneLine(ref b) = y["Package"] else { panic!("8d") };
+//     map.sort_by(|x, y| {
+//         let Item::OneLine(ref a) = x["Package"] else { panic!("8d") };
+//         let Item::OneLine(ref b) = y["Package"] else { panic!("8d") };
 
-        a.cmp(b)
-    });
+//         a.cmp(b)
+//     });
 
-    let list = version_sort(map)?;
+//     let list = version_sort(map)?;
 
-    let res = list.into_iter().map(|x| x.1).collect::<Vec<_>>();
+//     let res = list.into_iter().map(|x| x.1).collect::<Vec<_>>();
 
-    Ok(res)
-}
+//     Ok(res)
+// }
 
 fn version_sort(
     map: Vec<IndexMap<String, Item>>,
