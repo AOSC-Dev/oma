@@ -16,7 +16,7 @@ use std::io::Write;
 use xz2::read::XzDecoder;
 
 use crate::{
-    blackbox::{AptAction, AptPackage},
+    blackbox::{AptAction},
     download::{download, download_package},
     pkgversion::PkgVersion,
     utils::get_arch_name,
@@ -227,19 +227,15 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
 }
 
 pub fn packages_download(
-    apt_blackbox: &[AptPackage],
+    list: &[String],
     apt: &[IndexMap<String, String>],
     sources: &[SourceEntry],
     client: &Client,
 ) -> Result<()> {
-    let need_install = apt_blackbox
-        .iter()
-        .filter(|x| x.action == AptAction::Install);
+    for i in list {
+        let v = apt.iter().find(|x| x.get("Package") == Some(i));
 
-    for i in need_install {
-        let v = apt.iter().find(|x| x.get("Package") == Some(&i.name));
-
-        let Some(v) = v else { bail!("Can not get package {} from list", i.name) };
+        let Some(v) = v else { bail!("Can not get package {} from list", i) };
         let file_name = v["Filename"].clone();
         let checksum = v["SHA256"].clone();
         let mut file_name_split = file_name.split("/");
@@ -247,12 +243,12 @@ pub fn packages_download(
         let branch = file_name_split
             .nth(1)
             .take()
-            .context(format!("Can not parse package {} Filename field!", i.name))?;
+            .context(format!("Can not parse package {} Filename field!", i))?;
 
         let component = file_name_split
             .nth(0)
             .take()
-            .context(format!("Can not parse package {} Filename field!", i.name))?;
+            .context(format!("Can not parse package {} Filename field!", i))?;
 
         let mirror = sources
             .iter()

@@ -1,18 +1,11 @@
-use std::{
-    io::Read,
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::{path::Path, process::Command};
 
-use anyhow::{anyhow, bail, Context, Result};
-use debcontrol::{Field, Paragraph};
+use anyhow::{bail, Context, Result};
 use indexmap::IndexMap;
 use log::debug;
+use rust_apt::{cache::Upgrade, config, new_cache};
 
-use crate::{
-    update::{APT_LIST_DISTS, DOWNLOAD_DIR, debcontrol_from_file},
-    utils::get_arch_name,
-};
+use crate::update::{debcontrol_from_file, APT_LIST_DISTS, DOWNLOAD_DIR};
 
 #[derive(Debug)]
 pub struct Package {
@@ -53,283 +46,192 @@ pub enum AptAction {
 
 /// Use apt -s to calculate dependencies and action order (Install after Configure or Purge after install or ...?)
 pub fn apt_install_calc(list: &[Package]) -> Result<Vec<AptPackage>> {
+    config::init_config_system();
+
     let names = list.iter().map(|x| x.name.clone()).collect::<Vec<_>>();
+    let cache = new_cache!()?;
 
-    let command = Command::new("apt-get")
-        .arg("install")
-        .arg("-s")
-        .args(&names)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .output()
-        .context("could not launch `apt-get` process")?;
+    for i in names {
+        let pkg = cache.get(&i).unwrap();
 
-    let output = std::str::from_utf8(&command.stdout)?;
-
-    let result = parse_apt_simu(output, Some(list))?;
-
-    Ok(result)
-}
-
-fn info_inner(ready: String, info: &mut Option<AptPackageInfo>) -> Result<()> {
-    let info_str = ready
-        .strip_prefix("(")
-        .and_then(|x| x.strip_suffix(")"))
-        .map(|x| x.to_string());
-
-    if let Some(info_str) = info_str {
-        let mut info_str_split = info_str.split_whitespace();
-        let new_version = info_str_split
-            .nth(0)
-            .take()
-            .context("Unsupported item!")?
-            .to_string();
-        let branch_and_arch = info_str_split.collect::<Vec<_>>().join(" ").to_string();
-
-        let mut baa_split = branch_and_arch.split_once(":");
-        let (distro, after) = baa_split
-            .take()
-            .context("Can not get distro branch and arch!")?;
-
-        let distro = distro.to_string();
-        let mut after_split = after.split_whitespace();
-
-        let branch = after_split
-            .nth(0)
-            .context("Can not get distro branch!")?
-            .to_string();
-
-        let arch = after_split
-            .nth(0)
-            .context("Can not get distro branch!")?
-            .to_string();
-
-        *info = Some(AptPackageInfo {
-            new_version,
-            distro,
-            branch,
-            arch,
-        });
+        pkg.protect();
+        pkg.mark_install(true, true);
     }
 
-    Ok(())
-}
+    cache.resolve(false).unwrap();
+    let action = cache.get_changes(true);
 
-fn parse_apt_simu(output: &str, list: Option<&[Package]>) -> Result<Vec<AptPackage>> {
-    let mut result = vec![];
+    // let mut res = vec![];
 
-    for i in output.lines() {
-        let res = parse_simu_inner(i, list);
-
-        if let Ok(res) = res {
-            result.push(res);
-        } else {
+    for pkg in action {
+        if pkg.marked_install() {
+            println!("{} is marked install", pkg.name());
+            // If the package is marked install then it will also
+            // show up as marked upgrade, downgrade etc.
+            // Check this first and continue.
             continue;
         }
+        if pkg.marked_upgrade() {
+            println!("{} is marked upgrade", pkg.name())
+        }
+        if pkg.marked_delete() {
+            println!("{} is marked remove", pkg.name())
+        }
+        if pkg.marked_reinstall() {
+            println!("{} is marked reinstall", pkg.name())
+        }
+        if pkg.marked_downgrade() {
+            println!("{} is marked downgrade", pkg.name())
+        }
     }
 
-    Ok(result)
+    todo!()
 }
 
-fn parse_simu_inner(i: &str, list: Option<&[Package]>) -> Result<AptPackage> {
-    let mut ready = i.split_whitespace();
+// fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Result<()> {
+//     let extend_file = Path::new("/var/lib/apt/extended_states");
 
-    let action = match ready.nth(0) {
-        Some("Inst") => AptAction::Install,
-        Some("Remv") => AptAction::Remove,
-        Some("Conf") => AptAction::Configure,
-        Some("Purg") => AptAction::Purge,
-        Some(x) => {
-            debug!("Useless line: {}", x);
-            bail!("Useless line: {}", x);
-        }
-        _ => bail!(""),
-    };
+//     if !extend_file.is_file() {
+//         std::fs::create_dir_all(APT_LIST_DISTS)?;
+//         std::fs::File::create(&extend_file)?;
+//     }
 
-    let name = ready
-        .nth(0)
-        .take()
-        .context("invalid apt Action!")?
-        .to_string();
+//     let mut extend = debcontrol_from_file(extend_file)?;
 
-    let ready = ready.collect::<Vec<_>>().join(" ");
+//     for pkg in action_list {
+//         if pkg.marked_install() {
+//             println!("{} is marked install", pkg.name());
+//             // If the package is marked install then it will also
+//             // show up as marked upgrade, downgrade etc.
+//             // Check this first and continue.
+//             continue;
+//         }
+//         if pkg.marked_upgrade() {
+//             println!("{} is marked upgrade", pkg.name())
+//         }
+//         if pkg.marked_delete() {
+//             println!("{} is marked remove", pkg.name())
+//         }
+//         if pkg.marked_reinstall() {
+//             println!("{} is marked reinstall", pkg.name())
+//         }
+//         if pkg.marked_downgrade() {
+//             println!("{} is marked downgrade", pkg.name())
+//         }
+        // match i.action {
+        //     AptAction::Install => {
+        //         let mut cmd = dpkg_cmd();
 
-    let mut ready_split = ready.split_whitespace();
-    let same_item = ready_split.nth(0);
+        //         let name = i.name.as_str();
+        //         let info = i
+        //             .info
+        //             .clone()
+        //             .take()
+        //             .context(format!("Unexpect error in package: {}", i.name))?;
 
-    let mut now_version = None;
-    let mut info = None;
+        //         let version = info.new_version;
 
-    if let Some(same_item) = same_item {
-        if same_item.starts_with("[") && same_item.ends_with("]") {
-            now_version = same_item
-                .strip_prefix("[")
-                .and_then(|x| x.strip_suffix("]"))
-                .map(|x| x.to_string());
-            let ready = ready_split.collect::<Vec<_>>().join(" ");
+        //         // Handle 1.0.0-0
+        //         let version_rev_split = version.split_once("-");
 
-            let ready = if ready.ends_with("[]") {
-                ready.strip_suffix(" []").unwrap().to_string()
-            } else {
-                ready
-            };
+        //         let version = if version_rev_split.is_none() {
+        //             format!("{}-{}", version, 0)
+        //         } else {
+        //             let (_, rev) = version_rev_split.unwrap();
 
-            if ready.starts_with("(") && ready.ends_with(")") {
-                info_inner(ready, &mut info)?;
-            }
-        } else {
-            info_inner(ready, &mut info)?;
-        }
-    } else {
-        info_inner(ready, &mut info)?;
-    }
+        //             // FIXME: 6.01+posix2017-a
+        //             if rev.parse::<u64>().is_err() {
+        //                 format!("{}-{}", version, 0)
+        //             } else {
+        //                 version.to_owned()
+        //             }
+        //         };
 
-    let is_auto = if let Some(list) = list {
-        if list.iter().find(|x| x.name == name).is_none() {
-            true
-        } else {
-            false
-        }
-    } else {
-        false
-    };
+        //         let version_epoch_split = version.split_once(":");
+        //         // Handle epoch
+        //         let version = if let Some((_, version)) = version_epoch_split {
+        //             version.to_string()
+        //         } else {
+        //             version
+        //         };
 
-    let res = AptPackage {
-        name,
-        action,
-        now_version,
-        info,
-        is_auto,
-    };
+        //         let arch = if info.arch == "[all]" {
+        //             "noarch"
+        //         } else {
+        //             &info
+        //                 .arch
+        //                 .strip_prefix("[")
+        //                 .and_then(|x| x.strip_suffix("]"))
+        //                 .take()
+        //                 .context("Can not parse info arch!")?
+        //         };
 
-    Ok(res)
-}
+        //         let filename = format!("{}_{}_{}.deb", name, version, arch);
 
-fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Result<()> {
-    let extend_file = Path::new("/var/lib/apt/extended_states");
+        //         cmd.arg("--unpack");
+        //         cmd.arg(format!(
+        //             "{}/{}",
+        //             download_dir.unwrap_or(DOWNLOAD_DIR),
+        //             filename
+        //         ));
 
-    if !extend_file.is_file() {
-        std::fs::create_dir_all(APT_LIST_DISTS)?;
-        std::fs::File::create(&extend_file)?;
-    }
+        //         dpkg_execute_ineer(&mut cmd)?;
+        //     }
+        //     AptAction::Configure => {
+        //         let mut cmd = dpkg_cmd();
+        //         cmd.arg("--configure");
+        //         cmd.arg(i.name.clone());
 
-    let mut extend = debcontrol_from_file(extend_file)?;
+        //         dpkg_execute_ineer(&mut cmd)?;
 
-    for i in action_list {
-        match i.action {
-            AptAction::Install => {
-                let mut cmd = dpkg_cmd();
+        //         if i.is_auto {
+        //             let mut item = IndexMap::new();
+        //             item.insert("Package".to_owned(), i.name.to_string());
+        //             item.insert("Architecture".to_owned(), i.name.to_string());
+        //             item.insert("Auto-Installed".to_owned(), "1".to_owned());
 
-                let name = i.name.as_str();
-                let info = i
-                    .info
-                    .clone()
-                    .take()
-                    .context(format!("Unexpect error in package: {}", i.name))?;
+        //             extend.push(item);
+        //         }
+        //     }
 
-                let version = info.new_version;
+        //     AptAction::Remove => {
+        //         let mut cmd = dpkg_cmd();
+        //         cmd.arg("--remove");
+        //         cmd.arg(i.name.clone());
 
-                // Handle 1.0.0-0
-                let version_rev_split = version.split_once("-");
+        //         dpkg_execute_ineer(&mut cmd)?;
 
-                let version = if version_rev_split.is_none() {
-                    format!("{}-{}", version, 0)
-                } else {
-                    let (_, rev) = version_rev_split.unwrap();
+        //         let index = extend
+        //             .iter()
+        //             .position(|x| x.get("Package") == Some(&i.name));
 
-                    // FIXME: 6.01+posix2017-a
-                    if rev.parse::<u64>().is_err() {
-                        format!("{}-{}", version, 0)
-                    } else {
-                        version.to_owned()
-                    }
-                };
+        //         if let Some(index) = index {
+        //             extend.remove(index);
+        //         }
+        //     }
+        //     AptAction::Purge => {
+        //         let mut cmd = dpkg_cmd();
+        //         cmd.arg("--purge");
+        //         cmd.arg(i.name.clone());
 
-                let version_epoch_split = version.split_once(":");
-                // Handle epoch
-                let version = if let Some((_, version)) = version_epoch_split {
-                    version.to_string()
-                } else {
-                    version
-                };
+        //         dpkg_execute_ineer(&mut cmd)?;
 
-                let arch = if info.arch == "[all]" {
-                    "noarch"
-                } else {
-                    &info
-                        .arch
-                        .strip_prefix("[")
-                        .and_then(|x| x.strip_suffix("]"))
-                        .take()
-                        .context("Can not parse info arch!")?
-                };
+        //         let index = extend
+        //             .iter()
+        //             .position(|x| x.get("Package") == Some(&i.name));
 
-                let filename = format!("{}_{}_{}.deb", name, version, arch);
+        //         if let Some(index) = index {
+        //             extend.remove(index);
+        //         }
+        //     }
+        // }
+//     }
 
-                cmd.arg("--unpack");
-                cmd.arg(format!(
-                    "{}/{}",
-                    download_dir.unwrap_or(DOWNLOAD_DIR),
-                    filename
-                ));
+//     let s = parse_back(&extend);
+//     std::fs::write("/var/lib/apt/extended_states", s)?;
 
-                dpkg_execute_ineer(&mut cmd)?;
-            }
-            AptAction::Configure => {
-                let mut cmd = dpkg_cmd();
-                cmd.arg("--configure");
-                cmd.arg(i.name.clone());
-
-                dpkg_execute_ineer(&mut cmd)?;
-
-                if i.is_auto {
-                    let mut item = IndexMap::new();
-                    item.insert("Package".to_owned(), i.name.to_string());
-                    item.insert("Architecture".to_owned(), i.name.to_string());
-                    item.insert("Auto-Installed".to_owned(), "1".to_owned());
-
-                    extend.push(item);
-                }
-            }
-
-            AptAction::Remove => {
-                let mut cmd = dpkg_cmd();
-                cmd.arg("--remove");
-                cmd.arg(i.name.clone());
-
-                dpkg_execute_ineer(&mut cmd)?;
-
-                let index = extend
-                    .iter()
-                    .position(|x| x.get("Package") == Some(&i.name));
-
-                if let Some(index) = index {
-                    extend.remove(index);
-                }
-            }
-            AptAction::Purge => {
-                let mut cmd = dpkg_cmd();
-                cmd.arg("--purge");
-                cmd.arg(i.name.clone());
-
-                dpkg_execute_ineer(&mut cmd)?;
-
-                let index = extend
-                    .iter()
-                    .position(|x| x.get("Package") == Some(&i.name));
-
-                if let Some(index) = index {
-                    extend.remove(index);
-                }
-            }
-        }
-    }
-
-    let s = parse_back(&extend);
-    std::fs::write("/var/lib/apt/extended_states", s)?;
-
-    Ok(())
-}
+//     Ok(())
+// }
 
 fn parse_back(list: &[IndexMap<String, String>]) -> String {
     let mut s = String::new();
@@ -341,7 +243,7 @@ fn parse_back(list: &[IndexMap<String, String>]) -> String {
 
         s += "\n";
     }
-    
+
     s
 }
 
@@ -363,13 +265,13 @@ pub fn dpkg_run(list: &[AptPackage]) -> Result<()> {
     let mut count = 0;
 
     // If have errpr, retry 3 times
-    while let Err(e) = dpkg_executer(list, None) {
-        if count == 3 {
-            return Err(e);
-        }
+    // while let Err(e) = dpkg_executer(list, None) {
+    //     if count == 3 {
+    //         return Err(e);
+    //     }
 
-        count += 1;
-    }
+    //     count += 1;
+    // }
 
     Ok(())
 }
@@ -385,12 +287,4 @@ fn dpkg_execute_ineer(cmd: &mut Command) -> Result<()> {
     }
 
     Ok(())
-}
-
-#[test]
-fn test() {
-    let test = "Inst samba [4.14.2-2] (4.17.2-1 AOSC OS:stable [amd64]) []";
-
-    let test = parse_simu_inner(test, None);
-    dbg!(test);
 }
