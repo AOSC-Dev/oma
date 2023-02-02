@@ -12,7 +12,7 @@ nix = "0.26"
 reqwest = { version = "0.11", features = ["blocking"] }
 log = "0.4"
 env_logger = "0.10"
-eight-deep-parser = "0.3"
+debcontrol = "0.1"
 lazy_static = "1.4"
 nom = "7.1"
 serde = { version = "1.0", features = ["derive"] }
@@ -20,3 +20,4 @@ xz2 = "0.1"
 sequoia-openpgp = "1.13"
 sha2 = "0.10"
 flate2 = "1.0"
+indexmap = "1.9"

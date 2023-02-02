@@ -1,13 +1,17 @@
-use std::process::Command;
+use std::path::Path;
 
 use anyhow::Result;
 use apt_sources_lists::SourceEntry;
-use eight_deep_parser::{IndexMap, Item};
+use debcontrol::Paragraph;
+use indexmap::IndexMap;
 use reqwest::blocking::Client;
 
 use crate::{
-    blackbox::{apt_install_calc, Package, Action, dpkg_run},
-    update::{get_sources, newest_package_list, package_list, packages_download, update_db, find_upgrade},
+    blackbox::{apt_install_calc, dpkg_run, Action, Package},
+    update::{
+        find_upgrade, get_sources, get_sources_dists_filename, newest_package_list, package_list,
+        packages_download, update_db, APT_LIST_DISTS,
+    },
 };
 
 // pub fn install(packages: &[Package], client: &Client, package_db: ) -> Result<()> {
@@ -21,8 +25,7 @@ use crate::{
 
 pub struct AoscptAction {
     sources: Vec<SourceEntry>,
-    db: Vec<IndexMap<String, Item>>,
-    db_for_update: Vec<IndexMap<String, Item>>,
+    db: Vec<IndexMap<String, String>>,
     client: Client,
 }
 
@@ -34,21 +37,29 @@ impl AoscptAction {
             .unwrap();
 
         let sources = get_sources()?;
-        let db_files = update_db(&sources, &client)?;
-        let db = package_list(db_files)?;
-        let db_for_update = newest_package_list(&db)?;
+        let db_paths = get_sources_dists_filename(&sources)?;
+
+        let db = package_list(
+            db_paths
+                .iter()
+                .map(|x| Path::new(APT_LIST_DISTS).join(x))
+                .collect(),
+        )?;
 
         Ok(Self {
             sources,
             db,
-            db_for_update,
             client,
         })
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
     pub fn update(&self) -> Result<()> {
-        let u = find_upgrade(&self.db_for_update)?;
+        update_db(&self.sources, &self.client)?;
+
+        let db_for_updates = newest_package_list(&self.db)?;
+
+        let u = find_upgrade(&db_for_updates)?;
         let user_action_list = u
             .iter()
             .map(|x| Package {
@@ -56,19 +67,22 @@ impl AoscptAction {
                 action: Action::Install,
             })
             .collect::<Vec<_>>();
-    
+
         let apt_blackbox = apt_install_calc(&user_action_list)?;
-        packages_download(&apt_blackbox, &self.db_for_update, &self.sources, &self.client)?;
+        packages_download(&apt_blackbox, &db_for_updates, &self.sources, &self.client)?;
         dpkg_run(&apt_blackbox)?;
 
         Ok(())
     }
 
     pub fn install(&self, list: &[&str]) -> Result<()> {
-        let user_action_list = list.iter().map(|x| Package {
-            name: x.to_string(),
-            action: Action::Install,
-        }).collect::<Vec<_>>();
+        let user_action_list = list
+            .iter()
+            .map(|x| Package {
+                name: x.to_string(),
+                action: Action::Install,
+            })
+            .collect::<Vec<_>>();
 
         let apt_blackbox = apt_install_calc(&user_action_list)?;
         packages_download(&apt_blackbox, &self.db, &self.sources, &self.client)?;
@@ -77,4 +91,3 @@ impl AoscptAction {
         Ok(())
     }
 }
-

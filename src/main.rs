@@ -14,10 +14,4 @@ fn main() {
     let app = AoscptAction::new().unwrap();
 
     app.update().unwrap();
-    // let client = reqwest::blocking::ClientBuilder::new()
-    //     .user_agent("aoscpt")
-    //     .build()
-    //     .unwrap();
-
-    // update(&client).unwrap();
 }

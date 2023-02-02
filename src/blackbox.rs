@@ -1,17 +1,16 @@
 use std::{
-    collections::HashMap,
-    fmt::format,
     io::Read,
     path::Path,
     process::{Command, Stdio},
 };
 
-use anyhow::{bail, Context, Result};
-use eight_deep_parser::{parse_back, IndexMap, Item};
+use anyhow::{anyhow, bail, Context, Result};
+use debcontrol::{Field, Paragraph};
+use indexmap::IndexMap;
 use log::debug;
 
 use crate::{
-    update::{APT_LIST_DISTS, DOWNLOAD_DIR},
+    update::{APT_LIST_DISTS, DOWNLOAD_DIR, debcontrol_from_file},
     utils::get_arch_name,
 };
 
@@ -207,17 +206,14 @@ fn parse_simu_inner(i: &str, list: Option<&[Package]>) -> Result<AptPackage> {
 }
 
 fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Result<()> {
-    let mut s = String::new();
-    let p = Path::new("/var/lib/apt/extended_states");
+    let extend_file = Path::new("/var/lib/apt/extended_states");
 
-    if !p.is_file() {
+    if !extend_file.is_file() {
         std::fs::create_dir_all(APT_LIST_DISTS)?;
-        std::fs::File::create(&p)?;
+        std::fs::File::create(&extend_file)?;
     }
 
-    let mut f = std::fs::File::open("/var/lib/apt/extended_states")?;
-    f.read_to_string(&mut s)?;
-    let mut extend = eight_deep_parser::parse_multi(&s)?;
+    let mut extend = debcontrol_from_file(extend_file)?;
 
     for i in action_list {
         match i.action {
@@ -287,21 +283,12 @@ fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Resu
                 dpkg_execute_ineer(&mut cmd)?;
 
                 if i.is_auto {
-                    let mut entry = IndexMap::new();
+                    let mut item = IndexMap::new();
+                    item.insert("Package".to_owned(), i.name.to_string());
+                    item.insert("Architecture".to_owned(), i.name.to_string());
+                    item.insert("Auto-Installed".to_owned(), "1".to_owned());
 
-                    entry.insert("Package".to_string(), Item::OneLine(i.name.to_owned()));
-                    entry.insert(
-                        "Architecture".to_string(),
-                        Item::OneLine(
-                            get_arch_name()
-                                .take()
-                                .context("Can not get architecture")?
-                                .to_string(),
-                        ),
-                    );
-                    entry.insert("Auto-Installed".to_string(), Item::OneLine("1".to_string()));
-
-                    extend.push(entry);
+                    extend.push(item);
                 }
             }
 
@@ -314,7 +301,7 @@ fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Resu
 
                 let index = extend
                     .iter()
-                    .position(|x| x.get("Package") == Some(&Item::OneLine(i.name.clone())));
+                    .position(|x| x.get("Package") == Some(&i.name));
 
                 if let Some(index) = index {
                     extend.remove(index);
@@ -329,7 +316,7 @@ fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Resu
 
                 let index = extend
                     .iter()
-                    .position(|x| x.get("Package") == Some(&Item::OneLine(i.name.clone())));
+                    .position(|x| x.get("Package") == Some(&i.name));
 
                 if let Some(index) = index {
                     extend.remove(index);
@@ -342,6 +329,20 @@ fn dpkg_executer(action_list: &[AptPackage], download_dir: Option<&str>) -> Resu
     std::fs::write("/var/lib/apt/extended_states", s)?;
 
     Ok(())
+}
+
+fn parse_back(list: &[IndexMap<String, String>]) -> String {
+    let mut s = String::new();
+    for i in list {
+        for (k, v) in i {
+            s += &format!("{}: ", k);
+            s += &format!("{}\n", v);
+        }
+
+        s += "\n";
+    }
+    
+    s
 }
 
 fn dpkg_cmd() -> Command {
