@@ -25,7 +25,7 @@ use crate::{
 
 pub const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
 const DPKG_STATUS: &str = "/var/lib/dpkg/status";
-pub const DOWNLOAD_DIR: &str = "/var/cache/aoscpt/archives";
+pub const DOWNLOAD_DIR: &str = "/var/cache/apt/archives";
 
 struct FileBuf(Vec<u8>);
 
