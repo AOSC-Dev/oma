@@ -106,7 +106,7 @@ impl AoscptAction {
                 let pkg = version.parent();
                 pkg.mark_install(true, true);
             } else if i.contains("/") {
-                // TODO: Support apt install fish/3.6.0
+                // TODO: Support apt install fish/stable
 
                 let mut split_arg = i.split("/");
                 let name = split_arg.nth(0).unwrap();
