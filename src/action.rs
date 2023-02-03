@@ -54,20 +54,24 @@ impl AoscptAction {
     pub fn update(&self) -> Result<()> {
         update_db(&self.sources, &self.client)?;
 
-        fn update_inner(sources: &[SourceEntry], client: &Client, db: &[IndexMap<String, String>]) -> Result<()> {
+        fn update_inner(
+            sources: &[SourceEntry],
+            client: &Client,
+            db: &[IndexMap<String, String>],
+        ) -> Result<()> {
             let cache = new_cache!()?;
             cache.upgrade(&Upgrade::FullUpgrade)?;
-    
+
             let action = apt_handler(&cache);
-    
+
             let mut list = action.update.clone();
             list.extend(action.install);
-    
+
             autoremove(&cache);
-    
-            let db_for_updates = newest_package_list(&db)?;
+
+            let db_for_updates = newest_package_list(db)?;
             packages_download(&list, &db_for_updates, sources, client)?;
-    
+
             cache.resolve(true)?;
             apt_install(cache)?;
 
@@ -77,8 +81,9 @@ impl AoscptAction {
         // Retry 3 times
         let mut count = 0;
         while let Err(e) = update_inner(&self.sources, &self.client, &self.db) {
+            warn!("{e}, retrying ...");
             if count == 3 {
-                return Err(e)
+                return Err(e);
             }
             count += 1;
         }
@@ -91,6 +96,7 @@ impl AoscptAction {
 
         let mut count = 0;
         while let Err(e) = self.install_inner(list) {
+            warn!("{e}, retrying ...");
             if count == 3 {
                 return Err(e);
             }

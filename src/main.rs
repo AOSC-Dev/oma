@@ -1,6 +1,5 @@
 use action::AoscptAction;
 use clap::{Parser, Subcommand};
-use rust_apt::{raw::util::raw::{apt_lock, apt_unlock}, util::apt_is_locked};
 
 mod action;
 mod download;
@@ -43,12 +42,6 @@ struct Delete {
 fn main() {
     env_logger::init();
 
-    // if !apt_is_locked() {
-    //     apt_lock().unwrap();
-    // } else {
-    //     eprintln!("Error: Apt is locked!");
-    // }
-
     let app = AoscptAction::new().unwrap();
 
     let args = Args::parse();
@@ -60,6 +53,4 @@ fn main() {
     } {
         eprintln!("{e}");
     }
-
-    // apt_unlock()
 }
