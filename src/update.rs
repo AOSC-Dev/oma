@@ -6,7 +6,6 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
-use debcontrol::Paragraph;
 use flate2::bufread::GzDecoder;
 use indexmap::IndexMap;
 use log::info;
@@ -23,7 +22,6 @@ use crate::{
 };
 
 pub const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
-const DPKG_STATUS: &str = "/var/lib/dpkg/status";
 pub const DOWNLOAD_DIR: &str = "/var/cache/apt/archives";
 
 struct FileBuf(Vec<u8>);
@@ -33,12 +31,12 @@ struct FileName(String);
 
 impl FileName {
     fn new(s: &str) -> Result<Self> {
-        let url = reqwest::Url::parse(&s)?;
+        let url = reqwest::Url::parse(s)?;
         let scheme = url.scheme();
         let url = s
-            .strip_prefix(&format!("{}://", scheme))
+            .strip_prefix(&format!("{scheme}://"))
             .ok_or_else(|| anyhow!("Can not get url without url scheme"))?
-            .replace("/", "_");
+            .replace('/', "_");
 
         Ok(FileName(url))
     }
@@ -53,14 +51,14 @@ fn download_db(url: &str, client: &Client) -> Result<(FileName, FileBuf)> {
 
 #[derive(Debug)]
 struct InReleaseParser {
-    source: Vec<IndexMap<String, String>>,
+    _source: Vec<IndexMap<String, String>>,
     checksums: Vec<ChecksumItem>,
 }
 
 #[derive(Debug)]
 struct ChecksumItem {
     name: String,
-    size: u64,
+    _size: u64,
     checksum: String,
     file_type: DistFileType,
 }
@@ -94,10 +92,10 @@ impl InReleaseParser {
             .take()
             .context("source is empty")?;
 
-        let mut checksums = sha256.split("\n");
+        let mut checksums = sha256.split('\n');
 
         // remove first item, It's empty
-        checksums.nth(0);
+        checksums.next();
 
         let mut checksums_res = vec![];
 
@@ -118,13 +116,13 @@ impl InReleaseParser {
         for i in c {
             let t = if i.0.contains("BinContents") {
                 DistFileType::BinaryContents
-            } else if i.0.contains("/Contents-") && i.0.contains(".") {
+            } else if i.0.contains("/Contents-") && i.0.contains('.') {
                 DistFileType::CompressContents
-            } else if i.0.contains("/Contents-") && !i.0.contains(".") {
+            } else if i.0.contains("/Contents-") && !i.0.contains('.') {
                 DistFileType::Contents
-            } else if i.0.contains("Packages") && !i.0.contains(".") {
+            } else if i.0.contains("Packages") && !i.0.contains('.') {
                 DistFileType::PackageList
-            } else if i.0.contains("Packages") && i.0.contains(".") {
+            } else if i.0.contains("Packages") && i.0.contains('.') {
                 DistFileType::CompressPackageList
             } else {
                 panic!("I Dont known why ...")
@@ -132,14 +130,14 @@ impl InReleaseParser {
 
             res.push(ChecksumItem {
                 name: i.0.to_owned(),
-                size: i.1.parse::<u64>()?,
+                _size: i.1.parse::<u64>()?,
                 checksum: i.2.to_owned(),
                 file_type: t,
             })
         }
 
         Ok(Self {
-            source,
+            _source: source,
             checksums: res,
         })
     }
@@ -156,7 +154,7 @@ pub fn debcontrol_from_file(p: &Path) -> Result<Vec<IndexMap<String, String>>> {
 fn debcontrol_from_str(s: &str) -> Result<Vec<IndexMap<String, String>>> {
     let mut res = vec![];
 
-    let debcontrol = debcontrol::parse_str(&s).map_err(|e| anyhow!("{}", e))?;
+    let debcontrol = debcontrol::parse_str(s).map_err(|e| anyhow!("{}", e))?;
 
     for i in debcontrol {
         let mut item = IndexMap::new();
@@ -194,7 +192,7 @@ pub fn get_sources_dists_filename(sources: &[SourceEntry]) -> Result<Vec<String>
         let checksums = in_release
             .checksums
             .iter()
-            .filter(|x| components[i].contains(&x.name.split('/').nth(0).unwrap().to_string()))
+            .filter(|x| components[i].contains(&x.name.split('/').next().unwrap().to_string()))
             .collect::<Vec<_>>();
 
         for j in checksums {
@@ -237,17 +235,17 @@ pub fn packages_download(
         let Some(v) = v else { bail!("Can not get package {} from list", i) };
         let file_name = v["Filename"].clone();
         let checksum = v["SHA256"].clone();
-        let mut file_name_split = file_name.split("/");
+        let mut file_name_split = file_name.split('/');
 
         let branch = file_name_split
             .nth(1)
             .take()
-            .context(format!("Can not parse package {} Filename field!", i))?;
+            .context(format!("Can not parse package {i} Filename field!"))?;
 
         let component = file_name_split
-            .nth(0)
+            .next()
             .take()
-            .context(format!("Can not parse package {} Filename field!", i))?;
+            .context(format!("Can not parse package {i} Filename field!"))?;
 
         let mirror = sources
             .iter()
@@ -255,7 +253,7 @@ pub fn packages_download(
             .filter(|x| x.suite == branch)
             .map(|x| x.url());
 
-        let available_download = mirror.map(|x| format!("{}/{}", x, file_name));
+        let available_download = mirror.map(|x| format!("{x}/{file_name}"));
 
         let mut deb_filename = vec![];
 
@@ -295,7 +293,7 @@ pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
         .map(|x| x.components.to_owned())
         .collect::<Vec<_>>();
 
-    let dist_files = dists_in_releases.flat_map(|x| download_db(&x, &client));
+    let dist_files = dists_in_releases.flat_map(|x| download_db(&x, client));
 
     for (index, (name, file)) in dist_files.enumerate() {
         let p = Path::new(APT_LIST_DISTS).join(name.0);
@@ -318,7 +316,7 @@ pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
         let checksums = in_release
             .checksums
             .iter()
-            .filter(|x| components[index].contains(&x.name.split('/').nth(0).unwrap().to_string()))
+            .filter(|x| components[index].contains(&x.name.split('/').next().unwrap().to_string()))
             .collect::<Vec<_>>();
 
         for i in &checksums {
@@ -365,12 +363,12 @@ fn download_and_extract(
     client: &Client,
     not_compress_file: &str,
 ) -> Result<()> {
-    let (name, buf) = download_db(&format!("{}/{}", dist_url, i.name), &client)?;
+    let (name, buf) = download_db(&format!("{}/{}", dist_url, i.name), client)?;
     checksum(&buf.0, &i.checksum)?;
 
     let buf = decompress(&buf.0, &name.0)?;
     let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
-    std::fs::write(&p, buf)?;
+    std::fs::write(p, buf)?;
 
     Ok(())
 }
@@ -380,7 +378,7 @@ fn checksum(buf: &[u8], hash: &str) -> Result<()> {
     let mut hasher = Sha256::new();
     hasher.write_all(buf)?;
     let buf_hash = hasher.finalize();
-    let buf_hash = format!("{:2x}", buf_hash);
+    let buf_hash = format!("{buf_hash:2x}");
 
     if hash != buf_hash {
         return Err(anyhow!(
@@ -426,63 +424,6 @@ pub struct UpdatePackage {
     pub apt_installed_size: u64,
 }
 
-/// Find needed packages (like apt update && apt list --upgradable)
-pub fn find_upgrade(apt: &[IndexMap<String, String>]) -> Result<Vec<UpdatePackage>> {
-    let mut res = Vec::new();
-
-    let dpkg = debcontrol_from_file(Path::new(DPKG_STATUS))?;
-
-    for i in dpkg {
-        let package = i["Package"].clone();
-        let dpkg_version = i["Version"].clone();
-        let dpkg_installed_size = i["Installed-Size"].clone();
-        let dpkg_installed_size = dpkg_installed_size.parse::<u64>()?;
-        let index = apt.iter().position(|x| x.get("Package") == Some(&package));
-
-        if let Some(index) = index {
-            let apt_version = apt[index]["Version"].clone();
-            let apt_installed_size = apt[index]["Installed-Size"].clone();
-            let apt_size = apt[index]["Size"].clone();
-            let apt_filename = apt[index]["Filename"].clone();
-
-            let apt_installed_size = apt_installed_size.parse::<u64>()?;
-            let apt_size = apt_size.parse::<u64>()?;
-            let from = get_from(&apt_filename)?;
-
-            let parse_apt_version = PkgVersion::try_from(apt_version.as_str())?;
-            let parse_dpkg_version = PkgVersion::try_from(dpkg_version.as_str())?;
-
-            if parse_apt_version > parse_dpkg_version {
-                res.push(UpdatePackage {
-                    package: package.to_string(),
-                    new_version: apt_version.to_string(),
-                    old_version: dpkg_version.to_string(),
-                    file_name: apt_filename.to_string(),
-                    from,
-                    dpkg_installed_size,
-                    apt_size,
-                    apt_installed_size,
-                });
-            } else if parse_dpkg_version == parse_apt_version
-                && apt_installed_size != dpkg_installed_size
-            {
-                res.push(UpdatePackage {
-                    package: package.to_string(),
-                    new_version: apt_version.to_string(),
-                    old_version: dpkg_version.to_string(),
-                    file_name: apt_filename.to_string(),
-                    from,
-                    dpkg_installed_size,
-                    apt_size,
-                    apt_installed_size,
-                });
-            }
-        }
-    }
-
-    Ok(res)
-}
-
 pub fn newest_package_list(
     input: &[IndexMap<String, String>],
 ) -> Result<Vec<IndexMap<String, String>>> {
@@ -492,39 +433,8 @@ pub fn newest_package_list(
 
     let apt = version_sort(&input)?;
 
-    Ok(apt.to_owned())
+    Ok(apt)
 }
-
-fn get_from(filename: &str) -> Result<String> {
-    let mut s = filename.split('/');
-    let branch = s.nth(1).ok_or_else(|| anyhow!("invalid filename"))?;
-    let component = s.nth(0).ok_or_else(|| anyhow!("invalid filename"))?;
-
-    Ok(format!("{}/{}", branch, component))
-}
-
-// /// Handle /var/apt/lists/*.Packages list
-// fn package_list_inner(list_path: &Path) -> Result<Vec<IndexMap<String, Item>>> {
-//     info!("Handling package list at {}", list_path.display());
-//     let mut buf = String::new();
-//     let mut f = std::fs::File::open(list_path)?;
-//     f.read_to_string(&mut buf)?;
-
-//     let mut map = eight_deep_parser::parse_multi(&buf)?;
-
-//     map.sort_by(|x, y| {
-//         let Item::OneLine(ref a) = x["Package"] else { panic!("8d") };
-//         let Item::OneLine(ref b) = y["Package"] else { panic!("8d") };
-
-//         a.cmp(b)
-//     });
-
-//     let list = version_sort(map)?;
-
-//     let res = list.into_iter().map(|x| x.1).collect::<Vec<_>>();
-
-//     Ok(res)
-// }
 
 fn version_sort(map: &[IndexMap<String, String>]) -> Result<Vec<IndexMap<String, String>>> {
     let Some(last_name) = map.first().and_then(|x| x.get("Package")) else { bail!("package list is empty") };

@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use log::warn;
 use reqwest::blocking::Client;
 use rust_apt::{
-    cache::{Cache, Upgrade, PackageSort},
+    cache::{Cache, PackageSort, Upgrade},
     new_cache,
     raw::progress::AptInstallProgress,
     util::{apt_lock, apt_unlock, apt_unlock_inner},
@@ -60,7 +60,7 @@ impl AoscptAction {
         let action = apt_handler(&cache);
 
         let mut list = action.update.clone();
-        list.extend(action.install.clone());
+        list.extend(action.install);
 
         autoremove(&cache);
 
@@ -82,13 +82,13 @@ impl AoscptAction {
             let pkg = cache
                 .get(i)
                 .take()
-                .context(format!("Can not get package: {}", i))?;
-            if i.contains("=") {
+                .context(format!("Can not get package: {i}"))?;
+            if i.contains('=') {
                 // Support apt install fish=3.6.0
 
-                let mut split_arg = i.split("=");
-                let name = split_arg.nth(0).context(format!("Not Support: {}", i))?;
-                let version = split_arg.nth(1).context(format!("Not Support: {}", i))?;
+                let mut split_arg = i.split('=');
+                let name = split_arg.next().context(format!("Not Support: {i}"))?;
+                let version = split_arg.nth(1).context(format!("Not Support: {i}"))?;
 
                 if PkgVersion::try_from(version).is_err() {
                     bail!("invalid version: {}", version);
@@ -96,22 +96,22 @@ impl AoscptAction {
 
                 let version = pkg
                     .get_version(version)
-                    .context(format!("Can not get package {} version: {}", name, version))?;
+                    .context(format!("Can not get package {name} version: {version}"))?;
 
                 let pkg = version.parent();
                 pkg.mark_install(true, true);
                 pkg.protect();
-            } else if i.contains("/") {
+            } else if i.contains('/') {
                 // Support apt install fish/stable
-                let mut split_arg = i.split("/");
-                let name = split_arg.nth(0).context(format!("Not Support: {}", i))?;
-                let branch = split_arg.nth(1).context(format!("Not Support: {}", i))?;
+                let mut split_arg = i.split('/');
+                let name = split_arg.next().context(format!("Not Support: {i}"))?;
+                let branch = split_arg.nth(1).context(format!("Not Support: {i}"))?;
 
                 let mut res = self
                     .db
                     .iter()
                     .filter(|x| x.get("Package") == Some(&name.to_string()))
-                    .filter(|x| x["Filename"].split("/").nth(1) == Some(branch))
+                    .filter(|x| x["Filename"].split('/').nth(1) == Some(branch))
                     .collect::<Vec<_>>();
 
                 if res.is_empty() {
@@ -139,7 +139,7 @@ impl AoscptAction {
         let action = apt_handler(&cache);
         let mut list = vec![];
         list.extend(action.install.clone());
-        list.extend(action.update.clone());
+        list.extend(action.update);
 
         autoremove(&cache);
 
@@ -154,7 +154,7 @@ impl AoscptAction {
         let cache = new_cache!()?;
 
         for i in list {
-            let pkg = cache.get(i).context(format!("Can not get package {}", i))?;
+            let pkg = cache.get(i).context(format!("Can not get package {i}"))?;
             pkg.mark_delete(is_purge);
         }
 
@@ -208,9 +208,9 @@ fn apt_install(cache: Cache) -> Result<()> {
 struct Action {
     update: Vec<String>,
     install: Vec<String>,
-    del: Vec<String>,
-    reinstall: Vec<String>,
-    downgrade: Vec<String>,
+    _del: Vec<String>,
+    _reinstall: Vec<String>,
+    _downgrade: Vec<String>,
 }
 
 impl Action {
@@ -224,9 +224,9 @@ impl Action {
         Self {
             update,
             install,
-            del,
-            reinstall,
-            downgrade,
+            _del: del,
+            _reinstall: reinstall,
+            _downgrade: downgrade,
         }
     }
 }

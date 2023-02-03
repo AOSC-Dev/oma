@@ -44,7 +44,7 @@ pub fn download_package(
         .split('/')
         .last()
         .take()
-        .context(format!("Can not parse url {}", url))?;
+        .context(format!("Can not parse url {url}"))?;
 
     let p = Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)).join(filename);
     if p.exists() {
@@ -79,7 +79,7 @@ pub fn checksum(buf: &[u8], hash: &str) -> Result<()> {
     let mut hasher = Sha256::new();
     hasher.write_all(buf)?;
     let buf_hash = hasher.finalize();
-    let buf_hash = format!("{:2x}", buf_hash);
+    let buf_hash = format!("{buf_hash:2x}");
 
     if hash != buf_hash {
         return Err(anyhow!(
