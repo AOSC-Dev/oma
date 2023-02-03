@@ -2,6 +2,7 @@ use std::process::exit;
 
 use action::AoscptAction;
 use clap::{Parser, Subcommand};
+use lazy_static::lazy_static;
 
 mod action;
 mod download;
@@ -10,6 +11,12 @@ mod pkgversion;
 mod update;
 mod utils;
 mod verify;
+mod cli;
+
+
+lazy_static! {
+    static ref WRITER: cli::Writer = cli::Writer::new();
+}
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]

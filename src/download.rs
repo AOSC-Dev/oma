@@ -1,14 +1,17 @@
 use std::{
     io::{Read, Write},
     path::Path,
+    time::Duration,
 };
 
 use anyhow::{anyhow, Context, Result};
+use indicatif::{ProgressBar, ProgressStyle};
 use log::info;
+use progress_streams::ProgressReader;
 use reqwest::blocking::Client;
 use sha2::{Digest, Sha256};
 
-use crate::update::DOWNLOAD_DIR;
+use crate::{update::DOWNLOAD_DIR, WRITER, msg};
 
 /// Download a package
 pub fn download_package(
@@ -30,7 +33,7 @@ pub fn download_package(
             filename,
             download_dir.unwrap_or(DOWNLOAD_DIR)
         );
-        let v = download(url, client)?;
+        let v = download(url, client, filename)?;
 
         if download_dir.is_none() {
             std::fs::create_dir_all(DOWNLOAD_DIR)?;
@@ -50,8 +53,14 @@ pub fn download_package(
 
     // sb apt 会把下载的文件重命名成 url 网址的样子，为保持兼容这里也这么做
     let mut filename_split = filename.split("_");
-    let package = filename_split.next().take().context("Can not parse filename")?;
-    let arch_deb = filename_split.nth(1).take().context("Can not parse version")?;
+    let package = filename_split
+        .next()
+        .take()
+        .context("Can not parse filename")?;
+    let arch_deb = filename_split
+        .nth(1)
+        .take()
+        .context("Can not parse version")?;
 
     let arch_deb = if arch_deb == "noarch.deb" {
         "all.deb"
@@ -81,15 +90,38 @@ pub fn download_package(
 }
 
 /// Download file to buffer
-pub fn download(url: &str, client: &Client) -> Result<Vec<u8>> {
-    let v = client
-        .get(url)
-        .send()?
-        .error_for_status()?
-        .bytes()?
-        .to_vec();
+pub fn download(url: &str, client: &Client, filename: &str) -> Result<Vec<u8>> {
+    msg!("{}", filename);
+    let bar_template = {
+        let max_len = WRITER.get_max_len();
+        if max_len < 90 {
+            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+        } else {
+            " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%"
+        }
+    };
 
-    Ok(v)
+    let barsty = ProgressStyle::default_bar()
+        .template(bar_template)?
+        .progress_chars("=>-");
+
+    // let pb = ProgressBar::new();
+    let mut v = client.get(url).send()?.error_for_status()?;
+
+    let length = v.content_length().unwrap_or(0);
+    let pb = ProgressBar::new(length);
+    pb.set_style(barsty);
+    pb.enable_steady_tick(Duration::from_millis(50));
+
+    let mut reader = ProgressReader::new(&mut v, |progress: usize| {
+        pb.inc(progress as u64);
+    });
+
+    let mut buf = Vec::new();
+    reader.read_to_end(&mut buf)?;
+    pb.finish_and_clear();
+
+    Ok(buf)
 }
 
 pub fn checksum(buf: &[u8], hash: &str) -> Result<()> {

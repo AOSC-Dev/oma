@@ -8,6 +8,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
 use flate2::bufread::GzDecoder;
 use indexmap::IndexMap;
+use indicatif::ProgressBar;
 use log::info;
 use reqwest::blocking::Client;
 use sha2::{Digest, Sha256};
@@ -18,7 +19,7 @@ use crate::{
     download::{download, download_package},
     pkgversion::PkgVersion,
     utils::get_arch_name,
-    verify,
+    verify, WRITER,
 };
 
 pub const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
@@ -42,9 +43,10 @@ impl FileName {
     }
 }
 
-fn download_db(url: &str, client: &Client) -> Result<(FileName, FileBuf)> {
+fn download_db(url: &str, client: &Client, filename: &str) -> Result<(FileName, FileBuf)> {
     info!("Downloading {}", url);
-    let v = download(url, client)?;
+
+    let v = download(url, client, filename)?;
 
     Ok((FileName::new(url)?, FileBuf(v)))
 }
@@ -284,14 +286,19 @@ pub fn package_list(db_file_paths: Vec<PathBuf>) -> Result<Vec<IndexMap<String, 
 
 pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
-    let dists_in_releases = dist_urls.iter().map(|x| format!("{}/{}", x, "InRelease"));
+    let dists_in_releases = dist_urls.iter().map(|x| {
+        (
+            format!("{}/{}", x, "InRelease"),
+            FileName::new(&format!("{}/{}", x, "InRelease")),
+        )
+    });
 
     let components = sources
         .iter()
         .map(|x| x.components.to_owned())
         .collect::<Vec<_>>();
 
-    let dist_files = dists_in_releases.flat_map(|x| download_db(&x, client));
+    let dist_files = dists_in_releases.flat_map(|x| download_db(&x.0, client, &x.1.unwrap().0));
 
     for (index, (name, file)) in dist_files.enumerate() {
         let p = Path::new(APT_LIST_DISTS).join(name.0);
@@ -361,7 +368,7 @@ fn download_and_extract(
     client: &Client,
     not_compress_file: &str,
 ) -> Result<()> {
-    let (name, buf) = download_db(&format!("{}/{}", dist_url, i.name), client)?;
+    let (name, buf) = download_db(&format!("{}/{}", dist_url, i.name), client, &i.name)?;
     checksum(&buf.0, &i.checksum)?;
 
     let buf = decompress(&buf.0, &name.0)?;

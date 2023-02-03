@@ -23,3 +23,6 @@ flate2 = "1.0"
 indexmap = "1.9"
 rust-apt = { git = "https://gitlab.com/volian/rust-apt", rev = "f05f916ca5c75a1412ed4596462f79a5f41e86d1" }
 clap = { version = "4.1", features=["derive"] }
+indicatif = "0.17"
+console = "0.15"
+progress-streams = "1.1"
