@@ -16,7 +16,6 @@ use std::io::Write;
 use xz2::read::XzDecoder;
 
 use crate::{
-    blackbox::{AptAction},
     download::{download, download_package},
     pkgversion::PkgVersion,
     utils::get_arch_name,

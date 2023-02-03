@@ -2,7 +2,6 @@ use std::path::Path;
 
 use anyhow::{bail, Context, Result};
 use apt_sources_lists::SourceEntry;
-use debcontrol::Paragraph;
 use indexmap::IndexMap;
 use log::warn;
 use reqwest::blocking::Client;
@@ -10,7 +9,6 @@ use rust_apt::{
     cache::{Cache, Upgrade},
     new_cache,
     raw::progress::AptInstallProgress,
-    records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
 
@@ -136,9 +134,37 @@ impl AoscptAction {
             pkg.protect();
         }
 
+        let action = apt_handler(&cache);
+        let mut list = vec![];
+        list.extend(action.install);
+        list.extend(action.update);
+
         cache.resolve(true)?;
         packages_download(&list, &self.db, &self.sources, &self.client)?;
         apt_install(cache)?;
+
+        Ok(())
+    }
+
+    pub fn remove(&self, list: &[String], is_purge: bool) -> Result<()> {
+        let cache = new_cache!()?;
+
+        for i in list {
+            let pkg = cache.get(i).context(format!("Can not get package {}", i))?;
+            pkg.mark_delete(is_purge);
+        }
+
+        let action = apt_handler(&cache);
+
+        for i in action.autoremove {
+            let pkg = cache.get(&i).unwrap();
+            pkg.mark_delete(is_purge);
+        }
+
+        cache.commit(
+            &mut NoProgress::new_box(),
+            &mut AptInstallProgress::new_box(),
+        )?;
 
         Ok(())
     }
@@ -171,6 +197,7 @@ struct Action {
     del: Vec<String>,
     reinstall: Vec<String>,
     downgrade: Vec<String>,
+    autoremove: Vec<String>,
 }
 
 impl Action {
@@ -180,6 +207,7 @@ impl Action {
         del: Vec<String>,
         reinstall: Vec<String>,
         downgrade: Vec<String>,
+        autoremove: Vec<String>,
     ) -> Self {
         Self {
             update,
@@ -187,6 +215,7 @@ impl Action {
             del,
             reinstall,
             downgrade,
+            autoremove,
         }
     }
 }
@@ -199,6 +228,7 @@ fn apt_handler(cache: &Cache) -> Action {
     let mut del: Vec<String> = vec![];
     let mut reinstall: Vec<String> = vec![];
     let mut downgrade: Vec<String> = vec![];
+    let mut autoremove: Vec<String> = vec![];
 
     for pkg in changes {
         if pkg.marked_install() {
@@ -220,7 +250,10 @@ fn apt_handler(cache: &Cache) -> Action {
         if pkg.marked_downgrade() {
             downgrade.push(pkg.name().to_string());
         }
+        if pkg.is_auto_removable() {
+            autoremove.push(pkg.name().to_string());
+        }
     }
 
-    Action::new(update, install, del, reinstall, downgrade)
+    Action::new(update, install, del, reinstall, downgrade, autoremove)
 }
