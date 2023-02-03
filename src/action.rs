@@ -8,7 +8,10 @@ use reqwest::blocking::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
-    raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
+    raw::{
+        progress::AptInstallProgress,
+        util::raw::apt_lock_inner,
+    },
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
 

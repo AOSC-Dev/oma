@@ -236,6 +236,7 @@ pub fn packages_download(
         let Some(v) = v else { bail!("Can not get package {} from list", i) };
         let file_name = v["Filename"].clone();
         let checksum = v["SHA256"].clone();
+        let version = v["Version"].clone();
         let mut file_name_split = file_name.split('/');
 
         let branch = file_name_split
@@ -259,7 +260,7 @@ pub fn packages_download(
         let mut deb_filename = vec![];
 
         for i in available_download {
-            if let Ok(filename) = download_package(&i, None, client, &checksum) {
+            if let Ok(filename) = download_package(&i, None, client, &checksum, &version) {
                 deb_filename.push(filename);
                 break;
             }

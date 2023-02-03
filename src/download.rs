@@ -16,6 +16,7 @@ pub fn download_package(
     download_dir: Option<&str>,
     client: &Client,
     hash: &str,
+    version: &str,
 ) -> Result<String> {
     fn download_inner(
         download_dir: Option<&str>,
@@ -47,19 +48,27 @@ pub fn download_package(
         .take()
         .context(format!("Can not parse url {url}"))?;
 
-    let p = Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)).join(filename);
+    // sb apt 会把下载的文件重命名成 url 网址的样子，为保持兼容这里也这么做
+    let mut filename_split = filename.split("_");
+    let package = filename_split.next().take().context("Can not parse filename")?;
+    let arch_deb = filename_split.nth(1).take().context("Can not parse version")?.replace("noarch", "all");
+
+    let version = version.replace(":", "%3a");
+    let filename = format!("{package}_{version}_{arch_deb}");
+
+    let p = Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)).join(&filename);
     if p.exists() {
         let mut f = std::fs::File::open(&p)?;
         let mut buf = Vec::new();
         f.read_to_end(&mut buf)?;
 
         if checksum(&buf, hash).is_err() {
-            download_inner(download_dir, &p, filename, url, client)?;
+            download_inner(download_dir, &p, &filename, url, client)?;
         } else {
             return Ok(filename.to_string());
         }
     } else {
-        download_inner(download_dir, &p, filename, url, client)?;
+        download_inner(download_dir, &p, &filename, url, client)?;
     }
 
     Ok(filename.to_string())
