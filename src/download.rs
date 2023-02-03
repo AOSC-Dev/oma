@@ -51,7 +51,13 @@ pub fn download_package(
     // sb apt 会把下载的文件重命名成 url 网址的样子，为保持兼容这里也这么做
     let mut filename_split = filename.split("_");
     let package = filename_split.next().take().context("Can not parse filename")?;
-    let arch_deb = filename_split.nth(1).take().context("Can not parse version")?.replace("noarch", "all");
+    let arch_deb = filename_split.nth(1).take().context("Can not parse version")?;
+
+    let arch_deb = if arch_deb == "noarch.deb" {
+        "all.deb"
+    } else {
+        arch_deb
+    };
 
     let version = version.replace(":", "%3a");
     let filename = format!("{package}_{version}_{arch_deb}");
