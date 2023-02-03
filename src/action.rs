@@ -68,25 +68,7 @@ impl AoscptAction {
         packages_download(&list, &db_for_updates, &self.sources, &self.client)?;
 
         cache.resolve(true)?;
-
-        apt_lock()?;
-
-        // 没有办法区分 apt 的下载和安装，所以只能先确保其包已经全部下载完成
-        cache.get_archives(&mut NoProgress::new_box())?;
-
-        apt_unlock_inner();
-
-        if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
-            warn!("{}, retrying ...", e);
-            let cache = new_cache!()?;
-            cache.resolve(true)?;
-            cache.commit(
-                &mut NoProgress::new_box(),
-                &mut AptInstallProgress::new_box(),
-            )?;
-        }
-
-        apt_unlock();
+        apt_install(cache)?;
 
         Ok(())
     }
@@ -156,14 +138,31 @@ impl AoscptAction {
 
         cache.resolve(true)?;
         packages_download(&list, &self.db, &self.sources, &self.client)?;
+        apt_install(cache)?;
 
+        Ok(())
+    }
+}
+
+fn apt_install(cache: Cache) -> Result<()> {
+    apt_lock()?;
+
+    cache.get_archives(&mut NoProgress::new_box())?;
+    apt_unlock_inner();
+
+    if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
+        warn!("{}, retrying ...", e);
+        let cache = new_cache!()?;
+        cache.resolve(true)?;
         cache.commit(
             &mut NoProgress::new_box(),
             &mut AptInstallProgress::new_box(),
         )?;
-
-        Ok(())
     }
+
+    apt_unlock();
+
+    Ok(())
 }
 
 struct Action {
