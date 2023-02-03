@@ -1,3 +1,5 @@
+use std::process::exit;
+
 use action::AoscptAction;
 use clap::{Parser, Subcommand};
 
@@ -52,5 +54,8 @@ fn main() {
         AoscptCommand::Update(_) => app.update(),
     } {
         eprintln!("{e}");
+        exit(1);
     }
+
+    exit(0);
 }
