@@ -59,14 +59,15 @@ impl AoscptAction {
 
         let action = apt_handler(&cache);
 
-        let mut list = action.update;
-        list.extend(action.install);
+        let mut list = action.update.clone();
+        list.extend(action.install.clone());
 
         let db_for_updates = newest_package_list(&self.db)?;
         packages_download(&list, &db_for_updates, &self.sources, &self.client)?;
 
         cache.resolve(true)?;
-        apt_install(cache)?;
+        apt_install(action, cache)?;
+
 
         Ok(())
     }
@@ -136,12 +137,12 @@ impl AoscptAction {
 
         let action = apt_handler(&cache);
         let mut list = vec![];
-        list.extend(action.install);
-        list.extend(action.update);
+        list.extend(action.install.clone());
+        list.extend(action.update.clone());
 
         cache.resolve(true)?;
         packages_download(&list, &self.db, &self.sources, &self.client)?;
-        apt_install(cache)?;
+        apt_install(action, cache)?;
 
         Ok(())
     }
@@ -170,7 +171,15 @@ impl AoscptAction {
     }
 }
 
-fn apt_install(cache: Cache) -> Result<()> {
+fn apt_install(action: Action, cache: Cache) -> Result<()> {
+    let autoremove = action.autoremove;
+
+    for i in autoremove {
+        let pkg = cache.get(&i).unwrap();
+        // TODO: set purge configuration to user config file
+        pkg.mark_delete(true);
+    }
+
     apt_lock()?;
 
     cache.get_archives(&mut NoProgress::new_box())?;

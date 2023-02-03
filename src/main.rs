@@ -13,7 +13,7 @@ fn main() {
 
     let app = AoscptAction::new().unwrap();
 
-    if let Err(e) = app.update() {
+    if let Err(e) = app.install(&["s-tui".to_owned()]) {
         eprintln!("{}", e);
     }
 }
