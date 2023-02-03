@@ -24,6 +24,7 @@ impl NoProgress {
     }
 }
 
+/// Do not output anything apt AcquireProgress
 impl AcquireProgress for NoProgress {
     fn pulse_interval(&self) -> usize {
         0

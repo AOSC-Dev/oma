@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 use crate::update::DOWNLOAD_DIR;
 
+/// Download a package
 pub fn download_package(
     url: &str,
     download_dir: Option<&str>,
@@ -64,6 +65,7 @@ pub fn download_package(
     Ok(filename.to_string())
 }
 
+/// Download file to buffer
 pub fn download(url: &str, client: &Client) -> Result<Vec<u8>> {
     let v = client
         .get(url)

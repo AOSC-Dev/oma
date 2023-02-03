@@ -223,6 +223,7 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
     Ok(res)
 }
 
+/// Download packages
 pub fn packages_download(
     list: &[String],
     apt: &[IndexMap<String, String>],
@@ -279,10 +280,6 @@ pub fn package_list(db_file_paths: Vec<PathBuf>) -> Result<Vec<IndexMap<String, 
 
     Ok(apt)
 }
-
-// pub fn get_db(sources: &[SourceEntry]) -> Result<Vec<>> {
-
-// }
 
 pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
@@ -424,6 +421,7 @@ pub struct UpdatePackage {
     pub apt_installed_size: u64,
 }
 
+/// Filter package newest version list
 pub fn newest_package_list(
     input: &[IndexMap<String, String>],
 ) -> Result<Vec<IndexMap<String, String>>> {
@@ -436,6 +434,7 @@ pub fn newest_package_list(
     Ok(apt)
 }
 
+/// Sort package list with version
 fn version_sort(map: &[IndexMap<String, String>]) -> Result<Vec<IndexMap<String, String>>> {
     let Some(last_name) = map.first().and_then(|x| x.get("Package")) else { bail!("package list is empty") };
     let mut last_name = last_name.to_owned();
