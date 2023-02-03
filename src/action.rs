@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use log::warn;
 use reqwest::blocking::Client;
 use rust_apt::{
-    cache::{Cache, Upgrade},
+    cache::{Cache, Upgrade, PackageSort},
     new_cache,
     raw::progress::AptInstallProgress,
     util::{apt_lock, apt_unlock, apt_unlock_inner},
@@ -62,12 +62,13 @@ impl AoscptAction {
         let mut list = action.update.clone();
         list.extend(action.install.clone());
 
+        autoremove(&cache);
+
         let db_for_updates = newest_package_list(&self.db)?;
         packages_download(&list, &db_for_updates, &self.sources, &self.client)?;
 
         cache.resolve(true)?;
-        apt_install(action, cache)?;
-
+        apt_install(cache)?;
 
         Ok(())
     }
@@ -140,9 +141,11 @@ impl AoscptAction {
         list.extend(action.install.clone());
         list.extend(action.update.clone());
 
+        autoremove(&cache);
+
         cache.resolve(true)?;
         packages_download(&list, &self.db, &self.sources, &self.client)?;
-        apt_install(action, cache)?;
+        apt_install(cache)?;
 
         Ok(())
     }
@@ -155,12 +158,7 @@ impl AoscptAction {
             pkg.mark_delete(is_purge);
         }
 
-        let action = apt_handler(&cache);
-
-        for i in action.autoremove {
-            let pkg = cache.get(&i).unwrap();
-            pkg.mark_delete(is_purge);
-        }
+        autoremove(&cache);
 
         cache.commit(
             &mut NoProgress::new_box(),
@@ -171,15 +169,21 @@ impl AoscptAction {
     }
 }
 
-fn apt_install(action: Action, cache: Cache) -> Result<()> {
-    let autoremove = action.autoremove;
+fn autoremove(cache: &Cache) {
+    let sort = PackageSort::default();
+    let mut autoremove = vec![];
 
-    for i in autoremove {
-        let pkg = cache.get(&i).unwrap();
-        // TODO: set purge configuration to user config file
-        pkg.mark_delete(true);
+    for pkg in cache.packages(&sort) {
+        if pkg.is_auto_removable() {
+            autoremove.push(pkg.name().to_string());
+            pkg.mark_delete(true);
+        }
     }
 
+    dbg!(autoremove);
+}
+
+fn apt_install(cache: Cache) -> Result<()> {
     apt_lock()?;
 
     cache.get_archives(&mut NoProgress::new_box())?;
@@ -200,13 +204,13 @@ fn apt_install(action: Action, cache: Cache) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug)]
 struct Action {
     update: Vec<String>,
     install: Vec<String>,
     del: Vec<String>,
     reinstall: Vec<String>,
     downgrade: Vec<String>,
-    autoremove: Vec<String>,
 }
 
 impl Action {
@@ -216,7 +220,6 @@ impl Action {
         del: Vec<String>,
         reinstall: Vec<String>,
         downgrade: Vec<String>,
-        autoremove: Vec<String>,
     ) -> Self {
         Self {
             update,
@@ -224,7 +227,6 @@ impl Action {
             del,
             reinstall,
             downgrade,
-            autoremove,
         }
     }
 }
@@ -237,7 +239,6 @@ fn apt_handler(cache: &Cache) -> Action {
     let mut del: Vec<String> = vec![];
     let mut reinstall: Vec<String> = vec![];
     let mut downgrade: Vec<String> = vec![];
-    let mut autoremove: Vec<String> = vec![];
 
     for pkg in changes {
         if pkg.marked_install() {
@@ -259,10 +260,11 @@ fn apt_handler(cache: &Cache) -> Action {
         if pkg.marked_downgrade() {
             downgrade.push(pkg.name().to_string());
         }
-        if pkg.is_auto_removable() {
-            autoremove.push(pkg.name().to_string());
-        }
     }
 
-    Action::new(update, install, del, reinstall, downgrade, autoremove)
+    let action = Action::new(update, install, del, reinstall, downgrade);
+
+    dbg!(&action);
+
+    action
 }
