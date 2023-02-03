@@ -8,7 +8,7 @@ use reqwest::blocking::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
-    raw::progress::AptInstallProgress,
+    raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
 
@@ -54,21 +54,34 @@ impl AoscptAction {
     pub fn update(&self) -> Result<()> {
         update_db(&self.sources, &self.client)?;
 
-        let cache = new_cache!()?;
-        cache.upgrade(&Upgrade::FullUpgrade)?;
+        fn update_inner(sources: &[SourceEntry], client: &Client, db: &[IndexMap<String, String>]) -> Result<()> {
+            let cache = new_cache!()?;
+            cache.upgrade(&Upgrade::FullUpgrade)?;
+    
+            let action = apt_handler(&cache);
+    
+            let mut list = action.update.clone();
+            list.extend(action.install);
+    
+            autoremove(&cache);
+    
+            let db_for_updates = newest_package_list(&db)?;
+            packages_download(&list, &db_for_updates, sources, client)?;
+    
+            cache.resolve(true)?;
+            apt_install(cache)?;
 
-        let action = apt_handler(&cache);
+            Ok(())
+        }
 
-        let mut list = action.update.clone();
-        list.extend(action.install);
-
-        autoremove(&cache);
-
-        let db_for_updates = newest_package_list(&self.db)?;
-        packages_download(&list, &db_for_updates, &self.sources, &self.client)?;
-
-        cache.resolve(true)?;
-        apt_install(cache)?;
+        // Retry 3 times
+        let mut count = 0;
+        while let Err(e) = update_inner(&self.sources, &self.client, &self.db) {
+            if count == 3 {
+                return Err(e)
+            }
+            count += 1;
+        }
 
         Ok(())
     }
@@ -76,8 +89,20 @@ impl AoscptAction {
     pub fn install(&self, list: &[String]) -> Result<()> {
         update_db(&self.sources, &self.client)?;
 
-        let cache = new_cache!()?;
+        let mut count = 0;
+        while let Err(e) = self.install_inner(list) {
+            if count == 3 {
+                return Err(e);
+            }
 
+            count += 1;
+        }
+
+        Ok(())
+    }
+
+    fn install_inner(&self, list: &[String]) -> Result<()> {
+        let cache = new_cache!()?;
         for i in list {
             let pkg = cache
                 .get(i)
@@ -135,14 +160,11 @@ impl AoscptAction {
             pkg.mark_install(true, true);
             pkg.protect();
         }
-
         let action = apt_handler(&cache);
         let mut list = vec![];
         list.extend(action.install.clone());
         list.extend(action.update);
-
         autoremove(&cache);
-
         cache.resolve(true)?;
         packages_download(&list, &self.db, &self.sources, &self.client)?;
         apt_install(cache)?;
@@ -185,18 +207,14 @@ fn autoremove(cache: &Cache) {
 
 fn apt_install(cache: Cache) -> Result<()> {
     apt_lock()?;
-
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
 
     if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
-        warn!("{}, retrying ...", e);
-        let cache = new_cache!()?;
-        cache.resolve(true)?;
-        cache.commit(
-            &mut NoProgress::new_box(),
-            &mut AptInstallProgress::new_box(),
-        )?;
+        apt_lock_inner()?;
+        apt_unlock();
+
+        return Err(e.into());
     }
 
     apt_unlock();
