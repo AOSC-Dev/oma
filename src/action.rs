@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{bail, Result, Context};
+use anyhow::{bail, Context, Result};
 use apt_sources_lists::SourceEntry;
 use debcontrol::Paragraph;
 use indexmap::IndexMap;
@@ -9,7 +9,9 @@ use reqwest::blocking::Client;
 use rust_apt::{
     cache::{Cache, Upgrade},
     new_cache,
-    util::{apt_unlock, apt_unlock_inner}, raw::progress::AptInstallProgress,
+    raw::progress::AptInstallProgress,
+    records::RecordField,
+    util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
 
 use crate::{
@@ -67,11 +69,14 @@ impl AoscptAction {
 
         cache.resolve(true)?;
 
+        apt_lock()?;
+
         // 没有办法区分 apt 的下载和安装，所以只能先确保其包已经全部下载完成
-        if let Err(e) = cache.commit(
-            &mut NoProgress::new_box(),
-            &mut AptInstallProgress::new_box(),
-        ) {
+        cache.get_archives(&mut NoProgress::new_box())?;
+
+        apt_unlock_inner();
+
+        if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
             warn!("{}, retrying ...", e);
             let cache = new_cache!()?;
             cache.resolve(true)?;
@@ -80,6 +85,8 @@ impl AoscptAction {
                 &mut AptInstallProgress::new_box(),
             )?;
         }
+
+        apt_unlock();
 
         Ok(())
     }
@@ -90,32 +97,61 @@ impl AoscptAction {
         let cache = new_cache!()?;
 
         for i in list {
-            let pkg = cache.get(i).take().context(format!("Can not get package: {}", i))?;
+            let pkg = cache
+                .get(i)
+                .take()
+                .context(format!("Can not get package: {}", i))?;
             if i.contains("=") {
                 // Support apt install fish=3.6.0
 
                 let mut split_arg = i.split("=");
-                let name = split_arg.nth(0).unwrap();
-                let version = split_arg.nth(1).unwrap();
+                let name = split_arg.nth(0).context(format!("Not Support: {}", i))?;
+                let version = split_arg.nth(1).context(format!("Not Support: {}", i))?;
 
                 if PkgVersion::try_from(version).is_err() {
                     bail!("invalid version: {}", version);
                 }
 
-                let version = pkg.get_version(version).context(format!("Can not get package {} version: {}", name, version))?;
+                let version = pkg
+                    .get_version(version)
+                    .context(format!("Can not get package {} version: {}", name, version))?;
+
                 let pkg = version.parent();
                 pkg.mark_install(true, true);
+                pkg.protect();
             } else if i.contains("/") {
-                // TODO: Support apt install fish/stable
-
+                // Support apt install fish/stable
                 let mut split_arg = i.split("/");
-                let name = split_arg.nth(0).unwrap();
-                let branch = split_arg.nth(1).unwrap();
+                let name = split_arg.nth(0).context(format!("Not Support: {}", i))?;
+                let branch = split_arg.nth(1).context(format!("Not Support: {}", i))?;
 
-                todo!()
-            } else {
+                let mut res = self
+                    .db
+                    .iter()
+                    .filter(|x| x.get("Package") == Some(&name.to_string()))
+                    .filter(|x| x["Filename"].split("/").nth(1) == Some(branch))
+                    .collect::<Vec<_>>();
+
+                if res.is_empty() {
+                    bail!("Can not get package {} with {} branch.", name, branch);
+                }
+
+                res.sort_by(|x, y| {
+                    PkgVersion::try_from(x["Version"].as_str())
+                        .unwrap()
+                        .cmp(&PkgVersion::try_from(y["Version"].as_str()).unwrap())
+                });
+
+                let res = res.last().unwrap()["Version"].to_string();
+                let version = pkg.get_version(&res).unwrap();
+
+                let pkg = version.parent();
                 pkg.mark_install(true, true);
+                pkg.protect();
             }
+
+            pkg.mark_install(true, true);
+            pkg.protect();
         }
 
         cache.resolve(true)?;

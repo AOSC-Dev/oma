@@ -14,7 +14,7 @@ fn main() {
 
     let app = AoscptAction::new().unwrap();
 
-    if let Err(e) = app.install(&["s-tui".to_string()]) {
+    if let Err(e) = app.update() {
         eprintln!("{}", e);
     }
 }
