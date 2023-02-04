@@ -45,7 +45,7 @@ impl FileName {
 fn download_db(url: &str, client: &Client, filename: &str) -> Result<(FileName, FileBuf)> {
     info!("Downloading {}", url);
 
-    let v = download(url, client, filename)?;
+    let v = download(url, client, filename, Path::new(APT_LIST_DISTS))?;
 
     Ok((FileName::new(url)?, FileBuf(v)))
 }

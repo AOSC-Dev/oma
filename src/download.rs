@@ -11,7 +11,7 @@ use progress_streams::ProgressReader;
 use reqwest::blocking::Client;
 use sha2::{Digest, Sha256};
 
-use crate::{update::DOWNLOAD_DIR, WRITER, msg};
+use crate::{msg, update::DOWNLOAD_DIR, WRITER};
 
 /// Download a package
 pub fn download_package(
@@ -23,7 +23,6 @@ pub fn download_package(
 ) -> Result<String> {
     fn download_inner(
         download_dir: Option<&str>,
-        p: &Path,
         filename: &str,
         url: &str,
         client: &Client,
@@ -33,14 +32,24 @@ pub fn download_package(
             filename,
             download_dir.unwrap_or(DOWNLOAD_DIR)
         );
-        let v = download(url, client, filename)?;
 
         if download_dir.is_none() {
             std::fs::create_dir_all(DOWNLOAD_DIR)?;
-            std::fs::write(p, v)?;
-        } else {
-            std::fs::write(Path::new(download_dir.unwrap()).join(filename), v)?;
         }
+
+        download(
+            url,
+            client,
+            filename,
+            Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)),
+        )?;
+
+        // if download_dir.is_none() {
+        //     std::fs::create_dir_all(DOWNLOAD_DIR)?;
+        //     std::fs::write(p, v)?;
+        // } else {
+        //     std::fs::write(Path::new(download_dir.unwrap()).join(filename), v)?;
+        // }
 
         Ok(())
     }
@@ -78,19 +87,19 @@ pub fn download_package(
         f.read_to_end(&mut buf)?;
 
         if checksum(&buf, hash).is_err() {
-            download_inner(download_dir, &p, &filename, url, client)?;
+            download_inner(download_dir, &filename, url, client)?;
         } else {
             return Ok(filename.to_string());
         }
     } else {
-        download_inner(download_dir, &p, &filename, url, client)?;
+        download_inner(download_dir, &filename, url, client)?;
     }
 
     Ok(filename.to_string())
 }
 
 /// Download file to buffer
-pub fn download(url: &str, client: &Client, filename: &str) -> Result<Vec<u8>> {
+pub fn download(url: &str, client: &Client, filename: &str, dir: &Path) -> Result<Vec<u8>> {
     msg!("Getting {} ...", filename);
     let bar_template = {
         let max_len = WRITER.get_max_len();
@@ -105,7 +114,24 @@ pub fn download(url: &str, client: &Client, filename: &str) -> Result<Vec<u8>> {
         .template(bar_template)?
         .progress_chars("=>-");
 
-    let mut v = client.get(url).send()?.error_for_status()?;
+    let p = dir.join(filename);
+
+    let mut v = if p.is_file() {
+        let mut f = std::fs::File::open(&p)?;
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf)?;
+        let len = buf.len();
+
+        client
+            .get(url)
+            .header("Range", format!("bytes={}-", len))
+            .send()?
+            .error_for_status()?
+    } else {
+        client.get(url).send()?.error_for_status()?
+    };
+
+    // let mut v = client.get(url).send()?.error_for_status()?;
 
     let length = v.content_length().unwrap_or(0);
     let pb = ProgressBar::new(length);
@@ -115,9 +141,12 @@ pub fn download(url: &str, client: &Client, filename: &str) -> Result<Vec<u8>> {
     let mut reader = ProgressReader::new(&mut v, |progress: usize| {
         pb.inc(progress as u64);
     });
-
+    
+    let mut f = std::fs::File::create(p)?;
+    std::io::copy(&mut reader, &mut f)?;
     let mut buf = Vec::new();
-    reader.read_to_end(&mut buf)?;
+    f.read_to_end(&mut buf)?;
+
     pb.finish_and_clear();
 
     Ok(buf)
