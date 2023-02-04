@@ -91,7 +91,7 @@ pub fn download_package(
 
 /// Download file to buffer
 pub fn download(url: &str, client: &Client, filename: &str) -> Result<Vec<u8>> {
-    msg!("{}", filename);
+    msg!("Getting {} ...", filename);
     let bar_template = {
         let max_len = WRITER.get_max_len();
         if max_len < 90 {
@@ -105,7 +105,6 @@ pub fn download(url: &str, client: &Client, filename: &str) -> Result<Vec<u8>> {
         .template(bar_template)?
         .progress_chars("=>-");
 
-    // let pb = ProgressBar::new();
     let mut v = client.get(url).send()?.error_for_status()?;
 
     let length = v.content_length().unwrap_or(0);

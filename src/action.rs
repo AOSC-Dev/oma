@@ -37,7 +37,10 @@ impl AoscptAction {
             .build()?;
 
         let sources = get_sources()?;
-        let db_paths = get_sources_dists_filename(&sources)?;
+
+        std::fs::create_dir_all(APT_LIST_DISTS)?;
+
+        let db_paths = get_sources_dists_filename(&sources, &client)?;
 
         let db = package_list(
             db_paths

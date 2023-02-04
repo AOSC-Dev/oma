@@ -8,7 +8,6 @@ use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
 use flate2::bufread::GzDecoder;
 use indexmap::IndexMap;
-use indicatif::ProgressBar;
 use log::info;
 use reqwest::blocking::Client;
 use sha2::{Digest, Sha256};
@@ -19,7 +18,7 @@ use crate::{
     download::{download, download_package},
     pkgversion::PkgVersion,
     utils::get_arch_name,
-    verify, WRITER,
+    verify,
 };
 
 pub const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
@@ -172,7 +171,7 @@ fn debcontrol_from_str(s: &str) -> Result<Vec<IndexMap<String, String>>> {
     Ok(res)
 }
 
-pub fn get_sources_dists_filename(sources: &[SourceEntry]) -> Result<Vec<String>> {
+pub fn get_sources_dists_filename(sources: &[SourceEntry], client: &Client) -> Result<Vec<String>> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
     let dists_in_releases = dist_urls.iter().map(|x| {
         (
@@ -189,7 +188,17 @@ pub fn get_sources_dists_filename(sources: &[SourceEntry]) -> Result<Vec<String>
         .collect::<Vec<_>>();
 
     for (i, c) in dists_in_releases.enumerate() {
-        let in_release = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(c.1?.0))?;
+        let filename = c.1?.0;
+        let in_release = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(&filename));
+
+        let in_release = if in_release.is_err() {
+            update_db(sources, client)?;
+            let in_release = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(filename))?;
+
+            in_release
+        } else {
+            in_release?
+        };
 
         let checksums = in_release
             .checksums
@@ -286,21 +295,14 @@ pub fn package_list(db_file_paths: Vec<PathBuf>) -> Result<Vec<IndexMap<String, 
 
 pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
-    let dists_in_releases = dist_urls.iter().map(|x| {
-        (
-            format!("{}/{}", x, "InRelease"),
-            FileName::new(&format!("{}/{}", x, "InRelease")),
-        )
-    });
+    let dist_files = update_in_release(&dist_urls, client);
 
     let components = sources
         .iter()
         .map(|x| x.components.to_owned())
         .collect::<Vec<_>>();
 
-    let dist_files = dists_in_releases.flat_map(|x| download_db(&x.0, client, &x.1.unwrap().0));
-
-    for (index, (name, file)) in dist_files.enumerate() {
+    for (index, (name, file)) in dist_files.into_iter().enumerate() {
         let p = Path::new(APT_LIST_DISTS).join(name.0);
 
         if !p.exists() || !p.is_file() {
@@ -359,6 +361,21 @@ pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn update_in_release(dist_urls: &Vec<String>, client: &Client) -> Vec<(FileName, FileBuf)> {
+    let dists_in_releases = dist_urls.iter().map(|x| {
+        (
+            format!("{}/{}", x, "InRelease"),
+            FileName::new(&format!("{}/{}", x, "InRelease")),
+        )
+    });
+
+    let dist_files = dists_in_releases
+        .flat_map(|x| download_db(&x.0, client, &x.1.unwrap().0))
+        .collect::<Vec<_>>();
+
+    dist_files
 }
 
 /// Download and extract package list database
