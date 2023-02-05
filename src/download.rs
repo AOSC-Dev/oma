@@ -6,9 +6,9 @@ use std::{
 use tokio::task::spawn_blocking;
 
 use anyhow::{anyhow, Context, Result};
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use log::info;
-use reqwest::{header, Client};
+use reqwest::Client;
 use sha2::{Digest, Sha256};
 use tokio::{
     fs,
@@ -82,6 +82,8 @@ pub async fn download_package(
     let version = version.replace(":", "%3a");
     let filename = format!("{package}_{version}_{arch_deb}");
 
+    let mut all_is_err = true;
+
     let p = Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)).join(&filename);
     if p.exists() {
         let mut f = std::fs::File::open(&p)?;
@@ -100,6 +102,7 @@ pub async fn download_package(
                 .await
                 .is_ok()
                 {
+                    all_is_err = false;
                     break;
                 }
             }
@@ -118,9 +121,17 @@ pub async fn download_package(
             .await
             .is_ok()
             {
+                all_is_err = false;
                 break;
             }
         }
+    }
+
+    if all_is_err {
+        return Err(anyhow!(
+            "Can not download package: {}, Maybe your network connect is broken!",
+            filename
+        ));
     }
 
     Ok(filename.to_string())
@@ -182,7 +193,7 @@ pub async fn download(
             let result = spawn_blocking(move || checksum(&buf_clone, &hash)).await?;
 
             if result.is_ok() {
-                return Ok(buf)
+                return Ok(buf);
             } else {
                 tokio::fs::remove_file(&file).await?;
             }

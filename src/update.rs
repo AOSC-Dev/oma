@@ -8,6 +8,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
 use flate2::bufread::GzDecoder;
 use indexmap::IndexMap;
+use indicatif::MultiProgress;
 use log::info;
 use reqwest::Client;
 use sha2::{Digest, Sha256};
@@ -260,6 +261,7 @@ pub async fn packages_download(
     client: &Client,
 ) -> Result<()> {
     let mut task = vec![];
+    let mut mb = MultiProgress::new();
     for i in list {
         let v = apt.iter().find(|x| x.get("Package") == Some(i));
 
