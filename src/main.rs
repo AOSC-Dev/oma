@@ -5,14 +5,13 @@ use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 
 mod action;
+mod cli;
 mod download;
 mod formatter;
 mod pkgversion;
 mod update;
 mod utils;
 mod verify;
-mod cli;
-
 
 lazy_static! {
     static ref WRITER: cli::Writer = cli::Writer::new();
@@ -33,6 +32,8 @@ enum AoscptCommand {
     Update(Update),
     /// Delete Package
     Remove(Delete),
+    /// Refresh Package database
+    Refresh(Refresh),
 }
 
 #[derive(Parser, Debug)]
@@ -42,6 +43,9 @@ struct Install {
 
 #[derive(Parser, Debug)]
 struct Update {}
+
+#[derive(Parser, Debug)]
+struct Refresh {}
 
 #[derive(Parser, Debug)]
 struct Delete {
@@ -59,6 +63,7 @@ fn main() {
         AoscptCommand::Install(v) => app.install(&v.packages),
         AoscptCommand::Remove(v) => app.remove(&v.packages, true),
         AoscptCommand::Update(_) => app.update(),
+        AoscptCommand::Refresh(_) => app.refresh(),
     } {
         eprintln!("{e}");
         exit(1);

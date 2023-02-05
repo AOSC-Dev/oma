@@ -293,6 +293,8 @@ pub fn package_list(db_file_paths: Vec<PathBuf>) -> Result<Vec<IndexMap<String, 
     Ok(apt)
 }
 
+
+// Update database
 pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
     let dist_files = update_in_release(&dist_urls, client);

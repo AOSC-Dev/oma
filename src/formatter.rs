@@ -1,4 +1,9 @@
-use rust_apt::raw::progress::AcquireProgress;
+use rust_apt::{
+    raw::progress::AcquireProgress,
+    util::{time_str, unit_str, NumSys},
+};
+
+use crate::{msg, warn};
 
 // TODO: Make better structs for pkgAcquire items, workers, owners.
 /// AptAcquireProgress is the default struct for the update method on the cache.
@@ -52,10 +57,21 @@ impl AcquireProgress for NoProgress {
 
     fn stop(
         &mut self,
-        _fetched_bytes: u64,
-        _elapsed_time: u64,
-        _current_cps: u64,
+        fetched_bytes: u64,
+        elapsed_time: u64,
+        current_cps: u64,
         _pending_errors: bool,
     ) {
+        if fetched_bytes != 0 {
+            warn!("Download is not done, running apt download ...");
+            println!(
+                "Fetched {} in {} ({}/s)",
+                unit_str(fetched_bytes, NumSys::Decimal),
+                time_str(elapsed_time),
+                unit_str(current_cps, NumSys::Decimal)
+            );
+        } else {
+            msg!("Checking ...");
+        }
     }
 }
