@@ -1,31 +1,37 @@
 use std::{
     io::{Read, Write},
     path::Path,
-    time::Duration,
 };
+
+use tokio::task::spawn_blocking;
 
 use anyhow::{anyhow, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use log::info;
-use progress_streams::ProgressReader;
-use reqwest::blocking::Client;
+use reqwest::{header, Client};
 use sha2::{Digest, Sha256};
+use tokio::{
+    fs,
+    io::{AsyncReadExt, AsyncWriteExt},
+};
 
 use crate::{msg, update::DOWNLOAD_DIR, WRITER};
 
 /// Download a package
-pub fn download_package(
-    url: &str,
+pub async fn download_package(
+    path: String,
+    mirrors: Vec<String>,
     download_dir: Option<&str>,
     client: &Client,
-    hash: &str,
-    version: &str,
+    hash: String,
+    version: String,
 ) -> Result<String> {
-    fn download_inner(
+    async fn download_inner(
         download_dir: Option<&str>,
         filename: &str,
         url: &str,
         client: &Client,
+        hash: &str,
     ) -> Result<()> {
         info!(
             "Downloading {} to dir {}",
@@ -34,7 +40,7 @@ pub fn download_package(
         );
 
         if download_dir.is_none() {
-            std::fs::create_dir_all(DOWNLOAD_DIR)?;
+            tokio::fs::create_dir_all(DOWNLOAD_DIR).await?;
         }
 
         download(
@@ -42,23 +48,19 @@ pub fn download_package(
             client,
             filename,
             Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)),
-        )?;
-
-        // if download_dir.is_none() {
-        //     std::fs::create_dir_all(DOWNLOAD_DIR)?;
-        //     std::fs::write(p, v)?;
-        // } else {
-        //     std::fs::write(Path::new(download_dir.unwrap()).join(filename), v)?;
-        // }
+            None,
+            Some(hash),
+        )
+        .await?;
 
         Ok(())
     }
 
-    let filename = url
+    let filename = path
         .split('/')
         .last()
         .take()
-        .context(format!("Can not parse url {url}"))?;
+        .context(format!("Can not parse url {path}"))?;
 
     // sb apt 会把下载的文件重命名成 url 网址的样子，为保持兼容这里也这么做
     let mut filename_split = filename.split("_");
@@ -86,21 +88,54 @@ pub fn download_package(
         let mut buf = Vec::new();
         f.read_to_end(&mut buf)?;
 
-        if checksum(&buf, hash).is_err() {
-            download_inner(download_dir, &filename, url, client)?;
+        if checksum(&buf, &hash).is_err() {
+            for i in mirrors {
+                if download_inner(
+                    download_dir,
+                    &filename,
+                    &format!("{i}/{path}"),
+                    client,
+                    &hash,
+                )
+                .await
+                .is_ok()
+                {
+                    break;
+                }
+            }
         } else {
             return Ok(filename.to_string());
         }
     } else {
-        download_inner(download_dir, &filename, url, client)?;
+        for i in mirrors {
+            if download_inner(
+                download_dir,
+                &filename,
+                &format!("{i}/{path}"),
+                client,
+                &hash,
+            )
+            .await
+            .is_ok()
+            {
+                break;
+            }
+        }
     }
 
     Ok(filename.to_string())
 }
 
 /// Download file to buffer
-pub fn download(url: &str, client: &Client, filename: &str, dir: &Path) -> Result<Vec<u8>> {
-    msg!("Getting {} ...", filename);
+pub async fn download(
+    url: &str,
+    client: &Client,
+    filename: &str,
+    dir: &Path,
+    msg: Option<&str>,
+    hash: Option<&str>,
+) -> Result<Vec<u8>> {
+    msg!("{}", msg.unwrap_or(filename));
     let bar_template = {
         let max_len = WRITER.get_max_len();
         if max_len < 90 {
@@ -114,45 +149,85 @@ pub fn download(url: &str, client: &Client, filename: &str, dir: &Path) -> Resul
         .template(bar_template)?
         .progress_chars("=>-");
 
-    let p = dir.join(filename);
-
-    let mut v = if p.is_file() {
-        let mut f = std::fs::File::open(&p)?;
-        let mut buf = Vec::new();
-        f.read_to_end(&mut buf)?;
-        let len = buf.len();
-
-        client
-            .get(url)
-            .header("Range", format!("bytes={}-", len))
-            .send()?
-            .error_for_status()?
-    } else {
-        client.get(url).send()?.error_for_status()?
+    // let p = dir.join(filename);
+    let total_size = {
+        let resp = client.head(url).send().await?;
+        if resp.status().is_success() {
+            resp.content_length().unwrap_or(0)
+        } else {
+            return Err(anyhow!(
+                "Couldn't download URL: {}. Error: {:?}",
+                url,
+                resp.status(),
+            ));
+        }
     };
 
-    // let mut v = client.get(url).send()?.error_for_status()?;
-
-    let length = v.content_length().unwrap_or(0);
-    let pb = ProgressBar::new(length);
+    let request = client.get(url);
+    let pb = ProgressBar::new(total_size);
     pb.set_style(barsty);
-    pb.enable_steady_tick(Duration::from_millis(50));
 
-    let mut reader = ProgressReader::new(&mut v, |progress: usize| {
-        pb.inc(progress as u64);
-    });
-    
-    let mut f = std::fs::File::create(p)?;
-    std::io::copy(&mut reader, &mut f)?;
-    let mut buf = Vec::new();
-    f.read_to_end(&mut buf)?;
+    let file = dir.join(filename);
 
-    pb.finish_and_clear();
+    if file.exists() {
+        if let Some(hash) = hash {
+            let mut f = std::fs::File::open(&file)?;
+            let mut buf = Vec::new();
+            let buf_clone = buf.clone();
+            f.read_to_end(&mut buf)?;
+            let hash = hash.to_owned();
+
+            let result = spawn_blocking(move || checksum(&buf_clone, &hash)).await?;
+
+            if result.is_ok() {
+                return Ok(buf)
+            } else {
+                tokio::fs::remove_file(&file).await?;
+            }
+        }
+    }
+
+    let mut source = request.send().await?;
+
+    let mut dest = fs::File::create(&file).await?;
+    while let Some(chunk) = source.chunk().await? {
+        dest.write_all(&chunk).await?;
+        pb.inc(chunk.len() as u64);
+    }
+
+    dest.flush().await?;
+    drop(dest);
+
+    let buf = if let Some(hash) = hash {
+        let mut dest = tokio::fs::File::open(&file).await?;
+        let mut buf = Vec::new();
+        dest.read_to_end(&mut buf).await?;
+        let buf_clone = buf.clone();
+        let hash_clone = hash.to_string();
+
+        let result = spawn_blocking(move || checksum(&buf_clone.clone(), &hash_clone)).await?;
+
+        if result.is_err() {
+            return Err(anyhow!(
+                "Couldn't download URL: {}. Error: {:?}",
+                url,
+                result.err()
+            ));
+        }
+
+        buf
+    } else {
+        let mut dest = tokio::fs::File::open(&file).await?;
+        let mut buf = Vec::new();
+        dest.read_to_end(&mut buf).await?;
+
+        buf
+    };
 
     Ok(buf)
 }
 
-pub fn checksum(buf: &[u8], hash: &str) -> Result<()> {
+pub fn checksum(buf: &[u8], hash: &str) -> Result<bool> {
     let mut hasher = Sha256::new();
     hasher.write_all(buf)?;
     let buf_hash = hasher.finalize();
@@ -166,5 +241,5 @@ pub fn checksum(buf: &[u8], hash: &str) -> Result<()> {
         ));
     }
 
-    Ok(())
+    Ok(true)
 }

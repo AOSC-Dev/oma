@@ -26,3 +26,5 @@ clap = { version = "4.1", features=["derive"] }
 indicatif = "0.17"
 console = "0.15"
 progress-streams = "1.1"
+tokio = { version = "1.15", default_features = false, features = ["rt", "macros", "fs", "io-util"] }
+futures = "0.3"

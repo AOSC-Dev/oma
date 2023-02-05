@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use apt_sources_lists::SourceEntry;
 use indexmap::IndexMap;
 use log::warn;
-use reqwest::blocking::Client;
+use reqwest::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
@@ -28,23 +28,24 @@ pub struct AoscptAction {
 }
 
 impl AoscptAction {
-    pub fn new() -> Result<Self> {
-        let client = reqwest::blocking::ClientBuilder::new()
-            .user_agent("aoscpt")
-            .build()?;
+    pub async fn new() -> Result<Self> {
+        let client = reqwest::ClientBuilder::new().user_agent("aoscpt").build()?;
 
         let sources = get_sources()?;
 
         std::fs::create_dir_all(APT_LIST_DISTS)?;
 
-        let db_paths = get_sources_dists_filename(&sources, &client)?;
+        let db_paths = get_sources_dists_filename(&sources, &client).await?;
 
         let db = package_list(
             db_paths
                 .iter()
                 .map(|x| Path::new(APT_LIST_DISTS).join(x))
                 .collect(),
-        )?;
+            &sources,
+            &client,
+        )
+        .await?;
 
         Ok(Self {
             sources,
@@ -54,10 +55,10 @@ impl AoscptAction {
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
-    pub fn update(&self) -> Result<()> {
-        update_db(&self.sources, &self.client)?;
+    pub async fn update(&self) -> Result<()> {
+        update_db(&self.sources, &self.client).await?;
 
-        fn update_inner(
+        async fn update_inner(
             sources: &[SourceEntry],
             client: &Client,
             db: &[IndexMap<String, String>],
@@ -73,7 +74,7 @@ impl AoscptAction {
             autoremove(&cache);
 
             let db_for_updates = newest_package_list(db)?;
-            packages_download(&list, &db_for_updates, sources, client)?;
+            packages_download(&list, &db_for_updates, sources, client).await?;
 
             cache.resolve(true)?;
             apt_install(cache)?;
@@ -83,7 +84,7 @@ impl AoscptAction {
 
         // Retry 3 times
         let mut count = 0;
-        while let Err(e) = update_inner(&self.sources, &self.client, &self.db) {
+        while let Err(e) = update_inner(&self.sources, &self.client, &self.db).await {
             warn!("{e}, retrying ...");
             if count == 3 {
                 return Err(e);
@@ -94,11 +95,11 @@ impl AoscptAction {
         Ok(())
     }
 
-    pub fn install(&self, list: &[String]) -> Result<()> {
-        update_db(&self.sources, &self.client)?;
+    pub async fn install(&self, list: &[String]) -> Result<()> {
+        update_db(&self.sources, &self.client).await?;
 
         let mut count = 0;
-        while let Err(e) = self.install_inner(list) {
+        while let Err(e) = self.install_inner(list).await {
             warn!("{e}, retrying ...");
             if count == 3 {
                 return Err(e);
@@ -110,7 +111,7 @@ impl AoscptAction {
         Ok(())
     }
 
-    fn install_inner(&self, list: &[String]) -> Result<()> {
+    async fn install_inner(&self, list: &[String]) -> Result<()> {
         let cache = new_cache!()?;
         for i in list {
             let pkg = cache
@@ -175,7 +176,7 @@ impl AoscptAction {
         list.extend(action.update);
         autoremove(&cache);
         cache.resolve(true)?;
-        packages_download(&list, &self.db, &self.sources, &self.client)?;
+        packages_download(&list, &self.db, &self.sources, &self.client).await?;
         apt_install(cache)?;
 
         Ok(())
@@ -199,8 +200,8 @@ impl AoscptAction {
         Ok(())
     }
 
-    pub fn refresh(&self) -> Result<()> {
-        update_db(&self.sources, &self.client)
+    pub async fn refresh(&self) -> Result<()> {
+        update_db(&self.sources, &self.client).await
     }
 }
 
@@ -226,7 +227,6 @@ fn apt_install(cache: Cache) -> Result<()> {
     if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
         apt_lock_inner()?;
         apt_unlock();
-
         return Err(e.into());
     }
 

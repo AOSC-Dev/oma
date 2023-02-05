@@ -9,8 +9,9 @@ use apt_sources_lists::*;
 use flate2::bufread::GzDecoder;
 use indexmap::IndexMap;
 use log::info;
-use reqwest::blocking::Client;
+use reqwest::Client;
 use sha2::{Digest, Sha256};
+use tokio::io::AsyncReadExt;
 use std::io::Write;
 use xz2::read::XzDecoder;
 
@@ -42,12 +43,26 @@ impl FileName {
     }
 }
 
-fn download_db(url: &str, client: &Client, filename: &str) -> Result<(FileName, FileBuf)> {
+async fn download_db(
+    url: String,
+    client: &Client,
+    typ: String,
+) -> Result<(FileName, FileBuf)> {
     info!("Downloading {}", url);
 
-    let v = download(url, client, filename, Path::new(APT_LIST_DISTS))?;
+    let filename = FileName::new(&url)?.0;
 
-    Ok((FileName::new(url)?, FileBuf(v)))
+    let v = download(
+        &url,
+        client,
+        &filename,
+        Path::new(APT_LIST_DISTS),
+        Some(&format!("Getting {typ}: {url} database")),
+        None,
+    )
+    .await?;
+
+    Ok((FileName::new(&url)?, FileBuf(v)))
 }
 
 #[derive(Debug)]
@@ -171,7 +186,10 @@ fn debcontrol_from_str(s: &str) -> Result<Vec<IndexMap<String, String>>> {
     Ok(res)
 }
 
-pub fn get_sources_dists_filename(sources: &[SourceEntry], client: &Client) -> Result<Vec<String>> {
+pub async fn get_sources_dists_filename(
+    sources: &[SourceEntry],
+    client: &Client,
+) -> Result<Vec<String>> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
     let dists_in_releases = dist_urls.iter().map(|x| {
         (
@@ -192,7 +210,7 @@ pub fn get_sources_dists_filename(sources: &[SourceEntry], client: &Client) -> R
         let in_release = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(&filename));
 
         let in_release = if in_release.is_err() {
-            update_db(sources, client)?;
+            update_db(sources, client).await?;
             let in_release = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(filename))?;
 
             in_release
@@ -235,12 +253,13 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
 }
 
 /// Download packages
-pub fn packages_download(
+pub async fn packages_download(
     list: &[String],
     apt: &[IndexMap<String, String>],
     sources: &[SourceEntry],
     client: &Client,
 ) -> Result<()> {
+    let mut task = vec![];
     for i in list {
         let v = apt.iter().find(|x| x.get("Package") == Some(i));
 
@@ -260,30 +279,29 @@ pub fn packages_download(
             .take()
             .context(format!("Can not parse package {i} Filename field!"))?;
 
-        let mirror = sources
+        let mirrors = sources
             .iter()
             .filter(|x| x.components.contains(&component.to_string()))
             .filter(|x| x.suite == branch)
-            .map(|x| x.url());
+            .map(|x| x.url.to_owned())
+            .collect::<Vec<_>>();
 
-        let available_download = mirror.map(|x| format!("{x}/{file_name}"));
-
-        let mut deb_filename = vec![];
-
-        for i in available_download {
-            if let Ok(filename) = download_package(&i, None, client, &checksum, &version) {
-                deb_filename.push(filename);
-                break;
-            }
-        }
+        task.push(download_package(
+            file_name, mirrors, None, client, checksum, version,
+        ));
     }
+
+    futures::future::try_join_all(task).await?;
 
     Ok(())
 }
 
-pub fn package_list(db_file_paths: Vec<PathBuf>) -> Result<Vec<IndexMap<String, String>>> {
+pub async fn package_list(db_file_paths: Vec<PathBuf>, sources: &[SourceEntry], client: &Client) -> Result<Vec<IndexMap<String, String>>> {
     let mut apt = vec![];
     for i in db_file_paths {
+        if !i.is_file() {
+            update_db(sources, client).await?;
+        }
         let parse = debcontrol_from_file(&i)?;
         apt.extend(parse);
     }
@@ -293,11 +311,16 @@ pub fn package_list(db_file_paths: Vec<PathBuf>) -> Result<Vec<IndexMap<String, 
     Ok(apt)
 }
 
-
 // Update database
-pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
+pub async fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
-    let dist_files = update_in_release(&dist_urls, client);
+    let dists_in_releases = dist_urls.clone().into_iter().map(|x| format!("{}/{}", x, "InRelease"));
+
+    let dist_files = dists_in_releases
+        .map(|x| download_db(x, client, "InRelease".to_owned()))
+        .collect::<Vec<_>>();
+
+    let dist_files = futures::future::try_join_all(dist_files).await?;
 
     let components = sources
         .iter()
@@ -308,12 +331,12 @@ pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
         let p = Path::new(APT_LIST_DISTS).join(name.0);
 
         if !p.exists() || !p.is_file() {
-            std::fs::create_dir_all(APT_LIST_DISTS)?;
-            std::fs::write(&p, &file.0)?;
+            tokio::fs::create_dir_all(APT_LIST_DISTS).await?;
+            tokio::fs::write(&p, &file.0).await?;
         } else {
-            let mut f = std::fs::File::open(&p)?;
+            let mut f = tokio::fs::File::open(&p).await?;
             let mut buf = Vec::new();
-            f.read_to_end(&mut buf)?;
+            f.read_to_end(&mut buf).await?;
 
             if buf != file.0 {
                 std::fs::write(&p, &file.0)?;
@@ -333,10 +356,19 @@ pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
                 || i.file_type == DistFileType::CompressPackageList
             {
                 let not_compress_file = i.name.replace(".xz", "").replace(".gz", "");
-                let file_name =
-                    FileName::new(&format!("{}/{}", dist_urls[index], not_compress_file))?;
+                let file_name = FileName::new(&format!(
+                    "{}/{}",
+                    dist_urls.get(index).unwrap(),
+                    not_compress_file
+                ))?;
 
                 let p = Path::new(APT_LIST_DISTS).join(&file_name.0);
+
+                let typ = match i.file_type {
+                    DistFileType::CompressContents => "Contents",
+                    DistFileType::CompressPackageList => "Package List",
+                    _ => unreachable!(),
+                };
 
                 if p.exists() {
                     let mut f = std::fs::File::open(&p)?;
@@ -351,12 +383,13 @@ pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
                     let hash = checksums[checksums_index].checksum.to_owned();
 
                     if checksum(&buf, &hash).is_err() {
-                        download_and_extract(&dist_urls[index], i, client, &file_name.0)?;
+                        download_and_extract(&dist_urls[index], i, client, &file_name.0, typ)
+                            .await?;
                     } else {
                         continue;
                     }
                 } else {
-                    download_and_extract(&dist_urls[index], i, client, &file_name.0)?;
+                    download_and_extract(&dist_urls[index], i, client, &file_name.0, typ).await?;
                 }
             }
         }
@@ -365,29 +398,20 @@ pub fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
     Ok(())
 }
 
-fn update_in_release(dist_urls: &Vec<String>, client: &Client) -> Vec<(FileName, FileBuf)> {
-    let dists_in_releases = dist_urls.iter().map(|x| {
-        (
-            format!("{}/{}", x, "InRelease"),
-            FileName::new(&format!("{}/{}", x, "InRelease")),
-        )
-    });
-
-    let dist_files = dists_in_releases
-        .flat_map(|x| download_db(&x.0, client, &x.1.unwrap().0))
-        .collect::<Vec<_>>();
-
-    dist_files
-}
-
 /// Download and extract package list database
-fn download_and_extract(
+async fn download_and_extract(
     dist_url: &str,
     i: &ChecksumItem,
     client: &Client,
     not_compress_file: &str,
+    typ: &str,
 ) -> Result<()> {
-    let (name, buf) = download_db(&format!("{}/{}", dist_url, i.name), client, &i.name)?;
+    let (name, buf) = download_db(
+        format!("{}/{}", dist_url, i.name),
+        client,
+        typ.to_owned(),
+    )
+    .await?;
     checksum(&buf.0, &i.checksum)?;
 
     let buf = decompress(&buf.0, &name.0)?;

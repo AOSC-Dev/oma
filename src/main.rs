@@ -52,20 +52,21 @@ struct Delete {
     packages: Vec<String>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
-    let app = AoscptAction::new().unwrap();
+    let app = AoscptAction::new().await.unwrap();
 
     let args = Args::parse();
 
     if let Err(e) = match args.subcommand {
-        AoscptCommand::Install(v) => app.install(&v.packages),
+        AoscptCommand::Install(v) => app.install(&v.packages).await,
         AoscptCommand::Remove(v) => app.remove(&v.packages, true),
-        AoscptCommand::Update(_) => app.update(),
-        AoscptCommand::Refresh(_) => app.refresh(),
+        AoscptCommand::Update(_) => app.update().await,
+        AoscptCommand::Refresh(_) => app.refresh().await,
     } {
-        eprintln!("{e}");
+        error!("{e}");
         exit(1);
     }
 
