@@ -1,7 +1,7 @@
 use core::panic;
 use std::{
     io::Read,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, sync::Arc,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -59,6 +59,7 @@ async fn download_db(
         &filename,
         Path::new(APT_LIST_DISTS),
         Some(&format!("Getting {typ}: {url} database")),
+        None,
         None,
     )
     .await?;
@@ -261,7 +262,7 @@ pub async fn packages_download(
     client: &Client,
 ) -> Result<()> {
     let mut task = vec![];
-    let mut mb = MultiProgress::new();
+    let mb = Arc::new(MultiProgress::new());
     for i in list {
         let v = apt.iter().find(|x| x.get("Package") == Some(i));
 
@@ -288,8 +289,10 @@ pub async fn packages_download(
             .map(|x| x.url.to_owned())
             .collect::<Vec<_>>();
 
+        let mbc = mb.clone();
+
         task.push(download_package(
-            file_name, mirrors, None, client, checksum, version,
+            file_name, mirrors, None, client, checksum, version, mbc
         ));
     }
 

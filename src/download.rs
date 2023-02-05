@@ -1,6 +1,7 @@
 use std::{
     io::{Read, Write},
     path::Path,
+    sync::Arc,
 };
 
 use tokio::task::spawn_blocking;
@@ -25,6 +26,7 @@ pub async fn download_package(
     client: &Client,
     hash: String,
     version: String,
+    mbc: Arc<MultiProgress>,
 ) -> Result<String> {
     async fn download_inner(
         download_dir: Option<&str>,
@@ -32,6 +34,7 @@ pub async fn download_package(
         url: &str,
         client: &Client,
         hash: &str,
+        mbc: Arc<MultiProgress>,
     ) -> Result<()> {
         info!(
             "Downloading {} to dir {}",
@@ -50,6 +53,7 @@ pub async fn download_package(
             Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)),
             None,
             Some(hash),
+            Some(mbc),
         )
         .await?;
 
@@ -98,6 +102,7 @@ pub async fn download_package(
                     &format!("{i}/{path}"),
                     client,
                     &hash,
+                    mbc.clone(),
                 )
                 .await
                 .is_ok()
@@ -117,6 +122,7 @@ pub async fn download_package(
                 &format!("{i}/{path}"),
                 client,
                 &hash,
+                mbc.clone(),
             )
             .await
             .is_ok()
@@ -145,6 +151,7 @@ pub async fn download(
     dir: &Path,
     msg: Option<&str>,
     hash: Option<&str>,
+    mbc: Option<Arc<MultiProgress>>,
 ) -> Result<Vec<u8>> {
     msg!("{}", msg.unwrap_or(filename));
     let bar_template = {
@@ -177,7 +184,12 @@ pub async fn download(
     };
 
     let request = client.get(url);
-    let pb = ProgressBar::new(total_size);
+    let pb = if let Some(mbc) = mbc {
+        mbc.add(ProgressBar::new(total_size))
+    } else {
+        ProgressBar::new(total_size)
+    };
+
     pb.set_style(barsty);
 
     let file = dir.join(filename);
