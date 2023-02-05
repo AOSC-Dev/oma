@@ -151,9 +151,11 @@ pub async fn download(
 
     // let p = dir.join(filename);
     let total_size = {
-        let resp = client.head(url).send().await?;
+        let resp = client.get(url).send().await?;
         if resp.status().is_success() {
-            resp.content_length().unwrap_or(0)
+            let res = resp.content_length().unwrap_or(0);
+
+            res
         } else {
             return Err(anyhow!(
                 "Couldn't download URL: {}. Error: {:?}",
