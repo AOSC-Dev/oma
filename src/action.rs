@@ -55,7 +55,7 @@ impl AoscptAction {
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
     pub async fn update(&self) -> Result<()> {
-        update_db(&self.sources, &self.client).await?;
+        update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(
             sources: &[SourceEntry],
@@ -95,7 +95,7 @@ impl AoscptAction {
     }
 
     pub async fn install(&self, list: &[String]) -> Result<()> {
-        update_db(&self.sources, &self.client).await?;
+        update_db(&self.sources, &self.client, None).await?;
 
         let mut count = 0;
         while let Err(e) = self.install_inner(list).await {
@@ -201,7 +201,7 @@ impl AoscptAction {
     }
 
     pub async fn refresh(&self) -> Result<()> {
-        update_db(&self.sources, &self.client).await
+        update_db(&self.sources, &self.client, None).await
     }
 }
 

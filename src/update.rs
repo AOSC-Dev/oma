@@ -47,9 +47,14 @@ impl FileName {
     }
 }
 
-async fn download_db(url: String, client: &Client, typ: String) -> Result<(FileName, FileBuf)> {
-    info!("Downloading {}", url);
-
+async fn download_db(
+    url: String,
+    client: &Client,
+    typ: String,
+    global_bar: Option<ProgressBar>,
+    progress: Option<(usize, usize)>,
+    mbc: Option<Arc<MultiProgress>>,
+) -> Result<(FileName, FileBuf)> {
     let filename = FileName::new(&url)?.0;
 
     let v = download(
@@ -57,11 +62,11 @@ async fn download_db(url: String, client: &Client, typ: String) -> Result<(FileN
         client,
         filename.to_string(),
         Path::new(APT_LIST_DISTS),
-        Some(format!("Getting {typ}: {url} database")),
+        Some(format!("Getting {typ} database")),
         None,
-        None,
-        None,
-        None,
+        mbc,
+        progress,
+        global_bar,
     )
     .await?;
 
@@ -77,7 +82,7 @@ struct InReleaseParser {
 #[derive(Debug)]
 struct ChecksumItem {
     name: String,
-    _size: u64,
+    size: u64,
     checksum: String,
     file_type: DistFileType,
 }
@@ -149,7 +154,7 @@ impl InReleaseParser {
 
             res.push(ChecksumItem {
                 name: i.0.to_owned(),
-                _size: i.1.parse::<u64>()?,
+                size: i.1.parse::<u64>()?,
                 checksum: i.2.to_owned(),
                 file_type: t,
             })
@@ -213,7 +218,7 @@ pub async fn get_sources_dists_filename(
         let in_release = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(&filename));
 
         let in_release = if in_release.is_err() {
-            update_db(sources, client).await?;
+            update_db(sources, client, None).await?;
             let in_release = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(filename))?;
 
             in_release
@@ -345,7 +350,7 @@ pub async fn package_list(
     let mut apt = vec![];
     for i in db_file_paths {
         if !i.is_file() {
-            update_db(sources, client).await?;
+            update_db(sources, client, None).await?;
         }
         let parse = debcontrol_from_file(&i)?;
         apt.extend(parse);
@@ -357,15 +362,21 @@ pub async fn package_list(
 }
 
 // Update database
-pub async fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
+pub async fn update_db(
+    sources: &[SourceEntry],
+    client: &Client,
+    limit: Option<usize>,
+) -> Result<()> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
     let dists_in_releases = dist_urls
         .clone()
         .into_iter()
         .map(|x| format!("{}/{}", x, "InRelease"));
 
+    // let mut global_bar = ProgressBar::new();
+
     let dist_files = dists_in_releases
-        .map(|x| download_db(x, client, "InRelease".to_owned()))
+        .map(|x| download_db(x, client, "InRelease".to_owned(), None, None, None))
         .collect::<Vec<_>>();
 
     let dist_files = futures::future::try_join_all(dist_files).await?;
@@ -399,48 +410,94 @@ pub async fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
             .filter(|x| components[index].contains(&x.name.split('/').next().unwrap().to_string()))
             .collect::<Vec<_>>();
 
+        let mut handle = vec![];
+
+        let mut total = 0;
+
         for i in &checksums {
             if i.file_type == DistFileType::CompressContents
                 || i.file_type == DistFileType::CompressPackageList
             {
-                let not_compress_file = i.name.replace(".xz", "").replace(".gz", "");
-                let file_name = FileName::new(&format!(
-                    "{}/{}",
-                    dist_urls.get(index).unwrap(),
-                    not_compress_file
-                ))?;
-
-                let p = Path::new(APT_LIST_DISTS).join(&file_name.0);
-
-                let typ = match i.file_type {
-                    DistFileType::CompressContents => "Contents",
-                    DistFileType::CompressPackageList => "Package List",
-                    _ => unreachable!(),
-                };
-
-                if p.exists() {
-                    let mut f = std::fs::File::open(&p)?;
-                    let mut buf = Vec::new();
-                    f.read_to_end(&mut buf)?;
-
-                    let checksums_index = checksums
-                        .iter()
-                        .position(|x| x.name == not_compress_file)
-                        .unwrap();
-
-                    let hash = checksums[checksums_index].checksum.to_owned();
-
-                    if checksum(&buf, &hash).is_err() {
-                        download_and_extract(&dist_urls[index], i, client, &file_name.0, typ)
-                            .await?;
-                    } else {
-                        continue;
-                    }
-                } else {
-                    download_and_extract(&dist_urls[index], i, client, &file_name.0, typ).await?;
-                }
+                handle.push(i);
+                total += i.size;
             }
         }
+
+        let mb = Arc::new(MultiProgress::new());
+        let global_bar = mb.insert(0, ProgressBar::new(total as u64));
+        global_bar.set_style(oma_style_pb()?);
+        global_bar.enable_steady_tick(Duration::from_millis(1000));
+        global_bar.set_message("Progress");
+
+        let mut task = vec![];
+
+        let len = handle.len();
+
+        for (i, c) in handle.iter().enumerate() {
+            let not_compress_file = c.name.replace(".xz", "").replace(".gz", "");
+            let file_name = FileName::new(&format!(
+                "{}/{}",
+                dist_urls.get(index).unwrap(),
+                not_compress_file
+            ))?;
+
+            let p = Path::new(APT_LIST_DISTS).join(&file_name.0);
+
+            let typ = match c.file_type {
+                DistFileType::CompressContents => "Contents",
+                DistFileType::CompressPackageList => "Package List",
+                _ => unreachable!(),
+            };
+
+            if p.exists() {
+                let mut f = std::fs::File::open(&p)?;
+                let mut buf = Vec::new();
+                f.read_to_end(&mut buf)?;
+
+                let checksums_index = checksums
+                    .iter()
+                    .position(|x| x.name == not_compress_file)
+                    .unwrap();
+
+                let hash = checksums[checksums_index].checksum.to_owned();
+
+                if checksum(&buf, &hash).is_err() {
+                    task.push(download_and_extract(
+                        &dist_urls[index],
+                        c,
+                        client,
+                        file_name.0,
+                        typ,
+                        global_bar.clone(),
+                        (i, len),
+                        mb.clone(),
+                    ));
+                } else {
+                    continue;
+                }
+            } else {
+                task.push(download_and_extract(
+                    &dist_urls[index],
+                    c,
+                    client,
+                    file_name.0,
+                    typ,
+                    global_bar.clone(),
+                    (i, len),
+                    mb.clone(),
+                ));
+            }
+        }
+
+        // 默认限制一次最多下载八个数据文件，减少服务器负担
+        let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(4));
+        let res = stream.collect::<Vec<_>>().await;
+
+        for i in res {
+            i?;
+        }
+
+        global_bar.finish_and_clear();
     }
 
     Ok(())
@@ -451,11 +508,21 @@ async fn download_and_extract(
     dist_url: &str,
     i: &ChecksumItem,
     client: &Client,
-    not_compress_file: &str,
+    not_compress_file: String,
     typ: &str,
+    global_bar: ProgressBar,
+    progress: (usize, usize),
+    mbc: Arc<MultiProgress>,
 ) -> Result<()> {
-    let (name, buf) =
-        download_db(format!("{}/{}", dist_url, i.name), client, typ.to_owned()).await?;
+    let (name, buf) = download_db(
+        format!("{}/{}", dist_url, i.name),
+        client,
+        typ.to_owned(),
+        Some(global_bar),
+        Some(progress),
+        Some(mbc),
+    )
+    .await?;
     checksum(&buf.0, &i.checksum)?;
 
     let buf = decompress(&buf.0, &name.0)?;
