@@ -189,7 +189,13 @@ pub async fn download(
         ProgressBar::new(total_size)
     };
 
-    pb.set_message(msg.unwrap_or(filename.clone()));
+    let mut msg = msg.unwrap_or(filename.clone());
+
+    if console::measure_text_width(&msg) > 48 {
+        msg = console::truncate_str(&msg, 45, "...").to_string();
+    }
+
+    pb.set_message(msg);
     pb.enable_steady_tick(Duration::from_millis(1000));
     pb.set_style(barsty);
 
