@@ -3,7 +3,7 @@ use rust_apt::{
     util::{time_str, unit_str, NumSys},
 };
 
-use crate::{msg, warn};
+use crate::{msg, warn, success};
 
 // TODO: Make better structs for pkgAcquire items, workers, owners.
 /// AptAcquireProgress is the default struct for the update method on the cache.
@@ -71,7 +71,7 @@ impl AcquireProgress for NoProgress {
                 unit_str(current_cps, NumSys::Decimal)
             );
         } else {
-            msg!("Checking ...");
+            success!("All Package is fetched");
         }
     }
 }

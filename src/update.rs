@@ -1,5 +1,6 @@
 use core::panic;
 use std::{
+    collections::HashMap,
     io::Read,
     path::{Path, PathBuf},
     sync::Arc,
@@ -12,8 +13,8 @@ use flate2::bufread::GzDecoder;
 use futures::StreamExt;
 use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressBar};
-use log::info;
-use reqwest::Client;
+use reqwest::{Client, Url};
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::io::Write;
 use tokio::io::AsyncReadExt;
@@ -23,11 +24,12 @@ use crate::{
     download::{download, download_package, oma_style_pb},
     pkgversion::PkgVersion,
     utils::get_arch_name,
-    verify,
+    verify, success,
 };
 
 pub const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
 pub const DOWNLOAD_DIR: &str = "/var/cache/apt/archives";
+const MIRROR: &str = "/usr/share/distro-repository-data/mirrors.yml";
 
 struct FileBuf(Vec<u8>);
 
@@ -57,12 +59,14 @@ async fn download_db(
 ) -> Result<(FileName, FileBuf)> {
     let filename = FileName::new(&url)?.0;
 
+    let url_short = get_url_short_name(&url)?;
+
     let v = download(
         &url,
         client,
         filename.to_string(),
         Path::new(APT_LIST_DISTS),
-        Some(format!("Getting {typ} database")),
+        Some(format!("Getting {url_short} {typ} database ...")),
         None,
         mbc,
         progress,
@@ -72,6 +76,46 @@ async fn download_db(
 
     Ok((FileName::new(&url)?, FileBuf(v)))
 }
+
+#[derive(Deserialize)]
+struct MirrorMapItem {
+    url: String,
+}
+
+fn get_url_short_name(url: &str) -> Result<String> {
+    let url = Url::parse(&url)?;
+    let host = url.host_str().context("Can not parse {url} host!")?;
+    let schema = url.scheme();
+    let url = format!("{schema}://{host}/");
+
+    // dbg!(&url);
+
+    let mut mirror_map_f = std::fs::File::open(MIRROR)?;
+    let mut buf = Vec::new();
+    mirror_map_f.read_to_end(&mut buf)?;
+
+    let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&buf)?;
+
+    for (k, v) in mirror_map.iter() {
+        let mirror_url = Url::parse(&v.url)?;
+        let mirror_url_host = mirror_url
+            .host_str()
+            .context("Can not get host str from mirror map!")?;
+        let schema = mirror_url.scheme();
+        let mirror_url = format!("{schema}://{mirror_url_host}/");
+
+        if mirror_url == url {
+            return Ok(k.to_string());
+        }
+    }
+
+    return Ok(host.to_owned());
+}
+
+// fn get_url_branch(url: &str) -> Result<String> {
+//     let url = Url::parse(&url)?;
+
+// }
 
 #[derive(Debug)]
 struct InReleaseParser {
@@ -373,13 +417,11 @@ pub async fn update_db(
         .into_iter()
         .map(|x| format!("{}/{}", x, "InRelease"));
 
-    // let mut global_bar = ProgressBar::new();
+    let mut dist_files = Vec::new();
 
-    let dist_files = dists_in_releases
-        .map(|x| download_db(x, client, "InRelease".to_owned(), None, None, None))
-        .collect::<Vec<_>>();
-
-    let dist_files = futures::future::try_join_all(dist_files).await?;
+    for i in dists_in_releases {
+        dist_files.push(download_db(i, client, "InRelease".to_owned(), None, None, None).await?);
+    }
 
     let components = sources
         .iter()
@@ -499,6 +541,8 @@ pub async fn update_db(
 
         global_bar.finish_and_clear();
     }
+
+    success!("Package database already newest.");
 
     Ok(())
 }

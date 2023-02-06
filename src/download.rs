@@ -9,7 +9,6 @@ use tokio::task::spawn_blocking;
 
 use anyhow::{anyhow, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use log::info;
 use reqwest::Client;
 use sha2::{Digest, Sha256};
 use tokio::{
@@ -43,12 +42,6 @@ pub async fn download_package(
         len: usize,
         global_bar: ProgressBar,
     ) -> Result<()> {
-        info!(
-            "Downloading {} to dir {}",
-            filename,
-            download_dir.unwrap_or(DOWNLOAD_DIR)
-        );
-
         if download_dir.is_none() {
             tokio::fs::create_dir_all(DOWNLOAD_DIR).await?;
         }
@@ -188,11 +181,17 @@ pub async fn download(
         }
     };
 
+    let mut is_mb = false;
+
     let request = client.get(url);
     let pb = if let Some(mbc) = mbc {
-        mbc.add(ProgressBar::new(total_size))
+        is_mb = true;
+        let pb = mbc.add(ProgressBar::new(total_size));
+        pb.set_style(barsty);
+
+        pb
     } else {
-        ProgressBar::new(total_size)
+        ProgressBar::new_spinner()
     };
 
     let mut msg = msg.unwrap_or(filename.clone());
@@ -209,7 +208,6 @@ pub async fn download(
 
     pb.set_message(format!("{progress}{msg}"));
     pb.enable_steady_tick(Duration::from_millis(1000));
-    pb.set_style(barsty);
 
     let file = dir.join(filename);
 
@@ -243,7 +241,11 @@ pub async fn download(
         }
     }
 
-    pb.finish_and_clear();
+    if is_mb {
+        pb.finish_and_clear();
+    } else {
+        pb.finish();
+    }
 
     dest.flush().await?;
     drop(dest);
