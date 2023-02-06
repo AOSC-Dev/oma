@@ -1,19 +1,21 @@
 use core::panic;
 use std::{
     io::Read,
-    path::{Path, PathBuf}, sync::Arc,
+    path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
 use flate2::bufread::GzDecoder;
+use futures::StreamExt;
 use indexmap::IndexMap;
 use indicatif::MultiProgress;
 use log::info;
 use reqwest::Client;
 use sha2::{Digest, Sha256};
-use tokio::io::AsyncReadExt;
 use std::io::Write;
+use tokio::io::AsyncReadExt;
 use xz2::read::XzDecoder;
 
 use crate::{
@@ -44,11 +46,7 @@ impl FileName {
     }
 }
 
-async fn download_db(
-    url: String,
-    client: &Client,
-    typ: String,
-) -> Result<(FileName, FileBuf)> {
+async fn download_db(url: String, client: &Client, typ: String) -> Result<(FileName, FileBuf)> {
     info!("Downloading {}", url);
 
     let filename = FileName::new(&url)?.0;
@@ -260,6 +258,7 @@ pub async fn packages_download(
     apt: &[IndexMap<String, String>],
     sources: &[SourceEntry],
     client: &Client,
+    limit: Option<usize>,
 ) -> Result<()> {
     let mut task = vec![];
     let mb = Arc::new(MultiProgress::new());
@@ -292,16 +291,27 @@ pub async fn packages_download(
         let mbc = mb.clone();
 
         task.push(download_package(
-            file_name, mirrors, None, client, checksum, version, mbc
+            file_name, mirrors, None, client, checksum, version, mbc,
         ));
     }
 
-    futures::future::try_join_all(task).await?;
+    // 默认限制一次最多下载八个包，减少服务器负担
+    let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(8));
+    let res = stream.collect::<Vec<_>>().await;
+
+    // 便利结果看是否有下载出错
+    for i in res {
+        i?;
+    }
 
     Ok(())
 }
 
-pub async fn package_list(db_file_paths: Vec<PathBuf>, sources: &[SourceEntry], client: &Client) -> Result<Vec<IndexMap<String, String>>> {
+pub async fn package_list(
+    db_file_paths: Vec<PathBuf>,
+    sources: &[SourceEntry],
+    client: &Client,
+) -> Result<Vec<IndexMap<String, String>>> {
     let mut apt = vec![];
     for i in db_file_paths {
         if !i.is_file() {
@@ -319,7 +329,10 @@ pub async fn package_list(db_file_paths: Vec<PathBuf>, sources: &[SourceEntry], 
 // Update database
 pub async fn update_db(sources: &[SourceEntry], client: &Client) -> Result<()> {
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
-    let dists_in_releases = dist_urls.clone().into_iter().map(|x| format!("{}/{}", x, "InRelease"));
+    let dists_in_releases = dist_urls
+        .clone()
+        .into_iter()
+        .map(|x| format!("{}/{}", x, "InRelease"));
 
     let dist_files = dists_in_releases
         .map(|x| download_db(x, client, "InRelease".to_owned()))
@@ -411,12 +424,8 @@ async fn download_and_extract(
     not_compress_file: &str,
     typ: &str,
 ) -> Result<()> {
-    let (name, buf) = download_db(
-        format!("{}/{}", dist_url, i.name),
-        client,
-        typ.to_owned(),
-    )
-    .await?;
+    let (name, buf) =
+        download_db(format!("{}/{}", dist_url, i.name), client, typ.to_owned()).await?;
     checksum(&buf.0, &i.checksum)?;
 
     let buf = decompress(&buf.0, &name.0)?;

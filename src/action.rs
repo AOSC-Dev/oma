@@ -74,7 +74,7 @@ impl AoscptAction {
             autoremove(&cache);
 
             let db_for_updates = newest_package_list(db)?;
-            packages_download(&list, &db_for_updates, sources, client).await?;
+            packages_download(&list, &db_for_updates, sources, client, None).await?;
 
             cache.resolve(true)?;
             apt_install(cache)?;
@@ -176,7 +176,8 @@ impl AoscptAction {
         list.extend(action.update);
         autoremove(&cache);
         cache.resolve(true)?;
-        packages_download(&list, &self.db, &self.sources, &self.client).await?;
+        // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
+        packages_download(&list, &self.db, &self.sources, &self.client, None).await?;
         apt_install(cache)?;
 
         Ok(())
