@@ -59,7 +59,7 @@ async fn download_db(
 ) -> Result<(FileName, FileBuf)> {
     let filename = FileName::new(&url)?.0;
 
-    let url_short = get_url_short_name(&url)?;
+    let url_short = get_url_short_and_branch(&url)?;
 
     let v = download(
         &url,
@@ -82,10 +82,11 @@ struct MirrorMapItem {
     url: String,
 }
 
-fn get_url_short_name(url: &str) -> Result<String> {
+fn get_url_short_and_branch(url: &str) -> Result<String> {
     let url = Url::parse(&url)?;
     let host = url.host_str().context("Can not parse {url} host!")?;
     let schema = url.scheme();
+    let branch = url.path().split('/').nth_back(1).context("Can not get {url} branch!")?;
     let url = format!("{schema}://{host}/");
 
     // dbg!(&url);
@@ -105,11 +106,11 @@ fn get_url_short_name(url: &str) -> Result<String> {
         let mirror_url = format!("{schema}://{mirror_url_host}/");
 
         if mirror_url == url {
-            return Ok(k.to_string());
+            return Ok(format!("{k}:{branch}"));
         }
     }
 
-    return Ok(host.to_owned());
+    return Ok(format!("{host}:{branch}"));
 }
 
 // fn get_url_branch(url: &str) -> Result<String> {

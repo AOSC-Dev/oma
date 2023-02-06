@@ -196,8 +196,8 @@ pub async fn download(
 
     let mut msg = msg.unwrap_or(filename.clone());
 
-    if console::measure_text_width(&msg) > 48 {
-        msg = console::truncate_str(&msg, 45, "...").to_string();
+    if console::measure_text_width(&msg) > 60 {
+        msg = console::truncate_str(&msg, 57, "...").to_string();
     }
 
     let progress = if let Some((count, len)) = progress {
