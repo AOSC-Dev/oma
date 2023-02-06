@@ -17,7 +17,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
 };
 
-use crate::{msg, update::DOWNLOAD_DIR, WRITER};
+use crate::{update::DOWNLOAD_DIR, WRITER};
 
 /// Download a package
 pub async fn download_package(
@@ -30,6 +30,7 @@ pub async fn download_package(
     mbc: Arc<MultiProgress>,
     count: usize,
     len: usize,
+    global_bar: ProgressBar,
 ) -> Result<String> {
     async fn download_inner(
         download_dir: Option<&str>,
@@ -40,6 +41,7 @@ pub async fn download_package(
         mbc: Arc<MultiProgress>,
         count: usize,
         len: usize,
+        global_bar: ProgressBar,
     ) -> Result<()> {
         info!(
             "Downloading {} to dir {}",
@@ -60,6 +62,7 @@ pub async fn download_package(
             Some(hash),
             Some(mbc),
             Some((count, len)),
+            Some(global_bar),
         )
         .await?;
 
@@ -111,6 +114,7 @@ pub async fn download_package(
                     mbc.clone(),
                     count,
                     len,
+                    global_bar.clone(),
                 )
                 .await
                 .is_ok()
@@ -133,6 +137,7 @@ pub async fn download_package(
                 mbc.clone(),
                 count,
                 len,
+                global_bar.clone(),
             )
             .await
             .is_ok()
@@ -163,19 +168,9 @@ pub async fn download(
     hash: Option<&str>,
     mbc: Option<Arc<MultiProgress>>,
     progress: Option<(usize, usize)>,
+    global_bar: Option<ProgressBar>,
 ) -> Result<Vec<u8>> {
-    let bar_template = {
-        let max_len = WRITER.get_max_len();
-        if max_len < 90 {
-            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
-        } else {
-            " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%"
-        }
-    };
-
-    let barsty = ProgressStyle::default_bar()
-        .template(bar_template)?
-        .progress_chars("=>-");
+    let barsty = oma_style_pb()?;
 
     // let p = dir.join(filename);
     let total_size = {
@@ -242,9 +237,13 @@ pub async fn download(
     while let Some(chunk) = source.chunk().await? {
         dest.write_all(&chunk).await?;
         pb.inc(chunk.len() as u64);
+
+        if let Some(ref global_bar) = global_bar {
+            global_bar.inc(chunk.len() as u64);
+        }
     }
 
-    pb.finish();
+    pb.finish_and_clear();
 
     dest.flush().await?;
     drop(dest);
@@ -276,6 +275,22 @@ pub async fn download(
     };
 
     Ok(buf)
+}
+
+pub fn oma_style_pb() -> Result<ProgressStyle> {
+    let bar_template = {
+        let max_len = WRITER.get_max_len();
+        if max_len < 90 {
+            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+        } else {
+            " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%"
+        }
+    };
+    let barsty = ProgressStyle::default_bar()
+        .template(bar_template)?
+        .progress_chars("=>-");
+
+    Ok(barsty)
 }
 
 pub fn checksum(buf: &[u8], hash: &str) -> Result<bool> {

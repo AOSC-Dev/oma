@@ -3,6 +3,7 @@ use std::{
     io::Read,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -10,7 +11,7 @@ use apt_sources_lists::*;
 use flate2::bufread::GzDecoder;
 use futures::StreamExt;
 use indexmap::IndexMap;
-use indicatif::MultiProgress;
+use indicatif::{MultiProgress, ProgressBar};
 use log::info;
 use reqwest::Client;
 use sha2::{Digest, Sha256};
@@ -19,7 +20,7 @@ use tokio::io::AsyncReadExt;
 use xz2::read::XzDecoder;
 
 use crate::{
-    download::{download, download_package},
+    download::{download, download_package, oma_style_pb},
     pkgversion::PkgVersion,
     utils::get_arch_name,
     verify,
@@ -59,7 +60,8 @@ async fn download_db(url: String, client: &Client, typ: String) -> Result<(FileN
         Some(format!("Getting {typ}: {url} database")),
         None,
         None,
-        None
+        None,
+        None,
     )
     .await?;
 
@@ -263,7 +265,23 @@ pub async fn packages_download(
 ) -> Result<()> {
     let mut task = vec![];
     let mb = Arc::new(MultiProgress::new());
-    let len = list.len();
+    let mut total = 0;
+
+    for i in list.iter() {
+        let v = apt.iter().find(|x| x.get("Package") == Some(i));
+        let Some(v) = v else { bail!("Can not get package {} from list", i) };
+
+        let size = v["Size"].clone().parse::<u64>()?;
+        total += size;
+    }
+
+    let global_bar = mb.insert(0, ProgressBar::new(total as u64));
+    global_bar.set_style(oma_style_pb()?);
+    global_bar.enable_steady_tick(Duration::from_millis(1000));
+    global_bar.set_message("Progress");
+
+    let list_len = list.len();
+
     for (i, c) in list.iter().enumerate() {
         let v = apt.iter().find(|x| x.get("Package") == Some(c));
 
@@ -293,13 +311,23 @@ pub async fn packages_download(
         let mbc = mb.clone();
 
         task.push(download_package(
-            file_name, mirrors, None, client, checksum, version, mbc, i, len,
+            file_name,
+            mirrors,
+            None,
+            client,
+            checksum,
+            version,
+            mbc,
+            i,
+            list_len,
+            global_bar.clone(),
         ));
     }
-
     // 默认限制一次最多下载八个包，减少服务器负担
     let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(4));
     let res = stream.collect::<Vec<_>>().await;
+
+    global_bar.finish_and_clear();
 
     // 遍历结果看是否有下载出错
     for i in res {
