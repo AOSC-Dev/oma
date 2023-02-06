@@ -1,7 +1,7 @@
 use std::{
     io::{Read, Write},
     path::Path,
-    sync::Arc,
+    sync::Arc, time::Duration,
 };
 
 use tokio::task::spawn_blocking;
@@ -49,7 +49,7 @@ pub async fn download_package(
         download(
             url,
             client,
-            filename,
+            filename.to_string(),
             Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)),
             None,
             Some(hash),
@@ -147,13 +147,12 @@ pub async fn download_package(
 pub async fn download(
     url: &str,
     client: &Client,
-    filename: &str,
+    filename: String,
     dir: &Path,
-    msg: Option<&str>,
+    msg: Option<String>,
     hash: Option<&str>,
     mbc: Option<Arc<MultiProgress>>,
 ) -> Result<Vec<u8>> {
-    msg!("{}", msg.unwrap_or(filename));
     let bar_template = {
         let max_len = WRITER.get_max_len();
         if max_len < 90 {
@@ -190,6 +189,8 @@ pub async fn download(
         ProgressBar::new(total_size)
     };
 
+    pb.set_message(msg.unwrap_or(filename.clone()));
+    pb.enable_steady_tick(Duration::from_millis(1000));
     pb.set_style(barsty);
 
     let file = dir.join(filename);
@@ -219,6 +220,8 @@ pub async fn download(
         dest.write_all(&chunk).await?;
         pb.inc(chunk.len() as u64);
     }
+
+    pb.finish();
 
     dest.flush().await?;
     drop(dest);

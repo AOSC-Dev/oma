@@ -54,9 +54,9 @@ async fn download_db(url: String, client: &Client, typ: String) -> Result<(FileN
     let v = download(
         &url,
         client,
-        &filename,
+        filename.to_string(),
         Path::new(APT_LIST_DISTS),
-        Some(&format!("Getting {typ}: {url} database")),
+        Some(format!("Getting {typ}: {url} database")),
         None,
         None,
     )
@@ -296,7 +296,7 @@ pub async fn packages_download(
     }
 
     // 默认限制一次最多下载八个包，减少服务器负担
-    let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(8));
+    let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(4));
     let res = stream.collect::<Vec<_>>().await;
 
     // 便利结果看是否有下载出错
