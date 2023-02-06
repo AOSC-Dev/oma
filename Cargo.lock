@@ -24,34 +24,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 
 [[package]]
-name = "aoscpt"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "apt-sources-lists",
- "clap",
- "console",
- "debcontrol",
- "env_logger",
- "flate2",
- "futures",
- "indexmap",
- "indicatif",
- "lazy_static",
- "log",
- "nix",
- "nom 7.1.3",
- "progress-streams",
- "reqwest",
- "rust-apt",
- "sequoia-openpgp",
- "serde",
- "sha2",
- "tokio",
- "xz2",
-]
-
-[[package]]
 name = "apt-sources-lists"
 version = "0.1.0"
 source = "git+https://github.com/pop-os/apt-sources-lists?rev=0df4611ec7293010551f95659f28f1b1da9cc0c8#0df4611ec7293010551f95659f28f1b1da9cc0c8"
@@ -1223,6 +1195,34 @@ name = "numtoa"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8f8bdf33df195859076e54ab11ee78a1b208382d3a26ec40d142ffc1ecc49ef"
+
+[[package]]
+name = "oma"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "apt-sources-lists",
+ "clap",
+ "console",
+ "debcontrol",
+ "env_logger",
+ "flate2",
+ "futures",
+ "indexmap",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "nix",
+ "nom 7.1.3",
+ "progress-streams",
+ "reqwest",
+ "rust-apt",
+ "sequoia-openpgp",
+ "serde",
+ "sha2",
+ "tokio",
+ "xz2",
+]
 
 [[package]]
 name = "once_cell"
