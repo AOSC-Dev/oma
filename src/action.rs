@@ -3,7 +3,6 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use apt_sources_lists::SourceEntry;
 use indexmap::IndexMap;
-use log::warn;
 use reqwest::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
@@ -18,7 +17,7 @@ use crate::{
     update::{
         get_sources, get_sources_dists_filename, newest_package_list, package_list,
         packages_download, update_db, APT_LIST_DISTS,
-    },
+    }, warn,
 };
 
 pub struct AoscptAction {
