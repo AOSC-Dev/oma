@@ -59,6 +59,7 @@ async fn download_db(url: String, client: &Client, typ: String) -> Result<(FileN
         Some(format!("Getting {typ}: {url} database")),
         None,
         None,
+        None
     )
     .await?;
 
@@ -262,10 +263,11 @@ pub async fn packages_download(
 ) -> Result<()> {
     let mut task = vec![];
     let mb = Arc::new(MultiProgress::new());
-    for i in list {
-        let v = apt.iter().find(|x| x.get("Package") == Some(i));
+    let len = list.len();
+    for (i, c) in list.iter().enumerate() {
+        let v = apt.iter().find(|x| x.get("Package") == Some(c));
 
-        let Some(v) = v else { bail!("Can not get package {} from list", i) };
+        let Some(v) = v else { bail!("Can not get package {} from list", c) };
         let file_name = v["Filename"].clone();
         let checksum = v["SHA256"].clone();
         let version = v["Version"].clone();
@@ -274,12 +276,12 @@ pub async fn packages_download(
         let branch = file_name_split
             .nth(1)
             .take()
-            .context(format!("Can not parse package {i} Filename field!"))?;
+            .context(format!("Can not parse package {c} Filename field!"))?;
 
         let component = file_name_split
             .next()
             .take()
-            .context(format!("Can not parse package {i} Filename field!"))?;
+            .context(format!("Can not parse package {c} Filename field!"))?;
 
         let mirrors = sources
             .iter()
@@ -291,7 +293,7 @@ pub async fn packages_download(
         let mbc = mb.clone();
 
         task.push(download_package(
-            file_name, mirrors, None, client, checksum, version, mbc,
+            file_name, mirrors, None, client, checksum, version, mbc, i, len,
         ));
     }
 
@@ -299,7 +301,7 @@ pub async fn packages_download(
     let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(4));
     let res = stream.collect::<Vec<_>>().await;
 
-    // 便利结果看是否有下载出错
+    // 遍历结果看是否有下载出错
     for i in res {
         i?;
     }

@@ -1,7 +1,8 @@
 use std::{
     io::{Read, Write},
     path::Path,
-    sync::Arc, time::Duration,
+    sync::Arc,
+    time::Duration,
 };
 
 use tokio::task::spawn_blocking;
@@ -27,6 +28,8 @@ pub async fn download_package(
     hash: String,
     version: String,
     mbc: Arc<MultiProgress>,
+    count: usize,
+    len: usize,
 ) -> Result<String> {
     async fn download_inner(
         download_dir: Option<&str>,
@@ -35,6 +38,8 @@ pub async fn download_package(
         client: &Client,
         hash: &str,
         mbc: Arc<MultiProgress>,
+        count: usize,
+        len: usize,
     ) -> Result<()> {
         info!(
             "Downloading {} to dir {}",
@@ -54,6 +59,7 @@ pub async fn download_package(
             None,
             Some(hash),
             Some(mbc),
+            Some((count, len)),
         )
         .await?;
 
@@ -103,6 +109,8 @@ pub async fn download_package(
                     client,
                     &hash,
                     mbc.clone(),
+                    count,
+                    len,
                 )
                 .await
                 .is_ok()
@@ -123,6 +131,8 @@ pub async fn download_package(
                 client,
                 &hash,
                 mbc.clone(),
+                count,
+                len,
             )
             .await
             .is_ok()
@@ -152,6 +162,7 @@ pub async fn download(
     msg: Option<String>,
     hash: Option<&str>,
     mbc: Option<Arc<MultiProgress>>,
+    progress: Option<(usize, usize)>,
 ) -> Result<Vec<u8>> {
     let bar_template = {
         let max_len = WRITER.get_max_len();
@@ -195,7 +206,13 @@ pub async fn download(
         msg = console::truncate_str(&msg, 45, "...").to_string();
     }
 
-    pb.set_message(msg);
+    let progress = if let Some((count, len)) = progress {
+        format!("({count}/{len}) ")
+    } else {
+        "".to_string()
+    };
+
+    pb.set_message(format!("{progress}{msg}"));
     pb.enable_steady_tick(Duration::from_millis(1000));
     pb.set_style(barsty);
 
