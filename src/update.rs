@@ -22,9 +22,11 @@ use xz2::read::XzDecoder;
 
 use crate::{
     download::{download, download_package, oma_style_pb},
+    info,
     pkgversion::PkgVersion,
+    success,
     utils::get_arch_name,
-    verify, success,
+    verify,
 };
 
 pub const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
@@ -86,10 +88,12 @@ fn get_url_short_and_branch(url: &str) -> Result<String> {
     let url = Url::parse(&url)?;
     let host = url.host_str().context("Can not parse {url} host!")?;
     let schema = url.scheme();
-    let branch = url.path().split('/').nth_back(1).context("Can not get {url} branch!")?;
+    let branch = url
+        .path()
+        .split('/')
+        .nth_back(1)
+        .context("Can not get {url} branch!")?;
     let url = format!("{schema}://{host}/");
-
-    // dbg!(&url);
 
     let mut mirror_map_f = std::fs::File::open(MIRROR)?;
     let mut buf = Vec::new();
@@ -317,6 +321,12 @@ pub async fn packages_download(
     let mb = Arc::new(MultiProgress::new());
     let mut total = 0;
 
+    if list.len() == 0 {
+        return Ok(())
+    }
+
+    info!("Downloading {} packages ...", list.len());
+
     for i in list.iter() {
         let v = apt.iter().find(|x| x.get("Package") == Some(i));
         let Some(v) = v else { bail!("Can not get package {} from list", i) };
@@ -412,6 +422,7 @@ pub async fn update_db(
     client: &Client,
     limit: Option<usize>,
 ) -> Result<()> {
+    info!("Refreshing local repository metadata ...");
     let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
     let dists_in_releases = dist_urls
         .clone()

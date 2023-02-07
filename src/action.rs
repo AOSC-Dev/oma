@@ -17,7 +17,7 @@ use crate::{
     update::{
         get_sources, get_sources_dists_filename, newest_package_list, package_list,
         packages_download, update_db, APT_LIST_DISTS,
-    }, warn,
+    }, warn, success,
 };
 
 pub struct AoscptAction {
@@ -65,7 +65,12 @@ impl AoscptAction {
             let cache = new_cache!()?;
             cache.upgrade(&Upgrade::FullUpgrade)?;
 
-            let action = apt_handler(&cache);
+            let (action, len) = apt_handler(&cache);
+
+            if len == 0 {
+                success!("No need to do anything.");
+                return Ok(());
+            }
 
             let mut list = action.update.clone();
             list.extend(action.install);
@@ -169,7 +174,13 @@ impl AoscptAction {
             pkg.mark_install(true, true);
             pkg.protect();
         }
-        let action = apt_handler(&cache);
+        let (action, len) = apt_handler(&cache);
+
+        if len == 0 {
+            success!("No need to do anything.");
+            return Ok(());
+        }
+
         let mut list = vec![];
         list.extend(action.install.clone());
         list.extend(action.update);
@@ -191,6 +202,14 @@ impl AoscptAction {
         }
 
         autoremove(&cache);
+
+        let (_, len) = apt_handler(&cache);
+
+        if len == 0 {
+            success!("No need to do anything.");
+            return Ok(());
+        }
+
 
         cache.commit(
             &mut NoProgress::new_box(),
@@ -262,8 +281,9 @@ impl Action {
     }
 }
 
-fn apt_handler(cache: &Cache) -> Action {
+fn apt_handler(cache: &Cache) -> (Action, usize) {
     let changes = cache.get_changes(true).collect::<Vec<_>>();
+    let len = changes.len();
 
     let mut update: Vec<String> = vec![];
     let mut install: Vec<String> = vec![];
@@ -297,5 +317,5 @@ fn apt_handler(cache: &Cache) -> Action {
 
     dbg!(&action);
 
-    action
+    (action, len)
 }
