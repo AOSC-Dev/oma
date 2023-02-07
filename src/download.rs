@@ -1,5 +1,5 @@
 use std::{
-    io::{Read, Write},
+    io::Read,
     path::Path,
     sync::Arc,
     time::Duration,
@@ -10,13 +10,12 @@ use tokio::task::spawn_blocking;
 use anyhow::{anyhow, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
-use sha2::{Digest, Sha256};
 use tokio::{
     fs,
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::AsyncWriteExt,
 };
 
-use crate::{update::DOWNLOAD_DIR, WRITER};
+use crate::{checksum::Checksum, update::DOWNLOAD_DIR, WRITER};
 
 /// Download a package
 pub async fn download_package(
@@ -92,11 +91,13 @@ pub async fn download_package(
 
     let p = Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)).join(&filename);
     if p.exists() {
-        let mut f = std::fs::File::open(&p)?;
-        let mut buf = Vec::new();
-        f.read_to_end(&mut buf)?;
+        let hash_clone = hash.clone();
+        let result = spawn_blocking(move || {
+            Checksum::from_sha256_str(&hash_clone).and_then(|x| x.cmp_file(&p))
+        })
+        .await??;
 
-        if checksum(&buf, &hash).is_err() {
+        if !result {
             for i in mirrors {
                 if download_inner(
                     download_dir,
@@ -162,7 +163,7 @@ pub async fn download(
     mbc: Option<Arc<MultiProgress>>,
     progress: Option<(usize, usize)>,
     global_bar: Option<ProgressBar>,
-) -> Result<Vec<u8>> {
+) -> Result<()> {
     let barsty = oma_style_pb()?;
 
     // let p = dir.join(filename);
@@ -215,14 +216,18 @@ pub async fn download(
         if let Some(hash) = hash {
             let mut f = std::fs::File::open(&file)?;
             let mut buf = Vec::new();
-            let buf_clone = buf.clone();
             f.read_to_end(&mut buf)?;
             let hash = hash.to_owned();
 
-            let result = spawn_blocking(move || checksum(&buf_clone, &hash)).await?;
+            let file_clone = file.clone();
 
-            if result.is_ok() {
-                return Ok(buf);
+            let result = spawn_blocking(move || {
+                Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file_clone))
+            })
+            .await??;
+
+            if result {
+                return Ok(());
             } else {
                 tokio::fs::remove_file(&file).await?;
             }
@@ -250,33 +255,21 @@ pub async fn download(
     dest.flush().await?;
     drop(dest);
 
-    let buf = if let Some(hash) = hash {
-        let mut dest = tokio::fs::File::open(&file).await?;
-        let mut buf = Vec::new();
-        dest.read_to_end(&mut buf).await?;
-        let buf_clone = buf.clone();
-        let hash_clone = hash.to_string();
+    if let Some(hash) = hash {
+        let hash = hash.to_string();
+        let result = spawn_blocking(move || {
+            Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file))
+        })
+        .await??;
 
-        let result = spawn_blocking(move || checksum(&buf_clone.clone(), &hash_clone)).await?;
-
-        if result.is_err() {
+        if !result {
             return Err(anyhow!(
-                "Couldn't download URL: {}. Error: {:?}",
-                url,
-                result.err()
+                "Url: {url} checksum mismatch! Please check your network connection!"
             ));
         }
+    }
 
-        buf
-    } else {
-        let mut dest = tokio::fs::File::open(&file).await?;
-        let mut buf = Vec::new();
-        dest.read_to_end(&mut buf).await?;
-
-        buf
-    };
-
-    Ok(buf)
+    Ok(())
 }
 
 pub fn oma_style_pb() -> Result<ProgressStyle> {
@@ -293,21 +286,4 @@ pub fn oma_style_pb() -> Result<ProgressStyle> {
         .progress_chars("=>-");
 
     Ok(barsty)
-}
-
-pub fn checksum(buf: &[u8], hash: &str) -> Result<bool> {
-    let mut hasher = Sha256::new();
-    hasher.write_all(buf)?;
-    let buf_hash = hasher.finalize();
-    let buf_hash = format!("{buf_hash:2x}");
-
-    if hash != buf_hash {
-        return Err(anyhow!(
-            "Checksum mismatch. Expected {}, got {}",
-            hash,
-            buf_hash
-        ));
-    }
-
-    Ok(true)
 }

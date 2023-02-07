@@ -63,7 +63,7 @@ async fn download_db(
 
     let url_short = get_url_short_and_branch(&url)?;
 
-    let v = download(
+    download(
         &url,
         client,
         filename.to_string(),
@@ -76,7 +76,11 @@ async fn download_db(
     )
     .await?;
 
-    Ok((FileName::new(&url)?, FileBuf(v)))
+    let mut v = tokio::fs::File::open(Path::new(APT_LIST_DISTS).join(filename)).await?;
+    let mut buf = Vec::new();
+    v.read_to_end(&mut buf).await?;
+
+    Ok((FileName::new(&url)?, FileBuf(buf)))
 }
 
 #[derive(Deserialize)]
@@ -322,7 +326,7 @@ pub async fn packages_download(
     let mut total = 0;
 
     if list.len() == 0 {
-        return Ok(())
+        return Ok(());
     }
 
     info!("Downloading {} packages ...", list.len());

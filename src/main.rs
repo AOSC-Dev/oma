@@ -12,6 +12,7 @@ mod pkgversion;
 mod update;
 mod utils;
 mod verify;
+mod checksum;
 
 lazy_static! {
     static ref WRITER: cli::Writer = cli::Writer::new();

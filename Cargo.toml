@@ -29,4 +29,5 @@ progress-streams = "1.1"
 tokio = { version = "1.15", default_features = false, features = ["rt", "macros", "fs", "io-util"] }
 futures = "0.3"
 serde_yaml = "0.9.17"
+hex = "0.4"
 
