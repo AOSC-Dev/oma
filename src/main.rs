@@ -1,6 +1,6 @@
 use std::process::exit;
 
-use action::AoscptAction;
+use action::OmaAction;
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 
@@ -57,7 +57,14 @@ struct Delete {
 async fn main() {
     env_logger::init();
 
-    let app = AoscptAction::new().await.unwrap();
+    let app = OmaAction::new().await;
+
+    let app = if let Ok(app) = app {
+        app
+    } else {
+        error!("{:?}", app.err());
+        exit(1);
+    };
 
     let args = Args::parse();
 

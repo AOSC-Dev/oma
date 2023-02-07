@@ -71,7 +71,7 @@ impl AcquireProgress for NoProgress {
                 unit_str(current_cps, NumSys::Decimal)
             );
         } else {
-            success!("All Package is fetched");
+            success!("All Package is fetched, Now go to dpkg install.");
         }
     }
 }

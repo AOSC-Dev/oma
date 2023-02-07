@@ -20,13 +20,13 @@ use crate::{
     }, warn, success,
 };
 
-pub struct AoscptAction {
+pub struct OmaAction {
     sources: Vec<SourceEntry>,
     db: Vec<IndexMap<String, String>>,
     client: Client,
 }
 
-impl AoscptAction {
+impl OmaAction {
     pub async fn new() -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("aoscpt").build()?;
 
