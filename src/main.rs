@@ -1,4 +1,4 @@
-use std::process::exit;
+use std::{process::exit, sync::atomic::AtomicI32};
 
 use action::OmaAction;
 use clap::{Parser, Subcommand};
@@ -9,10 +9,13 @@ mod cli;
 mod download;
 mod formatter;
 mod pkgversion;
-mod update;
+mod db;
 mod utils;
 mod verify;
 mod checksum;
+mod pager;
+
+static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 
 lazy_static! {
     static ref WRITER: cli::Writer = cli::Writer::new();

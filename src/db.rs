@@ -680,3 +680,10 @@ fn version_sort(map: &[IndexMap<String, String>]) -> Result<Vec<IndexMap<String,
 
     Ok(list.into_iter().map(|x| x.1).collect())
 }
+
+// Read dpkg status
+pub fn dpkg_status() -> Result<Vec<IndexMap<String, String>>> {
+    let status = debcontrol_from_file(Path::new("/var/lib/dpkg/status"))?;
+
+    Ok(status)
+}

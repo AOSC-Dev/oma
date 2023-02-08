@@ -15,7 +15,7 @@ use tokio::{
     io::AsyncWriteExt,
 };
 
-use crate::{checksum::Checksum, update::DOWNLOAD_DIR, WRITER};
+use crate::{checksum::Checksum, db::DOWNLOAD_DIR, WRITER};
 
 /// Download a package
 pub async fn download_package(
@@ -170,9 +170,7 @@ pub async fn download(
     let total_size = {
         let resp = client.get(url).send().await?;
         if resp.status().is_success() {
-            let res = resp.content_length().unwrap_or(0);
-
-            res
+            resp.content_length().unwrap_or(0)
         } else {
             return Err(anyhow!(
                 "Couldn't download URL: {}. Error: {:?}",
