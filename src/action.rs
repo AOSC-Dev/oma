@@ -33,6 +33,8 @@ use crate::{
 struct RemoveRow {
     #[tabled(rename = "Name")]
     name: String,
+    #[tabled(skip)]
+    _name_no_color: String,
     #[tabled(rename = "Package Size")]
     size: String,
     // Show details to this specific removal. Eg: if this is an essential package
@@ -50,7 +52,8 @@ impl RemoveRow {
         let size = pkg["Installed-Size"].to_owned();
 
         Ok(Self {
-            name: name.to_owned(),
+            name: style(name).red().bold().to_string(),
+            _name_no_color: name.to_owned(),
             size,
             detail: if is_purge {
                 style("Purge configuration files.").red().to_string()
@@ -65,6 +68,8 @@ impl RemoveRow {
 struct InstallRow {
     #[tabled(rename = "Name")]
     name: String,
+    #[tabled(skip)]
+    name_no_color: String,
     #[tabled(rename = "Version")]
     version: String,
     #[tabled(rename = "Installed Size")]
@@ -117,6 +122,7 @@ impl OmaAction {
             client: &Client,
             db: &[IndexMap<String, String>],
             dpkg: &[IndexMap<String, String>],
+            count: usize,
         ) -> Result<()> {
             let cache = new_cache!()?;
             cache.upgrade(&Upgrade::FullUpgrade)?;
@@ -131,11 +137,13 @@ impl OmaAction {
             let mut list = action.update.clone();
             list.extend(action.install.clone());
 
-            let names = list.into_iter().map(|x| x.name).collect::<Vec<_>>();
+            let names = list.into_iter().map(|x| x.name_no_color).collect::<Vec<_>>();
 
             autoremove(&cache);
 
-            display_result(&action)?;
+            if count == 0 {
+                display_result(&action)?;
+            }
 
             let db_for_updates = newest_package_list(db)?;
             packages_download(&names, &db_for_updates, sources, client, None).await?;
@@ -148,7 +156,7 @@ impl OmaAction {
 
         // Retry 3 times
         let mut count = 0;
-        while let Err(e) = update_inner(&self.sources, &self.client, &self.db, &self.dpkg_db).await
+        while let Err(e) = update_inner(&self.sources, &self.client, &self.db, &self.dpkg_db, count).await
         {
             warn!("{e}, retrying ...");
             if count == 3 {
@@ -164,7 +172,7 @@ impl OmaAction {
         update_db(&self.sources, &self.client, None).await?;
 
         let mut count = 0;
-        while let Err(e) = self.install_inner(list).await {
+        while let Err(e) = self.install_inner(list, count).await {
             warn!("{e}, retrying ...");
             if count == 3 {
                 return Err(e);
@@ -176,7 +184,7 @@ impl OmaAction {
         Ok(())
     }
 
-    async fn install_inner(&self, list: &[String]) -> Result<()> {
+    async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
         let cache = new_cache!()?;
         for i in list {
             let pkg = cache
@@ -248,9 +256,11 @@ impl OmaAction {
         autoremove(&cache);
         cache.resolve(true)?;
 
-        display_result(&action)?;
+        if count == 0 {
+            display_result(&action)?;
+        }
 
-        let names = list.into_iter().map(|x| x.name).collect::<Vec<_>>();
+        let names = list.into_iter().map(|x| x.name_no_color).collect::<Vec<_>>();
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download(&names, &self.db, &self.sources, &self.client, None).await?;
         apt_install(cache)?;
@@ -388,6 +398,7 @@ fn apt_handler(
 
             install.push(InstallRow {
                 name: style(pkg.name()).green().to_string(),
+                name_no_color: pkg.name().to_string(),
                 version: version.to_string(),
                 size,
             });
@@ -436,6 +447,7 @@ fn apt_handler(
 
             update.push(InstallRow {
                 name: style(pkg.name()).green().to_string(),
+                name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
                 size,
             });
@@ -487,6 +499,7 @@ fn apt_handler(
 
             downgrade.push(InstallRow {
                 name: style(pkg.name()).green().to_string(),
+                name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
                 size,
             });
