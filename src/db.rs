@@ -21,8 +21,10 @@ use tokio::io::AsyncReadExt;
 use xz2::read::XzDecoder;
 
 use crate::{
+    action::InstallRow,
     download::{download, download_package, oma_style_pb},
     info,
+    pkgversion::PkgVersion,
     success,
     utils::get_arch_name,
     verify,
@@ -314,7 +316,7 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
 
 /// Download packages
 pub async fn packages_download(
-    list: &[String],
+    list: &[InstallRow],
     apt: &[IndexMap<String, String>],
     sources: &[SourceEntry],
     client: &Client,
@@ -331,8 +333,11 @@ pub async fn packages_download(
     info!("Downloading {} packages ...", list.len());
 
     for i in list.iter() {
-        let v = apt.iter().find(|x| x.get("Package") == Some(i));
-        let Some(v) = v else { bail!("Can not get package {} from list", i) };
+        let v = apt.iter().find(|x| {
+            x.get("Package") == Some(&i.name_no_color) && x.get("Version") == Some(&i.new_version)
+        });
+
+        let Some(v) = v else { bail!("Can not get package {} from list", i.name_no_color) };
 
         let size = v["Size"].clone().parse::<u64>()?;
         total += size;
@@ -346,9 +351,11 @@ pub async fn packages_download(
     let list_len = list.len();
 
     for (i, c) in list.iter().enumerate() {
-        let v = apt.iter().find(|x| x.get("Package") == Some(c));
+        let v = apt.iter().find(|x| {
+            x.get("Package") == Some(&c.name_no_color) && x.get("Version") == Some(&c.new_version)
+        });
 
-        let Some(v) = v else { bail!("Can not get package {} from list", c) };
+        let Some(v) = v else { bail!("Can not get package {} from list", c.name_no_color) };
         let file_name = v["Filename"].clone();
         let checksum = v["SHA256"].clone();
         let version = v["Version"].clone();
@@ -357,12 +364,12 @@ pub async fn packages_download(
         let branch = file_name_split
             .nth(1)
             .take()
-            .context(format!("Can not parse package {c} Filename field!"))?;
+            .context(format!("Can not parse package {} Filename field!", c.name_no_color))?;
 
         let component = file_name_split
             .next()
             .take()
-            .context(format!("Can not parse package {c} Filename field!"))?;
+            .context(format!("Can not parse package {} Filename field!", c.name_no_color))?;
 
         let mirrors = sources
             .iter()
@@ -628,6 +635,44 @@ fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
     };
 
     Ok(buf)
+}
+
+/// Filter package newest version list
+pub fn newest_package_list(
+    input: &[IndexMap<String, String>],
+) -> Result<Vec<IndexMap<String, String>>> {
+    let mut input = input.to_vec();
+
+    input.sort_by(|x, y| x["Package"].cmp(&y["Package"]));
+
+    let apt = version_sort(&input)?;
+
+    Ok(apt)
+}
+
+/// Sort package list with version
+fn version_sort(map: &[IndexMap<String, String>]) -> Result<Vec<IndexMap<String, String>>> {
+    let Some(last_name) = map.first().and_then(|x| x.get("Package")) else { bail!("package list is empty") };
+    let mut last_name = last_name.to_owned();
+    let mut list = vec![];
+    let mut tmp = vec![];
+
+    for i in map {
+        let package = i["Package"].clone();
+        let version = i["Version"].clone();
+
+        if package == last_name {
+            tmp.push((PkgVersion::try_from(version.as_str())?, i.to_owned()));
+        } else {
+            tmp.sort_by(|x, y| x.0.cmp(&y.0));
+            list.push(tmp.last().unwrap().to_owned());
+            tmp.clear();
+            last_name = package.to_string();
+            tmp.push((PkgVersion::try_from(version.as_str())?, i.to_owned()));
+        }
+    }
+
+    Ok(list.into_iter().map(|x| x.1).collect())
 }
 
 // Read dpkg status

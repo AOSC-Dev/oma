@@ -22,8 +22,8 @@ use std::io::Write;
 
 use crate::{
     db::{
-        dpkg_status, get_sources, get_sources_dists_filename, package_list, packages_download,
-        update_db, APT_LIST_DISTS,
+        dpkg_status, get_sources, get_sources_dists_filename, newest_package_list, package_list,
+        packages_download, update_db, APT_LIST_DISTS,
     },
     formatter::NoProgress,
     pager::Pager,
@@ -67,13 +67,13 @@ impl RemoveRow {
 }
 
 #[derive(Tabled, Debug, Clone)]
-struct InstallRow {
+pub struct InstallRow {
     #[tabled(rename = "Name")]
     name: String,
     #[tabled(skip)]
-    name_no_color: String,
+    pub name_no_color: String,
     #[tabled(skip)]
-    new_version: String,
+    pub new_version: String,
     #[tabled(rename = "Version")]
     version: String,
     #[tabled(rename = "Installed Size")]
@@ -142,10 +142,10 @@ impl OmaAction {
             list.extend(action.install.clone());
             list.extend(action.downgrade.clone());
 
-            let names = list
-                .into_iter()
-                .map(|x| x.name_no_color)
-                .collect::<Vec<_>>();
+            // let names = list
+            //     .into_iter()
+            //     .map(|x| x.name_no_color)
+            //     .collect::<Vec<_>>();
 
             autoremove(&cache);
 
@@ -154,7 +154,9 @@ impl OmaAction {
                 display_result(&action, apt_db, disk_size)?;
             }
 
-            packages_download(&names, apt_db, sources, client, None).await?;
+            let db_for_update = newest_package_list(apt_db)?;
+
+            packages_download(&list, &db_for_update, sources, client, None).await?;
 
             cache.resolve(true)?;
             apt_install(cache)?;
@@ -195,17 +197,19 @@ impl OmaAction {
 
     async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
         let cache = new_cache!()?;
+
         for i in list {
-            let pkg = cache
-                .get(i)
-                .take()
-                .context(format!("Can not get package: {i}"))?;
             if i.contains('=') {
                 // Support apt install fish=3.6.0
 
                 let mut split_arg = i.split('=');
                 let name = split_arg.next().context(format!("Not Support: {i}"))?;
-                let version = split_arg.nth(1).context(format!("Not Support: {i}"))?;
+                let version = split_arg.next().context(format!("Not Support: {i}"))?;
+
+                let pkg = cache
+                    .get(name)
+                    .take()
+                    .context(format!("Can not get package: {i}"))?;
 
                 if PkgVersion::try_from(version).is_err() {
                     bail!("invalid version: {}", version);
@@ -215,14 +219,37 @@ impl OmaAction {
                     .get_version(version)
                     .context(format!("Can not get package {name} version: {version}"))?;
 
+                let current_version = pkg.current_version();
+
+                if current_version.is_none() {
+                    pkg.mark_install(true, true);
+                } else if let Some(current_version) = current_version {
+                    let current_version = current_version.version();
+                    let current_version = PkgVersion::try_from(current_version)?;
+                    let new_version = PkgVersion::try_from(version.version())?;
+
+                    if current_version > new_version {
+                        pkg.marked_downgrade();
+                    } else if current_version == new_version {
+                        continue;
+                    } else {
+                        pkg.mark_install(true, true);
+                    }
+                }
+
                 let pkg = version.parent();
-                pkg.mark_install(true, true);
                 pkg.protect();
+                pkg.mark_install(true, true);
             } else if i.contains('/') {
                 // Support apt install fish/stable
                 let mut split_arg = i.split('/');
                 let name = split_arg.next().context(format!("Not Support: {i}"))?;
-                let branch = split_arg.nth(1).context(format!("Not Support: {i}"))?;
+                let branch = split_arg.next().context(format!("Not Support: {i}"))?;
+
+                let pkg = cache
+                    .get(name)
+                    .take()
+                    .context(format!("Can not get package: {i}"))?;
 
                 let mut res = self
                     .db
@@ -245,12 +272,44 @@ impl OmaAction {
                 let version = pkg.get_version(&res).unwrap();
 
                 let pkg = version.parent();
-                pkg.mark_install(true, true);
-                pkg.protect();
-            }
+                let current_version = pkg.current_version();
 
-            pkg.mark_install(true, true);
-            pkg.protect();
+                if current_version.is_none() {
+                    pkg.mark_install(true, true);
+                } else if let Some(current_version) = current_version {
+                    let current_version = current_version.version();
+                    let current_version = PkgVersion::try_from(current_version)?;
+                    let new_version = PkgVersion::try_from(version.version())?;
+
+                    if current_version > new_version {
+                        let version = pkg.get_version(&res).unwrap();
+                        let pkg = version.parent();
+                        pkg.protect();
+                        pkg.mark_install(true, true);
+                    } else if current_version == new_version {
+                        continue;
+                    } else {
+                        let version = pkg.get_version(&res).unwrap();
+                        let pkg = version.parent();
+                        pkg.protect();
+                        pkg.mark_install(true, true);
+                    }
+                }
+            } else {
+                let pkg = cache
+                    .get(i)
+                    .take()
+                    .context(format!("Can not get package: {i}"))?;
+
+                let version = pkg
+                    .candidate()
+                    .context(format!("Can not get package candidate: {}", pkg.name()))?;
+
+                let pkg = version.parent();
+
+                pkg.protect();
+                pkg.mark_install(true, true);
+            };
         }
         let (action, len) = apt_handler(&cache, &self.dpkg_db)?;
 
@@ -271,12 +330,12 @@ impl OmaAction {
             display_result(&action, &self.db, disk_size)?;
         }
 
-        let names = list
-            .into_iter()
-            .map(|x| x.name_no_color)
-            .collect::<Vec<_>>();
+        // let names = list
+        //     .into_iter()
+        //     .map(|x| x.name_no_color)
+        //     .collect::<Vec<_>>();
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
-        packages_download(&names, &self.db, &self.sources, &self.client, None).await?;
+        packages_download(&list, &self.db, &self.sources, &self.client, None).await?;
         apt_install(cache)?;
 
         Ok(())
@@ -370,10 +429,7 @@ impl Action {
     }
 }
 
-fn apt_handler(
-    cache: &Cache,
-    dpkg: &[IndexMap<String, String>],
-) -> Result<(Action, usize)> {
+fn apt_handler(cache: &Cache, dpkg: &[IndexMap<String, String>]) -> Result<(Action, usize)> {
     let changes = cache.get_changes(true).collect::<Vec<_>>();
     let len = changes.len();
 

@@ -37,7 +37,9 @@ impl AcquireProgress for NoProgress {
 
     fn hit(&mut self, _id: u32, _description: String) {}
 
-    fn fetch(&mut self, _id: u32, _description: String, _file_size: u64) {}
+    fn fetch(&mut self, _id: u32, _description: String, _file_size: u64) {
+        dbg!(_description);
+    }
 
     fn fail(&mut self, _id: u32, _description: String, _status: u32, _error_text: String) {}
 
