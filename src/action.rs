@@ -4,12 +4,13 @@ use anyhow::{bail, Context, Ok, Result};
 use apt_sources_lists::SourceEntry;
 use console::style;
 use indexmap::IndexMap;
+use indicatif::HumanBytes;
 use reqwest::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
-    util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, NumSys},
+    util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, DiskSpace, NumSys},
 };
 use tabled::{
     object::{Columns, Segment},
@@ -20,8 +21,8 @@ use std::io::Write;
 
 use crate::{
     db::{
-        dpkg_status, get_sources, get_sources_dists_filename, newest_package_list, package_list,
-        packages_download, update_db, APT_LIST_DISTS,
+        dpkg_status, get_sources, get_sources_dists_filename, package_list, packages_download,
+        update_db, APT_LIST_DISTS,
     },
     formatter::NoProgress,
     pager::Pager,
@@ -70,6 +71,8 @@ struct InstallRow {
     name: String,
     #[tabled(skip)]
     name_no_color: String,
+    #[tabled(skip)]
+    new_version: String,
     #[tabled(rename = "Version")]
     version: String,
     #[tabled(rename = "Installed Size")]
@@ -120,14 +123,14 @@ impl OmaAction {
         async fn update_inner(
             sources: &[SourceEntry],
             client: &Client,
-            db: &[IndexMap<String, String>],
+            apt_db: &[IndexMap<String, String>],
             dpkg: &[IndexMap<String, String>],
             count: usize,
         ) -> Result<()> {
             let cache = new_cache!()?;
             cache.upgrade(&Upgrade::FullUpgrade)?;
 
-            let (action, len) = apt_handler(&cache, db, dpkg)?;
+            let (action, len) = apt_handler(&cache, apt_db, dpkg)?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -136,17 +139,21 @@ impl OmaAction {
 
             let mut list = action.update.clone();
             list.extend(action.install.clone());
+            list.extend(action.downgrade.clone());
 
-            let names = list.into_iter().map(|x| x.name_no_color).collect::<Vec<_>>();
+            let names = list
+                .into_iter()
+                .map(|x| x.name_no_color)
+                .collect::<Vec<_>>();
 
             autoremove(&cache);
 
             if count == 0 {
-                display_result(&action)?;
+                let disk_size = cache.depcache().disk_size();
+                display_result(&action, apt_db, disk_size)?;
             }
 
-            let db_for_updates = newest_package_list(db)?;
-            packages_download(&names, &db_for_updates, sources, client, None).await?;
+            packages_download(&names, apt_db, sources, client, None).await?;
 
             cache.resolve(true)?;
             apt_install(cache)?;
@@ -156,7 +163,8 @@ impl OmaAction {
 
         // Retry 3 times
         let mut count = 0;
-        while let Err(e) = update_inner(&self.sources, &self.client, &self.db, &self.dpkg_db, count).await
+        while let Err(e) =
+            update_inner(&self.sources, &self.client, &self.db, &self.dpkg_db, count).await
         {
             warn!("{e}, retrying ...");
             if count == 3 {
@@ -253,14 +261,19 @@ impl OmaAction {
         let mut list = vec![];
         list.extend(action.install.clone());
         list.extend(action.update.clone());
+        list.extend(action.downgrade.clone());
         autoremove(&cache);
         cache.resolve(true)?;
 
         if count == 0 {
-            display_result(&action)?;
+            let disk_size = cache.depcache().disk_size();
+            display_result(&action, &self.db, disk_size)?;
         }
 
-        let names = list.into_iter().map(|x| x.name_no_color).collect::<Vec<_>>();
+        let names = list
+            .into_iter()
+            .map(|x| x.name_no_color)
+            .collect::<Vec<_>>();
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download(&names, &self.db, &self.sources, &self.client, None).await?;
         apt_install(cache)?;
@@ -285,7 +298,8 @@ impl OmaAction {
             return Ok(());
         }
 
-        display_result(&action)?;
+        let disk_size = cache.depcache().disk_size();
+        display_result(&action, &self.db, disk_size)?;
 
         cache.commit(
             &mut NoProgress::new_box(),
@@ -400,6 +414,7 @@ fn apt_handler(
                 name: style(pkg.name()).green().to_string(),
                 name_no_color: pkg.name().to_string(),
                 version: version.to_string(),
+                new_version: version.to_string(),
                 size,
             });
 
@@ -449,6 +464,7 @@ fn apt_handler(
                 name: style(pkg.name()).green().to_string(),
                 name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
+                new_version: version.to_string(),
                 size,
             });
         }
@@ -501,6 +517,7 @@ fn apt_handler(
                 name: style(pkg.name()).green().to_string(),
                 name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
+                new_version: version.to_string(),
                 size,
             });
         }
@@ -511,7 +528,11 @@ fn apt_handler(
     Ok((action, len))
 }
 
-fn display_result(action: &Action) -> Result<()> {
+fn display_result(
+    action: &Action,
+    apt: &[IndexMap<String, String>],
+    disk_size: DiskSpace,
+) -> Result<()> {
     let update = action.update.clone();
     let install = action.install.clone();
     let del = action.del.clone();
@@ -556,7 +577,7 @@ fn display_result(action: &Action) -> Result<()> {
             style("installed").green().bold()
         )?;
 
-        let mut table = Table::new(install);
+        let mut table = Table::new(&install);
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -575,7 +596,7 @@ fn display_result(action: &Action) -> Result<()> {
             style("upgraded").green().bold()
         )?;
 
-        let mut table = Table::new(update);
+        let mut table = Table::new(&update);
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -594,7 +615,7 @@ fn display_result(action: &Action) -> Result<()> {
             style("downgraded").yellow().bold()
         )?;
 
-        let mut table = Table::new(downgrade);
+        let mut table = Table::new(&downgrade);
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -616,17 +637,60 @@ fn display_result(action: &Action) -> Result<()> {
         writeln!(out, "\n{}", reinstall.join(", "))?;
     }
 
+    let mut list = vec![];
+    list.extend(install);
+    list.extend(update);
+    list.extend(downgrade);
+
+    writeln!(
+        out,
+        "{} {}",
+        style("\nTotal download size:").bold(),
+        HumanBytes(download_size(&list, apt)?)
+    )?;
+
+    let (symbol, abs_install_size_change) = match disk_size {
+        DiskSpace::Require(n) => ("+", n),
+        DiskSpace::Free(n) => ("-", n),
+    };
+
+    writeln!(
+        out,
+        "{} {}{}",
+        style("Estimated change in storage usage:").bold(),
+        symbol,
+        HumanBytes(abs_install_size_change)
+    )?;
+
     drop(out);
     pager.wait_for_exit()?;
 
-    // writeln!(
-    //     out,
-    //     "{} {}",
-    //     style("Total download size:").bold(),
-    //     HumanBytes(actions.calculate_download_size())
-    // )?;
-
     Ok(())
+}
+
+fn download_size(
+    install_and_update: &[InstallRow],
+    apt: &[IndexMap<String, String>],
+) -> Result<u64> {
+    let mut result = 0;
+
+    for i in install_and_update {
+        let item = apt
+            .iter()
+            .find(|x| {
+                x.get("Package") == Some(&i.name_no_color)
+                    && x.get("Version") == Some(&i.new_version)
+            })
+            .context(format!(
+                "Can not find pacakge {} from apt package database",
+                i.name
+            ))?;
+
+        let size = item["Size"].parse::<u64>()?;
+        result += size;
+    }
+
+    Ok(result)
 }
 
 fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
