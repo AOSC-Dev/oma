@@ -23,7 +23,6 @@ use xz2::read::XzDecoder;
 use crate::{
     download::{download, download_package, oma_style_pb},
     info,
-    pkgversion::PkgVersion,
     success,
     utils::get_arch_name,
     verify,
@@ -629,56 +628,6 @@ fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
     };
 
     Ok(buf)
-}
-
-#[derive(Debug)]
-pub struct UpdatePackage {
-    pub package: String,
-    pub old_version: String,
-    pub new_version: String,
-    pub file_name: String,
-    pub from: String,
-    pub dpkg_installed_size: u64,
-    pub apt_size: u64,
-    pub apt_installed_size: u64,
-}
-
-/// Filter package newest version list
-pub fn newest_package_list(
-    input: &[IndexMap<String, String>],
-) -> Result<Vec<IndexMap<String, String>>> {
-    let mut input = input.to_vec();
-
-    input.sort_by(|x, y| x["Package"].cmp(&y["Package"]));
-
-    let apt = version_sort(&input)?;
-
-    Ok(apt)
-}
-
-/// Sort package list with version
-fn version_sort(map: &[IndexMap<String, String>]) -> Result<Vec<IndexMap<String, String>>> {
-    let Some(last_name) = map.first().and_then(|x| x.get("Package")) else { bail!("package list is empty") };
-    let mut last_name = last_name.to_owned();
-    let mut list = vec![];
-    let mut tmp = vec![];
-
-    for i in map {
-        let package = i["Package"].clone();
-        let version = i["Version"].clone();
-
-        if package == last_name {
-            tmp.push((PkgVersion::try_from(version.as_str())?, i.to_owned()));
-        } else {
-            tmp.sort_by(|x, y| x.0.cmp(&y.0));
-            list.push(tmp.last().unwrap().to_owned());
-            tmp.clear();
-            last_name = package.to_string();
-            tmp.push((PkgVersion::try_from(version.as_str())?, i.to_owned()));
-        }
-    }
-
-    Ok(list.into_iter().map(|x| x.1).collect())
 }
 
 // Read dpkg status
