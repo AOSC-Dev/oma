@@ -385,19 +385,13 @@ fn install_handle(
             });
 
             // let pkg = version.parent();
-            // pkg.protect();
+            pkg.protect();
             pkg.mark_install(true, true);
         } else {
             let pkg = cache
                 .get(i)
                 .take()
                 .context(format!("Can not get package: {i}"))?;
-
-            // let version = pkg
-            //     .candidate()
-            //     .context(format!("Can not get package candidate: {}", pkg.name()))?;
-
-            // let pkg = version.parent();
 
             pkg.protect();
             pkg.mark_install(true, true);
