@@ -611,7 +611,7 @@ fn apt_handler(
             };
 
             downgrade.push(InstallRow {
-                name: style(pkg.name()).green().to_string(),
+                name: style(pkg.name()).yellow().to_string(),
                 name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
                 new_version: version.to_string(),
