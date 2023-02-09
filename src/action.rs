@@ -21,7 +21,7 @@ use std::io::Write;
 
 use crate::{
     db::{
-        dpkg_status, get_sources, get_sources_dists_filename, newest_package_list, package_list,
+        dpkg_status, get_sources, get_sources_dists_filename, package_list,
         packages_download, update_db, APT_LIST_DISTS,
     },
     formatter::NoProgress,
@@ -161,9 +161,9 @@ impl OmaAction {
                 display_result(&action, apt_db, disk_size)?;
             }
 
-            let db_for_update = newest_package_list(apt_db)?;
+            // let db_for_update = newest_package_list(apt_db)?;
 
-            packages_download(&list, &db_for_update, sources, client, None).await?;
+            packages_download(&list, &apt_db, sources, client, None).await?;
 
             cache.resolve(true)?;
             apt_install(cache)?;
