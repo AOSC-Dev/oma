@@ -10,7 +10,6 @@ use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
-    records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, DiskSpace, NumSys},
 };
 use tabled::{
@@ -87,6 +86,11 @@ pub struct OmaAction {
     client: Client,
 }
 
+struct PackageVersion {
+    name: String,
+    version: String,
+}
+
 impl OmaAction {
     pub async fn new() -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("aoscpt").build()?;
@@ -131,7 +135,7 @@ impl OmaAction {
             let cache = new_cache!()?;
             cache.upgrade(&Upgrade::FullUpgrade)?;
 
-            let (action, len) = apt_handler(&cache, dpkg)?;
+            let (action, len) = apt_handler(&cache, dpkg, apt_db, None)?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -198,46 +202,36 @@ impl OmaAction {
     async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
         let cache = new_cache!()?;
 
+        let mut selected_packages_version = vec![];
+
         for i in list {
             if i.contains('=') {
                 // Support apt install fish=3.6.0
 
                 let mut split_arg = i.split('=');
                 let name = split_arg.next().context(format!("Not Support: {i}"))?;
-                let version = split_arg.next().context(format!("Not Support: {i}"))?;
+                let version_str = split_arg.next().context(format!("Not Support: {i}"))?;
 
                 let pkg = cache
                     .get(name)
                     .take()
                     .context(format!("Can not get package: {i}"))?;
 
-                if PkgVersion::try_from(version).is_err() {
-                    bail!("invalid version: {}", version);
+                if PkgVersion::try_from(version_str).is_err() {
+                    bail!("invalid version: {}", version_str);
                 }
 
                 let version = pkg
-                    .get_version(version)
-                    .context(format!("Can not get package {name} version: {version}"))?;
+                    .get_version(version_str)
+                    .context(format!("Can not get package {name} version: {version_str}"))?;
 
-                let current_version = pkg.current_version();
+                version.set_candidate();
 
-                if current_version.is_none() {
-                    pkg.mark_install(true, true);
-                } else if let Some(current_version) = current_version {
-                    let current_version = current_version.version();
-                    let current_version = PkgVersion::try_from(current_version)?;
-                    let new_version = PkgVersion::try_from(version.version())?;
+                selected_packages_version.push(PackageVersion {
+                    name: name.to_string(),
+                    version: version_str.to_string(),
+                });
 
-                    if current_version > new_version {
-                        pkg.marked_downgrade();
-                    } else if current_version == new_version {
-                        continue;
-                    } else {
-                        pkg.mark_install(true, true);
-                    }
-                }
-
-                let pkg = version.parent();
                 pkg.protect();
                 pkg.mark_install(true, true);
             } else if i.contains('/') {
@@ -271,47 +265,33 @@ impl OmaAction {
                 let res = res.last().unwrap()["Version"].to_string();
                 let version = pkg.get_version(&res).unwrap();
 
-                let pkg = version.parent();
-                let current_version = pkg.current_version();
+                version.set_candidate();
 
-                if current_version.is_none() {
-                    pkg.mark_install(true, true);
-                } else if let Some(current_version) = current_version {
-                    let current_version = current_version.version();
-                    let current_version = PkgVersion::try_from(current_version)?;
-                    let new_version = PkgVersion::try_from(version.version())?;
+                selected_packages_version.push(PackageVersion {
+                    name: name.to_string(),
+                    version: res.to_string(),
+                });
 
-                    if current_version > new_version {
-                        let version = pkg.get_version(&res).unwrap();
-                        let pkg = version.parent();
-                        pkg.protect();
-                        pkg.mark_install(true, true);
-                    } else if current_version == new_version {
-                        continue;
-                    } else {
-                        let version = pkg.get_version(&res).unwrap();
-                        let pkg = version.parent();
-                        pkg.protect();
-                        pkg.mark_install(true, true);
-                    }
-                }
+                // let pkg = version.parent();
+                // pkg.protect();
+                pkg.mark_install(true, true);
             } else {
                 let pkg = cache
                     .get(i)
                     .take()
                     .context(format!("Can not get package: {i}"))?;
 
-                let version = pkg
-                    .candidate()
-                    .context(format!("Can not get package candidate: {}", pkg.name()))?;
+                // let version = pkg
+                //     .candidate()
+                //     .context(format!("Can not get package candidate: {}", pkg.name()))?;
 
-                let pkg = version.parent();
+                // let pkg = version.parent();
 
                 pkg.protect();
                 pkg.mark_install(true, true);
             };
         }
-        let (action, len) = apt_handler(&cache, &self.dpkg_db)?;
+        let (action, len) = apt_handler(&cache, &self.dpkg_db, &self.db, Some(&selected_packages_version))?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -351,7 +331,7 @@ impl OmaAction {
 
         autoremove(&cache);
 
-        let (action, len) = apt_handler(&cache, &self.dpkg_db)?;
+        let (action, len) = apt_handler(&cache, &self.dpkg_db, &self.db, None)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -429,7 +409,12 @@ impl Action {
     }
 }
 
-fn apt_handler(cache: &Cache, dpkg: &[IndexMap<String, String>]) -> Result<(Action, usize)> {
+fn apt_handler(
+    cache: &Cache,
+    dpkg: &[IndexMap<String, String>],
+    apt: &[IndexMap<String, String>],
+    select_packages_version: Option<&[PackageVersion]>,
+) -> Result<(Action, usize)> {
     let changes = cache.get_changes(true).collect::<Vec<_>>();
     let len = changes.len();
 
@@ -441,16 +426,38 @@ fn apt_handler(cache: &Cache, dpkg: &[IndexMap<String, String>]) -> Result<(Acti
 
     for pkg in changes {
         if pkg.marked_install() {
-            let pkg_ver = pkg
-                .candidate()
-                .context(format!("Can not get package version {}", pkg.name()))?;
+            let version = if let Some(spv) = select_packages_version {
+                if let Some(v) = spv.iter().find(|x| x.name == pkg.name()).map(|x| x.version.clone()) {
+                    v
+                } else {
+                    let cand = pkg.candidate().take().context(format!(
+                        "Can not get package version in apt database: {}",
+                        pkg.name()
+                    ))?;
 
-            let version = pkg_ver.version();
+                    cand.version().to_string()
+                }
+            } else {
+                let cand = pkg.candidate().take().context(format!(
+                    "Can not get package version in apt database: {}",
+                    pkg.name()
+                ))?;
 
-            let size = pkg_ver
-                .get_record(RecordField::InstalledSize)
-                .context(format!("Can not get package {} install size!", pkg.name()))?
-                .parse::<u64>()?;
+                cand.version().to_string()
+            };
+
+            let apt_pkg = apt
+                .iter()
+                .find(|x| {
+                    x.get("Package") == Some(&pkg.name().to_string())
+                        && x.get("Version") == Some(&version.to_string())
+                })
+                .context(format!(
+                    "Can not get package version in apt database: {}",
+                    pkg.name()
+                ))?;
+
+            let size = apt_pkg["Installed-Size"].parse::<u64>()?;
 
             let size = format!("+{}", unit_str(size, NumSys::Decimal,));
 
@@ -467,10 +474,10 @@ fn apt_handler(cache: &Cache, dpkg: &[IndexMap<String, String>]) -> Result<(Acti
             // Check this first and continue.
             continue;
         }
+
         if pkg.marked_upgrade() {
-            let pkg_ver = pkg
-                .candidate()
-                .context(format!("Can not get package version {}", pkg.name()))?;
+            // let id = pkg.id();
+            let pkg_ver = pkg.version_list().unwrap();
 
             let version = pkg_ver.version();
 
@@ -480,15 +487,23 @@ fn apt_handler(cache: &Cache, dpkg: &[IndexMap<String, String>]) -> Result<(Acti
                 .context(format!(
                     "Can not get package version from dpkg: {}",
                     pkg.name()
-                ))?;
+            ))?;
 
             let old_version = old_pkg["Version"].to_string();
             let old_size = old_pkg["Installed-Size"].parse::<i64>()?;
 
-            let new_size = pkg_ver
-                .get_record(RecordField::InstalledSize)
-                .context(format!("Can not get package {} install size!", pkg.name()))?
-                .parse::<i64>()?;
+            let apt_pkg = apt
+                .iter()
+                .find(|x| {
+                    x.get("Package") == Some(&pkg.name().to_string())
+                        && x.get("Version") == Some(&version.to_string())
+                })
+                .context(format!(
+                    "Can not get package version in apt database: {}",
+                    pkg.name()
+                ))?;
+
+            let new_size = apt_pkg["Installed-Size"].parse::<i64>()?;
 
             let size = new_size - old_size;
 
@@ -515,11 +530,26 @@ fn apt_handler(cache: &Cache, dpkg: &[IndexMap<String, String>]) -> Result<(Acti
             reinstall.push(pkg.name().to_string());
         }
         if pkg.marked_downgrade() {
-            let pkg_ver = pkg
-                .candidate()
-                .context(format!("Can not get package version {}", pkg.name()))?;
+            // let id = pkg.unsafe_version_list();
+            let version = if let Some(spv) = select_packages_version {
+                if let Some(v) = spv.iter().find(|x| x.name == pkg.name()).map(|x| x.version.clone()) {
+                    v
+                } else {
+                    let cand = pkg.candidate().take().context(format!(
+                        "Can not get package version in apt database: {}",
+                        pkg.name()
+                    ))?;
 
-            let version = pkg_ver.version();
+                    cand.version().to_string()
+                }
+            } else {
+                let cand = pkg.candidate().take().context(format!(
+                    "Can not get package version in apt database: {}",
+                    pkg.name()
+                ))?;
+
+                cand.version().to_string()
+            };
 
             let old_pkg = dpkg
                 .iter()
@@ -532,10 +562,18 @@ fn apt_handler(cache: &Cache, dpkg: &[IndexMap<String, String>]) -> Result<(Acti
             let old_version = old_pkg["Version"].to_string();
             let old_size = old_pkg["Installed-Size"].parse::<i64>()?;
 
-            let new_size = pkg_ver
-                .get_record(RecordField::InstalledSize)
-                .context(format!("Can not get package {} install size!", pkg.name()))?
-                .parse::<i64>()?;
+            let apt_pkg = apt
+                .iter()
+                .find(|x| {
+                    x.get("Package") == Some(&pkg.name().to_string())
+                        && x.get("Version") == Some(&version.to_string())
+                })
+                .context(format!(
+                    "Can not get package version in apt database: {}",
+                    pkg.name()
+                ))?;
+
+            let new_size = apt_pkg["Installed-Size"].parse::<i64>()?;
 
             let size = new_size - old_size;
 
