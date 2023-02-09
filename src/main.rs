@@ -5,15 +5,15 @@ use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 
 mod action;
+mod checksum;
 mod cli;
+mod db;
 mod download;
 mod formatter;
+mod pager;
 mod pkgversion;
-mod db;
 mod utils;
 mod verify;
-mod checksum;
-mod pager;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 

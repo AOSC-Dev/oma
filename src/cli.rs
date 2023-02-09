@@ -6,7 +6,7 @@ const PREFIX_LEN: u16 = 10;
 
 pub fn gen_prefix(prefix: &str) -> String {
     if console::measure_text_width(prefix) > (PREFIX_LEN - 1).into() {
-        panic!("Line prefix \"{}\" too long!", prefix);
+        panic!("Line prefix \"{prefix}\" too long!");
     }
 
     // Make sure the real_prefix has desired PREFIX_LEN in console
@@ -117,7 +117,7 @@ macro_rules! msg {
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)+) => {
-        if crate::verbose() {
+        if $crate::verbose() {
             $crate::WRITER.writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+)).ok();
         }
     };

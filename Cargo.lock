@@ -1259,7 +1259,6 @@ dependencies = [
  "log",
  "nix",
  "nom 7.1.3",
- "progress-streams",
  "reqwest",
  "rust-apt",
  "sequoia-openpgp",
@@ -1463,12 +1462,6 @@ checksum = "6ef7d57beacfaf2d8aee5937dab7b7f28de3cb8b1828479bb5de2a7106f2bae2"
 dependencies = [
  "unicode-ident",
 ]
-
-[[package]]
-name = "progress-streams"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e965d96c8162c607b0cd8d66047ad3c9fd35273c134d994327882c6e47f986a7"
 
 [[package]]
 name = "quote"

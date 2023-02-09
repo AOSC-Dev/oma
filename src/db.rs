@@ -23,9 +23,7 @@ use xz2::read::XzDecoder;
 use crate::{
     action::InstallRow,
     download::{download, download_package, oma_style_pb},
-    info,
-    pkgversion::PkgVersion,
-    success,
+    info, success,
     utils::get_arch_name,
     verify,
 };
@@ -90,7 +88,7 @@ struct MirrorMapItem {
 }
 
 fn get_url_short_and_branch(url: &str) -> Result<String> {
-    let url = Url::parse(&url)?;
+    let url = Url::parse(url)?;
     let host = url.host_str().context("Can not parse {url} host!")?;
     let schema = url.scheme();
     let branch = url
@@ -326,7 +324,7 @@ pub async fn packages_download(
     let mb = Arc::new(MultiProgress::new());
     let mut total = 0;
 
-    if list.len() == 0 {
+    if list.is_empty() {
         return Ok(());
     }
 
@@ -343,7 +341,7 @@ pub async fn packages_download(
         total += size;
     }
 
-    let global_bar = mb.insert(0, ProgressBar::new(total as u64));
+    let global_bar = mb.insert(0, ProgressBar::new(total));
     global_bar.set_style(oma_style_pb()?);
     global_bar.enable_steady_tick(Duration::from_millis(1000));
     global_bar.set_message("Progress");
@@ -361,15 +359,15 @@ pub async fn packages_download(
         let version = v["Version"].clone();
         let mut file_name_split = file_name.split('/');
 
-        let branch = file_name_split
-            .nth(1)
-            .take()
-            .context(format!("Can not parse package {} Filename field!", c.name_no_color))?;
+        let branch = file_name_split.nth(1).take().context(format!(
+            "Can not parse package {} Filename field!",
+            c.name_no_color
+        ))?;
 
-        let component = file_name_split
-            .next()
-            .take()
-            .context(format!("Can not parse package {} Filename field!", c.name_no_color))?;
+        let component = file_name_split.next().take().context(format!(
+            "Can not parse package {} Filename field!",
+            c.name_no_color
+        ))?;
 
         let mirrors = sources
             .iter()
@@ -488,7 +486,7 @@ pub async fn update_db(
         }
 
         let mb = Arc::new(MultiProgress::new());
-        let global_bar = mb.insert(0, ProgressBar::new(total as u64));
+        let global_bar = mb.insert(0, ProgressBar::new(total));
         global_bar.set_style(oma_style_pb()?);
         global_bar.enable_steady_tick(Duration::from_millis(1000));
         global_bar.set_message("Progress");

@@ -1,19 +1,11 @@
-use std::{
-    io::Read,
-    path::Path,
-    sync::Arc,
-    time::Duration,
-};
+use std::{io::Read, path::Path, sync::Arc, time::Duration};
 
 use tokio::task::spawn_blocking;
 
 use anyhow::{anyhow, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
-use tokio::{
-    fs,
-    io::AsyncWriteExt,
-};
+use tokio::{fs, io::AsyncWriteExt};
 
 use crate::{checksum::Checksum, db::DOWNLOAD_DIR, WRITER};
 
@@ -68,7 +60,7 @@ pub async fn download_package(
         .context(format!("Can not parse url {path}"))?;
 
     // sb apt 会把下载的文件重命名成 url 网址的样子，为保持兼容这里也这么做
-    let mut filename_split = filename.split("_");
+    let mut filename_split = filename.split('_');
     let package = filename_split
         .next()
         .take()
@@ -84,7 +76,7 @@ pub async fn download_package(
         arch_deb
     };
 
-    let version = version.replace(":", "%3a");
+    let version = version.replace(':', "%3a");
     let filename = format!("{package}_{version}_{arch_deb}");
 
     let mut all_is_err = true;

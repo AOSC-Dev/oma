@@ -164,7 +164,7 @@ impl OmaAction {
 
             // let db_for_update = newest_package_list(apt_db)?;
 
-            packages_download(&list, &apt_db, sources, client, None).await?;
+            packages_download(&list, apt_db, sources, client, None).await?;
 
             cache.resolve(true)?;
             apt_install(cache)?;
@@ -385,7 +385,6 @@ fn install_handle(
                 version: res.to_string(),
             });
 
-            // let pkg = version.parent();
             pkg.protect();
             pkg.mark_install(true, true);
         } else {
@@ -540,7 +539,7 @@ fn apt_handler(
             let size = if size >= 0 {
                 format!("+{}", unit_str(size as u64, NumSys::Decimal))
             } else {
-                format!("-{}", unit_str(size.abs() as u64, NumSys::Decimal))
+                format!("-{}", unit_str(size.unsigned_abs(), NumSys::Decimal))
             };
 
             update.push(InstallRow {
@@ -614,7 +613,7 @@ fn apt_handler(
             let size = if size >= 0 {
                 format!("+{}", unit_str(size as u64, NumSys::Decimal))
             } else {
-                format!("-{}", unit_str(size.abs() as u64, NumSys::Decimal))
+                format!("-{}", unit_str(size.unsigned_abs(), NumSys::Decimal))
             };
 
             downgrade.push(InstallRow {
@@ -659,8 +658,6 @@ fn display_result(
             "The following packages will be {}:\n",
             style("REMOVED").red().bold()
         )?;
-
-        // let remove_rows = remove_rows.to_vec();
 
         let mut table = Table::new(del);
 
