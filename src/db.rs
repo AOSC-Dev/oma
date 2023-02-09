@@ -22,7 +22,7 @@ use xz2::read::XzDecoder;
 
 use crate::{
     action::InstallRow,
-    download::{download, download_package, oma_style_pb},
+    download::{download, download_package, oma_style_pb, OmaProgressBar},
     info, success,
     utils::get_arch_name,
     verify,
@@ -54,24 +54,23 @@ async fn download_db(
     url: String,
     client: &Client,
     typ: String,
-    global_bar: Option<ProgressBar>,
-    progress: Option<(usize, usize)>,
-    mbc: Option<Arc<MultiProgress>>,
+    opb: &mut OmaProgressBar,
 ) -> Result<(FileName, FileBuf)> {
     let filename = FileName::new(&url)?.0;
 
     let url_short = get_url_short_and_branch(&url)?;
+
+    opb.msg = Some(format!("Getting {url_short} {typ} database ..."));
+
+    let opb = opb.clone();
 
     download(
         &url,
         client,
         filename.to_string(),
         Path::new(APT_LIST_DISTS),
-        Some(format!("Getting {url_short} {typ} database ...")),
         None,
-        mbc,
-        progress,
-        global_bar,
+        opb,
     )
     .await?;
 
@@ -385,10 +384,12 @@ pub async fn packages_download(
             client,
             checksum,
             version,
-            mbc,
-            i,
-            list_len,
-            global_bar.clone(),
+            OmaProgressBar::new(
+                None,
+                Some((i, list_len)),
+                Some(mbc.clone()),
+                Some(global_bar.clone()),
+            ),
         ));
     }
     // 默认限制一次最多下载八个包，减少服务器负担
@@ -440,7 +441,15 @@ pub async fn update_db(
     let mut dist_files = Vec::new();
 
     for i in dists_in_releases {
-        dist_files.push(download_db(i, client, "InRelease".to_owned(), None, None, None).await?);
+        dist_files.push(
+            download_db(
+                i,
+                client,
+                "InRelease".to_owned(),
+                &mut OmaProgressBar::new(None, None, None, None),
+            )
+            .await?,
+        );
     }
 
     let components = sources
@@ -523,6 +532,14 @@ pub async fn update_db(
 
                 let hash = checksums[checksums_index].checksum.to_owned();
 
+                let opb = OmaProgressBar::new(
+                    None,
+                    Some((i, len)),
+                    Some(mb.clone()),
+                    Some(global_bar.clone()),
+                )
+                .clone();
+
                 if checksum(&buf, &hash).is_err() {
                     task.push(download_and_extract(
                         &dist_urls[index],
@@ -530,23 +547,27 @@ pub async fn update_db(
                         client,
                         file_name.0,
                         typ,
-                        global_bar.clone(),
-                        (i, len),
-                        mb.clone(),
+                        opb,
                     ));
                 } else {
                     continue;
                 }
             } else {
+                let opb = OmaProgressBar::new(
+                    None,
+                    Some((i, len)),
+                    Some(mb.clone()),
+                    Some(global_bar.clone()),
+                )
+                .clone();
+
                 task.push(download_and_extract(
                     &dist_urls[index],
                     c,
                     client,
                     file_name.0,
                     typ,
-                    global_bar.clone(),
-                    (i, len),
-                    mb.clone(),
+                    opb,
                 ));
             }
         }
@@ -574,17 +595,13 @@ async fn download_and_extract(
     client: &Client,
     not_compress_file: String,
     typ: &str,
-    global_bar: ProgressBar,
-    progress: (usize, usize),
-    mbc: Arc<MultiProgress>,
+    mut opb: OmaProgressBar,
 ) -> Result<()> {
     let (name, buf) = download_db(
         format!("{}/{}", dist_url, i.name),
         client,
         typ.to_owned(),
-        Some(global_bar),
-        Some(progress),
-        Some(mbc),
+        &mut opb,
     )
     .await?;
     checksum(&buf.0, &i.checksum)?;

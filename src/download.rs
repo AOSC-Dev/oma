@@ -17,10 +17,7 @@ pub async fn download_package(
     client: &Client,
     hash: String,
     version: String,
-    mbc: Arc<MultiProgress>,
-    count: usize,
-    len: usize,
-    global_bar: ProgressBar,
+    opb: OmaProgressBar,
 ) -> Result<String> {
     async fn download_inner(
         download_dir: Option<&str>,
@@ -28,10 +25,7 @@ pub async fn download_package(
         url: &str,
         client: &Client,
         hash: &str,
-        mbc: Arc<MultiProgress>,
-        count: usize,
-        len: usize,
-        global_bar: ProgressBar,
+        opb: OmaProgressBar,
     ) -> Result<()> {
         if download_dir.is_none() {
             tokio::fs::create_dir_all(DOWNLOAD_DIR).await?;
@@ -42,11 +36,8 @@ pub async fn download_package(
             client,
             filename.to_string(),
             Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)),
-            None,
             Some(hash),
-            Some(mbc),
-            Some((count, len)),
-            Some(global_bar),
+            opb,
         )
         .await?;
 
@@ -97,10 +88,7 @@ pub async fn download_package(
                     &format!("{i}/{path}"),
                     client,
                     &hash,
-                    mbc.clone(),
-                    count,
-                    len,
-                    global_bar.clone(),
+                    opb.clone()
                 )
                 .await
                 .is_ok()
@@ -120,10 +108,7 @@ pub async fn download_package(
                 &format!("{i}/{path}"),
                 client,
                 &hash,
-                mbc.clone(),
-                count,
-                len,
-                global_bar.clone(),
+                opb.clone()
             )
             .await
             .is_ok()
@@ -144,17 +129,38 @@ pub async fn download_package(
     Ok(filename.to_string())
 }
 
+#[derive(Clone)]
+pub struct OmaProgressBar {
+    pub msg: Option<String>,
+    mbc: Option<Arc<MultiProgress>>,
+    progress: Option<(usize, usize)>,
+    global_bar: Option<ProgressBar>,
+}
+
+impl OmaProgressBar {
+    pub fn new(
+        msg: Option<String>,
+        progress: Option<(usize, usize)>,
+        mbc: Option<Arc<MultiProgress>>,
+        global_bar: Option<ProgressBar>,
+    ) -> Self {
+        Self {
+            msg,
+            mbc,
+            progress,
+            global_bar,
+        }
+    }
+}
+
 /// Download file to buffer
 pub async fn download(
     url: &str,
     client: &Client,
     filename: String,
     dir: &Path,
-    msg: Option<String>,
     hash: Option<&str>,
-    mbc: Option<Arc<MultiProgress>>,
-    progress: Option<(usize, usize)>,
-    global_bar: Option<ProgressBar>,
+    opb: OmaProgressBar,
 ) -> Result<()> {
     let barsty = oma_style_pb()?;
 
@@ -175,7 +181,7 @@ pub async fn download(
     let mut is_mb = false;
 
     let request = client.get(url);
-    let pb = if let Some(mbc) = mbc {
+    let pb = if let Some(mbc) = opb.mbc {
         is_mb = true;
         let pb = mbc.add(ProgressBar::new(total_size));
         pb.set_style(barsty);
@@ -185,13 +191,13 @@ pub async fn download(
         ProgressBar::new_spinner()
     };
 
-    let mut msg = msg.unwrap_or(filename.clone());
+    let mut msg = opb.msg.unwrap_or(filename.clone());
 
     if console::measure_text_width(&msg) > 60 {
         msg = console::truncate_str(&msg, 57, "...").to_string();
     }
 
-    let progress = if let Some((count, len)) = progress {
+    let progress = if let Some((count, len)) = opb.progress {
         format!("({count}/{len}) ")
     } else {
         "".to_string()
@@ -231,7 +237,7 @@ pub async fn download(
         dest.write_all(&chunk).await?;
         pb.inc(chunk.len() as u64);
 
-        if let Some(ref global_bar) = global_bar {
+        if let Some(ref global_bar) = opb.global_bar {
             global_bar.inc(chunk.len() as u64);
         }
     }
