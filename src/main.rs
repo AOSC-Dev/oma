@@ -47,7 +47,9 @@ struct Install {
 }
 
 #[derive(Parser, Debug)]
-struct Update {}
+struct Update {
+    packages: Vec<String>,
+}
 
 #[derive(Parser, Debug)]
 struct Refresh {}
@@ -76,7 +78,7 @@ async fn main() {
         AoscptCommand::Install(v) => app.install(&v.packages).await,
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
         AoscptCommand::Remove(v) => app.remove(&v.packages, true),
-        AoscptCommand::Upgrade(_) => app.update().await,
+        AoscptCommand::Upgrade(v) => app.update(&v.packages).await,
         AoscptCommand::Refresh(_) => app.refresh().await,
     } {
         error!("{e}");

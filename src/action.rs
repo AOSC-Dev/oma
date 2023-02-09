@@ -93,11 +93,12 @@ struct PackageVersion {
 
 impl OmaAction {
     pub async fn new() -> Result<Self> {
-        let client = reqwest::ClientBuilder::new().user_agent("aoscpt").build()?;
+        let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
 
         let sources = get_sources()?;
 
         std::fs::create_dir_all(APT_LIST_DISTS)?;
+        std::fs::create_dir_all("/var/cache/apt/archives")?;
 
         let db_paths = get_sources_dists_filename(&sources, &client).await?;
 
@@ -122,7 +123,7 @@ impl OmaAction {
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
-    pub async fn update(&self) -> Result<()> {
+    pub async fn update(&self, packages: &[String]) -> Result<()> {
         update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(
@@ -131,11 +132,18 @@ impl OmaAction {
             apt_db: &[IndexMap<String, String>],
             dpkg: &[IndexMap<String, String>],
             count: usize,
+            packages: &[String],
         ) -> Result<()> {
             let cache = new_cache!()?;
             cache.upgrade(&Upgrade::FullUpgrade)?;
 
-            let (action, len) = apt_handler(&cache, dpkg, apt_db, None)?;
+            let spv = if !packages.is_empty() {
+                install_handle(packages, &cache, apt_db).ok()
+            } else {
+                None
+            };
+
+            let (action, len) = apt_handler(&cache, dpkg, apt_db, spv.as_deref())?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -145,11 +153,6 @@ impl OmaAction {
             let mut list = action.update.clone();
             list.extend(action.install.clone());
             list.extend(action.downgrade.clone());
-
-            // let names = list
-            //     .into_iter()
-            //     .map(|x| x.name_no_color)
-            //     .collect::<Vec<_>>();
 
             autoremove(&cache);
 
@@ -170,8 +173,15 @@ impl OmaAction {
 
         // Retry 3 times
         let mut count = 0;
-        while let Err(e) =
-            update_inner(&self.sources, &self.client, &self.db, &self.dpkg_db, count).await
+        while let Err(e) = update_inner(
+            &self.sources,
+            &self.client,
+            &self.db,
+            &self.dpkg_db,
+            count,
+            packages,
+        )
+        .await
         {
             warn!("{e}, retrying ...");
             if count == 3 {
@@ -202,96 +212,14 @@ impl OmaAction {
     async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
         let cache = new_cache!()?;
 
-        let mut selected_packages_version = vec![];
+        let selected_packages_version = install_handle(list, &cache, &self.db)?;
 
-        for i in list {
-            if i.contains('=') {
-                // Support apt install fish=3.6.0
-
-                let mut split_arg = i.split('=');
-                let name = split_arg.next().context(format!("Not Support: {i}"))?;
-                let version_str = split_arg.next().context(format!("Not Support: {i}"))?;
-
-                let pkg = cache
-                    .get(name)
-                    .take()
-                    .context(format!("Can not get package: {i}"))?;
-
-                if PkgVersion::try_from(version_str).is_err() {
-                    bail!("invalid version: {}", version_str);
-                }
-
-                let version = pkg
-                    .get_version(version_str)
-                    .context(format!("Can not get package {name} version: {version_str}"))?;
-
-                version.set_candidate();
-
-                selected_packages_version.push(PackageVersion {
-                    name: name.to_string(),
-                    version: version_str.to_string(),
-                });
-
-                pkg.protect();
-                pkg.mark_install(true, true);
-            } else if i.contains('/') {
-                // Support apt install fish/stable
-                let mut split_arg = i.split('/');
-                let name = split_arg.next().context(format!("Not Support: {i}"))?;
-                let branch = split_arg.next().context(format!("Not Support: {i}"))?;
-
-                let pkg = cache
-                    .get(name)
-                    .take()
-                    .context(format!("Can not get package: {i}"))?;
-
-                let mut res = self
-                    .db
-                    .iter()
-                    .filter(|x| x.get("Package") == Some(&name.to_string()))
-                    .filter(|x| x["Filename"].split('/').nth(1) == Some(branch))
-                    .collect::<Vec<_>>();
-
-                if res.is_empty() {
-                    bail!("Can not get package {} with {} branch.", name, branch);
-                }
-
-                res.sort_by(|x, y| {
-                    PkgVersion::try_from(x["Version"].as_str())
-                        .unwrap()
-                        .cmp(&PkgVersion::try_from(y["Version"].as_str()).unwrap())
-                });
-
-                let res = res.last().unwrap()["Version"].to_string();
-                let version = pkg.get_version(&res).unwrap();
-
-                version.set_candidate();
-
-                selected_packages_version.push(PackageVersion {
-                    name: name.to_string(),
-                    version: res.to_string(),
-                });
-
-                // let pkg = version.parent();
-                // pkg.protect();
-                pkg.mark_install(true, true);
-            } else {
-                let pkg = cache
-                    .get(i)
-                    .take()
-                    .context(format!("Can not get package: {i}"))?;
-
-                // let version = pkg
-                //     .candidate()
-                //     .context(format!("Can not get package candidate: {}", pkg.name()))?;
-
-                // let pkg = version.parent();
-
-                pkg.protect();
-                pkg.mark_install(true, true);
-            };
-        }
-        let (action, len) = apt_handler(&cache, &self.dpkg_db, &self.db, Some(&selected_packages_version))?;
+        let (action, len) = apt_handler(
+            &cache,
+            &self.dpkg_db,
+            &self.db,
+            Some(&selected_packages_version),
+        )?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -382,6 +310,103 @@ fn apt_install(cache: Cache) -> Result<()> {
     Ok(())
 }
 
+fn install_handle(
+    list: &[String],
+    cache: &Cache,
+    apt_db: &[IndexMap<String, String>],
+) -> Result<Vec<PackageVersion>> {
+    let mut selected_packages_version = vec![];
+
+    for i in list {
+        if i.contains('=') {
+            // Support apt install fish=3.6.0
+
+            let mut split_arg = i.split('=');
+            let name = split_arg.next().context(format!("Not Support: {i}"))?;
+            let version_str = split_arg.next().context(format!("Not Support: {i}"))?;
+
+            let pkg = cache
+                .get(name)
+                .take()
+                .context(format!("Can not get package: {i}"))?;
+
+            if PkgVersion::try_from(version_str).is_err() {
+                bail!("invalid version: {}", version_str);
+            }
+
+            let version = pkg
+                .get_version(version_str)
+                .context(format!("Can not get package {name} version: {version_str}"))?;
+
+            version.set_candidate();
+
+            selected_packages_version.push(PackageVersion {
+                name: name.to_string(),
+                version: version_str.to_string(),
+            });
+
+            pkg.protect();
+            pkg.mark_install(true, true);
+        } else if i.contains('/') {
+            // Support apt install fish/stable
+            let mut split_arg = i.split('/');
+            let name = split_arg.next().context(format!("Not Support: {i}"))?;
+            let branch = split_arg.next().context(format!("Not Support: {i}"))?;
+
+            let pkg = cache
+                .get(name)
+                .take()
+                .context(format!("Can not get package: {i}"))?;
+
+            let mut res = apt_db
+                .iter()
+                .filter(|x| x.get("Package") == Some(&name.to_string()))
+                .filter(|x| x["Filename"].split('/').nth(1) == Some(branch))
+                .collect::<Vec<_>>();
+
+            if res.is_empty() {
+                bail!("Can not get package {} with {} branch.", name, branch);
+            }
+
+            res.sort_by(|x, y| {
+                PkgVersion::try_from(x["Version"].as_str())
+                    .unwrap()
+                    .cmp(&PkgVersion::try_from(y["Version"].as_str()).unwrap())
+            });
+
+            let res = res.last().unwrap()["Version"].to_string();
+            let version = pkg.get_version(&res).unwrap();
+
+            version.set_candidate();
+
+            selected_packages_version.push(PackageVersion {
+                name: name.to_string(),
+                version: res.to_string(),
+            });
+
+            // let pkg = version.parent();
+            // pkg.protect();
+            pkg.mark_install(true, true);
+        } else {
+            let pkg = cache
+                .get(i)
+                .take()
+                .context(format!("Can not get package: {i}"))?;
+
+            // let version = pkg
+            //     .candidate()
+            //     .context(format!("Can not get package candidate: {}", pkg.name()))?;
+
+            // let pkg = version.parent();
+
+            pkg.protect();
+            pkg.mark_install(true, true);
+        };
+    }
+
+    Ok(selected_packages_version)
+}
+
 #[derive(Debug, Clone)]
 struct Action {
     update: Vec<InstallRow>,
@@ -427,7 +452,11 @@ fn apt_handler(
     for pkg in changes {
         if pkg.marked_install() {
             let version = if let Some(spv) = select_packages_version {
-                if let Some(v) = spv.iter().find(|x| x.name == pkg.name()).map(|x| x.version.clone()) {
+                if let Some(v) = spv
+                    .iter()
+                    .find(|x| x.name == pkg.name())
+                    .map(|x| x.version.clone())
+                {
                     v
                 } else {
                     let cand = pkg.candidate().take().context(format!(
@@ -487,7 +516,7 @@ fn apt_handler(
                 .context(format!(
                     "Can not get package version from dpkg: {}",
                     pkg.name()
-            ))?;
+                ))?;
 
             let old_version = old_pkg["Version"].to_string();
             let old_size = old_pkg["Installed-Size"].parse::<i64>()?;
@@ -532,7 +561,11 @@ fn apt_handler(
         if pkg.marked_downgrade() {
             // let id = pkg.unsafe_version_list();
             let version = if let Some(spv) = select_packages_version {
-                if let Some(v) = spv.iter().find(|x| x.name == pkg.name()).map(|x| x.version.clone()) {
+                if let Some(v) = spv
+                    .iter()
+                    .find(|x| x.name == pkg.name())
+                    .map(|x| x.version.clone())
+                {
                     v
                 } else {
                     let cand = pkg.candidate().take().context(format!(
