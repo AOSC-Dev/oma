@@ -277,6 +277,7 @@ pub fn oma_style_pb() -> Result<ProgressStyle> {
             " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%"
         }
     };
+
     let barsty = ProgressStyle::default_bar()
         .template(bar_template)?
         .progress_chars("=>-");

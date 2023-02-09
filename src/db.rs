@@ -15,13 +15,12 @@ use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressBar};
 use reqwest::{Client, Url};
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
-use std::io::Write;
-use tokio::io::AsyncReadExt;
+use tokio::{io::AsyncReadExt, task::spawn_blocking};
 use xz2::read::XzDecoder;
 
 use crate::{
     action::InstallRow,
+    checksum::Checksum,
     download::{download, download_package, oma_style_pb, OmaProgressBar},
     info, success,
     utils::get_arch_name,
@@ -57,11 +56,9 @@ async fn download_db(
     opb: &mut OmaProgressBar,
 ) -> Result<(FileName, FileBuf)> {
     let filename = FileName::new(&url)?.0;
-
     let url_short = get_url_short_and_branch(&url)?;
 
     opb.msg = Some(format!("Getting {url_short} {typ} database ..."));
-
     let opb = opb.clone();
 
     download(
@@ -130,7 +127,7 @@ struct InReleaseParser {
     checksums: Vec<ChecksumItem>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ChecksumItem {
     name: String,
     size: u64,
@@ -138,7 +135,7 @@ struct ChecksumItem {
     file_type: DistFileType,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum DistFileType {
     BinaryContents,
     Contents,
@@ -521,10 +518,6 @@ pub async fn update_db(
             };
 
             if p.exists() {
-                let mut f = std::fs::File::open(&p)?;
-                let mut buf = Vec::new();
-                f.read_to_end(&mut buf)?;
-
                 let checksums_index = checksums
                     .iter()
                     .position(|x| x.name == not_compress_file)
@@ -540,7 +533,13 @@ pub async fn update_db(
                 )
                 .clone();
 
-                if checksum(&buf, &hash).is_err() {
+                let hash_clone = hash.clone();
+                let result = spawn_blocking(move || {
+                    Checksum::from_sha256_str(&hash_clone).and_then(|x| x.cmp_file(&p))
+                })
+                .await??;
+
+                if !result {
                     task.push(download_and_extract(
                         &dist_urls[index],
                         c,
@@ -604,29 +603,22 @@ async fn download_and_extract(
         &mut opb,
     )
     .await?;
-    checksum(&buf.0, &i.checksum)?;
+
+    let p = Path::new(APT_LIST_DISTS).join(&name.0);
+
+    let ic = i.clone();
+    let result = spawn_blocking(move || {
+        Checksum::from_sha256_str(&ic.checksum).and_then(|x| x.cmp_file(p.clone().as_path()))
+    })
+    .await??;
+
+    if !result {
+        bail!("Download {typ} Checksum mismatch! Please check your network connection.")
+    }
 
     let buf = decompress(&buf.0, &name.0)?;
     let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
     std::fs::write(p, buf)?;
-
-    Ok(())
-}
-
-/// Check download is success
-fn checksum(buf: &[u8], hash: &str) -> Result<()> {
-    let mut hasher = Sha256::new();
-    hasher.write_all(buf)?;
-    let buf_hash = hasher.finalize();
-    let buf_hash = format!("{buf_hash:2x}");
-
-    if hash != buf_hash {
-        return Err(anyhow!(
-            "Checksum mismatch. Expected {}, got {}",
-            hash,
-            buf_hash
-        ));
-    }
 
     Ok(())
 }
@@ -651,44 +643,6 @@ fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
 
     Ok(buf)
 }
-
-// /// Filter package newest version list
-// pub fn newest_package_list(
-//     input: &[IndexMap<String, String>],
-// ) -> Result<Vec<IndexMap<String, String>>> {
-//     let mut input = input.to_vec();
-
-//     input.sort_by(|x, y| x["Package"].cmp(&y["Package"]));
-
-//     let apt = version_sort(&input)?;
-
-//     Ok(apt)
-// }
-
-// /// Sort package list with version
-// fn version_sort(map: &[IndexMap<String, String>]) -> Result<Vec<IndexMap<String, String>>> {
-//     let Some(last_name) = map.first().and_then(|x| x.get("Package")) else { bail!("package list is empty") };
-//     let mut last_name = last_name.to_owned();
-//     let mut list = vec![];
-//     let mut tmp = vec![];
-
-//     for i in map {
-//         let package = i["Package"].clone();
-//         let version = i["Version"].clone();
-
-//         if package == last_name {
-//             tmp.push((PkgVersion::try_from(version.as_str())?, i.to_owned()));
-//         } else {
-//             tmp.sort_by(|x, y| x.0.cmp(&y.0));
-//             list.push(tmp.last().unwrap().to_owned());
-//             tmp.clear();
-//             last_name = package.to_string();
-//             tmp.push((PkgVersion::try_from(version.as_str())?, i.to_owned()));
-//         }
-//     }
-
-//     Ok(list.into_iter().map(|x| x.1).collect())
-// }
 
 // Read dpkg status
 pub fn dpkg_status() -> Result<Vec<IndexMap<String, String>>> {
