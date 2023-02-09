@@ -3,6 +3,7 @@ use std::path::Path;
 use anyhow::{bail, Context, Ok, Result};
 use apt_sources_lists::SourceEntry;
 use console::style;
+use glob_match::glob_match_with_captures;
 use indexmap::IndexMap;
 use indicatif::HumanBytes;
 use reqwest::Client;
@@ -21,8 +22,8 @@ use std::io::Write;
 
 use crate::{
     db::{
-        dpkg_status, get_sources, get_sources_dists_filename, package_list,
-        packages_download, update_db, APT_LIST_DISTS,
+        dpkg_status, get_sources, get_sources_dists_filename, package_list, packages_download,
+        update_db, APT_LIST_DISTS,
     },
     formatter::NoProgress,
     pager::Pager,
@@ -388,13 +389,19 @@ fn install_handle(
             pkg.protect();
             pkg.mark_install(true, true);
         } else {
-            let pkg = cache
-                .get(i)
-                .take()
-                .context(format!("Can not get package: {i}"))?;
+            let res = apt_db
+                .iter()
+                .filter(|x| glob_match_with_captures(i, &x["Package"]).is_some());
 
-            pkg.protect();
-            pkg.mark_install(true, true);
+            for i in res {
+                let pkg = cache
+                    .get(i["Package"].as_str())
+                    .take()
+                    .context(format!("Can not get package: {}", i["Package"]))?;
+
+                pkg.protect();
+                pkg.mark_install(true, true);
+            }
         };
     }
 
