@@ -56,7 +56,7 @@ impl RemoveRow {
         Ok(Self {
             name: style(name).red().bold().to_string(),
             _name_no_color: name.to_owned(),
-            size,
+            size: unit_str(size.parse::<u64>()?, NumSys::Decimal),
             detail: if is_purge {
                 style("Purge configuration files.").red().to_string()
             } else {
@@ -154,8 +154,11 @@ impl OmaAction {
             let mut list = action.update.clone();
             list.extend(action.install.clone());
             list.extend(action.downgrade.clone());
-
+            
+            // autoremove 标记可以删除的包前解析一次依赖，在执行 autoremove 后再解析一次依赖，不知是否必要
+            cache.resolve(true)?;
             autoremove(&cache);
+            cache.resolve(true)?;
 
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
@@ -231,6 +234,8 @@ impl OmaAction {
         list.extend(action.install.clone());
         list.extend(action.update.clone());
         list.extend(action.downgrade.clone());
+
+        cache.resolve(true)?;
         autoremove(&cache);
         cache.resolve(true)?;
 
@@ -256,9 +261,12 @@ impl OmaAction {
         for i in list {
             let pkg = cache.get(i).context(format!("Can not get package {i}"))?;
             pkg.mark_delete(is_purge);
+            pkg.protect();
         }
 
+        cache.resolve(true)?;
         autoremove(&cache);
+        cache.resolve(true)?;
 
         let (action, len) = apt_handler(&cache, &self.dpkg_db, &self.db, None)?;
 
@@ -291,6 +299,7 @@ fn autoremove(cache: &Cache) {
         if pkg.is_auto_removable() {
             autoremove.push(pkg.name().to_string());
             pkg.mark_delete(true);
+            pkg.protect();
         }
     }
 }
@@ -346,8 +355,8 @@ fn install_handle(
                 version: version_str.to_string(),
             });
 
-            pkg.protect();
             pkg.mark_install(true, true);
+            pkg.protect();
         } else if i.contains('/') {
             // Support apt install fish/stable
             let mut split_arg = i.split('/');
@@ -385,8 +394,8 @@ fn install_handle(
                 version: res.to_string(),
             });
 
-            pkg.protect();
             pkg.mark_install(true, true);
+            pkg.protect();
         } else {
             let res = apt_db
                 .iter()
@@ -398,8 +407,8 @@ fn install_handle(
                     .take()
                     .context(format!("Can not get package: {}", i["Package"]))?;
 
-                pkg.protect();
                 pkg.mark_install(true, true);
+                pkg.protect();
             }
         };
     }
