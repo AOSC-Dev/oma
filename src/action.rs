@@ -664,7 +664,8 @@ fn display_result(
     if !del.is_empty() {
         writeln!(
             out,
-            "The following packages will be {}:\n",
+            "{} packages will be {}:\n",
+            del.len(),
             style("REMOVED").red().bold()
         )?;
 
@@ -683,7 +684,8 @@ fn display_result(
     if !install.is_empty() {
         writeln!(
             out,
-            "The following packages will be {}:\n",
+            "{} packages will be {}:\n",
+            install.len(),
             style("installed").green().bold()
         )?;
 
@@ -702,7 +704,8 @@ fn display_result(
     if !update.is_empty() {
         writeln!(
             out,
-            "\nThe following packages will be {}:\n",
+            "\n{} packages will be {}:\n",
+            update.len(),
             style("upgraded").green().bold()
         )?;
 
@@ -721,7 +724,8 @@ fn display_result(
     if !downgrade.is_empty() {
         writeln!(
             out,
-            "\nThe following packages will be {}:\n",
+            "\n{} packages will be {}:\n",
+            downgrade.len(),
             style("downgraded").yellow().bold()
         )?;
 
@@ -740,7 +744,8 @@ fn display_result(
     if !reinstall.is_empty() {
         writeln!(
             out,
-            "The following packages will be {}:\n",
+            "{} packages will be {}:\n",
+            reinstall.len(),
             style("reinstall").blue().bold()
         )?;
 
