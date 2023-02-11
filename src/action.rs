@@ -10,8 +10,10 @@ use reqwest::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
+    package::Version,
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
-    util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, DiskSpace, NumSys},
+    records::RecordField,
+    util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, DiskSpace, Exception, NumSys},
 };
 use tabled::{
     object::{Columns, Segment},
@@ -28,7 +30,7 @@ use crate::{
     formatter::NoProgress,
     pager::Pager,
     pkgversion::PkgVersion,
-    success, warn,
+    success,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -44,27 +46,27 @@ struct RemoveRow {
     detail: String,
 }
 
-impl RemoveRow {
-    fn new(dpkg: &[IndexMap<String, String>], name: &str, is_purge: bool) -> Result<Self> {
-        let pkg = dpkg
-            .iter()
-            .find(|x| x.get("Package") == Some(&name.to_owned()))
-            .context(format!("Can not get package {name}"))?;
+// impl RemoveRow {
+//     fn new(name: &str, is_purge: bool) -> Result<Self> {
+//         let pkg = dpkg
+//             .iter()
+//             .find(|x| x.get("Package") == Some(&name.to_owned()))
+//             .context(format!("Can not get package {name}"))?;
 
-        let size = pkg["Installed-Size"].to_owned();
+//         let size = pkg["Installed-Size"].to_owned();
 
-        Ok(Self {
-            name: style(name).red().bold().to_string(),
-            _name_no_color: name.to_owned(),
-            size: unit_str(size.parse::<u64>()?, NumSys::Decimal),
-            detail: if is_purge {
-                style("Purge configuration files.").red().to_string()
-            } else {
-                "".to_string()
-            },
-        })
-    }
-}
+//         Ok(Self {
+//             name: style(name).red().bold().to_string(),
+//             _name_no_color: name.to_owned(),
+//             size: unit_str(size.parse::<u64>()?, NumSys::Decimal),
+//             detail: if is_purge {
+//                 style("Purge configuration files.").red().to_string()
+//             } else {
+//                 "".to_string()
+//             },
+//         })
+//     }
+// }
 
 #[derive(Tabled, Debug, Clone)]
 pub struct InstallRow {
@@ -144,7 +146,7 @@ impl OmaAction {
                 None
             };
 
-            let (action, len) = apt_handler(&cache, dpkg, apt_db, spv.as_deref())?;
+            let (action, len) = apt_handler(&cache, spv.as_deref())?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -154,7 +156,7 @@ impl OmaAction {
             let mut list = action.update.clone();
             list.extend(action.install.clone());
             list.extend(action.downgrade.clone());
-            
+
             // autoremove 标记可以删除的包前解析一次依赖，在执行 autoremove 后再解析一次依赖，不知是否必要
             cache.resolve(true)?;
             autoremove(&cache);
@@ -169,7 +171,30 @@ impl OmaAction {
 
             packages_download(&list, apt_db, sources, client, None).await?;
 
-            cache.resolve(true)?;
+            if let Err(e) = cache.resolve(true) {
+                let sort = PackageSort::default();
+                let mut now_broken = false;
+                let mut inst_broken = false;
+                for pkg in cache.packages(&sort) {
+                    now_broken = pkg.is_now_broken();
+                    inst_broken = pkg.is_inst_broken();
+
+                    if !now_broken && !inst_broken {
+                        continue;
+                    }
+
+                    let ver = if now_broken {
+                        pkg.current_version()
+                    } else {
+                        pkg.version_list()
+                    }
+                    .context("123")?;
+
+                    while let Some(i) = ver.depends() {
+                        dbg!(i.dep_type());
+                    }
+                }
+            }
             apt_install(cache)?;
 
             Ok(())
@@ -187,7 +212,7 @@ impl OmaAction {
         )
         .await
         {
-            warn!("{e}, retrying ...");
+            // warn!("{e}, retrying ...");
             if count == 3 {
                 return Err(e);
             }
@@ -202,7 +227,7 @@ impl OmaAction {
 
         let mut count = 0;
         while let Err(e) = self.install_inner(list, count).await {
-            warn!("{e}, retrying ...");
+            // debug!("{e}, retrying ...");
             if count == 3 {
                 return Err(e);
             }
@@ -218,12 +243,7 @@ impl OmaAction {
 
         let selected_packages_version = install_handle(list, &cache, &self.db)?;
 
-        let (action, len) = apt_handler(
-            &cache,
-            &self.dpkg_db,
-            &self.db,
-            Some(&selected_packages_version),
-        )?;
+        let (action, len) = apt_handler(&cache, Some(&selected_packages_version))?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -235,19 +255,87 @@ impl OmaAction {
         list.extend(action.update.clone());
         list.extend(action.downgrade.clone());
 
-        cache.resolve(true)?;
+        // if let Err(e) = cache.resolve(true) {
+        //     let sort = PackageSort::default();
+        //     let mut now_broken = false;
+        //     let mut inst_broken = false;
+        //     for pkg in cache.packages(&sort) {
+        //         now_broken = pkg.is_now_broken();
+        //         inst_broken = pkg.is_inst_broken();
+
+        //         if !now_broken && !inst_broken {
+        //             continue;
+        //         }
+
+        //         let ver = if now_broken {
+        //             pkg.current_version()
+        //         } else {
+        //             pkg.version_list()
+        //         }
+        //         .context("123")?;
+
+        //         while let Some(i) = ver.depends() {
+        //             dbg!(i.dep_type());
+        //         }
+        //     }
+        // }
+
         autoremove(&cache);
-        cache.resolve(true)?;
+
+        if let Err(e) = cache.resolve(true) {
+            if count != 0 {
+                return Err(e.into());
+            }
+
+            let sort = PackageSort::default().installed();
+            let now = false;
+            for pkg in cache.packages(&sort) {
+                let now_broken = pkg.is_now_broken();
+                let inst_broken = pkg.is_inst_broken();
+
+                if !now_broken && !inst_broken {
+                    continue;
+                }
+
+                // let ver = if now_broken {
+                //     pkg.installed()
+                // } else {
+                //     pkg.ins
+                // }
+                // .context("context")?;
+
+                // dbg!(pkg.name());
+                // dbg!(now_broken, ins)
+
+                // for i in ver.dependencies().unwrap() {
+                //     for j in &i.base_deps {
+                //         if j.target_pkg().is_essential() {
+                //             continue;
+                //         }
+
+                //         dbg!(cache.depcache().is_inst_broken(&j.target_pkg()));
+
+                //         // if now && !cache.depcache().is_now_broken(&j.target_pkg()) {
+                //         //     continue;
+                //         // }
+
+                //         // if !now && !cache.depcache().is_inst_broken(&j.target_pkg()) {
+                //         //     continue;
+                //         // }
+
+                //         dbg!(j.target_pkg().name());
+                //     }
+                // }
+
+                return Err(e.into());
+            }
+        }
 
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
             display_result(&action, &self.db, disk_size)?;
         }
 
-        // let names = list
-        //     .into_iter()
-        //     .map(|x| x.name_no_color)
-        //     .collect::<Vec<_>>();
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download(&list, &self.db, &self.sources, &self.client, None).await?;
         apt_install(cache)?;
@@ -268,7 +356,7 @@ impl OmaAction {
         autoremove(&cache);
         cache.resolve(true)?;
 
-        let (action, len) = apt_handler(&cache, &self.dpkg_db, &self.db, None)?;
+        let (action, len) = apt_handler(&cache, None)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -445,8 +533,6 @@ impl Action {
 
 fn apt_handler(
     cache: &Cache,
-    dpkg: &[IndexMap<String, String>],
-    apt: &[IndexMap<String, String>],
     select_packages_version: Option<&[PackageVersion]>,
 ) -> Result<(Action, usize)> {
     let changes = cache.get_changes(true).collect::<Vec<_>>();
@@ -484,19 +570,12 @@ fn apt_handler(
                 cand.version().to_string()
             };
 
-            let apt_pkg = apt
-                .iter()
-                .find(|x| {
-                    x.get("Package") == Some(&pkg.name().to_string())
-                        && x.get("Version") == Some(&version.to_string())
-                })
-                .context(format!(
-                    "Can not get package version in apt database: {}",
-                    pkg.name()
-                ))?;
+            let ver = pkg.get_version(&version).context(format!(
+                "Can not get package version in apt database: {}",
+                pkg.name()
+            ))?;
 
-            let size = apt_pkg["Installed-Size"].parse::<u64>()?;
-
+            let size = ver.installed_size();
             let size = format!("+{}", unit_str(size, NumSys::Decimal,));
 
             install.push(InstallRow {
@@ -519,29 +598,18 @@ fn apt_handler(
 
             let version = pkg_ver.version();
 
-            let old_pkg = dpkg
-                .iter()
-                .find(|x| x.get("Package") == Some(&pkg.name().to_string()))
-                .context(format!(
-                    "Can not get package version from dpkg: {}",
-                    pkg.name()
-                ))?;
+            let old_pkg = pkg
+                .installed()
+                .context(format!("Can not get installed version: {}", pkg.name()))?;
 
-            let old_version = old_pkg["Version"].to_string();
-            let old_size = old_pkg["Installed-Size"].parse::<i64>()?;
+            let old_version = old_pkg.version();
+            let old_size = old_pkg.size() as i64;
 
-            let apt_pkg = apt
-                .iter()
-                .find(|x| {
-                    x.get("Package") == Some(&pkg.name().to_string())
-                        && x.get("Version") == Some(&version.to_string())
-                })
-                .context(format!(
-                    "Can not get package version in apt database: {}",
-                    pkg.name()
-                ))?;
+            let new_pkg = pkg
+                .candidate()
+                .context(format!("Can not get candidate version: {}", pkg.name()))?;
 
-            let new_size = apt_pkg["Installed-Size"].parse::<i64>()?;
+            let new_size = new_pkg.installed_size() as i64;
 
             let size = new_size - old_size;
 
@@ -561,7 +629,26 @@ fn apt_handler(
         }
 
         if pkg.marked_delete() {
-            let remove_row = RemoveRow::new(dpkg, pkg.name(), true)?;
+            let name = pkg.name();
+
+            let old_pkg = pkg
+                .installed()
+                .context(format!("Can not get installed version: {}", pkg.name()))?;
+
+            let size = old_pkg.installed_size();
+            let is_purge = true;
+
+            let remove_row = RemoveRow {
+                name: style(name).red().bold().to_string(),
+                _name_no_color: name.to_owned(),
+                size: unit_str(size, NumSys::Decimal),
+                detail: if is_purge {
+                    style("Purge configuration files.").red().to_string()
+                } else {
+                    "".to_string()
+                },
+            };
+
             del.push(remove_row);
         }
         if pkg.marked_reinstall() {
@@ -593,29 +680,19 @@ fn apt_handler(
                 cand.version().to_string()
             };
 
-            let old_pkg = dpkg
-                .iter()
-                .find(|x| x.get("Package") == Some(&pkg.name().to_string()))
-                .context(format!(
-                    "Can not get package version from dpkg: {}",
-                    pkg.name()
-                ))?;
+            let old_pkg = pkg
+                .installed()
+                .context(format!("Can not get installed version: {}", pkg.name()))?;
 
-            let old_version = old_pkg["Version"].to_string();
-            let old_size = old_pkg["Installed-Size"].parse::<i64>()?;
+            let old_version = old_pkg.version();
+            let old_size = old_pkg.installed_size() as i64;
 
-            let apt_pkg = apt
-                .iter()
-                .find(|x| {
-                    x.get("Package") == Some(&pkg.name().to_string())
-                        && x.get("Version") == Some(&version.to_string())
-                })
-                .context(format!(
-                    "Can not get package version in apt database: {}",
-                    pkg.name()
-                ))?;
+            let new_pkg = pkg.get_version(&version).context(format!(
+                "Can not get package version in apt database: {}",
+                pkg.name()
+            ))?;
 
-            let new_size = apt_pkg["Installed-Size"].parse::<i64>()?;
+            let new_size = new_pkg.size() as i64;
 
             let size = new_size - old_size;
 
