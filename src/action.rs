@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::{bail, Context, Ok, Result};
 use apt_sources_lists::SourceEntry;
-use console::style;
+use console::{style, Color};
 use glob_match::glob_match_with_captures;
 use indexmap::IndexMap;
 use indicatif::HumanBytes;
@@ -24,8 +24,8 @@ use std::io::Write;
 
 use crate::{
     db::{
-        get_sources, get_sources_dists_filename, package_list, packages_download,
-        update_db, APT_LIST_DISTS,
+        get_sources, get_sources_dists_filename, package_list, packages_download, update_db,
+        APT_LIST_DISTS,
     },
     formatter::NoProgress,
     pager::Pager,
@@ -609,7 +609,7 @@ fn apt_handler(
             };
 
             update.push(InstallRow {
-                name: style(pkg.name()).green().to_string(),
+                name: style(pkg.name()).cyan().to_string(),
                 name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
                 new_version: version.to_string(),
@@ -720,7 +720,25 @@ fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Resul
     write_review_help_message(&mut out)?;
 
     if pager_name == Some("less") {
-        writeln!(out, "{}", style("Press [q] to finish review.\n").bold())?;
+        let has_x11 = std::env::var("DISPLAY");
+
+        if has_x11.is_ok() {
+            let line1 = "    Press [q] to end review";
+            let line2 = "    Press [Ctrl-c] to abort";
+            let line3 = "    Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.\n";
+
+            writeln!(out, "{}", style(line1).bold())?;
+            writeln!(out, "{}", style(line2).bold())?;
+            writeln!(out, "{}", style(line3).bold())?;
+        } else {
+            let line1 = "    Press [q] to end review";
+            let line2 = "    Press [Ctrl-c] to abort";
+            let line3 = "    Press [PgUp/Dn] or arrow keys to scroll.\n";
+
+            writeln!(out, "{}", style(line1).bold())?;
+            writeln!(out, "{}", style(line2).bold())?;
+            writeln!(out, "{}", style(line3).bold())?;
+        }
     }
 
     if !del.is_empty() {
@@ -821,8 +839,8 @@ fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Resul
 
     writeln!(
         out,
-        "{} {}",
-        style("\nTotal download size:").bold(),
+        "\n{} {}",
+        style("Total download size:").bold(),
         HumanBytes(download_size(&list, cache)?)
     )?;
 
@@ -867,10 +885,11 @@ fn download_size(install_and_update: &[InstallRow], cache: &Cache) -> Result<u64
 }
 
 fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
-    writeln!(w, "{}", style("Pending Operations").bold())?;
+    writeln!(w, "{:<80}", style("Pending Operations").bold().bg(Color::Color256(25)))?;
     writeln!(w)?;
-    writeln!(w, "Shown below is an overview of the pending changes Omakase will apply to your system, please review them carefully.")?;
-    writeln!(w, "Please note that Omakase may {}, {}, {}, {}, or {} packages in order to fulfill your requested changes.", style("install").green(), style("remove").red(), style("upgrade").green(), style("downgrade").yellow(), style("reinstall").blue())?;
+    writeln!(w, "Shown below is an overview of the pending changes Omakase will apply to your\nsystem, please review them carefully\n")?;
+    writeln!(w, "Omakase may {}, {}, {}, {}, or {}\npackages in order to fulfill your requested changes.", style("install").green(), style("remove").red(), style("upgrade").cyan(), style("downgrade").yellow(), style("reinstall").blue())?;
     writeln!(w)?;
+
     Ok(())
 }

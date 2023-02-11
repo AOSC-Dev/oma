@@ -22,9 +22,23 @@ impl Pager {
         let pager_cmd_segments: Vec<&str> = pager_cmd.split_ascii_whitespace().collect();
         let pager_name = pager_cmd_segments.first().unwrap_or(&"less");
         let mut p = std::process::Command::new(pager_name);
+
+        // 检查用户是否在跑桌面环境，如果有则提示用户可以使用鼠标滚动
+        let has_x11 = std::env::var("DISPLAY");
+
+        let tips = if has_x11.is_ok() {
+            "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll."
+        } else {
+            "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn] or arrow keys to scroll."
+        };
+
         if pager_name == &"less" {
             p.arg("-R"); // Show ANSI escape sequences correctly
             p.arg("-c"); // Start from the top of the screen
+            p.arg("-S"); // 打开横向滚动
+            p.arg("-~"); // 让 less 不显示空行的波浪线
+            p.arg("-P"); // 打开滚动提示
+            p.arg(tips);
             p.env("LESSCHARSET", "UTF-8"); // Rust uses UTF-8
         } else if pager_cmd_segments.len() > 1 {
             p.args(&pager_cmd_segments[1..]);
