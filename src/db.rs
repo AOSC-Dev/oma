@@ -644,9 +644,3 @@ fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-// Read dpkg status
-pub fn dpkg_status() -> Result<Vec<IndexMap<String, String>>> {
-    let status = debcontrol_from_file(Path::new("/var/lib/dpkg/status"))?;
-
-    Ok(status)
-}

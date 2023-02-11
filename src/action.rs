@@ -24,7 +24,7 @@ use std::io::Write;
 
 use crate::{
     db::{
-        dpkg_status, get_sources, get_sources_dists_filename, package_list, packages_download,
+        get_sources, get_sources_dists_filename, package_list, packages_download,
         update_db, APT_LIST_DISTS,
     },
     formatter::NoProgress,
@@ -85,7 +85,6 @@ pub struct InstallRow {
 pub struct OmaAction {
     sources: Vec<SourceEntry>,
     db: Vec<IndexMap<String, String>>,
-    dpkg_db: Vec<IndexMap<String, String>>,
     client: Client,
 }
 
@@ -115,13 +114,10 @@ impl OmaAction {
         )
         .await?;
 
-        let dpkg_db = dpkg_status()?;
-
         Ok(Self {
             sources,
             db,
             client,
-            dpkg_db,
         })
     }
 
@@ -133,7 +129,6 @@ impl OmaAction {
             sources: &[SourceEntry],
             client: &Client,
             apt_db: &[IndexMap<String, String>],
-            dpkg: &[IndexMap<String, String>],
             count: usize,
             packages: &[String],
         ) -> Result<()> {
@@ -164,7 +159,7 @@ impl OmaAction {
 
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
-                display_result(&action, apt_db, disk_size)?;
+                display_result(&action, &cache, disk_size)?;
             }
 
             // let db_for_update = newest_package_list(apt_db)?;
@@ -202,15 +197,8 @@ impl OmaAction {
 
         // Retry 3 times
         let mut count = 0;
-        while let Err(e) = update_inner(
-            &self.sources,
-            &self.client,
-            &self.db,
-            &self.dpkg_db,
-            count,
-            packages,
-        )
-        .await
+        while let Err(e) =
+            update_inner(&self.sources, &self.client, &self.db, count, packages).await
         {
             // warn!("{e}, retrying ...");
             if count == 3 {
@@ -333,7 +321,7 @@ impl OmaAction {
 
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
-            display_result(&action, &self.db, disk_size)?;
+            display_result(&action, &cache, disk_size)?;
         }
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
@@ -364,7 +352,7 @@ impl OmaAction {
         }
 
         let disk_size = cache.depcache().disk_size();
-        display_result(&action, &self.db, disk_size)?;
+        display_result(&action, &cache, disk_size)?;
 
         cache.commit(
             &mut NoProgress::new_box(),
@@ -456,30 +444,31 @@ fn install_handle(
                 .take()
                 .context(format!("Can not get package: {i}"))?;
 
-            let mut res = apt_db
-                .iter()
-                .filter(|x| x.get("Package") == Some(&name.to_string()))
-                .filter(|x| x["Filename"].split('/').nth(1) == Some(branch))
-                .collect::<Vec<_>>();
+            let mut res = vec![];
+
+            for i in pkg.versions() {
+                let item = i
+                    .get_record(RecordField::Filename)
+                    .context(format!("Can not get package {name} filename!"))?;
+
+                if item.split('/').nth(1) == Some(branch) {
+                    res.push(i)
+                }
+            }
 
             if res.is_empty() {
                 bail!("Can not get package {} with {} branch.", name, branch);
             }
 
-            res.sort_by(|x, y| {
-                PkgVersion::try_from(x["Version"].as_str())
-                    .unwrap()
-                    .cmp(&PkgVersion::try_from(y["Version"].as_str()).unwrap())
-            });
+            res.sort_by(|x, y| rust_apt::util::cmp_versions(x.version(), y.version()));
 
-            let res = res.last().unwrap()["Version"].to_string();
-            let version = pkg.get_version(&res).unwrap();
+            let version = res.last().unwrap();
 
             version.set_candidate();
 
             selected_packages_version.push(PackageVersion {
                 name: name.to_string(),
-                version: res.to_string(),
+                version: version.version().to_string(),
             });
 
             pkg.mark_install(true, true);
@@ -717,11 +706,7 @@ fn apt_handler(
     Ok((action, len))
 }
 
-fn display_result(
-    action: &Action,
-    apt: &[IndexMap<String, String>],
-    disk_size: DiskSpace,
-) -> Result<()> {
+fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Result<()> {
     let update = action.update.clone();
     let install = action.install.clone();
     let del = action.del.clone();
@@ -838,7 +823,7 @@ fn display_result(
         out,
         "{} {}",
         style("\nTotal download size:").bold(),
-        HumanBytes(download_size(&list, apt)?)
+        HumanBytes(download_size(&list, cache)?)
     )?;
 
     let (symbol, abs_install_size_change) = match disk_size {
@@ -860,25 +845,21 @@ fn display_result(
     Ok(())
 }
 
-fn download_size(
-    install_and_update: &[InstallRow],
-    apt: &[IndexMap<String, String>],
-) -> Result<u64> {
+fn download_size(install_and_update: &[InstallRow], cache: &Cache) -> Result<u64> {
     let mut result = 0;
 
     for i in install_and_update {
-        let item = apt
-            .iter()
-            .find(|x| {
-                x.get("Package") == Some(&i.name_no_color)
-                    && x.get("Version") == Some(&i.new_version)
-            })
-            .context(format!(
-                "Can not find pacakge {} from apt package database",
-                i.name
-            ))?;
+        let pkg = cache
+            .get(&i.name_no_color)
+            .context(format!("Can not get package {}", i.name_no_color))?;
 
-        let size = item["Size"].parse::<u64>()?;
+        let ver = pkg.get_version(&i.new_version).context(format!(
+            "Can not get package {} version {}",
+            i.name_no_color, i.new_version
+        ))?;
+
+        let size = ver.size();
+
         result += size;
     }
 
