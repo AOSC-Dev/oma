@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
+use console::style;
 use flate2::bufread::GzDecoder;
 use futures::StreamExt;
 use indexmap::IndexMap;
@@ -338,9 +339,9 @@ pub async fn packages_download(
     }
 
     let global_bar = mb.insert(0, ProgressBar::new(total));
-    global_bar.set_style(oma_style_pb()?);
+    global_bar.set_style(oma_style_pb(true)?);
     global_bar.enable_steady_tick(Duration::from_millis(1000));
-    global_bar.set_message("Progress");
+    global_bar.set_message(style("Progress").bold().to_string());
 
     let list_len = list.len();
 
@@ -493,7 +494,7 @@ pub async fn update_db(
 
         let mb = Arc::new(MultiProgress::new());
         let global_bar = mb.insert(0, ProgressBar::new(total));
-        global_bar.set_style(oma_style_pb()?);
+        global_bar.set_style(oma_style_pb(true)?);
         global_bar.enable_steady_tick(Duration::from_millis(1000));
         global_bar.set_message("Progress");
 
@@ -643,4 +644,3 @@ fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
 
     Ok(buf)
 }
-

@@ -88,7 +88,7 @@ pub async fn download_package(
                     &format!("{i}/{path}"),
                     client,
                     &hash,
-                    opb.clone()
+                    opb.clone(),
                 )
                 .await
                 .is_ok()
@@ -108,7 +108,7 @@ pub async fn download_package(
                 &format!("{i}/{path}"),
                 client,
                 &hash,
-                opb.clone()
+                opb.clone(),
             )
             .await
             .is_ok()
@@ -162,9 +162,6 @@ pub async fn download(
     hash: Option<&str>,
     opb: OmaProgressBar,
 ) -> Result<()> {
-    let barsty = oma_style_pb()?;
-
-    // let p = dir.join(filename);
     let total_size = {
         let resp = client.get(url).send().await?;
         if resp.status().is_success() {
@@ -184,6 +181,7 @@ pub async fn download(
     let pb = if let Some(mbc) = opb.mbc {
         is_mb = true;
         let pb = mbc.add(ProgressBar::new(total_size));
+        let barsty = oma_style_pb(false)?;
         pb.set_style(barsty);
 
         pb
@@ -268,18 +266,26 @@ pub async fn download(
     Ok(())
 }
 
-pub fn oma_style_pb() -> Result<ProgressStyle> {
+pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
     let bar_template = {
         let max_len = WRITER.get_max_len();
-        if max_len < 90 {
-            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+        if is_global {
+            if max_len < 90 {
+                " {wide_msg:.blue.bold} {total_bytes:>10:.blue.bold} {binary_bytes_per_sec:>12.blue.bold} {eta:>4.blue.bold} {percent:>3}%" 
+            } else {
+                " {msg:<48.blue.bold} {total_bytes:>10.blue.bold} {binary_bytes_per_sec:>12.blue.bold} {eta:>4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3}%"
+            }
         } else {
-            " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%"
+            if max_len < 90 {
+                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+            } else {
+                " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%"
+            }
         }
     };
 
     let barsty = ProgressStyle::default_bar()
-        .template(bar_template)?
+        .template(&bar_template)?
         .progress_chars("=>-");
 
     Ok(barsty)
