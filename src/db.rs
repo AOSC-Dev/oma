@@ -306,6 +306,8 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
         }
     }
 
+    // AOSC OS/Retro 以后也许会支持使用光盘源安装软件包，但目前因为没有实例，所以无法测试
+    // 因此 Omakase 暂不支持 cdrom:// 源的安装
     let cdrom = res
         .iter()
         .filter(|x| x.url().starts_with("cdrom://"))
