@@ -1,11 +1,5 @@
 use core::panic;
-use std::{
-    collections::HashMap,
-    io::Read,
-    path::Path,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, io::Read, path::Path, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;

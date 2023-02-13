@@ -1,9 +1,9 @@
 use std::{process::exit, sync::atomic::AtomicI32};
 
 use action::OmaAction;
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
-use anyhow::Result;
 
 mod action;
 mod checksum;

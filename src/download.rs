@@ -20,18 +20,18 @@ pub async fn download_package(
 ) -> Result<()> {
     let filename = urls
         .first()
-        .unwrap()
-        .split('/')
-        .last()
+        .and_then(|x| x.split('/').last())
         .take()
-        .unwrap();
+        .context("URLs is none or Invaild URL")?;
 
     // sb apt 会把下载的文件重命名成 url 网址的样子，为保持兼容这里也这么做
     let mut filename_split = filename.split('_');
+
     let package = filename_split
         .next()
         .take()
         .context("Can not parse filename")?;
+
     let arch_deb = filename_split
         .nth(1)
         .take()
@@ -58,12 +58,6 @@ pub async fn download_package(
 
         if !result {
             for i in urls {
-                if i.starts_with("file:") {
-                    // 为了兼容 apt 的行为，把文件路径（前缀为 file://）的源交给 apt 处理
-                    warn!("{i} to apt handle!");
-                    return Ok(());
-                }
-
                 if download(
                     &i,
                     client,
