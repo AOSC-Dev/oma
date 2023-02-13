@@ -315,13 +315,13 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
 
     for i in &cdrom {
         error!(
-            "Omakase does not support this protocol at this time: cdrom:// {}",
+            "Omakase does not support cdrom protocol in url: {}",
             i.url
         );
     }
 
     if !cdrom.is_empty() {
-        return Err(anyhow!("Omakase unsupport some mirror!"));
+        bail!("Omakase unsupport some mirror");
     }
 
     Ok(res)

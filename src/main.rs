@@ -3,6 +3,7 @@ use std::{process::exit, sync::atomic::AtomicI32};
 use action::OmaAction;
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
+use anyhow::Result;
 
 mod action;
 mod checksum;
@@ -63,27 +64,22 @@ struct Delete {
 async fn main() {
     env_logger::init();
 
-    let app = OmaAction::new().await;
+    if let Err(e) = try_main().await {
+        error!("{e}");
+    }
 
-    let app = if let Ok(app) = app {
-        app
-    } else {
-        error!("{:?}", app.err());
-        exit(1);
-    };
+    exit(0);
+}
 
+async fn try_main() -> Result<()> {
+    let app = OmaAction::new().await?;
     let args = Args::parse();
 
-    if let Err(e) = match args.subcommand {
+    match args.subcommand {
         AoscptCommand::Install(v) => app.install(&v.packages).await,
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
         AoscptCommand::Remove(v) => app.remove(&v.packages, true),
         AoscptCommand::Upgrade(v) => app.update(&v.packages).await,
         AoscptCommand::Refresh(_) => app.refresh().await,
-    } {
-        error!("{e}");
-        exit(1);
     }
-
-    exit(0);
 }
