@@ -10,10 +10,9 @@ use reqwest::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
-    package::Version,
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
-    util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, DiskSpace, Exception, NumSys},
+    util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, DiskSpace, NumSys},
 };
 use tabled::{
     object::{Columns, Segment},
@@ -88,11 +87,6 @@ pub struct OmaAction {
     client: Client,
 }
 
-struct PackageVersion {
-    name: String,
-    version: String,
-}
-
 impl OmaAction {
     pub async fn new() -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
@@ -130,18 +124,11 @@ impl OmaAction {
             client: &Client,
             apt_db: &[IndexMap<String, String>],
             count: usize,
-            packages: &[String],
         ) -> Result<()> {
             let cache = new_cache!()?;
             cache.upgrade(&Upgrade::FullUpgrade)?;
 
-            let spv = if !packages.is_empty() {
-                install_handle(packages, &cache, apt_db).ok()
-            } else {
-                None
-            };
-
-            let (action, len) = apt_handler(&cache, spv.as_deref())?;
+            let (action, len) = apt_handler(&cache)?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -198,7 +185,7 @@ impl OmaAction {
         // Retry 3 times
         let mut count = 0;
         while let Err(e) =
-            update_inner(&self.sources, &self.client, &self.db, count, packages).await
+            update_inner(&self.sources, &self.client, &self.db, count).await
         {
             // warn!("{e}, retrying ...");
             if count == 3 {
@@ -229,9 +216,9 @@ impl OmaAction {
     async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
         let cache = new_cache!()?;
 
-        let selected_packages_version = install_handle(list, &cache, &self.db)?;
+        install_handle(list, &cache, &self.db)?;
 
-        let (action, len) = apt_handler(&cache, Some(&selected_packages_version))?;
+        let (action, len) = apt_handler(&cache)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -344,7 +331,7 @@ impl OmaAction {
         autoremove(&cache);
         cache.resolve(true)?;
 
-        let (action, len) = apt_handler(&cache, None)?;
+        let (action, len) = apt_handler(&cache)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -400,9 +387,7 @@ fn install_handle(
     list: &[String],
     cache: &Cache,
     apt_db: &[IndexMap<String, String>],
-) -> Result<Vec<PackageVersion>> {
-    let mut selected_packages_version = vec![];
-
+) -> Result<()> {
     for i in list {
         if i.contains('=') {
             // Support apt install fish=3.6.0
@@ -425,11 +410,6 @@ fn install_handle(
                 .context(format!("Can not get package {name} version: {version_str}"))?;
 
             version.set_candidate();
-
-            selected_packages_version.push(PackageVersion {
-                name: name.to_string(),
-                version: version_str.to_string(),
-            });
 
             pkg.mark_install(true, true);
             pkg.protect();
@@ -466,11 +446,6 @@ fn install_handle(
 
             version.set_candidate();
 
-            selected_packages_version.push(PackageVersion {
-                name: name.to_string(),
-                version: version.version().to_string(),
-            });
-
             pkg.mark_install(true, true);
             pkg.protect();
         } else {
@@ -490,7 +465,7 @@ fn install_handle(
         };
     }
 
-    Ok(selected_packages_version)
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -520,10 +495,7 @@ impl Action {
     }
 }
 
-fn apt_handler(
-    cache: &Cache,
-    select_packages_version: Option<&[PackageVersion]>,
-) -> Result<(Action, usize)> {
+fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
     let changes = cache.get_changes(true).collect::<Vec<_>>();
     let len = changes.len();
 
@@ -535,43 +507,19 @@ fn apt_handler(
 
     for pkg in changes {
         if pkg.marked_install() {
-            let version = if let Some(spv) = select_packages_version {
-                if let Some(v) = spv
-                    .iter()
-                    .find(|x| x.name == pkg.name())
-                    .map(|x| x.version.clone())
-                {
-                    v
-                } else {
-                    let cand = pkg.candidate().take().context(format!(
-                        "Can not get package version in apt database: {}",
-                        pkg.name()
-                    ))?;
-
-                    cand.version().to_string()
-                }
-            } else {
-                let cand = pkg.candidate().take().context(format!(
-                    "Can not get package version in apt database: {}",
-                    pkg.name()
-                ))?;
-
-                cand.version().to_string()
-            };
-
-            let ver = pkg.get_version(&version).context(format!(
+            let cand = pkg.candidate().take().context(format!(
                 "Can not get package version in apt database: {}",
                 pkg.name()
             ))?;
 
-            let size = ver.installed_size();
+            let size = cand.installed_size();
             let size = format!("+{}", unit_str(size, NumSys::Decimal,));
 
             install.push(InstallRow {
                 name: style(pkg.name()).green().to_string(),
                 name_no_color: pkg.name().to_string(),
-                version: version.to_string(),
-                new_version: version.to_string(),
+                version: cand.version().to_string(),
+                new_version: cand.version().to_string(),
                 size,
             });
 
@@ -582,10 +530,12 @@ fn apt_handler(
         }
 
         if pkg.marked_upgrade() {
-            // let id = pkg.id();
-            let pkg_ver = pkg.version_list().unwrap();
+            let cand = pkg.candidate().take().context(format!(
+                "Can not get package version in apt database: {}",
+                pkg.name()
+            ))?;
 
-            let version = pkg_ver.version();
+            let version = cand.version();
 
             let old_pkg = pkg
                 .installed()
@@ -645,29 +595,13 @@ fn apt_handler(
         }
         if pkg.marked_downgrade() {
             // let id = pkg.unsafe_version_list();
-            let version = if let Some(spv) = select_packages_version {
-                if let Some(v) = spv
-                    .iter()
-                    .find(|x| x.name == pkg.name())
-                    .map(|x| x.version.clone())
-                {
-                    v
-                } else {
-                    let cand = pkg.candidate().take().context(format!(
-                        "Can not get package version in apt database: {}",
-                        pkg.name()
-                    ))?;
 
-                    cand.version().to_string()
-                }
-            } else {
-                let cand = pkg.candidate().take().context(format!(
-                    "Can not get package version in apt database: {}",
-                    pkg.name()
-                ))?;
+            let cand = pkg.candidate().take().context(format!(
+                "Can not get package version in apt database: {}",
+                pkg.name()
+            ))?;
 
-                cand.version().to_string()
-            };
+            let version = cand.version();
 
             let old_pkg = pkg
                 .installed()
@@ -885,10 +819,22 @@ fn download_size(install_and_update: &[InstallRow], cache: &Cache) -> Result<u64
 }
 
 fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
-    writeln!(w, "{:<80}", style("Pending Operations").bold().bg(Color::Color256(25)))?;
+    writeln!(
+        w,
+        "{:<80}",
+        style("Pending Operations").bold().bg(Color::Color256(25))
+    )?;
     writeln!(w)?;
     writeln!(w, "Shown below is an overview of the pending changes Omakase will apply to your\nsystem, please review them carefully\n")?;
-    writeln!(w, "Omakase may {}, {}, {}, {}, or {}\npackages in order to fulfill your requested changes.", style("install").green(), style("remove").red(), style("upgrade").cyan(), style("downgrade").yellow(), style("reinstall").blue())?;
+    writeln!(
+        w,
+        "Omakase may {}, {}, {}, {}, or {}\npackages in order to fulfill your requested changes.",
+        style("install").green(),
+        style("remove").red(),
+        style("upgrade").cyan(),
+        style("downgrade").yellow(),
+        style("reinstall").blue()
+    )?;
     writeln!(w)?;
 
     Ok(())
