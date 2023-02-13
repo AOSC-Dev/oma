@@ -321,7 +321,7 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
     }
 
     if !cdrom.is_empty() {
-        bail!("Omakase unsupport some mirror");
+        bail!("Omakase unsupport some mirror.");
     }
 
     Ok(res)

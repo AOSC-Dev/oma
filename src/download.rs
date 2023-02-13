@@ -1,5 +1,6 @@
 use std::{io::Read, path::Path, sync::Arc, time::Duration};
 
+use console::style;
 use tokio::task::spawn_blocking;
 
 use anyhow::{anyhow, Context, Result};
@@ -7,7 +8,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
-use crate::{checksum::Checksum, db::DOWNLOAD_DIR, WRITER, warn};
+use crate::{checksum::Checksum, db::DOWNLOAD_DIR, warn, WRITER};
 
 /// Download a package
 pub async fn download_package(
@@ -283,15 +284,17 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
         let max_len = WRITER.get_max_len();
         if is_global {
             if max_len < 90 {
-                " {wide_msg:.blue.bold} {total_bytes:>10:.blue.bold} {binary_bytes_per_sec:>12.blue.bold} {eta:>4.blue.bold} {percent:>3}%" 
+                " {wide_msg:.blue.bold} {total_bytes:>10:.blue.bold} {binary_bytes_per_sec:>12.blue.bold} {eta:>4.blue.bold} {percent%:>3.blue}".to_owned() + &style("%").blue().to_string()
             } else {
-                " {msg:<48.blue.bold} {total_bytes:>10.blue.bold} {binary_bytes_per_sec:>12.blue.bold} {eta:>4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3}%"
+                " {msg:<48.blue.bold} {total_bytes:>10.blue.bold} {binary_bytes_per_sec:>12.blue.bold} {eta:>4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue}".to_owned() + &style("%").blue().to_string()
             }
         } else {
             if max_len < 90 {
-                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}"
+                    .to_owned()
+                    + &style("%").blue().to_string()
             } else {
-                " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%"
+                " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}".to_owned() + &style("%").blue().to_string()
             }
         }
     };
