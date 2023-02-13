@@ -1,3 +1,4 @@
+use log::debug;
 use rust_apt::{
     raw::progress::AcquireProgress,
     util::{time_str, unit_str, NumSys},
@@ -38,7 +39,7 @@ impl AcquireProgress for NoProgress {
     fn hit(&mut self, _id: u32, _description: String) {}
 
     fn fetch(&mut self, _id: u32, _description: String, _file_size: u64) {
-        dbg!(_description);
+        debug!("{}", _description);
     }
 
     fn fail(&mut self, _id: u32, _description: String, _status: u32, _error_text: String) {}

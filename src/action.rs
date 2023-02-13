@@ -1,5 +1,3 @@
-use std::{collections::HashMap, path::Path};
-
 use anyhow::{bail, Context, Ok, Result};
 use apt_sources_lists::SourceEntry;
 use console::{style, Color};
@@ -21,10 +19,7 @@ use tabled::{
 use std::io::Write;
 
 use crate::{
-    db::{
-        get_sources, packages_download, update_db,
-        APT_LIST_DISTS,
-    },
+    db::{get_sources, packages_download, update_db, APT_LIST_DISTS},
     formatter::NoProgress,
     pager::Pager,
     pkgversion::PkgVersion,
@@ -100,10 +95,7 @@ impl OmaAction {
         std::fs::create_dir_all(APT_LIST_DISTS)?;
         std::fs::create_dir_all("/var/cache/apt/archives")?;
 
-        Ok(Self {
-            sources,
-            client,
-        })
+        Ok(Self { sources, client })
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
@@ -111,20 +103,15 @@ impl OmaAction {
         update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(client: &Client, count: usize, packages: &[String]) -> Result<()> {
-            let cache = new_cache!()?;
-            cache.upgrade(&Upgrade::FullUpgrade)?;
-
-            // let local_debs = packages
-            //     .iter()
-            //     .filter(|x| x.ends_with(".deb"))
-            //     .collect::<Vec<_>>();
-
-            install_handle(packages, &cache)?;
-
             let local_debs = packages
                 .iter()
                 .filter(|x| x.ends_with(".deb"))
                 .collect::<Vec<_>>();
+
+            let cache = new_cache!(&local_debs)?;
+            cache.upgrade(&Upgrade::FullUpgrade)?;
+
+            install_handle(packages, &cache)?;
 
             let (action, len) = apt_handler(&cache)?;
 
@@ -152,32 +139,31 @@ impl OmaAction {
             packages_download(&list, client, None).await?;
 
             if let Err(e) = cache.resolve(true) {
-                let sort = PackageSort::default();
-                let mut now_broken = false;
-                let mut inst_broken = false;
-                for pkg in cache.packages(&sort) {
-                    now_broken = pkg.is_now_broken();
-                    inst_broken = pkg.is_inst_broken();
+                return Err(e.into());
+                // let sort = PackageSort::default();
+                // let mut now_broken = false;
+                // let mut inst_broken = false;
+                // for pkg in cache.packages(&sort) {
+                //     now_broken = pkg.is_now_broken();
+                //     inst_broken = pkg.is_inst_broken();
 
-                    if !now_broken && !inst_broken {
-                        continue;
-                    }
+                //     if !now_broken && !inst_broken {
+                //         continue;
+                //     }
 
-                    let ver = if now_broken {
-                        pkg.current_version()
-                    } else {
-                        pkg.version_list()
-                    }
-                    .context("123")?;
+                //     let ver = if now_broken {
+                //         pkg.current_version()
+                //     } else {
+                //         pkg.version_list()
+                //     }
+                //     .context("123")?;
 
-                    while let Some(i) = ver.depends() {
-                        dbg!(i.dep_type());
-                    }
-                }
+                //     while let Some(i) = ver.depends() {
+                //         dbg!(i.dep_type());
+                //     }
+                // }
             }
-            apt_install(cache)?;
 
-            let cache = install_handle_with_local(&local_debs)?;
             apt_install(cache)?;
 
             Ok(())
@@ -221,8 +207,6 @@ impl OmaAction {
         let cache = new_cache!(&local_debs)?;
         install_handle(list, &cache)?;
 
-        dbg!(list);
-
         let (action, len) = apt_handler(&cache)?;
 
         if len == 0 {
@@ -242,48 +226,48 @@ impl OmaAction {
                 return Err(e.into());
             }
 
-            let sort = PackageSort::default().installed();
-            let now = false;
-            for pkg in cache.packages(&sort) {
-                let now_broken = pkg.is_now_broken();
-                let inst_broken = pkg.is_inst_broken();
+            // let sort = PackageSort::default().installed();
+            // let now = false;
+            // for pkg in cache.packages(&sort) {
+            //     let now_broken = pkg.is_now_broken();
+            //     let inst_broken = pkg.is_inst_broken();
 
-                if !now_broken && !inst_broken {
-                    continue;
-                }
+            //     if !now_broken && !inst_broken {
+            //         continue;
+            //     }
 
-                // let ver = if now_broken {
-                //     pkg.installed()
-                // } else {
-                //     pkg.ins
-                // }
-                // .context("context")?;
+            //     // let ver = if now_broken {
+            //     //     pkg.installed()
+            //     // } else {
+            //     //     pkg.ins
+            //     // }
+            //     // .context("context")?;
 
-                // dbg!(pkg.name());
-                // dbg!(now_broken, ins)
+            //     // dbg!(pkg.name());
+            //     // dbg!(now_broken, ins)
 
-                // for i in ver.dependencies().unwrap() {
-                //     for j in &i.base_deps {
-                //         if j.target_pkg().is_essential() {
-                //             continue;
-                //         }
+            //     // for i in ver.dependencies().unwrap() {
+            //     //     for j in &i.base_deps {
+            //     //         if j.target_pkg().is_essential() {
+            //     //             continue;
+            //     //         }
 
-                //         dbg!(cache.depcache().is_inst_broken(&j.target_pkg()));
+            //     //         dbg!(cache.depcache().is_inst_broken(&j.target_pkg()));
 
-                //         // if now && !cache.depcache().is_now_broken(&j.target_pkg()) {
-                //         //     continue;
-                //         // }
+            //     //         // if now && !cache.depcache().is_now_broken(&j.target_pkg()) {
+            //     //         //     continue;
+            //     //         // }
 
-                //         // if !now && !cache.depcache().is_inst_broken(&j.target_pkg()) {
-                //         //     continue;
-                //         // }
+            //     //         // if !now && !cache.depcache().is_inst_broken(&j.target_pkg()) {
+            //     //         //     continue;
+            //     //         // }
 
-                //         dbg!(j.target_pkg().name());
-                //     }
-                // }
+            //     //         dbg!(j.target_pkg().name());
+            //     //     }
+            //     // }
 
-                return Err(e.into());
-            }
+            //     return Err(e.into());
+            // }
         }
 
         if count == 0 {
@@ -377,26 +361,6 @@ fn apt_install(cache: Cache) -> Result<()> {
     apt_unlock();
 
     Ok(())
-}
-
-fn install_handle_with_local(local_debs: &[&String]) -> Result<Cache> {
-    dbg!(local_debs);
-    let cache = new_cache!(local_debs)?;
-
-    let packages = local_debs
-        .iter()
-        .map(|x| x.split('/').last().unwrap_or(x))
-        .flat_map(|x| x.split('_').next());
-
-    for i in packages {
-        let pkg = cache.get(i).unwrap();
-        pkg.protect();
-        pkg.mark_install(true, true);
-    }
-
-    cache.resolve(true)?;
-
-    Ok(cache)
 }
 
 fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
