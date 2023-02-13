@@ -23,7 +23,7 @@ use crate::{
     action::InstallRow,
     checksum::Checksum,
     download::{download, download_package, oma_style_pb, OmaProgressBar},
-    info, success,
+    error, info, success,
     utils::get_arch_name,
     verify,
 };
@@ -304,6 +304,22 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
                 res.push(entry.to_owned());
             }
         }
+    }
+
+    let cdrom = res
+        .iter()
+        .filter(|x| x.url().starts_with("cdrom://"))
+        .collect::<Vec<_>>();
+
+    for i in &cdrom {
+        error!(
+            "Omakase does not support this protocol at this time: cdrom:// {}",
+            i.url
+        );
+    }
+
+    if !cdrom.is_empty() {
+        return Err(anyhow!("Omakase unsupport some mirror!"));
     }
 
     Ok(res)

@@ -7,7 +7,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
-use crate::{checksum::Checksum, db::DOWNLOAD_DIR, WRITER};
+use crate::{checksum::Checksum, db::DOWNLOAD_DIR, WRITER, warn};
 
 /// Download a package
 pub async fn download_package(
@@ -18,7 +18,7 @@ pub async fn download_package(
     hash: String,
     version: String,
     opb: OmaProgressBar,
-) -> Result<String> {
+) -> Result<()> {
     async fn download_inner(
         download_dir: Option<&str>,
         filename: &str,
@@ -82,6 +82,12 @@ pub async fn download_package(
 
         if !result {
             for i in mirrors {
+                if i.starts_with("file://") {
+                    // 为了兼容 apt 的行为，把文件路径（前缀为 file://）的源交给 apt 处理
+                    warn!("{i} to apt handle!");
+                    return Ok(());
+                }
+
                 if download_inner(
                     download_dir,
                     &filename,
@@ -98,10 +104,16 @@ pub async fn download_package(
                 }
             }
         } else {
-            return Ok(filename.to_string());
+            return Ok(());
         }
     } else {
         for i in mirrors {
+            if i.starts_with("file://") {
+                // 为了兼容 apt 的行为，把文件路径（前缀为 file://）的源交给 apt 处理
+                warn!("{i} to apt handle!");
+                break;
+            }
+
             if download_inner(
                 download_dir,
                 &filename,
@@ -126,7 +138,7 @@ pub async fn download_package(
         ));
     }
 
-    Ok(filename.to_string())
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -153,7 +165,7 @@ impl OmaProgressBar {
     }
 }
 
-/// Download file to buffer
+/// Download file
 pub async fn download(
     url: &str,
     client: &Client,
