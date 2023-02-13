@@ -1608,7 +1608,7 @@ dependencies = [
 [[package]]
 name = "rust-apt"
 version = "0.4.1"
-source = "git+https://gitlab.com/volian/rust-apt?rev=87a043d2b6f6348de2c8936610228338854dcf30#87a043d2b6f6348de2c8936610228338854dcf30"
+source = "git+https://gitlab.com/volian/rust-apt?rev=6a8146e47a755ff7e219d0bc28fc1fe2161b044b#6a8146e47a755ff7e219d0bc28fc1fe2161b044b"
 dependencies = [
  "cxx",
  "cxx-build",
