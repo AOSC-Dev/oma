@@ -202,7 +202,18 @@ pub async fn download(
         ProgressBar::new_spinner()
     };
 
-    let mut msg = opb.msg.unwrap_or(filename.clone());
+    let mut msg = opb.msg.unwrap_or_else(|| {
+        let mut filename_split = filename.split('_');
+        let name = filename_split.next();
+        let version = filename_split.next().map(|x| x.replace("%3a", ":"));
+        let arch = filename_split.next().map(|x| x.replace(".deb", ""));
+
+        if name.and(version.clone()).and(arch.clone()).is_none() {
+            filename.clone()
+        } else {
+            format!("{} {} ({})", name.unwrap(), version.unwrap(), arch.unwrap())
+        }
+    });
 
     if console::measure_text_width(&msg) > 60 {
         msg = console::truncate_str(&msg, 57, "...").to_string();
