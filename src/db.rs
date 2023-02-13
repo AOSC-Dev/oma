@@ -314,10 +314,7 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
         .collect::<Vec<_>>();
 
     for i in &cdrom {
-        error!(
-            "Omakase does not support cdrom protocol in url: {}",
-            i.url
-        );
+        error!("Omakase does not support cdrom protocol in url: {}", i.url);
     }
 
     if !cdrom.is_empty() {
@@ -350,7 +347,8 @@ pub async fn packages_download(
             x.get("Package") == Some(&i.name_no_color) && x.get("Version") == Some(&i.new_version)
         });
 
-        let Some(v) = v else { bail!("Can not get package {} from list", i.name_no_color) };
+        // 这里可能会有个 bug，如果源里有这个本地安装版本，可能会装上源的版本
+        let Some(v) = v else { continue; };
 
         let size = v["Size"].clone().parse::<u64>()?;
         total += size;
@@ -368,7 +366,7 @@ pub async fn packages_download(
             x.get("Package") == Some(&c.name_no_color) && x.get("Version") == Some(&c.new_version)
         });
 
-        let Some(v) = v else { bail!("Can not get package {} from list", c.name_no_color) };
+        let Some(v) = v else { continue; };
         let file_name = v["Filename"].clone();
         let checksum = v["SHA256"].clone();
         let version = v["Version"].clone();

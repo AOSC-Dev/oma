@@ -79,6 +79,8 @@ pub struct InstallRow {
     version: String,
     #[tabled(rename = "Installed Size")]
     size: String,
+    // #[tabled(skip)]
+    // local_path: Option<String>,
 }
 
 pub struct OmaAction {
@@ -124,9 +126,22 @@ impl OmaAction {
             client: &Client,
             apt_db: &[IndexMap<String, String>],
             count: usize,
+            packages: &[String],
         ) -> Result<()> {
             let cache = new_cache!()?;
             cache.upgrade(&Upgrade::FullUpgrade)?;
+
+            // let local_debs = packages
+            //     .iter()
+            //     .filter(|x| x.ends_with(".deb"))
+            //     .collect::<Vec<_>>();
+
+            install_handle(packages, &cache, apt_db)?;
+
+            let local_debs = packages
+                .iter()
+                .filter(|x| x.ends_with(".deb"))
+                .collect::<Vec<_>>();
 
             let (action, len) = apt_handler(&cache)?;
 
@@ -179,13 +194,16 @@ impl OmaAction {
             }
             apt_install(cache)?;
 
+            let cache = install_handle_with_local(&local_debs)?;
+            apt_install(cache)?;
+
             Ok(())
         }
 
         // Retry 3 times
         let mut count = 0;
         while let Err(e) =
-            update_inner(&self.sources, &self.client, &self.db, count).await
+            update_inner(&self.sources, &self.client, &self.db, count, packages).await
         {
             // warn!("{e}, retrying ...");
             if count == 3 {
@@ -214,9 +232,15 @@ impl OmaAction {
     }
 
     async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
-        let cache = new_cache!()?;
+        let local_debs = list
+            .iter()
+            .filter(|x| x.ends_with(".deb"))
+            .collect::<Vec<_>>();
 
+        let cache = new_cache!(&local_debs)?;
         install_handle(list, &cache, &self.db)?;
+
+        dbg!(list);
 
         let (action, len) = apt_handler(&cache)?;
 
@@ -229,31 +253,6 @@ impl OmaAction {
         list.extend(action.install.clone());
         list.extend(action.update.clone());
         list.extend(action.downgrade.clone());
-
-        // if let Err(e) = cache.resolve(true) {
-        //     let sort = PackageSort::default();
-        //     let mut now_broken = false;
-        //     let mut inst_broken = false;
-        //     for pkg in cache.packages(&sort) {
-        //         now_broken = pkg.is_now_broken();
-        //         inst_broken = pkg.is_inst_broken();
-
-        //         if !now_broken && !inst_broken {
-        //             continue;
-        //         }
-
-        //         let ver = if now_broken {
-        //             pkg.current_version()
-        //         } else {
-        //             pkg.version_list()
-        //         }
-        //         .context("123")?;
-
-        //         while let Some(i) = ver.depends() {
-        //             dbg!(i.dep_type());
-        //         }
-        //     }
-        // }
 
         autoremove(&cache);
 
@@ -314,6 +313,22 @@ impl OmaAction {
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download(&list, &self.db, &self.sources, &self.client, None).await?;
         apt_install(cache)?;
+
+        // let cache = install_handle_with_local(&local_debs)?;
+
+        // let (action, len) = apt_handler(&cache)?;
+
+        // if len == 0 {
+        //     success!("No need to do anything.");
+        //     return Ok(());
+        // }
+
+        // if count == 0 && !local_debs.is_empty() {
+        //     let disk_size = cache.depcache().disk_size();
+        //     display_result(&action, &cache, disk_size)?;
+        // }
+
+        // apt_install(cache)?;
 
         Ok(())
     }
@@ -383,6 +398,26 @@ fn apt_install(cache: Cache) -> Result<()> {
     Ok(())
 }
 
+fn install_handle_with_local(local_debs: &[&String]) -> Result<Cache> {
+    dbg!(local_debs);
+    let cache = new_cache!(local_debs)?;
+
+    let packages = local_debs
+        .iter()
+        .map(|x| x.split('/').last().unwrap_or(x))
+        .flat_map(|x| x.split('_').next());
+
+    for i in packages {
+        let pkg = cache.get(i).unwrap();
+        pkg.protect();
+        pkg.mark_install(true, true);
+    }
+
+    cache.resolve(true)?;
+
+    Ok(cache)
+}
+
 fn install_handle(
     list: &[String],
     cache: &Cache,
@@ -413,7 +448,7 @@ fn install_handle(
 
             pkg.mark_install(true, true);
             pkg.protect();
-        } else if i.contains('/') {
+        } else if i.contains('/') && !i.ends_with(".deb") {
             // Support apt install fish/stable
             let mut split_arg = i.split('/');
             let name = split_arg.next().context(format!("Not Support: {i}"))?;
@@ -448,7 +483,7 @@ fn install_handle(
 
             pkg.mark_install(true, true);
             pkg.protect();
-        } else {
+        } else if !i.ends_with(".deb") {
             let res = apt_db
                 .iter()
                 .filter(|x| glob_match_with_captures(i, &x["Package"]).is_some());
@@ -462,7 +497,27 @@ fn install_handle(
                 pkg.mark_install(true, true);
                 pkg.protect();
             }
-        };
+        } else {
+            let mut filename_split = i.split('/').last().unwrap_or(i).split('_');
+            let package = filename_split
+                .next()
+                .context(format!("Can not get pacakge name from file: {}", i))?;
+            // let ver = filename_split
+            //     .next()
+            //     .context(format!("Can not get pacakge version from file: {}", i))?;
+            let pkg = cache
+                .get(package)
+                .take()
+                .context(format!("Can not get package from file: {i}"))?;
+
+            // let pkg_ver = pkg
+            //     .get_version(ver)
+            //     .context(format!("Can not select version {i}!"))?;
+            // pkg_ver.set_candidate();
+
+            pkg.mark_install(true, true);
+            pkg.protect();
+        }
     }
 
     Ok(())
