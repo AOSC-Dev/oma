@@ -438,7 +438,7 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
             let mut filename_split = i.split('/').last().unwrap_or(i).split('_');
             let package = filename_split
                 .next()
-                .context(format!("Can not get pacakge name from file: {}", i))?;
+                .context(format!("Can not get pacakge name from file: {i}"))?;
 
             let pkg = cache
                 .get(package)
@@ -601,7 +601,7 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
             let old_version = old_pkg.version();
             let old_size = old_pkg.installed_size() as i64;
 
-            let new_pkg = pkg.get_version(&version).context(format!(
+            let new_pkg = pkg.get_version(version).context(format!(
                 "Can not get package version in apt database: {}",
                 pkg.name()
             ))?;
