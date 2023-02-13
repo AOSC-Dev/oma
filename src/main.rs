@@ -66,6 +66,7 @@ async fn main() {
 
     if let Err(e) = try_main().await {
         error!("{e}");
+        exit(1);
     }
 
     exit(0);
