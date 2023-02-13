@@ -290,11 +290,10 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
             }
         } else {
             if max_len < 90 {
-                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}"
+                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
                     .to_owned()
-                    + &style("%").blue().to_string()
             } else {
-                " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}".to_owned() + &style("%").blue().to_string()
+                " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
             }
         }
     };
