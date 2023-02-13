@@ -2,7 +2,7 @@ use core::panic;
 use std::{
     collections::HashMap,
     io::Read,
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
     time::Duration,
 };
@@ -216,14 +216,6 @@ impl InReleaseParser {
     }
 }
 
-pub fn debcontrol_from_file(p: &Path) -> Result<Vec<IndexMap<String, String>>> {
-    let mut f = std::fs::File::open(p)?;
-    let mut s = String::new();
-    f.read_to_string(&mut s)?;
-
-    debcontrol_from_str(&s)
-}
-
 fn debcontrol_from_str(s: &str) -> Result<Vec<IndexMap<String, String>>> {
     let mut res = vec![];
 
@@ -239,56 +231,6 @@ fn debcontrol_from_str(s: &str) -> Result<Vec<IndexMap<String, String>>> {
 
         res.push(item);
     }
-
-    Ok(res)
-}
-
-pub async fn get_sources_dists_filename(
-    sources: &[SourceEntry],
-    client: &Client,
-) -> Result<Vec<String>> {
-    let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
-    let dists_in_releases = dist_urls.iter().map(|x| {
-        (
-            x.to_owned(),
-            FileName::new(&format!("{}/{}", x, "InRelease")),
-        )
-    });
-
-    let mut res = vec![];
-
-    let components = sources
-        .iter()
-        .map(|x| x.components.to_owned())
-        .collect::<Vec<_>>();
-
-    for (i, c) in dists_in_releases.enumerate() {
-        let filename = c.1?.0;
-        let in_release = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(&filename));
-
-        let in_release = if in_release.is_err() {
-            update_db(sources, client, None).await?;
-            let in_release = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(filename))?;
-
-            in_release
-        } else {
-            in_release?
-        };
-
-        let checksums = in_release
-            .checksums
-            .iter()
-            .filter(|x| components[i].contains(&x.name.split('/').next().unwrap().to_string()))
-            .collect::<Vec<_>>();
-
-        for j in checksums {
-            if j.name.ends_with("Packages") {
-                res.push(FileName::new(&format!("{}/{}", c.0, j.name))?);
-            }
-        }
-    }
-
-    let res = res.into_iter().map(|x| x.0).collect();
 
     Ok(res)
 }
@@ -327,8 +269,6 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
 /// Download packages
 pub async fn packages_download(
     list: &[InstallRow],
-    apt: &[IndexMap<String, String>],
-    sources: &[SourceEntry],
     client: &Client,
     limit: Option<usize>,
 ) -> Result<()> {
@@ -343,15 +283,7 @@ pub async fn packages_download(
     info!("Downloading {} packages ...", list.len());
 
     for i in list.iter() {
-        let v = apt.iter().find(|x| {
-            x.get("Package") == Some(&i.name_no_color) && x.get("Version") == Some(&i.new_version)
-        });
-
-        // 这里可能会有个 bug，如果源里有这个本地安装版本，可能会装上源的版本
-        let Some(v) = v else { continue; };
-
-        let size = v["Size"].clone().parse::<u64>()?;
-        total += size;
+        total += i.pure_download_size;
     }
 
     let global_bar = mb.insert(0, ProgressBar::new(total));
@@ -362,49 +294,25 @@ pub async fn packages_download(
     let list_len = list.len();
 
     for (i, c) in list.iter().enumerate() {
-        let v = apt.iter().find(|x| {
-            x.get("Package") == Some(&c.name_no_color) && x.get("Version") == Some(&c.new_version)
-        });
-
-        let Some(v) = v else { continue; };
-        let file_name = v["Filename"].clone();
-        let checksum = v["SHA256"].clone();
-        let version = v["Version"].clone();
-        let mut file_name_split = file_name.split('/');
-
-        let branch = file_name_split.nth(1).take().context(format!(
-            "Can not parse package {} Filename field!",
-            c.name_no_color
-        ))?;
-
-        let component = file_name_split.next().take().context(format!(
-            "Can not parse package {} Filename field!",
-            c.name_no_color
-        ))?;
-
-        let mirrors = sources
-            .iter()
-            .filter(|x| x.components.contains(&component.to_string()))
-            .filter(|x| x.suite == branch)
-            .map(|x| x.url.to_owned())
-            .collect::<Vec<_>>();
-
         let mbc = mb.clone();
 
-        task.push(download_package(
-            file_name,
-            mirrors,
-            None,
-            client,
-            checksum,
-            version,
-            OmaProgressBar::new(
-                None,
-                Some((i, list_len)),
-                Some(mbc.clone()),
-                Some(global_bar.clone()),
-            ),
-        ));
+        if let Some(ref checksum) = c.checksum {
+            task.push(download_package(
+                c.pkg_urls.clone(),
+                client,
+                checksum.clone(),
+                c.new_version.clone(),
+                OmaProgressBar::new(
+                    None,
+                    Some((i, list_len)),
+                    Some(mbc.clone()),
+                    Some(global_bar.clone()),
+                ),
+            ));
+        } else {
+            // 如果没有验证码，则应该是本地安装得来的，使用 apt 来处理这些软件包
+            info!("Use apt to handle url {:?}", c.pkg_urls.first());
+        }
     }
     // 默认限制一次最多下载八个包，减少服务器负担
     let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(4));
@@ -418,25 +326,6 @@ pub async fn packages_download(
     }
 
     Ok(())
-}
-
-pub async fn package_list(
-    db_file_paths: Vec<PathBuf>,
-    sources: &[SourceEntry],
-    client: &Client,
-) -> Result<Vec<IndexMap<String, String>>> {
-    let mut apt = vec![];
-    for i in db_file_paths {
-        if !i.is_file() {
-            update_db(sources, client, None).await?;
-        }
-        let parse = debcontrol_from_file(&i)?;
-        apt.extend(parse);
-    }
-
-    apt.sort_by(|x, y| x["Package"].cmp(&y["Package"]));
-
-    Ok(apt)
 }
 
 // Update database

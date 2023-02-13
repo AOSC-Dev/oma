@@ -1,10 +1,9 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use anyhow::{bail, Context, Ok, Result};
 use apt_sources_lists::SourceEntry;
 use console::{style, Color};
 use glob_match::glob_match_with_captures;
-use indexmap::IndexMap;
 use indicatif::HumanBytes;
 use reqwest::Client;
 use rust_apt::{
@@ -23,7 +22,7 @@ use std::io::Write;
 
 use crate::{
     db::{
-        get_sources, get_sources_dists_filename, package_list, packages_download, update_db,
+        get_sources, packages_download, update_db,
         APT_LIST_DISTS,
     },
     formatter::NoProgress,
@@ -78,14 +77,17 @@ pub struct InstallRow {
     #[tabled(rename = "Version")]
     version: String,
     #[tabled(rename = "Installed Size")]
-    size: String,
-    // #[tabled(skip)]
-    // local_path: Option<String>,
+    pub size: String,
+    #[tabled(skip)]
+    pub pkg_urls: Vec<String>,
+    #[tabled(skip)]
+    pub checksum: Option<String>,
+    #[tabled(skip)]
+    pub pure_download_size: u64,
 }
 
 pub struct OmaAction {
     sources: Vec<SourceEntry>,
-    db: Vec<IndexMap<String, String>>,
     client: Client,
 }
 
@@ -98,21 +100,8 @@ impl OmaAction {
         std::fs::create_dir_all(APT_LIST_DISTS)?;
         std::fs::create_dir_all("/var/cache/apt/archives")?;
 
-        let db_paths = get_sources_dists_filename(&sources, &client).await?;
-
-        let db = package_list(
-            db_paths
-                .iter()
-                .map(|x| Path::new(APT_LIST_DISTS).join(x))
-                .collect(),
-            &sources,
-            &client,
-        )
-        .await?;
-
         Ok(Self {
             sources,
-            db,
             client,
         })
     }
@@ -121,13 +110,7 @@ impl OmaAction {
     pub async fn update(&self, packages: &[String]) -> Result<()> {
         update_db(&self.sources, &self.client, None).await?;
 
-        async fn update_inner(
-            sources: &[SourceEntry],
-            client: &Client,
-            apt_db: &[IndexMap<String, String>],
-            count: usize,
-            packages: &[String],
-        ) -> Result<()> {
+        async fn update_inner(client: &Client, count: usize, packages: &[String]) -> Result<()> {
             let cache = new_cache!()?;
             cache.upgrade(&Upgrade::FullUpgrade)?;
 
@@ -136,7 +119,7 @@ impl OmaAction {
             //     .filter(|x| x.ends_with(".deb"))
             //     .collect::<Vec<_>>();
 
-            install_handle(packages, &cache, apt_db)?;
+            install_handle(packages, &cache)?;
 
             let local_debs = packages
                 .iter()
@@ -166,7 +149,7 @@ impl OmaAction {
 
             // let db_for_update = newest_package_list(apt_db)?;
 
-            packages_download(&list, apt_db, sources, client, None).await?;
+            packages_download(&list, client, None).await?;
 
             if let Err(e) = cache.resolve(true) {
                 let sort = PackageSort::default();
@@ -202,9 +185,7 @@ impl OmaAction {
 
         // Retry 3 times
         let mut count = 0;
-        while let Err(e) =
-            update_inner(&self.sources, &self.client, &self.db, count, packages).await
-        {
+        while let Err(e) = update_inner(&self.client, count, packages).await {
             // warn!("{e}, retrying ...");
             if count == 3 {
                 return Err(e);
@@ -238,7 +219,7 @@ impl OmaAction {
             .collect::<Vec<_>>();
 
         let cache = new_cache!(&local_debs)?;
-        install_handle(list, &cache, &self.db)?;
+        install_handle(list, &cache)?;
 
         dbg!(list);
 
@@ -311,7 +292,7 @@ impl OmaAction {
         }
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
-        packages_download(&list, &self.db, &self.sources, &self.client, None).await?;
+        packages_download(&list, &self.client, None).await?;
         apt_install(cache)?;
 
         // let cache = install_handle_with_local(&local_debs)?;
@@ -418,11 +399,7 @@ fn install_handle_with_local(local_debs: &[&String]) -> Result<Cache> {
     Ok(cache)
 }
 
-fn install_handle(
-    list: &[String],
-    cache: &Cache,
-    apt_db: &[IndexMap<String, String>],
-) -> Result<()> {
+fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
     for i in list {
         if i.contains('=') {
             // Support apt install fish=3.6.0
@@ -459,7 +436,7 @@ fn install_handle(
                 .take()
                 .context(format!("Can not get package: {i}"))?;
 
-            let mut res = vec![];
+            let mut sort = vec![];
 
             for i in pkg.versions() {
                 let item = i
@@ -467,33 +444,29 @@ fn install_handle(
                     .context(format!("Can not get package {name} filename!"))?;
 
                 if item.split('/').nth(1) == Some(branch) {
-                    res.push(i)
+                    sort.push(i)
                 }
             }
 
-            if res.is_empty() {
+            if sort.is_empty() {
                 bail!("Can not get package {} with {} branch.", name, branch);
             }
 
-            res.sort_by(|x, y| rust_apt::util::cmp_versions(x.version(), y.version()));
+            sort.sort_by(|x, y| rust_apt::util::cmp_versions(x.version(), y.version()));
 
-            let version = res.last().unwrap();
+            let version = sort.last().unwrap();
 
             version.set_candidate();
 
             pkg.mark_install(true, true);
             pkg.protect();
         } else if !i.ends_with(".deb") {
-            let res = apt_db
-                .iter()
-                .filter(|x| glob_match_with_captures(i, &x["Package"]).is_some());
+            let sort = PackageSort::default();
+            let res = cache
+                .packages(&sort)
+                .filter(|x| glob_match_with_captures(i, x.name()).is_some());
 
-            for i in res {
-                let pkg = cache
-                    .get(i["Package"].as_str())
-                    .take()
-                    .context(format!("Can not get package: {}", i["Package"]))?;
-
+            for pkg in res {
                 pkg.mark_install(true, true);
                 pkg.protect();
             }
@@ -502,18 +475,11 @@ fn install_handle(
             let package = filename_split
                 .next()
                 .context(format!("Can not get pacakge name from file: {}", i))?;
-            // let ver = filename_split
-            //     .next()
-            //     .context(format!("Can not get pacakge version from file: {}", i))?;
+
             let pkg = cache
                 .get(package)
                 .take()
                 .context(format!("Can not get package from file: {i}"))?;
-
-            // let pkg_ver = pkg
-            //     .get_version(ver)
-            //     .context(format!("Can not select version {i}!"))?;
-            // pkg_ver.set_candidate();
 
             pkg.mark_install(true, true);
             pkg.protect();
@@ -568,14 +534,17 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
             ))?;
 
             let size = cand.installed_size();
-            let size = format!("+{}", unit_str(size, NumSys::Decimal,));
+            let human_size = format!("+{}", unit_str(size, NumSys::Decimal));
 
             install.push(InstallRow {
                 name: style(pkg.name()).green().to_string(),
                 name_no_color: pkg.name().to_string(),
                 version: cand.version().to_string(),
                 new_version: cand.version().to_string(),
-                size,
+                size: human_size,
+                pkg_urls: cand.uris().collect(),
+                checksum: cand.get_record(RecordField::SHA256),
+                pure_download_size: cand.size(),
             });
 
             // If the package is marked install then it will also
@@ -619,6 +588,9 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
                 version: format!("{old_version} -> {version}"),
                 new_version: version.to_string(),
                 size,
+                pkg_urls: cand.uris().collect(),
+                checksum: cand.get_record(RecordField::SHA256),
+                pure_download_size: cand.size(),
             });
         }
 
@@ -686,6 +658,9 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
                 version: format!("{old_version} -> {version}"),
                 new_version: version.to_string(),
                 size,
+                pkg_urls: cand.uris().collect(),
+                checksum: cand.get_record(RecordField::SHA256),
+                pure_download_size: cand.size(),
             });
         }
     }

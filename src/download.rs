@@ -12,44 +12,19 @@ use crate::{checksum::Checksum, db::DOWNLOAD_DIR, warn, WRITER};
 
 /// Download a package
 pub async fn download_package(
-    path: String,
-    mirrors: Vec<String>,
-    download_dir: Option<&str>,
+    urls: Vec<String>,
     client: &Client,
     hash: String,
     version: String,
     opb: OmaProgressBar,
 ) -> Result<()> {
-    async fn download_inner(
-        download_dir: Option<&str>,
-        filename: &str,
-        url: &str,
-        client: &Client,
-        hash: &str,
-        opb: OmaProgressBar,
-    ) -> Result<()> {
-        if download_dir.is_none() {
-            tokio::fs::create_dir_all(DOWNLOAD_DIR).await?;
-        }
-
-        download(
-            url,
-            client,
-            filename.to_string(),
-            Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)),
-            Some(hash),
-            opb,
-        )
-        .await?;
-
-        Ok(())
-    }
-
-    let filename = path
+    let filename = urls
+        .first()
+        .unwrap()
         .split('/')
         .last()
         .take()
-        .context(format!("Can not parse url {path}"))?;
+        .unwrap();
 
     // sb apt 会把下载的文件重命名成 url 网址的样子，为保持兼容这里也这么做
     let mut filename_split = filename.split('_');
@@ -73,7 +48,7 @@ pub async fn download_package(
 
     let mut all_is_err = true;
 
-    let p = Path::new(download_dir.unwrap_or(DOWNLOAD_DIR)).join(&filename);
+    let p = Path::new(DOWNLOAD_DIR).join(&filename);
     if p.exists() {
         let hash_clone = hash.clone();
         let result = spawn_blocking(move || {
@@ -82,19 +57,19 @@ pub async fn download_package(
         .await??;
 
         if !result {
-            for i in mirrors {
-                if i.starts_with("file://") {
+            for i in urls {
+                if i.starts_with("file:") {
                     // 为了兼容 apt 的行为，把文件路径（前缀为 file://）的源交给 apt 处理
                     warn!("{i} to apt handle!");
                     return Ok(());
                 }
 
-                if download_inner(
-                    download_dir,
-                    &filename,
-                    &format!("{i}/{path}"),
+                if download(
+                    &i,
                     client,
-                    &hash,
+                    filename.to_string(),
+                    Path::new(DOWNLOAD_DIR),
+                    Some(&hash),
                     opb.clone(),
                 )
                 .await
@@ -108,19 +83,19 @@ pub async fn download_package(
             return Ok(());
         }
     } else {
-        for i in mirrors {
+        for i in urls {
             if i.starts_with("file://") {
                 // 为了兼容 apt 的行为，把文件路径（前缀为 file://）的源交给 apt 处理
                 warn!("{i} to apt handle!");
                 break;
             }
 
-            if download_inner(
-                download_dir,
-                &filename,
-                &format!("{i}/{path}"),
+            if download(
+                &i,
                 client,
-                &hash,
+                filename.to_string(),
+                Path::new(DOWNLOAD_DIR),
+                Some(&hash),
                 opb.clone(),
             )
             .await
