@@ -1,7 +1,7 @@
 use std::{process::exit, sync::atomic::AtomicI32};
 
 use action::OmaAction;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 
@@ -12,7 +12,7 @@ mod db;
 mod download;
 mod formatter;
 mod pager;
-mod pkgversion;
+// mod pkgversion;
 mod utils;
 mod verify;
 
@@ -74,8 +74,15 @@ async fn main() {
 }
 
 async fn try_main() -> Result<()> {
-    let app = OmaAction::new().await?;
     let args = Args::parse();
+
+    info!("Oma v{}", env!("CARGO_PKG_VERSION"));
+
+    if !nix::unistd::geteuid().is_root() {
+        bail!("Please run me as root!");
+    }
+
+    let app = OmaAction::new().await?;
 
     match args.subcommand {
         OmaCommand::Install(v) => app.install(&v.packages).await,

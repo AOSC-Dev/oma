@@ -23,7 +23,6 @@ use crate::{
     formatter::NoProgress,
     info,
     pager::Pager,
-    pkgversion::PkgVersion,
     success, warn,
 };
 

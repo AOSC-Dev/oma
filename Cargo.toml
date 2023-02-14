@@ -14,7 +14,6 @@ log = "0.4"
 env_logger = "0.10"
 debcontrol = "0.1"
 lazy_static = "1.4"
-nom = "7.1"
 serde = { version = "1.0", features = ["derive"] }
 xz2 = "0.1"
 sequoia-openpgp = "1.13"
