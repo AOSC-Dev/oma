@@ -8,7 +8,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
-use crate::{checksum::Checksum, db::DOWNLOAD_DIR, WRITER};
+use crate::{checksum::Checksum, db::DOWNLOAD_DIR, warn, WRITER};
 
 /// Download a package
 pub async fn download_package(
@@ -46,8 +46,6 @@ pub async fn download_package(
     let version = version.replace(':', "%3a");
     let filename = format!("{package}_{version}_{arch_deb}");
 
-    let mut all_is_err = true;
-
     let p = Path::new(DOWNLOAD_DIR).join(&filename);
     if p.exists() {
         let hash_clone = hash.clone();
@@ -57,52 +55,52 @@ pub async fn download_package(
         .await??;
 
         if !result {
-            for i in urls {
-                if download(
-                    &i,
-                    client,
-                    filename.to_string(),
-                    Path::new(DOWNLOAD_DIR),
-                    Some(&hash),
-                    opb.clone(),
-                )
-                .await
-                .is_ok()
-                {
-                    all_is_err = false;
-                    break;
-                }
-            }
+            try_download(urls, client, &filename, hash, opb).await?;
         } else {
             return Ok(());
         }
     } else {
-        for i in urls {
-            if download(
-                &i,
-                client,
-                filename.to_string(),
-                Path::new(DOWNLOAD_DIR),
-                Some(&hash),
-                opb.clone(),
-            )
-            .await
-            .is_ok()
-            {
-                all_is_err = false;
-                break;
-            }
+        try_download(urls, client, &filename, hash, opb).await?;
+    }
+
+    Ok(())
+}
+
+async fn try_download(
+    urls: Vec<String>,
+    client: &Client,
+    filename: &String,
+    hash: String,
+    opb: OmaProgressBar,
+) -> Result<()> {
+    let mut all_is_err = true;
+    for (i, c) in urls.iter().enumerate() {
+        if download(
+            &c,
+            client,
+            filename.to_string(),
+            Path::new(DOWNLOAD_DIR),
+            Some(&hash),
+            opb.clone(),
+        )
+        .await
+        .is_ok()
+        {
+            all_is_err = false;
+            break;
+        } else if i < urls.len() - 1 {
+            warn!("Download {c} failed, try next url to download this package ...");
         }
     }
 
     if all_is_err {
-        return Err(anyhow!(
+        Err(anyhow!(
             "Can not download package: {}, Maybe your network connect is broken!",
             filename
-        ));
+        ))
+    } else {
+        Ok(())
     }
-
-    Ok(())
 }
 
 #[derive(Clone)]
