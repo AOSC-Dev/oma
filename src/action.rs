@@ -23,7 +23,7 @@ use crate::{
     formatter::NoProgress,
     pager::Pager,
     pkgversion::PkgVersion,
-    success,
+    success, warn,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -314,11 +314,9 @@ impl OmaAction {
 
 fn autoremove(cache: &Cache) {
     let sort = PackageSort::default();
-    let mut autoremove = vec![];
 
     for pkg in cache.packages(&sort) {
         if pkg.is_auto_removable() {
-            autoremove.push(pkg.name().to_string());
             pkg.mark_delete(true);
             pkg.protect();
         }
@@ -355,10 +353,6 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
                 .take()
                 .context(format!("Can not get package: {i}"))?;
 
-            if PkgVersion::try_from(version_str).is_err() {
-                bail!("invalid version: {}", version_str);
-            }
-
             let version = pkg
                 .get_version(version_str)
                 .context(format!("Can not get package {name} version: {version_str}"))?;
@@ -366,6 +360,11 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
             version.set_candidate();
 
             pkg.mark_install(true, true);
+
+            if !pkg.marked_install() {
+                warn!("{} {} is installed!", pkg.name(), version.version());
+            }
+
             pkg.protect();
         } else if i.contains('/') && !i.ends_with(".deb") {
             // Support apt install fish/stable
@@ -401,6 +400,11 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
             version.set_candidate();
 
             pkg.mark_install(true, true);
+
+            if !pkg.marked_install() {
+                warn!("{} {} is installed!", pkg.name(), version.version());
+            }
+
             pkg.protect();
         } else if !i.ends_with(".deb") {
             let sort = PackageSort::default();
@@ -410,6 +414,15 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
 
             for pkg in res {
                 pkg.mark_install(true, true);
+
+                if !pkg.marked_install() {
+                    warn!(
+                        "{} {} is installed!",
+                        pkg.name(),
+                        pkg.candidate().context("Can not get candidate!")?.version()
+                    );
+                }
+
                 pkg.protect();
             }
         } else {
@@ -424,6 +437,15 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
                 .context(format!("Can not get package from file: {i}"))?;
 
             pkg.mark_install(true, true);
+
+            if !pkg.marked_install() {
+                warn!(
+                    "{} {} is installed!",
+                    pkg.name(),
+                    pkg.candidate().context("Can not get candidate!")?.version()
+                );
+            }
+
             pkg.protect();
         }
     }
