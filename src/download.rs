@@ -1,4 +1,4 @@
-use std::{io::Read, path::Path, sync::Arc, time::Duration};
+use std::{path::Path, sync::Arc, time::Duration};
 
 use console::style;
 use tokio::task::spawn_blocking;
@@ -8,7 +8,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
-use crate::{checksum::Checksum, db::DOWNLOAD_DIR, warn, WRITER};
+use crate::{checksum::Checksum, db::DOWNLOAD_DIR, WRITER};
 
 /// Download a package
 pub async fn download_package(
@@ -78,12 +78,6 @@ pub async fn download_package(
         }
     } else {
         for i in urls {
-            if i.starts_with("file://") {
-                // 为了兼容 apt 的行为，把文件路径（前缀为 file://）的源交给 apt 处理
-                warn!("{i} to apt handle!");
-                break;
-            }
-
             if download(
                 &i,
                 client,
@@ -201,11 +195,7 @@ pub async fn download(
 
     if file.exists() {
         if let Some(hash) = hash {
-            let mut f = std::fs::File::open(&file)?;
-            let mut buf = Vec::new();
-            f.read_to_end(&mut buf)?;
             let hash = hash.to_owned();
-
             let file_clone = file.clone();
 
             let result = spawn_blocking(move || {

@@ -111,11 +111,6 @@ fn get_url_short_and_branch(url: &str) -> Result<String> {
     return Ok(format!("{host}:{branch}"));
 }
 
-// fn get_url_branch(url: &str) -> Result<String> {
-//     let url = Url::parse(&url)?;
-
-// }
-
 #[derive(Debug)]
 struct InReleaseParser {
     _source: Vec<IndexMap<String, String>>,

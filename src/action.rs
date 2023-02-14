@@ -39,28 +39,6 @@ struct RemoveRow {
     detail: String,
 }
 
-// impl RemoveRow {
-//     fn new(name: &str, is_purge: bool) -> Result<Self> {
-//         let pkg = dpkg
-//             .iter()
-//             .find(|x| x.get("Package") == Some(&name.to_owned()))
-//             .context(format!("Can not get package {name}"))?;
-
-//         let size = pkg["Installed-Size"].to_owned();
-
-//         Ok(Self {
-//             name: style(name).red().bold().to_string(),
-//             _name_no_color: name.to_owned(),
-//             size: unit_str(size.parse::<u64>()?, NumSys::Decimal),
-//             detail: if is_purge {
-//                 style("Purge configuration files.").red().to_string()
-//             } else {
-//                 "".to_string()
-//             },
-//         })
-//     }
-// }
-
 #[derive(Tabled, Debug, Clone)]
 pub struct InstallRow {
     #[tabled(rename = "Name")]
@@ -581,12 +559,12 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
 
             del.push(remove_row);
         }
+
         if pkg.marked_reinstall() {
             reinstall.push(pkg.name().to_string());
         }
-        if pkg.marked_downgrade() {
-            // let id = pkg.unsafe_version_list();
 
+        if pkg.marked_downgrade() {
             let cand = pkg.candidate().take().context(format!(
                 "Can not get package version in apt database: {}",
                 pkg.name()
