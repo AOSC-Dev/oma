@@ -22,7 +22,7 @@ pub async fn download_package(
         .first()
         .and_then(|x| x.split('/').last())
         .take()
-        .context("URLs is none or Invaild URL")?;
+        .context("URLs is none or Invalid URL")?;
 
     // sb apt 会把下载的文件重命名成 url 网址的样子，为保持兼容这里也这么做
     let mut filename_split = filename.split('_');
