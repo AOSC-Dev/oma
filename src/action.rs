@@ -21,6 +21,7 @@ use std::io::Write;
 use crate::{
     db::{get_sources, packages_download, update_db, APT_LIST_DISTS},
     formatter::NoProgress,
+    info,
     pager::Pager,
     pkgversion::PkgVersion,
     success, warn,
@@ -402,7 +403,7 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
             pkg.mark_install(true, true);
 
             if !pkg.marked_install() {
-                warn!("{} {} is installed!", pkg.name(), version.version());
+                info!("{} {} is installed!", pkg.name(), version.version());
             }
 
             pkg.protect();
@@ -416,7 +417,7 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
                 pkg.mark_install(true, true);
 
                 if !pkg.marked_install() {
-                    warn!(
+                    info!(
                         "{} {} is installed!",
                         pkg.name(),
                         pkg.candidate().context("Can not get candidate!")?.version()
@@ -439,7 +440,7 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
             pkg.mark_install(true, true);
 
             if !pkg.marked_install() {
-                warn!(
+                info!(
                     "{} {} is installed!",
                     pkg.name(),
                     pkg.candidate().context("Can not get candidate!")?.version()
