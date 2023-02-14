@@ -76,7 +76,7 @@ async fn try_download(
     let mut all_is_err = true;
     for (i, c) in urls.iter().enumerate() {
         if download(
-            &c,
+            c,
             client,
             filename.to_string(),
             Path::new(DOWNLOAD_DIR),
