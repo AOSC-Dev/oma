@@ -19,11 +19,11 @@ use tabled::{
 use std::io::Write;
 
 use crate::{
-    db::{get_sources, packages_download, update_db, APT_LIST_DISTS},
+    db::{self, get_sources, packages_download, update_db, APT_LIST_DISTS},
     formatter::NoProgress,
     info,
     pager::Pager,
-    success, warn,
+    success, warn, error,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -87,9 +87,9 @@ impl OmaAction {
                 .collect::<Vec<_>>();
 
             let cache = new_cache!(&local_debs)?;
-            cache.upgrade(&Upgrade::FullUpgrade)?;
+            let cache = install_handle(packages, &cache, count)?;
 
-            install_handle(packages, &cache)?;
+            cache.upgrade(&Upgrade::FullUpgrade)?;
 
             let (action, len) = apt_handler(&cache)?;
 
@@ -177,13 +177,8 @@ impl OmaAction {
     }
 
     async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
-        let local_debs = list
-            .iter()
-            .filter(|x| x.ends_with(".deb"))
-            .collect::<Vec<_>>();
-
-        let cache = new_cache!(&local_debs)?;
-        install_handle(list, &cache)?;
+        let cache = new_cache!()?;
+        let cache = install_handle(list, &cache, count)?;
 
         let (action, len) = apt_handler(&cache)?;
 
@@ -339,7 +334,7 @@ fn apt_install(cache: Cache) -> Result<()> {
     Ok(())
 }
 
-fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
+fn install_handle(list: &[String], cache: &Cache, count: usize) -> Result<Cache> {
     for i in list {
         if i.contains('=') {
             // Support apt install fish=3.6.0
@@ -361,7 +356,7 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
 
             pkg.mark_install(true, true);
 
-            if !pkg.marked_install() {
+            if pkg.is_installed() {
                 warn!("{} {} is installed!", pkg.name(), version.version());
             }
 
@@ -401,7 +396,7 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
 
             pkg.mark_install(true, true);
 
-            if !pkg.marked_install() {
+            if pkg.is_installed() {
                 info!("{} {} is installed!", pkg.name(), version.version());
             }
 
@@ -415,7 +410,7 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
             for pkg in res {
                 pkg.mark_install(true, true);
 
-                if !pkg.marked_install() {
+                if pkg.is_installed() {
                     info!(
                         "{} {} is installed!",
                         pkg.name(),
@@ -426,31 +421,46 @@ fn install_handle(list: &[String], cache: &Cache) -> Result<()> {
                 pkg.protect();
             }
         } else {
-            let mut filename_split = i.split('/').last().unwrap_or(i).split('_');
-            let package = filename_split
-                .next()
-                .context(format!("Can not get pacakge name from file: {i}"))?;
-
-            let pkg = cache
-                .get(package)
-                .take()
-                .context(format!("Can not get package from file: {i}"))?;
-
-            pkg.mark_install(true, true);
-
-            if !pkg.marked_install() {
-                info!(
-                    "{} {} is installed!",
-                    pkg.name(),
-                    pkg.candidate().context("Can not get candidate!")?.version()
-                );
-            }
-
-            pkg.protect();
+            continue;
         }
     }
 
-    Ok(())
+    // install local package
+    let sort = PackageSort::default();
+    let packages_1 = cache.packages(&sort).collect::<Vec<_>>();
+
+    let local_debs = list
+        .iter()
+        .filter(|x| x.ends_with(".deb"))
+        .collect::<Vec<_>>();
+
+    let cache = new_cache!(&local_debs)?;
+    let packages_2 = cache.packages(&sort);
+
+    let local = packages_2.filter(|x| !packages_1.contains(x));
+
+    for pkg in local {
+        let ver = pkg
+            .candidate()
+            .take()
+            .context(format!("Can not get candidate {}", pkg.name()))?;
+
+        ver.set_candidate();
+        pkg.mark_install(true, true);
+        pkg.protect();
+
+        if pkg.is_installed() {
+            info!(
+                "{} {} is installed!",
+                pkg.name(),
+                ver.version()
+            );
+        } else if !pkg.marked_install() {
+            bail!("{} can't marked installed! maybe dependency issue?", pkg.name())
+        }
+    }
+
+    Ok(cache)
 }
 
 #[derive(Debug, Clone)]
