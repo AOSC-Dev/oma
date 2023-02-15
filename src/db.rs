@@ -48,12 +48,15 @@ async fn download_db(
     url: String,
     client: &Client,
     typ: String,
-    opb: &mut OmaProgressBar,
-) -> Result<(FileName, FileBuf)> {
+    opb: OmaProgressBar,
+    i: usize,
+) -> Result<(FileName, FileBuf, usize)> {
     let filename = FileName::new(&url)?.0;
-    let url_short = get_url_short_and_branch(&url)?;
+    let url_short = get_url_short_and_branch(&url).await?;
 
-    opb.msg = Some(format!("Getting {url_short} {typ} database ..."));
+    let mut opb = opb;
+
+    opb.msg = Some(format!("{url_short} {typ}"));
     let opb = opb.clone();
 
     download(
@@ -70,7 +73,7 @@ async fn download_db(
     let mut buf = Vec::new();
     v.read_to_end(&mut buf).await?;
 
-    Ok((FileName::new(&url)?, FileBuf(buf)))
+    Ok((FileName::new(&url)?, FileBuf(buf), i))
 }
 
 #[derive(Deserialize)]
@@ -78,7 +81,7 @@ struct MirrorMapItem {
     url: String,
 }
 
-fn get_url_short_and_branch(url: &str) -> Result<String> {
+async fn get_url_short_and_branch(url: &str) -> Result<String> {
     let url = Url::parse(url)?;
     let host = url.host_str().context("Can not parse {url} host!")?;
     let schema = url.scheme();
@@ -89,22 +92,24 @@ fn get_url_short_and_branch(url: &str) -> Result<String> {
         .context("Can not get {url} branch!")?;
     let url = format!("{schema}://{host}/");
 
-    let mut mirror_map_f = std::fs::File::open(MIRROR)?;
-    let mut buf = Vec::new();
-    mirror_map_f.read_to_end(&mut buf)?;
+    // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
+    if let Ok(mut mirror_map_f) = tokio::fs::File::open(MIRROR).await {
+        let mut buf = Vec::new();
+        mirror_map_f.read_to_end(&mut buf).await?;
 
-    let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&buf)?;
+        let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&buf)?;
 
-    for (k, v) in mirror_map.iter() {
-        let mirror_url = Url::parse(&v.url)?;
-        let mirror_url_host = mirror_url
-            .host_str()
-            .context("Can not get host str from mirror map!")?;
-        let schema = mirror_url.scheme();
-        let mirror_url = format!("{schema}://{mirror_url_host}/");
+        for (k, v) in mirror_map.iter() {
+            let mirror_url = Url::parse(&v.url)?;
+            let mirror_url_host = mirror_url
+                .host_str()
+                .context("Can not get host str from mirror map!")?;
+            let schema = mirror_url.scheme();
+            let mirror_url = format!("{schema}://{mirror_url_host}/");
 
-        if mirror_url == url {
-            return Ok(format!("{k}:{branch}"));
+            if mirror_url == url {
+                return Ok(format!("{k}:{branch}"));
+            }
         }
     }
 
@@ -293,7 +298,7 @@ pub async fn packages_download(
                 c.new_version.clone(),
                 OmaProgressBar::new(
                     None,
-                    Some((i, list_len)),
+                    Some((i + 1, list_len)),
                     Some(mbc.clone()),
                     Some(global_bar.clone()),
                 ),
@@ -328,20 +333,38 @@ pub async fn update_db(
     let dists_in_releases = dist_urls
         .clone()
         .into_iter()
-        .map(|x| format!("{}/{}", x, "InRelease"));
+        .map(|x| format!("{}/{}", x, "InRelease"))
+        .collect::<Vec<_>>();
 
-    let mut dist_files = Vec::new();
+    let mut tasks = Vec::new();
 
-    for i in dists_in_releases {
-        dist_files.push(
-            download_db(
-                i,
-                client,
-                "InRelease".to_owned(),
-                &mut OmaProgressBar::new(None, None, None, None),
+
+    let mb = Arc::new(MultiProgress::new());
+
+    for (i, c) in dists_in_releases.iter().enumerate() {
+        tasks.push(download_db(
+            c.to_string(),
+            client,
+            "InRelease".to_owned(),
+            OmaProgressBar::new(
+                None,
+                Some((i + 1, dists_in_releases.len())),
+                Some(mb.clone()),
+                None,
             )
-            .await?,
-        );
+            .clone(),
+            i,
+        ));
+    }
+
+    // 默认限制一次最多下载八个数据文件，减少服务器负担
+    let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
+    let res = stream.collect::<Vec<_>>().await;
+
+    let mut dist_files = vec![];
+
+    for i in res {
+        dist_files.push(i?);
     }
 
     let components = sources
@@ -349,7 +372,7 @@ pub async fn update_db(
         .map(|x| x.components.to_owned())
         .collect::<Vec<_>>();
 
-    for (index, (name, file)) in dist_files.into_iter().enumerate() {
+    for (name, file, index) in dist_files {
         let p = Path::new(APT_LIST_DISTS).join(name.0);
 
         if !p.exists() || !p.is_file() {
@@ -361,7 +384,7 @@ pub async fn update_db(
             f.read_to_end(&mut buf).await?;
 
             if buf != file.0 {
-                std::fs::write(&p, &file.0)?;
+                tokio::fs::write(&p, &file.0).await?;
             }
         }
 
@@ -422,7 +445,7 @@ pub async fn update_db(
 
                 let opb = OmaProgressBar::new(
                     None,
-                    Some((i, len)),
+                    Some((i + 1, len)),
                     Some(mb.clone()),
                     Some(global_bar.clone()),
                 )
@@ -449,7 +472,7 @@ pub async fn update_db(
             } else {
                 let opb = OmaProgressBar::new(
                     None,
-                    Some((i, len)),
+                    Some((i + 1, len)),
                     Some(mb.clone()),
                     Some(global_bar.clone()),
                 )
@@ -489,13 +512,14 @@ async fn download_and_extract(
     client: &Client,
     not_compress_file: String,
     typ: &str,
-    mut opb: OmaProgressBar,
+    opb: OmaProgressBar,
 ) -> Result<()> {
-    let (name, buf) = download_db(
+    let (name, buf, _) = download_db(
         format!("{}/{}", dist_url, i.name),
         client,
         typ.to_owned(),
-        &mut opb,
+        opb,
+        0,
     )
     .await?;
 

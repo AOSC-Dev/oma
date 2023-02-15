@@ -202,14 +202,17 @@ pub async fn download(
             .await??;
 
             if result {
+                pb.finish_and_clear();
                 return Ok(());
             } else {
                 tokio::fs::remove_file(&file).await?;
             }
+        } else {
+            tokio::fs::remove_file(&file).await?;
         }
     }
 
-    let mut source = request.send().await?;
+    let mut source = request.send().await?.error_for_status()?;
 
     let mut dest = fs::File::create(&file).await?;
     while let Some(chunk) = source.chunk().await? {
@@ -221,11 +224,8 @@ pub async fn download(
         }
     }
 
-    if is_mb {
-        pb.finish_and_clear();
-    } else {
-        pb.finish();
-    }
+    pb.set_position(100);
+    pb.finish_and_clear();
 
     dest.flush().await?;
     drop(dest);
