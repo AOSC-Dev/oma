@@ -20,10 +20,11 @@ use std::io::Write;
 
 use crate::{
     db::{self, get_sources, packages_download, update_db, APT_LIST_DISTS},
+    error,
     formatter::NoProgress,
     info,
     pager::Pager,
-    success, warn, error,
+    success, warn,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -439,6 +440,8 @@ fn install_handle(list: &[String], cache: &Cache, count: usize) -> Result<Cache>
 
     let local = packages_2.filter(|x| !packages_1.contains(x));
 
+    let mut has_failed = false;
+
     for pkg in local {
         let ver = pkg
             .candidate()
@@ -450,15 +453,21 @@ fn install_handle(list: &[String], cache: &Cache, count: usize) -> Result<Cache>
         pkg.protect();
 
         if pkg.is_installed() {
-            info!(
-                "{} {} is installed!",
-                pkg.name(),
-                ver.version()
-            );
+            info!("{} {} is installed!", pkg.name(), ver.version());
         } else if !pkg.marked_install() {
-            // 似乎本地安装的包没有办法交给 resolver 返回错误，所以只能在这里返回错误
-            bail!("{} can't marked installed! maybe dependency issue?", pkg.name())
+            has_failed = true;
+            if count == 0 {
+                // 似乎本地安装的包没有办法交给 resolver 返回错误，所以只能在这里返回错误
+                error!(
+                    "{} can't marked installed! maybe dependency issue?",
+                    ver.uris().next().unwrap_or(pkg.name().to_string()),
+                );
+            }
         }
+    }
+
+    if has_failed {
+        bail!("local install has error!")
     }
 
     Ok(cache)
