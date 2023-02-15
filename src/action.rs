@@ -456,6 +456,7 @@ fn install_handle(list: &[String], cache: &Cache, count: usize) -> Result<Cache>
                 ver.version()
             );
         } else if !pkg.marked_install() {
+            // 似乎本地安装的包没有办法交给 resolver 返回错误，所以只能在这里返回错误
             bail!("{} can't marked installed! maybe dependency issue?", pkg.name())
         }
     }
