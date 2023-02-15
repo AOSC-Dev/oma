@@ -338,7 +338,6 @@ pub async fn update_db(
 
     let mut tasks = Vec::new();
 
-
     let mb = Arc::new(MultiProgress::new());
 
     for (i, c) in dists_in_releases.iter().enumerate() {

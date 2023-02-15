@@ -3,7 +3,7 @@ use rust_apt::{
     util::{time_str, unit_str, NumSys},
 };
 
-use crate::{success, warn, debug};
+use crate::{debug, success, warn};
 
 // TODO: Make better structs for pkgAcquire items, workers, owners.
 /// AptAcquireProgress is the default struct for the update method on the cache.
@@ -54,7 +54,8 @@ impl AcquireProgress for NoProgress {
         _total_bytes: u64,
         _current_bytes: u64,
         _current_cps: u64,
-    ) {}
+    ) {
+    }
 
     fn done(&mut self) {}
 
