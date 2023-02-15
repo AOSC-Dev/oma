@@ -44,7 +44,9 @@ pub async fn download_package(
     };
 
     let version = version.replace(':', "%3a");
-    let filename = format!("{package}_{version}_{arch_deb}");
+
+    // 这里 libapt 得到的转义下载地址，如果含有 %2b 还得转义回 +，比如 linux+kernel
+    let filename = format!("{package}_{version}_{arch_deb}").replace("%2b", "+");
 
     let p = Path::new(DOWNLOAD_DIR).join(&filename);
     if p.exists() {
@@ -149,11 +151,8 @@ pub async fn download(
         }
     };
 
-    let mut is_mb = false;
-
     let request = client.get(url);
     let pb = if let Some(mbc) = opb.mbc {
-        is_mb = true;
         let pb = mbc.add(ProgressBar::new(total_size));
         let barsty = oma_style_pb(false)?;
         pb.set_style(barsty);

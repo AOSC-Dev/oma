@@ -30,3 +30,4 @@ serde_yaml = "0.9"
 hex = "0.4"
 tabled = { version = "0.10", features = ["color"] }
 glob-match = "0.2"
+

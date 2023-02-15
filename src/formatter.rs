@@ -1,10 +1,9 @@
-use log::debug;
 use rust_apt::{
     raw::progress::AcquireProgress,
     util::{time_str, unit_str, NumSys},
 };
 
-use crate::{success, warn};
+use crate::{success, warn, debug};
 
 // TODO: Make better structs for pkgAcquire items, workers, owners.
 /// AptAcquireProgress is the default struct for the update method on the cache.
@@ -36,13 +35,17 @@ impl AcquireProgress for NoProgress {
         0
     }
 
-    fn hit(&mut self, _id: u32, _description: String) {}
-
-    fn fetch(&mut self, _id: u32, _description: String, _file_size: u64) {
-        debug!("{}", _description);
+    fn hit(&mut self, _id: u32, description: String) {
+        debug!("{}", description);
     }
 
-    fn fail(&mut self, _id: u32, _description: String, _status: u32, _error_text: String) {}
+    fn fetch(&mut self, _id: u32, description: String, _file_size: u64) {
+        debug!("{}", description);
+    }
+
+    fn fail(&mut self, _id: u32, description: String, _status: u32, _error_text: String) {
+        debug!("{}", description);
+    }
 
     fn pulse(
         &mut self,
@@ -51,8 +54,7 @@ impl AcquireProgress for NoProgress {
         _total_bytes: u64,
         _current_bytes: u64,
         _current_cps: u64,
-    ) {
-    }
+    ) {}
 
     fn done(&mut self) {}
 

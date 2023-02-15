@@ -63,8 +63,6 @@ struct Delete {
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
-
     if let Err(e) = try_main().await {
         error!("{e}");
         exit(1);
