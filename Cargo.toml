@@ -18,7 +18,7 @@ xz2 = "0.1"
 sequoia-openpgp = "1.13"
 sha2 = "0.10"
 flate2 = "1.0"
-rust-apt = "0.5"
+rust-apt = { git = "https://gitlab.com/eatradish/rust-apt", rev = "62c8a1143177890cea15d3b18557c175fd92127c" }
 clap = { version = "4.1", features = ["derive"] }
 indicatif = "0.17"
 console = "0.15"

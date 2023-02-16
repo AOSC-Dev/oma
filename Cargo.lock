@@ -1669,8 +1669,7 @@ checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 [[package]]
 name = "rust-apt"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51033bc4f66a0c5cf22dd7df910786bf4b2a8a041509332e961e471929955444"
+source = "git+https://gitlab.com/eatradish/rust-apt?rev=62c8a1143177890cea15d3b18557c175fd92127c#62c8a1143177890cea15d3b18557c175fd92127c"
 dependencies = [
  "cxx",
  "cxx-build",
