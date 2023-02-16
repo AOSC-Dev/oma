@@ -81,8 +81,6 @@ async fn main() {
 async fn try_main() -> Result<()> {
     let args = Args::parse();
 
-    info!("Oma v{}", env!("CARGO_PKG_VERSION"));
-
     if !nix::unistd::geteuid().is_root() {
         bail!("Please run me as root!");
     }

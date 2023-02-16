@@ -19,7 +19,7 @@ use tabled::{
 use std::io::Write;
 
 use crate::{
-    db::{self, get_sources, packages_download, update_db, APT_LIST_DISTS},
+    db::{get_sources, packages_download, update_db, APT_LIST_DISTS},
     error,
     formatter::NoProgress,
     info,
