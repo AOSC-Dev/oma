@@ -12,9 +12,9 @@ mod db;
 mod download;
 mod formatter;
 mod pager;
+mod search;
 mod utils;
 mod verify;
-mod search;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 
