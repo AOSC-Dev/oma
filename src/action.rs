@@ -24,6 +24,7 @@ use crate::{
     formatter::NoProgress,
     info,
     pager::Pager,
+    search::search_pkg,
     success, warn,
 };
 
@@ -173,6 +174,48 @@ impl OmaAction {
 
             count += 1;
         }
+
+        Ok(())
+    }
+
+    pub fn show(&self, list: &[String]) -> Result<()> {
+        let cache = new_cache!()?;
+
+        let mut s = String::new();
+
+        for (i, c) in list.iter().enumerate() {
+            let oma_pkg = search_pkg(&cache, c)?;
+            let len = oma_pkg.len();
+            for (i, entry) in oma_pkg.into_iter().enumerate() {
+                s += &format!("Package: {}\n", entry.package);
+                s += &format!("Version: {}\n", entry.version);
+                if let Some(section) = entry.section {
+                    s += &format!("Section: {}\n", section);
+                }
+                s += &format!("Maintainer: {}\n", entry.maintainer);
+                s += &format!("Installed-Size: {}\n", entry.installed_size);
+                for (k, v) in entry.dep_map {
+                    s += &format!("{}: {}\n", k, v);
+                }
+                s += &format!("Download-Size: {}\n", entry.download_size);
+                if let Some(sources) = entry.apt_sources {
+                    s += &format!("APT-Sources: {}\n", sources);
+                }
+                if let Some(desc) = entry.description {
+                    s += &format!("Description: {}\n", desc);
+                }
+
+                if i < len - 1 {
+                    s += "\n";
+                }
+            }
+
+            if i < list.len() - 1 {
+                s += "\n";
+            }
+        }
+
+        print!("{}", s);
 
         Ok(())
     }

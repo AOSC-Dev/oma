@@ -12,9 +12,9 @@ mod db;
 mod download;
 mod formatter;
 mod pager;
-// mod pkgversion;
 mod utils;
 mod verify;
+mod search;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 
@@ -41,6 +41,8 @@ enum OmaCommand {
     Remove(Delete),
     /// Refresh Package database
     Refresh(Refresh),
+    /// Show Package
+    Show(Show),
 }
 
 #[derive(Parser, Debug)]
@@ -58,6 +60,11 @@ struct Refresh {}
 
 #[derive(Parser, Debug)]
 struct Delete {
+    packages: Vec<String>,
+}
+
+#[derive(Parser, Debug)]
+struct Show {
     packages: Vec<String>,
 }
 
@@ -88,5 +95,6 @@ async fn try_main() -> Result<()> {
         OmaCommand::Remove(v) => app.remove(&v.packages, true),
         OmaCommand::Upgrade(v) => app.update(&v.packages).await,
         OmaCommand::Refresh(_) => app.refresh().await,
+        OmaCommand::Show(v) => app.show(&v.packages),
     }
 }
