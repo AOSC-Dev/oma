@@ -229,7 +229,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         let prefix = if installed {
             style("INSTALLED").green().to_string()
         } else if upgradable {
-            style("UNPACKED").yellow().to_string()
+            style("UPGRADABLE").yellow().to_string()
         } else {
             style("AVAIL").dim().to_string()
         };
