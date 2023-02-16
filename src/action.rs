@@ -24,7 +24,7 @@ use crate::{
     formatter::NoProgress,
     info,
     pager::Pager,
-    search::search_pkg,
+    search::{show_pkgs, search_pkgs},
     success, warn,
 };
 
@@ -184,7 +184,7 @@ impl OmaAction {
         let mut s = String::new();
 
         for (i, c) in list.iter().enumerate() {
-            let oma_pkg = search_pkg(&cache, c)?;
+            let oma_pkg = show_pkgs(&cache, c)?;
             let len = oma_pkg.len();
             for (i, entry) in oma_pkg.into_iter().enumerate() {
                 s += &format!("Package: {}\n", entry.package);
@@ -216,6 +216,13 @@ impl OmaAction {
         }
 
         print!("{}", s);
+
+        Ok(())
+    }
+
+    pub fn search(&self, kw: &str) -> Result<()> {
+        let cache = new_cache!()?;
+        search_pkgs(&cache, kw)?;
 
         Ok(())
     }

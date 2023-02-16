@@ -1,9 +1,10 @@
 use anyhow::{bail, Context, Ok, Result};
+use console::style;
 use glob_match::glob_match_with_captures;
 use indicatif::HumanBytes;
 use rust_apt::{
     cache::{Cache, PackageSort},
-    package::{DepType, Dependency, Version},
+    package::{DepType, Dependency, Provider, Version},
     records::RecordField,
 };
 use std::{collections::HashMap, fmt::Write};
@@ -70,7 +71,7 @@ fn dep_to_str_map(map: &HashMap<DepType, Vec<Dependency>>) -> HashMap<String, St
     res
 }
 
-pub fn search_pkg(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
+pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
     let mut res = Vec::new();
     if input.contains("=") {
         let mut split_arg = input.split('=');
@@ -175,4 +176,77 @@ fn dep_map_str(deps: &[Dependency]) -> String {
     }
 
     depends_str
+}
+
+pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
+    let sort = PackageSort::default();
+    let packages = cache.packages(&sort).collect::<Vec<_>>();
+
+    let mut res = HashMap::new();
+
+    for pkg in packages {
+        let cand = pkg.candidate().unwrap();
+        if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
+            let oma_pkg = OmaPkg::new(pkg.name(), &cand);
+            res.insert(pkg.name().to_string(), (oma_pkg, cand.is_installed()));
+        }
+
+        if cand.description().unwrap_or("".to_owned()).contains(input)
+            && !res.contains_key(pkg.name())
+            && !pkg.name().contains("-dbg")
+        {
+            let oma_pkg = OmaPkg::new(pkg.name(), &cand);
+            res.insert(pkg.name().to_string(), (oma_pkg, cand.is_installed()));
+
+            let providers = cand.provides().collect::<Vec<_>>();
+
+            if !providers.is_empty() {
+                for provider in providers {
+                    if provider.name() == input {
+                        let oma_pkg = OmaPkg::new(provider.name(), &provider.version());
+                        res.insert(pkg.name().to_string(), (oma_pkg, cand.is_installed()));
+                    }
+                }
+            }
+        }
+    }
+
+    let mut res = res.into_values().collect::<Vec<_>>();
+
+    res.sort_by_cached_key(|x| pkg_score(&x.0.package, input));
+    res.reverse();
+
+    let mut s = String::new();
+
+    let len = res.len();
+
+    for (index, (pkg, installed)) in res.into_iter().enumerate() {
+        if installed {
+            s += &style("INSTALLED").green().to_string()
+        } else {
+            s += &style("AVAIL").dim().to_string()
+        }
+
+        s += &format!(" {} {}", style(&pkg.package).bold(), style(pkg.version).green());
+
+        if cache.get(&format!("{}-dbg", pkg.package)).is_some() {
+            s += " [Debug symbols available]\n"
+        } else {
+            s += "\n"
+        }
+
+        s += &format!("{}\n", pkg.description.unwrap_or("".to_owned()));
+
+        if index < len - 1 {
+            s += "\n";
+        }
+    }
+
+    print!("{}", s);
+
+    Ok(())
+}
+
+fn pkg_score(input: &str, name: &str) -> u8 {
+    (255.0 * strsim::jaro_winkler(name, input)) as u8
 }

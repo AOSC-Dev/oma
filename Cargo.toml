@@ -9,7 +9,7 @@ edition = "2021"
 apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists", rev = "0df4611ec7293010551f95659f28f1b1da9cc0c8" }
 anyhow = "1.0" 
 nix = "0.26"
-reqwest = { version = "0.11", features = ["blocking"] }
+reqwest = "0.11"
 log = "0.4"
 env_logger = "0.10"
 debcontrol = "0.1"
@@ -21,13 +21,13 @@ sha2 = "0.10"
 flate2 = "1.0"
 indexmap = "1.9"
 rust-apt = "0.5"
-clap = { version = "4.1", features=["derive"] }
+clap = { version = "4.1", features = ["derive"] }
 indicatif = "0.17"
 console = "0.15"
-tokio = { version = "1.15", default_features = false, features = ["rt", "macros", "fs", "io-util"] }
+tokio = { version = "1.15", default_features = false, features = ["rt", "macros", "fs", "io-util", "rt-multi-thread"] }
 futures = "0.3"
 serde_yaml = "0.9"
 hex = "0.4"
 tabled = { version = "0.10", features = ["color"] }
 glob-match = "0.2"
-
+strsim = "0.10"

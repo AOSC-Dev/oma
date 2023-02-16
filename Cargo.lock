@@ -1270,6 +1270,7 @@ dependencies = [
  "serde",
  "serde_yaml",
  "sha2",
+ "strsim",
  "tabled",
  "tokio",
  "xz2",

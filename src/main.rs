@@ -43,6 +43,8 @@ enum OmaCommand {
     Refresh(Refresh),
     /// Show Package
     Show(Show),
+    /// Search Package
+    Search(Search),
 }
 
 #[derive(Parser, Debug)]
@@ -66,6 +68,11 @@ struct Delete {
 #[derive(Parser, Debug)]
 struct Show {
     packages: Vec<String>,
+}
+
+#[derive(Parser, Debug)]
+struct Search {
+    keyword: String,
 }
 
 #[tokio::main]
@@ -94,5 +101,6 @@ async fn try_main() -> Result<()> {
         OmaCommand::Upgrade(v) => app.update(&v.packages).await,
         OmaCommand::Refresh(_) => app.refresh().await,
         OmaCommand::Show(v) => app.show(&v.packages),
+        OmaCommand::Search(v) => app.search(&v.keyword),
     }
 }
