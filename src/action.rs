@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Ok, Result};
 use apt_sources_lists::SourceEntry;
 use console::{style, Color};
+use debarchive::Archive;
 use glob_match::glob_match_with_captures;
 use indicatif::HumanBytes;
 use reqwest::Client;
@@ -16,7 +17,7 @@ use tabled::{
     Alignment, Modify, Style, Table, Tabled,
 };
 
-use std::io::Write;
+use std::{io::Write, path::Path};
 
 use crate::{
     db::{get_sources, packages_download, update_db, APT_LIST_DISTS},
@@ -24,7 +25,7 @@ use crate::{
     formatter::NoProgress,
     info,
     pager::Pager,
-    search::{show_pkgs, search_pkgs},
+    search::{search_pkgs, show_pkgs},
     success, warn,
 };
 
@@ -83,7 +84,7 @@ impl OmaAction {
         update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(client: &Client, count: usize, packages: &[String]) -> Result<()> {
-            let cache = install_handle(packages,  count)?;
+            let cache = install_handle(packages, count)?;
 
             cache.upgrade(&Upgrade::FullUpgrade)?;
 
@@ -379,12 +380,27 @@ fn apt_install(cache: Cache) -> Result<()> {
 }
 
 fn install_handle(list: &[String], count: usize) -> Result<Cache> {
+    // Get local packages
     let local_debs = list
-    .iter()
-    .filter(|x| x.ends_with(".deb"))
-    .collect::<Vec<_>>();
+        .iter()
+        .filter(|x| x.ends_with(".deb"))
+        .collect::<Vec<_>>();
+
+    let mut local = vec![];
+
+    for i in &local_debs {
+        let archive = Archive::new(Path::new(i)).context("Can not read file: {i}")?;
+        let control = archive.control_map()?;
+        local.push(
+            control
+                .get("Package")
+                .context("Can not get package name from file: {i}")?
+                .clone(),
+        );
+    }
 
     let cache = new_cache!(&local_debs)?;
+
     for i in list {
         if i.contains('=') {
             // Support apt install fish=3.6.0
@@ -476,17 +492,10 @@ fn install_handle(list: &[String], count: usize) -> Result<Cache> {
     }
 
     // install local package
-    let sort = PackageSort::default();
-    let packages_1 = cache.packages(&sort);
-
-    let cache_2 = new_cache!()?;
-    let packages_2 = cache_2.packages(&sort).collect::<Vec<_>>();
-
-    let local = packages_1.filter(|x| !packages_2.contains(x));
-
     let mut has_failed = false;
 
     for pkg in local {
+        let pkg = cache.get(&pkg).unwrap();
         let ver = pkg
             .candidate()
             .take()

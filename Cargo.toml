@@ -31,3 +31,4 @@ hex = "0.4"
 tabled = { version = "0.10", features = ["color"] }
 glob-match = "0.2"
 strsim = "0.10"
+debarchive = "0.2"
