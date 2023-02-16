@@ -83,13 +83,7 @@ impl OmaAction {
         update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(client: &Client, count: usize, packages: &[String]) -> Result<()> {
-            let local_debs = packages
-                .iter()
-                .filter(|x| x.ends_with(".deb"))
-                .collect::<Vec<_>>();
-
-            let cache = new_cache!(&local_debs)?;
-            let cache = install_handle(packages, &cache, count)?;
+            let cache = install_handle(packages,  count)?;
 
             cache.upgrade(&Upgrade::FullUpgrade)?;
 
@@ -228,8 +222,7 @@ impl OmaAction {
     }
 
     async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
-        let cache = new_cache!()?;
-        let cache = install_handle(list, &cache, count)?;
+        let cache = install_handle(list, count)?;
 
         let (action, len) = apt_handler(&cache)?;
 
@@ -385,7 +378,13 @@ fn apt_install(cache: Cache) -> Result<()> {
     Ok(())
 }
 
-fn install_handle(list: &[String], cache: &Cache, count: usize) -> Result<Cache> {
+fn install_handle(list: &[String], count: usize) -> Result<Cache> {
+    let local_debs = list
+    .iter()
+    .filter(|x| x.ends_with(".deb"))
+    .collect::<Vec<_>>();
+
+    let cache = new_cache!(&local_debs)?;
     for i in list {
         if i.contains('=') {
             // Support apt install fish=3.6.0
@@ -407,7 +406,7 @@ fn install_handle(list: &[String], cache: &Cache, count: usize) -> Result<Cache>
 
             pkg.mark_install(true, true);
 
-            if pkg.is_installed() {
+            if version.is_installed() {
                 warn!("{} {} is installed!", pkg.name(), version.version());
             }
 
@@ -447,7 +446,7 @@ fn install_handle(list: &[String], cache: &Cache, count: usize) -> Result<Cache>
 
             pkg.mark_install(true, true);
 
-            if pkg.is_installed() {
+            if version.is_installed() {
                 info!("{} {} is installed!", pkg.name(), version.version());
             }
 
@@ -478,17 +477,12 @@ fn install_handle(list: &[String], cache: &Cache, count: usize) -> Result<Cache>
 
     // install local package
     let sort = PackageSort::default();
-    let packages_1 = cache.packages(&sort).collect::<Vec<_>>();
+    let packages_1 = cache.packages(&sort);
 
-    let local_debs = list
-        .iter()
-        .filter(|x| x.ends_with(".deb"))
-        .collect::<Vec<_>>();
+    let cache_2 = new_cache!()?;
+    let packages_2 = cache_2.packages(&sort).collect::<Vec<_>>();
 
-    let cache = new_cache!(&local_debs)?;
-    let packages_2 = cache.packages(&sort);
-
-    let local = packages_2.filter(|x| !packages_1.contains(x));
+    let local = packages_1.filter(|x| !packages_2.contains(x));
 
     let mut has_failed = false;
 
