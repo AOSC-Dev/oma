@@ -188,7 +188,10 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         let cand = pkg.candidate().unwrap();
         if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
             let oma_pkg = OmaPkg::new(pkg.name(), &cand);
-            res.insert(pkg.name().to_string(), (oma_pkg, cand.is_installed()));
+            res.insert(
+                pkg.name().to_string(),
+                (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
+            );
         }
 
         if cand.description().unwrap_or("".to_owned()).contains(input)
@@ -196,7 +199,10 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             && !pkg.name().contains("-dbg")
         {
             let oma_pkg = OmaPkg::new(pkg.name(), &cand);
-            res.insert(pkg.name().to_string(), (oma_pkg, cand.is_installed()));
+            res.insert(
+                pkg.name().to_string(),
+                (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
+            );
 
             let providers = cand.provides().collect::<Vec<_>>();
 
@@ -204,7 +210,10 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
                 for provider in providers {
                     if provider.name() == input {
                         let oma_pkg = OmaPkg::new(provider.name(), &provider.version());
-                        res.insert(pkg.name().to_string(), (oma_pkg, cand.is_installed()));
+                        res.insert(
+                            pkg.name().to_string(),
+                            (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
+                        );
                     }
                 }
             }
@@ -216,33 +225,27 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     res.sort_by_cached_key(|x| pkg_score(&x.0.package, input));
     res.reverse();
 
-    let mut s = String::new();
-
-    let len = res.len();
-
-    for (index, (pkg, installed)) in res.into_iter().enumerate() {
-        if installed {
-            s += &style("INSTALLED").green().to_string()
+    for (pkg, installed, upgradable) in res {
+        let prefix = if installed {
+            style("INSTALLED").green().to_string()
+        } else if upgradable {
+            style("UNPACKED").yellow().to_string()
         } else {
-            s += &style("AVAIL").dim().to_string()
-        }
+            style("AVAIL").dim().to_string()
+        };
 
-        s += &format!(" {} {}", style(&pkg.package).bold(), style(pkg.version).green());
+        let mut pkg_info_line = style(&pkg.package).bold().to_string();
+        pkg_info_line.push(' ');
+        pkg_info_line.push_str(&style(&pkg.version).green().to_string());
 
         if cache.get(&format!("{}-dbg", pkg.package)).is_some() {
-            s += " [Debug symbols available]\n"
-        } else {
-            s += "\n"
+            pkg_info_line.push(' ');
+            pkg_info_line.push_str(&style("(debug symbols available)").dim().to_string());
         }
 
-        s += &format!("{}\n", pkg.description.unwrap_or("".to_owned()));
-
-        if index < len - 1 {
-            s += "\n";
-        }
+        crate::WRITER.writeln(&prefix, &pkg_info_line)?;
+        crate::WRITER.writeln("", &pkg.description.unwrap_or("".to_owned()))?;
     }
-
-    print!("{}", s);
 
     Ok(())
 }
