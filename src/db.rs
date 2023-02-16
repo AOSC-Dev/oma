@@ -6,7 +6,6 @@ use apt_sources_lists::*;
 use console::style;
 use flate2::bufread::GzDecoder;
 use futures::StreamExt;
-use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressBar};
 use reqwest::{Client, Url};
 use serde::Deserialize;
@@ -118,7 +117,7 @@ async fn get_url_short_and_branch(url: &str) -> Result<String> {
 
 #[derive(Debug)]
 struct InReleaseParser {
-    _source: Vec<IndexMap<String, String>>,
+    _source: Vec<HashMap<String, String>>,
     checksums: Vec<ChecksumItem>,
 }
 
@@ -210,13 +209,13 @@ impl InReleaseParser {
     }
 }
 
-fn debcontrol_from_str(s: &str) -> Result<Vec<IndexMap<String, String>>> {
+fn debcontrol_from_str(s: &str) -> Result<Vec<HashMap<String, String>>> {
     let mut res = vec![];
 
     let debcontrol = debcontrol::parse_str(s).map_err(|e| anyhow!("{}", e))?;
 
     for i in debcontrol {
-        let mut item = IndexMap::new();
+        let mut item = HashMap::new();
         let field = i.fields;
 
         for j in field {

@@ -4,7 +4,7 @@ use glob_match::glob_match_with_captures;
 use indicatif::HumanBytes;
 use rust_apt::{
     cache::{Cache, PackageSort},
-    package::{DepType, Dependency, Provider, Version},
+    package::{DepType, Dependency, Version},
     records::RecordField,
 };
 use std::{collections::HashMap, fmt::Write};
