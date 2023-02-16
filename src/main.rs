@@ -8,6 +8,7 @@ use lazy_static::lazy_static;
 mod action;
 mod checksum;
 mod cli;
+mod contents;
 mod db;
 mod download;
 mod formatter;
@@ -45,6 +46,8 @@ enum OmaCommand {
     Show(Show),
     /// Search Package
     Search(Search),
+    /// package list files
+    ListFile(ListFile),
 }
 
 #[derive(Parser, Debug)]
@@ -59,6 +62,11 @@ struct Update {
 
 #[derive(Parser, Debug)]
 struct Refresh {}
+
+#[derive(Parser, Debug)]
+struct ListFile {
+    package: String,
+}
 
 #[derive(Parser, Debug)]
 struct Delete {
@@ -102,5 +110,6 @@ async fn try_main() -> Result<()> {
         OmaCommand::Refresh(_) => app.refresh().await,
         OmaCommand::Show(v) => app.show(&v.packages),
         OmaCommand::Search(v) => app.search(&v.keyword),
+        OmaCommand::ListFile(v) => app.list_file(&v.package),
     }
 }

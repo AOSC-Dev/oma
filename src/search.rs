@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Ok, Result};
+use anyhow::{bail, Context, Result};
 use console::style;
 use glob_match::glob_match_with_captures;
 use indicatif::HumanBytes;
