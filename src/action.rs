@@ -26,7 +26,7 @@ use crate::{
     info,
     pager::Pager,
     search::{search_pkgs, show_pkgs},
-    success, warn, contents::{self, Contents},
+    success, warn, contents::find,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -223,8 +223,13 @@ impl OmaAction {
     }
 
     pub fn list_file(&self, kw: &str) -> Result<()> {
-        let contents = Contents::new()?;
-        contents.list_package(kw);
+        find(kw, true)?;
+
+        Ok(())
+    }
+
+    pub fn search_file(&self, kw: &str) -> Result<()> {
+        find(kw, false)?;
 
         Ok(())
     }

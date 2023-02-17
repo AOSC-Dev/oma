@@ -48,6 +48,8 @@ enum OmaCommand {
     Search(Search),
     /// package list files
     ListFile(ListFile),
+    /// Search file from package
+    SearchFile(SearchFile),
 }
 
 #[derive(Parser, Debug)]
@@ -66,6 +68,11 @@ struct Refresh {}
 #[derive(Parser, Debug)]
 struct ListFile {
     package: String,
+}
+
+#[derive(Parser, Debug)]
+struct SearchFile {
+    kw: String,
 }
 
 #[derive(Parser, Debug)]
@@ -111,5 +118,6 @@ async fn try_main() -> Result<()> {
         OmaCommand::Show(v) => app.show(&v.packages),
         OmaCommand::Search(v) => app.search(&v.keyword),
         OmaCommand::ListFile(v) => app.list_file(&v.package),
+        OmaCommand::SearchFile(v) => app.search_file(&v.kw),
     }
 }
