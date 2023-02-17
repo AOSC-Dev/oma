@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use grep::{
-    regex::RegexMatcher,
+    regex::RegexMatcherBuilder,
     searcher::{sinks::UTF8, Searcher},
 };
 
@@ -17,9 +17,18 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
         format!(r"^(.*?{}(?:.*[^\s])?)\s+(\S+)\s*$", kw)
     };
 
-    let matcher = RegexMatcher::new(&pattern)?;
-    let mut searcher = Searcher::new();
+    let mut matcher = RegexMatcherBuilder::new();
 
+    matcher
+        .case_smart(true)
+        .case_insensitive(false)
+        .multi_line(false)
+        .unicode(false)
+        .octal(false)
+        .word(false);
+
+    let matcher = matcher.build(&pattern)?;
+    let mut searcher = Searcher::new();
     let mut res = Vec::new();
 
     for i in dir.flatten() {
