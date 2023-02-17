@@ -1,5 +1,3 @@
-use std::io::BufReader;
-
 use anyhow::{Context, Result};
 use grep::{
     regex::RegexMatcher,
@@ -20,6 +18,7 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
     };
 
     let matcher = RegexMatcher::new(&pattern)?;
+    let mut searcher = Searcher::new();
 
     let mut res = Vec::new();
 
@@ -33,11 +32,9 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
         if filename.ends_with(&format!("_Contents-{arch}"))
             || filename.ends_with(&"_Contents-all".to_string())
         {
-            let f = std::fs::File::open(i.path())?;
-            let reader = BufReader::new(f);
-            Searcher::new().search_reader(
-                &matcher,
-                reader,
+            searcher.search_path(
+                matcher.clone(),
+                i.path(),
                 UTF8(|_, line| {
                     let mut split = line.split_whitespace();
                     let file = split.next();

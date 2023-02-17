@@ -107,17 +107,15 @@ async fn try_main() -> Result<()> {
         bail!("Please run me as root!");
     }
 
-    let app = OmaAction::new().await?;
-
     match args.subcommand {
-        OmaCommand::Install(v) => app.install(&v.packages).await,
+        OmaCommand::Install(v) => OmaAction::new().await?.install(&v.packages).await,
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
-        OmaCommand::Remove(v) => app.remove(&v.packages, true),
-        OmaCommand::Upgrade(v) => app.update(&v.packages).await,
-        OmaCommand::Refresh(_) => app.refresh().await,
-        OmaCommand::Show(v) => app.show(&v.packages),
-        OmaCommand::Search(v) => app.search(&v.keyword),
-        OmaCommand::ListFile(v) => app.list_file(&v.package),
-        OmaCommand::SearchFile(v) => app.search_file(&v.kw),
+        OmaCommand::Remove(v) => OmaAction::new().await?.remove(&v.packages, true),
+        OmaCommand::Upgrade(v) => OmaAction::new().await?.update(&v.packages).await,
+        OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
+        OmaCommand::Show(v) => OmaAction::show(&v.packages),
+        OmaCommand::Search(v) => OmaAction::search(&v.keyword),
+        OmaCommand::ListFile(v) => OmaAction::list_file(&v.package),
+        OmaCommand::SearchFile(v) => OmaAction::search_file(&v.kw),
     }
 }

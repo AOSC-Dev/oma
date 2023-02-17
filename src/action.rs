@@ -173,7 +173,7 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn show(&self, list: &[String]) -> Result<()> {
+    pub fn show(list: &[String]) -> Result<()> {
         let cache = new_cache!()?;
 
         let mut s = String::new();
@@ -215,20 +215,20 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn search(&self, kw: &str) -> Result<()> {
+    pub fn search(kw: &str) -> Result<()> {
         let cache = new_cache!()?;
         search_pkgs(&cache, kw)?;
 
         Ok(())
     }
 
-    pub fn list_file(&self, kw: &str) -> Result<()> {
+    pub fn list_file(kw: &str) -> Result<()> {
         find(kw, true)?;
 
         Ok(())
     }
 
-    pub fn search_file(&self, kw: &str) -> Result<()> {
+    pub fn search_file(kw: &str) -> Result<()> {
         find(kw, false)?;
 
         Ok(())
