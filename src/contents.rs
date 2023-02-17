@@ -21,6 +21,8 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
 
     let matcher = RegexMatcher::new(&pattern)?;
 
+    let mut res = Vec::new();
+
     for i in dir.flatten() {
         let filename = i
             .file_name()
@@ -29,7 +31,7 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
             .to_string();
 
         if filename.ends_with(&format!("_Contents-{arch}"))
-            || filename.ends_with(&format!("_Contents-all"))
+            || filename.ends_with(&"_Contents-all".to_string())
         {
             let f = std::fs::File::open(i.path())?;
             let reader = BufReader::new(f);
@@ -41,13 +43,20 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                     let file = split.next();
                     let package = split.next().and_then(|x| x.split('/').nth(1));
                     if file.and(package).is_some() {
-                        println!("{}: {}", package.unwrap(), file.unwrap());
+                        let s = format!("{}: {}", package.unwrap(), file.unwrap());
+                        if !res.contains(&s) {
+                            res.push(s);
+                        }
                     }
 
                     Ok(true)
                 }),
             )?;
         }
+    }
+
+    for i in res {
+        println!("{i}");
     }
 
     Ok(())

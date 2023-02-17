@@ -73,7 +73,7 @@ fn dep_to_str_map(map: &HashMap<DepType, Vec<Dependency>>) -> HashMap<String, St
 
 pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
     let mut res = Vec::new();
-    if input.contains("=") {
+    if input.contains('=') {
         let mut split_arg = input.split('=');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
         let version_str = split_arg.next().context(format!("Not Support: {input}"))?;
@@ -93,7 +93,7 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
         res.push(oma_pkg);
     } else if input.ends_with(".deb") {
         bail!("search_pkg does not support read local deb package");
-    } else if input.contains("/") {
+    } else if input.contains('/') {
         let mut split_arg = input.split('/');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
         let branch = split_arg.next().context(format!("Not Support: {input}"))?;
