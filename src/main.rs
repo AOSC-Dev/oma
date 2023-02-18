@@ -1,9 +1,13 @@
-use std::{process::exit, sync::atomic::AtomicI32};
+use std::{
+    process::exit,
+    sync::atomic::{AtomicBool, AtomicI32, Ordering},
+};
 
 use action::{unlock_oma, OmaAction};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
+use nix::sys::signal;
 
 mod action;
 mod checksum;
@@ -18,6 +22,8 @@ mod utils;
 mod verify;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
+static DPKG_RUNNING: AtomicBool = AtomicBool::new(false);
+static LOCKED: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
     static ref WRITER: cli::Writer = cli::Writer::new();
@@ -105,6 +111,10 @@ struct Search {
 
 #[tokio::main]
 async fn main() {
+    ctrlc::set_handler(|| single_handler()).expect(
+        "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
+    );
+
     if let Err(e) = try_main().await {
         error!("{e}");
         exit(1);
@@ -137,4 +147,29 @@ async fn try_main() -> Result<()> {
     unlock_oma()?;
 
     Ok(())
+}
+
+fn single_handler() {
+    if crate::DPKG_RUNNING.load(Ordering::Relaxed) {
+        warn!("You may not interrupt Omakase when dpkg is running.");
+        // Don't exit. Important things are happening
+        return;
+    }
+
+    // Kill subprocess
+    let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
+    if subprocess_pid > 0 {
+        let pid = nix::unistd::Pid::from_raw(subprocess_pid);
+        signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
+    }
+
+    // Dealing with lock
+    if LOCKED.load(Ordering::Relaxed) {
+        unlock_oma().expect("Failed to unlock instance.");
+    }
+
+    // Show cursor before exiting.
+    // This is not a big deal so we won't panic on this.
+    let _ = WRITER.show_cursor();
+    std::process::exit(2);
 }

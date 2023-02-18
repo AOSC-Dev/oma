@@ -22,6 +22,7 @@ use std::{
     io::{Read, Write},
     path::Path,
     str::FromStr,
+    sync::atomic::Ordering,
 };
 
 use crate::{
@@ -32,8 +33,7 @@ use crate::{
     info,
     pager::Pager,
     search::{search_pkgs, show_pkgs},
-    success,
-    warn,
+    success, warn,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -459,17 +459,13 @@ fn apt_install(cache: Cache) -> Result<()> {
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
 
-    ctrlc::set_handler(|| {
-        warn!("CtrlC is lock! Please wait dpkg progress to done.");
-    }).expect(
-        "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
-    );
-
+    crate::DPKG_RUNNING.store(true, Ordering::Relaxed);
     if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
         apt_lock_inner()?;
         apt_unlock();
         return Err(e.into());
     }
+    crate::DPKG_RUNNING.store(false, Ordering::Relaxed);
 
     apt_unlock();
 
@@ -1025,6 +1021,10 @@ fn lock_oma() -> Result<()> {
     }
     let mut lock_file = std::fs::File::create(lock)?;
     let pid = std::process::id().to_string();
+
+    // Set global lock parameter
+    crate::LOCKED.store(true, Ordering::Relaxed);
+
     lock_file.write_all(pid.as_bytes())?;
 
     Ok(())
