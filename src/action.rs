@@ -12,13 +12,17 @@ use rust_apt::{
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, DiskSpace, NumSys},
 };
-use sysinfo::{System, SystemExt, Pid};
+use sysinfo::{Pid, System, SystemExt};
 use tabled::{
     object::{Columns, Segment},
     Alignment, Modify, Style, Table, Tabled,
 };
 
-use std::{io::{Write, Read}, path::Path, str::FromStr};
+use std::{
+    io::{Read, Write},
+    path::Path,
+    str::FromStr,
+};
 
 use crate::{
     contents::find,
@@ -28,7 +32,8 @@ use crate::{
     info,
     pager::Pager,
     search::{search_pkgs, show_pkgs},
-    success, warn,
+    success,
+    warn,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -453,6 +458,12 @@ fn apt_install(cache: Cache) -> Result<()> {
     apt_lock()?;
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
+
+    ctrlc::set_handler(|| {
+        warn!("CtrlC is lock! Please wait dpkg progress to done.");
+    }).expect(
+        "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
+    );
 
     if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
         apt_lock_inner()?;

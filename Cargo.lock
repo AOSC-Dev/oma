@@ -426,6 +426,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctrlc"
+version = "3.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbcf33c2a618cbe41ee43ae6e9f2e48368cd9f9db2896f10167d8d762679f639"
+dependencies = [
+ "nix",
+ "windows-sys 0.45.0",
+]
+
+[[package]]
 name = "cxx"
 version = "1.0.91"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1488,6 +1498,7 @@ dependencies = [
  "apt-sources-lists",
  "clap",
  "console",
+ "ctrlc",
  "debarchive",
  "debcontrol",
  "flate2",
