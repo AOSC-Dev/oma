@@ -10,25 +10,25 @@ use crate::{db::APT_LIST_DISTS, utils::get_arch_name};
 
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 struct RgJson {
     #[serde(rename = "type")]
     t: Option<String>,
     data: Data,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 struct Data {
     submatches: Option<Vec<Submatches>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 struct Submatches {
     #[serde(rename = "match")]
     m: MatchValue,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 struct MatchValue {
     text: String,
 }

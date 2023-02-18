@@ -251,13 +251,13 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
         let max_len = WRITER.get_max_len();
         if is_global {
             if max_len < 90 {
-                " {wide_msg:.blue.bold} {total_bytes:>10:.blue.bold} {binary_bytes_per_sec:>12.blue.bold} {eta:>4.blue.bold} {percent%:>3.blue}".to_owned() + &style("%").blue().to_string()
+                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%".to_owned()
             } else {
                 " {msg:<48.blue.bold} {total_bytes:>10.blue.bold} {binary_bytes_per_sec:>12.blue.bold} {eta:>4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue}".to_owned() + &style("%").blue().to_string()
             }
         } else if max_len < 90 {
-            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
-                .to_owned()
+            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%".to_owned()
+            .to_owned()
         } else {
             " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
