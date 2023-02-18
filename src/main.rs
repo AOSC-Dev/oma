@@ -124,8 +124,8 @@ async fn try_main() -> Result<()> {
         OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
         OmaCommand::Show(v) => OmaAction::show(&v.packages),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword),
-        OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
-        OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
+        OmaCommand::ListFiles(v) => OmaAction::new().await?.list_files(&v.package).await,
+        OmaCommand::Provides(v) => OmaAction::new().await?.search_file(&v.kw).await,
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
     }
