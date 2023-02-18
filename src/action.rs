@@ -111,7 +111,7 @@ impl OmaAction {
 
             // let db_for_update = newest_package_list(apt_db)?;
 
-            packages_download(&list, client, None).await?;
+            packages_download(&list, client, None, None).await?;
 
             if let Err(e) = cache.resolve(true) {
                 return Err(e.into());
@@ -234,6 +234,20 @@ impl OmaAction {
         Ok(())
     }
 
+    pub async fn download(&self, list: &[String]) -> Result<()> {
+        let cache = install_handle(list, 0)?;
+        let (action, _) = apt_handler(&cache)?;
+
+        let mut list = vec![];
+        list.extend(action.install.clone());
+        list.extend(action.update.clone());
+        list.extend(action.downgrade.clone());
+
+        packages_download(&list, &self.client, None, Some(Path::new("."))).await?;
+
+        Ok(())
+    }
+
     async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
         let cache = install_handle(list, count)?;
 
@@ -306,7 +320,7 @@ impl OmaAction {
         }
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
-        packages_download(&list, &self.client, None).await?;
+        packages_download(&list, &self.client, None, None).await?;
         apt_install(cache)?;
 
         // let cache = install_handle_with_local(&local_debs)?;

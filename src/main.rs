@@ -37,6 +37,8 @@ enum OmaCommand {
     /// Update Package
     #[clap(alias = "full-upgrade", alias = "dist-upgrade")]
     Upgrade(Update),
+    /// Download Package
+    Download(Download),
     /// Delete Package
     #[clap(alias = "delete")]
     Remove(Delete),
@@ -51,6 +53,11 @@ enum OmaCommand {
     ListFile(ListFile),
     /// Search file from package
     SearchFile(SearchFile),
+}
+
+#[derive(Parser, Debug)]
+struct Download {
+    packages: Vec<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -118,5 +125,6 @@ async fn try_main() -> Result<()> {
         OmaCommand::Search(v) => OmaAction::search(&v.keyword),
         OmaCommand::ListFile(v) => OmaAction::list_file(&v.package),
         OmaCommand::SearchFile(v) => OmaAction::search_file(&v.kw),
+        OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
     }
 }

@@ -264,6 +264,7 @@ pub async fn packages_download(
     list: &[InstallRow],
     client: &Client,
     limit: Option<usize>,
+    download_dir: Option<&Path>,
 ) -> Result<()> {
     let mut task = vec![];
     let mb = Arc::new(MultiProgress::new());
@@ -301,6 +302,7 @@ pub async fn packages_download(
                     Some(mbc.clone()),
                     Some(global_bar.clone()),
                 ),
+                download_dir.unwrap_or(Path::new(DOWNLOAD_DIR)),
             ));
         } else {
             // 如果没有验证码，则应该是本地安装得来的，使用 apt 来处理这些软件包

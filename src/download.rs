@@ -8,7 +8,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
-use crate::{checksum::Checksum, db::DOWNLOAD_DIR, warn, WRITER};
+use crate::{checksum::Checksum, warn, WRITER};
 
 /// Download a package
 pub async fn download_package(
@@ -17,6 +17,7 @@ pub async fn download_package(
     hash: String,
     version: String,
     opb: OmaProgressBar,
+    download_dir: &Path,
 ) -> Result<()> {
     let filename = urls
         .first()
@@ -48,7 +49,8 @@ pub async fn download_package(
     // 这里 libapt 得到的转义下载地址，如果含有 %2b 还得转义回 +，比如 linux+kernel
     let filename = format!("{package}_{version}_{arch_deb}").replace("%2b", "+");
 
-    let p = Path::new(DOWNLOAD_DIR).join(&filename);
+    let p = download_dir.join(&filename);
+
     if p.exists() {
         let hash_clone = hash.clone();
         let result = spawn_blocking(move || {
@@ -57,12 +59,12 @@ pub async fn download_package(
         .await??;
 
         if !result {
-            try_download(urls, client, &filename, hash, opb).await?;
+            try_download(urls, client, &filename, hash, opb, download_dir).await?;
         } else {
             return Ok(());
         }
     } else {
-        try_download(urls, client, &filename, hash, opb).await?;
+        try_download(urls, client, &filename, hash, opb, download_dir).await?;
     }
 
     Ok(())
@@ -74,19 +76,13 @@ async fn try_download(
     filename: &String,
     hash: String,
     opb: OmaProgressBar,
+    download_dir: &Path,
 ) -> Result<()> {
     let mut all_is_err = true;
     for (i, c) in urls.iter().enumerate() {
-        if download(
-            c,
-            client,
-            filename.to_string(),
-            Path::new(DOWNLOAD_DIR),
-            Some(&hash),
-            opb.clone(),
-        )
-        .await
-        .is_ok()
+        if download(c, client, filename.to_string(), download_dir, Some(&hash), opb.clone())
+            .await
+            .is_ok()
         {
             all_is_err = false;
             break;
@@ -251,13 +247,15 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
         let max_len = WRITER.get_max_len();
         if is_global {
             if max_len < 90 {
-                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%".to_owned()
+                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+                    .to_owned()
             } else {
                 " {msg:<48.blue.bold} {total_bytes:>10.blue.bold} {binary_bytes_per_sec:>12.blue.bold} {eta:>4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue}".to_owned() + &style("%").blue().to_string()
             }
         } else if max_len < 90 {
-            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%".to_owned()
-            .to_owned()
+            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+                .to_owned()
+                .to_owned()
         } else {
             " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
