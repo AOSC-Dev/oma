@@ -1,7 +1,7 @@
 use std::{process::exit, sync::atomic::AtomicI32};
 
 use action::OmaAction;
-use anyhow::{bail, Result};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 
@@ -52,7 +52,7 @@ enum OmaCommand {
     /// package list files
     ListFile(ListFile),
     /// Search file from package
-    SearchFile(SearchFile),
+    Provides(Provides),
 }
 
 #[derive(Parser, Debug)]
@@ -79,7 +79,7 @@ struct ListFile {
 }
 
 #[derive(Parser, Debug)]
-struct SearchFile {
+struct Provides {
     kw: String,
 }
 
@@ -120,7 +120,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Show(v) => OmaAction::show(&v.packages),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword),
         OmaCommand::ListFile(v) => OmaAction::list_file(&v.package),
-        OmaCommand::SearchFile(v) => OmaAction::search_file(&v.kw),
+        OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
     }
 }
