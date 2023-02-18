@@ -243,7 +243,7 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn fix_broken() -> Result<()> {
+    pub async fn fix_broken(&self) -> Result<()> {
         if !nix::unistd::geteuid().is_root() {
             bail!("Please run me as root!");
         }
@@ -254,7 +254,12 @@ impl OmaAction {
         let (action, _) = apt_handler(&cache)?;
         let disk_size = cache.depcache().disk_size();
 
+        let mut list = action.install.clone();
+        list.extend(action.update.clone());
+        list.extend(action.downgrade.clone());
+
         display_result(&action, &cache, disk_size)?;
+        packages_download(&list, &self.client, None, None).await?;
 
         cache.commit(
             &mut NoProgress::new_box(),
