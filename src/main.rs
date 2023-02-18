@@ -124,8 +124,12 @@ async fn try_main() -> Result<()> {
         OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
         OmaCommand::Show(v) => OmaAction::show(&v.packages),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword),
-        OmaCommand::ListFiles(v) => OmaAction::new().await?.list_files(&v.package).await,
-        OmaCommand::Provides(v) => OmaAction::new().await?.search_file(&v.kw).await,
+        // TODO: up_db 的值目前写死了 true，打算实现的逻辑是这样：
+        // 如果用户在终端里执行了不存在的程序，会调用 oma 找可能的软件包
+        // 这时候就不去更新 Contents 数据，若用户手动调用 oma provides/list-files
+        // 则强制更新 Contents
+        OmaCommand::ListFiles(v) => OmaAction::new().await?.list_files(&v.package, true).await,
+        OmaCommand::Provides(v) => OmaAction::new().await?.search_file(&v.kw, true).await,
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
     }

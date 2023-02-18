@@ -8,7 +8,10 @@ use grep::{
 };
 use reqwest::Client;
 
-use crate::{db::{APT_LIST_DISTS, update_db}, utils::get_arch_name};
+use crate::{
+    db::{update_db, APT_LIST_DISTS},
+    utils::get_arch_name,
+};
 
 use serde::Deserialize;
 
@@ -41,7 +44,17 @@ struct MatchValue {
     text: String,
 }
 
-pub async fn find(kw: &str, is_list: bool, sources: &[SourceEntry], client: &Client) -> Result<()> {
+pub async fn find(
+    kw: &str,
+    is_list: bool,
+    sources: &[SourceEntry],
+    client: &Client,
+    up_db: bool,
+) -> Result<()> {
+    if up_db {
+        update_db(sources, client, None).await.ok();
+    }
+
     let arch = get_arch_name().context("Can not get ARCH!")?;
 
     let kw = regex::escape(kw);

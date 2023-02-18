@@ -231,14 +231,14 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn list_files(&self, kw: &str) -> Result<()> {
-        find(kw, true, &self.sources, &self.client).await?;
+    pub async fn list_files(&self, kw: &str, up_db: bool) -> Result<()> {
+        find(kw, true, &self.sources, &self.client, up_db).await?;
 
         Ok(())
     }
 
-    pub async fn search_file(&self, kw: &str) -> Result<()> {
-        find(kw, false, &self.sources, &self.client).await?;
+    pub async fn search_file(&self, kw: &str, up_db: bool) -> Result<()> {
+        find(kw, false, &self.sources, &self.client, up_db).await?;
 
         Ok(())
     }
