@@ -69,10 +69,7 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
             .output()?;
 
         if !rg_runner.status.success() {
-            bail!(
-                "rg has error:\n{}",
-                String::from_utf8_lossy(&rg_runner.stderr)
-            );
+            bail!("Can't find any item for: {kw}");
         }
 
         let mut output = std::str::from_utf8(&rg_runner.stdout)?.split('\n');
