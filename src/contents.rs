@@ -42,21 +42,12 @@ struct MatchValue {
 pub fn find(kw: &str, is_list: bool) -> Result<()> {
     let arch = get_arch_name().context("Can not get ARCH!")?;
 
-    let escape = ".+*([{/\\}])?:|^$";
-    let mut new_kw = String::new();
-
-    for i in kw.chars() {
-        if escape.contains(i) {
-            new_kw.push_str(&format!("\\{i}"));
-        } else {
-            new_kw.push(i);
-        }
-    }
+    let kw = regex::escape(kw);
 
     let pattern = if is_list {
-        format!(r"^\s*(.*?)\s+((?:\S*[,/])?{new_kw}(?:,\S*|))\s*$")
+        format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw}(?:,\S*|))\s*$")
     } else {
-        format!(r"^(.*?{new_kw}(?:.*[^\s])?)\s+(\S+)\s*$")
+        format!(r"^(.*?{kw}(?:.*[^\s])?)\s+(\S+)\s*$")
     };
 
     // 如果安装了 ripgrep，则使用 rg 来进行搜索操作，因为 rg 的速度比 grep 快十倍

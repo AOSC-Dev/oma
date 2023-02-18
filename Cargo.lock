@@ -1447,6 +1447,7 @@ dependencies = [
  "lazy_static",
  "log",
  "nix",
+ "regex",
  "reqwest",
  "rust-apt",
  "sequoia-openpgp",
