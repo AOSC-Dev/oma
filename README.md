@@ -11,6 +11,7 @@ Oma (Omakase) ~~(Oh My Ailurus, 小熊猫包管理)~~ is a AOSC OS Package manag
 - Ripgrep binary (optional)
 - C Compiler
 - OpenSSL
+- Rustc with cargo
 
 ## Build & install
 
