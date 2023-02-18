@@ -12,12 +12,13 @@ use rust_apt::{
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, DiskSpace, NumSys},
 };
+use sysinfo::{System, SystemExt, Pid};
 use tabled::{
     object::{Columns, Segment},
     Alignment, Modify, Style, Table, Tabled,
 };
 
-use std::{io::Write, path::Path};
+use std::{io::{Write, Read}, path::Path, str::FromStr};
 
 use crate::{
     contents::find,
@@ -63,6 +64,8 @@ pub struct InstallRow {
     pub pure_download_size: u64,
 }
 
+const LOCK: &str = "/run/lock/oma.lock";
+
 pub struct OmaAction {
     sources: Vec<SourceEntry>,
     client: Client,
@@ -71,6 +74,8 @@ pub struct OmaAction {
 impl OmaAction {
     pub async fn new() -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
+
+        lock_oma()?;
 
         let sources = get_sources()?;
 
@@ -984,6 +989,40 @@ fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
         style("reinstall").blue()
     )?;
     writeln!(w)?;
+
+    Ok(())
+}
+
+fn lock_oma() -> Result<()> {
+    let lock = Path::new(LOCK);
+    if lock.is_file() {
+        let mut lock_file = std::fs::File::open(lock)?;
+        let mut old_pid = String::new();
+        lock_file.read_to_string(&mut old_pid)?;
+
+        let s = System::new_all();
+        let old_pid = Pid::from_str(&old_pid)?;
+
+        if s.process(old_pid).is_some() {
+            bail!(
+                "Another instance of oma (pid: {}) is still running!",
+                old_pid
+            );
+        } else {
+            unlock_oma()?;
+        }
+    }
+    let mut lock_file = std::fs::File::create(lock)?;
+    let pid = std::process::id().to_string();
+    lock_file.write_all(pid.as_bytes())?;
+
+    Ok(())
+}
+
+pub fn unlock_oma() -> Result<()> {
+    if Path::new(LOCK).exists() {
+        std::fs::remove_file(LOCK)?;
+    }
 
     Ok(())
 }

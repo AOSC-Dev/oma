@@ -1,6 +1,6 @@
 use std::{process::exit, sync::atomic::AtomicI32};
 
-use action::OmaAction;
+use action::{unlock_oma, OmaAction};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
@@ -132,5 +132,9 @@ async fn try_main() -> Result<()> {
         OmaCommand::Provides(v) => OmaAction::new().await?.search_file(&v.kw, true).await,
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
-    }
+    }?;
+
+    unlock_oma()?;
+
+    Ok(())
 }
