@@ -243,6 +243,21 @@ impl OmaAction {
         Ok(())
     }
 
+    pub fn fix_broken() -> Result<()> {
+        if !nix::unistd::geteuid().is_root() {
+            bail!("Please run me as root!");
+        }
+
+        let cache = new_cache!()?;
+        cache.resolve(true)?;
+        cache.commit(
+            &mut NoProgress::new_box(),
+            &mut AptInstallProgress::new_box(),
+        )?;
+
+        Ok(())
+    }
+
     pub async fn download(&self, list: &[String]) -> Result<()> {
         let cache = new_cache!()?;
         let mut downloads = vec![];
@@ -371,7 +386,7 @@ impl OmaAction {
         if !nix::unistd::geteuid().is_root() {
             bail!("Please run me as root!");
         }
-        
+
         let cache = new_cache!()?;
 
         for i in list {
