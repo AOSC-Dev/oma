@@ -2,7 +2,7 @@
 
 Oma (Omakase) ~~(Oh My Ailurus, 小熊猫包管理)~~ is a AOSC OS Package manager.
 
-> Omakase (adj.): According to the chef's choice. — Marriam-Webster.
+> Omakase お任せ (adj.): According to the chef's choice. — Marriam-Webster.
 
 ## Dependencies
 
