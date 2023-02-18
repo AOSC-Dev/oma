@@ -2,6 +2,8 @@
 
 Oma (Omakase) ~~(Oh My Ailurus, 小熊猫包管理)~~ is a AOSC OS Package manager.
 
+> Omakase (adj.): According to the chef's choice. — Marriam-Webster.
+
 ## Dependencies
 
 - libapt-pkg 2.5.4
