@@ -20,13 +20,14 @@ use tabled::{
 use std::{io::Write, path::Path};
 
 use crate::{
+    contents::find,
     db::{get_sources, packages_download, update_db, APT_LIST_DISTS},
     error,
     formatter::NoProgress,
     info,
     pager::Pager,
     search::{search_pkgs, show_pkgs},
-    success, warn, contents::find,
+    success, warn,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -235,15 +236,31 @@ impl OmaAction {
     }
 
     pub async fn download(&self, list: &[String]) -> Result<()> {
-        let cache = install_handle(list, 0)?;
-        let (action, _) = apt_handler(&cache)?;
+        let cache = new_cache!()?;
+        let mut downloads = vec![];
+        for i in list {
+            let oma_pkg = show_pkgs(&cache, i)?;
+            for i in oma_pkg {
+                let pkg = i.package;
+                let version = i.version;
+                let pkg = cache.get(&pkg).unwrap();
+                let version = pkg.get_version(&version).unwrap();
+                let urls = version.uris();
 
-        let mut list = vec![];
-        list.extend(action.install.clone());
-        list.extend(action.update.clone());
-        list.extend(action.downgrade.clone());
+                downloads.push(InstallRow {
+                    name: pkg.name().to_string(),
+                    name_no_color: pkg.name().to_string(),
+                    new_version: version.version().to_string(),
+                    version: version.version().to_string(),
+                    size: version.installed_size().to_string(),
+                    pkg_urls: urls.collect(),
+                    checksum: version.sha256(),
+                    pure_download_size: version.size(),
+                })
+            }
+        }
 
-        packages_download(&list, &self.client, None, Some(Path::new("."))).await?;
+        packages_download(&downloads, &self.client, None, Some(Path::new("."))).await?;
 
         Ok(())
     }
