@@ -50,7 +50,7 @@ enum OmaCommand {
     /// Search Package
     Search(Search),
     /// package list files
-    ListFile(ListFile),
+    ListFiles(ListFiles),
     /// Search file from package
     Provides(Provides),
     /// Fix system dependencies broken status
@@ -79,7 +79,7 @@ struct Update {
 struct Refresh {}
 
 #[derive(Parser, Debug)]
-struct ListFile {
+struct ListFiles {
     package: String,
 }
 
@@ -124,7 +124,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
         OmaCommand::Show(v) => OmaAction::show(&v.packages),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword),
-        OmaCommand::ListFile(v) => OmaAction::list_file(&v.package),
+        OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::fix_broken(),

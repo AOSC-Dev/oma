@@ -231,7 +231,7 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn list_file(kw: &str) -> Result<()> {
+    pub fn list_files(kw: &str) -> Result<()> {
         find(kw, true)?;
 
         Ok(())
