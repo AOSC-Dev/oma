@@ -250,6 +250,12 @@ impl OmaAction {
 
         let cache = new_cache!()?;
         cache.resolve(true)?;
+
+        let (action, _) = apt_handler(&cache)?;
+        let disk_size = cache.depcache().disk_size();
+
+        display_result(&action, &cache, disk_size)?;
+
         cache.commit(
             &mut NoProgress::new_box(),
             &mut AptInstallProgress::new_box(),
