@@ -18,7 +18,13 @@ struct RgJson {
 }
 
 #[derive(Deserialize)]
+struct Stats {
+    matched_lines: u64,
+}
+
+#[derive(Deserialize)]
 struct Data {
+    stats: Option<Stats>,
     submatches: Option<Vec<Submatches>>,
 }
 
@@ -69,7 +75,20 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
             .output()?;
 
         if !rg_runner.status.success() {
-            bail!("Can't find any item for: {kw}");
+            for i in String::from_utf8_lossy(&rg_runner.stdout).split('\n') {
+                if !i.is_empty() {
+                    let line: RgJson = serde_json::from_str(&i)?;
+                    let data = line.data;
+                    let stats = data.stats;
+                    if let Some(stats) = stats {
+                        if stats.matched_lines == 0 {
+                            bail!("Can't find any item for: {kw}");
+                        } else {
+                            bail!("rg return non-zero code.")
+                        }
+                    }
+                }
+            }
         }
 
         let mut output = std::str::from_utf8(&rg_runner.stdout)?.split('\n');
