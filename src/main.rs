@@ -35,12 +35,13 @@ enum OmaCommand {
     /// Install Package
     Install(Install),
     /// Update Package
-    #[clap(alias = "update", alias = "full-upgrade", alias = "dist-upgrade")]
+    #[clap(alias = "full-upgrade", alias = "dist-upgrade")]
     Upgrade(Update),
     /// Delete Package
     #[clap(alias = "delete")]
     Remove(Delete),
     /// Refresh Package database
+    #[clap(alias = "update")]
     Refresh(Refresh),
     /// Show Package
     Show(Show),
