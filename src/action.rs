@@ -82,6 +82,10 @@ impl OmaAction {
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
     pub async fn update(&self, packages: &[String]) -> Result<()> {
+        if !nix::unistd::geteuid().is_root() {
+            bail!("Please run me as root!");
+        }
+
         update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(client: &Client, count: usize, packages: &[String]) -> Result<()> {
@@ -159,6 +163,10 @@ impl OmaAction {
     }
 
     pub async fn install(&self, list: &[String]) -> Result<()> {
+        if !nix::unistd::geteuid().is_root() {
+            bail!("Please run me as root!");
+        }
+
         update_db(&self.sources, &self.client, None).await?;
 
         let mut count = 0;
@@ -360,6 +368,10 @@ impl OmaAction {
     }
 
     pub fn remove(&self, list: &[String], is_purge: bool) -> Result<()> {
+        if !nix::unistd::geteuid().is_root() {
+            bail!("Please run me as root!");
+        }
+        
         let cache = new_cache!()?;
 
         for i in list {

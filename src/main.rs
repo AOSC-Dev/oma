@@ -111,10 +111,6 @@ async fn main() {
 async fn try_main() -> Result<()> {
     let args = Args::parse();
 
-    if !nix::unistd::geteuid().is_root() {
-        bail!("Please run me as root!");
-    }
-
     match args.subcommand {
         OmaCommand::Install(v) => OmaAction::new().await?.install(&v.packages).await,
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
