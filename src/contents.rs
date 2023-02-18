@@ -54,9 +54,9 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
     }
 
     let pattern = if is_list {
-        format!(r"^\s*(.*?)\s+((?:\S*[,/])?{}(?:,\S*|))\s*$", new_kw)
+        format!(r"^\s*(.*?)\s+((?:\S*[,/])?{new_kw}(?:,\S*|))\s*$")
     } else {
-        format!(r"^(.*?{}(?:.*[^\s])?)\s+(\S+)\s*$", new_kw)
+        format!(r"^(.*?{new_kw}(?:.*[^\s])?)\s+(\S+)\s*$")
     };
 
     // 如果安装了 ripgrep，则使用 rg 来进行搜索操作，因为 rg 的速度比 grep 快十倍
@@ -88,7 +88,7 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
         if !rg_runner.status.success() {
             for i in String::from_utf8_lossy(&rg_runner.stdout).split('\n') {
                 if !i.is_empty() {
-                    let line: RgJson = serde_json::from_str(&i)?;
+                    let line: RgJson = serde_json::from_str(i)?;
                     if line.t == Some("summary".to_owned()) {
                         let data = line.data;
                         let stats = data.stats;

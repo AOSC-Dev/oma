@@ -194,19 +194,19 @@ impl OmaAction {
                 s += &format!("Package: {}\n", entry.package);
                 s += &format!("Version: {}\n", entry.version);
                 if let Some(section) = entry.section {
-                    s += &format!("Section: {}\n", section);
+                    s += &format!("Section: {section}\n");
                 }
                 s += &format!("Maintainer: {}\n", entry.maintainer);
                 s += &format!("Installed-Size: {}\n", entry.installed_size);
                 for (k, v) in entry.dep_map {
-                    s += &format!("{}: {}\n", k, v);
+                    s += &format!("{k}: {v}\n");
                 }
                 s += &format!("Download-Size: {}\n", entry.download_size);
                 if let Some(sources) = entry.apt_sources {
-                    s += &format!("APT-Sources: {}\n", sources);
+                    s += &format!("APT-Sources: {sources}\n");
                 }
                 if let Some(desc) = entry.description {
-                    s += &format!("Description: {}\n", desc);
+                    s += &format!("Description: {desc}\n");
                 }
 
                 if i < len - 1 {
@@ -219,7 +219,7 @@ impl OmaAction {
             }
         }
 
-        print!("{}", s);
+        print!("{s}");
 
         Ok(())
     }
