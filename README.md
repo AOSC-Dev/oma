@@ -1,3 +1,43 @@
-# oma
+# Oma
 
-An apt frontend for AOSC OS.
+Oma (Omakase) ~~(Oh My Ailurus, 小熊猫包管理)~~ is a AOSC OS Package manager.
+
+## Dependencies
+
+- libapt-pkg 2.5.4
+- Glibc
+- Ripgrep binary (optional)
+- C Compiler
+- OpenSSL
+
+## Build & install
+
+```bash
+cargo build --release
+cp ./target/release/oma /usr/local/bin/oma
+```
+
+## Usage
+
+```bash
+saki@Magputer [ aoscpt@master ] $ oma
+Usage: oma <COMMAND>
+
+Commands:
+  install     Install Package
+  upgrade     Update Package
+  download    Download Package
+  remove      Delete Package
+  refresh     Refresh Package database
+  show        Show Package
+  search      Search Package
+  list-files  package list files
+  provides    Search file from package
+  fix-broken  Fix system dependencies broken status
+  help        Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+```
+
