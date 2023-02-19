@@ -92,9 +92,7 @@ impl OmaAction {
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
     pub async fn update(&self, packages: &[String]) -> Result<()> {
-        if !nix::unistd::geteuid().is_root() {
-            bail!("Please run me as root!");
-        }
+        is_root()?;
 
         update_db(&self.sources, &self.client, None).await?;
 
@@ -173,10 +171,7 @@ impl OmaAction {
     }
 
     pub async fn install(&self, list: &[String]) -> Result<()> {
-        if !nix::unistd::geteuid().is_root() {
-            bail!("Please run me as root!");
-        }
-
+        is_root()?;
         update_db(&self.sources, &self.client, None).await?;
 
         let mut count = 0;
@@ -254,9 +249,7 @@ impl OmaAction {
     }
 
     pub async fn fix_broken(&self) -> Result<()> {
-        if !nix::unistd::geteuid().is_root() {
-            bail!("Please run me as root!");
-        }
+        is_root()?;
 
         let cache = new_cache!()?;
         cache.resolve(true)?;
@@ -404,9 +397,7 @@ impl OmaAction {
     }
 
     pub fn remove(&self, list: &[String], is_purge: bool) -> Result<()> {
-        if !nix::unistd::geteuid().is_root() {
-            bail!("Please run me as root!");
-        }
+        is_root()?;
 
         let cache = new_cache!()?;
 
@@ -441,6 +432,14 @@ impl OmaAction {
     pub async fn refresh(&self) -> Result<()> {
         update_db(&self.sources, &self.client, None).await
     }
+}
+
+fn is_root() -> Result<()> {
+    if !nix::unistd::geteuid().is_root() {
+        bail!("Please run me as root!");
+    }
+
+    Ok(())
 }
 
 fn autoremove(cache: &Cache) {
