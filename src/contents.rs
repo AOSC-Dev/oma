@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{process::Command, time::SystemTime};
 
 use anyhow::{bail, Context, Result};
 use apt_sources_lists::SourceEntry;
@@ -44,17 +44,10 @@ struct MatchValue {
     text: String,
 }
 
-pub async fn find(
+pub fn find(
     kw: &str,
     is_list: bool,
-    sources: &[SourceEntry],
-    client: &Client,
-    up_db: bool,
 ) -> Result<()> {
-    if up_db {
-        update_db(sources, client, None).await.ok();
-    }
-
     let arch = get_arch_name().context("Can not get ARCH!")?;
 
     let kw = regex::escape(kw);
@@ -81,10 +74,6 @@ pub async fn find(
         }
     }
 
-    if paths.is_empty() {
-        update_db(sources, client, None).await?;
-    }
-
     // 如果安装了 ripgrep，则使用 rg 来进行搜索操作，因为 rg 的速度比 grep 快十倍
     let res = if which::which("rg").is_ok() {
         let mut res = vec![];
@@ -93,7 +82,7 @@ pub async fn find(
             .arg("--json")
             .arg("-e")
             .arg(pattern)
-            .args(paths)
+            .args(&paths)
             .output()?;
 
         if !rg_runner.status.success() {
@@ -157,7 +146,7 @@ pub async fn find(
         let mut searcher = Searcher::new();
         let mut res = Vec::new();
 
-        for i in paths {
+        for i in &paths {
             searcher.search_path(
                 matcher.clone(),
                 i,
@@ -183,6 +172,8 @@ pub async fn find(
     for i in res {
         println!("{i}");
     }
+
+    let mut too_old = false;
 
     Ok(())
 }

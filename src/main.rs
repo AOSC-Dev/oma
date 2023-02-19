@@ -137,8 +137,8 @@ async fn try_main() -> Result<()> {
         // 如果用户在终端里执行了不存在的程序，会调用 oma 找可能的软件包
         // 这时候就不去更新 Contents 数据，若用户手动调用 oma provides/list-files
         // 则强制更新 Contents
-        OmaCommand::ListFiles(v) => OmaAction::new().await?.list_files(&v.package, true).await,
-        OmaCommand::Provides(v) => OmaAction::new().await?.search_file(&v.kw, true).await,
+        OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
+        OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
     }?;
