@@ -31,7 +31,7 @@ use crate::{
     info,
     pager::Pager,
     search::{search_pkgs, show_pkgs},
-    success,
+    success, warn,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -526,13 +526,33 @@ fn install_handle(list: &[String], install_dbg: bool) -> Result<Cache> {
 
         if pkg.installed().as_ref() == Some(&ver) {
             info!("{} {version} is already installed", pkg.name());
-            continue;
+            if !install_dbg {
+                continue;
+            }
         }
 
         ver.set_candidate();
 
         pkg.mark_install(true, true);
         pkg.protect();
+
+        if install_dbg && pkginfo.has_dbg {
+            let pkg_dbg = cache.get(&format!("{}-dbg", pkg.name())).unwrap();
+            let ver = pkg_dbg.get_version(&version);
+
+            if ver.is_none() {
+                warn!("{} {version} has no debug symbol package!", pkg.name());
+                continue;
+            }
+
+            let ver = ver.unwrap();
+            ver.set_candidate();
+
+            pkg_dbg.mark_install(true, true);
+            pkg_dbg.protect();
+        } else if install_dbg && !pkginfo.has_dbg {
+            warn!("{} has no debug symbol package!", pkg.name());
+        }
     }
 
     Ok(cache)
