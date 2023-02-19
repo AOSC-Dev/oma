@@ -459,13 +459,11 @@ fn apt_install(cache: Cache) -> Result<()> {
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
 
-    crate::DPKG_RUNNING.store(true, Ordering::Relaxed);
     if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
         apt_lock_inner()?;
         apt_unlock();
         return Err(e.into());
     }
-    crate::DPKG_RUNNING.store(false, Ordering::Relaxed);
 
     apt_unlock();
 

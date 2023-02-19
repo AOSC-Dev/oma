@@ -22,7 +22,6 @@ mod utils;
 mod verify;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
-static DPKG_RUNNING: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
@@ -150,12 +149,6 @@ async fn try_main() -> Result<()> {
 }
 
 fn single_handler() {
-    if crate::DPKG_RUNNING.load(Ordering::Relaxed) {
-        warn!("You may not interrupt Omakase when dpkg is running.");
-        // Don't exit. Important things are happening
-        return;
-    }
-
     // Kill subprocess
     let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
     if subprocess_pid > 0 {
