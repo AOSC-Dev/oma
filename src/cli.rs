@@ -82,6 +82,7 @@ impl Writer {
         if chunks.is_empty() {
             return Ok(());
         }
+
         let max_len: usize = (self.get_max_len() - PREFIX_LEN).into();
         // Write prefix first
         self.write_prefix(prefix)?;
@@ -102,6 +103,7 @@ impl Writer {
         }
         // Write a new line
         self.term.write_str("\n")?;
+
         Ok(())
     }
 }

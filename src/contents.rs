@@ -1,6 +1,7 @@
 use std::process::Command;
 
 use anyhow::{bail, Context, Result};
+use console::style;
 use grep::{
     regex::RegexMatcherBuilder,
     searcher::{sinks::UTF8, Searcher},
@@ -63,6 +64,13 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
         {
             paths.push(i.path());
         }
+    }
+
+    if paths.is_empty() {
+        bail!(
+            "Contents database does not exist!\nPlease use {} to refresh the contents.",
+            style("oma refresh").green()
+        );
     }
 
     // 如果安装了 ripgrep，则使用 rg 来进行搜索操作，因为 rg 的速度比 grep 快十倍
@@ -128,11 +136,8 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                                         && i.split('/').nth(1).is_some()
                                     {
                                         let file = file_handle(file.unwrap());
-                                        let s = format!(
-                                            "{}: {}",
-                                            i.split('/').nth(1).unwrap(),
-                                            file
-                                        );
+                                        let s =
+                                            format!("{}: {}", i.split('/').nth(1).unwrap(), file);
                                         if !res.contains(&s) {
                                             res.push(s);
                                         }

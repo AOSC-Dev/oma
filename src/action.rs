@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Ok, Result};
+use anyhow::{bail, Context, Result};
 use apt_sources_lists::SourceEntry;
 use console::{style, Color};
 use debarchive::Archive;
