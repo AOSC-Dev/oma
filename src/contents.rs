@@ -1,15 +1,13 @@
 use std::{process::Command, time::SystemTime};
 
 use anyhow::{bail, Context, Result};
-use apt_sources_lists::SourceEntry;
 use grep::{
     regex::RegexMatcherBuilder,
     searcher::{sinks::UTF8, Searcher},
 };
-use reqwest::Client;
 
 use crate::{
-    db::{update_db, APT_LIST_DISTS},
+    db::{APT_LIST_DISTS},
     utils::get_arch_name,
 };
 
@@ -49,7 +47,6 @@ pub fn find(
     is_list: bool,
 ) -> Result<()> {
     let arch = get_arch_name().context("Can not get ARCH!")?;
-
     let kw = regex::escape(kw);
 
     let pattern = if is_list {
@@ -173,7 +170,7 @@ pub fn find(
         println!("{i}");
     }
 
-    let mut too_old = false;
+    // let mut too_old = false;
 
     Ok(())
 }

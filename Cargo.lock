@@ -1898,7 +1898,7 @@ checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 [[package]]
 name = "rust-apt"
 version = "0.5.1"
-source = "git+https://gitlab.com/eatradish/rust-apt?rev=62c8a1143177890cea15d3b18557c175fd92127c#62c8a1143177890cea15d3b18557c175fd92127c"
+source = "git+https://gitlab.com/volian/rust-apt?rev=e63f8076bb5b67afba647ec0dce63839066dd9f5#e63f8076bb5b67afba647ec0dce63839066dd9f5"
 dependencies = [
  "cxx",
  "cxx-build",
