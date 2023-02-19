@@ -1,4 +1,4 @@
-use std::{process::Command, time::SystemTime};
+use std::process::Command;
 
 use anyhow::{bail, Context, Result};
 use grep::{
@@ -66,7 +66,7 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
     }
 
     // 如果安装了 ripgrep，则使用 rg 来进行搜索操作，因为 rg 的速度比 grep 快十倍
-    let res = if which::which("rg").is_ok() {
+    let mut res = if which::which("rg").is_ok() {
         let mut res = vec![];
 
         let rg_runner = Command::new("rg")
@@ -118,7 +118,8 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                             if !split_group.is_empty() {
                                 for i in split_group {
                                     if is_list && i.split('/').nth(1) == Some(&kw) {
-                                        let s = format!("{}: {}", kw, file.unwrap());
+                                        let file = file_handle(file.unwrap());
+                                        let s = format!("{}: {}", kw, file);
                                         if !res.contains(&s) {
                                             res.push(s);
                                         }
@@ -126,10 +127,11 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                                         && i.contains(&kw)
                                         && i.split('/').nth(1).is_some()
                                     {
+                                        let file = file_handle(file.unwrap());
                                         let s = format!(
                                             "{}: {}",
                                             i.split('/').nth(1).unwrap(),
-                                            file.unwrap()
+                                            file
                                         );
                                         if !res.contains(&s) {
                                             res.push(s);
@@ -140,7 +142,8 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                                 // 比如 /usr/bin/apt admin/apt
                                 let pkg = pkg_group.split('/').nth(1);
                                 if let Some(pkg) = pkg {
-                                    let s = format!("{}: {}", pkg, file.unwrap());
+                                    let file = file_handle(file.unwrap());
+                                    let s = format!("{}: {}", pkg, file);
                                     if !res.contains(&s) {
                                         res.push(s);
                                     }
@@ -178,7 +181,8 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                     let file = split.next();
                     let package = split.next().and_then(|x| x.split('/').nth(1));
                     if file.and(package).is_some() {
-                        let s = format!("{}: {}", package.unwrap(), file.unwrap());
+                        let file = file_handle(file.unwrap());
+                        let s = format!("{}: {}", package.unwrap(), file);
                         if !res.contains(&s) {
                             res.push(s);
                         }
@@ -192,11 +196,23 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
         res
     };
 
+    res.sort();
+
     for i in res {
         println!("{i}");
     }
 
-    // let mut too_old = false;
-
     Ok(())
+}
+
+fn file_handle(s: &str) -> String {
+    let s = if s.starts_with("./") {
+        s.strip_prefix(".").unwrap().to_string()
+    } else if !s.starts_with("./") && !s.starts_with("/") {
+        "/".to_owned() + &s
+    } else {
+        s.to_owned()
+    };
+
+    s
 }
