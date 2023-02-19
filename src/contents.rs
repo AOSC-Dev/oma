@@ -6,10 +6,7 @@ use grep::{
     searcher::{sinks::UTF8, Searcher},
 };
 
-use crate::{
-    db::{APT_LIST_DISTS},
-    utils::get_arch_name,
-};
+use crate::{db::APT_LIST_DISTS, utils::get_arch_name};
 
 use serde::Deserialize;
 
@@ -42,17 +39,14 @@ struct MatchValue {
     text: String,
 }
 
-pub fn find(
-    kw: &str,
-    is_list: bool,
-) -> Result<()> {
+pub fn find(kw: &str, is_list: bool) -> Result<()> {
     let arch = get_arch_name().context("Can not get ARCH!")?;
-    let kw = regex::escape(kw);
+    let kw_escape = regex::escape(kw);
 
     let pattern = if is_list {
-        format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw}(?:,\S*|))\s*$")
+        format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw_escape}(?:,\S*|))\s*$")
     } else {
-        format!(r"^(.*?{kw}(?:.*[^\s])?)\s+(\S+)\s*$")
+        format!(r"^(.*?{kw_escape}(?:.*[^\s])?)\s+(\S+)\s*$")
     };
 
     let dir = std::fs::read_dir(APT_LIST_DISTS)?;
@@ -114,11 +108,43 @@ pub fn find(
                         let m = j.m.text;
                         let mut split = m.split_whitespace();
                         let file = split.next();
-                        let pkg = split.next().and_then(|x| x.split('/').nth(1));
-                        if file.and(pkg).is_some() {
-                            let s = format!("{}: {}", pkg.unwrap(), file.unwrap());
-                            if !res.contains(&s) {
-                                res.push(s);
+                        let pkg_group = split.next();
+
+                        if file.and(pkg_group).is_some() {
+                            let pkg_group = pkg_group.unwrap();
+                            let split_group = pkg_group.split(',').collect::<Vec<_>>();
+
+                            // 比如 / admin/apt-file,admin/api,...
+                            if !split_group.is_empty() {
+                                for i in split_group {
+                                    if is_list && i.split('/').nth(1) == Some(&kw) {
+                                        let s = format!("{}: {}", kw, file.unwrap());
+                                        if !res.contains(&s) {
+                                            res.push(s);
+                                        }
+                                    } else if !is_list
+                                        && i.contains(&kw)
+                                        && i.split('/').nth(1).is_some()
+                                    {
+                                        let s = format!(
+                                            "{}: {}",
+                                            i.split('/').nth(1).unwrap(),
+                                            file.unwrap()
+                                        );
+                                        if !res.contains(&s) {
+                                            res.push(s);
+                                        }
+                                    }
+                                }
+                            } else {
+                                // 比如 /usr/bin/apt admin/apt
+                                let pkg = pkg_group.split('/').nth(1);
+                                if let Some(pkg) = pkg {
+                                    let s = format!("{}: {}", pkg, file.unwrap());
+                                    if !res.contains(&s) {
+                                        res.push(s);
+                                    }
+                                }
                             }
                         }
                     }
