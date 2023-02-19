@@ -2,7 +2,6 @@ use anyhow::{bail, Context, Result};
 use apt_sources_lists::SourceEntry;
 use console::{style, Color};
 use debarchive::Archive;
-use glob_match::glob_match_with_captures;
 use indicatif::HumanBytes;
 use reqwest::Client;
 use rust_apt::{
@@ -28,12 +27,11 @@ use std::{
 use crate::{
     contents::find,
     db::{get_sources, packages_download, update_db, APT_LIST_DISTS},
-    error,
     formatter::NoProgress,
     info,
     pager::Pager,
     search::{search_pkgs, show_pkgs},
-    success, warn,
+    success,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -97,7 +95,7 @@ impl OmaAction {
         update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(client: &Client, count: usize, packages: &[String]) -> Result<()> {
-            let cache = install_handle(packages, count)?;
+            let cache = install_handle(packages, false)?;
 
             cache.upgrade(&Upgrade::FullUpgrade)?;
 
@@ -170,12 +168,12 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn install(&self, list: &[String]) -> Result<()> {
+    pub async fn install(&self, list: &[String], install_dbg: bool) -> Result<()> {
         is_root()?;
         update_db(&self.sources, &self.client, None).await?;
 
         let mut count = 0;
-        while let Err(e) = self.install_inner(list, count).await {
+        while let Err(e) = self.install_inner(list, count, install_dbg).await {
             // debug!("{e}, retrying ...");
             if count == 3 {
                 return Err(e);
@@ -302,8 +300,8 @@ impl OmaAction {
         Ok(())
     }
 
-    async fn install_inner(&self, list: &[String], count: usize) -> Result<()> {
-        let cache = install_handle(list, count)?;
+    async fn install_inner(&self, list: &[String], count: usize, install_dbg: bool) -> Result<()> {
+        let cache = install_handle(list, install_dbg)?;
 
         let (action, len) = apt_handler(&cache)?;
 
@@ -469,7 +467,7 @@ fn apt_install(cache: Cache) -> Result<()> {
     Ok(())
 }
 
-fn install_handle(list: &[String], count: usize) -> Result<Cache> {
+fn install_handle(list: &[String], install_dbg: bool) -> Result<Cache> {
     // Get local packages
     let local_debs = list
         .iter()
@@ -489,101 +487,15 @@ fn install_handle(list: &[String], count: usize) -> Result<Cache> {
         );
     }
 
+    let another = list.iter().filter(|x| !local_debs.contains(x));
     let cache = new_cache!(&local_debs)?;
+    let mut pkgs = vec![];
 
-    for i in list {
-        if i.contains('=') {
-            // Support apt install fish=3.6.0
-
-            let mut split_arg = i.split('=');
-            let name = split_arg.next().context(format!("Not Support: {i}"))?;
-            let version_str = split_arg.next().context(format!("Not Support: {i}"))?;
-
-            let pkg = cache
-                .get(name)
-                .take()
-                .context(format!("Can not get package: {i}"))?;
-
-            let version = pkg
-                .get_version(version_str)
-                .context(format!("Can not get package {name} version: {version_str}"))?;
-
-            version.set_candidate();
-
-            pkg.mark_install(true, true);
-
-            if version.is_installed() {
-                warn!("{} {} is installed!", pkg.name(), version.version());
-            }
-
-            pkg.protect();
-        } else if i.contains('/') && !i.ends_with(".deb") {
-            // Support apt install fish/stable
-            let mut split_arg = i.split('/');
-            let name = split_arg.next().context(format!("Not Support: {i}"))?;
-            let branch = split_arg.next().context(format!("Not Support: {i}"))?;
-
-            let pkg = cache
-                .get(name)
-                .take()
-                .context(format!("Can not get package: {i}"))?;
-
-            let mut sort = vec![];
-
-            for i in pkg.versions() {
-                let item = i
-                    .get_record(RecordField::Filename)
-                    .context(format!("Can not get package {name} filename!"))?;
-
-                if item.split('/').nth(1) == Some(branch) {
-                    sort.push(i)
-                }
-            }
-
-            if sort.is_empty() {
-                bail!("Can not get package {} with {} branch.", name, branch);
-            }
-
-            sort.sort_by(|x, y| rust_apt::util::cmp_versions(x.version(), y.version()));
-
-            let version = sort.last().unwrap();
-
-            version.set_candidate();
-
-            pkg.mark_install(true, true);
-
-            if version.is_installed() {
-                info!("{} {} is installed!", pkg.name(), version.version());
-            }
-
-            pkg.protect();
-        } else if !i.ends_with(".deb") {
-            let sort = PackageSort::default();
-            let res = cache
-                .packages(&sort)
-                .filter(|x| glob_match_with_captures(i, x.name()).is_some());
-
-            for pkg in res {
-                pkg.mark_install(true, true);
-
-                if pkg.is_installed() {
-                    info!(
-                        "{} {} is installed!",
-                        pkg.name(),
-                        pkg.candidate().context("Can not get candidate!")?.version()
-                    );
-                }
-
-                pkg.protect();
-            }
-        } else {
-            continue;
-        }
+    for i in another {
+        pkgs.extend(show_pkgs(&cache, i)?);
     }
 
-    // install local package
-    let mut has_failed = false;
-
+    // install local packages
     for pkg in local {
         let pkg = cache.get(&pkg).unwrap();
         let ver = pkg
@@ -596,21 +508,31 @@ fn install_handle(list: &[String], count: usize) -> Result<Cache> {
         pkg.protect();
 
         if pkg.is_installed() {
-            info!("{} {} is installed!", pkg.name(), ver.version());
+            info!("{} {} is already installed!", pkg.name(), ver.version());
         } else if !pkg.marked_install() {
-            has_failed = true;
-            if count == 0 {
-                // 似乎本地安装的包没有办法交给 resolver 返回错误，所以只能在这里返回错误
-                error!(
-                    "{} can't marked installed! maybe dependency issue?",
-                    ver.uris().next().unwrap_or(pkg.name().to_string()),
-                );
-            }
+            // 似乎本地安装的包没有办法交给 resolver 返回错误，所以只能在这里返回错误
+            bail!(
+                "{} can't marked installed! maybe dependency issue?",
+                ver.uris().next().unwrap_or(pkg.name().to_string()),
+            );
         }
     }
 
-    if has_failed {
-        bail!("local install has error!")
+    // install another package
+    for pkginfo in pkgs {
+        let pkg = cache.get(&pkginfo.package).unwrap();
+        let version = pkginfo.version;
+        let ver = pkg.get_version(&version).unwrap();
+
+        if pkg.installed().as_ref() == Some(&ver) {
+            info!("{} {version} is already installed", pkg.name());
+            continue;
+        }
+
+        ver.set_candidate();
+
+        pkg.mark_install(true, true);
+        pkg.protect();
     }
 
     Ok(cache)

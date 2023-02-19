@@ -73,6 +73,8 @@ struct Download {
 #[derive(Parser, Debug)]
 struct Install {
     packages: Vec<String>,
+    #[arg(long, alias = "dbg")]
+    install_dbg: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -126,7 +128,12 @@ async fn try_main() -> Result<()> {
     let args = Args::parse();
 
     match args.subcommand {
-        OmaCommand::Install(v) => OmaAction::new().await?.install(&v.packages).await,
+        OmaCommand::Install(v) => {
+            OmaAction::new()
+                .await?
+                .install(&v.packages, v.install_dbg)
+                .await
+        }
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
         OmaCommand::Remove(v) => OmaAction::new().await?.remove(&v.packages, true),
         OmaCommand::Upgrade(v) => OmaAction::new().await?.update(&v.packages).await,

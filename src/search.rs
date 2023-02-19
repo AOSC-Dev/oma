@@ -24,7 +24,7 @@ pub struct OmaPkg {
 }
 
 impl OmaPkg {
-    fn new(name: &str, version: &Version, has_dbg: bool) -> Self {
+    pub fn new(cache: &Cache, name: &str, version: &Version) -> Self {
         let section = version.section().ok().map(|x| x.to_owned());
 
         let maintainer = version
@@ -38,6 +38,16 @@ impl OmaPkg {
         let description = version.description();
         let dep_map = dep_to_str_map(version.depends_map());
 
+        let has_dbg = if let Some(pkg) = cache.get(&format!("{name}-dbg")) {
+            if pkg.get_version(version.version()).is_some() {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         Self {
             package: name.to_owned(),
             version: version.version().to_owned(),
@@ -50,6 +60,7 @@ impl OmaPkg {
             apt_sources,
             description,
             has_dbg,
+            
         }
     }
 }
@@ -90,9 +101,7 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
             .context(format!("Can not get package {name} version: {version_str}"))?;
 
         let name = pkg.name();
-
-        let has_dbg = has_dbg(cache, name, version.version());
-        let oma_pkg = OmaPkg::new(name, &version, has_dbg);
+        let oma_pkg = OmaPkg::new(cache, name, &version);
 
         res.push(oma_pkg);
     } else if input.ends_with(".deb") {
@@ -127,8 +136,7 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
 
         let version = sort.last().unwrap();
         let name = pkg.name();
-        let has_dbg = has_dbg(cache, name, version.version());
-        let oma_pkg = OmaPkg::new(name, version, has_dbg);
+        let oma_pkg = OmaPkg::new(cache, name, version);
 
         res.push(oma_pkg);
     } else {
@@ -143,28 +151,12 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
                 .candidate()
                 .context(format!("Can not get candidate from package {}", pkg.name()))?;
 
-            let has_dbg = has_dbg(cache, name, version.version());
-
-            let oma_pkg = OmaPkg::new(name, &version, has_dbg);
+            let oma_pkg = OmaPkg::new(cache, name, &version);
             res.push(oma_pkg);
         }
     }
 
     Ok(res)
-}
-
-fn has_dbg(cache: &Cache, name: &str, version: &str) -> bool {
-    let has_dbg = if let Some(pkg) = cache.get(&format!("{name}-dbg")) {
-        if pkg.get_version(version).is_some() {
-            true
-        } else {
-            false
-        }
-    } else {
-        false
-    };
-
-    has_dbg
 }
 
 fn dep_map_str(deps: &[Dependency]) -> String {
@@ -208,8 +200,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     for pkg in packages {
         let cand = pkg.candidate().unwrap();
         if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
-            let dbg = has_dbg(cache, pkg.name(), cand.version());
-            let oma_pkg = OmaPkg::new(pkg.name(), &cand, dbg);
+            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand);
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -220,8 +211,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             && !res.contains_key(pkg.name())
             && !pkg.name().contains("-dbg")
         {
-            let dbg = has_dbg(cache, pkg.name(), cand.version());
-            let oma_pkg = OmaPkg::new(pkg.name(), &cand, dbg);
+            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand, );
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -232,8 +222,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             if !providers.is_empty() {
                 for provider in providers {
                     if provider.name() == input {
-                        let has_dbg = has_dbg(cache, provider.name(), cand.version());
-                        let oma_pkg = OmaPkg::new(provider.name(), &cand, has_dbg);
+                        let oma_pkg = OmaPkg::new(cache, provider.name(), &cand);
                         res.insert(
                             pkg.name().to_string(),
                             (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
