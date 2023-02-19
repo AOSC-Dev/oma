@@ -24,7 +24,7 @@ pub struct Writer {
 impl Writer {
     pub fn new() -> Self {
         Writer {
-            term: Term::stdout(),
+            term: Term::stderr(),
         }
     }
 
