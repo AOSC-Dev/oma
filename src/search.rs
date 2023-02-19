@@ -20,10 +20,11 @@ pub struct OmaPkg {
     pub apt_manual_installed: Option<String>,
     pub apt_sources: Option<String>,
     pub description: Option<String>,
+    pub has_dbg: bool,
 }
 
 impl OmaPkg {
-    fn new(name: &str, version: &Version) -> Self {
+    fn new(name: &str, version: &Version, has_dbg: bool) -> Self {
         let section = version.section().ok().map(|x| x.to_owned());
 
         let maintainer = version
@@ -48,6 +49,7 @@ impl OmaPkg {
             apt_manual_installed: None, // TODO
             apt_sources,
             description,
+            has_dbg,
         }
     }
 }
@@ -89,7 +91,9 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
 
         let name = pkg.name();
 
-        let oma_pkg = OmaPkg::new(name, &version);
+        let has_dbg = has_dbg(cache, name, version.version());
+        let oma_pkg = OmaPkg::new(name, &version, has_dbg);
+
         res.push(oma_pkg);
     } else if input.ends_with(".deb") {
         bail!("search_pkg does not support read local deb package");
@@ -123,7 +127,8 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
 
         let version = sort.last().unwrap();
         let name = pkg.name();
-        let oma_pkg = OmaPkg::new(name, version);
+        let has_dbg = has_dbg(cache, name, version.version());
+        let oma_pkg = OmaPkg::new(name, version, has_dbg);
 
         res.push(oma_pkg);
     } else {
@@ -138,12 +143,28 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
                 .candidate()
                 .context(format!("Can not get candidate from package {}", pkg.name()))?;
 
-            let oma_pkg = OmaPkg::new(name, &version);
+            let has_dbg = has_dbg(cache, name, version.version());
+
+            let oma_pkg = OmaPkg::new(name, &version, has_dbg);
             res.push(oma_pkg);
         }
     }
 
     Ok(res)
+}
+
+fn has_dbg(cache: &Cache, name: &str, version: &str) -> bool {
+    let has_dbg = if let Some(pkg) = cache.get(&format!("{name}-dbg")) {
+        if pkg.get_version(version).is_some() {
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    has_dbg
 }
 
 fn dep_map_str(deps: &[Dependency]) -> String {
@@ -187,7 +208,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     for pkg in packages {
         let cand = pkg.candidate().unwrap();
         if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
-            let oma_pkg = OmaPkg::new(pkg.name(), &cand);
+            let dbg = has_dbg(cache, pkg.name(), cand.version());
+            let oma_pkg = OmaPkg::new(pkg.name(), &cand, dbg);
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -198,7 +220,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             && !res.contains_key(pkg.name())
             && !pkg.name().contains("-dbg")
         {
-            let oma_pkg = OmaPkg::new(pkg.name(), &cand);
+            let dbg = has_dbg(cache, pkg.name(), cand.version());
+            let oma_pkg = OmaPkg::new(pkg.name(), &cand, dbg);
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -209,7 +232,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             if !providers.is_empty() {
                 for provider in providers {
                     if provider.name() == input {
-                        let oma_pkg = OmaPkg::new(provider.name(), &provider.version());
+                        let has_dbg = has_dbg(cache, provider.name(), cand.version());
+                        let oma_pkg = OmaPkg::new(provider.name(), &cand, has_dbg);
                         res.insert(
                             pkg.name().to_string(),
                             (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -236,7 +260,18 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         let mut pkg_info_line = style(&pkg.package).bold().to_string();
         pkg_info_line.push(' ');
-        pkg_info_line.push_str(&style(&pkg.version).green().to_string());
+        if upgradable {
+            let p = cache.get(&pkg.package).unwrap();
+            let installed = p.installed().unwrap();
+            let now_version = installed.version();
+            pkg_info_line.push_str(&format!(
+                "{} -> {}",
+                style(now_version).yellow(),
+                style(pkg.version).green()
+            ));
+        } else {
+            pkg_info_line.push_str(&style(&pkg.version).green().to_string());
+        }
 
         if cache.get(&format!("{}-dbg", pkg.package)).is_some() {
             pkg_info_line.push(' ');
