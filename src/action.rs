@@ -111,11 +111,6 @@ impl OmaAction {
             list.extend(action.install.clone());
             list.extend(action.downgrade.clone());
 
-            // autoremove 标记可以删除的包前解析一次依赖，在执行 autoremove 后再解析一次依赖，不知是否必要
-            cache.resolve(true)?;
-            autoremove(&cache);
-            cache.resolve(true)?;
-
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
                 display_result(&action, &cache, disk_size)?;
@@ -124,33 +119,6 @@ impl OmaAction {
             // let db_for_update = newest_package_list(apt_db)?;
 
             packages_download(&list, client, None, None).await?;
-
-            if let Err(e) = cache.resolve(true) {
-                return Err(e.into());
-                // let sort = PackageSort::default();
-                // let mut now_broken = false;
-                // let mut inst_broken = false;
-                // for pkg in cache.packages(&sort) {
-                //     now_broken = pkg.is_now_broken();
-                //     inst_broken = pkg.is_inst_broken();
-
-                //     if !now_broken && !inst_broken {
-                //         continue;
-                //     }
-
-                //     let ver = if now_broken {
-                //         pkg.current_version()
-                //     } else {
-                //         pkg.version_list()
-                //     }
-                //     .context("123")?;
-
-                //     while let Some(i) = ver.depends() {
-                //         dbg!(i.dep_type());
-                //     }
-                // }
-            }
-
             apt_install(cache)?;
 
             Ok(())
@@ -318,55 +286,6 @@ impl OmaAction {
 
         autoremove(&cache);
 
-        if let Err(e) = cache.resolve(true) {
-            if count != 0 {
-                return Err(e.into());
-            }
-
-            // let sort = PackageSort::default().installed();
-            // let now = false;
-            // for pkg in cache.packages(&sort) {
-            //     let now_broken = pkg.is_now_broken();
-            //     let inst_broken = pkg.is_inst_broken();
-
-            //     if !now_broken && !inst_broken {
-            //         continue;
-            //     }
-
-            //     // let ver = if now_broken {
-            //     //     pkg.installed()
-            //     // } else {
-            //     //     pkg.ins
-            //     // }
-            //     // .context("context")?;
-
-            //     // dbg!(pkg.name());
-            //     // dbg!(now_broken, ins)
-
-            //     // for i in ver.dependencies().unwrap() {
-            //     //     for j in &i.base_deps {
-            //     //         if j.target_pkg().is_essential() {
-            //     //             continue;
-            //     //         }
-
-            //     //         dbg!(cache.depcache().is_inst_broken(&j.target_pkg()));
-
-            //     //         // if now && !cache.depcache().is_now_broken(&j.target_pkg()) {
-            //     //         //     continue;
-            //     //         // }
-
-            //     //         // if !now && !cache.depcache().is_inst_broken(&j.target_pkg()) {
-            //     //         //     continue;
-            //     //         // }
-
-            //     //         dbg!(j.target_pkg().name());
-            //     //     }
-            //     // }
-
-            //     return Err(e.into());
-            // }
-        }
-
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
             display_result(&action, &cache, disk_size)?;
@@ -406,7 +325,6 @@ impl OmaAction {
             pkg.protect();
         }
 
-        cache.resolve(true)?;
         autoremove(&cache);
         cache.resolve(true)?;
 
@@ -433,6 +351,8 @@ impl OmaAction {
     }
 
     pub async fn pick(&self, pkg: &str) -> Result<()> {
+        is_root()?;
+
         let cache = new_cache!()?;
         let pkg = cache
             .get(pkg)
@@ -478,6 +398,13 @@ impl OmaAction {
 
         display_result(&action, &cache, disk_size)?;
 
+        let mut list = vec![];
+        list.extend(action.install.clone());
+        list.extend(action.update.clone());
+        list.extend(action.downgrade.clone());
+
+        packages_download(&list, &self.client, None, None).await?;
+
         apt_install(cache)?;
 
         Ok(())
@@ -504,6 +431,9 @@ fn autoremove(cache: &Cache) {
 }
 
 fn apt_install(cache: Cache) -> Result<()> {
+    autoremove(&cache);
+    cache.resolve(true)?;
+
     apt_lock()?;
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
