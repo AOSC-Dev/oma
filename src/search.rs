@@ -60,7 +60,6 @@ impl OmaPkg {
             apt_sources,
             description,
             has_dbg,
-            
         }
     }
 }
@@ -211,7 +210,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             && !res.contains_key(pkg.name())
             && !pkg.name().contains("-dbg")
         {
-            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand, );
+            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand);
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -247,7 +246,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             style("AVAIL").dim().to_string()
         };
 
-        let mut pkg_info_line = style(&pkg.package).bold().to_string();
+        let mut pkg_info_line = if pkg.section == Some("Bases".to_owned()) {
+            style(&pkg.package).bold().blue().to_string()
+        } else {
+            style(&pkg.package).bold().to_string()
+        };
+
         pkg_info_line.push(' ');
         if upgradable {
             let p = cache.get(&pkg.package).unwrap();
