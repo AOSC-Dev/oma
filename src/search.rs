@@ -39,11 +39,7 @@ impl OmaPkg {
         let dep_map = dep_to_str_map(version.depends_map());
 
         let has_dbg = if let Some(pkg) = cache.get(&format!("{name}-dbg")) {
-            if pkg.get_version(version.version()).is_some() {
-                true
-            } else {
-                false
-            }
+            pkg.get_version(version.version()).is_some()
         } else {
             false
         };
@@ -253,6 +249,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         };
 
         pkg_info_line.push(' ');
+
         if upgradable {
             let p = cache.get(&pkg.package).unwrap();
             let installed = p.installed().unwrap();
@@ -266,7 +263,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             pkg_info_line.push_str(&style(&pkg.version).green().to_string());
         }
 
-        if cache.get(&format!("{}-dbg", pkg.package)).is_some() {
+        if pkg.has_dbg {
             pkg_info_line.push(' ');
             pkg_info_line.push_str(&style("(debug symbols available)").dim().to_string());
         }

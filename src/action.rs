@@ -558,7 +558,7 @@ impl Action {
 
 fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
     cache.resolve(true)?;
-    autoremove(&cache);
+    autoremove(cache);
     cache.resolve(true)?;
 
     let changes = cache.get_changes(true).collect::<Vec<_>>();

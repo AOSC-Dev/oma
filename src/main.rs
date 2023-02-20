@@ -119,7 +119,7 @@ struct Search {
 
 #[tokio::main]
 async fn main() {
-    ctrlc::set_handler(|| single_handler()).expect(
+    ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
 

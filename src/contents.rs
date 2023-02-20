@@ -125,14 +125,14 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                             // 比如 / admin/apt-file,admin/api,...
                             if !split_group.is_empty() {
                                 for i in split_group {
-                                    if is_list && i.split('/').nth(1) == Some(&kw) {
+                                    if is_list && i.split('/').nth(1) == Some(kw) {
                                         let file = file_handle(file.unwrap());
-                                        let s = format!("{}: {}", kw, file);
+                                        let s = format!("{kw}: {file}");
                                         if !res.contains(&s) {
                                             res.push(s);
                                         }
                                     } else if !is_list
-                                        && i.contains(&kw)
+                                        && i.contains(kw)
                                         && i.split('/').nth(1).is_some()
                                     {
                                         let file = file_handle(file.unwrap());
@@ -148,7 +148,7 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                                 let pkg = pkg_group.split('/').nth(1);
                                 if let Some(pkg) = pkg {
                                     let file = file_handle(file.unwrap());
-                                    let s = format!("{}: {}", pkg, file);
+                                    let s = format!("{pkg}: {file}");
                                     if !res.contains(&s) {
                                         res.push(s);
                                     }
@@ -212,9 +212,9 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
 
 fn file_handle(s: &str) -> String {
     let s = if s.starts_with("./") {
-        s.strip_prefix(".").unwrap().to_string()
-    } else if !s.starts_with("./") && !s.starts_with("/") {
-        "/".to_owned() + &s
+        s.strip_prefix('.').unwrap().to_string()
+    } else if !s.starts_with("./") && !s.starts_with('/') {
+        "/".to_owned() + s
     } else {
         s.to_owned()
     };
