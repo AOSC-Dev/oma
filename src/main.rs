@@ -134,7 +134,7 @@ async fn main() {
 async fn try_main() -> Result<()> {
     let args = Args::parse();
 
-    match args.subcommand {
+    if let Err(e) = match args.subcommand {
         OmaCommand::Install(v) => {
             OmaAction::new()
                 .await?
@@ -156,7 +156,12 @@ async fn try_main() -> Result<()> {
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
         OmaCommand::Pick(v) => OmaAction::new().await?.pick(&v.package).await,
-    }?;
+    } {
+        error!("{e}");
+        unlock_oma()?;
+
+        exit(1);
+    };
 
     unlock_oma()?;
 
