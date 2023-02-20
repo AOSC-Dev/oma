@@ -111,12 +111,13 @@ impl OmaAction {
             list.extend(action.install.clone());
             list.extend(action.downgrade.clone());
 
+            autoremove(&cache);
+            cache.resolve(true)?;
+
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
                 display_result(&action, &cache, disk_size)?;
             }
-
-            // let db_for_update = newest_package_list(apt_db)?;
 
             packages_download(&list, client, None, None).await?;
             apt_install(cache)?;
@@ -219,7 +220,6 @@ impl OmaAction {
         is_root()?;
 
         let cache = new_cache!()?;
-        cache.resolve(true)?;
 
         let (action, _) = apt_handler(&cache)?;
         let disk_size = cache.depcache().disk_size();
@@ -284,8 +284,6 @@ impl OmaAction {
         list.extend(action.update.clone());
         list.extend(action.downgrade.clone());
 
-        autoremove(&cache);
-
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
             display_result(&action, &cache, disk_size)?;
@@ -324,9 +322,6 @@ impl OmaAction {
             pkg.mark_delete(is_purge);
             pkg.protect();
         }
-
-        autoremove(&cache);
-        cache.resolve(true)?;
 
         let (action, len) = apt_handler(&cache)?;
 
@@ -431,9 +426,6 @@ fn autoremove(cache: &Cache) {
 }
 
 fn apt_install(cache: Cache) -> Result<()> {
-    autoremove(&cache);
-    cache.resolve(true)?;
-
     apt_lock()?;
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
@@ -537,6 +529,9 @@ fn install_handle(list: &[String], install_dbg: bool) -> Result<Cache> {
         }
     }
 
+    autoremove(&cache);
+    cache.resolve(true)?;
+
     Ok(cache)
 }
 
@@ -568,6 +563,9 @@ impl Action {
 }
 
 fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
+    autoremove(&cache);
+    cache.resolve(true)?;
+
     let changes = cache.get_changes(true).collect::<Vec<_>>();
     let len = changes.len();
 
