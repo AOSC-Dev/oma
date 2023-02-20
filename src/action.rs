@@ -489,8 +489,7 @@ fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
     let cmd = Command::new("dpkg")
         .arg("--set-selections")
         .stdin(Stdio::piped())
-        .spawn()
-        .context("qwq")?;
+        .spawn()?;
 
     let user_action = if user_action == "unhold" {
         "install"
