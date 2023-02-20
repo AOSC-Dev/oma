@@ -111,9 +111,6 @@ impl OmaAction {
             list.extend(action.install.clone());
             list.extend(action.downgrade.clone());
 
-            autoremove(&cache);
-            cache.resolve(true)?;
-
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
                 display_result(&action, &cache, disk_size)?;
@@ -528,9 +525,6 @@ fn install_handle(list: &[String], install_dbg: bool) -> Result<Cache> {
             warn!("{} has no debug symbol package!", pkg.name());
         }
     }
-
-    autoremove(&cache);
-    cache.resolve(true)?;
 
     Ok(cache)
 }
