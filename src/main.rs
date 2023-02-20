@@ -60,6 +60,8 @@ enum OmaCommand {
     Provides(Provides),
     /// Fix system dependencies broken status
     FixBroken(FixBroken),
+    /// Pick a package version
+    Pick(Pick),
 }
 
 #[derive(Parser, Debug)]
@@ -87,6 +89,11 @@ struct Refresh {}
 
 #[derive(Parser, Debug)]
 struct ListFiles {
+    package: String,
+}
+
+#[derive(Parser, Debug)]
+struct Pick {
     package: String,
 }
 
@@ -148,6 +155,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
+        OmaCommand::Pick(v) => OmaAction::new().await?.pick(&v.package).await,
     }?;
 
     unlock_oma()?;

@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use apt_sources_lists::SourceEntry;
 use console::{style, Color};
 use debarchive::Archive;
+use dialoguer::{theme::ColorfulTheme, Select};
 use indicatif::HumanBytes;
 use reqwest::Client;
 use rust_apt::{
@@ -429,6 +430,57 @@ impl OmaAction {
 
     pub async fn refresh(&self) -> Result<()> {
         update_db(&self.sources, &self.client, None).await
+    }
+
+    pub async fn pick(&self, pkg: &str) -> Result<()> {
+        let cache = new_cache!()?;
+        let pkg = cache
+            .get(pkg)
+            .context(format!("Can not get package: {pkg}"))?;
+
+        let versions = pkg
+            .versions()
+            .map(|x| x.version().to_string())
+            .collect::<Vec<_>>();
+
+        let installed = pkg.installed();
+
+        let theme = ColorfulTheme::default();
+        let mut dialoguer = Select::with_theme(&theme);
+
+        dialoguer.items(&versions);
+        dialoguer.with_prompt(format!("Select {} version:", pkg.name()));
+
+        if let Some(installed) = installed {
+            let pos = versions.iter().position(|x| x == installed.version());
+            if let Some(pos) = pos {
+                dialoguer.default(pos);
+            }
+        }
+
+        let index = dialoguer.interact()?;
+
+        let version = &versions[index];
+        let version = pkg.get_version(version).unwrap();
+
+        if pkg.installed().as_ref() == Some(&version) {
+            success!("No need to do anything.");
+            return Ok(());
+        }
+
+        version.set_candidate();
+
+        pkg.mark_install(true, true);
+        pkg.protect();
+
+        let (action, _) = apt_handler(&cache)?;
+        let disk_size = cache.depcache().disk_size();
+
+        display_result(&action, &cache, disk_size)?;
+
+        apt_install(cache)?;
+
+        Ok(())
     }
 }
 
