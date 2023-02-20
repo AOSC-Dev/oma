@@ -62,6 +62,8 @@ enum OmaCommand {
     FixBroken(FixBroken),
     /// Pick a package version
     Pick(Pick),
+    /// Mark a package status
+    Mark(Mark),
 }
 
 #[derive(Parser, Debug)]
@@ -117,6 +119,12 @@ struct Search {
     keyword: String,
 }
 
+#[derive(Parser, Debug)]
+struct Mark {
+    action: String,
+    pkg: String,
+}
+
 #[tokio::main]
 async fn main() {
     ctrlc::set_handler(single_handler).expect(
@@ -159,6 +167,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
         OmaCommand::Pick(v) => OmaAction::new().await?.pick(&v.package).await,
+        OmaCommand::Mark(v) => OmaAction::mark(&v.pkg, &v.action),
     }?;
 
     Ok(())

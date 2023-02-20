@@ -21,6 +21,7 @@ use tabled::{
 use std::{
     io::{Read, Write},
     path::Path,
+    process::{Command, Stdio},
     str::FromStr,
     sync::atomic::Ordering,
 };
@@ -401,6 +402,136 @@ impl OmaAction {
 
         Ok(())
     }
+
+    pub fn mark(pkg: &str, user_action: &str) -> Result<()> {
+        let cache = new_cache!()?;
+
+        let package = cache.get(pkg);
+
+        if package.is_none() {
+            bail!("Can not get package {pkg}")
+        }
+
+        let package = package.unwrap();
+
+        package
+            .installed()
+            .context(format!("{pkg} is not installed!"))?;
+
+        match user_action {
+            "hold" => {
+                let selections = dpkg_selections()?;
+
+                let v = selections
+                    .iter()
+                    .find(|x| x.0 == pkg)
+                    .context("dpkg data is broken!")?;
+
+                if v.1 == "hold" {
+                    info!("{pkg} is already hold!");
+                    return Ok(());
+                }
+
+                dpkg_set_selections(pkg, user_action)?;
+                success!("{pkg} is set to hold.");
+
+                return Ok(());
+            }
+            "unhold" => {
+                let selections = dpkg_selections()?;
+
+                let v = selections
+                    .iter()
+                    .find(|x| x.0 == pkg)
+                    .context("dpkg data is broken!")?;
+
+                if v.1 == "install" {
+                    info!("{pkg} is already unhold!");
+                    return Ok(());
+                }
+
+                dpkg_set_selections(pkg, user_action)?;
+                success!("{pkg} is set to unhold.");
+
+                return Ok(());
+            }
+            "manual" => {
+                if !package.is_auto_installed() {
+                    info!("{pkg} is already manual installed status.");
+                    return Ok(())
+                }
+                info!("Setting {pkg} to manual installed status ...");
+                package.mark_auto(false);
+            }
+            "auto" => {
+                if package.is_auto_installed() {
+                    info!("{pkg} is already auto installed status.");
+                    return Ok(())
+                }
+                info!("Setting {pkg} to auto installed status ...");
+                package.mark_auto(true);
+            }
+            _ => {
+                bail!("Unsupport action: {user_action}");
+            }
+        }
+
+        cache.commit(
+            &mut NoProgress::new_box(),
+            &mut AptInstallProgress::new_box(),
+        )?;
+
+        Ok(())
+    }
+}
+
+fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
+    let cmd = Command::new("dpkg")
+        .arg("--set-selections")
+        .stdin(Stdio::piped())
+        .spawn()
+        .context("qwq")?;
+
+    let user_action = if user_action == "unhold" {
+        "install"
+    } else {
+        user_action
+    };
+
+    cmd.stdin
+        .unwrap()
+        .write_all(format!("{pkg} {user_action}").as_bytes())?;
+
+    Ok(())
+}
+
+fn dpkg_selections() -> Result<Vec<(String, String)>> {
+    let mut cmd = Command::new("dpkg");
+
+    cmd.arg("--get-selections");
+    let output = cmd.output()?;
+
+    if !output.status.success() {
+        bail!(
+            "dpkg --get-selections return non-zero code.\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        )
+    }
+
+    let mut seclections = std::str::from_utf8(&output.stdout)?.split('\n');
+    seclections.nth_back(0);
+
+    let mut list = vec![];
+
+    for i in seclections {
+        let mut split = i.split_whitespace();
+        let name = split.next().context("line is broken: {i}")?;
+        let status = split.next().context("line is broken: {i}")?;
+
+        list.push((name.to_string(), status.to_string()));
+    }
+
+    Ok(list)
 }
 
 fn is_root() -> Result<()> {
