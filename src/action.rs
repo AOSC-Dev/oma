@@ -289,7 +289,7 @@ impl OmaAction {
 
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
-            // size_checker(&disk_size, download_size(&list, &cache)?)?;
+            size_checker(&disk_size, download_size(&list, &cache)?)?;
             display_result(&action, &cache, disk_size)?;
         }
 
