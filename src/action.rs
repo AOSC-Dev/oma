@@ -33,7 +33,9 @@ use crate::{
     info,
     pager::Pager,
     search::{search_pkgs, show_pkgs},
-    success, warn,
+    success,
+    utils::size_checker,
+    warn,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -114,6 +116,7 @@ impl OmaAction {
 
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
+                size_checker(&disk_size, download_size(&list, &cache)?)?;
                 display_result(&action, &cache, disk_size)?;
             }
 
@@ -220,13 +223,15 @@ impl OmaAction {
         let cache = new_cache!()?;
 
         let (action, _) = apt_handler(&cache)?;
-        let disk_size = cache.depcache().disk_size();
 
         let mut list = action.install.clone();
         list.extend(action.update.clone());
         list.extend(action.downgrade.clone());
 
-        display_result(&action, &cache, disk_size)?;
+        let install_size = cache.depcache().disk_size();
+        size_checker(&install_size, download_size(&list, &cache)?)?;
+
+        display_result(&action, &cache, install_size)?;
         packages_download(&list, &self.client, None, None).await?;
 
         cache.commit(
@@ -284,6 +289,7 @@ impl OmaAction {
 
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
+            size_checker(&disk_size, download_size(&list, &cache)?)?;
             display_result(&action, &cache, disk_size)?;
         }
 
@@ -373,12 +379,13 @@ impl OmaAction {
         let (action, _) = apt_handler(&cache)?;
         let disk_size = cache.depcache().disk_size();
 
-        display_result(&action, &cache, disk_size)?;
-
         let mut list = vec![];
         list.extend(action.install.clone());
         list.extend(action.update.clone());
         list.extend(action.downgrade.clone());
+
+        size_checker(&disk_size, download_size(&list, &cache)?)?;
+        display_result(&action, &cache, disk_size)?;
 
         packages_download(&list, &self.client, None, None).await?;
 
@@ -734,7 +741,7 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
 
             let size = new_size - old_size;
 
-            let size = if size >= 0 {
+            let human_size = if size >= 0 {
                 format!("+{}", HumanBytes(size as u64))
             } else {
                 format!("-{}", HumanBytes(size.unsigned_abs()))
@@ -745,7 +752,7 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
                 name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
                 new_version: version.to_string(),
-                size,
+                size: human_size,
                 pkg_urls: cand.uris().collect(),
                 checksum: cand.get_record(RecordField::SHA256),
                 pure_download_size: cand.size(),
@@ -803,7 +810,7 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
             let new_size = new_pkg.installed_size() as i64;
             let size = new_size - old_size;
 
-            let size = if size >= 0 {
+            let human_size = if size >= 0 {
                 format!("+{}", HumanBytes(size as u64))
             } else {
                 format!("-{}", HumanBytes(size.unsigned_abs()))
@@ -814,7 +821,7 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
                 name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
                 new_version: version.to_string(),
-                size,
+                size: human_size,
                 pkg_urls: cand.uris().collect(),
                 checksum: cand.get_record(RecordField::SHA256),
                 pure_download_size: cand.size(),
