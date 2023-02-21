@@ -10,7 +10,7 @@ use rust_apt::{
     new_cache,
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
-    util::{apt_lock, apt_unlock, apt_unlock_inner, unit_str, DiskSpace, NumSys},
+    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace},
 };
 use sysinfo::{Pid, System, SystemExt};
 use tabled::{
@@ -291,22 +291,6 @@ impl OmaAction {
         packages_download(&list, &self.client, None, None).await?;
         apt_install(cache)?;
 
-        // let cache = install_handle_with_local(&local_debs)?;
-
-        // let (action, len) = apt_handler(&cache)?;
-
-        // if len == 0 {
-        //     success!("No need to do anything.");
-        //     return Ok(());
-        // }
-
-        // if count == 0 && !local_debs.is_empty() {
-        //     let disk_size = cache.depcache().disk_size();
-        //     display_result(&action, &cache, disk_size)?;
-        // }
-
-        // apt_install(cache)?;
-
         Ok(())
     }
 
@@ -458,7 +442,7 @@ impl OmaAction {
             "manual" => {
                 if !package.is_auto_installed() {
                     info!("{pkg} is already manual installed status.");
-                    return Ok(())
+                    return Ok(());
                 }
                 info!("Setting {pkg} to manual installed status ...");
                 package.mark_auto(false);
@@ -466,7 +450,7 @@ impl OmaAction {
             "auto" => {
                 if package.is_auto_installed() {
                     info!("{pkg} is already auto installed status.");
-                    return Ok(())
+                    return Ok(());
                 }
                 info!("Setting {pkg} to auto installed status ...");
                 package.mark_auto(true);
@@ -708,7 +692,7 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
             ))?;
 
             let size = cand.installed_size();
-            let human_size = format!("+{}", unit_str(size, NumSys::Decimal));
+            let human_size = format!("+{}", HumanBytes(size));
 
             install.push(InstallRow {
                 name: style(pkg.name()).green().to_string(),
@@ -751,9 +735,9 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
             let size = new_size - old_size;
 
             let size = if size >= 0 {
-                format!("+{}", unit_str(size as u64, NumSys::Decimal))
+                format!("+{}", HumanBytes(size as u64))
             } else {
-                format!("-{}", unit_str(size.unsigned_abs(), NumSys::Decimal))
+                format!("-{}", HumanBytes(size.unsigned_abs()))
             };
 
             update.push(InstallRow {
@@ -781,7 +765,7 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
             let remove_row = RemoveRow {
                 name: style(name).red().bold().to_string(),
                 _name_no_color: name.to_owned(),
-                size: unit_str(size, NumSys::Decimal),
+                size: HumanBytes(size).to_string(),
                 detail: if is_purge {
                     style("Purge configuration files.").red().to_string()
                 } else {
@@ -816,14 +800,13 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
                 pkg.name()
             ))?;
 
-            let new_size = new_pkg.size() as i64;
-
+            let new_size = new_pkg.installed_size() as i64;
             let size = new_size - old_size;
 
             let size = if size >= 0 {
-                format!("+{}", unit_str(size as u64, NumSys::Decimal))
+                format!("+{}", HumanBytes(size as u64))
             } else {
-                format!("-{}", unit_str(size.unsigned_abs(), NumSys::Decimal))
+                format!("-{}", HumanBytes(size.unsigned_abs()))
             };
 
             downgrade.push(InstallRow {
