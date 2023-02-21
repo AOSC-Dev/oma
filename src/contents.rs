@@ -193,16 +193,16 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
                     let s = format!("{kw}: {file}");
 
                     return Some((pkg.to_string(), s));
-                } else if !is_list && i.contains(kw) && i.split('/').nth(1).is_some() {
+                } else if !is_list && i.contains(kw) && i.split('/').nth_back(0).is_some() {
                     let file = file_handle(file.unwrap());
-                    let pkg = i.split('/').nth(1).unwrap();
+                    let pkg = i.split('/').nth_back(0).unwrap();
                     let s = format!("{}: {}", pkg, file);
                     return Some((pkg.to_string(), s));
                 }
             }
         } else {
             // 比如 /usr/bin/apt admin/apt
-            let pkg = pkg_group.split('/').nth(1);
+            let pkg = pkg_group.split('/').nth_back(0);
             if let Some(pkg) = pkg {
                 let file = file_handle(file.unwrap());
                 let s = format!("{pkg}: {file}");
