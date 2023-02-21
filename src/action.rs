@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::SourceEntry;
 use console::{style, Color};
 use debarchive::Archive;
@@ -115,7 +115,9 @@ impl OmaAction {
         ) -> InstallResult<()> {
             let cache = install_handle(packages, false)?;
 
-            cache.upgrade(&Upgrade::FullUpgrade)?;
+            cache
+                .upgrade(&Upgrade::FullUpgrade)
+                .map_err(|e| anyhow!("{e}"))?;
 
             let (action, len) = apt_handler(&cache)?;
 
@@ -296,7 +298,12 @@ impl OmaAction {
         Ok(())
     }
 
-    async fn install_inner(&self, list: &[String], count: usize, install_dbg: bool) -> InstallResult<()> {
+    async fn install_inner(
+        &self,
+        list: &[String],
+        count: usize,
+        install_dbg: bool,
+    ) -> InstallResult<()> {
         let cache = install_handle(list, install_dbg)?;
 
         let (action, len) = apt_handler(&cache)?;
