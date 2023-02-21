@@ -1545,6 +1545,7 @@ dependencies = [
  "strsim",
  "sysinfo",
  "tabled",
+ "thiserror",
  "tokio",
  "which",
  "xz2",

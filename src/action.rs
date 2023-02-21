@@ -10,7 +10,7 @@ use rust_apt::{
     new_cache,
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
-    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace},
+    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
 };
 use sysinfo::{Pid, System, SystemExt};
 use tabled::{
@@ -78,6 +78,16 @@ pub struct OmaAction {
     client: Client,
 }
 
+#[derive(thiserror::Error, Debug)]
+enum InstallError {
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
+    #[error(transparent)]
+    RustApt(#[from] rust_apt::util::Exception),
+}
+
+type InstallResult<T> = std::result::Result<T, InstallError>;
+
 impl OmaAction {
     pub async fn new() -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
@@ -98,7 +108,11 @@ impl OmaAction {
 
         update_db(&self.sources, &self.client, None).await?;
 
-        async fn update_inner(client: &Client, count: usize, packages: &[String]) -> Result<()> {
+        async fn update_inner(
+            client: &Client,
+            count: usize,
+            packages: &[String],
+        ) -> InstallResult<()> {
             let cache = install_handle(packages, false)?;
 
             cache.upgrade(&Upgrade::FullUpgrade)?;
@@ -126,14 +140,18 @@ impl OmaAction {
             Ok(())
         }
 
-        // Retry 3 times
         let mut count = 0;
         while let Err(e) = update_inner(&self.client, count, packages).await {
-            warn!("{e}, retrying ...");
-            if count == 3 {
-                return Err(e);
+            match e {
+                InstallError::Anyhow(e) => return Err(e),
+                InstallError::RustApt(e) => {
+                    // Retry 3 times, if Error is rust_apt return
+                    if count == 3 {
+                        return Err(e.into());
+                    }
+                    count += 1;
+                }
             }
-            count += 1;
         }
 
         Ok(())
@@ -145,9 +163,15 @@ impl OmaAction {
 
         let mut count = 0;
         while let Err(e) = self.install_inner(list, count, install_dbg).await {
-            // debug!("{e}, retrying ...");
-            if count == 3 {
-                return Err(e);
+            match e {
+                InstallError::Anyhow(e) => return Err(e),
+                InstallError::RustApt(e) => {
+                    // Retry 3 times, if Error is rust_apt return
+                    if count == 3 {
+                        return Err(e.into());
+                    }
+                    count += 1;
+                }
             }
 
             count += 1;
@@ -272,7 +296,7 @@ impl OmaAction {
         Ok(())
     }
 
-    async fn install_inner(&self, list: &[String], count: usize, install_dbg: bool) -> Result<()> {
+    async fn install_inner(&self, list: &[String], count: usize, install_dbg: bool) -> InstallResult<()> {
         let cache = install_handle(list, install_dbg)?;
 
         let (action, len) = apt_handler(&cache)?;
@@ -543,7 +567,7 @@ fn autoremove(cache: &Cache) {
     }
 }
 
-fn apt_install(cache: Cache) -> Result<()> {
+fn apt_install(cache: Cache) -> std::result::Result<(), Exception> {
     apt_lock()?;
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
@@ -551,7 +575,7 @@ fn apt_install(cache: Cache) -> Result<()> {
     if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
         apt_lock_inner()?;
         apt_unlock();
-        return Err(e.into());
+        return Err(e);
     }
 
     apt_unlock();
