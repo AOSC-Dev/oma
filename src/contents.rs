@@ -45,7 +45,7 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
     let kw_escape = regex::escape(kw);
 
     let pattern = if is_list {
-        format!(r"^\s*(.*?)\s+((?:\S*[,/])?\{kw_escape}(?:,\S*|))\s*$")
+        format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw_escape}(?:,\S*|))\s*$")
     } else {
         format!(r"^(.*?{kw_escape}(?:.*[^\s])?)\s+(\S+)\s*$")
     };
