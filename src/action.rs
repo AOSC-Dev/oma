@@ -232,7 +232,7 @@ impl OmaAction {
     }
 
     pub fn list_files(kw: &str) -> Result<()> {
-        let res = find(kw, true)?;
+        let res = find(kw, true, false)?;
 
         for (_, line) in res {
             println!("{}", line);
@@ -242,7 +242,7 @@ impl OmaAction {
     }
 
     pub fn search_file(kw: &str) -> Result<()> {
-        let res = find(kw, false)?;
+        let res = find(kw, false, false)?;
 
         for (_, line) in res {
             println!("{}", line);
@@ -516,17 +516,24 @@ impl OmaAction {
 
     pub fn command_not_found(kw: &str) -> Result<()> {
         let cache = new_cache!()?;
-        let f = find(&format!("/bin/{kw}"), false)?;
+        let f = find(&format!("usr/bin/{kw}"), false, true);
 
         let mut res = vec![];
 
-        for (pkg, _) in f {
-            let p = cache.get(&pkg).unwrap();
-            let version = p.candidate().unwrap();
-            let pkginfo = OmaPkg::new(&cache, &pkg, &version);
-            let s = format!("{pkg}: {}", pkginfo.description.unwrap_or("".to_string()));
-            if !res.contains(&s) {
-                res.push(s);
+        if let Ok(f) = f {
+            for (pkg, pkg_str) in f {
+                let p = cache.get(&pkg);
+                if p.is_none() {
+                    continue;
+                }
+                let p = p.unwrap();
+                let version = p.candidate().unwrap();
+                let pkginfo = OmaPkg::new(&cache, &pkg, &version);
+                let pkg_str = pkg_str.replace(": ", " (") + ")";
+                let s = format!("{pkg_str}: {}", pkginfo.description.unwrap_or("".to_string()));
+                if !res.contains(&s) {
+                    res.push(s);
+                }
             }
         }
 
