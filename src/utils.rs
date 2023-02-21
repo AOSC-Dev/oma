@@ -1,6 +1,7 @@
-use anyhow::{bail, Context, Result};
+use std::path::Path;
+
+use anyhow::{bail, Result};
 use rust_apt::util::DiskSpace;
-use sysinfo::{DiskExt, System, SystemExt};
 
 #[cfg(target_arch = "powerpc64")]
 #[inline]
@@ -38,21 +39,13 @@ pub fn get_arch_name() -> Option<&'static str> {
 }
 
 pub fn size_checker(size: &DiskSpace, download_size: u64) -> Result<()> {
-    let s = System::new_all();
-
-    let disk = s
-        .disks()
-        .iter()
-        .find(|x| x.mount_point().to_str() == Some("/"))
-        .context("Can not get current disk!")?;
-
     let size = match size {
         DiskSpace::Require(v) => *v as i64,
         DiskSpace::Free(v) => 0 - *v as i64,
     };
 
+    let avail = fs2::available_space(Path::new("/"))? as i64;
     let need = size + download_size as i64;
-    let avail = disk.available_space() as i64;
 
     if need > avail {
         bail!("Your disk space is too small, need size: {need}, available space: {avail}")

@@ -129,7 +129,7 @@ impl OmaAction {
         // Retry 3 times
         let mut count = 0;
         while let Err(e) = update_inner(&self.client, count, packages).await {
-            // warn!("{e}, retrying ...");
+            warn!("{e}, retrying ...");
             if count == 3 {
                 return Err(e);
             }
@@ -289,7 +289,7 @@ impl OmaAction {
 
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
-            size_checker(&disk_size, download_size(&list, &cache)?)?;
+            // size_checker(&disk_size, download_size(&list, &cache)?)?;
             display_result(&action, &cache, disk_size)?;
         }
 
