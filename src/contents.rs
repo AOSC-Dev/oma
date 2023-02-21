@@ -40,7 +40,7 @@ struct MatchValue {
     text: String,
 }
 
-pub fn find(kw: &str, is_list: bool) -> Result<()> {
+pub fn find(kw: &str, is_list: bool) -> Result<Vec<(String, String)>> {
     let arch = get_arch_name().context("Can not get ARCH!")?;
     let kw_escape = regex::escape(kw);
 
@@ -114,45 +114,9 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                 if let Some(submatches) = submatches {
                     for j in submatches {
                         let m = j.m.text;
-                        let mut split = m.split_whitespace();
-                        let file = split.next();
-                        let pkg_group = split.next();
-
-                        if file.and(pkg_group).is_some() {
-                            let pkg_group = pkg_group.unwrap();
-                            let split_group = pkg_group.split(',').collect::<Vec<_>>();
-
-                            // 比如 / admin/apt-file,admin/apt,...
-                            if split_group.len() != 1 {
-                                for i in split_group {
-                                    if is_list && i.split('/').nth(1) == Some(kw) {
-                                        let file = file_handle(file.unwrap());
-                                        let s = format!("{kw}: {file}");
-                                        if !res.contains(&s) {
-                                            res.push(s);
-                                        }
-                                    } else if !is_list
-                                        && i.contains(kw)
-                                        && i.split('/').nth(1).is_some()
-                                    {
-                                        let file = file_handle(file.unwrap());
-                                        let s =
-                                            format!("{}: {}", i.split('/').nth(1).unwrap(), file);
-                                        if !res.contains(&s) {
-                                            res.push(s);
-                                        }
-                                    }
-                                }
-                            } else {
-                                // 比如 /usr/bin/apt admin/apt
-                                let pkg = pkg_group.split('/').nth(1);
-                                if let Some(pkg) = pkg {
-                                    let file = file_handle(file.unwrap());
-                                    let s = format!("{pkg}: {file}");
-                                    if !res.contains(&s) {
-                                        res.push(s);
-                                    }
-                                }
+                        if let Some(l) = parse_line(&m, is_list, kw) {
+                            if !res.contains(&l) {
+                                res.push(l);
                             }
                         }
                     }
@@ -182,14 +146,10 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                 matcher.clone(),
                 i,
                 UTF8(|_, line| {
-                    let mut split = line.split_whitespace();
-                    let file = split.next();
-                    let package = split.next().and_then(|x| x.split('/').nth(1));
-                    if file.and(package).is_some() {
-                        let file = file_handle(file.unwrap());
-                        let s = format!("{}: {}", package.unwrap(), file);
-                        if !res.contains(&s) {
-                            res.push(s);
+                    let line = parse_line(line, is_list, kw);
+                    if let Some(l) = line {
+                        if !res.contains(&l) {
+                            res.push(l);
                         }
                     }
 
@@ -203,11 +163,46 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
 
     res.sort();
 
-    for i in res {
-        println!("{i}");
+    Ok(res)
+}
+
+fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
+    let mut split = line.split_whitespace();
+    let file = split.next();
+    let pkg_group = split.next();
+
+    if file.and(pkg_group).is_some() {
+        let pkg_group = pkg_group.unwrap();
+        let split_group = pkg_group.split(',').collect::<Vec<_>>();
+
+        // 比如 / admin/apt-file,admin/apt,...
+        if split_group.len() != 1 {
+            for i in split_group {
+                if is_list && i.split('/').nth(1) == Some(kw) {
+                    let file = file_handle(file.unwrap());
+                    let pkg = kw;
+                    let s = format!("{kw}: {file}");
+
+                    return Some((pkg.to_string(), s));
+                } else if !is_list && i.contains(kw) && i.split('/').nth(1).is_some() {
+                    let file = file_handle(file.unwrap());
+                    let pkg = i.split('/').nth(1).unwrap();
+                    let s = format!("{}: {}", pkg, file);
+                    return Some((pkg.to_string(), s));
+                }
+            }
+        } else {
+            // 比如 /usr/bin/apt admin/apt
+            let pkg = pkg_group.split('/').nth(1);
+            if let Some(pkg) = pkg {
+                let file = file_handle(file.unwrap());
+                let s = format!("{pkg}: {file}");
+                return Some((pkg.to_string(), s));
+            }
+        }
     }
 
-    Ok(())
+    None
 }
 
 fn file_handle(s: &str) -> String {

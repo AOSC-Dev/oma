@@ -32,7 +32,7 @@ use crate::{
     formatter::NoProgress,
     info,
     pager::Pager,
-    search::{search_pkgs, show_pkgs},
+    search::{search_pkgs, show_pkgs, OmaPkg},
     success,
     utils::size_checker,
     warn,
@@ -232,13 +232,21 @@ impl OmaAction {
     }
 
     pub fn list_files(kw: &str) -> Result<()> {
-        find(kw, true)?;
+        let res = find(kw, true)?;
+
+        for (_, line) in res {
+            println!("{}", line);
+        }
 
         Ok(())
     }
 
     pub fn search_file(kw: &str) -> Result<()> {
-        find(kw, false)?;
+        let res = find(kw, false)?;
+
+        for (_, line) in res {
+            println!("{}", line);
+        }
 
         Ok(())
     }
@@ -502,6 +510,37 @@ impl OmaAction {
             &mut NoProgress::new_box(),
             &mut AptInstallProgress::new_box(),
         )?;
+
+        Ok(())
+    }
+
+    pub fn command_not_found(kw: &str) -> Result<()> {
+        let cache = new_cache!()?;
+        let f = find(&format!("/bin/{kw}"), false)?;
+
+        let mut res = vec![];
+
+        for (pkg, _) in f {
+            let p = cache.get(&pkg).unwrap();
+            let version = p.candidate().unwrap();
+            let pkginfo = OmaPkg::new(&cache, &pkg, &version);
+            let s = format!("{pkg}: {}", pkginfo.description.unwrap_or("".to_string()));
+            if !res.contains(&s) {
+                res.push(s);
+            }
+        }
+
+        let start = if !res.is_empty() {
+            style(format!("Command not found: {kw}, But find some result from package mirror:\n")).bold()
+        } else {
+            style(format!("Can not find result for command: {kw}")).bold()
+        };
+
+        println!("{}", start);
+
+        for i in res {
+            println!("{}", i);
+        }
 
         Ok(())
     }

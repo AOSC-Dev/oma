@@ -64,6 +64,13 @@ enum OmaCommand {
     Pick(Pick),
     /// Mark a package status
     Mark(Mark),
+    #[clap(hide = true)]
+    CommandNotFound(CommandNotFound)
+}
+
+#[derive(Parser, Debug)]
+struct CommandNotFound {
+    kw: String,
 }
 
 #[derive(Parser, Debug)]
@@ -168,6 +175,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
         OmaCommand::Pick(v) => OmaAction::new().await?.pick(&v.package).await,
         OmaCommand::Mark(v) => OmaAction::mark(&v.pkg, &v.action),
+        OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
     }?;
 
     Ok(())
