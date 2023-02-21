@@ -67,7 +67,7 @@ fn dep_to_str_map(map: &HashMap<DepType, Vec<Dependency>>) -> HashMap<String, St
             DepType::Depends => res.insert("Depends".to_string(), dep_map_str(v)),
             DepType::PreDepends => res.insert("PreDepends".to_string(), dep_map_str(v)),
             DepType::Suggests => res.insert("Suggests".to_string(), dep_map_str(v)),
-            DepType::Recommends => res.insert("Recommands".to_string(), dep_map_str(v)),
+            DepType::Recommends => res.insert("Recommends".to_string(), dep_map_str(v)),
             DepType::Conflicts => res.insert("Conflicts".to_string(), dep_map_str(v)),
             DepType::Replaces => res.insert("Replaces".to_string(), dep_map_str(v)),
             DepType::Obsoletes => res.insert("Obsoletes".to_string(), dep_map_str(v)),
