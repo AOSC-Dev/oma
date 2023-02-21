@@ -45,7 +45,7 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
     let kw_escape = regex::escape(kw);
 
     let pattern = if is_list {
-        format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw_escape}(?:,\S*|))\s*$")
+        format!(r"^\s*(.*?)\s+((?:\S*[,/])?\{kw_escape}(?:,\S*|))\s*$")
     } else {
         format!(r"^(.*?{kw_escape}(?:.*[^\s])?)\s+(\S+)\s*$")
     };
@@ -122,8 +122,8 @@ pub fn find(kw: &str, is_list: bool) -> Result<()> {
                             let pkg_group = pkg_group.unwrap();
                             let split_group = pkg_group.split(',').collect::<Vec<_>>();
 
-                            // 比如 / admin/apt-file,admin/api,...
-                            if !split_group.is_empty() {
+                            // 比如 / admin/apt-file,admin/apt,...
+                            if split_group.len() != 1 {
                                 for i in split_group {
                                     if is_list && i.split('/').nth(1) == Some(kw) {
                                         let file = file_handle(file.unwrap());
