@@ -740,13 +740,13 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
                 .context(format!("Can not get installed version: {}", pkg.name()))?;
 
             let old_version = old_pkg.version();
-            let old_size = old_pkg.size() as i64;
 
             let new_pkg = pkg
                 .candidate()
                 .context(format!("Can not get candidate version: {}", pkg.name()))?;
 
             let new_size = new_pkg.installed_size() as i64;
+            let old_size = old_pkg.installed_size() as i64;
 
             let size = new_size - old_size;
 
