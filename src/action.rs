@@ -182,6 +182,55 @@ impl OmaAction {
         Ok(())
     }
 
+    pub fn list(list: Option<&[String]>, all: bool) -> Result<()> {
+        let cache = new_cache!()?;
+        let mut res = vec![];
+
+        if let Some(list) = list {
+            if !all {
+                for i in list {
+                    let pkgs = show_pkgs(&cache, i)?;
+                    res.extend(pkgs);
+                }
+            } else {
+                for i in list {
+                    let pkg = cache.get(i);
+                    if let Some(pkg) = pkg {
+                        let vers = pkg.versions().collect::<Vec<_>>();
+                        for i in vers {
+                            let pkginfo = OmaPkg::new(&cache, pkg.name(), &i.version())?;
+                            res.push(pkginfo);
+                        }
+                    }
+                }
+            }
+        } else {
+            let sort = PackageSort::default();
+            let pkgs = cache.packages(&sort);
+
+            for pkg in pkgs {
+                if !all {
+                    let pkgs = show_pkgs(&cache, pkg.name())?;
+                    res.extend(pkgs);
+                } else {
+                    let vers = pkg.versions().collect::<Vec<_>>();
+                    for i in vers {
+                        let pkginfo = OmaPkg::new(&cache, pkg.name(), &i.version())?;
+                        res.push(pkginfo);
+                    }
+                }
+            }
+        }
+
+        for i in res {
+            for j in i.apt_sources {
+                println!("{}/{} {}", i.package, j, i.version);
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn show(list: &[String]) -> Result<()> {
         let cache = new_cache!()?;
 
@@ -202,9 +251,7 @@ impl OmaAction {
                     s += &format!("{k}: {v}\n");
                 }
                 s += &format!("Download-Size: {}\n", entry.download_size);
-                if let Some(sources) = entry.apt_sources {
-                    s += &format!("APT-Sources: {sources}\n");
-                }
+                s += &format!("APT-Sources: {:?}\n", entry.apt_sources);
                 if let Some(desc) = entry.description {
                     s += &format!("Description: {desc}\n");
                 }
@@ -528,7 +575,7 @@ impl OmaAction {
                 }
                 let p = p.unwrap();
                 let version = p.candidate().unwrap();
-                let pkginfo = OmaPkg::new(&cache, &pkg, &version);
+                let pkginfo = OmaPkg::new(&cache, &pkg, &version.version())?;
                 let pkg_str = pkg_str.replace(": ", " (") + ")";
                 let s = format!("{pkg_str}: {}", pkginfo.description.unwrap_or("".to_string()));
                 if !res.contains(&s) {

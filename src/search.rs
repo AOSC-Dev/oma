@@ -4,7 +4,7 @@ use glob_match::glob_match_with_captures;
 use indicatif::HumanBytes;
 use rust_apt::{
     cache::{Cache, PackageSort},
-    package::{DepType, Dependency, Version},
+    package::{DepType, Dependency},
     records::RecordField,
 };
 use std::{collections::HashMap, fmt::Write};
@@ -18,13 +18,21 @@ pub struct OmaPkg {
     pub dep_map: HashMap<String, String>,
     pub download_size: String,
     pub apt_manual_installed: Option<String>,
-    pub apt_sources: Option<String>,
+    pub apt_sources: Vec<String>,
     pub description: Option<String>,
     pub has_dbg: bool,
 }
 
 impl OmaPkg {
-    pub fn new(cache: &Cache, name: &str, version: &Version) -> Self {
+    pub fn new(cache: &Cache, name: &str, version: &str) -> Result<Self> {
+        let pkg = cache
+            .get(name)
+            .context(format!("Can not get package {name}"))?;
+
+        let version = pkg
+            .get_version(version)
+            .context(format!("Can not get version {version} from package {name}"))?;
+
         let section = version.section().ok().map(|x| x.to_owned());
 
         let maintainer = version
@@ -34,7 +42,7 @@ impl OmaPkg {
         let installed_size = HumanBytes(version.installed_size()).to_string();
 
         let download_size = HumanBytes(version.size()).to_string();
-        let apt_sources = version.get_record(RecordField::Source);
+        let apt_sources = version.uris().collect::<Vec<_>>();
         let description = version.description();
         let dep_map = dep_to_str_map(version.depends_map());
 
@@ -44,7 +52,7 @@ impl OmaPkg {
             false
         };
 
-        Self {
+        Ok(Self {
             package: name.to_owned(),
             version: version.version().to_owned(),
             section,
@@ -56,7 +64,7 @@ impl OmaPkg {
             apt_sources,
             description,
             has_dbg,
-        }
+        })
     }
 }
 
@@ -86,17 +94,7 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
         let version_str = split_arg.next().context(format!("Not Support: {input}"))?;
 
-        let pkg = cache
-            .get(name)
-            .take()
-            .context(format!("Can not get package: {input}"))?;
-
-        let version = pkg
-            .get_version(version_str)
-            .context(format!("Can not get package {name} version: {version_str}"))?;
-
-        let name = pkg.name();
-        let oma_pkg = OmaPkg::new(cache, name, &version);
+        let oma_pkg = OmaPkg::new(cache, name, version_str)?;
 
         res.push(oma_pkg);
     } else if input.ends_with(".deb") {
@@ -131,7 +129,7 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
 
         let version = sort.last().unwrap();
         let name = pkg.name();
-        let oma_pkg = OmaPkg::new(cache, name, version);
+        let oma_pkg = OmaPkg::new(cache, name, version.version())?;
 
         res.push(oma_pkg);
     } else {
@@ -146,7 +144,7 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
                 .candidate()
                 .context(format!("Can not get candidate from package {}", pkg.name()))?;
 
-            let oma_pkg = OmaPkg::new(cache, name, &version);
+            let oma_pkg = OmaPkg::new(cache, name, &version.version())?;
             res.push(oma_pkg);
         }
     }
@@ -195,7 +193,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     for pkg in packages {
         let cand = pkg.candidate().unwrap();
         if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
-            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand);
+            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand.version())?;
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -206,7 +204,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             && !res.contains_key(pkg.name())
             && !pkg.name().contains("-dbg")
         {
-            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand);
+            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand.version())?;
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -217,7 +215,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             if !providers.is_empty() {
                 for provider in providers {
                     if provider.name() == input {
-                        let oma_pkg = OmaPkg::new(cache, provider.name(), &cand);
+                        let oma_pkg = OmaPkg::new(cache, provider.name(), &cand.version())?;
                         res.insert(
                             pkg.name().to_string(),
                             (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
