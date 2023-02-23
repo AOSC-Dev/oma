@@ -5,7 +5,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
 use console::style;
 use flate2::bufread::GzDecoder;
-use futures::StreamExt;
+use futures::{future::BoxFuture, StreamExt};
 use indicatif::{MultiProgress, ProgressBar};
 use reqwest::{Client, Url};
 use serde::Deserialize;
@@ -31,15 +31,10 @@ struct FileBuf(Vec<u8>);
 struct FileName(String);
 
 impl FileName {
-    fn new(s: &str) -> Result<Self> {
-        let url = reqwest::Url::parse(s)?;
-        let scheme = url.scheme();
-        let url = s
-            .strip_prefix(&format!("{scheme}://"))
-            .ok_or_else(|| anyhow!("Can not get url without url scheme"))?
-            .replace('/', "_");
+    fn new(s: &str) -> Self {
+        let s = s.split("://").nth(1).unwrap_or(s).replace("/", "_");
 
-        Ok(FileName(url))
+        FileName(s)
     }
 }
 
@@ -50,7 +45,7 @@ async fn download_db(
     opb: OmaProgressBar,
     i: usize,
 ) -> Result<(FileName, FileBuf, usize)> {
-    let filename = FileName::new(&url)?.0;
+    let filename = FileName::new(&url).0;
     let url_short = get_url_short_and_branch(&url).await?;
 
     let mut opb = opb;
@@ -72,7 +67,7 @@ async fn download_db(
     let mut buf = Vec::new();
     v.read_to_end(&mut buf).await?;
 
-    Ok((FileName::new(&url)?, FileBuf(buf), i))
+    Ok((FileName::new(&url), FileBuf(buf), i))
 }
 
 #[derive(Deserialize)]
@@ -175,9 +170,14 @@ impl InReleaseParser {
 
         let mut res = vec![];
 
+        let c_res_clone = checksums_res.clone();
+
         let c = checksums_res
             .into_iter()
-            .filter(|(name, _, _)| name.contains("all") || name.contains(arch));
+            .filter(|(name, _, _)| name.contains("all") || name.contains(arch))
+            .collect::<Vec<_>>();
+
+        let c = if c.is_empty() { c_res_clone } else { c };
 
         for i in c {
             let t = if i.0.contains("BinContents") {
@@ -290,11 +290,16 @@ pub async fn packages_download(
     for (i, c) in list.iter().enumerate() {
         let mbc = mb.clone();
 
-        if let Some(ref checksum) = c.checksum {
+        if c.pkg_urls.iter().any(|x| x.starts_with("file:")) {
+            // 本地源交给 apt 处理
+            info!("Use apt to handle url {:?}", c.pkg_urls.first());
+        } else {
+            let hash = c.checksum.as_ref().unwrap().to_owned();
+
             task.push(download_package(
                 c.pkg_urls.clone(),
                 client,
-                checksum.clone(),
+                hash,
                 c.new_version.clone(),
                 OmaProgressBar::new(
                     None,
@@ -304,11 +309,9 @@ pub async fn packages_download(
                 ),
                 download_dir.unwrap_or(Path::new(DOWNLOAD_DIR)),
             ));
-        } else {
-            // 如果没有验证码，则应该是本地安装得来的，使用 apt 来处理这些软件包
-            info!("Use apt to handle url {:?}", c.pkg_urls.first());
         }
     }
+
     // 默认限制一次最多下载八个包，减少服务器负担
     let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(4));
     let res = stream.collect::<Vec<_>>().await;
@@ -323,6 +326,82 @@ pub async fn packages_download(
     Ok(())
 }
 
+struct OmaSourceEntry {
+    from: OmaSourceEntryFrom,
+    components: Vec<String>,
+    // url: String,
+    // suite: String,
+    inrelease_path: String,
+    dist_path: String,
+}
+
+#[derive(PartialEq, Eq)]
+enum OmaSourceEntryFrom {
+    Http,
+    Local,
+}
+
+impl OmaSourceEntry {
+    fn new(v: &SourceEntry) -> Result<Self> {
+        let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
+            OmaSourceEntryFrom::Http
+        } else if v.url().starts_with("file") {
+            OmaSourceEntryFrom::Local
+        } else {
+            bail!("Unsupport SourceEntry: {v:?}")
+        };
+
+        let components = v.components.clone();
+        let url = v.url.clone();
+        let suite = v.suite.clone();
+        let dist_path = if components.is_empty() && suite == "/" {
+            v.url().to_string()
+        } else {
+            v.dist_path()
+        };
+
+        let inrelease_path = if components.is_empty() && suite == "/" {
+            // flat Repo
+            format!("{url}/Release")
+        } else if !components.is_empty() {
+            // Normal Repo
+            format!("{dist_path}/InRelease")
+        } else {
+            bail!("Unsupport SourceEntry: {v:?}")
+        };
+
+        Ok(Self {
+            from,
+            components,
+            // url,
+            // suite,
+            inrelease_path,
+            dist_path,
+        })
+    }
+}
+
+fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
+    let mut res = vec![];
+    for i in sources {
+        res.push(OmaSourceEntry::new(i)?);
+    }
+
+    Ok(res)
+}
+
+async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, FileBuf, usize)> {
+    let db_path = db_path.split("://").nth(1).unwrap_or(db_path);
+    let name = FileName::new(db_path);
+    tokio::fs::copy(db_path, Path::new(APT_LIST_DISTS).join(&name.0)).await?;
+
+    let mut f = tokio::fs::File::open(db_path).await?;
+    let mut v = vec![];
+    f.read_to_end(&mut v).await?;
+
+    Ok((name, FileBuf(v), count))
+}
+
 // Update database
 pub async fn update_db(
     sources: &[SourceEntry],
@@ -330,84 +409,89 @@ pub async fn update_db(
     limit: Option<usize>,
 ) -> Result<()> {
     info!("Refreshing local repository metadata ...");
-    let dist_urls = sources.iter().map(|x| x.dist_path()).collect::<Vec<_>>();
-    let dists_in_releases = dist_urls
-        .clone()
-        .into_iter()
-        .map(|x| format!("{}/{}", x, "InRelease"))
-        .collect::<Vec<_>>();
 
-    let mut tasks = Vec::new();
+    let sources = hr_sources(sources)?;
+    let mut tasks = vec![];
 
     let mb = Arc::new(MultiProgress::new());
 
-    for (i, c) in dists_in_releases.iter().enumerate() {
-        tasks.push(download_db(
-            c.to_string(),
-            client,
-            "InRelease".to_owned(),
-            OmaProgressBar::new(
-                None,
-                Some((i + 1, dists_in_releases.len())),
-                Some(mb.clone()),
-                None,
-            )
-            .clone(),
-            i,
-        ));
+    for (i, c) in sources.iter().enumerate() {
+        match c.from {
+            OmaSourceEntryFrom::Http => {
+                let task: BoxFuture<'_, Result<(FileName, FileBuf, usize)>> =
+                    Box::pin(download_db(
+                        c.inrelease_path.clone(),
+                        client,
+                        "InRelease".to_owned(),
+                        OmaProgressBar::new(
+                            None,
+                            Some((i + 1, sources.len())),
+                            Some(mb.clone()),
+                            None,
+                        ),
+                        i,
+                    ));
+
+                tasks.push(task);
+            }
+            OmaSourceEntryFrom::Local => {
+                let task: BoxFuture<'_, Result<(FileName, FileBuf, usize)>> =
+                    Box::pin(download_db_local(&c.inrelease_path, i));
+                tasks.push(task);
+            }
+        }
     }
 
-    // 默认限制一次最多下载八个数据文件，减少服务器负担
     let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
     let res = stream.collect::<Vec<_>>().await;
 
-    let mut dist_files = vec![];
+    let mut res_2 = vec![];
 
     for i in res {
-        dist_files.push(i?);
+        res_2.push(i?);
     }
 
-    let components = sources
-        .iter()
-        .map(|x| x.components.to_owned())
-        .collect::<Vec<_>>();
+    for (name, _file, index) in res_2 {
+        let ose = sources.get(index).unwrap();
 
-    for (name, file, index) in dist_files {
-        let p = Path::new(APT_LIST_DISTS).join(name.0);
+        let inrelease = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(name.0))?;
 
-        if !p.exists() || !p.is_file() {
-            tokio::fs::create_dir_all(APT_LIST_DISTS).await?;
-            tokio::fs::write(&p, &file.0).await?;
-        } else {
-            let mut f = tokio::fs::File::open(&p).await?;
-            let mut buf = Vec::new();
-            f.read_to_end(&mut buf).await?;
-
-            if buf != file.0 {
-                tokio::fs::write(&p, &file.0).await?;
-            }
-        }
-
-        let in_release = InReleaseParser::new(&p)?;
-
-        let checksums = in_release
+        let checksums = inrelease
             .checksums
             .iter()
-            .filter(|x| components[index].contains(&x.name.split('/').next().unwrap().to_string()))
+            .filter(|x| {
+                ose.components
+                    .contains(&x.name.split('/').next().unwrap_or(&x.name).to_owned())
+            })
+            .map(|x| x.to_owned())
             .collect::<Vec<_>>();
-
-        let mut handle = vec![];
 
         let mut total = 0;
 
-        for i in &checksums {
-            if i.file_type == DistFileType::CompressContents
-                || i.file_type == DistFileType::CompressPackageList
-            {
-                handle.push(i);
-                total += i.size;
+        let handle = if checksums.is_empty() {
+            // Flat repo
+            let mut handle = vec![];
+            for i in &inrelease.checksums {
+                if i.file_type == DistFileType::PackageList {
+                    handle.push(i);
+                    total += i.size;
+                }
             }
-        }
+
+            handle
+        } else {
+            let mut handle = vec![];
+            for i in &checksums {
+                if i.file_type == DistFileType::CompressPackageList
+                    || i.file_type == DistFileType::CompressContents
+                {
+                    handle.push(i);
+                    total += i.size;
+                }
+            }
+
+            handle
+        };
 
         let mb = Arc::new(MultiProgress::new());
         let global_bar = mb.insert(0, ProgressBar::new(total));
@@ -415,34 +499,30 @@ pub async fn update_db(
         global_bar.enable_steady_tick(Duration::from_millis(1000));
         global_bar.set_message("Progress");
 
-        let mut task = vec![];
-
         let len = handle.len();
 
-        for (i, c) in handle.iter().enumerate() {
-            let not_compress_file = c.name.replace(".xz", "").replace(".gz", "");
-            let file_name = FileName::new(&format!(
-                "{}/{}",
-                dist_urls.get(index).unwrap(),
-                not_compress_file
-            ))?;
+        let mut tasks = vec![];
 
-            let p = Path::new(APT_LIST_DISTS).join(&file_name.0);
+        for (i, c) in handle.iter().enumerate() {
+            let mut p = Path::new(&c.name).to_path_buf();
+            p.set_extension("");
+            let not_compress_filename = p.file_name().unwrap().to_string_lossy().to_string();
+
+            let source_index = sources.get(index).unwrap();
+            let filename = FileName::new(&format!(
+                "{}/{}",
+                source_index.dist_path, not_compress_filename
+            ));
+
+            let p = Path::new(APT_LIST_DISTS).join(&filename.0);
 
             let typ = match c.file_type {
                 DistFileType::CompressContents => "Contents",
-                DistFileType::CompressPackageList => "Package List",
+                DistFileType::CompressPackageList | DistFileType::PackageList => "Package List",
                 _ => unreachable!(),
             };
 
             if p.exists() {
-                let checksums_index = checksums
-                    .iter()
-                    .position(|x| x.name == not_compress_file)
-                    .unwrap();
-
-                let hash = checksums[checksums_index].checksum.to_owned();
-
                 let opb = OmaProgressBar::new(
                     None,
                     Some((i + 1, len)),
@@ -451,21 +531,31 @@ pub async fn update_db(
                 )
                 .clone();
 
-                let hash_clone = hash.clone();
+                let hash_clone = c.checksum.clone();
+                let p_clone = p.clone();
                 let result = spawn_blocking(move || {
-                    Checksum::from_sha256_str(&hash_clone).and_then(|x| x.cmp_file(&p))
+                    Checksum::from_sha256_str(&hash_clone).and_then(|x| x.cmp_file(&p_clone))
                 })
                 .await??;
 
                 if !result {
-                    task.push(download_and_extract(
-                        &dist_urls[index],
-                        c,
-                        client,
-                        file_name.0,
-                        typ,
-                        opb,
-                    ));
+                    match source_index.from {
+                        OmaSourceEntryFrom::Http => {
+                            let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
+                                &source_index.dist_path,
+                                c,
+                                client,
+                                filename.0,
+                                typ,
+                                opb,
+                            ));
+
+                            tasks.push(task);
+                        }
+                        OmaSourceEntryFrom::Local => {
+                            bail!("Local source {} checksum mismatch!", p.display());
+                        }
+                    }
                 } else {
                     continue;
                 }
@@ -478,26 +568,43 @@ pub async fn update_db(
                 )
                 .clone();
 
-                task.push(download_and_extract(
-                    &dist_urls[index],
-                    c,
-                    client,
-                    file_name.0,
-                    typ,
-                    opb,
-                ));
+                match source_index.from {
+                    OmaSourceEntryFrom::Http => {
+                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
+                            &source_index.dist_path,
+                            c,
+                            client,
+                            filename.0,
+                            typ,
+                            opb,
+                        ));
+
+                        tasks.push(task);
+                    }
+                    OmaSourceEntryFrom::Local => {
+                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_local(
+                            &source_index.dist_path,
+                            not_compress_filename,
+                            c,
+                            typ,
+                        ));
+
+                        tasks.push(task);
+                    }
+                }
             }
         }
 
-        // 默认限制一次最多下载八个数据文件，减少服务器负担
-        let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(4));
+        // 默认限制一次最多下载八个包，减少服务器负担
+        let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
         let res = stream.collect::<Vec<_>>().await;
 
+        global_bar.finish_and_clear();
+
+        // 遍历结果看是否有下载出错
         for i in res {
             i?;
         }
-
-        global_bar.finish_and_clear();
     }
 
     success!("Package database already newest.");
@@ -536,6 +643,39 @@ async fn download_and_extract(
     }
 
     let buf = decompress(&buf.0, &name.0)?;
+    let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
+    std::fs::write(p, buf)?;
+
+    Ok(())
+}
+
+async fn download_and_extract_local(
+    path: &str,
+    not_compress_file: String,
+    i: &ChecksumItem,
+    typ: &str,
+) -> Result<()> {
+    let path = path.split("://").nth(1).unwrap_or(path);
+    let name = FileName::new(path);
+    tokio::fs::copy(path, Path::new(APT_LIST_DISTS).join(&name.0)).await?;
+
+    let mut f = tokio::fs::File::open(path).await?;
+    let mut buf = vec![];
+    f.read_to_end(&mut buf).await?;
+
+    let p = Path::new(APT_LIST_DISTS).join(&name.0);
+
+    let ic = i.clone();
+    let result = spawn_blocking(move || {
+        Checksum::from_sha256_str(&ic.checksum).and_then(|x| x.cmp_file(p.clone().as_path()))
+    })
+    .await??;
+
+    if !result {
+        bail!("Download {typ} Checksum mismatch! Please check your local storage connection.")
+    }
+
+    let buf = decompress(&buf, &name.0)?;
     let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
     std::fs::write(p, buf)?;
 
