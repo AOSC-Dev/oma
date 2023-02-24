@@ -361,7 +361,7 @@ impl OmaSourceEntry {
             (v.dist_path(), false)
         };
 
-        let inrelease_path = if components.is_empty() && suite == "/" {
+        let inrelease_path = if is_flat {
             // flat Repo
             format!("{url}/Release")
         } else if !components.is_empty() {
@@ -554,8 +554,14 @@ pub async fn update_db(
                 if !result {
                     match source_index.from {
                         OmaSourceEntryFrom::Http => {
+                            let p = if !ose.is_flat {
+                                source_index.dist_path.clone()
+                            } else {
+                                format!("{}/{}", source_index.dist_path, not_compress_filename)
+                            };
+
                             let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
-                                &source_index.dist_path,
+                                p,
                                 c,
                                 client,
                                 filename.0,
@@ -583,8 +589,14 @@ pub async fn update_db(
 
                 match source_index.from {
                     OmaSourceEntryFrom::Http => {
+                        let p = if !ose.is_flat {
+                            source_index.dist_path.clone()
+                        } else {
+                            format!("{}/{}", source_index.dist_path, not_compress_filename)
+                        };
+
                         let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
-                            &source_index.dist_path,
+                            p,
                             c,
                             client,
                             filename.0,
@@ -629,7 +641,7 @@ pub async fn update_db(
 
 /// Download and extract package list database
 async fn download_and_extract(
-    dist_url: &str,
+    dist_url: String,
     i: &ChecksumItem,
     client: &Client,
     not_compress_file: String,
