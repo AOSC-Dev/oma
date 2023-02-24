@@ -669,7 +669,7 @@ async fn download_and_extract_local(
 ) -> Result<()> {
     let path = path.split("://").nth(1).unwrap_or(&path).to_owned();
     let name = FileName::new(&path);
-    dbg!(Path::new(APT_LIST_DISTS).join(&name.0));
+
     tokio::fs::copy(&path, Path::new(APT_LIST_DISTS).join(&name.0)).await?;
 
     let mut f = tokio::fs::File::open(&path).await?;
