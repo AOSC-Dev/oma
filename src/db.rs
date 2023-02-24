@@ -593,8 +593,9 @@ pub async fn update_db(
                         tasks.push(task);
                     }
                     OmaSourceEntryFrom::Local => {
+                        let p = format!("{}/{}", source_index.dist_path, not_compress_filename);
                         let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_local(
-                            &source_index.dist_path,
+                            p,
                             not_compress_filename,
                             c,
                             typ,
@@ -661,16 +662,17 @@ async fn download_and_extract(
 }
 
 async fn download_and_extract_local(
-    path: &str,
+    path: String,
     not_compress_file: String,
     i: &ChecksumItem,
     typ: &str,
 ) -> Result<()> {
-    let path = path.split("://").nth(1).unwrap_or(path);
-    let name = FileName::new(path);
-    tokio::fs::copy(path, Path::new(APT_LIST_DISTS).join(&name.0)).await?;
+    let path = path.split("://").nth(1).unwrap_or(&path).to_owned();
+    let name = FileName::new(&path);
+    dbg!(Path::new(APT_LIST_DISTS).join(&name.0));
+    tokio::fs::copy(&path, Path::new(APT_LIST_DISTS).join(&name.0)).await?;
 
-    let mut f = tokio::fs::File::open(path).await?;
+    let mut f = tokio::fs::File::open(&path).await?;
     let mut buf = vec![];
     f.read_to_end(&mut buf).await?;
 
@@ -686,7 +688,12 @@ async fn download_and_extract_local(
         bail!("Download {typ} Checksum mismatch! Please check your local storage connection.")
     }
 
-    let buf = decompress(&buf, &name.0)?;
+    let buf =if i.file_type == DistFileType::CompressContents || i.file_type == DistFileType::CompressPackageList {
+        decompress(&buf, &name.0)?
+    } else {
+        buf
+    };
+
     let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
     std::fs::write(p, buf)?;
 
