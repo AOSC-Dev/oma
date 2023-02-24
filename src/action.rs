@@ -213,7 +213,7 @@ impl OmaAction {
                     let pkgs = show_pkgs(&cache, pkg.name())?;
                     res.extend(pkgs);
                 } else {
-                    let vers = pkg.versions().collect::<Vec<_>>();
+                    let vers = pkg.versions();
                     for i in vers {
                         let pkginfo = OmaPkg::new(&cache, pkg.name(), i.version())?;
                         res.push(pkginfo);
@@ -223,9 +223,13 @@ impl OmaAction {
         }
 
         for i in res {
-            for j in i.apt_sources {
-                println!("{}/{} {}", i.package, j, i.version);
+            let mut mirror = vec![];
+            for j in &i.apt_sources {
+                let branch = j.split('/').nth_back(3).unwrap_or("unknown");
+                mirror.push(branch);
             }
+
+            println!("{}/{} {}", i.package, mirror.join(","), i.version);
         }
 
         Ok(())
@@ -577,7 +581,10 @@ impl OmaAction {
                 let version = p.candidate().unwrap();
                 let pkginfo = OmaPkg::new(&cache, &pkg, version.version())?;
                 let pkg_str = pkg_str.replace(": ", " (") + ")";
-                let s = format!("{pkg_str}: {}", pkginfo.description.unwrap_or("".to_string()));
+                let s = format!(
+                    "{pkg_str}: {}",
+                    pkginfo.description.unwrap_or("".to_string())
+                );
                 if !res.contains(&s) {
                     res.push(s);
                 }
@@ -585,7 +592,10 @@ impl OmaAction {
         }
 
         let start = if !res.is_empty() {
-            style(format!("Command not found: {kw}, But find some result from package mirror:\n")).bold()
+            style(format!(
+                "Command not found: {kw}, But find some result from package mirror:\n"
+            ))
+            .bold()
         } else {
             style(format!("Can not find result for command: {kw}")).bold()
         };
