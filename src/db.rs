@@ -493,6 +493,12 @@ pub async fn update_db(
             handle
         };
 
+        let checksums = if checksums.is_empty() {
+            inrelease.checksums.clone()
+        } else {
+            checksums.clone()
+        };
+
         let mb = Arc::new(MultiProgress::new());
         let global_bar = mb.insert(0, ProgressBar::new(total));
         global_bar.set_style(oma_style_pb(true)?);
@@ -506,7 +512,7 @@ pub async fn update_db(
         for (i, c) in handle.iter().enumerate() {
             let mut p = Path::new(&c.name).to_path_buf();
             p.set_extension("");
-            let not_compress_filename = p.file_name().unwrap().to_string_lossy().to_string();
+            let not_compress_filename = p.to_string_lossy().to_string();
 
             let source_index = sources.get(index).unwrap();
             let filename = FileName::new(&format!(
@@ -531,7 +537,12 @@ pub async fn update_db(
                 )
                 .clone();
 
-                let hash_clone = c.checksum.clone();
+                let checksum = checksums
+                    .iter()
+                    .find(|x| x.name == not_compress_filename)
+                    .unwrap();
+
+                let hash_clone = checksum.checksum.to_owned();
                 let p_clone = p.clone();
                 let result = spawn_blocking(move || {
                     Checksum::from_sha256_str(&hash_clone).and_then(|x| x.cmp_file(&p_clone))
