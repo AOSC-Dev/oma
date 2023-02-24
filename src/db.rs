@@ -333,6 +333,7 @@ struct OmaSourceEntry {
     // suite: String,
     inrelease_path: String,
     dist_path: String,
+    is_flat: bool,
 }
 
 #[derive(PartialEq, Eq)]
@@ -354,10 +355,10 @@ impl OmaSourceEntry {
         let components = v.components.clone();
         let url = v.url.clone();
         let suite = v.suite.clone();
-        let dist_path = if components.is_empty() && suite == "/" {
-            v.url().to_string()
+        let (dist_path, is_flat) = if components.is_empty() && suite == "/" {
+            (v.url().to_string(), true)
         } else {
-            v.dist_path()
+            (v.dist_path(), false)
         };
 
         let inrelease_path = if components.is_empty() && suite == "/" {
@@ -375,6 +376,7 @@ impl OmaSourceEntry {
             components,
             // url,
             // suite,
+            is_flat,
             inrelease_path,
             dist_path,
         })
@@ -468,7 +470,7 @@ pub async fn update_db(
 
         let mut total = 0;
 
-        let handle = if checksums.is_empty() {
+        let handle = if ose.is_flat {
             // Flat repo
             let mut handle = vec![];
             for i in &inrelease.checksums {
@@ -493,7 +495,7 @@ pub async fn update_db(
             handle
         };
 
-        let checksums = if checksums.is_empty() {
+        let checksums = if ose.is_flat {
             inrelease.checksums.clone()
         } else {
             checksums.clone()
@@ -593,18 +595,14 @@ pub async fn update_db(
                         tasks.push(task);
                     }
                     OmaSourceEntryFrom::Local => {
-                        let p = if source_index.dist_path.contains("/dist") {
+                        let p = if !ose.is_flat {
                             source_index.dist_path.clone()
                         } else {
                             format!("{}/{}", source_index.dist_path, not_compress_filename)
                         };
 
-                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_local(
-                            p,
-                            not_compress_filename,
-                            c,
-                            typ,
-                        ));
+                        let task: BoxFuture<'_, Result<()>> =
+                            Box::pin(download_and_extract_local(p, not_compress_filename, c, typ));
 
                         tasks.push(task);
                     }
@@ -693,7 +691,9 @@ async fn download_and_extract_local(
         bail!("Download {typ} Checksum mismatch! Please check your local storage connection.")
     }
 
-    let buf =if i.file_type == DistFileType::CompressContents || i.file_type == DistFileType::CompressPackageList {
+    let buf = if i.file_type == DistFileType::CompressContents
+        || i.file_type == DistFileType::CompressPackageList
+    {
         decompress(&buf, &name.0)?
     } else {
         buf
