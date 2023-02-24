@@ -198,7 +198,7 @@ impl OmaAction {
                     if let Some(pkg) = pkg {
                         let vers = pkg.versions().collect::<Vec<_>>();
                         for i in vers {
-                            let pkginfo = OmaPkg::new(&cache, pkg.name(), &i.version())?;
+                            let pkginfo = OmaPkg::new(&cache, pkg.name(), i.version())?;
                             res.push(pkginfo);
                         }
                     }
@@ -215,7 +215,7 @@ impl OmaAction {
                 } else {
                     let vers = pkg.versions().collect::<Vec<_>>();
                     for i in vers {
-                        let pkginfo = OmaPkg::new(&cache, pkg.name(), &i.version())?;
+                        let pkginfo = OmaPkg::new(&cache, pkg.name(), i.version())?;
                         res.push(pkginfo);
                     }
                 }
@@ -575,7 +575,7 @@ impl OmaAction {
                 }
                 let p = p.unwrap();
                 let version = p.candidate().unwrap();
-                let pkginfo = OmaPkg::new(&cache, &pkg, &version.version())?;
+                let pkginfo = OmaPkg::new(&cache, &pkg, version.version())?;
                 let pkg_str = pkg_str.replace(": ", " (") + ")";
                 let s = format!("{pkg_str}: {}", pkginfo.description.unwrap_or("".to_string()));
                 if !res.contains(&s) {

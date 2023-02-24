@@ -144,7 +144,7 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
                 .candidate()
                 .context(format!("Can not get candidate from package {}", pkg.name()))?;
 
-            let oma_pkg = OmaPkg::new(cache, name, &version.version())?;
+            let oma_pkg = OmaPkg::new(cache, name, version.version())?;
             res.push(oma_pkg);
         }
     }
@@ -193,7 +193,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     for pkg in packages {
         let cand = pkg.candidate().unwrap();
         if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
-            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand.version())?;
+            let oma_pkg = OmaPkg::new(cache, pkg.name(), cand.version())?;
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -204,7 +204,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             && !res.contains_key(pkg.name())
             && !pkg.name().contains("-dbg")
         {
-            let oma_pkg = OmaPkg::new(cache, pkg.name(), &cand.version())?;
+            let oma_pkg = OmaPkg::new(cache, pkg.name(), cand.version())?;
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -215,7 +215,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             if !providers.is_empty() {
                 for provider in providers {
                     if provider.name() == input {
-                        let oma_pkg = OmaPkg::new(cache, provider.name(), &cand.version())?;
+                        let oma_pkg = OmaPkg::new(cache, provider.name(), cand.version())?;
                         res.insert(
                             pkg.name().to_string(),
                             (oma_pkg, cand.is_installed(), pkg.is_upgradable()),

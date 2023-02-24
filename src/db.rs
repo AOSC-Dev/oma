@@ -32,7 +32,7 @@ struct FileName(String);
 
 impl FileName {
     fn new(s: &str) -> Self {
-        let s = s.split("://").nth(1).unwrap_or(s).replace("/", "_");
+        let s = s.split("://").nth(1).unwrap_or(s).replace('/', "_");
 
         FileName(s)
     }
