@@ -73,12 +73,14 @@ impl Pager {
         Ok(res)
     }
 
-    pub fn wait_for_exit(&mut self) -> Result<()> {
-        if let Pager::External((_, child)) = self {
-            let _ = child.wait()?;
-        }
+    pub fn wait_for_exit(&mut self) -> Result<bool> {
+        let success = if let Pager::External((_, child)) = self {
+            child.wait()?.success()
+        } else {
+            true
+        };
 
-        Ok(())
+        Ok(success)
     }
 }
 

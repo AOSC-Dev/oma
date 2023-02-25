@@ -21,7 +21,7 @@ use tabled::{
 use std::{
     io::{Read, Write},
     path::Path,
-    process::{Command, Stdio},
+    process::{exit, Command, Stdio},
     str::FromStr,
     sync::atomic::Ordering,
 };
@@ -1120,9 +1120,14 @@ fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Resul
     )?;
 
     drop(out);
-    pager.wait_for_exit()?;
+    let success = pager.wait_for_exit()?;
 
-    Ok(())
+    if success {
+        Ok(())
+    } else {
+        // User aborted the operation
+        bail!("")
+    }
 }
 
 fn download_size(install_and_update: &[InstallRow], cache: &Cache) -> Result<u64> {
