@@ -139,6 +139,8 @@ struct List {
     packages: Option<Vec<String>>,
     #[arg(long, short = 'a')]
     all: bool,
+    #[arg(long)]
+    installed: bool,
 }
 
 
@@ -186,7 +188,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Pick(v) => OmaAction::new().await?.pick(&v.package).await,
         OmaCommand::Mark(v) => OmaAction::mark(&v.pkg, &v.action),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
-        OmaCommand::List(v) => OmaAction::list(v.packages.as_deref(), v.all),
+        OmaCommand::List(v) => OmaAction::list(v.packages.as_deref(), v.all, v.installed),
     }?;
 
     Ok(())

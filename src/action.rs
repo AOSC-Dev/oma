@@ -182,11 +182,18 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn list(list: Option<&[String]>, all: bool) -> Result<()> {
+    pub fn list(list: Option<&[String]>, all: bool, installed: bool) -> Result<()> {
         let cache = new_cache!()?;
 
-        let sort = PackageSort::default();
+        let mut sort = PackageSort::default();
+
+        if installed {
+            sort = sort.installed();
+        }
+
         let packages = cache.packages(&sort);
+
+        let mut res = vec![];
 
         if list.is_none() {
             if !all {
@@ -210,7 +217,7 @@ impl OmaAction {
                             s += &format!(" [Upgrade from {}]", pkg.installed().unwrap().version());
                         }
 
-                        println!("{}", style(s).bold());
+                        res.push(format!("{}", style(s).bold()));
                     }
                 }
             } else {
@@ -234,12 +241,18 @@ impl OmaAction {
                             s += &format!(" [Upgrade from {}]", pkg.installed().unwrap().version());
                         }
 
-                        println!("{}", style(s).bold());
+                        res.push(format!("{}", style(s).bold()));
                     }
 
-                    println!();
+                    res.push("".to_owned());
                 }
             }
+        }
+
+        res.sort();
+
+        for i in res {
+            println!("{}", i);
         }
 
         let mut res = vec![];
