@@ -217,13 +217,14 @@ impl OmaAction {
                             version.version(),
                             pkg.arch()
                         );
+
                         if let Some(v) = pkg.installed() {
                             if v.version() == version.version() && !pkg.is_upgradable() {
                                 s += " [Installed]";
                             } else if v.version() == version.version() && pkg.is_upgradable() {
                                 s += &format!(
                                     " [Upgrade from {}]",
-                                    pkg.installed().unwrap().version()
+                                    v.version()
                                 );
                             }
                         }
@@ -259,7 +260,7 @@ impl OmaAction {
                             } else if v.version() == version.version() && pkg.is_upgradable() {
                                 s += &format!(
                                     " [Upgrade from {}]",
-                                    pkg.installed().unwrap().version()
+                                    v.version()
                                 );
                             }
                         }
@@ -324,7 +325,7 @@ impl OmaAction {
                 if v.version() == i.version && !pkg.is_upgradable() {
                     s += " [Installed]";
                 } else if v.version() == i.version && pkg.is_upgradable() {
-                    s += &format!(" [Upgrade from {}]", pkg.installed().unwrap().version());
+                    s += &format!(" [Upgrade from {}]", v.version());
                 }
             }
 
