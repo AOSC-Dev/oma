@@ -21,7 +21,7 @@ use tabled::{
 use std::{
     io::{Read, Write},
     path::Path,
-    process::{exit, Command, Stdio},
+    process::{Command, Stdio},
     str::FromStr,
     sync::atomic::Ordering,
 };
@@ -286,7 +286,7 @@ impl OmaAction {
         let res = find(kw, true, false)?;
 
         for (_, line) in res {
-            println!("{}", line);
+            println!("{line}");
         }
 
         Ok(())
@@ -296,7 +296,7 @@ impl OmaAction {
         let res = find(kw, false, false)?;
 
         for (_, line) in res {
-            println!("{}", line);
+            println!("{line}");
         }
 
         Ok(())
@@ -600,10 +600,10 @@ impl OmaAction {
             style(format!("Can not find result for command: {kw}")).bold()
         };
 
-        println!("{}", start);
+        println!("{start}");
 
         for i in res {
-            println!("{}", i);
+            println!("{i}");
         }
 
         Ok(())

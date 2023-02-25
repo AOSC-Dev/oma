@@ -196,7 +196,7 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
                 } else if !is_list && i.contains(kw) && i.split('/').nth_back(0).is_some() {
                     let file = file_handle(file.unwrap());
                     let pkg = i.split('/').nth_back(0).unwrap();
-                    let s = format!("{}: {}", pkg, file);
+                    let s = format!("{pkg}: {file}");
                     return Some((pkg.to_string(), s));
                 }
             }
