@@ -184,6 +184,64 @@ impl OmaAction {
 
     pub fn list(list: Option<&[String]>, all: bool) -> Result<()> {
         let cache = new_cache!()?;
+
+        let sort = PackageSort::default();
+        let packages = cache.packages(&sort);
+
+        if list.is_none() {
+            if !all {
+                for pkg in packages {
+                    let mut mirrors = vec![];
+                    let version = pkg.candidate();
+
+                    if let Some(version) = version {
+                        let uris = version.uris();
+                        for i in uris {
+                            let mirror = i.split('/').nth_back(3).unwrap_or("unknown").to_owned();
+                            if !mirrors.contains(&mirror) {
+                                mirrors.push(mirror);
+                            }
+                        }
+
+                        let mut s = format!("{}/{} {}", style(pkg.name()).green(), mirrors.join(","), version.version());
+                        if pkg.installed().is_some() && !pkg.is_upgradable() {
+                            s += " [Installed]";
+                        } else if pkg.is_upgradable() {
+                            s += &format!(" [Upgrade from {}]", pkg.installed().unwrap().version());
+                        }
+
+                        println!("{}", style(s).bold());
+                    }
+                }
+            } else {
+                for pkg in packages {
+                    let mut mirrors = vec![];
+                    let versions = pkg.versions().collect::<Vec<_>>();
+
+                    for version in &versions {
+                        let uris = version.uris();
+                        for i in uris {
+                            let mirror = i.split('/').nth_back(3).unwrap_or("unknown").to_owned();
+                            if !mirrors.contains(&mirror) {
+                                mirrors.push(mirror);
+                            }
+                        }
+
+                        let mut s = format!("{}/{} {}", style(pkg.name()).green(), mirrors.join(","), version.version());
+                        if pkg.installed().is_some() && !pkg.is_upgradable() {
+                            s += " [Installed]";
+                        } else if pkg.is_upgradable() {
+                            s += &format!(" [Upgrade from {}]", pkg.installed().unwrap().version());
+                        }
+
+                        println!("{}", style(s).bold());
+                    }
+
+                    println!();
+                }
+            }
+        }
+
         let mut res = vec![];
 
         if let Some(list) = list {
@@ -204,32 +262,26 @@ impl OmaAction {
                     }
                 }
             }
-        } else {
-            let sort = PackageSort::default();
-            let pkgs = cache.packages(&sort);
-
-            for pkg in pkgs {
-                if !all {
-                    let pkgs = show_pkgs(&cache, pkg.name())?;
-                    res.extend(pkgs);
-                } else {
-                    let vers = pkg.versions();
-                    for i in vers {
-                        let pkginfo = OmaPkg::new(&cache, pkg.name(), i.version())?;
-                        res.push(pkginfo);
-                    }
-                }
-            }
         }
 
         for i in res {
             let mut mirror = vec![];
             for j in &i.apt_sources {
                 let branch = j.split('/').nth_back(3).unwrap_or("unknown");
-                mirror.push(branch);
+                if !mirror.contains(&branch) {
+                    mirror.push(branch);
+                }
             }
 
-            println!("{}/{} {}", i.package, mirror.join(","), i.version);
+            let mut s = format!("{}/{} {}", style(&i.package).green(), mirror.join(","), i.version);
+            let pkg = cache.get(&i.package).unwrap();
+            if pkg.installed().is_some() && !pkg.is_upgradable() {
+                s += " [Installed]";
+            } else if pkg.is_upgradable() {
+                s += &format!(" [Upgrade from {}]", pkg.installed().unwrap().version());
+            }
+
+            println!("{}", style(s).bold());
         }
 
         Ok(())
