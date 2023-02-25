@@ -210,7 +210,7 @@ impl OmaAction {
                             }
                         }
 
-                        let mut s = format!("{}/{} {}", style(pkg.name()).green(), mirrors.join(","), version.version());
+                        let mut s = format!("{}/{} {} {}", style(pkg.name()).green(), mirrors.join(","), version.version(), pkg.arch());
                         if pkg.installed().is_some() && !pkg.is_upgradable() {
                             s += " [Installed]";
                         } else if pkg.is_upgradable() {
@@ -234,7 +234,7 @@ impl OmaAction {
                             }
                         }
 
-                        let mut s = format!("{}/{} {}", style(pkg.name()).green(), mirrors.join(","), version.version());
+                        let mut s = format!("{}/{} {} {}", style(pkg.name()).green(), mirrors.join(","), version.version(), pkg.arch());
                         if pkg.installed().is_some() && !pkg.is_upgradable() {
                             s += " [Installed]";
                         } else if pkg.is_upgradable() {
@@ -289,8 +289,8 @@ impl OmaAction {
                 }
             }
 
-            let mut s = format!("{}/{} {}", style(&i.package).green(), mirror.join(","), i.version);
             let pkg = cache.get(&i.package).unwrap();
+            let mut s = format!("{}/{} {} {}", style(&i.package).green(), mirror.join(","), i.version, pkg.arch());
             if pkg.installed().is_some() && !pkg.is_upgradable() {
                 s += " [Installed]";
             } else if pkg.is_upgradable() {
