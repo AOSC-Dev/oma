@@ -225,7 +225,7 @@ impl OmaAction {
                     let mut mirrors = vec![];
                     let versions = pkg.versions().collect::<Vec<_>>();
 
-                    for version in &versions {
+                    for (i, version) in versions.iter().enumerate() {
                         let uris = version.uris();
                         for i in uris {
                             let mirror = i.split('/').nth_back(3).unwrap_or("unknown").to_owned();
@@ -241,10 +241,12 @@ impl OmaAction {
                             s += &format!(" [Upgrade from {}]", pkg.installed().unwrap().version());
                         }
 
-                        res.push(format!("{}", style(s).bold()));
+                        if i == versions.len() - 1 {
+                            res.push(format!("{}\n", style(s).bold()));
+                        } else {
+                            res.push(format!("{}", style(s).bold()));
+                        }
                     }
-
-                    res.push("".to_owned());
                 }
             }
         }
@@ -268,8 +270,9 @@ impl OmaAction {
                     let pkg = cache.get(i);
                     if let Some(pkg) = pkg {
                         let vers = pkg.versions().collect::<Vec<_>>();
-                        for i in vers {
-                            let pkginfo = OmaPkg::new(&cache, pkg.name(), i.version())?;
+                        for ver in vers {
+                            let pkginfo = OmaPkg::new(&cache, pkg.name(), ver.version())?;
+                            
                             res.push(pkginfo);
                         }
                     }
