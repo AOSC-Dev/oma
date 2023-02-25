@@ -198,7 +198,6 @@ fn single_handler() {
     if subprocess_pid > 0 {
         let pid = nix::unistd::Pid::from_raw(subprocess_pid);
         signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
-        info!("User aborted the operation");
     }
 
     // Dealing with lock

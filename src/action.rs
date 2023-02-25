@@ -1120,14 +1120,9 @@ fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Resul
     )?;
 
     drop(out);
-    let success = pager.wait_for_exit()?;
+    pager.wait_for_exit()?;
 
-    if success {
-        Ok(())
-    } else {
-        // User aborted the operation
-        bail!("")
-    }
+    Ok(())
 }
 
 fn download_size(install_and_update: &[InstallRow], cache: &Cache) -> Result<u64> {
