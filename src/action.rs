@@ -278,7 +278,7 @@ impl OmaAction {
         res.sort();
 
         for i in res {
-            println!("{}", i);
+            println!("{i}");
         }
 
         let mut res = vec![];
