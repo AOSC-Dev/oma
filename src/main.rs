@@ -88,6 +88,8 @@ struct Install {
     packages: Vec<String>,
     #[arg(long, alias = "dbg")]
     install_dbg: bool,
+    #[arg(long)]
+    reinstall: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -168,7 +170,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Install(v) => {
             OmaAction::new()
                 .await?
-                .install(&v.packages, v.install_dbg)
+                .install(&v.packages, v.install_dbg, v.reinstall)
                 .await
         }
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为

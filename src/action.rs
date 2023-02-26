@@ -113,7 +113,7 @@ impl OmaAction {
             count: usize,
             packages: &[String],
         ) -> InstallResult<()> {
-            let cache = install_handle(packages, false)?;
+            let cache = install_handle(packages, false, false)?;
 
             cache
                 .upgrade(&Upgrade::FullUpgrade)
@@ -159,12 +159,12 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn install(&self, list: &[String], install_dbg: bool) -> Result<()> {
+    pub async fn install(&self, list: &[String], install_dbg: bool, reinstall: bool) -> Result<()> {
         is_root()?;
         update_db(&self.sources, &self.client, None).await?;
 
         let mut count = 0;
-        while let Err(e) = self.install_inner(list, count, install_dbg).await {
+        while let Err(e) = self.install_inner(list, count, install_dbg, reinstall).await {
             match e {
                 InstallError::Anyhow(e) => return Err(e),
                 InstallError::RustApt(e) => {
@@ -462,8 +462,9 @@ impl OmaAction {
         list: &[String],
         count: usize,
         install_dbg: bool,
+        reinstall: bool,
     ) -> InstallResult<()> {
-        let cache = install_handle(list, install_dbg)?;
+        let cache = install_handle(list, install_dbg, reinstall)?;
 
         let (action, len) = apt_handler(&cache)?;
 
@@ -476,6 +477,7 @@ impl OmaAction {
         list.extend(action.install.clone());
         list.extend(action.update.clone());
         list.extend(action.downgrade.clone());
+        list.extend(action.reinstall.clone());
 
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
@@ -793,7 +795,7 @@ fn apt_install(cache: Cache) -> std::result::Result<(), Exception> {
     Ok(())
 }
 
-fn install_handle(list: &[String], install_dbg: bool) -> Result<Cache> {
+fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result<Cache> {
     // Get local packages
     let local_debs = list
         .iter()
@@ -830,10 +832,14 @@ fn install_handle(list: &[String], install_dbg: bool) -> Result<Cache> {
             .context(format!("Can not get candidate {}", pkg.name()))?;
 
         ver.set_candidate();
-        pkg.mark_install(true, true);
+        if reinstall && pkg.is_installed() {
+            pkg.mark_reinstall(true);
+        } else {
+            pkg.mark_install(true, true);
+        }
         pkg.protect();
 
-        if pkg.is_installed() {
+        if pkg.is_installed() && !reinstall {
             info!("{} {} is already installed!", pkg.name(), ver.version());
         } else if !pkg.marked_install() {
             // 似乎本地安装的包没有办法交给 resolver 返回错误，所以只能在这里返回错误
@@ -850,8 +856,8 @@ fn install_handle(list: &[String], install_dbg: bool) -> Result<Cache> {
         let version = pkginfo.version;
         let ver = pkg.get_version(&version).unwrap();
 
-        if pkg.installed().as_ref() == Some(&ver) {
-            info!("{} {version} is already installed", pkg.name());
+        if pkg.installed().as_ref() == Some(&ver) && !reinstall {
+            info!("{} {version} is already installed.", pkg.name());
             if !install_dbg {
                 continue;
             }
@@ -859,7 +865,12 @@ fn install_handle(list: &[String], install_dbg: bool) -> Result<Cache> {
 
         ver.set_candidate();
 
-        pkg.mark_install(true, true);
+        if reinstall && pkg.is_installed() {
+            pkg.mark_reinstall(true);
+        } else {
+            pkg.mark_install(true, true);
+        }
+
         pkg.protect();
 
         if install_dbg && pkginfo.has_dbg {
@@ -873,8 +884,12 @@ fn install_handle(list: &[String], install_dbg: bool) -> Result<Cache> {
 
             let ver = ver.unwrap();
             ver.set_candidate();
+            if reinstall && pkg.is_installed() {
+                pkg_dbg.mark_reinstall(true);
+            } else {
+                pkg_dbg.mark_install(true, true);
+            }
 
-            pkg_dbg.mark_install(true, true);
             pkg_dbg.protect();
         } else if install_dbg && !pkginfo.has_dbg {
             warn!("{} has no debug symbol package!", pkg.name());
@@ -889,7 +904,7 @@ struct Action {
     update: Vec<InstallRow>,
     install: Vec<InstallRow>,
     del: Vec<RemoveRow>,
-    reinstall: Vec<String>,
+    reinstall: Vec<InstallRow>,
     downgrade: Vec<InstallRow>,
 }
 
@@ -898,7 +913,7 @@ impl Action {
         update: Vec<InstallRow>,
         install: Vec<InstallRow>,
         del: Vec<RemoveRow>,
-        reinstall: Vec<String>,
+        reinstall: Vec<InstallRow>,
         downgrade: Vec<InstallRow>,
     ) -> Self {
         Self {
@@ -922,7 +937,7 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
     let mut update: Vec<InstallRow> = vec![];
     let mut install: Vec<InstallRow> = vec![];
     let mut del: Vec<RemoveRow> = vec![];
-    let mut reinstall: Vec<String> = vec![];
+    let mut reinstall: Vec<InstallRow> = vec![];
     let mut downgrade: Vec<InstallRow> = vec![];
 
     for pkg in changes {
@@ -1018,7 +1033,17 @@ fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
         }
 
         if pkg.marked_reinstall() {
-            reinstall.push(pkg.name().to_string());
+            let version = pkg.installed().unwrap();
+            reinstall.push(InstallRow {
+                name: style(pkg.name()).blue().to_string(),
+                name_no_color: pkg.name().to_string(),
+                version: pkg.installed().unwrap().version().to_owned(),
+                new_version: pkg.installed().unwrap().version().to_owned(),
+                size: HumanBytes(0).to_string(),
+                pkg_urls: version.uris().collect(),
+                checksum: version.get_record(RecordField::SHA256),
+                pure_download_size: version.size(),
+            });
         }
 
         if pkg.marked_downgrade() {
@@ -1191,7 +1216,16 @@ fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Resul
             style("reinstall").blue().bold()
         )?;
 
-        writeln!(out, "\n{}", reinstall.join(", "))?;
+        let mut table = Table::new(&reinstall);
+
+        table
+            .with(Modify::new(Segment::all()).with(Alignment::left()))
+            // Install Size column should align right
+            .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
+            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+            .with(Style::psql());
+
+        writeln!(out, "{table}")?;
     }
 
     let mut list = vec![];
