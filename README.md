@@ -44,3 +44,9 @@ Options:
   -V, --version  Print version
 ```
 
+## TODO
+- [] PolicyKit Support
+- [] Flatpak Support
+- [] Improve provides (needs p-vector-rs support, see https://github.com/AOSC-Dev/p-vector-rs/pull/2)
+- [] CDROM Support for AOSC OS/Retro
+
