@@ -164,7 +164,10 @@ impl OmaAction {
         update_db(&self.sources, &self.client, None).await?;
 
         let mut count = 0;
-        while let Err(e) = self.install_inner(list, count, install_dbg, reinstall).await {
+        while let Err(e) = self
+            .install_inner(list, count, install_dbg, reinstall)
+            .await
+        {
             match e {
                 InstallError::Anyhow(e) => return Err(e),
                 InstallError::RustApt(e) => {
@@ -222,10 +225,7 @@ impl OmaAction {
                             if v.version() == version.version() && !pkg.is_upgradable() {
                                 s += " [Installed]";
                             } else if v.version() == version.version() && pkg.is_upgradable() {
-                                s += &format!(
-                                    " [Upgrade from {}]",
-                                    v.version()
-                                );
+                                s += &format!(" [Upgrade from {}]", v.version());
                             }
                         }
 
@@ -258,10 +258,7 @@ impl OmaAction {
                             if v.version() == version.version() && !pkg.is_upgradable() {
                                 s += " [Installed]";
                             } else if v.version() == version.version() && pkg.is_upgradable() {
-                                s += &format!(
-                                    " [Upgrade from {}]",
-                                    v.version()
-                                );
+                                s += &format!(" [Upgrade from {}]", v.version());
                             }
                         }
 
@@ -522,7 +519,35 @@ impl OmaAction {
     }
 
     pub async fn refresh(&self) -> Result<()> {
-        update_db(&self.sources, &self.client, None).await
+        update_db(&self.sources, &self.client, None).await?;
+
+        let cache = new_cache!()?;
+        let upgradable = PackageSort::default().upgradable();
+        let autoremove = PackageSort::default().auto_removable();
+        let upgradable = cache.packages(&upgradable).collect::<Vec<_>>();
+        let autoremove = cache.packages(&autoremove).collect::<Vec<_>>();
+        let mut s = String::new();
+        if !upgradable.is_empty() {
+            s += &format!("{} package can be upgraded", upgradable.len());
+        }
+
+        if upgradable.is_empty() && !autoremove.is_empty() {
+            s += &format!("{} can be removed.", autoremove.len());
+        } else if !upgradable.is_empty() && !autoremove.is_empty() {
+            s += &format!(", {} package can be removed.", autoremove.len());
+        } else if !upgradable.is_empty() && autoremove.is_empty() {
+            s += ".";
+        }
+
+        if !upgradable.is_empty() || !autoremove.is_empty() {
+            s += &format!(" Run 'oma upgrade' to see it.")
+        }
+
+        if !s.is_empty() {
+            info!("{s}");
+        }
+
+        Ok(())
     }
 
     pub async fn pick(&self, pkg: &str) -> Result<()> {
