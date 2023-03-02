@@ -864,10 +864,14 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         }
         pkg.protect();
 
-        if pkg.is_installed() && !reinstall {
-            info!("{} {} is already installed!", pkg.name(), ver.version());
-        } else if !pkg.marked_install() {
-            // 似乎本地安装的包没有办法交给 resolver 返回错误，所以只能在这里返回错误
+        let version = ver.version();
+
+        if pkg.installed().as_ref() == Some(&ver) && !reinstall {
+            info!("{} {version} is already installed.", pkg.name());
+        }
+
+        if !pkg.marked_install() {
+            // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
             bail!(
                 "{} can't marked installed! maybe dependency issue?",
                 ver.uris().next().unwrap_or(pkg.name().to_string()),
@@ -894,6 +898,13 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
             pkg.mark_reinstall(true);
         } else {
             pkg.mark_install(true, true);
+            if !pkg.marked_install() {
+                // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
+                bail!(
+                    "{} can't marked installed! maybe dependency issue?",
+                    pkg.name()
+                );
+            }
         }
 
         pkg.protect();
@@ -912,7 +923,14 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
             if reinstall && pkg.is_installed() {
                 pkg_dbg.mark_reinstall(true);
             } else {
-                pkg_dbg.mark_install(true, true);
+                pkg.mark_install(true, true);
+                if !pkg.marked_install() {
+                    // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
+                    bail!(
+                        "{} can't marked installed! maybe dependency issue?",
+                        pkg.name()
+                    );
+                }
             }
 
             pkg_dbg.protect();
