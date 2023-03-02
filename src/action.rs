@@ -540,7 +540,7 @@ impl OmaAction {
         }
 
         if !upgradable.is_empty() || !autoremove.is_empty() {
-            s += &format!(" Run 'oma upgrade' to see it.")
+            s += " Run 'oma upgrade' to see it."
         }
 
         if !s.is_empty() {
