@@ -52,4 +52,4 @@ Options:
 - [ ] CDROM Support for AOSC OS/Retro
 - [ ] Improve `fix-broken` (wait for https://gitlab.com/volian/rust-apt/-/merge_requests/31)
 - [ ] apt depends/rdepends
-- [ ] Improve Pkg depends issue error output display
+- [ ] Improve pPkg depends issue error output display
