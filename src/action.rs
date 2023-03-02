@@ -868,7 +868,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
 
         if pkg.installed().as_ref() == Some(&ver) && !reinstall {
             info!("{} {version} is already installed.", pkg.name());
-        } else if reinstall {
+        } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
             pkg.mark_reinstall(true);
         }
 
