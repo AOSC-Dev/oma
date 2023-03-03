@@ -868,7 +868,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
 
         let version = versions
             .iter()
-            .find(|x| x.uris().any(|x| x == path.to_owned()));
+            .find(|x| x.uris().any(|x| x == path));
 
         let version = version.unwrap();
 
