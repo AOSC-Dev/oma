@@ -864,12 +864,12 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         let pkgname = pkg.name();
         let version = ver.version();
 
-        mark_install(&cache, pkgname, version, reinstall)?;
+        mark_install(&cache, pkgname, version, reinstall, true)?;
     }
 
     // install another package
     for pkginfo in pkgs {
-        mark_install(&cache, &pkginfo.package, &pkginfo.version, reinstall)?;
+        mark_install(&cache, &pkginfo.package, &pkginfo.version, reinstall, false)?;
 
         if install_dbg && pkginfo.has_dbg {
             mark_install(
@@ -877,6 +877,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
                 &format!("{}-dbg", pkginfo.package),
                 &pkginfo.version,
                 reinstall,
+                false
             )?;
         } else if install_dbg && !pkginfo.has_dbg {
             warn!("{} has no debug symbol package!", pkginfo.package);
@@ -886,7 +887,13 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     Ok(cache)
 }
 
-fn mark_install(cache: &Cache, pkg: &str, version: &str, reinstall: bool) -> Result<()> {
+fn mark_install(
+    cache: &Cache,
+    pkg: &str,
+    version: &str,
+    reinstall: bool,
+    is_local: bool,
+) -> Result<()> {
     let pkg = cache.get(pkg).unwrap();
     let ver = pkg.get_version(&version).unwrap();
 
@@ -903,7 +910,11 @@ fn mark_install(cache: &Cache, pkg: &str, version: &str, reinstall: bool) -> Res
             // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
             bail!(
                 "{} can't marked installed! maybe dependency issue?",
-                pkg.name()
+                if is_local {
+                    ver.uris().next().unwrap_or(pkg.name().to_string())
+                } else {
+                    pkg.name().to_string()
+                }
             );
         }
     }
