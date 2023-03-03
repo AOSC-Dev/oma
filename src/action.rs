@@ -857,7 +857,8 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
             .context(format!("Can not get candidate {}", pkg.name()))?;
 
         ver.set_candidate();
-        if reinstall && pkg.is_installed() {
+
+        if reinstall && pkg.installed().as_ref() == Some(&ver) {
             pkg.mark_reinstall(true);
         } else {
             pkg.mark_install(true, true);
@@ -872,7 +873,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
             pkg.mark_reinstall(true);
         }
 
-        if !pkg.marked_install() {
+        if !pkg.marked_install() && !pkg.marked_upgrade() && !pkg.marked_downgrade() {
             // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
             bail!(
                 "{} can't marked installed! maybe dependency issue?",
@@ -896,11 +897,11 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
 
         ver.set_candidate();
 
-        if reinstall && pkg.is_installed() {
+        if pkg.installed().as_ref() == Some(&ver) && reinstall {
             pkg.mark_reinstall(true);
         } else {
             pkg.mark_install(true, true);
-            if !pkg.marked_install() {
+            if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
                 // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
                 bail!(
                     "{} can't marked installed! maybe dependency issue?",
@@ -922,11 +923,12 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
 
             let ver = ver.unwrap();
             ver.set_candidate();
-            if reinstall && pkg.is_installed() {
-                pkg_dbg.mark_reinstall(true);
+
+            if pkg.installed().as_ref() == Some(&ver) && reinstall {
+                pkg.mark_reinstall(true);
             } else {
                 pkg.mark_install(true, true);
-                if !pkg.marked_install() {
+                if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
                     // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
                     bail!(
                         "{} can't marked installed! maybe dependency issue?",

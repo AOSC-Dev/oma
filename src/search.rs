@@ -92,9 +92,9 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
     if input.contains('=') {
         let mut split_arg = input.split('=');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
-        let version_str = split_arg.next().context(format!("Not Support: {input}"))?;
+        let version_str = split_arg.collect::<String>();
 
-        let oma_pkg = OmaPkg::new(cache, name, version_str)?;
+        let oma_pkg = OmaPkg::new(cache, name, &version_str)?;
 
         res.push(oma_pkg);
     } else if input.ends_with(".deb") {
@@ -102,7 +102,7 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
     } else if input.contains('/') {
         let mut split_arg = input.split('/');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
-        let branch = split_arg.next().context(format!("Not Support: {input}"))?;
+        let branch = split_arg.collect::<String>();
 
         let pkg = cache
             .get(name)
@@ -116,7 +116,7 @@ pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
                 .get_record(RecordField::Filename)
                 .context(format!("Can not get package {name} filename!"))?;
 
-            if item.split('/').nth(1) == Some(branch) {
+            if item.split('/').nth(1) == Some(&branch) {
                 sort.push(i)
             }
         }
