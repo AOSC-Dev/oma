@@ -23,7 +23,7 @@ use std::{
     path::Path,
     process::{Command, Stdio},
     str::FromStr,
-    sync::atomic::Ordering,
+    sync::{atomic::Ordering},
 };
 
 use crate::{
@@ -837,12 +837,19 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     for i in &local_debs {
         let archive = Archive::new(Path::new(i)).context("Can not read file: {i}")?;
         let control = archive.control_map()?;
-        local.push(
+        local.push((
             control
                 .get("Package")
                 .context("Can not get package name from file: {i}")?
                 .clone(),
-        );
+            format!(
+                "file:{}",
+                Path::new(i)
+                    .canonicalize()?
+                    .to_str()
+                    .context(format!("Can not convert path {i} to str"))?
+            ),
+        ));
     }
 
     let another = list.iter().filter(|x| !local_debs.contains(x));
@@ -854,17 +861,18 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     }
 
     // install local packages
-    for pkg in local {
+    for (pkg, path) in local {
         let pkg = cache.get(&pkg).unwrap();
-        let ver = pkg
-            .candidate()
-            .take()
-            .context(format!("Can not get candidate {}", pkg.name()))?;
-
         let pkgname = pkg.name();
-        let version = ver.version();
+        let versions = pkg.versions().collect::<Vec<_>>();
 
-        mark_install(&cache, pkgname, version, reinstall, true)?;
+        let version = versions
+            .iter()
+            .find(|x| x.uris().any(|x| x == path.to_owned()));
+
+        let version = version.unwrap();
+
+        mark_install(&cache, pkgname, version.version(), reinstall, true)?;
     }
 
     // install another package
@@ -877,7 +885,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
                 &format!("{}-dbg", pkginfo.package),
                 &pkginfo.version,
                 reinstall,
-                false
+                false,
             )?;
         } else if install_dbg && !pkginfo.has_dbg {
             warn!("{} has no debug symbol package!", pkginfo.package);
@@ -895,9 +903,11 @@ fn mark_install(
     is_local: bool,
 ) -> Result<()> {
     let pkg = cache.get(pkg).unwrap();
-    let ver = pkg.get_version(&version).unwrap();
+    let ver = pkg.get_version(version).unwrap();
 
     ver.set_candidate();
+
+    let version = ver.version();
 
     if pkg.installed().as_ref() == Some(&ver) && !reinstall {
         info!("{} {version} is already installed.", pkg.name());
