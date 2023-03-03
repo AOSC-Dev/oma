@@ -92,8 +92,6 @@ impl OmaAction {
     pub async fn new() -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
 
-        lock_oma()?;
-
         let sources = get_sources()?;
 
         std::fs::create_dir_all(APT_LIST_DISTS)?;
@@ -104,6 +102,7 @@ impl OmaAction {
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
     pub async fn update(&self, packages: &[String]) -> Result<()> {
+        lock_oma()?;
         is_root()?;
 
         update_db(&self.sources, &self.client, None).await?;
@@ -160,6 +159,7 @@ impl OmaAction {
     }
 
     pub async fn install(&self, list: &[String], install_dbg: bool, reinstall: bool) -> Result<()> {
+        lock_oma()?;
         is_root()?;
         update_db(&self.sources, &self.client, None).await?;
 
@@ -400,6 +400,7 @@ impl OmaAction {
     }
 
     pub async fn fix_broken(&self) -> Result<()> {
+        lock_oma()?;
         is_root()?;
 
         let cache = new_cache!()?;
@@ -426,6 +427,7 @@ impl OmaAction {
 
     pub async fn download(&self, list: &[String]) -> Result<()> {
         let cache = new_cache!()?;
+        dbg!("???");
         let mut downloads = vec![];
         for i in list {
             let oma_pkg = show_pkgs(&cache, i)?;
@@ -490,6 +492,7 @@ impl OmaAction {
     }
 
     pub fn remove(&self, list: &[String], is_purge: bool) -> Result<()> {
+        lock_oma()?;
         is_root()?;
 
         let cache = new_cache!()?;
@@ -519,6 +522,7 @@ impl OmaAction {
     }
 
     pub async fn refresh(&self) -> Result<()> {
+        lock_oma()?;
         update_db(&self.sources, &self.client, None).await?;
 
         let cache = new_cache!()?;
@@ -551,6 +555,7 @@ impl OmaAction {
     }
 
     pub async fn pick(&self, pkg: &str) -> Result<()> {
+        lock_oma()?;
         is_root()?;
 
         let cache = new_cache!()?;
