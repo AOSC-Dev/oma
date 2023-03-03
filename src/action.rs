@@ -861,94 +861,56 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
             .take()
             .context(format!("Can not get candidate {}", pkg.name()))?;
 
-        ver.set_candidate();
-
-        if reinstall && pkg.installed().as_ref() == Some(&ver) {
-            pkg.mark_reinstall(true);
-        } else {
-            pkg.mark_install(true, true);
-        }
-        pkg.protect();
-
+        let pkgname = pkg.name();
         let version = ver.version();
 
-        if pkg.installed().as_ref() == Some(&ver) && !reinstall {
-            info!("{} {version} is already installed.", pkg.name());
-        } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
-            pkg.mark_reinstall(true);
-        }
-
-        if !pkg.marked_install() && !pkg.marked_upgrade() && !pkg.marked_downgrade() {
-            // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-            bail!(
-                "{} can't marked installed! maybe dependency issue?",
-                ver.uris().next().unwrap_or(pkg.name().to_string()),
-            );
-        }
+        mark_install(&cache, pkgname, version, reinstall)?;
     }
 
     // install another package
     for pkginfo in pkgs {
-        let pkg = cache.get(&pkginfo.package).unwrap();
-        let version = pkginfo.version;
-        let ver = pkg.get_version(&version).unwrap();
-
-        if pkg.installed().as_ref() == Some(&ver) && !reinstall {
-            info!("{} {version} is already installed.", pkg.name());
-            if !install_dbg {
-                continue;
-            }
-        }
-
-        ver.set_candidate();
-
-        if pkg.installed().as_ref() == Some(&ver) && reinstall {
-            pkg.mark_reinstall(true);
-        } else {
-            pkg.mark_install(true, true);
-            if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
-                // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-                bail!(
-                    "{} can't marked installed! maybe dependency issue?",
-                    pkg.name()
-                );
-            }
-        }
-
-        pkg.protect();
+        mark_install(&cache, &pkginfo.package, &pkginfo.version, reinstall)?;
 
         if install_dbg && pkginfo.has_dbg {
-            let pkg_dbg = cache.get(&format!("{}-dbg", pkg.name())).unwrap();
-            let ver = pkg_dbg.get_version(&version);
-
-            if ver.is_none() {
-                warn!("{} {version} has no debug symbol package!", pkg.name());
-                continue;
-            }
-
-            let ver = ver.unwrap();
-            ver.set_candidate();
-
-            if pkg.installed().as_ref() == Some(&ver) && reinstall {
-                pkg.mark_reinstall(true);
-            } else {
-                pkg.mark_install(true, true);
-                if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
-                    // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-                    bail!(
-                        "{} can't marked installed! maybe dependency issue?",
-                        pkg.name()
-                    );
-                }
-            }
-
-            pkg_dbg.protect();
+            mark_install(
+                &cache,
+                &format!("{}-dbg", pkginfo.package),
+                &pkginfo.version,
+                reinstall,
+            )?;
         } else if install_dbg && !pkginfo.has_dbg {
-            warn!("{} has no debug symbol package!", pkg.name());
+            warn!("{} has no debug symbol package!", pkginfo.package);
         }
     }
 
     Ok(cache)
+}
+
+fn mark_install(cache: &Cache, pkg: &str, version: &str, reinstall: bool) -> Result<()> {
+    let pkg = cache.get(pkg).unwrap();
+    let ver = pkg.get_version(&version).unwrap();
+
+    ver.set_candidate();
+
+    if pkg.installed().as_ref() == Some(&ver) && !reinstall {
+        info!("{} {version} is already installed.", pkg.name());
+        return Ok(());
+    } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
+        pkg.mark_reinstall(true);
+    } else {
+        pkg.mark_install(true, true);
+        if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
+            // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
+            bail!(
+                "{} can't marked installed! maybe dependency issue?",
+                pkg.name()
+            );
+        }
+    }
+
+    pkg.protect();
+
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
