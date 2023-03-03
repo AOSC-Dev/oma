@@ -427,7 +427,7 @@ impl OmaAction {
 
     pub async fn download(&self, list: &[String]) -> Result<()> {
         let cache = new_cache!()?;
-        dbg!("???");
+
         let mut downloads = vec![];
         for i in list {
             let oma_pkg = show_pkgs(&cache, i)?;
