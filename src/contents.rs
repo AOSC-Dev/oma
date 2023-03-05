@@ -1,6 +1,6 @@
 use std::{
     io::{BufRead, BufReader},
-    process::{Command, Stdio},
+    process::{Command, Stdio}, time::Duration,
 };
 
 use anyhow::{bail, Context, Result};
@@ -82,8 +82,9 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
         let mut res = vec![];
 
         let pb = ProgressBar::new_spinner();
+        pb.enable_steady_tick(Duration::from_millis(50));
 
-        let cmd = Command::new("rg")
+        let mut cmd = Command::new("rg")
             .arg("--json")
             .arg("-e")
             .arg(pattern)
@@ -92,7 +93,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
             .spawn()?;
 
         {
-            let stdout = cmd.stdout.unwrap();
+            let stdout = cmd.stdout.as_mut().unwrap();
             let stdout_reader = BufReader::new(stdout);
             let stdout_lines = stdout_reader.lines();
 
@@ -137,6 +138,10 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                     }
                 }
             }
+        }
+
+        if !cmd.wait()?.success() {
+            bail!("rg return not-zero code!");
         }
 
         pb.finish_and_clear();
