@@ -102,8 +102,8 @@ impl OmaAction {
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
     pub async fn update(&self, packages: &[String]) -> Result<()> {
-        lock_oma()?;
         is_root()?;
+        lock_oma()?;
 
         update_db(&self.sources, &self.client, None).await?;
 
@@ -452,8 +452,8 @@ impl OmaAction {
     }
 
     pub async fn fix_broken(&self) -> Result<()> {
-        lock_oma()?;
         is_root()?;
+        lock_oma()?;
 
         let cache = new_cache!()?;
 
@@ -544,8 +544,8 @@ impl OmaAction {
     }
 
     pub fn remove(&self, list: &[String], is_purge: bool) -> Result<()> {
-        lock_oma()?;
         is_root()?;
+        lock_oma()?;
 
         let cache = new_cache!()?;
 
@@ -574,6 +574,7 @@ impl OmaAction {
     }
 
     pub async fn refresh(&self) -> Result<()> {
+        is_root()?;
         lock_oma()?;
         update_db(&self.sources, &self.client, None).await?;
 
@@ -607,8 +608,8 @@ impl OmaAction {
     }
 
     pub async fn pick(&self, pkg: &str) -> Result<()> {
-        lock_oma()?;
         is_root()?;
+        lock_oma()?;
 
         let cache = new_cache!()?;
         let pkg = cache
