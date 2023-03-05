@@ -80,9 +80,16 @@ async fn try_download(
 ) -> Result<()> {
     let mut all_is_err = true;
     for (i, c) in urls.iter().enumerate() {
-        if download(c, client, filename.to_string(), download_dir, Some(&hash), opb.clone())
-            .await
-            .is_ok()
+        if download(
+            c,
+            client,
+            filename.to_string(),
+            download_dir,
+            Some(&hash),
+            opb.clone(),
+        )
+        .await
+        .is_ok()
         {
             all_is_err = false;
             break;

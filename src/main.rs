@@ -164,7 +164,6 @@ struct List {
     installed: bool,
 }
 
-
 #[tokio::main]
 async fn main() {
     ctrlc::set_handler(single_handler).expect(

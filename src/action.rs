@@ -678,7 +678,7 @@ impl OmaAction {
 
     pub fn mark(user_action: MarkAction) -> Result<()> {
         fn check(cache: &Cache, pkg: &str) -> Result<()> {
-            let package = cache.get(&pkg);
+            let package = cache.get(pkg);
             if package.is_none() {
                 bail!("Can not get package {pkg}")
             }
@@ -744,7 +744,7 @@ impl OmaAction {
                 for i in &args.pkgs {
                     check(&cache, i)?;
                 }
-                
+
                 for i in args.pkgs {
                     let pkg = cache.get(&i).unwrap();
                     if !pkg.is_auto_installed() {
@@ -764,7 +764,7 @@ impl OmaAction {
                 for i in &args.pkgs {
                     check(&cache, i)?;
                 }
-                
+
                 for i in args.pkgs {
                     let pkg = cache.get(&i).unwrap();
                     if pkg.is_auto_installed() {

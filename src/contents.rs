@@ -1,6 +1,7 @@
 use std::{
     io::{BufRead, BufReader},
-    process::{Command, Stdio}, time::Duration,
+    process::{Command, Stdio},
+    time::Duration,
 };
 
 use anyhow::{bail, Context, Result};
@@ -116,7 +117,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                         let submatches = data.submatches;
                         if let Some(submatches) = submatches {
                             count += 1;
-                            pb.set_message(format!("Searching, found {} results so far ...", count));
+                            pb.set_message(format!("Searching, found {count} results so far ..."));
                             for j in submatches {
                                 let m = j.m.text;
                                 if let Some(l) = parse_line(&m, is_list, kw) {
