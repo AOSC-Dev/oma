@@ -292,7 +292,7 @@ pub async fn packages_download(
 
         if c.pkg_urls.iter().any(|x| x.starts_with("file:")) {
             // 本地源交给 apt 处理
-            info!("Use apt to handle url {:?}", c.pkg_urls.first());
+            info!("Use apt to handle pkg {}", c.name_no_color);
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();
 
@@ -346,7 +346,7 @@ impl OmaSourceEntry {
     fn new(v: &SourceEntry) -> Result<Self> {
         let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
             OmaSourceEntryFrom::Http
-        } else if v.url().starts_with("file") {
+        } else if v.url().starts_with("file://") {
             OmaSourceEntryFrom::Local
         } else {
             bail!("Unsupport SourceEntry: {v:?}")
@@ -395,9 +395,14 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
 async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, FileBuf, usize)> {
     let db_path = db_path.split("://").nth(1).unwrap_or(db_path);
     let name = FileName::new(db_path);
-    tokio::fs::copy(db_path, Path::new(APT_LIST_DISTS).join(&name.0)).await?;
+    tokio::fs::copy(db_path, Path::new(APT_LIST_DISTS).join(&name.0))
+        .await
+        .context(format!("Can not copy {db_path} to {APT_LIST_DISTS}"))?;
 
-    let mut f = tokio::fs::File::open(db_path).await?;
+    let mut f = tokio::fs::File::open(db_path)
+        .await
+        .context("Can not open file {db_path}")?;
+
     let mut v = vec![];
     f.read_to_end(&mut v).await?;
 
@@ -514,15 +519,15 @@ pub async fn update_db(
         for (i, c) in handle.iter().enumerate() {
             let mut p = Path::new(&c.name).to_path_buf();
             p.set_extension("");
-            let not_compress_filename = p.to_string_lossy().to_string();
+            let not_compress_filename_before = p.to_string_lossy().to_string();
 
             let source_index = sources.get(index).unwrap();
-            let filename = FileName::new(&format!(
+            let not_compress_filename = FileName::new(&format!(
                 "{}/{}",
-                source_index.dist_path, not_compress_filename
+                source_index.dist_path, not_compress_filename_before
             ));
 
-            let p = Path::new(APT_LIST_DISTS).join(&filename.0);
+            let p = Path::new(APT_LIST_DISTS).join(&not_compress_filename.0);
 
             let typ = match c.file_type {
                 DistFileType::CompressContents => "Contents",
@@ -541,7 +546,7 @@ pub async fn update_db(
 
                 let checksum = checksums
                     .iter()
-                    .find(|x| x.name == not_compress_filename)
+                    .find(|x| x.name == not_compress_filename_before)
                     .unwrap();
 
                 let hash_clone = checksum.checksum.to_owned();
@@ -557,17 +562,11 @@ pub async fn update_db(
                             let p = if !ose.is_flat {
                                 source_index.dist_path.clone()
                             } else {
-                                format!("{}/{}", source_index.dist_path, not_compress_filename)
+                                format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                             };
 
-                            let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
-                                p,
-                                c,
-                                client,
-                                filename.0,
-                                typ,
-                                opb,
-                            ));
+                            let task: BoxFuture<'_, Result<()>> =
+                                Box::pin(download_and_extract(p, c, client, not_compress_filename.0, typ, opb));
 
                             tasks.push(task);
                         }
@@ -592,17 +591,11 @@ pub async fn update_db(
                         let p = if !ose.is_flat {
                             source_index.dist_path.clone()
                         } else {
-                            format!("{}/{}", source_index.dist_path, not_compress_filename)
+                            format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                         };
 
-                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
-                            p,
-                            c,
-                            client,
-                            filename.0,
-                            typ,
-                            opb,
-                        ));
+                        let task: BoxFuture<'_, Result<()>> =
+                            Box::pin(download_and_extract(p, c, client, not_compress_filename.0, typ, opb));
 
                         tasks.push(task);
                     }
@@ -610,11 +603,11 @@ pub async fn update_db(
                         let p = if !ose.is_flat {
                             source_index.dist_path.clone()
                         } else {
-                            format!("{}/{}", source_index.dist_path, not_compress_filename)
+                            format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                         };
 
                         let task: BoxFuture<'_, Result<()>> =
-                            Box::pin(download_and_extract_local(p, not_compress_filename, c, typ));
+                            Box::pin(download_and_extract_local(p, not_compress_filename.0, c, typ));
 
                         tasks.push(task);
                     }
@@ -671,7 +664,7 @@ async fn download_and_extract(
 
     let buf = decompress(&buf.0, &name.0)?;
     let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
-    std::fs::write(p, buf)?;
+    tokio::fs::write(p, buf).await?;
 
     Ok(())
 }
@@ -683,11 +676,17 @@ async fn download_and_extract_local(
     typ: &str,
 ) -> Result<()> {
     let path = path.split("://").nth(1).unwrap_or(&path).to_owned();
-    let name = FileName::new(&path);
 
-    tokio::fs::copy(&path, Path::new(APT_LIST_DISTS).join(&name.0)).await?;
+    let path = format!("{path}/{}", i.name);
+    let name = FileName::new(&i.name);
 
-    let mut f = tokio::fs::File::open(&path).await?;
+    tokio::fs::copy(&path, Path::new(APT_LIST_DISTS).join(&name.0))
+        .await
+        .context(format!("Can not copy {path} to {APT_LIST_DISTS}"))?;
+
+    let mut f = tokio::fs::File::open(&path)
+        .await
+        .context(format!("Can not open {path}"))?;
     let mut buf = vec![];
     f.read_to_end(&mut buf).await?;
 
@@ -712,7 +711,10 @@ async fn download_and_extract_local(
     };
 
     let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
-    std::fs::write(p, buf)?;
+
+    tokio::fs::write(&p, buf)
+        .await
+        .context(format!("Can not write buf to {}", p.display()))?;
 
     Ok(())
 }
