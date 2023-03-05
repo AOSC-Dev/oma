@@ -23,7 +23,7 @@ use std::{
     path::Path,
     process::{Command, Stdio},
     str::FromStr,
-    sync::{atomic::Ordering},
+    sync::atomic::Ordering,
 };
 
 use crate::{
@@ -32,7 +32,7 @@ use crate::{
     formatter::NoProgress,
     info,
     pager::Pager,
-    search::{search_pkgs, show_pkgs, OmaPkg},
+    search::{query_pkgs, search_pkgs, OmaPkg},
     success,
     utils::size_checker,
     warn,
@@ -298,11 +298,20 @@ impl OmaAction {
 
         let mut res = vec![];
 
+        let mut another_version = 0;
+
         if let Some(list) = list {
             if !all {
                 for i in list {
-                    let pkgs = show_pkgs(&cache, i)?;
-                    res.extend(pkgs);
+                    let pkg = cache.get(i);
+                    if let Some(pkg) = pkg {
+                        another_version = pkg.versions().collect::<Vec<_>>().len();
+                        if let Some(cand) = pkg.candidate() {
+                            let pkginfo = OmaPkg::new(&cache, pkg.name(), cand.version())?;
+
+                            res.push(pkginfo);
+                        }
+                    }
                 }
             } else {
                 for i in list {
@@ -354,6 +363,13 @@ impl OmaAction {
             }
 
             println!("{}", style(s).bold());
+
+            if !all && another_version != 0 {
+                info!(
+                    "There is {} additional version. Please use the '-a' switch to see it",
+                    another_version - 1
+                );
+            }
         }
 
         Ok(())
@@ -365,7 +381,7 @@ impl OmaAction {
         let mut s = String::new();
 
         for (i, c) in list.iter().enumerate() {
-            let oma_pkg = show_pkgs(&cache, c)?;
+            let oma_pkg = query_pkgs(&cache, c)?;
             let len = oma_pkg.len();
             for (i, entry) in oma_pkg.into_iter().enumerate() {
                 s += &format!("Package: {}\n", entry.package);
@@ -457,7 +473,7 @@ impl OmaAction {
 
         let mut downloads = vec![];
         for i in list {
-            let oma_pkg = show_pkgs(&cache, i)?;
+            let oma_pkg = query_pkgs(&cache, i)?;
             for i in oma_pkg {
                 let pkg = i.package;
                 let version = i.version;
@@ -884,7 +900,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     let mut pkgs = vec![];
 
     for i in another {
-        pkgs.extend(show_pkgs(&cache, i)?);
+        pkgs.extend(query_pkgs(&cache, i)?);
     }
 
     // install local packages
@@ -893,9 +909,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         let pkgname = pkg.name();
         let versions = pkg.versions().collect::<Vec<_>>();
 
-        let version = versions
-            .iter()
-            .find(|x| x.uris().any(|x| x == path));
+        let version = versions.iter().find(|x| x.uris().any(|x| x == path));
 
         let version = version.unwrap();
 

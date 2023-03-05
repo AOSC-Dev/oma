@@ -87,7 +87,7 @@ fn dep_to_str_map(map: &HashMap<DepType, Vec<Dependency>>) -> HashMap<String, St
     res
 }
 
-pub fn show_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
+pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
     let mut res = Vec::new();
     if input.contains('=') {
         let mut split_arg = input.split('=');
