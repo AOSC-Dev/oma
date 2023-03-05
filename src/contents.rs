@@ -1,4 +1,7 @@
-use std::process::Command;
+use std::{
+    io::{BufRead, BufReader},
+    process::{Command, Stdio},
+};
 
 use anyhow::{bail, Context, Result};
 use console::style;
@@ -6,6 +9,7 @@ use grep::{
     regex::RegexMatcherBuilder,
     searcher::{sinks::UTF8, Searcher},
 };
+use indicatif::ProgressBar;
 
 use crate::{db::APT_LIST_DISTS, utils::get_arch_name};
 
@@ -77,19 +81,28 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
     let mut res = if which::which("rg").is_ok() {
         let mut res = vec![];
 
-        let rg_runner = Command::new("rg")
+        let pb = ProgressBar::new_spinner();
+
+        let cmd = Command::new("rg")
             .arg("--json")
             .arg("-e")
             .arg(pattern)
             .args(&paths)
-            .output()?;
+            .stdout(Stdio::piped())
+            .spawn()?;
 
-        if !rg_runner.status.success() {
-            for i in String::from_utf8_lossy(&rg_runner.stdout).split('\n') {
+        {
+            let stdout = cmd.stdout.unwrap();
+            let stdout_reader = BufReader::new(stdout);
+            let stdout_lines = stdout_reader.lines();
+
+            let mut count = 0;
+
+            for i in stdout_lines.flatten() {
                 if !i.is_empty() {
-                    let line: RgJson = serde_json::from_str(i)?;
+                    let line: RgJson = serde_json::from_str(&i)?;
+                    let data = line.data;
                     if line.t == Some("summary".to_owned()) {
-                        let data = line.data;
                         let stats = data.stats;
                         if let Some(stats) = stats {
                             if stats.matched_lines == 0 {
@@ -97,38 +110,36 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                             }
                         }
                     }
-                }
-            }
 
-            bail!("rg return non-zero code.")
-        }
-
-        let mut output = std::str::from_utf8(&rg_runner.stdout)?.split('\n');
-        // 去除最后的空行
-        output.nth_back(0);
-
-        for i in output {
-            let line: RgJson = serde_json::from_str(i)?;
-            if line.t == Some("match".to_owned()) {
-                let submatches = line.data.submatches;
-                if let Some(submatches) = submatches {
-                    for j in submatches {
-                        let m = j.m.text;
-                        if let Some(l) = parse_line(&m, is_list, kw) {
-                            if cnf {
-                                let last = l.1.split_whitespace().last();
-                                if last != Some(kw) && last != Some(&format!("/{kw}")) && last != Some(&format!("./{kw}")) {
-                                    continue;
+                    if line.t == Some("match".to_owned()) {
+                        let submatches = data.submatches;
+                        if let Some(submatches) = submatches {
+                            count += 1;
+                            pb.set_message(format!("Searching, found {} results so far ...", count));
+                            for j in submatches {
+                                let m = j.m.text;
+                                if let Some(l) = parse_line(&m, is_list, kw) {
+                                    if cnf {
+                                        let last = l.1.split_whitespace().last();
+                                        if last != Some(kw)
+                                            && last != Some(&format!("/{kw}"))
+                                            && last != Some(&format!("./{kw}"))
+                                        {
+                                            continue;
+                                        }
+                                    }
+                                    if !res.contains(&l) {
+                                        res.push(l);
+                                    }
                                 }
-                            }
-                            if !res.contains(&l) {
-                                res.push(l);
                             }
                         }
                     }
                 }
             }
         }
+
+        pb.finish_and_clear();
 
         res
     } else {
