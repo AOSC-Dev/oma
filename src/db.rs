@@ -292,9 +292,8 @@ pub async fn packages_download(
     for (i, c) in list.iter().enumerate() {
         let mbc = mb.clone();
 
-        if let Some(index) = c.pkg_urls.iter().position(|x| x.starts_with("file:")) {
+        if let Some(url) = c.pkg_urls.iter().find(|x| x.starts_with("file:")) {
             // 为保证安装的是本地源的包，这里直接把文件复制过去
-            let url = c.pkg_urls[index].clone();
             let url = url.strip_prefix("file:").unwrap();
             let url = Path::new(url);
             let filename = url
