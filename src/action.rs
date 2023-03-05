@@ -364,7 +364,7 @@ impl OmaAction {
 
             println!("{}", style(s).bold());
 
-            if !all && another_version != 1 {
+            if !all && another_version > 1 {
                 info!(
                     "There is {} additional version. Please use the '-a' switch to see it",
                     another_version - 1
