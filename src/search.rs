@@ -87,7 +87,7 @@ fn dep_to_str_map(map: &HashMap<DepType, Vec<Dependency>>) -> HashMap<String, St
     res
 }
 
-pub fn query_pkgs(cache: &Cache, input: &str, is_all: bool) -> Result<Vec<OmaPkg>> {
+pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(OmaPkg, bool)>> {
     let mut res = Vec::new();
     if input.contains('=') {
         let mut split_arg = input.split('=');
@@ -96,7 +96,7 @@ pub fn query_pkgs(cache: &Cache, input: &str, is_all: bool) -> Result<Vec<OmaPkg
 
         let oma_pkg = OmaPkg::new(cache, name, &version_str)?;
 
-        res.push(oma_pkg);
+        res.push((oma_pkg, true));
     } else if input.ends_with(".deb") {
         bail!("search_pkg does not support read local deb package");
     } else if input.contains('/') {
@@ -131,7 +131,7 @@ pub fn query_pkgs(cache: &Cache, input: &str, is_all: bool) -> Result<Vec<OmaPkg
         let name = pkg.name();
         let oma_pkg = OmaPkg::new(cache, name, version.version())?;
 
-        res.push(oma_pkg);
+        res.push((oma_pkg, true));
     } else {
         let sort = PackageSort::default();
         let search_res = cache
@@ -140,19 +140,14 @@ pub fn query_pkgs(cache: &Cache, input: &str, is_all: bool) -> Result<Vec<OmaPkg
 
         for pkg in search_res {
             let name = pkg.name();
-            if !is_all {
-                let version = pkg
-                    .candidate()
-                    .context(format!("Can not get candidate from package {}", pkg.name()))?;
+            let versions = pkg.versions();
 
-                let oma_pkg = OmaPkg::new(cache, name, version.version())?;
-                res.push(oma_pkg);
-            } else {
-                let versions = pkg.versions();
-
-                for ver in versions {
-                    let oma_pkg = OmaPkg::new(cache, name, ver.version())?;
-                    res.push(oma_pkg);
+            for ver in versions {
+                let oma_pkg = OmaPkg::new(cache, name, ver.version())?;
+                if pkg.candidate() == Some(ver) {
+                    res.push((oma_pkg, true));
+                } else {
+                    res.push((oma_pkg, false));
                 }
             }
         }

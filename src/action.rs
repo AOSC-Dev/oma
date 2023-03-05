@@ -380,10 +380,15 @@ impl OmaAction {
 
         let mut s = String::new();
 
+        let mut len = 0;
+
         for (i, c) in list.iter().enumerate() {
-            let oma_pkg = query_pkgs(&cache, c, is_all)?;
-            let len = oma_pkg.len();
-            for (i, entry) in oma_pkg.into_iter().enumerate() {
+            let oma_pkg = query_pkgs(&cache, c)?;
+            len = oma_pkg.len();
+            for (i, (entry, is_cand)) in oma_pkg.into_iter().enumerate() {
+                if !is_all && !is_cand {
+                    continue;
+                }
                 s += &format!("Package: {}\n", entry.package);
                 s += &format!("Version: {}\n", entry.version);
                 if let Some(section) = entry.section {
@@ -411,6 +416,10 @@ impl OmaAction {
         }
 
         print!("{s}");
+
+        if !is_all && len > 1 {
+            info!("There are {} additional records. Please use the '-a' switch to see them.", len - 1);
+        }
 
         Ok(())
     }
@@ -473,8 +482,8 @@ impl OmaAction {
 
         let mut downloads = vec![];
         for i in list {
-            let oma_pkg = query_pkgs(&cache, i, false)?;
-            for i in oma_pkg {
+            let oma_pkg = query_pkgs(&cache, i)?;
+            for (i, _) in oma_pkg {
                 let pkg = i.package;
                 let version = i.version;
                 let pkg = cache.get(&pkg).unwrap();
@@ -900,7 +909,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     let mut pkgs = vec![];
 
     for i in another {
-        pkgs.extend(query_pkgs(&cache, i, false)?);
+        pkgs.extend(query_pkgs(&cache, i)?);
     }
 
     // install local packages
@@ -917,7 +926,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     }
 
     // install another package
-    for pkginfo in pkgs {
+    for (pkginfo, _) in pkgs {
         mark_install(&cache, &pkginfo.package, &pkginfo.version, reinstall, false)?;
 
         if install_dbg && pkginfo.has_dbg {
