@@ -287,6 +287,8 @@ pub async fn packages_download(
 
     let list_len = list.len();
 
+    let mut download_len = 0;
+
     for (i, c) in list.iter().enumerate() {
         let mbc = mb.clone();
 
@@ -309,6 +311,8 @@ pub async fn packages_download(
                 ),
                 download_dir.unwrap_or(Path::new(DOWNLOAD_DIR)),
             ));
+
+            download_len += 1;
         }
     }
 
@@ -321,6 +325,12 @@ pub async fn packages_download(
     // 遍历结果看是否有下载出错
     for i in res {
         i?;
+    }
+
+    if download_len != 0 {
+        success!("Download {download_len} package.");
+    } else {
+        info!("No need to Fetch anything.");
     }
 
     Ok(())
