@@ -551,6 +551,10 @@ impl OmaAction {
 
         for i in list {
             let pkg = cache.get(i).context(format!("Can not get package {i}"))?;
+            if !pkg.is_installed() {
+                info!("Package {i} is not installed, so no need to remove.");
+                continue;
+            }
             pkg.mark_delete(is_purge);
             pkg.protect();
         }
