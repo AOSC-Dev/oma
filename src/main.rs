@@ -45,7 +45,7 @@ enum OmaCommand {
     /// Download Package
     Download(Download),
     /// Delete Package
-    #[clap(alias = "delete")]
+    #[clap(alias = "delete", alias = "purge")]
     Remove(Delete),
     /// Refresh Package database
     #[clap(alias = "update")]
