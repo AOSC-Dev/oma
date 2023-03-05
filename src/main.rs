@@ -132,10 +132,27 @@ struct Search {
     keyword: String,
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 struct Mark {
-    action: String,
-    pkg: String,
+    #[clap(subcommand)]
+    action: MarkAction,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum MarkAction {
+    /// Hold package version
+    Hold(MarkActionArgs),
+    /// Unhold package version
+    Unhold(MarkActionArgs),
+    /// Set package status to manual install
+    Manual(MarkActionArgs),
+    /// Set package status to auto install
+    Auto(MarkActionArgs),
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct MarkActionArgs {
+    pkgs: Vec<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -190,7 +207,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
         OmaCommand::Pick(v) => OmaAction::new().await?.pick(&v.package).await,
-        OmaCommand::Mark(v) => OmaAction::mark(&v.pkg, &v.action),
+        OmaCommand::Mark(v) => OmaAction::mark(v.action),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
         OmaCommand::List(v) => OmaAction::list(v.packages.as_deref(), v.all, v.installed),
     }?;

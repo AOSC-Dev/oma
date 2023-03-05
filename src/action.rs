@@ -35,7 +35,7 @@ use crate::{
     search::{query_pkgs, search_pkgs, OmaPkg},
     success,
     utils::size_checker,
-    warn,
+    warn, MarkAction,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -418,7 +418,10 @@ impl OmaAction {
         print!("{s}");
 
         if !is_all && len > 1 {
-            info!("There are {} additional records. Please use the '-a' switch to see them.", len - 1);
+            info!(
+                "There are {} additional records. Please use the '-a' switch to see them.",
+                len - 1
+            );
         }
 
         Ok(())
@@ -673,83 +676,111 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn mark(pkg: &str, user_action: &str) -> Result<()> {
+    pub fn mark(user_action: MarkAction) -> Result<()> {
+        fn check(cache: &Cache, pkg: &str) -> Result<()> {
+            let package = cache.get(&pkg);
+            if package.is_none() {
+                bail!("Can not get package {pkg}")
+            }
+            let package = package.unwrap();
+            package
+                .installed()
+                .context(format!("{pkg} is not installed!"))?;
+
+            Ok(())
+        }
+
         let cache = new_cache!()?;
 
-        let package = cache.get(pkg);
-
-        if package.is_none() {
-            bail!("Can not get package {pkg}")
-        }
-
-        let package = package.unwrap();
-
-        package
-            .installed()
-            .context(format!("{pkg} is not installed!"))?;
-
         match user_action {
-            "hold" => {
-                let selections = dpkg_selections()?;
-
-                let v = selections
-                    .iter()
-                    .find(|x| x.0 == pkg)
-                    .context("dpkg data is broken!")?;
-
-                if v.1 == "hold" {
-                    info!("{pkg} is already hold!");
-                    return Ok(());
+            MarkAction::Hold(args) => {
+                for i in &args.pkgs {
+                    check(&cache, i)?;
                 }
 
-                dpkg_set_selections(pkg, user_action)?;
-                success!("{pkg} is set to hold.");
+                let selections = dpkg_selections()?;
+
+                for i in args.pkgs {
+                    let v = selections
+                        .iter()
+                        .find(|x| x.0 == i)
+                        .context("dpkg data is broken!")?;
+
+                    if v.1 == "hold" {
+                        info!("{} is already hold!", i);
+                        continue;
+                    }
+
+                    dpkg_set_selections(&i, "hold")?;
+                    success!("{} is set to hold.", i);
+                }
 
                 return Ok(());
             }
-            "unhold" => {
+            MarkAction::Unhold(args) => {
+                for i in &args.pkgs {
+                    check(&cache, i)?;
+                }
                 let selections = dpkg_selections()?;
 
-                let v = selections
-                    .iter()
-                    .find(|x| x.0 == pkg)
-                    .context("dpkg data is broken!")?;
+                for i in args.pkgs {
+                    let v = selections
+                        .iter()
+                        .find(|x| x.0 == i)
+                        .context("dpkg data is broken!")?;
 
-                if v.1 == "install" {
-                    info!("{pkg} is already unhold!");
-                    return Ok(());
+                    if v.1 == "install" {
+                        info!("{} is already unhold!", i);
+                        continue;
+                    }
+
+                    dpkg_set_selections(&i, "unhold")?;
+                    success!("{} is set to unhold.", i);
                 }
-
-                dpkg_set_selections(pkg, user_action)?;
-                success!("{pkg} is set to unhold.");
 
                 return Ok(());
             }
-            "manual" => {
-                if !package.is_auto_installed() {
-                    info!("{pkg} is already manual installed status.");
-                    return Ok(());
+            MarkAction::Manual(args) => {
+                for i in &args.pkgs {
+                    check(&cache, i)?;
                 }
-                info!("Setting {pkg} to manual installed status ...");
-                package.mark_auto(false);
-            }
-            "auto" => {
-                if package.is_auto_installed() {
-                    info!("{pkg} is already auto installed status.");
-                    return Ok(());
+                
+                for i in args.pkgs {
+                    let pkg = cache.get(&i).unwrap();
+                    if !pkg.is_auto_installed() {
+                        info!("{i} is already manual installed status.");
+                        continue;
+                    }
+                    info!("Setting {i} to manual installed status ...");
+                    pkg.mark_auto(false);
                 }
-                info!("Setting {pkg} to auto installed status ...");
-                package.mark_auto(true);
+
+                cache.commit(
+                    &mut NoProgress::new_box(),
+                    &mut AptInstallProgress::new_box(),
+                )?;
             }
-            _ => {
-                bail!("Unsupport action: {user_action}");
+            MarkAction::Auto(args) => {
+                for i in &args.pkgs {
+                    check(&cache, i)?;
+                }
+                
+                for i in args.pkgs {
+                    let pkg = cache.get(&i).unwrap();
+                    if pkg.is_auto_installed() {
+                        info!("{i} is already auto installed status.");
+                        continue;
+                    }
+                    info!("Setting {i} to auto installed status ...");
+                    pkg.mark_auto(true);
+                }
+
+                cache.commit(
+                    &mut NoProgress::new_box(),
+                    &mut AptInstallProgress::new_box(),
+                )?;
             }
         }
-
-        cache.commit(
-            &mut NoProgress::new_box(),
-            &mut AptInstallProgress::new_box(),
-        )?;
 
         Ok(())
     }
