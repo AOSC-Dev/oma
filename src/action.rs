@@ -222,10 +222,19 @@ impl OmaAction {
                         );
 
                         if let Some(v) = pkg.installed() {
+                            let mut is_set = false;
                             if v.version() == version.version() && !pkg.is_upgradable() {
-                                s += " [Installed]";
+                                s += " [Installed";
+                                is_set = true;
                             } else if v.version() == version.version() && pkg.is_upgradable() {
-                                s += &format!(" [Upgrade from {}]", v.version());
+                                s += &format!(" [Upgrade from: {}", v.version());
+                                is_set = true;
+                            }
+
+                            if pkg.is_auto_installed() && is_set {
+                                s += ",automatic]"
+                            } else if is_set {
+                                s += "]"
                             }
                         }
 
@@ -255,10 +264,19 @@ impl OmaAction {
                         );
 
                         if let Some(v) = pkg.installed() {
+                            let mut is_set = false;
                             if v.version() == version.version() && !pkg.is_upgradable() {
-                                s += " [Installed]";
+                                s += " [Installed";
+                                is_set = true;
                             } else if v.version() == version.version() && pkg.is_upgradable() {
-                                s += &format!(" [Upgrade from {}]", v.version());
+                                s += &format!(" [Upgrade from: {}", v.version());
+                                is_set = true;
+                            }
+
+                            if pkg.is_auto_installed() && is_set {
+                                s += ",automatic]"
+                            } else if is_set {
+                                s += "]"
                             }
                         }
 
@@ -319,10 +337,19 @@ impl OmaAction {
                 pkg.arch()
             );
             if let Some(v) = pkg.installed() {
-                if v.version() == i.version && !pkg.is_upgradable() {
-                    s += " [Installed]";
-                } else if v.version() == i.version && pkg.is_upgradable() {
-                    s += &format!(" [Upgrade from {}]", v.version());
+                let mut is_set = false;
+                if v.version() == v.version() && !pkg.is_upgradable() {
+                    s += " [Installed";
+                    is_set = true;
+                } else if v.version() == v.version() && pkg.is_upgradable() {
+                    s += &format!(" [Upgrade from: {}", v.version());
+                    is_set = true;
+                }
+
+                if pkg.is_auto_installed() && is_set {
+                    s += ",automatic]"
+                } else if is_set {
+                    s += "]"
                 }
             }
 
