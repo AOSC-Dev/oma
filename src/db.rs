@@ -292,9 +292,18 @@ pub async fn packages_download(
     for (i, c) in list.iter().enumerate() {
         let mbc = mb.clone();
 
-        if c.pkg_urls.iter().any(|x| x.starts_with("file:")) {
-            // 本地源交给 apt 处理
-            info!("Use apt to handle pkg {}", c.name_no_color);
+        if let Some(index) = c.pkg_urls.iter().position(|x| x.starts_with("file:")) {
+            // 为保证安装的是本地源的包，这里直接把文件复制过去
+            let url = c.pkg_urls[index].clone();
+            let url = url.strip_prefix("file:").unwrap();
+            let url = Path::new(url);
+            let filename = url
+                .file_name()
+                .context(format!("Can not get filename {}!", url.display()))?
+                .to_str()
+                .context(format!("Can not get str {}!", url.display()))?;
+
+            tokio::fs::copy(url, Path::new(APT_LIST_DISTS).join(filename)).await?;
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();
 
@@ -311,9 +320,9 @@ pub async fn packages_download(
                 ),
                 download_dir.unwrap_or(Path::new(DOWNLOAD_DIR)),
             ));
-
-            download_len += 1;
         }
+
+        download_len += 1;
     }
 
     // 默认限制一次最多下载八个包，减少服务器负担
@@ -575,8 +584,14 @@ pub async fn update_db(
                                 format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                             };
 
-                            let task: BoxFuture<'_, Result<()>> =
-                                Box::pin(download_and_extract(p, c, client, not_compress_filename.0, typ, opb));
+                            let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
+                                p,
+                                c,
+                                client,
+                                not_compress_filename.0,
+                                typ,
+                                opb,
+                            ));
 
                             tasks.push(task);
                         }
@@ -604,8 +619,14 @@ pub async fn update_db(
                             format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                         };
 
-                        let task: BoxFuture<'_, Result<()>> =
-                            Box::pin(download_and_extract(p, c, client, not_compress_filename.0, typ, opb));
+                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
+                            p,
+                            c,
+                            client,
+                            not_compress_filename.0,
+                            typ,
+                            opb,
+                        ));
 
                         tasks.push(task);
                     }
@@ -616,8 +637,12 @@ pub async fn update_db(
                             format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                         };
 
-                        let task: BoxFuture<'_, Result<()>> =
-                            Box::pin(download_and_extract_local(p, not_compress_filename.0, c, typ));
+                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_local(
+                            p,
+                            not_compress_filename.0,
+                            c,
+                            typ,
+                        ));
 
                         tasks.push(task);
                     }
