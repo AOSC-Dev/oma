@@ -87,7 +87,7 @@ fn dep_to_str_map(map: &HashMap<DepType, Vec<Dependency>>) -> HashMap<String, St
     res
 }
 
-pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
+pub fn query_pkgs(cache: &Cache, input: &str, is_all: bool) -> Result<Vec<OmaPkg>> {
     let mut res = Vec::new();
     if input.contains('=') {
         let mut split_arg = input.split('=');
@@ -140,12 +140,21 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<OmaPkg>> {
 
         for pkg in search_res {
             let name = pkg.name();
-            let version = pkg
-                .candidate()
-                .context(format!("Can not get candidate from package {}", pkg.name()))?;
+            if !is_all {
+                let version = pkg
+                    .candidate()
+                    .context(format!("Can not get candidate from package {}", pkg.name()))?;
 
-            let oma_pkg = OmaPkg::new(cache, name, version.version())?;
-            res.push(oma_pkg);
+                let oma_pkg = OmaPkg::new(cache, name, version.version())?;
+                res.push(oma_pkg);
+            } else {
+                let versions = pkg.versions();
+
+                for ver in versions {
+                    let oma_pkg = OmaPkg::new(cache, name, ver.version())?;
+                    res.push(oma_pkg);
+                }
+            }
         }
     }
 

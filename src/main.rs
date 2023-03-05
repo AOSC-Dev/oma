@@ -123,6 +123,8 @@ struct Delete {
 #[derive(Parser, Debug)]
 struct Show {
     packages: Vec<String>,
+    #[arg(long, short = 'a')]
+    is_all: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -177,7 +179,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Remove(v) => OmaAction::new().await?.remove(&v.packages, true),
         OmaCommand::Upgrade(v) => OmaAction::new().await?.update(&v.packages).await,
         OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
-        OmaCommand::Show(v) => OmaAction::show(&v.packages),
+        OmaCommand::Show(v) => OmaAction::show(&v.packages, v.is_all),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword),
         // TODO: up_db 的值目前写死了 true，打算实现的逻辑是这样：
         // 如果用户在终端里执行了不存在的程序，会调用 oma 找可能的软件包
