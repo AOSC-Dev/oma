@@ -70,6 +70,7 @@ impl Pager {
                 res
             }
         };
+
         Ok(res)
     }
 

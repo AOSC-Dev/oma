@@ -7,7 +7,9 @@ use rust_apt::{
     package::{DepType, Dependency},
     records::RecordField,
 };
-use std::{collections::HashMap, fmt::Write};
+use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
+
+use crate::{cli::gen_prefix, pager::Pager, ALLOWCTRLC, WRITER};
 
 pub struct OmaPkg {
     pub package: String,
@@ -235,6 +237,13 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     res.sort_by_cached_key(|x| pkg_score(&x.0.package, input));
     res.reverse();
 
+    let height = WRITER.get_height();
+
+    // drop(out);
+    // pager.wait_for_exit().ok();
+
+    let mut output = vec![];
+
     for (pkg, installed, upgradable) in res {
         let prefix = if installed {
             style("INSTALLED").green().to_string()
@@ -270,8 +279,31 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             pkg_info_line.push_str(&style("(debug symbols available)").dim().to_string());
         }
 
-        crate::WRITER.writeln(&prefix, &pkg_info_line)?;
-        crate::WRITER.writeln("", &pkg.description.unwrap_or("".to_owned()))?;
+        output.push((
+            prefix,
+            pkg_info_line,
+            pkg.description.unwrap_or("".to_owned()),
+        ));
+    }
+
+    if output.len() * 2 <= height.into() {
+        for (prefix, line, desc) in &output {
+            crate::WRITER.writeln(prefix, line)?;
+            crate::WRITER.writeln("", desc)?;
+        }
+    } else {
+        let mut pager = Pager::new(false)?;
+        let mut out = pager.get_writer()?;
+
+        ALLOWCTRLC.store(true, Ordering::Relaxed);
+
+        for (prefix, line, desc) in &output {
+            writeln!(out, "{}{line}", gen_prefix(prefix))?;
+            writeln!(out, "{}{desc}", gen_prefix(""))?;
+        }
+
+        drop(out);
+        pager.wait_for_exit().ok();
     }
 
     Ok(())

@@ -79,6 +79,7 @@ impl Writer {
             std::mem::swap(&mut msg, &mut new_msg);
         }
         self.term.write_line("")?;
+
         Ok(())
     }
 
