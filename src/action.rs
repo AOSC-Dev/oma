@@ -994,7 +994,11 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     }
 
     // install another package
-    for (pkginfo, _) in pkgs {
+    for (pkginfo, is_cand) in pkgs {
+        if !is_cand {
+            continue;
+        }
+    
         mark_install(&cache, &pkginfo.package, &pkginfo.version, reinstall, false)?;
 
         if install_dbg && pkginfo.has_dbg {

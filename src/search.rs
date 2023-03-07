@@ -11,6 +11,7 @@ use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
 
 use crate::{cli::gen_prefix, pager::Pager, ALLOWCTRLC, WRITER};
 
+#[derive(Debug)]
 pub struct OmaPkg {
     pub package: String,
     pub version: String,
