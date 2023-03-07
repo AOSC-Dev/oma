@@ -451,7 +451,7 @@ impl OmaAction {
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
         for (_, line) in res {
-            writeln!(out, "{}", line)?;
+            writeln!(out, "{}", line).ok();
         }
 
         drop(out);
@@ -477,7 +477,7 @@ impl OmaAction {
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
         for (_, line) in res {
-            writeln!(out, "{}", line)?;
+            writeln!(out, "{}", line).ok();
         }
 
         drop(out);

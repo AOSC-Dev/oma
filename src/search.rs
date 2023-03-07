@@ -298,8 +298,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
         for (prefix, line, desc) in &output {
-            writeln!(out, "{}{line}", gen_prefix(prefix))?;
-            writeln!(out, "{}{desc}", gen_prefix(""))?;
+            writeln!(out, "{}{line}", gen_prefix(prefix)).ok();
+            writeln!(out, "{}{desc}", gen_prefix("")).ok();
         }
 
         drop(out);
