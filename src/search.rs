@@ -292,7 +292,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             crate::WRITER.writeln("", desc)?;
         }
     } else {
-        let mut pager = Pager::new(false)?;
+        let mut pager = Pager::new(false, false)?;
         let mut out = pager.get_writer()?;
 
         ALLOWCTRLC.store(true, Ordering::Relaxed);

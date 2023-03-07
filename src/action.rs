@@ -440,9 +440,9 @@ impl OmaAction {
         let height = WRITER.get_height();
 
         let mut pager = if res.len() <= height.into() {
-            Pager::new(true)?
+            Pager::new(true, false)?
         } else {
-            Pager::new(false)?
+            Pager::new(false, false)?
         };
 
         // let pager_name = pager.pager_name().to_owned();
@@ -466,9 +466,9 @@ impl OmaAction {
         let height = WRITER.get_height();
 
         let mut pager = if res.len() <= height.into() {
-            Pager::new(true)?
+            Pager::new(true, false)?
         } else {
-            Pager::new(false)?
+            Pager::new(false, false)?
         };
 
         // let pager_name = pager.pager_name().to_owned();
@@ -1253,7 +1253,7 @@ fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Resul
     let reinstall = action.reinstall.clone();
     let downgrade = action.downgrade.clone();
 
-    let mut pager = Pager::new(false)?;
+    let mut pager = Pager::new(false, true)?;
     let pager_name = pager.pager_name().to_owned();
     let mut out = pager.get_writer()?;
 

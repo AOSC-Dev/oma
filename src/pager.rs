@@ -7,7 +7,7 @@ pub enum Pager {
 }
 
 impl Pager {
-    pub fn new(no_pager: bool) -> Result<Self> {
+    pub fn new(no_pager: bool, is_question: bool) -> Result<Self> {
         if no_pager {
             return Ok(Pager::Plain);
         }
@@ -27,9 +27,17 @@ impl Pager {
         let has_x11 = std::env::var("DISPLAY");
 
         let tips = if has_x11.is_ok() {
-            "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll."
+            if is_question {
+                "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll."
+            } else {
+                "Press [q] or [Ctrl-c] to exit, [PgUp/Dn], arrow keys, or mouse wheel to scroll."
+            }
         } else {
-            "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn] or arrow keys to scroll."
+            if is_question {
+                "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn] or arrow keys to scroll."
+            } else {
+                "Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll."
+            }
         };
 
         if pager_name == &"less" {
