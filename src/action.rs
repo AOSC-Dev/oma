@@ -27,6 +27,7 @@ use std::{
 };
 
 use crate::{
+    cli::Writer,
     contents::find,
     db::{get_sources, packages_download, update_db, APT_LIST_DISTS},
     formatter::NoProgress,
@@ -35,7 +36,7 @@ use crate::{
     search::{query_pkgs, search_pkgs, OmaPkg},
     success,
     utils::size_checker,
-    warn, MarkAction,
+    warn, MarkAction, ALLOWCTRLC,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -437,8 +438,26 @@ impl OmaAction {
     pub fn list_files(kw: &str) -> Result<()> {
         let res = find(kw, true, false)?;
 
-        for (_, line) in res {
-            println!("{line}");
+        let write = Writer::new();
+        let height = write.get_height();
+
+        if res.len() <= height.into() {
+            for (_, line) in res {
+                println!("{line}");
+            }
+        } else {
+            let mut pager = Pager::new(false)?;
+            // let pager_name = pager.pager_name().to_owned();
+            let mut out = pager.get_writer()?;
+
+            ALLOWCTRLC.store(true, Ordering::Relaxed);
+
+            for (_, line) in res {
+                writeln!(out, "{}", line)?;
+            }
+
+            drop(out);
+            pager.wait_for_exit().ok();
         }
 
         Ok(())
@@ -447,8 +466,26 @@ impl OmaAction {
     pub fn search_file(kw: &str) -> Result<()> {
         let res = find(kw, false, false)?;
 
-        for (_, line) in res {
-            println!("{line}");
+        let write = Writer::new();
+        let height = write.get_height();
+
+        if res.len() <= height.into() {
+            for (_, line) in res {
+                println!("{line}");
+            }
+        } else {
+            let mut pager = Pager::new(false)?;
+            // let pager_name = pager.pager_name().to_owned();
+            let mut out = pager.get_writer()?;
+
+            ALLOWCTRLC.store(true, Ordering::Relaxed);
+
+            for (_, line) in res {
+                writeln!(out, "{}", line)?;
+            }
+
+            drop(out);
+            pager.wait_for_exit().ok();
         }
 
         Ok(())

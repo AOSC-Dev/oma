@@ -22,6 +22,7 @@ mod utils;
 mod verify;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
+static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
@@ -217,10 +218,13 @@ async fn try_main() -> Result<()> {
 fn single_handler() {
     // Kill subprocess
     let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
+    let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
     if subprocess_pid > 0 {
         let pid = nix::unistd::Pid::from_raw(subprocess_pid);
         signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
-        info!("User aborted the operation");
+        if !allow_ctrlc {
+            info!("User aborted the operation");
+        }
     }
 
     // Dealing with lock

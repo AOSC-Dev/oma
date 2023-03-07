@@ -37,6 +37,10 @@ impl Writer {
         self.term.size_checked().unwrap_or((25, 80)).1 - PREFIX_LEN
     }
 
+    pub fn get_height(&self) -> u16 {
+        self.term.size_checked().unwrap_or((25, 80)).0
+    }
+
     pub fn get_writer(&self) -> Box<dyn Write> {
         Box::new(self.term.clone())
     }
