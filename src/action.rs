@@ -32,7 +32,7 @@ use crate::{
     formatter::NoProgress,
     info,
     pager::Pager,
-    search::{query_pkgs, search_pkgs, OmaPkg},
+    search::{query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::size_checker,
     warn, MarkAction, ALLOWCTRLC, WRITER,
@@ -307,7 +307,7 @@ impl OmaAction {
                     if let Some(pkg) = pkg {
                         versions_len = pkg.versions().collect::<Vec<_>>().len();
                         if let Some(cand) = pkg.candidate() {
-                            let pkginfo = OmaPkg::new(&cache, pkg.name(), cand.version())?;
+                            let pkginfo = PkgInfo::new(&cache, pkg.name(), cand.version())?;
 
                             res.push(pkginfo);
                         }
@@ -319,7 +319,7 @@ impl OmaAction {
                     if let Some(pkg) = pkg {
                         let vers = pkg.versions().collect::<Vec<_>>();
                         for ver in vers {
-                            let pkginfo = OmaPkg::new(&cache, pkg.name(), ver.version())?;
+                            let pkginfo = PkgInfo::new(&cache, pkg.name(), ver.version())?;
 
                             res.push(pkginfo);
                         }
@@ -831,7 +831,7 @@ impl OmaAction {
                 }
                 let p = p.unwrap();
                 let version = p.candidate().unwrap();
-                let pkginfo = OmaPkg::new(&cache, &pkg, version.version())?;
+                let pkginfo = PkgInfo::new(&cache, &pkg, version.version())?;
                 let pkg_str = pkg_str.replace(": ", " (") + ")";
                 let s = format!(
                     "{pkg_str}: {}",

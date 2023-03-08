@@ -12,7 +12,7 @@ use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
 use crate::{cli::gen_prefix, pager::Pager, ALLOWCTRLC, WRITER};
 
 #[derive(Debug)]
-pub struct OmaPkg {
+pub struct PkgInfo {
     pub package: String,
     pub version: String,
     pub section: Option<String>,
@@ -24,9 +24,10 @@ pub struct OmaPkg {
     pub apt_sources: Vec<String>,
     pub description: Option<String>,
     pub has_dbg: bool,
+    pub provides: Vec<String>,
 }
 
-impl OmaPkg {
+impl PkgInfo {
     pub fn new(cache: &Cache, name: &str, version: &str) -> Result<Self> {
         let pkg = cache
             .get(name)
@@ -55,6 +56,8 @@ impl OmaPkg {
             false
         };
 
+        let provides = pkg.provides().map(|x| x.name().to_string()).collect::<Vec<_>>();
+
         Ok(Self {
             package: name.to_owned(),
             version: version.version().to_owned(),
@@ -67,6 +70,7 @@ impl OmaPkg {
             apt_sources,
             description,
             has_dbg,
+            provides,
         })
     }
 }
@@ -90,14 +94,14 @@ fn dep_to_str_map(map: &HashMap<DepType, Vec<Dependency>>) -> HashMap<String, St
     res
 }
 
-pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(OmaPkg, bool)>> {
+pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
     let mut res = Vec::new();
     if input.contains('=') {
         let mut split_arg = input.split('=');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
         let version_str = split_arg.collect::<String>();
 
-        let oma_pkg = OmaPkg::new(cache, name, &version_str)?;
+        let oma_pkg = PkgInfo::new(cache, name, &version_str)?;
 
         res.push((oma_pkg, true));
     } else if input.ends_with(".deb") {
@@ -132,7 +136,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(OmaPkg, bool)>> {
 
         let version = sort.last().unwrap();
         let name = pkg.name();
-        let oma_pkg = OmaPkg::new(cache, name, version.version())?;
+        let oma_pkg = PkgInfo::new(cache, name, version.version())?;
 
         res.push((oma_pkg, true));
     } else {
@@ -146,7 +150,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(OmaPkg, bool)>> {
             let versions = pkg.versions();
 
             for ver in versions {
-                let oma_pkg = OmaPkg::new(cache, name, ver.version())?;
+                let oma_pkg = PkgInfo::new(cache, name, ver.version())?;
                 if pkg.candidate() == Some(ver) {
                     res.push((oma_pkg, true));
                 } else {
@@ -200,7 +204,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     for pkg in packages {
         let cand = pkg.candidate().unwrap();
         if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
-            let oma_pkg = OmaPkg::new(cache, pkg.name(), cand.version())?;
+            let oma_pkg = PkgInfo::new(cache, pkg.name(), cand.version())?;
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -211,7 +215,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             && !res.contains_key(pkg.name())
             && !pkg.name().contains("-dbg")
         {
-            let oma_pkg = OmaPkg::new(cache, pkg.name(), cand.version())?;
+            let oma_pkg = PkgInfo::new(cache, pkg.name(), cand.version())?;
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -222,7 +226,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             if !providers.is_empty() {
                 for provider in providers {
                     if provider.name() == input {
-                        let oma_pkg = OmaPkg::new(cache, provider.name(), cand.version())?;
+                        let oma_pkg = PkgInfo::new(cache, provider.name(), cand.version())?;
                         res.insert(
                             pkg.name().to_string(),
                             (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -235,13 +239,10 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     let mut res = res.into_values().collect::<Vec<_>>();
 
-    res.sort_by_cached_key(|x| pkg_score(&x.0.package, input));
+    res.sort_by_cached_key(|x| pkg_score(input, &x.0));
     res.reverse();
 
     let height = WRITER.get_height();
-
-    // drop(out);
-    // pager.wait_for_exit().ok();
 
     let mut output = vec![];
 
@@ -310,6 +311,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     Ok(())
 }
 
-fn pkg_score(input: &str, name: &str) -> u8 {
-    (255.0 * strsim::jaro_winkler(name, input)) as u8
+fn pkg_score(input: &str, pkginfo: &PkgInfo) -> u8 {
+    for i in &pkginfo.provides {
+        if i == input {
+            return u8::MAX;
+        }
+    }
+
+    (255.0 * strsim::jaro_winkler(&pkginfo.package, input)) as u8
 }
