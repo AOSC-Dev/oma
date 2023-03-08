@@ -56,7 +56,10 @@ impl PkgInfo {
             false
         };
 
-        let provides = pkg.provides().map(|x| x.name().to_string()).collect::<Vec<_>>();
+        let provides = pkg
+            .provides()
+            .map(|x| x.name().to_string())
+            .collect::<Vec<_>>();
 
         Ok(Self {
             package: name.to_owned(),

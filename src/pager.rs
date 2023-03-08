@@ -32,12 +32,10 @@ impl Pager {
             } else {
                 "Press [q] or [Ctrl-c] to exit, [PgUp/Dn], arrow keys, or mouse wheel to scroll."
             }
+        } else if is_question {
+            "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn] or arrow keys to scroll."
         } else {
-            if is_question {
-                "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn] or arrow keys to scroll."
-            } else {
-                "Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll."
-            }
+            "Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll."
         };
 
         if pager_name == &"less" {

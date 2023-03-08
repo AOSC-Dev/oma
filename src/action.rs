@@ -998,7 +998,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         if !is_cand {
             continue;
         }
-    
+
         mark_install(&cache, &pkginfo.package, &pkginfo.version, reinstall, false)?;
 
         if install_dbg && pkginfo.has_dbg {
