@@ -38,6 +38,9 @@ Commands:
   list-files  package list files
   provides    Search file from package
   fix-broken  Fix system dependencies broken status
+  pick        Pick a package version
+  mark        Mark a package status
+  list        List of packages
   help        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -52,4 +55,4 @@ Options:
 - [ ] CDROM Support for AOSC OS/Retro
 - [ ] Improve `fix-broken` (wait for https://gitlab.com/volian/rust-apt/-/merge_requests/31)
 - [ ] apt depends/rdepends
-- [ ] Improve pPkg depends issue error output display
+- [ ] Improve pkg depends issue error output display
