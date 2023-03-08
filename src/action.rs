@@ -347,10 +347,10 @@ impl OmaAction {
             );
             if let Some(v) = pkg.installed() {
                 let mut is_set = false;
-                if v.version() == v.version() && !pkg.is_upgradable() {
+                if v.version() == i.version && !pkg.is_upgradable() {
                     s += " [Installed";
                     is_set = true;
-                } else if v.version() == v.version() && pkg.is_upgradable() {
+                } else if v.version() == i.version && pkg.is_upgradable() {
                     s += &format!(" [Upgrade from: {}", v.version());
                     is_set = true;
                 }
