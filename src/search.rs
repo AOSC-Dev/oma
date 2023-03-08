@@ -239,7 +239,19 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     let mut res = res.into_values().collect::<Vec<_>>();
 
-    res.sort_by_cached_key(|x| pkg_score(input, &x.0));
+    res.sort_unstable_by(|x, y| {
+        let x_score = pkg_score(input, &x.0);
+        let y_score = pkg_score(input, &y.0);
+
+        let c = x_score.cmp(&y_score);
+
+        if c == std::cmp::Ordering::Equal {
+            x.0.package.cmp(&y.0.package)
+        } else {
+            c
+        }
+    });
+
     res.reverse();
 
     let height = WRITER.get_height();
@@ -311,12 +323,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     Ok(())
 }
 
-fn pkg_score(input: &str, pkginfo: &PkgInfo) -> u8 {
+fn pkg_score(input: &str, pkginfo: &PkgInfo) -> u16 {
     for i in &pkginfo.provides {
         if i == input {
-            return u8::MAX;
+            return 1000;
         }
     }
 
-    (255.0 * strsim::jaro_winkler(&pkginfo.package, input)) as u8
+    (strsim::jaro_winkler(&pkginfo.package, input) * 1000.0) as u16
 }
