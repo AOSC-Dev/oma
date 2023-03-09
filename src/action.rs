@@ -891,7 +891,7 @@ impl OmaAction {
 }
 
 fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
-    let cmd = Command::new("dpkg")
+    let mut cmd = Command::new("dpkg")
         .arg("--set-selections")
         .stdin(Stdio::piped())
         .spawn()?;
@@ -903,8 +903,11 @@ fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
     };
 
     cmd.stdin
+        .as_mut()
         .unwrap()
         .write_all(format!("{pkg} {user_action}").as_bytes())?;
+
+    cmd.wait()?;
 
     Ok(())
 }
