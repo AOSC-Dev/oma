@@ -3,7 +3,6 @@ use std::{collections::HashMap, io::Read, path::Path, sync::Arc, time::Duration}
 
 use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
-use console::style;
 use flate2::bufread::GzDecoder;
 use futures::{future::BoxFuture, StreamExt};
 use indicatif::{MultiProgress, ProgressBar};
@@ -13,9 +12,8 @@ use tokio::{io::AsyncReadExt, task::spawn_blocking};
 use xz2::read::XzDecoder;
 
 use crate::{
-    action::InstallRow,
     checksum::Checksum,
-    download::{download, download_package, oma_style_pb, OmaProgressBar},
+    download::{download, oma_style_pb, OmaProgressBar},
     error, info, success,
     utils::get_arch_name,
     verify,
@@ -257,91 +255,6 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
     }
 
     Ok(res)
-}
-
-/// Download packages
-pub async fn packages_download(
-    list: &[InstallRow],
-    client: &Client,
-    limit: Option<usize>,
-    download_dir: Option<&Path>,
-) -> Result<()> {
-    let mut task = vec![];
-    let mb = Arc::new(MultiProgress::new());
-    let mut total = 0;
-
-    if list.is_empty() {
-        return Ok(());
-    }
-
-    info!("Downloading {} packages ...", list.len());
-
-    for i in list.iter() {
-        total += i.pure_download_size;
-    }
-
-    let global_bar = mb.insert(0, ProgressBar::new(total));
-    global_bar.set_style(oma_style_pb(true)?);
-    global_bar.enable_steady_tick(Duration::from_millis(1000));
-    global_bar.set_message(style("Progress").bold().to_string());
-
-    let list_len = list.len();
-
-    let mut download_len = 0;
-
-    for (i, c) in list.iter().enumerate() {
-        let mbc = mb.clone();
-
-        if let Some(url) = c.pkg_urls.iter().find(|x| x.starts_with("file:")) {
-            // 为保证安装的是本地源的包，这里直接把文件复制过去
-            let url = url.strip_prefix("file:").unwrap();
-            let url = Path::new(url);
-            let filename = url
-                .file_name()
-                .context(format!("Can not get filename {}!", url.display()))?
-                .to_str()
-                .context(format!("Can not get str {}!", url.display()))?;
-
-            tokio::fs::copy(url, Path::new(APT_LIST_DISTS).join(filename)).await?;
-        } else {
-            let hash = c.checksum.as_ref().unwrap().to_owned();
-
-            task.push(download_package(
-                c.pkg_urls.clone(),
-                client,
-                hash,
-                c.new_version.clone(),
-                OmaProgressBar::new(
-                    None,
-                    Some((i + 1, list_len)),
-                    Some(mbc.clone()),
-                    Some(global_bar.clone()),
-                ),
-                download_dir.unwrap_or(Path::new(DOWNLOAD_DIR)),
-            ));
-        }
-
-        download_len += 1;
-    }
-
-    // 默认限制一次最多下载八个包，减少服务器负担
-    let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(4));
-    let res = stream.collect::<Vec<_>>().await;
-
-    global_bar.finish_and_clear();
-
-    // 遍历结果看是否有下载出错
-    for i in res {
-        i?;
-    }
-
-    if download_len != 0 {
-        success!("Downloaded {download_len} package.");
-    } else {
-        info!("No need to Fetch anything.");
-    }
-
-    Ok(())
 }
 
 struct OmaSourceEntry {

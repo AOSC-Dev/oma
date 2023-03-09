@@ -28,7 +28,8 @@ use std::{
 
 use crate::{
     contents::find,
-    db::{get_sources, packages_download, update_db, APT_LIST_DISTS},
+    db::{get_sources, update_db, APT_LIST_DISTS},
+    download::packages_download,
     formatter::NoProgress,
     info,
     pager::Pager,
