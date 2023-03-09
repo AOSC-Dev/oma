@@ -257,6 +257,10 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     res.reverse();
 
+    if res.is_empty() {
+        bail!("Could not find any packages for keyword: {input}");
+    }
+
     let height = WRITER.get_height();
 
     let mut output = vec![];

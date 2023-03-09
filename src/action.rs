@@ -298,12 +298,16 @@ impl OmaAction {
                     }
                 }
             }
-        }
 
-        res.sort();
+            res.sort();
 
-        for i in res {
-            println!("{i}");
+            if res.is_empty() {
+                panic!("Could not find any package.");
+            }
+
+            for i in res {
+                println!("{i}");
+            }
         }
 
         let mut res = vec![];
@@ -336,6 +340,10 @@ impl OmaAction {
                     }
                 }
             }
+        }
+
+        if res.is_empty() {
+            bail!("Could not find any result for keywords: {}", list.unwrap_or_default().join(" "));
         }
 
         for i in res {
@@ -395,6 +403,11 @@ impl OmaAction {
         for (i, c) in list.iter().enumerate() {
             let oma_pkg = query_pkgs(&cache, c)?;
             len = oma_pkg.len();
+
+            if len == 0 {
+                warn!("Could not find any package for keyword {c}");
+            }
+
             for (i, (entry, is_cand)) in oma_pkg.into_iter().enumerate() {
                 if !is_all && !is_cand {
                     continue;
