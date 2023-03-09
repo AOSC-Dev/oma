@@ -336,7 +336,7 @@ pub async fn packages_download(
     }
 
     if download_len != 0 {
-        success!("Download {download_len} package.");
+        success!("Downloaded {download_len} package.");
     } else {
         info!("No need to Fetch anything.");
     }
