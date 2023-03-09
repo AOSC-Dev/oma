@@ -132,7 +132,7 @@ impl OmaAction {
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
                 size_checker(&disk_size, download_size(&list, &cache)?)?;
-                display_result(&action, &cache, disk_size)?;
+                display_result(&action, &cache)?;
             }
 
             packages_download(&list, client, None, None).await?;
@@ -513,7 +513,7 @@ impl OmaAction {
         let install_size = cache.depcache().disk_size();
         size_checker(&install_size, download_size(&list, &cache)?)?;
 
-        display_result(&action, &cache, install_size)?;
+        display_result(&action, &cache)?;
         packages_download(&list, &self.client, None, None).await?;
 
         cache.commit(
@@ -581,7 +581,7 @@ impl OmaAction {
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
-            display_result(&action, &cache, disk_size)?;
+            display_result(&action, &cache)?;
         }
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
@@ -614,8 +614,7 @@ impl OmaAction {
             return Ok(());
         }
 
-        let disk_size = cache.depcache().disk_size();
-        display_result(&action, &cache, disk_size)?;
+        display_result(&action, &cache)?;
 
         cache.commit(
             &mut NoProgress::new_box(),
@@ -716,7 +715,7 @@ impl OmaAction {
         list.extend(action.downgrade.clone());
 
         size_checker(&disk_size, download_size(&list, &cache)?)?;
-        display_result(&action, &cache, disk_size)?;
+        display_result(&action, &cache)?;
 
         packages_download(&list, &self.client, None, None).await?;
 
@@ -927,6 +926,8 @@ fn dpkg_selections() -> Result<Vec<(String, String)>> {
     Ok(list)
 }
 
+
+/// Check user is root
 fn is_root() -> Result<()> {
     if !nix::unistd::geteuid().is_root() {
         bail!("Please run me as root!");
@@ -935,6 +936,8 @@ fn is_root() -> Result<()> {
     Ok(())
 }
 
+
+/// apt autoremove
 fn autoremove(cache: &Cache) {
     let sort = PackageSort::default();
 
@@ -946,6 +949,7 @@ fn autoremove(cache: &Cache) {
     }
 }
 
+/// Install packages
 fn apt_install(cache: Cache) -> std::result::Result<(), Exception> {
     apt_lock()?;
     cache.get_archives(&mut NoProgress::new_box())?;
@@ -962,6 +966,7 @@ fn apt_install(cache: Cache) -> std::result::Result<(), Exception> {
     Ok(())
 }
 
+/// Handle user input, find pkgs
 fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result<Cache> {
     // Get local packages
     let local_debs = list
@@ -1034,6 +1039,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     Ok(cache)
 }
 
+/// Mark package as install status
 fn mark_install(
     cache: &Cache,
     pkg: &str,
@@ -1100,6 +1106,7 @@ impl Action {
     }
 }
 
+/// Handle apt resolve result to display results
 fn apt_handler(cache: &Cache, no_fixbroken: bool) -> Result<(Action, usize)> {
     let fix_broken = !no_fixbroken;
     if fix_broken {
@@ -1271,7 +1278,8 @@ fn apt_handler(cache: &Cache, no_fixbroken: bool) -> Result<(Action, usize)> {
     Ok((action, len))
 }
 
-fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Result<()> {
+/// Display apt resolver results
+fn display_result(action: &Action, cache: &Cache) -> Result<()> {
     let update = action.update.clone();
     let install = action.install.clone();
     let del = action.del.clone();
@@ -1418,7 +1426,7 @@ fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Resul
         HumanBytes(download_size(&list, cache)?)
     )?;
 
-    let (symbol, abs_install_size_change) = match disk_size {
+    let (symbol, abs_install_size_change) = match cache.depcache().disk_size() {
         DiskSpace::Require(n) => ("+", n),
         DiskSpace::Free(n) => ("-", n),
     };
@@ -1442,6 +1450,7 @@ fn display_result(action: &Action, cache: &Cache, disk_size: DiskSpace) -> Resul
     }
 }
 
+/// Get download size
 fn download_size(install_and_update: &[InstallRow], cache: &Cache) -> Result<u64> {
     let mut result = 0;
 
@@ -1485,6 +1494,7 @@ fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
     Ok(())
 }
 
+/// Lock oma
 fn lock_oma() -> Result<()> {
     let lock = Path::new(LOCK);
     if lock.is_file() {
@@ -1515,6 +1525,7 @@ fn lock_oma() -> Result<()> {
     Ok(())
 }
 
+/// Unlock oma
 pub fn unlock_oma() -> Result<()> {
     if Path::new(LOCK).exists() {
         std::fs::remove_file(LOCK)?;
