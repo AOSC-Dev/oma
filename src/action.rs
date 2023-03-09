@@ -492,6 +492,8 @@ impl OmaAction {
 
         let cache = new_cache!()?;
 
+        cache.fix_broken();
+
         let (action, _) = apt_handler(&cache)?;
 
         let mut list = action.install.clone();
