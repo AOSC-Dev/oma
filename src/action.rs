@@ -1086,6 +1086,8 @@ impl Action {
 }
 
 fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
+    // 不确定默认 fix broken 是否会引发副作用，但若没有副作用，我希望则是默认行为
+    cache.fix_broken();
     cache.resolve(true)?;
     autoremove(cache);
     cache.resolve(true)?;
