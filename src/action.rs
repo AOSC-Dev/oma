@@ -118,7 +118,7 @@ impl OmaAction {
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len) = apt_handler(&cache)?;
+            let (action, len) = apt_handler(&cache, false)?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -158,14 +158,24 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn install(&self, list: &[String], install_dbg: bool, reinstall: bool) -> Result<()> {
+    pub async fn install(
+        &self,
+        list: &[String],
+        install_dbg: bool,
+        reinstall: bool,
+        no_fixbroken: bool,
+        no_upgrade: bool,
+    ) -> Result<()> {
         lock_oma()?;
         is_root()?;
-        update_db(&self.sources, &self.client, None).await?;
+
+        if !no_upgrade {
+            update_db(&self.sources, &self.client, None).await?;
+        }
 
         let mut count = 0;
         while let Err(e) = self
-            .install_inner(list, count, install_dbg, reinstall)
+            .install_inner(list, count, install_dbg, reinstall, no_fixbroken)
             .await
         {
             match e {
@@ -494,7 +504,7 @@ impl OmaAction {
 
         cache.fix_broken();
 
-        let (action, _) = apt_handler(&cache)?;
+        let (action, _) = apt_handler(&cache, false)?;
 
         let mut list = action.install.clone();
         list.extend(action.update.clone());
@@ -551,10 +561,11 @@ impl OmaAction {
         count: usize,
         install_dbg: bool,
         reinstall: bool,
+        no_fixbroken: bool,
     ) -> InstallResult<()> {
         let cache = install_handle(list, install_dbg, reinstall)?;
 
-        let (action, len) = apt_handler(&cache)?;
+        let (action, len) = apt_handler(&cache, no_fixbroken)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -596,7 +607,7 @@ impl OmaAction {
             pkg.protect();
         }
 
-        let (action, len) = apt_handler(&cache)?;
+        let (action, len) = apt_handler(&cache, false)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -648,9 +659,13 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn pick(&self, pkg: &str) -> Result<()> {
+    pub async fn pick(&self, pkg: &str, no_fixbroken: bool, no_upgrade: bool) -> Result<()> {
         is_root()?;
         lock_oma()?;
+
+        if !no_upgrade {
+            update_db(&self.sources, &self.client, None).await?;
+        }
 
         let cache = new_cache!()?;
         let pkg = cache
@@ -692,7 +707,7 @@ impl OmaAction {
         pkg.mark_install(true, true);
         pkg.protect();
 
-        let (action, _) = apt_handler(&cache)?;
+        let (action, _) = apt_handler(&cache, no_fixbroken)?;
         let disk_size = cache.depcache().disk_size();
 
         let mut list = vec![];
@@ -1085,12 +1100,14 @@ impl Action {
     }
 }
 
-fn apt_handler(cache: &Cache) -> Result<(Action, usize)> {
-    // 不确定默认 fix broken 是否会引发副作用，但若没有副作用，我希望则是默认行为
-    cache.fix_broken();
-    cache.resolve(true)?;
+fn apt_handler(cache: &Cache, no_fixbroken: bool) -> Result<(Action, usize)> {
+    let fix_broken = !no_fixbroken;
+    if fix_broken {
+        cache.fix_broken();
+    }
+    cache.resolve(fix_broken)?;
     autoremove(cache);
-    cache.resolve(true)?;
+    cache.resolve(fix_broken)?;
 
     let changes = cache.get_changes(true).collect::<Vec<_>>();
     let len = changes.len();

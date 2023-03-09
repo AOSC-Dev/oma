@@ -91,6 +91,10 @@ struct Install {
     install_dbg: bool,
     #[arg(long)]
     reinstall: bool,
+    #[arg(long)]
+    no_fixbroken: bool,
+    #[arg(long)]
+    no_upgrade: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -109,6 +113,10 @@ struct ListFiles {
 #[derive(Parser, Debug)]
 struct Pick {
     package: String,
+    #[arg(long)]
+    no_fixbroken: bool,
+    #[arg(long)]
+    no_upgrade: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -189,7 +197,13 @@ async fn try_main() -> Result<()> {
         OmaCommand::Install(v) => {
             OmaAction::new()
                 .await?
-                .install(&v.packages, v.install_dbg, v.reinstall)
+                .install(
+                    &v.packages,
+                    v.install_dbg,
+                    v.reinstall,
+                    v.no_fixbroken,
+                    v.no_upgrade,
+                )
                 .await
         }
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
@@ -206,7 +220,12 @@ async fn try_main() -> Result<()> {
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
-        OmaCommand::Pick(v) => OmaAction::new().await?.pick(&v.package).await,
+        OmaCommand::Pick(v) => {
+            OmaAction::new()
+                .await?
+                .pick(&v.package, v.no_fixbroken, v.no_upgrade)
+                .await
+        }
         OmaCommand::Mark(v) => OmaAction::mark(v.action),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
         OmaCommand::List(v) => OmaAction::list(v.packages.as_deref(), v.all, v.installed),
