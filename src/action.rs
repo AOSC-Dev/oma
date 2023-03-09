@@ -502,8 +502,6 @@ impl OmaAction {
 
         let cache = new_cache!()?;
 
-        cache.fix_broken();
-
         let (action, _) = apt_handler(&cache, false)?;
 
         let mut list = action.install.clone();
@@ -926,7 +924,6 @@ fn dpkg_selections() -> Result<Vec<(String, String)>> {
     Ok(list)
 }
 
-
 /// Check user is root
 fn is_root() -> Result<()> {
     if !nix::unistd::geteuid().is_root() {
@@ -935,7 +932,6 @@ fn is_root() -> Result<()> {
 
     Ok(())
 }
-
 
 /// apt autoremove
 fn autoremove(cache: &Cache) {
@@ -977,8 +973,11 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     let mut local = vec![];
 
     for i in &local_debs {
-        let archive = Archive::new(Path::new(i)).context("Can not read file: {i}")?;
-        let control = archive.control_map()?;
+        let archive = Archive::new(Path::new(i)).context(format!("Can not read file: {i}"))?;
+        let control = archive
+            .control_map()
+            .map_err(|e| anyhow!("Can not get archive {i} , Why: {e}"))?;
+
         local.push((
             control
                 .get("Package")
@@ -999,7 +998,11 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     let mut pkgs = vec![];
 
     for i in another {
-        pkgs.extend(query_pkgs(&cache, i)?);
+        let i_res = query_pkgs(&cache, i)?;
+        if i_res.is_empty() {
+            bail!("Package {i} does not exist.");
+        }
+        pkgs.extend(i_res);
     }
 
     // install local packages
