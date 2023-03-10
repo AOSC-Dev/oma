@@ -12,6 +12,7 @@ use rust_apt::{
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
 };
+use std::fmt::Write as OtherWrite;
 use sysinfo::{Pid, System, SystemExt};
 use tabled::{
     object::{Columns, Segment},
@@ -33,7 +34,7 @@ use crate::{
     formatter::NoProgress,
     info,
     pager::Pager,
-    search::{query_pkgs, search_pkgs, PkgInfo},
+    pkg::{query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::size_checker,
     warn, MarkAction, ALLOWCTRLC, WRITER,
@@ -344,7 +345,10 @@ impl OmaAction {
         }
 
         if res.is_empty() {
-            bail!("Could not find any result for keywords: {}", list.unwrap_or_default().join(" "));
+            bail!(
+                "Could not find any result for keywords: {}",
+                list.unwrap_or_default().join(" ")
+            );
         }
 
         for i in res {
@@ -532,6 +536,62 @@ impl OmaAction {
             &mut NoProgress::new_box(),
             &mut AptInstallProgress::new_box(),
         )?;
+
+        Ok(())
+    }
+
+    pub fn dep(list: &[String]) -> Result<()> {
+        let cache = new_cache!()?;
+        let mut res = vec![];
+        for c in list {
+            let oma_pkg = query_pkgs(&cache, c)?;
+            if oma_pkg.is_empty() {
+                bail!("Could not find any package for: {}", c);
+            }
+
+            res.extend(oma_pkg);
+        }
+
+        for (pkginfo, is_cand) in res {
+            if !is_cand {
+                continue;
+            }
+
+            let deps = pkginfo.deps;
+
+            println!("{}:", pkginfo.package);
+
+            for (k, v) in deps {
+                for i in v {
+                    let mut s = String::new();
+
+                    if i.len() == 1 {
+                        let entry = i.first().unwrap();
+                        s.push_str(&format!("  {k}: {}", entry.name));
+                        if let Some(ref comp) = entry.comp_ver {
+                            s.push_str(&format!(" ({})", comp));
+                        }
+                    } else {
+                        let mut or_str = String::new();
+                        let total = i.len() - 1;
+                        for (num, c) in i.iter().enumerate() {
+                            or_str.push_str(&c.name);
+                            if let Some(comp) = &c.comp_ver {
+                                let _ = write!(or_str, " ({})", comp);
+                            }
+                            if num != total {
+                                or_str.push_str(" | ");
+                            } else {
+                                or_str.push_str(", ");
+                            }
+                        }
+                        s = or_str;
+                    }
+
+                    println!("{s}");
+                }
+            }
+        }
 
         Ok(())
     }

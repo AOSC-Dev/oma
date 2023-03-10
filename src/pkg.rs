@@ -4,7 +4,7 @@ use glob_match::glob_match_with_captures;
 use indicatif::HumanBytes;
 use rust_apt::{
     cache::{Cache, PackageSort},
-    package::{DepType, Dependency},
+    package::{BaseDep, DepType, Dependency},
     records::RecordField,
 };
 use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
@@ -25,6 +25,7 @@ pub struct PkgInfo {
     pub description: Option<String>,
     pub has_dbg: bool,
     pub provides: Vec<String>,
+    pub deps: HashMap<String, Vec<Vec<OmaDependency>>>,
 }
 
 impl PkgInfo {
@@ -61,6 +62,8 @@ impl PkgInfo {
             .map(|x| x.name().to_string())
             .collect::<Vec<_>>();
 
+        let deps = deps_to_map(version.depends_map());
+
         Ok(Self {
             package: name.to_owned(),
             version: version.version().to_owned(),
@@ -74,6 +77,7 @@ impl PkgInfo {
             description,
             has_dbg,
             provides,
+            deps,
         })
     }
 }
@@ -91,6 +95,27 @@ fn dep_to_str_map(map: &HashMap<DepType, Vec<Dependency>>) -> HashMap<String, St
             DepType::Obsoletes => res.insert("Obsoletes".to_string(), dep_map_str(v)),
             DepType::Breaks => res.insert("Breaks".to_string(), dep_map_str(v)),
             DepType::Enhances => res.insert("Enhances".to_string(), dep_map_str(v)),
+        };
+    }
+
+    res
+}
+
+pub fn deps_to_map(
+    map: &HashMap<DepType, Vec<Dependency>>,
+) -> HashMap<String, Vec<Vec<OmaDependency>>> {
+    let mut res = HashMap::new();
+    for (k, v) in map {
+        match k {
+            DepType::Depends => res.insert("Depends".to_string(), OmaDependency::map_deps(v)),
+            DepType::PreDepends => res.insert("PreDepends".to_string(), OmaDependency::map_deps(v)),
+            DepType::Suggests => res.insert("Suggests".to_string(), OmaDependency::map_deps(v)),
+            DepType::Recommends => res.insert("Recommends".to_string(), OmaDependency::map_deps(v)),
+            DepType::Conflicts => res.insert("Conflicts".to_string(), OmaDependency::map_deps(v)),
+            DepType::Replaces => res.insert("Replaces".to_string(), OmaDependency::map_deps(v)),
+            DepType::Obsoletes => res.insert("Obsoletes".to_string(), OmaDependency::map_deps(v)),
+            DepType::Breaks => res.insert("Breaks".to_string(), OmaDependency::map_deps(v)),
+            DepType::Enhances => res.insert("Enhances".to_string(), OmaDependency::map_deps(v)),
         };
     }
 
@@ -168,14 +193,23 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
 
 fn dep_map_str(deps: &[Dependency]) -> String {
     let mut depends_str = String::new();
-    for dep in deps {
-        if dep.is_or() {
+    let deps = OmaDependency::map_deps(deps);
+
+    for d in deps {
+        if d.len() == 1 {
+            let dep = d.first().unwrap();
+            depends_str.push_str(&dep.name);
+            if let Some(comp) = &dep.comp_ver {
+                let _ = write!(depends_str, " ({})", comp);
+            }
+            depends_str.push_str(", ");
+        } else {
             let mut or_str = String::new();
-            let total = dep.base_deps.len() - 1;
-            for (num, base_dep) in dep.base_deps.iter().enumerate() {
-                or_str.push_str(&base_dep.name());
-                if let Some(comp) = base_dep.comp() {
-                    let _ = write!(or_str, "({} {})", comp, base_dep.version().unwrap());
+            let total = d.len() - 1;
+            for (num, base_dep) in d.iter().enumerate() {
+                or_str.push_str(&base_dep.name);
+                if let Some(comp) = &base_dep.comp_ver {
+                    let _ = write!(or_str, " ({})", comp);
                 }
                 if num != total {
                     or_str.push_str(" | ");
@@ -183,19 +217,51 @@ fn dep_map_str(deps: &[Dependency]) -> String {
                     or_str.push_str(", ");
                 }
             }
-            depends_str.push_str(&or_str)
-        } else {
-            let lone_dep = dep.first();
-            depends_str.push_str(&lone_dep.name());
-
-            if let Some(comp) = lone_dep.comp() {
-                let _ = write!(depends_str, " ({} {})", comp, lone_dep.version().unwrap());
-            }
-            depends_str.push_str(", ");
+            depends_str.push_str(&or_str);
         }
     }
 
     depends_str
+}
+
+#[derive(Debug)]
+pub struct OmaDependency {
+    pub name: String,
+    pub comp: Option<String>,
+    pub ver: Option<String>,
+    pub comp_ver: Option<String>,
+}
+
+impl OmaDependency {
+    fn new(dep: &BaseDep) -> Self {
+        Self {
+            name: dep.name(),
+            comp: dep.comp().map(|x| x.to_string()),
+            ver: dep.version().map(|x| x.to_string()),
+            comp_ver: dep
+                .comp()
+                .and_then(|x| Some(format!("{x} {}", dep.version()?))),
+        }
+    }
+
+    pub fn map_deps(deps: &[Dependency]) -> Vec<Vec<Self>> {
+        let mut res = vec![];
+
+        for dep in deps {
+            if dep.is_or() {
+                let mut v = vec![];
+                for base_dep in &dep.base_deps {
+                    v.push(Self::new(base_dep));
+                }
+                res.push(v);
+            } else {
+                let lone_dep = dep.first();
+                res.push(vec![Self::new(lone_dep)]);
+            }
+        }
+
+        res
+    }
 }
 
 pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {

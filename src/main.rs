@@ -17,7 +17,7 @@ mod db;
 mod download;
 mod formatter;
 mod pager;
-mod search;
+mod pkg;
 mod utils;
 mod verify;
 
@@ -69,6 +69,14 @@ enum OmaCommand {
     CommandNotFound(CommandNotFound),
     /// List of packages
     List(List),
+    /// Check package dependencies
+    #[clap(alias = "dep")]
+    Depends(Dep)
+}
+
+#[derive(Parser, Debug)]
+struct Dep {
+    pkgs: Vec<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -229,6 +237,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Mark(v) => OmaAction::mark(v.action),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
         OmaCommand::List(v) => OmaAction::list(v.packages.as_deref(), v.all, v.installed),
+        OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs),
     }?;
 
     Ok(())
