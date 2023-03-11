@@ -124,7 +124,6 @@ impl OmaAction {
 
             if len == 0 {
                 success!("No need to do anything.");
-                return Ok(());
             }
 
             let mut list = action.update.clone();
@@ -134,7 +133,9 @@ impl OmaAction {
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
                 size_checker(&disk_size, download_size(&list, &cache)?)?;
-                display_result(&action, &cache)?;
+                if len != 0 {
+                    display_result(&action, &cache)?;
+                }
             }
 
             packages_download(&list, client, None, None).await?;
@@ -641,7 +642,6 @@ impl OmaAction {
 
         if len == 0 {
             success!("No need to do anything.");
-            return Ok(());
         }
 
         let mut list = vec![];
@@ -653,7 +653,9 @@ impl OmaAction {
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
-            display_result(&action, &cache)?;
+            if len != 0 {
+                display_result(&action, &cache)?;
+            }
         }
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
