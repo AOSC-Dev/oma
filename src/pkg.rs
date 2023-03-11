@@ -200,7 +200,7 @@ fn dep_map_str(deps: &[Dependency]) -> String {
             let dep = d.first().unwrap();
             depends_str.push_str(&dep.name);
             if let Some(comp) = &dep.comp_ver {
-                let _ = write!(depends_str, " ({})", comp);
+                let _ = write!(depends_str, " ({comp})");
             }
             depends_str.push_str(", ");
         } else {
@@ -209,7 +209,7 @@ fn dep_map_str(deps: &[Dependency]) -> String {
             for (num, base_dep) in d.iter().enumerate() {
                 or_str.push_str(&base_dep.name);
                 if let Some(comp) = &base_dep.comp_ver {
-                    let _ = write!(or_str, " ({})", comp);
+                    let _ = write!(or_str, " ({comp})");
                 }
                 if num != total {
                     or_str.push_str(" | ");

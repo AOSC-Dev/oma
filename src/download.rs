@@ -9,7 +9,12 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
-use crate::{checksum::Checksum, warn, WRITER, db::{APT_LIST_DISTS, DOWNLOAD_DIR}, action::InstallRow, info, success};
+use crate::{
+    action::InstallRow,
+    checksum::Checksum,
+    db::{APT_LIST_DISTS, DOWNLOAD_DIR},
+    info, success, warn, WRITER,
+};
 
 /// Download a package
 async fn download_package(

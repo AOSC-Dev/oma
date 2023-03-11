@@ -71,7 +71,7 @@ enum OmaCommand {
     List(List),
     /// Check package dependencies
     #[clap(alias = "dep")]
-    Depends(Dep)
+    Depends(Dep),
 }
 
 #[derive(Parser, Debug)]

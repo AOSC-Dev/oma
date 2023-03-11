@@ -480,7 +480,7 @@ impl OmaAction {
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
         for (_, line) in res {
-            writeln!(out, "{}", line).ok();
+            writeln!(out, "{line}").ok();
         }
 
         drop(out);
@@ -506,7 +506,7 @@ impl OmaAction {
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
         for (_, line) in res {
-            writeln!(out, "{}", line).ok();
+            writeln!(out, "{line}").ok();
         }
 
         drop(out);
@@ -570,7 +570,7 @@ impl OmaAction {
                         let entry = i.first().unwrap();
                         s.push_str(&format!("  {k}: {}", entry.name));
                         if let Some(ref comp) = entry.comp_ver {
-                            s.push_str(&format!(" ({})", comp));
+                            s.push_str(&format!(" ({comp})"));
                         }
                     } else {
                         let mut or_str = String::new();
@@ -578,7 +578,7 @@ impl OmaAction {
                         for (num, c) in i.iter().enumerate() {
                             or_str.push_str(&c.name);
                             if let Some(comp) = &c.comp_ver {
-                                let _ = write!(or_str, " ({})", comp);
+                                let _ = write!(or_str, " ({comp})");
                             }
                             if num != total {
                                 or_str.push_str(" | ");
