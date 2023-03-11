@@ -46,7 +46,7 @@ pub fn size_checker(size: &DiskSpace, download_size: u64) -> Result<()> {
         DiskSpace::Free(v) => 0 - *v as i64,
     };
 
-    let avail = fs2::available_space(Path::new("/"))? as i64;
+    let avail = fs4::available_space(Path::new("/"))? as i64;
     let avail_str = HumanBytes(avail as u64);
     let need = size + download_size as i64;
     let need_str = HumanBytes(need as u64);
