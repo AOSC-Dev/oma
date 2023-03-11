@@ -3,6 +3,8 @@ use std::path::Path;
 use anyhow::{bail, Result};
 use rust_apt::util::DiskSpace;
 
+use indicatif::HumanBytes;
+
 #[cfg(target_arch = "powerpc64")]
 #[inline]
 pub fn get_arch_name() -> Option<&'static str> {
@@ -45,10 +47,12 @@ pub fn size_checker(size: &DiskSpace, download_size: u64) -> Result<()> {
     };
 
     let avail = fs2::available_space(Path::new("/"))? as i64;
+    let avail_str = HumanBytes(avail as u64);
     let need = size + download_size as i64;
+    let need_str = HumanBytes(need as u64);
 
     if need > avail {
-        bail!("Your disk space is too small, need size: {need}, available space: {avail}")
+        bail!("Your disk space is too small, need size: {need_str}, available space: {avail_str}")
     }
 
     Ok(())
