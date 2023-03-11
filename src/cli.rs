@@ -83,34 +83,34 @@ impl Writer {
         Ok(())
     }
 
-    pub fn write_chunks<S: AsRef<str>>(&self, prefix: &str, chunks: &[S]) -> Result<()> {
-        if chunks.is_empty() {
-            return Ok(());
-        }
+    // pub fn write_chunks<S: AsRef<str>>(&self, prefix: &str, chunks: &[S]) -> Result<()> {
+    //     if chunks.is_empty() {
+    //         return Ok(());
+    //     }
 
-        let max_len: usize = (self.get_max_len() - PREFIX_LEN).into();
-        // Write prefix first
-        self.write_prefix(prefix)?;
-        let mut cur_line_len: usize = PREFIX_LEN.into();
-        for chunk in chunks {
-            let chunk = chunk.as_ref();
-            let chunk_len = console::measure_text_width(chunk);
-            // If going to overflow the line, create new line
-            // The `1` is the preceding space
-            if cur_line_len + chunk_len + 1 > max_len {
-                self.term.write_str("\n")?;
-                self.write_prefix("")?;
-                cur_line_len = 0;
-            }
-            self.term.write_str(chunk)?;
-            self.term.write_str(" ")?;
-            cur_line_len += chunk_len + 1;
-        }
-        // Write a new line
-        self.term.write_str("\n")?;
+    //     let max_len: usize = (self.get_max_len() - PREFIX_LEN).into();
+    //     // Write prefix first
+    //     self.write_prefix(prefix)?;
+    //     let mut cur_line_len: usize = PREFIX_LEN.into();
+    //     for chunk in chunks {
+    //         let chunk = chunk.as_ref();
+    //         let chunk_len = console::measure_text_width(chunk);
+    //         // If going to overflow the line, create new line
+    //         // The `1` is the preceding space
+    //         if cur_line_len + chunk_len + 1 > max_len {
+    //             self.term.write_str("\n")?;
+    //             self.write_prefix("")?;
+    //             cur_line_len = 0;
+    //         }
+    //         self.term.write_str(chunk)?;
+    //         self.term.write_str(" ")?;
+    //         cur_line_len += chunk_len + 1;
+    //     }
+    //     // Write a new line
+    //     self.term.write_str("\n")?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }
 
 // We will ignore write errors in the following macros, since cannot print messages is not an emergency
