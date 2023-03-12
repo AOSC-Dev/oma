@@ -52,7 +52,7 @@ Options:
 
 ## TODO
 - [ ] PolicyKit Support
-- [ ] Flatpak and snap Support
+- [ ] Flatpak and Snap Support
 - [ ] Improve provides (needs `p-vector-rs` support, see https://github.com/AOSC-Dev/p-vector-rs/pull/2)
 - [ ] CDROM Support for AOSC OS/Retro
 - [x] Improve `fix-broken` (wait for https://gitlab.com/volian/rust-apt/-/merge_requests/31)
