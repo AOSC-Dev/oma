@@ -72,6 +72,7 @@ enum OmaCommand {
     /// Check package dependencies
     #[clap(alias = "dep")]
     Depends(Dep),
+    /// Clean downloaded packages
     Clean(Clean),
 }
 
