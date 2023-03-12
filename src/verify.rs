@@ -65,7 +65,7 @@ pub fn verify(s: &str, trust_files: Option<&str>) -> Result<String> {
         for i in dir.flatten() {
             let path = i.path();
             let ext = path.extension().and_then(|x| x.to_str());
-            if ext == Some("gpg") {
+            if ext == Some("gpg") || ext == Some("asc") {
                 cert_files.push(i.path().to_path_buf());
             }
         }
