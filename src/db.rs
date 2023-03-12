@@ -508,7 +508,20 @@ pub async fn update_db(
                             tasks.push(task);
                         }
                         OmaSourceEntryFrom::Local => {
-                            bail!("Local source {} checksum mismatch!", p.display());
+                            let p = if !ose.is_flat {
+                                source_index.dist_path.clone()
+                            } else {
+                                format!("{}/{}", source_index.dist_path, not_compress_filename.0)
+                            };
+    
+                            let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_local(
+                                p,
+                                not_compress_filename.0,
+                                c,
+                                typ,
+                            ));
+    
+                            tasks.push(task);
                         }
                     }
                 } else {

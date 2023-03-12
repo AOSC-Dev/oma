@@ -31,29 +31,7 @@ async fn download_package(
         .take()
         .context("URLs is none or Invalid URL")?;
 
-    // sb apt 会把下载的文件重命名成 url 网址的样子，为保持兼容这里也这么做
-    let mut filename_split = filename.split('_');
-
-    let package = filename_split
-        .next()
-        .take()
-        .context("Can not parse filename")?;
-
-    let arch_deb = filename_split
-        .nth(1)
-        .take()
-        .context("Can not parse version")?;
-
-    let arch_deb = if arch_deb == "noarch.deb" {
-        "all.deb"
-    } else {
-        arch_deb
-    };
-
-    let version = version.replace(':', "%3a");
-
-    // 这里 libapt 得到的转义下载地址，如果含有 %2b 还得转义回 +，比如 linux+kernel
-    let filename = format!("{package}_{version}_{arch_deb}").replace("%2b", "+");
+    let filename = trans_filename(filename, version)?;
 
     let p = download_dir.join(&filename);
 
@@ -74,6 +52,30 @@ async fn download_package(
     }
 
     Ok(())
+}
+
+fn trans_filename(filename: &str, version: String) -> Result<String> {
+    let mut filename_split = filename.split('_');
+    let package = filename_split
+        .next()
+        .take()
+        .context("Can not parse filename")?;
+
+    let arch_deb = filename_split
+        .nth(1)
+        .take()
+        .context("Can not parse version")?;
+
+    let arch_deb = if arch_deb == "noarch.deb" {
+        "all.deb"
+    } else {
+        arch_deb
+    };
+
+    let version = version.replace(':', "%3a");
+    let filename = format!("{package}_{version}_{arch_deb}").replace("%2b", "+");
+
+    Ok(filename)
 }
 
 async fn try_download(
@@ -157,7 +159,16 @@ pub async fn packages_download(
                 .to_str()
                 .context(format!("Can not get str {}!", url.display()))?;
 
-            tokio::fs::copy(url, Path::new(APT_LIST_DISTS).join(filename)).await?;
+            let url_filename = filename
+                .replace("%3a", ":")
+                .replace("%2b", "+")
+                .replace("%7e", "~");
+            let filename = trans_filename(&filename, c.new_version.clone())?;
+            let url = url.parent().unwrap().join(url_filename);
+
+            tokio::fs::copy(&url, Path::new(APT_LIST_DISTS).join(filename))
+                .await
+                .context(format!("Can not find file: {}", url.display()))?;
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();
 
