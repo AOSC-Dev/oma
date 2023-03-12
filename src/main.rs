@@ -72,7 +72,11 @@ enum OmaCommand {
     /// Check package dependencies
     #[clap(alias = "dep")]
     Depends(Dep),
+    Clean(Clean),
 }
+
+#[derive(Parser, Debug)]
+struct Clean;
 
 #[derive(Parser, Debug)]
 struct Dep {
@@ -238,6 +242,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
         OmaCommand::List(v) => OmaAction::list(v.packages.as_deref(), v.all, v.installed),
         OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs),
+        OmaCommand::Clean(_) => OmaAction::clean(),
     }?;
 
     Ok(())

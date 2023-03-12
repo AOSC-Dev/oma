@@ -29,7 +29,7 @@ use std::{
 
 use crate::{
     contents::find,
-    db::{get_sources, update_db, APT_LIST_DISTS},
+    db::{get_sources, update_db, APT_LIST_DISTS, DOWNLOAD_DIR},
     download::packages_download,
     formatter::NoProgress,
     info,
@@ -947,6 +947,27 @@ impl OmaAction {
         for i in res {
             println!("{i}");
         }
+
+        Ok(())
+    }
+
+    pub fn clean() -> Result<()> {
+        is_root()?;
+
+        let dir = std::fs::read_dir(DOWNLOAD_DIR)?;
+
+        for i in dir.flatten() {
+            if i.path().extension().and_then(|x| x.to_str()) == Some("deb") {
+                std::fs::remove_file(i.path()).ok();
+            }
+        }
+
+        let p = Path::new(DOWNLOAD_DIR).join("..");
+
+        std::fs::remove_file(p.join("pkgcache.bin")).ok();
+        std::fs::remove_file(p.join("srcpkgcache.bin")).ok();
+
+        success!("Clean successfully.");
 
         Ok(())
     }
