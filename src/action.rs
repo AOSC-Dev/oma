@@ -1160,7 +1160,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         let archive = Archive::new(Path::new(i)).context(format!("Can not read file: {i}"))?;
         let control = archive
             .control_map()
-            .map_err(|e| anyhow!("Can not get archive {i} , Why: {e}"))?;
+            .map_err(|e| anyhow!("Can not get archive {i} control file, Why: {e}"))?;
 
         local.push((
             control

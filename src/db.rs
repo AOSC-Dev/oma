@@ -1,4 +1,3 @@
-use core::panic;
 use std::{collections::HashMap, io::Read, path::Path, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -123,6 +122,7 @@ enum DistFileType {
     CompressContents,
     PackageList,
     CompressPackageList,
+    Release,
 }
 
 impl InReleaseParser {
@@ -182,8 +182,10 @@ impl InReleaseParser {
                 DistFileType::PackageList
             } else if i.0.contains("Packages") && i.0.contains('.') {
                 DistFileType::CompressPackageList
+            } else if i.0.contains("Release") {
+                DistFileType::Release
             } else {
-                panic!("I Dont known why ...")
+                bail!("Unsupport file type: {i:?}");
             };
 
             res.push(ChecksumItem {
@@ -304,7 +306,7 @@ impl OmaSourceEntry {
         let signed_by = options
             .iter()
             .find(|x| x.strip_prefix("signed-by=").is_some())
-            .map(|x| x.to_string());
+            .map(|x| x.strip_prefix("signed-by=").unwrap().to_string());
 
         Ok(Self {
             from,
