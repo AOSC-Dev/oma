@@ -51,8 +51,9 @@ Options:
 ## TODO
 - [ ] PolicyKit Support
 - [ ] Flatpak Support
-- [ ] Improve provides (needs p-vector-rs support, see https://github.com/AOSC-Dev/p-vector-rs/pull/2)
+- [ ] Improve provides (needs `p-vector-rs` support, see https://github.com/AOSC-Dev/p-vector-rs/pull/2)
 - [ ] CDROM Support for AOSC OS/Retro
-- [ ] Improve `fix-broken` (wait for https://gitlab.com/volian/rust-apt/-/merge_requests/31)
-- [ ] apt depends/rdepends
+- [x] Improve `fix-broken` (wait for https://gitlab.com/volian/rust-apt/-/merge_requests/31)
+- [ ] apt depends/rdepends (wait for https://gitlab.com/volian/rust-apt/-/issues/19)
 - [ ] Improve pkg depends issue error output display
+- [ ] Compatible `apt-key`
