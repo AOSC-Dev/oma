@@ -57,13 +57,33 @@ impl VerificationHelper for InReleaseVerifier {
 }
 
 /// Verify InRelease PGP signature
-pub fn verify(s: &str) -> Result<String> {
-    let mut cert_files = vec![Path::new("/etc/apt/trusted.gpg").to_path_buf()];
+pub fn verify(s: &str, trust_files: Option<&str>) -> Result<String> {
     let dir = std::fs::read_dir("/etc/apt/trusted.gpg.d")?;
+    let mut cert_files = vec![];
 
-    for i in dir.flatten() {
-        if i.path().ends_with(".gpg") {
-            cert_files.push(i.path().to_path_buf());
+    if trust_files.is_none() {
+        for i in dir.flatten() {
+            let path = i.path();
+            let ext = path.extension().and_then(|x| x.to_str());
+            if ext == Some("gpg") {
+                cert_files.push(i.path().to_path_buf());
+            }
+        }
+
+        let trust_main = Path::new("/etc/apt/trusted.gpg").to_path_buf();
+
+        if trust_main.is_file() {
+            cert_files.push(trust_main);
+        }
+    } else {
+        let trust_files = trust_files.unwrap().split(",");
+        for file in trust_files {
+            let p = Path::new(file);
+            if p.is_absolute() {
+                cert_files.push(p.to_path_buf());
+            } else {
+                cert_files.push(Path::new("/etc/apt/trusted.gpg.d").join(file))
+            }
         }
     }
 
