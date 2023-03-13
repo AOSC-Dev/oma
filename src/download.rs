@@ -163,7 +163,7 @@ pub async fn packages_download(
                 .replace("%3a", ":")
                 .replace("%2b", "+")
                 .replace("%7e", "~");
-            let filename = trans_filename(&filename, c.new_version.clone())?;
+            let filename = trans_filename(filename, c.new_version.clone())?;
             let url = url.parent().unwrap().join(url_filename);
 
             tokio::fs::copy(&url, Path::new(APT_LIST_DISTS).join(filename))

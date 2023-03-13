@@ -31,8 +31,8 @@ pub struct PkgInfo {
 
 impl PkgInfo {
     pub fn new(cache: &Cache, version: RawVersion, pkg: &Package) -> Result<Self> {
-        //  直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
-        let version = Version::new(version, &pkg);
+        // 直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
+        let version = Version::new(version, pkg);
 
         let section = version.section().ok().map(|x| x.to_owned());
 
