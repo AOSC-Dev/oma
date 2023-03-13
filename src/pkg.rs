@@ -4,7 +4,8 @@ use glob_match::glob_match_with_captures;
 use indicatif::HumanBytes;
 use rust_apt::{
     cache::{Cache, PackageSort},
-    package::{BaseDep, DepType, Dependency},
+    package::{BaseDep, DepType, Dependency, Package, Version},
+    raw::package::RawVersion,
     records::RecordField,
 };
 use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
@@ -29,14 +30,9 @@ pub struct PkgInfo {
 }
 
 impl PkgInfo {
-    pub fn new(cache: &Cache, name: &str, version: &str) -> Result<Self> {
-        let pkg = cache
-            .get(name)
-            .context(format!("Can not get package {name}"))?;
-
-        let version = pkg
-            .get_version(version)
-            .context(format!("Can not get version {version} from package {name}"))?;
+    pub fn new(cache: &Cache, version: RawVersion, pkg: &Package) -> Result<Self> {
+        //  直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
+        let version = Version::new(version, &pkg);
 
         let section = version.section().ok().map(|x| x.to_owned());
 
@@ -51,7 +47,7 @@ impl PkgInfo {
         let description = version.description();
         let dep_map = dep_to_str_map(version.depends_map());
 
-        let has_dbg = if let Some(pkg) = cache.get(&format!("{name}-dbg")) {
+        let has_dbg = if let Some(pkg) = cache.get(&format!("{}-dbg", pkg.name())) {
             pkg.get_version(version.version()).is_some()
         } else {
             false
@@ -65,7 +61,7 @@ impl PkgInfo {
         let deps = deps_to_map(version.depends_map());
 
         Ok(Self {
-            package: name.to_owned(),
+            package: pkg.name().to_owned(),
             version: version.version().to_owned(),
             section,
             maintainer,
@@ -129,7 +125,15 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
         let version_str = split_arg.collect::<String>();
 
-        let oma_pkg = PkgInfo::new(cache, name, &version_str)?;
+        let pkg = cache
+            .get(name)
+            .context(format!("Can not get package {name}"))?;
+
+        let version = pkg
+            .get_version(&version_str)
+            .context(format!("Can not get pkg {name} version {version_str}"))?;
+
+        let oma_pkg = PkgInfo::new(cache, version.unique(), &pkg)?;
 
         res.push((oma_pkg, true));
     } else if input.ends_with(".deb") {
@@ -163,8 +167,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
         sort.sort_by(|x, y| rust_apt::util::cmp_versions(x.version(), y.version()));
 
         let version = sort.last().unwrap();
-        let name = pkg.name();
-        let oma_pkg = PkgInfo::new(cache, name, version.version())?;
+        let oma_pkg = PkgInfo::new(cache, version.unique(), &pkg)?;
 
         res.push((oma_pkg, true));
     } else {
@@ -174,11 +177,10 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
             .filter(|x| glob_match_with_captures(input, x.name()).is_some());
 
         for pkg in search_res {
-            let name = pkg.name();
             let versions = pkg.versions();
 
             for ver in versions {
-                let oma_pkg = PkgInfo::new(cache, name, ver.version())?;
+                let oma_pkg = PkgInfo::new(cache, ver.unique(), &pkg)?;
                 if pkg.candidate() == Some(ver) {
                     res.push((oma_pkg, true));
                 } else {
@@ -273,7 +275,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     for pkg in packages {
         let cand = pkg.candidate().unwrap();
         if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
-            let oma_pkg = PkgInfo::new(cache, pkg.name(), cand.version())?;
+            let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -284,7 +286,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             && !res.contains_key(pkg.name())
             && !pkg.name().contains("-dbg")
         {
-            let oma_pkg = PkgInfo::new(cache, pkg.name(), cand.version())?;
+            let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
             res.insert(
                 pkg.name().to_string(),
                 (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
@@ -295,7 +297,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             if !providers.is_empty() {
                 for provider in providers {
                     if provider.name() == input {
-                        let oma_pkg = PkgInfo::new(cache, provider.name(), cand.version())?;
+                        let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
                         res.insert(
                             pkg.name().to_string(),
                             (oma_pkg, cand.is_installed(), pkg.is_upgradable()),

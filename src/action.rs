@@ -324,7 +324,7 @@ impl OmaAction {
                     if let Some(pkg) = pkg {
                         versions_len = pkg.versions().collect::<Vec<_>>().len();
                         if let Some(cand) = pkg.candidate() {
-                            let pkginfo = PkgInfo::new(&cache, pkg.name(), cand.version())?;
+                            let pkginfo = PkgInfo::new(&cache, cand.unique(), &pkg)?;
 
                             res.push(pkginfo);
                         }
@@ -336,7 +336,7 @@ impl OmaAction {
                     if let Some(pkg) = pkg {
                         let vers = pkg.versions().collect::<Vec<_>>();
                         for ver in vers {
-                            let pkginfo = PkgInfo::new(&cache, pkg.name(), ver.version())?;
+                            let pkginfo = PkgInfo::new(&cache, ver.unique(), &pkg)?;
 
                             res.push(pkginfo);
                         }
@@ -921,7 +921,7 @@ impl OmaAction {
                 }
                 let p = p.unwrap();
                 let version = p.candidate().unwrap();
-                let pkginfo = PkgInfo::new(&cache, &pkg, version.version())?;
+                let pkginfo = PkgInfo::new(&cache, version.unique(), &p)?;
                 let pkg_str = pkg_str.replace(": ", " (") + ")";
                 let s = format!(
                     "{pkg_str}: {}",
