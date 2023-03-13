@@ -8,7 +8,8 @@ use reqwest::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
-    raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
+    package::Version,
+    raw::{progress::AptInstallProgress, util::raw::apt_lock_inner, package::RawVersion},
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
 };
@@ -1110,12 +1111,10 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         let pkg = cache.get(&pkg).unwrap();
         let pkgname = pkg.name();
         let versions = pkg.versions().collect::<Vec<_>>();
-
         let version = versions.iter().find(|x| x.uris().any(|x| x == path));
-
         let version = version.unwrap();
 
-        mark_install(&cache, pkgname, version.version(), reinstall, true)?;
+        mark_install(&cache, pkgname, version.unique(), reinstall, true)?;
     }
 
     // install another package
@@ -1124,18 +1123,26 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
             continue;
         }
 
-        mark_install(&cache, &pkginfo.package, &pkginfo.version, reinstall, false)?;
+        let pkg = cache.get(&pkginfo.package).unwrap();
+        let version = Version::new(pkginfo.version_raw, &pkg);
+
+        mark_install(&cache, &pkginfo.package, version.unique(), reinstall, false)?;
 
         if install_dbg && pkginfo.has_dbg {
+            let pkginfo = query_pkgs(&cache, &format!("{}-dbg", pkginfo.package))?;
+            let pkginfo = pkginfo.into_iter().filter(|x| x.1).collect::<Vec<_>>();
+            let dbg_pkgname = &pkginfo[0].0;
+            let version = dbg_pkgname.version_raw.unique();
+
             mark_install(
                 &cache,
-                &format!("{}-dbg", pkginfo.package),
-                &pkginfo.version,
+                &format!("{}-dbg", dbg_pkgname.package),
+                version,
                 reinstall,
                 false,
             )?;
         } else if install_dbg && !pkginfo.has_dbg {
-            warn!("{} has no debug symbol package!", pkginfo.package);
+            warn!("{} has no debug symbol package!", &pkginfo.package);
         }
     }
 
@@ -1146,13 +1153,12 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
 fn mark_install(
     cache: &Cache,
     pkg: &str,
-    version: &str,
+    ver: RawVersion,
     reinstall: bool,
     is_local: bool,
 ) -> Result<()> {
     let pkg = cache.get(pkg).unwrap();
-    let ver = pkg.get_version(version).unwrap();
-
+    let ver = Version::new(ver, &pkg);
     ver.set_candidate();
 
     let version = ver.version();

@@ -12,7 +12,6 @@ use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
 
 use crate::{cli::gen_prefix, pager::Pager, ALLOWCTRLC, WRITER};
 
-#[derive(Debug)]
 pub struct PkgInfo {
     pub package: String,
     pub version: String,
@@ -27,12 +26,14 @@ pub struct PkgInfo {
     pub has_dbg: bool,
     pub provides: Vec<String>,
     pub deps: HashMap<String, Vec<Vec<OmaDependency>>>,
+    pub version_raw: RawVersion,
 }
 
 impl PkgInfo {
-    pub fn new(cache: &Cache, version: RawVersion, pkg: &Package) -> Result<Self> {
+    pub fn new(cache: &Cache, version_raw: RawVersion, pkg: &Package) -> Result<Self> {
         // 直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
-        let version = Version::new(version, pkg);
+        let version = Version::new(version_raw, pkg);
+        let version_raw = version.unique();
 
         let section = version.section().ok().map(|x| x.to_owned());
 
@@ -74,6 +75,7 @@ impl PkgInfo {
             has_dbg,
             provides,
             deps,
+            version_raw,
         })
     }
 }
