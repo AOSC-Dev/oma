@@ -8,6 +8,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 use nix::sys::signal;
+use rust_apt::{raw::util::raw::apt_is_locked, util::{apt_unlock, apt_unlock_inner}};
 
 mod action;
 mod checksum;
@@ -264,6 +265,11 @@ fn single_handler() {
     // Dealing with lock
     if LOCKED.load(Ordering::Relaxed) {
         unlock_oma().expect("Failed to unlock instance.");
+    }
+
+    if apt_is_locked() {
+        apt_unlock_inner();
+        apt_unlock();
     }
 
     // Show cursor before exiting.
