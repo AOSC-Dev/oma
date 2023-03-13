@@ -755,8 +755,12 @@ impl OmaAction {
 
         let mut v = vec![];
 
-        for i in 0..=versions_str.len() {
-            for j in 1..=versions_str.len() {
+        for i in 0..versions_str.len() {
+            for j in 1..versions_str.len() {
+                if i == j {
+                    continue;
+                }
+
                 if versions_str[i] == versions_str[j] {
                     v.push((i, j));
                 }
@@ -767,12 +771,16 @@ impl OmaAction {
             versions_str[a] = format!(
                 "{} (branch: {})",
                 versions_str[a],
-                get_url_short_and_branch(&versions[a].uris().next().unwrap()).await?.1
+                get_url_short_and_branch(&versions[a].uris().next().unwrap())
+                    .await?
+                    .1
             );
             versions_str[b] = format!(
                 "{} (branch: {})",
                 versions_str[b],
-                get_url_short_and_branch(&versions[b].uris().next().unwrap()).await?.1
+                get_url_short_and_branch(&versions[b].uris().next().unwrap())
+                    .await?
+                    .1
             );
         }
 
@@ -791,38 +799,40 @@ impl OmaAction {
             }
         }
 
-        let index = dialoguer.interact()?;
+        let index = dialoguer.interact().ok();
 
-        let version = &versions[index];
+        if let Some(index) = index {
+            let version = &versions[index];
 
-        let installed = pkg.installed();
+            let installed = pkg.installed();
 
-        if installed.as_ref() == Some(&version)
-            && installed.map(|x| x.sha256()) == Some(version.sha256())
-        {
-            success!("No need to do anything.");
-            return Ok(());
+            if installed.as_ref() == Some(&version)
+                && installed.map(|x| x.sha256()) == Some(version.sha256())
+            {
+                success!("No need to do anything.");
+                return Ok(());
+            }
+
+            version.set_candidate();
+
+            pkg.mark_install(true, true);
+            pkg.protect();
+
+            let (action, _) = apt_handler(&cache, no_fixbroken)?;
+            let disk_size = cache.depcache().disk_size();
+
+            let mut list = vec![];
+            list.extend(action.install.clone());
+            list.extend(action.update.clone());
+            list.extend(action.downgrade.clone());
+
+            size_checker(&disk_size, download_size(&list, &cache)?)?;
+            display_result(&action, &cache)?;
+
+            packages_download(&list, &self.client, None, None).await?;
+
+            apt_install(cache)?;
         }
-
-        version.set_candidate();
-
-        pkg.mark_install(true, true);
-        pkg.protect();
-
-        let (action, _) = apt_handler(&cache, no_fixbroken)?;
-        let disk_size = cache.depcache().disk_size();
-
-        let mut list = vec![];
-        list.extend(action.install.clone());
-        list.extend(action.update.clone());
-        list.extend(action.downgrade.clone());
-
-        size_checker(&disk_size, download_size(&list, &cache)?)?;
-        display_result(&action, &cache)?;
-
-        packages_download(&list, &self.client, None, None).await?;
-
-        apt_install(cache)?;
 
         Ok(())
     }
