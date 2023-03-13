@@ -9,7 +9,7 @@ use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
     package::Version,
-    raw::{progress::AptInstallProgress, util::raw::apt_lock_inner, package::RawVersion},
+    raw::{package::RawVersion, progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
 };
@@ -746,8 +746,10 @@ impl OmaAction {
             .get(pkg)
             .context(format!("Can not get package: {pkg}"))?;
 
-        let versions = pkg
-            .versions()
+        let versions = pkg.versions().collect::<Vec<_>>();
+
+        let versions_str = versions
+            .iter()
             .map(|x| x.version().to_string())
             .collect::<Vec<_>>();
 
@@ -756,11 +758,11 @@ impl OmaAction {
         let theme = ColorfulTheme::default();
         let mut dialoguer = Select::with_theme(&theme);
 
-        dialoguer.items(&versions);
+        dialoguer.items(&versions_str);
         dialoguer.with_prompt(format!("Select {} version:", pkg.name()));
 
         if let Some(installed) = installed {
-            let pos = versions.iter().position(|x| x == installed.version());
+            let pos = versions_str.iter().position(|x| x == installed.version());
             if let Some(pos) = pos {
                 dialoguer.default(pos);
             }
@@ -769,9 +771,12 @@ impl OmaAction {
         let index = dialoguer.interact()?;
 
         let version = &versions[index];
-        let version = pkg.get_version(version).unwrap();
 
-        if pkg.installed().as_ref() == Some(&version) {
+        let installed = pkg.installed();
+
+        if installed.as_ref() == Some(&version)
+            && installed.map(|x| x.sha256()) == Some(version.sha256())
+        {
             success!("No need to do anything.");
             return Ok(());
         }
