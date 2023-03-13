@@ -748,10 +748,12 @@ impl OmaAction {
 
         let versions = pkg.versions().collect::<Vec<_>>();
 
-        let mut versions_str = versions
+        let versions_str = versions
             .iter()
             .map(|x| x.version().to_string())
             .collect::<Vec<_>>();
+
+        let mut versions_str_display = versions_str.clone();
 
         let mut v = vec![];
 
@@ -769,18 +771,10 @@ impl OmaAction {
 
         for (a, b) in v {
             let uri_a = versions[a].uris().nth(0).unwrap();
-            versions_str[a] = format!(
-                "{} (from: {})",
-                versions_str[a],
-                uri_a
-            );
+            versions_str_display[a] = format!("{} (from: {})", versions_str[a], uri_a);
 
             let uri_b = versions[b].uris().nth(0).unwrap();
-            versions_str[b] = format!(
-                "{} (from: {})",
-                versions_str[b],
-                uri_b
-            );
+            versions_str_display[b] = format!("{} (from: {})", versions_str[b], uri_b);
         }
 
         let installed = pkg.installed();
@@ -788,7 +782,7 @@ impl OmaAction {
         let theme = ColorfulTheme::default();
         let mut dialoguer = Select::with_theme(&theme);
 
-        dialoguer.items(&versions_str);
+        dialoguer.items(&versions_str_display);
         dialoguer.with_prompt(format!("Select {} version:", pkg.name()));
 
         if let Some(installed) = installed {
