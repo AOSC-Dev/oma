@@ -30,7 +30,7 @@ use std::{
 
 use crate::{
     contents::find,
-    db::{get_sources, get_url_short_and_branch, update_db, APT_LIST_DISTS, DOWNLOAD_DIR},
+    db::{get_sources, update_db, APT_LIST_DISTS, DOWNLOAD_DIR},
     download::packages_download,
     formatter::NoProgress,
     info,
@@ -771,16 +771,12 @@ impl OmaAction {
             versions_str[a] = format!(
                 "{} (branch: {})",
                 versions_str[a],
-                get_url_short_and_branch(&versions[a].uris().next().unwrap())
-                    .await?
-                    .1
+                versions[a].uris().nth(0).unwrap().split('/').nth_back(3).unwrap_or("unknown")
             );
             versions_str[b] = format!(
                 "{} (branch: {})",
                 versions_str[b],
-                get_url_short_and_branch(&versions[b].uris().next().unwrap())
-                    .await?
-                    .1
+                versions[b].uris().nth(0).unwrap().split('/').nth_back(3).unwrap_or("unknown")
             );
         }
 
@@ -799,9 +795,9 @@ impl OmaAction {
             }
         }
 
-        let index = dialoguer.interact().ok();
+        let index = dialoguer.interact();
 
-        if let Some(index) = index {
+        if let Ok(index) = index {
             let version = &versions[index];
 
             let installed = pkg.installed();
