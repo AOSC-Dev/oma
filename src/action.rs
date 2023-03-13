@@ -13,7 +13,7 @@ use rust_apt::{
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
 };
-use std::fmt::Write as OtherWrite;
+use std::fmt::Write as FmtWrite;
 use sysinfo::{Pid, System, SystemExt};
 use tabled::{
     object::{Columns, Segment},
@@ -30,7 +30,7 @@ use std::{
 
 use crate::{
     contents::find,
-    db::{get_sources, update_db, APT_LIST_DISTS, DOWNLOAD_DIR},
+    db::{get_sources, get_url_short_and_branch, update_db, APT_LIST_DISTS, DOWNLOAD_DIR},
     download::packages_download,
     formatter::NoProgress,
     info,
@@ -748,10 +748,33 @@ impl OmaAction {
 
         let versions = pkg.versions().collect::<Vec<_>>();
 
-        let versions_str = versions
+        let mut versions_str = versions
             .iter()
             .map(|x| x.version().to_string())
             .collect::<Vec<_>>();
+
+        let mut v = vec![];
+
+        for i in 0..=versions_str.len() {
+            for j in 1..=versions_str.len() {
+                if versions_str[i] == versions_str[j] {
+                    v.push((i, j));
+                }
+            }
+        }
+
+        for (a, b) in v {
+            versions_str[a] = format!(
+                "{} (branch: {})",
+                versions_str[a],
+                get_url_short_and_branch(&versions[a].uris().next().unwrap()).await?.1
+            );
+            versions_str[b] = format!(
+                "{} (branch: {})",
+                versions_str[b],
+                get_url_short_and_branch(&versions[b].uris().next().unwrap()).await?.1
+            );
+        }
 
         let installed = pkg.installed();
 
