@@ -768,15 +768,18 @@ impl OmaAction {
         }
 
         for (a, b) in v {
+            let uri_a = versions[a].uris().nth(0).unwrap();
             versions_str[a] = format!(
-                "{} (branch: {})",
+                "{} (from: {})",
                 versions_str[a],
-                versions[a].uris().nth(0).unwrap().split('/').nth_back(3).unwrap_or("unknown")
+                uri_a
             );
+
+            let uri_b = versions[b].uris().nth(0).unwrap();
             versions_str[b] = format!(
-                "{} (branch: {})",
+                "{} (from: {})",
                 versions_str[b],
-                versions[b].uris().nth(0).unwrap().split('/').nth_back(3).unwrap_or("unknown")
+                uri_b
             );
         }
 
