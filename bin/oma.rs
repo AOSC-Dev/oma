@@ -172,7 +172,7 @@ async fn try_main() -> Result<()> {
 
     match args.subcommand {
         OmaCommand::Install(v) => {
-            OmaAction::new()
+            OmaAction::new(false)
                 .await?
                 .install(
                     &v.packages,
@@ -184,9 +184,9 @@ async fn try_main() -> Result<()> {
                 .await
         }
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
-        OmaCommand::Remove(v) => OmaAction::new().await?.remove(&v.packages, true),
-        OmaCommand::Upgrade(v) => OmaAction::new().await?.update(&v.packages).await,
-        OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
+        OmaCommand::Remove(v) => OmaAction::new(false).await?.remove(&v.packages, true),
+        OmaCommand::Upgrade(v) => OmaAction::new(false).await?.update(&v.packages).await,
+        OmaCommand::Refresh(_) => OmaAction::new(false).await?.refresh().await,
         OmaCommand::Show(v) => OmaAction::show(&v.packages, v.is_all),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword.join(" ")),
         // TODO: up_db 的值目前写死了 true，打算实现的逻辑是这样：
@@ -195,10 +195,10 @@ async fn try_main() -> Result<()> {
         // 则强制更新 Contents
         OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
-        OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
-        OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
+        OmaCommand::Download(v) => OmaAction::new(false).await?.download(&v.packages).await,
+        OmaCommand::FixBroken(_) => OmaAction::new(false).await?.fix_broken().await,
         OmaCommand::Pick(v) => {
-            OmaAction::new()
+            OmaAction::new(false)
                 .await?
                 .pick(&v.package, v.no_fixbroken, v.no_upgrade)
                 .await

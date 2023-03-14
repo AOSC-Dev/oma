@@ -97,6 +97,7 @@ const LOCK: &str = "/run/lock/oma.lock";
 pub struct OmaAction {
     sources: Vec<SourceEntry>,
     client: Client,
+    yes: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -110,7 +111,7 @@ enum InstallError {
 type InstallResult<T> = std::result::Result<T, InstallError>;
 
 impl OmaAction {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(yes: bool) -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
 
         let sources = get_sources()?;
@@ -118,7 +119,7 @@ impl OmaAction {
         std::fs::create_dir_all(APT_LIST_DISTS)?;
         std::fs::create_dir_all("/var/cache/apt/archives")?;
 
-        Ok(Self { sources, client })
+        Ok(Self { sources, client, yes })
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
@@ -132,6 +133,7 @@ impl OmaAction {
             client: &Client,
             count: usize,
             packages: &[String],
+            yes: bool,
         ) -> InstallResult<()> {
             let cache = install_handle(packages, false, false)?;
 
@@ -152,7 +154,7 @@ impl OmaAction {
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
                 size_checker(&disk_size, download_size(&list, &cache)?)?;
-                if len != 0 {
+                if len != 0 && !yes {
                     display_result(&action, &cache)?;
                 }
             }
@@ -164,7 +166,7 @@ impl OmaAction {
         }
 
         let mut count = 0;
-        while let Err(e) = update_inner(&self.client, count, packages).await {
+        while let Err(e) = update_inner(&self.client, count, packages, self.yes).await {
             match e {
                 InstallError::Anyhow(e) => return Err(e),
                 InstallError::RustApt(e) => {
@@ -676,7 +678,7 @@ impl OmaAction {
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
-            if len != 0 {
+            if len != 0 && !self.yes {
                 display_result(&action, &cache)?;
             }
         }
@@ -711,7 +713,9 @@ impl OmaAction {
             return Ok(());
         }
 
-        display_result(&action, &cache)?;
+        if !self.yes {
+            display_result(&action, &cache)?;
+        }
 
         cache.commit(
             &mut NoProgress::new_box(),
