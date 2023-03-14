@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::SourceEntry;
+use clap::{Subcommand, Parser};
 use console::{style, Color};
 use debarchive::Archive;
 use dialoguer::{theme::ColorfulTheme, Select};
@@ -38,7 +39,7 @@ use crate::{
     pkg::{query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::size_checker,
-    warn, MarkAction, ALLOWCTRLC, WRITER,
+    warn, ALLOWCTRLC, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -72,6 +73,23 @@ pub struct InstallRow {
     pub checksum: Option<String>,
     #[tabled(skip)]
     pub pure_download_size: u64,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum MarkAction {
+    /// Hold package version
+    Hold(MarkActionArgs),
+    /// Unhold package version
+    Unhold(MarkActionArgs),
+    /// Set package status to manual install
+    Manual(MarkActionArgs),
+    /// Set package status to auto install
+    Auto(MarkActionArgs),
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct MarkActionArgs {
+    pub pkgs: Vec<String>,
 }
 
 const LOCK: &str = "/run/lock/oma.lock";

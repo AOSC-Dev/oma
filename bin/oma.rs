@@ -1,33 +1,10 @@
-use std::{
-    process::exit,
-    sync::atomic::{AtomicBool, AtomicI32, Ordering},
-};
+use std::process::exit;
 
-use action::{unlock_oma, OmaAction};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use lazy_static::lazy_static;
-use nix::sys::signal;
 
-mod action;
-mod checksum;
-mod cli;
-mod contents;
-mod db;
-mod download;
-mod formatter;
-mod pager;
-mod pkg;
-mod utils;
-mod verify;
-
-static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
-static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
-static LOCKED: AtomicBool = AtomicBool::new(false);
-
-lazy_static! {
-    static ref WRITER: cli::Writer = cli::Writer::new();
-}
+use oma::action::{unlock_oma, MarkAction, OmaAction};
+use oma::{error, single_handler};
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
@@ -160,23 +137,6 @@ struct Mark {
     action: MarkAction,
 }
 
-#[derive(Subcommand, Debug, Clone)]
-pub enum MarkAction {
-    /// Hold package version
-    Hold(MarkActionArgs),
-    /// Unhold package version
-    Unhold(MarkActionArgs),
-    /// Set package status to manual install
-    Manual(MarkActionArgs),
-    /// Set package status to auto install
-    Auto(MarkActionArgs),
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct MarkActionArgs {
-    pkgs: Vec<String>,
-}
-
 #[derive(Parser, Debug)]
 struct List {
     packages: Option<Vec<String>>,
@@ -245,7 +205,9 @@ async fn try_main() -> Result<()> {
         }
         OmaCommand::Mark(v) => OmaAction::mark(v.action),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
-        OmaCommand::List(v) => OmaAction::list(v.packages.as_deref(), v.all, v.installed, v.upgradable),
+        OmaCommand::List(v) => {
+            OmaAction::list(v.packages.as_deref(), v.all, v.installed, v.upgradable)
+        }
         OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs),
         OmaCommand::Clean(_) => OmaAction::clean(),
     }?;
@@ -253,25 +215,3 @@ async fn try_main() -> Result<()> {
     Ok(())
 }
 
-fn single_handler() {
-    // Kill subprocess
-    let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
-    let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
-    if subprocess_pid > 0 {
-        let pid = nix::unistd::Pid::from_raw(subprocess_pid);
-        signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
-        if !allow_ctrlc {
-            info!("User aborted the operation");
-        }
-    }
-
-    // Dealing with lock
-    if LOCKED.load(Ordering::Relaxed) {
-        unlock_oma().expect("Failed to unlock instance.");
-    }
-
-    // Show cursor before exiting.
-    // This is not a big deal so we won't panic on this.
-    let _ = WRITER.show_cursor();
-    std::process::exit(2);
-}
