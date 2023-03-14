@@ -105,7 +105,7 @@ pub async fn get_url_short_and_branch(url: &str) -> Result<String> {
         }
     }
 
-    return Ok(format!("{host}:{branch}"));
+    Ok(format!("{host}:{branch}"))
 }
 
 #[derive(Debug)]

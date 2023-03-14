@@ -17,15 +17,19 @@ pub fn gen_prefix(prefix: &str) -> String {
     real_prefix
 }
 
+impl Default for Writer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct Writer {
     term: Term,
 }
 
 impl Writer {
     pub fn new() -> Self {
-        Writer {
-            term: Term::stderr(),
-        }
+        Self::default()
     }
 
     pub fn show_cursor(&self) -> Result<()> {
