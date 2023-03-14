@@ -19,7 +19,9 @@ pub fn gen_prefix(prefix: &str) -> String {
 
 impl Default for Writer {
     fn default() -> Self {
-        Self::new()
+        Writer {
+            term: Term::stderr(),
+        }
     }
 }
 
