@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use oma::action::{unlock_oma, MarkAction, OmaAction};
-use oma::{error, single_handler};
+use oma::{error, single_handler, warn};
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
@@ -170,6 +170,10 @@ async fn main() {
 async fn try_main() -> Result<()> {
     let yes = std::env::args().next().unwrap_or("oma".to_owned()).contains("oma-yes");
     let args = Args::parse();
+
+    if yes {
+        warn!("Now you are using automatic mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
+    }
 
     match args.subcommand {
         OmaCommand::Install(v) => {
