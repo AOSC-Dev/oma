@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::SourceEntry;
-use clap::{Subcommand, Parser};
+use clap::{Parser, Subcommand};
 use console::{style, Color};
 use debarchive::Archive;
 use dialoguer::{theme::ColorfulTheme, Select};
@@ -12,7 +12,7 @@ use rust_apt::{
     package::Version,
     raw::{package::RawVersion, progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
-    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception}
+    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
 };
 use std::fmt::Write as FmtWrite;
 use sysinfo::{Pid, System, SystemExt};
@@ -97,7 +97,6 @@ const LOCK: &str = "/run/lock/oma.lock";
 pub struct OmaAction {
     sources: Vec<SourceEntry>,
     client: Client,
-    yes: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -111,7 +110,7 @@ enum InstallError {
 type InstallResult<T> = std::result::Result<T, InstallError>;
 
 impl OmaAction {
-    pub async fn new(yes: bool) -> Result<Self> {
+    pub async fn new() -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
 
         let sources = get_sources()?;
@@ -119,11 +118,11 @@ impl OmaAction {
         std::fs::create_dir_all(APT_LIST_DISTS)?;
         std::fs::create_dir_all("/var/cache/apt/archives")?;
 
-        Ok(Self { sources, client, yes })
+        Ok(Self { sources, client })
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
-    pub async fn update(&self, packages: &[String]) -> Result<()> {
+    pub async fn update(&self, packages: &[String], yes: bool) -> Result<()> {
         is_root()?;
         lock_oma()?;
 
@@ -166,7 +165,7 @@ impl OmaAction {
         }
 
         let mut count = 0;
-        while let Err(e) = update_inner(&self.client, count, packages, self.yes).await {
+        while let Err(e) = update_inner(&self.client, count, packages, yes).await {
             match e {
                 InstallError::Anyhow(e) => return Err(e),
                 InstallError::RustApt(e) => {
@@ -189,6 +188,7 @@ impl OmaAction {
         reinstall: bool,
         no_fixbroken: bool,
         no_upgrade: bool,
+        yes: bool,
     ) -> Result<()> {
         lock_oma()?;
         is_root()?;
@@ -199,7 +199,7 @@ impl OmaAction {
 
         let mut count = 0;
         while let Err(e) = self
-            .install_inner(list, count, install_dbg, reinstall, no_fixbroken)
+            .install_inner(list, count, install_dbg, reinstall, no_fixbroken, yes)
             .await
         {
             match e {
@@ -219,7 +219,12 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn list(list: Option<&[String]>, all: bool, installed: bool, upgradable: bool) -> Result<()> {
+    pub fn list(
+        list: Option<&[String]>,
+        all: bool,
+        installed: bool,
+        upgradable: bool,
+    ) -> Result<()> {
         let cache = new_cache!()?;
 
         let mut sort = PackageSort::default();
@@ -660,6 +665,7 @@ impl OmaAction {
         install_dbg: bool,
         reinstall: bool,
         no_fixbroken: bool,
+        yes: bool,
     ) -> InstallResult<()> {
         let cache = install_handle(list, install_dbg, reinstall)?;
 
@@ -678,19 +684,19 @@ impl OmaAction {
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
-            if len != 0 && !self.yes {
+            if len != 0 && !yes {
                 display_result(&action, &cache)?;
             }
         }
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download(&list, &self.client, None, None).await?;
-        apt_install(cache, self.yes)?;
+        apt_install(cache, yes)?;
 
         Ok(())
     }
 
-    pub fn remove(&self, list: &[String], is_purge: bool) -> Result<()> {
+    pub fn remove(&self, list: &[String], is_purge: bool, yes: bool) -> Result<()> {
         is_root()?;
         lock_oma()?;
 
@@ -713,7 +719,7 @@ impl OmaAction {
             return Ok(());
         }
 
-        if !self.yes {
+        if !yes {
             display_result(&action, &cache)?;
         }
 
@@ -850,7 +856,7 @@ impl OmaAction {
 
             packages_download(&list, &self.client, None, None).await?;
 
-            apt_install(cache, self.yes)?;
+            apt_install(cache, false)?;
         }
 
         Ok(())

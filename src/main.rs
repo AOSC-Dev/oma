@@ -3,8 +3,54 @@ use std::process::exit;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use oma::action::{unlock_oma, MarkAction, OmaAction};
-use oma::{error, single_handler, warn};
+use action::{unlock_oma, MarkAction, OmaAction};
+use lazy_static::lazy_static;
+use nix::sys::signal;
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+
+mod action;
+mod checksum;
+mod cli;
+mod contents;
+mod db;
+mod download;
+mod formatter;
+mod pager;
+mod pkg;
+mod utils;
+mod verify;
+
+pub static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
+pub static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
+pub static LOCKED: AtomicBool = AtomicBool::new(false);
+
+lazy_static! {
+    pub static ref WRITER: cli::Writer = cli::Writer::new();
+}
+
+fn single_handler() {
+    // Kill subprocess
+    let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
+    let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
+    if subprocess_pid > 0 {
+        let pid = nix::unistd::Pid::from_raw(subprocess_pid);
+        signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
+        if !allow_ctrlc {
+            info!("User aborted the operation");
+        }
+    }
+
+    // Dealing with lock
+    if LOCKED.load(Ordering::Relaxed) {
+        unlock_oma().expect("Failed to unlock instance.");
+    }
+
+    // Show cursor before exiting.
+    // This is not a big deal so we won't panic on this.
+    let _ = WRITER.show_cursor();
+    std::process::exit(2);
+}
+
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
@@ -85,11 +131,15 @@ struct Install {
     no_fixbroken: bool,
     #[arg(long)]
     no_upgrade: bool,
+    #[arg(long, short = 'y')]
+    yes: bool,
 }
 
 #[derive(Parser, Debug)]
 struct Update {
     packages: Vec<String>,
+    #[arg(long, short = 'y')]
+    yes: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -117,6 +167,8 @@ struct Provides {
 #[derive(Parser, Debug)]
 struct Delete {
     packages: Vec<String>,
+    #[arg(long, short = 'y')]
+    yes: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -168,16 +220,11 @@ async fn main() {
 }
 
 async fn try_main() -> Result<()> {
-    let yes = std::env::args().next().unwrap_or("oma".to_owned()).contains("oma-yes");
     let args = Args::parse();
-
-    if yes {
-        warn!("Now you are using automatic mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
-    }
 
     match args.subcommand {
         OmaCommand::Install(v) => {
-            OmaAction::new(yes)
+            OmaAction::new()
                 .await?
                 .install(
                     &v.packages,
@@ -185,13 +232,14 @@ async fn try_main() -> Result<()> {
                     v.reinstall,
                     v.no_fixbroken,
                     v.no_upgrade,
+                    v.yes,
                 )
                 .await
         }
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
-        OmaCommand::Remove(v) => OmaAction::new(yes).await?.remove(&v.packages, true),
-        OmaCommand::Upgrade(v) => OmaAction::new(yes).await?.update(&v.packages).await,
-        OmaCommand::Refresh(_) => OmaAction::new(yes).await?.refresh().await,
+        OmaCommand::Remove(v) => OmaAction::new().await?.remove(&v.packages, true, v.yes),
+        OmaCommand::Upgrade(v) => OmaAction::new().await?.update(&v.packages, v.yes).await,
+        OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
         OmaCommand::Show(v) => OmaAction::show(&v.packages, v.is_all),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword.join(" ")),
         // TODO: up_db 的值目前写死了 true，打算实现的逻辑是这样：
@@ -200,10 +248,10 @@ async fn try_main() -> Result<()> {
         // 则强制更新 Contents
         OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
-        OmaCommand::Download(v) => OmaAction::new(yes).await?.download(&v.packages).await,
-        OmaCommand::FixBroken(_) => OmaAction::new(yes).await?.fix_broken().await,
+        OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
+        OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
         OmaCommand::Pick(v) => {
-            OmaAction::new(yes)
+            OmaAction::new()
                 .await?
                 .pick(&v.package, v.no_fixbroken, v.no_upgrade)
                 .await
@@ -219,4 +267,3 @@ async fn try_main() -> Result<()> {
 
     Ok(())
 }
-
