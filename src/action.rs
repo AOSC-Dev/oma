@@ -126,6 +126,10 @@ impl OmaAction {
         is_root()?;
         lock_oma()?;
 
+        if yes {
+            yes_warn();
+        }
+
         update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(
@@ -192,6 +196,10 @@ impl OmaAction {
     ) -> Result<()> {
         lock_oma()?;
         is_root()?;
+
+        if yes {
+            yes_warn();
+        }
 
         if !no_upgrade {
             update_db(&self.sources, &self.client, None).await?;
@@ -700,6 +708,10 @@ impl OmaAction {
         is_root()?;
         lock_oma()?;
 
+        if yes {
+            yes_warn();
+        }
+
         let cache = new_cache!()?;
 
         for i in list {
@@ -1130,6 +1142,10 @@ fn apt_install(cache: Cache, yes: bool) -> std::result::Result<(), Exception> {
     apt_unlock();
 
     Ok(())
+}
+
+fn yes_warn() {
+    warn!("Now you are using automatic mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
 }
 
 /// Handle user input, find pkgs

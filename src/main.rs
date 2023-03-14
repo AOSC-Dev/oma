@@ -51,7 +51,6 @@ fn single_handler() {
     std::process::exit(2);
 }
 
-
 #[derive(Parser, Debug)]
 #[clap(about, version, author)]
 pub struct Args {
