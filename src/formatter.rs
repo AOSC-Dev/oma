@@ -89,24 +89,29 @@ pub struct YesInstallProgress {
 
 impl YesInstallProgress {
     #[allow(dead_code)]
-    pub fn new() -> Self {
+    pub fn new(force_yes: bool) -> Self {
         let config = Config::new_clear();
         config.set("APT::Get::Assume-Yes", "true");
         config.set("Dpkg::Options::", "--force-confnew");
+
+        if force_yes {
+            warn!("Now you are using FORCE automatic mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
+            config.set("APT::Get::force-yes", "true");
+        }
 
         Self { config }
     }
 
     /// Return the AptInstallProgress in a box
     /// To easily pass through to do_install
-    pub fn new_box() -> Box<dyn InstallProgress> {
-        Box::new(Self::new())
+    pub fn new_box(force_yes: bool) -> Box<dyn InstallProgress> {
+        Box::new(Self::new(force_yes))
     }
 }
 
 impl Default for YesInstallProgress {
     fn default() -> Self {
-        Self::new()
+        Self::new(false)
     }
 }
 

@@ -132,6 +132,8 @@ struct Install {
     no_upgrade: bool,
     #[arg(long, short = 'y')]
     yes: bool,
+    #[arg(long)]
+    force_yes: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -139,6 +141,8 @@ struct Update {
     packages: Vec<String>,
     #[arg(long, short = 'y')]
     yes: bool,
+    #[arg(long)]
+    force_yes: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -168,6 +172,8 @@ struct Delete {
     packages: Vec<String>,
     #[arg(long, short = 'y')]
     yes: bool,
+    #[arg(long)]
+    force_yes: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -232,12 +238,13 @@ async fn try_main() -> Result<()> {
                     v.no_fixbroken,
                     v.no_upgrade,
                     v.yes,
+                    v.force_yes
                 )
                 .await
         }
         // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
-        OmaCommand::Remove(v) => OmaAction::new().await?.remove(&v.packages, true, v.yes),
-        OmaCommand::Upgrade(v) => OmaAction::new().await?.update(&v.packages, v.yes).await,
+        OmaCommand::Remove(v) => OmaAction::new().await?.remove(&v.packages, true, v.yes, v.force_yes),
+        OmaCommand::Upgrade(v) => OmaAction::new().await?.update(&v.packages, v.yes, v.force_yes).await,
         OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
         OmaCommand::Show(v) => OmaAction::show(&v.packages, v.is_all),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword.join(" ")),

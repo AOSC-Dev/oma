@@ -122,7 +122,7 @@ impl OmaAction {
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
-    pub async fn update(&self, packages: &[String], yes: bool) -> Result<()> {
+    pub async fn update(&self, packages: &[String], yes: bool, force_yes: bool) -> Result<()> {
         is_root()?;
         lock_oma()?;
 
@@ -137,6 +137,7 @@ impl OmaAction {
             count: usize,
             packages: &[String],
             yes: bool,
+            force_yes: bool
         ) -> InstallResult<()> {
             let cache = install_handle(packages, false, false)?;
 
@@ -163,13 +164,13 @@ impl OmaAction {
             }
 
             packages_download(&list, client, None, None).await?;
-            apt_install(cache, yes)?;
+            apt_install(cache, yes, force_yes)?;
 
             Ok(())
         }
 
         let mut count = 0;
-        while let Err(e) = update_inner(&self.client, count, packages, yes).await {
+        while let Err(e) = update_inner(&self.client, count, packages, yes, force_yes).await {
             match e {
                 InstallError::Anyhow(e) => return Err(e),
                 InstallError::RustApt(e) => {
@@ -193,6 +194,7 @@ impl OmaAction {
         no_fixbroken: bool,
         no_upgrade: bool,
         yes: bool,
+        force_yes: bool,
     ) -> Result<()> {
         is_root()?;
         lock_oma()?;
@@ -207,7 +209,7 @@ impl OmaAction {
 
         let mut count = 0;
         while let Err(e) = self
-            .install_inner(list, count, install_dbg, reinstall, no_fixbroken, yes)
+            .install_inner(list, count, install_dbg, reinstall, no_fixbroken, yes, force_yes)
             .await
         {
             match e {
@@ -674,6 +676,7 @@ impl OmaAction {
         reinstall: bool,
         no_fixbroken: bool,
         yes: bool,
+        force_yes: bool,
     ) -> InstallResult<()> {
         let cache = install_handle(list, install_dbg, reinstall)?;
 
@@ -699,12 +702,12 @@ impl OmaAction {
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download(&list, &self.client, None, None).await?;
-        apt_install(cache, yes)?;
+        apt_install(cache, yes, force_yes)?;
 
         Ok(())
     }
 
-    pub fn remove(&self, list: &[String], is_purge: bool, yes: bool) -> Result<()> {
+    pub fn remove(&self, list: &[String], is_purge: bool, yes: bool, force_yes: bool) -> Result<()> {
         is_root()?;
         lock_oma()?;
 
@@ -735,9 +738,15 @@ impl OmaAction {
             display_result(&action, &cache)?;
         }
 
+        let mut progress = if yes || force_yes {
+            YesInstallProgress::new_box(force_yes)
+        } else {
+            AptInstallProgress::new_box()
+        };
+
         cache.commit(
             &mut NoProgress::new_box(),
-            &mut AptInstallProgress::new_box(),
+            &mut progress,
         )?;
 
         Ok(())
@@ -868,7 +877,7 @@ impl OmaAction {
 
             packages_download(&list, &self.client, None, None).await?;
 
-            apt_install(cache, false)?;
+            apt_install(cache, false, false)?;
         }
 
         Ok(())
@@ -1122,13 +1131,13 @@ fn autoremove(cache: &Cache) {
 }
 
 /// Install packages
-fn apt_install(cache: Cache, yes: bool) -> std::result::Result<(), Exception> {
+fn apt_install(cache: Cache, yes: bool, force_yes: bool) -> std::result::Result<(), Exception> {
     apt_lock()?;
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
 
-    let mut progress = if yes {
-        YesInstallProgress::new_box()
+    let mut progress = if yes || force_yes {
+        YesInstallProgress::new_box(force_yes)
     } else {
         AptInstallProgress::new_box()
     };
