@@ -39,7 +39,7 @@ use crate::{
     pkg::{query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::size_checker,
-    warn, ALLOWCTRLC, WRITER,
+    warn, ALLOWCTRLC, WRITER, InstallOptions,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -188,28 +188,22 @@ impl OmaAction {
 
     pub async fn install(
         &self,
-        list: &[String],
-        install_dbg: bool,
-        reinstall: bool,
-        no_fixbroken: bool,
-        no_upgrade: bool,
-        yes: bool,
-        force_yes: bool,
+        opt: InstallOptions
     ) -> Result<()> {
         is_root()?;
         lock_oma()?;
 
-        if yes {
+        if opt.yes {
             yes_warn();
         }
 
-        if !no_upgrade {
+        if !opt.no_upgrade {
             update_db(&self.sources, &self.client, None).await?;
         }
 
         let mut count = 0;
         while let Err(e) = self
-            .install_inner(list, count, install_dbg, reinstall, no_fixbroken, yes, force_yes)
+            .install_inner(&opt, count)
             .await
         {
             match e {
@@ -670,17 +664,12 @@ impl OmaAction {
 
     async fn install_inner(
         &self,
-        list: &[String],
-        count: usize,
-        install_dbg: bool,
-        reinstall: bool,
-        no_fixbroken: bool,
-        yes: bool,
-        force_yes: bool,
+        opt: &InstallOptions,
+        count: usize
     ) -> InstallResult<()> {
-        let cache = install_handle(list, install_dbg, reinstall)?;
+        let cache = install_handle(&opt.packages, opt.install_dbg, opt.reinstall)?;
 
-        let (action, len) = apt_handler(&cache, no_fixbroken)?;
+        let (action, len) = apt_handler(&cache, opt.no_fixbroken)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -695,14 +684,14 @@ impl OmaAction {
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
-            if len != 0 && !yes {
+            if len != 0 && !opt.yes {
                 display_result(&action, &cache)?;
             }
         }
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download(&list, &self.client, None, None).await?;
-        apt_install(cache, yes, force_yes)?;
+        apt_install(cache, opt.yes, opt.force_yes)?;
 
         Ok(())
     }
