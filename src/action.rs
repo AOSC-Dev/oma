@@ -199,13 +199,17 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn list(list: Option<&[String]>, all: bool, installed: bool) -> Result<()> {
+    pub fn list(list: Option<&[String]>, all: bool, installed: bool, upgradable: bool) -> Result<()> {
         let cache = new_cache!()?;
 
         let mut sort = PackageSort::default();
 
         if installed {
             sort = sort.installed();
+        }
+
+        if upgradable {
+            sort = sort.upgradable();
         }
 
         let packages = cache.packages(&sort);
@@ -306,94 +310,94 @@ impl OmaAction {
             res.sort();
 
             if res.is_empty() {
-                panic!("Could not find any package.");
+                bail!("")
             }
 
             for i in res {
                 println!("{i}");
             }
-        }
+        } else {
+            let mut res = vec![];
 
-        let mut res = vec![];
+            let mut versions_len = 0;
 
-        let mut versions_len = 0;
+            if let Some(list) = list {
+                if !all {
+                    for i in list {
+                        let pkg = cache.get(i);
+                        if let Some(pkg) = pkg {
+                            versions_len = pkg.versions().collect::<Vec<_>>().len();
+                            if let Some(cand) = pkg.candidate() {
+                                let pkginfo = PkgInfo::new(&cache, cand.unique(), &pkg)?;
 
-        if let Some(list) = list {
-            if !all {
-                for i in list {
-                    let pkg = cache.get(i);
-                    if let Some(pkg) = pkg {
-                        versions_len = pkg.versions().collect::<Vec<_>>().len();
-                        if let Some(cand) = pkg.candidate() {
-                            let pkginfo = PkgInfo::new(&cache, cand.unique(), &pkg)?;
+                                res.push(pkginfo);
+                            }
+                        }
+                    }
+                } else {
+                    for i in list {
+                        let pkg = cache.get(i);
+                        if let Some(pkg) = pkg {
+                            let vers = pkg.versions().collect::<Vec<_>>();
+                            for ver in vers {
+                                let pkginfo = PkgInfo::new(&cache, ver.unique(), &pkg)?;
 
-                            res.push(pkginfo);
+                                res.push(pkginfo);
+                            }
                         }
                     }
                 }
-            } else {
-                for i in list {
-                    let pkg = cache.get(i);
-                    if let Some(pkg) = pkg {
-                        let vers = pkg.versions().collect::<Vec<_>>();
-                        for ver in vers {
-                            let pkginfo = PkgInfo::new(&cache, ver.unique(), &pkg)?;
-
-                            res.push(pkginfo);
-                        }
-                    }
-                }
-            }
-        }
-
-        if res.is_empty() {
-            bail!(
-                "Could not find any result for keywords: {}",
-                list.unwrap_or_default().join(" ")
-            );
-        }
-
-        for i in res {
-            let mut mirror = vec![];
-            for j in &i.apt_sources {
-                let branch = j.split('/').nth_back(3).unwrap_or("unknown");
-                if !mirror.contains(&branch) {
-                    mirror.push(branch);
-                }
             }
 
-            let pkg = cache.get(&i.package).unwrap();
-            let mut s = format!(
-                "{}/{} {} {}",
-                style(&i.package).green(),
-                mirror.join(","),
-                i.version,
-                pkg.arch()
-            );
-            if let Some(v) = pkg.installed() {
-                let mut is_set = false;
-                if v.version() == i.version && !pkg.is_upgradable() {
-                    s += " [Installed";
-                    is_set = true;
-                } else if v.version() == i.version && pkg.is_upgradable() {
-                    s += &format!(" [Upgrade from: {}", v.version());
-                    is_set = true;
-                }
-
-                if pkg.is_auto_installed() && is_set {
-                    s += ",automatic]"
-                } else if is_set {
-                    s += "]"
-                }
-            }
-
-            println!("{}", style(s).bold());
-
-            if !all && versions_len > 1 {
-                info!(
-                    "There is {} additional version. Please use the '-a' switch to see it",
-                    versions_len - 1
+            if res.is_empty() {
+                bail!(
+                    "Could not find any result for keywords: {}",
+                    list.unwrap_or_default().join(" ")
                 );
+            }
+
+            for i in res {
+                let mut mirror = vec![];
+                for j in &i.apt_sources {
+                    let branch = j.split('/').nth_back(3).unwrap_or("unknown");
+                    if !mirror.contains(&branch) {
+                        mirror.push(branch);
+                    }
+                }
+
+                let pkg = cache.get(&i.package).unwrap();
+                let mut s = format!(
+                    "{}/{} {} {}",
+                    style(&i.package).green(),
+                    mirror.join(","),
+                    i.version,
+                    pkg.arch()
+                );
+                if let Some(v) = pkg.installed() {
+                    let mut is_set = false;
+                    if v.version() == i.version && !pkg.is_upgradable() {
+                        s += " [Installed";
+                        is_set = true;
+                    } else if v.version() == i.version && pkg.is_upgradable() {
+                        s += &format!(" [Upgrade from: {}", v.version());
+                        is_set = true;
+                    }
+
+                    if pkg.is_auto_installed() && is_set {
+                        s += ",automatic]"
+                    } else if is_set {
+                        s += "]"
+                    }
+                }
+
+                println!("{}", style(s).bold());
+
+                if !all && versions_len > 1 {
+                    info!(
+                        "There is {} additional version. Please use the '-a' switch to see it",
+                        versions_len - 1
+                    );
+                }
             }
         }
 

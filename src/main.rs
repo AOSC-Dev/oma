@@ -182,8 +182,10 @@ struct List {
     packages: Option<Vec<String>>,
     #[arg(long, short = 'a')]
     all: bool,
-    #[arg(long)]
+    #[arg(long, short = 'i')]
     installed: bool,
+    #[arg(long, short = 'u')]
+    upgradable: bool,
 }
 
 #[tokio::main]
@@ -193,7 +195,9 @@ async fn main() {
     );
 
     if let Err(e) = try_main().await {
-        error!("{e}");
+        if !e.to_string().is_empty() {
+            error!("{e}");
+        }
         unlock_oma().ok();
         exit(1);
     }
@@ -241,7 +245,7 @@ async fn try_main() -> Result<()> {
         }
         OmaCommand::Mark(v) => OmaAction::mark(v.action),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
-        OmaCommand::List(v) => OmaAction::list(v.packages.as_deref(), v.all, v.installed),
+        OmaCommand::List(v) => OmaAction::list(v.packages.as_deref(), v.all, v.installed, v.upgradable),
         OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs),
         OmaCommand::Clean(_) => OmaAction::clean(),
     }?;
