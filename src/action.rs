@@ -770,10 +770,10 @@ impl OmaAction {
         }
 
         for (a, b) in v {
-            let uri_a = versions[a].uris().nth(0).unwrap();
+            let uri_a = versions[a].uris().next().unwrap();
             versions_str_display[a] = format!("{} (from: {})", versions_str[a], uri_a);
 
-            let uri_b = versions[b].uris().nth(0).unwrap();
+            let uri_b = versions[b].uris().next().unwrap();
             versions_str_display[b] = format!("{} (from: {})", versions_str[b], uri_b);
         }
 
@@ -799,7 +799,7 @@ impl OmaAction {
 
             let installed = pkg.installed();
 
-            if installed.as_ref() == Some(&version)
+            if installed.as_ref() == Some(version)
                 && installed.map(|x| x.sha256()) == Some(version.sha256())
             {
                 success!("No need to do anything.");
