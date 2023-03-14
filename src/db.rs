@@ -132,14 +132,14 @@ enum DistFileType {
 }
 
 impl InReleaseParser {
-    fn new(p: &Path, trust_files: Option<&str>) -> Result<Self> {
+    fn new(p: &Path, trust_files: Option<&str>, mirror: &str) -> Result<Self> {
         let mut f = std::fs::File::open(p)?;
         let mut s = String::new();
 
         f.read_to_string(&mut s)?;
 
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-            verify::verify(&s, trust_files)?
+            verify::verify(&s, trust_files, mirror)?
         } else {
             s
         };
@@ -262,7 +262,7 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
 struct OmaSourceEntry {
     from: OmaSourceEntryFrom,
     components: Vec<String>,
-    // url: String,
+    url: String,
     // suite: String,
     inrelease_path: String,
     dist_path: String,
@@ -317,7 +317,7 @@ impl OmaSourceEntry {
         Ok(Self {
             from,
             components,
-            // url,
+            url,
             // suite,
             is_flat,
             inrelease_path,
@@ -408,6 +408,7 @@ pub async fn update_db(
         let inrelease = InReleaseParser::new(
             &Path::new(APT_LIST_DISTS).join(name.0),
             ose.signed_by.as_deref(),
+            &ose.url
         )?;
 
         let checksums = inrelease
