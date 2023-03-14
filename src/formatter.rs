@@ -92,6 +92,7 @@ impl YesInstallProgress {
     pub fn new() -> Self {
         let config = Config::new_clear();
         config.set("APT::Get::Assume-Yes", "true");
+        config.set("Dpkg::Options::", "--force-confnew");
 
         Self { config }
     }
