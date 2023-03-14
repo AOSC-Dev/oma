@@ -90,7 +90,7 @@ pub struct YesInstallProgress {
 impl YesInstallProgress {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        let config = Config::new();
+        let config = Config::new_clear();
         config.set("APT::Get::Assume-Yes", "true");
 
         Self { config }
