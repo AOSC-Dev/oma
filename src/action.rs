@@ -12,7 +12,7 @@ use rust_apt::{
     package::Version,
     raw::{package::RawVersion, progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
-    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
+    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception}
 };
 use std::fmt::Write as FmtWrite;
 use sysinfo::{Pid, System, SystemExt};
@@ -33,7 +33,7 @@ use crate::{
     contents::find,
     db::{get_sources, update_db, APT_LIST_DISTS, DOWNLOAD_DIR},
     download::packages_download,
-    formatter::NoProgress,
+    formatter::{NoProgress, YesInstallProgress},
     info,
     pager::Pager,
     pkg::{query_pkgs, search_pkgs, PkgInfo},
@@ -160,7 +160,7 @@ impl OmaAction {
             }
 
             packages_download(&list, client, None, None).await?;
-            apt_install(cache)?;
+            apt_install(cache, yes)?;
 
             Ok(())
         }
@@ -685,7 +685,7 @@ impl OmaAction {
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download(&list, &self.client, None, None).await?;
-        apt_install(cache)?;
+        apt_install(cache, self.yes)?;
 
         Ok(())
     }
@@ -850,7 +850,7 @@ impl OmaAction {
 
             packages_download(&list, &self.client, None, None).await?;
 
-            apt_install(cache)?;
+            apt_install(cache, self.yes)?;
         }
 
         Ok(())
@@ -1104,12 +1104,18 @@ fn autoremove(cache: &Cache) {
 }
 
 /// Install packages
-fn apt_install(cache: Cache) -> std::result::Result<(), Exception> {
+fn apt_install(cache: Cache, yes: bool) -> std::result::Result<(), Exception> {
     apt_lock()?;
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
 
-    if let Err(e) = cache.do_install(&mut AptInstallProgress::new_box()) {
+    let mut progress = if yes {
+        YesInstallProgress::new_box()
+    } else {
+        AptInstallProgress::new_box()
+    };
+
+    if let Err(e) = cache.do_install(&mut progress) {
         apt_lock_inner()?;
         apt_unlock();
         return Err(e);
