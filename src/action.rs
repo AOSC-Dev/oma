@@ -194,8 +194,8 @@ impl OmaAction {
         no_upgrade: bool,
         yes: bool,
     ) -> Result<()> {
-        lock_oma()?;
         is_root()?;
+        lock_oma()?;
 
         if yes {
             yes_warn();
