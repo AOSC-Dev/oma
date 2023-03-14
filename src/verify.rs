@@ -3,25 +3,33 @@ use std::{io::Read, path::Path};
 use anyhow::{bail, Result};
 use sequoia_openpgp::{
     parse::{
-        stream::{MessageLayer, MessageStructure, VerificationHelper, VerifierBuilder},
+        stream::{
+            MessageLayer, MessageStructure, VerificationError, VerificationHelper, VerifierBuilder,
+        },
         Parse,
     },
     policy::StandardPolicy,
     Cert, KeyHandle,
 };
 
+use crate::due_to;
+
 pub struct InReleaseVerifier {
     certs: Vec<Cert>,
+    mirror: String,
 }
 
 impl InReleaseVerifier {
-    pub fn new<P: AsRef<Path>>(cert_paths: &[P]) -> Result<Self> {
+    pub fn new<P: AsRef<Path>>(cert_paths: &[P], mirror: &str) -> Result<Self> {
         let mut certs: Vec<Cert> = Vec::new();
         for path in cert_paths.iter() {
             certs.push(Cert::from_file(path)?);
         }
 
-        Ok(InReleaseVerifier { certs })
+        Ok(InReleaseVerifier {
+            certs,
+            mirror: mirror.to_string(),
+        })
     }
 }
 
@@ -44,6 +52,19 @@ impl VerificationHelper for InReleaseVerifier {
             if let MessageLayer::SignatureGroup { results } = layer {
                 for r in results {
                     if let Err(e) = r {
+                        match &e {
+                            // VerificationError::MalformedSignature { sig, error } => due_to!(""),
+                            VerificationError::MissingKey { sig } => {
+                                due_to!("Mirror {} should be signed by {}.gpg, but there is no matching key hash {:?}",
+                                self.mirror,
+                                self.mirror,
+                                sig.issuer_fingerprints().map(|x| x.to_string()).collect::<Vec<_>>());
+                            }
+                            _ => {}
+                            // VerificationError::UnboundKey { sig, cert, error } => due_to!(""),
+                            // VerificationError::BadKey { sig, ka, error } => due_to!(""),
+                            // VerificationError::BadSignature { sig, ka, error } => due_to!(""),
+                        };
                         bail!("InRelease contains bad signature: {} .", e);
                     }
                 }
@@ -57,7 +78,7 @@ impl VerificationHelper for InReleaseVerifier {
 }
 
 /// Verify InRelease PGP signature
-pub fn verify(s: &str, trust_files: Option<&str>) -> Result<String> {
+pub fn verify(s: &str, trust_files: Option<&str>, mirror: &str) -> Result<String> {
     let dir = std::fs::read_dir("/etc/apt/trusted.gpg.d")?;
     let mut cert_files = vec![];
 
@@ -91,7 +112,7 @@ pub fn verify(s: &str, trust_files: Option<&str>) -> Result<String> {
     let mut v = VerifierBuilder::from_bytes(s.as_bytes())?.with_policy(
         &p,
         None,
-        InReleaseVerifier::new(&cert_files)?,
+        InReleaseVerifier::new(&cert_files, mirror)?,
     )?;
 
     let mut res = String::new();
