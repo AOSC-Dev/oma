@@ -32,24 +32,8 @@ async fn download_package(
         .context("URLs is none or Invalid URL")?;
 
     let filename = trans_filename(filename, version)?;
-
-    let p = download_dir.join(&filename);
-
-    if p.exists() {
-        let hash_clone = hash.clone();
-        let result = spawn_blocking(move || {
-            Checksum::from_sha256_str(&hash_clone).and_then(|x| x.cmp_file(&p))
-        })
-        .await??;
-
-        if !result {
-            try_download(urls, client, &filename, hash, opb, download_dir).await?;
-        } else {
-            return Ok(());
-        }
-    } else {
-        try_download(urls, client, &filename, hash, opb, download_dir).await?;
-    }
+    
+    try_download(urls, client, &filename, hash, opb, download_dir).await?;
 
     Ok(())
 }
@@ -307,6 +291,9 @@ pub async fn download(
 
             if result {
                 pb.finish_and_clear();
+                if let Some(ref global_bar) = opb.global_bar {
+                    global_bar.inc(total_size);
+                }
                 return Ok(());
             } else {
                 tokio::fs::remove_file(&file).await?;
