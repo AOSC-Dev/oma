@@ -103,6 +103,7 @@ struct Clean;
 
 #[derive(Parser, Debug)]
 struct Dep {
+    /// Package(s) name
     pkgs: Vec<String>,
 }
 
@@ -116,35 +117,48 @@ struct FixBroken {}
 
 #[derive(Parser, Debug)]
 struct Download {
+    /// Package(s) name
     packages: Vec<String>,
 }
 
 #[derive(Parser, Debug, Clone)]
 pub struct InstallOptions {
+    /// Package(s) name
     pub packages: Vec<String>,
+    /// Install package(s) debug symbol
     #[arg(long, alias = "dbg")]
     pub install_dbg: bool,
+    /// Reinstall package(s)
     #[arg(long)]
     pub reinstall: bool,
+    /// Do not try fix package depends broken status
     #[arg(long)]
     pub no_fixbroken: bool,
+    /// Do not refresh packages database
     #[arg(long)]
     pub no_upgrade: bool,
+    /// Automatic run oma install
     #[arg(long, short = 'y')]
     pub yes: bool,
+    /// Force install packages for can't resolve depends 
     #[arg(long)]
     pub force_yes: bool,
+    /// Install package use dpkg --force-confnew
     #[arg(long)]
     pub force_confnew: bool,
 }
 
 #[derive(Parser, Debug)]
 struct Update {
+    /// Package(s) name
     packages: Vec<String>,
+    /// Automatic run oma install
     #[arg(long, short = 'y')]
     yes: bool,
+    /// Force install packages for can't resolve depends 
     #[arg(long)]
     force_yes: bool,
+    /// Install package use dpkg --force-confnew
     #[arg(long)]
     force_confnew: bool,
 }
@@ -154,34 +168,43 @@ struct Refresh {}
 
 #[derive(Parser, Debug)]
 struct ListFiles {
+    /// Package name
     package: String,
 }
 
 #[derive(Parser, Debug)]
 struct Pick {
+    /// Package name
     package: String,
+    /// Do not try fix package depends broken status
     #[arg(long)]
     no_fixbroken: bool,
+    /// Do not refresh packages database
     #[arg(long)]
     no_upgrade: bool,
 }
 
 #[derive(Parser, Debug)]
 struct Provides {
+    /// Search keyword
     kw: String,
 }
 
 #[derive(Parser, Debug)]
 struct Delete {
+    /// Package(s) name
     packages: Vec<String>,
+    /// Automatic run oma install
     #[arg(long, short = 'y')]
     yes: bool,
+    /// Force install packages for can't resolve depends 
     #[arg(long)]
     force_yes: bool,
 }
 
 #[derive(Parser, Debug)]
 struct Show {
+    /// Package(s) name
     packages: Vec<String>,
     #[arg(long, short = 'a')]
     is_all: bool,
@@ -189,6 +212,7 @@ struct Show {
 
 #[derive(Parser, Debug)]
 struct Search {
+    /// Search keyword(s)
     keyword: Vec<String>,
 }
 
