@@ -83,16 +83,24 @@ impl AcquireProgress for NoProgress {
     }
 }
 
-pub struct YesInstallProgress {
+pub struct OmaAptInstallProgress {
     config: Config,
 }
 
-impl YesInstallProgress {
+impl OmaAptInstallProgress {
     #[allow(dead_code)]
-    pub fn new(force_yes: bool) -> Self {
+    pub fn new(yes: bool, force_yes: bool, dpkg_force_confnew: bool) -> Self {
         let config = Config::new_clear();
-        config.set("APT::Get::Assume-Yes", "true");
-        config.set("Dpkg::Options::", "--force-confnew");
+
+        if yes {
+            config.set("APT::Get::Assume-Yes", "true");
+        }
+
+        if dpkg_force_confnew {
+            config.set("Dpkg::Options::", "--force-confnew");
+        } else {
+            config.set("Dpkg::Options::", "--force-confold");
+        }
 
         if force_yes {
             warn!("Now you are using FORCE automatic mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
@@ -104,18 +112,22 @@ impl YesInstallProgress {
 
     /// Return the AptInstallProgress in a box
     /// To easily pass through to do_install
-    pub fn new_box(force_yes: bool) -> Box<dyn InstallProgress> {
-        Box::new(Self::new(force_yes))
+    pub fn new_box(
+        yes: bool,
+        force_yes: bool,
+        dpkg_force_confnew: bool,
+    ) -> Box<dyn InstallProgress> {
+        Box::new(Self::new(yes, force_yes, dpkg_force_confnew))
     }
 }
 
-impl Default for YesInstallProgress {
+impl Default for OmaAptInstallProgress {
     fn default() -> Self {
-        Self::new(false)
+        Self::new(false, false, false)
     }
 }
 
-impl InstallProgress for YesInstallProgress {
+impl InstallProgress for OmaAptInstallProgress {
     fn status_changed(
         &mut self,
         _pkgname: String,

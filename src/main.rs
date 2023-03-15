@@ -134,6 +134,8 @@ pub struct InstallOptions {
     pub yes: bool,
     #[arg(long)]
     pub force_yes: bool,
+    #[arg(long)]
+    pub force_confnew: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -143,6 +145,8 @@ struct Update {
     yes: bool,
     #[arg(long)]
     force_yes: bool,
+    #[arg(long)]
+    force_confnew: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -238,7 +242,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Upgrade(v) => {
             OmaAction::new()
                 .await?
-                .update(&v.packages, v.yes, v.force_yes)
+                .update(&v.packages, v.yes, v.force_yes, v.force_confnew)
                 .await
         }
         OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
