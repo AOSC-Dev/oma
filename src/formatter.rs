@@ -98,7 +98,7 @@ impl OmaAptInstallProgress {
 
         if dpkg_force_confnew {
             config.set("Dpkg::Options::", "--force-confnew");
-        } else {
+        } else if yes {
             config.set("Dpkg::Options::", "--force-confold");
         }
 
