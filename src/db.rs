@@ -23,8 +23,6 @@ pub const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
 pub const DOWNLOAD_DIR: &str = "/var/cache/apt/archives";
 const MIRROR: &str = "/usr/share/distro-repository-data/mirrors.yml";
 
-struct FileBuf(Vec<u8>);
-
 #[derive(Debug)]
 struct FileName(String);
 
@@ -42,7 +40,7 @@ async fn download_db(
     typ: String,
     opb: OmaProgressBar,
     i: usize,
-) -> Result<(FileName, FileBuf, usize)> {
+) -> Result<(FileName, usize)> {
     let filename = FileName::new(&url).0;
     let url_short = get_url_short_and_branch(&url).await?;
 
@@ -61,11 +59,7 @@ async fn download_db(
     )
     .await?;
 
-    let mut v = tokio::fs::File::open(Path::new(APT_LIST_DISTS).join(filename)).await?;
-    let mut buf = Vec::new();
-    v.read_to_end(&mut buf).await?;
-
-    Ok((FileName::new(&url), FileBuf(buf), i))
+    Ok((FileName::new(&url), i))
 }
 
 #[derive(Deserialize)]
@@ -323,7 +317,7 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
     Ok(res)
 }
 
-async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, FileBuf, usize)> {
+async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, usize)> {
     let db_path = db_path.split("://").nth(1).unwrap_or(db_path);
     let name = FileName::new(db_path);
     tokio::fs::copy(db_path, Path::new(APT_LIST_DISTS).join(&name.0))
@@ -337,7 +331,7 @@ async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, Fil
     let mut v = vec![];
     f.read_to_end(&mut v).await?;
 
-    Ok((name, FileBuf(v), count))
+    Ok((name, count))
 }
 
 // Update database
@@ -356,7 +350,7 @@ pub async fn update_db(
     for (i, c) in sources.iter().enumerate() {
         match c.from {
             OmaSourceEntryFrom::Http => {
-                let task: BoxFuture<'_, Result<(FileName, FileBuf, usize)>> =
+                let task: BoxFuture<'_, Result<(FileName, usize)>> =
                     Box::pin(download_db(
                         c.inrelease_path.clone(),
                         client,
@@ -373,7 +367,7 @@ pub async fn update_db(
                 tasks.push(task);
             }
             OmaSourceEntryFrom::Local => {
-                let task: BoxFuture<'_, Result<(FileName, FileBuf, usize)>> =
+                let task: BoxFuture<'_, Result<(FileName, usize)>> =
                     Box::pin(download_db_local(&c.inrelease_path, i));
                 tasks.push(task);
             }
@@ -389,7 +383,7 @@ pub async fn update_db(
         res_2.push(i?);
     }
 
-    for (name, _file, index) in res_2 {
+    for (name, index) in res_2 {
         let ose = sources.get(index).unwrap();
 
         let inrelease = InReleaseParser::new(&Path::new(APT_LIST_DISTS).join(name.0))?;
@@ -598,7 +592,7 @@ async fn download_and_extract(
     typ: &str,
     opb: OmaProgressBar,
 ) -> Result<()> {
-    let (name, buf, _) = download_db(
+    let (name, _) = download_db(
         format!("{}/{}", dist_url, i.name),
         client,
         typ.to_owned(),
@@ -608,10 +602,11 @@ async fn download_and_extract(
     .await?;
 
     let p = Path::new(APT_LIST_DISTS).join(&name.0);
+    let p_clone = p.clone();
 
     let ic = i.clone();
     let result = spawn_blocking(move || {
-        Checksum::from_sha256_str(&ic.checksum).and_then(|x| x.cmp_file(p.clone().as_path()))
+        Checksum::from_sha256_str(&ic.checksum).and_then(|x| x.cmp_file(p_clone.as_path()))
     })
     .await??;
 
@@ -619,7 +614,11 @@ async fn download_and_extract(
         bail!("Download {typ} Checksum mismatch! Please check your network connection.")
     }
 
-    let buf = decompress(&buf.0, &name.0)?;
+    let mut f = tokio::fs::File::open(p).await?;
+    let mut buf = Vec::new();
+    f.read_to_end(&mut buf).await?;
+
+    let buf = decompress(&buf, &name.0)?;
     let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
     tokio::fs::write(p, buf).await?;
 
