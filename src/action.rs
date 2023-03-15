@@ -12,7 +12,7 @@ use rust_apt::{
     package::Version,
     raw::{package::RawVersion, progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
-    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
+    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception}, config::Config,
 };
 use std::fmt::Write as FmtWrite;
 use sysinfo::{Pid, System, SystemExt};
@@ -145,7 +145,7 @@ impl OmaAction {
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len) = apt_handler(&cache, false)?;
+            let (action, len) = apt_handler(&cache, false, force_yes)?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -555,7 +555,7 @@ impl OmaAction {
 
         let cache = new_cache!()?;
 
-        let (action, _) = apt_handler(&cache, false)?;
+        let (action, _) = apt_handler(&cache, false, false)?;
 
         let mut list = action.install.clone();
         list.extend(action.update.clone());
@@ -669,7 +669,7 @@ impl OmaAction {
     ) -> InstallResult<()> {
         let cache = install_handle(&opt.packages, opt.install_dbg, opt.reinstall)?;
 
-        let (action, len) = apt_handler(&cache, opt.no_fixbroken)?;
+        let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -716,7 +716,7 @@ impl OmaAction {
             pkg.protect();
         }
 
-        let (action, len) = apt_handler(&cache, false)?;
+        let (action, len) = apt_handler(&cache, false, force_yes)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -853,7 +853,7 @@ impl OmaAction {
             pkg.mark_install(true, true);
             pkg.protect();
 
-            let (action, _) = apt_handler(&cache, no_fixbroken)?;
+            let (action, _) = apt_handler(&cache, no_fixbroken, false)?;
             let disk_size = cache.depcache().disk_size();
 
             let mut list = vec![];
@@ -1299,7 +1299,12 @@ impl Action {
 }
 
 /// Handle apt resolve result to display results
-fn apt_handler(cache: &Cache, no_fixbroken: bool) -> Result<(Action, usize)> {
+fn apt_handler(cache: &Cache, no_fixbroken: bool, force_yes: bool) -> Result<(Action, usize)> {
+    if force_yes {
+        let config = Config::new_clear();
+        config.set("APT::Get::force-yes", "true");
+    }
+
     let fix_broken = !no_fixbroken;
     if fix_broken {
         cache.fix_broken();
