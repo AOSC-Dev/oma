@@ -1,11 +1,10 @@
 use std::{io::Read, path::Path};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use sequoia_openpgp::{
+    cert::CertParser,
     parse::{
-        stream::{
-            MessageLayer, MessageStructure, VerificationHelper, VerifierBuilder,
-        },
+        stream::{MessageLayer, MessageStructure, VerificationHelper, VerifierBuilder},
         Parse,
     },
     policy::StandardPolicy,
@@ -22,8 +21,16 @@ pub struct InReleaseVerifier {
 impl InReleaseVerifier {
     pub fn new<P: AsRef<Path>>(cert_paths: &[P], mirror: &str) -> Result<Self> {
         let mut certs: Vec<Cert> = Vec::new();
-        for path in cert_paths.iter() {
-            certs.push(Cert::from_file(path)?);
+        for f in cert_paths {
+            for maybe_cert in CertParser::from_file(f).context(format!(
+                "Failed to load certs from file {:?}",
+                f.as_ref().display()
+            ))? {
+                certs.push(maybe_cert.context(format!(
+                    "A cert from file {:?} is bad",
+                    f.as_ref().display()
+                ))?);
+            }
         }
 
         Ok(InReleaseVerifier {
