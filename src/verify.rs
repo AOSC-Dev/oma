@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use sequoia_openpgp::{
     parse::{
         stream::{
-            MessageLayer, MessageStructure, VerificationError, VerificationHelper, VerifierBuilder,
+            MessageLayer, MessageStructure, VerificationHelper, VerifierBuilder,
         },
         Parse,
     },
@@ -12,11 +12,11 @@ use sequoia_openpgp::{
     Cert, KeyHandle,
 };
 
-use crate::due_to;
+// use crate::due_to;
 
 pub struct InReleaseVerifier {
     certs: Vec<Cert>,
-    mirror: String,
+    _mirror: String,
 }
 
 impl InReleaseVerifier {
@@ -28,7 +28,7 @@ impl InReleaseVerifier {
 
         Ok(InReleaseVerifier {
             certs,
-            mirror: mirror.to_string(),
+            _mirror: mirror.to_string(),
         })
     }
 }
@@ -52,19 +52,20 @@ impl VerificationHelper for InReleaseVerifier {
             if let MessageLayer::SignatureGroup { results } = layer {
                 for r in results {
                     if let Err(e) = r {
-                        match &e {
-                            // VerificationError::MalformedSignature { sig, error } => due_to!(""),
-                            VerificationError::MissingKey { sig } => {
-                                due_to!("Mirror {} should be signed by {}.gpg, but there is no matching key hash {:?}",
-                                self.mirror,
-                                self.mirror,
-                                sig.issuer_fingerprints().map(|x| x.to_string()).collect::<Vec<_>>());
-                            }
-                            _ => {}
-                            // VerificationError::UnboundKey { sig, cert, error } => due_to!(""),
-                            // VerificationError::BadKey { sig, ka, error } => due_to!(""),
-                            // VerificationError::BadSignature { sig, ka, error } => due_to!(""),
-                        };
+                        // TODO: 签名失败的时候加上 dueto
+                        // match &e {
+                        //     // VerificationError::MalformedSignature { sig, error } => due_to!(""),
+                        //     VerificationError::MissingKey { sig } => {
+                        //         due_to!("Mirror {} should be signed by {}.gpg, but there is no matching key hash {:?}",
+                        //         self.mirror,
+                        //         self.mirror,
+                        //         sig.issuer_fingerprints().map(|x| x.to_string()).collect::<Vec<_>>());
+                        //     }
+                        //     _ => {}
+                        //     // VerificationError::UnboundKey { sig, cert, error } => due_to!(""),
+                        //     // VerificationError::BadKey { sig, ka, error } => due_to!(""),
+                        //     // VerificationError::BadSignature { sig, ka, error } => due_to!(""),
+                        // };
                         bail!("InRelease contains bad signature: {} .", e);
                     }
                 }
@@ -82,7 +83,17 @@ pub fn verify(s: &str, trust_files: Option<&str>, mirror: &str) -> Result<String
     let dir = std::fs::read_dir("/etc/apt/trusted.gpg.d")?;
     let mut cert_files = vec![];
 
-    if trust_files.is_none() {
+    if let Some(trust_files) = trust_files {
+        let trust_files = trust_files.split(',');
+        for file in trust_files {
+            let p = Path::new(file);
+            if p.is_absolute() {
+                cert_files.push(p.to_path_buf());
+            } else {
+                cert_files.push(Path::new("/etc/apt/trusted.gpg.d").join(file))
+            }
+        }
+    } else {
         for i in dir.flatten() {
             let path = i.path();
             let ext = path.extension().and_then(|x| x.to_str());
@@ -95,16 +106,6 @@ pub fn verify(s: &str, trust_files: Option<&str>, mirror: &str) -> Result<String
 
         if trust_main.is_file() {
             cert_files.push(trust_main);
-        }
-    } else {
-        let trust_files = trust_files.unwrap().split(",");
-        for file in trust_files {
-            let p = Path::new(file);
-            if p.is_absolute() {
-                cert_files.push(p.to_path_buf());
-            } else {
-                cert_files.push(Path::new("/etc/apt/trusted.gpg.d").join(file))
-            }
         }
     }
 

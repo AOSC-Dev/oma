@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// Download a package
-async fn download_package(
+async fn download_single_pkg(
     urls: Vec<String>,
     client: &Client,
     hash: String,
@@ -156,7 +156,7 @@ pub async fn packages_download(
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();
 
-            task.push(download_package(
+            task.push(download_single_pkg(
                 c.pkg_urls.clone(),
                 client,
                 hash,
