@@ -1,6 +1,6 @@
 use std::{io::Read, path::Path};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use sequoia_openpgp::{
     cert::CertParser,
     parse::{
@@ -55,30 +55,28 @@ impl VerificationHelper for InReleaseVerifier {
     }
 
     fn check(&mut self, structure: MessageStructure) -> Result<()> {
+        let mut all_err = true;
+        let mut err = None;
         for layer in structure {
             if let MessageLayer::SignatureGroup { results } = layer {
-                for r in results {
+                for r in &results {
                     if let Err(e) = r {
-                        // TODO: 签名失败的时候加上 dueto
-                        // match &e {
-                        //     // VerificationError::MalformedSignature { sig, error } => due_to!(""),
-                        //     VerificationError::MissingKey { sig } => {
-                        //         due_to!("Mirror {} should be signed by {}.gpg, but there is no matching key hash {:?}",
-                        //         self.mirror,
-                        //         self.mirror,
-                        //         sig.issuer_fingerprints().map(|x| x.to_string()).collect::<Vec<_>>());
-                        //     }
-                        //     _ => {}
-                        //     // VerificationError::UnboundKey { sig, cert, error } => due_to!(""),
-                        //     // VerificationError::BadKey { sig, ka, error } => due_to!(""),
-                        //     // VerificationError::BadSignature { sig, ka, error } => due_to!(""),
-                        // };
-                        bail!("InRelease contains bad signature: {} .", e);
+                        err = Some(anyhow!(
+                            "InRelease contains bad signature: {} .",
+                            e.to_string()
+                        ))
                     }
+                }
+                if results.iter().any(|x| x.is_ok()) {
+                    all_err = false;
                 }
             } else {
                 bail!("Malformed PGP signature, InRelease must be signed.")
             }
+        }
+
+        if all_err {
+            bail!("InRelease contains bad signature: {} .", err.unwrap())
         }
 
         Ok(())
