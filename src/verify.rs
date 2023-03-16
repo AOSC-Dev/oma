@@ -1,6 +1,6 @@
 use std::{io::Read, path::Path};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use sequoia_openpgp::{
     cert::CertParser,
     parse::{
@@ -41,42 +41,21 @@ impl InReleaseVerifier {
 }
 
 impl VerificationHelper for InReleaseVerifier {
-    fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
-        let mut certs = Vec::new();
-        for id in ids {
-            for cert in &self.certs {
-                if &cert.key_handle() == id {
-                    certs.push(cert.clone());
-                }
-            }
-        }
-
-        Ok(certs)
+    fn get_certs(&mut self, _ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+        Ok(self.certs.clone())
     }
 
     fn check(&mut self, structure: MessageStructure) -> Result<()> {
-        let mut all_err = true;
-        let mut err = None;
         for layer in structure {
             if let MessageLayer::SignatureGroup { results } = layer {
-                for r in &results {
+                for r in results {
                     if let Err(e) = r {
-                        err = Some(anyhow!(
-                            "InRelease contains bad signature: {} .",
-                            e.to_string()
-                        ))
+                        bail!("InRelease contains bad signature: {} .", e)
                     }
-                }
-                if results.iter().any(|x| x.is_ok()) {
-                    all_err = false;
                 }
             } else {
                 bail!("Malformed PGP signature, InRelease must be signed.")
             }
-        }
-
-        if all_err {
-            bail!("InRelease contains bad signature: {} .", err.unwrap())
         }
 
         Ok(())
