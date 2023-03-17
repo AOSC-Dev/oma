@@ -86,7 +86,6 @@ async fn try_download(
             download_dir,
             Some(&hash),
             opb.clone(),
-            false
         )
         .await
         .is_ok()
@@ -234,7 +233,6 @@ pub async fn download(
     dir: &Path,
     hash: Option<&str>,
     opb: OmaProgressBar,
-    is_inrelease: bool
 ) -> Result<()> {
     let is_send = Arc::new(AtomicBool::new(false));
     let is_send_clone = is_send.clone();
@@ -261,25 +259,34 @@ pub async fn download(
     let msg_clone = msg.clone();
     let progress_clone = progress.clone();
 
+    let mbcc = opb.mbc.clone();
+
     let pb = spawn_blocking(move || {
         // 若请求头的速度太慢，会看到假进度条直到拿到头的信息
-        let pb = opb.mbc.add(ProgressBar::new(100));
-        let barsty = oma_style_pb(false, is_inrelease).unwrap();
-        pb.set_style(barsty);
+        let pb = mbcc.add(ProgressBar::new_spinner());
         pb.set_message(format!("{progress_clone}{msg_clone}"));
-        while !is_send.load(Ordering::Relaxed) {
-            pb.inc(1);
+        pb.enable_steady_tick(Duration::from_millis(80));
+        pb.set_style(
+            ProgressStyle::with_template(" {msg:<48} {spinner}")
+                .unwrap()
+                // For more spinners check out the cli-spinners project:
+                // https://github.com/sindresorhus/cli-spinners/blob/master/spinners.json
+                .tick_strings(&[
+                    "( ●    )",
+                    "(  ●   )",
+                    "(   ●  )",
+                    "(    ● )",
+                    "(     ●)",
+                    "(    ● )",
+                    "(   ●  )",
+                    "(  ●   )",
+                    "( ●    )",
+                    "(●     )"
+                ]),
+        );
+        while !is_send.load(Ordering::Relaxed) {}
 
-            std::thread::sleep(Duration::from_millis(80));
-
-            if pb.position() == 100 {
-                pb.set_position(0);
-            }
-        }
-
-        pb.finish();
-
-        pb
+        pb.finish_and_clear();
     });
 
     let total_size = {
@@ -297,10 +304,10 @@ pub async fn download(
         }
     };
 
-    let pb = pb.await?;
+    pb.await?;
 
-    pb.set_length(total_size);
-    pb.set_position(0);
+    let pb = opb.mbc.add(ProgressBar::new(total_size));
+    pb.set_style(oma_style_pb(false, false)?);
 
     if console::measure_text_width(&msg) > 60 {
         msg = console::truncate_str(&msg, 57, "...").to_string();

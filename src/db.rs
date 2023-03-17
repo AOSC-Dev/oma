@@ -39,7 +39,6 @@ async fn download_db(
     typ: String,
     opb: OmaProgressBar,
     i: usize,
-    is_inrelease: bool,
 ) -> Result<(FileName, usize)> {
     let filename = FileName::new(&url).0;
     let url_short = get_url_short_and_branch(&url).await?;
@@ -56,7 +55,6 @@ async fn download_db(
         Path::new(APT_LIST_DISTS),
         None,
         opb,
-        is_inrelease
     )
     .await?;
 
@@ -377,7 +375,6 @@ pub async fn update_db(
                             None,
                         ),
                         i,
-                        true,
                     ));
 
                 tasks.push(task);
@@ -618,7 +615,6 @@ async fn download_and_extract(
         typ.to_owned(),
         opb,
         0,
-        false
     )
     .await?;
 
