@@ -307,7 +307,7 @@ pub async fn download(
     });
 
     let (total_size, resp) = {
-        let resp = client.get(url).send().await?.error_for_status()?;
+        let resp = client.get(url).send().await?;
         if resp.status().is_success() {
             is_send_clone.store(true, Ordering::Relaxed);
             (resp.content_length().unwrap_or(0), resp)
