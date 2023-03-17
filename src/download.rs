@@ -20,7 +20,7 @@ use crate::{
     action::InstallRow,
     checksum::Checksum,
     db::{APT_LIST_DISTS, DOWNLOAD_DIR},
-    info, success, warn, WRITER,
+    info, success, warn, AILURUS, WRITER,
 };
 
 /// Download a package
@@ -265,13 +265,18 @@ pub async fn download(
         // 若请求头的速度太慢，会看到假进度条直到拿到头的信息
         let pb = mbcc.add(ProgressBar::new_spinner());
         pb.set_message(format!("{progress_clone}{msg_clone}"));
-        pb.enable_steady_tick(Duration::from_millis(80));
-        pb.set_style(
-            ProgressStyle::with_template(" {msg:<48} {spinner}")
-                .unwrap()
-                // For more spinners check out the cli-spinners project:
-                // https://github.com/sindresorhus/cli-spinners/blob/master/spinners.json
-                .tick_strings(&[
+
+        let (is_egg, inv) = if AILURUS.load(Ordering::Relaxed) {
+            (
+                &[
+                    "☀️ ", "☀️ ", "☀️ ", "🌤 ", "⛅️ ", "🌥 ", "☁️ ", "🌧 ", "🌨 ", "🌧 ", "🌨 ", "🌧 ", "🌨 ",
+                    "⛈ ", "🌨 ", "🌧 ", "🌨 ", "☁️ ", "🌥 ", "⛅️ ", "🌤 ", "☀️ ", "☀️ ",
+                ][..],
+                100,
+            )
+        } else {
+            (
+                &[
                     "( ●    )",
                     "(  ●   )",
                     "(   ●  )",
@@ -282,7 +287,19 @@ pub async fn download(
                     "(  ●   )",
                     "( ●    )",
                     "(●     )",
-                ]),
+                ][..],
+                80,
+            )
+        };
+
+        pb.enable_steady_tick(Duration::from_millis(inv));
+
+        pb.set_style(
+            ProgressStyle::with_template(" {msg:<48} {spinner}")
+                .unwrap()
+                // For more spinners check out the cli-spinners project:
+                // https://github.com/sindresorhus/cli-spinners/blob/master/spinners.json
+                .tick_strings(is_egg),
         );
         while !is_send.load(Ordering::Relaxed) {}
 

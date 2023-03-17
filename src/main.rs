@@ -1,7 +1,7 @@
 use std::process::exit;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ArgAction};
 
 use action::{unlock_oma, MarkAction, OmaAction};
 use lazy_static::lazy_static;
@@ -20,12 +20,13 @@ mod pkg;
 mod utils;
 mod verify;
 
-pub static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
-pub static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
-pub static LOCKED: AtomicBool = AtomicBool::new(false);
+static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
+static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
+static LOCKED: AtomicBool = AtomicBool::new(false);
+static AILURUS: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
-    pub static ref WRITER: cli::Writer = cli::Writer::new();
+    static ref WRITER: cli::Writer = cli::Writer::new();
 }
 
 fn single_handler() {
@@ -56,6 +57,8 @@ fn single_handler() {
 pub struct Args {
     #[clap(subcommand)]
     subcommand: OmaCommand,
+    #[arg(long, hide = true, action = ArgAction::Count)]
+    ailurus: u8,
 }
 
 #[derive(Subcommand, Debug)]
@@ -254,6 +257,11 @@ async fn main() {
 
 async fn try_main() -> Result<()> {
     let args = Args::parse();
+
+    let ailurus = args.ailurus;
+    if ailurus == 3 {
+        AILURUS.store(true, Ordering::Relaxed);
+    }
 
     match args.subcommand {
         OmaCommand::Install(v) => OmaAction::new().await?.install(v).await,
