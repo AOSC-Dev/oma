@@ -306,11 +306,11 @@ pub async fn download(
         pb.finish_and_clear();
     });
 
-    let total_size = {
-        let resp = client.get(url).send().await?;
+    let (total_size, resp) = {
+        let resp = client.get(url).send().await?.error_for_status()?;
         if resp.status().is_success() {
             is_send_clone.store(true, Ordering::Relaxed);
-            resp.content_length().unwrap_or(0)
+            (resp.content_length().unwrap_or(0), resp)
         } else {
             is_send_clone.store(true, Ordering::Relaxed);
             return Err(anyhow!(
@@ -361,7 +361,7 @@ pub async fn download(
         }
     }
 
-    let mut source = client.get(url).send().await?.error_for_status()?;
+    let mut source = resp;
 
     let mut dest = fs::File::create(&file).await?;
     while let Some(chunk) = source.chunk().await? {
