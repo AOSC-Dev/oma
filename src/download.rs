@@ -1,4 +1,11 @@
-use std::{path::Path, sync::Arc, time::Duration};
+use std::{
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use console::style;
 use futures::StreamExt;
@@ -79,6 +86,7 @@ async fn try_download(
             download_dir,
             Some(&hash),
             opb.clone(),
+            false
         )
         .await
         .is_ok()
@@ -122,7 +130,7 @@ pub async fn packages_download(
     }
 
     let global_bar = mb.insert(0, ProgressBar::new(total));
-    global_bar.set_style(oma_style_pb(true)?);
+    global_bar.set_style(oma_style_pb(true, false)?);
     global_bar.enable_steady_tick(Duration::from_millis(100));
     global_bar.set_message(style("Progress").bold().to_string());
 
@@ -164,7 +172,7 @@ pub async fn packages_download(
                 OmaProgressBar::new(
                     None,
                     Some((i + 1, list_len)),
-                    Some(mbc.clone()),
+                    mbc.clone(),
                     Some(global_bar.clone()),
                 ),
                 download_dir.unwrap_or(Path::new(DOWNLOAD_DIR)),
@@ -197,7 +205,7 @@ pub async fn packages_download(
 #[derive(Clone)]
 pub struct OmaProgressBar {
     pub msg: Option<String>,
-    mbc: Option<Arc<MultiProgress>>,
+    mbc: Arc<MultiProgress>,
     progress: Option<(usize, usize)>,
     global_bar: Option<ProgressBar>,
 }
@@ -206,7 +214,7 @@ impl OmaProgressBar {
     pub fn new(
         msg: Option<String>,
         progress: Option<(usize, usize)>,
-        mbc: Option<Arc<MultiProgress>>,
+        mbc: Arc<MultiProgress>,
         global_bar: Option<ProgressBar>,
     ) -> Self {
         Self {
@@ -226,30 +234,10 @@ pub async fn download(
     dir: &Path,
     hash: Option<&str>,
     opb: OmaProgressBar,
+    is_inrelease: bool
 ) -> Result<()> {
-    let total_size = {
-        let resp = client.get(url).send().await?;
-        if resp.status().is_success() {
-            resp.content_length().unwrap_or(0)
-        } else {
-            return Err(anyhow!(
-                "Couldn't download URL: {}. Error: {:?}",
-                url,
-                resp.status(),
-            ));
-        }
-    };
-
-    let request = client.get(url);
-    let pb = if let Some(mbc) = opb.mbc {
-        let pb = mbc.add(ProgressBar::new(total_size));
-        let barsty = oma_style_pb(false)?;
-        pb.set_style(barsty);
-
-        pb
-    } else {
-        ProgressBar::new_spinner()
-    };
+    let is_send = Arc::new(AtomicBool::new(false));
+    let is_send_clone = is_send.clone();
 
     let mut msg = opb.msg.unwrap_or_else(|| {
         let mut filename_split = filename.split('_');
@@ -264,6 +252,56 @@ pub async fn download(
         }
     });
 
+    let progress = if let Some((count, len)) = opb.progress {
+        format!("({count}/{len}) ")
+    } else {
+        "".to_string()
+    };
+
+    let msg_clone = msg.clone();
+    let progress_clone = progress.clone();
+
+    let pb = spawn_blocking(move || {
+        // 若请求头的速度太慢，会看到假进度条直到拿到头的信息
+        let pb = opb.mbc.add(ProgressBar::new(100));
+        let barsty = oma_style_pb(false, is_inrelease).unwrap();
+        pb.set_style(barsty);
+        pb.set_message(format!("{progress_clone}{msg_clone}"));
+        while !is_send.load(Ordering::Relaxed) {
+            pb.inc(1);
+
+            std::thread::sleep(Duration::from_millis(80));
+
+            if pb.position() == 100 {
+                pb.set_position(0);
+            }
+        }
+
+        pb.finish();
+
+        pb
+    });
+
+    let total_size = {
+        let resp = client.get(url).send().await?;
+        if resp.status().is_success() {
+            is_send_clone.store(true, Ordering::Relaxed);
+            resp.content_length().unwrap_or(0)
+        } else {
+            is_send_clone.store(true, Ordering::Relaxed);
+            return Err(anyhow!(
+                "Couldn't download URL: {}. Error: {:?}",
+                url,
+                resp.status(),
+            ));
+        }
+    };
+
+    let pb = pb.await?;
+
+    pb.set_length(total_size);
+    pb.set_position(0);
+
     if console::measure_text_width(&msg) > 60 {
         msg = console::truncate_str(&msg, 57, "...").to_string();
     }
@@ -275,7 +313,7 @@ pub async fn download(
     };
 
     pb.set_message(format!("{progress}{msg}"));
-    pb.enable_steady_tick(Duration::from_millis(1000));
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let file = dir.join(filename);
 
@@ -295,15 +333,11 @@ pub async fn download(
                     global_bar.inc(total_size);
                 }
                 return Ok(());
-            } else {
-                tokio::fs::remove_file(&file).await?;
             }
-        } else {
-            tokio::fs::remove_file(&file).await?;
         }
     }
 
-    let mut source = request.send().await?.error_for_status()?;
+    let mut source = client.get(url).send().await?.error_for_status()?;
 
     let mut dest = fs::File::create(&file).await?;
     while let Some(chunk) = source.chunk().await? {
@@ -315,13 +349,11 @@ pub async fn download(
         }
     }
 
-    pb.set_position(100);
-    pb.finish_and_clear();
-
     dest.flush().await?;
     drop(dest);
 
     if let Some(hash) = hash {
+        pb.set_message("Checking integrity ...");
         let hash = hash.to_string();
         let result = spawn_blocking(move || {
             Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file))
@@ -335,10 +367,12 @@ pub async fn download(
         }
     }
 
+    pb.finish_and_clear();
+
     Ok(())
 }
 
-pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
+pub fn oma_style_pb(is_global: bool, is_inrelease: bool) -> Result<ProgressStyle> {
     let bar_template = {
         let max_len = WRITER.get_max_len();
         if is_global {
@@ -350,10 +384,16 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
                 " {msg:<48.blue.bold} {bytes:.blue.bold}".to_owned() + &style("/").bold().blue().to_string() + "{total_bytes:>10.blue.bold} {eta:>4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue}" + &style("%").blue().to_string()
             }
         } else if max_len < 90 {
-            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
-                .to_owned()
-        } else {
+            if !is_inrelease {
+                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+                    .to_owned()
+            } else {
+                " {wide_msg} {percent:>3}%".to_owned()
+            }
+        } else if !is_inrelease {
             " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
+        } else {
+            " {msg:<48} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
     };
 
