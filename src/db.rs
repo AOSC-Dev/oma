@@ -450,7 +450,7 @@ pub async fn update_db(
 
         let mb = Arc::new(MultiProgress::new());
         let global_bar = mb.insert(0, ProgressBar::new(total));
-        global_bar.set_style(oma_style_pb(true, false)?);
+        global_bar.set_style(oma_style_pb(true)?);
         global_bar.enable_steady_tick(Duration::from_millis(1000));
         global_bar.set_message("Progress");
 

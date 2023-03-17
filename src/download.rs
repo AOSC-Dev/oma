@@ -129,7 +129,7 @@ pub async fn packages_download(
     }
 
     let global_bar = mb.insert(0, ProgressBar::new(total));
-    global_bar.set_style(oma_style_pb(true, false)?);
+    global_bar.set_style(oma_style_pb(true)?);
     global_bar.enable_steady_tick(Duration::from_millis(100));
     global_bar.set_message(style("Progress").bold().to_string());
 
@@ -281,7 +281,7 @@ pub async fn download(
                     "(   ●  )",
                     "(  ●   )",
                     "( ●    )",
-                    "(●     )"
+                    "(●     )",
                 ]),
         );
         while !is_send.load(Ordering::Relaxed) {}
@@ -307,7 +307,7 @@ pub async fn download(
     pb.await?;
 
     let pb = opb.mbc.add(ProgressBar::new(total_size));
-    pb.set_style(oma_style_pb(false, false)?);
+    pb.set_style(oma_style_pb(false)?);
 
     if console::measure_text_width(&msg) > 60 {
         msg = console::truncate_str(&msg, 57, "...").to_string();
@@ -379,7 +379,7 @@ pub async fn download(
     Ok(())
 }
 
-pub fn oma_style_pb(is_global: bool, is_inrelease: bool) -> Result<ProgressStyle> {
+pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
     let bar_template = {
         let max_len = WRITER.get_max_len();
         if is_global {
@@ -391,16 +391,10 @@ pub fn oma_style_pb(is_global: bool, is_inrelease: bool) -> Result<ProgressStyle
                 " {msg:<48.blue.bold} {bytes:.blue.bold}".to_owned() + &style("/").bold().blue().to_string() + "{total_bytes:>10.blue.bold} {eta:>4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue}" + &style("%").blue().to_string()
             }
         } else if max_len < 90 {
-            if !is_inrelease {
-                " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
-                    .to_owned()
-            } else {
-                " {wide_msg} {percent:>3}%".to_owned()
-            }
-        } else if !is_inrelease {
-            " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
+            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+                .to_owned()
         } else {
-            " {msg:<48} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
+            " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
     };
 
