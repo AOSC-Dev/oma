@@ -130,41 +130,41 @@ macro_rules! msg {
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+)).ok();
+        $crate::WRITER.get_or_init(|| crate::cli::Writer::new()).writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+)).ok();
     };
 }
 
 #[macro_export]
 macro_rules! success {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+)).ok();
+        $crate::WRITER.get_or_init(|| crate::cli::Writer::new()).writeln(&console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+)).ok();
     };
 }
 
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("INFO").blue().bold().to_string(), &format!($($arg)+)).ok();
+        $crate::WRITER.get_or_init(|| crate::cli::Writer::new()).writeln(&console::style("INFO").blue().bold().to_string(), &format!($($arg)+)).ok();
     };
 }
 
 #[macro_export]
 macro_rules! warn {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+)).ok();
+        $crate::WRITER.get_or_init(|| crate::cli::Writer::new()).writeln(&console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+)).ok();
     };
 }
 
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("ERROR").red().bold().to_string(), &format!($($arg)+)).ok();
+        $crate::WRITER.get_or_init(|| crate::cli::Writer::new()).writeln(&console::style("ERROR").red().bold().to_string(), &format!($($arg)+)).ok();
     };
 }
 
 #[macro_export]
 macro_rules! due_to {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
+        $crate::WRITER.get_or_init(|| crate::cli::Writer::new()).writeln(&console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
     };
 }

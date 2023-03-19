@@ -10,7 +10,7 @@ use rust_apt::{
 };
 use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
 
-use crate::{cli::gen_prefix, pager::Pager, ALLOWCTRLC, WRITER};
+use crate::{cli::gen_prefix, pager::Pager, ALLOWCTRLC};
 
 pub struct PkgInfo {
     pub package: String,
@@ -334,7 +334,9 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         bail!("Could not find any packages for keyword: {input}");
     }
 
-    let height = WRITER.get_height();
+    let height = crate::WRITER
+        .get_or_init(|| crate::cli::Writer::new())
+        .get_height();
 
     let mut output = vec![];
 
@@ -382,8 +384,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     if output.len() * 2 <= height.into() {
         for (prefix, line, desc) in &output {
-            crate::WRITER.writeln(prefix, line)?;
-            crate::WRITER.writeln("", desc)?;
+            crate::WRITER
+                .get_or_init(|| crate::cli::Writer::new())
+                .writeln(prefix, line)?;
+            crate::WRITER
+                .get_or_init(|| crate::cli::Writer::new())
+                .writeln("", desc)?;
         }
     } else {
         let mut pager = Pager::new(false, false)?;

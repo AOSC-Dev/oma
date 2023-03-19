@@ -4,8 +4,8 @@ use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
 
 use action::{unlock_oma, MarkAction, OmaAction};
-use lazy_static::lazy_static;
 use nix::sys::signal;
+use once_cell::sync::OnceCell;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 mod action;
@@ -24,10 +24,11 @@ static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
+static WRITER: OnceCell<cli::Writer> = OnceCell::new();
 
-lazy_static! {
-    static ref WRITER: cli::Writer = cli::Writer::new();
-}
+// lazy_static! {
+//     static ref WRITER: cli::Writer = cli::Writer::new();
+// }
 
 fn single_handler() {
     // Kill subprocess
@@ -48,7 +49,7 @@ fn single_handler() {
 
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
-    let _ = WRITER.show_cursor();
+    let _ = WRITER.get_or_init(|| crate::cli::Writer::new()).show_cursor();
 
     std::process::exit(2);
 }

@@ -42,7 +42,7 @@ use crate::{
     pkg::{query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::size_checker,
-    warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER,
+    warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER, cli,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -515,7 +515,7 @@ impl OmaAction {
     pub fn list_files(kw: &str) -> Result<()> {
         let res = find(kw, true, false)?;
 
-        let height = WRITER.get_height();
+        let height = WRITER.get_or_init(|| cli::Writer::new()).get_height();
 
         let mut pager = if res.len() <= height.into() {
             Pager::new(true, false)?
@@ -541,7 +541,7 @@ impl OmaAction {
     pub fn search_file(kw: &str) -> Result<()> {
         let res = find(kw, false, false)?;
 
-        let height = WRITER.get_height();
+        let height = WRITER.get_or_init(|| cli::Writer::new()).get_height();
 
         let mut pager = if res.len() <= height.into() {
             Pager::new(true, false)?
