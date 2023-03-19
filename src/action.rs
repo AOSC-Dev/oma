@@ -21,6 +21,7 @@ use tabled::{
     object::{Columns, Segment},
     Alignment, Modify, Style, Table, Tabled,
 };
+use time::OffsetDateTime;
 
 use std::{
     fmt::Debug,
@@ -134,6 +135,8 @@ impl OmaAction {
 
         update_db(&self.sources, &self.client, None).await?;
 
+        let start_time =  OffsetDateTime::now_utc().to_string();
+
         async fn update_inner(
             client: &Client,
             count: usize,
@@ -190,7 +193,10 @@ impl OmaAction {
                         }
                     }
                 }
-                Ok(v) => return log(&v),
+                Ok(v) => {
+                    let end_time =  OffsetDateTime::now_utc().to_string();
+                    return log(&v, &start_time, &end_time);
+                }
             }
         }
     }
@@ -198,6 +204,8 @@ impl OmaAction {
     pub async fn install(&self, opt: InstallOptions) -> Result<()> {
         is_root()?;
         lock_oma()?;
+
+        let start_time =  OffsetDateTime::now_utc().to_string();
 
         if opt.yes {
             yes_warn();
@@ -222,7 +230,10 @@ impl OmaAction {
                         }
                     }
                 }
-                Ok(v) => return log(&v),
+                Ok(v) => {
+                    let end_time = OffsetDateTime::now_utc().to_string();
+                    return log(&v, &start_time, &end_time);
+                }
             }
         }
     }
@@ -557,6 +568,8 @@ impl OmaAction {
         is_root()?;
         lock_oma()?;
 
+        let start_time = OffsetDateTime::now_utc().to_string();
+
         let cache = new_cache!()?;
 
         let (action, _) = apt_handler(&cache, false, false, false, LogAction::FixBroken)?;
@@ -575,6 +588,10 @@ impl OmaAction {
             &mut NoProgress::new_box(),
             &mut AptInstallProgress::new_box(),
         )?;
+
+        let end_time = OffsetDateTime::now_utc().to_string();
+
+        log(&action, &start_time, &end_time)?;
 
         Ok(())
     }
@@ -710,6 +727,8 @@ impl OmaAction {
         is_root()?;
         lock_oma()?;
 
+        let start_time = OffsetDateTime::now_utc().to_string();
+
         if r.yes {
             yes_warn();
         }
@@ -747,7 +766,9 @@ impl OmaAction {
 
         cache.commit(&mut NoProgress::new_box(), &mut progress)?;
 
-        log(&action)?;
+        let end_time = OffsetDateTime::now_utc().to_string();
+
+        log(&action, &start_time, &end_time)?;
 
         Ok(())
     }
@@ -794,6 +815,8 @@ impl OmaAction {
         if !p.no_upgrade {
             update_db(&self.sources, &self.client, None).await?;
         }
+
+        let start_time = OffsetDateTime::now_utc().to_string();
 
         let cache = new_cache!()?;
         let pkg = cache
@@ -885,6 +908,9 @@ impl OmaAction {
             packages_download(&list, &self.client, None, None).await?;
 
             apt_install(cache, false, false, false)?;
+
+            let end_time = OffsetDateTime::now_utc().to_string();
+            log(&action, &start_time, &end_time)?;
         }
 
         Ok(())
@@ -1087,7 +1113,7 @@ fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
     Ok(())
 }
 
-fn log(action: &Action) -> Result<()> {
+fn log(action: &Action, start_time: &str, end_time: &str) -> Result<()> {
     std::fs::create_dir_all("/var/log/oma")?;
 
     let mut f = std::fs::OpenOptions::new()
@@ -1095,23 +1121,27 @@ fn log(action: &Action) -> Result<()> {
         .create(true)
         .open("/var/log/oma/history")?;
 
+    f.write_all(format!("Start-Date: {start_time}\n").as_bytes())?;
+
     let _ = match &action.op {
         LogAction::Install(v) => {
-            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n\n").as_bytes())
+            f.write_all(format!("Action: oma install {v:?}\nResolver: {action:?}\n").as_bytes())
         }
         LogAction::Upgrade(v) => {
-            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n\n").as_bytes())
+            f.write_all(format!("Action: oma upgrade {v:?}\nResolver: {action:?}\n").as_bytes())
         }
         LogAction::Remove(v) => {
-            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n\n").as_bytes())
+            f.write_all(format!("Action: oma remove {v:?}\nResolver: {action:?}\n").as_bytes())
         }
         LogAction::FixBroken => {
-            f.write_all(format!("Action: oma fix-broken\nResolver: {action:?}\n\n").as_bytes())
+            f.write_all(format!("Action: oma fix-broken\nResolver: {action:?}\n").as_bytes())
         }
         LogAction::Pick(v) => {
-            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n\n").as_bytes())
+            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n").as_bytes())
         }
     };
+
+    f.write_all(format!("End-Date: {end_time}\n\n").as_bytes())?;
 
     Ok(())
 }
@@ -1360,29 +1390,29 @@ impl Action {
 
 impl Debug for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Install: [")?;
+        write!(f, "Install: [ ")?;
         for i in &self.install {
-            write!(f, "{}({}), ", i.name_no_color, i.version)?;
+            write!(f, "{} ({}), ", i.name_no_color, i.version)?;
         }
-        write!(f, "]")?;
+        write!(f, " ]")?;
 
-        write!(f, ", Remove: [")?;
+        write!(f, ", Remove: [ ")?;
         for i in &self.del {
             write!(f, "{}, ", i._name_no_color)?;
         }
-        write!(f, "]")?;
+        write!(f, " ]")?;
 
-        write!(f, ", Upgrade: [")?;
+        write!(f, ", Upgrade: [ ")?;
         for i in &self.update {
             write!(f, "{}({}), ", i.name_no_color, i.version)?;
         }
-        write!(f, "]")?;
+        write!(f, " ]")?;
 
-        write!(f, ", Downgrade: [")?;
+        write!(f, ", Downgrade: [ ")?;
         for i in &self.downgrade {
             write!(f, "{}({}), ", i.name_no_color, i.version)?;
         }
-        write!(f, "]")?;
+        write!(f, " ]")?;
 
         Ok(())
     }
