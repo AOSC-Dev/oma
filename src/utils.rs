@@ -51,8 +51,6 @@ pub fn size_checker(size: &DiskSpace, download_size: u64) -> Result<()> {
     let need = size + download_size as i64;
     let need_str = HumanBytes(need as u64);
 
-    tracing::info!("Need size: {need_str}, available space: {avail_str}");
-
     if need > avail {
         bail!("Your disk space is too small, need size: {need_str}, available space: {avail_str}")
     }

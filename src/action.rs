@@ -23,6 +23,7 @@ use tabled::{
 };
 
 use std::{
+    fmt::Debug,
     io::{Read, Write},
     path::Path,
     process::{Command, Stdio},
@@ -40,7 +41,7 @@ use crate::{
     pkg::{query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::size_checker,
-    warn, InstallOptions, ALLOWCTRLC, WRITER,
+    warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -123,39 +124,34 @@ impl OmaAction {
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
-    pub async fn update(
-        &self,
-        packages: &[String],
-        yes: bool,
-        force_yes: bool,
-        force_confnew: bool,
-    ) -> Result<()> {
+    pub async fn update(&self, u: UpgradeOptions) -> Result<()> {
         is_root()?;
         lock_oma()?;
 
-        if yes {
+        if u.yes {
             yes_warn();
         }
-
-        tracing::info!("Run oma upgrade: another install pkgs: {packages:?}, yes: {yes}, force_yes: {force_yes}, force_confnew: {force_confnew}");
 
         update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(
             client: &Client,
             count: usize,
-            packages: &[String],
-            yes: bool,
-            force_yes: bool,
-            force_confnew: bool,
-        ) -> InstallResult<()> {
-            let cache = install_handle(packages, false, false)?;
+            u: &UpgradeOptions,
+        ) -> InstallResult<Action> {
+            let cache = install_handle(&u.packages, false, false)?;
 
             cache
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len) = apt_handler(&cache, false, force_yes, false)?;
+            let (action, len) = apt_handler(
+                &cache,
+                false,
+                u.force_yes,
+                false,
+                LogAction::Upgrade(u.clone()),
+            )?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -168,34 +164,35 @@ impl OmaAction {
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
                 size_checker(&disk_size, download_size(&list, &cache)?)?;
-                if len != 0 && !yes {
+                if len != 0 && !u.yes {
                     display_result(&action, &cache)?;
                 }
             }
 
             packages_download(&list, client, None, None).await?;
-            apt_install(cache, yes, force_yes, force_confnew)?;
+            apt_install(cache, u.yes, u.force_yes, u.force_confnew)?;
 
-            Ok(())
+            Ok(action)
         }
 
         let mut count = 0;
-        while let Err(e) =
-            update_inner(&self.client, count, packages, yes, force_yes, force_confnew).await
-        {
-            match e {
-                InstallError::Anyhow(e) => return Err(e),
-                InstallError::RustApt(e) => {
-                    // Retry 3 times, if Error is rust_apt return
-                    if count == 3 {
-                        return Err(e.into());
+        loop {
+            match update_inner(&self.client, count, &u).await {
+                Err(e) => {
+                    match e {
+                        InstallError::Anyhow(e) => return Err(e),
+                        InstallError::RustApt(e) => {
+                            // Retry 3 times, if Error is rust_apt return
+                            if count == 3 {
+                                return Err(e.into());
+                            }
+                            count += 1;
+                        }
                     }
-                    count += 1;
                 }
+                Ok(v) => log(&v)?,
             }
         }
-
-        Ok(())
     }
 
     pub async fn install(&self, opt: InstallOptions) -> Result<()> {
@@ -210,25 +207,24 @@ impl OmaAction {
             update_db(&self.sources, &self.client, None).await?;
         }
 
-        tracing::info!("Run oma install {opt:?}");
-
         let mut count = 0;
-        while let Err(e) = self.install_inner(&opt, count).await {
-            match e {
-                InstallError::Anyhow(e) => return Err(e),
-                InstallError::RustApt(e) => {
-                    // Retry 3 times, if Error is rust_apt return
-                    if count == 3 {
-                        return Err(e.into());
+        loop {
+            match self.install_inner(&opt, count).await {
+                Err(e) => {
+                    match e {
+                        InstallError::Anyhow(e) => return Err(e),
+                        InstallError::RustApt(e) => {
+                            // Retry 3 times, if Error is rust_apt return
+                            if count == 3 {
+                                return Err(e.into());
+                            }
+                            count += 1;
+                        }
                     }
-                    count += 1;
                 }
+                Ok(v) => log(&v)?,
             }
-
-            count += 1;
         }
-
-        Ok(())
     }
 
     pub fn list(
@@ -561,11 +557,9 @@ impl OmaAction {
         is_root()?;
         lock_oma()?;
 
-        tracing::info!("Run oma fix-broken");
-
         let cache = new_cache!()?;
 
-        let (action, _) = apt_handler(&cache, false, false, false)?;
+        let (action, _) = apt_handler(&cache, false, false, false, LogAction::FixBroken)?;
 
         let mut list = action.install.clone();
         list.extend(action.update.clone());
@@ -676,10 +670,16 @@ impl OmaAction {
         Ok(())
     }
 
-    async fn install_inner(&self, opt: &InstallOptions, count: usize) -> InstallResult<()> {
+    async fn install_inner(&self, opt: &InstallOptions, count: usize) -> InstallResult<Action> {
         let cache = install_handle(&opt.packages, opt.install_dbg, opt.reinstall)?;
 
-        let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false)?;
+        let (action, len) = apt_handler(
+            &cache,
+            opt.no_fixbroken,
+            opt.force_yes,
+            false,
+            LogAction::Install(opt.clone()),
+        )?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -690,8 +690,6 @@ impl OmaAction {
         list.extend(action.update.clone());
         list.extend(action.downgrade.clone());
         list.extend(action.reinstall.clone());
-
-        tracing::info!("APT Resolver:\n{action:?}");
 
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
@@ -705,47 +703,51 @@ impl OmaAction {
         packages_download(&list, &self.client, None, None).await?;
         apt_install(cache, opt.yes, opt.force_yes, opt.force_confnew)?;
 
-        Ok(())
+        Ok(action)
     }
 
-    pub fn remove(list: &[String], is_purge: bool, yes: bool, force_yes: bool) -> Result<()> {
+    pub fn remove(r: RemoveOptions) -> Result<()> {
         is_root()?;
         lock_oma()?;
 
-        if yes {
+        if r.yes {
             yes_warn();
         }
 
         let cache = new_cache!()?;
 
-        tracing::info!(
-            "Run oma remove {list:?}, is_purge: {is_purge}, yes: {yes}, force_yes: {force_yes}"
-        );
-
-        for i in list {
-            let pkg = cache.get(i).context(format!("Can not get package {i}"))?;
+        for i in &r.packages {
+            let pkg = cache.get(&i).context(format!("Can not get package {i}"))?;
             if !pkg.is_installed() {
                 info!("Package {i} is not installed, so no need to remove.");
                 continue;
             }
-            pkg.mark_delete(is_purge);
+            pkg.mark_delete(!r.keep_config);
             pkg.protect();
         }
 
-        let (action, len) = apt_handler(&cache, false, force_yes, is_purge)?;
+        let (action, len) = apt_handler(
+            &cache,
+            false,
+            r.force_yes,
+            !r.keep_config,
+            LogAction::Remove(r.clone()),
+        )?;
 
         if len == 0 {
             success!("No need to do anything.");
             return Ok(());
         }
 
-        if !yes {
+        if !r.yes {
             display_result(&action, &cache)?;
         }
 
-        let mut progress = OmaAptInstallProgress::new_box(yes, force_yes, false);
+        let mut progress = OmaAptInstallProgress::new_box(r.yes, r.force_yes, false);
 
         cache.commit(&mut NoProgress::new_box(), &mut progress)?;
+
+        log(&action)?;
 
         Ok(())
     }
@@ -753,7 +755,7 @@ impl OmaAction {
     pub async fn refresh(&self) -> Result<()> {
         is_root()?;
         lock_oma()?;
-        tracing::info!("Run oma refresh");
+
         update_db(&self.sources, &self.client, None).await?;
 
         let cache = new_cache!()?;
@@ -785,18 +787,18 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn pick(&self, pkg: &str, no_fixbroken: bool, no_upgrade: bool) -> Result<()> {
+    pub async fn pick(&self, p: PickOptions) -> Result<()> {
         is_root()?;
         lock_oma()?;
 
-        if !no_upgrade {
+        if !p.no_upgrade {
             update_db(&self.sources, &self.client, None).await?;
         }
 
         let cache = new_cache!()?;
         let pkg = cache
-            .get(pkg)
-            .context(format!("Can not get package: {pkg}"))?;
+            .get(&p.package)
+            .context(format!("Can not get package: {}", p.package))?;
 
         let versions = pkg.versions().collect::<Vec<_>>();
 
@@ -863,7 +865,13 @@ impl OmaAction {
             pkg.mark_install(true, true);
             pkg.protect();
 
-            let (action, _) = apt_handler(&cache, no_fixbroken, false, false)?;
+            let (action, _) = apt_handler(
+                &cache,
+                p.no_fixbroken,
+                false,
+                false,
+                LogAction::Pick(p.clone()),
+            )?;
             let disk_size = cache.depcache().disk_size();
 
             let mut list = vec![];
@@ -1079,6 +1087,35 @@ fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
     Ok(())
 }
 
+fn log(action: &Action) -> Result<()> {
+    std::fs::create_dir_all("/var/log/oma")?;
+
+    let mut f = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open("/var/log/oma/history")?;
+
+    let _ = match &action.op {
+        LogAction::Install(v) => {
+            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n\n").as_bytes())
+        }
+        LogAction::Upgrade(v) => {
+            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n\n").as_bytes())
+        }
+        LogAction::Remove(v) => {
+            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n\n").as_bytes())
+        }
+        LogAction::FixBroken => {
+            f.write_all(format!("Action: oma fix-broken\nResolver: {action:?}\n\n").as_bytes())
+        }
+        LogAction::Pick(v) => {
+            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n\n").as_bytes())
+        }
+    };
+
+    Ok(())
+}
+
 fn dpkg_selections() -> Result<Vec<(String, String)>> {
     let mut cmd = Command::new("dpkg");
 
@@ -1141,8 +1178,6 @@ fn apt_install(
     apt_unlock_inner();
 
     let mut progress = OmaAptInstallProgress::new_box(yes, force_yes, force_confnew);
-
-    tracing::info!("Run apt install");
 
     if let Err(e) = cache.do_install(&mut progress) {
         apt_lock_inner()?;
@@ -1284,8 +1319,9 @@ fn mark_install(
     Ok(())
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct Action {
+    op: LogAction,
     update: Vec<InstallRow>,
     install: Vec<InstallRow>,
     del: Vec<RemoveRow>,
@@ -1293,8 +1329,95 @@ struct Action {
     downgrade: Vec<InstallRow>,
 }
 
+#[derive(Clone, Debug)]
+enum LogAction {
+    Install(InstallOptions),
+    Upgrade(UpgradeOptions),
+    Remove(RemoveOptions),
+    FixBroken,
+    Pick(PickOptions),
+}
+
+// impl Debug for LogAction {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             Self::Install(arg0) => {
+//                 write!(f, "oma install ")?;
+
+//                 let mut v = vec![];
+//                 if arg0.yes {
+//                     v.push("--yes".to_owned())
+//                 }
+//                 if arg0.force_confnew {
+//                     v.push("--force-confnew".to_owned())
+//                 }
+//                 if arg0.no_fixbroken {
+//                     v.push("--no-fixbroken".to_owned())
+//                 }
+//                 if arg0.install_dbg {
+//                     v.push("--install-dbg".to_owned())
+//                 }
+//                 if arg0.no_upgrade {
+//                     v.push("--no-upgrade".to_owned())
+//                 }
+//                 if arg0.reinstall {
+//                     v.push("--reinstall".to_owned())
+//                 }
+//                 v.extend(arg0.packages.clone());
+
+//                 write!(f, "{}", v.join(" "))?;
+//             }
+//             Self::Upgrade(arg0) => {
+//                 write!(f, "oma upgrade ")?;
+
+//                 let mut v = vec![];
+//                 if arg0.force_confnew {
+//                     v.push("--force-confnew".to_owned())
+//                 }
+//                 if arg0.force_yes {
+//                     v.push("--force-yes".to_owned())
+//                 }
+//                 v.extend(arg0.packages.clone());
+//                 write!(f, "{}", v.join(" "))?;
+//             }
+//             Self::Remove(arg0) => {
+//                 write!(f, "oma remove ")?;
+
+//                 let mut v = vec![];
+//                 if arg0.keep_config {
+//                     v.push("--keep-config".to_owned())
+//                 }
+//                 if arg0.force_yes {
+//                     v.push("--force-yes".to_owned())
+//                 }
+//                 v.extend(arg0.packages.clone());
+//                 write!(f, "{}", v.join(" "))?;
+//             }
+//             Self::FixBroken => {
+//                 write!(f, "{}", "oma fix-broken")?;
+//             }
+//             Self::Pick(arg0) => {
+//                 write!(f, "oma pick ")?;
+
+//                 let mut v = vec![];
+//                 if arg0.no_fixbroken {
+//                     v.push("--no-fixbroken")
+//                 }
+//                 if arg0.no_upgrade {
+//                     v.push("--no-upgrade")
+//                 }
+//                 v.push(&arg0.package);
+//                 write!(f, "{}", v.join(" "))?;
+//             }
+//         };
+
+//         Ok(())
+//     }
+// }
+
 impl Action {
     fn new(
+        op: LogAction,
         update: Vec<InstallRow>,
         install: Vec<InstallRow>,
         del: Vec<RemoveRow>,
@@ -1302,6 +1425,7 @@ impl Action {
         downgrade: Vec<InstallRow>,
     ) -> Self {
         Self {
+            op,
             update,
             install,
             del,
@@ -1311,12 +1435,43 @@ impl Action {
     }
 }
 
+impl Debug for Action {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Install: [")?;
+        for i in &self.install {
+            write!(f, "{}({}), ", i.name_no_color, i.version)?;
+        }
+        write!(f, "]")?;
+
+        write!(f, ", Remove:[")?;
+        for i in &self.del {
+            write!(f, "{}, ", i._name_no_color)?;
+        }
+        write!(f, "]")?;
+
+        write!(f, ", Upgrade: [")?;
+        for i in &self.update {
+            write!(f, "{}({}), ", i.name_no_color, i.version)?;
+        }
+        write!(f, "]")?;
+
+        write!(f, ", Downgrade: [")?;
+        for i in &self.downgrade {
+            write!(f, "{}({}), ", i.name_no_color, i.version)?;
+        }
+        write!(f, "]")?;
+
+        Ok(())
+    }
+}
+
 /// Handle apt resolve result to display results
 fn apt_handler(
     cache: &Cache,
     no_fixbroken: bool,
     force_yes: bool,
     is_purge: bool,
+    op: LogAction,
 ) -> Result<(Action, usize)> {
     if force_yes {
         let config = Config::new_clear();
@@ -1511,7 +1666,7 @@ fn apt_handler(
         }
     }
 
-    let action = Action::new(update, install, del, reinstall, downgrade);
+    let action = Action::new(op, update, install, del, reinstall, downgrade);
 
     Ok((action, len))
 }

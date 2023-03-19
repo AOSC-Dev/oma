@@ -49,6 +49,7 @@ fn single_handler() {
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
     let _ = WRITER.show_cursor();
+
     std::process::exit(2);
 }
 
@@ -67,12 +68,12 @@ enum OmaCommand {
     Install(InstallOptions),
     /// Update Package
     #[clap(alias = "full-upgrade", alias = "dist-upgrade")]
-    Upgrade(Update),
+    Upgrade(UpgradeOptions),
     /// Download Package
     Download(Download),
     /// Delete Package
     #[clap(alias = "delete", alias = "purge")]
-    Remove(Delete),
+    Remove(RemoveOptions),
     /// Refresh Package database
     #[clap(alias = "update")]
     Refresh(Refresh),
@@ -87,7 +88,7 @@ enum OmaCommand {
     /// Fix system dependencies broken status
     FixBroken(FixBroken),
     /// Pick a package version
-    Pick(Pick),
+    Pick(PickOptions),
     /// Mark a package status
     Mark(Mark),
     #[clap(hide = true)]
@@ -154,8 +155,8 @@ pub struct InstallOptions {
     pub force_confnew: bool,
 }
 
-#[derive(Parser, Debug)]
-struct Update {
+#[derive(Parser, Debug, Clone)]
+pub struct UpgradeOptions {
     /// Package(s) name
     packages: Vec<String>,
     /// Automatic run oma install
@@ -178,8 +179,8 @@ struct ListFiles {
     package: String,
 }
 
-#[derive(Parser, Debug)]
-struct Pick {
+#[derive(Parser, Debug, Clone)]
+pub struct PickOptions {
     /// Package name
     package: String,
     /// Do not try fix package depends broken status
@@ -196,8 +197,8 @@ struct Provides {
     kw: String,
 }
 
-#[derive(Parser, Debug)]
-struct Delete {
+#[derive(Parser, Debug, Clone)]
+pub struct RemoveOptions {
     /// Package(s) name
     packages: Vec<String>,
     /// Automatic run oma install
@@ -245,10 +246,13 @@ struct List {
 #[tokio::main]
 async fn main() {
     // 加载日志
-    let file_appender = tracing_appender::rolling::never("/var/log/oma", "history");
-    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+    // let file_appender = tracing_appender::rolling::never("/var/log/oma", "history");
+    // let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
-    tracing_subscriber::fmt().with_writer(non_blocking).init();
+    // tracing_subscriber::fmt()
+    //     .with_writer(non_blocking)
+    //     .with_target(false)
+    //     .init();
 
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
@@ -264,6 +268,14 @@ async fn main() {
 
     unlock_oma().ok();
 
+    // 往 log 文件添加空行，方便阅读：
+    // let mut f = std::fs::OpenOptions::new()
+    //     .append(true)
+    //     .open("/var/log/oma/history")
+    //     .expect("Can not get log file");
+
+    // let _ = f.write_all(b"\n\n");
+
     exit(0);
 }
 
@@ -277,13 +289,8 @@ async fn try_main() -> Result<()> {
 
     match args.subcommand {
         OmaCommand::Install(v) => OmaAction::new().await?.install(v).await,
-        OmaCommand::Remove(v) => OmaAction::remove(&v.packages, !v.keep_config, v.yes, v.force_yes),
-        OmaCommand::Upgrade(v) => {
-            OmaAction::new()
-                .await?
-                .update(&v.packages, v.yes, v.force_yes, v.force_confnew)
-                .await
-        }
+        OmaCommand::Remove(v) => OmaAction::remove(v),
+        OmaCommand::Upgrade(v) => OmaAction::new().await?.update(v).await,
         OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
         OmaCommand::Show(v) => OmaAction::show(&v.packages, v.is_all),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword.join(" ")),
@@ -298,7 +305,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Pick(v) => {
             OmaAction::new()
                 .await?
-                .pick(&v.package, v.no_fixbroken, v.no_upgrade)
+                .pick(v)
                 .await
         }
         OmaCommand::Mark(v) => OmaAction::mark(v.action),
