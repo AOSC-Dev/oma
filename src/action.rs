@@ -190,7 +190,7 @@ impl OmaAction {
                         }
                     }
                 }
-                Ok(v) => log(&v)?,
+                Ok(v) => return log(&v),
             }
         }
     }
@@ -222,7 +222,7 @@ impl OmaAction {
                         }
                     }
                 }
-                Ok(v) => log(&v)?,
+                Ok(v) => return log(&v),
             }
         }
     }
@@ -1338,83 +1338,6 @@ enum LogAction {
     Pick(PickOptions),
 }
 
-// impl Debug for LogAction {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             Self::Install(arg0) => {
-//                 write!(f, "oma install ")?;
-
-//                 let mut v = vec![];
-//                 if arg0.yes {
-//                     v.push("--yes".to_owned())
-//                 }
-//                 if arg0.force_confnew {
-//                     v.push("--force-confnew".to_owned())
-//                 }
-//                 if arg0.no_fixbroken {
-//                     v.push("--no-fixbroken".to_owned())
-//                 }
-//                 if arg0.install_dbg {
-//                     v.push("--install-dbg".to_owned())
-//                 }
-//                 if arg0.no_upgrade {
-//                     v.push("--no-upgrade".to_owned())
-//                 }
-//                 if arg0.reinstall {
-//                     v.push("--reinstall".to_owned())
-//                 }
-//                 v.extend(arg0.packages.clone());
-
-//                 write!(f, "{}", v.join(" "))?;
-//             }
-//             Self::Upgrade(arg0) => {
-//                 write!(f, "oma upgrade ")?;
-
-//                 let mut v = vec![];
-//                 if arg0.force_confnew {
-//                     v.push("--force-confnew".to_owned())
-//                 }
-//                 if arg0.force_yes {
-//                     v.push("--force-yes".to_owned())
-//                 }
-//                 v.extend(arg0.packages.clone());
-//                 write!(f, "{}", v.join(" "))?;
-//             }
-//             Self::Remove(arg0) => {
-//                 write!(f, "oma remove ")?;
-
-//                 let mut v = vec![];
-//                 if arg0.keep_config {
-//                     v.push("--keep-config".to_owned())
-//                 }
-//                 if arg0.force_yes {
-//                     v.push("--force-yes".to_owned())
-//                 }
-//                 v.extend(arg0.packages.clone());
-//                 write!(f, "{}", v.join(" "))?;
-//             }
-//             Self::FixBroken => {
-//                 write!(f, "{}", "oma fix-broken")?;
-//             }
-//             Self::Pick(arg0) => {
-//                 write!(f, "oma pick ")?;
-
-//                 let mut v = vec![];
-//                 if arg0.no_fixbroken {
-//                     v.push("--no-fixbroken")
-//                 }
-//                 if arg0.no_upgrade {
-//                     v.push("--no-upgrade")
-//                 }
-//                 v.push(&arg0.package);
-//                 write!(f, "{}", v.join(" "))?;
-//             }
-//         };
-
-//         Ok(())
-//     }
-// }
-
 impl Action {
     fn new(
         op: LogAction,
@@ -1443,7 +1366,7 @@ impl Debug for Action {
         }
         write!(f, "]")?;
 
-        write!(f, ", Remove:[")?;
+        write!(f, ", Remove: [")?;
         for i in &self.del {
             write!(f, "{}, ", i._name_no_color)?;
         }
