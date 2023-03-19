@@ -49,8 +49,8 @@ struct RemoveRow {
     name: String,
     #[tabled(skip)]
     _name_no_color: String,
-    #[tabled(rename = "Package Size")]
-    size: String,
+    // #[tabled(skip)]
+    // size: String,
     // Show details to this specific removal. Eg: if this is an essential package
     #[tabled(rename = "Details")]
     detail: String,
@@ -596,11 +596,7 @@ impl OmaAction {
                 continue;
             }
 
-            let deps = if rdep {
-                pkginfo.rdeps
-            } else {
-                pkginfo.deps
-            };
+            let deps = if rdep { pkginfo.rdeps } else { pkginfo.deps };
 
             println!("{}:", pkginfo.package);
 
@@ -1401,22 +1397,45 @@ fn apt_handler(cache: &Cache, no_fixbroken: bool, force_yes: bool) -> Result<(Ac
         if pkg.marked_delete() {
             let name = pkg.name();
 
-            let old_pkg = pkg
-                .installed()
-                .context(format!("Can not get installed version: {}", pkg.name()))?;
-
-            let size = old_pkg.installed_size();
             let is_purge = true;
+
+            let mut v = Vec::new();
+
+            if pkg.is_auto_removable() {
+                v.push((
+                    "removed as unneeded dependency",
+                    "Removed as unneeded dependency",
+                ));
+            }
+
+            if is_purge {
+                v.push(("purge configuration files", "Purge configuration files"));
+            }
+
+            let s = if !v.is_empty() {
+                let mut va = vec![];
+                for (i, c) in v.iter().enumerate() {
+                    if i == 0 {
+                        va.push(c.1);
+                    } else {
+                        va.push(c.0);
+                    }
+                }
+
+                if va.len() == 1 {
+                    va[0].to_owned()
+                } else {
+                    va.join("; ")
+                }
+            } else {
+                "".to_string()
+            };
 
             let remove_row = RemoveRow {
                 name: style(name).red().bold().to_string(),
                 _name_no_color: name.to_owned(),
-                size: HumanBytes(size).to_string(),
-                detail: if is_purge {
-                    style("Purge configuration files.").red().to_string()
-                } else {
-                    "".to_string()
-                },
+                // size: HumanBytes(size).to_string(),
+                detail: style(s).red().to_string(),
             };
 
             del.push(remove_row);
@@ -1531,8 +1550,7 @@ fn display_result(action: &Action, cache: &Cache) -> Result<()> {
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
-            // Install Size column should align right
-            .with(Modify::new(Columns::new(1..2)).with(Alignment::right()))
+            .with(Modify::new(Columns::new(1..2)).with(Alignment::left()))
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
