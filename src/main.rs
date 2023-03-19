@@ -97,6 +97,9 @@ enum OmaCommand {
     /// Check package dependencies
     #[clap(alias = "dep")]
     Depends(Dep),
+    /// Check package reverse dependencies
+    #[clap(alias = "rdep")]
+    Rdepends(Dep),
     /// Clean downloaded packages
     Clean(Clean),
 }
@@ -299,7 +302,8 @@ async fn try_main() -> Result<()> {
         OmaCommand::List(v) => {
             OmaAction::list(v.packages.as_deref(), v.all, v.installed, v.upgradable)
         }
-        OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs),
+        OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs, false),
+        OmaCommand::Rdepends(v) => OmaAction::dep(&v.pkgs, true),
         OmaCommand::Clean(_) => OmaAction::clean(),
     }?;
 

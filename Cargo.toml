@@ -18,7 +18,7 @@ xz2 = "0.1"
 sequoia-openpgp = "1.13"
 sha2 = "0.10"
 flate2 = "1.0"
-rust-apt = { git = "https://gitlab.com/volian/rust-apt", rev = "51ac3eae5fd5997ecdd807a851b151612470dfe5" }
+rust-apt = { git = "https://gitlab.com/volian/rust-apt", rev = "496511ad09ca8f997df28dd1d38971977ed2680d" }
 clap = { version = "4.1", features = ["derive"] }
 indicatif = "0.17"
 console = "0.15"

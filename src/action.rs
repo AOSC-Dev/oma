@@ -579,7 +579,7 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn dep(list: &[String]) -> Result<()> {
+    pub fn dep(list: &[String], rdep: bool) -> Result<()> {
         let cache = new_cache!()?;
         let mut res = vec![];
         for c in list {
@@ -596,9 +596,17 @@ impl OmaAction {
                 continue;
             }
 
-            let deps = pkginfo.deps;
+            let deps = if rdep {
+                pkginfo.rdeps
+            } else {
+                pkginfo.deps
+            };
 
             println!("{}:", pkginfo.package);
+
+            if rdep {
+                println!("Reverse Depends:")
+            }
 
             for (k, v) in deps {
                 for i in v {

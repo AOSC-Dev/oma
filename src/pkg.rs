@@ -27,6 +27,7 @@ pub struct PkgInfo {
     pub provides: Vec<String>,
     pub deps: HashMap<String, Vec<Vec<OmaDependency>>>,
     pub version_raw: RawVersion,
+    pub rdeps: HashMap<String, Vec<Vec<OmaDependency>>>,
 }
 
 impl PkgInfo {
@@ -60,6 +61,7 @@ impl PkgInfo {
             .collect::<Vec<_>>();
 
         let deps = deps_to_map(version.depends_map());
+        let rdeps = deps_to_map(&pkg.rdepends_map());
 
         Ok(Self {
             package: pkg.name().to_owned(),
@@ -76,6 +78,7 @@ impl PkgInfo {
             provides,
             deps,
             version_raw,
+            rdeps,
         })
     }
 }
