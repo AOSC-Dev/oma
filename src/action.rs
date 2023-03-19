@@ -1387,7 +1387,7 @@ fn apt_handler(cache: &Cache, no_fixbroken: bool, force_yes: bool) -> Result<(Ac
             };
 
             update.push(InstallRow {
-                name: style(pkg.name()).cyan().to_string(),
+                name: style(pkg.name()).color256(87).to_string(),
                 name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
                 new_version: version.to_string(),
@@ -1564,7 +1564,7 @@ fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             out,
             "\n{} packages will be {}:\n",
             update.len(),
-            style("upgraded").cyan()
+            style("upgraded").color256(87)
         )?;
 
         let mut table = Table::new(&update);
@@ -1690,7 +1690,7 @@ fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
         "Omakase may {}, {}, {}, {}, or {}\npackages in order to fulfill your requested changes.",
         style("install").green(),
         style("remove").red(),
-        style("upgrade").cyan(),
+        style("upgrade").color256(87),
         style("downgrade").yellow(),
         style("reinstall").blue()
     )?;
