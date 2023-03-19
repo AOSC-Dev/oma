@@ -137,6 +137,8 @@ impl OmaAction {
             yes_warn();
         }
 
+        tracing::info!("Run oma upgrade: another install pkgs: {packages:?}, yes: {yes}, force_yes: {force_yes}, force_confnew: {force_confnew}");
+
         update_db(&self.sources, &self.client, None).await?;
 
         async fn update_inner(
@@ -207,6 +209,8 @@ impl OmaAction {
         if !opt.no_upgrade {
             update_db(&self.sources, &self.client, None).await?;
         }
+
+        tracing::info!("Run oma install {opt:?}");
 
         let mut count = 0;
         while let Err(e) = self.install_inner(&opt, count).await {
@@ -557,6 +561,8 @@ impl OmaAction {
         is_root()?;
         lock_oma()?;
 
+        tracing::info!("Run oma fix-broken");
+
         let cache = new_cache!()?;
 
         let (action, _) = apt_handler(&cache, false, false, false)?;
@@ -685,6 +691,8 @@ impl OmaAction {
         list.extend(action.downgrade.clone());
         list.extend(action.reinstall.clone());
 
+        tracing::info!("APT Resolver:\n{action:?}");
+
         if count == 0 {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
@@ -700,13 +708,7 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn remove(
-        &self,
-        list: &[String],
-        is_purge: bool,
-        yes: bool,
-        force_yes: bool,
-    ) -> Result<()> {
+    pub fn remove(list: &[String], is_purge: bool, yes: bool, force_yes: bool) -> Result<()> {
         is_root()?;
         lock_oma()?;
 
@@ -715,6 +717,10 @@ impl OmaAction {
         }
 
         let cache = new_cache!()?;
+
+        tracing::info!(
+            "Run oma remove {list:?}, is_purge: {is_purge}, yes: {yes}, force_yes: {force_yes}"
+        );
 
         for i in list {
             let pkg = cache.get(i).context(format!("Can not get package {i}"))?;
@@ -747,6 +753,7 @@ impl OmaAction {
     pub async fn refresh(&self) -> Result<()> {
         is_root()?;
         lock_oma()?;
+        tracing::info!("Run oma refresh");
         update_db(&self.sources, &self.client, None).await?;
 
         let cache = new_cache!()?;
@@ -1135,6 +1142,8 @@ fn apt_install(
 
     let mut progress = OmaAptInstallProgress::new_box(yes, force_yes, force_confnew);
 
+    tracing::info!("Run apt install");
+
     if let Err(e) = cache.do_install(&mut progress) {
         apt_lock_inner()?;
         apt_unlock();
@@ -1303,7 +1312,12 @@ impl Action {
 }
 
 /// Handle apt resolve result to display results
-fn apt_handler(cache: &Cache, no_fixbroken: bool, force_yes: bool, is_purge: bool) -> Result<(Action, usize)> {
+fn apt_handler(
+    cache: &Cache,
+    no_fixbroken: bool,
+    force_yes: bool,
+    is_purge: bool,
+) -> Result<(Action, usize)> {
     if force_yes {
         let config = Config::new_clear();
         config.set("APT::Get::force-yes", "true");

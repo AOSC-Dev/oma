@@ -1,7 +1,7 @@
 use std::process::exit;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand, ArgAction};
+use clap::{ArgAction, Parser, Subcommand};
 
 use action::{unlock_oma, MarkAction, OmaAction};
 use lazy_static::lazy_static;
@@ -146,7 +146,7 @@ pub struct InstallOptions {
     /// Automatic run oma install
     #[arg(long, short = 'y')]
     pub yes: bool,
-    /// Force install packages for can't resolve depends 
+    /// Force install packages for can't resolve depends
     #[arg(long)]
     pub force_yes: bool,
     /// Install package use dpkg --force-confnew
@@ -161,7 +161,7 @@ struct Update {
     /// Automatic run oma install
     #[arg(long, short = 'y')]
     yes: bool,
-    /// Force install packages for can't resolve depends 
+    /// Force install packages for can't resolve depends
     #[arg(long)]
     force_yes: bool,
     /// Install package use dpkg --force-confnew
@@ -203,7 +203,7 @@ struct Delete {
     /// Automatic run oma install
     #[arg(long, short = 'y')]
     yes: bool,
-    /// Force install packages for can't resolve depends 
+    /// Force install packages for can't resolve depends
     #[arg(long)]
     force_yes: bool,
     /// Keep package config
@@ -244,6 +244,12 @@ struct List {
 
 #[tokio::main]
 async fn main() {
+    // 加载日志
+    let file_appender = tracing_appender::rolling::never("/var/log/oma", "oma-history");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+
+    tracing_subscriber::fmt().with_writer(non_blocking).init();
+
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
@@ -271,11 +277,7 @@ async fn try_main() -> Result<()> {
 
     match args.subcommand {
         OmaCommand::Install(v) => OmaAction::new().await?.install(v).await,
-        OmaCommand::Remove(v) => {
-            OmaAction::new()
-                .await?
-                .remove(&v.packages, !v.keep_config, v.yes, v.force_yes)
-        }
+        OmaCommand::Remove(v) => OmaAction::remove(&v.packages, !v.keep_config, v.yes, v.force_yes),
         OmaCommand::Upgrade(v) => {
             OmaAction::new()
                 .await?
