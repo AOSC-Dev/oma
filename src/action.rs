@@ -1564,7 +1564,7 @@ fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             out,
             "\n{} packages will be {}:\n",
             update.len(),
-            style("upgraded").cyan().bold()
+            style("upgraded").cyan()
         )?;
 
         let mut table = Table::new(&update);
