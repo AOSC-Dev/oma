@@ -15,7 +15,7 @@ use rust_apt::{
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
 };
-use std::fmt::Write as FmtWrite;
+use std::{fmt::Write as FmtWrite, io::BufRead};
 use sysinfo::{Pid, System, SystemExt};
 use tabled::{
     object::{Columns, Segment},
@@ -1086,6 +1086,24 @@ impl OmaAction {
         std::fs::remove_file(p.join("srcpkgcache.bin")).ok();
 
         success!("Clean successfully.");
+
+        Ok(())
+    }
+
+    pub fn log() -> Result<()> {
+        let f = std::fs::File::open("/var/log/oma/history")?;
+        let r = std::io::BufReader::new(f);
+        let mut pager = Pager::new(false, false)?;
+        let mut out = pager.get_writer()?;
+
+        ALLOWCTRLC.store(true, Ordering::Relaxed);
+
+        for i in r.lines().flatten() {
+            writeln!(out, "{}", i).ok();
+        }
+
+        drop(out);
+        pager.wait_for_exit().ok();
 
         Ok(())
     }

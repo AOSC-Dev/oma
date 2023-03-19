@@ -103,6 +103,8 @@ enum OmaCommand {
     Rdepends(Dep),
     /// Clean downloaded packages
     Clean(Clean),
+    /// See omakase log
+    Log,
 }
 
 #[derive(Parser, Debug)]
@@ -316,6 +318,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs, false),
         OmaCommand::Rdepends(v) => OmaAction::dep(&v.pkgs, true),
         OmaCommand::Clean(_) => OmaAction::clean(),
+        OmaCommand::Log => OmaAction::log(),
     }?;
 
     Ok(())
