@@ -26,10 +26,6 @@ static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
 static WRITER: OnceCell<cli::Writer> = OnceCell::new();
 
-// lazy_static! {
-//     static ref WRITER: cli::Writer = cli::Writer::new();
-// }
-
 fn single_handler() {
     // Kill subprocess
     let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
@@ -49,7 +45,9 @@ fn single_handler() {
 
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
-    let _ = WRITER.get_or_init(|| crate::cli::Writer::new()).show_cursor();
+    let _ = WRITER
+        .get_or_init(crate::cli::Writer::new)
+        .show_cursor();
 
     std::process::exit(2);
 }
@@ -77,7 +75,7 @@ enum OmaCommand {
     Remove(RemoveOptions),
     /// Refresh Package database
     #[clap(alias = "update")]
-    Refresh(Refresh),
+    Refresh,
     /// Show Package
     Show(Show),
     /// Search Package
@@ -87,7 +85,7 @@ enum OmaCommand {
     /// Search file from package
     Provides(Provides),
     /// Fix system dependencies broken status
-    FixBroken(FixBroken),
+    FixBroken,
     /// Pick a package version
     Pick(PickOptions),
     /// Mark a package status
@@ -103,13 +101,10 @@ enum OmaCommand {
     #[clap(alias = "rdep")]
     Rdepends(Dep),
     /// Clean downloaded packages
-    Clean(Clean),
+    Clean,
     /// See omakase log
     Log,
 }
-
-#[derive(Parser, Debug)]
-struct Clean;
 
 #[derive(Parser, Debug)]
 struct Dep {
@@ -172,9 +167,6 @@ pub struct UpgradeOptions {
     #[arg(long)]
     force_confnew: bool,
 }
-
-#[derive(Parser, Debug)]
-struct Refresh {}
 
 #[derive(Parser, Debug)]
 struct ListFiles {
@@ -294,7 +286,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Install(v) => OmaAction::new().await?.install(v).await,
         OmaCommand::Remove(v) => OmaAction::remove(v),
         OmaCommand::Upgrade(v) => OmaAction::new().await?.update(v).await,
-        OmaCommand::Refresh(_) => OmaAction::new().await?.refresh().await,
+        OmaCommand::Refresh => OmaAction::new().await?.refresh().await,
         OmaCommand::Show(v) => OmaAction::show(&v.packages, v.is_all),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword.join(" ")),
         // TODO: up_db 的值目前写死了 true，打算实现的逻辑是这样：
@@ -304,13 +296,8 @@ async fn try_main() -> Result<()> {
         OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
-        OmaCommand::FixBroken(_) => OmaAction::new().await?.fix_broken().await,
-        OmaCommand::Pick(v) => {
-            OmaAction::new()
-                .await?
-                .pick(v)
-                .await
-        }
+        OmaCommand::FixBroken => OmaAction::new().await?.fix_broken().await,
+        OmaCommand::Pick(v) => OmaAction::new().await?.pick(v).await,
         OmaCommand::Mark(v) => OmaAction::mark(v.action),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
         OmaCommand::List(v) => {
@@ -318,7 +305,7 @@ async fn try_main() -> Result<()> {
         }
         OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs, false),
         OmaCommand::Rdepends(v) => OmaAction::dep(&v.pkgs, true),
-        OmaCommand::Clean(_) => OmaAction::clean(),
+        OmaCommand::Clean => OmaAction::clean(),
         OmaCommand::Log => OmaAction::log(),
     }?;
 

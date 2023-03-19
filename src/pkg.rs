@@ -335,7 +335,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     }
 
     let height = crate::WRITER
-        .get_or_init(|| crate::cli::Writer::new())
+        .get_or_init(crate::cli::Writer::new)
         .get_height();
 
     let mut output = vec![];
@@ -385,10 +385,10 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     if output.len() * 2 <= height.into() {
         for (prefix, line, desc) in &output {
             crate::WRITER
-                .get_or_init(|| crate::cli::Writer::new())
+                .get_or_init(crate::cli::Writer::new)
                 .writeln(prefix, line)?;
             crate::WRITER
-                .get_or_init(|| crate::cli::Writer::new())
+                .get_or_init(crate::cli::Writer::new)
                 .writeln("", desc)?;
         }
     } else {

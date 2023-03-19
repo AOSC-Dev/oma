@@ -66,7 +66,7 @@ impl Pager {
 
     pub fn get_writer(&self) -> Result<Box<dyn Write + '_>> {
         let res = match self {
-            Pager::Plain => crate::WRITER.get_or_init(|| crate::cli::Writer::new()).get_writer(),
+            Pager::Plain => crate::WRITER.get_or_init(crate::cli::Writer::new).get_writer(),
             Pager::External((_, child)) => {
                 let stdin = child
                     .stdin

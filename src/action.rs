@@ -515,7 +515,7 @@ impl OmaAction {
     pub fn list_files(kw: &str) -> Result<()> {
         let res = find(kw, true, false)?;
 
-        let height = WRITER.get_or_init(|| cli::Writer::new()).get_height();
+        let height = WRITER.get_or_init(cli::Writer::new).get_height();
 
         let mut pager = if res.len() <= height.into() {
             Pager::new(true, false)?
@@ -541,7 +541,7 @@ impl OmaAction {
     pub fn search_file(kw: &str) -> Result<()> {
         let res = find(kw, false, false)?;
 
-        let height = WRITER.get_or_init(|| cli::Writer::new()).get_height();
+        let height = WRITER.get_or_init(cli::Writer::new).get_height();
 
         let mut pager = if res.len() <= height.into() {
             Pager::new(true, false)?
@@ -736,7 +736,7 @@ impl OmaAction {
         let cache = new_cache!()?;
 
         for i in &r.packages {
-            let pkg = cache.get(&i).context(format!("Can not get package {i}"))?;
+            let pkg = cache.get(i).context(format!("Can not get package {i}"))?;
             if !pkg.is_installed() {
                 info!("Package {i} is not installed, so no need to remove.");
                 continue;
