@@ -1422,13 +1422,13 @@ impl Debug for Action {
 
         write!(f, ", Upgrade: [ ")?;
         for i in &self.update {
-            write!(f, "{}({}), ", i.name_no_color, i.version)?;
+            write!(f, "{} ({}), ", i.name_no_color, i.version)?;
         }
         write!(f, " ]")?;
 
         write!(f, ", Downgrade: [ ")?;
         for i in &self.downgrade {
-            write!(f, "{}({}), ", i.name_no_color, i.version)?;
+            write!(f, "{} ({}), ", i.name_no_color, i.version)?;
         }
         write!(f, " ]")?;
 
