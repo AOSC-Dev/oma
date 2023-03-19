@@ -206,6 +206,9 @@ struct Delete {
     /// Force install packages for can't resolve depends 
     #[arg(long)]
     force_yes: bool,
+    /// Keep package config
+    #[arg(long)]
+    keep_config: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -268,11 +271,10 @@ async fn try_main() -> Result<()> {
 
     match args.subcommand {
         OmaCommand::Install(v) => OmaAction::new().await?.install(v).await,
-        // TODO: 目前写死了删除的行为是 apt purge，以后会允许用户更改配置文件以更改删除行为
         OmaCommand::Remove(v) => {
             OmaAction::new()
                 .await?
-                .remove(&v.packages, true, v.yes, v.force_yes)
+                .remove(&v.packages, !v.keep_config, v.yes, v.force_yes)
         }
         OmaCommand::Upgrade(v) => {
             OmaAction::new()

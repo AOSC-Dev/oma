@@ -153,7 +153,7 @@ impl OmaAction {
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len) = apt_handler(&cache, false, force_yes)?;
+            let (action, len) = apt_handler(&cache, false, force_yes, false)?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -559,7 +559,7 @@ impl OmaAction {
 
         let cache = new_cache!()?;
 
-        let (action, _) = apt_handler(&cache, false, false)?;
+        let (action, _) = apt_handler(&cache, false, false, false)?;
 
         let mut list = action.install.clone();
         list.extend(action.update.clone());
@@ -673,7 +673,7 @@ impl OmaAction {
     async fn install_inner(&self, opt: &InstallOptions, count: usize) -> InstallResult<()> {
         let cache = install_handle(&opt.packages, opt.install_dbg, opt.reinstall)?;
 
-        let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes)?;
+        let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -726,7 +726,7 @@ impl OmaAction {
             pkg.protect();
         }
 
-        let (action, len) = apt_handler(&cache, false, force_yes)?;
+        let (action, len) = apt_handler(&cache, false, force_yes, is_purge)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -856,7 +856,7 @@ impl OmaAction {
             pkg.mark_install(true, true);
             pkg.protect();
 
-            let (action, _) = apt_handler(&cache, no_fixbroken, false)?;
+            let (action, _) = apt_handler(&cache, no_fixbroken, false, false)?;
             let disk_size = cache.depcache().disk_size();
 
             let mut list = vec![];
@@ -1111,12 +1111,12 @@ fn is_root() -> Result<()> {
 }
 
 /// apt autoremove
-fn autoremove(cache: &Cache) {
+fn autoremove(cache: &Cache, is_purge: bool) {
     let sort = PackageSort::default();
 
     for pkg in cache.packages(&sort) {
         if pkg.is_auto_removable() {
-            pkg.mark_delete(true);
+            pkg.mark_delete(is_purge);
             pkg.protect();
         }
     }
@@ -1303,7 +1303,7 @@ impl Action {
 }
 
 /// Handle apt resolve result to display results
-fn apt_handler(cache: &Cache, no_fixbroken: bool, force_yes: bool) -> Result<(Action, usize)> {
+fn apt_handler(cache: &Cache, no_fixbroken: bool, force_yes: bool, is_purge: bool) -> Result<(Action, usize)> {
     if force_yes {
         let config = Config::new_clear();
         config.set("APT::Get::force-yes", "true");
@@ -1314,7 +1314,7 @@ fn apt_handler(cache: &Cache, no_fixbroken: bool, force_yes: bool) -> Result<(Ac
         cache.fix_broken();
     }
     cache.resolve(fix_broken)?;
-    autoremove(cache);
+    autoremove(cache, is_purge);
     cache.resolve(fix_broken)?;
 
     let changes = cache.get_changes(true).collect::<Vec<_>>();
@@ -1397,7 +1397,7 @@ fn apt_handler(cache: &Cache, no_fixbroken: bool, force_yes: bool) -> Result<(Ac
         if pkg.marked_delete() {
             let name = pkg.name();
 
-            let is_purge = true;
+            let is_purge = pkg.marked_purge();
 
             let mut v = Vec::new();
 
