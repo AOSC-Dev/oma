@@ -1542,7 +1542,7 @@ fn display_result(action: &Action, cache: &Cache) -> Result<()> {
     if !install.is_empty() {
         writeln!(
             out,
-            "{} packages will be {}:\n",
+            "\n{} packages will be {}:\n",
             install.len(),
             style("installed").green().bold()
         )?;
@@ -1564,7 +1564,7 @@ fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             out,
             "\n{} packages will be {}:\n",
             update.len(),
-            style("upgraded").green().bold()
+            style("upgraded").cyan().bold()
         )?;
 
         let mut table = Table::new(&update);
@@ -1602,7 +1602,7 @@ fn display_result(action: &Action, cache: &Cache) -> Result<()> {
     if !reinstall.is_empty() {
         writeln!(
             out,
-            "{} packages will be {}:\n",
+            "\n{} packages will be {}:\n",
             reinstall.len(),
             style("reinstall").blue().bold()
         )?;
