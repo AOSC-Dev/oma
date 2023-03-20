@@ -15,6 +15,7 @@ use rust_apt::{
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, cmp_versions, DiskSpace, Exception},
 };
+use sha2::digest::typenum::Less;
 use std::{cmp::Ordering as CmpOrdering, fmt::Write as FmtWrite, io::BufRead};
 use sysinfo::{Pid, System, SystemExt};
 use tabled::{
@@ -1662,7 +1663,7 @@ struct UnmetTable {
 }
 
 fn find_unmet_deps(cache: &Cache) -> Result<()> {
-    let changes = cache.get_changes(true).collect::<Vec<_>>();
+    let changes = cache.get_changes(true);
 
     let mut v = vec![];
 
@@ -1706,7 +1707,7 @@ fn find_unmet_deps(cache: &Cache) -> Result<()> {
                                         }
                                         ">>" => {
                                             let cmp = cmp_versions(&need_ver, cand.version()); // 要求 >> 2.36-4，但用户在安装 2.36-2
-                                            if cmp == CmpOrdering::Greater {
+                                            if cmp != CmpOrdering::Less {
                                                 v.push(UnmetTable {
                                                     package: dep.name,
                                                     unmet_dependency: format!(
@@ -1724,7 +1725,7 @@ fn find_unmet_deps(cache: &Cache) -> Result<()> {
                                         }
                                         ">" => {
                                             let cmp = cmp_versions(&need_ver, cand.version()); // 要求 > 2.36-4，但用户在安装 2.36-2
-                                            if cmp == CmpOrdering::Greater {
+                                            if cmp != CmpOrdering::Less {
                                                 v.push(UnmetTable {
                                                     package: dep.name,
                                                     unmet_dependency: format!(
@@ -1780,7 +1781,7 @@ fn find_unmet_deps(cache: &Cache) -> Result<()> {
                                         "<<" => {
                                             // 1: 2.36-4 2: 2.36-6
                                             let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
-                                            if cmp == CmpOrdering::Less {
+                                            if cmp != CmpOrdering::Greater {
                                                 v.push(UnmetTable {
                                                     package: dep.name,
                                                     unmet_dependency: format!(
@@ -1799,7 +1800,7 @@ fn find_unmet_deps(cache: &Cache) -> Result<()> {
                                         "<" => {
                                             // 1: 2.36-4 2: 2.36-6
                                             let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
-                                            if cmp == CmpOrdering::Less {
+                                            if cmp  != CmpOrdering::Greater {
                                                 v.push(UnmetTable {
                                                     package: dep.name,
                                                     unmet_dependency: format!(
