@@ -363,19 +363,13 @@ pub async fn update_db(
     for (i, c) in sources.iter().enumerate() {
         match c.from {
             OmaSourceEntryFrom::Http => {
-                let task: BoxFuture<'_, Result<(FileName, usize)>> =
-                    Box::pin(download_db(
-                        c.inrelease_path.clone(),
-                        client,
-                        "InRelease".to_owned(),
-                        OmaProgressBar::new(
-                            None,
-                            Some((i + 1, sources.len())),
-                            mb.clone(),
-                            None,
-                        ),
-                        i,
-                    ));
+                let task: BoxFuture<'_, Result<(FileName, usize)>> = Box::pin(download_db(
+                    c.inrelease_path.clone(),
+                    client,
+                    "InRelease".to_owned(),
+                    OmaProgressBar::new(None, Some((i + 1, sources.len())), mb.clone(), None),
+                    i,
+                ));
 
                 tasks.push(task);
             }
@@ -402,7 +396,7 @@ pub async fn update_db(
         let inrelease = InReleaseParser::new(
             &Path::new(APT_LIST_DISTS).join(name.0),
             ose.signed_by.as_deref(),
-            &ose.url
+            &ose.url,
         )?;
 
         let checksums = inrelease

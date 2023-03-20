@@ -1,12 +1,32 @@
-use std::io::Write;
+use anyhow::{bail, Context, Result};
+use std::{io::Write, sync::atomic::Ordering};
 
+use console::{style, Color};
+use indicatif::HumanBytes;
 use rust_apt::{
+    cache::Cache,
     config::Config,
+    package::DepType,
     raw::progress::{AcquireProgress, InstallProgress},
-    util::{get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys},
+    util::{
+        cmp_versions, get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str,
+        DiskSpace, NumSys,
+    },
+};
+use tabled::{
+    object::{Columns, Segment},
+    Alignment, Modify, Style, Table, Tabled,
 };
 
-use crate::{debug, warn};
+use std::cmp::Ordering as CmpOrdering;
+
+use crate::{
+    action::{Action, InstallRow},
+    debug,
+    pager::Pager,
+    pkg::OmaDependency,
+    warn, ALLOWCTRLC,
+};
 
 // TODO: Make better structs for pkgAcquire items, workers, owners.
 /// AptAcquireProgress is the default struct for the update method on the cache.
@@ -198,4 +218,413 @@ impl InstallProgress for OmaAptInstallProgress {
 
     // TODO: Need to figure out when to use this.
     fn error(&mut self, _pkgname: String, _steps_done: u64, _total_steps: u64, _error: String) {}
+}
+
+#[derive(Tabled)]
+struct UnmetTable {
+    #[tabled(rename = "Package")]
+    package: String,
+    #[tabled(rename = "Unmet Dependency")]
+    unmet_dependency: String,
+    #[tabled(rename = "Specified Dependency")]
+    specified_dependency: String,
+}
+
+pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
+    let changes = cache.get_changes(true);
+
+    let mut v = vec![];
+
+    let mut pager = Pager::new(false, true)?;
+    let mut out = pager.get_writer()?;
+
+    for c in changes {
+        if let Some(cand) = c.candidate() {
+            let rdep = c.rdepends_map();
+            let rdep = rdep.get(&DepType::Depends);
+
+            if let Some(rdep) = rdep {
+                let rdep = OmaDependency::map_deps(rdep);
+                for b_rdep in rdep {
+                    for dep in b_rdep {
+                        let pkg = cache.get(&dep.name);
+                        if let Some(pkg) = pkg {
+                            if pkg.is_installed() {
+                                let comp = dep.comp_str;
+                                let ver = dep.ver;
+                                if let (Some(comp), Some(need_ver)) = (comp, ver) {
+                                    match comp.as_str() {
+                                        ">=" => {
+                                            // 1: 2.36-4   2: 2.36-2
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 >= 2.36-4，但用户在安装 2.36-2
+                                            if cmp == CmpOrdering::Greater {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        ">>" => {
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 >> 2.36-4，但用户在安装 2.36-2
+                                            if cmp != CmpOrdering::Less {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        ">" => {
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 > 2.36-4，但用户在安装 2.36-2
+                                            if cmp != CmpOrdering::Less {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        "=" => {
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 = 2.36-4，但用户在安装 2.36-2
+                                            if cmp != CmpOrdering::Equal {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        "<=" => {
+                                            // 1: 2.36-4 2: 2.36-6
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
+                                            if cmp == CmpOrdering::Less {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        "<<" => {
+                                            // 1: 2.36-4 2: 2.36-6
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
+                                            if cmp != CmpOrdering::Greater {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        "<" => {
+                                            // 1: 2.36-4 2: 2.36-6
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
+                                            if cmp != CmpOrdering::Greater {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        x => panic!("Unsupport symbol: {x}, pkg: {}", dep.name),
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ALLOWCTRLC.store(true, Ordering::Relaxed);
+
+    let mut table = Table::new(v);
+
+    table
+        .with(Modify::new(Segment::all()).with(Alignment::left()))
+        // Install Size column should align right
+        .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
+        .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+        .with(Style::psql());
+
+    writeln!(out, "{table}")?;
+
+    drop(out);
+    pager.wait_for_exit().ok();
+
+    Ok(())
+}
+
+/// Display apt resolver results
+pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
+    let update = action.update.clone();
+    let install = action.install.clone();
+    let del = action.del.clone();
+    let reinstall = action.reinstall.clone();
+    let downgrade = action.downgrade.clone();
+
+    let mut pager = Pager::new(false, true)?;
+    let pager_name = pager.pager_name().to_owned();
+    let mut out = pager.get_writer()?;
+
+    write_review_help_message(&mut out)?;
+
+    if pager_name == Some("less") {
+        let has_x11 = std::env::var("DISPLAY");
+
+        if has_x11.is_ok() {
+            let line1 = "    Press [q] to end review";
+            let line2 = "    Press [Ctrl-c] to abort";
+            let line3 = "    Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.\n";
+
+            writeln!(out, "{}", style(line1).bold())?;
+            writeln!(out, "{}", style(line2).bold())?;
+            writeln!(out, "{}", style(line3).bold())?;
+        } else {
+            let line1 = "    Press [q] to end review";
+            let line2 = "    Press [Ctrl-c] to abort";
+            let line3 = "    Press [PgUp/Dn] or arrow keys to scroll.\n";
+
+            writeln!(out, "{}", style(line1).bold())?;
+            writeln!(out, "{}", style(line2).bold())?;
+            writeln!(out, "{}", style(line3).bold())?;
+        }
+    }
+
+    if !del.is_empty() {
+        writeln!(
+            out,
+            "{} packages will be {}:\n",
+            del.len(),
+            style("REMOVED").red().bold()
+        )?;
+
+        let mut table = Table::new(del);
+
+        table
+            .with(Modify::new(Segment::all()).with(Alignment::left()))
+            .with(Modify::new(Columns::new(1..2)).with(Alignment::left()))
+            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+            .with(Style::psql());
+
+        writeln!(out, "{table}")?;
+    }
+
+    if !install.is_empty() {
+        writeln!(
+            out,
+            "\n{} packages will be {}:\n",
+            install.len(),
+            style("installed").green().bold()
+        )?;
+
+        let mut table = Table::new(&install);
+
+        table
+            .with(Modify::new(Segment::all()).with(Alignment::left()))
+            // Install Size column should align right
+            .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
+            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+            .with(Style::psql());
+
+        writeln!(out, "{table}")?;
+    }
+
+    if !update.is_empty() {
+        writeln!(
+            out,
+            "\n{} packages will be {}:\n",
+            update.len(),
+            style("upgraded").color256(87)
+        )?;
+
+        let mut table = Table::new(&update);
+
+        table
+            .with(Modify::new(Segment::all()).with(Alignment::left()))
+            // Install Size column should align right
+            .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
+            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+            .with(Style::psql());
+
+        writeln!(out, "{table}")?;
+    }
+
+    if !downgrade.is_empty() {
+        writeln!(
+            out,
+            "\n{} packages will be {}:\n",
+            downgrade.len(),
+            style("downgraded").yellow().bold()
+        )?;
+
+        let mut table = Table::new(&downgrade);
+
+        table
+            .with(Modify::new(Segment::all()).with(Alignment::left()))
+            // Install Size column should align right
+            .with(Modify::new(Columns::new(1..2)).with(Alignment::right()))
+            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+            .with(Style::psql());
+
+        writeln!(out, "{table}")?;
+    }
+
+    if !reinstall.is_empty() {
+        writeln!(
+            out,
+            "\n{} packages will be {}:\n",
+            reinstall.len(),
+            style("reinstall").blue().bold()
+        )?;
+
+        let mut table = Table::new(&reinstall);
+
+        table
+            .with(Modify::new(Segment::all()).with(Alignment::left()))
+            // Install Size column should align right
+            .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
+            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+            .with(Style::psql());
+
+        writeln!(out, "{table}")?;
+    }
+
+    let mut list = vec![];
+    list.extend(install);
+    list.extend(update);
+    list.extend(downgrade);
+
+    writeln!(
+        out,
+        "\n{} {}",
+        style("Total download size:").bold(),
+        HumanBytes(download_size(&list, cache)?)
+    )?;
+
+    let (symbol, abs_install_size_change) = match cache.depcache().disk_size() {
+        DiskSpace::Require(n) => ("+", n),
+        DiskSpace::Free(n) => ("-", n),
+    };
+
+    writeln!(
+        out,
+        "{} {}{}",
+        style("Estimated change in storage usage:").bold(),
+        symbol,
+        HumanBytes(abs_install_size_change)
+    )?;
+
+    drop(out);
+    let success = pager.wait_for_exit()?;
+
+    if success {
+        Ok(())
+    } else {
+        // User aborted the operation
+        bail!("")
+    }
+}
+
+/// Get download size
+pub fn download_size(install_and_update: &[InstallRow], cache: &Cache) -> Result<u64> {
+    let mut result = 0;
+
+    for i in install_and_update {
+        let pkg = cache
+            .get(&i.name_no_color)
+            .context(format!("Can not get package {}", i.name_no_color))?;
+
+        let ver = pkg.get_version(&i.new_version).context(format!(
+            "Can not get package {} version {}",
+            i.name_no_color, i.new_version
+        ))?;
+
+        let size = ver.size();
+
+        result += size;
+    }
+
+    Ok(result)
+}
+
+fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
+    writeln!(
+        w,
+        "{:<80}",
+        style("Pending Operations").bold().bg(Color::Color256(25))
+    )?;
+    writeln!(w)?;
+    writeln!(w, "Shown below is an overview of the pending changes Omakase will apply to your\nsystem, please review them carefully\n")?;
+    writeln!(
+        w,
+        "Omakase may {}, {}, {}, {}, or {}\npackages in order to fulfill your requested changes.",
+        style("install").green(),
+        style("remove").red(),
+        style("upgrade").color256(87),
+        style("downgrade").yellow(),
+        style("reinstall").blue()
+    )?;
+    writeln!(w)?;
+
+    Ok(())
 }

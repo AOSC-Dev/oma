@@ -3,11 +3,12 @@ use std::process::exit;
 use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
 
-use action::{unlock_oma, MarkAction, OmaAction};
+use action::{MarkAction, OmaAction};
 use cli::Writer;
 use nix::sys::signal;
 use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use utils::unlock_oma;
 
 mod action;
 mod checksum;
