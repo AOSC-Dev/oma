@@ -1,5 +1,5 @@
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -30,7 +30,7 @@ async fn download_single_pkg(
     hash: String,
     version: String,
     opb: OmaProgressBar,
-    download_dir: &Path,
+    download_dir: PathBuf,
 ) -> Result<()> {
     let filename = urls
         .first()
@@ -40,7 +40,7 @@ async fn download_single_pkg(
 
     let filename = trans_filename(filename, version)?;
 
-    try_download(urls, client, &filename, hash, opb, download_dir).await?;
+    try_download(urls, client, &filename, hash, opb, &download_dir).await?;
 
     Ok(())
 }
@@ -157,11 +157,13 @@ pub async fn packages_download(
             let filename = trans_filename(filename, c.new_version.clone())?;
             let url = url.parent().unwrap().join(url_filename);
 
-            tokio::fs::copy(&url, Path::new(APT_LIST_DISTS).join(filename))
+            tokio::fs::copy(&url, APT_LIST_DISTS.join(filename))
                 .await
                 .context(format!("Can not find file: {}", url.display()))?;
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();
+
+            let download_dir_def = DOWNLOAD_DIR.clone();
 
             task.push(download_single_pkg(
                 c.pkg_urls.clone(),
@@ -174,7 +176,7 @@ pub async fn packages_download(
                     mbc.clone(),
                     Some(global_bar.clone()),
                 ),
-                download_dir.unwrap_or(Path::new(DOWNLOAD_DIR)),
+                download_dir.unwrap_or(&download_dir_def).to_path_buf(),
             ));
         }
 

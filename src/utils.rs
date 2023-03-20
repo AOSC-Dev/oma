@@ -1,11 +1,12 @@
 use std::{
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
     str::FromStr,
     sync::atomic::Ordering,
 };
 
 use anyhow::{bail, Result};
+use once_cell::sync::Lazy;
 use rust_apt::util::DiskSpace;
 
 use indicatif::HumanBytes;
@@ -13,7 +14,7 @@ use sysinfo::{Pid, System, SystemExt};
 
 use crate::action::{Action, LogAction};
 
-const LOCK: &str = "/run/lock/oma.lock";
+const LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
 #[cfg(target_arch = "powerpc64")]
 #[inline]
@@ -70,9 +71,8 @@ pub fn size_checker(size: &DiskSpace, download_size: u64) -> Result<()> {
 
 /// Lock oma
 pub fn lock_oma() -> Result<()> {
-    let lock = Path::new(LOCK);
-    if lock.is_file() {
-        let mut lock_file = std::fs::File::open(lock)?;
+    if LOCK.is_file() {
+        let mut lock_file = std::fs::File::open(LOCK.as_path())?;
         let mut old_pid = String::new();
         lock_file.read_to_string(&mut old_pid)?;
 
@@ -88,7 +88,7 @@ pub fn lock_oma() -> Result<()> {
             unlock_oma()?;
         }
     }
-    let mut lock_file = std::fs::File::create(lock)?;
+    let mut lock_file = std::fs::File::create(LOCK.as_path())?;
     let pid = std::process::id().to_string();
 
     // Set global lock parameter
@@ -101,8 +101,8 @@ pub fn lock_oma() -> Result<()> {
 
 /// Unlock oma
 pub fn unlock_oma() -> Result<()> {
-    if Path::new(LOCK).exists() {
-        std::fs::remove_file(LOCK)?;
+    if LOCK.exists() {
+        std::fs::remove_file(LOCK.as_path())?;
     }
 
     Ok(())

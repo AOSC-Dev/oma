@@ -1,10 +1,11 @@
-use std::{collections::HashMap, io::Read, path::Path, sync::Arc, time::Duration};
+use std::{collections::HashMap, io::Read, path::{Path, PathBuf}, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
 use flate2::bufread::GzDecoder;
 use futures::{future::BoxFuture, StreamExt};
 use indicatif::{MultiProgress, ProgressBar};
+use once_cell::sync::Lazy;
 use reqwest::{Client, Url};
 use serde::Deserialize;
 use tokio::{io::AsyncReadExt, task::spawn_blocking};
@@ -18,9 +19,9 @@ use crate::{
     verify,
 };
 
-pub const APT_LIST_DISTS: &str = "/var/lib/apt/lists";
-pub const DOWNLOAD_DIR: &str = "/var/cache/apt/archives";
-const MIRROR: &str = "/usr/share/distro-repository-data/mirrors.yml";
+pub const APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/lib/apt/lists"));
+pub const DOWNLOAD_DIR: Lazy<PathBuf>  = Lazy::new(|| PathBuf::from("/var/cache/apt/archives"));
+const MIRROR: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
 
 #[derive(Debug)]
 struct FileName(String);
@@ -52,7 +53,7 @@ async fn download_db(
         &url,
         client,
         filename.to_string(),
-        Path::new(APT_LIST_DISTS),
+        &APT_LIST_DISTS,
         None,
         opb,
     )
@@ -78,7 +79,7 @@ pub async fn get_url_short_and_branch(url: &str) -> Result<String> {
     let url = format!("{schema}://{host}/");
 
     // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
-    if let Ok(mut mirror_map_f) = tokio::fs::File::open(MIRROR).await {
+    if let Ok(mut mirror_map_f) = tokio::fs::File::open(&*MIRROR).await {
         let mut buf = Vec::new();
         mirror_map_f.read_to_end(&mut buf).await?;
 
@@ -333,9 +334,9 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
 async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, usize)> {
     let db_path = db_path.split("://").nth(1).unwrap_or(db_path);
     let name = FileName::new(db_path);
-    tokio::fs::copy(db_path, Path::new(APT_LIST_DISTS).join(&name.0))
+    tokio::fs::copy(db_path, APT_LIST_DISTS.join(&name.0))
         .await
-        .context(format!("Can not copy {db_path} to {APT_LIST_DISTS}"))?;
+        .context(format!("Can not copy {db_path} to {}", APT_LIST_DISTS.display()))?;
 
     let mut f = tokio::fs::File::open(db_path)
         .await
@@ -394,7 +395,7 @@ pub async fn update_db(
         let ose = sources.get(index).unwrap();
 
         let inrelease = InReleaseParser::new(
-            &Path::new(APT_LIST_DISTS).join(name.0),
+            &APT_LIST_DISTS.join(name.0),
             ose.signed_by.as_deref(),
             &ose.url,
         )?;
@@ -463,7 +464,7 @@ pub async fn update_db(
                 source_index.dist_path, not_compress_filename_before
             ));
 
-            let p = Path::new(APT_LIST_DISTS).join(&not_compress_filename.0);
+            let p = APT_LIST_DISTS.join(&not_compress_filename.0);
 
             let typ = match c.file_type {
                 DistFileType::CompressContents => "Contents",
@@ -612,7 +613,7 @@ async fn download_and_extract(
     )
     .await?;
 
-    let p = Path::new(APT_LIST_DISTS).join(&name.0);
+    let p = APT_LIST_DISTS.join(&name.0);
     let p_clone = p.clone();
 
     let ic = i.clone();
@@ -630,7 +631,7 @@ async fn download_and_extract(
     f.read_to_end(&mut buf).await?;
 
     let buf = decompress(&buf, &name.0)?;
-    let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
+    let p = APT_LIST_DISTS.join(not_compress_file);
     tokio::fs::write(p, buf).await?;
 
     Ok(())
@@ -647,9 +648,9 @@ async fn download_and_extract_local(
     let path = format!("{path}/{}", i.name);
     let name = FileName::new(&i.name);
 
-    tokio::fs::copy(&path, Path::new(APT_LIST_DISTS).join(&name.0))
+    tokio::fs::copy(&path, APT_LIST_DISTS.join(&name.0))
         .await
-        .context(format!("Can not copy {path} to {APT_LIST_DISTS}"))?;
+        .context(format!("Can not copy {path} to {}", APT_LIST_DISTS.display()))?;
 
     let mut f = tokio::fs::File::open(&path)
         .await
@@ -657,7 +658,7 @@ async fn download_and_extract_local(
     let mut buf = vec![];
     f.read_to_end(&mut buf).await?;
 
-    let p = Path::new(APT_LIST_DISTS).join(&name.0);
+    let p = APT_LIST_DISTS.join(&name.0);
 
     let ic = i.clone();
     let result = spawn_blocking(move || {
@@ -677,7 +678,7 @@ async fn download_and_extract_local(
         buf
     };
 
-    let p = Path::new(APT_LIST_DISTS).join(not_compress_file);
+    let p = APT_LIST_DISTS.join(not_compress_file);
 
     tokio::fs::write(&p, buf)
         .await

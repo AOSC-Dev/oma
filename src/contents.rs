@@ -55,7 +55,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
         format!(r"^(.*?{kw_escape}(?:.*[^\s])?)\s+(\S+)\s*$")
     };
 
-    let dir = std::fs::read_dir(APT_LIST_DISTS)?;
+    let dir = std::fs::read_dir(&*APT_LIST_DISTS)?;
     let mut paths = Vec::new();
     for i in dir.flatten() {
         if i.file_name()
