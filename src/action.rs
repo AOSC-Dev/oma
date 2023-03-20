@@ -1826,6 +1826,8 @@ fn find_unmet_deps(cache: &Cache) -> Result<()> {
         }
     }
 
+    ALLOWCTRLC.store(true, Ordering::Relaxed);
+
     let mut table = Table::new(v);
 
     table
