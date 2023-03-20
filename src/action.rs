@@ -42,7 +42,7 @@ use crate::{
     pkg::{query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::size_checker,
-    warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER, cli,
+    warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -135,7 +135,7 @@ impl OmaAction {
 
         update_db(&self.sources, &self.client, None).await?;
 
-        let start_time =  OffsetDateTime::now_utc().to_string();
+        let start_time = OffsetDateTime::now_utc().to_string();
 
         async fn update_inner(
             client: &Client,
@@ -194,7 +194,7 @@ impl OmaAction {
                     }
                 }
                 Ok(v) => {
-                    let end_time =  OffsetDateTime::now_utc().to_string();
+                    let end_time = OffsetDateTime::now_utc().to_string();
                     return log(&v, &start_time, &end_time);
                 }
             }
@@ -205,7 +205,7 @@ impl OmaAction {
         is_root()?;
         lock_oma()?;
 
-        let start_time =  OffsetDateTime::now_utc().to_string();
+        let start_time = OffsetDateTime::now_utc().to_string();
 
         if opt.yes {
             yes_warn();
@@ -515,7 +515,7 @@ impl OmaAction {
     pub fn list_files(kw: &str) -> Result<()> {
         let res = find(kw, true, false)?;
 
-        let height = WRITER.get_or_init(cli::Writer::new).get_height();
+        let height = WRITER.get_height();
 
         let mut pager = if res.len() <= height.into() {
             Pager::new(true, false)?
@@ -541,7 +541,7 @@ impl OmaAction {
     pub fn search_file(kw: &str) -> Result<()> {
         let res = find(kw, false, false)?;
 
-        let height = WRITER.get_or_init(cli::Writer::new).get_height();
+        let height = WRITER.get_height();
 
         let mut pager = if res.len() <= height.into() {
             Pager::new(true, false)?

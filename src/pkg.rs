@@ -334,9 +334,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         bail!("Could not find any packages for keyword: {input}");
     }
 
-    let height = crate::WRITER
-        .get_or_init(crate::cli::Writer::new)
-        .get_height();
+    let height = crate::WRITER.get_height();
 
     let mut output = vec![];
 
@@ -384,12 +382,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     if output.len() * 2 <= height.into() {
         for (prefix, line, desc) in &output {
-            crate::WRITER
-                .get_or_init(crate::cli::Writer::new)
-                .writeln(prefix, line)?;
-            crate::WRITER
-                .get_or_init(crate::cli::Writer::new)
-                .writeln("", desc)?;
+            crate::WRITER.writeln(prefix, line)?;
+            crate::WRITER.writeln("", desc)?;
         }
     } else {
         let mut pager = Pager::new(false, false)?;

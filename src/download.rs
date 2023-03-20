@@ -398,7 +398,7 @@ pub async fn download(
 
 pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
     let bar_template = {
-        let max_len = WRITER.get_or_init(crate::cli::Writer::new).get_max_len();
+        let max_len = WRITER.get_max_len();
         if is_global {
             if max_len < 90 {
                 " {wide_msg} {bytes}".to_owned()
