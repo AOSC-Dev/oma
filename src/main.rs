@@ -239,15 +239,6 @@ struct List {
 
 #[tokio::main]
 async fn main() {
-    // 加载日志
-    // let file_appender = tracing_appender::rolling::never("/var/log/oma", "history");
-    // let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-
-    // tracing_subscriber::fmt()
-    //     .with_writer(non_blocking)
-    //     .with_target(false)
-    //     .init();
-
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
@@ -261,14 +252,6 @@ async fn main() {
     }
 
     unlock_oma().ok();
-
-    // 往 log 文件添加空行，方便阅读：
-    // let mut f = std::fs::OpenOptions::new()
-    //     .append(true)
-    //     .open("/var/log/oma/history")
-    //     .expect("Can not get log file");
-
-    // let _ = f.write_all(b"\n\n");
 
     exit(0);
 }

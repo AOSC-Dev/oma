@@ -10,12 +10,12 @@ use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     config::Config,
     new_cache,
-    package::Version,
+    package::{DepType, Version},
     raw::{package::RawVersion, progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
-    util::{apt_lock, apt_unlock, apt_unlock_inner, DiskSpace, Exception},
+    util::{apt_lock, apt_unlock, apt_unlock_inner, cmp_versions, DiskSpace, Exception},
 };
-use std::{fmt::Write as FmtWrite, io::BufRead};
+use std::{cmp::Ordering as CmpOrdering, fmt::Write as FmtWrite, io::BufRead};
 use sysinfo::{Pid, System, SystemExt};
 use tabled::{
     object::{Columns, Segment},
@@ -39,7 +39,7 @@ use crate::{
     formatter::{NoProgress, OmaAptInstallProgress},
     info,
     pager::Pager,
-    pkg::{query_pkgs, search_pkgs, PkgInfo},
+    pkg::{query_pkgs, search_pkgs, OmaDependency, PkgInfo},
     success,
     utils::size_checker,
     warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER,
@@ -1453,9 +1453,18 @@ fn apt_handler(
     if fix_broken {
         cache.fix_broken();
     }
-    cache.resolve(fix_broken)?;
+
+    if let Err(e) = cache.resolve(fix_broken) {
+        find_unmet_deps(cache)?;
+        return Err(e.into());
+    }
+
     autoremove(cache, is_purge);
-    cache.resolve(fix_broken)?;
+
+    if let Err(e) = cache.resolve(fix_broken) {
+        find_unmet_deps(cache)?;
+        return Err(e.into());
+    }
 
     let changes = cache.get_changes(true).collect::<Vec<_>>();
     let len = changes.len();
@@ -1640,6 +1649,198 @@ fn apt_handler(
     let action = Action::new(op, update, install, del, reinstall, downgrade);
 
     Ok((action, len))
+}
+
+#[derive(Tabled)]
+struct UnmetTable {
+    #[tabled(rename = "Package")]
+    package: String,
+    #[tabled(rename = "Unmet Dependency")]
+    unmet_dependency: String,
+    #[tabled(rename = "Specified Dependency")]
+    specified_dependency: String,
+}
+
+fn find_unmet_deps(cache: &Cache) -> Result<()> {
+    let changes = cache.get_changes(true).collect::<Vec<_>>();
+
+    let mut v = vec![];
+
+    let mut pager = Pager::new(false, true)?;
+    let mut out = pager.get_writer()?;
+
+    for c in changes {
+        if let Some(cand) = c.candidate() {
+            let rdep = c.rdepends_map();
+            let rdep = rdep.get(&DepType::Depends);
+
+            if let Some(rdep) = rdep {
+                let rdep = OmaDependency::map_deps(rdep);
+                for b_rdep in rdep {
+                    for dep in b_rdep {
+                        let pkg = cache.get(&dep.name);
+                        if let Some(pkg) = pkg {
+                            if pkg.is_installed() {
+                                let comp = dep.comp_str;
+                                let ver = dep.ver;
+                                if let (Some(comp), Some(need_ver)) = (comp, ver) {
+                                    match comp.as_str() {
+                                        ">=" => {
+                                            // 1: 2.36-4   2: 2.36-2
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 >= 2.36-4，但用户在安装 2.36-2
+                                            if cmp == CmpOrdering::Greater {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        ">>" => {
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 >> 2.36-4，但用户在安装 2.36-2
+                                            if cmp == CmpOrdering::Greater {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        ">" => {
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 > 2.36-4，但用户在安装 2.36-2
+                                            if cmp == CmpOrdering::Greater {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        "=" => {
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 = 2.36-4，但用户在安装 2.36-2
+                                            if cmp != CmpOrdering::Equal {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        "<=" => {
+                                            // 1: 2.36-4 2: 2.36-6
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
+                                            if cmp == CmpOrdering::Less {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        "<<" => {
+                                            // 1: 2.36-4 2: 2.36-6
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
+                                            if cmp == CmpOrdering::Less {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        "<" => {
+                                            // 1: 2.36-4 2: 2.36-6
+                                            let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
+                                            if cmp == CmpOrdering::Less {
+                                                v.push(UnmetTable {
+                                                    package: dep.name,
+                                                    unmet_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        dep.comp_ver.unwrap()
+                                                    ),
+                                                    specified_dependency: format!(
+                                                        "{} {}",
+                                                        c.name(),
+                                                        cand.version()
+                                                    ),
+                                                })
+                                            }
+                                        }
+                                        x => panic!("Unsupport symbol: {x}, pkg: {}", dep.name),
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut table = Table::new(v);
+
+    table
+        .with(Modify::new(Segment::all()).with(Alignment::left()))
+        // Install Size column should align right
+        .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
+        .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+        .with(Style::psql());
+
+    writeln!(out, "{table}")?;
+
+    drop(out);
+    pager.wait_for_exit().ok();
+
+    Ok(())
 }
 
 /// Display apt resolver results
