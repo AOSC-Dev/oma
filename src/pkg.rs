@@ -10,7 +10,7 @@ use rust_apt::{
 };
 use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
 
-use crate::{cli::gen_prefix, pager::Pager, ALLOWCTRLC};
+use crate::{cli::gen_prefix, pager::Pager, ALLOWCTRLC, info};
 
 pub struct PkgInfo {
     pub package: String,
@@ -411,4 +411,43 @@ fn pkg_score(input: &str, pkginfo: &PkgInfo) -> u16 {
     }
 
     (strsim::jaro_winkler(&pkginfo.package, input) * 1000.0) as u16
+}
+
+/// Mark package as install status
+pub fn mark_install(
+    cache: &Cache,
+    pkg: &str,
+    ver: RawVersion,
+    reinstall: bool,
+    is_local: bool,
+) -> Result<()> {
+    let pkg = cache.get(pkg).unwrap();
+    let ver = Version::new(ver, &pkg);
+    ver.set_candidate();
+
+    let version = ver.version();
+
+    if pkg.installed().as_ref() == Some(&ver) && !reinstall {
+        info!("{} {version} is already installed.", pkg.name());
+        return Ok(());
+    } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
+        pkg.mark_reinstall(true);
+    } else {
+        pkg.mark_install(true, true);
+        if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
+            // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
+            bail!(
+                "{} can't marked installed! maybe dependency issue?",
+                if is_local {
+                    ver.uris().next().unwrap_or(pkg.name().to_string())
+                } else {
+                    pkg.name().to_string()
+                }
+            );
+        }
+    }
+
+    pkg.protect();
+
+    Ok(())
 }

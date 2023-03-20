@@ -11,7 +11,7 @@ use rust_apt::{
     config::Config,
     new_cache,
     package::Version,
-    raw::{package::RawVersion, progress::AptInstallProgress, util::raw::apt_lock_inner},
+    raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, Exception},
 };
@@ -36,7 +36,7 @@ use crate::{
     },
     info,
     pager::Pager,
-    pkg::{query_pkgs, search_pkgs, PkgInfo},
+    pkg::{query_pkgs, search_pkgs, PkgInfo, mark_install},
     success,
     utils::{is_root, lock_oma, log_to_file, size_checker},
     warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER,
@@ -1279,45 +1279,6 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     }
 
     Ok(cache)
-}
-
-/// Mark package as install status
-fn mark_install(
-    cache: &Cache,
-    pkg: &str,
-    ver: RawVersion,
-    reinstall: bool,
-    is_local: bool,
-) -> Result<()> {
-    let pkg = cache.get(pkg).unwrap();
-    let ver = Version::new(ver, &pkg);
-    ver.set_candidate();
-
-    let version = ver.version();
-
-    if pkg.installed().as_ref() == Some(&ver) && !reinstall {
-        info!("{} {version} is already installed.", pkg.name());
-        return Ok(());
-    } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
-        pkg.mark_reinstall(true);
-    } else {
-        pkg.mark_install(true, true);
-        if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
-            // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-            bail!(
-                "{} can't marked installed! maybe dependency issue?",
-                if is_local {
-                    ver.uris().next().unwrap_or(pkg.name().to_string())
-                } else {
-                    pkg.name().to_string()
-                }
-            );
-        }
-    }
-
-    pkg.protect();
-
-    Ok(())
 }
 
 #[derive(Clone)]
