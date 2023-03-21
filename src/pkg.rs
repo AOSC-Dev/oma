@@ -234,7 +234,7 @@ fn dep_map_str(deps: &[Dependency]) -> String {
 #[derive(Debug)]
 pub struct OmaDependency {
     pub name: String,
-    pub comp_str: Option<String>,
+    pub comp_symbol: Option<String>,
     pub ver: Option<String>,
     pub comp_ver: Option<String>,
 }
@@ -243,7 +243,7 @@ impl OmaDependency {
     fn new(dep: &BaseDep) -> Self {
         Self {
             name: dep.name(),
-            comp_str: dep.comp().map(|x| x.to_string()),
+            comp_symbol: dep.comp().map(|x| x.to_string()),
             ver: dep.version().map(|x| x.to_string()),
             comp_ver: dep
                 .comp()

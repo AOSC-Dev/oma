@@ -6,7 +6,7 @@ use indicatif::HumanBytes;
 use rust_apt::{
     cache::Cache,
     config::Config,
-    package::DepType,
+    package::{DepType, Dependency, Package, Version},
     raw::progress::{AcquireProgress, InstallProgress},
     util::{
         cmp_versions, get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str,
@@ -241,16 +241,18 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
     for c in changes {
         if let Some(cand) = c.candidate() {
             let rdep = c.rdepends_map();
-            let rdep = rdep.get(&DepType::Depends);
+            let rdep_dep = rdep.get(&DepType::Depends);
+            let rdep_breaks = rdep.get(&DepType::Breaks);
+            let rdep_conflicts = rdep.get(&DepType::Conflicts);
 
-            if let Some(rdep) = rdep {
+            if let Some(rdep) = rdep_dep {
                 let rdep = OmaDependency::map_deps(rdep);
                 for b_rdep in rdep {
                     for dep in b_rdep {
                         let pkg = cache.get(&dep.name);
                         if let Some(pkg) = pkg {
                             if pkg.is_installed() {
-                                let comp = dep.comp_str;
+                                let comp = dep.comp_symbol;
                                 let ver = dep.ver;
                                 if let (Some(comp), Some(need_ver)) = (comp, ver) {
                                     match comp.as_str() {
@@ -392,6 +394,16 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
                     }
                 }
             }
+
+            // Format breaks
+            if let Some(rdep_breaks) = rdep_breaks {
+                find_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Break");
+            }
+
+            // Format Conflicts
+            if let Some(rdep_conflicts) = rdep_conflicts {
+                find_breaks(rdep_conflicts, cache, &mut v, &c, &cand, "Conflict");
+            }
         }
     }
 
@@ -412,6 +424,151 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
     pager.wait_for_exit().ok();
 
     Ok(())
+}
+
+fn find_breaks(
+    rdep_breaks: &[Dependency],
+    cache: &Cache,
+    v: &mut Vec<UnmetTable>,
+    c: &Package,
+    cand: &Version,
+    typ: &str,
+) {
+    let rdep = OmaDependency::map_deps(&rdep_breaks);
+    for b_rdep in rdep {
+        for dep in b_rdep {
+            let dep_pkg = cache.get(&dep.name);
+            if let Some(dep_pkg) = dep_pkg {
+                if dep.comp_ver.is_none() {
+                    if dep_pkg.is_installed() {
+                        v.push(UnmetTable {
+                            package: dep.name,
+                            unmet_dependency: format!("Break {}", dep_pkg.name()),
+                            specified_dependency: format!("{} {}", c.name(), cand.version()),
+                        })
+                    }
+                } else if let (Some(comp), Some(break_ver)) = (dep.comp_symbol, dep.ver) {
+                    match comp.as_str() {
+                        ">=" => {
+                            // a: breaks b >= 1.0，满足要求的条件是 break_ver > cand.version
+                            let cmp = cmp_versions(&break_ver, cand.version());
+                            if cmp != CmpOrdering::Greater {
+                                v.push(UnmetTable {
+                                    package: dep.name,
+                                    unmet_dependency: format!(
+                                        "{typ} {} {}",
+                                        dep_pkg.name(),
+                                        dep.comp_ver.unwrap()
+                                    ),
+                                    specified_dependency: format!(
+                                        "{} {}",
+                                        c.name(),
+                                        cand.version()
+                                    ),
+                                })
+                            }
+                        }
+                        ">>" => {
+                            // a: breaks b >> 1.0，满足要求的条件是 break_ver >>= cand.version
+                            let cmp = cmp_versions(&break_ver, cand.version());
+                            if cmp == CmpOrdering::Less {
+                                v.push(UnmetTable {
+                                    package: dep.name,
+                                    unmet_dependency: format!(
+                                        "{typ} {} {}",
+                                        dep_pkg.name(),
+                                        dep.comp_ver.unwrap()
+                                    ),
+                                    specified_dependency: format!(
+                                        "{} {}",
+                                        c.name(),
+                                        cand.version()
+                                    ),
+                                })
+                            }
+                        }
+                        ">" => {
+                            // a: breaks b > 1.0，满足要求的条件是 break_ver >= cand.version
+                            let cmp = cmp_versions(&break_ver, cand.version());
+                            if cmp == CmpOrdering::Less {
+                                v.push(UnmetTable {
+                                    package: dep.name,
+                                    unmet_dependency: format!(
+                                        "{typ} {} {}",
+                                        dep_pkg.name(),
+                                        dep.comp_ver.unwrap()
+                                    ),
+                                    specified_dependency: format!(
+                                        "{} {}",
+                                        c.name(),
+                                        cand.version()
+                                    ),
+                                })
+                            }
+                        }
+                        "<=" => {
+                            // a: breaks b <= 1.0，满足要求的条件是 break_ver < cand.version
+                            let cmp = cmp_versions(&break_ver, cand.version());
+                            if cmp != CmpOrdering::Less {
+                                v.push(UnmetTable {
+                                    package: dep.name,
+                                    unmet_dependency: format!(
+                                        "{typ} {} {}",
+                                        dep_pkg.name(),
+                                        dep.comp_ver.unwrap()
+                                    ),
+                                    specified_dependency: format!(
+                                        "{} {}",
+                                        c.name(),
+                                        cand.version()
+                                    ),
+                                })
+                            }
+                        }
+                        "<<" => {
+                            // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
+                            let cmp = cmp_versions(&break_ver, cand.version());
+                            if cmp == CmpOrdering::Greater {
+                                v.push(UnmetTable {
+                                    package: dep.name,
+                                    unmet_dependency: format!(
+                                        "{typ} {} {}",
+                                        dep_pkg.name(),
+                                        dep.comp_ver.unwrap()
+                                    ),
+                                    specified_dependency: format!(
+                                        "{} {}",
+                                        c.name(),
+                                        cand.version()
+                                    ),
+                                })
+                            }
+                        }
+                        "<" => {
+                            // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
+                            let cmp = cmp_versions(&break_ver, cand.version());
+                            if cmp == CmpOrdering::Greater {
+                                v.push(UnmetTable {
+                                    package: dep.name,
+                                    unmet_dependency: format!(
+                                        "{typ} {} {}",
+                                        dep_pkg.name(),
+                                        dep.comp_ver.unwrap()
+                                    ),
+                                    specified_dependency: format!(
+                                        "{} {}",
+                                        c.name(),
+                                        cand.version()
+                                    ),
+                                })
+                            }
+                        }
+                        x => panic!("Unsupport symbol: {x}, pkg: {}", dep.name),
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Display apt resolver results
