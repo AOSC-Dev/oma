@@ -275,8 +275,7 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
-            // Install Size column should align right
-            .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
+            .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
