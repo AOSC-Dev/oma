@@ -230,7 +230,7 @@ struct UnmetTable {
     specified_dependency: String,
 }
 
-pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
+pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
     let changes = cache.get_changes(true);
 
     let mut v = vec![];
@@ -309,7 +309,7 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
         pager.wait_for_exit().ok();
     }
 
-    Ok(())
+    Ok(!v.is_empty())
 }
 
 fn format_deps(

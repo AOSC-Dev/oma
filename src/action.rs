@@ -1368,16 +1368,24 @@ fn apt_handler(
         cache.fix_broken();
     }
 
-    if cache.resolve(fix_broken).is_err() {
-        find_unmet_deps(cache)?;
-        bail!("")
+    if let Err(e) = cache.resolve(fix_broken) {
+        let finded = find_unmet_deps(cache)?;
+        if finded {
+            bail!("")
+        }
+
+        return Err(e.into());
     }
 
     autoremove(cache, is_purge);
 
-    if cache.resolve(fix_broken).is_err() {
-        find_unmet_deps(cache)?;
-        bail!("")
+    if let Err(e) = cache.resolve(fix_broken) {
+        let finded = find_unmet_deps(cache)?;
+        if finded {
+            bail!("")
+        }
+
+        return Err(e.into());
     }
 
     let changes = cache.get_changes(true).collect::<Vec<_>>();
