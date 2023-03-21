@@ -1,7 +1,6 @@
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
-    time::Duration,
 };
 
 use anyhow::{bail, Context, Result};
@@ -12,7 +11,7 @@ use grep::{
 };
 use indicatif::ProgressBar;
 
-use crate::{db::APT_LIST_DISTS, utils::get_arch_name};
+use crate::{db::APT_LIST_DISTS, download::oma_spinner, utils::get_arch_name};
 
 use serde::Deserialize;
 
@@ -83,7 +82,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
         let mut res = vec![];
 
         let pb = ProgressBar::new_spinner();
-        pb.enable_steady_tick(Duration::from_millis(50));
+        oma_spinner(&pb);
 
         let mut cmd = Command::new("rg")
             .arg("--json")

@@ -268,41 +268,8 @@ pub async fn download(
         let pb = mbcc.add(ProgressBar::new_spinner());
         pb.set_message(format!("{progress_clone}{msg_clone}"));
 
-        let (is_egg, inv) = if AILURUS.load(Ordering::Relaxed) {
-            (
-                &[
-                    "☀️ ", "☀️ ", "☀️ ", "🌤 ", "⛅️ ", "🌥 ", "☁️ ", "🌧 ", "🌨 ", "🌧 ", "🌨 ", "🌧 ", "🌨 ",
-                    "⛈ ", "🌨 ", "🌧 ", "🌨 ", "☁️ ", "🌥 ", "⛅️ ", "🌤 ", "☀️ ", "☀️ ",
-                ][..],
-                100,
-            )
-        } else {
-            (
-                &[
-                    "( ●    )",
-                    "(  ●   )",
-                    "(   ●  )",
-                    "(    ● )",
-                    "(     ●)",
-                    "(    ● )",
-                    "(   ●  )",
-                    "(  ●   )",
-                    "( ●    )",
-                    "(●     )",
-                ][..],
-                80,
-            )
-        };
+        oma_spinner(&pb);
 
-        pb.enable_steady_tick(Duration::from_millis(inv));
-
-        pb.set_style(
-            ProgressStyle::with_template(" {msg:<48} {spinner}")
-                .unwrap()
-                // For more spinners check out the cli-spinners project:
-                // https://github.com/sindresorhus/cli-spinners/blob/master/spinners.json
-                .tick_strings(is_egg),
-        );
         while !is_send.load(Ordering::Relaxed) {}
 
         pb.finish_and_clear();
@@ -396,6 +363,44 @@ pub async fn download(
     pb.finish_and_clear();
 
     Ok(())
+}
+
+pub fn oma_spinner(pb: &ProgressBar) {
+    let (is_egg, inv) = if AILURUS.load(Ordering::Relaxed) {
+        (
+            &[
+                "☀️ ", "☀️ ", "☀️ ", "🌤 ", "⛅️ ", "🌥 ", "☁️ ", "🌧 ", "🌨 ", "🌧 ", "🌨 ", "🌧 ", "🌨 ",
+                "⛈ ", "🌨 ", "🌧 ", "🌨 ", "☁️ ", "🌥 ", "⛅️ ", "🌤 ", "☀️ ", "☀️ ",
+            ][..],
+            100,
+        )
+    } else {
+        (
+            &[
+                "( ●    )",
+                "(  ●   )",
+                "(   ●  )",
+                "(    ● )",
+                "(     ●)",
+                "(    ● )",
+                "(   ●  )",
+                "(  ●   )",
+                "( ●    )",
+                "(●     )",
+            ][..],
+            80,
+        )
+    };
+
+    pb.enable_steady_tick(Duration::from_millis(inv));
+
+    pb.set_style(
+        ProgressStyle::with_template(" {msg:<48} {spinner}")
+            .unwrap()
+            // For more spinners check out the cli-spinners project:
+            // https://github.com/sindresorhus/cli-spinners/blob/master/spinners.json
+            .tick_strings(is_egg),
+    );
 }
 
 pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
