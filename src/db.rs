@@ -1,4 +1,10 @@
-use std::{collections::HashMap, io::Read, path::{Path, PathBuf}, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    io::Read,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
@@ -20,8 +26,9 @@ use crate::{
 };
 
 pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/lib/apt/lists"));
-pub static DOWNLOAD_DIR: Lazy<PathBuf>  = Lazy::new(|| PathBuf::from("/var/cache/apt/archives"));
-static MIRROR: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
+pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/cache/apt/archives"));
+static MIRROR: Lazy<PathBuf> =
+    Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
 
 #[derive(Debug)]
 struct FileName(String);
@@ -336,7 +343,10 @@ async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, usi
     let name = FileName::new(db_path);
     tokio::fs::copy(db_path, APT_LIST_DISTS.join(&name.0))
         .await
-        .context(format!("Can not copy {db_path} to {}", APT_LIST_DISTS.display()))?;
+        .context(format!(
+            "Can not copy {db_path} to {}",
+            APT_LIST_DISTS.display()
+        ))?;
 
     let mut f = tokio::fs::File::open(db_path)
         .await
@@ -650,7 +660,10 @@ async fn download_and_extract_local(
 
     tokio::fs::copy(&path, APT_LIST_DISTS.join(&name.0))
         .await
-        .context(format!("Can not copy {path} to {}", APT_LIST_DISTS.display()))?;
+        .context(format!(
+            "Can not copy {path} to {}",
+            APT_LIST_DISTS.display()
+        ))?;
 
     let mut f = tokio::fs::File::open(&path)
         .await

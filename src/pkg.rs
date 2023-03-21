@@ -10,7 +10,7 @@ use rust_apt::{
 };
 use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
 
-use crate::{cli::gen_prefix, pager::Pager, ALLOWCTRLC, info};
+use crate::{cli::gen_prefix, info, pager::Pager, ALLOWCTRLC};
 
 pub struct PkgInfo {
     pub package: String,

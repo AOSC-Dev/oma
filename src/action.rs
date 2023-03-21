@@ -36,7 +36,7 @@ use crate::{
     },
     info,
     pager::Pager,
-    pkg::{query_pkgs, search_pkgs, PkgInfo, mark_install},
+    pkg::{mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{is_root, lock_oma, log_to_file, size_checker},
     warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER,

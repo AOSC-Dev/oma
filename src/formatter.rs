@@ -467,7 +467,7 @@ fn format_breaks(
     cand: &Version,
     typ: &str,
 ) {
-    let rdep = OmaDependency::map_deps(&rdep_breaks);
+    let rdep = OmaDependency::map_deps(rdep_breaks);
     for b_rdep in rdep {
         for dep in b_rdep {
             let dep_pkg = cache.get(&dep.name);
