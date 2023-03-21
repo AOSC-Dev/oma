@@ -14,7 +14,7 @@ use sysinfo::{Pid, System, SystemExt};
 
 use crate::action::{Action, LogAction};
 
-const LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
+static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
 #[cfg(target_arch = "powerpc64")]
 #[inline]

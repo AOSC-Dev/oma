@@ -19,9 +19,9 @@ use crate::{
     verify,
 };
 
-pub const APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/lib/apt/lists"));
-pub const DOWNLOAD_DIR: Lazy<PathBuf>  = Lazy::new(|| PathBuf::from("/var/cache/apt/archives"));
-const MIRROR: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
+pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/lib/apt/lists"));
+pub static DOWNLOAD_DIR: Lazy<PathBuf>  = Lazy::new(|| PathBuf::from("/var/cache/apt/archives"));
+static MIRROR: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
 
 #[derive(Debug)]
 struct FileName(String);
