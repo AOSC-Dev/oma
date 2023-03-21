@@ -255,12 +255,12 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
 
             // Format breaks
             if let Some(rdep_breaks) = rdep_breaks {
-                format_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Break");
+                format_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Breaks");
             }
 
             // Format Conflicts
             if let Some(rdep_conflicts) = rdep_conflicts {
-                format_breaks(rdep_conflicts, cache, &mut v, &c, &cand, "Conflict");
+                format_breaks(rdep_conflicts, cache, &mut v, &c, &cand, "Conflicts");
             }
         }
     }
@@ -268,10 +268,10 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
     ALLOWCTRLC.store(true, Ordering::Relaxed);
 
     if !v.is_empty() {
-        let mut pager = Pager::new(false, true)?;
+        let mut pager = Pager::new(false, false)?;
         let mut out = pager.get_writer()?;
 
-        let mut table = Table::new(v);
+        let mut table = Table::new(&v);
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -279,6 +279,21 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
             .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
+
+        writeln!(out, "{:<80}\n", style("Dependency Error").on_red().bold())?;
+        writeln!(out, "Omakase has detected dependency errors(s) in your system and cannot proceed with\nyour specified operation(s). This may be caused by missing or mismatched\npackages, or that you have specified a version of a package that is not\ncompatible with your system.\n")?;
+        writeln!(
+            out,
+            "Please contact your system administrator or developer\n"
+        )?;
+        writeln!(out, "    {}\n", style("Press [q] to abort.").bold())?;
+
+        writeln!(
+            out,
+            "{} package(s) has {}\n",
+            v.len(),
+            style("unmet dependencies:").red().bold()
+        )?;
 
         writeln!(out, "{table}")?;
 
@@ -311,7 +326,7 @@ fn format_deps(
                                 let cmp = cmp_versions(&need_ver, cand.version()); // 要求 >= 2.36-4，但用户在安装 2.36-2
                                 if cmp == CmpOrdering::Greater {
                                     v.push(UnmetTable {
-                                        package: dep.name,
+                                        package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
                                             "{} {}",
                                             c.name(),
@@ -329,7 +344,7 @@ fn format_deps(
                                 let cmp = cmp_versions(&need_ver, cand.version()); // 要求 >> 2.36-4，但用户在安装 2.36-2
                                 if cmp != CmpOrdering::Less {
                                     v.push(UnmetTable {
-                                        package: dep.name,
+                                        package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
                                             "{} {}",
                                             c.name(),
@@ -347,7 +362,7 @@ fn format_deps(
                                 let cmp = cmp_versions(&need_ver, cand.version()); // 要求 > 2.36-4，但用户在安装 2.36-2
                                 if cmp != CmpOrdering::Less {
                                     v.push(UnmetTable {
-                                        package: dep.name,
+                                        package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
                                             "{} {}",
                                             c.name(),
@@ -365,7 +380,7 @@ fn format_deps(
                                 let cmp = cmp_versions(&need_ver, cand.version()); // 要求 = 2.36-4，但用户在安装 2.36-2
                                 if cmp != CmpOrdering::Equal {
                                     v.push(UnmetTable {
-                                        package: dep.name,
+                                        package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
                                             "{} {}",
                                             c.name(),
@@ -384,7 +399,7 @@ fn format_deps(
                                 let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
                                 if cmp == CmpOrdering::Less {
                                     v.push(UnmetTable {
-                                        package: dep.name,
+                                        package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
                                             "{} {}",
                                             c.name(),
@@ -403,7 +418,7 @@ fn format_deps(
                                 let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
                                 if cmp != CmpOrdering::Greater {
                                     v.push(UnmetTable {
-                                        package: dep.name,
+                                        package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
                                             "{} {}",
                                             c.name(),
@@ -422,7 +437,7 @@ fn format_deps(
                                 let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
                                 if cmp != CmpOrdering::Greater {
                                     v.push(UnmetTable {
-                                        package: dep.name,
+                                        package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
                                             "{} {}",
                                             c.name(),
@@ -461,128 +476,130 @@ fn format_breaks(
                 if dep.comp_ver.is_none() {
                     if dep_pkg.is_installed() {
                         v.push(UnmetTable {
-                            package: dep.name,
-                            unmet_dependency: format!("Break {}", dep_pkg.name()),
+                            package: style(dep.name).red().bold().to_string(),
+                            unmet_dependency: format!("{typ}: {}", dep_pkg.name()),
                             specified_dependency: format!("{} {}", c.name(), cand.version()),
                         })
                     }
-                } else if let (Some(comp), Some(break_ver)) = (dep.comp_symbol, dep.ver) {
-                    match comp.as_str() {
-                        ">=" => {
-                            // a: breaks b >= 1.0，满足要求的条件是 break_ver > cand.version
-                            let cmp = cmp_versions(&break_ver, cand.version());
-                            if cmp != CmpOrdering::Greater {
-                                v.push(UnmetTable {
-                                    package: dep.name,
-                                    unmet_dependency: format!(
-                                        "{typ} {} {}",
-                                        dep_pkg.name(),
-                                        dep.comp_ver.unwrap()
-                                    ),
-                                    specified_dependency: format!(
-                                        "{} {}",
-                                        c.name(),
-                                        cand.version()
-                                    ),
-                                })
+                } else if dep_pkg.is_installed() {
+                    if let (Some(comp), Some(break_ver)) = (dep.comp_symbol, dep.ver) {
+                        match comp.as_str() {
+                            ">=" => {
+                                // a: breaks b >= 1.0，满足要求的条件是 break_ver > cand.version
+                                let cmp = cmp_versions(&break_ver, cand.version());
+                                if cmp != CmpOrdering::Greater {
+                                    v.push(UnmetTable {
+                                        package: style(dep.name).red().bold().to_string(),
+                                        unmet_dependency: format!(
+                                            "{typ}: {} {}",
+                                            dep_pkg.name(),
+                                            dep.comp_ver.unwrap()
+                                        ),
+                                        specified_dependency: format!(
+                                            "{} {}",
+                                            c.name(),
+                                            cand.version()
+                                        ),
+                                    })
+                                }
                             }
-                        }
-                        ">>" => {
-                            // a: breaks b >> 1.0，满足要求的条件是 break_ver >>= cand.version
-                            let cmp = cmp_versions(&break_ver, cand.version());
-                            if cmp == CmpOrdering::Less {
-                                v.push(UnmetTable {
-                                    package: dep.name,
-                                    unmet_dependency: format!(
-                                        "{typ} {} {}",
-                                        dep_pkg.name(),
-                                        dep.comp_ver.unwrap()
-                                    ),
-                                    specified_dependency: format!(
-                                        "{} {}",
-                                        c.name(),
-                                        cand.version()
-                                    ),
-                                })
+                            ">>" => {
+                                // a: breaks b >> 1.0，满足要求的条件是 break_ver >>= cand.version
+                                let cmp = cmp_versions(&break_ver, cand.version());
+                                if cmp == CmpOrdering::Less {
+                                    v.push(UnmetTable {
+                                        package: style(dep.name).red().bold().to_string(),
+                                        unmet_dependency: format!(
+                                            "{typ}: {} {}",
+                                            dep_pkg.name(),
+                                            dep.comp_ver.unwrap()
+                                        ),
+                                        specified_dependency: format!(
+                                            "{} {}",
+                                            c.name(),
+                                            cand.version()
+                                        ),
+                                    })
+                                }
                             }
-                        }
-                        ">" => {
-                            // a: breaks b > 1.0，满足要求的条件是 break_ver >= cand.version
-                            let cmp = cmp_versions(&break_ver, cand.version());
-                            if cmp == CmpOrdering::Less {
-                                v.push(UnmetTable {
-                                    package: dep.name,
-                                    unmet_dependency: format!(
-                                        "{typ} {} {}",
-                                        dep_pkg.name(),
-                                        dep.comp_ver.unwrap()
-                                    ),
-                                    specified_dependency: format!(
-                                        "{} {}",
-                                        c.name(),
-                                        cand.version()
-                                    ),
-                                })
+                            ">" => {
+                                // a: breaks b > 1.0，满足要求的条件是 break_ver >= cand.version
+                                let cmp = cmp_versions(&break_ver, cand.version());
+                                if cmp == CmpOrdering::Less {
+                                    v.push(UnmetTable {
+                                        package: style(dep.name).red().bold().to_string(),
+                                        unmet_dependency: format!(
+                                            "{typ}: {} {}",
+                                            dep_pkg.name(),
+                                            dep.comp_ver.unwrap()
+                                        ),
+                                        specified_dependency: format!(
+                                            "{} {}",
+                                            c.name(),
+                                            cand.version()
+                                        ),
+                                    })
+                                }
                             }
-                        }
-                        "<=" => {
-                            // a: breaks b <= 1.0，满足要求的条件是 break_ver < cand.version
-                            let cmp = cmp_versions(&break_ver, cand.version());
-                            if cmp != CmpOrdering::Less {
-                                v.push(UnmetTable {
-                                    package: dep.name,
-                                    unmet_dependency: format!(
-                                        "{typ} {} {}",
-                                        dep_pkg.name(),
-                                        dep.comp_ver.unwrap()
-                                    ),
-                                    specified_dependency: format!(
-                                        "{} {}",
-                                        c.name(),
-                                        cand.version()
-                                    ),
-                                })
+                            "<=" => {
+                                // a: breaks b <= 1.0，满足要求的条件是 break_ver < cand.version
+                                let cmp = cmp_versions(&break_ver, cand.version());
+                                if cmp != CmpOrdering::Less {
+                                    v.push(UnmetTable {
+                                        package: style(dep.name).red().bold().to_string(),
+                                        unmet_dependency: format!(
+                                            "{typ}: {} {}",
+                                            dep_pkg.name(),
+                                            dep.comp_ver.unwrap()
+                                        ),
+                                        specified_dependency: format!(
+                                            "{} {}",
+                                            c.name(),
+                                            cand.version()
+                                        ),
+                                    })
+                                }
                             }
-                        }
-                        "<<" => {
-                            // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
-                            let cmp = cmp_versions(&break_ver, cand.version());
-                            if cmp == CmpOrdering::Greater {
-                                v.push(UnmetTable {
-                                    package: dep.name,
-                                    unmet_dependency: format!(
-                                        "{typ} {} {}",
-                                        dep_pkg.name(),
-                                        dep.comp_ver.unwrap()
-                                    ),
-                                    specified_dependency: format!(
-                                        "{} {}",
-                                        c.name(),
-                                        cand.version()
-                                    ),
-                                })
+                            "<<" => {
+                                // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
+                                let cmp = cmp_versions(&break_ver, cand.version());
+                                if cmp == CmpOrdering::Greater {
+                                    v.push(UnmetTable {
+                                        package: style(dep.name).red().bold().to_string(),
+                                        unmet_dependency: format!(
+                                            "{typ}: {} {}",
+                                            dep_pkg.name(),
+                                            dep.comp_ver.unwrap()
+                                        ),
+                                        specified_dependency: format!(
+                                            "{} {}",
+                                            c.name(),
+                                            cand.version()
+                                        ),
+                                    })
+                                }
                             }
-                        }
-                        "<" => {
-                            // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
-                            let cmp = cmp_versions(&break_ver, cand.version());
-                            if cmp == CmpOrdering::Greater {
-                                v.push(UnmetTable {
-                                    package: dep.name,
-                                    unmet_dependency: format!(
-                                        "{typ} {} {}",
-                                        dep_pkg.name(),
-                                        dep.comp_ver.unwrap()
-                                    ),
-                                    specified_dependency: format!(
-                                        "{} {}",
-                                        c.name(),
-                                        cand.version()
-                                    ),
-                                })
+                            "<" => {
+                                // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
+                                let cmp = cmp_versions(&break_ver, cand.version());
+                                if cmp == CmpOrdering::Greater {
+                                    v.push(UnmetTable {
+                                        package: style(dep.name).red().bold().to_string(),
+                                        unmet_dependency: format!(
+                                            "{typ}: {} {}",
+                                            dep_pkg.name(),
+                                            dep.comp_ver.unwrap()
+                                        ),
+                                        specified_dependency: format!(
+                                            "{} {}",
+                                            c.name(),
+                                            cand.version()
+                                        ),
+                                    })
+                                }
                             }
+                            x => panic!("Unsupport symbol: {x}, pkg: {}", dep.name),
                         }
-                        x => panic!("Unsupport symbol: {x}, pkg: {}", dep.name),
                     }
                 }
             }
