@@ -10,7 +10,13 @@ use rust_apt::{
 };
 use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
 
-use crate::{cli::gen_prefix, info, pager::Pager, ALLOWCTRLC};
+use crate::{
+    cli::gen_prefix,
+    formatter::{find_unmet_deps_with_markinstall},
+    info,
+    pager::Pager,
+    ALLOWCTRLC,
+};
 
 pub struct PkgInfo {
     pub package: String,
@@ -436,14 +442,19 @@ pub fn mark_install(
         pkg.mark_install(true, true);
         if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
             // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-            bail!(
-                "{} can't marked installed! maybe dependency issue?",
-                if is_local {
-                    ver.uris().next().unwrap_or(pkg.name().to_string())
-                } else {
-                    pkg.name().to_string()
-                }
-            );
+            let fined = find_unmet_deps_with_markinstall(cache, &ver)?;
+            if fined {
+                bail!("")
+            } else {
+                bail!(
+                    "{} can't marked installed! maybe dependency issue?",
+                    if is_local {
+                        ver.uris().next().unwrap_or(pkg.name().to_string())
+                    } else {
+                        pkg.name().to_string()
+                    }
+                );
+            }
         }
     }
 

@@ -221,13 +221,85 @@ impl InstallProgress for OmaAptInstallProgress {
 }
 
 #[derive(Tabled)]
-struct UnmetTable {
+pub struct UnmetTable {
     #[tabled(rename = "Package")]
-    package: String,
+    pub package: String,
     #[tabled(rename = "Unmet Dependency")]
-    unmet_dependency: String,
+    pub unmet_dependency: String,
     #[tabled(rename = "Specified Dependency")]
-    specified_dependency: String,
+    pub specified_dependency: String,
+}
+
+pub fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> Result<bool> {
+    let dep = ver.get_depends(&DepType::Depends);
+    let pdep = ver.get_depends(&DepType::PreDepends);
+
+    let mut v = vec![];
+
+    if let Some(dep) = dep {
+        let dep = OmaDependency::map_deps(dep);
+        for b_dep in dep {
+            for d in b_dep {
+                let dep_pkg = cache.get(&d.name);
+                if let Some(dep_pkg) = dep_pkg {
+                    if dep_pkg.candidate().is_none() {
+                        v.push(UnmetTable {
+                            package: style(&d.name).red().bold().to_string(),
+                            unmet_dependency: format!("Dep: {} does not exist", d.name),
+                            specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(pdep) = pdep {
+        let dep = OmaDependency::map_deps(pdep);
+        for b_dep in dep {
+            for d in b_dep {
+                let dep_pkg = cache.get(&d.name);
+                if let Some(dep_pkg) = dep_pkg {
+                    if dep_pkg.candidate().is_none() {
+                        v.push(UnmetTable {
+                            package: style(&d.name).red().bold().to_string(),
+                            unmet_dependency: format!("Dep: {} does not exist", d.name),
+                            specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    if !v.is_empty() {
+        let mut pager = Pager::new(false, false)?;
+        let mut out = pager.get_writer()?;
+
+        let mut table = Table::new(&v);
+
+        table
+            .with(Modify::new(Segment::all()).with(Alignment::left()))
+            .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
+            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+            .with(Style::psql());
+
+        write_dep_issue_msg(&mut out)?;
+
+        writeln!(
+            out,
+            "{} package(s) has {}\n",
+            v.len(),
+            style("unmet dependencies:").red().bold()
+        )?;
+
+        writeln!(out, "{table}")?;
+
+        drop(out);
+        pager.wait_for_exit().ok();
+    }
+
+    Ok(!v.is_empty())
 }
 
 pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
@@ -279,22 +351,7 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{:<80}\n", style("Dependency Error").on_red().bold())?;
-        writeln!(out, "Omakase has detected dependency errors(s) in your system and cannot proceed with\nyour specified operation(s). This may be caused by missing or mismatched\npackages, or that you have specified a version of a package that is not\ncompatible with your system.\n")?;
-        writeln!(
-            out,
-            "Please contact your system administrator or developer\n"
-        )?;
-        writeln!(
-            out,
-            "    {}",
-            style("Press [q] or [Ctrl-c] to abort.").bold()
-        )?;
-        writeln!(
-            out,
-            "    {}\n\n",
-            style("Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.").bold()
-        )?;
+        write_dep_issue_msg(&mut out)?;
 
         writeln!(
             out,
@@ -310,6 +367,27 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
     }
 
     Ok(!v.is_empty())
+}
+
+pub fn write_dep_issue_msg(out: &mut dyn Write) -> Result<()> {
+    writeln!(out, "{:<80}\n", style("Dependency Error").on_red().bold())?;
+    writeln!(out, "Omakase has detected dependency errors(s) in your system and cannot proceed with\nyour specified operation(s). This may be caused by missing or mismatched\npackages, or that you have specified a version of a package that is not\ncompatible with your system.\n")?;
+    writeln!(
+        out,
+        "Please contact your system administrator or developer\n"
+    )?;
+    writeln!(
+        out,
+        "    {}",
+        style("Press [q] or [Ctrl-c] to abort.").bold()
+    )?;
+    writeln!(
+        out,
+        "    {}\n\n",
+        style("Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.").bold()
+    )?;
+
+    Ok(())
 }
 
 fn format_deps(
