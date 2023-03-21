@@ -265,7 +265,11 @@ async fn try_main() -> Result<()> {
     if ailurus == 3 {
         AILURUS.store(true, Ordering::Relaxed);
     } else if ailurus != 0 {
-        println!("{} unexpected argument '{}' found\n", style("error:").red().bold(), style("--ailurus").yellow());
+        println!(
+            "{} unexpected argument '{}' found\n",
+            style("error:").red().bold(),
+            style("--ailurus").yellow()
+        );
         println!("{}: oma <COMMAND>\n", style("Usage").bold().underlined());
         println!("For more information, try '{}'.", style("--help").bold());
         exit(3);

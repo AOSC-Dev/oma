@@ -285,8 +285,16 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
             out,
             "Please contact your system administrator or developer\n"
         )?;
-        writeln!(out, "    {}", style("Press [q] or [Ctrl-c] to abort.").bold())?;
-        writeln!(out, "    {}\n\n", style("Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.").bold())?;
+        writeln!(
+            out,
+            "    {}",
+            style("Press [q] or [Ctrl-c] to abort.").bold()
+        )?;
+        writeln!(
+            out,
+            "    {}\n\n",
+            style("Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.").bold()
+        )?;
 
         writeln!(
             out,
