@@ -42,7 +42,9 @@ Commands:
   mark        Mark a package status
   list        List of packages
   depends     Check package dependencies
+  rdepends    Check package reverse dependencies
   clean       Clean downloaded packages
+  log         See omakase log
   help        Print this message or the help of the given subcommand(s)
 
 Options:
