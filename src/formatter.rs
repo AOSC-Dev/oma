@@ -285,7 +285,8 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<()> {
             out,
             "Please contact your system administrator or developer\n"
         )?;
-        writeln!(out, "    {}\n", style("Press [q] to abort.").bold())?;
+        writeln!(out, "    {}", style("Press [q] or [Ctrl-c] to abort.").bold())?;
+        writeln!(out, "    {}\n\n", style("Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.").bold())?;
 
         writeln!(
             out,
@@ -626,7 +627,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
         if has_x11.is_ok() {
             let line1 = "    Press [q] to end review";
             let line2 = "    Press [Ctrl-c] to abort";
-            let line3 = "    Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.\n";
+            let line3 = "    Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.\n\n";
 
             writeln!(out, "{}", style(line1).bold())?;
             writeln!(out, "{}", style(line2).bold())?;
@@ -634,7 +635,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
         } else {
             let line1 = "    Press [q] to end review";
             let line2 = "    Press [Ctrl-c] to abort";
-            let line3 = "    Press [PgUp/Dn] or arrow keys to scroll.\n";
+            let line3 = "    Press [PgUp/Dn] or arrow keys to scroll.\n\n";
 
             writeln!(out, "{}", style(line1).bold())?;
             writeln!(out, "{}", style(line2).bold())?;
@@ -658,13 +659,13 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}")?;
+        writeln!(out, "{table}\n\n")?;
     }
 
     if !install.is_empty() {
         writeln!(
             out,
-            "\n{} packages will be {}:\n",
+            "{} packages will be {}:\n",
             install.len(),
             style("installed").green().bold()
         )?;
@@ -678,13 +679,13 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}")?;
+        writeln!(out, "{table}\n\n")?;
     }
 
     if !update.is_empty() {
         writeln!(
             out,
-            "\n{} packages will be {}:\n",
+            "{} packages will be {}:\n",
             update.len(),
             style("upgraded").color256(87)
         )?;
@@ -698,13 +699,13 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}")?;
+        writeln!(out, "{table}\n\n")?;
     }
 
     if !downgrade.is_empty() {
         writeln!(
             out,
-            "\n{} packages will be {}:\n",
+            "{} packages will be {}:\n",
             downgrade.len(),
             style("downgraded").yellow().bold()
         )?;
@@ -718,13 +719,13 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}")?;
+        writeln!(out, "{table}\n\n")?;
     }
 
     if !reinstall.is_empty() {
         writeln!(
             out,
-            "\n{} packages will be {}:\n",
+            "{} packages will be {}:\n",
             reinstall.len(),
             style("reinstall").blue().bold()
         )?;
@@ -738,7 +739,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}")?;
+        writeln!(out, "{table}\n\n")?;
     }
 
     let mut list = vec![];
@@ -748,7 +749,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
 
     writeln!(
         out,
-        "\n{} {}",
+        "{} {}",
         style("Total download size:").bold(),
         HumanBytes(download_size(&list, cache)?)
     )?;
@@ -809,7 +810,7 @@ fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
     writeln!(w, "Shown below is an overview of the pending changes Omakase will apply to your\nsystem, please review them carefully\n")?;
     writeln!(
         w,
-        "Omakase may {}, {}, {}, {}, or {}\npackages in order to fulfill your requested changes.",
+        "Omakase may {}, {}, {}, {}, or {} packages in order\nto fulfill your requested changes.",
         style("install").green(),
         style("remove").red(),
         style("upgrade").color256(87),
