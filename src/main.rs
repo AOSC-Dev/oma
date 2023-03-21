@@ -5,6 +5,7 @@ use clap::{ArgAction, Parser, Subcommand};
 
 use action::{MarkAction, OmaAction};
 use cli::Writer;
+use console::style;
 use nix::sys::signal;
 use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
@@ -263,6 +264,11 @@ async fn try_main() -> Result<()> {
     let ailurus = args.ailurus;
     if ailurus == 3 {
         AILURUS.store(true, Ordering::Relaxed);
+    } else if ailurus != 0 {
+        println!("{} unexpected argument '{}' found\n", style("error:").red().bold(), style("--ailurus").yellow());
+        println!("{}: oma <COMMAND>\n", style("Usage").bold().underlined());
+        println!("For more information, try '{}'.", style("--help").bold());
+        exit(3);
     }
 
     match args.subcommand {
