@@ -268,7 +268,7 @@ async fn try_main() -> Result<()> {
         println!(
             "{} unexpected argument '{}' found\n",
             style("error:").red().bold(),
-            style("--ailurus").yellow()
+            style("\x1b[33m--ailurus\x1b[0m").bold()
         );
         println!("{}: oma <COMMAND>\n", style("Usage").bold().underlined());
         println!("For more information, try '{}'.", style("--help").bold());
