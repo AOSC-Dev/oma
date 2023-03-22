@@ -337,8 +337,6 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
         }
     }
 
-    ALLOWCTRLC.store(true, Ordering::Relaxed);
-
     if !v.is_empty() {
         let mut pager = Pager::new(false, false)?;
         let mut out = pager.get_writer()?;
@@ -370,6 +368,7 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
 }
 
 pub fn write_dep_issue_msg(out: &mut dyn Write) -> Result<()> {
+    ALLOWCTRLC.store(true, Ordering::Relaxed);
     writeln!(out, "{:<80}\n", style("Dependency Error").on_red().bold())?;
     writeln!(out, "Omakase has detected dependency errors(s) in your system and cannot proceed with\nyour specified operation(s). This may be caused by missing or mismatched\npackages, or that you have specified a version of a package that is not\ncompatible with your system.\n")?;
     writeln!(
