@@ -254,7 +254,11 @@ pub fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> Result<
                         v.push(UnmetTable {
                             package: style(&d.name).red().bold().to_string(),
                             unmet_dependency: format!("Dep: {} does not exist", d.name),
-                            specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                            specified_dependency: format!(
+                                "{} {}",
+                                ver.parent().name(),
+                                ver.version()
+                            ),
                         })
                     }
                 }
@@ -280,7 +284,11 @@ pub fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> Result<
                         v.push(UnmetTable {
                             package: style(&d.name).red().bold().to_string(),
                             unmet_dependency: format!("Dep: {} does not exist", d.name),
-                            specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                            specified_dependency: format!(
+                                "{} {}",
+                                ver.parent().name(),
+                                ver.version()
+                            ),
                         })
                     }
                 }

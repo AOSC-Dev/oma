@@ -11,11 +11,7 @@ use rust_apt::{
 use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
 
 use crate::{
-    cli::gen_prefix,
-    formatter::{find_unmet_deps_with_markinstall},
-    info,
-    pager::Pager,
-    ALLOWCTRLC,
+    cli::gen_prefix, formatter::find_unmet_deps_with_markinstall, info, pager::Pager, ALLOWCTRLC,
 };
 
 pub struct PkgInfo {
