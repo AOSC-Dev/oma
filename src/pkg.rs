@@ -458,3 +458,15 @@ pub fn mark_install(
 
     Ok(())
 }
+
+/// Mark package as delete status
+pub fn mark_delete(pkg: &Package, is_purge: bool) -> Result<()> {
+    if pkg.is_essential() {
+        bail!("Pkg {} is essential, so can not mark it as deleted", pkg.name());
+    }
+
+    pkg.mark_delete(is_purge);
+    pkg.protect();
+
+    Ok(())
+}

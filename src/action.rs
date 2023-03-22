@@ -36,7 +36,7 @@ use crate::{
     },
     info,
     pager::Pager,
-    pkg::{mark_install, query_pkgs, search_pkgs, PkgInfo},
+    pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{is_root, lock_oma, log_to_file, size_checker},
     warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER,
@@ -736,8 +736,7 @@ impl OmaAction {
                 info!("Package {i} is not installed, so no need to remove.");
                 continue;
             }
-            pkg.mark_delete(!r.keep_config);
-            pkg.protect();
+            mark_delete(&pkg, !r.keep_config)?;
         }
 
         let (action, len) = apt_handler(
@@ -1156,15 +1155,16 @@ fn dpkg_selections() -> Result<Vec<(String, String)>> {
 }
 
 /// apt autoremove
-fn autoremove(cache: &Cache, is_purge: bool) {
+fn autoremove(cache: &Cache, is_purge: bool) -> Result<()> {
     let sort = PackageSort::default();
 
     for pkg in cache.packages(&sort) {
         if pkg.is_auto_removable() {
-            pkg.mark_delete(is_purge);
-            pkg.protect();
+            mark_delete(&pkg, is_purge)?;
         }
     }
+
+    Ok(())
 }
 
 /// Install packages
@@ -1377,7 +1377,7 @@ fn apt_handler(
         return Err(e.into());
     }
 
-    autoremove(cache, is_purge);
+    autoremove(cache, is_purge)?;
 
     if let Err(e) = cache.resolve(fix_broken) {
         let finded = find_unmet_deps(cache)?;
