@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.14.0 (2023-03-23)
+
+### New Features
+
+ - <csr-id-903748b5ce82e5bb0c7b78a75b9f1dbe3d32d1ea/> dry-run mode add args tracing
+ - <csr-id-123da2c985075fe3ae4a04be55e007fdede83460/> add oma --dry-run argument
+   - Also fix oma pick dialoguer default select position
+ - <csr-id-4e6bb0a59edd36b02f7fd0e656f37d5acc5bb0db/> if pkg is essential, oma will reject it mark to delete
+
+### Refactor
+
+ - <csr-id-ff6749dce59ae4fa50cac786cfaecc17e828c040/> improve DOWNLOAD_DIR var use
+ - <csr-id-89ea59750fccbc487ea7826193e85bbfb39ce14b/> use fs::read to replace fs::File::open and read_buf
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Dry-run mode add args tracing ([`903748b`](https://github.com/AOSC-Dev/oma/commit/903748b5ce82e5bb0c7b78a75b9f1dbe3d32d1ea))
+    - Add oma --dry-run argument ([`123da2c`](https://github.com/AOSC-Dev/oma/commit/123da2c985075fe3ae4a04be55e007fdede83460))
+    - Improve DOWNLOAD_DIR var use ([`ff6749d`](https://github.com/AOSC-Dev/oma/commit/ff6749dce59ae4fa50cac786cfaecc17e828c040))
+    - Use fs::read to replace fs::File::open and read_buf ([`89ea597`](https://github.com/AOSC-Dev/oma/commit/89ea59750fccbc487ea7826193e85bbfb39ce14b))
+    - If pkg is essential, oma will reject it mark to delete ([`4e6bb0a`](https://github.com/AOSC-Dev/oma/commit/4e6bb0a59edd36b02f7fd0e656f37d5acc5bb0db))
+</details>
+
 ## v0.13.2 (2023-03-22)
 
 <csr-id-600f7d65ca44dc2e91813db55a47ee3e63c7628a/>
@@ -18,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-id-2b19d1d1d43503b696d1f68e825e8db62e940851/>
 <csr-id-35e27cf6eb267da34f6d07e7f0df8ac6564befa0/>
 <csr-id-acf7e43838811177f4838cf2a97a217540803e86/>
+<csr-id-1341b47750c8541fb6cdfabe4b0191443c407a10/>
 
 ### Other
 
@@ -42,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 13 commits contributed to the release.
+ - 14 commits contributed to the release.
  - 1 day passed between releases.
  - 12 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -54,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.13.2 ([`490b22f`](https://github.com/AOSC-Dev/oma/commit/490b22fe4aa5a3fc5dc6988c42c0755a8abf9b60))
     - New ([`1341b47`](https://github.com/AOSC-Dev/oma/commit/1341b47750c8541fb6cdfabe4b0191443c407a10))
     - Bump version to 0.13.2 for adapt cargo-smart-release ([`600f7d6`](https://github.com/AOSC-Dev/oma/commit/600f7d65ca44dc2e91813db55a47ee3e63c7628a))
     - Cargo fmt ([`eb77d99`](https://github.com/AOSC-Dev/oma/commit/eb77d991a3c2bf21a784af41b5cc92fc0792af42))
