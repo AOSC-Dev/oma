@@ -124,19 +124,19 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<
 
     let _ = match &action.op {
         LogAction::Install(v) => {
-            f.write_all(format!("Action: oma install {v:?}\nResolver: {action:?}\n").as_bytes())
+            f.write_all(format!("Action: oma install {v:#?}\nResolver: {action:#?}\n").as_bytes())
         }
         LogAction::Upgrade(v) => {
-            f.write_all(format!("Action: oma upgrade {v:?}\nResolver: {action:?}\n").as_bytes())
+            f.write_all(format!("Action: oma upgrade {v:#?}\nResolver: {action:#?}\n").as_bytes())
         }
         LogAction::Remove(v) => {
-            f.write_all(format!("Action: oma remove {v:?}\nResolver: {action:?}\n").as_bytes())
+            f.write_all(format!("Action: oma remove {v:#?}\nResolver: {action:#?}\n").as_bytes())
         }
         LogAction::FixBroken => {
-            f.write_all(format!("Action: oma fix-broken\nResolver: {action:?}\n").as_bytes())
+            f.write_all(format!("Action: oma fix-broken\nResolver: {action:#?}\n").as_bytes())
         }
         LogAction::Pick(v) => {
-            f.write_all(format!("Action: {v:?}\nResolver: {action:?}\n").as_bytes())
+            f.write_all(format!("Action: {v:#?}\nResolver: {action:#?}\n").as_bytes())
         }
     };
 
