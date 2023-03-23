@@ -1074,7 +1074,7 @@ impl OmaAction {
             }
         }
 
-        let p = Path::new(&*DOWNLOAD_DIR).join("..");
+        let p = DOWNLOAD_DIR.join("..");
 
         std::fs::remove_file(p.join("pkgcache.bin")).ok();
         std::fs::remove_file(p.join("srcpkgcache.bin")).ok();
