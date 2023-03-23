@@ -288,7 +288,7 @@ async fn try_main() -> Result<()> {
             .with_target(false)
             .init();
         tracing::info!("Running in Dry-run mode");
-        tracing::info!("oma version: {}\n OS: {:#?}", env!("CARGO_PKG_VERSION"), OsRelease::new());
+        tracing::debug!("oma version: {}\n OS: {:#?}", env!("CARGO_PKG_VERSION"), OsRelease::new());
     }
 
     tracing::info!("{args:#?}");
