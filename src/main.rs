@@ -288,6 +288,8 @@ async fn try_main() -> Result<()> {
             .init();
     }
 
+    tracing::info!("{args:#?}");
+
     match args.subcommand {
         OmaCommand::Install(v) => OmaAction::new().await?.install(v).await,
         OmaCommand::Remove(v) => OmaAction::remove(v),
