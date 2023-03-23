@@ -86,11 +86,8 @@ pub async fn get_url_short_and_branch(url: &str) -> Result<String> {
     let url = format!("{schema}://{host}/");
 
     // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
-    if let Ok(mut mirror_map_f) = tokio::fs::File::open(&*MIRROR).await {
-        let mut buf = Vec::new();
-        mirror_map_f.read_to_end(&mut buf).await?;
-
-        let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&buf)?;
+    if let Ok(mirror_map_f) = tokio::fs::read(&*MIRROR).await {
+        let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&mirror_map_f)?;
 
         for (k, v) in mirror_map.iter() {
             let mirror_url = Url::parse(&v.url)?;
@@ -135,10 +132,7 @@ enum DistFileType {
 
 impl InReleaseParser {
     fn new(p: &Path, trust_files: Option<&str>, mirror: &str) -> Result<Self> {
-        let mut f = std::fs::File::open(p)?;
-        let mut s = String::new();
-
-        f.read_to_string(&mut s)?;
+        let s = std::fs::read_to_string(p)?;
 
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
             verify::verify(&s, trust_files, mirror)?
@@ -636,9 +630,7 @@ async fn download_and_extract(
         bail!("Download {typ} Checksum mismatch! Please check your network connection.")
     }
 
-    let mut f = tokio::fs::File::open(p).await?;
-    let mut buf = Vec::new();
-    f.read_to_end(&mut buf).await?;
+    let buf = tokio::fs::read(p).await?;
 
     let buf = decompress(&buf, &name.0)?;
     let p = APT_LIST_DISTS.join(not_compress_file);

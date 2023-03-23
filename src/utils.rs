@@ -1,5 +1,5 @@
 use std::{
-    io::{Read, Write},
+    io::Write,
     path::{Path, PathBuf},
     str::FromStr,
     sync::atomic::Ordering,
@@ -72,10 +72,7 @@ pub fn size_checker(size: &DiskSpace, download_size: u64) -> Result<()> {
 /// Lock oma
 pub fn lock_oma() -> Result<()> {
     if LOCK.is_file() {
-        let mut lock_file = std::fs::File::open(LOCK.as_path())?;
-        let mut old_pid = String::new();
-        lock_file.read_to_string(&mut old_pid)?;
-
+        let old_pid = std::fs::read_to_string(LOCK.as_path())?;
         let s = System::new_all();
         let old_pid = Pid::from_str(&old_pid)?;
 
