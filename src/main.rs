@@ -8,6 +8,7 @@ use cli::Writer;
 use console::style;
 use nix::sys::signal;
 use once_cell::sync::Lazy;
+use os_release::OsRelease;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use utils::unlock_oma;
 
@@ -286,6 +287,8 @@ async fn try_main() -> Result<()> {
             .without_time()
             .with_target(false)
             .init();
+        tracing::info!("Running in Dry-run mode");
+        tracing::info!("oma version: {}\n OS: {:#?}", env!("CARGO_PKG_VERSION"), OsRelease::new());
     }
 
     tracing::info!("{args:#?}");

@@ -1608,7 +1608,7 @@ fn apt_handler(
             });
 
             tracing::info!(
-                "Pkg {} is marked as upgrade: {old_version} -> {}",
+                "Pkg {} is marked as downgrade: {old_version} -> {}",
                 pkg.name(),
                 cand.version()
             );
