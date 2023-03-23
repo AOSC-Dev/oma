@@ -28,6 +28,7 @@ static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
 static WRITER: Lazy<Writer> = Lazy::new(Writer::new);
+static DRYRUN: AtomicBool = AtomicBool::new(false);
 
 fn single_handler() {
     // Kill subprocess
@@ -60,6 +61,9 @@ pub struct Args {
     subcommand: OmaCommand,
     #[arg(long, hide = true, action = ArgAction::Count)]
     ailurus: u8,
+    /// Dry-run oma
+    #[arg(long, short = 'd')]
+    dry_run: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -273,6 +277,15 @@ async fn try_main() -> Result<()> {
         println!("{}: oma <COMMAND>\n", style("Usage").bold().underlined());
         println!("For more information, try '{}'.", style("--help").bold());
         exit(3);
+    }
+
+    if args.dry_run {
+        DRYRUN.store(true, Ordering::Relaxed);
+        tracing_subscriber::fmt()
+            .with_writer(std::io::stdout)
+            .without_time()
+            .with_target(false)
+            .init();
     }
 
     match args.subcommand {

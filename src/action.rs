@@ -39,7 +39,7 @@ use crate::{
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{is_root, lock_oma, log_to_file, size_checker},
-    warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, WRITER,
+    warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, DRYRUN, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -567,7 +567,11 @@ impl OmaAction {
 
         let cache = new_cache!()?;
 
-        let (action, _) = apt_handler(&cache, false, false, false, LogAction::FixBroken)?;
+        let (action, len) = apt_handler(&cache, false, false, false, LogAction::FixBroken)?;
+
+        if len == 0 {
+            info!("No need to do anything");
+        }
 
         let mut list = action.install.clone();
         list.extend(action.update.clone());
@@ -579,10 +583,12 @@ impl OmaAction {
         display_result(&action, &cache)?;
         packages_download(&list, &self.client, None, None).await?;
 
-        cache.commit(
-            &mut NoProgress::new_box(),
-            &mut AptInstallProgress::new_box(),
-        )?;
+        if !DRYRUN.load(Ordering::Relaxed) {
+            cache.commit(
+                &mut NoProgress::new_box(),
+                &mut AptInstallProgress::new_box(),
+            )?;
+        }
 
         let end_time = OffsetDateTime::now_utc().to_string();
 
@@ -758,7 +764,9 @@ impl OmaAction {
 
         let mut progress = OmaAptInstallProgress::new_box(r.yes, r.force_yes, false);
 
-        cache.commit(&mut NoProgress::new_box(), &mut progress)?;
+        if !DRYRUN.load(Ordering::Relaxed) {
+            cache.commit(&mut NoProgress::new_box(), &mut progress)?;
+        }
 
         let end_time = OffsetDateTime::now_utc().to_string();
 
@@ -850,20 +858,33 @@ impl OmaAction {
 
         let installed = pkg.installed();
 
-        let theme = ColorfulTheme::default();
-        let mut dialoguer = Select::with_theme(&theme);
+        let index = if DRYRUN.load(Ordering::Relaxed) {
+            info!("Pkg: {} can select: {versions_str_display:?}", pkg.name());
+            info!("In Dry-run mode, select first: {}", versions_str_display[0]);
 
-        dialoguer.items(&versions_str_display);
-        dialoguer.with_prompt(format!("Select {} version:", pkg.name()));
+            Ok(0usize)
+        } else {
+            let theme = ColorfulTheme::default();
+            let mut dialoguer = Select::with_theme(&theme);
 
-        if let Some(installed) = installed {
-            let pos = versions_str.iter().position(|x| x == installed.version());
-            if let Some(pos) = pos {
-                dialoguer.default(pos);
-            }
-        }
+            dialoguer.items(&versions_str_display);
+            dialoguer.with_prompt(format!("Select {} version:", pkg.name()));
 
-        let index = dialoguer.interact();
+            let pos = if let Some(installed) = installed {
+                let pos = versions_str.iter().position(|x| x == installed.version());
+                if let Some(pos) = pos {
+                    pos
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+
+            dialoguer.default(pos);
+
+            dialoguer.interact()
+        };
 
         if let Ok(index) = index {
             let version = &versions[index];
@@ -1174,6 +1195,10 @@ fn apt_install(
     force_yes: bool,
     force_confnew: bool,
 ) -> std::result::Result<(), Exception> {
+    if DRYRUN.load(Ordering::Relaxed) {
+        return Ok(());
+    }
+
     apt_lock()?;
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
@@ -1224,6 +1249,11 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
                     .context(format!("Can not convert path {i} to str"))?
             ),
         ));
+        tracing::info!(
+            "Select local pkg: {} from path: {}",
+            local.last().unwrap().0,
+            i
+        );
     }
 
     let another = list.iter().filter(|x| !local_debs.contains(x));
@@ -1236,6 +1266,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
             bail!("Package {i} does not exist.");
         }
         pkgs.extend(i_res);
+        tracing::info!("Select pkg: {i}");
     }
 
     // install local packages
@@ -1418,6 +1449,8 @@ fn apt_handler(
                 pure_download_size: cand.size(),
             });
 
+            tracing::info!("Pkg {} {} is marked as install", pkg.name(), cand.version());
+
             // If the package is marked install then it will also
             // show up as marked upgrade, downgrade etc.
             // Check this first and continue.
@@ -1463,6 +1496,12 @@ fn apt_handler(
                 checksum: cand.get_record(RecordField::SHA256),
                 pure_download_size: cand.size(),
             });
+
+            tracing::info!(
+                "Pkg {} is marked as upgrade: {old_version} -> {}",
+                pkg.name(),
+                cand.version()
+            );
         }
 
         if pkg.marked_delete() {
@@ -1510,6 +1549,8 @@ fn apt_handler(
             };
 
             del.push(remove_row);
+
+            tracing::info!("Pkg {} is marked as delete", pkg.name());
         }
 
         if pkg.marked_reinstall() {
@@ -1524,6 +1565,8 @@ fn apt_handler(
                 checksum: version.get_record(RecordField::SHA256),
                 pure_download_size: version.size(),
             });
+
+            tracing::info!("Pkg {} is marked as reinstall", pkg.name());
         }
 
         if pkg.marked_downgrade() {
@@ -1565,6 +1608,12 @@ fn apt_handler(
                 checksum: cand.get_record(RecordField::SHA256),
                 pure_download_size: cand.size(),
             });
+
+            tracing::info!(
+                "Pkg {} is marked as upgrade: {old_version} -> {}",
+                pkg.name(),
+                cand.version()
+            );
         }
     }
 

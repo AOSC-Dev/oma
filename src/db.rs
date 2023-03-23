@@ -25,6 +25,8 @@ use crate::{
     verify,
 };
 
+use std::sync::atomic::Ordering;
+
 pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/lib/apt/lists"));
 pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/cache/apt/archives"));
 static MIRROR: Lazy<PathBuf> =

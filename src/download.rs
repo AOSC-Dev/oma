@@ -20,7 +20,7 @@ use crate::{
     action::InstallRow,
     checksum::Checksum,
     db::{APT_LIST_DISTS, DOWNLOAD_DIR},
-    info, success, warn, AILURUS, WRITER,
+    info, success, warn, AILURUS, WRITER, DRYRUN,
 };
 
 /// Download a package
@@ -114,6 +114,10 @@ pub async fn packages_download(
     limit: Option<usize>,
     download_dir: Option<&Path>,
 ) -> Result<()> {
+    if DRYRUN.load(Ordering::Relaxed) {
+        return Ok(())
+    }
+
     let mut task = vec![];
     let mb = Arc::new(MultiProgress::new());
     let mut total = 0;

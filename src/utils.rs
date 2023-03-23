@@ -12,7 +12,7 @@ use rust_apt::util::DiskSpace;
 use indicatif::HumanBytes;
 use sysinfo::{Pid, System, SystemExt};
 
-use crate::action::{Action, LogAction};
+use crate::{action::{Action, LogAction}, DRYRUN};
 
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
@@ -106,6 +106,10 @@ pub fn unlock_oma() -> Result<()> {
 }
 
 pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<()> {
+    if DRYRUN.load(Ordering::Relaxed) {
+        return Ok(())
+    }
+
     std::fs::create_dir_all("/var/log/oma")?;
 
     let mut f = std::fs::OpenOptions::new()

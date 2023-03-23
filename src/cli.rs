@@ -123,48 +123,69 @@ impl Writer {
 #[macro_export]
 macro_rules! msg {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln("", &format!($($arg)+)).ok();
+        if !$crate::DRYRUN.load(Ordering::Relaxed) {
+            $crate::WRITER.writeln("", &format!($($arg)+)).ok();
+        }
+        tracing::info!("{}", &format!($($arg)+));
     };
 }
 
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+)).ok();
+        if !$crate::DRYRUN.load(Ordering::Relaxed) {
+            $crate::WRITER.writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+)).ok();
+        }
+        tracing::debug!("{}", &format!($($arg)+));
     };
 }
 
 #[macro_export]
 macro_rules! success {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+)).ok();
+        if !$crate::DRYRUN.load(Ordering::Relaxed) {
+            $crate::WRITER.writeln(&console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+)).ok();
+        }
+        tracing::info!("{}", &format!($($arg)+));
     };
 }
 
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("INFO").blue().bold().to_string(), &format!($($arg)+)).ok();
+        if !$crate::DRYRUN.load(Ordering::Relaxed) {
+            $crate::WRITER.writeln(&console::style("INFO").blue().bold().to_string(), &format!($($arg)+)).ok();
+        }
+        tracing::info!("{}", &format!($($arg)+));
     };
 }
 
 #[macro_export]
 macro_rules! warn {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+)).ok();
+        if !$crate::DRYRUN.load(Ordering::Relaxed) {
+            $crate::WRITER.writeln(&console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+)).ok();
+        }
+        tracing::warn!("{}", &format!($($arg)+));
     };
 }
 
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("ERROR").red().bold().to_string(), &format!($($arg)+)).ok();
+        if !$crate::DRYRUN.load(Ordering::Relaxed) {
+            $crate::WRITER.writeln(&console::style("ERROR").red().bold().to_string(), &format!($($arg)+)).ok();
+        }
+        tracing::error!("{}", &format!($($arg)+));
     };
 }
 
 #[macro_export]
 macro_rules! due_to {
     ($($arg:tt)+) => {
-        $crate::WRITER.writeln(&console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
+        if !$crate::DRYRUN.load(Ordering::Relaxed) {
+            $crate::WRITER.writeln(&console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
+        }
+        tracing::info!("{}", &format!($($arg)+));
     };
 }

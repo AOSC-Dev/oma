@@ -25,7 +25,7 @@ use crate::{
     debug,
     pager::Pager,
     pkg::OmaDependency,
-    warn, ALLOWCTRLC,
+    warn, ALLOWCTRLC, DRYRUN,
 };
 
 // TODO: Make better structs for pkgAcquire items, workers, owners.
@@ -718,6 +718,10 @@ fn format_breaks(
 
 /// Display apt resolver results
 pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
+    if DRYRUN.load(Ordering::Relaxed) {
+        return Ok(())
+    }
+
     let update = action.update.clone();
     let install = action.install.clone();
     let del = action.del.clone();
