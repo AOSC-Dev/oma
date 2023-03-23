@@ -40,7 +40,7 @@ use crate::{
     success,
     utils::{is_root, lock_oma, log_to_file, size_checker},
     warn, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, DRYRUN,
-    WRITER,
+    WRITER, FixBroken,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -568,9 +568,13 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn fix_broken(&self) -> Result<()> {
+    pub async fn fix_broken(&self, v: FixBroken) -> Result<()> {
         is_root()?;
         lock_oma()?;
+
+        if v.dry_run {
+            DRYRUN.store(true, Ordering::Relaxed);
+        }
 
         let start_time = OffsetDateTime::now_utc().to_string();
 

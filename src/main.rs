@@ -91,7 +91,7 @@ enum OmaCommand {
     /// Search file from package
     Provides(Provides),
     /// Fix system dependencies broken status
-    FixBroken,
+    FixBroken(FixBroken),
     /// Pick a package version
     Pick(PickOptions),
     /// Mark a package status
@@ -124,7 +124,7 @@ struct CommandNotFound {
 }
 
 #[derive(Parser, Debug)]
-struct FixBroken {
+pub struct FixBroken {
     /// Dry-run oma
     #[arg(long, short = 'd')]
     dry_run: bool,
@@ -330,7 +330,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
-        OmaCommand::FixBroken => OmaAction::new().await?.fix_broken().await,
+        OmaCommand::FixBroken(v) => OmaAction::new().await?.fix_broken(v).await,
         OmaCommand::Pick(v) => OmaAction::new().await?.pick(v).await,
         OmaCommand::Mark(v) => OmaAction::mark(v),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
