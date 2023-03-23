@@ -20,7 +20,7 @@ use crate::{
     action::InstallRow,
     checksum::Checksum,
     db::{APT_LIST_DISTS, DOWNLOAD_DIR},
-    info, success, warn, AILURUS, WRITER, DRYRUN,
+    info, success, warn, AILURUS, DRYRUN, WRITER,
 };
 
 /// Download a package
@@ -115,7 +115,7 @@ pub async fn packages_download(
     download_dir: Option<&Path>,
 ) -> Result<()> {
     if DRYRUN.load(Ordering::Relaxed) {
-        return Ok(())
+        return Ok(());
     }
 
     let mut task = vec![];

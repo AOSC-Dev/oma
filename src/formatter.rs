@@ -719,7 +719,7 @@ fn format_breaks(
 /// Display apt resolver results
 pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
     if DRYRUN.load(Ordering::Relaxed) {
-        return Ok(())
+        return Ok(());
     }
 
     let update = action.update.clone();

@@ -871,12 +871,10 @@ impl OmaAction {
             dialoguer.with_prompt(format!("Select {} version:", pkg.name()));
 
             let pos = if let Some(installed) = installed {
-                let pos = versions_str.iter().position(|x| x == installed.version());
-                if let Some(pos) = pos {
-                    pos
-                } else {
-                    0
-                }
+                versions_str
+                    .iter()
+                    .position(|x| x == installed.version())
+                    .unwrap_or(0)
             } else {
                 0
             };
