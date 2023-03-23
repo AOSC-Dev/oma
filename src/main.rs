@@ -124,7 +124,11 @@ struct CommandNotFound {
 }
 
 #[derive(Parser, Debug)]
-struct FixBroken {}
+struct FixBroken {
+    /// Dry-run oma
+    #[arg(long, short = 'd')]
+    dry_run: bool,
+}
 
 #[derive(Parser, Debug)]
 struct Download {
@@ -157,6 +161,9 @@ pub struct InstallOptions {
     /// Install package use dpkg --force-confnew
     #[arg(long)]
     pub force_confnew: bool,
+    /// Dry-run oma
+    #[arg(long, short = 'd')]
+    pub dry_run: bool,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -172,6 +179,9 @@ pub struct UpgradeOptions {
     /// Install package use dpkg --force-confnew
     #[arg(long)]
     force_confnew: bool,
+    /// Dry-run oma
+    #[arg(long, short = 'd')]
+    dry_run: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -190,6 +200,9 @@ pub struct PickOptions {
     /// Do not refresh packages database
     #[arg(long)]
     no_upgrade: bool,
+    /// Dry-run oma
+    #[arg(long, short = 'd')]
+    dry_run: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -211,6 +224,9 @@ pub struct RemoveOptions {
     /// Keep package config
     #[arg(long)]
     keep_config: bool,
+    /// Dry-run oma
+    #[arg(long, short = 'd')]
+    dry_run: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -228,9 +244,12 @@ struct Search {
 }
 
 #[derive(Parser, Debug, Clone)]
-struct Mark {
+pub struct Mark {
     #[clap(subcommand)]
     action: MarkAction,
+    /// Dry-run oma
+    #[arg(long, short = 'd')]
+    dry_run: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -288,7 +307,11 @@ async fn try_main() -> Result<()> {
             .with_target(false)
             .init();
         tracing::info!("Running in Dry-run mode");
-        tracing::debug!("oma version: {}\n OS: {:#?}", env!("CARGO_PKG_VERSION"), OsRelease::new());
+        tracing::debug!(
+            "oma version: {}\n OS: {:#?}",
+            env!("CARGO_PKG_VERSION"),
+            OsRelease::new()
+        );
     }
 
     tracing::info!("{args:#?}");
@@ -309,7 +332,7 @@ async fn try_main() -> Result<()> {
         OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
         OmaCommand::FixBroken => OmaAction::new().await?.fix_broken().await,
         OmaCommand::Pick(v) => OmaAction::new().await?.pick(v).await,
-        OmaCommand::Mark(v) => OmaAction::mark(v.action),
+        OmaCommand::Mark(v) => OmaAction::mark(v),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
         OmaCommand::List(v) => {
             OmaAction::list(v.packages.as_deref(), v.all, v.installed, v.upgradable)

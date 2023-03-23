@@ -39,7 +39,8 @@ use crate::{
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{is_root, lock_oma, log_to_file, size_checker},
-    warn, InstallOptions, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, DRYRUN, WRITER,
+    warn, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, DRYRUN,
+    WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -128,6 +129,10 @@ impl OmaAction {
             yes_warn();
         }
 
+        if u.dry_run {
+            DRYRUN.store(true, Ordering::Relaxed);
+        }
+
         update_db(&self.sources, &self.client, None).await?;
 
         let start_time = OffsetDateTime::now_utc().to_string();
@@ -199,6 +204,10 @@ impl OmaAction {
     pub async fn install(&self, opt: InstallOptions) -> Result<()> {
         is_root()?;
         lock_oma()?;
+
+        if opt.dry_run {
+            DRYRUN.store(true, Ordering::Relaxed);
+        }
 
         let start_time = OffsetDateTime::now_utc().to_string();
 
@@ -658,6 +667,10 @@ impl OmaAction {
     }
 
     pub async fn download(&self, list: &[String]) -> Result<()> {
+        if DRYRUN.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
         let cache = new_cache!()?;
 
         let mut downloads = vec![];
@@ -729,6 +742,10 @@ impl OmaAction {
         lock_oma()?;
 
         let start_time = OffsetDateTime::now_utc().to_string();
+
+        if r.dry_run {
+            DRYRUN.store(true, Ordering::Relaxed);
+        }
 
         if r.yes {
             yes_warn();
@@ -813,6 +830,10 @@ impl OmaAction {
     pub async fn pick(&self, p: PickOptions) -> Result<()> {
         is_root()?;
         lock_oma()?;
+
+        if p.dry_run {
+            DRYRUN.store(true, Ordering::Relaxed);
+        }
 
         if !p.no_upgrade {
             update_db(&self.sources, &self.client, None).await?;
@@ -929,7 +950,11 @@ impl OmaAction {
         Ok(())
     }
 
-    pub fn mark(user_action: MarkAction) -> Result<()> {
+    pub fn mark(opt: Mark) -> Result<()> {
+        if opt.dry_run {
+            DRYRUN.store(true, Ordering::Relaxed);
+        }
+
         fn check(cache: &Cache, pkg: &str) -> Result<()> {
             let package = cache.get(pkg);
             if package.is_none() {
@@ -945,7 +970,7 @@ impl OmaAction {
 
         let cache = new_cache!()?;
 
-        match user_action {
+        match opt.action {
             MarkAction::Hold(args) => {
                 for i in &args.pkgs {
                     check(&cache, i)?;
@@ -1008,6 +1033,10 @@ impl OmaAction {
                     pkg.mark_auto(false);
                 }
 
+                if DRYRUN.load(Ordering::Relaxed) {
+                    return Ok(());
+                }
+
                 cache.commit(
                     &mut NoProgress::new_box(),
                     &mut AptInstallProgress::new_box(),
@@ -1026,6 +1055,10 @@ impl OmaAction {
                     }
                     info!("Setting {i} to auto installed status ...");
                     pkg.mark_auto(true);
+                }
+
+                if DRYRUN.load(Ordering::Relaxed) {
+                    return Ok(());
                 }
 
                 cache.commit(
@@ -1083,6 +1116,10 @@ impl OmaAction {
     }
 
     pub fn clean() -> Result<()> {
+        if DRYRUN.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
         is_root()?;
 
         let dir = std::fs::read_dir(&*DOWNLOAD_DIR)?;
@@ -1133,6 +1170,10 @@ fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
     } else {
         user_action
     };
+
+    if DRYRUN.load(Ordering::Relaxed) {
+        return Ok(());
+    }
 
     cmd.stdin
         .as_mut()
