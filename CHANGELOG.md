@@ -5,14 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.14.0 (2023-03-23)
+## v0.15.0 (2023-03-24)
+
+### Chore
+
+ - <csr-id-44235f94ccb41303e33e308a6b75215d2d2f2f48/> update all deps
 
 ### New Features
+
+ - <csr-id-3be76aab9e4380467e050acd0b6dd00613c99b10/> dry-run read RUST_LOG env to see debug message (default RUST_LOG is info)
+ - <csr-id-8aafec43ec24de10bcf0544ec078ceb8f8d4ad02/> set oma and os dry-run info as debug
+ - <csr-id-ce234a3d9ffc2622235d5ca6d1e762d1629a6d23/> improve log user-family output
+ - <csr-id-900a15564cf0a88ade4efab875fb080fe334a9d1/> dry-run mode display oma and OS info
+   - Also fix dry-run downgrade typo
+
+### Bug Fixes
+
+ - <csr-id-6e100d38ecd6a2787bb2b94a9d531a706bfa27db/> fix dry-run default display log
+ - <csr-id-1276493d91b129fa63307f872522071c4d239f8a/> fix dry-run in fix-broken subcommand argument
+ - <csr-id-526bc122ea477eb36c99415892e11df14ae3e452/> do not real run {mark,clean,download} in dry-run mode
+
+### Style
+
+ - <csr-id-698396ab0be30c4d815138fa6ebc5cda4a41df43/> use cargo fmt to lint code style
+ - <csr-id-4f9782f2112188ce689133654d4122835b57742e/> improve pick method code style
+   - Also run cargo fmt
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 10 commits contributed to the release.
+ - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`44235f9`](https://github.com/AOSC-Dev/oma/commit/44235f94ccb41303e33e308a6b75215d2d2f2f48))
+    - Fix dry-run default display log ([`6e100d3`](https://github.com/AOSC-Dev/oma/commit/6e100d38ecd6a2787bb2b94a9d531a706bfa27db))
+    - Use cargo fmt to lint code style ([`698396a`](https://github.com/AOSC-Dev/oma/commit/698396ab0be30c4d815138fa6ebc5cda4a41df43))
+    - Dry-run read RUST_LOG env to see debug message (default RUST_LOG is info) ([`3be76aa`](https://github.com/AOSC-Dev/oma/commit/3be76aab9e4380467e050acd0b6dd00613c99b10))
+    - Fix dry-run in fix-broken subcommand argument ([`1276493`](https://github.com/AOSC-Dev/oma/commit/1276493d91b129fa63307f872522071c4d239f8a))
+    - Do not real run {mark,clean,download} in dry-run mode ([`526bc12`](https://github.com/AOSC-Dev/oma/commit/526bc122ea477eb36c99415892e11df14ae3e452))
+    - Set oma and os dry-run info as debug ([`8aafec4`](https://github.com/AOSC-Dev/oma/commit/8aafec43ec24de10bcf0544ec078ceb8f8d4ad02))
+    - Improve log user-family output ([`ce234a3`](https://github.com/AOSC-Dev/oma/commit/ce234a3d9ffc2622235d5ca6d1e762d1629a6d23))
+    - Dry-run mode display oma and OS info ([`900a155`](https://github.com/AOSC-Dev/oma/commit/900a15564cf0a88ade4efab875fb080fe334a9d1))
+    - Improve pick method code style ([`4f9782f`](https://github.com/AOSC-Dev/oma/commit/4f9782f2112188ce689133654d4122835b57742e))
+</details>
+
+## v0.14.0 (2023-03-23)
+
+<csr-id-ff6749dce59ae4fa50cac786cfaecc17e828c040/>
+<csr-id-89ea59750fccbc487ea7826193e85bbfb39ce14b/>
+
+### New Features
+
+<csr-id-4e6bb0a59edd36b02f7fd0e656f37d5acc5bb0db/>
 
  - <csr-id-903748b5ce82e5bb0c7b78a75b9f1dbe3d32d1ea/> dry-run mode add args tracing
  - <csr-id-123da2c985075fe3ae4a04be55e007fdede83460/> add oma --dry-run argument
    - Also fix oma pick dialoguer default select position
- - <csr-id-4e6bb0a59edd36b02f7fd0e656f37d5acc5bb0db/> if pkg is essential, oma will reject it mark to delete
 
 ### Refactor
 
@@ -23,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 1 calendar day.
+ - 6 commits contributed to the release over the course of 1 calendar day.
  - 1 day passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -35,12 +92,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.14.0 ([`241a797`](https://github.com/AOSC-Dev/oma/commit/241a797fa428db235522848a2c9ffb28b3dfedbf))
     - Dry-run mode add args tracing ([`903748b`](https://github.com/AOSC-Dev/oma/commit/903748b5ce82e5bb0c7b78a75b9f1dbe3d32d1ea))
     - Add oma --dry-run argument ([`123da2c`](https://github.com/AOSC-Dev/oma/commit/123da2c985075fe3ae4a04be55e007fdede83460))
     - Improve DOWNLOAD_DIR var use ([`ff6749d`](https://github.com/AOSC-Dev/oma/commit/ff6749dce59ae4fa50cac786cfaecc17e828c040))
     - Use fs::read to replace fs::File::open and read_buf ([`89ea597`](https://github.com/AOSC-Dev/oma/commit/89ea59750fccbc487ea7826193e85bbfb39ce14b))
     - If pkg is essential, oma will reject it mark to delete ([`4e6bb0a`](https://github.com/AOSC-Dev/oma/commit/4e6bb0a59edd36b02f7fd0e656f37d5acc5bb0db))
 </details>
+
+<csr-unknown>
+ if pkg is essential, oma will reject it mark to delete<csr-unknown/>
 
 ## v0.13.2 (2023-03-22)
 
