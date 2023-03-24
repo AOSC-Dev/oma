@@ -9,7 +9,7 @@ use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     config::Config,
     new_cache,
-    package::Version,
+    package::{Version, Package},
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, Exception},
@@ -1291,7 +1291,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
             continue;
         }
 
-        let pkg = cache.get(&pkginfo.package).unwrap();
+        let pkg = Package::new(&cache, pkginfo.raw_pkg);
         let version = Version::new(pkginfo.version_raw, &pkg);
 
         mark_install(&cache, &pkginfo.package, version.unique(), reinstall, false)?;

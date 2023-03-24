@@ -5,7 +5,7 @@ use indicatif::HumanBytes;
 use rust_apt::{
     cache::{Cache, PackageSort},
     package::{BaseDep, DepType, Dependency, Package, Version},
-    raw::package::RawVersion,
+    raw::package::{RawPackage, RawVersion},
     records::RecordField,
 };
 use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
@@ -30,6 +30,7 @@ pub struct PkgInfo {
     pub deps: HashMap<String, Vec<Vec<OmaDependency>>>,
     pub version_raw: RawVersion,
     pub rdeps: HashMap<String, Vec<Vec<OmaDependency>>>,
+    pub raw_pkg: RawPackage,
 }
 
 impl PkgInfo {
@@ -65,6 +66,8 @@ impl PkgInfo {
         let deps = deps_to_map(version.depends_map());
         let rdeps = deps_to_map(&pkg.rdepends_map());
 
+        let raw_pkg = pkg.unique();
+
         Ok(Self {
             package: pkg.name().to_owned(),
             version: version.version().to_owned(),
@@ -81,6 +84,7 @@ impl PkgInfo {
             deps,
             version_raw,
             rdeps,
+            raw_pkg,
         })
     }
 }
@@ -130,12 +134,10 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
     if input.contains('=') {
         let mut split_arg = input.split('=');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
-        let name = get_real_pkg(cache, name);
-        let version_str = split_arg.collect::<String>();
+        let pkg = get_real_pkg(cache, name).context(format!("Can not get package: {name}"))?;
+        let pkg = Package::new(cache, pkg);
 
-        let pkg = cache
-            .get(&name)
-            .context(format!("Can not get package {name}"))?;
+        let version_str = split_arg.collect::<String>();
 
         let version = pkg
             .get_version(&version_str)
@@ -144,16 +146,13 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
         let oma_pkg = PkgInfo::new(cache, version.unique(), &pkg)?;
 
         res.push((oma_pkg, true));
-    } else if input.contains('/') && !input.ends_with(".deb"){
+    } else if input.contains('/') && !input.ends_with(".deb") {
         let mut split_arg = input.split('/');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
-        let name = get_real_pkg(cache, name);
         let branch = split_arg.collect::<String>();
 
-        let pkg = cache
-            .get(&name)
-            .take()
-            .context(format!("Can not get package: {input}"))?;
+        let pkg = get_real_pkg(cache, name).context(format!("Can not get package: {name}"))?;
+        let pkg = Package::new(cache, pkg);
 
         let mut sort = vec![];
 
@@ -184,11 +183,15 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
             .filter(|x| glob_match_with_captures(input, x.name()).is_some())
             .collect::<Vec<_>>();
 
-        let name = get_real_pkg(cache, input);
+        let virt_pkg = get_real_pkg(cache, input);
 
-        if search_res.iter().find(|x| x.name() == name).is_none() {
-            if let Some(pkg) = cache.get(&name) {
-                search_res.push(pkg);
+        if search_res
+            .iter()
+            .find(|x| Some(x.unique()) == virt_pkg)
+            .is_none()
+        {
+            if let Some(pkg) = virt_pkg {
+                search_res.push(Package::new(cache, pkg));
             }
         }
 
@@ -205,7 +208,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
     Ok(res)
 }
 
-pub fn get_real_pkg(cache: &Cache, pkgname: &str) -> String {
+pub fn get_real_pkg(cache: &Cache, pkgname: &str) -> Option<RawPackage> {
     let mut res = None;
     let sort = PackageSort::default().include_virtual();
     let mut pkgs = cache.packages(&sort);
@@ -214,10 +217,10 @@ pub fn get_real_pkg(cache: &Cache, pkgname: &str) -> String {
 
     if let Some(r) = r {
         let mut provides = r.provides();
-        res = provides.next().map(|x| x.target_pkg().name().to_string());
+        res = provides.next().map(|x| x.target_pkg());
     }
 
-    res.unwrap_or(pkgname.to_string())
+    res.or(cache.get(pkgname).map(|x| x.unique()))
 }
 
 fn dep_map_str(deps: &[Dependency]) -> String {
