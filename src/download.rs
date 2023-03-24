@@ -19,7 +19,7 @@ use tokio::{fs, io::AsyncWriteExt};
 use crate::{
     action::InstallRow,
     checksum::Checksum,
-    db::{APT_LIST_DISTS, DOWNLOAD_DIR},
+    db::DOWNLOAD_DIR,
     info, success, warn, AILURUS, DRYRUN, WRITER,
 };
 
@@ -144,26 +144,10 @@ pub async fn packages_download(
     for (i, c) in list.iter().enumerate() {
         let mbc = mb.clone();
 
-        if let Some(url) = c.pkg_urls.iter().find(|x| x.starts_with("file:")) {
-            // 为保证安装的是本地源的包，这里直接把文件复制过去
-            let url = url.strip_prefix("file:").unwrap();
-            let url = Path::new(url);
-            let filename = url
-                .file_name()
-                .context(format!("Can not get filename {}!", url.display()))?
-                .to_str()
-                .context(format!("Can not get str {}!", url.display()))?;
-
-            let url_filename = filename
-                .replace("%3a", ":")
-                .replace("%2b", "+")
-                .replace("%7e", "~");
-            let filename = trans_filename(filename, c.new_version.clone())?;
-            let url = url.parent().unwrap().join(url_filename);
-
-            tokio::fs::copy(&url, APT_LIST_DISTS.join(filename))
-                .await
-                .context(format!("Can not find file: {}", url.display()))?;
+        if c.pkg_urls.iter().find(|x| x.starts_with("file:")).is_some() {
+            // 本地源交给 APT 直接安装
+            global_bar.inc(c.pure_download_size);
+            continue;
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();
 
