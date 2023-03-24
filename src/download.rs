@@ -17,10 +17,8 @@ use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
 use crate::{
-    action::InstallRow,
-    checksum::Checksum,
-    db::DOWNLOAD_DIR,
-    info, success, warn, AILURUS, DRYRUN, WRITER,
+    action::InstallRow, checksum::Checksum, db::DOWNLOAD_DIR, info, success, warn, AILURUS, DRYRUN,
+    WRITER,
 };
 
 /// Download a package
@@ -145,9 +143,7 @@ pub async fn packages_download(
         let mbc = mb.clone();
 
         if c.pkg_urls.iter().find(|x| x.starts_with("file:")).is_some() {
-            // 本地源交给 APT 直接安装
             global_bar.inc(c.pure_download_size);
-            continue;
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();
 

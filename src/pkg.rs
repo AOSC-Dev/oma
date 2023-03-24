@@ -130,10 +130,11 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
     if input.contains('=') {
         let mut split_arg = input.split('=');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
+        let name = get_real_pkg(cache, name);
         let version_str = split_arg.collect::<String>();
 
         let pkg = cache
-            .get(name)
+            .get(&name)
             .context(format!("Can not get package {name}"))?;
 
         let version = pkg
@@ -148,10 +149,11 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
     } else if input.contains('/') {
         let mut split_arg = input.split('/');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
+        let name = get_real_pkg(cache, name);
         let branch = split_arg.collect::<String>();
 
         let pkg = cache
-            .get(name)
+            .get(&name)
             .take()
             .context(format!("Can not get package: {input}"))?;
 
@@ -179,25 +181,45 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
         res.push((oma_pkg, true));
     } else {
         let sort = PackageSort::default();
-        let search_res = cache
+        let mut search_res = cache
             .packages(&sort)
-            .filter(|x| glob_match_with_captures(input, x.name()).is_some());
+            .filter(|x| glob_match_with_captures(input, x.name()).is_some())
+            .collect::<Vec<_>>();
+
+        let name = get_real_pkg(cache, input);
+
+        if search_res.iter().find(|x| x.name() == name).is_none() {
+            if let Some(pkg) = cache.get(&name) {
+                search_res.push(pkg);
+            }
+        }
 
         for pkg in search_res {
             let versions = pkg.versions();
 
             for ver in versions {
                 let oma_pkg = PkgInfo::new(cache, ver.unique(), &pkg)?;
-                if pkg.candidate() == Some(ver) {
-                    res.push((oma_pkg, true));
-                } else {
-                    res.push((oma_pkg, false));
-                }
+                res.push((oma_pkg, pkg.candidate() == Some(ver)));
             }
         }
     }
 
     Ok(res)
+}
+
+fn get_real_pkg(cache: &Cache, pkgname: &str) -> String {
+    let mut res = None;
+    let sort = PackageSort::default().include_virtual();
+    let mut pkgs = cache.packages(&sort);
+
+    let r = pkgs.find(|x| x.name() == pkgname);
+
+    if let Some(r) = r {
+        let mut provides = r.provides();
+        res = provides.next().map(|x| x.target_pkg().name().to_string());
+    }
+
+    res.unwrap_or(pkgname.to_string())
 }
 
 fn dep_map_str(deps: &[Dependency]) -> String {
