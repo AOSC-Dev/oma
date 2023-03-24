@@ -680,7 +680,10 @@ impl OmaAction {
         let mut downloads = vec![];
         for i in list {
             let oma_pkg = query_pkgs(&cache, i)?;
-            for (i, _) in oma_pkg {
+            for (i, is_cand) in oma_pkg {
+                if !is_cand {
+                    continue;
+                }
                 let pkg = i.package;
                 let version = i.version;
                 let pkg = cache.get(&pkg).unwrap();
