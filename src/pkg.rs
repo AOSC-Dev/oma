@@ -144,9 +144,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
         let oma_pkg = PkgInfo::new(cache, version.unique(), &pkg)?;
 
         res.push((oma_pkg, true));
-    } else if input.ends_with(".deb") {
-        bail!("search_pkg does not support read local deb package");
-    } else if input.contains('/') {
+    } else if input.contains('/') && !input.ends_with(".deb"){
         let mut split_arg = input.split('/');
         let name = split_arg.next().context(format!("Not Support: {input}"))?;
         let name = get_real_pkg(cache, name);
@@ -207,7 +205,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
     Ok(res)
 }
 
-fn get_real_pkg(cache: &Cache, pkgname: &str) -> String {
+pub fn get_real_pkg(cache: &Cache, pkgname: &str) -> String {
     let mut res = None;
     let sort = PackageSort::default().include_virtual();
     let mut pkgs = cache.packages(&sort);

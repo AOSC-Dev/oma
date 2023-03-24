@@ -2,7 +2,6 @@ use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::SourceEntry;
 use clap::{Parser, Subcommand};
 use console::style;
-use debarchive::Archive;
 use dialoguer::{theme::ColorfulTheme, Select};
 use indicatif::HumanBytes;
 use reqwest::Client;
@@ -1274,39 +1273,11 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         .filter(|x| x.ends_with(".deb"))
         .collect::<Vec<_>>();
 
-    let mut local = vec![];
-
-    for i in &local_debs {
-        let archive = Archive::new(Path::new(i)).context(format!("Can not read file: {i}"))?;
-        let control = archive
-            .control_map()
-            .map_err(|e| anyhow!("Can not get archive {i} control file, Why: {e}"))?;
-
-        local.push((
-            control
-                .get("Package")
-                .context("Can not get package name from file: {i}")?
-                .clone(),
-            format!(
-                "file:{}",
-                Path::new(i)
-                    .canonicalize()?
-                    .to_str()
-                    .context(format!("Can not convert path {i} to str"))?
-            ),
-        ));
-        tracing::info!(
-            "Select local pkg: {} from path: {}",
-            local.last().unwrap().0,
-            i
-        );
-    }
-
-    let another = list.iter().filter(|x| !local_debs.contains(x));
     let cache = new_cache!(&local_debs)?;
     let mut pkgs = vec![];
 
-    for i in another {
+    // Query pkgs
+    for i in list {
         let i_res = query_pkgs(&cache, i)?;
         if i_res.is_empty() {
             bail!("Package {i} does not exist.");
@@ -1315,18 +1286,6 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         tracing::info!("Select pkg: {i}");
     }
 
-    // install local packages
-    for (pkg, path) in local {
-        let pkg = cache.get(&pkg).unwrap();
-        let pkgname = pkg.name();
-        let versions = pkg.versions().collect::<Vec<_>>();
-        let version = versions.iter().find(|x| x.uris().any(|x| x == path));
-        let version = version.unwrap();
-
-        mark_install(&cache, pkgname, version.unique(), reinstall, true)?;
-    }
-
-    // install another package
     for (pkginfo, is_cand) in pkgs {
         if !is_cand {
             continue;
