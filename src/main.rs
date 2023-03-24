@@ -10,6 +10,7 @@ use nix::sys::signal;
 use once_cell::sync::Lazy;
 use os_release::OsRelease;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use tracing_subscriber::{fmt, prelude::__tracing_subscriber_SubscriberExt, EnvFilter, util::SubscriberInitExt};
 use utils::unlock_oma;
 
 mod action;
@@ -301,11 +302,17 @@ async fn try_main() -> Result<()> {
 
     if args.dry_run {
         DRYRUN.store(true, Ordering::Relaxed);
-        tracing_subscriber::fmt()
-            .with_writer(std::io::stdout)
-            .without_time()
-            .with_target(false)
-            .init();
+
+        tracing_subscriber::registry()
+            .with(
+                fmt::layer()
+                    .with_writer(std::io::stdout)
+                    .without_time()
+                    .with_target(false),
+            )
+            .with(EnvFilter::from_default_env())
+            .try_init()?;
+
         tracing::info!("Running in Dry-run mode");
         tracing::debug!(
             "oma version: {}\n OS: {:#?}",
