@@ -10,8 +10,9 @@ use nix::sys::signal;
 use once_cell::sync::Lazy;
 use os_release::OsRelease;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use tracing::metadata::LevelFilter;
 use tracing_subscriber::{
-    fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter,
+    fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
 };
 use utils::unlock_oma;
 
@@ -310,9 +311,13 @@ async fn try_main() -> Result<()> {
                 fmt::layer()
                     .with_writer(std::io::stdout)
                     .without_time()
-                    .with_target(false),
+                    .with_target(false)
+                    .with_filter(
+                        EnvFilter::builder()
+                            .with_default_directive(LevelFilter::INFO.into())
+                            .from_env_lossy(),
+                    ),
             )
-            .with(EnvFilter::from_default_env())
             .try_init()?;
 
         tracing::info!("Running in Dry-run mode");
