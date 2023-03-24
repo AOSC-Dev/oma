@@ -10,7 +10,9 @@ use nix::sys::signal;
 use once_cell::sync::Lazy;
 use os_release::OsRelease;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-use tracing_subscriber::{fmt, prelude::__tracing_subscriber_SubscriberExt, EnvFilter, util::SubscriberInitExt};
+use tracing_subscriber::{
+    fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter,
+};
 use utils::unlock_oma;
 
 mod action;

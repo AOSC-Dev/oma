@@ -39,8 +39,8 @@ use crate::{
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{is_root, lock_oma, log_to_file, size_checker},
-    warn, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC, DRYRUN,
-    WRITER, FixBroken,
+    warn, FixBroken, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC,
+    DRYRUN, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
