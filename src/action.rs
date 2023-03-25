@@ -9,7 +9,7 @@ use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     config::Config,
     new_cache,
-    package::{Version, Package},
+    package::{Package, Version},
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner, Exception},
@@ -38,8 +38,8 @@ use crate::{
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{is_root, lock_oma, log_to_file, size_checker},
-    warn, FixBroken, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions, ALLOWCTRLC,
-    DRYRUN, WRITER,
+    warn, Download, FixBroken, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions,
+    ALLOWCTRLC, DRYRUN, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -669,7 +669,7 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn download(&self, list: &[String]) -> Result<()> {
+    pub async fn download(&self, v: Download) -> Result<()> {
         if DRYRUN.load(Ordering::Relaxed) {
             return Ok(());
         }
@@ -677,8 +677,8 @@ impl OmaAction {
         let cache = new_cache!()?;
 
         let mut downloads = vec![];
-        for i in list {
-            let oma_pkg = query_pkgs(&cache, i)?;
+        for i in v.packages {
+            let oma_pkg = query_pkgs(&cache, &i)?;
             for (i, is_cand) in oma_pkg {
                 if !is_cand {
                     continue;
@@ -702,7 +702,15 @@ impl OmaAction {
             }
         }
 
-        packages_download(&downloads, &self.client, None, Some(Path::new("."))).await?;
+        packages_download(
+            &downloads,
+            &self.client,
+            None,
+            Some(Path::new(&v.path.unwrap_or(".".to_owned()))),
+        )
+        .await?;
+
+        // success!("Successfully downloaded packages: {:#?}");
 
         Ok(())
     }

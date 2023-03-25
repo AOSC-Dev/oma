@@ -135,9 +135,12 @@ pub struct FixBroken {
 }
 
 #[derive(Parser, Debug)]
-struct Download {
+pub struct Download {
     /// Package(s) name
     packages: Vec<String>,
+    /// Download to path
+    #[arg(long, short)]
+    path: Option<String>,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -343,7 +346,7 @@ async fn try_main() -> Result<()> {
         // 则强制更新 Contents
         OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
-        OmaCommand::Download(v) => OmaAction::new().await?.download(&v.packages).await,
+        OmaCommand::Download(v) => OmaAction::new().await?.download(v).await,
         OmaCommand::FixBroken(v) => OmaAction::new().await?.fix_broken(v).await,
         OmaCommand::Pick(v) => OmaAction::new().await?.pick(v).await,
         OmaCommand::Mark(v) => OmaAction::mark(v),
