@@ -142,7 +142,7 @@ pub async fn packages_download(
     for (i, c) in list.iter().enumerate() {
         let mbc = mb.clone();
 
-        if c.pkg_urls.iter().find(|x| x.starts_with("file:")).is_some() {
+        if c.pkg_urls.iter().any(|x| x.starts_with("file:")) {
             global_bar.inc(c.pure_download_size);
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();

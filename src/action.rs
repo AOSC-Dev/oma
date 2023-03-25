@@ -678,7 +678,7 @@ impl OmaAction {
 
         let mut downloads = vec![];
         for i in &v.packages {
-            let oma_pkg = query_pkgs(&cache, &i)?;
+            let oma_pkg = query_pkgs(&cache, i)?;
             for (i, is_cand) in oma_pkg {
                 if !is_cand {
                     continue;

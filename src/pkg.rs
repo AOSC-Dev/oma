@@ -185,11 +185,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
 
         let virt_pkg = get_real_pkg(cache, input);
 
-        if search_res
-            .iter()
-            .find(|x| Some(x.unique()) == virt_pkg)
-            .is_none()
-        {
+        if !search_res.iter().any(|x| Some(x.unique()) == virt_pkg) {
             if let Some(pkg) = virt_pkg {
                 search_res.push(Package::new(cache, pkg));
             }
