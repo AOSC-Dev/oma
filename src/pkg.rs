@@ -210,7 +210,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
 
 pub fn get_real_pkg(cache: &Cache, pkgname: &str) -> Option<RawPackage> {
     let mut res = None;
-    let sort = PackageSort::default().include_virtual();
+    let sort = PackageSort::default().only_virtual();
     let mut pkgs = cache.packages(&sort);
 
     let r = pkgs.find(|x| x.name() == pkgname);
