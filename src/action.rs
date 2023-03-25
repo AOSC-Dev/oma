@@ -677,7 +677,7 @@ impl OmaAction {
         let cache = new_cache!()?;
 
         let mut downloads = vec![];
-        for i in v.packages {
+        for i in &v.packages {
             let oma_pkg = query_pkgs(&cache, &i)?;
             for (i, is_cand) in oma_pkg {
                 if !is_cand {
@@ -702,15 +702,19 @@ impl OmaAction {
             }
         }
 
-        packages_download(
-            &downloads,
-            &self.client,
-            None,
-            Some(Path::new(&v.path.unwrap_or(".".to_owned()))),
-        )
-        .await?;
+        let path = v.path.unwrap_or(".".to_owned());
+        let path = Path::new(&path);
 
-        // success!("Successfully downloaded packages: {:#?}");
+        packages_download(&downloads, &self.client, None, Some(path)).await?;
+
+        success!(
+            "Successfully downloaded packages: {:?} to path: {}",
+            downloads
+                .iter()
+                .map(|x| x.name_no_color.to_string())
+                .collect::<Vec<_>>(),
+            path.canonicalize()?.display()
+        );
 
         Ok(())
     }
