@@ -12,7 +12,7 @@ use std::{collections::HashMap, fmt::Write, path::Path, sync::atomic::Ordering};
 
 use crate::{
     cli::gen_prefix, formatter::find_unmet_deps_with_markinstall, info, pager::Pager,
-    utils::{apt_style_url}, ALLOWCTRLC,
+    utils::apt_style_url, ALLOWCTRLC,
 };
 
 pub struct PkgInfo {

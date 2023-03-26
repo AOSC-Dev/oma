@@ -157,9 +157,9 @@ pub fn is_root() -> Result<()> {
 /// Get apt style url: like: go_1.19.4%2btools0.4.0%2bnet0.4.0_amd64.deb
 #[inline]
 pub fn apt_style_url(s: &str) -> String {
-    s.replace(":", "%3a")
-        .replace("+", "%2b")
-        .replace("~", "%7e")
+    s.replace(':', "%3a")
+        .replace('+', "%2b")
+        .replace('~', "%7e")
 }
 
 /// Reverse apt style url: like: file:/home/saki/aoscpt/go_1.19.4+tools0.4.0+net0.4.0_amd64.deb
