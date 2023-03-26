@@ -13,6 +13,7 @@ use futures::{future::BoxFuture, StreamExt};
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
 use reqwest::{Client, Url};
+use rust_apt::config::Config;
 use serde::Deserialize;
 use tokio::{io::AsyncReadExt, task::spawn_blocking};
 use xz2::read::XzDecoder;
@@ -28,7 +29,14 @@ use crate::{
 use std::sync::atomic::Ordering;
 
 pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/lib/apt/lists"));
-pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/cache/apt/archives"));
+pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| {
+    let config = Config::new();
+    let res = config
+        .get("Dir::Cache::Archives")
+        .unwrap_or("/var/cache/apt/archives".to_string());
+    PathBuf::from(res)
+});
+
 static MIRROR: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
 
