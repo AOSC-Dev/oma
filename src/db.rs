@@ -23,7 +23,7 @@ use crate::{
     download::{download, oma_style_pb, OmaProgressBar},
     error, info, success,
     utils::get_arch_name,
-    verify,
+    verify, warn,
 };
 
 use std::sync::atomic::Ordering;
@@ -33,7 +33,7 @@ pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| {
     let config = Config::new();
     let archives_dir = config.get("Dir::Cache::Archives");
 
-    if let Some(archives_dir) = archives_dir {
+    let path = if let Some(archives_dir) = archives_dir {
         if !Path::new(&archives_dir).is_absolute() {
             PathBuf::from(format!("/var/cache/apt/{archives_dir}"))
         } else {
@@ -41,6 +41,16 @@ pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| {
         }
     } else {
         PathBuf::from("/var/cache/apt/archives/")
+    };
+
+    if !path.is_dir() {
+        warn!(
+            "Dir::Cache::Archives value: {} does not exist! fallback to /var/cache/apt/archives",
+            path.display()
+        );
+        PathBuf::from("/var/cache/apt/archives/")
+    } else {
+        path
     }
 });
 
