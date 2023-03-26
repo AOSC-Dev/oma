@@ -11,7 +11,7 @@ use console::style;
 use futures::StreamExt;
 use tokio::task::spawn_blocking;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Result, bail};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
@@ -76,8 +76,9 @@ async fn try_download(
     download_dir: &Path,
 ) -> Result<()> {
     let mut all_is_err = true;
+    let mut err = vec![];
     for (i, c) in urls.iter().enumerate() {
-        if download(
+        if let Err(e) = download(
             c,
             client,
             filename.to_string(),
@@ -86,20 +87,19 @@ async fn try_download(
             opb.clone(),
         )
         .await
-        .is_ok()
         {
+            err.push(e);
+            if i < urls.len() - 1 {
+                warn!("Download {c} failed, try next url to download this package ...");
+            }
+        } else {
             all_is_err = false;
             break;
-        } else if i < urls.len() - 1 {
-            warn!("Download {c} failed, try next url to download this package ...");
         }
     }
 
     if all_is_err {
-        Err(anyhow!(
-            "Can not download package: {}, Maybe your network connect is broken!",
-            filename
-        ))
+        bail!("Can not download package: {filename}, Maybe your network connect is broken!")
     } else {
         Ok(())
     }

@@ -31,10 +31,17 @@ use std::sync::atomic::Ordering;
 pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/lib/apt/lists"));
 pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| {
     let config = Config::new();
-    let res = config
-        .get("Dir::Cache::Archives")
-        .unwrap_or("/var/cache/apt/archives".to_string());
-    PathBuf::from(res)
+    let archives_dir = config.get("Dir::Cache::Archives");
+
+    if let Some(archives_dir) = archives_dir {
+        if !Path::new(&archives_dir).is_absolute() {
+            PathBuf::from(format!("/var/cache/apt/{archives_dir}"))
+        } else {
+            PathBuf::from(archives_dir)
+        }
+    } else {
+        PathBuf::from("/var/cache/apt/archives/")
+    }
 });
 
 static MIRROR: Lazy<PathBuf> =
