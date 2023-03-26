@@ -11,7 +11,7 @@ use console::style;
 use futures::StreamExt;
 use tokio::task::spawn_blocking;
 
-use anyhow::{anyhow, Context, Result, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
@@ -76,9 +76,8 @@ async fn try_download(
     download_dir: &Path,
 ) -> Result<()> {
     let mut all_is_err = true;
-    let mut err = vec![];
     for (i, c) in urls.iter().enumerate() {
-        if let Err(e) = download(
+        if download(
             c,
             client,
             filename.to_string(),
@@ -87,8 +86,8 @@ async fn try_download(
             opb.clone(),
         )
         .await
+        .is_err()
         {
-            err.push(e);
             if i < urls.len() - 1 {
                 warn!("Download {c} failed, try next url to download this package ...");
             }
