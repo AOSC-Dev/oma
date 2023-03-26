@@ -8,10 +8,11 @@ use rust_apt::{
     raw::package::{RawPackage, RawVersion},
     records::RecordField,
 };
-use std::{collections::HashMap, fmt::Write, sync::atomic::Ordering};
+use std::{collections::HashMap, fmt::Write, path::Path, sync::atomic::Ordering};
 
 use crate::{
-    cli::gen_prefix, formatter::find_unmet_deps_with_markinstall, info, pager::Pager, ALLOWCTRLC,
+    cli::gen_prefix, formatter::find_unmet_deps_with_markinstall, info, pager::Pager,
+    utils::{apt_style_url}, ALLOWCTRLC,
 };
 
 pub struct PkgInfo {
@@ -176,6 +177,34 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
         let oma_pkg = PkgInfo::new(cache, version.unique(), &pkg)?;
 
         res.push((oma_pkg, true));
+    } else if input.ends_with("deb") {
+        let sort = PackageSort::default().only_virtual();
+        let glob = cache
+            .packages(&sort)
+            .filter(|x| glob_match_with_captures(input, x.name()).is_some())
+            .collect::<Vec<_>>();
+
+        for i in glob {
+            let real_pkg = get_real_pkg(cache, i.name());
+            if let Some(pkg) = real_pkg {
+                let pkg = Package::new(cache, pkg);
+
+                let path = format!(
+                    "file:{}",
+                    apt_style_url(
+                        Path::new(i.name())
+                            .canonicalize()?
+                            .to_str()
+                            .unwrap_or(i.name())
+                    )
+                );
+
+                for ver in pkg.versions() {
+                    let oma_pkg = PkgInfo::new(cache, ver.unique(), &pkg)?;
+                    res.push((oma_pkg, ver.uris().any(|x| x == path)));
+                }
+            }
+        }
     } else {
         let sort = PackageSort::default();
         let mut search_res = cache
@@ -187,7 +216,8 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
 
         if !search_res.iter().any(|x| Some(x.unique()) == virt_pkg) {
             if let Some(pkg) = virt_pkg {
-                search_res.push(Package::new(cache, pkg));
+                let pkg = Package::new(cache, pkg);
+                search_res.push(pkg);
             }
         }
 

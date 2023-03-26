@@ -11,14 +11,14 @@ use console::style;
 use futures::StreamExt;
 use tokio::task::spawn_blocking;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result, bail};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
 use crate::{
     action::InstallRow, checksum::Checksum, db::DOWNLOAD_DIR, info, success, warn, AILURUS, DRYRUN,
-    WRITER,
+    WRITER, utils::reverse_apt_style_url,
 };
 
 /// Download a package
@@ -141,8 +141,23 @@ pub async fn packages_download(
     for (i, c) in list.iter().enumerate() {
         let mbc = mb.clone();
 
-        if c.pkg_urls.iter().any(|x| x.starts_with("file:")) {
+        if let Some(url) = c.pkg_urls.iter().find(|x| x.starts_with("file:")) {
             global_bar.inc(c.pure_download_size);
+            let url = url.strip_prefix("file:").unwrap();
+            let url = Path::new(url);
+            let filename = url
+                .file_name()
+                .context(format!("Can not get filename {}!", url.display()))?
+                .to_str()
+                .context(format!("Can not get str {}!", url.display()))?;
+
+            let url_filename = reverse_apt_style_url(filename);
+            let filename = trans_filename(filename, c.new_version.clone())?;
+            let url = url.parent().unwrap().join(url_filename);
+
+            tokio::fs::copy(&url, DOWNLOAD_DIR.join(filename))
+                .await
+                .context(format!("Can not find file: {}", url.display()))?;
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();
 
