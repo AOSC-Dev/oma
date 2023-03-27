@@ -204,13 +204,13 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
         if split_group.len() != 1 {
             for i in split_group {
                 if is_list && i.split('/').nth(1) == Some(kw) {
-                    let file = file_handle(file.unwrap());
+                    let file = remove_prefix(file.unwrap());
                     let pkg = kw;
                     let s = format!("{kw}: {file}");
 
                     return Some((pkg.to_string(), s));
                 } else if !is_list && i.contains(kw) && i.split('/').nth_back(0).is_some() {
-                    let file = file_handle(file.unwrap());
+                    let file = remove_prefix(file.unwrap());
                     let pkg = i.split('/').nth_back(0).unwrap();
                     let s = format!("{pkg}: {file}");
                     return Some((pkg.to_string(), s));
@@ -220,7 +220,7 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
             // 比如 /usr/bin/apt admin/apt
             let pkg = pkg_group.split('/').nth_back(0);
             if let Some(pkg) = pkg {
-                let file = file_handle(file.unwrap());
+                let file = remove_prefix(file.unwrap());
                 let s = format!("{pkg}: {file}");
                 return Some((pkg.to_string(), s));
             }
@@ -230,14 +230,12 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
     None
 }
 
-fn file_handle(s: &str) -> String {
-    let s = if s.starts_with("./") {
-        s.strip_prefix('.').unwrap().to_string()
-    } else if !s.starts_with("./") && !s.starts_with('/') {
-        "/".to_owned() + s
-    } else {
-        s.to_owned()
-    };
+fn remove_prefix(s: &str) -> String {
+    if s.starts_with("/") {
+        return s.to_owned();
+    }
 
-    s
+    let s = s.strip_prefix("./").unwrap_or(s);
+
+    "/".to_owned() + s
 }
