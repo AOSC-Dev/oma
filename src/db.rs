@@ -15,7 +15,7 @@ use once_cell::sync::Lazy;
 use reqwest::{Client, Url};
 use rust_apt::config::Config;
 use serde::Deserialize;
-use tokio::{io::AsyncReadExt, task::spawn_blocking};
+use tokio::{io::AsyncReadExt, task::spawn_blocking, runtime::Runtime};
 use xz2::read::XzDecoder;
 
 use crate::{
@@ -379,8 +379,14 @@ async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, usi
     Ok((name, count))
 }
 
+pub fn update_db_runner(runtime: &Runtime, sources: &[SourceEntry], client: &Client, limit: Option<usize>) -> Result<()> {
+    runtime.block_on(update_db(sources, client, limit))?;
+
+    Ok(())
+}
+
 // Update database
-pub async fn update_db(
+async fn update_db(
     sources: &[SourceEntry],
     client: &Client,
     limit: Option<usize>,

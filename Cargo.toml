@@ -21,7 +21,7 @@ rust-apt = { git = "https://gitlab.com/volian/rust-apt", rev = "496511ad09ca8f99
 clap = { version = "4.1", features = ["derive"] }
 indicatif = "0.17"
 console = "0.15"
-tokio = { version = "1.15", default_features = false, features = ["rt", "macros", "fs", "io-util", "rt-multi-thread"] }
+tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
 futures = "0.3"
 serde_yaml = "0.9"
 hex = "0.4"

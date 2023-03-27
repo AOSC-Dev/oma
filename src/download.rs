@@ -9,7 +9,7 @@ use std::{
 
 use console::style;
 use futures::StreamExt;
-use tokio::task::spawn_blocking;
+use tokio::{task::spawn_blocking, runtime::Runtime};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -104,8 +104,20 @@ async fn try_download(
     }
 }
 
+pub fn packages_download_runner(
+    runtime: &Runtime,
+    list: &[InstallRow],
+    client: &Client,
+    limit: Option<usize>,
+    download_dir: Option<&Path>,
+) -> Result<()> {
+    runtime.block_on(packages_download(list, client, limit, download_dir))?;
+
+    Ok(())
+}
+
 /// Download packages
-pub async fn packages_download(
+async fn packages_download(
     list: &[InstallRow],
     client: &Client,
     limit: Option<usize>,

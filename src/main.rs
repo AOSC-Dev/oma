@@ -12,6 +12,7 @@ use os_release::OsRelease;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use time::macros::offset;
 use time::{OffsetDateTime, UtcOffset};
+use tokio::runtime::Runtime;
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::{
     fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
@@ -291,11 +292,7 @@ fn main() {
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
 
-    runtime.block_on(async_main());
-}
-
-async fn async_main() {
-    if let Err(e) = try_main().await {
+    if let Err(e) = try_main(runtime) {
         if !e.to_string().is_empty() {
             error!("{e}");
         }
@@ -308,7 +305,7 @@ async fn async_main() {
     exit(0);
 }
 
-async fn try_main() -> Result<()> {
+fn try_main(runtime: Runtime) -> Result<()> {
     let args = Args::parse();
 
     let ailurus = args.ailurus;
@@ -353,10 +350,10 @@ async fn try_main() -> Result<()> {
     tracing::info!("Running oma with args: {}", *ARGS);
 
     match args.subcommand {
-        OmaCommand::Install(v) => OmaAction::new().await?.install(v).await,
+        OmaCommand::Install(v) => OmaAction::new(runtime)?.install(v),
         OmaCommand::Remove(v) => OmaAction::remove(v),
-        OmaCommand::Upgrade(v) => OmaAction::new().await?.update(v).await,
-        OmaCommand::Refresh => OmaAction::new().await?.refresh().await,
+        OmaCommand::Upgrade(v) => OmaAction::new(runtime)?.update(v),
+        OmaCommand::Refresh => OmaAction::new(runtime)?.refresh(),
         OmaCommand::Show(v) => OmaAction::show(&v.packages, v.is_all),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword.join(" ")),
         // TODO: up_db 的值目前写死了 true，打算实现的逻辑是这样：
@@ -365,9 +362,9 @@ async fn try_main() -> Result<()> {
         // 则强制更新 Contents
         OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
-        OmaCommand::Download(v) => OmaAction::new().await?.download(v).await,
-        OmaCommand::FixBroken(v) => OmaAction::new().await?.fix_broken(v).await,
-        OmaCommand::Pick(v) => OmaAction::new().await?.pick(v).await,
+        OmaCommand::Download(v) => OmaAction::new(runtime)?.download(v),
+        OmaCommand::FixBroken(v) => OmaAction::new(runtime)?.fix_broken(v),
+        OmaCommand::Pick(v) => OmaAction::new(runtime)?.pick(v),
         OmaCommand::Mark(v) => OmaAction::mark(v),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
         OmaCommand::List(v) => {

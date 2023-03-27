@@ -17,6 +17,7 @@ use rust_apt::{
 use std::{fmt::Write as FmtWrite, io::BufRead};
 use tabled::Tabled;
 use time::OffsetDateTime;
+use tokio::runtime::Runtime;
 
 use std::{
     fmt::Debug,
@@ -28,8 +29,8 @@ use std::{
 
 use crate::{
     contents::find,
-    db::{get_sources, update_db, APT_LIST_DISTS, DOWNLOAD_DIR},
-    download::packages_download,
+    db::{get_sources, update_db_runner, APT_LIST_DISTS, DOWNLOAD_DIR},
+    download::{packages_download_runner},
     formatter::{
         display_result, download_size, find_unmet_deps, NoProgress, OmaAptInstallProgress,
     },
@@ -37,7 +38,7 @@ use crate::{
     pager::Pager,
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
-    utils::{needs_root, lock_oma, log_to_file, size_checker},
+    utils::{lock_oma, log_to_file, needs_root, size_checker},
     warn, Download, FixBroken, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions,
     ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER,
 };
@@ -95,6 +96,7 @@ pub struct MarkActionArgs {
 pub struct OmaAction {
     sources: Vec<SourceEntry>,
     client: Client,
+    runtime: Runtime,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -108,7 +110,7 @@ enum InstallError {
 type InstallResult<T> = std::result::Result<T, InstallError>;
 
 impl OmaAction {
-    pub async fn new() -> Result<Self> {
+    pub fn new(runtime: Runtime) -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
 
         let sources = get_sources()?;
@@ -116,11 +118,15 @@ impl OmaAction {
         std::fs::create_dir_all(&*APT_LIST_DISTS)?;
         std::fs::create_dir_all("/var/cache/apt/archives")?;
 
-        Ok(Self { sources, client })
+        Ok(Self {
+            sources,
+            client,
+            runtime,
+        })
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
-    pub async fn update(&self, u: UpgradeOptions) -> Result<()> {
+    pub fn update(&self, u: UpgradeOptions) -> Result<()> {
         needs_root()?;
         lock_oma()?;
 
@@ -132,13 +138,14 @@ impl OmaAction {
             DRYRUN.store(true, Ordering::Relaxed);
         }
 
-        update_db(&self.sources, &self.client, None).await?;
+        update_db_runner(&self.runtime, &self.sources, &self.client, None)?;
 
         let start_time = OffsetDateTime::now_utc()
             .to_offset(*TIME_OFFSET)
             .to_string();
 
-        async fn update_inner(
+        fn update_inner(
+            runtime: &Runtime,
             client: &Client,
             count: usize,
             u: &UpgradeOptions,
@@ -173,7 +180,7 @@ impl OmaAction {
                 }
             }
 
-            packages_download(&list, client, None, None).await?;
+            packages_download_runner(&runtime, &list, client, None, None)?;
             apt_install(cache, u.yes, u.force_yes, u.force_confnew)?;
 
             Ok(action)
@@ -181,7 +188,7 @@ impl OmaAction {
 
         let mut count = 0;
         loop {
-            match update_inner(&self.client, count, &u).await {
+            match update_inner(&self.runtime, &self.client, count, &u) {
                 Err(e) => {
                     match e {
                         InstallError::Anyhow(e) => return Err(e),
@@ -205,7 +212,7 @@ impl OmaAction {
         }
     }
 
-    pub async fn install(&self, opt: InstallOptions) -> Result<()> {
+    pub fn install(&self, opt: InstallOptions) -> Result<()> {
         needs_root()?;
         lock_oma()?;
 
@@ -222,12 +229,12 @@ impl OmaAction {
         }
 
         if !opt.no_upgrade {
-            update_db(&self.sources, &self.client, None).await?;
+            update_db_runner(&self.runtime, &self.sources, &self.client, None)?;
         }
 
         let mut count = 0;
         loop {
-            match self.install_inner(&opt, count).await {
+            match self.install_inner(&opt, count) {
                 Err(e) => {
                     match e {
                         InstallError::Anyhow(e) => return Err(e),
@@ -577,7 +584,7 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn fix_broken(&self, v: FixBroken) -> Result<()> {
+    pub fn fix_broken(&self, v: FixBroken) -> Result<()> {
         needs_root()?;
         lock_oma()?;
 
@@ -605,7 +612,7 @@ impl OmaAction {
         size_checker(&install_size, download_size(&list, &cache)?)?;
 
         display_result(&action, &cache)?;
-        packages_download(&list, &self.client, None, None).await?;
+        packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 
         if !DRYRUN.load(Ordering::Relaxed) {
             cache.commit(
@@ -697,7 +704,7 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn download(&self, v: Download) -> Result<()> {
+    pub fn download(&self, v: Download) -> Result<()> {
         if DRYRUN.load(Ordering::Relaxed) {
             return Ok(());
         }
@@ -733,7 +740,7 @@ impl OmaAction {
         let path = v.path.unwrap_or(".".to_owned());
         let path = Path::new(&path);
 
-        packages_download(&downloads, &self.client, None, Some(path)).await?;
+        packages_download_runner(&self.runtime, &downloads, &self.client, None, Some(path))?;
 
         success!(
             "Successfully downloaded packages: {:?} to path: {}",
@@ -747,7 +754,7 @@ impl OmaAction {
         Ok(())
     }
 
-    async fn install_inner(&self, opt: &InstallOptions, count: usize) -> InstallResult<Action> {
+    fn install_inner(&self, opt: &InstallOptions, count: usize) -> InstallResult<Action> {
         let cache = install_handle(&opt.packages, opt.install_dbg, opt.reinstall)?;
 
         let (action, len) = apt_handler(
@@ -777,7 +784,7 @@ impl OmaAction {
         }
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
-        packages_download(&list, &self.client, None, None).await?;
+        packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
         apt_install(cache, opt.yes, opt.force_yes, opt.force_confnew)?;
 
         Ok(action)
@@ -842,11 +849,11 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn refresh(&self) -> Result<()> {
+    pub fn refresh(&self) -> Result<()> {
         needs_root()?;
         lock_oma()?;
 
-        update_db(&self.sources, &self.client, None).await?;
+        update_db_runner(&self.runtime, &self.sources, &self.client, None)?;
 
         let cache = new_cache!()?;
         let upgradable = PackageSort::default().upgradable();
@@ -877,7 +884,7 @@ impl OmaAction {
         Ok(())
     }
 
-    pub async fn pick(&self, p: PickOptions) -> Result<()> {
+    pub fn pick(&self, p: PickOptions) -> Result<()> {
         needs_root()?;
         lock_oma()?;
 
@@ -886,7 +893,7 @@ impl OmaAction {
         }
 
         if !p.no_upgrade {
-            update_db(&self.sources, &self.client, None).await?;
+            update_db_runner(&self.runtime, &self.sources, &self.client, None)?;
         }
 
         let start_time = OffsetDateTime::now_utc()
@@ -991,7 +998,7 @@ impl OmaAction {
             size_checker(&disk_size, download_size(&list, &cache)?)?;
             display_result(&action, &cache)?;
 
-            packages_download(&list, &self.client, None, None).await?;
+            packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 
             apt_install(cache, false, false, false)?;
 
