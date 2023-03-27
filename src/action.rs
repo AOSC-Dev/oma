@@ -37,7 +37,7 @@ use crate::{
     pager::Pager,
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
-    utils::{is_root, lock_oma, log_to_file, size_checker},
+    utils::{needs_root, lock_oma, log_to_file, size_checker},
     warn, Download, FixBroken, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions,
     ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER,
 };
@@ -121,7 +121,7 @@ impl OmaAction {
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
     pub async fn update(&self, u: UpgradeOptions) -> Result<()> {
-        is_root()?;
+        needs_root()?;
         lock_oma()?;
 
         if u.yes {
@@ -206,7 +206,7 @@ impl OmaAction {
     }
 
     pub async fn install(&self, opt: InstallOptions) -> Result<()> {
-        is_root()?;
+        needs_root()?;
         lock_oma()?;
 
         if opt.dry_run {
@@ -578,7 +578,7 @@ impl OmaAction {
     }
 
     pub async fn fix_broken(&self, v: FixBroken) -> Result<()> {
-        is_root()?;
+        needs_root()?;
         lock_oma()?;
 
         if v.dry_run {
@@ -784,7 +784,7 @@ impl OmaAction {
     }
 
     pub fn remove(r: RemoveOptions) -> Result<()> {
-        is_root()?;
+        needs_root()?;
         lock_oma()?;
 
         let start_time = OffsetDateTime::now_utc()
@@ -843,7 +843,7 @@ impl OmaAction {
     }
 
     pub async fn refresh(&self) -> Result<()> {
-        is_root()?;
+        needs_root()?;
         lock_oma()?;
 
         update_db(&self.sources, &self.client, None).await?;
@@ -878,7 +878,7 @@ impl OmaAction {
     }
 
     pub async fn pick(&self, p: PickOptions) -> Result<()> {
-        is_root()?;
+        needs_root()?;
         lock_oma()?;
 
         if p.dry_run {
@@ -1175,7 +1175,7 @@ impl OmaAction {
             return Ok(());
         }
 
-        is_root()?;
+        needs_root()?;
 
         let dir = std::fs::read_dir(&*DOWNLOAD_DIR)?;
 

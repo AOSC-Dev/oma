@@ -1,6 +1,7 @@
 use std::{
     io::Write,
     path::{Path, PathBuf},
+    process::{Command, exit},
     str::FromStr,
     sync::atomic::Ordering,
 };
@@ -125,10 +126,9 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<
 }
 
 /// Check user is root
-pub fn is_root() -> Result<()> {
-    if !nix::unistd::geteuid().is_root() {
-        bail!("Please run me as root!");
-    }
+#[inline]
+pub fn needs_root() -> Result<()> {
+    polkit_run_itself()?;
 
     Ok(())
 }
@@ -147,4 +147,18 @@ pub fn reverse_apt_style_url(s: &str) -> String {
     s.replace("%3a", ":")
         .replace("%2b", "+")
         .replace("%7e", "~")
+}
+
+pub fn polkit_run_itself() -> Result<()> {
+    if nix::unistd::geteuid().is_root() {
+        return Ok(());
+    }
+
+    let args = ARGS.split(" ").collect::<Vec<_>>();
+    Command::new("pkexec")
+        .args(args)
+        .spawn()?
+        .wait_with_output()?;
+
+    exit(0)
 }
