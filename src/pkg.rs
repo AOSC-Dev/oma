@@ -331,22 +331,26 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     for pkg in packages {
         if let Some(cand) = pkg.candidate() {
             if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
-                let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
-                res.insert(
-                    pkg.name().to_string(),
-                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
-                );
+                if res.get(pkg.name()).is_none() {
+                    let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
+                    res.insert(
+                        pkg.name().to_string(),
+                        (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                    );
+                }
             }
 
             if cand.description().unwrap_or("".to_owned()).contains(input)
                 && !res.contains_key(pkg.name())
                 && !pkg.name().contains("-dbg")
             {
-                let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
-                res.insert(
-                    pkg.name().to_string(),
-                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
-                );
+                if res.get(pkg.name()).is_none() {
+                    let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
+                    res.insert(
+                        pkg.name().to_string(),
+                        (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                    );
+                }
             }
         } else {
             if pkg.name() == input && pkg.has_provides() {
