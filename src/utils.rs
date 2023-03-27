@@ -155,10 +155,10 @@ pub fn polkit_run_itself() -> Result<()> {
     }
 
     let args = ARGS.split(" ").collect::<Vec<_>>();
-    Command::new("pkexec")
+    let out = Command::new("pkexec")
         .args(args)
         .spawn()?
         .wait_with_output()?;
 
-    exit(0)
+    exit(out.status.code().unwrap())
 }
