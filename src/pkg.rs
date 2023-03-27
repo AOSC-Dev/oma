@@ -330,41 +330,33 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     for pkg in packages {
         if let Some(cand) = pkg.candidate() {
-            if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
-                if res.get(pkg.name()).is_none() {
-                    let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
-                    res.insert(
-                        pkg.name().to_string(),
-                        (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
-                    );
-                }
+            if pkg.name().contains(input) && !pkg.name().contains("-dbg") && res.get(pkg.name()).is_none() {
+                let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
+                res.insert(
+                    pkg.name().to_string(),
+                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                );
             }
 
             if cand.description().unwrap_or("".to_owned()).contains(input)
-                && !res.contains_key(pkg.name())
-                && !pkg.name().contains("-dbg")
-            {
-                if res.get(pkg.name()).is_none() {
-                    let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
-                    res.insert(
-                        pkg.name().to_string(),
-                        (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
-                    );
-                }
+                && !res.contains_key(pkg.name()) && !pkg.name().contains("-dbg") && res.get(pkg.name()).is_none() {
+                let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
+                res.insert(
+                    pkg.name().to_string(),
+                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                );
             }
-        } else {
-            if pkg.name() == input && pkg.has_provides() {
-                let real_pkgs = pkg.provides().map(|x| x.target_pkg());
-                for pkg in real_pkgs {
-                    let pkg = Package::new(cache, pkg);
-                    let cand = pkg.candidate().unwrap();
-                    let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
+        } else if pkg.name() == input && pkg.has_provides() {
+            let real_pkgs = pkg.provides().map(|x| x.target_pkg());
+            for pkg in real_pkgs {
+                let pkg = Package::new(cache, pkg);
+                let cand = pkg.candidate().unwrap();
+                let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
 
-                    res.insert(
-                        pkg.name().to_string(),
-                        (oma_pkg, cand.is_installed(), pkg.is_upgradable(), true),
-                    );
-                }
+                res.insert(
+                    pkg.name().to_string(),
+                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), true),
+                );
             }
         }
     }
