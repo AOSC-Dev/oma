@@ -658,6 +658,8 @@ impl OmaAction {
                             format!("{k}d by")
                         } else if k == "Break" {
                             "Broken by".to_string()
+                        } else if k == "PreDepend" {
+                            "Pre-depended by".to_string()
                         } else {
                             format!("{k}ed by")
                         }
