@@ -9,7 +9,7 @@ edition = "2021"
 # Debian
 apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists", rev = "0df4611ec7293010551f95659f28f1b1da9cc0c8" }
 debcontrol = { git = "https://github.com/AOSC-Dev/debcontrol-rs/", rev = "e92376703b20afe1360f3612472f2597029c7475" }
-rust-apt = { git = "https://gitlab.com/volian/rust-apt", rev = "496511ad09ca8f997df28dd1d38971977ed2680d" }
+rust-apt = { git = "https://gitlab.com/volian/rust-apt", rev = "c6d099ca50da3d3d8f28c6e80b01cd37005c6f94" }
 # Cli
 clap = { version = "4.1", features = ["derive"] }
 dialoguer = "0.10"
