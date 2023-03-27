@@ -323,42 +323,43 @@ impl OmaDependency {
 }
 
 pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
-    let sort = PackageSort::default();
+    let sort = PackageSort::default().include_virtual();
     let packages = cache.packages(&sort).collect::<Vec<_>>();
 
     let mut res = HashMap::new();
 
     for pkg in packages {
-        let cand = pkg.candidate().unwrap();
-        if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
-            let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
-            res.insert(
-                pkg.name().to_string(),
-                (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
-            );
-        }
+        if let Some(cand) = pkg.candidate() {
+            if pkg.name().contains(input) && !pkg.name().contains("-dbg") {
+                let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
+                res.insert(
+                    pkg.name().to_string(),
+                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                );
+            }
 
-        if cand.description().unwrap_or("".to_owned()).contains(input)
-            && !res.contains_key(pkg.name())
-            && !pkg.name().contains("-dbg")
-        {
-            let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
-            res.insert(
-                pkg.name().to_string(),
-                (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
-            );
+            if cand.description().unwrap_or("".to_owned()).contains(input)
+                && !res.contains_key(pkg.name())
+                && !pkg.name().contains("-dbg")
+            {
+                let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
+                res.insert(
+                    pkg.name().to_string(),
+                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                );
+            }
+        } else {
+            if pkg.name() == input && pkg.has_provides() {
+                let pkg = pkg.provides().next().map(|x| x.target_pkg());
+                if let Some(pkg) = pkg {
+                    let pkg = Package::new(cache, pkg);
+                    let cand = pkg.candidate().unwrap();
+                    let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
 
-            let providers = cand.provides().collect::<Vec<_>>();
-
-            if !providers.is_empty() {
-                for provider in providers {
-                    if provider.name() == input {
-                        let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
-                        res.insert(
-                            pkg.name().to_string(),
-                            (oma_pkg, cand.is_installed(), pkg.is_upgradable()),
-                        );
-                    }
+                    res.insert(
+                        pkg.name().to_string(),
+                        (oma_pkg, cand.is_installed(), pkg.is_upgradable(), true),
+                    );
                 }
             }
         }
@@ -367,8 +368,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let mut res = res.into_values().collect::<Vec<_>>();
 
     res.sort_unstable_by(|x, y| {
-        let x_score = pkg_score(input, &x.0);
-        let y_score = pkg_score(input, &y.0);
+        let x_score = pkg_score(input, &x.0, x.3);
+        let y_score = pkg_score(input, &y.0, y.3);
 
         let c = x_score.cmp(&y_score);
 
@@ -389,7 +390,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     let mut output = vec![];
 
-    for (pkg, installed, upgradable) in res {
+    for (pkg, installed, upgradable, _) in res {
         let prefix = if installed {
             style("INSTALLED").green().to_string()
         } else if upgradable {
@@ -454,11 +455,9 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     Ok(())
 }
 
-fn pkg_score(input: &str, pkginfo: &PkgInfo) -> u16 {
-    for i in &pkginfo.provides {
-        if i == input {
-            return 1000;
-        }
+fn pkg_score(input: &str, pkginfo: &PkgInfo, is_provide: bool) -> u16 {
+    if is_provide {
+        return 1000;
     }
 
     (strsim::jaro_winkler(&pkginfo.package, input) * 1000.0) as u16
