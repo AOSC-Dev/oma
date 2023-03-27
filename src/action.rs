@@ -652,8 +652,20 @@ impl OmaAction {
                 for i in v {
                     let mut s = String::new();
 
+                    let k = {
+                        let k = k.strip_suffix("s").unwrap();
+                        if k.ends_with("e") {
+                            format!("{k}d by")
+                        } else if k == "Break" {
+                            "Broken by".to_string()
+                        } else {
+                            format!("{k}ed by")
+                        }
+                    };
+
                     if i.len() == 1 {
                         let entry = i.first().unwrap();
+
                         s.push_str(&format!("  {k}: {}", entry.name));
                         if let Some(ref comp) = entry.comp_ver {
                             s.push_str(&format!(" ({comp})"));
@@ -672,7 +684,7 @@ impl OmaAction {
                                 or_str.push_str(", ");
                             }
                         }
-                        s = or_str;
+                        s = format!("{k}: {or_str}");
                     }
 
                     println!("{s}");
