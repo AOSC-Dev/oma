@@ -13,8 +13,8 @@ use indicatif::HumanBytes;
 use sysinfo::{Pid, System, SystemExt};
 
 use crate::{
-    action::{Action, LogAction},
-    DRYRUN,
+    action::Action,
+    DRYRUN, ARGS,
 };
 
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
@@ -121,25 +121,7 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<
         .open("/var/log/oma/history")?;
 
     f.write_all(format!("Start-Date: {start_time}\n").as_bytes())?;
-
-    let _ = match &action.op {
-        LogAction::Install(v) => {
-            f.write_all(format!("Action: oma install {v:#?}\nResolver: {action:#?}\n").as_bytes())
-        }
-        LogAction::Upgrade(v) => {
-            f.write_all(format!("Action: oma upgrade {v:#?}\nResolver: {action:#?}\n").as_bytes())
-        }
-        LogAction::Remove(v) => {
-            f.write_all(format!("Action: oma remove {v:#?}\nResolver: {action:#?}\n").as_bytes())
-        }
-        LogAction::FixBroken => {
-            f.write_all(format!("Action: oma fix-broken\nResolver: {action:#?}\n").as_bytes())
-        }
-        LogAction::Pick(v) => {
-            f.write_all(format!("Action: {v:#?}\nResolver: {action:#?}\n").as_bytes())
-        }
-    };
-
+    f.write_all(format!("Action: {}\nResolver: {action:#?}\n", *ARGS).as_bytes())?;
     f.write_all(format!("End-Date: {end_time}\n\n").as_bytes())?;
 
     Ok(())
