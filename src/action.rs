@@ -1402,7 +1402,7 @@ impl Debug for Action {
                 }
             }
 
-            write!(f, " ")?;
+            write!(f, "\n")?;
         }
 
         if !self.install.is_empty() {
@@ -1414,7 +1414,7 @@ impl Debug for Action {
                 }
             }
 
-            write!(f, " ")?;
+            write!(f, "\n")?;
         }
 
         if !self.del.is_empty() {
@@ -1426,7 +1426,7 @@ impl Debug for Action {
                 }
             }
 
-            write!(f, " ")?;
+            write!(f, "\n")?;
         }
 
         if !self.downgrade.is_empty() {
@@ -1438,7 +1438,7 @@ impl Debug for Action {
                 }
             }
 
-            write!(f, " ")?;
+            write!(f, "\n")?;
         }
 
         Ok(())

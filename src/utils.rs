@@ -121,7 +121,7 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<
         .open("/var/log/oma/history")?;
 
     f.write_all(format!("Start-Date: {start_time}\n").as_bytes())?;
-    f.write_all(format!("Action: {}\nResolver: {action:#?}\n", *ARGS).as_bytes())?;
+    f.write_all(format!("Action: {}\n{action:#?}", *ARGS).as_bytes())?;
     f.write_all(format!("End-Date: {end_time}\n\n").as_bytes())?;
 
     Ok(())
