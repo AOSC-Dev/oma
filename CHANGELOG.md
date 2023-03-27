@@ -5,7 +5,107 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.16.0 (2023-03-27)
+
+### Chore
+
+ - <csr-id-85ad4b758dea42854c920957b69ae544f6d91a17/> update all deps
+
+### New Features
+
+ - <csr-id-3c1d8355ced332e3c0249597cd6067798d21d9f5/> oma dep/rdep PreDepended by => Pre-Depended by
+ - <csr-id-059e770325bf9c72b616324435b73185fa836859/> oma dep/rdep improve grammar display
+ - <csr-id-6dd009b0aed38352c24e5d36c9389a662f8ee8d2/> do not display JSON-like args info in dry-run mode
+ - <csr-id-99e0d9c46c82ebe8f7882ef14a1f1242ebddf626/> add oma --debug argument to see dry-run debug message
+ - <csr-id-20368da4ca497bb5bbbf93e68599bf94f6c755b8/> log file remove 'Resolver' word
+ - <csr-id-6f1c53a2d60bced6abc07128256866559874d227/> improve oma log Resolver key style
+ - <csr-id-02217a97c880bee13efcefba8de8754f5e79a965/> log user actions in a human-readable fashion
+ - <csr-id-88996e144efe83d63e20b4b71779cdde6d65fe5d/> find all provides in search.rs method to improve search result
+ - <csr-id-afd404efad65a2089f0e12bdf3f22081dcd3da43/> fix reset is_provide status in search_pkgs method
+ - <csr-id-3b4edeb9138f6b00547e14f967754193186490f2/> improve oma search result sort
+ - <csr-id-d44c3469404f075a831332f3018f2b91a81a793a/> Read Dir::Cache::Archives value to get apt set download dir config
+ - <csr-id-6b2a70a025e91f3e7b9c3f528ec487cc08e8c719/> oma download success will display download packages path
+ - <csr-id-45d2dd15e3693adcbe0a6a9e032184a3e2d3e228/> oma download add argument --path (-p)
+ - <csr-id-53e1d9e88c83113980483074016f552d1612e452/> support provides package install
+
+### Bug Fixes
+
+ - <csr-id-93835ef2382f6dfde75e59c35061f7ef5ed12f0b/> Fix oma start-date/end-date localtime offset
+ - <csr-id-883dc2bb19810972b49c7b9129287b29c2b0f6d4/> Fix local package install
+   But not using a better approach, wait https://gitlab.com/volian/rust-apt/-/issues/23
+ - <csr-id-36cd76ffa6646d302fa2e5ad416b61a9c7c2fac3/> Add Dir::Cache::Archives fallback logic
+ - <csr-id-3c62b065befd8e2cf9819ea41e3d6d2cee4e63e4/> Fix archive dir read logic
+ - <csr-id-4e71663770db750e45ed749a645689ae9f3c4b1d/> only virtual pkg get provides to get real pkg
+ - <csr-id-ded754f888c1587fcfab76353ba8a92008fd6019/> oma download do not download non candidate pkg
+ - <csr-id-932b17beff2a4e3878833a7a45ee5f9e90dd9f1c/> local mirror progress display
+
+### Refactor
+
+ - <csr-id-c411087f4cf27b06f87b9db9ef8701f5c787ad81/> improve query pkg method
+ - <csr-id-bbfc384d3cb5289743014bf7a5e2805bb69dc4d0/> improve get local pkgs
+   Now, no need depend dep-archive
+
+### Style
+
+ - <csr-id-cf804b98d6220921a6b585b8da7bd3512c3268d9/> run cargo clippy and cargo fmt to lint code
+ - <csr-id-dfbb9e418273d2f20f08a5c4b9b6b09a82935110/> lint code use cargo clippy
+ - <csr-id-948923de893b131e4fbd59bc5ed4be1ca383b69d/> use cargo clippy and cargo fmt
+ - <csr-id-2dde83d82417506b9fa0f4a39237e8596dc6f530/> drop useless line
+ - <csr-id-7adb76c9fe0c33b02ada9e856306db6855459227/> run cargo clippy'
+   - Also cargo fmt
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 29 commits contributed to the release over the course of 3 calendar days.
+ - 3 days passed between releases.
+ - 29 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`85ad4b7`](https://github.com/AOSC-Dev/oma/commit/85ad4b758dea42854c920957b69ae544f6d91a17))
+    - Run cargo clippy and cargo fmt to lint code ([`cf804b9`](https://github.com/AOSC-Dev/oma/commit/cf804b98d6220921a6b585b8da7bd3512c3268d9))
+    - Oma dep/rdep PreDepended by => Pre-Depended by ([`3c1d835`](https://github.com/AOSC-Dev/oma/commit/3c1d8355ced332e3c0249597cd6067798d21d9f5))
+    - Oma dep/rdep improve grammar display ([`059e770`](https://github.com/AOSC-Dev/oma/commit/059e770325bf9c72b616324435b73185fa836859))
+    - Do not display JSON-like args info in dry-run mode ([`6dd009b`](https://github.com/AOSC-Dev/oma/commit/6dd009b0aed38352c24e5d36c9389a662f8ee8d2))
+    - Add oma --debug argument to see dry-run debug message ([`99e0d9c`](https://github.com/AOSC-Dev/oma/commit/99e0d9c46c82ebe8f7882ef14a1f1242ebddf626))
+    - Log file remove 'Resolver' word ([`20368da`](https://github.com/AOSC-Dev/oma/commit/20368da4ca497bb5bbbf93e68599bf94f6c755b8))
+    - Improve oma log Resolver key style ([`6f1c53a`](https://github.com/AOSC-Dev/oma/commit/6f1c53a2d60bced6abc07128256866559874d227))
+    - Log user actions in a human-readable fashion ([`02217a9`](https://github.com/AOSC-Dev/oma/commit/02217a97c880bee13efcefba8de8754f5e79a965))
+    - Lint code use cargo clippy ([`dfbb9e4`](https://github.com/AOSC-Dev/oma/commit/dfbb9e418273d2f20f08a5c4b9b6b09a82935110))
+    - Fix oma start-date/end-date localtime offset ([`93835ef`](https://github.com/AOSC-Dev/oma/commit/93835ef2382f6dfde75e59c35061f7ef5ed12f0b))
+    - Find all provides in search.rs method to improve search result ([`88996e1`](https://github.com/AOSC-Dev/oma/commit/88996e144efe83d63e20b4b71779cdde6d65fe5d))
+    - Fix reset is_provide status in search_pkgs method ([`afd404e`](https://github.com/AOSC-Dev/oma/commit/afd404efad65a2089f0e12bdf3f22081dcd3da43))
+    - Improve oma search result sort ([`3b4edeb`](https://github.com/AOSC-Dev/oma/commit/3b4edeb9138f6b00547e14f967754193186490f2))
+    - Use cargo clippy and cargo fmt ([`948923d`](https://github.com/AOSC-Dev/oma/commit/948923de893b131e4fbd59bc5ed4be1ca383b69d))
+    - Fix local package install ([`883dc2b`](https://github.com/AOSC-Dev/oma/commit/883dc2bb19810972b49c7b9129287b29c2b0f6d4))
+    - Add Dir::Cache::Archives fallback logic ([`36cd76f`](https://github.com/AOSC-Dev/oma/commit/36cd76ffa6646d302fa2e5ad416b61a9c7c2fac3))
+    - Drop useless line ([`2dde83d`](https://github.com/AOSC-Dev/oma/commit/2dde83d82417506b9fa0f4a39237e8596dc6f530))
+    - Fix archive dir read logic ([`3c62b06`](https://github.com/AOSC-Dev/oma/commit/3c62b065befd8e2cf9819ea41e3d6d2cee4e63e4))
+    - Read Dir::Cache::Archives value to get apt set download dir config ([`d44c346`](https://github.com/AOSC-Dev/oma/commit/d44c3469404f075a831332f3018f2b91a81a793a))
+    - Run cargo clippy' ([`7adb76c`](https://github.com/AOSC-Dev/oma/commit/7adb76c9fe0c33b02ada9e856306db6855459227))
+    - Oma download success will display download packages path ([`6b2a70a`](https://github.com/AOSC-Dev/oma/commit/6b2a70a025e91f3e7b9c3f528ec487cc08e8c719))
+    - Oma download add argument --path (-p) ([`45d2dd1`](https://github.com/AOSC-Dev/oma/commit/45d2dd15e3693adcbe0a6a9e032184a3e2d3e228))
+    - Only virtual pkg get provides to get real pkg ([`4e71663`](https://github.com/AOSC-Dev/oma/commit/4e71663770db750e45ed749a645689ae9f3c4b1d))
+    - Improve query pkg method ([`c411087`](https://github.com/AOSC-Dev/oma/commit/c411087f4cf27b06f87b9db9ef8701f5c787ad81))
+    - Improve get local pkgs ([`bbfc384`](https://github.com/AOSC-Dev/oma/commit/bbfc384d3cb5289743014bf7a5e2805bb69dc4d0))
+    - Support provides package install ([`53e1d9e`](https://github.com/AOSC-Dev/oma/commit/53e1d9e88c83113980483074016f552d1612e452))
+    - Oma download do not download non candidate pkg ([`ded754f`](https://github.com/AOSC-Dev/oma/commit/ded754f888c1587fcfab76353ba8a92008fd6019))
+    - Local mirror progress display ([`932b17b`](https://github.com/AOSC-Dev/oma/commit/932b17beff2a4e3878833a7a45ee5f9e90dd9f1c))
+</details>
+
 ## v0.15.0 (2023-03-24)
+
+<csr-id-44235f94ccb41303e33e308a6b75215d2d2f2f48/>
+<csr-id-698396ab0be30c4d815138fa6ebc5cda4a41df43/>
+<csr-id-4f9782f2112188ce689133654d4122835b57742e/>
 
 ### Chore
 
@@ -35,7 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 10 commits contributed to the release.
+ - 11 commits contributed to the release.
  - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -46,6 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.15.0 ([`679d8e7`](https://github.com/AOSC-Dev/oma/commit/679d8e7f6ff23d1c848c09a46891e02f2f492681))
     - Update all deps ([`44235f9`](https://github.com/AOSC-Dev/oma/commit/44235f94ccb41303e33e308a6b75215d2d2f2f48))
     - Fix dry-run default display log ([`6e100d3`](https://github.com/AOSC-Dev/oma/commit/6e100d38ecd6a2787bb2b94a9d531a706bfa27db))
     - Use cargo fmt to lint code style ([`698396a`](https://github.com/AOSC-Dev/oma/commit/698396ab0be30c4d815138fa6ebc5cda4a41df43))
@@ -99,9 +200,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Use fs::read to replace fs::File::open and read_buf ([`89ea597`](https://github.com/AOSC-Dev/oma/commit/89ea59750fccbc487ea7826193e85bbfb39ce14b))
     - If pkg is essential, oma will reject it mark to delete ([`4e6bb0a`](https://github.com/AOSC-Dev/oma/commit/4e6bb0a59edd36b02f7fd0e656f37d5acc5bb0db))
 </details>
-
-<csr-unknown>
- if pkg is essential, oma will reject it mark to delete<csr-unknown/>
 
 ## v0.13.2 (2023-03-22)
 
