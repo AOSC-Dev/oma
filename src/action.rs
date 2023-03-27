@@ -39,7 +39,7 @@ use crate::{
     success,
     utils::{is_root, lock_oma, log_to_file, size_checker},
     warn, Download, FixBroken, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions,
-    ALLOWCTRLC, DRYRUN, WRITER,
+    ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -134,7 +134,9 @@ impl OmaAction {
 
         update_db(&self.sources, &self.client, None).await?;
 
-        let start_time = OffsetDateTime::now_utc().to_string();
+        let start_time = OffsetDateTime::now_utc()
+            .to_offset(*TIME_OFFSET)
+            .to_string();
 
         async fn update_inner(
             client: &Client,
@@ -193,7 +195,10 @@ impl OmaAction {
                     }
                 }
                 Ok(v) => {
-                    let end_time = OffsetDateTime::now_utc().to_string();
+                    let end_time = OffsetDateTime::now_utc()
+                        .to_offset(*TIME_OFFSET)
+                        .to_string();
+
                     return log_to_file(&v, &start_time, &end_time);
                 }
             }
@@ -208,7 +213,9 @@ impl OmaAction {
             DRYRUN.store(true, Ordering::Relaxed);
         }
 
-        let start_time = OffsetDateTime::now_utc().to_string();
+        let start_time = OffsetDateTime::now_utc()
+            .to_offset(*TIME_OFFSET)
+            .to_string();
 
         if opt.yes {
             yes_warn();
@@ -234,7 +241,10 @@ impl OmaAction {
                     }
                 }
                 Ok(v) => {
-                    let end_time = OffsetDateTime::now_utc().to_string();
+                    let end_time = OffsetDateTime::now_utc()
+                        .to_offset(*TIME_OFFSET)
+                        .to_string();
+
                     return log_to_file(&v, &start_time, &end_time);
                 }
             }
@@ -575,7 +585,9 @@ impl OmaAction {
             DRYRUN.store(true, Ordering::Relaxed);
         }
 
-        let start_time = OffsetDateTime::now_utc().to_string();
+        let start_time = OffsetDateTime::now_utc()
+            .to_offset(*TIME_OFFSET)
+            .to_string();
 
         let cache = new_cache!()?;
 
@@ -602,7 +614,9 @@ impl OmaAction {
             )?;
         }
 
-        let end_time = OffsetDateTime::now_utc().to_string();
+        let end_time = OffsetDateTime::now_utc()
+            .to_offset(*TIME_OFFSET)
+            .to_string();
 
         log_to_file(&action, &start_time, &end_time)?;
 
@@ -759,7 +773,9 @@ impl OmaAction {
         is_root()?;
         lock_oma()?;
 
-        let start_time = OffsetDateTime::now_utc().to_string();
+        let start_time = OffsetDateTime::now_utc()
+            .to_offset(*TIME_OFFSET)
+            .to_string();
 
         if r.dry_run {
             DRYRUN.store(true, Ordering::Relaxed);
@@ -803,7 +819,9 @@ impl OmaAction {
             cache.commit(&mut NoProgress::new_box(), &mut progress)?;
         }
 
-        let end_time = OffsetDateTime::now_utc().to_string();
+        let end_time = OffsetDateTime::now_utc()
+            .to_offset(*TIME_OFFSET)
+            .to_string();
 
         log_to_file(&action, &start_time, &end_time)?;
 
@@ -857,7 +875,9 @@ impl OmaAction {
             update_db(&self.sources, &self.client, None).await?;
         }
 
-        let start_time = OffsetDateTime::now_utc().to_string();
+        let start_time = OffsetDateTime::now_utc()
+            .to_offset(*TIME_OFFSET)
+            .to_string();
 
         let cache = new_cache!()?;
         let pkg = cache
@@ -961,7 +981,11 @@ impl OmaAction {
 
             apt_install(cache, false, false, false)?;
 
-            let end_time = OffsetDateTime::now_utc().to_string();
+            let end_time = OffsetDateTime::now_utc()
+                .to_offset(*TIME_OFFSET);
+
+            let end_time = end_time.to_string();
+
             log_to_file(&action, &start_time, &end_time)?;
         }
 

@@ -10,6 +10,8 @@ use nix::sys::signal;
 use once_cell::sync::Lazy;
 use os_release::OsRelease;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use time::macros::offset;
+use time::{OffsetDateTime, UtcOffset};
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::{
     fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
@@ -34,6 +36,8 @@ static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
 static WRITER: Lazy<Writer> = Lazy::new(Writer::new);
 static DRYRUN: AtomicBool = AtomicBool::new(false);
+static TIME_OFFSET: Lazy<UtcOffset> =
+    Lazy::new(|| UtcOffset::local_offset_at(OffsetDateTime::UNIX_EPOCH).unwrap_or(offset!(UTC)));
 
 fn single_handler() {
     // Kill subprocess
@@ -270,12 +274,24 @@ struct List {
     upgradable: bool,
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    // 初始化时区偏移量，这个操作不能在多线程环境下运行
+    let _ = *TIME_OFFSET;
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .worker_threads(4)
+        .build()
+        .expect("Can not init tokio runtime!");
+
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
 
+    runtime.block_on(async_main());
+}
+
+async fn async_main() {
     if let Err(e) = try_main().await {
         if !e.to_string().is_empty() {
             error!("{e}");
