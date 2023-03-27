@@ -981,8 +981,7 @@ impl OmaAction {
 
             apt_install(cache, false, false, false)?;
 
-            let end_time = OffsetDateTime::now_utc()
-                .to_offset(*TIME_OFFSET);
+            let end_time = OffsetDateTime::now_utc().to_offset(*TIME_OFFSET);
 
             let end_time = end_time.to_string();
 
@@ -1394,29 +1393,53 @@ impl Action {
 
 impl Debug for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Install: [ ")?;
-        for i in &self.install {
-            write!(f, "{} ({}), ", i.name_no_color, i.version)?;
-        }
-        write!(f, " ]")?;
+        if !self.update.is_empty() {
+            write!(f, "Update: ")?;
+            for (i, c) in self.update.iter().enumerate() {
+                write!(f, "{} ({})", c.name_no_color, c.version)?;
+                if i < self.update.len() - 1 {
+                    write!(f, ", ")?;
+                }
+            }
 
-        write!(f, ", Remove: [ ")?;
-        for i in &self.del {
-            write!(f, "{}, ", i._name_no_color)?;
+            write!(f, " ")?;
         }
-        write!(f, " ]")?;
 
-        write!(f, ", Upgrade: [ ")?;
-        for i in &self.update {
-            write!(f, "{} ({}), ", i.name_no_color, i.version)?;
-        }
-        write!(f, " ]")?;
+        if !self.install.is_empty() {
+            write!(f, "Install: ")?;
+            for (i, c) in self.install.iter().enumerate() {
+                write!(f, "{} ({})", c.name_no_color, c.version)?;
+                if i < self.install.len() - 1 {
+                    write!(f, ", ")?;
+                }
+            }
 
-        write!(f, ", Downgrade: [ ")?;
-        for i in &self.downgrade {
-            write!(f, "{} ({}), ", i.name_no_color, i.version)?;
+            write!(f, " ")?;
         }
-        write!(f, " ]")?;
+
+        if !self.del.is_empty() {
+            write!(f, "Remove: ")?;
+            for (i, c) in self.del.iter().enumerate() {
+                write!(f, "{}", c._name_no_color)?;
+                if i < self.del.len() - 1 {
+                    write!(f, ", ")?;
+                }
+            }
+
+            write!(f, " ")?;
+        }
+
+        if !self.downgrade.is_empty() {
+            write!(f, "Downgrade: ")?;
+            for (i, c) in self.downgrade.iter().enumerate() {
+                write!(f, "{} ({})", c.name_no_color, c.version)?;
+                if i < self.downgrade.len() - 1 {
+                    write!(f, ", ")?;
+                }
+            }
+
+            write!(f, " ")?;
+        }
 
         Ok(())
     }
