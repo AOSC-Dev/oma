@@ -12,7 +12,6 @@ use os_release::OsRelease;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use time::macros::offset;
 use time::{OffsetDateTime, UtcOffset};
-use tokio::runtime::Runtime;
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::{
     fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
@@ -112,7 +111,7 @@ enum OmaCommand {
     #[clap(hide = true)]
     CommandNotFound(CommandNotFound),
     /// List of packages
-    List(List),
+    List(ListOptions),
     /// Check package dependencies
     #[clap(alias = "dep")]
     Depends(Dep),
@@ -269,7 +268,7 @@ pub struct Mark {
 }
 
 #[derive(Parser, Debug)]
-struct List {
+pub struct ListOptions {
     packages: Option<Vec<String>>,
     #[arg(long, short = 'a')]
     all: bool,
@@ -283,16 +282,11 @@ fn main() {
     // 初始化时区偏移量，这个操作不能在多线程环境下运行
     let _ = *TIME_OFFSET;
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .expect("Can not init tokio runtime!");
-
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
 
-    if let Err(e) = try_main(runtime) {
+    if let Err(e) = try_main() {
         if !e.to_string().is_empty() {
             error!("{e}");
         }
@@ -305,7 +299,7 @@ fn main() {
     exit(0);
 }
 
-fn try_main(runtime: Runtime) -> Result<()> {
+fn try_main() -> Result<()> {
     let args = Args::parse();
 
     let ailurus = args.ailurus;
@@ -350,26 +344,20 @@ fn try_main(runtime: Runtime) -> Result<()> {
     tracing::info!("Running oma with args: {}", *ARGS);
 
     match args.subcommand {
-        OmaCommand::Install(v) => OmaAction::new(runtime)?.install(v),
+        OmaCommand::Install(v) => OmaAction::build_async_runtime()?.install(v),
         OmaCommand::Remove(v) => OmaAction::remove(v),
-        OmaCommand::Upgrade(v) => OmaAction::new(runtime)?.update(v),
-        OmaCommand::Refresh => OmaAction::new(runtime)?.refresh(),
+        OmaCommand::Upgrade(v) => OmaAction::build_async_runtime()?.update(v),
+        OmaCommand::Refresh => OmaAction::build_async_runtime()?.refresh(),
         OmaCommand::Show(v) => OmaAction::show(&v.packages, v.is_all),
         OmaCommand::Search(v) => OmaAction::search(&v.keyword.join(" ")),
-        // TODO: up_db 的值目前写死了 true，打算实现的逻辑是这样：
-        // 如果用户在终端里执行了不存在的程序，会调用 oma 找可能的软件包
-        // 这时候就不去更新 Contents 数据，若用户手动调用 oma provides/list-files
-        // 则强制更新 Contents
         OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
         OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
-        OmaCommand::Download(v) => OmaAction::new(runtime)?.download(v),
-        OmaCommand::FixBroken(v) => OmaAction::new(runtime)?.fix_broken(v),
-        OmaCommand::Pick(v) => OmaAction::new(runtime)?.pick(v),
+        OmaCommand::Download(v) => OmaAction::build_async_runtime()?.download(v),
+        OmaCommand::FixBroken(v) => OmaAction::build_async_runtime()?.fix_broken(v),
+        OmaCommand::Pick(v) => OmaAction::build_async_runtime()?.pick(v),
         OmaCommand::Mark(v) => OmaAction::mark(v),
         OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
-        OmaCommand::List(v) => {
-            OmaAction::list(v.packages.as_deref(), v.all, v.installed, v.upgradable)
-        }
+        OmaCommand::List(v) => OmaAction::list(&v),
         OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs, false),
         OmaCommand::Rdepends(v) => OmaAction::dep(&v.pkgs, true),
         OmaCommand::Clean => OmaAction::clean(),

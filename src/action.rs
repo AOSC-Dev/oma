@@ -1,5 +1,4 @@
 use anyhow::{anyhow, bail, Context, Result};
-use apt_sources_lists::SourceEntry;
 use clap::{Parser, Subcommand};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Select};
@@ -29,8 +28,8 @@ use std::{
 
 use crate::{
     contents::find,
-    db::{get_sources, update_db_runner, APT_LIST_DISTS, DOWNLOAD_DIR},
-    download::{packages_download_runner},
+    db::{get_sources, update_db_runner, DOWNLOAD_DIR},
+    download::packages_download_runner,
     formatter::{
         display_result, download_size, find_unmet_deps, NoProgress, OmaAptInstallProgress,
     },
@@ -40,7 +39,7 @@ use crate::{
     success,
     utils::{lock_oma, log_to_file, needs_root, size_checker},
     warn, Download, FixBroken, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions,
-    ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER,
+    ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER, ListOptions,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -94,7 +93,6 @@ pub struct MarkActionArgs {
 }
 
 pub struct OmaAction {
-    sources: Vec<SourceEntry>,
     client: Client,
     runtime: Runtime,
 }
@@ -110,19 +108,15 @@ enum InstallError {
 type InstallResult<T> = std::result::Result<T, InstallError>;
 
 impl OmaAction {
-    pub fn new(runtime: Runtime) -> Result<Self> {
+    pub fn build_async_runtime() -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
 
-        let sources = get_sources()?;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("Can not init tokio runtime!");
 
-        std::fs::create_dir_all(&*APT_LIST_DISTS)?;
-        std::fs::create_dir_all("/var/cache/apt/archives")?;
-
-        Ok(Self {
-            sources,
-            client,
-            runtime,
-        })
+        Ok(Self { client, runtime })
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
@@ -138,7 +132,7 @@ impl OmaAction {
             DRYRUN.store(true, Ordering::Relaxed);
         }
 
-        update_db_runner(&self.runtime, &self.sources, &self.client, None)?;
+        update_db_runner(&self.runtime, &get_sources()?, &self.client, None)?;
 
         let start_time = OffsetDateTime::now_utc()
             .to_offset(*TIME_OFFSET)
@@ -229,7 +223,7 @@ impl OmaAction {
         }
 
         if !opt.no_upgrade {
-            update_db_runner(&self.runtime, &self.sources, &self.client, None)?;
+            update_db_runner(&self.runtime, &get_sources()?, &self.client, None)?;
         }
 
         let mut count = 0;
@@ -258,21 +252,16 @@ impl OmaAction {
         }
     }
 
-    pub fn list(
-        list: Option<&[String]>,
-        all: bool,
-        installed: bool,
-        upgradable: bool,
-    ) -> Result<()> {
+    pub fn list(opt: &ListOptions) -> Result<()> {
         let cache = new_cache!()?;
 
         let mut sort = PackageSort::default();
 
-        if installed {
+        if opt.installed {
             sort = sort.installed();
         }
 
-        if upgradable {
+        if opt.upgradable {
             sort = sort.upgradable();
         }
 
@@ -280,8 +269,8 @@ impl OmaAction {
 
         let mut res = vec![];
 
-        if list.is_none() {
-            if !all {
+        if opt.packages.is_none() {
+            if !opt.all {
                 for pkg in packages {
                     let mut mirrors = vec![];
                     let version = pkg.candidate();
@@ -385,10 +374,10 @@ impl OmaAction {
 
             let mut versions_len = 0;
 
-            if let Some(list) = list {
-                if !all {
+            if let Some(list) = &opt.packages {
+                if !opt.all {
                     for i in list {
-                        let pkg = cache.get(i);
+                        let pkg = cache.get(&i);
                         if let Some(pkg) = pkg {
                             versions_len = pkg.versions().collect::<Vec<_>>().len();
                             if let Some(cand) = pkg.candidate() {
@@ -400,7 +389,7 @@ impl OmaAction {
                     }
                 } else {
                     for i in list {
-                        let pkg = cache.get(i);
+                        let pkg = cache.get(&i);
                         if let Some(pkg) = pkg {
                             let vers = pkg.versions().collect::<Vec<_>>();
                             for ver in vers {
@@ -416,7 +405,7 @@ impl OmaAction {
             if res.is_empty() {
                 bail!(
                     "Could not find any result for keywords: {}",
-                    list.unwrap_or_default().join(" ")
+                    opt.packages.clone().unwrap_or_default().join(" ")
                 );
             }
 
@@ -456,7 +445,7 @@ impl OmaAction {
 
                 println!("{}", style(s).bold());
 
-                if !all && versions_len > 1 {
+                if !opt.all && versions_len > 1 {
                     info!(
                         "There is {} additional version. Please use the '-a' switch to see it",
                         versions_len - 1
@@ -853,7 +842,7 @@ impl OmaAction {
         needs_root()?;
         lock_oma()?;
 
-        update_db_runner(&self.runtime, &self.sources, &self.client, None)?;
+        update_db_runner(&self.runtime, &get_sources()?, &self.client, None)?;
 
         let cache = new_cache!()?;
         let upgradable = PackageSort::default().upgradable();
@@ -893,7 +882,7 @@ impl OmaAction {
         }
 
         if !p.no_upgrade {
-            update_db_runner(&self.runtime, &self.sources, &self.client, None)?;
+            update_db_runner(&self.runtime, &get_sources()?, &self.client, None)?;
         }
 
         let start_time = OffsetDateTime::now_utc()

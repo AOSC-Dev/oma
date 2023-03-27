@@ -28,7 +28,16 @@ use crate::{
 
 use std::sync::atomic::Ordering;
 
-pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/var/lib/apt/lists"));
+pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| {
+    let p = PathBuf::from("/var/lib/apt/lists");
+
+    if !p.is_dir() {
+        let _ = std::fs::create_dir_all(&p);
+    }
+
+    p
+});
+
 pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| {
     let config = Config::new();
     let archives_dir = config.get("Dir::Cache::Archives");
@@ -48,7 +57,14 @@ pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| {
             "Dir::Cache::Archives value: {} does not exist! fallback to /var/cache/apt/archives",
             path.display()
         );
-        PathBuf::from("/var/cache/apt/archives/")
+
+        let p = PathBuf::from("/var/cache/apt/archives/");
+
+        if !p.is_dir() {
+            let _ = std::fs::create_dir_all(&p);
+        }
+
+        p
     } else {
         path
     }
