@@ -354,8 +354,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             }
         } else {
             if pkg.name() == input && pkg.has_provides() {
-                let pkg = pkg.provides().next().map(|x| x.target_pkg());
-                if let Some(pkg) = pkg {
+                let real_pkgs = pkg.provides().map(|x| x.target_pkg());
+                for pkg in real_pkgs {
                     let pkg = Package::new(cache, pkg);
                     let cand = pkg.candidate().unwrap();
                     let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
