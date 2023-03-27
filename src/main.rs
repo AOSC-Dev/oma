@@ -14,7 +14,7 @@ use time::macros::offset;
 use time::{OffsetDateTime, UtcOffset};
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::{
-    fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
+    fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
 };
 use utils::unlock_oma;
 
@@ -74,6 +74,9 @@ pub struct Args {
     /// Dry-run oma
     #[arg(long, short = 'd')]
     dry_run: bool,
+    /// Debug mode (for --dry-run argument)
+    #[arg(long, )]
+    debug: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -322,7 +325,7 @@ async fn try_main() -> Result<()> {
         exit(3);
     }
 
-    if args.dry_run {
+    if args.dry_run || args.debug {
         DRYRUN.store(true, Ordering::Relaxed);
 
         tracing_subscriber::registry()
@@ -331,11 +334,11 @@ async fn try_main() -> Result<()> {
                     .with_writer(std::io::stdout)
                     .without_time()
                     .with_target(false)
-                    .with_filter(
-                        EnvFilter::builder()
-                            .with_default_directive(LevelFilter::INFO.into())
-                            .from_env_lossy(),
-                    ),
+                    .with_filter(if args.debug {
+                        LevelFilter::DEBUG
+                    } else {
+                        LevelFilter::INFO
+                    }),
             )
             .try_init()?;
 
