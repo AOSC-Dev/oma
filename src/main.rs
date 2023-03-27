@@ -3,7 +3,7 @@ use std::process::exit;
 use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
 
-use action::{MarkAction, OmaAction};
+use oma::{MarkAction, Oma};
 use cli::Writer;
 use console::style;
 use nix::sys::signal;
@@ -18,7 +18,7 @@ use tracing_subscriber::{
 };
 use utils::unlock_oma;
 
-mod action;
+mod oma;
 mod checksum;
 mod cli;
 mod contents;
@@ -344,24 +344,24 @@ fn try_main() -> Result<()> {
     tracing::info!("Running oma with args: {}", *ARGS);
 
     match args.subcommand {
-        OmaCommand::Install(v) => OmaAction::build_async_runtime()?.install(v),
-        OmaCommand::Remove(v) => OmaAction::remove(v),
-        OmaCommand::Upgrade(v) => OmaAction::build_async_runtime()?.update(v),
-        OmaCommand::Refresh => OmaAction::build_async_runtime()?.refresh(),
-        OmaCommand::Show(v) => OmaAction::show(&v.packages, v.is_all),
-        OmaCommand::Search(v) => OmaAction::search(&v.keyword.join(" ")),
-        OmaCommand::ListFiles(v) => OmaAction::list_files(&v.package),
-        OmaCommand::Provides(v) => OmaAction::search_file(&v.kw),
-        OmaCommand::Download(v) => OmaAction::build_async_runtime()?.download(v),
-        OmaCommand::FixBroken(v) => OmaAction::build_async_runtime()?.fix_broken(v),
-        OmaCommand::Pick(v) => OmaAction::build_async_runtime()?.pick(v),
-        OmaCommand::Mark(v) => OmaAction::mark(v),
-        OmaCommand::CommandNotFound(v) => OmaAction::command_not_found(&v.kw),
-        OmaCommand::List(v) => OmaAction::list(&v),
-        OmaCommand::Depends(v) => OmaAction::dep(&v.pkgs, false),
-        OmaCommand::Rdepends(v) => OmaAction::dep(&v.pkgs, true),
-        OmaCommand::Clean => OmaAction::clean(),
-        OmaCommand::Log => OmaAction::log(),
+        OmaCommand::Install(v) => Oma::build_async_runtime()?.install(v),
+        OmaCommand::Remove(v) => Oma::remove(v),
+        OmaCommand::Upgrade(v) => Oma::build_async_runtime()?.update(v),
+        OmaCommand::Refresh => Oma::build_async_runtime()?.refresh(),
+        OmaCommand::Show(v) => Oma::show(&v.packages, v.is_all),
+        OmaCommand::Search(v) => Oma::search(&v.keyword.join(" ")),
+        OmaCommand::ListFiles(v) => Oma::list_files(&v.package),
+        OmaCommand::Provides(v) => Oma::search_file(&v.kw),
+        OmaCommand::Download(v) => Oma::build_async_runtime()?.download(v),
+        OmaCommand::FixBroken(v) => Oma::build_async_runtime()?.fix_broken(v),
+        OmaCommand::Pick(v) => Oma::build_async_runtime()?.pick(v),
+        OmaCommand::Mark(v) => Oma::mark(v),
+        OmaCommand::CommandNotFound(v) => Oma::command_not_found(&v.kw),
+        OmaCommand::List(v) => Oma::list(&v),
+        OmaCommand::Depends(v) => Oma::dep(&v.pkgs, false),
+        OmaCommand::Rdepends(v) => Oma::dep(&v.pkgs, true),
+        OmaCommand::Clean => Oma::clean(),
+        OmaCommand::Log => Oma::log(),
     }?;
 
     Ok(())

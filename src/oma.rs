@@ -92,7 +92,7 @@ pub struct MarkActionArgs {
     pub pkgs: Vec<String>,
 }
 
-pub struct OmaAction {
+pub struct Oma {
     client: Client,
     runtime: Runtime,
 }
@@ -107,7 +107,7 @@ enum InstallError {
 
 type InstallResult<T> = std::result::Result<T, InstallError>;
 
-impl OmaAction {
+impl Oma {
     pub fn build_async_runtime() -> Result<Self> {
         let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
 

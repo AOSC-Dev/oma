@@ -17,7 +17,7 @@ use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
 use crate::{
-    action::InstallRow, checksum::Checksum, db::DOWNLOAD_DIR, info, success,
+    oma::InstallRow, checksum::Checksum, db::DOWNLOAD_DIR, info, success,
     utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER,
 };
 
