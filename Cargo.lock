@@ -1500,7 +1500,6 @@ dependencies = [
  "grep",
  "hex",
  "indicatif",
- "log",
  "nix",
  "once_cell",
  "os-release",
