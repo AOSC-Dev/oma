@@ -350,7 +350,7 @@ async fn try_main() -> Result<()> {
         );
     }
 
-    tracing::info!("{args:#?}");
+    tracing::info!("Running oma with args: {}", *ARGS);
 
     match args.subcommand {
         OmaCommand::Install(v) => OmaAction::new().await?.install(v).await,
