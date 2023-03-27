@@ -11,14 +11,14 @@ use console::style;
 use futures::StreamExt;
 use tokio::task::spawn_blocking;
 
-use anyhow::{anyhow, Context, Result, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
 use crate::{
-    action::InstallRow, checksum::Checksum, db::DOWNLOAD_DIR, info, success, warn, AILURUS, DRYRUN,
-    WRITER, utils::reverse_apt_style_url,
+    action::InstallRow, checksum::Checksum, db::DOWNLOAD_DIR, info, success,
+    utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER,
 };
 
 /// Download a package

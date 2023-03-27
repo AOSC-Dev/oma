@@ -75,7 +75,7 @@ pub struct Args {
     #[arg(long, short = 'd')]
     dry_run: bool,
     /// Debug mode (for --dry-run argument)
-    #[arg(long, )]
+    #[arg(long)]
     debug: bool,
 }
 

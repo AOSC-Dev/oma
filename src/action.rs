@@ -653,8 +653,8 @@ impl OmaAction {
                     let mut s = String::new();
 
                     let k = {
-                        let k = k.strip_suffix("s").unwrap();
-                        if k.ends_with("e") {
+                        let k = k.strip_suffix('s').unwrap();
+                        if k.ends_with('e') {
                             format!("{k}d by")
                         } else if k == "Break" {
                             "Broken by".to_string()
@@ -1416,7 +1416,7 @@ impl Debug for Action {
                 }
             }
 
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         if !self.install.is_empty() {
@@ -1428,7 +1428,7 @@ impl Debug for Action {
                 }
             }
 
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         if !self.del.is_empty() {
@@ -1440,7 +1440,7 @@ impl Debug for Action {
                 }
             }
 
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         if !self.downgrade.is_empty() {
@@ -1452,7 +1452,7 @@ impl Debug for Action {
                 }
             }
 
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         Ok(())
