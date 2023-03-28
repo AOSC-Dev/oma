@@ -22,7 +22,7 @@ tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "i
 futures = "0.3"
 # For log
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = "0.3"
 os-release = "0.1"
 time = { version = "0.3", features = ["local-offset", "macros"] }
 # For read and verify database
