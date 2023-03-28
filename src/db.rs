@@ -705,8 +705,11 @@ async fn download_and_extract_db_local(
     let mut f = tokio::fs::File::open(&path)
         .await
         .context(format!("Can not open {path}"))?;
+
     let mut buf = vec![];
     f.read_to_end(&mut buf).await?;
+
+    let buf_len = buf.len();
 
     let p = APT_LIST_DISTS.join(&name.0);
 
@@ -720,7 +723,7 @@ async fn download_and_extract_db_local(
         bail!("Download {typ} Checksum mismatch! Please check your local storage connection.")
     }
 
-    let buf = if i.file_type == DistFileType::CompressContents
+    let extract_buf = if i.file_type == DistFileType::CompressContents
         || i.file_type == DistFileType::CompressPackageList
     {
         spawn_blocking(move || decompress(&buf, &name.0)).await??
@@ -730,12 +733,12 @@ async fn download_and_extract_db_local(
 
     let p = APT_LIST_DISTS.join(not_compress_file);
 
-    tokio::fs::write(&p, &buf)
+    tokio::fs::write(&p, &extract_buf)
         .await
         .context(format!("Can not write buf to {}", p.display()))?;
 
     if let Some(pb) = opb.global_bar {
-        pb.inc(buf.len() as u64);
+        pb.inc(buf_len as u64);
     }
 
     Ok(())
