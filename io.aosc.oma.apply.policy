@@ -7,10 +7,10 @@
   <vendor_url>https://github.com/AOSC-Dev/oma</vendor_url>
 
   <action id="io.aosc.oma.apply.run">
-    <description>Apply changes to system package</description>
+    <description>Apply package changes</description>
     <description xml:lang="zh_CN">应用软件包修改</description>
     <message>Authentication is required to apply changes to system packages</message>
-    <message xml:lang="zh_CN">oma 需要您的授权才能应用修改</message>
+    <message xml:lang="zh_CN">应用系统软件包修改需要授权</message>
     <icon_name>preferences-system</icon_name>
     <defaults>
       <allow_any>no</allow_any>
