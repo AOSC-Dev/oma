@@ -9,7 +9,7 @@ use std::{
 
 use console::style;
 use futures::StreamExt;
-use tokio::{task::spawn_blocking, runtime::Runtime};
+use tokio::{runtime::Runtime, task::spawn_blocking};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -17,7 +17,7 @@ use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
 use crate::{
-    oma::InstallRow, checksum::Checksum, db::DOWNLOAD_DIR, info, success,
+    checksum::Checksum, cli::gen_prefix, db::DOWNLOAD_DIR, info, oma::InstallRow, success,
     utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER,
 };
 
@@ -77,7 +77,7 @@ async fn try_download(
 ) -> Result<()> {
     let mut all_is_err = true;
     for (i, c) in urls.iter().enumerate() {
-        if download(
+        if let Err(e) = download(
             c,
             client,
             filename.to_string(),
@@ -86,10 +86,18 @@ async fn try_download(
             opb.clone(),
         )
         .await
-        .is_err()
         {
+            let mut s = format!("{e}");
             if i < urls.len() - 1 {
-                warn!("Download {c} failed, try next url to download this package ...");
+                s += ", try next url to download this package ...";
+            }
+            if let Some(ref gpb) = opb.global_bar {
+                gpb.println(format!(
+                    "{}{s}",
+                    gen_prefix(&style("WARNING").yellow().bold().to_string())
+                ));
+            } else {
+                warn!("{s}");
             }
         } else {
             all_is_err = false;
