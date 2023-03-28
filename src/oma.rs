@@ -1,5 +1,4 @@
 use anyhow::{anyhow, bail, Context, Result};
-use clap::{Parser, Subcommand};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Select};
 use indicatif::HumanBytes;
@@ -27,6 +26,10 @@ use std::{
 };
 
 use crate::{
+    clap_cli::{
+        Download, FixBroken, InstallOptions, ListOptions, Mark, PickOptions, RemoveOptions,
+        UpgradeOptions, MarkAction,
+    },
     contents::find,
     db::{get_sources, update_db_runner, DOWNLOAD_DIR},
     download::packages_download_runner,
@@ -38,8 +41,7 @@ use crate::{
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{lock_oma, log_to_file, needs_root, size_checker},
-    warn, Download, FixBroken, InstallOptions, ListOptions, Mark, PickOptions, RemoveOptions,
-    UpgradeOptions, ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER,
+    warn, ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -73,23 +75,6 @@ pub struct InstallRow {
     pub checksum: Option<String>,
     #[tabled(skip)]
     pub pure_download_size: u64,
-}
-
-#[derive(Subcommand, Debug, Clone)]
-pub enum MarkAction {
-    /// Hold package version
-    Hold(MarkActionArgs),
-    /// Unhold package version
-    Unhold(MarkActionArgs),
-    /// Set package status to manual install
-    Manual(MarkActionArgs),
-    /// Set package status to auto install
-    Auto(MarkActionArgs),
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct MarkActionArgs {
-    pub pkgs: Vec<String>,
 }
 
 pub struct Oma {

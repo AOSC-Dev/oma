@@ -300,6 +300,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f0807fb6f644c83f3e4ec014fec9858c1c8b26a7db8eb5f0bde5817df9c1df7"
 
 [[package]]
+name = "clap_mangen"
+version = "0.2.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4237e29de9c6949982ba87d51709204504fb8ed2fd38232fcb1e5bf7d4ba48c8"
+dependencies = [
+ "clap",
+ "roff",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1470,6 +1480,7 @@ dependencies = [
  "anyhow",
  "apt-sources-lists",
  "clap",
+ "clap_mangen",
  "console",
  "ctrlc",
  "debcontrol",
@@ -1857,6 +1868,12 @@ dependencies = [
  "web-sys",
  "winreg",
 ]
+
+[[package]]
+name = "roff"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b833d8d034ea094b1ea68aa6d5c740e0d04bad9d16568d08ba6f76823a114316"
 
 [[package]]
 name = "rust-apt"

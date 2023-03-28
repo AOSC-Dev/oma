@@ -1,22 +1,25 @@
 use std::process::exit;
 
 use anyhow::Result;
-use clap::{ArgAction, Parser, Subcommand};
 
+use clap::Parser;
 use cli::Writer;
 use console::style;
 use nix::sys::signal;
-use oma::{MarkAction, Oma};
+use oma::Oma;
 use once_cell::sync::Lazy;
 use os_release::OsRelease;
+use tracing_subscriber::util::SubscriberInitExt;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use time::macros::offset;
 use time::{OffsetDateTime, UtcOffset};
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::{
-    fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
+    fmt, prelude::__tracing_subscriber_SubscriberExt, Layer,
 };
 use utils::unlock_oma;
+
+use crate::clap_cli::{OmaCommand, Args};
 
 mod checksum;
 mod cli;
@@ -29,6 +32,7 @@ mod pager;
 mod pkg;
 mod utils;
 mod verify;
+mod clap_cli;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
@@ -39,220 +43,6 @@ static DRYRUN: AtomicBool = AtomicBool::new(false);
 static TIME_OFFSET: Lazy<UtcOffset> =
     Lazy::new(|| UtcOffset::local_offset_at(OffsetDateTime::UNIX_EPOCH).unwrap_or(offset!(UTC)));
 static ARGS: Lazy<String> = Lazy::new(|| std::env::args().collect::<Vec<_>>().join(" "));
-
-#[derive(Parser, Debug)]
-#[clap(about, version, author)]
-pub struct Args {
-    #[clap(subcommand)]
-    subcommand: OmaCommand,
-    #[arg(long, hide = true, action = ArgAction::Count)]
-    ailurus: u8,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    dry_run: bool,
-    /// Debug mode (for --dry-run argument)
-    #[arg(long)]
-    debug: bool,
-}
-
-#[derive(Subcommand, Debug)]
-enum OmaCommand {
-    /// Install Package
-    Install(InstallOptions),
-    /// Update Package
-    #[clap(alias = "full-upgrade", alias = "dist-upgrade")]
-    Upgrade(UpgradeOptions),
-    /// Download Package
-    Download(Download),
-    /// Delete Package
-    #[clap(alias = "delete", alias = "purge")]
-    Remove(RemoveOptions),
-    /// Refresh Package database
-    #[clap(alias = "update")]
-    Refresh,
-    /// Show Package
-    Show(Show),
-    /// Search Package
-    Search(Search),
-    /// package list files
-    ListFiles(ListFiles),
-    /// Search file from package
-    Provides(Provides),
-    /// Fix system dependencies broken status
-    FixBroken(FixBroken),
-    /// Pick a package version
-    Pick(PickOptions),
-    /// Mark a package status
-    Mark(Mark),
-    #[clap(hide = true)]
-    CommandNotFound(CommandNotFound),
-    /// List of packages
-    List(ListOptions),
-    /// Check package dependencies
-    #[clap(alias = "dep")]
-    Depends(Dep),
-    /// Check package reverse dependencies
-    #[clap(alias = "rdep")]
-    Rdepends(Dep),
-    /// Clean downloaded packages
-    Clean,
-    /// See omakase log
-    Log,
-}
-
-#[derive(Parser, Debug)]
-struct Dep {
-    /// Package(s) name
-    pkgs: Vec<String>,
-}
-
-#[derive(Parser, Debug)]
-struct CommandNotFound {
-    kw: String,
-}
-
-#[derive(Parser, Debug)]
-pub struct FixBroken {
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    dry_run: bool,
-}
-
-#[derive(Parser, Debug)]
-pub struct Download {
-    /// Package(s) name
-    packages: Vec<String>,
-    /// Download to path
-    #[arg(long, short)]
-    path: Option<String>,
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct InstallOptions {
-    /// Package(s) name
-    pub packages: Vec<String>,
-    /// Install package(s) debug symbol
-    #[arg(long, alias = "dbg")]
-    pub install_dbg: bool,
-    /// Reinstall package(s)
-    #[arg(long)]
-    pub reinstall: bool,
-    /// Do not try fix package depends broken status
-    #[arg(long)]
-    pub no_fixbroken: bool,
-    /// Do not refresh packages database
-    #[arg(long)]
-    pub no_upgrade: bool,
-    /// Automatic run oma install
-    #[arg(long, short = 'y')]
-    pub yes: bool,
-    /// Force install packages for can't resolve depends
-    #[arg(long)]
-    pub force_yes: bool,
-    /// Install package use dpkg --force-confnew
-    #[arg(long)]
-    pub force_confnew: bool,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    pub dry_run: bool,
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct UpgradeOptions {
-    /// Package(s) name
-    packages: Vec<String>,
-    /// Automatic run oma install
-    #[arg(long, short = 'y')]
-    yes: bool,
-    /// Force install packages for can't resolve depends
-    #[arg(long)]
-    force_yes: bool,
-    /// Install package use dpkg --force-confnew
-    #[arg(long)]
-    force_confnew: bool,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    dry_run: bool,
-}
-
-#[derive(Parser, Debug)]
-struct ListFiles {
-    /// Package name
-    package: String,
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct PickOptions {
-    /// Package name
-    package: String,
-    /// Do not try fix package depends broken status
-    #[arg(long)]
-    no_fixbroken: bool,
-    /// Do not refresh packages database
-    #[arg(long)]
-    no_upgrade: bool,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    dry_run: bool,
-}
-
-#[derive(Parser, Debug)]
-struct Provides {
-    /// Search keyword
-    kw: String,
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct RemoveOptions {
-    /// Package(s) name
-    packages: Vec<String>,
-    /// Automatic run oma install
-    #[arg(long, short = 'y')]
-    yes: bool,
-    /// Force install packages for can't resolve depends
-    #[arg(long)]
-    force_yes: bool,
-    /// Keep package config
-    #[arg(long)]
-    keep_config: bool,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    dry_run: bool,
-}
-
-#[derive(Parser, Debug)]
-struct Show {
-    /// Package(s) name
-    packages: Vec<String>,
-    #[arg(long, short = 'a')]
-    is_all: bool,
-}
-
-#[derive(Parser, Debug)]
-struct Search {
-    /// Search keyword(s)
-    keyword: Vec<String>,
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct Mark {
-    #[clap(subcommand)]
-    action: MarkAction,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    dry_run: bool,
-}
-
-#[derive(Parser, Debug)]
-pub struct ListOptions {
-    packages: Option<Vec<String>>,
-    #[arg(long, short = 'a')]
-    all: bool,
-    #[arg(long, short = 'i')]
-    installed: bool,
-    #[arg(long, short = 'u')]
-    upgradable: bool,
-}
 
 fn main() {
     // 初始化时区偏移量，这个操作不能在多线程环境下运行
