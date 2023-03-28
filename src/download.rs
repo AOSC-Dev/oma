@@ -18,7 +18,7 @@ use tokio::{fs, io::AsyncWriteExt};
 
 use crate::{
     checksum::Checksum, cli::gen_prefix, db::DOWNLOAD_DIR, info, oma::InstallRow, success,
-    utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER,
+    utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER, error,
 };
 
 /// Download a package
@@ -94,10 +94,18 @@ async fn try_download(
             if let Some(ref gpb) = opb.global_bar {
                 gpb.println(format!(
                     "{}{s}",
-                    gen_prefix(&style("WARNING").yellow().bold().to_string())
+                    if i < urls.len() - 1 {
+                        gen_prefix(&style("WARNING").yellow().bold().to_string())
+                    } else {
+                        gen_prefix(&style("ERROR").red().bold().to_string())
+                    }
                 ));
             } else {
-                warn!("{s}");
+                if i < urls.len() - 1 {
+                    warn!("{s}");
+                } else {
+                    error!("{s}");
+                }
             }
         } else {
             all_is_err = false;
