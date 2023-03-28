@@ -5,7 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.17.0 (2023-03-28)
+
+### Chore
+
+ - <csr-id-0dca24982887115dd11b30f58a65d5014b2e1419/> update all deps
+ - <csr-id-6def641dc68e68b54970090dea4d618f19b60787/> update rust-apt to newest git snapshot
+ - <csr-id-58fd8c6a8eea2aa918ed9d271f995bfc1b598851/> add dependencies comment in Cargo.toml
+
+### New Features
+
+ - <csr-id-355746f2e38a2832e4ae645862eeef7f61387eea/> if fetch last url has error, output error prefix
+ - <csr-id-33cb84a6eddfb5b2a507dff3361a09a1c874d56f/> add .policy file to add policykit oma infomation
+ - <csr-id-a6ae5aede440aa515bd05257cc6f9701f491cdaf/> add policykit support
+
+### Bug Fixes
+
+ - <csr-id-980480288e2a2793ac2164994076c12ee814d865/> fix warning message before global bar draw display
+ - <csr-id-b6006ee97d648426e4b70dc32be45ebe0a50d0c5/> try to fix download progress bar count
+ - <csr-id-12f4e4cb784d2a7c93dd394326b493b74fa92005/> fix download database global bar display in file:// prefix local mirror
+ - <csr-id-388a00416cee98107d89d7d38f6196a1223053c4/> fix exit code with policykit run
+
+### Other
+
+ - <csr-id-06793013e11364e1aa64f81e9183e930888ba8bc/> default to /bin/oma
+ - <csr-id-50b9512f1e270012888c720a521a9354402fcf34/> improve UI strings
+
+### Refactor
+
+ - <csr-id-fddc86f2e61261f1e842c5a24eb94e6c49660bff/> decompress database do not block tokio runner
+ - <csr-id-6bc254e135c6613852f3a221df30694988310a50/> refactor content::file_handle method; rename to remove_prefix
+ - <csr-id-9bb717573b5ee6928f139613cd0145dd00f120d5/> refactor some code style
+ - <csr-id-6b90abdd8e1cd2a7140dc2c0ea881d8a2e875bd0/> do not always in running in async runtime
+
+### Style
+
+ - <csr-id-ed199fddf44d379e9fa04af24ead28568814f9d6/> run cargo fmt and clippy
+ - <csr-id-4f8a5ffdc160319ca28d6251bc2f6e5ccef0ceb7/> OmaAction => Oma
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 18 commits contributed to the release.
+ - 18 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`0dca249`](https://github.com/AOSC-Dev/oma/commit/0dca24982887115dd11b30f58a65d5014b2e1419))
+    - Run cargo fmt and clippy ([`ed199fd`](https://github.com/AOSC-Dev/oma/commit/ed199fddf44d379e9fa04af24ead28568814f9d6))
+    - If fetch last url has error, output error prefix ([`355746f`](https://github.com/AOSC-Dev/oma/commit/355746f2e38a2832e4ae645862eeef7f61387eea))
+    - Fix warning message before global bar draw display ([`9804802`](https://github.com/AOSC-Dev/oma/commit/980480288e2a2793ac2164994076c12ee814d865))
+    - Try to fix download progress bar count ([`b6006ee`](https://github.com/AOSC-Dev/oma/commit/b6006ee97d648426e4b70dc32be45ebe0a50d0c5))
+    - Fix download database global bar display in file:// prefix local mirror ([`12f4e4c`](https://github.com/AOSC-Dev/oma/commit/12f4e4cb784d2a7c93dd394326b493b74fa92005))
+    - Default to /bin/oma ([`0679301`](https://github.com/AOSC-Dev/oma/commit/06793013e11364e1aa64f81e9183e930888ba8bc))
+    - Improve UI strings ([`50b9512`](https://github.com/AOSC-Dev/oma/commit/50b9512f1e270012888c720a521a9354402fcf34))
+    - Add .policy file to add policykit oma infomation ([`33cb84a`](https://github.com/AOSC-Dev/oma/commit/33cb84a6eddfb5b2a507dff3361a09a1c874d56f))
+    - Decompress database do not block tokio runner ([`fddc86f`](https://github.com/AOSC-Dev/oma/commit/fddc86f2e61261f1e842c5a24eb94e6c49660bff))
+    - Refactor content::file_handle method; rename to remove_prefix ([`6bc254e`](https://github.com/AOSC-Dev/oma/commit/6bc254e135c6613852f3a221df30694988310a50))
+    - Update rust-apt to newest git snapshot ([`6def641`](https://github.com/AOSC-Dev/oma/commit/6def641dc68e68b54970090dea4d618f19b60787))
+    - Add dependencies comment in Cargo.toml ([`58fd8c6`](https://github.com/AOSC-Dev/oma/commit/58fd8c6a8eea2aa918ed9d271f995bfc1b598851))
+    - OmaAction => Oma ([`4f8a5ff`](https://github.com/AOSC-Dev/oma/commit/4f8a5ffdc160319ca28d6251bc2f6e5ccef0ceb7))
+    - Refactor some code style ([`9bb7175`](https://github.com/AOSC-Dev/oma/commit/9bb717573b5ee6928f139613cd0145dd00f120d5))
+    - Do not always in running in async runtime ([`6b90abd`](https://github.com/AOSC-Dev/oma/commit/6b90abdd8e1cd2a7140dc2c0ea881d8a2e875bd0))
+    - Fix exit code with policykit run ([`388a004`](https://github.com/AOSC-Dev/oma/commit/388a00416cee98107d89d7d38f6196a1223053c4))
+    - Add policykit support ([`a6ae5ae`](https://github.com/AOSC-Dev/oma/commit/a6ae5aede440aa515bd05257cc6f9701f491cdaf))
+</details>
+
 ## v0.16.0 (2023-03-27)
+
+<csr-id-85ad4b758dea42854c920957b69ae544f6d91a17/>
+<csr-id-c411087f4cf27b06f87b9db9ef8701f5c787ad81/>
+<csr-id-bbfc384d3cb5289743014bf7a5e2805bb69dc4d0/>
+<csr-id-cf804b98d6220921a6b585b8da7bd3512c3268d9/>
+<csr-id-dfbb9e418273d2f20f08a5c4b9b6b09a82935110/>
+<csr-id-948923de893b131e4fbd59bc5ed4be1ca383b69d/>
+<csr-id-2dde83d82417506b9fa0f4a39237e8596dc6f530/>
+<csr-id-7adb76c9fe0c33b02ada9e856306db6855459227/>
 
 ### Chore
 
@@ -58,7 +140,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 29 commits contributed to the release over the course of 3 calendar days.
+ - 30 commits contributed to the release over the course of 3 calendar days.
  - 3 days passed between releases.
  - 29 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -70,6 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.16.0 ([`24c6dad`](https://github.com/AOSC-Dev/oma/commit/24c6dadb4e50c634490f77ddabd5be05f82068c5))
     - Update all deps ([`85ad4b7`](https://github.com/AOSC-Dev/oma/commit/85ad4b758dea42854c920957b69ae544f6d91a17))
     - Run cargo clippy and cargo fmt to lint code ([`cf804b9`](https://github.com/AOSC-Dev/oma/commit/cf804b98d6220921a6b585b8da7bd3512c3268d9))
     - Oma dep/rdep PreDepended by => Pre-Depended by ([`3c1d835`](https://github.com/AOSC-Dev/oma/commit/3c1d8355ced332e3c0249597cd6067798d21d9f5))
