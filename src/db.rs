@@ -15,7 +15,7 @@ use once_cell::sync::Lazy;
 use reqwest::{Client, Url};
 use rust_apt::config::Config;
 use serde::Deserialize;
-use tokio::{io::AsyncReadExt, task::spawn_blocking, runtime::Runtime};
+use tokio::{io::AsyncReadExt, runtime::Runtime, task::spawn_blocking};
 use xz2::read::XzDecoder;
 
 use crate::{
@@ -395,18 +395,19 @@ async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, usi
     Ok((name, count))
 }
 
-pub fn update_db_runner(runtime: &Runtime, sources: &[SourceEntry], client: &Client, limit: Option<usize>) -> Result<()> {
+pub fn update_db_runner(
+    runtime: &Runtime,
+    sources: &[SourceEntry],
+    client: &Client,
+    limit: Option<usize>,
+) -> Result<()> {
     runtime.block_on(update_db(sources, client, limit))?;
 
     Ok(())
 }
 
 // Update database
-async fn update_db(
-    sources: &[SourceEntry],
-    client: &Client,
-    limit: Option<usize>,
-) -> Result<()> {
+async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize>) -> Result<()> {
     info!("Refreshing local repository metadata ...");
 
     let sources = hr_sources(sources)?;
@@ -555,14 +556,15 @@ async fn update_db(
                                 format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                             };
 
-                            let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
-                                p,
-                                c,
-                                client,
-                                not_compress_filename.0,
-                                typ,
-                                opb,
-                            ));
+                            let task: BoxFuture<'_, Result<()>> =
+                                Box::pin(download_and_extract_db(
+                                    p,
+                                    c,
+                                    client,
+                                    not_compress_filename.0,
+                                    typ,
+                                    opb,
+                                ));
 
                             tasks.push(task);
                         }
@@ -574,7 +576,7 @@ async fn update_db(
                             };
 
                             let task: BoxFuture<'_, Result<()>> = Box::pin(
-                                download_and_extract_local(p, not_compress_filename.0, c, typ),
+                                download_and_extract_db_local(p, not_compress_filename.0, c, typ),
                             );
 
                             tasks.push(task);
@@ -600,7 +602,7 @@ async fn update_db(
                             format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                         };
 
-                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract(
+                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db(
                             p,
                             c,
                             client,
@@ -618,12 +620,9 @@ async fn update_db(
                             format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                         };
 
-                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_local(
-                            p,
-                            not_compress_filename.0,
-                            c,
-                            typ,
-                        ));
+                        let task: BoxFuture<'_, Result<()>> = Box::pin(
+                            download_and_extract_db_local(p, not_compress_filename.0, c, typ),
+                        );
 
                         tasks.push(task);
                     }
@@ -649,7 +648,7 @@ async fn update_db(
 }
 
 /// Download and extract package list database
-async fn download_and_extract(
+async fn download_and_extract_db(
     dist_url: String,
     i: &ChecksumItem,
     client: &Client,
@@ -680,15 +679,14 @@ async fn download_and_extract(
     }
 
     let buf = tokio::fs::read(p).await?;
-
-    let buf = decompress(&buf, &name.0)?;
+    let buf = spawn_blocking(move || decompress(&buf, &name.0)).await??;
     let p = APT_LIST_DISTS.join(not_compress_file);
     tokio::fs::write(p, buf).await?;
 
     Ok(())
 }
 
-async fn download_and_extract_local(
+async fn download_and_extract_db_local(
     path: String,
     not_compress_file: String,
     i: &ChecksumItem,
@@ -727,7 +725,7 @@ async fn download_and_extract_local(
     let buf = if i.file_type == DistFileType::CompressContents
         || i.file_type == DistFileType::CompressPackageList
     {
-        decompress(&buf, &name.0)?
+        spawn_blocking(move || decompress(&buf, &name.0)).await??
     } else {
         buf
     };
