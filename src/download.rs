@@ -230,8 +230,8 @@ async fn packages_download(
 #[derive(Clone)]
 pub struct OmaProgressBar {
     pub msg: Option<String>,
-    mbc: Arc<MultiProgress>,
-    progress: Option<(usize, usize)>,
+    pub mbc: Arc<MultiProgress>,
+    pub progress: Option<(usize, usize)>,
     pub global_bar: Option<ProgressBar>,
 }
 

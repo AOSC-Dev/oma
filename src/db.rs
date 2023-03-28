@@ -20,7 +20,7 @@ use xz2::read::XzDecoder;
 
 use crate::{
     checksum::Checksum,
-    download::{download, oma_style_pb, OmaProgressBar},
+    download::{download, oma_style_pb, OmaProgressBar, oma_spinner},
     error, info, success,
     utils::get_arch_name,
     verify, warn,
@@ -500,7 +500,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
         let mb = Arc::new(MultiProgress::new());
         let global_bar = mb.insert(0, ProgressBar::new(total));
         global_bar.set_style(oma_style_pb(true)?);
-        global_bar.enable_steady_tick(Duration::from_millis(1000));
+        global_bar.enable_steady_tick(Duration::from_millis(100));
         global_bar.set_message("Progress");
 
         let len = handle.len();
@@ -531,8 +531,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 Some((i + 1, len)),
                 mb.clone(),
                 Some(global_bar.clone()),
-            )
-            .clone();
+            );
 
             if p.exists() {
                 let checksum = checksums
@@ -657,7 +656,7 @@ async fn download_and_extract_db(
         format!("{}/{}", dist_url, i.name),
         client,
         typ.to_owned(),
-        opb,
+        opb.clone(),
         0,
     )
     .await?;
@@ -666,17 +665,39 @@ async fn download_and_extract_db(
     let p_clone = p.clone();
 
     let ic = i.clone();
+
+    let mbc = opb.mbc;
+    let pb = mbc.add(ProgressBar::new_spinner());
+    let progress = opb.progress;
+    let progress = if let Some((cur, total)) = progress {
+        format!("({cur}/{total}) ")
+    } else {
+        "".to_string()
+    };
+
+    pb.set_message(format!("{progress}Verifying {typ}"));
+    oma_spinner(&pb);
+
     let result = spawn_blocking(move || {
         Checksum::from_sha256_str(&ic.checksum).and_then(|x| x.cmp_file(p_clone.as_path()))
     })
     .await??;
+
+    pb.finish_and_clear();
 
     if !result {
         bail!("Download {typ} Checksum mismatch! Please check your network connection.")
     }
 
     let buf = tokio::fs::read(p).await?;
+
+    let pb = mbc.add(ProgressBar::new_spinner());
+    pb.set_message(format!("{progress}Decompressing {typ}"));
+    oma_spinner(&pb);
     let buf = spawn_blocking(move || decompress(&buf, &name.0)).await??;
+
+    pb.finish_and_clear();
+
     let p = APT_LIST_DISTS.join(not_compress_file);
     tokio::fs::write(p, buf).await?;
 
