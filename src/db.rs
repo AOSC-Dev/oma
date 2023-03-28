@@ -526,15 +526,15 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 _ => unreachable!(),
             };
 
-            if p.exists() {
-                let opb = OmaProgressBar::new(
-                    None,
-                    Some((i + 1, len)),
-                    mb.clone(),
-                    Some(global_bar.clone()),
-                )
-                .clone();
+            let opb = OmaProgressBar::new(
+                None,
+                Some((i + 1, len)),
+                mb.clone(),
+                Some(global_bar.clone()),
+            )
+            .clone();
 
+            if p.exists() {
                 let checksum = checksums
                     .iter()
                     .find(|x| x.name == not_compress_filename_before)
@@ -575,9 +575,14 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                                 format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                             };
 
-                            let task: BoxFuture<'_, Result<()>> = Box::pin(
-                                download_and_extract_db_local(p, not_compress_filename.0, c, typ),
-                            );
+                            let task: BoxFuture<'_, Result<()>> =
+                                Box::pin(download_and_extract_db_local(
+                                    p,
+                                    not_compress_filename.0,
+                                    c,
+                                    typ,
+                                    opb,
+                                ));
 
                             tasks.push(task);
                         }
@@ -586,14 +591,6 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     continue;
                 }
             } else {
-                let opb = OmaProgressBar::new(
-                    None,
-                    Some((i + 1, len)),
-                    mb.clone(),
-                    Some(global_bar.clone()),
-                )
-                .clone();
-
                 match source_index.from {
                     OmaSourceEntryFrom::Http => {
                         let p = if !ose.is_flat {
@@ -621,7 +618,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         };
 
                         let task: BoxFuture<'_, Result<()>> = Box::pin(
-                            download_and_extract_db_local(p, not_compress_filename.0, c, typ),
+                            download_and_extract_db_local(p, not_compress_filename.0, c, typ, opb),
                         );
 
                         tasks.push(task);
@@ -691,6 +688,7 @@ async fn download_and_extract_db_local(
     not_compress_file: String,
     i: &ChecksumItem,
     typ: &str,
+    opb: OmaProgressBar,
 ) -> Result<()> {
     let path = path.split("://").nth(1).unwrap_or(&path).to_owned();
 
@@ -732,9 +730,13 @@ async fn download_and_extract_db_local(
 
     let p = APT_LIST_DISTS.join(not_compress_file);
 
-    tokio::fs::write(&p, buf)
+    tokio::fs::write(&p, &buf)
         .await
         .context(format!("Can not write buf to {}", p.display()))?;
+
+    if let Some(pb) = opb.global_bar {
+        pb.inc(buf.len() as u64);
+    }
 
     Ok(())
 }

@@ -218,7 +218,7 @@ pub struct OmaProgressBar {
     pub msg: Option<String>,
     mbc: Arc<MultiProgress>,
     progress: Option<(usize, usize)>,
-    global_bar: Option<ProgressBar>,
+    pub global_bar: Option<ProgressBar>,
 }
 
 impl OmaProgressBar {
