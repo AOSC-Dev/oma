@@ -17,8 +17,8 @@ use reqwest::Client;
 use tokio::{fs, io::AsyncWriteExt};
 
 use crate::{
-    checksum::Checksum, cli::gen_prefix, db::DOWNLOAD_DIR, info, oma::InstallRow, success,
-    utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER, error,
+    checksum::Checksum, cli::gen_prefix, db::DOWNLOAD_DIR, error, info, oma::InstallRow, success,
+    utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER,
 };
 
 /// Download a package
@@ -100,12 +100,10 @@ async fn try_download(
                         gen_prefix(&style("ERROR").red().bold().to_string())
                     }
                 ));
+            } else if i < urls.len() - 1 {
+                warn!("{s}");
             } else {
-                if i < urls.len() - 1 {
-                    warn!("{s}");
-                } else {
-                    error!("{s}");
-                }
+                error!("{s}");
             }
         } else {
             all_is_err = false;

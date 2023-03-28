@@ -3,10 +3,10 @@ use std::process::exit;
 use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
 
-use oma::{MarkAction, Oma};
 use cli::Writer;
 use console::style;
 use nix::sys::signal;
+use oma::{MarkAction, Oma};
 use once_cell::sync::Lazy;
 use os_release::OsRelease;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
@@ -18,13 +18,13 @@ use tracing_subscriber::{
 };
 use utils::unlock_oma;
 
-mod oma;
 mod checksum;
 mod cli;
 mod contents;
 mod db;
 mod download;
 mod formatter;
+mod oma;
 mod pager;
 mod pkg;
 mod utils;

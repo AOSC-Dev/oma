@@ -231,7 +231,7 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
 }
 
 fn remove_prefix(s: &str) -> String {
-    if s.starts_with("/") {
+    if s.starts_with('/') {
         return s.to_owned();
     }
 

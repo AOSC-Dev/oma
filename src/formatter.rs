@@ -21,8 +21,8 @@ use tabled::{
 use std::cmp::Ordering as CmpOrdering;
 
 use crate::{
-    oma::{Action, InstallRow},
     debug,
+    oma::{Action, InstallRow},
     pager::Pager,
     pkg::OmaDependency,
     warn, ALLOWCTRLC, DRYRUN,

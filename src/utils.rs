@@ -1,7 +1,7 @@
 use std::{
     io::Write,
     path::{Path, PathBuf},
-    process::{Command, exit},
+    process::{exit, Command},
     str::FromStr,
     sync::atomic::Ordering,
 };
@@ -154,7 +154,7 @@ pub fn polkit_run_itself() -> Result<()> {
         return Ok(());
     }
 
-    let args = ARGS.split(" ").collect::<Vec<_>>();
+    let args = ARGS.split(' ').collect::<Vec<_>>();
     let out = Command::new("pkexec")
         .args(args)
         .spawn()?

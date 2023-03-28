@@ -38,8 +38,8 @@ use crate::{
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{lock_oma, log_to_file, needs_root, size_checker},
-    warn, Download, FixBroken, InstallOptions, Mark, PickOptions, RemoveOptions, UpgradeOptions,
-    ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER, ListOptions,
+    warn, Download, FixBroken, InstallOptions, ListOptions, Mark, PickOptions, RemoveOptions,
+    UpgradeOptions, ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -174,7 +174,7 @@ impl Oma {
                 }
             }
 
-            packages_download_runner(&runtime, &list, client, None, None)?;
+            packages_download_runner(runtime, &list, client, None, None)?;
             apt_install(cache, u.yes, u.force_yes, u.force_confnew)?;
 
             Ok(action)
@@ -377,7 +377,7 @@ impl Oma {
             if let Some(list) = &opt.packages {
                 if !opt.all {
                     for i in list {
-                        let pkg = cache.get(&i);
+                        let pkg = cache.get(i);
                         if let Some(pkg) = pkg {
                             versions_len = pkg.versions().collect::<Vec<_>>().len();
                             if let Some(cand) = pkg.candidate() {
@@ -389,7 +389,7 @@ impl Oma {
                     }
                 } else {
                     for i in list {
-                        let pkg = cache.get(&i);
+                        let pkg = cache.get(i);
                         if let Some(pkg) = pkg {
                             let vers = pkg.versions().collect::<Vec<_>>();
                             for ver in vers {
