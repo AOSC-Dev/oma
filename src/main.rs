@@ -19,7 +19,7 @@ use tracing_subscriber::{
 };
 use utils::unlock_oma;
 
-use crate::clap_cli::{OmaCommand, Args};
+use crate::args::{OmaCommand, Args};
 
 mod checksum;
 mod cli;
@@ -32,7 +32,7 @@ mod pager;
 mod pkg;
 mod utils;
 mod verify;
-mod clap_cli;
+mod args;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);

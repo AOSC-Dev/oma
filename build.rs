@@ -1,6 +1,6 @@
 use clap::CommandFactory;
 
-include!("src/clap_cli.rs");
+include!("src/args.rs");
 
 fn main() -> std::io::Result<()> {
     let out_dir =

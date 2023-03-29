@@ -26,7 +26,7 @@ use std::{
 };
 
 use crate::{
-    clap_cli::{
+    args::{
         Download, FixBroken, InstallOptions, ListOptions, Mark, PickOptions, RemoveOptions,
         UpgradeOptions, MarkAction,
     },
