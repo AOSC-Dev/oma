@@ -1,234 +1,220 @@
-use clap::{Parser, ArgAction, Subcommand};
+use clap::{command, Arg, ArgAction, Command};
 
-#[derive(Parser, Debug)]
-#[clap(about, version, author)]
-pub struct Args {
-    #[clap(subcommand)]
-    pub subcommand: OmaCommand,
-    #[arg(long, hide = true, action = ArgAction::Count)]
-    pub ailurus: u8,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    pub dry_run: bool,
-    /// Debug mode (for --dry-run argument)
-    #[arg(long)]
-    pub debug: bool,
-}
+pub fn command_builder() -> Command {
+    let dry_run = Arg::new("dry_run")
+        .short('d')
+        .long("dry-run")
+        .help("Dry-run oma")
+        .action(clap::ArgAction::SetTrue);
 
-#[derive(Subcommand, Debug)]
-pub enum OmaCommand {
-    /// Install Package
-    Install(InstallOptions),
-    /// Update Package
-    #[clap(alias = "full-upgrade", alias = "dist-upgrade")]
-    Upgrade(UpgradeOptions),
-    /// Download Package
-    Download(Download),
-    /// Delete Package
-    #[clap(alias = "delete", alias = "purge")]
-    Remove(RemoveOptions),
-    /// Refresh Package database
-    #[clap(alias = "update")]
-    Refresh,
-    /// Show Package
-    Show(Show),
-    /// Search Package
-    Search(Search),
-    /// package list files
-    ListFiles(ListFiles),
-    /// Search file from package
-    Provides(Provides),
-    /// Fix system dependencies broken status
-    FixBroken(FixBroken),
-    /// Pick a package version
-    Pick(PickOptions),
-    /// Mark a package status
-    Mark(Mark),
-    #[clap(hide = true)]
-    CommandNotFound(CommandNotFound),
-    /// List of packages
-    List(ListOptions),
-    /// Check package dependencies
-    #[clap(alias = "dep")]
-    Depends(Dep),
-    /// Check package reverse dependencies
-    #[clap(alias = "rdep")]
-    Rdepends(Dep),
-    /// Clean downloaded packages
-    Clean,
-    /// See omakase log
-    Log,
-}
+    let debug = Arg::new("debug")
+        .long("debug")
+        .help("Debug mode (for --dry-run argument")
+        .action(clap::ArgAction::SetTrue);
 
-#[derive(Parser, Debug)]
-pub struct Dep {
-    /// Package(s) name
-    pub pkgs: Vec<String>,
-}
+    let pkgs = Arg::new("packages")
+        .help("Package(s) name")
+        .action(clap::ArgAction::Append);
 
-#[derive(Parser, Debug)]
-pub struct CommandNotFound {
-    pub kw: String,
-}
+    let no_fixbroken = Arg::new("no_fixbroken")
+        .long("no-fixbroken")
+        .help("Do not try fix package depends broken status")
+        .action(clap::ArgAction::SetTrue);
 
-#[derive(Parser, Debug)]
-pub struct FixBroken {
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    pub dry_run: bool,
-}
+    let no_upgrade = Arg::new("no_upgrade")
+        .long("no-upgrade")
+        .help("Do not refresh packages database")
+        .action(clap::ArgAction::SetTrue);
 
-#[derive(Parser, Debug)]
-pub struct Download {
-    /// Package(s) name
-    pub packages: Vec<String>,
-    /// Download to path
-    #[arg(long, short)]
-    pub path: Option<String>,
-}
+    let yes = Arg::new("yes")
+        .long("yes")
+        .short('y')
+        .help("run oma in automatic mode")
+        .action(clap::ArgAction::SetTrue);
 
-#[derive(Parser, Debug, Clone)]
-pub struct InstallOptions {
-    /// Package(s) name
-    pub packages: Vec<String>,
-    /// Install package(s) debug symbol
-    #[arg(long, alias = "dbg")]
-    pub install_dbg: bool,
-    /// Reinstall package(s)
-    #[arg(long)]
-    pub reinstall: bool,
-    /// Do not try fix package depends broken status
-    #[arg(long)]
-    pub no_fixbroken: bool,
-    /// Do not refresh packages database
-    #[arg(long)]
-    pub no_upgrade: bool,
-    /// Automatic run oma install
-    #[arg(long, short = 'y')]
-    pub yes: bool,
-    /// Force install packages for can't resolve depends
-    #[arg(long)]
-    pub force_yes: bool,
-    /// Install package use dpkg --force-confnew
-    #[arg(long)]
-    pub force_confnew: bool,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    pub dry_run: bool,
-}
+    let force_yes = Arg::new("force_yes")
+        .long("force-yes")
+        .help("Force install packages for can't resolve depends")
+        .action(clap::ArgAction::SetTrue);
 
-#[derive(Parser, Debug, Clone)]
-pub struct UpgradeOptions {
-    /// Package(s) name
-    pub packages: Vec<String>,
-    /// Automatic run oma install
-    #[arg(long, short = 'y')]
-    pub yes: bool,
-    /// Force install packages for can't resolve depends
-    #[arg(long)]
-    pub force_yes: bool,
-    /// Install package use dpkg --force-confnew
-    #[arg(long)]
-    pub force_confnew: bool,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    pub dry_run: bool,
-}
+    let force_confnew = Arg::new("force_confnew")
+        .long("force-confnew")
+        .help("Install package use dpkg --force-confnew")
+        .action(clap::ArgAction::SetTrue);
 
-#[derive(Parser, Debug)]
-pub struct ListFiles {
-    /// Package name
-    pub package: String,
-}
+    let app = command!()
+        .arg_required_else_help(true)
+        .max_term_width(100)
+        .arg(&dry_run)
+        .arg(debug)
+        .arg(
+            Arg::new("ailurus")
+                .long("ailurus")
+                .action(ArgAction::Count)
+                .hide(true),
+        )
+        .subcommand(
+            Command::new("install")
+                .about("Install Package")
+                .arg(&pkgs)
+                .arg(
+                    Arg::new("install_dbg")
+                        .alias("dbg")
+                        .long("install-dbg")
+                        .help("Install package(s) debug symbol")
+                        .requires("packages")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("reinstall")
+                        .long("reinstall")
+                        .help("Reinstall package(s)")
+                        .requires("packages")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(no_fixbroken.clone().requires("packages"))
+                .arg(no_upgrade.clone().requires("packages"))
+                .arg(yes.clone().requires("packages"))
+                .arg(force_yes.clone().requires("packages"))
+                .arg(force_confnew.clone().requires("packages"))
+                .arg(&dry_run),
+        )
+        .subcommand(
+            Command::new("upgrade")
+                .alias("dist-upgrade")
+                .alias("full-upgrade")
+                .about("Update Package")
+                .arg(&pkgs)
+                .arg(&yes)
+                .arg(&force_yes)
+                .arg(force_confnew)
+                .arg(&dry_run),
+        )
+        .subcommand(
+            Command::new("download")
+                .about("Download Package")
+                .arg(pkgs.clone().num_args(1..).required(true))
+                .arg(
+                    Arg::new("path")
+                        .long("path")
+                        .short('p')
+                        .requires("path")
+                        .action(clap::ArgAction::Set),
+                ),
+        )
+        .subcommand(
+            Command::new("remove")
+                .alias("delete")
+                .alias("purge")
+                .about("Delete Package")
+                .arg(pkgs.clone().num_args(1..).required(true))
+                .arg(yes.requires("packages"))
+                .arg(force_yes.requires("packages"))
+                .arg(
+                    Arg::new("keep_config")
+                        .long("keep-config")
+                        .short('k')
+                        .help("Keep package config")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(&dry_run),
+        )
+        .subcommand(Command::new("refresh").about("efresh Package database"))
+        .subcommand(
+            Command::new("show").about("Show package").arg(&pkgs).arg(
+                Arg::new("all")
+                    .short('a')
+                    .help("Query all package")
+                    .action(ArgAction::SetTrue),
+            ),
+        )
+        .subcommand(
+            Command::new("search")
+                .about("Search Packages")
+                .arg(pkgs.clone().num_args(1..).required(true)),
+        )
+        .subcommand(
+            Command::new("list-files")
+                .about("Query package list files")
+                .arg(
+                    Arg::new("package")
+                        .help("Pakcage name")
+                        .action(ArgAction::Set)
+                        .num_args(0..=1)
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            Command::new("provides")
+                .about("Search file from packages")
+                .arg(
+                    Arg::new("package")
+                        .help("Pakcage name")
+                        .action(ArgAction::Set)
+                        .num_args(0..=1)
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            Command::new("fix-broken")
+                .about("Fix system dependencies broken status")
+                .arg(&dry_run),
+        )
+        .subcommand(
+            Command::new("pick")
+                .about("Pick a package version")
+                .arg(
+                    Arg::new("package")
+                        .help("Pakcage name")
+                        .action(ArgAction::Set)
+                        .num_args(0..=1)
+                        .required(true),
+                )
+                .arg(no_fixbroken.requires("package"))
+                .arg(no_upgrade.requires("package"))
+                .arg(&dry_run),
+        )
+        .subcommand(
+            Command::new("mark")
+                .about("Mark a package status")
+                .subcommand(Command::new("hold").arg(pkgs.clone().num_args(1..).required(true)))
+                .subcommand(Command::new("unhold").arg(pkgs.clone().num_args(1..).required(true)))
+                .subcommand(Command::new("manual").arg(pkgs.clone().num_args(1..).required(true)))
+                .subcommand(Command::new("auto").arg(pkgs.clone().num_args(1..).required(true)))
+                .arg(&dry_run),
+        )
+        .subcommand(
+            Command::new("command-not-found").hide(true).arg(
+                Arg::new("package")
+                    .help("Pakcage name")
+                    .action(ArgAction::Set)
+                    .num_args(0..=1)
+                    .required(true),
+            ),
+        )
+        .subcommand(
+            Command::new("list")
+                .arg(pkgs)
+                .arg(
+                    Arg::new("all")
+                        .short('a')
+                        .help("Query all packages")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("installed")
+                        .short('i')
+                        .help("Query installed packages")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("upgradable")
+                        .short('u')
+                        .help("Query upgradable packages")
+                        .action(ArgAction::SetTrue),
+                )
+                .about("List of packages"),
+        );
 
-#[derive(Parser, Debug, Clone)]
-pub struct PickOptions {
-    /// Package name
-    pub package: String,
-    /// Do not try fix package depends broken status
-    #[arg(long)]
-    pub no_fixbroken: bool,
-    /// Do not refresh packages database
-    #[arg(long)]
-    pub no_upgrade: bool,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    pub dry_run: bool,
-}
-
-#[derive(Parser, Debug)]
-pub struct Provides {
-    /// Search keyword
-    pub kw: String,
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct RemoveOptions {
-    /// Package(s) name
-    pub packages: Vec<String>,
-    /// Automatic run oma install
-    #[arg(long, short = 'y')]
-    pub yes: bool,
-    /// Force install packages for can't resolve depends
-    #[arg(long)]
-    pub force_yes: bool,
-    /// Keep package config
-    #[arg(long)]
-    pub keep_config: bool,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    pub dry_run: bool,
-}
-
-#[derive(Parser, Debug)]
-pub struct Show {
-    /// Package(s) name
-    pub packages: Vec<String>,
-    #[arg(long, short = 'a')]
-    pub is_all: bool,
-}
-
-#[derive(Parser, Debug)]
-pub struct Search {
-    /// Search keyword(s)
-    pub keyword: Vec<String>,
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct Mark {
-    #[clap(subcommand)]
-    pub action: MarkAction,
-    /// Dry-run oma
-    #[arg(long, short = 'd')]
-    pub dry_run: bool,
-}
-
-
-#[derive(Subcommand, Debug, Clone)]
-pub enum MarkAction {
-    /// Hold package version
-    Hold(MarkActionArgs),
-    /// Unhold package version
-    Unhold(MarkActionArgs),
-    /// Set package status to manual install
-    Manual(MarkActionArgs),
-    /// Set package status to auto install
-    Auto(MarkActionArgs),
-}
-
-#[derive(Parser, Debug, Clone)]
-pub struct MarkActionArgs {
-    pub pkgs: Vec<String>,
-}
-
-
-#[derive(Parser, Debug)]
-pub struct ListOptions {
-    pub packages: Option<Vec<String>>,
-    #[arg(long, short = 'a')]
-    pub all: bool,
-    #[arg(long, short = 'i')]
-    pub installed: bool,
-    #[arg(long, short = 'u')]
-    pub upgradable: bool,
+    app
 }

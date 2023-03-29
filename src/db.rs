@@ -20,7 +20,7 @@ use xz2::read::XzDecoder;
 
 use crate::{
     checksum::Checksum,
-    download::{download, oma_style_pb, OmaProgressBar, oma_spinner},
+    download::{download, oma_spinner, oma_style_pb, OmaProgressBar},
     error, info, success,
     utils::get_arch_name,
     verify, warn,

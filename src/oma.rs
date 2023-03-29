@@ -26,9 +26,9 @@ use std::{
 };
 
 use crate::{
-    args::{
-        Download, FixBroken, InstallOptions, ListOptions, Mark, PickOptions, RemoveOptions,
-        UpgradeOptions, MarkAction,
+    cli::{
+        Download, FixBroken, InstallOptions, ListOptions, Mark, MarkAction, PickOptions,
+        RemoveOptions, UpgradeOptions,
     },
     contents::find,
     db::{get_sources, update_db_runner, DOWNLOAD_DIR},
@@ -129,19 +129,14 @@ impl Oma {
             count: usize,
             u: &UpgradeOptions,
         ) -> InstallResult<Action> {
-            let cache = install_handle(&u.packages, false, false)?;
+            let pkgs = u.packages.clone().unwrap_or_default();
+            let cache = install_handle(&pkgs, false, false)?;
 
             cache
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len) = apt_handler(
-                &cache,
-                false,
-                u.force_yes,
-                false,
-                LogAction::Upgrade(u.clone()),
-            )?;
+            let (action, len) = apt_handler(&cache, false, u.force_yes, false)?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -572,7 +567,7 @@ impl Oma {
 
         let cache = new_cache!()?;
 
-        let (action, len) = apt_handler(&cache, false, false, false, LogAction::FixBroken)?;
+        let (action, len) = apt_handler(&cache, false, false, false)?;
 
         if len == 0 {
             info!("No need to do anything");
@@ -584,8 +579,10 @@ impl Oma {
 
         let install_size = cache.depcache().disk_size();
         size_checker(&install_size, download_size(&list, &cache)?)?;
+        if len != 0 {
+            display_result(&action, &cache)?;
+        }
 
-        display_result(&action, &cache)?;
         packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 
         if !DRYRUN.load(Ordering::Relaxed) {
@@ -729,15 +726,10 @@ impl Oma {
     }
 
     fn install_inner(&self, opt: &InstallOptions, count: usize) -> InstallResult<Action> {
-        let cache = install_handle(&opt.packages, opt.install_dbg, opt.reinstall)?;
+        let pkgs = opt.packages.clone().unwrap_or_default();
+        let cache = install_handle(&pkgs, opt.install_dbg, opt.reinstall)?;
 
-        let (action, len) = apt_handler(
-            &cache,
-            opt.no_fixbroken,
-            opt.force_yes,
-            false,
-            LogAction::Install(opt.clone()),
-        )?;
+        let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -791,13 +783,7 @@ impl Oma {
             mark_delete(&pkg, !r.keep_config)?;
         }
 
-        let (action, len) = apt_handler(
-            &cache,
-            false,
-            r.force_yes,
-            !r.keep_config,
-            LogAction::Remove(r.clone()),
-        )?;
+        let (action, len) = apt_handler(&cache, false, r.force_yes, !r.keep_config)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -955,13 +941,7 @@ impl Oma {
             pkg.mark_install(true, true);
             pkg.protect();
 
-            let (action, _) = apt_handler(
-                &cache,
-                p.no_fixbroken,
-                false,
-                false,
-                LogAction::Pick(p.clone()),
-            )?;
+            let (action, _) = apt_handler(&cache, p.no_fixbroken, false, false)?;
             let disk_size = cache.depcache().disk_size();
 
             let mut list = vec![];
@@ -1349,7 +1329,6 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
 
 #[derive(Clone)]
 pub struct Action {
-    pub op: LogAction,
     pub update: Vec<InstallRow>,
     pub install: Vec<InstallRow>,
     pub del: Vec<RemoveRow>,
@@ -1357,18 +1336,8 @@ pub struct Action {
     pub downgrade: Vec<InstallRow>,
 }
 
-#[derive(Clone, Debug)]
-pub enum LogAction {
-    Install(InstallOptions),
-    Upgrade(UpgradeOptions),
-    Remove(RemoveOptions),
-    FixBroken,
-    Pick(PickOptions),
-}
-
 impl Action {
     fn new(
-        op: LogAction,
         update: Vec<InstallRow>,
         install: Vec<InstallRow>,
         del: Vec<RemoveRow>,
@@ -1376,7 +1345,6 @@ impl Action {
         downgrade: Vec<InstallRow>,
     ) -> Self {
         Self {
-            op,
             update,
             install,
             del,
@@ -1446,7 +1414,6 @@ fn apt_handler(
     no_fixbroken: bool,
     force_yes: bool,
     is_purge: bool,
-    op: LogAction,
 ) -> Result<(Action, usize)> {
     if force_yes {
         let config = Config::new_clear();
@@ -1676,7 +1643,7 @@ fn apt_handler(
         }
     }
 
-    let action = Action::new(op, update, install, del, reinstall, downgrade);
+    let action = Action::new(update, install, del, reinstall, downgrade);
 
     Ok((action, len))
 }
