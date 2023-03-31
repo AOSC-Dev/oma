@@ -42,6 +42,8 @@ pub fn command_builder() -> Command {
         .help("Install package use dpkg --force-confnew")
         .action(clap::ArgAction::SetTrue);
 
+    let mark_short_help_gen = |s: &str| format!("Mark package status as {s}");
+
     command!()
         .arg_required_else_help(true)
         .max_term_width(100)
@@ -177,10 +179,26 @@ pub fn command_builder() -> Command {
         .subcommand(
             Command::new("mark")
                 .about("Mark a package status")
-                .subcommand(Command::new("hold").arg(pkgs.clone().num_args(1..).required(true)))
-                .subcommand(Command::new("unhold").arg(pkgs.clone().num_args(1..).required(true)))
-                .subcommand(Command::new("manual").arg(pkgs.clone().num_args(1..).required(true)))
-                .subcommand(Command::new("auto").arg(pkgs.clone().num_args(1..).required(true)))
+                .subcommand(
+                    Command::new("hold")
+                        .arg(pkgs.clone().num_args(1..).required(true))
+                        .about(mark_short_help_gen("hold")),
+                )
+                .subcommand(
+                    Command::new("unhold")
+                        .arg(pkgs.clone().num_args(1..).required(true))
+                        .about(mark_short_help_gen("unhold")),
+                )
+                .subcommand(
+                    Command::new("manual")
+                        .arg(pkgs.clone().num_args(1..).required(true))
+                        .about(mark_short_help_gen("manual")),
+                )
+                .subcommand(
+                    Command::new("auto")
+                        .arg(pkgs.clone().num_args(1..).required(true))
+                        .about(mark_short_help_gen("auto")),
+                )
                 .arg(&dry_run),
         )
         .subcommand(
