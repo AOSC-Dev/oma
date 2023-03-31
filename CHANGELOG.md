@@ -5,7 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.17.1 (2023-03-31)
+
+### Chore
+
+ - <csr-id-08eb9d4349fe67e3fdb49f299023a3b29d385689/> update all deps
+   - Also remove useless dep
+ - <csr-id-ca593f5ffdb80db1e159ce7dc59dbcb7d4acd921/> clap_cli.rs => args.rs
+ - <csr-id-5e8d086e7809ac3cd039c83eb4f618a25aa69e16/> update README
+ - <csr-id-595f7772d54b17b5f46d125140073597b67551f3/> remove useless tracing-subscriber envfilter dep
+
+### New Features
+
+ - <csr-id-438b89df8796ab1b74f2c2f69ac818e5f5ae764c/> output man pages to /man
+ - <csr-id-f3f2ebba5b4feb23ecb3817c2571884d8588312b/> try use clap to gen man
+ - <csr-id-3d572de0735df4fa193b6168e71657317b50995d/> add extract and verify database progress bar
+
+### Refactor
+
+ - <csr-id-f4318cb27202a3e99d30e718560254d8ae4a1449/> use clap build api to build argument
+   - Also fix if fix-broken count == 0 display less by eatradish
+
+### Style
+
+ - <csr-id-a8e1ca91d85eafa1acd91994640eb029b86669d5/> run cargo clippy
+ - <csr-id-5e2a8adb0e1b7dce39a74b0f3d7aaaca4d3756ab/> move single_handler code line location
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 10 commits contributed to the release over the course of 2 calendar days.
+ - 3 days passed between releases.
+ - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Run cargo clippy ([`a8e1ca9`](https://github.com/AOSC-Dev/oma/commit/a8e1ca91d85eafa1acd91994640eb029b86669d5))
+    - Update all deps ([`08eb9d4`](https://github.com/AOSC-Dev/oma/commit/08eb9d4349fe67e3fdb49f299023a3b29d385689))
+    - Output man pages to /man ([`438b89d`](https://github.com/AOSC-Dev/oma/commit/438b89df8796ab1b74f2c2f69ac818e5f5ae764c))
+    - Use clap build api to build argument ([`f4318cb`](https://github.com/AOSC-Dev/oma/commit/f4318cb27202a3e99d30e718560254d8ae4a1449))
+    - Clap_cli.rs => args.rs ([`ca593f5`](https://github.com/AOSC-Dev/oma/commit/ca593f5ffdb80db1e159ce7dc59dbcb7d4acd921))
+    - Try use clap to gen man ([`f3f2ebb`](https://github.com/AOSC-Dev/oma/commit/f3f2ebba5b4feb23ecb3817c2571884d8588312b))
+    - Move single_handler code line location ([`5e2a8ad`](https://github.com/AOSC-Dev/oma/commit/5e2a8adb0e1b7dce39a74b0f3d7aaaca4d3756ab))
+    - Add extract and verify database progress bar ([`3d572de`](https://github.com/AOSC-Dev/oma/commit/3d572de0735df4fa193b6168e71657317b50995d))
+    - Update README ([`5e8d086`](https://github.com/AOSC-Dev/oma/commit/5e8d086e7809ac3cd039c83eb4f618a25aa69e16))
+    - Remove useless tracing-subscriber envfilter dep ([`595f777`](https://github.com/AOSC-Dev/oma/commit/595f7772d54b17b5f46d125140073597b67551f3))
+</details>
+
 ## v0.17.0 (2023-03-28)
+
+<csr-id-0dca24982887115dd11b30f58a65d5014b2e1419/>
+<csr-id-6def641dc68e68b54970090dea4d618f19b60787/>
+<csr-id-58fd8c6a8eea2aa918ed9d271f995bfc1b598851/>
+<csr-id-06793013e11364e1aa64f81e9183e930888ba8bc/>
+<csr-id-50b9512f1e270012888c720a521a9354402fcf34/>
+<csr-id-fddc86f2e61261f1e842c5a24eb94e6c49660bff/>
+<csr-id-6bc254e135c6613852f3a221df30694988310a50/>
+<csr-id-9bb717573b5ee6928f139613cd0145dd00f120d5/>
+<csr-id-6b90abdd8e1cd2a7140dc2c0ea881d8a2e875bd0/>
+<csr-id-ed199fddf44d379e9fa04af24ead28568814f9d6/>
+<csr-id-4f8a5ffdc160319ca28d6251bc2f6e5ccef0ceb7/>
 
 ### Chore
 
@@ -47,7 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 18 commits contributed to the release.
+ - 19 commits contributed to the release.
  - 18 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -58,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.17.0 ([`7562a18`](https://github.com/AOSC-Dev/oma/commit/7562a18ed823cb51ce23007621b347d6e7761d16))
     - Update all deps ([`0dca249`](https://github.com/AOSC-Dev/oma/commit/0dca24982887115dd11b30f58a65d5014b2e1419))
     - Run cargo fmt and clippy ([`ed199fd`](https://github.com/AOSC-Dev/oma/commit/ed199fddf44d379e9fa04af24ead28568814f9d6))
     - If fetch last url has error, output error prefix ([`355746f`](https://github.com/AOSC-Dev/oma/commit/355746f2e38a2832e4ae645862eeef7f61387eea))
