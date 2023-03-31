@@ -5,7 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.18.0 (2023-03-31)
+
+### Chore
+
+ - <csr-id-374b8e51c2b5169cb497e08cb5e1f9163083ead1/> update all deps
+ - <csr-id-00ab06101ae2b211e2cbaea1fca7c76df2e6b1ac/> remove useless file
+ - <csr-id-eb9cae9c30805f5d80a6168b71a472bd53db9d2d/> add man to .gitignore
+
+### New Features
+
+ - <csr-id-5960c70495227cb80ca9a991352857fde09ee60f/> improve command short help
+
+### Bug Fixes
+
+ - <csr-id-6efcc4fb282384c1ec8f9db623cac57964c6a230/> add missing oma mark help message
+ - <csr-id-1d74e7083e36509cd54d636773c4b633c8c58973/> add missing subcommand ...
+   ... Also log subcommand rename history
+ - <csr-id-67f099ac2d618a6a0aab7e99ea5ea708e8bee151/> fix package name ends_with deb install
+
+### Style
+
+ - <csr-id-f57d97ffefb244e74890386ed720a3e026238907/> use cargo clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 8 commits contributed to the release.
+ - 8 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`374b8e5`](https://github.com/AOSC-Dev/oma/commit/374b8e51c2b5169cb497e08cb5e1f9163083ead1))
+    - Use cargo clippy to lint code ([`f57d97f`](https://github.com/AOSC-Dev/oma/commit/f57d97ffefb244e74890386ed720a3e026238907))
+    - Add missing oma mark help message ([`6efcc4f`](https://github.com/AOSC-Dev/oma/commit/6efcc4fb282384c1ec8f9db623cac57964c6a230))
+    - Improve command short help ([`5960c70`](https://github.com/AOSC-Dev/oma/commit/5960c70495227cb80ca9a991352857fde09ee60f))
+    - Add missing subcommand ... ([`1d74e70`](https://github.com/AOSC-Dev/oma/commit/1d74e7083e36509cd54d636773c4b633c8c58973))
+    - Remove useless file ([`00ab061`](https://github.com/AOSC-Dev/oma/commit/00ab06101ae2b211e2cbaea1fca7c76df2e6b1ac))
+    - Fix package name ends_with deb install ([`67f099a`](https://github.com/AOSC-Dev/oma/commit/67f099ac2d618a6a0aab7e99ea5ea708e8bee151))
+    - Add man to .gitignore ([`eb9cae9`](https://github.com/AOSC-Dev/oma/commit/eb9cae9c30805f5d80a6168b71a472bd53db9d2d))
+</details>
+
 ## v0.17.1 (2023-03-31)
+
+<csr-id-08eb9d4349fe67e3fdb49f299023a3b29d385689/>
+<csr-id-ca593f5ffdb80db1e159ce7dc59dbcb7d4acd921/>
+<csr-id-5e8d086e7809ac3cd039c83eb4f618a25aa69e16/>
+<csr-id-595f7772d54b17b5f46d125140073597b67551f3/>
+<csr-id-f4318cb27202a3e99d30e718560254d8ae4a1449/>
+<csr-id-a8e1ca91d85eafa1acd91994640eb029b86669d5/>
+<csr-id-5e2a8adb0e1b7dce39a74b0f3d7aaaca4d3756ab/>
 
 ### Chore
 
@@ -35,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 10 commits contributed to the release over the course of 2 calendar days.
+ - 11 commits contributed to the release over the course of 3 calendar days.
  - 3 days passed between releases.
  - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -47,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.17.1 ([`7e80de5`](https://github.com/AOSC-Dev/oma/commit/7e80de5aad6cf344e5e78d770f163c7d7f184528))
     - Run cargo clippy ([`a8e1ca9`](https://github.com/AOSC-Dev/oma/commit/a8e1ca91d85eafa1acd91994640eb029b86669d5))
     - Update all deps ([`08eb9d4`](https://github.com/AOSC-Dev/oma/commit/08eb9d4349fe67e3fdb49f299023a3b29d385689))
     - Output man pages to /man ([`438b89d`](https://github.com/AOSC-Dev/oma/commit/438b89df8796ab1b74f2c2f69ac818e5f5ae764c))
