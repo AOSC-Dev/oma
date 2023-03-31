@@ -308,16 +308,16 @@ pub fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> Result<
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        write_dep_issue_msg(&mut out)?;
+        write_dep_issue_msg(&mut out).ok();
 
         writeln!(
             out,
             "{} package(s) has {}\n",
             v.len(),
             style("unmet dependencies:").red().bold()
-        )?;
+        ).ok();
 
-        writeln!(out, "{table}")?;
+        writeln!(out, "{table}").ok();
 
         drop(out);
         pager.wait_for_exit().ok();
@@ -380,9 +380,9 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
             "{} package(s) has {}\n",
             v.len(),
             style("unmet dependencies:").red().bold()
-        )?;
+        ).ok();
 
-        writeln!(out, "{table}")?;
+        writeln!(out, "{table}").ok();
 
         drop(out);
         pager.wait_for_exit().ok();
@@ -732,7 +732,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
     let pager_name = pager.pager_name().to_owned();
     let mut out = pager.get_writer()?;
 
-    write_review_help_message(&mut out)?;
+    write_review_help_message(&mut out).ok();
 
     if pager_name == Some("less") {
         let has_x11 = std::env::var("DISPLAY");
@@ -742,17 +742,17 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             let line2 = "    Press [Ctrl-c] to abort";
             let line3 = "    Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.\n\n";
 
-            writeln!(out, "{}", style(line1).bold())?;
-            writeln!(out, "{}", style(line2).bold())?;
-            writeln!(out, "{}", style(line3).bold())?;
+            writeln!(out, "{}", style(line1).bold()).ok();
+            writeln!(out, "{}", style(line2).bold()).ok();
+            writeln!(out, "{}", style(line3).bold()).ok();
         } else {
             let line1 = "    Press [q] to end review";
             let line2 = "    Press [Ctrl-c] to abort";
             let line3 = "    Press [PgUp/Dn] or arrow keys to scroll.\n\n";
 
-            writeln!(out, "{}", style(line1).bold())?;
-            writeln!(out, "{}", style(line2).bold())?;
-            writeln!(out, "{}", style(line3).bold())?;
+            writeln!(out, "{}", style(line1).bold()).ok();
+            writeln!(out, "{}", style(line2).bold()).ok();
+            writeln!(out, "{}", style(line3).bold()).ok();
         }
     }
 
@@ -762,7 +762,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             "{} packages will be {}:\n",
             del.len(),
             style("REMOVED").red().bold()
-        )?;
+        ).ok();
 
         let mut table = Table::new(del);
 
@@ -772,7 +772,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}\n\n")?;
+        writeln!(out, "{table}\n\n").ok();
     }
 
     if !install.is_empty() {
@@ -792,7 +792,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}\n\n")?;
+        writeln!(out, "{table}\n\n").ok();
     }
 
     if !update.is_empty() {
@@ -812,7 +812,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}\n\n")?;
+        writeln!(out, "{table}\n\n").ok();
     }
 
     if !downgrade.is_empty() {
@@ -832,7 +832,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}\n\n")?;
+        writeln!(out, "{table}\n\n").ok();
     }
 
     if !reinstall.is_empty() {
@@ -852,7 +852,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
-        writeln!(out, "{table}\n\n")?;
+        writeln!(out, "{table}\n\n").ok();
     }
 
     let mut list = vec![];
@@ -865,7 +865,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
         "{} {}",
         style("Total download size:").bold(),
         HumanBytes(download_size(&list, cache)?)
-    )?;
+    ).ok();
 
     let (symbol, abs_install_size_change) = match cache.depcache().disk_size() {
         DiskSpace::Require(n) => ("+", n),
@@ -878,7 +878,7 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
         style("Estimated change in storage usage:").bold(),
         symbol,
         HumanBytes(abs_install_size_change)
-    )?;
+    ).ok();
 
     drop(out);
     let success = pager.wait_for_exit()?;

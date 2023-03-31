@@ -65,7 +65,7 @@ pub fn command_builder() -> Command {
                         .long("install-dbg")
                         .help("Install package(s) debug symbol")
                         .requires("packages")
-                        .action(ArgAction::SetTrue),
+                        .action(ArgAction::SetTrue)
                 )
                 .arg(
                     Arg::new("reinstall")
