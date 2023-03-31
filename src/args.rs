@@ -9,7 +9,7 @@ pub fn command_builder() -> Command {
 
     let debug = Arg::new("debug")
         .long("debug")
-        .help("Debug mode (for --dry-run argument")
+        .help("Debug mode (with dry-run mode)")
         .action(clap::ArgAction::SetTrue);
 
     let pkgs = Arg::new("packages")
