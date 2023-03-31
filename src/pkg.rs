@@ -177,7 +177,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
         let oma_pkg = PkgInfo::new(cache, version.unique(), &pkg)?;
 
         res.push((oma_pkg, true));
-    } else if input.ends_with("deb") {
+    } else if input.ends_with(".deb") {
         let sort = PackageSort::default().only_virtual();
         let glob = cache
             .packages(&sort)
