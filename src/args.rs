@@ -194,7 +194,7 @@ pub fn command_builder() -> Command {
         )
         .subcommand(
             Command::new("list")
-                .arg(pkgs)
+                .arg(&pkgs)
                 .arg(
                     Arg::new("all")
                         .short('a')
@@ -214,5 +214,23 @@ pub fn command_builder() -> Command {
                         .action(ArgAction::SetTrue),
                 )
                 .about("List of packages"),
+        )
+        .subcommand(
+            Command::new("depends")
+                .alias("dep")
+                .arg(pkgs.clone().num_args(1..).required(true))
+                .about("Query package dependencies"),
+        )
+        .subcommand(
+            Command::new("rdepends")
+                .alias("rdep")
+                .arg(pkgs.clone().num_args(1..).required(true))
+                .about("Query package reverse dependencies"),
+        )
+        .subcommand(Command::new("clean").about("Clean downloaded packages archive"))
+        .subcommand(
+            Command::new("history")
+                .alias("log")
+                .about("See oma history"),
         )
 }
