@@ -242,7 +242,7 @@ pub fn command_builder() -> Command {
         .subcommand(
             Command::new("rdepends")
                 .alias("rdep")
-                .arg(pkgs.clone().num_args(1..).required(true))
+                .arg(pkgs.num_args(1..).required(true))
                 .about("Query package reverse dependencies"),
         )
         .subcommand(Command::new("clean").about("Clean downloaded packages archive"))
