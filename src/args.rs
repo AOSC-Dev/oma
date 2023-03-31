@@ -42,7 +42,7 @@ pub fn command_builder() -> Command {
         .help("Install package use dpkg --force-confnew")
         .action(clap::ArgAction::SetTrue);
 
-    let app = command!()
+    command!()
         .arg_required_else_help(true)
         .max_term_width(100)
         .arg(&dry_run)
@@ -214,7 +214,5 @@ pub fn command_builder() -> Command {
                         .action(ArgAction::SetTrue),
                 )
                 .about("List of packages"),
-        );
-
-    app
+        )
 }
