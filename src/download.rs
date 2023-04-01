@@ -260,6 +260,29 @@ pub async fn download(
     hash: Option<&str>,
     opb: OmaProgressBar,
 ) -> Result<()> {
+    let file = dir.join(&filename);
+
+    if file.exists() {
+        if let Some(hash) = hash {
+            let hash = hash.to_owned();
+            let file_clone = file.clone();
+
+            let result = spawn_blocking(move || {
+                Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file_clone))
+            })
+            .await??;
+
+            if result {
+                if let Some(ref global_bar) = opb.global_bar {
+                    let f = tokio::fs::File::open(file).await?;
+                    let total_size = f.metadata().await?.len();
+                    global_bar.inc(total_size);
+                }
+                return Ok(());
+            }
+        }
+    }
+
     let is_send = Arc::new(AtomicBool::new(false));
     let is_send_clone = is_send.clone();
 
@@ -328,27 +351,6 @@ pub async fn download(
     } else {
         "".to_string()
     };
-
-    let file = dir.join(filename);
-
-    if file.exists() {
-        if let Some(hash) = hash {
-            let hash = hash.to_owned();
-            let file_clone = file.clone();
-
-            let result = spawn_blocking(move || {
-                Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file_clone))
-            })
-            .await??;
-
-            if result {
-                if let Some(ref global_bar) = opb.global_bar {
-                    global_bar.inc(total_size);
-                }
-                return Ok(());
-            }
-        }
-    }
 
     let mut source = resp;
 
