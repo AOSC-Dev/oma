@@ -42,6 +42,11 @@ pub fn command_builder() -> Command {
         .help("Install package use dpkg --force-confnew")
         .action(clap::ArgAction::SetTrue);
 
+    let dpkg_force_all = Arg::new("dpkg_force_all")
+        .long("dpkg-force-all")
+        .help("Use dpkg --force-all mode to try fix broken upgrade")
+        .action(ArgAction::SetTrue);
+
     let mark_short_help_gen = |s: &str| format!("Mark package status as {s}");
 
     command!()
@@ -65,7 +70,7 @@ pub fn command_builder() -> Command {
                         .long("install-dbg")
                         .help("Install package(s) debug symbol")
                         .requires("packages")
-                        .action(ArgAction::SetTrue)
+                        .action(ArgAction::SetTrue),
                 )
                 .arg(
                     Arg::new("reinstall")
@@ -79,7 +84,8 @@ pub fn command_builder() -> Command {
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))
-                .arg(&dry_run),
+                .arg(&dry_run)
+                .arg(&dpkg_force_all),
         )
         .subcommand(
             Command::new("upgrade")
@@ -90,7 +96,8 @@ pub fn command_builder() -> Command {
                 .arg(&yes)
                 .arg(&force_yes)
                 .arg(force_confnew)
-                .arg(&dry_run),
+                .arg(&dry_run)
+                .arg(&dpkg_force_all),
         )
         .subcommand(
             Command::new("download")
@@ -174,7 +181,8 @@ pub fn command_builder() -> Command {
                 )
                 .arg(no_fixbroken.requires("package"))
                 .arg(no_upgrade.requires("package"))
-                .arg(&dry_run),
+                .arg(&dry_run)
+                .arg(&dpkg_force_all),
         )
         .subcommand(
             Command::new("mark")

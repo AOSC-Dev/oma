@@ -155,7 +155,7 @@ impl Oma {
             }
 
             packages_download_runner(runtime, &list, client, None, None)?;
-            apt_install(cache, u.yes, u.force_yes, u.force_confnew)?;
+            apt_install(cache, u.yes, u.force_yes, u.force_confnew, u.dpkg_force_all)?;
 
             Ok(action)
         }
@@ -751,7 +751,7 @@ impl Oma {
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
-        apt_install(cache, opt.yes, opt.force_yes, opt.force_confnew)?;
+        apt_install(cache, opt.yes, opt.force_yes, opt.force_confnew, opt.dpkg_force_all)?;
 
         Ok(action)
     }
@@ -794,7 +794,7 @@ impl Oma {
             display_result(&action, &cache)?;
         }
 
-        let mut progress = OmaAptInstallProgress::new_box(r.yes, r.force_yes, false);
+        let mut progress = OmaAptInstallProgress::new_box(r.yes, r.force_yes, false, false);
 
         if !DRYRUN.load(Ordering::Relaxed) {
             cache.commit(&mut NoProgress::new_box(), &mut progress)?;
@@ -954,7 +954,7 @@ impl Oma {
 
             packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 
-            apt_install(cache, false, false, false)?;
+            apt_install(cache, false, false, false, false)?;
 
             let end_time = OffsetDateTime::now_utc().to_offset(*TIME_OFFSET);
 
@@ -1249,6 +1249,7 @@ fn apt_install(
     yes: bool,
     force_yes: bool,
     force_confnew: bool,
+    dpkg_force_all: bool,
 ) -> std::result::Result<(), Exception> {
     if DRYRUN.load(Ordering::Relaxed) {
         return Ok(());
@@ -1258,7 +1259,7 @@ fn apt_install(
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
 
-    let mut progress = OmaAptInstallProgress::new_box(yes, force_yes, force_confnew);
+    let mut progress = OmaAptInstallProgress::new_box(yes, force_yes, force_confnew, dpkg_force_all);
 
     if let Err(e) = cache.do_install(&mut progress) {
         apt_lock_inner()?;

@@ -61,6 +61,7 @@ pub struct CommandNotFound {
 pub struct FixBroken {
     /// Dry-run oma
     pub dry_run: bool,
+    pub dpkg_force_all: bool,
 }
 pub struct Download {
     /// Package(s) name
@@ -88,6 +89,7 @@ pub struct InstallOptions {
     pub force_confnew: bool,
     /// Dry-run oma
     pub dry_run: bool,
+    pub dpkg_force_all: bool,
 }
 
 pub struct UpgradeOptions {
@@ -101,6 +103,7 @@ pub struct UpgradeOptions {
     pub force_confnew: bool,
     /// Dry-run oma
     pub dry_run: bool,
+    pub dpkg_force_all: bool,
 }
 
 pub struct ListFiles {
@@ -273,6 +276,7 @@ impl CommandMatcher for OmaCommandRunner {
                 force_yes: args.get_flag("force_yes"),
                 force_confnew: args.get_flag("force_confnew"),
                 dry_run: args.get_flag("dry_run"),
+                dpkg_force_all: args.get_flag("dpkg_force_all"),
             }),
             Some(("upgrade", args)) => OmaCommand::Upgrade(UpgradeOptions {
                 packages: pkgs_getter(args),
@@ -280,6 +284,7 @@ impl CommandMatcher for OmaCommandRunner {
                 force_yes: args.get_flag("force_yes"),
                 force_confnew: args.get_flag("force_confnew"),
                 dry_run: args.get_flag("dry_run"),
+                dpkg_force_all: args.get_flag("dpkg_force_all"),
             }),
             Some(("download", args)) => OmaCommand::Download(Download {
                 packages: pkgs_getter(args).unwrap(),
@@ -308,6 +313,7 @@ impl CommandMatcher for OmaCommandRunner {
             }),
             Some(("fix-broken", args)) => OmaCommand::FixBroken(FixBroken {
                 dry_run: args.get_flag("dry_run"),
+                dpkg_force_all: args.get_flag("dpkg_force_all"),
             }),
             Some(("pick", args)) => OmaCommand::Pick(PickOptions {
                 package: args.get_one::<String>("package").unwrap().to_string(),

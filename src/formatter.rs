@@ -109,7 +109,7 @@ pub struct OmaAptInstallProgress {
 
 impl OmaAptInstallProgress {
     #[allow(dead_code)]
-    pub fn new(yes: bool, force_yes: bool, dpkg_force_confnew: bool) -> Self {
+    pub fn new(yes: bool, force_yes: bool, dpkg_force_confnew: bool, dpkg_force_all: bool) -> Self {
         let config = Config::new_clear();
 
         if yes {
@@ -127,6 +127,11 @@ impl OmaAptInstallProgress {
             config.set("APT::Get::force-yes", "true");
         }
 
+        if dpkg_force_all {
+            warn!("Now you are using DPKG FORCE ALL mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
+            config.set("Dpkg::Options::", "--force-all");
+        }
+
         Self { config }
     }
 
@@ -136,14 +141,15 @@ impl OmaAptInstallProgress {
         yes: bool,
         force_yes: bool,
         dpkg_force_confnew: bool,
+        dpkg_force_all: bool,
     ) -> Box<dyn InstallProgress> {
-        Box::new(Self::new(yes, force_yes, dpkg_force_confnew))
+        Box::new(Self::new(yes, force_yes, dpkg_force_confnew, dpkg_force_all))
     }
 }
 
 impl Default for OmaAptInstallProgress {
     fn default() -> Self {
-        Self::new(false, false, false)
+        Self::new(false, false, false, false)
     }
 }
 
