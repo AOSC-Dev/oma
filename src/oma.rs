@@ -751,7 +751,13 @@ impl Oma {
 
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
-        apt_install(cache, opt.yes, opt.force_yes, opt.force_confnew, opt.dpkg_force_all)?;
+        apt_install(
+            cache,
+            opt.yes,
+            opt.force_yes,
+            opt.force_confnew,
+            opt.dpkg_force_all,
+        )?;
 
         Ok(action)
     }
@@ -1259,7 +1265,8 @@ fn apt_install(
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
 
-    let mut progress = OmaAptInstallProgress::new_box(yes, force_yes, force_confnew, dpkg_force_all);
+    let mut progress =
+        OmaAptInstallProgress::new_box(yes, force_yes, force_confnew, dpkg_force_all);
 
     if let Err(e) = cache.do_install(&mut progress) {
         apt_lock_inner()?;

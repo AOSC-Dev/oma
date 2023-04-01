@@ -143,7 +143,12 @@ impl OmaAptInstallProgress {
         dpkg_force_confnew: bool,
         dpkg_force_all: bool,
     ) -> Box<dyn InstallProgress> {
-        Box::new(Self::new(yes, force_yes, dpkg_force_confnew, dpkg_force_all))
+        Box::new(Self::new(
+            yes,
+            force_yes,
+            dpkg_force_confnew,
+            dpkg_force_all,
+        ))
     }
 }
 
@@ -321,7 +326,8 @@ pub fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> Result<
             "{} package(s) has {}\n",
             v.len(),
             style("unmet dependencies:").red().bold()
-        ).ok();
+        )
+        .ok();
 
         writeln!(out, "{table}").ok();
 
@@ -386,7 +392,8 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
             "{} package(s) has {}\n",
             v.len(),
             style("unmet dependencies:").red().bold()
-        ).ok();
+        )
+        .ok();
 
         writeln!(out, "{table}").ok();
 
@@ -768,7 +775,8 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             "{} packages will be {}:\n",
             del.len(),
             style("REMOVED").red().bold()
-        ).ok();
+        )
+        .ok();
 
         let mut table = Table::new(del);
 
@@ -871,7 +879,8 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
         "{} {}",
         style("Total download size:").bold(),
         HumanBytes(download_size(&list, cache)?)
-    ).ok();
+    )
+    .ok();
 
     let (symbol, abs_install_size_change) = match cache.depcache().disk_size() {
         DiskSpace::Require(n) => ("+", n),
@@ -884,7 +893,8 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
         style("Estimated change in storage usage:").bold(),
         symbol,
         HumanBytes(abs_install_size_change)
-    ).ok();
+    )
+    .ok();
 
     drop(out);
     let success = pager.wait_for_exit()?;
