@@ -149,8 +149,10 @@ impl Oma {
             if count == 0 {
                 let disk_size = cache.depcache().disk_size();
                 size_checker(&disk_size, download_size(&list, &cache)?)?;
-                if len != 0 && !u.yes {
-                    display_result(&action, &cache)?;
+                if len != 0 {
+                    if !u.yes {
+                        display_result(&action, &cache)?;
+                    }
                     packages_download_runner(runtime, &list, client, None, None)?;
                 }
             }
@@ -745,7 +747,9 @@ impl Oma {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
             if len != 0 && !opt.yes {
-                display_result(&action, &cache)?;
+                if !opt.yes {
+                    display_result(&action, &cache)?;
+                }
                 // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
                 packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
             }
