@@ -151,10 +151,10 @@ impl Oma {
                 size_checker(&disk_size, download_size(&list, &cache)?)?;
                 if len != 0 && !u.yes {
                     display_result(&action, &cache)?;
+                    packages_download_runner(runtime, &list, client, None, None)?;
                 }
             }
 
-            packages_download_runner(runtime, &list, client, None, None)?;
             apt_install(cache, u.yes, u.force_yes, u.force_confnew)?;
 
             Ok(action)
@@ -165,7 +165,6 @@ impl Oma {
             match update_inner(&self.runtime, &self.client, count, &u) {
                 Err(e) => {
                     match e {
-                        InstallError::Anyhow(e) => return Err(e),
                         InstallError::RustApt(e) => {
                             // Retry 3 times, if Error is rust_apt return
                             if count == 3 {
@@ -173,6 +172,7 @@ impl Oma {
                             }
                             count += 1;
                         }
+                        e => return Err(e.into()),
                     }
                 }
                 Ok(v) => {
@@ -746,11 +746,11 @@ impl Oma {
             size_checker(&disk_size, download_size(&list, &cache)?)?;
             if len != 0 && !opt.yes {
                 display_result(&action, &cache)?;
+                // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
+                packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
             }
         }
 
-        // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
-        packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
         apt_install(cache, opt.yes, opt.force_yes, opt.force_confnew)?;
 
         Ok(action)

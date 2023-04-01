@@ -329,9 +329,6 @@ pub async fn download(
         "".to_string()
     };
 
-    pb.set_message(format!("{progress}{msg}"));
-    pb.enable_steady_tick(Duration::from_millis(100));
-
     let file = dir.join(filename);
 
     if file.exists() {
@@ -345,7 +342,6 @@ pub async fn download(
             .await??;
 
             if result {
-                pb.finish_and_clear();
                 if let Some(ref global_bar) = opb.global_bar {
                     global_bar.inc(total_size);
                 }
@@ -355,6 +351,9 @@ pub async fn download(
     }
 
     let mut source = resp;
+
+    pb.set_message(format!("{progress}{msg}"));
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let mut dest = fs::File::create(&file).await?;
     while let Some(chunk) = source.chunk().await? {
