@@ -5,7 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.19.0 (2023-04-01)
+
+### Chore
+
+ - <csr-id-4de171ac886e50ed1496337b513f0935717b5a8f/> update rustix dep
+
+### New Features
+
+ - <csr-id-39e066e3adf8a5f20769e6c083b74238b8c8321b/> add {upgrade,install,fix-broken} subcommand --dpkg-force-all argument
+
+### Bug Fixes
+
+ - <csr-id-13f4bf7fd1dccb1f4b7641f7c6b084dcd20a0d37/> add missing progress bar logic
+
+### Style
+
+ - <csr-id-1e8d8ab5d2b8f7955c40945de32838f47606a010/> use cargo-fmt to format code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update rustix dep ([`4de171a`](https://github.com/AOSC-Dev/aoscpt/commit/4de171ac886e50ed1496337b513f0935717b5a8f))
+    - Use cargo-fmt to format code ([`1e8d8ab`](https://github.com/AOSC-Dev/aoscpt/commit/1e8d8ab5d2b8f7955c40945de32838f47606a010))
+    - Add {upgrade,install,fix-broken} subcommand --dpkg-force-all argument ([`39e066e`](https://github.com/AOSC-Dev/aoscpt/commit/39e066e3adf8a5f20769e6c083b74238b8c8321b))
+    - Add missing progress bar logic ([`13f4bf7`](https://github.com/AOSC-Dev/aoscpt/commit/13f4bf7fd1dccb1f4b7641f7c6b084dcd20a0d37))
+    - Revert "fix: do not display download progress in retry" ([`0848a19`](https://github.com/AOSC-Dev/aoscpt/commit/0848a191a80e5f3aa5ca76124a233a16998b2643))
+    - Revert "fix: fix yes argument download" ([`5736203`](https://github.com/AOSC-Dev/aoscpt/commit/5736203f0fa697918f4d30cbf0605d02af48f971))
+</details>
+
 ## v0.18.1 (2023-04-01)
+
+<csr-id-3f8df6ab624f073948505739c9e8c7ee3731e242/>
 
 ### Bug Fixes
 
@@ -21,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -32,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.18.1 ([`74c2dd8`](https://github.com/AOSC-Dev/aoscpt/commit/74c2dd89137b903532c5be2aa2db8320f7d70b61))
     - Optmize download before check file is exist logic ([`3f8df6a`](https://github.com/AOSC-Dev/aoscpt/commit/3f8df6ab624f073948505739c9e8c7ee3731e242))
     - Fix yes argument download ([`cc54069`](https://github.com/AOSC-Dev/aoscpt/commit/cc54069158c0a44c01ee7ffb5ac5c1256deee750))
     - Do not display download progress in retry ([`e346e06`](https://github.com/AOSC-Dev/aoscpt/commit/e346e06a30ddc829c73a8c981498ada4ce6844ab))
