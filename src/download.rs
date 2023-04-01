@@ -354,9 +354,6 @@ pub async fn download(
 
     let mut source = resp;
 
-    pb.set_message(format!("{progress}{msg}"));
-    pb.enable_steady_tick(Duration::from_millis(100));
-
     let mut dest = fs::File::create(&file).await?;
     while let Some(chunk) = source.chunk().await? {
         dest.write_all(&chunk).await?;
