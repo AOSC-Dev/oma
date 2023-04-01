@@ -352,6 +352,9 @@ pub async fn download(
         "".to_string()
     };
 
+    pb.set_message(format!("{progress}{msg}"));
+    pb.enable_steady_tick(Duration::from_millis(100));
+
     let mut source = resp;
 
     let mut dest = fs::File::create(&file).await?;
