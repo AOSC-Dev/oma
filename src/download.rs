@@ -158,7 +158,7 @@ async fn packages_download(
     let global_bar = mb.insert(0, ProgressBar::new(total));
     global_bar.set_style(oma_style_pb(true)?);
     global_bar.enable_steady_tick(Duration::from_millis(100));
-    global_bar.set_message(style("Progress").bold().to_string());
+    global_bar.set_message(style("Progress:").bold().to_string());
 
     let list_len = list.len();
 
@@ -437,13 +437,19 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
                     + &style("/").bold().to_string()
                     + "{total_bytes} {eta:>4} {percent:>3}%"
             } else {
-                " {msg:<40.blue.bold} {total_bytes:<10.blue.bold} {eta:<4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue}".to_owned() + &style("%").blue().to_string()
+                " {msg:.blue.bold}".to_owned()
+                    + " {bytes:>10.green.bold} "
+                    + &style("/").green().bold().to_string()
+                    + " {total_bytes:.green.bold} "
+                    + &style("@").green().bold().to_string()
+                    + " {binary_bytes_per_sec:<13.green.bold}"
+                    + "{eta_precise:>12.blue.bold}   [{wide_bar:.blue.bold}] {percent:>3.blue}"
+                    + &style("%").blue().bold().to_string()
             }
         } else if max_len < 90 {
-            " {wide_msg} {total_bytes:10} {binary_bytes_per_sec} {eta:>4} {percent:>3}%"
-                .to_owned()
+            " {wide_msg} {total_bytes:10} {binary_bytes_per_sec} {eta:>4} {percent:>3}%".to_owned()
         } else {
-            " {msg:<40} {binary_bytes_per_sec:<15} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
+            " {msg:<48} {total_bytes:>10}   [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
     };
 
