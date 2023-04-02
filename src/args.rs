@@ -147,7 +147,7 @@ pub fn command_builder() -> Command {
                 .about("Query package list files")
                 .arg(
                     Arg::new("package")
-                        .help("Pakcage name")
+                        .help("Package name")
                         .action(ArgAction::Set)
                         .num_args(0..=1)
                         .required(true),
@@ -158,7 +158,7 @@ pub fn command_builder() -> Command {
                 .about("Search file from packages")
                 .arg(
                     Arg::new("package")
-                        .help("Pakcage name")
+                        .help("Package name")
                         .action(ArgAction::Set)
                         .num_args(0..=1)
                         .required(true),
@@ -174,7 +174,7 @@ pub fn command_builder() -> Command {
                 .about("Pick a package version")
                 .arg(
                     Arg::new("package")
-                        .help("Pakcage name")
+                        .help("Package name")
                         .action(ArgAction::Set)
                         .num_args(0..=1)
                         .required(true),
@@ -212,7 +212,7 @@ pub fn command_builder() -> Command {
         .subcommand(
             Command::new("command-not-found").hide(true).arg(
                 Arg::new("package")
-                    .help("Pakcage name")
+                    .help("Package name")
                     .action(ArgAction::Set)
                     .num_args(0..=1)
                     .required(true),
