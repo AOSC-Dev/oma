@@ -46,7 +46,7 @@ pub enum OmaCommand {
     /// Clean downloaded packages
     Clean,
     /// See omakase log
-    Log,
+    History,
 }
 
 pub struct Dep {
@@ -212,7 +212,7 @@ pub trait CommandMatcher {
             OmaCommand::Depends(v) => Oma::dep(&v.pkgs, false),
             OmaCommand::Rdepends(v) => Oma::dep(&v.pkgs, true),
             OmaCommand::Clean => Oma::clean(),
-            OmaCommand::Log => Oma::log(),
+            OmaCommand::History => Oma::log(),
         }
     }
 }
@@ -355,7 +355,7 @@ impl CommandMatcher for OmaCommandRunner {
                 pkgs: pkgs_getter(args).unwrap(),
             }),
             Some(("clean", _)) => OmaCommand::Clean,
-            Some(("log", _)) => OmaCommand::Log,
+            Some(("history", _)) => OmaCommand::History,
             _ => unreachable!(),
         };
 
