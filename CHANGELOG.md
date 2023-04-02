@@ -5,7 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.20.0 (2023-04-02)
+
+### New Features
+
+ - <csr-id-e7929f3296eb063e189cbb1604bbae35f072e263/> improve progress bar style again
+ - <csr-id-d931d46d1eb9397257eb052194723db49e102930/> improve progress bar style
+ - <csr-id-e7f9c50150305aa25da0893936a45fd6c80266ef/> improve error message display
+
+### Bug Fixes
+
+ - <csr-id-20ad91331ba0e5f8e35f1a23b975e06f316d3549/> fix /run/lock directory does not exist
+ - <csr-id-5e699c2518112fa335cbf40681e9eea59a434456/> fix oma subcommand history run
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release.
+ - 1 day passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Improve progress bar style again ([`e7929f3`](https://github.com/AOSC-Dev/aoscpt/commit/e7929f3296eb063e189cbb1604bbae35f072e263))
+    - Correct typos in args.rs ([`acd0ad6`](https://github.com/AOSC-Dev/aoscpt/commit/acd0ad6b0f7c6b91a8c220fd69215bc94f8dd5ea))
+    - Improve progress bar style ([`d931d46`](https://github.com/AOSC-Dev/aoscpt/commit/d931d46d1eb9397257eb052194723db49e102930))
+    - Fix /run/lock directory does not exist ([`20ad913`](https://github.com/AOSC-Dev/aoscpt/commit/20ad91331ba0e5f8e35f1a23b975e06f316d3549))
+    - Fix oma subcommand history run ([`5e699c2`](https://github.com/AOSC-Dev/aoscpt/commit/5e699c2518112fa335cbf40681e9eea59a434456))
+    - Improve error message display ([`e7f9c50`](https://github.com/AOSC-Dev/aoscpt/commit/e7f9c50150305aa25da0893936a45fd6c80266ef))
+</details>
+
 ## v0.19.0 (2023-04-01)
+
+<csr-id-4de171ac886e50ed1496337b513f0935717b5a8f/>
+<csr-id-1e8d8ab5d2b8f7955c40945de32838f47606a010/>
 
 ### Chore
 
@@ -27,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release.
+ - 7 commits contributed to the release.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -38,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.19.0 ([`6a673d3`](https://github.com/AOSC-Dev/aoscpt/commit/6a673d352453af8b8fd704ad9d9ed69d35aeced8))
     - Update rustix dep ([`4de171a`](https://github.com/AOSC-Dev/aoscpt/commit/4de171ac886e50ed1496337b513f0935717b5a8f))
     - Use cargo-fmt to format code ([`1e8d8ab`](https://github.com/AOSC-Dev/aoscpt/commit/1e8d8ab5d2b8f7955c40945de32838f47606a010))
     - Add {upgrade,install,fix-broken} subcommand --dpkg-force-all argument ([`39e066e`](https://github.com/AOSC-Dev/aoscpt/commit/39e066e3adf8a5f20769e6c083b74238b8c8321b))
