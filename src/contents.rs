@@ -3,7 +3,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use console::style;
 use grep::{
     regex::RegexMatcherBuilder,
@@ -90,10 +90,15 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
             .arg(pattern)
             .args(&paths)
             .stdout(Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .map_err(|e| anyhow!("Spawn rg failed, why: {e}"))?;
 
         {
-            let stdout = cmd.stdout.as_mut().unwrap();
+            let stdout = cmd
+                .stdout
+                .as_mut()
+                .expect("Unexpected error: can not get stdout, maybe you environment is broken?");
+
             let stdout_reader = BufReader::new(stdout);
             let stdout_lines = stdout_reader.lines();
 
@@ -101,7 +106,8 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
 
             for i in stdout_lines.flatten() {
                 if !i.is_empty() {
-                    let line: RgJson = serde_json::from_str(&i)?;
+                    let line: RgJson = serde_json::from_str(&i)
+                        .map_err(|e| anyhow!("BUG: Parse rg item {} failed, why: {e}, Please report to upstream: https://github.com/aosc-dev/oma", &i))?;
                     let data = line.data;
                     if line.t == Some("summary".to_owned()) {
                         let stats = data.stats;

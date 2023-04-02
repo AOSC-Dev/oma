@@ -54,7 +54,7 @@ pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| {
 
     if !path.is_dir() {
         warn!(
-            "Dir::Cache::Archives value: {} does not exist! fallback to /var/cache/apt/archives",
+            "Dir::Cache::Archives path: {} does not exist! fallback to /var/cache/apt/archives",
             path.display()
         );
 
@@ -118,7 +118,7 @@ struct MirrorMapItem {
 }
 
 pub async fn get_url_short_and_branch(url: &str) -> Result<String> {
-    let url = Url::parse(url)?;
+    let url = Url::parse(url).map_err(|e| anyhow!("Invalid URL: {url}, why: {e}"))?;
     let host = url.host_str().context("Can not parse {url} host!")?;
     let schema = url.scheme();
     let branch = url
@@ -130,10 +130,13 @@ pub async fn get_url_short_and_branch(url: &str) -> Result<String> {
 
     // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
     if let Ok(mirror_map_f) = tokio::fs::read(&*MIRROR).await {
-        let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&mirror_map_f)?;
+        let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&mirror_map_f)
+            .map_err(|e| anyhow!("Can not parse distro-repository-data file: {}, why: {e}, maybe you environment is broken?", MIRROR.display()))?;
 
         for (k, v) in mirror_map.iter() {
-            let mirror_url = Url::parse(&v.url)?;
+            let mirror_url = Url::parse(&v.url).map_err(|e| {
+                anyhow!("Distro repository data file have invalid URL: {url}, why: {e}")
+            })?;
             let mirror_url_host = mirror_url
                 .host_str()
                 .context("Can not get host str from mirror map!")?;
@@ -175,7 +178,8 @@ enum DistFileType {
 
 impl InReleaseParser {
     fn new(p: &Path, trust_files: Option<&str>, mirror: &str) -> Result<Self> {
-        let s = std::fs::read_to_string(p)?;
+        let s = std::fs::read_to_string(p)
+            .map_err(|e| anyhow!("Can not read InRelease file, why: {e}"))?;
 
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
             verify::verify(&s, trust_files, mirror)?
@@ -183,12 +187,14 @@ impl InReleaseParser {
             s
         };
 
-        let source = debcontrol_from_str(&s)?;
+        let source = debcontrol_from_str(&s)
+            .map_err(|e| anyhow!("Can not parse InRelease file: {}, why: {e}", p.display()))?;
+
         let sha256 = source
             .first()
             .and_then(|x| x.get("SHA256"))
             .take()
-            .context("source is empty")?;
+            .context("InRelease sha256 entry is empty!")?;
 
         let mut checksums = sha256.split('\n');
 
@@ -230,7 +236,7 @@ impl InReleaseParser {
             } else if i.0.contains("Release") {
                 DistFileType::Release
             } else {
-                bail!("Unsupport file type: {i:?}");
+                bail!("BUG: InRelease Parser unsupport file type: {i:?}, Please report this to upstream: https://github.com/aosc-dev/oma");
             };
 
             res.push(ChecksumItem {
@@ -270,7 +276,8 @@ fn debcontrol_from_str(s: &str) -> Result<Vec<HashMap<String, String>>> {
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
 pub fn get_sources() -> Result<Vec<SourceEntry>> {
     let mut res = Vec::new();
-    let list = SourcesLists::scan()?;
+    let list = SourcesLists::scan()
+        .map_err(|e| anyhow!("Can not scan and parse source.list file, why: {e}"))?;
 
     for file in list.iter() {
         for i in &file.lines {
@@ -322,7 +329,7 @@ impl OmaSourceEntry {
         } else if v.url().starts_with("file://") {
             OmaSourceEntryFrom::Local
         } else {
-            bail!("Unsupport SourceEntry: {v:?}")
+            bail!("Unsupport SourceEntry: {v:#?}")
         };
 
         let components = v.components.clone();
@@ -689,7 +696,9 @@ async fn download_and_extract_db(
         bail!("Download {typ} Checksum mismatch! Please check your network connection.")
     }
 
-    let buf = tokio::fs::read(p).await?;
+    let buf = tokio::fs::read(&p)
+        .await
+        .map_err(|e| anyhow!("Can not read file: {}, why: {e}", p.display()))?;
 
     let pb = mbc.add(ProgressBar::new_spinner());
     pb.set_message(format!("{progress}Decompressing {typ}"));
@@ -699,7 +708,9 @@ async fn download_and_extract_db(
     pb.finish_and_clear();
 
     let p = APT_LIST_DISTS.join(not_compress_file);
-    tokio::fs::write(p, buf).await?;
+    tokio::fs::write(&p, buf)
+        .await
+        .map_err(|e| anyhow!("Can not write file: {}, why: {e}", p.display()))?;
 
     Ok(())
 }
@@ -723,12 +734,9 @@ async fn download_and_extract_db_local(
             APT_LIST_DISTS.display()
         ))?;
 
-    let mut f = tokio::fs::File::open(&path)
+    let buf = tokio::fs::read(&path)
         .await
-        .context(format!("Can not open {path}"))?;
-
-    let mut buf = vec![];
-    f.read_to_end(&mut buf).await?;
+        .context(format!("Can not read file {path}"))?;
 
     let buf_len = buf.len();
 
@@ -756,7 +764,7 @@ async fn download_and_extract_db_local(
 
     tokio::fs::write(&p, &extract_buf)
         .await
-        .context(format!("Can not write buf to {}", p.display()))?;
+        .map_err(|e| anyhow!("Can not write file: {}, why: {e}", p.display()))?;
 
     if let Some(pb) = opb.global_bar {
         pb.inc(buf_len as u64);

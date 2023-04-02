@@ -6,7 +6,7 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use once_cell::sync::Lazy;
 use rust_apt::util::DiskSpace;
 
@@ -100,7 +100,8 @@ pub fn lock_oma() -> Result<()> {
 /// Unlock oma
 pub fn unlock_oma() -> Result<()> {
     if LOCK.exists() {
-        std::fs::remove_file(LOCK.as_path())?;
+        std::fs::remove_file(LOCK.as_path())
+            .map_err(|e| anyhow!("Can not unlock oma, why: {e}"))?;
     }
 
     Ok(())
@@ -111,12 +112,14 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<
         return Ok(());
     }
 
-    std::fs::create_dir_all("/var/log/oma")?;
+    std::fs::create_dir_all("/var/log/oma")
+        .map_err(|e| anyhow!("Can not create oma log directory, why: {e}"))?;
 
     let mut f = std::fs::OpenOptions::new()
         .append(true)
         .create(true)
-        .open("/var/log/oma/history")?;
+        .open("/var/log/oma/history")
+        .map_err(|e| anyhow!("Can not create oma history file, why: {e}"))?;
 
     f.write_all(format!("Start-Date: {start_time}\n").as_bytes())?;
     f.write_all(format!("Action: {}\n{action:#?}", *ARGS).as_bytes())?;
@@ -157,8 +160,14 @@ pub fn polkit_run_itself() -> Result<()> {
     let args = ARGS.split(' ').collect::<Vec<_>>();
     let out = Command::new("pkexec")
         .args(args)
-        .spawn()?
-        .wait_with_output()?;
+        .spawn()
+        .map_err(|e| anyhow!("Spawn pkexec failed, why: {e}"))?
+        .wait_with_output()
+        .map_err(|e| anyhow!("Spawn pkexec failed, why: {e}"))?;
 
-    exit(out.status.code().unwrap())
+    exit(
+        out.status
+            .code()
+            .expect("Can not get pkexec oma exit status"),
+    );
 }

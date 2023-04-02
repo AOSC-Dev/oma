@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
 use std::{fmt::Display, fs::File, io, path::Path};
@@ -70,7 +70,7 @@ impl Checksum {
         match self {
             Checksum::Sha256(hex) => {
                 let mut hasher = Sha256::new();
-                io::copy(&mut r, &mut hasher)?;
+                io::copy(&mut r, &mut hasher).map_err(|e| anyhow!("Unexpected error: Can not checksum sha256, why: {e}, maybe your environment is broken?"))?;
                 let hash = hasher.finalize().to_vec();
                 if hex == &hash {
                     Ok(true)
@@ -80,7 +80,7 @@ impl Checksum {
             }
             Checksum::Sha512(hex) => {
                 let mut hasher = Sha512::new();
-                io::copy(&mut r, &mut hasher)?;
+                io::copy(&mut r, &mut hasher).map_err(|e| anyhow!("Unexpected error: Can not checksum sha256, why: {e}, maybe your environment is broken?"))?;
                 let hash = hasher.finalize().to_vec();
                 if hex == &hash {
                     Ok(true)
