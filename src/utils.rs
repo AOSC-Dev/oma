@@ -86,13 +86,22 @@ pub fn lock_oma() -> Result<()> {
             unlock_oma()?;
         }
     }
-    let mut lock_file = std::fs::File::create(LOCK.as_path())?;
+
+    if !Path::new("/run/lock").is_dir() {
+        std::fs::create_dir_all("/run/lock")
+            .map_err(|e| anyhow!("Can not create /run/lock dir! why: {e}"))?;
+    }
+
+    let mut lock_file = std::fs::File::create(LOCK.as_path())
+        .map_err(|e| anyhow!("Can not create lock file! why: {e}"))?;
     let pid = std::process::id().to_string();
 
     // Set global lock parameter
     crate::LOCKED.store(true, Ordering::Relaxed);
 
-    lock_file.write_all(pid.as_bytes())?;
+    lock_file
+        .write_all(pid.as_bytes())
+        .map_err(|e| anyhow!("Can not write oma lock, why: {e}"))?;
 
     Ok(())
 }
