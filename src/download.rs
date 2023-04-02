@@ -48,12 +48,12 @@ fn trans_filename(filename: &str, version: String) -> Result<String> {
     let package = filename_split
         .next()
         .take()
-        .context("Can not parse filename")?;
+        .context(format!("Can not parse filename: {filename}"))?;
 
     let arch_deb = filename_split
         .nth(1)
         .take()
-        .context("Can not parse version")?;
+        .context(format!("Can not parse version: {version}"))?;
 
     let arch_deb = if arch_deb == "noarch.deb" {
         "all.deb"
@@ -342,8 +342,8 @@ pub async fn download(
     let pb = opb.mbc.add(ProgressBar::new(total_size));
     pb.set_style(oma_style_pb(false)?);
 
-    if console::measure_text_width(&msg) > 60 {
-        msg = console::truncate_str(&msg, 57, "...").to_string();
+    if console::measure_text_width(&msg) > 30 {
+        msg = console::truncate_str(&msg, 27, "...").to_string();
     }
 
     let progress = if let Some((count, len)) = opb.progress {
@@ -435,15 +435,15 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
             if max_len < 90 {
                 " {wide_msg} {bytes}".to_owned()
                     + &style("/").bold().to_string()
-                    + "{total_bytes:>10} {eta:>4} {percent:>3}%"
+                    + "{total_bytes} {eta:>4} {percent:>3}%"
             } else {
-                " {msg:<48.blue.bold} {bytes:.blue.bold}".to_owned() + &style("/").bold().blue().to_string() + "{total_bytes:>10.blue.bold} {eta:>4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue}" + &style("%").blue().to_string()
+                " {msg:<40.blue.bold} {total_bytes:<10.blue.bold} {eta:<4.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue}".to_owned() + &style("%").blue().to_string()
             }
         } else if max_len < 90 {
-            " {wide_msg} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} {percent:>3}%"
+            " {wide_msg} {total_bytes:10} {binary_bytes_per_sec} {eta:>4} {percent:>3}%"
                 .to_owned()
         } else {
-            " {msg:<48} {total_bytes:>10} {binary_bytes_per_sec:>12} {eta:>4} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
+            " {msg:<40} {binary_bytes_per_sec:<15} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
     };
 

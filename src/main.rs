@@ -32,7 +32,7 @@ static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
 static WRITER: Lazy<Writer> = Lazy::new(Writer::new);
 static DRYRUN: AtomicBool = AtomicBool::new(false);
-static TIME_OFFSET: Lazy<UtcOffset> =
+static TIME_OFFSET: Lazy<UtcOffset> = 
     Lazy::new(|| UtcOffset::local_offset_at(OffsetDateTime::UNIX_EPOCH).unwrap_or(offset!(UTC)));
 static ARGS: Lazy<String> = Lazy::new(|| std::env::args().collect::<Vec<_>>().join(" "));
 
