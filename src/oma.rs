@@ -106,6 +106,7 @@ impl Oma {
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
     pub fn update(&self, u: UpgradeOptions) -> Result<()> {
+        let mut u = u;
         needs_root()?;
         lock_oma()?;
 
@@ -161,12 +162,20 @@ impl Oma {
         }
 
         let mut count = 0;
+        let mut is_force_all = u.dpkg_force_all;
+
         loop {
             match update_inner(&self.runtime, &self.client, count, &u) {
                 Err(e) => {
                     match e {
                         InstallError::Anyhow(e) => return Err(e),
                         InstallError::RustApt(e) => {
+                            // 若重试两次不凑效则启动 dpkg-force-all 模式
+                            if count == 2 && !is_force_all {
+                                is_force_all = true;
+                                u.dpkg_force_all = true;
+                                count = 0;
+                            }
                             // Retry 3 times, if Error is rust_apt return
                             if count == 3 {
                                 return Err(e.into());
