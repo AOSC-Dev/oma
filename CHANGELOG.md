@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.21.0 (2023-04-03)
+
+### Chore
+
+ - <csr-id-f80adf68ef978cdaee19eb6072ccb4449207c93c/> update all deps
+
+### New Features
+
+ - <csr-id-cc6546548e526d88360c0ed0750d4d5953a07c82/> if update dpkg-force-all mode after has broken count, return error
+ - <csr-id-d7d0253dbfcd7dbea00d5da68be16e55e3f82577/> if retry 2 times apt has error, go to dpkg-force-all mode
+
+### Bug Fixes
+
+ - <csr-id-8cfc2cf9efd57e8a353a81f985695a24b63f901e/> fix a typo
+
+### Style
+
+ - <csr-id-b719e78fde46d4fd1b08bb3a87a8b8470e0cd827/> use cargo fmt and cargo clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`f80adf6`](https://github.com/AOSC-Dev/aoscpt/commit/f80adf68ef978cdaee19eb6072ccb4449207c93c))
+    - Fix a typo ([`8cfc2cf`](https://github.com/AOSC-Dev/aoscpt/commit/8cfc2cf9efd57e8a353a81f985695a24b63f901e))
+    - If update dpkg-force-all mode after has broken count, return error ([`cc65465`](https://github.com/AOSC-Dev/aoscpt/commit/cc6546548e526d88360c0ed0750d4d5953a07c82))
+    - If retry 2 times apt has error, go to dpkg-force-all mode ([`d7d0253`](https://github.com/AOSC-Dev/aoscpt/commit/d7d0253dbfcd7dbea00d5da68be16e55e3f82577))
+    - Use cargo fmt and cargo clippy to lint code ([`b719e78`](https://github.com/AOSC-Dev/aoscpt/commit/b719e78fde46d4fd1b08bb3a87a8b8470e0cd827))
+</details>
+
 ## v0.20.0 (2023-04-02)
 
 ### New Features
@@ -22,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release.
+ - 7 commits contributed to the release.
  - 1 day passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -34,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.20.0 ([`e08795a`](https://github.com/AOSC-Dev/aoscpt/commit/e08795ad39b00ec6051ce02e82e95003c176a0c2))
     - Improve progress bar style again ([`e7929f3`](https://github.com/AOSC-Dev/aoscpt/commit/e7929f3296eb063e189cbb1604bbae35f072e263))
     - Correct typos in args.rs ([`acd0ad6`](https://github.com/AOSC-Dev/aoscpt/commit/acd0ad6b0f7c6b91a8c220fd69215bc94f8dd5ea))
     - Improve progress bar style ([`d931d46`](https://github.com/AOSC-Dev/aoscpt/commit/d931d46d1eb9397257eb052194723db49e102930))
