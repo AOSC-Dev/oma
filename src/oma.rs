@@ -170,7 +170,7 @@ impl Oma {
                     match e {
                         InstallError::Anyhow(e) => return Err(e),
                         InstallError::RustApt(e) => {
-                            warn!("apt has retrn non-zero code, code, retrn {count} times");
+                            warn!("apt has retrn non-zero code, retrying {count} times");
                             // 若重试两次不凑效则启动 dpkg-force-all 模式
                             if count == 2 && !is_force_all {
                                 warn!("Try use dpkg-force-all mode to fix broken dependencies");
