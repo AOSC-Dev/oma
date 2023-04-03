@@ -170,8 +170,10 @@ impl Oma {
                     match e {
                         InstallError::Anyhow(e) => return Err(e),
                         InstallError::RustApt(e) => {
+                            warn!("apt has retrn non-zero code, code, retrn {count} times");
                             // 若重试两次不凑效则启动 dpkg-force-all 模式
                             if count == 2 && !is_force_all {
+                                warn!("Try use dpkg-force-all mode to fix broken dependencies");
                                 is_force_all = true;
                                 u.dpkg_force_all = true;
                                 count = 0;
@@ -185,11 +187,18 @@ impl Oma {
                     }
                 }
                 Ok(v) => {
+                    let cache = new_cache!()?;
                     let end_time = OffsetDateTime::now_utc()
                         .to_offset(*TIME_OFFSET)
                         .to_string();
 
-                    return log_to_file(&v, &start_time, &end_time);
+                    log_to_file(&v, &start_time, &end_time)?;
+
+                    if u.dpkg_force_all && cache.depcache().broken_count() != 0 {
+                        bail!("Your system has broken dependencies, try to use `{}` to fix broken dependencies\nIf this does not work, please contact upstream: https://github.com/aosc-dev/aosc-os-abbs", style("oma fix-broken").green().bold())
+                    }
+
+                    return Ok(());
                 }
             }
         }
