@@ -1564,23 +1564,25 @@ fn apt_handler(
             let mut v = Vec::new();
 
             if pkg.is_auto_removable() {
-                v.push((
-                    "removed as unneeded dependency",
-                    "Removed as unneeded dependency",
-                ));
+                v.push("removed as unneeded dependency");
             }
 
             if is_purge {
-                v.push(("purge configuration files", "Purge configuration files"));
+                v.push("purge configuration files");
             }
 
             let s = if !v.is_empty() {
                 let mut va = vec![];
                 for (i, c) in v.iter().enumerate() {
                     if i == 0 {
-                        va.push(c.1);
+                        let mut v = c.to_string();
+                        v.get_mut(0..1).map(|s| {
+                            s.make_ascii_uppercase();
+                            &*s
+                        });
+                        va.push(v);
                     } else {
-                        va.push(c.0);
+                        va.push(c.to_string());
                     }
                 }
 
