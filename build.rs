@@ -1,9 +1,11 @@
+use clap_mangen::Man;
+
 include!("src/args.rs");
 
 fn main() -> std::io::Result<()> {
     let cmd = command_builder();
 
-    let man = clap_mangen::Man::new(cmd);
+    let man = Man::new(cmd.clone());
     let mut buffer: Vec<u8> = Default::default();
     man.render(&mut buffer)?;
 
@@ -17,6 +19,18 @@ fn main() -> std::io::Result<()> {
     }
 
     std::fs::write(man_dir.join("oma.1"), buffer)?;
+
+
+    for subcommand in cmd.get_subcommands() {
+        let subcommand_name = format!("oma-{}", subcommand.get_name());
+        let mut buffer: Vec<u8> = Default::default();
+        let man = Man::new(subcommand.clone()).title(&subcommand_name);
+        man.render(&mut buffer)?;
+        std::fs::write(
+            std::path::PathBuf::from(&man_dir).join(format!("{}{}", &subcommand_name, ".1")),
+            buffer,
+        )?;
+    }
 
     Ok(())
 }
