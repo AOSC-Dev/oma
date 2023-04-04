@@ -10,7 +10,7 @@ use rust_apt::{
     package::{Package, Version},
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
-    util::{apt_lock, apt_unlock, apt_unlock_inner, Exception},
+    util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
 use std::{fmt::Write as FmtWrite, io::BufRead};
 use tabled::Tabled;
@@ -1274,12 +1274,35 @@ fn apt_install(
     force_yes: bool,
     force_confnew: bool,
     dpkg_force_all: bool,
-) -> std::result::Result<(), Exception> {
+) -> InstallResult<()> {
     if DRYRUN.load(Ordering::Relaxed) {
         return Ok(());
     }
 
-    apt_lock()?;
+    if let Err(e) = apt_lock() {
+        let e = e.to_string();
+        if e.contains("dpkg --configure -a") {
+            info!(
+                "dpkg was interrupted, running `{}` ...",
+                style("dpkg --configure -a").green().bold()
+            );
+            let cmd = Command::new("dpkg")
+                .arg("--configure")
+                .arg("-a")
+                .output()
+                .map_err(|e| anyhow!("{e}"))?;
+
+            if !cmd.status.success() {
+                InstallError::Anyhow(anyhow!(
+                    "Running `dpkg --configure -a` return non-zero code: {}",
+                    cmd.status.code().unwrap()
+                ));
+            }
+
+            apt_lock()?;
+        }
+    }
+
     cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
 
@@ -1289,7 +1312,7 @@ fn apt_install(
     if let Err(e) = cache.do_install(&mut progress) {
         apt_lock_inner()?;
         apt_unlock();
-        return Err(e);
+        return Err(e.into());
     }
 
     apt_unlock();
