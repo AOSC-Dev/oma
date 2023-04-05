@@ -5,7 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.22.0 (2023-04-05)
+
+### Chore
+
+ - <csr-id-a87a40d79c10a7acbf2f76ba6e4fa413e206ad46/> update all deps
+
+### New Features
+
+ - <csr-id-b44035d76b13675b85d6a2c648f6b6ab76eea448/> error output message adjust
+ - <csr-id-3bb8b317af8eaacd7a03eb5a0939a15f3449b37e/> if needs run dpkg --configure -a, run it
+ - <csr-id-7ae0faca3b79ecbbbf50f4f28e369bbeca4d13fb/> build all subcommand man
+
+### Bug Fixes
+
+ - <csr-id-4df750e8587145d44bca5f112aace690e08c6107/> fix autoremove/non-autoremove pkg pending ui wrong detail
+
+### Refactor
+
+ - <csr-id-46b75d978dd0e8fe93847086f1040b3a22a1603c/> improve capitalize output message logic in apt_handler mehod
+
+### Style
+
+ - <csr-id-05baa26ff7c75c4c103ad5f1b78f53f8b571c52c/> use cargo-fmt to format code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 7 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`a87a40d`](https://github.com/AOSC-Dev/aoscpt/commit/a87a40d79c10a7acbf2f76ba6e4fa413e206ad46))
+    - Use cargo-fmt to format code ([`05baa26`](https://github.com/AOSC-Dev/aoscpt/commit/05baa26ff7c75c4c103ad5f1b78f53f8b571c52c))
+    - Error output message adjust ([`b44035d`](https://github.com/AOSC-Dev/aoscpt/commit/b44035d76b13675b85d6a2c648f6b6ab76eea448))
+    - Fix autoremove/non-autoremove pkg pending ui wrong detail ([`4df750e`](https://github.com/AOSC-Dev/aoscpt/commit/4df750e8587145d44bca5f112aace690e08c6107))
+    - If needs run dpkg --configure -a, run it ([`3bb8b31`](https://github.com/AOSC-Dev/aoscpt/commit/3bb8b317af8eaacd7a03eb5a0939a15f3449b37e))
+    - Build all subcommand man ([`7ae0fac`](https://github.com/AOSC-Dev/aoscpt/commit/7ae0faca3b79ecbbbf50f4f28e369bbeca4d13fb))
+    - Improve capitalize output message logic in apt_handler mehod ([`46b75d9`](https://github.com/AOSC-Dev/aoscpt/commit/46b75d978dd0e8fe93847086f1040b3a22a1603c))
+</details>
+
 ## v0.21.0 (2023-04-03)
+
+<csr-id-f80adf68ef978cdaee19eb6072ccb4449207c93c/>
+<csr-id-b719e78fde46d4fd1b08bb3a87a8b8470e0cd827/>
 
 ### Chore
 
@@ -28,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 1 calendar day.
+ - 6 commits contributed to the release over the course of 1 calendar day.
  - 1 day passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -40,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.21.0 ([`5f50847`](https://github.com/AOSC-Dev/aoscpt/commit/5f50847782c13f83c158e1412a2f2d41dbbcf522))
     - Update all deps ([`f80adf6`](https://github.com/AOSC-Dev/aoscpt/commit/f80adf68ef978cdaee19eb6072ccb4449207c93c))
     - Fix a typo ([`8cfc2cf`](https://github.com/AOSC-Dev/aoscpt/commit/8cfc2cf9efd57e8a353a81f985695a24b63f901e))
     - If update dpkg-force-all mode after has broken count, return error ([`cc65465`](https://github.com/AOSC-Dev/aoscpt/commit/cc6546548e526d88360c0ed0750d4d5953a07c82))
