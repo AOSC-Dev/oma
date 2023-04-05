@@ -1255,16 +1255,23 @@ fn dpkg_selections() -> Result<Vec<(String, String)>> {
 }
 
 /// apt autoremove
-fn autoremove(cache: &Cache, is_purge: bool) -> Result<()> {
+fn autoremove(cache: &Cache, is_purge: bool) -> Result<Vec<String>> {
     let sort = PackageSort::default();
 
+    let mut pkgs = vec![];
+
     for pkg in cache.packages(&sort) {
+        if pkg.marked_delete() {
+            continue;
+        }
+
         if pkg.is_auto_removable() {
             mark_delete(&pkg, is_purge)?;
+            pkgs.push(pkg.name().to_string());
         }
     }
 
-    Ok(())
+    Ok(pkgs)
 }
 
 /// Install packages
@@ -1483,7 +1490,7 @@ fn apt_handler(
         return Err(e.into());
     }
 
-    autoremove(cache, is_purge)?;
+    let autoremove_list = autoremove(cache, is_purge)?;
 
     if let Err(e) = cache.resolve(fix_broken) {
         let finded = find_unmet_deps(cache)?;
@@ -1586,7 +1593,7 @@ fn apt_handler(
 
             let mut v = Vec::new();
 
-            if pkg.is_auto_removable() {
+            if autoremove_list.contains(&pkg.name().to_string()) {
                 v.push("removed as unneeded dependency");
             }
 
