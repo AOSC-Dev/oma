@@ -443,7 +443,7 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
                     + " {total_bytes:.green.bold} "
                     + &style("@").green().bold().to_string()
                     + " {binary_bytes_per_sec:<13.green.bold}"
-                    + "{eta_precise:>12.blue.bold}   [{wide_bar:.blue.bold}] {percent:>3.blue}"
+                    + "{eta_precise:>12.blue.bold}   [{wide_bar:.blue.bold}] {percent:>3.blue.bold}"
                     + &style("%").blue().bold().to_string()
             }
         } else if max_len < 90 {
