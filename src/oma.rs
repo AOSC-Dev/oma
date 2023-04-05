@@ -1365,6 +1365,18 @@ fn yes_warn() {
 
 /// Handle user input, find pkgs
 fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result<Cache> {
+    tracing::debug!("Querying the packages database ...");
+    let is_done = Arc::new(AtomicBool::new(false));
+    let idc = is_done.clone();
+    let spinner = std::thread::spawn(move || {
+        let pb = ProgressBar::new_spinner();
+        pb.set_message("Querying the packages database ...");
+        oma_spinner(&pb);
+
+        while !idc.load(Ordering::Relaxed) {}
+        pb.finish_and_clear();
+    });
+
     // Get local packages
     let local_debs = list
         .iter()
@@ -1411,6 +1423,11 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
             warn!("{} has no debug symbol package!", &pkginfo.package);
         }
     }
+
+    is_done.store(true, Ordering::Relaxed);
+    spinner
+        .join()
+        .expect("Can not join spinner thread! check your env?");
 
     Ok(cache)
 }
