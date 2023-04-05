@@ -2,14 +2,13 @@ use clap::{command, Arg, ArgAction, Command};
 
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
-        .short('d')
         .long("dry-run")
         .help("Dry-run oma")
         .action(clap::ArgAction::SetTrue);
 
     let debug = Arg::new("debug")
         .long("debug")
-        .help("Debug mode (with dry-run mode)")
+        .help("Run oma with debug mode")
         .action(clap::ArgAction::SetTrue);
 
     let pkgs = Arg::new("packages")

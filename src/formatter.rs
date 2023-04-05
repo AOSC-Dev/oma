@@ -21,7 +21,6 @@ use tabled::{
 use std::cmp::Ordering as CmpOrdering;
 
 use crate::{
-    debug,
     oma::{Action, InstallRow},
     pager::Pager,
     pkg::OmaDependency,
@@ -59,15 +58,15 @@ impl AcquireProgress for NoProgress {
     }
 
     fn hit(&mut self, _id: u32, description: String) {
-        debug!("{}", description);
+        tracing::debug!("{}", description);
     }
 
     fn fetch(&mut self, _id: u32, description: String, _file_size: u64) {
-        debug!("{}", description);
+        tracing::debug!("{}", description);
     }
 
     fn fail(&mut self, _id: u32, description: String, _status: u32, _error_text: String) {
-        debug!("{}", description);
+        tracing::debug!("{}", description);
     }
 
     fn pulse(
@@ -92,8 +91,8 @@ impl AcquireProgress for NoProgress {
         _pending_errors: bool,
     ) {
         if fetched_bytes != 0 {
-            warn!("Download is not done, running apt download ...");
-            println!(
+            warn!("Download is not done, running apt download ...\nIf you are not install package from local sources/local packages, Please run debug mode and report to upstream: https://github.com/aosc-dev/oma");
+            tracing::debug!(
                 "Fetched {} in {} ({}/s)",
                 unit_str(fetched_bytes, NumSys::Decimal),
                 time_str(elapsed_time),
@@ -114,22 +113,27 @@ impl OmaAptInstallProgress {
 
         if yes {
             config.set("APT::Get::Assume-Yes", "true");
+            tracing::debug!("APT::Get::Assume-Yes is set to true");
         }
 
         if dpkg_force_confnew {
             config.set("Dpkg::Options::", "--force-confnew");
+            tracing::debug!("Dpkg::Options:: is set to --force-confnew");
         } else if yes {
             config.set("Dpkg::Options::", "--force-confold");
+            tracing::debug!("Dpkg::Options:: is set to --force-confold");
         }
 
         if force_yes {
             warn!("Now you are using FORCE automatic mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
             config.set("APT::Get::force-yes", "true");
+            tracing::debug!("APT::Get::force-Yes is set to true");
         }
 
         if dpkg_force_all {
             warn!("Now you are using DPKG FORCE ALL mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
             config.set("Dpkg::Options::", "--force-all");
+            tracing::debug!("Dpkg::Options:: is set to --force-all");
         }
 
         Self { config }
@@ -783,7 +787,6 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
             .with(Modify::new(Columns::new(1..2)).with(Alignment::left()))
-            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
             .with(Style::psql());
 
         writeln!(out, "{table}\n\n").ok();

@@ -235,7 +235,7 @@ impl CommandMatcher for OmaCommandRunner {
             exit(3);
         }
 
-        if matches.get_flag("dry_run") || matches.get_flag("debug") {
+        if matches.get_flag("dry_run") {
             DRYRUN.store(true, Ordering::Relaxed);
 
             tracing_subscriber::registry()
@@ -253,12 +253,23 @@ impl CommandMatcher for OmaCommandRunner {
                 .try_init()?;
 
             tracing::info!("Running in Dry-run mode");
-            tracing::debug!(
-                "oma version: {}\n OS: {:#?}",
-                env!("CARGO_PKG_VERSION"),
-                OsRelease::new()
-            );
+        } else if matches.get_flag("debug") {
+            tracing_subscriber::registry()
+                .with(
+                    fmt::layer()
+                        .with_writer(std::io::stdout)
+                        .without_time()
+                        .with_target(false)
+                        .with_filter(LevelFilter::DEBUG),
+                )
+                .try_init()?;
         }
+
+        tracing::debug!(
+            "oma version: {}\n OS: {:#?}",
+            env!("CARGO_PKG_VERSION"),
+            OsRelease::new()
+        );
 
         let pkgs_getter = |args: &ArgMatches| {
             args.get_many::<String>("packages")

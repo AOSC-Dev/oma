@@ -8,7 +8,7 @@ use rust_apt::{
     config::Config,
     new_cache,
     package::{Package, Version},
-    raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
+    raw::{progress::{AptInstallProgress, AptAcquireProgress}, util::raw::apt_lock_inner},
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
@@ -1309,8 +1309,9 @@ fn apt_install(
             apt_lock()?;
         }
     }
+    
+    cache.get_archives(&mut AptAcquireProgress::new_box())?;
 
-    cache.get_archives(&mut NoProgress::new_box())?;
     apt_unlock_inner();
 
     let mut progress =
