@@ -1,18 +1,25 @@
 use anyhow::{anyhow, bail, Context, Result};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Select};
-use indicatif::HumanBytes;
+use indicatif::{HumanBytes, ProgressBar};
 use reqwest::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     config::Config,
     new_cache,
     package::{Package, Version},
-    raw::{progress::{AptInstallProgress, AptAcquireProgress}, util::raw::apt_lock_inner},
+    raw::{
+        progress::AptInstallProgress,
+        util::raw::apt_lock_inner,
+    },
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
-use std::{fmt::Write as FmtWrite, io::BufRead};
+use std::{
+    fmt::Write as FmtWrite,
+    io::BufRead,
+    sync::{atomic::AtomicBool, Arc},
+};
 use tabled::Tabled;
 use time::OffsetDateTime;
 use tokio::runtime::Runtime;
@@ -32,7 +39,7 @@ use crate::{
     },
     contents::find,
     db::{get_sources, update_db_runner, DOWNLOAD_DIR},
-    download::packages_download_runner,
+    download::{oma_spinner, packages_download_runner},
     formatter::{
         display_result, download_size, find_unmet_deps, NoProgress, OmaAptInstallProgress,
     },
@@ -1309,8 +1316,23 @@ fn apt_install(
             apt_lock()?;
         }
     }
-    
-    cache.get_archives(&mut AptAcquireProgress::new_box())?;
+
+    let get_archives_done = Arc::new(AtomicBool::new(false));
+    let get_archives_done_clone = get_archives_done.clone();
+
+    let checker = std::thread::spawn(move || {
+        let pb = ProgressBar::new_spinner();
+        pb.set_message("Verifying the integrity of packages ...");
+        oma_spinner(&pb);
+
+        while !get_archives_done_clone.load(Ordering::Relaxed) {}
+        pb.finish_and_clear();
+    });
+
+    cache.get_archives(&mut NoProgress::new_box())?;
+    get_archives_done.store(true, Ordering::Relaxed);
+
+    checker.join().expect("Can not wait get archives done, Check your environment?");
 
     apt_unlock_inner();
 
