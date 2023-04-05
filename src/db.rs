@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     io::Read,
     path::{Path, PathBuf},
-    sync::Arc,
     time::Duration,
 };
 
@@ -10,7 +9,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
 use flate2::bufread::GzDecoder;
 use futures::{future::BoxFuture, StreamExt};
-use indicatif::{MultiProgress, ProgressBar};
+use indicatif::{ProgressBar};
 use once_cell::sync::Lazy;
 use reqwest::{Client, Url};
 use rust_apt::config::Config;
@@ -23,7 +22,7 @@ use crate::{
     download::{download, oma_spinner, oma_style_pb, OmaProgressBar},
     error, info, success,
     utils::get_arch_name,
-    verify, warn,
+    verify, warn, MB,
 };
 
 use std::sync::atomic::Ordering;
@@ -420,8 +419,6 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
     let sources = hr_sources(sources)?;
     let mut tasks = vec![];
 
-    let mb = Arc::new(MultiProgress::new());
-
     for (i, c) in sources.iter().enumerate() {
         match c.from {
             OmaSourceEntryFrom::Http => {
@@ -429,7 +426,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     c.inrelease_path.clone(),
                     client,
                     "InRelease".to_owned(),
-                    OmaProgressBar::new(None, Some((i + 1, sources.len())), mb.clone(), None),
+                    OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
                     i,
                 ));
 
@@ -504,8 +501,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             checksums.clone()
         };
 
-        let mb = Arc::new(MultiProgress::new());
-        let global_bar = mb.insert(0, ProgressBar::new(total));
+        let global_bar = MB.insert(0, ProgressBar::new(total));
         global_bar.set_style(oma_style_pb(true)?);
         global_bar.enable_steady_tick(Duration::from_millis(100));
         global_bar.set_message("Progress");
@@ -536,7 +532,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             let opb = OmaProgressBar::new(
                 None,
                 Some((i + 1, len)),
-                mb.clone(),
+                MB.clone(),
                 Some(global_bar.clone()),
             );
 

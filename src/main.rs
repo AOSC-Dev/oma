@@ -1,8 +1,10 @@
 use std::process::exit;
+use std::sync::Arc;
 
 use anyhow::Result;
 
 use cli::Writer;
+use indicatif::MultiProgress;
 use nix::sys::signal;
 use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
@@ -35,6 +37,7 @@ static DRYRUN: AtomicBool = AtomicBool::new(false);
 static TIME_OFFSET: Lazy<UtcOffset> =
     Lazy::new(|| UtcOffset::local_offset_at(OffsetDateTime::UNIX_EPOCH).unwrap_or(offset!(UTC)));
 static ARGS: Lazy<String> = Lazy::new(|| std::env::args().collect::<Vec<_>>().join(" "));
+static MB: Lazy<Arc<MultiProgress>> = Lazy::new(|| Arc::new(MultiProgress::new()));
 
 fn main() {
     // 初始化时区偏移量，这个操作不能在多线程环境下运行

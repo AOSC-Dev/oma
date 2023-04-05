@@ -12,11 +12,7 @@ use rust_apt::{
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
-use std::{
-    fmt::Write as FmtWrite,
-    io::BufRead,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::{fmt::Write as FmtWrite, io::BufRead};
 use tabled::Tabled;
 use time::OffsetDateTime;
 use tokio::runtime::Runtime;
@@ -45,7 +41,7 @@ use crate::{
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{lock_oma, log_to_file, needs_root, size_checker},
-    warn, ALLOWCTRLC, DRYRUN, TIME_OFFSET, WRITER,
+    warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
 };
 
 #[derive(Tabled, Debug, Clone)]
@@ -1324,24 +1320,13 @@ fn apt_install(
         }
     }
 
-    let get_archives_done = Arc::new(AtomicBool::new(false));
-    let get_archives_done_clone = get_archives_done.clone();
-
-    let checker = std::thread::spawn(move || {
-        let pb = ProgressBar::new_spinner();
-        pb.set_message("Verifying the integrity of packages ...");
-        oma_spinner(&pb);
-
-        while !get_archives_done_clone.load(Ordering::Relaxed) {}
-        pb.finish_and_clear();
-    });
+    let pb = MB.add(ProgressBar::new_spinner());
+    pb.set_message("Verifying the integrity of packages ...");
+    oma_spinner(&pb);
 
     cache.get_archives(&mut NoProgress::new_box())?;
-    get_archives_done.store(true, Ordering::Relaxed);
 
-    checker
-        .join()
-        .expect("Can not wait get archives done, Check your environment?");
+    pb.finish_and_clear();
 
     apt_unlock_inner();
 
@@ -1366,16 +1351,9 @@ fn yes_warn() {
 /// Handle user input, find pkgs
 fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result<Cache> {
     tracing::debug!("Querying the packages database ...");
-    let is_done = Arc::new(AtomicBool::new(false));
-    let idc = is_done.clone();
-    let spinner = std::thread::spawn(move || {
-        let pb = ProgressBar::new_spinner();
-        pb.set_message("Querying the packages database ...");
-        oma_spinner(&pb);
-
-        while !idc.load(Ordering::Relaxed) {}
-        pb.finish_and_clear();
-    });
+    let pb = MB.add(ProgressBar::new_spinner());
+    pb.set_message("Querying packages database ...");
+    oma_spinner(&pb);
 
     // Get local packages
     let local_debs = list
@@ -1424,10 +1402,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         }
     }
 
-    is_done.store(true, Ordering::Relaxed);
-    spinner
-        .join()
-        .expect("Can not join spinner thread! check your env?");
+    pb.finish_and_clear();
 
     Ok(cache)
 }
