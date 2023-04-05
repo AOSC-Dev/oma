@@ -8,10 +8,7 @@ use rust_apt::{
     config::Config,
     new_cache,
     package::{Package, Version},
-    raw::{
-        progress::AptInstallProgress,
-        util::raw::apt_lock_inner,
-    },
+    raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
@@ -144,7 +141,7 @@ impl Oma {
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len) = apt_handler(&cache, false, u.force_yes, false)?;
+            let (action, len) = apt_handler(&cache, false, u.force_yes, false, u.no_autoremove)?;
 
             if len == 0 {
                 success!("No need to do anything.");
@@ -592,7 +589,7 @@ impl Oma {
 
         let cache = new_cache!()?;
 
-        let (action, len) = apt_handler(&cache, false, false, false)?;
+        let (action, len) = apt_handler(&cache, false, false, false, false)?;
 
         if len == 0 {
             info!("No need to do anything");
@@ -754,7 +751,13 @@ impl Oma {
         let pkgs = opt.packages.clone().unwrap_or_default();
         let cache = install_handle(&pkgs, opt.install_dbg, opt.reinstall)?;
 
-        let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false)?;
+        let (action, len) = apt_handler(
+            &cache,
+            opt.no_fixbroken,
+            opt.force_yes,
+            false,
+            opt.no_autoremove,
+        )?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -814,7 +817,8 @@ impl Oma {
             mark_delete(&pkg, !r.keep_config)?;
         }
 
-        let (action, len) = apt_handler(&cache, false, r.force_yes, !r.keep_config)?;
+        let (action, len) =
+            apt_handler(&cache, false, r.force_yes, !r.keep_config, r.no_autoremove)?;
 
         if len == 0 {
             success!("No need to do anything.");
@@ -972,7 +976,7 @@ impl Oma {
             pkg.mark_install(true, true);
             pkg.protect();
 
-            let (action, _) = apt_handler(&cache, p.no_fixbroken, false, false)?;
+            let (action, _) = apt_handler(&cache, p.no_fixbroken, false, false, p.no_autoremove)?;
             let disk_size = cache.depcache().disk_size();
 
             let mut list = vec![];
@@ -1262,7 +1266,10 @@ fn dpkg_selections() -> Result<Vec<(String, String)>> {
 }
 
 /// apt autoremove
-fn autoremove(cache: &Cache, is_purge: bool) -> Result<Vec<String>> {
+fn autoremove(cache: &Cache, is_purge: bool, no_autoremove: bool) -> Result<Vec<String>> {
+    if no_autoremove {
+        return Ok(vec![]);
+    }
     let sort = PackageSort::default();
 
     let mut pkgs = vec![];
@@ -1332,7 +1339,9 @@ fn apt_install(
     cache.get_archives(&mut NoProgress::new_box())?;
     get_archives_done.store(true, Ordering::Relaxed);
 
-    checker.join().expect("Can not wait get archives done, Check your environment?");
+    checker
+        .join()
+        .expect("Can not wait get archives done, Check your environment?");
 
     apt_unlock_inner();
 
@@ -1493,6 +1502,7 @@ fn apt_handler(
     no_fixbroken: bool,
     force_yes: bool,
     is_purge: bool,
+    no_autoremove: bool,
 ) -> Result<(Action, usize)> {
     if force_yes {
         let config = Config::new_clear();
@@ -1513,7 +1523,7 @@ fn apt_handler(
         return Err(e.into());
     }
 
-    let autoremove_list = autoremove(cache, is_purge)?;
+    let autoremove_list = autoremove(cache, is_purge, no_autoremove)?;
 
     if let Err(e) = cache.resolve(fix_broken) {
         let finded = find_unmet_deps(cache)?;

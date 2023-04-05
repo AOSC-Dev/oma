@@ -90,6 +90,7 @@ pub struct InstallOptions {
     /// Dry-run oma
     pub dry_run: bool,
     pub dpkg_force_all: bool,
+    pub no_autoremove: bool,
 }
 
 pub struct UpgradeOptions {
@@ -104,6 +105,7 @@ pub struct UpgradeOptions {
     /// Dry-run oma
     pub dry_run: bool,
     pub dpkg_force_all: bool,
+    pub no_autoremove: bool,
 }
 
 pub struct ListFiles {
@@ -120,6 +122,7 @@ pub struct PickOptions {
     pub no_upgrade: bool,
     /// Dry-run oma
     pub dry_run: bool,
+    pub no_autoremove: bool,
 }
 
 pub struct Provides {
@@ -138,6 +141,7 @@ pub struct RemoveOptions {
     pub keep_config: bool,
     /// Dry-run oma
     pub dry_run: bool,
+    pub no_autoremove: bool,
 }
 
 pub struct Show {
@@ -288,6 +292,7 @@ impl CommandMatcher for OmaCommandRunner {
                 force_confnew: args.get_flag("force_confnew"),
                 dry_run: args.get_flag("dry_run"),
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
+                no_autoremove: args.get_flag("no_autoremove"),
             }),
             Some(("upgrade", args)) => OmaCommand::Upgrade(UpgradeOptions {
                 packages: pkgs_getter(args),
@@ -296,6 +301,7 @@ impl CommandMatcher for OmaCommandRunner {
                 force_confnew: args.get_flag("force_confnew"),
                 dry_run: args.get_flag("dry_run"),
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
+                no_autoremove: args.get_flag("no_autoremove"),
             }),
             Some(("download", args)) => OmaCommand::Download(Download {
                 packages: pkgs_getter(args).unwrap(),
@@ -307,6 +313,7 @@ impl CommandMatcher for OmaCommandRunner {
                 force_yes: args.get_flag("force_yes"),
                 keep_config: args.get_flag("keep_config"),
                 dry_run: args.get_flag("dry_run"),
+                no_autoremove: args.get_flag("no_autoremove"),
             }),
             Some(("refresh", _)) => OmaCommand::Refresh,
             Some(("show", args)) => OmaCommand::Show(Show {
@@ -331,6 +338,7 @@ impl CommandMatcher for OmaCommandRunner {
                 no_fixbroken: args.get_flag("no_fixbroken"),
                 no_upgrade: args.get_flag("no_upgrade"),
                 dry_run: args.get_flag("dry_run"),
+                no_autoremove: args.get_flag("no_autoremove"),
             }),
             Some(("mark", args)) => OmaCommand::Mark(Mark {
                 action: match args.subcommand() {

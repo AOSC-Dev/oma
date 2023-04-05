@@ -25,6 +25,11 @@ pub fn command_builder() -> Command {
         .help("Do not refresh packages database")
         .action(clap::ArgAction::SetTrue);
 
+    let no_autoremove = Arg::new("no_autoremove")
+        .long("no-autoremove")
+        .help("Do not autoremove uneeded packages")
+        .action(clap::ArgAction::SetTrue);
+
     let yes = Arg::new("yes")
         .long("yes")
         .short('y')
@@ -80,6 +85,7 @@ pub fn command_builder() -> Command {
                 )
                 .arg(no_fixbroken.clone().requires("packages"))
                 .arg(no_upgrade.clone().requires("packages"))
+                .arg(no_autoremove.clone().requires("packages"))
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))
@@ -91,6 +97,7 @@ pub fn command_builder() -> Command {
                 .alias("dist-upgrade")
                 .alias("full-upgrade")
                 .about("Update Package")
+                .arg(&no_autoremove)
                 .arg(&pkgs)
                 .arg(&yes)
                 .arg(&force_yes)
@@ -118,6 +125,7 @@ pub fn command_builder() -> Command {
                 .arg(pkgs.clone().num_args(1..).required(true))
                 .arg(yes.requires("packages"))
                 .arg(force_yes.requires("packages"))
+                .arg(no_autoremove.clone().requires("packages"))
                 .arg(
                     Arg::new("keep_config")
                         .long("keep-config")
@@ -180,6 +188,7 @@ pub fn command_builder() -> Command {
                 )
                 .arg(no_fixbroken.requires("package"))
                 .arg(no_upgrade.requires("package"))
+                .arg(no_autoremove.clone().requires("packages"))
                 .arg(&dry_run)
                 .arg(&dpkg_force_all),
         )
