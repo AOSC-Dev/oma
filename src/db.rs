@@ -594,6 +594,9 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         }
                     }
                 } else {
+                    let f = tokio::fs::File::open(p).await?;
+                    let len = f.metadata().await?.len();
+                    global_bar.inc(len);
                     continue;
                 }
             } else {
