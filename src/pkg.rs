@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use console::style;
 use glob_match::glob_match_with_captures;
-use indicatif::HumanBytes;
+use indicatif::{HumanBytes, ProgressBar};
 use rust_apt::{
     cache::{Cache, PackageSort},
     package::{BaseDep, DepType, Dependency, Package, Version},
@@ -472,6 +472,7 @@ pub fn mark_install(
     ver: RawVersion,
     reinstall: bool,
     is_local: bool,
+    pb: Option<&ProgressBar>,
 ) -> Result<()> {
     let pkg = cache.get(pkg).unwrap();
     let ver = Version::new(ver, &pkg);
@@ -480,7 +481,15 @@ pub fn mark_install(
     let version = ver.version();
 
     if pkg.installed().as_ref() == Some(&ver) && !reinstall {
-        info!("{} {version} is already installed.", pkg.name());
+        if let Some(pb) = pb {
+            pb.println(format!(
+                "{}{} {version} is already installed.",
+                style(gen_prefix("INFO")).blue().bold(),
+                pkg.name()
+            ));
+        } else {
+            info!("{} {version} is already installed.", pkg.name());
+        }
         return Ok(());
     } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
         pkg.mark_reinstall(true);

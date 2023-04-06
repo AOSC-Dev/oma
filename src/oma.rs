@@ -1382,7 +1382,14 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         let pkg = Package::new(&cache, pkginfo.raw_pkg);
         let version = Version::new(pkginfo.version_raw, &pkg);
 
-        mark_install(&cache, &pkginfo.package, version.unique(), reinstall, false)?;
+        mark_install(
+            &cache,
+            &pkginfo.package,
+            version.unique(),
+            reinstall,
+            false,
+            Some(&pb),
+        )?;
 
         if install_dbg && pkginfo.has_dbg {
             let pkginfo = query_pkgs(&cache, &format!("{}-dbg", pkginfo.package))?;
@@ -1396,6 +1403,7 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
                 version,
                 reinstall,
                 false,
+                Some(&pb),
             )?;
         } else if install_dbg && !pkginfo.has_dbg {
             warn!("{} has no debug symbol package!", &pkginfo.package);
