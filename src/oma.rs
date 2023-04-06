@@ -972,7 +972,7 @@ impl Oma {
             pkg.mark_install(true, true);
             pkg.protect();
 
-            let (action, _) = apt_handler(&cache, p.no_fixbroken, false, false, p.no_autoremove)?;
+            let (action, _) = apt_handler(&cache, p.no_fixbroken, false, false, true)?;
             let disk_size = cache.depcache().disk_size();
 
             let mut list = vec![];

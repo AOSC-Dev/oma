@@ -121,7 +121,6 @@ pub struct PickOptions {
     pub no_upgrade: bool,
     /// Dry-run oma
     pub dry_run: bool,
-    pub no_autoremove: bool,
 }
 
 pub struct Provides {
@@ -336,7 +335,6 @@ impl CommandMatcher for OmaCommandRunner {
                 no_fixbroken: args.get_flag("no_fixbroken"),
                 no_upgrade: args.get_flag("no_upgrade"),
                 dry_run: args.get_flag("dry_run"),
-                no_autoremove: args.get_flag("no_autoremove"),
             }),
             Some(("mark", args)) => OmaCommand::Mark(Mark {
                 action: match args.subcommand() {

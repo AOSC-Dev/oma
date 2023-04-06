@@ -187,7 +187,6 @@ pub fn command_builder() -> Command {
                 )
                 .arg(no_fixbroken.requires("package"))
                 .arg(no_upgrade.requires("package"))
-                .arg(no_autoremove.requires("package"))
                 .arg(&dry_run)
                 .arg(&dpkg_force_all),
         )
