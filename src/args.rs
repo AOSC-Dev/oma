@@ -85,7 +85,6 @@ pub fn command_builder() -> Command {
                 )
                 .arg(no_fixbroken.clone().requires("packages"))
                 .arg(no_upgrade.clone().requires("packages"))
-                .arg(no_autoremove.clone().requires("packages"))
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))

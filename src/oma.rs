@@ -752,7 +752,7 @@ impl Oma {
             opt.no_fixbroken,
             opt.force_yes,
             false,
-            opt.no_autoremove,
+            true
         )?;
 
         if len == 0 {
