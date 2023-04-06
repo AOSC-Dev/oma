@@ -1629,25 +1629,13 @@ fn apt_handler(
             }
 
             let s = if !v.is_empty() {
-                let mut va = vec![];
-                for (i, c) in v.iter().enumerate() {
-                    if i == 0 {
-                        let mut v = c.to_string();
-                        v.get_mut(0..1).map(|s| {
-                            s.make_ascii_uppercase();
-                            &*s
-                        });
-                        va.push(v);
-                    } else {
-                        va.push(c.to_string());
-                    }
-                }
+                let mut v = v.join("; ");
+                v.get_mut(0..1).map(|s| {
+                    s.make_ascii_uppercase();
+                    &*s
+                });
 
-                if va.len() == 1 {
-                    va[0].to_owned()
-                } else {
-                    va.join("; ")
-                }
+                v
             } else {
                 "".to_string()
             };
