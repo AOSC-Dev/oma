@@ -9,7 +9,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::*;
 use flate2::bufread::GzDecoder;
 use futures::{future::BoxFuture, StreamExt};
-use indicatif::{ProgressBar};
+use indicatif::ProgressBar;
 use once_cell::sync::Lazy;
 use reqwest::{Client, Url};
 use rust_apt::config::Config;

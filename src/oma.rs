@@ -747,13 +747,7 @@ impl Oma {
         let pkgs = opt.packages.clone().unwrap_or_default();
         let cache = install_handle(&pkgs, opt.install_dbg, opt.reinstall)?;
 
-        let (action, len) = apt_handler(
-            &cache,
-            opt.no_fixbroken,
-            opt.force_yes,
-            false,
-            true
-        )?;
+        let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false, true)?;
 
         if len == 0 {
             success!("No need to do anything.");

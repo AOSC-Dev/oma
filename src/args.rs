@@ -124,7 +124,7 @@ pub fn command_builder() -> Command {
                 .arg(pkgs.clone().num_args(1..).required(true))
                 .arg(yes.requires("packages"))
                 .arg(force_yes.requires("packages"))
-                .arg(no_autoremove.clone().requires("packages"))
+                .arg(no_autoremove.requires("packages"))
                 .arg(
                     Arg::new("keep_config")
                         .long("keep-config")
