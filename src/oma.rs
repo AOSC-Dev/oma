@@ -370,14 +370,14 @@ impl Oma {
         } else {
             let mut res = vec![];
 
-            let mut versions_len = 0;
+            let mut version_len = 0;
 
             if let Some(list) = &opt.packages {
                 if !opt.all {
                     for i in list {
                         let pkg = cache.get(i);
                         if let Some(pkg) = pkg {
-                            versions_len = pkg.versions().collect::<Vec<_>>().len();
+                            version_len = pkg.versions().collect::<Vec<_>>().len();
                             if let Some(cand) = pkg.candidate() {
                                 let pkginfo = PkgInfo::new(&cache, cand.unique(), &pkg)?;
 
@@ -443,10 +443,14 @@ impl Oma {
 
                 println!("{}", style(s).bold());
 
-                if !opt.all && versions_len > 1 {
+                if !opt.all
+                    && opt.packages.is_some()
+                    && opt.packages.as_ref().unwrap().len() == 1
+                    && version_len > 1
+                {
                     info!(
                         "There is {} additional version. Please use the '-a' switch to see it",
-                        versions_len - 1
+                        version_len - 1
                     );
                 }
             }
