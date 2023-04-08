@@ -8,7 +8,7 @@ use tracing_subscriber::{
     fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
 };
 
-use crate::{args::command_builder, oma::Oma, AILURUS};
+use crate::{args::command_builder, oma::Oma, AILURUS, DRYRUN};
 
 const PREFIX_LEN: u16 = 10;
 
@@ -238,23 +238,26 @@ impl CommandMatcher for OmaCommandRunner {
         }
 
         if let Some((_, args)) = matches.subcommand() {
-            if args.get_flag("dry_run") {
-                tracing_subscriber::registry()
-                    .with(
-                        fmt::layer()
-                            .with_writer(std::io::stdout)
-                            .without_time()
-                            .with_target(false)
-                            .with_filter(if matches.get_flag("debug") {
-                                LevelFilter::DEBUG
-                            } else {
-                                LevelFilter::INFO
-                            }),
-                    )
-                    .try_init()
-                    .expect("Can not setup dry_run logger");
+            if let Ok(v) = args.try_get_one::<bool>("dry_run") {
+                if v == Some(&true) {
+                    DRYRUN.store(true, Ordering::Relaxed);
+                    tracing_subscriber::registry()
+                        .with(
+                            fmt::layer()
+                                .with_writer(std::io::stdout)
+                                .without_time()
+                                .with_target(false)
+                                .with_filter(if matches.get_flag("debug") {
+                                    LevelFilter::DEBUG
+                                } else {
+                                    LevelFilter::INFO
+                                }),
+                        )
+                        .try_init()
+                        .expect("Can not setup dry_run logger");
 
-                tracing::info!("Running in Dry-run mode");
+                    tracing::info!("Running in Dry-run mode");
+                }
             }
         } else if matches.get_flag("debug") {
             tracing_subscriber::registry()
