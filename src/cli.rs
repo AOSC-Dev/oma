@@ -319,20 +319,20 @@ impl CommandMatcher for OmaCommandRunner {
                 dry_run: args.get_flag("dry_run"),
             }),
             Some(("mark", args)) => OmaCommand::Mark(Mark {
-                action: match args.subcommand() {
-                    Some(("hold", args)) => MarkAction::Hold(MarkActionArgs {
+                action: match args.get_one::<String>("action").map(|x| x.as_str()) {
+                    Some("hold") => MarkAction::Hold(MarkActionArgs {
                         pkgs: pkgs_getter(args).unwrap(),
                     }),
-                    Some(("unhold", args)) => MarkAction::Unhold(MarkActionArgs {
+                    Some("unhold") => MarkAction::Unhold(MarkActionArgs {
                         pkgs: pkgs_getter(args).unwrap(),
                     }),
-                    Some(("auto", args)) => MarkAction::Auto(MarkActionArgs {
+                    Some("auto") => MarkAction::Auto(MarkActionArgs {
                         pkgs: pkgs_getter(args).unwrap(),
                     }),
-                    Some(("manual", args)) => MarkAction::Manual(MarkActionArgs {
+                    Some("manual") => MarkAction::Manual(MarkActionArgs {
                         pkgs: pkgs_getter(args).unwrap(),
                     }),
-                    _ => unreachable!(),
+                    _ => unreachable!()
                 },
                 dry_run: args.get_flag("dry_run"),
             }),

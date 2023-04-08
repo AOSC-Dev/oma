@@ -1,4 +1,4 @@
-use clap::{command, Arg, ArgAction, Command, ColorChoice};
+use clap::{builder::PossibleValue, command, Arg, ArgAction, Command};
 
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
@@ -52,7 +52,6 @@ pub fn command_builder() -> Command {
         .action(ArgAction::SetTrue);
 
     command!()
-        .color(ColorChoice::Always)
         .arg_required_else_help(true)
         .max_term_width(100)
         .arg(debug)
@@ -198,28 +197,14 @@ pub fn command_builder() -> Command {
             Command::new("mark")
                 .about("Mark status for one or multiple package(s)")
                 .long_about("Mark status for one or multiple package(s), Omakase will resolve dependencies in accordance with the marked status(es) of the specified package(s)")
-                .subcommand(
-                    Command::new("hold")
-                        .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to mark status for"))
-                        .about("Lock package version(s), this will prevent the specified package(s) from being updated or downgraded"),
-                )
-                .subcommand(
-                    Command::new("unhold")
-                        .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to mark status for"))
-                        .about("Unlock package version(s), this will undo the “hold” status on the specified packge(s)"),
-                )
-                .subcommand(
-                    Command::new("manual")
-                        .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to mark status for"))
-                        .about("Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed"),
-                )
-                .subcommand(
-                    Command::new("auto")
-                        .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to mark status for"))
-                        .about("Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed"),
-                )
-                .arg(&dry_run),
-        )
+                .arg(Arg::new("action").value_parser([
+                PossibleValue::new("hold").help("Lock package version(s), this will prevent the specified package(s) from being updated or downgraded"),
+                PossibleValue::new("unhold").help("Unlock package version(s), this will undo the “hold” status on the specified packge(s)"),
+                PossibleValue::new("manual").help("Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed"),
+                PossibleValue::new("auto").help("Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed")])
+                .required(true).num_args(1).action(ArgAction::Set))
+                .arg(pkgs.clone().num_args(1..).required(true).requires("action").help("Package(s) to mark status for"))
+                .arg(&dry_run))
         .subcommand(
             Command::new("command-not-found").hide(true).arg(
                 Arg::new("package")
