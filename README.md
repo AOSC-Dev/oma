@@ -25,31 +25,35 @@ cp ./target/release/oma /usr/local/bin/oma
 
 ```bash
 saki@Magputer [ aoscpt@master ] $ oma
-Usage: oma <COMMAND>
+Omakase (oma) - package management interface for AOSC OS
+
+Usage: oma [OPTIONS] [COMMAND]
 
 Commands:
-  install     Install Package
-  upgrade     Update Package
-  download    Download Package
-  remove      Delete Package
-  refresh     Refresh Package database
-  show        Show Package
-  search      Search Package
-  list-files  package list files
-  provides    Search file from package
-  fix-broken  Fix system dependencies broken status
-  pick        Pick a package version
-  mark        Mark a package status
-  list        List of packages
-  depends     Check package dependencies
-  rdepends    Check package reverse dependencies
-  clean       Clean downloaded packages
-  log         See omakase log
+  install     Install package(s) from the repository
+  upgrade     Upgrade packages installed on the system
+  download    Download package(s) from the repository
+  remove      Remove the specified package(s)
+  refresh     Refresh repository metadata/catalog
+  show        Show information on the specified package(s)
+  search      Search for package(s) available from the repository
+  list-files  List files in the specified package
+  provides    Search for package(s) that provide(s) certain patterns in a path
+  fix-broken  Resolve broken system dependencies in the system
+  pick        Install specific version of a package
+  mark        Mark status for one or multiple package(s)
+  list        List package(s) available from the repository
+  depends     Lists dependencies of one or multiple packages
+  rdepends    List reverse dependency(ies) for the specified package(s)
+  clean       Clear downloaded package cache
+  history     Show a history/log of package changes in the system
   help        Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
+      --debug    Run oma with debug mode
+  -h, --help     Print help (see more with '--help')
   -V, --version  Print version
+
 ```
 
 ## TODO
