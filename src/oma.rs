@@ -652,7 +652,7 @@ impl Oma {
                 for i in v {
                     let mut s = String::new();
 
-                    let k = {
+                    let k = if rdep {
                         let k = k.strip_suffix('s').unwrap();
                         if k.ends_with('e') {
                             format!("{k}d by")
@@ -663,6 +663,8 @@ impl Oma {
                         } else {
                             format!("{k}ed by")
                         }
+                    } else {
+                        k.clone()
                     };
 
                     if i.len() == 1 {
