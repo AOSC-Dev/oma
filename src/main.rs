@@ -10,6 +10,10 @@ use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use time::macros::offset;
 use time::{OffsetDateTime, UtcOffset};
+use tracing::metadata::LevelFilter;
+use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{fmt, Layer};
 use utils::unlock_oma;
 
 use crate::cli::CommandMatcher;
@@ -42,6 +46,8 @@ static MB: Lazy<Arc<MultiProgress>> = Lazy::new(|| Arc::new(MultiProgress::new()
 fn main() {
     // 初始化时区偏移量，这个操作不能在多线程环境下运行
     let _ = *TIME_OFFSET;
+
+    std::thread::spawn(setup_logger);
 
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
@@ -89,4 +95,21 @@ fn single_handler() {
     let _ = WRITER.show_cursor();
 
     std::process::exit(2);
+}
+
+fn setup_logger() {
+    while !DRYRUN.load(Ordering::Relaxed) {}
+
+    tracing_subscriber::registry()
+        .with(
+            fmt::layer()
+                .with_writer(std::io::stdout)
+                .without_time()
+                .with_target(false)
+                .with_filter(LevelFilter::INFO),
+        )
+        .try_init()
+        .expect("Can not setup dry_run logger");
+
+    tracing::info!("Running in Dry-run mode");
 }

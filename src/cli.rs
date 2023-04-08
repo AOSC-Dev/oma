@@ -8,7 +8,7 @@ use tracing_subscriber::{
     fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
 };
 
-use crate::{args::command_builder, oma::Oma, AILURUS, DRYRUN};
+use crate::{args::command_builder, oma::Oma, AILURUS};
 
 const PREFIX_LEN: u16 = 10;
 
@@ -80,7 +80,7 @@ pub struct InstallOptions {
     /// Do not try fix package depends broken status
     pub no_fixbroken: bool,
     /// Do not refresh packages database
-    pub no_upgrade: bool,
+    pub no_refresh: bool,
     /// Automatic run oma install
     pub yes: bool,
     /// Force install packages for can't resolve depends
@@ -237,25 +237,7 @@ impl CommandMatcher for OmaCommandRunner {
             exit(3);
         }
 
-        if matches.get_flag("dry_run") {
-            DRYRUN.store(true, Ordering::Relaxed);
-
-            tracing_subscriber::registry()
-                .with(
-                    fmt::layer()
-                        .with_writer(std::io::stdout)
-                        .without_time()
-                        .with_target(false)
-                        .with_filter(if matches.get_flag("debug") {
-                            LevelFilter::DEBUG
-                        } else {
-                            LevelFilter::INFO
-                        }),
-                )
-                .try_init()?;
-
-            tracing::info!("Running in Dry-run mode");
-        } else if matches.get_flag("debug") {
+        if matches.get_flag("debug") {
             tracing_subscriber::registry()
                 .with(
                     fmt::layer()
@@ -283,8 +265,8 @@ impl CommandMatcher for OmaCommandRunner {
                 packages: pkgs_getter(args),
                 install_dbg: args.get_flag("install_dbg"),
                 reinstall: args.get_flag("reinstall"),
-                no_fixbroken: args.get_flag("no_fixbroken"),
-                no_upgrade: args.get_flag("no_upgrade"),
+                no_fixbroken: args.get_flag("no_fix_broken"),
+                no_refresh: args.get_flag("no_refresh"),
                 yes: args.get_flag("yes"),
                 force_yes: args.get_flag("force_yes"),
                 force_confnew: args.get_flag("force_confnew"),
@@ -324,7 +306,7 @@ impl CommandMatcher for OmaCommandRunner {
                 package: args.get_one::<String>("package").unwrap().to_string(),
             }),
             Some(("provides", args)) => OmaCommand::Provides(Provides {
-                kw: args.get_one::<String>("package").unwrap().to_string(),
+                kw: args.get_one::<String>("pattern").unwrap().to_string(),
             }),
             Some(("fix-broken", args)) => OmaCommand::FixBroken(FixBroken {
                 dry_run: args.get_flag("dry_run"),

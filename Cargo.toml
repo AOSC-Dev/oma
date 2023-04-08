@@ -2,6 +2,7 @@
 name = "oma"
 version = "0.23.0"
 edition = "2021"
+description = "Omakase (oma) - package management interface for AOSC OS"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,7 +12,7 @@ apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists", rev =
 debcontrol = { git = "https://github.com/AOSC-Dev/debcontrol-rs/", rev = "e92376703b20afe1360f3612472f2597029c7475" }
 rust-apt = { git = "https://gitlab.com/volian/rust-apt", rev = "c6d099ca50da3d3d8f28c6e80b01cd37005c6f94" }
 # Cli
-clap = { version = "4.2", features = ["cargo", "wrap_help"] }
+clap = { version = "4.2", features = ["cargo", "wrap_help",] }
 dialoguer = "0.10"
 tabled = { version = "0.10", features = ["color"] }
 indicatif = "0.17"

@@ -1,62 +1,60 @@
-use clap::{command, Arg, ArgAction, Command};
+use clap::{command, Arg, ArgAction, Command, ColorChoice};
 
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
         .long("dry-run")
-        .help("Dry-run oma")
+        .help("Run Omakase in “dry-run” mode")
+        .long_help("Run Omakase in “dry-run” mode. Useful for testing changes and operations without making changes to the system")
         .action(clap::ArgAction::SetTrue);
 
     let debug = Arg::new("debug")
         .long("debug")
         .help("Run oma with debug mode")
+        .long_help("Run Omakase with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues")
         .action(clap::ArgAction::SetTrue);
 
-    let pkgs = Arg::new("packages")
-        .help("Package(s) name")
-        .action(clap::ArgAction::Append);
+    let pkgs = Arg::new("packages").action(clap::ArgAction::Append);
 
-    let no_fixbroken = Arg::new("no_fixbroken")
-        .long("no-fixbroken")
-        .help("Do not try fix package depends broken status")
+    let no_fixbroken = Arg::new("no_fix_broken")
+        .long("no-fix-broken")
+        .help("Do not attempt to resolve broken dependencies in the system")
         .action(clap::ArgAction::SetTrue);
 
-    let no_upgrade = Arg::new("no_upgrade")
-        .long("no-upgrade")
-        .help("Do not refresh packages database")
+    let no_refresh = Arg::new("no_refresh")
+        .long("no-refresh")
+        .help("Do not refresh repository metadata")
         .action(clap::ArgAction::SetTrue);
 
     let no_autoremove = Arg::new("no_autoremove")
         .long("no-autoremove")
-        .help("Do not autoremove uneeded packages")
+        .help("Do not remove package(s) without reverse dependencies")
         .action(clap::ArgAction::SetTrue);
 
     let yes = Arg::new("yes")
         .long("yes")
         .short('y')
-        .help("run oma in automatic mode")
+        .help("Bypass confirmation prompts")
         .action(clap::ArgAction::SetTrue);
 
     let force_yes = Arg::new("force_yes")
         .long("force-yes")
-        .help("Force install packages for can't resolve depends")
+        .help("Ignore repository and package dependency issues")
         .action(clap::ArgAction::SetTrue);
 
     let force_confnew = Arg::new("force_confnew")
         .long("force-confnew")
-        .help("Install package use dpkg --force-confnew")
+        .help("Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)")
         .action(clap::ArgAction::SetTrue);
 
     let dpkg_force_all = Arg::new("dpkg_force_all")
         .long("dpkg-force-all")
-        .help("Use dpkg --force-all mode to try fix broken upgrade")
+        .help("Request dpkg(1) to ignore any issues occurred during the installation and configuration process")
         .action(ArgAction::SetTrue);
 
-    let mark_short_help_gen = |s: &str| format!("Mark package status as {s}");
-
     command!()
+        .color(ColorChoice::Always)
         .arg_required_else_help(true)
         .max_term_width(100)
-        .arg(&dry_run)
         .arg(debug)
         .arg(
             Arg::new("ailurus")
@@ -66,25 +64,25 @@ pub fn command_builder() -> Command {
         )
         .subcommand(
             Command::new("install")
-                .about("Install Package")
-                .arg(&pkgs)
+                .about("Install package(s) from the repository")
+                .arg(pkgs.clone().help("Package(s) to install"))
                 .arg(
                     Arg::new("install_dbg")
                         .alias("dbg")
                         .long("install-dbg")
-                        .help("Install package(s) debug symbol")
+                        .help("Install debug symbols for (a) package(s)")
                         .requires("packages")
                         .action(ArgAction::SetTrue),
                 )
                 .arg(
                     Arg::new("reinstall")
                         .long("reinstall")
-                        .help("Reinstall package(s)")
+                        .help("Reinstall package(s) by downloading a current copy from the repository")
                         .requires("packages")
                         .action(ArgAction::SetTrue),
                 )
                 .arg(no_fixbroken.clone().requires("packages"))
-                .arg(no_upgrade.clone().requires("packages"))
+                .arg(no_refresh.clone().requires("packages"))
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))
@@ -95,9 +93,9 @@ pub fn command_builder() -> Command {
             Command::new("upgrade")
                 .alias("dist-upgrade")
                 .alias("full-upgrade")
-                .about("Update Package")
+                .about("Upgrade packages installed on the system")
                 .arg(&no_autoremove)
-                .arg(&pkgs)
+                .arg(pkgs.clone().help("Package(s) to upgrade"))
                 .arg(&yes)
                 .arg(&force_yes)
                 .arg(force_confnew)
@@ -106,22 +104,28 @@ pub fn command_builder() -> Command {
         )
         .subcommand(
             Command::new("download")
-                .about("Download Package")
-                .arg(pkgs.clone().num_args(1..).required(true))
+                .about("Download package(s) from the repository")
+                .arg(
+                    pkgs.clone()
+                        .num_args(1..)
+                        .required(true)
+                        .help("Package(s) to download"),
+                )
                 .arg(
                     Arg::new("path")
                         .long("path")
                         .short('p')
                         .requires("path")
-                        .action(clap::ArgAction::Set),
+                        .action(clap::ArgAction::Set)
+                        .help("The path where package(s) should be downloaded to"),
                 ),
         )
         .subcommand(
             Command::new("remove")
                 .alias("delete")
                 .alias("purge")
-                .about("Delete Package")
-                .arg(pkgs.clone().num_args(1..).required(true))
+                .about("Remove the specified package(s)")
+                .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to remove"))
                 .arg(yes.requires("packages"))
                 .arg(force_yes.requires("packages"))
                 .arg(no_autoremove.requires("packages"))
@@ -129,31 +133,31 @@ pub fn command_builder() -> Command {
                     Arg::new("keep_config")
                         .long("keep-config")
                         .short('k')
-                        .help("Keep package config")
+                        .help("Keep configuration file(s), this may be useful if you intend to install the package(s) again in the future")
                         .action(ArgAction::SetTrue),
                 )
                 .arg(&dry_run),
         )
-        .subcommand(Command::new("refresh").about("efresh Package database"))
+        .subcommand(Command::new("refresh").about("Refresh repository metadata/catalog").long_about("Refresh repository metadata/catalog to check for available updates and new packages"))
         .subcommand(
-            Command::new("show").about("Show package").arg(&pkgs).arg(
+            Command::new("show").about("Show information on the specified package(s)").arg(&pkgs).arg(
                 Arg::new("all")
                     .short('a')
-                    .help("Query all package")
+                    .help("Show information on all available version(s) of (a) package(s) from all repository(ies)")
                     .action(ArgAction::SetTrue),
             ),
         )
         .subcommand(
             Command::new("search")
-                .about("Search Packages")
-                .arg(pkgs.clone().num_args(1..).required(true)),
+                .about("Search for package(s) available from the repository")
+                .arg(pkgs.clone().num_args(1..).required(true)), // TODO
         )
         .subcommand(
             Command::new("list-files")
-                .about("Query package list files")
+                .about("List files in the specified package")
                 .arg(
                     Arg::new("package")
-                        .help("Package name")
+                        .help("Package to display a list files of")
                         .action(ArgAction::Set)
                         .num_args(0..=1)
                         .required(true),
@@ -161,10 +165,10 @@ pub fn command_builder() -> Command {
         )
         .subcommand(
             Command::new("provides")
-                .about("Search file from packages")
+                .about("Search for package(s) that provide(s) certain patterns in a path")
                 .arg(
-                    Arg::new("package")
-                        .help("Package name")
+                    Arg::new("pattern")
+                        .help("Keywords, parts of a path, executable names to search")
                         .action(ArgAction::Set)
                         .num_args(0..=1)
                         .required(true),
@@ -172,46 +176,47 @@ pub fn command_builder() -> Command {
         )
         .subcommand(
             Command::new("fix-broken")
-                .about("Fix system dependencies broken status")
+                .about("Resolve broken system dependencies in the system")
                 .arg(&dry_run),
         )
         .subcommand(
             Command::new("pick")
-                .about("Pick a package version")
+                .about("Install specific version of a package")
                 .arg(
                     Arg::new("package")
-                        .help("Package name")
+                        .help("Package to pick specific version for")
                         .action(ArgAction::Set)
                         .num_args(0..=1)
                         .required(true),
                 )
                 .arg(no_fixbroken.requires("package"))
-                .arg(no_upgrade.requires("package"))
+                .arg(no_refresh.requires("package"))
                 .arg(&dry_run)
                 .arg(&dpkg_force_all),
         )
         .subcommand(
             Command::new("mark")
-                .about("Mark a package status")
+                .about("Mark status for one or multiple package(s)")
+                .long_about("Mark status for one or multiple package(s), Omakase will resolve dependencies in accordance with the marked status(es) of the specified package(s)")
                 .subcommand(
                     Command::new("hold")
-                        .arg(pkgs.clone().num_args(1..).required(true))
-                        .about(mark_short_help_gen("hold")),
+                        .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to mark status for"))
+                        .about("Lock package version(s), this will prevent the specified package(s) from being updated or downgraded"),
                 )
                 .subcommand(
                     Command::new("unhold")
-                        .arg(pkgs.clone().num_args(1..).required(true))
-                        .about(mark_short_help_gen("unhold")),
+                        .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to mark status for"))
+                        .about("Unlock package version(s), this will undo the “hold” status on the specified packge(s)"),
                 )
                 .subcommand(
                     Command::new("manual")
-                        .arg(pkgs.clone().num_args(1..).required(true))
-                        .about(mark_short_help_gen("manual")),
+                        .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to mark status for"))
+                        .about("Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed"),
                 )
                 .subcommand(
                     Command::new("auto")
-                        .arg(pkgs.clone().num_args(1..).required(true))
-                        .about(mark_short_help_gen("auto")),
+                        .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to mark status for"))
+                        .about("Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed"),
                 )
                 .arg(&dry_run),
         )
@@ -226,43 +231,52 @@ pub fn command_builder() -> Command {
         )
         .subcommand(
             Command::new("list")
-                .arg(&pkgs)
+                .arg(pkgs.clone().help("Package(s) to list"))
                 .arg(
                     Arg::new("all")
                         .short('a')
-                        .help("Query all packages")
+                        .help("List all available version(s) of (a) package(s) from all repository(ies)")
                         .action(ArgAction::SetTrue),
                 )
                 .arg(
                     Arg::new("installed")
                         .short('i')
-                        .help("Query installed packages")
+                        .help("List only package(s) currently installed on the system")
                         .action(ArgAction::SetTrue),
                 )
                 .arg(
                     Arg::new("upgradable")
                         .short('u')
-                        .help("Query upgradable packages")
+                        .help("List only package(s) with update(s) available")
                         .action(ArgAction::SetTrue),
                 )
-                .about("List of packages"),
+                .about("List package(s) available from the repository"),
         )
         .subcommand(
             Command::new("depends")
                 .alias("dep")
-                .arg(pkgs.clone().num_args(1..).required(true))
-                .about("Query package dependencies"),
+                .arg(
+                    pkgs.clone()
+                        .num_args(1..)
+                        .required(true)
+                        .help("Package(s) to query dependency(ies) for"),
+                )
+                .about("Lists dependencies of one or multiple packages"),
         )
         .subcommand(
             Command::new("rdepends")
                 .alias("rdep")
-                .arg(pkgs.num_args(1..).required(true))
-                .about("Query package reverse dependencies"),
+                .arg(
+                    pkgs.num_args(1..)
+                        .required(true)
+                        .help("Package(s) to query dependency(ies) for"),
+                )
+                .about("List reverse dependency(ies) for the specified package(s)"),
         )
-        .subcommand(Command::new("clean").about("Clean downloaded packages archive"))
+        .subcommand(Command::new("clean").about("Clear downloaded package cache"))
         .subcommand(
             Command::new("history")
                 .alias("log")
-                .about("See oma history"),
+                .about("Show a history/log of package changes in the system"),
         )
 }

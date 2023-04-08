@@ -21,6 +21,9 @@ fn main() -> std::io::Result<()> {
     std::fs::write(man_dir.join("oma.1"), buffer)?;
 
     for subcommand in cmd.get_subcommands() {
+        if subcommand.is_hide_set() {
+            continue;
+        }
         let subcommand_name = format!("oma-{}", subcommand.get_name());
         let mut buffer: Vec<u8> = Default::default();
         let man = Man::new(subcommand.clone()).title(&subcommand_name);

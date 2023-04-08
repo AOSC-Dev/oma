@@ -220,7 +220,7 @@ impl Oma {
             yes_warn();
         }
 
-        if !opt.no_upgrade {
+        if !opt.no_refresh {
             update_db_runner(&self.runtime, &get_sources()?, &self.client, None)?;
         }
 
