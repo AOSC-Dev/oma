@@ -322,7 +322,10 @@ impl CommandMatcher for OmaCommandRunner {
                 is_all: args.get_flag("all"),
             }),
             Some(("search", args)) => OmaCommand::Search(Search {
-                keyword: pkgs_getter(args).unwrap(),
+                keyword: args
+                    .get_many::<String>("pattern")
+                    .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
+                    .unwrap(),
             }),
             Some(("list-files", args)) => OmaCommand::ListFiles(ListFiles {
                 package: args.get_one::<String>("package").unwrap().to_string(),

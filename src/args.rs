@@ -150,7 +150,13 @@ pub fn command_builder() -> Command {
         .subcommand(
             Command::new("search")
                 .about("Search for package(s) available from the repository")
-                .arg(pkgs.clone().num_args(1..).required(true)), // TODO
+                .arg(
+                    Arg::new("pattern")
+                        .help("Keywords, parts of a path, executable names to search")
+                        .action(ArgAction::Set)
+                        .num_args(1..)
+                        .required(true)
+                )
         )
         .subcommand(
             Command::new("list-files")
