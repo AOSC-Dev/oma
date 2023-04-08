@@ -237,7 +237,26 @@ impl CommandMatcher for OmaCommandRunner {
             exit(3);
         }
 
-        if matches.get_flag("debug") {
+        if let Some((_, args)) = matches.subcommand() {
+            if args.get_flag("dry_run") {
+                tracing_subscriber::registry()
+                    .with(
+                        fmt::layer()
+                            .with_writer(std::io::stdout)
+                            .without_time()
+                            .with_target(false)
+                            .with_filter(if matches.get_flag("debug") {
+                                LevelFilter::DEBUG
+                            } else {
+                                LevelFilter::INFO
+                            }),
+                    )
+                    .try_init()
+                    .expect("Can not setup dry_run logger");
+
+                tracing::info!("Running in Dry-run mode");
+            }
+        } else if matches.get_flag("debug") {
             tracing_subscriber::registry()
                 .with(
                     fmt::layer()
@@ -332,7 +351,7 @@ impl CommandMatcher for OmaCommandRunner {
                     Some("manual") => MarkAction::Manual(MarkActionArgs {
                         pkgs: pkgs_getter(args).unwrap(),
                     }),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 },
                 dry_run: args.get_flag("dry_run"),
             }),

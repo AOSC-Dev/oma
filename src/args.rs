@@ -59,7 +59,7 @@ pub fn command_builder() -> Command {
             Arg::new("ailurus")
                 .long("ailurus")
                 .action(ArgAction::Count)
-                .hide(true),
+                .hide(true)
         )
         .subcommand(
             Command::new("install")
