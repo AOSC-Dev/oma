@@ -139,11 +139,12 @@ pub fn command_builder() -> Command {
         )
         .subcommand(Command::new("refresh").about("Refresh repository metadata/catalog").long_about("Refresh repository metadata/catalog to check for available updates and new packages"))
         .subcommand(
-            Command::new("show").about("Show information on the specified package(s)").arg(&pkgs).arg(
+            Command::new("show").about("Show information on the specified package(s)").arg(pkgs.clone().required(true)).arg(
                 Arg::new("all")
                     .short('a')
                     .help("Show information on all available version(s) of (a) package(s) from all repository(ies)")
-                    .action(ArgAction::SetTrue),
+                    .action(ArgAction::SetTrue)
+                    .requires("packages")
             ),
         )
         .subcommand(
