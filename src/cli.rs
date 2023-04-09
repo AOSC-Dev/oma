@@ -118,7 +118,7 @@ pub struct PickOptions {
     /// Do not try fix package depends broken status
     pub no_fixbroken: bool,
     /// Do not refresh packages database
-    pub no_upgrade: bool,
+    pub no_refresh: bool,
     /// Dry-run oma
     pub dry_run: bool,
 }
@@ -340,7 +340,7 @@ impl CommandMatcher for OmaCommandRunner {
             Some(("pick", args)) => OmaCommand::Pick(PickOptions {
                 package: args.get_one::<String>("package").unwrap().to_string(),
                 no_fixbroken: args.get_flag("no_fix_broken"),
-                no_upgrade: args.get_flag("no_upgrade"),
+                no_refresh: args.get_flag("no_refresh"),
                 dry_run: args.get_flag("dry_run"),
             }),
             Some(("mark", args)) => OmaCommand::Mark(Mark {

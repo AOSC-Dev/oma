@@ -777,7 +777,7 @@ impl Oma {
             DRYRUN.store(true, Ordering::Relaxed);
         }
 
-        if !p.no_upgrade {
+        if !p.no_refresh {
             update_db_runner(&self.runtime, &get_sources()?, &self.client, None)?;
         }
 
