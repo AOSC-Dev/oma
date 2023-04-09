@@ -81,7 +81,7 @@ pub fn command_builder() -> Command {
                         .action(ArgAction::SetTrue),
                 )
                 .arg(no_fixbroken.clone().requires("packages"))
-                .arg(no_refresh.clone().requires("packages"))
+                .arg(&no_refresh)
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))

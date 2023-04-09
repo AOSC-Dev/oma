@@ -339,7 +339,7 @@ impl CommandMatcher for OmaCommandRunner {
             }),
             Some(("pick", args)) => OmaCommand::Pick(PickOptions {
                 package: args.get_one::<String>("package").unwrap().to_string(),
-                no_fixbroken: args.get_flag("no_fixbroken"),
+                no_fixbroken: args.get_flag("no_fix_broken"),
                 no_upgrade: args.get_flag("no_upgrade"),
                 dry_run: args.get_flag("dry_run"),
             }),
