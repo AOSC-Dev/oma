@@ -468,13 +468,13 @@ fn pkg_score(input: &str, pkginfo: &PkgInfo, is_provide: bool) -> u16 {
 /// Mark package as install status
 pub fn mark_install(
     cache: &Cache,
-    pkg: &str,
+    pkgname: &str,
     ver: RawVersion,
     reinstall: bool,
     is_local: bool,
     pb: Option<&ProgressBar>,
 ) -> Result<()> {
-    let pkg = cache.get(pkg).unwrap();
+    let pkg = cache.get(pkgname).unwrap();
     let ver = Version::new(ver, &pkg);
     ver.set_candidate();
 
@@ -492,6 +492,9 @@ pub fn mark_install(
         }
         return Ok(());
     } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
+        if ver.uris().next().is_none() {
+            bail!("Pkg: {} {version} cannot be marked for reinstallation as the specified version {version} could not be found in any enabled repository.", pkg.name());
+        }
         pkg.mark_reinstall(true);
     } else {
         pkg.mark_install(true, true);
