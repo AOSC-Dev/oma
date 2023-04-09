@@ -7,12 +7,6 @@ pub fn command_builder() -> Command {
         .long_help("Run Omakase in “dry-run” mode. Useful for testing changes and operations without making changes to the system")
         .action(clap::ArgAction::SetTrue);
 
-    let debug = Arg::new("debug")
-        .long("debug")
-        .help("Run oma with debug mode")
-        .long_help("Run Omakase with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues")
-        .action(clap::ArgAction::SetTrue);
-
     let pkgs = Arg::new("packages").action(clap::ArgAction::Append);
 
     let no_fixbroken = Arg::new("no_fix_broken")
@@ -54,7 +48,14 @@ pub fn command_builder() -> Command {
     command!()
         .arg_required_else_help(true)
         .max_term_width(100)
-        .arg(debug)
+        .arg(
+            Arg::new("debug")
+                .long("debug")
+                .help("Run oma with debug mode")
+                .long_help("Run Omakase with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues")
+                .action(clap::ArgAction::SetTrue)
+                .global(true)
+        )
         .arg(
             Arg::new("ailurus")
                 .long("ailurus")

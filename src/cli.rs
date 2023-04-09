@@ -237,28 +237,27 @@ impl CommandMatcher for OmaCommandRunner {
             exit(3);
         }
 
-        if let Some((_, args)) = matches.subcommand() {
-            if let Ok(v) = args.try_get_one::<bool>("dry_run") {
-                if v == Some(&true) {
-                    DRYRUN.store(true, Ordering::Relaxed);
-                    tracing_subscriber::registry()
-                        .with(
-                            fmt::layer()
-                                .with_writer(std::io::stdout)
-                                .without_time()
-                                .with_target(false)
-                                .with_filter(if matches.get_flag("debug") {
-                                    LevelFilter::DEBUG
-                                } else {
-                                    LevelFilter::INFO
-                                }),
-                        )
-                        .try_init()
-                        .expect("Can not setup dry_run logger");
+        if let Some(Ok(Some(true))) = matches
+            .subcommand()
+            .map(|(_, x)| x.try_get_one::<bool>("dry_run"))
+        {
+            DRYRUN.store(true, Ordering::Relaxed);
+            tracing_subscriber::registry()
+                .with(
+                    fmt::layer()
+                        .with_writer(std::io::stdout)
+                        .without_time()
+                        .with_target(false)
+                        .with_filter(if matches.get_flag("debug") {
+                            LevelFilter::DEBUG
+                        } else {
+                            LevelFilter::INFO
+                        }),
+                )
+                .try_init()
+                .expect("Can not setup dry_run logger");
 
-                    tracing::info!("Running in Dry-run mode");
-                }
-            }
+            tracing::info!("Running in Dry-run mode");
         } else if matches.get_flag("debug") {
             tracing_subscriber::registry()
                 .with(
