@@ -280,10 +280,8 @@ impl Oma {
                 for ver in pkg.versions() {
                     query_pkgs.push((ver.unique(), pkg.unique()));
                 }
-            } else {
-                if let Some(cand) = pkg.candidate() {
-                    query_pkgs.push((cand.unique(), pkg.unique()));
-                }
+            } else if let Some(cand) = pkg.candidate() {
+                query_pkgs.push((cand.unique(), pkg.unique()));
             }
         }
 
