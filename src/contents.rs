@@ -1,6 +1,7 @@
 use std::{
     io::{BufRead, BufReader},
-    process::{Command, Stdio}, path::Path,
+    path::Path,
+    process::{Command, Stdio},
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -141,7 +142,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                                             continue;
                                         }
                                     }
-                                    if !res.contains(&l) { 
+                                    if !res.contains(&l) {
                                         res.push(l);
                                     }
                                 }
