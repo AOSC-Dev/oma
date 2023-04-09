@@ -263,197 +263,82 @@ impl Oma {
             sort = sort.upgradable();
         }
 
-        let packages = cache.packages(&sort);
+        let pkgs = if opt.packages.is_none() {
+            cache.packages(&sort).collect::<Vec<_>>()
+        } else {
+            let pkgs_names = opt.packages.clone().unwrap_or_default();
+            cache
+                .packages(&sort)
+                .filter(|x| pkgs_names.contains(&x.name().to_string()))
+                .collect::<Vec<_>>()
+        };
 
-        let mut res = vec![];
+        let mut query_pkgs = vec![];
 
-        if opt.packages.is_none() {
-            if !opt.all {
-                for pkg in packages {
-                    let mut mirrors = vec![];
-                    let version = pkg.candidate();
-
-                    if let Some(version) = version {
-                        let uris = version.uris();
-                        for i in uris {
-                            let mirror = i.split('/').nth_back(3).unwrap_or("unknown").to_owned();
-                            if !mirrors.contains(&mirror) {
-                                mirrors.push(mirror);
-                            }
-                        }
-
-                        let mut s = format!(
-                            "{}/{} {} {}",
-                            style(pkg.name()).green(),
-                            mirrors.join(","),
-                            version.version(),
-                            pkg.arch()
-                        );
-
-                        if let Some(v) = pkg.installed() {
-                            let mut is_set = false;
-                            if v.version() == version.version() && !pkg.is_upgradable() {
-                                s += " [Installed";
-                                is_set = true;
-                            } else if v.version() == version.version() && pkg.is_upgradable() {
-                                s += &format!(" [Upgrade from: {}", v.version());
-                                is_set = true;
-                            }
-
-                            if pkg.is_auto_installed() && is_set {
-                                s += ",automatic]"
-                            } else if is_set {
-                                s += "]"
-                            }
-                        }
-
-                        res.push(format!("{}", style(s).bold()));
-                    }
+        for pkg in pkgs {
+            if opt.all {
+                for ver in pkg.versions() {
+                    query_pkgs.push((ver.unique(), pkg.unique()));
                 }
             } else {
-                for pkg in packages {
-                    let mut mirrors = vec![];
-                    let versions = pkg.versions().collect::<Vec<_>>();
-
-                    for (i, version) in versions.iter().enumerate() {
-                        let uris = version.uris();
-                        for i in uris {
-                            let mirror = i.split('/').nth_back(3).unwrap_or("unknown").to_owned();
-                            if !mirrors.contains(&mirror) {
-                                mirrors.push(mirror);
-                            }
-                        }
-
-                        let mut s = format!(
-                            "{}/{} {} {}",
-                            style(pkg.name()).green(),
-                            mirrors.join(","),
-                            version.version(),
-                            pkg.arch()
-                        );
-
-                        if let Some(v) = pkg.installed() {
-                            let mut is_set = false;
-                            if v.version() == version.version() && !pkg.is_upgradable() {
-                                s += " [Installed";
-                                is_set = true;
-                            } else if v.version() == version.version() && pkg.is_upgradable() {
-                                s += &format!(" [Upgrade from: {}", v.version());
-                                is_set = true;
-                            }
-
-                            if pkg.is_auto_installed() && is_set {
-                                s += ",automatic]"
-                            } else if is_set {
-                                s += "]"
-                            }
-                        }
-
-                        if i == versions.len() - 1 {
-                            res.push(format!("{}\n", style(s).bold()));
-                        } else {
-                            res.push(format!("{}", style(s).bold()));
-                        }
-                    }
+                if let Some(cand) = pkg.candidate() {
+                    query_pkgs.push((cand.unique(), pkg.unique()));
                 }
             }
+        }
 
-            res.sort();
+        for (ver, pkg) in query_pkgs {
+            let pkg = Package::new(&cache, pkg);
+            let ver = Version::new(ver, &pkg);
 
-            if res.is_empty() {
-                bail!("")
-            }
+            let mut stdout = std::io::stdout();
 
-            for i in res {
-                println!("{i}");
-            }
-        } else {
-            let mut res = vec![];
+            let mut mirrors = vec![];
 
-            let mut version_len = 0;
+            for url in ver.uris() {
+                let mut branch = url
+                    .split('/')
+                    .nth_back(3)
+                    .unwrap_or_default()
+                    .trim()
+                    .to_owned();
 
-            if let Some(list) = &opt.packages {
-                if !opt.all {
-                    for i in list {
-                        let pkg = cache.get(i);
-                        if let Some(pkg) = pkg {
-                            version_len = pkg.versions().collect::<Vec<_>>().len();
-                            if let Some(cand) = pkg.candidate() {
-                                let pkginfo = PkgInfo::new(&cache, cand.unique(), &pkg)?;
-
-                                res.push(pkginfo);
-                            }
-                        }
-                    }
-                } else {
-                    for i in list {
-                        let pkg = cache.get(i);
-                        if let Some(pkg) = pkg {
-                            let vers = pkg.versions().collect::<Vec<_>>();
-                            for ver in vers {
-                                let pkginfo = PkgInfo::new(&cache, ver.unique(), &pkg)?;
-
-                                res.push(pkginfo);
-                            }
-                        }
-                    }
+                if branch.is_empty() {
+                    branch = "unknown".to_owned();
                 }
+                mirrors.push(branch);
             }
 
-            if res.is_empty() {
-                bail!(
-                    "Could not find any result for keywords: {}",
-                    opt.packages.clone().unwrap_or_default().join(" ")
-                );
+            let mut status = vec![];
+
+            if pkg.is_installed() {
+                status.push("installed".to_owned());
             }
 
-            for i in res {
-                let mut mirror = vec![];
-                for j in &i.apt_sources {
-                    let branch = j.split('/').nth_back(3).unwrap_or("unknown");
-                    if !mirror.contains(&branch) {
-                        mirror.push(branch);
-                    }
-                }
-
-                let pkg = cache.get(&i.package).unwrap();
-                let mut s = format!(
-                    "{}/{} {} {}",
-                    style(&i.package).green(),
-                    mirror.join(","),
-                    i.version,
-                    pkg.arch()
-                );
-                if let Some(v) = pkg.installed() {
-                    let mut is_set = false;
-                    if v.version() == i.version && !pkg.is_upgradable() {
-                        s += " [Installed";
-                        is_set = true;
-                    } else if v.version() == i.version && pkg.is_upgradable() {
-                        s += &format!(" [Upgrade from: {}", v.version());
-                        is_set = true;
-                    }
-
-                    if pkg.is_auto_installed() && is_set {
-                        s += ",automatic]"
-                    } else if is_set {
-                        s += "]"
-                    }
-                }
-
-                println!("{}", style(s).bold());
-
-                if !opt.all
-                    && opt.packages.is_some()
-                    && opt.packages.as_ref().unwrap().len() == 1
-                    && version_len > 1
-                {
-                    info!(
-                        "There is {} additional version. Please use the '-a' switch to see it",
-                        version_len - 1
-                    );
-                }
+            if pkg.is_auto_installed() {
+                status.push("automatic".to_owned());
             }
+
+            if pkg.is_upgradable() {
+                let cand = pkg.candidate().unwrap();
+                status.push(format!("upgrade from {}", cand.version()));
+            }
+
+            let status = if status.is_empty() {
+                "".to_string()
+            } else {
+                format!("[{}]", status.join(","))
+            };
+
+            writeln!(
+                &mut stdout,
+                "{}/{} {} {} {}",
+                style(pkg.name()).green().bold(),
+                mirrors.join(","),
+                ver.version(),
+                pkg.arch(),
+                status
+            )?;
         }
 
         Ok(())
