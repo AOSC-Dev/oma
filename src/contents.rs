@@ -1,6 +1,6 @@
 use std::{
     io::{BufRead, BufReader},
-    process::{Command, Stdio},
+    process::{Command, Stdio}, path::Path,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -46,7 +46,13 @@ struct MatchValue {
 
 pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>> {
     let arch = get_arch_name().context("Can not get ARCH!")?;
-    let kw_escape = regex::escape(kw);
+    let kw = if Path::new(kw).is_absolute() {
+        kw.strip_prefix('/').unwrap()
+    } else {
+        kw
+    };
+
+    let kw_escape = regex::escape(&kw);
 
     let pattern = if is_list {
         format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw_escape}(?:,\S*|))\s*$")
@@ -125,17 +131,17 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                             pb.set_message(format!("Searching, found {count} results so far ..."));
                             for j in submatches {
                                 let m = j.m.text;
-                                if let Some(l) = parse_line(&m, is_list, kw) {
+                                if let Some(l) = parse_line(&m, is_list, &kw) {
                                     if cnf {
                                         let last = l.1.split_whitespace().last();
-                                        if last != Some(kw)
+                                        if last != Some(&kw)
                                             && last != Some(&format!("/{kw}"))
                                             && last != Some(&format!("./{kw}"))
                                         {
                                             continue;
                                         }
                                     }
-                                    if !res.contains(&l) {
+                                    if !res.contains(&l) { 
                                         res.push(l);
                                     }
                                 }
@@ -174,9 +180,9 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                 matcher.clone(),
                 i,
                 UTF8(|_, line| {
-                    let line = parse_line(line, is_list, kw);
+                    let line = parse_line(line, is_list, &kw);
                     if let Some(l) = line {
-                        if cnf && l.1.split_whitespace().last() != Some(kw) {
+                        if cnf && l.1.split_whitespace().last() != Some(&kw) {
                             return Ok(true);
                         }
                         if !res.contains(&l) {
@@ -210,13 +216,13 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
         if split_group.len() != 1 {
             for i in split_group {
                 if is_list && i.split('/').nth(1) == Some(kw) {
-                    let file = remove_prefix(file.unwrap());
+                    let file = prefix(file.unwrap());
                     let pkg = kw;
                     let s = format!("{kw}: {file}");
 
                     return Some((pkg.to_string(), s));
                 } else if !is_list && i.contains(kw) && i.split('/').nth_back(0).is_some() {
-                    let file = remove_prefix(file.unwrap());
+                    let file = prefix(file.unwrap());
                     let pkg = i.split('/').nth_back(0).unwrap();
                     let s = format!("{pkg}: {file}");
                     return Some((pkg.to_string(), s));
@@ -226,7 +232,7 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
             // 比如 /usr/bin/apt admin/apt
             let pkg = pkg_group.split('/').nth_back(0);
             if let Some(pkg) = pkg {
-                let file = remove_prefix(file.unwrap());
+                let file = prefix(file.unwrap());
                 let s = format!("{pkg}: {file}");
                 return Some((pkg.to_string(), s));
             }
@@ -236,12 +242,6 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
     None
 }
 
-fn remove_prefix(s: &str) -> String {
-    if s.starts_with('/') {
-        return s.to_owned();
-    }
-
-    let s = s.strip_prefix("./").unwrap_or(s);
-
+fn prefix(s: &str) -> String {
     "/".to_owned() + s
 }
