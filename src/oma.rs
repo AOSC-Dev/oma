@@ -287,6 +287,8 @@ impl Oma {
             }
         }
 
+        let result_len = query_pkgs.len();
+
         for (ver, pkg) in query_pkgs {
             let pkg = Package::new(&cache, pkg);
             let ver = Version::new(ver, &pkg);
@@ -339,6 +341,15 @@ impl Oma {
                 pkg.arch(),
                 status
             )?;
+
+            let len = pkg.versions().collect::<Vec<_>>().len();
+
+            if !opt.all && len > 1 && result_len == 1 {
+                info!(
+                    "There is {} additional version. Please use the '-a' switch to see it",
+                    len - 1
+                );
+            }
         }
 
         Ok(())
