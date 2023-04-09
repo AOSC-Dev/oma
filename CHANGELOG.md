@@ -5,7 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.24.2 (2023-04-09)
+
+### New Features
+
+ - <csr-id-b73ae60c92a8b10f758cd07d11a1da85593e84c8/> improve command-not-found output
+
+### Bug Fixes
+
+ - <csr-id-fa13097a5f034a1c0f2477d245123b7116c35c26/> pick can not get no_upgrade argument to panic
+ - <csr-id-f52fcffd589a9d20d018cd243f3813eebae1dba0/> provides search absolute path can't get any result
+
+### Style
+
+ - <csr-id-271851401fd918dcdbec5ca46e9173e87cb5170a/> use cargo-fmt to format code
+ - <csr-id-693b3a93c6e1535b0c85c78e7bdc06ddf66a7c74/> use cargo clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Use cargo-fmt to format code ([`2718514`](https://github.com/AOSC-Dev/aoscpt/commit/271851401fd918dcdbec5ca46e9173e87cb5170a))
+    - Pick can not get no_upgrade argument to panic ([`fa13097`](https://github.com/AOSC-Dev/aoscpt/commit/fa13097a5f034a1c0f2477d245123b7116c35c26))
+    - Use cargo clippy to lint code ([`693b3a9`](https://github.com/AOSC-Dev/aoscpt/commit/693b3a93c6e1535b0c85c78e7bdc06ddf66a7c74))
+    - Improve command-not-found output ([`b73ae60`](https://github.com/AOSC-Dev/aoscpt/commit/b73ae60c92a8b10f758cd07d11a1da85593e84c8))
+    - Provides search absolute path can't get any result ([`f52fcff`](https://github.com/AOSC-Dev/aoscpt/commit/f52fcffd589a9d20d018cd243f3813eebae1dba0))
+</details>
+
 ## v0.24.1 (2023-04-09)
+
+<csr-id-e70c3aef3d487593494fba25e33483ac7121477c/>
+<csr-id-08dddaf3882414c4c9b24484b5d36f7d99d48965/>
+<csr-id-85deb9fd8b562fffa5dec0e762eb29a559639470/>
 
 ### Chore
 
@@ -34,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 8 commits contributed to the release over the course of 1 calendar day.
+ - 9 commits contributed to the release over the course of 1 calendar day.
  - 1 day passed between releases.
  - 8 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -46,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.24.1 ([`4b8ce0d`](https://github.com/AOSC-Dev/aoscpt/commit/4b8ce0d9b6d161898e7d11d2bab17247967ce029))
     - Use cargo clippy to lint code ([`85deb9f`](https://github.com/AOSC-Dev/aoscpt/commit/85deb9fd8b562fffa5dec0e762eb29a559639470))
     - Update dep crossbeam-channel to 0.5.8 ([`e70c3ae`](https://github.com/AOSC-Dev/aoscpt/commit/e70c3aef3d487593494fba25e33483ac7121477c))
     - No additional version info tips ([`1781711`](https://github.com/AOSC-Dev/aoscpt/commit/1781711818be211e532bfd8a1094559361e26d96))
