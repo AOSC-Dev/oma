@@ -5,7 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.24.1 (2023-04-09)
+
+### Chore
+
+ - <csr-id-e70c3aef3d487593494fba25e33483ac7121477c/> update dep crossbeam-channel to 0.5.8
+
+### Documentation
+
+ - <csr-id-86b85ddc51ef22d00ed27ad5854ec4ca4fea7a0e/> update README
+
+### Bug Fixes
+
+ - <csr-id-1781711818be211e532bfd8a1094559361e26d96/> no additional version info tips
+ - <csr-id-33f6a8e8cc3fd4ffed16c9ebc5e48343bdacb67b/> pick no_fix_broekn wrong argument name to panic
+ - <csr-id-02de21592e80af57c1aea8013b4f600cc2370f88/> reinstall does not in repo version to panic
+ - <csr-id-8a61940b26a790427a54b5dee04c16dadf310e1c/> oma dep output wrong grammar
+
+### Refactor
+
+ - <csr-id-08dddaf3882414c4c9b24484b5d36f7d99d48965/> improve list method code style
+
+### Style
+
+ - <csr-id-85deb9fd8b562fffa5dec0e762eb29a559639470/> use cargo clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 8 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 8 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Use cargo clippy to lint code ([`85deb9f`](https://github.com/AOSC-Dev/aoscpt/commit/85deb9fd8b562fffa5dec0e762eb29a559639470))
+    - Update dep crossbeam-channel to 0.5.8 ([`e70c3ae`](https://github.com/AOSC-Dev/aoscpt/commit/e70c3aef3d487593494fba25e33483ac7121477c))
+    - No additional version info tips ([`1781711`](https://github.com/AOSC-Dev/aoscpt/commit/1781711818be211e532bfd8a1094559361e26d96))
+    - Pick no_fix_broekn wrong argument name to panic ([`33f6a8e`](https://github.com/AOSC-Dev/aoscpt/commit/33f6a8e8cc3fd4ffed16c9ebc5e48343bdacb67b))
+    - Improve list method code style ([`08dddaf`](https://github.com/AOSC-Dev/aoscpt/commit/08dddaf3882414c4c9b24484b5d36f7d99d48965))
+    - Reinstall does not in repo version to panic ([`02de215`](https://github.com/AOSC-Dev/aoscpt/commit/02de21592e80af57c1aea8013b4f600cc2370f88))
+    - Oma dep output wrong grammar ([`8a61940`](https://github.com/AOSC-Dev/aoscpt/commit/8a61940b26a790427a54b5dee04c16dadf310e1c))
+    - Update README ([`86b85dd`](https://github.com/AOSC-Dev/aoscpt/commit/86b85ddc51ef22d00ed27ad5854ec4ca4fea7a0e))
+</details>
+
 ## v0.24.0 (2023-04-08)
+
+<csr-id-66fb496cb5ea21f8288e04987c371bd1d2cbee90/>
+<csr-id-9a7e556094c415cbadee46ca3a9a0c26d5c947d5/>
 
 ### Chore
 
@@ -33,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 8 commits contributed to the release.
+ - 9 commits contributed to the release.
  - 2 days passed between releases.
  - 8 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -45,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.24.0 ([`14a3d0d`](https://github.com/AOSC-Dev/aoscpt/commit/14a3d0d6a18d4dfe30a524bad2392c351de397bf))
     - Update all deps ([`66fb496`](https://github.com/AOSC-Dev/aoscpt/commit/66fb496cb5ea21f8288e04987c371bd1d2cbee90))
     - Fix wrong oma list info display ([`0b937fe`](https://github.com/AOSC-Dev/aoscpt/commit/0b937fee9e9740f1f98537a31652ab9504d98a3c))
     - Set search arg name as pattern ([`c99a6e6`](https://github.com/AOSC-Dev/aoscpt/commit/c99a6e63a0094101bbc3302d3cd367262e42ed1b))
