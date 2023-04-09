@@ -38,7 +38,7 @@ use crate::{
     },
     info,
     pager::Pager,
-    pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
+    pkg::{mark_delete, mark_install, query_pkgs, search_pkgs},
     success,
     utils::{lock_oma, log_to_file, needs_root, size_checker},
     warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
@@ -1026,28 +1026,27 @@ impl Oma {
                 }
                 let p = p.unwrap();
                 let version = p.candidate().unwrap();
-                let pkginfo = PkgInfo::new(&cache, version.unique(), &p)?;
                 let pkg_str = pkg_str.replace(": ", " (") + ")";
                 let s = format!(
                     "{pkg_str}: {}",
-                    pkginfo.description.unwrap_or("".to_string())
+                    version.description().unwrap_or("".to_string())
                 );
                 if !res.contains(&s) {
                     res.push(s);
                 }
             }
         }
-
-        let start = if !res.is_empty() {
-            style(format!(
-                "Command not found: {kw}, But find some result from package mirror:\n"
-            ))
-            .bold()
+        if !res.is_empty() {
+            println!(
+                "{}",
+                style(format!(
+                    "Command not found: {kw}, But find some result from package mirror:\n"
+                ))
+                .bold()
+            );
         } else {
-            style(format!("Can not find result for command: {kw}")).bold()
-        };
-
-        println!("{start}");
+            bail!("")
+        }
 
         for i in res {
             println!("{i}");
