@@ -5,7 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.24.3 (2023-04-09)
+
+### Bug Fixes
+
+ - <csr-id-f2329bab17a19055a959545d00b787fd5eb1fa19/> can not set logger with --debug flag
+   - Also set --debug as global flag
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Can not set logger with --debug flag ([`f2329ba`](https://github.com/AOSC-Dev/aoscpt/commit/f2329bab17a19055a959545d00b787fd5eb1fa19))
+</details>
+
 ## v0.24.2 (2023-04-09)
+
+<csr-id-271851401fd918dcdbec5ca46e9173e87cb5170a/>
+<csr-id-693b3a93c6e1535b0c85c78e7bdc06ddf66a7c74/>
 
 ### New Features
 
@@ -25,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 6 commits contributed to the release.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -36,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.24.2 ([`aaa04d5`](https://github.com/AOSC-Dev/aoscpt/commit/aaa04d506b093a243d0136c9957953c08319b49c))
     - Use cargo-fmt to format code ([`2718514`](https://github.com/AOSC-Dev/aoscpt/commit/271851401fd918dcdbec5ca46e9173e87cb5170a))
     - Pick can not get no_upgrade argument to panic ([`fa13097`](https://github.com/AOSC-Dev/aoscpt/commit/fa13097a5f034a1c0f2477d245123b7116c35c26))
     - Use cargo clippy to lint code ([`693b3a9`](https://github.com/AOSC-Dev/aoscpt/commit/693b3a93c6e1535b0c85c78e7bdc06ddf66a7c74))
