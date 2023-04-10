@@ -2,7 +2,7 @@
 name = "oma"
 version = "0.24.3"
 edition = "2021"
-description = "Omakase (oma) - package management interface for AOSC OS"
+description = "Omakase (oma) - Package management interface for AOSC OS"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

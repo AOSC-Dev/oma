@@ -25,7 +25,7 @@ cp ./target/release/oma /usr/local/bin/oma
 
 ```bash
 saki@Magputer [ aoscpt@master ] $ oma
-Omakase (oma) - package management interface for AOSC OS
+Omakase (oma) - Package management interface for AOSC OS
 
 Usage: oma [OPTIONS] [COMMAND]
 
