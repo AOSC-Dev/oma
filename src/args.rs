@@ -48,6 +48,7 @@ pub fn command_builder() -> Command {
     command!()
         .arg_required_else_help(true)
         .max_term_width(100)
+        .disable_version_flag(true)
         .arg(
             Arg::new("debug")
                 .long("debug")
