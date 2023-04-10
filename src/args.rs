@@ -62,6 +62,13 @@ pub fn command_builder() -> Command {
                 .action(ArgAction::Count)
                 .hide(true)
         )
+        .arg(
+            Arg::new("version")
+                .long("version")
+                .short('v')
+                .short_alias('V')
+                .action(ArgAction::Version)
+        )
         .subcommand(
             Command::new("install")
                 .about("Install package(s) from the repository")
