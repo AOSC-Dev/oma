@@ -46,7 +46,7 @@ pub enum OmaCommand {
     /// Clean downloaded packages
     Clean,
     /// See omakase log
-    History,
+    History(History),
     #[cfg(feature = "aosc")]
     Topics(Topics),
     Pkgnames(Option<String>),
@@ -55,6 +55,15 @@ pub enum OmaCommand {
 pub struct Topics {
     pub opt_in: Option<Vec<String>>,
     pub opt_out: Option<Vec<String>>,
+}
+
+pub struct History {
+    pub action: HistoryAction,
+}
+
+pub enum HistoryAction {
+    Undo(Option<usize>),
+    Redo(Option<usize>),
 }
 
 pub struct Dep {
@@ -228,10 +237,10 @@ pub trait CommandMatcher {
             OmaCommand::Depends(v) => Oma::dep(&v.pkgs),
             OmaCommand::Rdepends(v) => Oma::rdep(&v.pkgs),
             OmaCommand::Clean => Oma::clean(),
-            OmaCommand::History => Oma::log(),
             #[cfg(feature = "aosc")]
             OmaCommand::Topics(v) => Oma::build_async_runtime()?.topics(v),
             OmaCommand::Pkgnames(s) => Oma::pkgnames(s),
+            OmaCommand::History(v) => Oma::log(v),
         }?;
 
         Ok(exit_code)
@@ -401,7 +410,13 @@ impl CommandMatcher for OmaCommandRunner {
                 pkgs: pkgs_getter(args).unwrap(),
             }),
             Some(("clean", _)) => OmaCommand::Clean,
-            Some(("history", _)) => OmaCommand::History,
+            Some(("history", args)) => OmaCommand::History(History {
+                action: match args.get_one::<String>("action").map(|x| x.as_str()) {
+                    Some("undo") => HistoryAction::Undo(args.get_one::<usize>("index").copied()),
+                    Some("redo") => HistoryAction::Redo(args.get_one::<usize>("index").copied()),
+                    _ => unimplemented!(),
+                }
+            }),
             #[cfg(feature = "aosc")]
             Some(("topics", v)) => OmaCommand::Topics(Topics {
                 opt_in: v
@@ -409,7 +424,7 @@ impl CommandMatcher for OmaCommandRunner {
                     .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
                 opt_out: v
                     .get_many::<String>("opt_out")
-                    .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
+                    .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
             }),
             Some(("pkgnames", v)) => {
                 OmaCommand::Pkgnames(v.get_one::<String>("keyword").map(|x| x.to_owned()))

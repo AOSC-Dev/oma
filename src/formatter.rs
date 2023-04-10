@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use std::{format, io::Write, sync::atomic::Ordering};
 
 use console::{style, Color};
@@ -746,16 +746,10 @@ fn format_breaks(
 }
 
 /// Display apt resolver results
-pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<()> {
+pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<Vec<InstallRow>> {
     if DRYRUN.load(Ordering::Relaxed) {
-        return Ok(());
+        return Ok(vec![]);
     }
-
-    let update = action.update.clone();
-    let install = action.install.clone();
-    let del = action.del.clone();
-    let reinstall = action.reinstall.clone();
-    let downgrade = action.downgrade.clone();
 
     let mut pager = Pager::new(no_pager, true)?;
     let pager_name = pager.pager_name().to_owned();
@@ -783,6 +777,45 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
             writeln!(out, "{}", style(line3).bold()).ok();
         }
     }
+
+    let list = result_inner(action, &pager)?;
+
+    writeln!(
+        out,
+        "{} {}",
+        style("Total download size:").bold(),
+        HumanBytes(download_size(&list, cache)?)
+    )
+    .ok();
+
+    let (symbol, abs_install_size_change) = match cache.depcache().disk_size() {
+        DiskSpace::Require(n) => ("+", n),
+        DiskSpace::Free(n) => ("-", n),
+    };
+
+    writeln!(
+        out,
+        "{} {}{}",
+        style("Estimated change in storage usage:").bold(),
+        symbol,
+        HumanBytes(abs_install_size_change)
+    )
+    .ok();
+
+    drop(out);
+    pager.wait_for_exit()?;
+
+    Ok(list)
+}
+
+pub fn result_inner(action: &Action, pager: &Pager) -> Result<Vec<InstallRow>> {
+    let mut out = pager.get_writer()?;
+
+    let update = action.update.clone();
+    let install = action.install.clone();
+    let del = action.del.clone();
+    let reinstall = action.reinstall.clone();
+    let downgrade = action.downgrade.clone();
 
     if !del.is_empty() {
         writeln!(
@@ -893,39 +926,7 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     list.extend(update);
     list.extend(downgrade);
 
-    writeln!(
-        out,
-        "{} {}",
-        style(fl!("total-download-size")).bold(),
-        HumanBytes(download_size(&list, cache)?)
-    )
-    .ok();
-
-    let (symbol, abs_install_size_change) = match cache.depcache().disk_size() {
-        DiskSpace::Require(n) => ("+", n),
-        DiskSpace::Free(n) => ("-", n),
-    };
-
-    writeln!(
-        out,
-        "{} {}{}",
-        style(fl!("change-storage-usage")).bold(),
-        symbol,
-        HumanBytes(abs_install_size_change)
-    )
-    .ok();
-
-    writeln!(out)?;
-
-    drop(out);
-    let success = pager.wait_for_exit()?;
-
-    if success {
-        Ok(())
-    } else {
-        // User aborted the operation
-        bail!("")
-    }
+    Ok(list)
 }
 
 /// Get download size

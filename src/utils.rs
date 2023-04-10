@@ -16,7 +16,7 @@ use rust_apt::util::DiskSpace;
 use indicatif::HumanBytes;
 use sysinfo::{Pid, System, SystemExt};
 
-use crate::{fl, oma::Action, ARGS, DRYRUN};
+use crate::{fl, ARGS};
 
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
@@ -96,27 +96,6 @@ pub fn unlock_oma() -> Result<()> {
         std::fs::remove_file(LOCK.as_path())
             .map_err(|e| anyhow!(fl!("can-not-unlock-oma", e = e.to_string())))?;
     }
-
-    Ok(())
-}
-
-pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<()> {
-    if DRYRUN.load(Ordering::Relaxed) {
-        return Ok(());
-    }
-
-    std::fs::create_dir_all("/var/log/oma")
-        .map_err(|e| anyhow!(fl!("can-not-create-oma-log-dir", e = e.to_string())))?;
-
-    let mut f = std::fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open("/var/log/oma/history")
-        .map_err(|e| anyhow!(fl!("can-not-create-oma-log", e = e.to_string())))?;
-
-    f.write_all(format!("Start-Date: {start_time}\n").as_bytes())?;
-    f.write_all(format!("Action: {}\n{action:#?}", *ARGS).as_bytes())?;
-    f.write_all(format!("End-Date: {end_time}\n\n").as_bytes())?;
 
     Ok(())
 }

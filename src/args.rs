@@ -1,7 +1,7 @@
 use anstyle::RgbColor;
 use clap::{
     builder::{PossibleValue, Styles},
-    command, Arg, ArgAction, Command,
+    command, value_parser, Arg, ArgAction, Command,
 };
 
 pub fn command_builder() -> Command {
@@ -328,9 +328,24 @@ pub fn command_builder() -> Command {
         .subcommand(Command::new("clean").about("Clear downloaded package cache"))
         .subcommand(
             Command::new("history")
-                .alias("log")
-                .about("Show a history/log of package changes in the system"),
-        )
+                        .alias("log")
+                        .about("Show a history/log of package changes in the system")
+                        .arg(Arg::new("action")
+                        .value_parser([
+                            PossibleValue::new("undo"),
+                            PossibleValue::new("redo")
+                        ])
+                        .required(true)
+                        .num_args(1)
+                        .action(ArgAction::Set)
+                    )
+        .arg(
+            Arg::new("index")
+            .value_parser(value_parser!(usize))
+            .action(ArgAction::Set)
+            .requires("action")
+            .num_args(1)
+        ))
         .subcommand(
         Command::new("pkgnames")
                 .hide(true)

@@ -13,7 +13,9 @@ use rust_apt::{
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
-use std::{collections::HashMap, fmt::Write as FmtWrite, io::BufRead};
+
+use std::{collections::HashMap, fmt::Write as FmtWrite};
+use serde::{Deserialize, Serialize};
 use tabled::Tabled;
 use time::OffsetDateTime;
 use tokio::runtime::Runtime;
@@ -28,8 +30,8 @@ use std::{
 
 use crate::{
     cli::{
-        Download, FixBroken, InstallOptions, ListOptions, Mark, MarkAction, PickOptions,
-        RemoveOptions, UpgradeOptions,
+        Download, FixBroken, History, HistoryAction, InstallOptions, ListOptions, Mark, MarkAction,
+        PickOptions, RemoveOptions, UpgradeOptions,
     },
     contents::find,
     db::{get_sources, update_db_runner, DOWNLOAD_DIR},
@@ -39,12 +41,13 @@ use crate::{
         capitalize_str, display_result, download_size, find_unmet_deps,
         find_unmet_deps_with_markinstall, NoProgress, OmaAptInstallProgress,
     },
+    history::{self, log_to_file},
     info,
     pager::Pager,
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, OmaDependency, PkgInfo},
     success,
     utils::{
-        error_due_to, lock_oma, log_to_file, needs_root, size_checker, source_url_to_apt_style,
+        error_due_to, lock_oma, needs_root, size_checker, source_url_to_apt_style,
     },
     warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
 };
@@ -55,29 +58,33 @@ use crate::topics;
 #[cfg(feature = "aosc")]
 use crate::cli::Topics;
 
-#[derive(Tabled, Debug, Clone)]
+#[derive(Tabled, Debug, Clone, Serialize, Deserialize)]
 pub struct RemoveRow {
     #[tabled(rename = "Name")]
-    name: String,
-    #[tabled(skip)]
-    _name_no_color: String,
-    // #[tabled(skip)]
-    // size: String,
-    // Show details to this specific removal. Eg: if this is an essential package
-    #[tabled(rename = "Details")]
-    detail: String,
-}
-
-#[derive(Tabled, Debug, Clone)]
-pub struct InstallRow {
-    #[tabled(rename = "Name")]
-    name: String,
+    pub name: String,
     #[tabled(skip)]
     pub name_no_color: String,
     #[tabled(skip)]
+    pub version: String,
+    #[tabled(skip)]
+    pub size: u64,
+    // Show details to this specific removal. Eg: if this is an essential package
+    #[tabled(rename = "Details")]
+    pub detail: String,
+}
+
+#[derive(Tabled, Debug, Clone, Serialize, Deserialize)]
+pub struct InstallRow {
+    #[tabled(rename = "Name")]
+    pub name: String,
+    #[tabled(skip)]
+    pub name_no_color: String,
+    #[tabled(skip)]
+    pub old_version: Option<String>,
+    #[tabled(skip)]
     pub new_version: String,
     #[tabled(rename = "Version")]
-    version: String,
+    pub version: String,
     #[tabled(rename = "Installed Size")]
     pub size: String,
     #[tabled(skip)]
@@ -94,14 +101,14 @@ pub struct Oma {
 }
 
 #[derive(thiserror::Error, Debug)]
-enum InstallError {
+pub enum InstallError {
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
     #[error(transparent)]
     RustApt(#[from] rust_apt::util::Exception),
 }
 
-type InstallResult<T> = std::result::Result<T, InstallError>;
+pub type InstallResult<T> = std::result::Result<T, InstallError>;
 
 impl Oma {
     pub fn build_async_runtime() -> Result<Self> {
@@ -763,6 +770,7 @@ impl Oma {
                     name: pkg.name().to_string(),
                     name_no_color: pkg.name().to_string(),
                     new_version: version.version().to_string(),
+                    old_version: None,
                     version: version.version().to_string(),
                     size: version.installed_size().to_string(),
                     pkg_urls: urls.collect(),
@@ -820,7 +828,22 @@ impl Oma {
             return Ok(action);
         }
 
+        self.action_to_install(config, &action, count, cache, len, opt)?;
+
+        Ok(action)
+    }
+
+    pub fn action_to_install(
+        &self,
+        config: AptConfig,
+        action: &Action,
+        count: usize,
+        cache: Cache,
+        action_len: usize,
+        opt: &InstallOptions,
+    ) -> InstallResult<()> {
         let mut list = vec![];
+
         list.extend(action.install.clone());
         list.extend(action.update.clone());
         list.extend(action.downgrade.clone());
@@ -829,13 +852,13 @@ impl Oma {
         if count == 1 {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
-            if len != 0 {
+            if action_len != 0 {
                 display_result(&action, &cache, opt.yes)?;
             }
         }
 
-        // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
+
         apt_install(
             config,
             cache,
@@ -845,7 +868,7 @@ impl Oma {
             opt.dpkg_force_all,
         )?;
 
-        Ok(action)
+        Ok(())
     }
 
     pub fn remove(r: RemoveOptions) -> Result<i32> {
@@ -1267,20 +1290,13 @@ impl Oma {
         Ok(0)
     }
 
-    pub fn log() -> Result<i32> {
-        let f = std::fs::File::open("/var/log/oma/history")?;
-        let r = std::io::BufReader::new(f);
-        let mut pager = Pager::new(false, false)?;
-        let mut out = pager.get_writer()?;
-
-        ALLOWCTRLC.store(true, Ordering::Relaxed);
-
-        for i in r.lines().flatten() {
-            writeln!(out, "{}", i).ok();
-        }
-
-        drop(out);
-        pager.wait_for_exit().ok();
+    pub fn log(v: History) -> Result<i32> {
+        let (is_undo, index) = match v.action {
+            HistoryAction::Undo(index) => (true, index),
+            HistoryAction::Redo(index) => (false, index),
+        };
+    
+        history::run(index, is_undo)?;
 
         Ok(0)
     }
@@ -1402,6 +1418,7 @@ fn map_deps_to_download(
                             name: pkg.name().to_string(),
                             name_no_color: pkg.name().to_string(),
                             new_version: version.version().to_string(),
+                            old_version: None,
                             version: version.version().to_string(),
                             size: version.installed_size().to_string(),
                             pkg_urls: urls.collect(),
@@ -1749,7 +1766,7 @@ fn install_other(
     Ok(other_install)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Action {
     pub update: Vec<InstallRow>,
     pub install: Vec<InstallRow>,
@@ -1759,7 +1776,7 @@ pub struct Action {
 }
 
 impl Action {
-    fn new(
+    pub fn new(
         update: Vec<InstallRow>,
         install: Vec<InstallRow>,
         del: Vec<RemoveRow>,
@@ -1773,6 +1790,14 @@ impl Action {
             reinstall,
             downgrade,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.update.is_empty()
+            && self.install.is_empty()
+            && self.del.is_empty()
+            && self.reinstall.is_empty()
+            && self.downgrade.is_empty()
     }
 }
 
@@ -1805,7 +1830,7 @@ impl Debug for Action {
         if !self.del.is_empty() {
             write!(f, "Remove: ")?;
             for (i, c) in self.del.iter().enumerate() {
-                write!(f, "{}", c._name_no_color)?;
+                write!(f, "{}", c.name_no_color)?;
                 if i < self.del.len() - 1 {
                     write!(f, ", ")?;
                 }
@@ -1831,7 +1856,7 @@ impl Debug for Action {
 }
 
 /// Handle apt resolve result to display results
-fn apt_handler(
+pub fn apt_handler(
     cache: &Cache,
     no_fixbroken: bool,
     is_purge: bool,
@@ -1894,8 +1919,9 @@ fn apt_handler(
             install.push(InstallRow {
                 name: style(pkg.name()).green().to_string(),
                 name_no_color: pkg.name().to_string(),
-                version: version.to_string(),
-                new_version: version.to_string(),
+                version: cand.version().to_string(),
+                new_version: cand.version().to_string(),
+                old_version: None,
                 size: human_size,
                 pkg_urls: uri,
                 checksum,
@@ -1944,6 +1970,7 @@ fn apt_handler(
                 name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
                 new_version: version.to_string(),
+                old_version: Some(old_version.to_owned()),
                 size: human_size,
                 pkg_urls: cand.uris().collect(),
                 checksum: cand.get_record(RecordField::SHA256),
@@ -1981,8 +2008,9 @@ fn apt_handler(
 
             let remove_row = RemoveRow {
                 name: style(name).red().bold().to_string(),
-                _name_no_color: name.to_owned(),
-                // size: HumanBytes(size).to_string(),
+                name_no_color: name.to_owned(),
+                size: pkg.installed().unwrap().size(),
+                version: pkg.installed().unwrap().version().to_string(),
                 detail: style(s).red().to_string(),
             };
 
@@ -1999,6 +2027,7 @@ fn apt_handler(
                 name_no_color: pkg.name().to_string(),
                 version: pkg.installed().unwrap().version().to_owned(),
                 new_version: pkg.installed().unwrap().version().to_owned(),
+                old_version: Some(pkg.installed().unwrap().version().to_owned()),
                 size: HumanBytes(0).to_string(),
                 pkg_urls: version.uris().collect(),
                 checksum: version.get_record(RecordField::SHA256),
@@ -2042,6 +2071,7 @@ fn apt_handler(
                 name: style(pkg.name()).yellow().to_string(),
                 name_no_color: pkg.name().to_string(),
                 version: format!("{old_version} -> {version}"),
+                old_version: Some(old_version.to_string()),
                 new_version: version.to_string(),
                 size: human_size,
                 pkg_urls: cand.uris().collect(),
