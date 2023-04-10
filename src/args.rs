@@ -68,6 +68,7 @@ pub fn command_builder() -> Command {
                 .short('v')
                 .short_alias('V')
                 .action(ArgAction::Version)
+                .help("Print version")
         )
         .subcommand(
             Command::new("install")
