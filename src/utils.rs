@@ -38,6 +38,7 @@ pub fn get_arch_name() -> Option<&'static str> {
 
 /// AOSC OS specific architecture mapping table
 #[cfg(not(target_arch = "powerpc64"))]
+#[cfg(not(feature = "mipsr6"))]
 #[inline]
 pub fn get_arch_name() -> Option<&'static str> {
     use std::env::consts::ARCH;
@@ -51,6 +52,13 @@ pub fn get_arch_name() -> Option<&'static str> {
         _ => None,
     }
 }
+
+#[cfg(feature = "mipsr6")]
+#[inline]
+pub fn get_arch_name() -> Option<&'static str> {
+    return Some("mips64r6el");
+}
+
 
 pub fn size_checker(size: &DiskSpace, download_size: u64) -> Result<()> {
     let size = match size {
