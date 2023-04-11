@@ -18,12 +18,13 @@ use crate::{oma::Action, ARGS, DRYRUN};
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
 pub fn get_arch_name() -> Result<String> {
-    let dpkg = Command::new("dpkg")
-        .arg("--print-architecture")
-        .output()?
-        .stdout;
+    let dpkg = Command::new("dpkg").arg("--print-architecture").output()?;
 
-    let output = std::str::from_utf8(&dpkg)?.trim().to_string();
+    if !dpkg.status.success() {
+        bail!("dpkg return non-zero code: {:?}", dpkg.status.code());
+    }
+
+    let output = std::str::from_utf8(&dpkg.stdout)?.trim().to_string();
 
     Ok(output)
 }
