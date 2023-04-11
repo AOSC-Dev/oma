@@ -18,7 +18,10 @@ use crate::{oma::Action, ARGS, DRYRUN};
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
 pub fn get_arch_name() -> Result<String> {
-    let dpkg = Command::new("dpkg").arg("--print-architecture").output()?;
+    let dpkg = Command::new("dpkg")
+        .arg("--print-architecture")
+        .output()
+        .map_err(|e| anyhow!("Can not run dpkg, why: {e}"))?;
 
     if !dpkg.status.success() {
         bail!("dpkg return non-zero code: {:?}", dpkg.status.code());
