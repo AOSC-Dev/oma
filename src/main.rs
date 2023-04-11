@@ -1,7 +1,7 @@
 use std::process::exit;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use cli::Writer;
 use indicatif::MultiProgress;
@@ -63,7 +63,9 @@ fn main() {
 }
 
 fn try_main() -> Result<()> {
-    let _ = ARCH.get_or_try_init(get_arch_name)?;
+    let _ = ARCH
+        .get_or_try_init(get_arch_name)
+        .map_err(|e| anyhow!("Can not run dpkg --print-architecture, why: {e}"))?;
 
     OmaCommandRunner::new().run()?;
     tracing::info!("Running oma with args: {}", *ARGS);
