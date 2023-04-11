@@ -21,8 +21,7 @@ use crate::{
     checksum::Checksum,
     download::{download, oma_spinner, oma_style_pb, OmaProgressBar},
     error, info, success,
-    utils::get_arch_name,
-    verify, warn, MB,
+    verify, warn, MB, ARCH,
 };
 
 use std::sync::atomic::Ordering;
@@ -208,7 +207,7 @@ impl InReleaseParser {
             checksums_res.push(checksum);
         }
 
-        let arch = get_arch_name().ok_or_else(|| anyhow!("Can not get arch!"))?;
+        let arch = ARCH.get().unwrap();
 
         let mut res = vec![];
 

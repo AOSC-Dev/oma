@@ -4,7 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use console::style;
 use grep::{
     regex::RegexMatcherBuilder,
@@ -12,7 +12,7 @@ use grep::{
 };
 use indicatif::ProgressBar;
 
-use crate::{db::APT_LIST_DISTS, download::oma_spinner, utils::get_arch_name};
+use crate::{db::APT_LIST_DISTS, download::oma_spinner, ARCH};
 
 use serde::Deserialize;
 
@@ -46,7 +46,7 @@ struct MatchValue {
 }
 
 pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>> {
-    let arch = get_arch_name().context("Can not get ARCH!")?;
+    let arch = ARCH.get().unwrap();
     let kw = if Path::new(kw).is_absolute() {
         kw.strip_prefix('/').unwrap()
     } else {

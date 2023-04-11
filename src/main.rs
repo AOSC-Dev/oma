@@ -6,11 +6,11 @@ use anyhow::Result;
 use cli::Writer;
 use indicatif::MultiProgress;
 use nix::sys::signal;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use time::macros::offset;
 use time::{OffsetDateTime, UtcOffset};
-use utils::unlock_oma;
+use utils::{get_arch_name, unlock_oma};
 
 use crate::cli::CommandMatcher;
 use crate::cli::OmaCommandRunner;
@@ -39,6 +39,8 @@ static TIME_OFFSET: Lazy<UtcOffset> =
 static ARGS: Lazy<String> = Lazy::new(|| std::env::args().collect::<Vec<_>>().join(" "));
 static MB: Lazy<Arc<MultiProgress>> = Lazy::new(|| Arc::new(MultiProgress::new()));
 
+static ARCH: OnceCell<String> = OnceCell::new();
+
 fn main() {
     // 初始化时区偏移量，这个操作不能在多线程环境下运行
     let _ = *TIME_OFFSET;
@@ -61,6 +63,8 @@ fn main() {
 }
 
 fn try_main() -> Result<()> {
+    let _ = ARCH.get_or_try_init(get_arch_name)?;
+
     OmaCommandRunner::new().run()?;
     tracing::info!("Running oma with args: {}", *ARGS);
 
