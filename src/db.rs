@@ -20,8 +20,7 @@ use xz2::read::XzDecoder;
 use crate::{
     checksum::Checksum,
     download::{download, oma_spinner, oma_style_pb, OmaProgressBar},
-    error, info, success,
-    verify, warn, MB, ARCH,
+    error, info, success, verify, warn, ARCH, MB,
 };
 
 use std::sync::atomic::Ordering;
