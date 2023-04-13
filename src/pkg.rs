@@ -500,7 +500,7 @@ pub fn mark_install(
         pkg.mark_install(true, true);
         if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
             // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-            let fined = find_unmet_deps_with_markinstall(cache, &ver)?;
+            let fined = find_unmet_deps_with_markinstall(cache, &ver, true)?;
             if fined {
                 bail!("")
             } else {

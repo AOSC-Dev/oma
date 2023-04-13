@@ -245,7 +245,11 @@ pub struct UnmetTable {
     pub specified_dependency: String,
 }
 
-pub fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> Result<bool> {
+pub fn find_unmet_deps_with_markinstall(
+    cache: &Cache,
+    ver: &Version,
+    use_page: bool,
+) -> Result<bool> {
     let dep = ver.get_depends(&DepType::Depends);
     let pdep = ver.get_depends(&DepType::PreDepends);
 
@@ -312,31 +316,41 @@ pub fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> Result<
     }
 
     if !v.is_empty() {
-        let mut pager = Pager::new(false, false)?;
-        let mut out = pager.get_writer()?;
+        if use_page {
+            let mut pager = Pager::new(false, false)?;
+            let mut out = pager.get_writer()?;
 
-        let mut table = Table::new(&v);
+            let mut table = Table::new(&v);
 
-        table
-            .with(Modify::new(Segment::all()).with(Alignment::left()))
-            .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
-            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
-            .with(Style::psql());
+            table
+                .with(Modify::new(Segment::all()).with(Alignment::left()))
+                .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
+                .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
+                .with(Style::psql());
 
-        write_dep_issue_msg(&mut out).ok();
+            write_dep_issue_msg(&mut out).ok();
 
-        writeln!(
-            out,
-            "{} package(s) has {}\n",
-            v.len(),
-            style("unmet dependencies:").red().bold()
-        )
-        .ok();
+            writeln!(
+                out,
+                "{} package(s) has {}\n",
+                v.len(),
+                style("unmet dependencies:").red().bold()
+            )
+            .ok();
 
-        writeln!(out, "{table}").ok();
+            writeln!(out, "{table}").ok();
 
-        drop(out);
-        pager.wait_for_exit().ok();
+            drop(out);
+            pager.wait_for_exit().ok();
+        } else {
+            for i in &v {
+                warn!(
+                    "Pkg {} {}",
+                    i.specified_dependency,
+                    i.unmet_dependency.to_ascii_lowercase()
+                );
+            }
+        }
     }
 
     Ok(!v.is_empty())
