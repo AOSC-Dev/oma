@@ -9,12 +9,12 @@ use std::{
 
 use console::style;
 use futures::StreamExt;
-use tokio::{runtime::Runtime, task::spawn_blocking};
+use tokio::{io::AsyncReadExt, runtime::Runtime, task::spawn_blocking};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use reqwest::Client;
-use tokio::{fs, io::AsyncWriteExt};
+use reqwest::{header, Client, StatusCode};
+use tokio::io::AsyncWriteExt;
 
 use crate::{
     checksum::Checksum, cli::gen_prefix, db::DOWNLOAD_DIR, error, info, oma::InstallRow, success,
@@ -76,38 +76,70 @@ async fn try_download(
     download_dir: &Path,
 ) -> Result<()> {
     let mut all_is_err = true;
+    let mut retry = 0;
     for (i, c) in urls.iter().enumerate() {
-        if let Err(e) = download(
-            c,
-            client,
-            filename.to_string(),
-            download_dir,
-            Some(&hash),
-            opb.clone(),
-        )
-        .await
-        {
-            let mut s = format!("{e}");
-            if i < urls.len() - 1 {
-                s += ", try next url to download this package ...";
-            }
-            if let Some(ref gpb) = opb.global_bar {
-                gpb.println(format!(
-                    "{}{s}",
-                    if i < urls.len() - 1 {
-                        gen_prefix(&style("WARNING").yellow().bold().to_string())
-                    } else {
-                        gen_prefix(&style("ERROR").red().bold().to_string())
+        let mut allow_resule = true;
+        loop {
+            if let Err(e) = download(
+                c,
+                client,
+                filename.to_string(),
+                download_dir,
+                Some(&hash),
+                opb.clone(),
+                allow_resule,
+            )
+            .await
+            {
+                match e {
+                    DownloadError::ChecksumMisMatch => {
+                        allow_resule = false;
+                        if retry == 3 {
+                            break;
+                        }
+                        let s = format!("Checksum mismatch, retry {retry} times ...");
+                        if let Some(ref gpb) = opb.global_bar {
+                            gpb.println(format!(
+                                "{}{s}",
+                                if i < urls.len() - 1 {
+                                    gen_prefix(&style("WARNING").yellow().bold().to_string())
+                                } else {
+                                    gen_prefix(&style("ERROR").red().bold().to_string())
+                                }
+                            ));
+                        } else if i < urls.len() - 1 {
+                            warn!("{s}");
+                        } else {
+                            error!("{s}");
+                        }
+                        retry += 1;
                     }
-                ));
-            } else if i < urls.len() - 1 {
-                warn!("{s}");
+                    _ => {
+                        let mut s = format!("{e}");
+                        if i < urls.len() - 1 {
+                            s += ", try next url to download this package ...";
+                        }
+                        if let Some(ref gpb) = opb.global_bar {
+                            gpb.println(format!(
+                                "{}{s}",
+                                if i < urls.len() - 1 {
+                                    gen_prefix(&style("WARNING").yellow().bold().to_string())
+                                } else {
+                                    gen_prefix(&style("ERROR").red().bold().to_string())
+                                }
+                            ));
+                        } else if i < urls.len() - 1 {
+                            warn!("{s}");
+                        } else {
+                            error!("{s}");
+                        }
+                        break;
+                    }
+                }
             } else {
-                error!("{s}");
+                all_is_err = false;
+                break;
             }
-        } else {
-            all_is_err = false;
-            break;
         }
     }
 
@@ -251,6 +283,22 @@ impl OmaProgressBar {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum DownloadError {
+    #[error("checksum mismatch")]
+    ChecksumMisMatch,
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
+    #[error(transparent)]
+    JoinError(#[from] tokio::task::JoinError),
+    #[error(transparent)]
+    IOError(#[from] tokio::io::Error),
+    #[error(transparent)]
+    SendRequestError(#[from] reqwest::Error),
+}
+
+type DownloadResult<T> = std::result::Result<T, DownloadError>;
+
 /// Download file
 pub async fn download(
     url: &str,
@@ -259,10 +307,19 @@ pub async fn download(
     dir: &Path,
     hash: Option<&str>,
     opb: OmaProgressBar,
-) -> Result<()> {
+    allow_resume: bool,
+) -> DownloadResult<()> {
     let file = dir.join(&filename);
 
-    if file.exists() {
+    let mut dest = tokio::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(&file)
+        .await?;
+
+    let mut file_size = if file.exists() {
+        let mut file_size = 0;
         if let Some(hash) = hash {
             let hash = hash.to_owned();
             let file_clone = file.clone();
@@ -272,16 +329,24 @@ pub async fn download(
             })
             .await??;
 
+            // file_size = file.metadata()?.len();
+
+            let mut buf = vec![];
+            dest.read_to_end(&mut buf).await?;
+            file_size = buf.len();
+
             if result {
                 if let Some(ref global_bar) = opb.global_bar {
-                    let f = tokio::fs::File::open(file).await?;
-                    let total_size = f.metadata().await?.len();
-                    global_bar.inc(total_size);
+                    global_bar.inc(file_size as u64);
                 }
                 return Ok(());
             }
         }
-    }
+
+        file_size
+    } else {
+        0
+    };
 
     let is_send = Arc::new(AtomicBool::new(false));
     let is_send_clone = is_send.clone();
@@ -322,18 +387,33 @@ pub async fn download(
         pb.finish_and_clear();
     });
 
-    let (total_size, resp) = {
-        let resp = client.get(url).send().await?;
+    let (total_size, resp, can_resume) = {
+        let mut resp = client.get(url);
+
+        if allow_resume && file_size != 0 {
+            resp = resp.header(header::RANGE, format!("bytes={}-", file_size));
+        }
+
+        let resp = resp.send().await?;
         if resp.status().is_success() {
+            let can_resume = match resp.status() {
+                StatusCode::PARTIAL_CONTENT => true,
+                _ => false,
+            };
+
             is_send_clone.store(true, Ordering::Relaxed);
-            (resp.content_length().unwrap_or(0), resp)
+            (
+                resp.content_length().unwrap_or(0) + file_size as u64,
+                resp,
+                can_resume,
+            )
         } else {
             is_send_clone.store(true, Ordering::Relaxed);
-            return Err(anyhow!(
+            return Err(DownloadError::Anyhow(anyhow!(
                 "Couldn't download URL: {}. Error: {:?}",
                 url,
                 resp.status(),
-            ));
+            )));
         }
     };
 
@@ -357,9 +437,20 @@ pub async fn download(
 
     let mut source = resp;
 
-    let mut dest = fs::File::create(&file).await?;
-    while let Some(chunk) = source.chunk().await? {
-        dest.write_all(&chunk).await?;
+    if !can_resume || !allow_resume {
+        file_size = 0;
+        dest.set_len(0).await?;
+        dest.flush().await?;
+    }
+
+    pb.inc(file_size as u64);
+
+    if let Some(ref global_bar) = opb.global_bar {
+        global_bar.inc(file_size as u64);
+    }
+
+    while let Some(mut chunk) = source.chunk().await? {
+        dest.write_all(&mut chunk).await?;
         pb.inc(chunk.len() as u64);
 
         if let Some(ref global_bar) = opb.global_bar {
@@ -379,9 +470,7 @@ pub async fn download(
         .await??;
 
         if !result {
-            return Err(anyhow!(
-                "Url: {url} checksum mismatch! Please check your network connection!"
-            ));
+            return Err(DownloadError::ChecksumMisMatch);
         }
     }
 

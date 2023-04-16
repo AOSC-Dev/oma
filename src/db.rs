@@ -103,6 +103,7 @@ async fn download_db(
         &APT_LIST_DISTS,
         None,
         opb,
+        false
     )
     .await?;
 
