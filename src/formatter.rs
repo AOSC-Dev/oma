@@ -14,8 +14,11 @@ use rust_apt::{
     },
 };
 use tabled::{
-    object::{Columns, Segment},
-    Alignment, Modify, Style, Table, Tabled,
+    settings::{
+        object::{Columns, Segment},
+        Alignment, Format, Modify, Style,
+    },
+    Table, Tabled,
 };
 
 use std::cmp::Ordering as CmpOrdering;
@@ -325,8 +328,8 @@ pub fn find_unmet_deps_with_markinstall(
             table
                 .with(Modify::new(Segment::all()).with(Alignment::left()))
                 .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
-                .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
-                .with(Style::psql());
+                .with(Style::psql())
+                .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
             write_dep_issue_msg(&mut out).ok();
 
@@ -400,8 +403,8 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
             .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
-            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
-            .with(Style::psql());
+            .with(Style::psql())
+            .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
         write_dep_issue_msg(&mut out)?;
 
@@ -820,8 +823,8 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(Alignment::left()))
             // Install Size column should align right
             .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
-            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
-            .with(Style::psql());
+            .with(Style::psql())
+            .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
         writeln!(out, "{table}\n\n").ok();
     }
@@ -840,8 +843,8 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(Alignment::left()))
             // Install Size column should align right
             .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
-            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
-            .with(Style::psql());
+            .with(Style::psql())
+            .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
         writeln!(out, "{table}\n\n").ok();
     }
@@ -860,8 +863,8 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(Alignment::left()))
             // Install Size column should align right
             .with(Modify::new(Columns::new(1..2)).with(Alignment::right()))
-            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
-            .with(Style::psql());
+            .with(Style::psql())
+            .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
         writeln!(out, "{table}\n\n").ok();
     }
@@ -880,8 +883,8 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
             .with(Modify::new(Segment::all()).with(Alignment::left()))
             // Install Size column should align right
             .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
-            .with(Modify::new(Segment::all()).with(|s: &str| format!(" {s} ")))
-            .with(Style::psql());
+            .with(Style::psql())
+            .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
         writeln!(out, "{table}\n\n").ok();
     }

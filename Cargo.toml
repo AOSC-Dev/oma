@@ -14,11 +14,11 @@ rust-apt = { git = "https://gitlab.com/volian/rust-apt", rev = "c6d099ca50da3d3d
 # Cli
 clap = { version = "4.2", features = ["cargo", "wrap_help",] }
 dialoguer = "0.10"
-tabled = { version = "0.10", features = ["color"] }
+tabled = { version = "0.11", features = ["color"] }
 indicatif = "0.17"
 console = "0.15"
 # For Database, Packages Download
-reqwest = {version = "0.11", features = ["stream"] }
+reqwest = "0.11"
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
 futures = "0.3"
 futures-util = "0.3"
