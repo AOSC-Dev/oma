@@ -5,7 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.27.0 (2023-04-17)
+
+### Chore
+
+ - <csr-id-2883bb6ce4412d1672a1cc0d07a43b83adb37d92/> update all deps
+
+### New Features
+
+ - <csr-id-5fa8c3c2e370387cc4476f542b4470e1b93d46e5/> allow resume exist download package progress
+ - <csr-id-ce8f8ad24ec83ec92444b324384c9f1ae4cde65e/> fetch un-compress database file in mips64r6el arch
+   ... In mips64r6el (preformance like 486) machine, decompressing the files is a huge ordeal, so to protect our boston, only the uncompressed database files are downloaded here
+
+### Bug Fixes
+
+ - <csr-id-fe808ba0545c0daa6140fadd97b6aed4ac68a5f0/> download failed reset wrong progress bar status
+
+### Style
+
+ - <csr-id-c2ce36d0d83cf107430bd41cc6eaadbab96c535e/> use cargo-clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 3 calendar days.
+ - 4 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`2883bb6`](https://github.com/AOSC-Dev/aoscpt/commit/2883bb6ce4412d1672a1cc0d07a43b83adb37d92))
+    - Use cargo-clippy to lint code ([`c2ce36d`](https://github.com/AOSC-Dev/aoscpt/commit/c2ce36d0d83cf107430bd41cc6eaadbab96c535e))
+    - Download failed reset wrong progress bar status ([`fe808ba`](https://github.com/AOSC-Dev/aoscpt/commit/fe808ba0545c0daa6140fadd97b6aed4ac68a5f0))
+    - Allow resume exist download package progress ([`5fa8c3c`](https://github.com/AOSC-Dev/aoscpt/commit/5fa8c3c2e370387cc4476f542b4470e1b93d46e5))
+    - Fetch un-compress database file in mips64r6el arch ([`ce8f8ad`](https://github.com/AOSC-Dev/aoscpt/commit/ce8f8ad24ec83ec92444b324384c9f1ae4cde65e))
+</details>
+
 ## v0.26.0 (2023-04-13)
+
+<csr-id-151f5495c66feaf24d223d46c2083c85ffd3cd65/>
+<csr-id-5dbd68f501cb6a5b4ce1c588ef7bc915a17224b0/>
+<csr-id-0491219d475d705035f8c7ed26fc51a92408a8fa/>
 
 ### Chore
 
@@ -34,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 7 commits contributed to the release over the course of 2 calendar days.
+ - 8 commits contributed to the release over the course of 2 calendar days.
  - 2 days passed between releases.
  - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -46,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.26.0 ([`1ac82ed`](https://github.com/AOSC-Dev/aoscpt/commit/1ac82ede5fd89c57344059a9927b176d4cf41280))
     - Update all deps ([`151f549`](https://github.com/AOSC-Dev/aoscpt/commit/151f5495c66feaf24d223d46c2083c85ffd3cd65))
     - Use cargo-fmt to format code ([`0491219`](https://github.com/AOSC-Dev/aoscpt/commit/0491219d475d705035f8c7ed26fc51a92408a8fa))
     - Add upgradable check unmet dependency ([`b011846`](https://github.com/AOSC-Dev/aoscpt/commit/b011846954e879660edb92cae9279d7fb7742ea3))
