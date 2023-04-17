@@ -4,12 +4,12 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration,
+    time::Duration, io::SeekFrom,
 };
 
 use console::style;
 use futures::StreamExt;
-use tokio::{io::AsyncReadExt, runtime::Runtime, task::spawn_blocking};
+use tokio::{io::{AsyncReadExt, AsyncSeekExt}, runtime::Runtime, task::spawn_blocking};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -76,7 +76,7 @@ async fn try_download(
     download_dir: &Path,
 ) -> Result<()> {
     let mut all_is_err = true;
-    let mut retry = 0;
+    let mut retry = 1;
     for (i, c) in urls.iter().enumerate() {
         let mut allow_resule = true;
         loop {
@@ -97,7 +97,7 @@ async fn try_download(
                         if retry == 3 {
                             break;
                         }
-                        let s = format!("Checksum mismatch, retry {retry} times ...");
+                        let s = format!("{c} checksum mismatch, retry {retry} times ...");
                         if let Some(ref gpb) = opb.global_bar {
                             gpb.println(format!(
                                 "{}{s}",
@@ -401,9 +401,15 @@ pub async fn download(
                 _ => false,
             };
 
+            let length = if allow_resume {
+                resp.content_length().unwrap_or(0) + file_size as u64
+            } else {
+                resp.content_length().unwrap_or(0) 
+            };
+
             is_send_clone.store(true, Ordering::Relaxed);
             (
-                resp.content_length().unwrap_or(0) + file_size as u64,
+                length,
                 resp,
                 can_resume,
             )
@@ -439,7 +445,7 @@ pub async fn download(
 
     if !can_resume || !allow_resume {
         file_size = 0;
-        dest.set_len(0).await?;
+        dest.seek(SeekFrom::Start(0)).await?;
         dest.flush().await?;
     }
 
@@ -470,6 +476,10 @@ pub async fn download(
         .await??;
 
         if !result {
+            if let Some(ref global_bar) = opb.global_bar {
+                global_bar.set_position(global_bar.position() - pb.position());
+            }
+            pb.reset();
             return Err(DownloadError::ChecksumMisMatch);
         }
     }
