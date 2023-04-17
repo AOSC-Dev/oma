@@ -1,15 +1,20 @@
 use std::{
+    io::SeekFrom,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration, io::SeekFrom,
+    time::Duration,
 };
 
 use console::style;
 use futures::StreamExt;
-use tokio::{io::{AsyncReadExt, AsyncSeekExt}, runtime::Runtime, task::spawn_blocking};
+use tokio::{
+    io::{AsyncReadExt, AsyncSeekExt},
+    runtime::Runtime,
+    task::spawn_blocking,
+};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -396,23 +401,16 @@ pub async fn download(
 
         let resp = resp.send().await?;
         if resp.status().is_success() {
-            let can_resume = match resp.status() {
-                StatusCode::PARTIAL_CONTENT => true,
-                _ => false,
-            };
+            let can_resume = matches!(resp.status(), StatusCode::PARTIAL_CONTENT);
 
             let length = if allow_resume {
                 resp.content_length().unwrap_or(0) + file_size as u64
             } else {
-                resp.content_length().unwrap_or(0) 
+                resp.content_length().unwrap_or(0)
             };
 
             is_send_clone.store(true, Ordering::Relaxed);
-            (
-                length,
-                resp,
-                can_resume,
-            )
+            (length, resp, can_resume)
         } else {
             is_send_clone.store(true, Ordering::Relaxed);
             return Err(DownloadError::Anyhow(anyhow!(
@@ -455,8 +453,8 @@ pub async fn download(
         global_bar.inc(file_size as u64);
     }
 
-    while let Some(mut chunk) = source.chunk().await? {
-        dest.write_all(&mut chunk).await?;
+    while let Some(chunk) = source.chunk().await? {
+        dest.write_all(&chunk).await?;
         pb.inc(chunk.len() as u64);
 
         if let Some(ref global_bar) = opb.global_bar {

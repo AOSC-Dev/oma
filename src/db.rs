@@ -103,7 +103,7 @@ async fn download_db(
         &APT_LIST_DISTS,
         None,
         opb,
-        false
+        false,
     )
     .await?;
 
@@ -483,15 +483,12 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
         } else {
             let mut handle = vec![];
             for i in &checksums {
-                if (i.file_type == DistFileType::CompressPackageList
+                if ((i.file_type == DistFileType::CompressPackageList
                     || i.file_type == DistFileType::CompressContents)
-                    && ARCH.get() != Some(&"mips64r6el".to_string())
-                {
-                    handle.push(i);
-                    total += i.size;
-                } else if ARCH.get() == Some(&"mips64r6el".to_string())
-                    && (i.file_type == DistFileType::PackageList
-                        || i.file_type == DistFileType::Contents)
+                    && ARCH.get() != Some(&"mips64r6el".to_string()))
+                    || (ARCH.get() == Some(&"mips64r6el".to_string())
+                        && (i.file_type == DistFileType::PackageList
+                            || i.file_type == DistFileType::Contents))
                 {
                     handle.push(i);
                     total += i.size;
