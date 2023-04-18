@@ -643,11 +643,7 @@ impl Oma {
         packages_download_runner(&self.runtime, &downloads, &self.client, None, Some(path))?;
 
         success!(
-            "Successfully downloaded packages: {:?} to path: {}",
-            downloads
-                .iter()
-                .map(|x| x.name_no_color.to_string())
-                .collect::<Vec<_>>(),
+            "Successfully downloaded some packages to path: {}",
             path.canonicalize()?.display()
         );
 
