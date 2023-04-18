@@ -499,6 +499,7 @@ impl Oma {
 
         if len == 0 && !needs_fix_system(&cache) {
             info!("No need to do anything");
+            return Ok(());
         }
 
         let mut list = action.install.clone();
