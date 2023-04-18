@@ -654,10 +654,26 @@ impl Oma {
         let pkgs = opt.packages.clone().unwrap_or_default();
         let cache = install_handle(&pkgs, opt.install_dbg, opt.reinstall)?;
 
+        let needs_fix_status = {
+            let mut res = false;
+            let sort = PackageSort::default().installed();
+            let pkgs = cache.packages(&sort);
+
+            for pkg in pkgs {
+                if pkg.current_state() != 6 {
+                    res = true;
+                    break;
+                }
+            }
+
+            res
+        };
+
         let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false, true)?;
 
-        if len == 0 {
+        if len == 0 && !needs_fix_status {
             success!("No need to do anything.");
+            return Ok(action);
         }
 
         let mut list = vec![];
