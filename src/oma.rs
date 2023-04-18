@@ -644,7 +644,7 @@ impl Oma {
 
         success!(
             "Successfully downloaded some packages to path: {}",
-            path.canonicalize()?.display()
+            path.canonicalize().unwrap_or(path.to_path_buf()).display()
         );
 
         Ok(())
