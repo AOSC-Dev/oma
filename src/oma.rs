@@ -150,8 +150,9 @@ impl Oma {
 
             let (action, len) = apt_handler(&cache, false, u.force_yes, false, u.no_autoremove)?;
 
-            if len == 0 {
+            if len == 0 && !needs_fix_system(&cache) {
                 success!("No need to do anything.");
+                return Ok(action);
             }
 
             let mut list = action.update.clone();
@@ -496,7 +497,7 @@ impl Oma {
 
         let (action, len) = apt_handler(&cache, false, false, false, false)?;
 
-        if len == 0 {
+        if len == 0 && !needs_fix_system(&cache) {
             info!("No need to do anything");
         }
 
@@ -654,28 +655,9 @@ impl Oma {
         let pkgs = opt.packages.clone().unwrap_or_default();
         let cache = install_handle(&pkgs, opt.install_dbg, opt.reinstall)?;
 
-        let needs_fix_status = {
-            let mut res = false;
-            let sort = PackageSort::default().installed();
-            let pkgs = cache.packages(&sort);
-
-            for pkg in pkgs {
-                // current_state 的定义来自 apt 的源码:
-                //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
-	            //    HalfInstalled=4,ConfigFiles=5,Installed=6,
-                //    TriggersAwaited=7,TriggersPending=8};
-                if pkg.current_state() != 6 {
-                    res = true;
-                    break;
-                }
-            }
-
-            res
-        };
-
         let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false, true)?;
 
-        if len == 0 && !needs_fix_status {
+        if len == 0 && !needs_fix_system(&cache) {
             success!("No need to do anything.");
             return Ok(action);
         }
@@ -1124,6 +1106,23 @@ impl Oma {
 
         Ok(())
     }
+}
+
+fn needs_fix_system(cache: &Cache) -> bool {
+    let sort = PackageSort::default().installed();
+    let pkgs = cache.packages(&sort);
+
+    for pkg in pkgs {
+        // current_state 的定义来自 apt 的源码:
+        //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
+        //    HalfInstalled=4,ConfigFiles=5,Installed=6,
+        //    TriggersAwaited=7,TriggersPending=8};
+        if pkg.current_state() != 6 {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
