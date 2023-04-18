@@ -660,7 +660,7 @@ impl Oma {
             let pkgs = cache.packages(&sort);
 
             for pkg in pkgs {
-                // current_state 的定义 apt:
+                // current_state 的定义来自 apt 的源码:
                 //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
 	            //    HalfInstalled=4,ConfigFiles=5,Installed=6,
                 //    TriggersAwaited=7,TriggersPending=8};
