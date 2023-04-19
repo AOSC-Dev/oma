@@ -5,15 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.28.2 (2023-04-19)
+## v0.29.0 (2023-04-19)
 
 ### New Features
 
- - <csr-id-71e0267e96cf3fd1bca19930ee4cb1f066dd2ea2/> command-not-found do not display progress spinner
+ - <csr-id-1fd75d92d95db04209a3216a00bb02c6b1d99de4/> sort oma search order, UPGRADE > AVAIL > INSTALLED
 
-### Style
+### Refactor
 
- - <csr-id-55acee4afd11e703deb204fadda2c0e9bb179aee/> lint code use myself brain and cargo-clippy
+ - <csr-id-8507728ae35419300d29fecea98f88ffca95dec8/> use trait to get prefix string
 
 ### Commit Statistics
 
@@ -30,6 +30,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Use trait to get prefix string ([`8507728`](https://github.com/AOSC-Dev/oma/commit/8507728ae35419300d29fecea98f88ffca95dec8))
+    - Sort oma search order, UPGRADE > AVAIL > INSTALLED ([`1fd75d9`](https://github.com/AOSC-Dev/oma/commit/1fd75d92d95db04209a3216a00bb02c6b1d99de4))
+</details>
+
+## v0.28.2 (2023-04-19)
+
+<csr-id-55acee4afd11e703deb204fadda2c0e9bb179aee/>
+
+### New Features
+
+ - <csr-id-71e0267e96cf3fd1bca19930ee4cb1f066dd2ea2/> command-not-found do not display progress spinner
+
+### Style
+
+ - <csr-id-55acee4afd11e703deb204fadda2c0e9bb179aee/> lint code use myself brain and cargo-clippy
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Bump oma v0.28.2 ([`a64057b`](https://github.com/AOSC-Dev/oma/commit/a64057b13ee959091351f4b70eb8428b2dc71543))
     - Lint code use myself brain and cargo-clippy ([`55acee4`](https://github.com/AOSC-Dev/oma/commit/55acee4afd11e703deb204fadda2c0e9bb179aee))
     - Command-not-found do not display progress spinner ([`71e0267`](https://github.com/AOSC-Dev/oma/commit/71e0267e96cf3fd1bca19930ee4cb1f066dd2ea2))
 </details>
