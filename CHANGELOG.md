@@ -5,15 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.28.1 (2023-04-19)
+## v0.28.2 (2023-04-19)
 
-### Chore
+### New Features
 
- - <csr-id-cf50ed1f0cc0eb96e17c387a7f1bec80deb65371/> update all deps
+ - <csr-id-71e0267e96cf3fd1bca19930ee4cb1f066dd2ea2/> command-not-found do not display progress spinner
 
-### Bug Fixes
+### Style
 
- - <csr-id-f140377d12c0f06e533f77485f4b82889d434c24/> fix-broken no need to do anything useless to run apt_install method
+ - <csr-id-55acee4afd11e703deb204fadda2c0e9bb179aee/> lint code use myself brain and cargo-clippy
 
 ### Commit Statistics
 
@@ -30,6 +30,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Lint code use myself brain and cargo-clippy ([`55acee4`](https://github.com/AOSC-Dev/oma/commit/55acee4afd11e703deb204fadda2c0e9bb179aee))
+    - Command-not-found do not display progress spinner ([`71e0267`](https://github.com/AOSC-Dev/oma/commit/71e0267e96cf3fd1bca19930ee4cb1f066dd2ea2))
+</details>
+
+## v0.28.1 (2023-04-19)
+
+<csr-id-cf50ed1f0cc0eb96e17c387a7f1bec80deb65371/>
+
+### Chore
+
+ - <csr-id-cf50ed1f0cc0eb96e17c387a7f1bec80deb65371/> update all deps
+
+### Bug Fixes
+
+ - <csr-id-f140377d12c0f06e533f77485f4b82889d434c24/> fix-broken no need to do anything useless to run apt_install method
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Bump oma v0.28.1 ([`850560b`](https://github.com/AOSC-Dev/oma/commit/850560bdc9a091f5a320876fd0264b54dcb042ad))
     - Update all deps ([`cf50ed1`](https://github.com/AOSC-Dev/oma/commit/cf50ed1f0cc0eb96e17c387a7f1bec80deb65371))
     - Fix-broken no need to do anything useless to run apt_install method ([`f140377`](https://github.com/AOSC-Dev/oma/commit/f140377d12c0f06e533f77485f4b82889d434c24))
 </details>
