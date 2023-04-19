@@ -5,7 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.28.1 (2023-04-19)
+
+### Chore
+
+ - <csr-id-cf50ed1f0cc0eb96e17c387a7f1bec80deb65371/> update all deps
+
+### Bug Fixes
+
+ - <csr-id-f140377d12c0f06e533f77485f4b82889d434c24/> fix-broken no need to do anything useless to run apt_install method
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`cf50ed1`](https://github.com/AOSC-Dev/oma/commit/cf50ed1f0cc0eb96e17c387a7f1bec80deb65371))
+    - Fix-broken no need to do anything useless to run apt_install method ([`f140377`](https://github.com/AOSC-Dev/oma/commit/f140377d12c0f06e533f77485f4b82889d434c24))
+</details>
+
 ## v0.28.0 (2023-04-18)
+
+<csr-id-5fb2dc434dae4b7d4856b044f62b404c22560d69/>
+<csr-id-7ac3114e8503b5e5127956bc8992012a59a9e30b/>
 
 ### Chore
 
@@ -31,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 8 commits contributed to the release.
+ - 9 commits contributed to the release.
  - 8 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -42,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.28.0 ([`e69fcb6`](https://github.com/AOSC-Dev/oma/commit/e69fcb677009026984ba2fb67eb5708328fd8bea))
     - Update h2 to v0.3.18 ([`5fb2dc4`](https://github.com/AOSC-Dev/oma/commit/5fb2dc434dae4b7d4856b044f62b404c22560d69))
     - Check system needs fix status in oma {upgrade,fix-brokeen} ([`8d080aa`](https://github.com/AOSC-Dev/oma/commit/8d080aa9d17f798ede44aaf6d2458ea3b1559de6))
     - Afixcurrent_state comment a typo ([`d8a38a3`](https://github.com/AOSC-Dev/oma/commit/d8a38a37cd1b9afc1742d40e11a7e7bcd842c1c5))
