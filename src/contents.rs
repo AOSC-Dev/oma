@@ -135,11 +135,11 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                         if let Some(submatches) = submatches {
                             count += 1;
 
-                            pb.as_ref().map(|x| {
+                            if let Some(x) = pb.as_ref() {
                                 x.set_message(format!(
                                     "Searching, found {count} results so far ..."
                                 ))
-                            });
+                            }
 
                             for j in submatches {
                                 let m = j.m.text;
@@ -168,7 +168,9 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
             bail!("rg return not-zero code!");
         }
 
-        pb.map(|x| x.finish_and_clear());
+        if let Some(x) = pb {
+            x.finish_and_clear()
+        }
 
         res
     } else {
