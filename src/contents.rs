@@ -88,8 +88,13 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
     let mut res = if which::which("rg").is_ok() {
         let mut res = vec![];
 
-        let pb = ProgressBar::new_spinner();
-        oma_spinner(&pb);
+        let pb = if !cnf {
+            let pb = ProgressBar::new_spinner();
+            oma_spinner(&pb);
+            Some(pb)
+        } else {
+            None
+        };
 
         let mut cmd = Command::new("rg")
             .arg("--json")
@@ -129,7 +134,13 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                         let submatches = data.submatches;
                         if let Some(submatches) = submatches {
                             count += 1;
-                            pb.set_message(format!("Searching, found {count} results so far ..."));
+
+                            pb.as_ref().map(|x| {
+                                x.set_message(format!(
+                                    "Searching, found {count} results so far ..."
+                                ))
+                            });
+
                             for j in submatches {
                                 let m = j.m.text;
                                 if let Some(l) = parse_line(&m, is_list, kw) {
@@ -157,7 +168,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
             bail!("rg return not-zero code!");
         }
 
-        pb.finish_and_clear();
+        pb.map(|x| x.finish_and_clear());
 
         res
     } else {
