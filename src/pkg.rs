@@ -8,7 +8,12 @@ use rust_apt::{
     raw::package::{RawPackage, RawVersion},
     records::RecordField,
 };
-use std::{collections::HashMap, fmt::Write, path::Path, sync::atomic::Ordering};
+use std::{
+    collections::HashMap,
+    fmt::{Display, Write},
+    path::Path,
+    sync::atomic::Ordering,
+};
 
 use crate::{
     cli::gen_prefix, formatter::find_unmet_deps_with_markinstall, info, pager::Pager,
@@ -323,10 +328,20 @@ impl OmaDependency {
 }
 
 #[derive(PartialEq, Eq, Debug)]
-enum SearchType {
+enum PackageStatus {
     Avail,
     Installed,
     Upgrade,
+}
+
+impl Display for PackageStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PackageStatus::Avail => write!(f, "{}", style("AVAIL").dim()),
+            PackageStatus::Installed => write!(f, "{}", style("INSTALLED").green()),
+            PackageStatus::Upgrade => write!(f, "{}", style("UPGRADE").yellow()),
+        }
+    }
 }
 
 pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
@@ -400,15 +415,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let mut output = vec![];
 
     for (pkg, installed, upgradable, _) in res {
-        let (t, prefix) = if installed {
-            (
-                SearchType::Installed,
-                style("INSTALLED").green().to_string(),
-            )
+        let prefix = if installed {
+            PackageStatus::Installed
         } else if upgradable {
-            (SearchType::Upgrade, style("UPGRADE").yellow().to_string())
+            PackageStatus::Upgrade
         } else {
-            (SearchType::Avail, style("AVAIL").dim().to_string())
+            PackageStatus::Avail
         };
 
         let mut pkg_info_line = if pkg.section == Some("Bases".to_owned()) {
@@ -438,7 +450,6 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         }
 
         output.push((
-            t,
             prefix,
             pkg_info_line,
             pkg.description.unwrap_or("".to_owned()),
@@ -446,30 +457,30 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     }
 
     if output.len() * 2 <= height.into() {
-        for (t, prefix, line, desc) in &output {
-            match t {
-                SearchType::Upgrade => {
-                    crate::WRITER.writeln(prefix, line)?;
+        for (prefix, line, desc) in &output {
+            match prefix {
+                PackageStatus::Upgrade => {
+                    crate::WRITER.writeln(&prefix.to_string(), line)?;
                     crate::WRITER.writeln("", desc)?;
                 }
                 _ => continue,
             }
         }
 
-        for (t, prefix, line, desc) in &output {
-            match t {
-                SearchType::Avail => {
-                    crate::WRITER.writeln(prefix, line)?;
+        for (prefix, line, desc) in &output {
+            match prefix {
+                PackageStatus::Avail => {
+                    crate::WRITER.writeln(&prefix.to_string(), line)?;
                     crate::WRITER.writeln("", desc)?;
                 }
                 _ => continue,
             }
         }
 
-        for (t, prefix, line, desc) in &output {
-            match t {
-                SearchType::Installed => {
-                    crate::WRITER.writeln(prefix, line)?;
+        for (prefix, line, desc) in &output {
+            match prefix {
+                PackageStatus::Installed => {
+                    crate::WRITER.writeln(&prefix.to_string(), line)?;
                     crate::WRITER.writeln("", desc)?;
                 }
                 _ => continue,
@@ -481,30 +492,30 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
-        for (t, prefix, line, desc) in &output {
-            match t {
-                SearchType::Upgrade => {
-                    writeln!(out, "{}{line}", gen_prefix(prefix)).ok();
+        for (prefix, line, desc) in &output {
+            match prefix {
+                PackageStatus::Upgrade => {
+                    writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
                     writeln!(out, "{}{desc}", gen_prefix("")).ok();
                 }
                 _ => continue,
             }
         }
 
-        for (t, prefix, line, desc) in &output {
-            match t {
-                SearchType::Avail => {
-                    writeln!(out, "{}{line}", gen_prefix(prefix)).ok();
+        for (prefix, line, desc) in &output {
+            match prefix {
+                PackageStatus::Avail => {
+                    writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
                     writeln!(out, "{}{desc}", gen_prefix("")).ok();
                 }
                 _ => continue,
             }
         }
 
-        for (t, prefix, line, desc) in &output {
-            match t {
-                SearchType::Installed => {
-                    writeln!(out, "{}{line}", gen_prefix(prefix)).ok();
+        for (prefix, line, desc) in &output {
+            match prefix {
+                PackageStatus::Installed => {
+                    writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
                     writeln!(out, "{}{desc}", gen_prefix("")).ok();
                 }
                 _ => continue,
