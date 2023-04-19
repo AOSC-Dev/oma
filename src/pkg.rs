@@ -322,6 +322,13 @@ impl OmaDependency {
     }
 }
 
+#[derive(PartialEq, Eq, Debug)]
+enum SearchType {
+    Avail,
+    Installed,
+    Upgrade,
+}
+
 pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let sort = PackageSort::default().include_virtual();
     let packages = cache.packages(&sort).collect::<Vec<_>>();
@@ -393,12 +400,15 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let mut output = vec![];
 
     for (pkg, installed, upgradable, _) in res {
-        let prefix = if installed {
-            style("INSTALLED").green().to_string()
+        let (t, prefix) = if installed {
+            (
+                SearchType::Installed,
+                style("INSTALLED").green().to_string(),
+            )
         } else if upgradable {
-            style("UPGRADE").yellow().to_string()
+            (SearchType::Upgrade, style("UPGRADE").yellow().to_string())
         } else {
-            style("AVAIL").dim().to_string()
+            (SearchType::Avail, style("AVAIL").dim().to_string())
         };
 
         let mut pkg_info_line = if pkg.section == Some("Bases".to_owned()) {
@@ -428,6 +438,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         }
 
         output.push((
+            t,
             prefix,
             pkg_info_line,
             pkg.description.unwrap_or("".to_owned()),
@@ -435,9 +446,34 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     }
 
     if output.len() * 2 <= height.into() {
-        for (prefix, line, desc) in &output {
-            crate::WRITER.writeln(prefix, line)?;
-            crate::WRITER.writeln("", desc)?;
+        for (t, prefix, line, desc) in &output {
+            match t {
+                SearchType::Upgrade => {
+                    crate::WRITER.writeln(prefix, line)?;
+                    crate::WRITER.writeln("", desc)?;
+                }
+                _ => continue,
+            }
+        }
+
+        for (t, prefix, line, desc) in &output {
+            match t {
+                SearchType::Avail => {
+                    crate::WRITER.writeln(prefix, line)?;
+                    crate::WRITER.writeln("", desc)?;
+                }
+                _ => continue,
+            }
+        }
+
+        for (t, prefix, line, desc) in &output {
+            match t {
+                SearchType::Installed => {
+                    crate::WRITER.writeln(prefix, line)?;
+                    crate::WRITER.writeln("", desc)?;
+                }
+                _ => continue,
+            }
         }
     } else {
         let mut pager = Pager::new(false, false)?;
@@ -445,9 +481,34 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
-        for (prefix, line, desc) in &output {
-            writeln!(out, "{}{line}", gen_prefix(prefix)).ok();
-            writeln!(out, "{}{desc}", gen_prefix("")).ok();
+        for (t, prefix, line, desc) in &output {
+            match t {
+                SearchType::Upgrade => {
+                    writeln!(out, "{}{line}", gen_prefix(prefix)).ok();
+                    writeln!(out, "{}{desc}", gen_prefix("")).ok();
+                }
+                _ => continue,
+            }
+        }
+
+        for (t, prefix, line, desc) in &output {
+            match t {
+                SearchType::Avail => {
+                    writeln!(out, "{}{line}", gen_prefix(prefix)).ok();
+                    writeln!(out, "{}{desc}", gen_prefix("")).ok();
+                }
+                _ => continue,
+            }
+        }
+
+        for (t, prefix, line, desc) in &output {
+            match t {
+                SearchType::Installed => {
+                    writeln!(out, "{}{line}", gen_prefix(prefix)).ok();
+                    writeln!(out, "{}{desc}", gen_prefix("")).ok();
+                }
+                _ => continue,
+            }
         }
 
         drop(out);
