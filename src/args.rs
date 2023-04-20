@@ -1,4 +1,7 @@
-use clap::{builder::PossibleValue, command, Arg, ArgAction, Command};
+use clap::{
+    builder::{PossibleValue, Styles},
+    command, Arg, ArgAction, Command,
+};
 
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
@@ -46,6 +49,21 @@ pub fn command_builder() -> Command {
         .action(ArgAction::SetTrue);
 
     command!()
+        .styles(
+            Styles::styled()
+            .usage(
+                anstyle::Style::new()
+                    .bold()
+                    .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::BrightBlue)))
+                    .underline()
+            )
+            .header(
+                anstyle::Style::new()
+                    .bold()
+                    .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::BrightBlue)))
+                    .underline()
+            )
+        )
         .arg_required_else_help(true)
         .max_term_width(100)
         .disable_version_flag(true)
