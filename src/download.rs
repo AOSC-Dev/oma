@@ -311,6 +311,7 @@ pub async fn download(
     allow_resume: bool,
 ) -> DownloadResult<()> {
     let file = dir.join(&filename);
+    let file_exist = file.exists();
 
     let mut dest = if !allow_resume {
         tokio::fs::File::create(&file).await?
@@ -323,22 +324,24 @@ pub async fn download(
     };
 
     let mut file_size = 0;
-    if let Some(hash) = hash {
-        let hash = hash.to_owned();
-        let file_clone = file.clone();
-
-        let result = spawn_blocking(move || {
-            Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file_clone))
-        })
-        .await??;
-
-        file_size = dest.seek(SeekFrom::End(0)).await?;
-
-        if result {
-            if let Some(ref global_bar) = opb.global_bar {
-                global_bar.inc(file_size as u64);
+    if file_exist {
+        if let Some(hash) = hash {
+            let hash = hash.to_owned();
+            let file_clone = file.clone();
+    
+            let result = spawn_blocking(move || {
+                Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file_clone))
+            })
+            .await??;
+    
+            file_size = dest.seek(SeekFrom::End(0)).await?;
+    
+            if result {
+                if let Some(ref global_bar) = opb.global_bar {
+                    global_bar.inc(file_size as u64);
+                }
+                return Ok(());
             }
-            return Ok(());
         }
     }
 
