@@ -342,7 +342,7 @@ pub async fn download(
 
             if result {
                 if let Some(ref global_bar) = opb.global_bar {
-                    global_bar.inc(file_size as u64);
+                    global_bar.inc(file_size);
                 }
                 return Ok(());
             }
@@ -400,7 +400,7 @@ pub async fn download(
             let can_resume = matches!(resp.status(), StatusCode::PARTIAL_CONTENT);
 
             let length = if allow_resume {
-                resp.content_length().unwrap_or(0) + file_size as u64
+                resp.content_length().unwrap_or(0) + file_size
             } else {
                 resp.content_length().unwrap_or(0)
             };
@@ -444,10 +444,10 @@ pub async fn download(
         dest.flush().await?;
     }
 
-    pb.inc(file_size as u64);
+    pb.inc(file_size);
 
     if let Some(ref global_bar) = opb.global_bar {
-        global_bar.inc(file_size as u64);
+        global_bar.inc(file_size);
     }
 
     while let Some(chunk) = source.chunk().await? {
