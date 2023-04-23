@@ -201,10 +201,10 @@ impl InReleaseParser {
             .take()
             .context("InRelease Valid-Until entry is empty")?;
 
-        let date = OffsetDateTime::parse(&date, &Rfc2822)
+        let date = OffsetDateTime::parse(date, &Rfc2822)
             .context(format!("BUG: can not parse data field: {date} to Rfc2822, Please report this error to upstream: https://github.com/aosc-dev/oma"))?;
 
-        let valid_until = OffsetDateTime::parse(&valid_until, &Rfc2822)
+        let valid_until = OffsetDateTime::parse(valid_until, &Rfc2822)
             .context(format!("BUG: can not parse valid_until field: {valid_until} to Rfc2822, Please report this error to upstream: https://github.com/aosc-dev/oma"))?;
 
         let now = OffsetDateTime::now_utc();
