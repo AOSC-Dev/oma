@@ -10,11 +10,7 @@ use std::{
 
 use console::style;
 use futures::StreamExt;
-use tokio::{
-    io::{AsyncReadExt, AsyncSeekExt},
-    runtime::Runtime,
-    task::spawn_blocking,
-};
+use tokio::{io::AsyncSeekExt, runtime::Runtime, task::spawn_blocking};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -316,42 +312,35 @@ pub async fn download(
 ) -> DownloadResult<()> {
     let file = dir.join(&filename);
 
-    let mut dest = tokio::fs::OpenOptions::new()
-        .create(true)
-        .read(true)
-        .write(true)
-        .open(&file)
-        .await?;
-
-    let mut file_size = if file.exists() {
-        let mut file_size = 0;
-        if let Some(hash) = hash {
-            let hash = hash.to_owned();
-            let file_clone = file.clone();
-
-            let result = spawn_blocking(move || {
-                Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file_clone))
-            })
-            .await??;
-
-            // file_size = file.metadata()?.len();
-
-            let mut buf = vec![];
-            dest.read_to_end(&mut buf).await?;
-            file_size = buf.len();
-
-            if result {
-                if let Some(ref global_bar) = opb.global_bar {
-                    global_bar.inc(file_size as u64);
-                }
-                return Ok(());
-            }
-        }
-
-        file_size
+    let mut dest = if !allow_resume {
+        tokio::fs::File::create(&file).await?
     } else {
-        0
+        tokio::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(&file)
+            .await?
     };
+
+    let mut file_size = 0;
+    if let Some(hash) = hash {
+        let hash = hash.to_owned();
+        let file_clone = file.clone();
+
+        let result = spawn_blocking(move || {
+            Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file_clone))
+        })
+        .await??;
+
+        file_size = dest.seek(SeekFrom::End(0)).await?;
+
+        if result {
+            if let Some(ref global_bar) = opb.global_bar {
+                global_bar.inc(file_size as u64);
+            }
+            return Ok(());
+        }
+    }
 
     let is_send = Arc::new(AtomicBool::new(false));
     let is_send_clone = is_send.clone();
@@ -442,9 +431,7 @@ pub async fn download(
     let mut source = resp;
 
     if !can_resume || !allow_resume {
-        file_size = 0;
-        dest.seek(SeekFrom::Start(0)).await?;
-        dest.flush().await?;
+        dest = tokio::fs::File::create(&file).await?;
     }
 
     pb.inc(file_size as u64);
