@@ -14,6 +14,7 @@ use once_cell::sync::Lazy;
 use reqwest::{Client, Url};
 use rust_apt::config::Config;
 use serde::Deserialize;
+use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 use tokio::{io::AsyncReadExt, runtime::Runtime, task::spawn_blocking};
 use xz2::read::XzDecoder;
 
@@ -188,8 +189,35 @@ impl InReleaseParser {
         let source = debcontrol_from_str(&s)
             .map_err(|e| anyhow!("Can not parse InRelease file: {}, why: {e}", p.display()))?;
 
-        let sha256 = source
-            .first()
+        let source_first = source.first();
+
+        let date = source_first
+            .and_then(|x| x.get("Date"))
+            .take()
+            .context("InRelease Date entry is empty!")?;
+
+        let valid_until = source_first
+            .and_then(|x| x.get("Valid-Until"))
+            .take()
+            .context("InRelease Valid-Until entry is empty")?;
+
+        let date = OffsetDateTime::parse(&date, &Rfc2822)
+            .context(format!("BUG: can not parse data field: {date} to Rfc2822, Please report this error to upstream: https://github.com/aosc-dev/oma"))?;
+
+        let valid_until = OffsetDateTime::parse(&valid_until, &Rfc2822)
+            .context(format!("BUG: can not parse valid_until field: {valid_until} to Rfc2822, Please report this error to upstream: https://github.com/aosc-dev/oma"))?;
+
+        let now = OffsetDateTime::now_utc();
+
+        if now < date {
+            bail!("The computer time is earlier than the signature time in InRelease.")
+        }
+
+        if now > valid_until {
+            bail!("InRelease signature file has expired.")
+        }
+
+        let sha256 = source_first
             .and_then(|x| x.get("SHA256"))
             .take()
             .context("InRelease sha256 entry is empty!")?;
