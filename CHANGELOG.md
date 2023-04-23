@@ -5,7 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.29.1 (2023-04-23)
+
+### Chore
+
+ - <csr-id-a29f7954eba270fc18e942eb5fca32c5458e6d0f/> update all deps
+
+### New Features
+
+ - <csr-id-aef283d66c4ac9be766762b54d60f97c16305693/> check InRelaese date and vaild-until
+ - <csr-id-25badde57954f9049c371f9f045627fdf6955a4e/> improve clap oma style theme ...
+   - Fix a typo
+ - <csr-id-2015c43a1a348dd847b3028daea869bd5acda589/> set clap help header and usage color as bright blue
+   - Also run cargo update
+
+### Bug Fixes
+
+ - <csr-id-47cdbc4ce8d5673ab60cd10490d999f185731e3c/> download doesn exist file will return error
+ - <csr-id-9f5da29cc0483cad628fcbeb881ca340f7637d91/> not allow_resume file wrong reset length
+
+### Refactor
+
+ - <csr-id-92b729efa537780bffa1cfc8e5a8e057bafa83c7/> improve download method logic
+
+### Style
+
+ - <csr-id-fe7979ca1655af0df2ae7d11325ff1fb19bbd6df/> use cargo clippy to lint code
+ - <csr-id-000570bb20ad22ad90515791b3202ed038548f36/> remove useless refrence flag
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release over the course of 2 calendar days.
+ - 3 days passed between releases.
+ - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`a29f795`](https://github.com/AOSC-Dev/oma/commit/a29f7954eba270fc18e942eb5fca32c5458e6d0f))
+    - Use cargo clippy to lint code ([`fe7979c`](https://github.com/AOSC-Dev/oma/commit/fe7979ca1655af0df2ae7d11325ff1fb19bbd6df))
+    - Improve download method logic ([`92b729e`](https://github.com/AOSC-Dev/oma/commit/92b729efa537780bffa1cfc8e5a8e057bafa83c7))
+    - Download doesn exist file will return error ([`47cdbc4`](https://github.com/AOSC-Dev/oma/commit/47cdbc4ce8d5673ab60cd10490d999f185731e3c))
+    - Not allow_resume file wrong reset length ([`9f5da29`](https://github.com/AOSC-Dev/oma/commit/9f5da29cc0483cad628fcbeb881ca340f7637d91))
+    - Remove useless refrence flag ([`000570b`](https://github.com/AOSC-Dev/oma/commit/000570bb20ad22ad90515791b3202ed038548f36))
+    - Check InRelaese date and vaild-until ([`aef283d`](https://github.com/AOSC-Dev/oma/commit/aef283d66c4ac9be766762b54d60f97c16305693))
+    - Improve clap oma style theme ... ([`25badde`](https://github.com/AOSC-Dev/oma/commit/25badde57954f9049c371f9f045627fdf6955a4e))
+    - Set clap help header and usage color as bright blue ([`2015c43`](https://github.com/AOSC-Dev/oma/commit/2015c43a1a348dd847b3028daea869bd5acda589))
+</details>
+
 ## v0.29.0 (2023-04-19)
+
+<csr-id-8507728ae35419300d29fecea98f88ffca95dec8/>
 
 ### New Features
 
@@ -19,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -30,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.29.0 ([`f0deeca`](https://github.com/AOSC-Dev/oma/commit/f0deeca35c5453add4a8d9619c49eef13a4a2117))
     - Use trait to get prefix string ([`8507728`](https://github.com/AOSC-Dev/oma/commit/8507728ae35419300d29fecea98f88ffca95dec8))
     - Sort oma search order, UPGRADE > AVAIL > INSTALLED ([`1fd75d9`](https://github.com/AOSC-Dev/oma/commit/1fd75d92d95db04209a3216a00bb02c6b1d99de4))
 </details>
