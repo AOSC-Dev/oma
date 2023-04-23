@@ -313,14 +313,18 @@ pub async fn download(
     let file = dir.join(&filename);
     let file_exist = file.exists();
 
+    let mut opt = tokio::fs::OpenOptions::new();
+    opt.create(true);
+    opt.write(true);
+
     let mut dest = if !allow_resume {
-        tokio::fs::File::create(&file).await?
+        opt.truncate(true);
+        let f = opt.open(&file).await?;
+        f.set_len(0).await?;
+
+        f
     } else {
-        tokio::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(&file)
-            .await?
+        opt.open(&file).await?
     };
 
     let mut file_size = 0;
@@ -328,14 +332,14 @@ pub async fn download(
         if let Some(hash) = hash {
             let hash = hash.to_owned();
             let file_clone = file.clone();
-    
+
             let result = spawn_blocking(move || {
                 Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file_clone))
             })
             .await??;
-    
+
             file_size = dest.seek(SeekFrom::End(0)).await?;
-    
+
             if result {
                 if let Some(ref global_bar) = opb.global_bar {
                     global_bar.inc(file_size as u64);
@@ -433,8 +437,11 @@ pub async fn download(
 
     let mut source = resp;
 
-    if !can_resume || !allow_resume {
-        dest = tokio::fs::File::create(&file).await?;
+    if allow_resume && !can_resume {
+        opt.truncate(true);
+        dest = opt.open(&file).await?;
+        dest.set_len(0).await?;
+        dest.flush().await?;
     }
 
     pb.inc(file_size as u64);
