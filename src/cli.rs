@@ -47,6 +47,13 @@ pub enum OmaCommand {
     Clean,
     /// See omakase log
     History,
+    #[cfg(feature = "aosc")]
+    Topics(Topics),
+}
+
+pub struct Topics {
+    pub opt_in: Option<Vec<String>>,
+    pub opt_out: Option<Vec<String>>,
 }
 
 pub struct Dep {
@@ -215,6 +222,8 @@ pub trait CommandMatcher {
             OmaCommand::Rdepends(v) => Oma::dep(&v.pkgs, true),
             OmaCommand::Clean => Oma::clean(),
             OmaCommand::History => Oma::log(),
+            #[cfg(feature = "aosc")]
+            OmaCommand::Topics(v) => Oma::build_async_runtime()?.topics(v),
         }
     }
 }
@@ -377,6 +386,15 @@ impl CommandMatcher for OmaCommandRunner {
             }),
             Some(("clean", _)) => OmaCommand::Clean,
             Some(("history", _)) => OmaCommand::History,
+            #[cfg(feature = "aosc")]
+            Some(("topics", v)) => OmaCommand::Topics(Topics {
+                opt_in: v
+                    .get_many::<String>("opt_in")
+                    .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
+                opt_out: v
+                    .get_many::<String>("opt_out")
+                    .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
+            }),
             _ => unreachable!(),
         };
 

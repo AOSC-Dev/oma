@@ -25,6 +25,8 @@ mod formatter;
 mod oma;
 mod pager;
 mod pkg;
+#[cfg(feature = "aosc")]
+mod topics;
 mod utils;
 mod verify;
 

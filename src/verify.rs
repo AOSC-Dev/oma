@@ -11,8 +11,6 @@ use sequoia_openpgp::{
     Cert, KeyHandle,
 };
 
-// use crate::due_to;
-
 pub struct InReleaseVerifier {
     certs: Vec<Cert>,
     _mirror: String,

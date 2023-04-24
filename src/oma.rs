@@ -45,6 +45,12 @@ use crate::{
     warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
 };
 
+#[cfg(feature = "aosc")]
+use crate::topics;
+
+#[cfg(feature = "aosc")]
+use crate::cli::Topics;
+
 #[derive(Tabled, Debug, Clone)]
 pub struct RemoveRow {
     #[tabled(rename = "Name")]
@@ -1104,6 +1110,65 @@ impl Oma {
 
         drop(out);
         pager.wait_for_exit().ok();
+
+        Ok(())
+    }
+
+    #[cfg(feature = "aosc")]
+    pub fn topics(&self, opt: Topics) -> Result<()> {
+        if DRYRUN.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+
+        needs_root()?;
+
+        let mut tm = topics::TopicManager::new()?;
+
+        let (opt_in, opt_out) = if opt.opt_in.is_none() && opt.opt_out.is_none() {
+            topics::dialoguer(&mut tm, &self.runtime, &self.client)?
+        } else {
+            let opt_in = opt.opt_in.unwrap_or_default();
+            let opt_out = opt.opt_out.unwrap_or_default();
+
+            (opt_in, opt_out)
+        };
+
+        for i in opt_in {
+            tm.opt_in(&self.client, &self.runtime, &i)?;
+        }
+
+        let mut downgrade_pkgs = vec![];
+
+        for i in opt_out {
+            let pkgs = tm.opt_out(&i)?;
+            downgrade_pkgs.extend(pkgs);
+        }
+
+        let cache = new_cache!()?;
+
+        let mut pkgs = vec![];
+
+        for i in &downgrade_pkgs {
+            let pkg = cache.get(i);
+
+            if let Some(pkg) = pkg {
+                if pkg.is_installed() {
+                    pkgs.push(format!("{i}/stable"))
+                }
+            }
+        }
+
+        tm.write_enabled()?;
+
+        self.update(UpgradeOptions {
+            packages: Some(pkgs),
+            yes: false,
+            force_yes: false,
+            force_confnew: false,
+            dry_run: false,
+            dpkg_force_all: false,
+            no_autoremove: true,
+        })?;
 
         Ok(())
     }

@@ -163,12 +163,12 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
         let mut sort = vec![];
 
         for i in pkg.versions() {
-            let item = i
-                .get_record(RecordField::Filename)
-                .context(format!("Can not get package {name} filename!"))?;
+            let item = i.get_record(RecordField::Filename);
 
-            if item.split('/').nth(1) == Some(&branch) {
-                sort.push(i)
+            if let Some(item) = item {
+                if item.split('/').nth(1) == Some(&branch) {
+                    sort.push(i)
+                }
             }
         }
 

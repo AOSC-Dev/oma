@@ -14,11 +14,12 @@ rust-apt = { git = "https://gitlab.com/volian/rust-apt", rev = "c6d099ca50da3d3d
 # Cli
 clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color", "unstable-styles"] }
 dialoguer = "0.10"
-tabled = { version = "0.11", features = ["color"] }
+tabled = { version = "0.12", features = ["color"] }
 indicatif = "0.17"
 console = "0.15"
+inquire = { git = "https://github.com/AOSC-Dev/inquire", rev = "e8e8ecf4beded77a0d3adf48115fbdc61df12594", optional = true}
 # For Database, Packages Download
-reqwest = "0.11"
+reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
 futures = "0.3"
 futures-util = "0.3"
@@ -53,8 +54,14 @@ ctrlc = "3.2"
 thiserror = "1.0"
 once_cell = "1.17"
 anstyle = "1.0"
+indexmap = {version = "1.9", features = ["serde-1"], optional = true }
+
 
 [build-dependencies]
 clap_mangen = "0.2.10"
 clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color", "unstable-styles"] }
 anstyle = "1.0"
+
+[features]
+aosc = ["indexmap", "inquire"]
+default  = ["aosc"]

@@ -49,7 +49,7 @@ pub fn command_builder() -> Command {
         .help("Request dpkg(1) to ignore any issues occurred during the installation and configuration process")
         .action(ArgAction::SetTrue);
 
-    command!()
+    let mut cmd = command!()
         .styles(
             Styles::styled()
             .usage(
@@ -305,5 +305,28 @@ pub fn command_builder() -> Command {
             Command::new("history")
                 .alias("log")
                 .about("Show a history/log of package changes in the system"),
-        )
+        );
+
+    if cfg!(feature = "aosc") {
+        cmd = cmd.subcommand(
+            Command::new("topics")
+                .about("Manage testing topics enrollment")
+                .arg(
+                    Arg::new("opt_in")
+                        .long("opt-in")
+                        .help("Enroll in one or more topic(s), delimited by space")
+                        .action(ArgAction::Append)
+                        .num_args(1..),
+                )
+                .arg(
+                    Arg::new("opt_out")
+                        .long("opt-out")
+                        .help("Withdraw from one or more topic(s) and rollback to stable versions, delimited by space")
+                        .action(ArgAction::Append)
+                        .num_args(1..),
+                ),
+        );
+    }
+
+    cmd
 }
