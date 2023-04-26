@@ -290,15 +290,16 @@ pub fn dialoguer(
 
     let formatter: MultiOptionFormatter<&str> = &|a| format!("Activating {} topics", a.len());
 
-    let mut render_config = RenderConfig::default();
-
-    render_config.selected_checkbox = Styled::new("✔").with_fg(Color::LightGreen);
-    render_config.help_message = StyleSheet::empty().with_fg(Color::LightBlue);
-    render_config.unselected_checkbox = Styled::new(" ");
-    render_config.highlighted_option_prefix = Styled::new("");
-    render_config.selected_option = Some(StyleSheet::new().with_fg(Color::DarkCyan));
-    render_config.scroll_down_prefix = Styled::new("▼");
-    render_config.scroll_up_prefix = Styled::new("▲");
+    let render_config = RenderConfig::<'_> {
+        selected_checkbox: Styled::new("✔").with_fg(Color::LightGreen),
+        help_message: StyleSheet::empty().with_fg(Color::LightBlue),
+        unselected_checkbox: Styled::new(" "),
+        highlighted_option_prefix: Styled::new(""),
+        selected_option: Some(StyleSheet::new().with_fg(Color::DarkCyan)),
+        scroll_down_prefix: Styled::new("▼"),
+        scroll_up_prefix: Styled::new("▲"),
+        ..Default::default()
+    };
 
     let ans = MultiSelect::new(
         "Select topic(s) to enroll in testing updates, deselect to rollback to stable:",
