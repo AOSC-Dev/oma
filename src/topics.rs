@@ -290,7 +290,7 @@ pub fn dialoguer(
 
     let formatter: MultiOptionFormatter<&str> = &|a| format!("Activating {} topics", a.len());
 
-    let render_config = RenderConfig::<'_> {
+    let render_config = RenderConfig {
         selected_checkbox: Styled::new("✔").with_fg(Color::LightGreen),
         help_message: StyleSheet::empty().with_fg(Color::LightBlue),
         unselected_checkbox: Styled::new(" "),
