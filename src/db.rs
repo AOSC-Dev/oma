@@ -489,12 +489,17 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 
                         if is_closed {
                             info!("{url} is closed topic");
-                            let name = url.split('/').nth_back(1).context("Can not get topic")?;
-                            topics::rm_topic(name)?;
+                            let name = url
+                                .split('/')
+                                .nth_back(1)
+                                .context("Can not get topic")?
+                                .to_owned();
+
+                            spawn_blocking(move || topics::rm_topic(&name)).await??;
                         }
                     }
                     _ => return Err(e.into()),
-                }
+                },
             }
         } else {
             res_2.push(i?);
