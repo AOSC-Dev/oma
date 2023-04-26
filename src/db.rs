@@ -20,9 +20,12 @@ use xz2::read::XzDecoder;
 
 use crate::{
     checksum::Checksum,
-    download::{download, oma_spinner, oma_style_pb, OmaProgressBar},
+    download::{download, oma_spinner, oma_style_pb, DownloadError, OmaProgressBar},
     error, info, success, verify, warn, ARCH, MB,
 };
+
+#[cfg(feature = "aosc")]
+use crate::topics;
 
 use std::sync::atomic::Ordering;
 
@@ -88,7 +91,7 @@ async fn download_db(
     typ: String,
     opb: OmaProgressBar,
     i: usize,
-) -> Result<(FileName, usize)> {
+) -> std::result::Result<(FileName, usize), DownloadError> {
     let filename = FileName::new(&url).0;
     let url_short = get_url_short_and_branch(&url).await?;
 
@@ -408,7 +411,10 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
     Ok(res)
 }
 
-async fn download_db_local(db_path: &str, count: usize) -> Result<(FileName, usize)> {
+async fn download_db_local(
+    db_path: &str,
+    count: usize,
+) -> std::result::Result<(FileName, usize), DownloadError> {
     let db_path = db_path.split("://").nth(1).unwrap_or(db_path);
     let name = FileName::new(db_path);
     tokio::fs::copy(db_path, APT_LIST_DISTS.join(&name.0))
@@ -449,18 +455,19 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
     for (i, c) in sources.iter().enumerate() {
         match c.from {
             OmaSourceEntryFrom::Http => {
-                let task: BoxFuture<'_, Result<(FileName, usize)>> = Box::pin(download_db(
-                    c.inrelease_path.clone(),
-                    client,
-                    "InRelease".to_owned(),
-                    OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
-                    i,
-                ));
+                let task: BoxFuture<'_, std::result::Result<(FileName, usize), DownloadError>> =
+                    Box::pin(download_db(
+                        c.inrelease_path.clone(),
+                        client,
+                        "InRelease".to_owned(),
+                        OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
+                        i,
+                    ));
 
                 tasks.push(task);
             }
             OmaSourceEntryFrom::Local => {
-                let task: BoxFuture<'_, Result<(FileName, usize)>> =
+                let task: BoxFuture<'_, std::result::Result<(FileName, usize), DownloadError>> =
                     Box::pin(download_db_local(&c.inrelease_path, i));
                 tasks.push(task);
             }
@@ -473,7 +480,25 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
     let mut res_2 = vec![];
 
     for i in res {
-        res_2.push(i?);
+        if cfg!(feature = "aosc") {
+            match i {
+                Ok(i) => res_2.push(i),
+                Err(e) => match e {
+                    DownloadError::NotFound(url) => {
+                        let is_closed = topics::is_close_topic(client, &url).await?;
+
+                        if is_closed {
+                            info!("{url} is closed topic");
+                            let name = url.split('/').nth_back(1).context("Can not get topic")?;
+                            topics::rm_topic(name)?;
+                        }
+                    }
+                    _ => return Err(e.into()),
+                }
+            }
+        } else {
+            res_2.push(i?);
+        }
     }
 
     for (name, index) in res_2 {

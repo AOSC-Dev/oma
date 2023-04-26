@@ -288,6 +288,8 @@ impl OmaProgressBar {
 pub enum DownloadError {
     #[error("checksum mismatch")]
     ChecksumMisMatch,
+    #[error("404 not found: {0}")]
+    NotFound(String),
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
     #[error(transparent)]
@@ -396,24 +398,31 @@ pub async fn download(
         }
 
         let resp = resp.send().await?;
-        if resp.status().is_success() {
-            let can_resume = matches!(resp.status(), StatusCode::PARTIAL_CONTENT);
+        match resp.error_for_status() {
+            Ok(resp) => {
+                let can_resume = matches!(resp.status(), StatusCode::PARTIAL_CONTENT);
 
-            let length = if allow_resume {
-                resp.content_length().unwrap_or(0) + file_size
-            } else {
-                resp.content_length().unwrap_or(0)
-            };
+                let length = if allow_resume {
+                    resp.content_length().unwrap_or(0) + file_size
+                } else {
+                    resp.content_length().unwrap_or(0)
+                };
 
-            is_send_clone.store(true, Ordering::Relaxed);
-            (length, resp, can_resume)
-        } else {
-            is_send_clone.store(true, Ordering::Relaxed);
-            return Err(DownloadError::Anyhow(anyhow!(
-                "Couldn't download URL: {}. Error: {:?}",
-                url,
-                resp.status(),
-            )));
+                is_send_clone.store(true, Ordering::Relaxed);
+                (length, resp, can_resume)
+            }
+            Err(e) => match e.status() {
+                Some(StatusCode::NOT_FOUND) => {
+                    return Err(DownloadError::NotFound(url.to_string()))
+                }
+                e => {
+                    return Err(DownloadError::Anyhow(anyhow!(
+                        "Couldn't download URL: {}. Error: {:?}",
+                        url,
+                        e,
+                    )))
+                }
+            },
         }
     };
 

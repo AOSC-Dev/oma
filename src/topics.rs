@@ -8,10 +8,10 @@ use inquire::{
     MultiSelect,
 };
 use once_cell::sync::Lazy;
-use reqwest::Client;
+use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
-use tokio::runtime::Runtime;
+use tokio::{runtime::Runtime, task::spawn_blocking};
 
 use crate::{info, ARCH, DRYRUN};
 
@@ -104,7 +104,7 @@ impl TopicManager {
         })
     }
 
-    fn refresh_all_topics(&mut self, client: &Client, rt: &Runtime) -> Result<Vec<Topic>> {
+    async fn refresh_all_topics(&mut self, client: &Client) -> Result<Vec<Topic>> {
         let urls = enabled_mirror()?
             .iter()
             .map(|x| {
@@ -116,7 +116,7 @@ impl TopicManager {
             })
             .collect::<Vec<_>>();
 
-        let all = rt.block_on(refresh_all_topics_innter(client, urls))?;
+        let all = refresh_all_topics_innter(client, urls).await?;
 
         self.all = all.clone();
 
@@ -129,7 +129,7 @@ impl TopicManager {
             return Ok(());
         }
         let all = if self.all.is_empty() {
-            self.refresh_all_topics(client, rt)?
+            rt.block_on(self.refresh_all_topics(client))?
         } else {
             self.all.clone()
         };
@@ -242,7 +242,7 @@ async fn refresh_all_topics_innter(client: &Client, urls: Vec<String>) -> Result
 }
 
 fn list(tm: &mut TopicManager, client: &Client, rt: &Runtime) -> Result<Vec<String>> {
-    let all = tm.refresh_all_topics(client, rt)?;
+    let all = rt.block_on(tm.refresh_all_topics(client))?;
 
     let ft = all
         .iter()
@@ -326,4 +326,64 @@ pub fn dialoguer(
     }
 
     Ok((opt_in, opt_out))
+}
+
+pub async fn is_close_topic(client: &Client, url: &str) -> Result<bool> {
+    let u = Url::parse(url)?;
+    let host = u.host_str();
+    let m = spawn_blocking(enabled_mirror).await??;
+
+    let f = m
+        .iter()
+        .map(|x| {
+            Url::parse(x)
+                .ok()
+                .and_then(|x| x.host_str().map(|x| x.to_string()))
+        })
+        .flatten();
+
+    let mut f = f.filter(|x| host == Some(x));
+
+    if f.next().is_none() {
+        return Ok(false);
+    }
+
+    let mut tm = spawn_blocking(TopicManager::new).await??;
+
+    let all = tm.refresh_all_topics(client).await?;
+
+    // https://mirrors.bfsu.edu.cn/anthon/debs/dists/frontier/InRelease
+    let name = url.split('/').nth_back(1);
+
+    for i in all {
+        if name == Some(&i.name) {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
+}
+
+pub fn rm_topic(name: &str) -> Result<()> {
+    if DRYRUN.load(Ordering::Relaxed) {
+        return Ok(());
+    }
+
+    let mut tm = TopicManager::new()?;
+    let mut enabled = tm.enabled;
+
+    let index = enabled
+        .iter()
+        .position(|x| x.name == name)
+        .context(format!("Can not find topic: {name}"))?;
+
+    info!("Removing topic: {name}");
+
+    enabled.remove(index);
+
+    tm.enabled = enabled;
+
+    tm.write_enabled()?;
+
+    Ok(())
 }
