@@ -411,18 +411,22 @@ pub async fn download(
                 is_send_clone.store(true, Ordering::Relaxed);
                 (length, resp, can_resume)
             }
-            Err(e) => match e.status() {
-                Some(StatusCode::NOT_FOUND) => {
-                    return Err(DownloadError::NotFound(url.to_string()))
+            Err(e) => {
+                is_send_clone.store(true, Ordering::Relaxed);
+
+                match e.status() {
+                    Some(StatusCode::NOT_FOUND) => {
+                        return Err(DownloadError::NotFound(url.to_string()))
+                    }
+                    e => {
+                        return Err(DownloadError::Anyhow(anyhow!(
+                            "Couldn't download URL: {}. Error: {:?}",
+                            url,
+                            e,
+                        )))
+                    }
                 }
-                e => {
-                    return Err(DownloadError::Anyhow(anyhow!(
-                        "Couldn't download URL: {}. Error: {:?}",
-                        url,
-                        e,
-                    )))
-                }
-            },
+            }
         }
     };
 
