@@ -1187,7 +1187,7 @@ dependencies = [
 [[package]]
 name = "inquire"
 version = "0.6.1"
-source = "git+https://github.com/AOSC-Dev/inquire?rev=e8e8ecf4beded77a0d3adf48115fbdc61df12594#e8e8ecf4beded77a0d3adf48115fbdc61df12594"
+source = "git+https://github.com/AOSC-Dev/inquire?rev=c80952118a0cbec08cfa378946168d1fdd4ecdb3#c80952118a0cbec08cfa378946168d1fdd4ecdb3"
 dependencies = [
  "bitflags 2.2.1",
  "crossterm",

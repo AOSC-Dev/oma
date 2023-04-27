@@ -17,7 +17,7 @@ dialoguer = "0.10"
 tabled = { version = "0.12", features = ["color"] }
 indicatif = "0.17"
 console = "0.15"
-inquire = { git = "https://github.com/AOSC-Dev/inquire", rev = "e8e8ecf4beded77a0d3adf48115fbdc61df12594", optional = true}
+inquire = { git = "https://github.com/AOSC-Dev/inquire", rev = "c80952118a0cbec08cfa378946168d1fdd4ecdb3", optional = true}
 # For Database, Packages Download
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
