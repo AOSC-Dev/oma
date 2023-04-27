@@ -334,11 +334,11 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
     Ok(res)
 }
 
-struct OmaSourceEntry {
+pub struct OmaSourceEntry {
     from: OmaSourceEntryFrom,
     components: Vec<String>,
     url: String,
-    // suite: String,
+    pub suite: String,
     inrelease_path: String,
     dist_path: String,
     is_flat: bool,
@@ -393,7 +393,7 @@ impl OmaSourceEntry {
             from,
             components,
             url,
-            // suite,
+            suite,
             is_flat,
             inrelease_path,
             dist_path,
@@ -485,7 +485,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 Ok(i) => res_2.push(i),
                 Err(e) => match e {
                     DownloadError::NotFound(url) => {
-                        let is_closed = topics::is_close_topic(client, &url).await?;
+                        let is_closed = topics::is_close_topic(client, &url, &sources).await?;
 
                         if is_closed {
                             info!("{url} is closed topic");
@@ -496,6 +496,8 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                                 .to_owned();
 
                             spawn_blocking(move || topics::rm_topic(&name)).await??;
+                        } else {
+                            return Err(anyhow!("Could not get InRelease in url: {url}, Reson: 404 Not found."))
                         }
                     }
                     _ => return Err(e.into()),

@@ -8,12 +8,12 @@ use inquire::{
     MultiSelect,
 };
 use once_cell::sync::Lazy;
-use reqwest::{Client, Url};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use tokio::{runtime::Runtime, task::spawn_blocking};
 
-use crate::{info, ARCH, DRYRUN};
+use crate::{db::OmaSourceEntry, info, ARCH, DRYRUN};
 
 static ATM_STATE: Lazy<PathBuf> = Lazy::new(|| {
     let p = PathBuf::from("/var/lib/atm/state");
@@ -328,21 +328,15 @@ pub fn dialoguer(
     Ok((opt_in, opt_out))
 }
 
-pub async fn is_close_topic(client: &Client, url: &str) -> Result<bool> {
-    let u = Url::parse(url)?;
-    let host = u.host_str();
-    let m = spawn_blocking(enabled_mirror).await??;
+pub async fn is_close_topic(
+    client: &Client,
+    url: &str,
+    sources: &[OmaSourceEntry],
+) -> Result<bool> {
+    // https://mirrors.bfsu.edu.cn/anthon/debs/dists/frontier/InRelease
+    let name = url.split('/').nth_back(1);
 
-    let f = m
-        .iter()
-        .map(|x| {
-            Url::parse(x)
-                .ok()
-                .and_then(|x| x.host_str().map(|x| x.to_string()))
-        })
-        .flatten();
-
-    let mut f = f.filter(|x| host == Some(x));
+    let mut f = sources.iter().filter(|x| name == Some(&x.suite));
 
     if f.next().is_none() {
         return Ok(false);
@@ -351,9 +345,6 @@ pub async fn is_close_topic(client: &Client, url: &str) -> Result<bool> {
     let mut tm = spawn_blocking(TopicManager::new).await??;
 
     let all = tm.refresh_all_topics(client).await?;
-
-    // https://mirrors.bfsu.edu.cn/anthon/debs/dists/frontier/InRelease
-    let name = url.split('/').nth_back(1);
 
     for i in all {
         if name == Some(&i.name) {

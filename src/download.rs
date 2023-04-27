@@ -412,6 +412,7 @@ pub async fn download(
                 (length, resp, can_resume)
             }
             Err(e) => {
+                tokio::fs::remove_file(file).await?;
                 is_send_clone.store(true, Ordering::Relaxed);
 
                 match e.status() {
