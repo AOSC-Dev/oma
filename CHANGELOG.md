@@ -5,7 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.30.0 (2023-04-27)
+
+### Chore
+
+ - <csr-id-34c4013fbb3fd588355d66186291140b87c71195/> update all deps
+
+### New Features
+
+ - <csr-id-8c8f5e97da8b1785637decc19c11b9dca73df0b8/> drop inquire searcher curosr
+ - <csr-id-324429279ff07a8e21e0656c3bef5165fe193036/> drop inquire searcher
+ - <csr-id-70190fcae1c25683c6994749c7674dff4189a3c5/> update_db if url is closed topic, remove url from apt sources.list
+ - <csr-id-46d340a2dea03cad8d9dac39ef75cdd0431bf92e/> add topics feature
+   - Also fix only exist in local packages can not get filename record issue
+
+### Bug Fixes
+
+ - <csr-id-55d15ef692f3781360552bfe8f0ecb7ee09b2063/> do not save file with download failed; return error if 404 not found url is not closed topic
+ - <csr-id-9b424b81b25c48ae12ab3158f713ef781afd83fe/> don't let the progress spinner thread dead loop if the download has errors
+ - <csr-id-afeae4adaa65585d307b7564b72d9a8c44319b6c/> if package newest version in other enabled topics, downgrade to stable version
+
+### Refactor
+
+ - <csr-id-7a208b756c73cd6203dabeab7dcbac6f9adc7d97/> use spawn_blocking to execute rm_topic method
+
+### Style
+
+ - <csr-id-df11fbc07c64c57e263c130bcd4894eda1ac4fe4/> use cargo-fmt to lint code
+ - <csr-id-df4fdf600828e6dc1256438c11544d4718e44431/> use cargo clippy to lint code again
+ - <csr-id-67f20466321260f59b5769dec969ffd1888c7ced/> use cargo clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 12 commits contributed to the release.
+ - 4 days passed between releases.
+ - 12 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Use cargo-fmt to lint code ([`df11fbc`](https://github.com/AOSC-Dev/oma/commit/df11fbc07c64c57e263c130bcd4894eda1ac4fe4))
+    - Do not save file with download failed; return error if 404 not found url is not closed topic ([`55d15ef`](https://github.com/AOSC-Dev/oma/commit/55d15ef692f3781360552bfe8f0ecb7ee09b2063))
+    - Don't let the progress spinner thread dead loop if the download has errors ([`9b424b8`](https://github.com/AOSC-Dev/oma/commit/9b424b81b25c48ae12ab3158f713ef781afd83fe))
+    - If package newest version in other enabled topics, downgrade to stable version ([`afeae4a`](https://github.com/AOSC-Dev/oma/commit/afeae4adaa65585d307b7564b72d9a8c44319b6c))
+    - Drop inquire searcher curosr ([`8c8f5e9`](https://github.com/AOSC-Dev/oma/commit/8c8f5e97da8b1785637decc19c11b9dca73df0b8))
+    - Drop inquire searcher ([`3244292`](https://github.com/AOSC-Dev/oma/commit/324429279ff07a8e21e0656c3bef5165fe193036))
+    - Use spawn_blocking to execute rm_topic method ([`7a208b7`](https://github.com/AOSC-Dev/oma/commit/7a208b756c73cd6203dabeab7dcbac6f9adc7d97))
+    - Update_db if url is closed topic, remove url from apt sources.list ([`70190fc`](https://github.com/AOSC-Dev/oma/commit/70190fcae1c25683c6994749c7674dff4189a3c5))
+    - Use cargo clippy to lint code again ([`df4fdf6`](https://github.com/AOSC-Dev/oma/commit/df4fdf600828e6dc1256438c11544d4718e44431))
+    - Use cargo clippy to lint code ([`67f2046`](https://github.com/AOSC-Dev/oma/commit/67f20466321260f59b5769dec969ffd1888c7ced))
+    - Update all deps ([`34c4013`](https://github.com/AOSC-Dev/oma/commit/34c4013fbb3fd588355d66186291140b87c71195))
+    - Add topics feature ([`46d340a`](https://github.com/AOSC-Dev/oma/commit/46d340a2dea03cad8d9dac39ef75cdd0431bf92e))
+</details>
+
 ## v0.29.1 (2023-04-23)
+
+<csr-id-a29f7954eba270fc18e942eb5fca32c5458e6d0f/>
+<csr-id-92b729efa537780bffa1cfc8e5a8e057bafa83c7/>
+<csr-id-fe7979ca1655af0df2ae7d11325ff1fb19bbd6df/>
+<csr-id-000570bb20ad22ad90515791b3202ed038548f36/>
 
 ### Chore
 
@@ -13,11 +78,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-2015c43a1a348dd847b3028daea869bd5acda589/>
+
  - <csr-id-aef283d66c4ac9be766762b54d60f97c16305693/> check InRelaese date and vaild-until
  - <csr-id-25badde57954f9049c371f9f045627fdf6955a4e/> improve clap oma style theme ...
    - Fix a typo
- - <csr-id-2015c43a1a348dd847b3028daea869bd5acda589/> set clap help header and usage color as bright blue
-   - Also run cargo update
+- Also run cargo update
 
 ### Bug Fixes
 
@@ -37,7 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 9 commits contributed to the release over the course of 2 calendar days.
+ - 10 commits contributed to the release over the course of 2 calendar days.
  - 3 days passed between releases.
  - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -49,6 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.29.1 ([`f352de2`](https://github.com/AOSC-Dev/oma/commit/f352de2d580318f67f00d015d83d76ccea34ecfb))
     - Update all deps ([`a29f795`](https://github.com/AOSC-Dev/oma/commit/a29f7954eba270fc18e942eb5fca32c5458e6d0f))
     - Use cargo clippy to lint code ([`fe7979c`](https://github.com/AOSC-Dev/oma/commit/fe7979ca1655af0df2ae7d11325ff1fb19bbd6df))
     - Improve download method logic ([`92b729e`](https://github.com/AOSC-Dev/oma/commit/92b729efa537780bffa1cfc8e5a8e057bafa83c7))
@@ -59,6 +126,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Improve clap oma style theme ... ([`25badde`](https://github.com/AOSC-Dev/oma/commit/25badde57954f9049c371f9f045627fdf6955a4e))
     - Set clap help header and usage color as bright blue ([`2015c43`](https://github.com/AOSC-Dev/oma/commit/2015c43a1a348dd847b3028daea869bd5acda589))
 </details>
+
+<csr-unknown>
+ set clap help header and usage color as bright blue<csr-unknown/>
 
 ## v0.29.0 (2023-04-19)
 
