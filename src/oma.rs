@@ -1148,10 +1148,20 @@ impl Oma {
 
         let mut pkgs = vec![];
 
+        let enabled_pkgs = tm
+            .enabled
+            .iter()
+            .flat_map(|x| &x.packages)
+            .collect::<Vec<_>>();
+
         for i in &downgrade_pkgs {
             let pkg = cache.get(i);
 
             if let Some(pkg) = pkg {
+                if enabled_pkgs.contains(&&pkg.name().to_string()) {
+                    continue;
+                }
+
                 if pkg.is_installed() {
                     pkgs.push(format!("{i}/stable"))
                 }

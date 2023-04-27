@@ -68,18 +68,18 @@ fn enabled_mirror() -> Result<Vec<String>> {
 const TOPICS_JSON: &str = "manifest/topics.json";
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-struct Topic {
-    name: String,
+pub struct Topic {
+    pub name: String,
     description: Option<String>,
     date: u64,
     #[serde(skip_serializing)]
     arch: Option<Vec<String>>,
-    packages: Vec<String>,
+    pub packages: Vec<String>,
 }
 
 #[derive(Debug)]
 pub struct TopicManager {
-    enabled: Vec<Topic>,
+    pub enabled: Vec<Topic>,
     all: Vec<Topic>,
 }
 
