@@ -497,7 +497,9 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 
                             spawn_blocking(move || topics::rm_topic(&name)).await??;
                         } else {
-                            return Err(anyhow!("Could not get InRelease in url: {url}, Reson: 404 Not found."))
+                            return Err(anyhow!(
+                                "Could not get InRelease in url: {url}, Reson: 404 Not found."
+                            ));
                         }
                     }
                     _ => return Err(e.into()),
