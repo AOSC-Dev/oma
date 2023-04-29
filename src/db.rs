@@ -493,7 +493,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                             .context(format!("Can not get suite: {url}"))?
                             .to_string();
 
-                        if removed_suites.contains(&suite) {
+                        if !removed_suites.contains(&suite) {
                             return Err(anyhow!(
                                 "Could not get InRelease in url: {url}, Reson: 404 Not found."
                             ));
