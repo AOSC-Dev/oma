@@ -5,7 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.30.2 (2023-04-29)
+
+### Chore
+
+ - <csr-id-4af6ab474a6f3ea5a68a934f637420fd171b94a7/> update all deps
+
+### Bug Fixes
+
+ - <csr-id-30f20fd8f8183d1f3d5e307dbe2b2b78de3c350c/> revert retry 2 times start dpkg-force-all mode
+ - <csr-id-38262ff93c8742e188f41aa0200cf29c338cb2b5/> download again when checksum does not match and returns 416
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Revert retry 2 times start dpkg-force-all mode ([`30f20fd`](https://github.com/AOSC-Dev/aoscpt/commit/30f20fd8f8183d1f3d5e307dbe2b2b78de3c350c))
+    - Download again when checksum does not match and returns 416 ([`38262ff`](https://github.com/AOSC-Dev/aoscpt/commit/38262ff93c8742e188f41aa0200cf29c338cb2b5))
+    - Update all deps ([`4af6ab4`](https://github.com/AOSC-Dev/aoscpt/commit/4af6ab474a6f3ea5a68a934f637420fd171b94a7))
+</details>
+
 ## v0.30.1 (2023-04-29)
+
+<csr-id-22ce5aae9446e5eae07d7d8fc41dc395ce6a3a5e/>
+<csr-id-fed5365c2e4e84f8a1ebdb1d82d63425ac7f7aa5/>
 
 ### Chore
 
@@ -24,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 2 days passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -36,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.30.1 ([`832d4b0`](https://github.com/AOSC-Dev/aoscpt/commit/832d4b0af75f32defbf4cbfb90d3e8f4809acb09))
     - Remove uselses test ([`22ce5aa`](https://github.com/AOSC-Dev/aoscpt/commit/22ce5aae9446e5eae07d7d8fc41dc395ce6a3a5e))
     - Reson => Reason ([`dca23ff`](https://github.com/AOSC-Dev/aoscpt/commit/dca23ff2178e3bd7eb4885bce1495d9f0f3e84d0))
     - Add missing ! to fix wrong logic in scan_closed_topic ([`e378423`](https://github.com/AOSC-Dev/aoscpt/commit/e3784238b362c1a88f512b72f42188cad76e50a6))
@@ -169,9 +204,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Improve clap oma style theme ... ([`25badde`](https://github.com/AOSC-Dev/aoscpt/commit/25badde57954f9049c371f9f045627fdf6955a4e))
     - Set clap help header and usage color as bright blue ([`2015c43`](https://github.com/AOSC-Dev/aoscpt/commit/2015c43a1a348dd847b3028daea869bd5acda589))
 </details>
-
-<csr-unknown>
-Also run cargo update<csr-unknown/>
 
 ## v0.29.0 (2023-04-19)
 
