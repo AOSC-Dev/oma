@@ -495,7 +495,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 
                         if !removed_suites.contains(&suite) {
                             return Err(anyhow!(
-                                "Could not get InRelease in url: {url}, Reson: 404 Not found."
+                                "Could not get InRelease in url: {url}, Reason: 404 Not found."
                             ));
                         }
                     }
