@@ -404,9 +404,9 @@ pub async fn download(
             let mut resp = client.get(url);
             file_size = 0;
             resp = resp.header(header::RANGE, format!("bytes={}-", file_size));
-            let resp = resp.send().await?;
+            
 
-            resp
+            resp.send().await?
         } else {
             resp
         };
