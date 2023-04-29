@@ -1,6 +1,7 @@
 use std::{io::Write, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
+use apt_sources_lists::{SourceLine, SourcesLists};
 use indexmap::IndexMap;
 use inquire::{
     formatter::MultiOptionFormatter,
@@ -13,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use tokio::{runtime::Runtime, task::spawn_blocking};
 
-use crate::{db::OmaSourceEntry, info, ARCH, DRYRUN};
+use crate::{info, ARCH, DRYRUN};
 
 static ATM_STATE: Lazy<PathBuf> = Lazy::new(|| {
     let p = PathBuf::from("/var/lib/atm/state");
@@ -328,31 +329,36 @@ pub fn dialoguer(
     Ok((opt_in, opt_out))
 }
 
-pub async fn is_close_topic(
-    client: &Client,
-    url: &str,
-    sources: &[OmaSourceEntry],
-) -> Result<bool> {
-    // https://mirrors.bfsu.edu.cn/anthon/debs/dists/frontier/InRelease
-    let name = url.split('/').nth_back(1);
+pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
+    let mut atm_sources = vec![];
+    let s = SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter())?;
 
-    let mut f = sources.iter().filter(|x| name == Some(&x.suite));
-
-    if f.next().is_none() {
-        return Ok(false);
+    for file in s.iter() {
+        for i in &file.lines {
+            if let SourceLine::Entry(entry) = i {
+                atm_sources.push(entry.to_owned());
+            }
+        }
     }
 
     let mut tm = spawn_blocking(TopicManager::new).await??;
 
     let all = tm.refresh_all_topics(client).await?;
 
-    for i in all {
-        if name == Some(&i.name) {
-            return Ok(false);
+    let mut res = vec![];
+
+    for i in atm_sources {
+        let suite = i.suite;
+        let suite_clone = suite.clone();
+
+        if all.iter().all(|x| x.name != suite) {
+            spawn_blocking(move || rm_topic(&suite)).await??;
         }
+
+        res.push(suite_clone);
     }
 
-    Ok(true)
+    Ok(res)
 }
 
 pub fn rm_topic(name: &str) -> Result<()> {
@@ -377,4 +383,11 @@ pub fn rm_topic(name: &str) -> Result<()> {
     tm.write_enabled()?;
 
     Ok(())
+}
+
+#[test]
+fn test() {
+    let s = SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter()).unwrap();
+
+    dbg!(s);
 }

@@ -485,18 +485,15 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 Ok(i) => res_2.push(i),
                 Err(e) => match e {
                     DownloadError::NotFound(url) => {
-                        let is_closed = topics::is_close_topic(client, &url, &sources).await?;
+                        let removed_suites = topics::scan_closed_topic(client).await?;
 
-                        if is_closed {
-                            info!("{url} is closed topic");
-                            let name = url
-                                .split('/')
-                                .nth_back(1)
-                                .context("Can not get topic")?
-                                .to_owned();
+                        let suite = url
+                            .split('/')
+                            .nth_back(1)
+                            .context(format!("Can not get suite: {url}"))?
+                            .to_string();
 
-                            spawn_blocking(move || topics::rm_topic(&name)).await??;
-                        } else {
+                        if removed_suites.contains(&suite) {
                             return Err(anyhow!(
                                 "Could not get InRelease in url: {url}, Reson: 404 Not found."
                             ));
