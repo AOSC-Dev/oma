@@ -384,10 +384,3 @@ pub fn rm_topic(name: &str) -> Result<()> {
 
     Ok(())
 }
-
-#[test]
-fn test() {
-    let s = SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter()).unwrap();
-
-    dbg!(s);
-}
