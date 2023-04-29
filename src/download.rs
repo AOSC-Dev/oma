@@ -398,6 +398,19 @@ pub async fn download(
         }
 
         let resp = resp.send().await?;
+        let len = resp.content_length().unwrap_or(0);
+
+        let resp = if len == file_size && allow_resume {
+            let mut resp = client.get(url);
+            file_size = 0;
+            resp = resp.header(header::RANGE, format!("bytes={}-", file_size));
+            let resp = resp.send().await?;
+
+            resp
+        } else {
+            resp
+        };
+
         match resp.error_for_status() {
             Ok(resp) => {
                 let can_resume = matches!(resp.status(), StatusCode::PARTIAL_CONTENT);
