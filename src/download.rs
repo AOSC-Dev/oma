@@ -11,7 +11,6 @@ use std::{
 use console::style;
 use futures::StreamExt;
 use tokio::{
-    fs::File,
     io::{AsyncReadExt, AsyncSeekExt},
     runtime::Runtime,
     task::spawn_blocking,
@@ -26,14 +25,8 @@ use reqwest::{
 use tokio::io::AsyncWriteExt;
 
 use crate::{
-    checksum::{Checksum, ChecksumValidator},
-    cli::gen_prefix,
-    db::DOWNLOAD_DIR,
-    error, info,
-    oma::InstallRow,
-    success,
-    utils::reverse_apt_style_url,
-    warn, AILURUS, DRYRUN, WRITER,
+    checksum::Checksum, cli::gen_prefix, db::DOWNLOAD_DIR, error, info, oma::InstallRow, success,
+    utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER,
 };
 
 /// Download a package
@@ -348,14 +341,23 @@ pub async fn download(
 
             let mut v = Checksum::from_sha256_str(&hash)?.get_validator();
 
-            update_checksum(
-                file_size,
-                &mut f,
-                &mut v,
-                None,
-                opb.global_bar.as_ref(),
-            )
-            .await?;
+            let mut buf = vec![0; 4096];
+            let mut readed = 0;
+
+            loop {
+                if readed == file_size {
+                    break;
+                }
+
+                let count = f.read(&mut buf[..]).await?;
+                v.update(buf[..count].to_vec());
+
+                if let Some(ref global_bar) = opb.global_bar {
+                    global_bar.inc(count as u64);
+                }
+
+                readed += count as u64;
+            }
 
             if v.finish() {
                 return Ok(());
@@ -558,38 +560,6 @@ pub async fn download(
     }
 
     pb.finish_and_clear();
-
-    Ok(())
-}
-
-async fn update_checksum(
-    file_size: u64,
-    dest: &mut File,
-    validator: &mut ChecksumValidator,
-    pb: Option<&ProgressBar>,
-    global_bar: Option<&ProgressBar>,
-) -> DownloadResult<()> {
-    let mut buf = vec![0; 4096];
-    let mut readed = 0;
-
-    loop {
-        if readed == file_size {
-            break;
-        }
-
-        let count = dest.read(&mut buf[..]).await?;
-        validator.update(buf[..count].to_vec());
-
-        if let Some(pb) = pb {
-            pb.inc(count as u64);
-        }
-
-        if let Some(global_bar) = global_bar {
-            global_bar.inc(count as u64);
-        }
-
-        readed += count as u64;
-    }
 
     Ok(())
 }
