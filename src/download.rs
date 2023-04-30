@@ -326,6 +326,8 @@ pub async fn download(
 
     let file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
+    // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
+    // 如果不存在，则继续往下走
     if file_exist {
         if let Some(hash) = hash {
             let hash = hash.to_owned();
@@ -346,6 +348,7 @@ pub async fn download(
     let is_send = Arc::new(AtomicBool::new(false));
     let is_send_clone = is_send.clone();
 
+    // 写入进度条显示的信息
     let mut msg = opb.msg.unwrap_or_else(|| {
         let mut filename_split = filename.split('_');
         let name = filename_split.next();
@@ -371,7 +374,7 @@ pub async fn download(
     let mbcc = opb.mbc.clone();
 
     let pb = spawn_blocking(move || {
-        // 若请求头的速度太慢，会看到假进度条直到拿到头的信息
+        // 若请求头的速度太慢，会看到 Spinner 直到拿到头的信息
         let pb = mbcc.add(ProgressBar::new_spinner());
         pb.set_message(format!("{progress_clone}{msg_clone}"));
 
@@ -386,30 +389,40 @@ pub async fn download(
 
     let head = resp_head.headers();
 
+    // 看看头是否有 ACCEPT_RANGES 这个变量
+    // 如果有，而且值不为 none，则可以断点续传
+    // 反之，则不能断点续传
     let can_resume = match head.get(ACCEPT_RANGES) {
         Some(x) if x == "none" => false,
         Some(_) => true,
         None => false,
     };
 
-    let total_size = head
-        .get(CONTENT_LENGTH)
-        .map(|x| x.to_owned())
-        .unwrap_or(HeaderValue::from(0));
+    // 从服务器获取文件的总大小
+    let total_size = {
+        let total_size = head
+            .get(CONTENT_LENGTH)
+            .map(|x| x.to_owned())
+            .unwrap_or(HeaderValue::from(0));
 
-    let total_size = total_size
-        .to_str()
-        .map_err(|e| anyhow!("{e}"))?
-        .parse::<u64>()
-        .map_err(|e| anyhow!("{e}"))?;
+        total_size
+            .to_str()
+            .map_err(|e| anyhow!("{e}"))?
+            .parse::<u64>()
+            .map_err(|e| anyhow!("{e}"))?
+    };
 
     let mut req = client.get(url);
 
     if can_resume && allow_resume {
+        // 如果已存在的文件大小与要下载的文件大小相同，则返回 Checksum 不匹配
+        // 因为刚刚已经验证过 checksum 了，如果函数能走到这里
+        // 说明文件完整性是不一致的
         if total_size == file_size {
             return Err(DownloadError::ChecksumMisMatch);
         }
 
+        // 发送 RANGE 的头，传入的是已经下载的文件的大小
         req = req.header(RANGE, format!("bytes={}-", file_size));
     }
 
@@ -452,12 +465,12 @@ pub async fn download(
 
     let mut source = resp;
 
+    // 初始化 checksum 验证器
     let mut validator = if let Some(hash) = hash {
         Some(Checksum::from_sha256_str(hash)?.get_validator())
     } else {
         None
     };
-
 
     let mut option = tokio::fs::OpenOptions::new();
     option.create(true);
@@ -465,6 +478,8 @@ pub async fn download(
     option.read(true);
 
     let mut dest = if !allow_resume || !can_resume {
+        // 如果不能 resume，则加入 truncate 这个 flag，告诉内核截断文件
+        // 并把文件长度设置为 0
         option.truncate(true);
         let f = option.open(&file).await?;
         f.set_len(0).await?;
@@ -474,6 +489,7 @@ pub async fn download(
         option.open(&file).await?
     };
 
+    // 如果文件已经存在但不完整，则把之前的部分写入到 checksum 验证器中
     if let Some(ref mut validator) = validator {
         if allow_resume && can_resume {
             let mut buf = vec![0; 4096];
@@ -497,9 +513,10 @@ pub async fn download(
         }
     }
 
+    // 把文件指针移动到末尾
     dest.seek(SeekFrom::End(0)).await?;
 
-
+    // 下载！
     while let Some(chunk) = source.chunk().await? {
         dest.write_all(&chunk).await?;
         pb.inc(chunk.len() as u64);
@@ -513,8 +530,10 @@ pub async fn download(
         }
     }
 
+    // 下载完成，告诉内核不再写这个文件了
     dest.shutdown().await?;
 
+    // 最后看看 chekcsum 验证是否通过
     if let Some(v) = validator {
         if !v.finish() {
             if let Some(ref global_bar) = opb.global_bar {
