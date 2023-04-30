@@ -5,7 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.30.3 (2023-04-30)
+
+### Chore
+
+ - <csr-id-ecaa4ba7fb203e6ef62e8053aeba97183a6aa09f/> update all deps
+ - <csr-id-54ed3e3c6f90ac61e95b65bc55a13bc05a081c3a/> remove useless test
+
+### Refactor
+
+ - <csr-id-f243e54d793662af8cf1fa621f4b24365274de61/> improve resume download logic
+
+### Style
+
+ - <csr-id-c621f3af74c784129c084d0f926d1a273abed379/> use cargo clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`ecaa4ba`](https://github.com/AOSC-Dev/aoscpt/commit/ecaa4ba7fb203e6ef62e8053aeba97183a6aa09f))
+    - Remove useless test ([`54ed3e3`](https://github.com/AOSC-Dev/aoscpt/commit/54ed3e3c6f90ac61e95b65bc55a13bc05a081c3a))
+    - Improve resume download logic ([`f243e54`](https://github.com/AOSC-Dev/aoscpt/commit/f243e54d793662af8cf1fa621f4b24365274de61))
+    - Use cargo clippy to lint code ([`c621f3a`](https://github.com/AOSC-Dev/aoscpt/commit/c621f3af74c784129c084d0f926d1a273abed379))
+</details>
+
 ## v0.30.2 (2023-04-29)
+
+<csr-id-4af6ab474a6f3ea5a68a934f637420fd171b94a7/>
 
 ### Chore
 
@@ -20,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -31,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.30.2 ([`b6a188d`](https://github.com/AOSC-Dev/aoscpt/commit/b6a188df8c045e402d81319f52af8e69555dbd82))
     - Revert retry 2 times start dpkg-force-all mode ([`30f20fd`](https://github.com/AOSC-Dev/aoscpt/commit/30f20fd8f8183d1f3d5e307dbe2b2b78de3c350c))
     - Download again when checksum does not match and returns 416 ([`38262ff`](https://github.com/AOSC-Dev/aoscpt/commit/38262ff93c8742e188f41aa0200cf29c338cb2b5))
     - Update all deps ([`4af6ab4`](https://github.com/AOSC-Dev/aoscpt/commit/4af6ab474a6f3ea5a68a934f637420fd171b94a7))
