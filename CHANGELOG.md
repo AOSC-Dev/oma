@@ -5,7 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.31.0 (2023-04-30)
+
+### Documentation
+
+ - <csr-id-a9b8e62bc8a6a6d2b0fde904af4185f0b0afc5d5/> add some comment in download method
+
+### New Features
+
+ - <csr-id-cffa40f1a9aaf94c0353c10fd195a89ed135fc43/> display resume info
+ - <csr-id-164a1343c172f2461310e0d9edb5809955c0055a/> improve ui string
+ - <csr-id-e7d65922b5ea92f96a0be3b0a58e4d9defd192af/> do not inc global bar if file exist and running checksum
+
+### Refactor
+
+ - <csr-id-234ef60de4c0ce7760a9cb9dd5b3cc47e2426a42/> re use validator to improve checksum
+ - <csr-id-aa21dda2098c5e13d5d1f42427a53f50a8967332/> improve download methold open file times
+ - <csr-id-7e710d224c977242dbe17185420fdb00e094d2d2/> use validator to verify integrity while downloading
+ - <csr-id-da89ed6a92c0560ae0bce410a7a382adc90d3eef/> improve get file_size logic
+
+### Style
+
+ - <csr-id-3843cbd58f893b84877ae34b4671e44fb8c0a1fb/> use cargo-clippy to lint code
+ - <csr-id-c8dbd5a7f2302460f368dd62b65d04d5370cbe46/> inline function in download method
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 13 commits contributed to the release.
+ - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Use cargo-clippy to lint code ([`3843cbd`](https://github.com/AOSC-Dev/aoscpt/commit/3843cbd58f893b84877ae34b4671e44fb8c0a1fb))
+    - Revert "feat: display resume info" ([`698e983`](https://github.com/AOSC-Dev/aoscpt/commit/698e98393d154301cb66b85f0f21a9ef913fade5))
+    - Display resume info ([`cffa40f`](https://github.com/AOSC-Dev/aoscpt/commit/cffa40f1a9aaf94c0353c10fd195a89ed135fc43))
+    - Improve ui string ([`164a134`](https://github.com/AOSC-Dev/aoscpt/commit/164a1343c172f2461310e0d9edb5809955c0055a))
+    - Inline function in download method ([`c8dbd5a`](https://github.com/AOSC-Dev/aoscpt/commit/c8dbd5a7f2302460f368dd62b65d04d5370cbe46))
+    - Re use validator to improve checksum ([`234ef60`](https://github.com/AOSC-Dev/aoscpt/commit/234ef60de4c0ce7760a9cb9dd5b3cc47e2426a42))
+    - Revert "feat: do not inc global bar if file exist and running checksum" ([`2b20204`](https://github.com/AOSC-Dev/aoscpt/commit/2b202043a80c6330f67b3e4878bb86df94d57924))
+    - Do not inc global bar if file exist and running checksum ([`e7d6592`](https://github.com/AOSC-Dev/aoscpt/commit/e7d65922b5ea92f96a0be3b0a58e4d9defd192af))
+    - Improve download methold open file times ([`aa21dda`](https://github.com/AOSC-Dev/aoscpt/commit/aa21dda2098c5e13d5d1f42427a53f50a8967332))
+    - Add some comment in download method ([`a9b8e62`](https://github.com/AOSC-Dev/aoscpt/commit/a9b8e62bc8a6a6d2b0fde904af4185f0b0afc5d5))
+    - Use validator to verify integrity while downloading ([`7e710d2`](https://github.com/AOSC-Dev/aoscpt/commit/7e710d224c977242dbe17185420fdb00e094d2d2))
+    - Revert "refactor: improve get file_size logic" ([`568eae9`](https://github.com/AOSC-Dev/aoscpt/commit/568eae9de08906b2ab8e61a3bb21e4e1c573cfe5))
+    - Improve get file_size logic ([`da89ed6`](https://github.com/AOSC-Dev/aoscpt/commit/da89ed6a92c0560ae0bce410a7a382adc90d3eef))
+</details>
+
 ## v0.30.3 (2023-04-30)
+
+<csr-id-ecaa4ba7fb203e6ef62e8053aeba97183a6aa09f/>
+<csr-id-54ed3e3c6f90ac61e95b65bc55a13bc05a081c3a/>
+<csr-id-f243e54d793662af8cf1fa621f4b24365274de61/>
+<csr-id-c621f3af74c784129c084d0f926d1a273abed379/>
 
 ### Chore
 
@@ -24,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -35,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.30.3 ([`4023612`](https://github.com/AOSC-Dev/aoscpt/commit/4023612dc4f471dffc0d80192e0e31edb019366f))
     - Update all deps ([`ecaa4ba`](https://github.com/AOSC-Dev/aoscpt/commit/ecaa4ba7fb203e6ef62e8053aeba97183a6aa09f))
     - Remove useless test ([`54ed3e3`](https://github.com/AOSC-Dev/aoscpt/commit/54ed3e3c6f90ac61e95b65bc55a13bc05a081c3a))
     - Improve resume download logic ([`f243e54`](https://github.com/AOSC-Dev/aoscpt/commit/f243e54d793662af8cf1fa621f4b24365274de61))
