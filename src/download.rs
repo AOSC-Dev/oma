@@ -350,7 +350,7 @@ pub async fn download(
                 }
 
                 let count = f.read(&mut buf[..]).await?;
-                v.update(buf[..count].to_vec());
+                v.update(&buf[..count]);
 
                 if let Some(ref global_bar) = opb.global_bar {
                     global_bar.inc(count as u64);
