@@ -10,7 +10,11 @@ use std::{
 
 use console::style;
 use futures::StreamExt;
-use tokio::{io::AsyncSeekExt, runtime::Runtime, task::spawn_blocking};
+use tokio::{
+    io::{AsyncReadExt, AsyncSeekExt},
+    runtime::Runtime,
+    task::spawn_blocking,
+};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -316,22 +320,19 @@ pub async fn download(
     allow_resume: bool,
 ) -> DownloadResult<()> {
     let file = dir.join(&filename);
+    let file_clone = file.clone();
+
     let file_exist = file.exists();
 
-    let mut file_size = 0;
+    let file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
+
     if file_exist {
         if let Some(hash) = hash {
             let hash = hash.to_owned();
-            let file_clone = file.clone();
 
-            let result = spawn_blocking(move || {
-                Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file_clone))
-            })
-            .await??;
-
-            let mut f = tokio::fs::File::open(&file).await?;
-
-            file_size = f.seek(SeekFrom::End(0)).await?;
+            let result =
+                spawn_blocking(move || Checksum::from_sha256_str(&hash)?.cmp_file(&file_clone))
+                    .await??;
 
             if result {
                 if let Some(ref global_bar) = opb.global_bar {
@@ -451,28 +452,53 @@ pub async fn download(
 
     let mut source = resp;
 
-    let mut opt = tokio::fs::OpenOptions::new();
-    opt.create(true);
-    opt.write(true);
+    let mut validator = if let Some(hash) = hash {
+        Some(Checksum::from_sha256_str(hash)?.get_validator())
+    } else {
+        None
+    };
+
+
+    let mut option = tokio::fs::OpenOptions::new();
+    option.create(true);
+    option.write(true);
+    option.read(true);
 
     let mut dest = if !allow_resume || !can_resume {
-        opt.truncate(true);
-        let f = opt.open(&file).await?;
+        option.truncate(true);
+        let f = option.open(&file).await?;
         f.set_len(0).await?;
 
         f
     } else {
-        let mut f = opt.open(&file).await?;
-        f.seek(SeekFrom::End(0)).await?;
-
-        f
+        option.open(&file).await?
     };
 
-    pb.inc(file_size);
+    if let Some(ref mut validator) = validator {
+        if allow_resume && can_resume {
+            let mut buf = vec![0; 4096];
 
-    if let Some(ref global_bar) = opb.global_bar {
-        global_bar.inc(file_size);
+            let mut readed = 0;
+
+            loop {
+                if readed == file_size {
+                    break;
+                }
+                let count = dest.read(&mut buf[..]).await?;
+                validator.update(buf[..count].to_vec());
+                pb.inc(count as u64);
+
+                if let Some(ref global_bar) = opb.global_bar {
+                    global_bar.inc(count as u64);
+                }
+
+                readed += count as u64;
+            }
+        }
     }
+
+    dest.seek(SeekFrom::End(0)).await?;
+
 
     while let Some(chunk) = source.chunk().await? {
         dest.write_all(&chunk).await?;
@@ -481,20 +507,16 @@ pub async fn download(
         if let Some(ref global_bar) = opb.global_bar {
             global_bar.inc(chunk.len() as u64);
         }
+
+        if let Some(ref mut v) = validator {
+            v.update(&chunk);
+        }
     }
 
-    dest.flush().await?;
-    drop(dest);
+    dest.shutdown().await?;
 
-    if let Some(hash) = hash {
-        pb.set_message("Checking integrity ...");
-        let hash = hash.to_string();
-        let result = spawn_blocking(move || {
-            Checksum::from_sha256_str(&hash).and_then(|x| x.cmp_file(&file))
-        })
-        .await??;
-
-        if !result {
+    if let Some(v) = validator {
+        if !v.finish() {
             if let Some(ref global_bar) = opb.global_bar {
                 global_bar.set_position(global_bar.position() - pb.position());
             }

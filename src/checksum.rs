@@ -9,27 +9,27 @@ pub enum Checksum {
     Sha512(Vec<u8>),
 }
 
-// #[derive(Clone)]
-// pub enum ChecksumValidator {
-//     Sha256((Vec<u8>, Sha256)),
-//     Sha512((Vec<u8>, Sha512)),
-// }
+#[derive(Clone)]
+pub enum ChecksumValidator {
+    Sha256((Vec<u8>, Sha256)),
+    Sha512((Vec<u8>, Sha512)),
+}
 
-// impl ChecksumValidator {
-//     pub fn update(&mut self, data: impl AsRef<[u8]>) {
-//         match self {
-//             ChecksumValidator::Sha256((_, v)) => v.update(data),
-//             ChecksumValidator::Sha512((_, v)) => v.update(data),
-//         }
-//     }
+impl ChecksumValidator {
+    pub fn update(&mut self, data: impl AsRef<[u8]>) {
+        match self {
+            ChecksumValidator::Sha256((_, v)) => v.update(data),
+            ChecksumValidator::Sha512((_, v)) => v.update(data),
+        }
+    }
 
-//     pub fn finish(self) -> bool {
-//         match self {
-//             ChecksumValidator::Sha256((c, v)) => c == v.finalize().to_vec(),
-//             ChecksumValidator::Sha512((c, v)) => c == v.finalize().to_vec(),
-//         }
-//     }
-// }
+    pub fn finish(self) -> bool {
+        match self {
+            ChecksumValidator::Sha256((c, v)) => c == v.finalize().to_vec(),
+            ChecksumValidator::Sha512((c, v)) => c == v.finalize().to_vec(),
+        }
+    }
+}
 
 impl Checksum {
     // pub fn from_file_sha256(path: &Path) -> Result<Self> {
@@ -59,12 +59,12 @@ impl Checksum {
     //     Ok(Checksum::Sha512(hex::decode(s)?))
     // }
 
-    // pub fn get_validator(&self) -> ChecksumValidator {
-    //     match self {
-    //         Checksum::Sha256(c) => ChecksumValidator::Sha256((c.clone(), Sha256::new())),
-    //         Checksum::Sha512(c) => ChecksumValidator::Sha512((c.clone(), Sha512::new())),
-    //     }
-    // }
+    pub fn get_validator(&self) -> ChecksumValidator {
+        match self {
+            Checksum::Sha256(c) => ChecksumValidator::Sha256((c.clone(), Sha256::new())),
+            Checksum::Sha512(c) => ChecksumValidator::Sha512((c.clone(), Sha512::new())),
+        }
+    }
 
     pub fn cmp_read(&self, mut r: Box<dyn std::io::Read>) -> Result<bool> {
         match self {
