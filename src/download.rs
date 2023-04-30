@@ -363,6 +363,14 @@ pub async fn download(
                 return Ok(());
             }
 
+            if let Some(ref global_bar) = opb.global_bar {
+                let s = if allow_resume {
+                    format!("{filename} partial download detected, attempting to resume ...")
+                } else {
+                    format!("{filename} partial download detected, Restarting download ...")
+                };
+                global_bar.println(format!("{}{s}", style(gen_prefix("INFO")).bold().blue()));
+            }
             dest = Some(f);
             validator = Some(v);
         }
