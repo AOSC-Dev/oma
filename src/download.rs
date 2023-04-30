@@ -14,7 +14,10 @@ use tokio::{io::AsyncSeekExt, runtime::Runtime, task::spawn_blocking};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use reqwest::{header, Client, StatusCode};
+use reqwest::{
+    header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
+    Client, StatusCode,
+};
 use tokio::io::AsyncWriteExt;
 
 use crate::{
@@ -315,20 +318,6 @@ pub async fn download(
     let file = dir.join(&filename);
     let file_exist = file.exists();
 
-    let mut opt = tokio::fs::OpenOptions::new();
-    opt.create(true);
-    opt.write(true);
-
-    let mut dest = if !allow_resume {
-        opt.truncate(true);
-        let f = opt.open(&file).await?;
-        f.set_len(0).await?;
-
-        f
-    } else {
-        opt.open(&file).await?
-    };
-
     let mut file_size = 0;
     if file_exist {
         if let Some(hash) = hash {
@@ -340,7 +329,9 @@ pub async fn download(
             })
             .await??;
 
-            file_size = dest.seek(SeekFrom::End(0)).await?;
+            let mut f = tokio::fs::File::open(&file).await?;
+
+            file_size = f.seek(SeekFrom::End(0)).await?;
 
             if result {
                 if let Some(ref global_bar) = opb.global_bar {
@@ -390,59 +381,55 @@ pub async fn download(
         pb.finish_and_clear();
     });
 
-    let (total_size, resp, can_resume) = {
-        let mut resp = client.get(url);
+    let resp_head = client.head(url).send().await?;
 
-        if allow_resume && file_size != 0 {
-            resp = resp.header(header::RANGE, format!("bytes={}-", file_size));
-        }
+    let head = resp_head.headers();
 
-        let resp = resp.send().await?;
-        let len = resp.content_length().unwrap_or(0);
-
-        let resp = if len == file_size && allow_resume {
-            let mut resp = client.get(url);
-            file_size = 0;
-            resp = resp.header(header::RANGE, format!("bytes={}-", file_size));
-            
-
-            resp.send().await?
-        } else {
-            resp
-        };
-
-        match resp.error_for_status() {
-            Ok(resp) => {
-                let can_resume = matches!(resp.status(), StatusCode::PARTIAL_CONTENT);
-
-                let length = if allow_resume {
-                    resp.content_length().unwrap_or(0) + file_size
-                } else {
-                    resp.content_length().unwrap_or(0)
-                };
-
-                is_send_clone.store(true, Ordering::Relaxed);
-                (length, resp, can_resume)
-            }
-            Err(e) => {
-                tokio::fs::remove_file(file).await?;
-                is_send_clone.store(true, Ordering::Relaxed);
-
-                match e.status() {
-                    Some(StatusCode::NOT_FOUND) => {
-                        return Err(DownloadError::NotFound(url.to_string()))
-                    }
-                    e => {
-                        return Err(DownloadError::Anyhow(anyhow!(
-                            "Couldn't download URL: {}. Error: {:?}",
-                            url,
-                            e,
-                        )))
-                    }
-                }
-            }
-        }
+    let can_resume = match head.get(ACCEPT_RANGES) {
+        Some(x) if x == "none" => false,
+        Some(_) => true,
+        None => false,
     };
+
+    let total_size = head
+        .get(CONTENT_LENGTH)
+        .map(|x| x.to_owned())
+        .unwrap_or(HeaderValue::from(0));
+
+    let total_size = total_size
+        .to_str()
+        .map_err(|e| anyhow!("{e}"))?
+        .parse::<u64>()
+        .map_err(|e| anyhow!("{e}"))?;
+
+    let mut req = client.get(url);
+
+    if can_resume && allow_resume {
+        if total_size == file_size {
+            return Err(DownloadError::ChecksumMisMatch);
+        }
+
+        req = req.header(RANGE, format!("bytes={}-", file_size));
+    }
+
+    let resp = req.send().await?;
+
+    if let Err(e) = resp.error_for_status_ref() {
+        is_send_clone.store(true, Ordering::Relaxed);
+
+        match e.status() {
+            Some(StatusCode::NOT_FOUND) => return Err(DownloadError::NotFound(url.to_string())),
+            e => {
+                return Err(DownloadError::Anyhow(anyhow!(
+                    "Couldn't download URL: {}. Status Code: {:?}",
+                    url,
+                    e,
+                )))
+            }
+        }
+    } else {
+        is_send_clone.store(true, Ordering::Relaxed);
+    }
 
     pb.await?;
 
@@ -464,12 +451,22 @@ pub async fn download(
 
     let mut source = resp;
 
-    if allow_resume && !can_resume {
+    let mut opt = tokio::fs::OpenOptions::new();
+    opt.create(true);
+    opt.write(true);
+
+    let mut dest = if !allow_resume || !can_resume {
         opt.truncate(true);
-        dest = opt.open(&file).await?;
-        dest.set_len(0).await?;
-        dest.flush().await?;
-    }
+        let f = opt.open(&file).await?;
+        f.set_len(0).await?;
+
+        f
+    } else {
+        let mut f = opt.open(&file).await?;
+        f.seek(SeekFrom::End(0)).await?;
+
+        f
+    };
 
     pb.inc(file_size);
 
@@ -509,6 +506,21 @@ pub async fn download(
     pb.finish_and_clear();
 
     Ok(())
+}
+
+#[tokio::test]
+async fn test() {
+    let client = Client::builder().user_agent("oma").build().unwrap();
+    let head = client.head("https://mirrors.bfsu.edu.cn/anthon/debs/pool/stable/main/g/go_1.19.4%2btools0.4.0%2bnet0.4.0-0_amd64.deb").send().await.unwrap();
+    dbg!(head.headers());
+    dbg!(head.content_length());
+    let mut req = client.get("https://mirrors.bfsu.edu.cn/anthon/debs/pool/stable/main/g/go_1.19.4%2btools0.4.0%2bnet0.4.0-0_amd64.deb");
+    req = req.header(RANGE, format!("bytes=1023-"));
+
+    let resp = req.send().await.unwrap();
+
+    dbg!(&resp);
+    dbg!(resp.content_length());
 }
 
 pub fn oma_spinner(pb: &ProgressBar) {
