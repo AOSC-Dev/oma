@@ -752,25 +752,21 @@ impl Oma {
         let autoremove = PackageSort::default().auto_removable();
         let upgradable = cache.packages(&upgradable).collect::<Vec<_>>();
         let autoremove = cache.packages(&autoremove).collect::<Vec<_>>();
-        let mut s = String::new();
+        let mut output = vec![];
         if !upgradable.is_empty() {
-            s += &format!("{} package can be upgraded", upgradable.len());
+            output.push(format!("{} package can be upgraded", upgradable.len()));
         }
 
-        if upgradable.is_empty() && !autoremove.is_empty() {
-            s += &format!("{} can be removed.", autoremove.len());
-        } else if !upgradable.is_empty() && !autoremove.is_empty() {
-            s += &format!(", {} package can be removed.", autoremove.len());
-        } else if !upgradable.is_empty() && autoremove.is_empty() {
-            s += ".";
+        if !autoremove.is_empty() {
+            output.push(format!("{} can be removed", autoremove.len()));
         }
 
-        if !upgradable.is_empty() || !autoremove.is_empty() {
-            s += " Run 'oma upgrade' to see it."
-        }
-
-        if !s.is_empty() {
-            info!("{s}");
+        if !output.is_empty() {
+            output.push("Run 'oma upgrade' to see it".to_string());
+            let s = output.join(", ") + ".";
+            success!("Successfully refreshed package database. {s}");
+        } else {
+            success!("Successfully refreshed package database. No update available.");
         }
 
         Ok(())

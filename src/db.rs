@@ -21,7 +21,7 @@ use xz2::read::XzDecoder;
 use crate::{
     checksum::Checksum,
     download::{download, oma_spinner, oma_style_pb, DownloadError, OmaProgressBar},
-    error, info, success, verify, warn, ARCH, MB,
+    error, info, verify, warn, ARCH, MB,
 };
 
 #[cfg(feature = "aosc")]
@@ -709,8 +709,6 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             i?;
         }
     }
-
-    success!("Package database already newest.");
 
     Ok(())
 }
