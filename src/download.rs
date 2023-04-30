@@ -347,24 +347,16 @@ pub async fn download(
 
             let mut validator = Checksum::from_sha256_str(&hash)?.get_validator();
 
-            update_checksum(
-                file_size,
-                &mut f,
-                &mut validator,
-                None,
-                opb.global_bar.as_ref(),
-            )
-            .await?;
+            update_checksum(file_size, &mut f, &mut validator, None, None).await?;
 
             if validator.finish() {
+                if let Some(ref global_bar) = opb.global_bar {
+                    global_bar.inc(file_size);
+                }
                 return Ok(());
             }
 
             dest = Some(f);
-            if let Some(ref global_bar) = opb.global_bar {
-                global_bar.set_position(global_bar.position() - file_size);
-            }
-
         }
     }
 
