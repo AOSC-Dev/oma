@@ -11,6 +11,7 @@ use std::{
 use console::style;
 use futures::StreamExt;
 use tokio::{
+    fs::File,
     io::{AsyncReadExt, AsyncSeekExt},
     runtime::Runtime,
     task::spawn_blocking,
@@ -25,8 +26,14 @@ use reqwest::{
 use tokio::io::AsyncWriteExt;
 
 use crate::{
-    checksum::Checksum, cli::gen_prefix, db::DOWNLOAD_DIR, error, info, oma::InstallRow, success,
-    utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER,
+    checksum::{Checksum, ChecksumValidator},
+    cli::gen_prefix,
+    db::DOWNLOAD_DIR,
+    error, info,
+    oma::InstallRow,
+    success,
+    utils::reverse_apt_style_url,
+    warn, AILURUS, DRYRUN, WRITER,
 };
 
 /// Download a package
@@ -320,11 +327,10 @@ pub async fn download(
     allow_resume: bool,
 ) -> DownloadResult<()> {
     let file = dir.join(&filename);
-    let file_clone = file.clone();
-
     let file_exist = file.exists();
-
     let file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
+
+    let mut dest = None;
 
     // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
     // 如果不存在，则继续往下走
@@ -332,16 +338,33 @@ pub async fn download(
         if let Some(hash) = hash {
             let hash = hash.to_owned();
 
-            let result =
-                spawn_blocking(move || Checksum::from_sha256_str(&hash)?.cmp_file(&file_clone))
-                    .await??;
+            let mut f = tokio::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .read(true)
+                .open(&file)
+                .await?;
 
-            if result {
-                if let Some(ref global_bar) = opb.global_bar {
-                    global_bar.inc(file_size);
-                }
+            let mut validator = Checksum::from_sha256_str(&hash)?.get_validator();
+
+            update_checksum(
+                file_size,
+                &mut f,
+                &mut validator,
+                None,
+                opb.global_bar.as_ref(),
+            )
+            .await?;
+
+            if validator.finish() {
                 return Ok(());
             }
+
+            dest = Some(f);
+            if let Some(ref global_bar) = opb.global_bar {
+                global_bar.set_position(global_bar.position() - file_size);
+            }
+
         }
     }
 
@@ -480,36 +503,39 @@ pub async fn download(
     let mut dest = if !allow_resume || !can_resume {
         // 如果不能 resume，则加入 truncate 这个 flag，告诉内核截断文件
         // 并把文件长度设置为 0
-        option.truncate(true);
-        let f = option.open(&file).await?;
+        let f = tokio::fs::OpenOptions::new()
+            .truncate(true)
+            .create(true)
+            .write(true)
+            .read(true)
+            .open(&file)
+            .await?;
         f.set_len(0).await?;
 
         f
+    } else if let Some(mut dest) = dest {
+        dest.seek(SeekFrom::Start(0)).await?;
+        dest
     } else {
-        option.open(&file).await?
+        tokio::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .read(true)
+            .open(&file)
+            .await?
     };
 
     // 如果文件已经存在但不完整，则把之前的部分写入到 checksum 验证器中
     if let Some(ref mut validator) = validator {
         if allow_resume && can_resume {
-            let mut buf = vec![0; 4096];
-
-            let mut readed = 0;
-
-            loop {
-                if readed == file_size {
-                    break;
-                }
-                let count = dest.read(&mut buf[..]).await?;
-                validator.update(buf[..count].to_vec());
-                pb.inc(count as u64);
-
-                if let Some(ref global_bar) = opb.global_bar {
-                    global_bar.inc(count as u64);
-                }
-
-                readed += count as u64;
-            }
+            update_checksum(
+                file_size,
+                &mut dest,
+                validator,
+                Some(&pb),
+                opb.global_bar.as_ref(),
+            )
+            .await?;
         }
     }
 
@@ -545,6 +571,38 @@ pub async fn download(
     }
 
     pb.finish_and_clear();
+
+    Ok(())
+}
+
+async fn update_checksum(
+    file_size: u64,
+    dest: &mut File,
+    validator: &mut ChecksumValidator,
+    pb: Option<&ProgressBar>,
+    global_bar: Option<&ProgressBar>,
+) -> DownloadResult<()> {
+    let mut buf = vec![0; 4096];
+    let mut readed = 0;
+
+    loop {
+        if readed == file_size {
+            break;
+        }
+
+        let count = dest.read(&mut buf[..]).await?;
+        validator.update(buf[..count].to_vec());
+
+        if let Some(pb) = pb {
+            pb.inc(count as u64);
+        }
+
+        if let Some(global_bar) = global_bar {
+            global_bar.inc(count as u64);
+        }
+
+        readed += count as u64;
+    }
 
     Ok(())
 }
