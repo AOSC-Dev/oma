@@ -20,7 +20,7 @@ console = "0.15"
 inquire = { git = "https://github.com/AOSC-Dev/inquire", rev = "3230e6daefb71e335764d901d1c6d3a5e706312e", optional = true }
 # For Database, Packages Download
 reqwest = { version = "0.11", features = ["json"] }
-tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread", "macros"] }
+tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
 futures = "0.3"
 futures-util = "0.3"
 # For log

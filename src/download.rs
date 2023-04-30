@@ -508,21 +508,6 @@ pub async fn download(
     Ok(())
 }
 
-#[tokio::test]
-async fn test() {
-    let client = Client::builder().user_agent("oma").build().unwrap();
-    let head = client.head("https://mirrors.bfsu.edu.cn/anthon/debs/pool/stable/main/g/go_1.19.4%2btools0.4.0%2bnet0.4.0-0_amd64.deb").send().await.unwrap();
-    dbg!(head.headers());
-    dbg!(head.content_length());
-    let mut req = client.get("https://mirrors.bfsu.edu.cn/anthon/debs/pool/stable/main/g/go_1.19.4%2btools0.4.0%2bnet0.4.0-0_amd64.deb");
-    req = req.header(RANGE, format!("bytes=1023-"));
-
-    let resp = req.send().await.unwrap();
-
-    dbg!(&resp);
-    dbg!(resp.content_length());
-}
-
 pub fn oma_spinner(pb: &ProgressBar) {
     let (is_egg, inv) = if AILURUS.load(Ordering::Relaxed) {
         (
