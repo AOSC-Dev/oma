@@ -329,10 +329,6 @@ pub async fn download(
             })
             .await??;
 
-            let mut f = tokio::fs::File::open(&file).await?;
-
-            file_size = f.seek(SeekFrom::End(0)).await?;
-
             if result {
                 if let Some(ref global_bar) = opb.global_bar {
                     global_bar.inc(file_size);
@@ -463,7 +459,7 @@ pub async fn download(
         f
     } else {
         let mut f = opt.open(&file).await?;
-        f.seek(SeekFrom::End(0)).await?;
+        file_size = f.seek(SeekFrom::End(0)).await?;
 
         f
     };
