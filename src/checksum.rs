@@ -23,10 +23,10 @@ impl ChecksumValidator {
         }
     }
 
-    pub fn finish(self) -> bool {
+    pub fn finish(&self) -> bool {
         match self {
-            ChecksumValidator::Sha256((c, v)) => c == v.finalize().to_vec(),
-            ChecksumValidator::Sha512((c, v)) => c == v.finalize().to_vec(),
+            ChecksumValidator::Sha256((c, v)) => c == &v.clone().finalize().to_vec(),
+            ChecksumValidator::Sha512((c, v)) => c == &v.clone().finalize().to_vec(),
         }
     }
 }

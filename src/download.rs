@@ -331,6 +331,7 @@ pub async fn download(
     let file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
     let mut dest = None;
+    let mut validator = None;
 
     // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
     // 如果不存在，则继续往下走
@@ -345,26 +346,23 @@ pub async fn download(
                 .open(&file)
                 .await?;
 
-            let mut validator = Checksum::from_sha256_str(&hash)?.get_validator();
+            let mut v = Checksum::from_sha256_str(&hash)?.get_validator();
 
             update_checksum(
                 file_size,
                 &mut f,
-                &mut validator,
+                &mut v,
                 None,
                 opb.global_bar.as_ref(),
             )
             .await?;
 
-            if validator.finish() {
+            if v.finish() {
                 return Ok(());
             }
 
             dest = Some(f);
-            if let Some(ref global_bar) = opb.global_bar {
-                global_bar.set_position(global_bar.position() - file_size);
-            }
-
+            validator = Some(v);
         }
     }
 
@@ -489,7 +487,11 @@ pub async fn download(
     let mut source = resp;
 
     // 初始化 checksum 验证器
-    let mut validator = if let Some(hash) = hash {
+    // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
+    let mut validator = if let Some(v) = validator {
+        pb.inc(file_size);
+        Some(v)
+    } else if let Some(hash) = hash {
         Some(Checksum::from_sha256_str(hash)?.get_validator())
     } else {
         None
@@ -513,8 +515,7 @@ pub async fn download(
         f.set_len(0).await?;
 
         f
-    } else if let Some(mut dest) = dest {
-        dest.seek(SeekFrom::Start(0)).await?;
+    } else if let Some(dest) = dest {
         dest
     } else {
         tokio::fs::OpenOptions::new()
@@ -524,20 +525,6 @@ pub async fn download(
             .open(&file)
             .await?
     };
-
-    // 如果文件已经存在但不完整，则把之前的部分写入到 checksum 验证器中
-    if let Some(ref mut validator) = validator {
-        if allow_resume && can_resume {
-            update_checksum(
-                file_size,
-                &mut dest,
-                validator,
-                Some(&pb),
-                opb.global_bar.as_ref(),
-            )
-            .await?;
-        }
-    }
 
     // 把文件指针移动到末尾
     dest.seek(SeekFrom::End(0)).await?;
