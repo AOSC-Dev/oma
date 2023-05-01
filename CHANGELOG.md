@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.32.0 (2023-05-01)
+
+### New Features
+
+ - <csr-id-6307688b3e1aee0bf812deecdec4ebe094da310d/> adjust terminal width < 90 progress bar style
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Adjust terminal width < 90 progress bar style ([`6307688`](https://github.com/AOSC-Dev/aoscpt/commit/6307688b3e1aee0bf812deecdec4ebe094da310d))
+</details>
+
 ## v0.31.1 (2023-05-01)
+
+<csr-id-beed5ad4733033ea1281b6050f9b7e6818bb6a45/>
 
 ### New Features
 
@@ -24,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -35,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.31.1 ([`9a9d1e4`](https://github.com/AOSC-Dev/aoscpt/commit/9a9d1e43ad7dc9d4479c0426b3ea0df7eb48c050))
     - Do not panic with display CJK message ([`dc3e49d`](https://github.com/AOSC-Dev/aoscpt/commit/dc3e49db2b5e6860d9c8a36215898507d77fbf99))
     - Check contents create time to tell user contents file may not be accurate ([`e74d9aa`](https://github.com/AOSC-Dev/aoscpt/commit/e74d9aa3a0921fcf08956d1fff745bbf8700b4d0))
     - Display searching contents message if match is empty ([`dc413ad`](https://github.com/AOSC-Dev/aoscpt/commit/dc413adb87c15882ceb005c1ede88ff62b73a1dd))
