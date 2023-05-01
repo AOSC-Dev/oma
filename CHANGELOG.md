@@ -5,7 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.31.1 (2023-05-01)
+
+### New Features
+
+ - <csr-id-e74d9aa3a0921fcf08956d1fff745bbf8700b4d0/> check contents create time to tell user contents file may not be accurate
+ - <csr-id-dc413adb87c15882ceb005c1ede88ff62b73a1dd/> display searching contents message if match is empty
+
+### Bug Fixes
+
+ - <csr-id-dc3e49db2b5e6860d9c8a36215898507d77fbf99/> do not panic with display CJK message
+
+### Refactor
+
+ - <csr-id-beed5ad4733033ea1281b6050f9b7e6818bb6a45/> download progress spinner no need to use new thread wait request send
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Do not panic with display CJK message ([`dc3e49d`](https://github.com/AOSC-Dev/aoscpt/commit/dc3e49db2b5e6860d9c8a36215898507d77fbf99))
+    - Check contents create time to tell user contents file may not be accurate ([`e74d9aa`](https://github.com/AOSC-Dev/aoscpt/commit/e74d9aa3a0921fcf08956d1fff745bbf8700b4d0))
+    - Display searching contents message if match is empty ([`dc413ad`](https://github.com/AOSC-Dev/aoscpt/commit/dc413adb87c15882ceb005c1ede88ff62b73a1dd))
+    - Download progress spinner no need to use new thread wait request send ([`beed5ad`](https://github.com/AOSC-Dev/aoscpt/commit/beed5ad4733033ea1281b6050f9b7e6818bb6a45))
+</details>
+
 ## v0.31.0 (2023-04-30)
+
+<csr-id-234ef60de4c0ce7760a9cb9dd5b3cc47e2426a42/>
+<csr-id-aa21dda2098c5e13d5d1f42427a53f50a8967332/>
+<csr-id-7e710d224c977242dbe17185420fdb00e094d2d2/>
+<csr-id-da89ed6a92c0560ae0bce410a7a382adc90d3eef/>
+<csr-id-3843cbd58f893b84877ae34b4671e44fb8c0a1fb/>
+<csr-id-c8dbd5a7f2302460f368dd62b65d04d5370cbe46/>
 
 ### Documentation
 
@@ -33,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 13 commits contributed to the release.
+ - 14 commits contributed to the release.
  - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -44,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.31.0 ([`036a04e`](https://github.com/AOSC-Dev/aoscpt/commit/036a04e464ffb263adc5b35e075eee01ccf2eb41))
     - Use cargo-clippy to lint code ([`3843cbd`](https://github.com/AOSC-Dev/aoscpt/commit/3843cbd58f893b84877ae34b4671e44fb8c0a1fb))
     - Revert "feat: display resume info" ([`698e983`](https://github.com/AOSC-Dev/aoscpt/commit/698e98393d154301cb66b85f0f21a9ef913fade5))
     - Display resume info ([`cffa40f`](https://github.com/AOSC-Dev/aoscpt/commit/cffa40f1a9aaf94c0353c10fd195a89ed135fc43))
