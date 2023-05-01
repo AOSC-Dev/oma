@@ -2,6 +2,7 @@ use std::{
     io::{BufRead, BufReader},
     path::Path,
     process::{Command, Stdio},
+    time::SystemTime,
 };
 
 use anyhow::{anyhow, bail, Result};
@@ -11,8 +12,10 @@ use grep::{
     searcher::{sinks::UTF8, Searcher},
 };
 use indicatif::ProgressBar;
+use time::OffsetDateTime;
 
-use crate::{db::APT_LIST_DISTS, download::oma_spinner, ARCH};
+use crate::{db::APT_LIST_DISTS, download::oma_spinner, warn, ARCH};
+use std::sync::atomic::Ordering;
 
 use serde::Deserialize;
 
@@ -77,6 +80,19 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
         }
     }
 
+    for i in &paths {
+        let m = OffsetDateTime::from(i.metadata()?.created()?);
+        let now = OffsetDateTime::from(SystemTime::now());
+        let delta = now - m;
+        let delta = delta.as_seconds_f64() / 60.0 / 60.0 / 24.0;
+        if delta > 7.0 {
+            warn!(
+                "Contents file: {} has not been updated for a week, so the search results may not be accurate, please use 'oma refresh' to refresh the database.",
+                i.file_name().unwrap_or_default().to_string_lossy()
+            );
+        }
+    }
+
     if paths.is_empty() {
         bail!(
             "Contents database does not exist!\nPlease use {} to refresh the contents.",
@@ -109,7 +125,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
             if let Some(ref pb) = pb {
                 pb.set_message("Searching ...");
             }
-    
+
             let stdout = cmd
                 .stdout
                 .as_mut()
