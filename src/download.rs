@@ -591,9 +591,12 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
         let max_len = WRITER.get_max_len();
         if is_global {
             if max_len < 90 {
-                " {wide_msg} {bytes}".to_owned()
-                    + &style("/").bold().to_string()
-                    + "{total_bytes} {eta:>4} {percent:>3}%"
+                " {msg:.blue.bold}".to_owned()
+                    + " {bytes:>10.green.bold} "
+                    + &style("/").green().bold().to_string()
+                    + " {total_bytes:.green.bold} "
+                    + &style("@").green().bold().to_string()
+                    + " {binary_bytes_per_sec:<13.green.bold}"
             } else {
                 " {msg:.blue.bold}".to_owned()
                     + " {bytes:>10.green.bold} "
@@ -605,7 +608,7 @@ pub fn oma_style_pb(is_global: bool) -> Result<ProgressStyle> {
                     + &style("%").blue().bold().to_string()
             }
         } else if max_len < 90 {
-            " {wide_msg} {total_bytes:10} {binary_bytes_per_sec} {eta:>4} {percent:>3}%".to_owned()
+            " {msg} {percent:>3}%".to_owned()
         } else {
             " {msg:<48} {total_bytes:>10}   [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
