@@ -1,10 +1,7 @@
 use std::{
     io::SeekFrom,
     path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::{atomic::Ordering, Arc},
     time::Duration,
 };
 
@@ -13,7 +10,6 @@ use futures::StreamExt;
 use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
     runtime::Runtime,
-    task::spawn_blocking,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -368,9 +364,6 @@ pub async fn download(
         }
     }
 
-    let is_send = Arc::new(AtomicBool::new(false));
-    let is_send_clone = is_send.clone();
-
     // 写入进度条显示的信息
     let mut msg = opb.msg.unwrap_or_else(|| {
         let mut filename_split = filename.split('_');
@@ -396,17 +389,11 @@ pub async fn download(
 
     let mbcc = opb.mbc.clone();
 
-    let pb = spawn_blocking(move || {
-        // 若请求头的速度太慢，会看到 Spinner 直到拿到头的信息
-        let pb = mbcc.add(ProgressBar::new_spinner());
-        pb.set_message(format!("{progress_clone}{msg_clone}"));
+    // 若请求头的速度太慢，会看到 Spinner 直到拿到头的信息
+    let pb = mbcc.add(ProgressBar::new_spinner());
+    pb.set_message(format!("{progress_clone}{msg_clone}"));
 
-        oma_spinner(&pb);
-
-        while !is_send.load(Ordering::Relaxed) {}
-
-        pb.finish_and_clear();
-    });
+    oma_spinner(&pb);
 
     let resp_head = client.head(url).send().await?;
 
@@ -452,8 +439,7 @@ pub async fn download(
     let resp = req.send().await?;
 
     if let Err(e) = resp.error_for_status_ref() {
-        is_send_clone.store(true, Ordering::Relaxed);
-
+        pb.finish_and_clear();
         match e.status() {
             Some(StatusCode::NOT_FOUND) => return Err(DownloadError::NotFound(url.to_string())),
             e => {
@@ -465,10 +451,8 @@ pub async fn download(
             }
         }
     } else {
-        is_send_clone.store(true, Ordering::Relaxed);
+        pb.finish_and_clear();
     }
-
-    pb.await?;
 
     let pb = opb.mbc.add(ProgressBar::new(total_size));
     pb.set_style(oma_style_pb(false)?);
