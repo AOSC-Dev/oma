@@ -106,6 +106,10 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
             .map_err(|e| anyhow!("Spawn rg failed, why: {e}"))?;
 
         {
+            if let Some(ref pb) = pb {
+                pb.set_message("Searching ...");
+            }
+    
             let stdout = cmd
                 .stdout
                 .as_mut()
