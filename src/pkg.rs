@@ -37,6 +37,8 @@ pub struct PkgInfo {
     pub version_raw: RawVersion,
     pub rdeps: HashMap<String, Vec<Vec<OmaDependency>>>,
     pub raw_pkg: RawPackage,
+    pub recommend: Vec<Vec<OmaDependency>>,
+    pub suggest: Vec<Vec<OmaDependency>>,
 }
 
 impl PkgInfo {
@@ -63,6 +65,9 @@ impl PkgInfo {
         } else {
             false
         };
+
+        let recommend = OmaDependency::map_deps(version.recommends().unwrap_or(&vec![]));
+        let suggest = OmaDependency::map_deps(version.suggests().unwrap_or(&vec![]));
 
         let provides = pkg
             .provides()
@@ -91,6 +96,8 @@ impl PkgInfo {
             version_raw,
             rdeps,
             raw_pkg,
+            recommend,
+            suggest,
         })
     }
 }

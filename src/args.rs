@@ -115,6 +115,20 @@ pub fn command_builder() -> Command {
                         .requires("packages")
                         .action(ArgAction::SetTrue),
                 )
+                .arg(
+                    Arg::new("install_recommend")
+                        .long("install-recommend")
+                        .help("Install recommend package")
+                        .requires("packages")
+                        .action(ArgAction::SetTrue)
+                )
+                .arg(
+                    Arg::new("install_suggest")
+                        .long("install-suggest")
+                        .help("Install suggest package")
+                        .requires("packages")
+                        .action(ArgAction::SetTrue)
+                )
                 .arg(no_fixbroken.clone().requires("packages"))
                 .arg(&no_refresh)
                 .arg(yes.clone().requires("packages"))

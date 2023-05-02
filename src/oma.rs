@@ -39,7 +39,7 @@ use crate::{
     },
     info,
     pager::Pager,
-    pkg::{mark_delete, mark_install, query_pkgs, search_pkgs},
+    pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{lock_oma, log_to_file, needs_root, size_checker},
     warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
@@ -137,7 +137,7 @@ impl Oma {
             u: &UpgradeOptions,
         ) -> InstallResult<Action> {
             let pkgs = u.packages.clone().unwrap_or_default();
-            let cache = install_handle(&pkgs, false, false)?;
+            let cache = install_handle(&pkgs, false, false, false, false)?;
 
             // 检查一遍是否有依赖不存在的升级
             {
@@ -153,7 +153,8 @@ impl Oma {
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len, need_fix_system) = apt_handler(&cache, false, u.force_yes, false, u.no_autoremove)?;
+            let (action, len, need_fix_system) =
+                apt_handler(&cache, false, u.force_yes, false, u.no_autoremove)?;
 
             if len == 0 && !need_fix_system {
                 success!("No need to do anything.");
@@ -651,9 +652,16 @@ impl Oma {
 
     fn install_inner(&self, opt: &InstallOptions, count: usize) -> InstallResult<Action> {
         let pkgs = opt.packages.clone().unwrap_or_default();
-        let cache = install_handle(&pkgs, opt.install_dbg, opt.reinstall)?;
+        let cache = install_handle(
+            &pkgs,
+            opt.install_dbg,
+            opt.reinstall,
+            opt.install_recommend,
+            opt.install_suggest,
+        )?;
 
-        let (action, len, need_fixsystem) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false, true)?;
+        let (action, len, need_fixsystem) =
+            apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false, true)?;
 
         if len == 0 && !need_fixsystem {
             success!("No need to do anything.");
@@ -1187,7 +1195,11 @@ fn needs_fix_system(cache: &Cache) -> (bool, Vec<String>) {
         //    HalfInstalled=4,ConfigFiles=5,Installed=6,
         //    TriggersAwaited=7,TriggersPending=8};
         if pkg.current_state() != 6 {
-            tracing::info!("pkg {} current state is {}", pkg.name(), pkg.current_state());
+            tracing::info!(
+                "pkg {} current state is {}",
+                pkg.name(),
+                pkg.current_state()
+            );
             need = true;
             match pkg.current_state() {
                 2 | 4 => {
@@ -1347,7 +1359,13 @@ fn yes_warn() {
 }
 
 /// Handle user input, find pkgs
-fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result<Cache> {
+fn install_handle(
+    list: &[String],
+    install_dbg: bool,
+    reinstall: bool,
+    install_recommends: bool,
+    install_suggest: bool,
+) -> Result<Cache> {
     tracing::debug!("Querying the packages database ...");
     let pb = MB.add(ProgressBar::new_spinner());
     pb.set_message("Querying packages database ...");
@@ -1362,6 +1380,8 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
     let cache = new_cache!(&local_debs)?;
     let mut pkgs = vec![];
 
+    let mut other_install = vec![];
+
     // Query pkgs
     for i in list {
         let i_res = query_pkgs(&cache, i)?;
@@ -1371,6 +1391,66 @@ fn install_handle(list: &[String], install_dbg: bool, reinstall: bool) -> Result
         pkgs.extend(i_res);
         tracing::info!("Select pkg: {i}");
     }
+
+    if install_recommends {
+        for (pkginfo, is_cand) in &pkgs {
+            if !is_cand {
+                continue;
+            }
+            let recommends = &pkginfo.recommend;
+            for i in recommends {
+                for j in i {
+                    let pkg = cache.get(&j.name);
+
+                    if let Some(pkg) = pkg {
+                        let version = if let Some(v) = &j.ver {
+                            pkg.get_version(&v)
+                        } else {
+                            pkg.candidate()
+                        };
+
+                        let version = version
+                            .context(format!("Can not get version of package: {}", pkg.name()))?;
+
+                        let pkginfo = PkgInfo::new(&cache, version.unique(), &pkg)?;
+                        tracing::info!("Select pkg: {}", j.name);
+                        other_install.push((pkginfo, true));
+                    }
+                }
+            }
+        }
+    }
+
+    if install_suggest {
+        for (pkginfo, is_cand) in &pkgs {
+            if !is_cand {
+                continue;
+            }
+            let recommends = &pkginfo.suggest;
+            for i in recommends {
+                for j in i {
+                    let pkg = cache.get(&j.name);
+
+                    if let Some(pkg) = pkg {
+                        let version = if let Some(v) = &j.ver {
+                            pkg.get_version(&v)
+                        } else {
+                            pkg.candidate()
+                        };
+
+                        let version = version
+                            .context(format!("Can not get version of package: {}", pkg.name()))?;
+
+                        let pkginfo = PkgInfo::new(&cache, version.unique(), &pkg)?;
+                        tracing::info!("Select pkg: {}", j.name);
+                        other_install.push((pkginfo, true));
+                    }
+                }
+            }
+        }
+    }
+
+    pkgs.extend(other_install);
 
     for (pkginfo, is_cand) in pkgs {
         if !is_cand {
