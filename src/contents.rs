@@ -80,18 +80,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
         }
     }
 
-    for i in &paths {
-        let m = OffsetDateTime::from(i.metadata()?.created()?);
-        let now = OffsetDateTime::from(SystemTime::now());
-        let delta = now - m;
-        let delta = delta.as_seconds_f64() / 60.0 / 60.0 / 24.0;
-        if delta > 7.0 {
-            warn!(
-                "Contents file: {} has not been updated for a week, so the search results may not be accurate, please use 'oma refresh' to refresh the database.",
-                i.file_name().unwrap_or_default().to_string_lossy()
-            );
-        }
-    }
+    let pc = paths.clone();
 
     if paths.is_empty() {
         bail!(
@@ -99,6 +88,23 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
             style("oma refresh").green()
         );
     }
+
+    std::thread::spawn(move || -> Result<()> {
+        for i in pc {
+            let m = OffsetDateTime::from(i.metadata()?.created()?);
+            let now = OffsetDateTime::from(SystemTime::now());
+            let delta = now - m;
+            let delta = delta.as_seconds_f64() / 60.0 / 60.0 / 24.0;
+            if delta > 7.0 {
+                warn!(
+                    "Contents file: {} has not been updated for a week, so the search results may not be accurate, please use 'oma refresh' to refresh the database.",
+                    i.file_name().unwrap_or_default().to_string_lossy()
+                );
+            }
+        }
+
+        Ok(())
+    });
 
     // 如果安装了 ripgrep，则使用 rg 来进行搜索操作，因为 rg 的速度比 grep 快十倍
     let mut res = if which::which("rg").is_ok() {
