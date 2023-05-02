@@ -153,9 +153,9 @@ impl Oma {
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len) = apt_handler(&cache, false, u.force_yes, false, u.no_autoremove)?;
+            let (action, len, need_fix_system) = apt_handler(&cache, false, u.force_yes, false, u.no_autoremove)?;
 
-            if len == 0 && !needs_fix_system(&cache) {
+            if len == 0 && !need_fix_system {
                 success!("No need to do anything.");
                 return Ok(action);
             }
@@ -492,9 +492,9 @@ impl Oma {
 
         let cache = new_cache!()?;
 
-        let (action, len) = apt_handler(&cache, false, false, false, false)?;
+        let (action, len, need_fixsystem) = apt_handler(&cache, false, false, false, false)?;
 
-        if len == 0 && !needs_fix_system(&cache) {
+        if len == 0 && !need_fixsystem {
             info!("No need to do anything");
             return Ok(());
         }
@@ -653,9 +653,9 @@ impl Oma {
         let pkgs = opt.packages.clone().unwrap_or_default();
         let cache = install_handle(&pkgs, opt.install_dbg, opt.reinstall)?;
 
-        let (action, len) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false, true)?;
+        let (action, len, need_fixsystem) = apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false, true)?;
 
-        if len == 0 && !needs_fix_system(&cache) {
+        if len == 0 && !need_fixsystem {
             success!("No need to do anything.");
             return Ok(action);
         }
@@ -714,10 +714,10 @@ impl Oma {
             mark_delete(&pkg, !r.keep_config)?;
         }
 
-        let (action, len) =
+        let (action, len, need_fixsystem) =
             apt_handler(&cache, false, r.force_yes, !r.keep_config, r.no_autoremove)?;
 
-        if len == 0 {
+        if len == 0 && !need_fixsystem {
             success!("No need to do anything.");
             return Ok(());
         }
@@ -869,7 +869,7 @@ impl Oma {
             pkg.mark_install(true, true);
             pkg.protect();
 
-            let (action, _) = apt_handler(&cache, p.no_fixbroken, false, false, true)?;
+            let (action, _, _) = apt_handler(&cache, p.no_fixbroken, false, false, true)?;
             let disk_size = cache.depcache().disk_size();
 
             let mut list = vec![];
@@ -1173,9 +1173,13 @@ impl Oma {
     }
 }
 
-fn needs_fix_system(cache: &Cache) -> bool {
+fn needs_fix_system(cache: &Cache) -> (bool, Vec<String>) {
     let sort = PackageSort::default().installed();
     let pkgs = cache.packages(&sort);
+
+    let mut reinstall = vec![];
+
+    let mut need = false;
 
     for pkg in pkgs {
         // current_state 的定义来自 apt 的源码:
@@ -1183,11 +1187,18 @@ fn needs_fix_system(cache: &Cache) -> bool {
         //    HalfInstalled=4,ConfigFiles=5,Installed=6,
         //    TriggersAwaited=7,TriggersPending=8};
         if pkg.current_state() != 6 {
-            return true;
+            need = true;
+            match pkg.current_state() {
+                2 | 4 => {
+                    pkg.mark_reinstall(true);
+                    reinstall.push(pkg.name().to_string());
+                }
+                _ => continue,
+            }
         }
     }
 
-    false
+    (need, reinstall)
 }
 
 fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
@@ -1487,7 +1498,7 @@ fn apt_handler(
     force_yes: bool,
     is_purge: bool,
     no_autoremove: bool,
-) -> Result<(Action, usize)> {
+) -> Result<(Action, usize, bool)> {
     if force_yes {
         let config = Config::new_clear();
         config.set("APT::Get::force-yes", "true");
@@ -1517,6 +1528,8 @@ fn apt_handler(
 
         return Err(e.into());
     }
+
+    let (need_fix_system, _) = needs_fix_system(cache);
 
     let changes = cache.get_changes(true).collect::<Vec<_>>();
     let len = changes.len();
@@ -1708,5 +1721,5 @@ fn apt_handler(
 
     let action = Action::new(update, install, del, reinstall, downgrade);
 
-    Ok((action, len))
+    Ok((action, len, need_fix_system))
 }
