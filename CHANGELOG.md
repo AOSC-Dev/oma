@@ -5,7 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.32.2 (2023-05-02)
+
+### Bug Fixes
+
+ - <csr-id-0a04b48961228b8b1707e3eaa174d203a4940101/> truncate file and set file length == 0 if file_size >= download total_size
+ - <csr-id-978173eeb9c6f0a02bf30d8664953f39a7d33f70/> fetch inrelease return checksum mismatch error if mirror inrelease is updated
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Truncate file and set file length == 0 if file_size >= download total_size ([`0a04b48`](https://github.com/AOSC-Dev/aoscpt/commit/0a04b48961228b8b1707e3eaa174d203a4940101))
+    - Fetch inrelease return checksum mismatch error if mirror inrelease is updated ([`978173e`](https://github.com/AOSC-Dev/aoscpt/commit/978173eeb9c6f0a02bf30d8664953f39a7d33f70))
+</details>
+
 ## v0.32.1 (2023-05-02)
+
+<csr-id-49b899d8ab92e65ec58bf415f8f10602e7db17f7/>
+<csr-id-90e16b1aec960b0e0b93df2ebb59fc24b0120e70/>
+<csr-id-bfb455e98dcc16a35cf21003603f9e17f1448f91/>
 
 ### Chore
 
@@ -31,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release.
+ - 7 commits contributed to the release.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -42,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.32.1 ([`d853a23`](https://github.com/AOSC-Dev/aoscpt/commit/d853a238c275f9314ca5ae9fae96cab39dbfb4e7))
     - Update anstream to 0.3.2 ([`49b899d`](https://github.com/AOSC-Dev/aoscpt/commit/49b899d8ab92e65ec58bf415f8f10602e7db17f7))
     - Optmize local mirror download and extract logic ([`90e16b1`](https://github.com/AOSC-Dev/aoscpt/commit/90e16b1aec960b0e0b93df2ebb59fc24b0120e70))
     - Return 0 if operation allow ctrlc ([`ba2c3a9`](https://github.com/AOSC-Dev/aoscpt/commit/ba2c3a9b70228e8bcdc441e9dbb5f60f8384bfef))
