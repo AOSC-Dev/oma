@@ -403,7 +403,7 @@ pub async fn download(
     // 看看头是否有 ACCEPT_RANGES 这个变量
     // 如果有，而且值不为 none，则可以断点续传
     // 反之，则不能断点续传
-    let can_resume = match head.get(ACCEPT_RANGES) {
+    let mut can_resume = match head.get(ACCEPT_RANGES) {
         Some(x) if x == "none" => false,
         Some(_) => true,
         None => false,
@@ -430,6 +430,7 @@ pub async fn download(
         // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
         if total_size <= file_size {
             file_size = 0;
+            can_resume = false;
         }
 
         // 发送 RANGE 的头，传入的是已经下载的文件的大小
