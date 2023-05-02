@@ -633,7 +633,6 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         p,
                         not_compress_filename.0,
                         c,
-                        typ,
                         opb,
                     ));
 
@@ -719,13 +718,23 @@ async fn download_and_extract_db_local(
     path: String,
     not_compress_file: String,
     i: &ChecksumItem,
-    typ: &str,
     opb: OmaProgressBar,
 ) -> Result<()> {
     let path = path.split("://").nth(1).unwrap_or(&path).to_owned();
 
     let path = format!("{path}/{}", i.name);
+    let pc = path.clone();
     let name = FileName::new(&i.name);
+
+    let checksum = i.checksum.clone();
+
+    let result =
+        spawn_blocking(move || Checksum::from_sha256_str(&checksum)?.cmp_file(Path::new(&pc)))
+            .await??;
+
+    if result {
+        return Ok(());
+    }
 
     tokio::fs::copy(&path, APT_LIST_DISTS.join(&name.0))
         .await
@@ -739,18 +748,6 @@ async fn download_and_extract_db_local(
         .context(format!("Can not read file {path}"))?;
 
     let buf_len = buf.len();
-
-    let p = APT_LIST_DISTS.join(&name.0);
-
-    let ic = i.clone();
-    let result = spawn_blocking(move || {
-        Checksum::from_sha256_str(&ic.checksum).and_then(|x| x.cmp_file(p.clone().as_path()))
-    })
-    .await??;
-
-    if !result {
-        bail!("Download {typ} Checksum mismatch! Please check your local storage connection.")
-    }
 
     let extract_buf = if i.file_type == DistFileType::CompressContents
         || i.file_type == DistFileType::CompressPackageList
