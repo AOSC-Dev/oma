@@ -98,5 +98,9 @@ fn single_handler() {
     // This is not a big deal so we won't panic on this.
     let _ = WRITER.show_cursor();
 
+    if allow_ctrlc {
+        std::process::exit(0);
+    }
+
     std::process::exit(2);
 }
