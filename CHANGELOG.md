@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.32.1 (2023-05-02)
+
+### Chore
+
+ - <csr-id-49b899d8ab92e65ec58bf415f8f10602e7db17f7/> update anstream to 0.3.2
+
+### New Features
+
+ - <csr-id-ba2c3a9b70228e8bcdc441e9dbb5f60f8384bfef/> return 0 if operation allow ctrlc
+ - <csr-id-277deccd77b17033f15f04b3aaa779df8af27baa/> open new thread to check contents file metadata
+
+### Bug Fixes
+
+ - <csr-id-6fa58bdb10707c00d6a2ab05bff59053d74bb45f/> oma mark needs root
+
+### Refactor
+
+ - <csr-id-90e16b1aec960b0e0b93df2ebb59fc24b0120e70/> optmize local mirror download and extract logic
+ - <csr-id-bfb455e98dcc16a35cf21003603f9e17f1448f91/> optmize download db logic again
+   - Do not checksum multi times
+   - Do not download contents compress file multi times
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update anstream to 0.3.2 ([`49b899d`](https://github.com/AOSC-Dev/aoscpt/commit/49b899d8ab92e65ec58bf415f8f10602e7db17f7))
+    - Optmize local mirror download and extract logic ([`90e16b1`](https://github.com/AOSC-Dev/aoscpt/commit/90e16b1aec960b0e0b93df2ebb59fc24b0120e70))
+    - Return 0 if operation allow ctrlc ([`ba2c3a9`](https://github.com/AOSC-Dev/aoscpt/commit/ba2c3a9b70228e8bcdc441e9dbb5f60f8384bfef))
+    - Optmize download db logic again ([`bfb455e`](https://github.com/AOSC-Dev/aoscpt/commit/bfb455e98dcc16a35cf21003603f9e17f1448f91))
+    - Oma mark needs root ([`6fa58bd`](https://github.com/AOSC-Dev/aoscpt/commit/6fa58bdb10707c00d6a2ab05bff59053d74bb45f))
+    - Open new thread to check contents file metadata ([`277decc`](https://github.com/AOSC-Dev/aoscpt/commit/277deccd77b17033f15f04b3aaa779df8af27baa))
+</details>
+
 ## v0.32.0 (2023-05-01)
 
 ### New Features
@@ -15,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.32.0 ([`4e98d70`](https://github.com/AOSC-Dev/aoscpt/commit/4e98d70c098c0eb787be0d92609b9cd2afde2f84))
     - Adjust terminal width < 90 progress bar style ([`6307688`](https://github.com/AOSC-Dev/aoscpt/commit/6307688b3e1aee0bf812deecdec4ebe094da310d))
 </details>
 
