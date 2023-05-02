@@ -96,7 +96,7 @@ async fn try_download(
             .await
             {
                 match e {
-                    DownloadError::ChecksumMisMatch => {
+                    DownloadError::ChecksumMisMatch(_) => {
                         allow_resule = false;
                         if retry == 3 {
                             break;
@@ -289,8 +289,8 @@ impl OmaProgressBar {
 
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
-    #[error("checksum mismatch")]
-    ChecksumMisMatch,
+    #[error("checksum mismatch {0}")]
+    ChecksumMisMatch(String),
     #[error("404 not found: {0}")]
     NotFound(String),
     #[error(transparent)]
@@ -306,6 +306,7 @@ pub enum DownloadError {
 type DownloadResult<T> = std::result::Result<T, DownloadError>;
 
 /// Download file
+/// Return bool is file is started download
 pub async fn download(
     url: &str,
     client: &Client,
@@ -314,7 +315,7 @@ pub async fn download(
     hash: Option<&str>,
     opb: OmaProgressBar,
     allow_resume: bool,
-) -> DownloadResult<()> {
+) -> DownloadResult<bool> {
     let file = dir.join(&filename);
     let file_exist = file.exists();
     let file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
@@ -356,7 +357,7 @@ pub async fn download(
             }
 
             if v.finish() {
-                return Ok(());
+                return Ok(false);
             }
 
             dest = Some(f);
@@ -429,7 +430,7 @@ pub async fn download(
         // 因为刚刚已经验证过 checksum 了，如果函数能走到这里
         // 说明文件完整性是不一致的
         if total_size == file_size {
-            return Err(DownloadError::ChecksumMisMatch);
+            return Err(DownloadError::ChecksumMisMatch(url.to_string()));
         }
 
         // 发送 RANGE 的头，传入的是已经下载的文件的大小
@@ -539,13 +540,13 @@ pub async fn download(
                 global_bar.set_position(global_bar.position() - pb.position());
             }
             pb.reset();
-            return Err(DownloadError::ChecksumMisMatch);
+            return Err(DownloadError::ChecksumMisMatch(url.to_string()));
         }
     }
 
     pb.finish_and_clear();
 
-    Ok(())
+    Ok(true)
 }
 
 pub fn oma_spinner(pb: &ProgressBar) {

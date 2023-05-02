@@ -15,7 +15,7 @@ use reqwest::{Client, Url};
 use rust_apt::config::Config;
 use serde::Deserialize;
 use time::{format_description::well_known::Rfc2822, OffsetDateTime};
-use tokio::{io::AsyncReadExt, runtime::Runtime, task::spawn_blocking};
+use tokio::{runtime::Runtime, task::spawn_blocking};
 use xz2::read::XzDecoder;
 
 use crate::{
@@ -91,7 +91,8 @@ async fn download_db(
     typ: String,
     opb: OmaProgressBar,
     i: usize,
-) -> std::result::Result<(FileName, usize), DownloadError> {
+    checksum: Option<&str>,
+) -> std::result::Result<(FileName, usize, bool), DownloadError> {
     let filename = FileName::new(&url).0;
     let url_short = get_url_short_and_branch(&url).await?;
 
@@ -100,18 +101,18 @@ async fn download_db(
     opb.msg = Some(format!("{url_short} {typ}"));
     let opb = opb.clone();
 
-    download(
+    let is_download = download(
         &url,
         client,
         filename.to_string(),
         &APT_LIST_DISTS,
-        None,
+        checksum,
         opb,
         false,
     )
     .await?;
 
-    Ok((FileName::new(&url), i))
+    Ok((FileName::new(&url), i, is_download))
 }
 
 #[derive(Deserialize)]
@@ -414,9 +415,10 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
 async fn download_db_local(
     db_path: &str,
     count: usize,
-) -> std::result::Result<(FileName, usize), DownloadError> {
+) -> std::result::Result<(FileName, usize, bool), DownloadError> {
     let db_path = db_path.split("://").nth(1).unwrap_or(db_path);
     let name = FileName::new(db_path);
+
     tokio::fs::copy(db_path, APT_LIST_DISTS.join(&name.0))
         .await
         .context(format!(
@@ -424,14 +426,7 @@ async fn download_db_local(
             APT_LIST_DISTS.display()
         ))?;
 
-    let mut f = tokio::fs::File::open(db_path)
-        .await
-        .context("Can not open file {db_path}")?;
-
-    let mut v = vec![];
-    f.read_to_end(&mut v).await?;
-
-    Ok((name, count))
+    Ok((name, count, true))
 }
 
 pub fn update_db_runner(
@@ -455,20 +450,25 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
     for (i, c) in sources.iter().enumerate() {
         match c.from {
             OmaSourceEntryFrom::Http => {
-                let task: BoxFuture<'_, std::result::Result<(FileName, usize), DownloadError>> =
-                    Box::pin(download_db(
-                        c.inrelease_path.clone(),
-                        client,
-                        "InRelease".to_owned(),
-                        OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
-                        i,
-                    ));
+                let task: BoxFuture<
+                    '_,
+                    std::result::Result<(FileName, usize, bool), DownloadError>,
+                > = Box::pin(download_db(
+                    c.inrelease_path.clone(),
+                    client,
+                    "InRelease".to_owned(),
+                    OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
+                    i,
+                    None,
+                ));
 
                 tasks.push(task);
             }
             OmaSourceEntryFrom::Local => {
-                let task: BoxFuture<'_, std::result::Result<(FileName, usize), DownloadError>> =
-                    Box::pin(download_db_local(&c.inrelease_path, i));
+                let task: BoxFuture<
+                    '_,
+                    std::result::Result<(FileName, usize, bool), DownloadError>,
+                > = Box::pin(download_db_local(&c.inrelease_path, i));
                 tasks.push(task);
             }
         }
@@ -507,7 +507,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
         }
     }
 
-    for (name, index) in res_2 {
+    for (name, index, _) in res_2 {
         let ose = sources.get(index).unwrap();
 
         let inrelease = InReleaseParser::new(
@@ -528,6 +528,8 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 
         let mut total = 0;
 
+        let mut added = vec![];
+
         let handle = if ose.is_flat {
             // Flat repo
             let mut handle = vec![];
@@ -542,6 +544,11 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
         } else {
             let mut handle = vec![];
             for i in &checksums {
+                // 一般来说，一个 InRelease 里只需要下载一个 contents 和 package list
+                // 如果已经下载过那就不需要再下了
+                if added.contains(&i.file_type) {
+                    continue;
+                }
                 match i.file_type {
                     DistFileType::Contents | DistFileType::PackageList => {
                         if ARCH.get() == Some(&"mips64r6el".to_string()) {
@@ -553,6 +560,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         if ARCH.get() != Some(&"mips64r6el".to_string()) {
                             handle.push(i);
                             total += i.size;
+                            added.push(i.file_type.clone());
                         }
                     }
                     _ => continue,
@@ -560,12 +568,6 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             }
 
             handle
-        };
-
-        let checksums = if ose.is_flat {
-            inrelease.checksums.clone()
-        } else {
-            checksums.clone()
         };
 
         let global_bar = MB.insert(0, ProgressBar::new(total));
@@ -578,17 +580,15 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
         let mut tasks = vec![];
 
         for (i, c) in handle.iter().enumerate() {
-            let mut p = Path::new(&c.name).to_path_buf();
-            p.set_extension("");
-            let not_compress_filename_before = p.to_string_lossy().to_string();
+            let mut p_not_compress = Path::new(&c.name).to_path_buf();
+            p_not_compress.set_extension("");
+            let not_compress_filename_before = p_not_compress.to_string_lossy().to_string();
 
             let source_index = sources.get(index).unwrap();
             let not_compress_filename = FileName::new(&format!(
                 "{}/{}",
                 source_index.dist_path, not_compress_filename_before
             ));
-
-            let p = APT_LIST_DISTS.join(&not_compress_filename.0);
 
             let typ = match c.file_type {
                 DistFileType::CompressContents => "Contents",
@@ -603,97 +603,41 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 Some(global_bar.clone()),
             );
 
-            if p.exists() {
-                let checksum = checksums
-                    .iter()
-                    .find(|x| x.name == not_compress_filename_before)
-                    .unwrap();
+            match source_index.from {
+                OmaSourceEntryFrom::Http => {
+                    let p = if !ose.is_flat {
+                        source_index.dist_path.clone()
+                    } else {
+                        format!("{}/{}", source_index.dist_path, not_compress_filename.0)
+                    };
 
-                let hash_clone = checksum.checksum.to_owned();
-                let p_clone = p.clone();
-                let result = spawn_blocking(move || {
-                    Checksum::from_sha256_str(&hash_clone).and_then(|x| x.cmp_file(&p_clone))
-                })
-                .await??;
+                    let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db(
+                        p,
+                        c,
+                        client,
+                        not_compress_filename.0,
+                        typ,
+                        opb,
+                    ));
 
-                if !result {
-                    match source_index.from {
-                        OmaSourceEntryFrom::Http => {
-                            let p = if !ose.is_flat {
-                                source_index.dist_path.clone()
-                            } else {
-                                format!("{}/{}", source_index.dist_path, not_compress_filename.0)
-                            };
-
-                            let task: BoxFuture<'_, Result<()>> =
-                                Box::pin(download_and_extract_db(
-                                    p,
-                                    c,
-                                    client,
-                                    not_compress_filename.0,
-                                    typ,
-                                    opb,
-                                ));
-
-                            tasks.push(task);
-                        }
-                        OmaSourceEntryFrom::Local => {
-                            let p = if !ose.is_flat {
-                                source_index.dist_path.clone()
-                            } else {
-                                format!("{}/{}", source_index.dist_path, not_compress_filename.0)
-                            };
-
-                            let task: BoxFuture<'_, Result<()>> =
-                                Box::pin(download_and_extract_db_local(
-                                    p,
-                                    not_compress_filename.0,
-                                    c,
-                                    typ,
-                                    opb,
-                                ));
-
-                            tasks.push(task);
-                        }
-                    }
-                } else {
-                    let f = tokio::fs::File::open(p).await?;
-                    let len = f.metadata().await?.len();
-                    global_bar.inc(len);
+                    tasks.push(task);
                 }
-            } else {
-                match source_index.from {
-                    OmaSourceEntryFrom::Http => {
-                        let p = if !ose.is_flat {
-                            source_index.dist_path.clone()
-                        } else {
-                            format!("{}/{}", source_index.dist_path, not_compress_filename.0)
-                        };
+                OmaSourceEntryFrom::Local => {
+                    let p = if !ose.is_flat {
+                        source_index.dist_path.clone()
+                    } else {
+                        format!("{}/{}", source_index.dist_path, not_compress_filename.0)
+                    };
 
-                        let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db(
-                            p,
-                            c,
-                            client,
-                            not_compress_filename.0,
-                            typ,
-                            opb,
-                        ));
+                    let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db_local(
+                        p,
+                        not_compress_filename.0,
+                        c,
+                        typ,
+                        opb,
+                    ));
 
-                        tasks.push(task);
-                    }
-                    OmaSourceEntryFrom::Local => {
-                        let p = if !ose.is_flat {
-                            source_index.dist_path.clone()
-                        } else {
-                            format!("{}/{}", source_index.dist_path, not_compress_filename.0)
-                        };
-
-                        let task: BoxFuture<'_, Result<()>> = Box::pin(
-                            download_and_extract_db_local(p, not_compress_filename.0, c, typ, opb),
-                        );
-
-                        tasks.push(task);
-                    }
+                    tasks.push(task);
                 }
             }
         }
@@ -722,19 +666,24 @@ async fn download_and_extract_db(
     typ: &str,
     opb: OmaProgressBar,
 ) -> Result<()> {
-    let (name, _) = download_db(
+    let (name, _, is_download) = download_db(
         format!("{}/{}", dist_url, i.name),
         client,
         typ.to_owned(),
         opb.clone(),
         0,
+        Some(&i.checksum),
     )
     .await?;
 
-    let p = APT_LIST_DISTS.join(&name.0);
-    let p_clone = p.clone();
+    if !is_download {
+        if let Some(ref gb) = opb.global_bar {
+            gb.inc(i.size);
+        }
+        return Ok(());
+    }
 
-    let ic = i.clone();
+    let p = APT_LIST_DISTS.join(&name.0);
 
     let mbc = opb.mbc;
     let pb = mbc.add(ProgressBar::new_spinner());
@@ -745,19 +694,7 @@ async fn download_and_extract_db(
         "".to_string()
     };
 
-    pb.set_message(format!("{progress}Verifying {typ}"));
-    oma_spinner(&pb);
-
-    let result = spawn_blocking(move || {
-        Checksum::from_sha256_str(&ic.checksum).and_then(|x| x.cmp_file(p_clone.as_path()))
-    })
-    .await??;
-
     pb.finish_and_clear();
-
-    if !result {
-        bail!("Download {typ} Checksum mismatch! Please check your network connection.")
-    }
 
     let buf = tokio::fs::read(&p)
         .await
