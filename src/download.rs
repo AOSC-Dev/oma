@@ -320,13 +320,16 @@ pub async fn download(
     let file_exist = file.exists();
     let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
+    tracing::debug!("Exist file size is: {file_size}");
     let mut dest = None;
     let mut validator = None;
 
     // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
     // 如果不存在，则继续往下走
     if file_exist {
+        tracing::debug!("File: {filename} exists, oma will checksum this file.");
         if let Some(hash) = hash {
+            tracing::debug!("Hash exist! It is: {hash}");
             let hash = hash.to_owned();
 
             let mut f = tokio::fs::OpenOptions::new()
@@ -336,7 +339,11 @@ pub async fn download(
                 .open(&file)
                 .await?;
 
+            tracing::debug!("oma opened file: {filename} with create, write and read mode");
+
             let mut v = Checksum::from_sha256_str(&hash)?.get_validator();
+
+            tracing::debug!("Validator created.");
 
             let mut buf = vec![0; 4096];
             let mut readed = 0;
@@ -357,8 +364,11 @@ pub async fn download(
             }
 
             if v.finish() {
+                tracing::debug!("checksum success, no need to download anything.");
                 return Ok(false);
             }
+
+            tracing::debug!("checksum fail, will download this file: {filename}");
 
             dest = Some(f);
             validator = Some(v);
@@ -409,6 +419,8 @@ pub async fn download(
         None => false,
     };
 
+    tracing::debug!("Can resume? {can_resume}");
+
     // 从服务器获取文件的总大小
     let total_size = {
         let total_size = head
@@ -423,19 +435,25 @@ pub async fn download(
             .map_err(|e| anyhow!("{e}"))?
     };
 
+    tracing::debug!("File total size is: {total_size}");
+
     let mut req = client.get(url);
 
     if can_resume && allow_resume {
         // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
         // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
         if total_size <= file_size {
+            tracing::debug!("Exist file size is reset to 0, because total size <= exist file size");
             file_size = 0;
             can_resume = false;
         }
 
         // 发送 RANGE 的头，传入的是已经下载的文件的大小
+        tracing::debug!("oma will set header range as bytes={file_size}-");
         req = req.header(RANGE, format!("bytes={}-", file_size));
     }
+
+    tracing::debug!("Can resume? {can_resume}");
 
     let resp = req.send().await?;
 
@@ -484,14 +502,10 @@ pub async fn download(
         None
     };
 
-    let mut option = tokio::fs::OpenOptions::new();
-    option.create(true);
-    option.write(true);
-    option.read(true);
-
     let mut dest = if !allow_resume || !can_resume {
         // 如果不能 resume，则加入 truncate 这个 flag，告诉内核截断文件
         // 并把文件长度设置为 0
+        tracing::debug!("oma will open file: {filename} as truncate, create, write and read mode.");
         let f = tokio::fs::OpenOptions::new()
             .truncate(true)
             .create(true)
@@ -499,12 +513,18 @@ pub async fn download(
             .read(true)
             .open(&file)
             .await?;
+
+        tracing::debug!("Setting file length as 0");
         f.set_len(0).await?;
 
         f
     } else if let Some(dest) = dest {
+        tracing::debug!("oma will re use opened dest file for {filename}");
+
         dest
     } else {
+        tracing::debug!("oma will open file: {filename} as create, write and read mode.");
+
         tokio::fs::OpenOptions::new()
             .create(true)
             .write(true)
@@ -514,9 +534,11 @@ pub async fn download(
     };
 
     // 把文件指针移动到末尾
+    tracing::debug!("oma will seek file: {filename} to end");
     dest.seek(SeekFrom::End(0)).await?;
 
     // 下载！
+    tracing::debug!("Start download!");
     while let Some(chunk) = source.chunk().await? {
         dest.write_all(&chunk).await?;
         pb.inc(chunk.len() as u64);
@@ -531,17 +553,22 @@ pub async fn download(
     }
 
     // 下载完成，告诉内核不再写这个文件了
+    tracing::debug!("Download complete! shutting down dest file stream ...");
     dest.shutdown().await?;
 
     // 最后看看 chekcsum 验证是否通过
     if let Some(v) = validator {
         if !v.finish() {
+            tracing::debug!("checksum fail: {filename}");
+
             if let Some(ref global_bar) = opb.global_bar {
                 global_bar.set_position(global_bar.position() - pb.position());
             }
             pb.reset();
             return Err(DownloadError::ChecksumMisMatch(url.to_string()));
         }
+
+        tracing::debug!("checksum success: {filename}");
     }
 
     pb.finish_and_clear();
