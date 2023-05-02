@@ -1379,9 +1379,6 @@ fn install_handle(
 
     let cache = new_cache!(&local_debs)?;
     let mut pkgs = vec![];
-
-    let mut other_install = vec![];
-
     // Query pkgs
     for i in list {
         let i_res = query_pkgs(&cache, i)?;
@@ -1392,63 +1389,19 @@ fn install_handle(
         tracing::info!("Select pkg: {i}");
     }
 
-    if install_recommends {
-        for (pkginfo, is_cand) in &pkgs {
-            if !is_cand {
-                continue;
-            }
-            let recommends = &pkginfo.recommend;
-            for i in recommends {
-                for j in i {
-                    let pkg = cache.get(&j.name);
+    let other_install = if install_recommends {
+        install_other(&pkgs, &cache, "recommend")?
+    } else {
+        vec![]
+    };
 
-                    if let Some(pkg) = pkg {
-                        let version = if let Some(v) = &j.ver {
-                            pkg.get_version(&v)
-                        } else {
-                            pkg.candidate()
-                        };
+    pkgs.extend(other_install);
 
-                        let version = version
-                            .context(format!("Can not get version of package: {}", pkg.name()))?;
-
-                        let pkginfo = PkgInfo::new(&cache, version.unique(), &pkg)?;
-                        tracing::info!("Select pkg: {}", j.name);
-                        other_install.push((pkginfo, true));
-                    }
-                }
-            }
-        }
-    }
-
-    if install_suggest {
-        for (pkginfo, is_cand) in &pkgs {
-            if !is_cand {
-                continue;
-            }
-            let recommends = &pkginfo.suggest;
-            for i in recommends {
-                for j in i {
-                    let pkg = cache.get(&j.name);
-
-                    if let Some(pkg) = pkg {
-                        let version = if let Some(v) = &j.ver {
-                            pkg.get_version(&v)
-                        } else {
-                            pkg.candidate()
-                        };
-
-                        let version = version
-                            .context(format!("Can not get version of package: {}", pkg.name()))?;
-
-                        let pkginfo = PkgInfo::new(&cache, version.unique(), &pkg)?;
-                        tracing::info!("Select pkg: {}", j.name);
-                        other_install.push((pkginfo, true));
-                    }
-                }
-            }
-        }
-    }
+    let other_install = if install_suggest {
+        install_other(&pkgs, &cache, "suggest")?
+    } else {
+        vec![]
+    };
 
     pkgs.extend(other_install);
 
@@ -1491,6 +1444,48 @@ fn install_handle(
     pb.finish_and_clear();
 
     Ok(cache)
+}
+
+fn install_other(
+    pkgs: &[(PkgInfo, bool)],
+    cache: &Cache,
+    other: &str,
+) -> Result<Vec<(PkgInfo, bool)>> {
+    let mut other_install = vec![];
+
+    for (pkginfo, is_cand) in pkgs {
+        if !is_cand {
+            continue;
+        }
+        let other = match other {
+            "recommend" => &pkginfo.recommend,
+            "suggest" => &pkginfo.suggest,
+            _ => unreachable!(),
+        };
+
+        for i in other {
+            for j in i {
+                let pkg = cache.get(&j.name);
+
+                if let Some(pkg) = pkg {
+                    let version = if let Some(v) = &j.ver {
+                        pkg.get_version(&v)
+                    } else {
+                        pkg.candidate()
+                    };
+
+                    let version = version
+                        .context(format!("Can not get version of package: {}", pkg.name()))?;
+
+                    let pkginfo = PkgInfo::new(cache, version.unique(), &pkg)?;
+                    tracing::info!("Select pkg: {}", j.name);
+                    other_install.push((pkginfo, true));
+                }
+            }
+        }
+    }
+
+    Ok(other_install)
 }
 
 #[derive(Clone)]
