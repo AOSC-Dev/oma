@@ -1187,6 +1187,7 @@ fn needs_fix_system(cache: &Cache) -> (bool, Vec<String>) {
         //    HalfInstalled=4,ConfigFiles=5,Installed=6,
         //    TriggersAwaited=7,TriggersPending=8};
         if pkg.current_state() != 6 {
+            tracing::info!("pkg {} current state is {}", pkg.name(), pkg.current_state());
             need = true;
             match pkg.current_state() {
                 2 | 4 => {
@@ -1197,6 +1198,8 @@ fn needs_fix_system(cache: &Cache) -> (bool, Vec<String>) {
             }
         }
     }
+
+    tracing::info!("Needs reinstall package: {reinstall:?}");
 
     (need, reinstall)
 }
