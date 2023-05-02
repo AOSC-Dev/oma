@@ -895,6 +895,8 @@ impl Oma {
     }
 
     pub fn mark(opt: Mark) -> Result<()> {
+        needs_root()?;
+
         if opt.dry_run {
             DRYRUN.store(true, Ordering::Relaxed);
         }
