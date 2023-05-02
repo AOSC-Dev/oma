@@ -318,7 +318,7 @@ pub async fn download(
 ) -> DownloadResult<bool> {
     let file = dir.join(&filename);
     let file_exist = file.exists();
-    let file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
+    let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
     let mut dest = None;
     let mut validator = None;
@@ -426,11 +426,10 @@ pub async fn download(
     let mut req = client.get(url);
 
     if can_resume && allow_resume {
-        // 如果已存在的文件大小与要下载的文件大小相同，则返回 Checksum 不匹配
-        // 因为刚刚已经验证过 checksum 了，如果函数能走到这里
-        // 说明文件完整性是不一致的
-        if total_size == file_size {
-            return Err(DownloadError::ChecksumMisMatch(url.to_string()));
+        // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
+        // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
+        if total_size <= file_size {
+            file_size = 0;
         }
 
         // 发送 RANGE 的头，传入的是已经下载的文件的大小
