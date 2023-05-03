@@ -750,7 +750,7 @@ impl Oma {
             .to_string();
 
         log_to_file(&action, &start_time, &end_time)?;
-    
+
         Ok(())
     }
 
@@ -1482,7 +1482,7 @@ fn install_other(
 
                 if let Some(pkg) = pkg {
                     let version = if let Some(v) = &j.ver {
-                        pkg.get_version(&v)
+                        pkg.get_version(v)
                     } else {
                         pkg.candidate()
                     };
