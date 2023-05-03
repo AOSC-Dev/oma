@@ -464,33 +464,48 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     }
 
     if output.len() * 2 <= height.into() {
-        for (prefix, line, desc) in &output {
+        let mut index = 0;
+        while index <= output.len() - 1 && output.len() > 0 {
+            let (prefix, line, desc) = &output[index];
             match prefix {
                 PackageStatus::Upgrade => {
                     crate::WRITER.writeln(&prefix.to_string(), line)?;
                     crate::WRITER.writeln("", desc)?;
+                    output.remove(index);
                 }
-                _ => continue,
+                _ => {
+                    index += 1;
+                }
             }
         }
 
-        for (prefix, line, desc) in &output {
+        index = 0;
+        while index <= output.len() - 1 && output.len() > 0 {
+            let (prefix, line, desc) = &output[index];
             match prefix {
                 PackageStatus::Avail => {
                     crate::WRITER.writeln(&prefix.to_string(), line)?;
                     crate::WRITER.writeln("", desc)?;
+                    output.remove(index);
                 }
-                _ => continue,
+                _ => {
+                    index += 1;
+                }
             }
         }
 
-        for (prefix, line, desc) in &output {
+        index = 0;
+        while index <= output.len() - 1 && output.len() > 0 {
+            let (prefix, line, desc) = &output[index];
             match prefix {
                 PackageStatus::Installed => {
                     crate::WRITER.writeln(&prefix.to_string(), line)?;
                     crate::WRITER.writeln("", desc)?;
+                    output.remove(index);
                 }
-                _ => continue,
+                _ => {
+                    index += 1;
+                }
             }
         }
     } else {
@@ -499,33 +514,48 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
-        for (prefix, line, desc) in &output {
+        let mut index = 0;
+        while index <= output.len() - 1 && output.len() > 0 {
+            let (prefix, line, desc) = &output[index];
             match prefix {
                 PackageStatus::Upgrade => {
                     writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
                     writeln!(out, "{}{desc}", gen_prefix("")).ok();
+                    output.remove(index);
                 }
-                _ => continue,
+                _ => {
+                    index += 1;
+                }
             }
         }
 
-        for (prefix, line, desc) in &output {
+        index = 0;
+        while index <= output.len() - 1 && output.len() > 0 {
+            let (prefix, line, desc) = &output[index];
             match prefix {
                 PackageStatus::Avail => {
                     writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
                     writeln!(out, "{}{desc}", gen_prefix("")).ok();
+                    output.remove(index);
                 }
-                _ => continue,
+                _ => {
+                    index += 1;
+                }
             }
         }
 
-        for (prefix, line, desc) in &output {
+        index = 0;
+        while index <= output.len() - 1 && output.len() > 0 {
+            let (prefix, line, desc) = &output[index];
             match prefix {
                 PackageStatus::Installed => {
                     writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
                     writeln!(out, "{}{desc}", gen_prefix("")).ok();
+                    output.remove(index);
                 }
-                _ => continue,
+                _ => {
+                    index += 1;
+                }
             }
         }
 
