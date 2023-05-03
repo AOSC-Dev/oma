@@ -141,12 +141,17 @@ impl Oma {
 
             // 检查一遍是否有依赖不存在的升级
             {
+                tracing::debug!("Finding unmet upgrade");
+                let pb = MB.add(ProgressBar::new_spinner());
+                oma_spinner(&pb);
+                pb.set_message("Quering upgradable packages ...");
                 let sort = PackageSort::default().upgradable();
                 let upgrable_pkgs = cache.packages(&sort);
 
                 for pkg in upgrable_pkgs {
                     find_unmet_deps_with_markinstall(&cache, &pkg.candidate().unwrap(), false)?;
                 }
+                pb.finish_and_clear();
             }
 
             cache
@@ -756,10 +761,18 @@ impl Oma {
         update_db_runner(&self.runtime, &get_sources()?, &self.client, None)?;
 
         let cache = new_cache!()?;
+
+        let pb = MB.add(ProgressBar::new_spinner());
+        oma_spinner(&pb);
+        pb.set_message("Quering status information ...");
+
         let upgradable = PackageSort::default().upgradable();
         let autoremove = PackageSort::default().auto_removable();
         let upgradable = cache.packages(&upgradable).collect::<Vec<_>>();
         let autoremove = cache.packages(&autoremove).collect::<Vec<_>>();
+
+        pb.finish_and_clear();
+
         let mut output = vec![];
         if !upgradable.is_empty() {
             output.push(format!("{} package can be upgraded", upgradable.len()));
@@ -1580,11 +1593,13 @@ fn apt_handler(
     if force_yes {
         let config = Config::new_clear();
         config.set("APT::Get::force-yes", "true");
+        tracing::debug!("dpkg force-yes mode is enabled");
     }
 
     let fix_broken = !no_fixbroken;
     if fix_broken {
         cache.fix_broken();
+        tracing::debug!("oma will fix broken system dependencies status");
     }
 
     if let Err(e) = cache.resolve(fix_broken) {
