@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -20,7 +20,7 @@ use xz2::read::XzDecoder;
 
 use crate::{
     checksum::Checksum,
-    download::{download, oma_spinner, oma_style_pb, DownloadError, OmaProgressBar},
+    download::{download, oma_style_pb, DownloadError, OmaProgressBar, oma_spinner},
     error, info, verify, warn, ARCH, MB,
 };
 
@@ -620,7 +620,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         c,
                         client,
                         not_compress_filename.0,
-                        typ,
+                        typ.to_string(),
                         opb,
                     ));
 
@@ -638,6 +638,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         not_compress_filename.0,
                         c,
                         opb,
+                        typ.to_string(),
                     ));
 
                     tasks.push(task);
@@ -666,7 +667,7 @@ async fn download_and_extract_db(
     i: &ChecksumItem,
     client: &Client,
     not_compress_file: String,
-    typ: &str,
+    typ: String,
     opb: OmaProgressBar,
 ) -> Result<()> {
     let (name, _, is_download) = download_db(
@@ -686,34 +687,13 @@ async fn download_and_extract_db(
         return Ok(());
     }
 
-    let p = APT_LIST_DISTS.join(&name.0);
+    let path = APT_LIST_DISTS.join(&name.0);
 
-    let mbc = opb.mbc;
-    let pb = mbc.add(ProgressBar::new_spinner());
-    let progress = opb.progress;
-    let progress = if let Some((cur, total)) = progress {
-        format!("({cur}/{total}) ")
-    } else {
-        "".to_string()
-    };
-
-    pb.finish_and_clear();
-
-    let buf = tokio::fs::read(&p)
-        .await
-        .map_err(|e| anyhow!("Can not read file: {}, why: {e}", p.display()))?;
-
-    let pb = mbc.add(ProgressBar::new_spinner());
-    pb.set_message(format!("{progress}Decompressing {typ}"));
-    oma_spinner(&pb);
-    let buf = spawn_blocking(move || decompress(&buf, &name.0)).await??;
-
-    pb.finish_and_clear();
+    let opbc = opb.clone();
 
     let p = APT_LIST_DISTS.join(not_compress_file);
-    tokio::fs::write(&p, buf)
-        .await
-        .map_err(|e| anyhow!("Can not write file: {}, why: {e}", p.display()))?;
+
+    spawn_blocking(move || decompress(Path::new(&path), &name.0, opbc, &p, typ)).await??;
 
     Ok(())
 }
@@ -723,6 +703,7 @@ async fn download_and_extract_db_local(
     not_compress_file: String,
     i: &ChecksumItem,
     opb: OmaProgressBar,
+    typ: String,
 ) -> Result<()> {
     let path = path.split("://").nth(1).unwrap_or(&path).to_owned();
 
@@ -753,19 +734,15 @@ async fn download_and_extract_db_local(
 
     let buf_len = buf.len();
 
-    let extract_buf = if i.file_type == DistFileType::CompressContents
-        || i.file_type == DistFileType::CompressPackageList
-    {
-        spawn_blocking(move || decompress(&buf, &name.0)).await??
-    } else {
-        buf
-    };
-
     let p = APT_LIST_DISTS.join(not_compress_file);
 
-    tokio::fs::write(&p, &extract_buf)
-        .await
-        .map_err(|e| anyhow!("Can not write file: {}, why: {e}", p.display()))?;
+    let opbc = opb.clone();
+
+    if i.file_type == DistFileType::CompressContents
+        || i.file_type == DistFileType::CompressPackageList
+    {
+        spawn_blocking(move || decompress(Path::new(&path), &name.0, opbc, &p, typ)).await??
+    }
 
     if let Some(pb) = opb.global_bar {
         pb.inc(buf_len as u64);
@@ -775,22 +752,68 @@ async fn download_and_extract_db_local(
 }
 
 /// Extract database
-fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
-    let buf = if name.ends_with(".gz") {
-        let mut decompressor = GzDecoder::new(buf);
-        let mut buf = Vec::new();
-        decompressor.read_to_end(&mut buf)?;
+fn decompress(
+    compress_file_path: &Path,
+    name: &str,
+    opb: OmaProgressBar,
+    path: &Path,
+    typ: String,
+) -> Result<()> {
+    let compress_f = std::fs::File::open(compress_file_path)?;
+    let len = compress_f.metadata()?.len();
+    let reader = std::io::BufReader::new(compress_f);
+    let pb = opb
+        .mbc
+        .add(ProgressBar::new_spinner());
 
-        buf
-    } else if name.ends_with(".xz") {
-        let mut decompressor = XzDecoder::new(buf);
-        let mut buf = Vec::new();
-        decompressor.read_to_end(&mut buf)?;
+    oma_spinner(&pb);
 
-        buf
+    let progress = opb.progress;
+
+    let progress = if let Some((cur, total)) = progress {
+        format!("({cur}/{total}) ")
     } else {
-        buf.to_owned()
+        "".to_string()
     };
 
-    Ok(buf)
+    pb.set_message(format!("{progress}Decompressing {typ}"));
+
+    let mut extract_f = std::fs::OpenOptions::new()
+        .append(true)
+        .write(true)
+        .create(true)
+        .open(path)?;
+
+    let mut buf = vec![0; 4096];
+
+    if name.ends_with(".gz") {
+        let mut decompressor = GzDecoder::new(reader);
+
+        loop {
+            let read_count = decompressor.read(&mut buf)?;
+            if read_count == 0 {
+                break;
+            }
+            pb.inc(read_count as u64);
+            extract_f.write_all(&buf[..read_count])?;
+        }
+    } else if name.ends_with(".xz") {
+        let mut decompressor = XzDecoder::new(reader);
+        loop {
+            let read_count = decompressor.read(&mut buf)?;
+            if read_count == 0 {
+                break;
+            }
+            pb.inc(read_count as u64);
+            extract_f.write_all(&buf[..read_count])?;
+        }
+    }
+
+    pb.finish_and_clear();
+
+    if let Some(pb) = opb.global_bar {
+        pb.inc(len as u64);
+    }
+
+    Ok(())
 }
