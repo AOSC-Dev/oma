@@ -186,7 +186,9 @@ pub fn command_builder() -> Command {
                 )
                 .arg(&dry_run),
         )
-        .subcommand(Command::new("refresh").about("Refresh repository metadata/catalog").long_about("Refresh repository metadata/catalog to check for available updates and new packages"))
+        .subcommand(Command::new("refresh")
+            .about("Refresh repository metadata/catalog")
+            .long_about("Refresh repository metadata/catalog to check for available updates and new packages"))
         .subcommand(
             Command::new("show").about("Show information on the specified package(s)").arg(pkgs.clone().required(true)).arg(
                 Arg::new("all")
@@ -254,10 +256,10 @@ pub fn command_builder() -> Command {
                 .about("Mark status for one or multiple package(s)")
                 .long_about("Mark status for one or multiple package(s), Omakase will resolve dependencies in accordance with the marked status(es) of the specified package(s)")
                 .arg(Arg::new("action").value_parser([
-                PossibleValue::new("hold").help("Lock package version(s), this will prevent the specified package(s) from being updated or downgraded"),
-                PossibleValue::new("unhold").help("Unlock package version(s), this will undo the “hold” status on the specified packge(s)"),
-                PossibleValue::new("manual").help("Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed"),
-                PossibleValue::new("auto").help("Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed")])
+                    PossibleValue::new("hold").help("Lock package version(s), this will prevent the specified package(s) from being updated or downgraded"),
+                    PossibleValue::new("unhold").help("Unlock package version(s), this will undo the “hold” status on the specified packge(s)"),
+                    PossibleValue::new("manual").help("Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed"),
+                    PossibleValue::new("auto").help("Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed")])
                 .required(true).num_args(1).action(ArgAction::Set))
                 .arg(pkgs.clone().num_args(1..).required(true).requires("action").help("Package(s) to mark status for"))
                 .arg(&dry_run))

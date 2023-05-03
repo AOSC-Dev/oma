@@ -48,7 +48,7 @@ struct MatchValue {
     text: String,
 }
 
-pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>> {
+pub fn find(kw: &str, is_list: bool, only_bin: bool) -> Result<Vec<(String, String)>> {
     let arch = ARCH.get().unwrap();
     let kw = if Path::new(kw).is_absolute() {
         kw.strip_prefix('/').unwrap()
@@ -110,7 +110,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
     let mut res = if which::which("rg").is_ok() {
         let mut res = vec![];
 
-        let pb = if !cnf {
+        let pb = if !only_bin {
             let pb = ProgressBar::new_spinner();
             oma_spinner(&pb);
             Some(pb)
@@ -170,7 +170,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                             for j in submatches {
                                 let m = j.m.text;
                                 if let Some(l) = parse_line(&m, is_list, kw) {
-                                    if cnf {
+                                    if only_bin {
                                         let last = l.1.split_whitespace().last();
                                         if last != Some(kw)
                                             && last != Some(&format!("/{kw}"))
@@ -222,7 +222,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool) -> Result<Vec<(String, String)>>
                 UTF8(|_, line| {
                     let line = parse_line(line, is_list, kw);
                     if let Some(l) = line {
-                        if cnf && l.1.split_whitespace().last() != Some(kw) {
+                        if only_bin && l.1.split_whitespace().last() != Some(kw) {
                             return Ok(true);
                         }
                         if !res.contains(&l) {

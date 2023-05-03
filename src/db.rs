@@ -527,9 +527,6 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             .collect::<Vec<_>>();
 
         let mut total = 0;
-
-        let mut added = vec![];
-
         let handle = if ose.is_flat {
             // Flat repo
             let mut handle = vec![];
@@ -544,11 +541,6 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
         } else {
             let mut handle = vec![];
             for i in &checksums {
-                // 一般来说，一个 InRelease 里只需要下载一个 contents 和 package list
-                // 如果已经下载过那就不需要再下了
-                if added.contains(&i.file_type) {
-                    continue;
-                }
                 match i.file_type {
                     DistFileType::Contents | DistFileType::PackageList => {
                         if ARCH.get() == Some(&"mips64r6el".to_string()) {
@@ -560,7 +552,6 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         if ARCH.get() != Some(&"mips64r6el".to_string()) {
                             handle.push(i);
                             total += i.size;
-                            added.push(i.file_type.clone());
                         }
                     }
                     _ => continue,
@@ -593,6 +584,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             let typ = match c.file_type {
                 DistFileType::CompressContents => "Contents",
                 DistFileType::CompressPackageList | DistFileType::PackageList => "Package List",
+                DistFileType::BinaryContents => "BinContents",
                 _ => unreachable!(),
             };
 
