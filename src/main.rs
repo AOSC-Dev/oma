@@ -58,10 +58,14 @@ fn main() {
             error!("{e}");
         }
         unlock_oma().ok();
+        print!("\x07"); // bell character
+
         exit(1);
     }
 
     unlock_oma().ok();
+    print!("\x07"); // bell character
+
 
     exit(0);
 }

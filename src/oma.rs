@@ -750,7 +750,7 @@ impl Oma {
             .to_string();
 
         log_to_file(&action, &start_time, &end_time)?;
-
+    
         Ok(())
     }
 
