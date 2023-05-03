@@ -67,16 +67,30 @@ pub fn find(kw: &str, is_list: bool, only_bin: bool) -> Result<Vec<(String, Stri
     let dir = std::fs::read_dir(&*APT_LIST_DISTS)?;
     let mut paths = Vec::new();
     for i in dir.flatten() {
-        if i.file_name()
-            .to_str()
-            .unwrap_or("")
-            .ends_with(&format!("_Contents-{arch}"))
-            || i.file_name()
+        if !only_bin {
+            if i.file_name()
                 .to_str()
                 .unwrap_or("")
-                .ends_with("_Contents-all")
-        {
-            paths.push(i.path());
+                .ends_with(&format!("_Contents-{arch}"))
+                || i.file_name()
+                    .to_str()
+                    .unwrap_or("")
+                    .ends_with("_Contents-all")
+            {
+                paths.push(i.path());
+            }
+        } else {
+            if i.file_name()
+                .to_str()
+                .unwrap_or("")
+                .ends_with(&format!("_BinContents-{arch}"))
+                || i.file_name()
+                    .to_str()
+                    .unwrap_or("")
+                    .ends_with("_BinContents-all")
+            {
+                paths.push(i.path());
+            }
         }
     }
 

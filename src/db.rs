@@ -550,6 +550,10 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             let mut handle = vec![];
             for i in &checksums {
                 match i.file_type {
+                    DistFileType::BinaryContents => {
+                        handle.push(i);
+                        total += i.size;
+                    }
                     DistFileType::Contents | DistFileType::PackageList => {
                         if ARCH.get() == Some(&"mips64r6el".to_string()) {
                             handle.push(i);
@@ -785,7 +789,7 @@ fn decompress(buf: &[u8], name: &str) -> Result<Vec<u8>> {
 
         buf
     } else {
-        return Err(anyhow!("Unsupported compression format."));
+        buf.to_owned()
     };
 
     Ok(buf)
