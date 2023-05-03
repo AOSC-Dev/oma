@@ -260,8 +260,6 @@ impl InReleaseParser {
 
         let c = if c.is_empty() { c_res_clone } else { c };
 
-        let mut added = vec![];
-
         for i in c {
             let t = if i.0.contains("BinContents") {
                 DistFileType::BinaryContents
@@ -278,15 +276,6 @@ impl InReleaseParser {
             } else {
                 bail!("BUG: InRelease Parser unsupport file type: {i:?}, Please report this to upstream: https://github.com/aosc-dev/oma");
             };
-
-            // 用来防止下载重复的 Contents
-            if let Some((name, _)) = i.0.split_once('.') {
-                if !added.contains(&name) {
-                    added.push(name);
-                } else {
-                    continue;
-                }
-            }
 
             res.push(ChecksumItem {
                 name: i.0.to_owned(),
