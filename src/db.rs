@@ -234,9 +234,17 @@ impl InReleaseParser {
         let mut checksums_res = vec![];
 
         for i in checksums {
-            let checksum = i.split_whitespace().collect::<Vec<_>>();
-            let checksum = (checksum[2], checksum[1], checksum[0]);
-            checksums_res.push(checksum);
+            let mut checksum_entry = i.split_whitespace();
+            let checksum = checksum_entry
+                .next()
+                .context(format!("Could not parse checksum entry: {i}"))?;
+            let size = checksum_entry
+                .next()
+                .context(format!("Could not parse checksum entry: {i}"))?;
+            let name = checksum_entry
+                .next()
+                .context(format!("Could not parse checksum entry: {i}"))?;
+            checksums_res.push((name, size, checksum));
         }
 
         let arch = ARCH.get().unwrap();
