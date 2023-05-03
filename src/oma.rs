@@ -142,7 +142,7 @@ impl Oma {
             // 检查一遍是否有依赖不存在的升级
             {
                 let sort = PackageSort::default().upgradable();
-                let upgrable_pkgs = cache.packages(&sort).collect::<Vec<_>>();
+                let upgrable_pkgs = cache.packages(&sort);
 
                 for pkg in upgrable_pkgs {
                     find_unmet_deps_with_markinstall(&cache, &pkg.candidate().unwrap(), false)?;
