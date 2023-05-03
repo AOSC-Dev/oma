@@ -424,7 +424,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         let x_score = pkg_score(input, &x.0, x.3);
         let y_score = pkg_score(input, &y.0, y.3);
 
-        let c = x_score.cmp(&y_score);
+        let c = y_score.cmp(&x_score);
 
         if c == std::cmp::Ordering::Equal {
             x.0.package.cmp(&y.0.package)
@@ -432,8 +432,6 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             c
         }
     });
-
-    res.reverse();
 
     if res.is_empty() {
         bail!("Could not find any packages for keyword: {input}");
@@ -485,8 +483,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         ));
     }
 
-    output.sort_by(|a, b| a.0.cmp(&b.0));
-    output.reverse();
+    output.sort_by(|a, b| b.0.cmp(&a.0));
 
     if output.len() * 2 <= height.into() {
         for (prefix, line, desc) in output {
