@@ -112,7 +112,7 @@ impl Oma {
     }
 
     /// Update mirror database and Get all update, like apt update && apt full-upgrade
-    pub fn update(&self, u: UpgradeOptions) -> Result<()> {
+    pub fn update(&self, u: UpgradeOptions) -> Result<i32> {
         needs_root()?;
         lock_oma()?;
 
@@ -213,13 +213,13 @@ impl Oma {
                         bail!("Your system has broken dependencies, try to use {} to fix broken dependencies\nIf this does not work, please contact upstream: https://github.com/aosc-dev/aosc-os-abbs", style("oma fix-broken").green().bold())
                     }
 
-                    return Ok(());
+                    return Ok(0);
                 }
             }
         }
     }
 
-    pub fn install(&self, opt: InstallOptions) -> Result<()> {
+    pub fn install(&self, opt: InstallOptions) -> Result<i32> {
         needs_root()?;
         lock_oma()?;
 
@@ -259,13 +259,15 @@ impl Oma {
                         .to_offset(*TIME_OFFSET)
                         .to_string();
 
-                    return log_to_file(&v, &start_time, &end_time);
+                    log_to_file(&v, &start_time, &end_time)?;
+
+                    return Ok(0);
                 }
             }
         }
     }
 
-    pub fn list(opt: &ListOptions) -> Result<()> {
+    pub fn list(opt: &ListOptions) -> Result<i32> {
         let cache = new_cache!()?;
 
         let mut sort = PackageSort::default();
@@ -365,10 +367,10 @@ impl Oma {
             }
         }
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn show(list: &[String], is_all: bool) -> Result<()> {
+    pub fn show(list: &[String], is_all: bool) -> Result<i32> {
         let cache = new_cache!()?;
 
         let mut s = String::new();
@@ -422,17 +424,17 @@ impl Oma {
             );
         }
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn search(kw: &str) -> Result<()> {
+    pub fn search(kw: &str) -> Result<i32> {
         let cache = new_cache!()?;
         search_pkgs(&cache, kw)?;
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn list_files(kw: &str) -> Result<()> {
+    pub fn list_files(kw: &str) -> Result<i32> {
         let res = find(kw, true, false)?;
 
         let height = WRITER.get_height();
@@ -455,10 +457,10 @@ impl Oma {
         drop(out);
         pager.wait_for_exit().ok();
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn search_file(kw: &str) -> Result<()> {
+    pub fn search_file(kw: &str) -> Result<i32> {
         let res = find(kw, false, false)?;
 
         let height = WRITER.get_height();
@@ -481,10 +483,10 @@ impl Oma {
         drop(out);
         pager.wait_for_exit().ok();
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn fix_broken(&self, v: FixBroken) -> Result<()> {
+    pub fn fix_broken(&self, v: FixBroken) -> Result<i32> {
         needs_root()?;
         lock_oma()?;
 
@@ -502,7 +504,7 @@ impl Oma {
 
         if len == 0 && !need_fixsystem {
             info!("No need to do anything");
-            return Ok(());
+            return Ok(0);
         }
 
         let mut list = action.install.clone();
@@ -530,10 +532,10 @@ impl Oma {
 
         log_to_file(&action, &start_time, &end_time)?;
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn dep(list: &[String], rdep: bool) -> Result<()> {
+    pub fn dep(list: &[String], rdep: bool) -> Result<i32> {
         let cache = new_cache!()?;
         let mut res = vec![];
         for c in list {
@@ -606,12 +608,12 @@ impl Oma {
             }
         }
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn download(&self, v: Download) -> Result<()> {
+    pub fn download(&self, v: Download) -> Result<i32> {
         if DRYRUN.load(Ordering::Relaxed) {
-            return Ok(());
+            return Ok(0);
         }
 
         let cache = new_cache!()?;
@@ -652,7 +654,7 @@ impl Oma {
             path.canonicalize().unwrap_or(path.to_path_buf()).display()
         );
 
-        Ok(())
+        Ok(0)
     }
 
     fn install_inner(&self, opt: &InstallOptions, count: usize) -> InstallResult<Action> {
@@ -700,7 +702,7 @@ impl Oma {
         Ok(action)
     }
 
-    pub fn remove(r: RemoveOptions) -> Result<()> {
+    pub fn remove(r: RemoveOptions) -> Result<i32> {
         needs_root()?;
         lock_oma()?;
 
@@ -732,7 +734,7 @@ impl Oma {
 
         if len == 0 && !need_fixsystem {
             success!("No need to do anything.");
-            return Ok(());
+            return Ok(0);
         }
 
         if !r.yes {
@@ -751,10 +753,10 @@ impl Oma {
 
         log_to_file(&action, &start_time, &end_time)?;
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn refresh(&self) -> Result<()> {
+    pub fn refresh(&self) -> Result<i32> {
         needs_root()?;
         lock_oma()?;
 
@@ -790,10 +792,10 @@ impl Oma {
             success!("Successfully refreshed package database. No update available.");
         }
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn pick(&self, p: PickOptions) -> Result<()> {
+    pub fn pick(&self, p: PickOptions) -> Result<i32> {
         needs_root()?;
         lock_oma()?;
 
@@ -882,7 +884,7 @@ impl Oma {
                 && installed.map(|x| x.sha256()) == Some(version.sha256())
             {
                 success!("No need to do anything.");
-                return Ok(());
+                return Ok(0);
             }
 
             version.set_candidate();
@@ -912,10 +914,10 @@ impl Oma {
             log_to_file(&action, &start_time, &end_time)?;
         }
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn mark(opt: Mark) -> Result<()> {
+    pub fn mark(opt: Mark) -> Result<i32> {
         needs_root()?;
 
         if opt.dry_run {
@@ -959,8 +961,6 @@ impl Oma {
                     dpkg_set_selections(&i, "hold")?;
                     success!("{} is set to hold.", i);
                 }
-
-                return Ok(());
             }
             MarkAction::Unhold(args) => {
                 for i in &args.pkgs {
@@ -982,8 +982,6 @@ impl Oma {
                     dpkg_set_selections(&i, "unhold")?;
                     success!("{} is set to unhold.", i);
                 }
-
-                return Ok(());
             }
             MarkAction::Manual(args) => {
                 for i in &args.pkgs {
@@ -1001,7 +999,7 @@ impl Oma {
                 }
 
                 if DRYRUN.load(Ordering::Relaxed) {
-                    return Ok(());
+                    return Ok(0);
                 }
 
                 cache.commit(
@@ -1025,7 +1023,7 @@ impl Oma {
                 }
 
                 if DRYRUN.load(Ordering::Relaxed) {
-                    return Ok(());
+                    return Ok(0);
                 }
 
                 cache.commit(
@@ -1035,10 +1033,10 @@ impl Oma {
             }
         }
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn command_not_found(kw: &str) -> Result<()> {
+    pub fn command_not_found(kw: &str) -> Result<i32> {
         let cache = new_cache!()?;
         let f = find(&format!("usr/bin/{kw}"), false, true);
 
@@ -1076,12 +1074,12 @@ impl Oma {
             }
         }
 
-        std::process::exit(127);
+        Ok(127)
     }
 
-    pub fn clean() -> Result<()> {
+    pub fn clean() -> Result<i32> {
         if DRYRUN.load(Ordering::Relaxed) {
-            return Ok(());
+            return Ok(0);
         }
 
         needs_root()?;
@@ -1101,10 +1099,10 @@ impl Oma {
 
         success!("Clean successfully.");
 
-        Ok(())
+        Ok(0)
     }
 
-    pub fn log() -> Result<()> {
+    pub fn log() -> Result<i32> {
         let f = std::fs::File::open("/var/log/oma/history")?;
         let r = std::io::BufReader::new(f);
         let mut pager = Pager::new(false, false)?;
@@ -1119,13 +1117,13 @@ impl Oma {
         drop(out);
         pager.wait_for_exit().ok();
 
-        Ok(())
+        Ok(0)
     }
 
     #[cfg(feature = "aosc")]
-    pub fn topics(&self, opt: Topics) -> Result<()> {
+    pub fn topics(&self, opt: Topics) -> Result<i32> {
         if DRYRUN.load(Ordering::Relaxed) {
-            return Ok(());
+            return Ok(0);
         }
 
         needs_root()?;
@@ -1188,7 +1186,7 @@ impl Oma {
             no_autoremove: true,
         })?;
 
-        Ok(())
+        Ok(0)
     }
 }
 

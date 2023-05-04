@@ -204,8 +204,8 @@ impl OmaCommandRunner {
 
 pub trait CommandMatcher {
     fn match_cmd(&self) -> Result<OmaCommand>;
-    fn run(&self) -> Result<()> {
-        match self.match_cmd()? {
+    fn run(&self) -> Result<i32> {
+        let exit_code = match self.match_cmd()? {
             OmaCommand::Install(v) => Oma::build_async_runtime()?.install(v),
             OmaCommand::Upgrade(v) => Oma::build_async_runtime()?.update(v),
             OmaCommand::Download(v) => Oma::build_async_runtime()?.download(v),
@@ -226,7 +226,9 @@ pub trait CommandMatcher {
             OmaCommand::History => Oma::log(),
             #[cfg(feature = "aosc")]
             OmaCommand::Topics(v) => Oma::build_async_runtime()?.topics(v),
-        }
+        }?;
+
+        Ok(exit_code)
     }
 }
 

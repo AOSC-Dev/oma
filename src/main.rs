@@ -53,31 +53,36 @@ fn main() {
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
 
-    if let Err(e) = try_main() {
-        if !e.to_string().is_empty() {
-            error!("{e}");
+    let code = match try_main() {
+        Ok(exit_code) => exit_code,
+        Err(e) => {
+            if !e.to_string().is_empty() {
+                error!("{e}");
+                e.chain().skip(1).for_each(|cause| {
+                    due_to!("{}", cause);
+                });
+            }
+            unlock_oma().ok();
+            print!("\x07"); // bell character
+            1
         }
-        unlock_oma().ok();
-        print!("\x07"); // bell character
-
-        exit(1);
-    }
+    };
 
     unlock_oma().ok();
     print!("\x07"); // bell character
 
-    exit(0);
+    exit(code);
 }
 
-fn try_main() -> Result<()> {
+fn try_main() -> Result<i32> {
     let _ = ARCH
         .get_or_try_init(get_arch_name)
         .map_err(|e| anyhow!("Can not run dpkg --print-architecture, why: {e}"))?;
 
-    OmaCommandRunner::new().run()?;
+    let code = OmaCommandRunner::new().run()?;
     tracing::info!("Running oma with args: {}", *ARGS);
 
-    Ok(())
+    Ok(code)
 }
 
 fn single_handler() {
@@ -100,10 +105,6 @@ fn single_handler() {
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
     let _ = WRITER.show_cursor();
-
-    if allow_ctrlc {
-        std::process::exit(0);
-    }
 
     std::process::exit(2);
 }
