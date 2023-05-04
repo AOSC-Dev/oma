@@ -1066,7 +1066,7 @@ impl Oma {
             println!(
                 "{}",
                 style(format!(
-                    "Command not found: {kw}, But find some result from package mirror:\n"
+                    "Command not found: {kw}. This command may be found from the following package(s):\n"
                 ))
                 .bold()
             );
