@@ -786,27 +786,29 @@ fn decompress(
 
     let mut buf = vec![0; 4096];
 
-    if name.ends_with(".gz") {
-        let mut decompressor = GzDecoder::new(reader);
+    let mut decompress: Box<dyn Read> = if name.ends_with(".gz") {
+        let decompressor = GzDecoder::new(reader);
 
-        loop {
-            let read_count = decompressor.read(&mut buf)?;
-            if read_count == 0 {
-                break;
-            }
-            pb.inc(read_count as u64);
-            extract_f.write_all(&buf[..read_count])?;
-        }
+        Box::new(decompressor)
     } else if name.ends_with(".xz") {
-        let mut decompressor = XzDecoder::new(reader);
-        loop {
-            let read_count = decompressor.read(&mut buf)?;
-            if read_count == 0 {
-                break;
-            }
-            pb.inc(read_count as u64);
-            extract_f.write_all(&buf[..read_count])?;
+        let decompressor = XzDecoder::new(reader);
+
+        Box::new(decompressor)
+    } else {
+        pb.finish_and_clear();
+        if let Some(pb) = opb.global_bar {
+            pb.inc(len as u64);
         }
+        return Ok(())
+    };
+
+    loop {
+        let read_count = decompress.read(&mut buf)?;
+        if read_count == 0 {
+            break;
+        }
+        pb.inc(read_count as u64);
+        extract_f.write_all(&buf[..read_count])?;
     }
 
     pb.finish_and_clear();
