@@ -321,6 +321,15 @@ pub fn command_builder() -> Command {
             Command::new("history")
                 .alias("log")
                 .about("Show a history/log of package changes in the system"),
+        )
+        .subcommand(
+        Command::new("pkgnames")
+                .hide(true)
+                .arg(Arg::new("keyword")
+                    .required(true)
+                    .action(ArgAction::Set)
+                    .num_args(1)
+                )
         );
 
     if cfg!(feature = "aosc") {

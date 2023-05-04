@@ -49,6 +49,7 @@ pub enum OmaCommand {
     History,
     #[cfg(feature = "aosc")]
     Topics(Topics),
+    Pkgnames(String),
 }
 
 pub struct Topics {
@@ -226,6 +227,7 @@ pub trait CommandMatcher {
             OmaCommand::History => Oma::log(),
             #[cfg(feature = "aosc")]
             OmaCommand::Topics(v) => Oma::build_async_runtime()?.topics(v),
+            OmaCommand::Pkgnames(s) => Oma::pkgnames(s.as_str()),
         }?;
 
         Ok(exit_code)
@@ -401,6 +403,9 @@ impl CommandMatcher for OmaCommandRunner {
                     .get_many::<String>("opt_out")
                     .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
             }),
+            Some(("pkgnames", v)) => {
+                OmaCommand::Pkgnames(v.get_one::<String>("keyword").unwrap().to_string())
+            }
             _ => unreachable!(),
         };
 

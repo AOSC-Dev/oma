@@ -1192,6 +1192,18 @@ impl Oma {
 
         Ok(0)
     }
+
+    pub fn pkgnames(s: &str) -> Result<i32> {
+        let cache = new_cache!()?;
+        let sort = PackageSort::default();
+        let pkgs = cache.packages(&sort).filter(|x| x.name().starts_with(s));
+
+        for pkg in pkgs {
+            println!("{}", pkg.name());
+        }
+
+        Ok(0)
+    }
 }
 
 fn needs_fix_system(cache: &Cache) -> (bool, Vec<String>) {
