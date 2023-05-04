@@ -424,6 +424,10 @@ impl Oma {
             );
         }
 
+        if s.is_empty() {
+            return Ok(1);
+        }
+
         Ok(0)
     }
 
