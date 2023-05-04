@@ -775,11 +775,11 @@ impl Oma {
 
         let mut output = vec![];
         if !upgradable.is_empty() {
-            output.push(format!("{} package can be upgraded", upgradable.len()));
+            output.push(format!("{} package(s) can be upgraded", upgradable.len()));
         }
 
         if !autoremove.is_empty() {
-            output.push(format!("{} can be removed", autoremove.len()));
+            output.push(format!("{} package(s) can be removed", autoremove.len()));
         }
 
         if !output.is_empty() {
