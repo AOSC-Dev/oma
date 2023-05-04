@@ -5,7 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.33.1 (2023-05-04)
+
+### Documentation
+
+ - <csr-id-3923169a3183158ffbbc9fb98f466196dcbbb1db/> improve oma install --install-recommend and --install-suggest help message
+
+### New Features
+
+ - <csr-id-6dd5327f86955c1ebfd62ded1a85b96bffb5cd64/> add Shell integrations
+   Currently available for Bash/Zsh (command-not-found.sh) and Fish (command-not-found.fish).
+
+### Bug Fixes
+
+ - <csr-id-b0d14fb0897be29155859e6cfbe49a71d15e53b8/> improve command-not-found directions
+ - <csr-id-070dd360a4a8c9b2a0d14bf1879f7a7383308aa8/> push missing fish command-not-found commit
+ - <csr-id-261d35a12a213af973ce914c0124e50d1c9a49b0/> oma command-not-found always return 127
+ - <csr-id-2b89d1c356d95c8be17f6f67f56abd2c7ee36739/> oma command-not-fould should return 127
+ - <csr-id-cea61077fe0c70a327b3d644a3dacbb749a8b9fc/> improve UI strings for oma refresh output
+
+### Other
+
+ - <csr-id-22d449d555ff0b3e89cbfd9a8e4048df8d0e9b53/> license code under GPLv3
+   A key dependency, rust-apt, is licensed under GPLv3.
+ - <csr-id-9a540fef0793c300c09efc7bbcd8f08320978bc5/> move PolicyKit rules to /data/policykit
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release.
+ - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Improve command-not-found directions ([`b0d14fb`](https://github.com/AOSC-Dev/oma/commit/b0d14fb0897be29155859e6cfbe49a71d15e53b8))
+    - Push missing fish command-not-found commit ([`070dd36`](https://github.com/AOSC-Dev/oma/commit/070dd360a4a8c9b2a0d14bf1879f7a7383308aa8))
+    - Oma command-not-found always return 127 ([`261d35a`](https://github.com/AOSC-Dev/oma/commit/261d35a12a213af973ce914c0124e50d1c9a49b0))
+    - License code under GPLv3 ([`22d449d`](https://github.com/AOSC-Dev/oma/commit/22d449d555ff0b3e89cbfd9a8e4048df8d0e9b53))
+    - Move PolicyKit rules to /data/policykit ([`9a540fe`](https://github.com/AOSC-Dev/oma/commit/9a540fef0793c300c09efc7bbcd8f08320978bc5))
+    - Add Shell integrations ([`6dd5327`](https://github.com/AOSC-Dev/oma/commit/6dd5327f86955c1ebfd62ded1a85b96bffb5cd64))
+    - Oma command-not-fould should return 127 ([`2b89d1c`](https://github.com/AOSC-Dev/oma/commit/2b89d1c356d95c8be17f6f67f56abd2c7ee36739))
+    - Improve UI strings for oma refresh output ([`cea6107`](https://github.com/AOSC-Dev/oma/commit/cea61077fe0c70a327b3d644a3dacbb749a8b9fc))
+    - Improve oma install --install-recommend and --install-suggest help message ([`3923169`](https://github.com/AOSC-Dev/oma/commit/3923169a3183158ffbbc9fb98f466196dcbbb1db))
+</details>
+
 ## v0.33.0 (2023-05-04)
+
+<csr-id-b5faa6722eac78f1075095c237fd743249ebd059/>
+<csr-id-ebf8d735634625b2fc056b32d9fdae9716657858/>
+<csr-id-f5a557166d5d766fbd4bf59aa17006be7f77e3cd/>
+<csr-id-478c2e8c9145e6f8d9847358437d09f969ff444d/>
+<csr-id-4f8da4aec365ed92e6cc9bb33e10b0bf71f94bdd/>
+<csr-id-64d88bf059bf7921b22caeeb947de9e71b7c1a54/>
+<csr-id-d08e903866fe01e35b08272ed37b2096f3273a28/>
+<csr-id-86432a7f9f8a593136f1caabc416a5f647b3b81d/>
+<csr-id-04133e0a6a734bc1170965a4fe837a4e2768c685/>
+<csr-id-bbee12732e7357b52c42fa89e07e07a4f613fb31/>
+<csr-id-9296db314338057472951a87edc664c0f0cd87e5/>
+<csr-id-01e8cfd45cb4602f80c06f427409b6dade1096ce/>
+<csr-id-50bca89128856e2c1cea464da64f924fea28e682/>
+<csr-id-03ca22e086e8c68dfb3cb0079a4682e19e7ce194/>
+<csr-id-fe1d5ffc83de72ca3eed03d9a7fe96f5be4c2ab7/>
 
 ### Chore
 
@@ -51,7 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 25 commits contributed to the release over the course of 1 calendar day.
+ - 26 commits contributed to the release over the course of 1 calendar day.
  - 2 days passed between releases.
  - 23 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -63,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.33.0 ([`607dc68`](https://github.com/AOSC-Dev/oma/commit/607dc681251588aa9653b302b657f4fc73cbb0ea))
     - Update all deps ([`b5faa67`](https://github.com/AOSC-Dev/oma/commit/b5faa6722eac78f1075095c237fd743249ebd059))
     - Do not panic with display CJK message ([`34a190b`](https://github.com/AOSC-Dev/oma/commit/34a190b4a53490e152ffac643e15130729238cde))
     - Revert "fix: do not panic with display CJK message" ([`f0da2c3`](https://github.com/AOSC-Dev/oma/commit/f0da2c3ba1c2eed6227f562adc701a62a005c0e5))
