@@ -20,7 +20,7 @@ use xz2::read::XzDecoder;
 
 use crate::{
     checksum::Checksum,
-    download::{download, oma_style_pb, DownloadError, OmaProgressBar, oma_spinner},
+    download::{download, oma_spinner, oma_style_pb, DownloadError, OmaProgressBar},
     error, info, verify, warn, ARCH, MB,
 };
 
@@ -762,9 +762,7 @@ fn decompress(
     let compress_f = std::fs::File::open(compress_file_path)?;
     let len = compress_f.metadata()?.len();
     let reader = std::io::BufReader::new(compress_f);
-    let pb = opb
-        .mbc
-        .add(ProgressBar::new_spinner());
+    let pb = opb.mbc.add(ProgressBar::new_spinner());
 
     oma_spinner(&pb);
 
@@ -787,19 +785,15 @@ fn decompress(
     let mut buf = vec![0; 4096];
 
     let mut decompress: Box<dyn Read> = if name.ends_with(".gz") {
-        let decompressor = GzDecoder::new(reader);
-
-        Box::new(decompressor)
+        Box::new(GzDecoder::new(reader))
     } else if name.ends_with(".xz") {
-        let decompressor = XzDecoder::new(reader);
-
-        Box::new(decompressor)
+        Box::new(XzDecoder::new(reader))
     } else {
         pb.finish_and_clear();
         if let Some(pb) = opb.global_bar {
-            pb.inc(len as u64);
+            pb.inc(len);
         }
-        return Ok(())
+        return Ok(());
     };
 
     loop {
@@ -814,7 +808,7 @@ fn decompress(
     pb.finish_and_clear();
 
     if let Some(pb) = opb.global_bar {
-        pb.inc(len as u64);
+        pb.inc(len);
     }
 
     Ok(())

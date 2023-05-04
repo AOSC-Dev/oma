@@ -334,7 +334,7 @@ impl OmaDependency {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, PartialOrd)]
+#[derive(PartialEq, Eq, Debug)]
 enum PackageStatus {
     Avail,
     Installed,
@@ -348,6 +348,12 @@ impl Display for PackageStatus {
             PackageStatus::Installed => write!(f, "{}", style("INSTALLED").green()),
             PackageStatus::Upgrade => write!(f, "{}", style("UPGRADE").yellow()),
         }
+    }
+}
+
+impl PartialOrd for PackageStatus {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
