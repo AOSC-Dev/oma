@@ -956,7 +956,7 @@ fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
         style("Pending Operations").bold().bg(Color::Color256(25))
     )?;
     writeln!(w)?;
-    writeln!(w, "Shown below is an overview of the pending changes Omakase will apply to your\nsystem, please review them carefully\n")?;
+    writeln!(w, "Shown below is an overview of the pending changes Omakase will apply to your\nsystem, please review them carefully.\n")?;
     writeln!(
         w,
         "Omakase may {}, {}, {}, {}, or {} packages in order\nto fulfill your requested changes.",
