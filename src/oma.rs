@@ -1070,15 +1070,13 @@ impl Oma {
                 ))
                 .bold()
             );
-        } else {
-            std::process::exit(127);
+
+            for i in res {
+                println!("{i}");
+            }
         }
 
-        for i in res {
-            println!("{i}");
-        }
-
-        Ok(())
+        std::process::exit(127);
     }
 
     pub fn clean() -> Result<()> {
