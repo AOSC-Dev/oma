@@ -118,14 +118,14 @@ pub fn command_builder() -> Command {
                 .arg(
                     Arg::new("install_recommend")
                         .long("install-recommend")
-                        .help("Install recommend package")
+                        .help("Install recommended packages(s)")
                         .requires("packages")
                         .action(ArgAction::SetTrue)
                 )
                 .arg(
                     Arg::new("install_suggest")
                         .long("install-suggest")
-                        .help("Install suggest package")
+                        .help("Install suggested package(s)")
                         .requires("packages")
                         .action(ArgAction::SetTrue)
                 )
