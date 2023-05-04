@@ -1071,7 +1071,7 @@ impl Oma {
                 .bold()
             );
         } else {
-            bail!("")
+            std::process::exit(127);
         }
 
         for i in res {
