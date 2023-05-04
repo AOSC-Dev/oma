@@ -381,7 +381,7 @@ impl Ord for PackageStatus {
 
 pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let sort = PackageSort::default().include_virtual();
-    let packages = cache.packages(&sort).collect::<Vec<_>>();
+    let packages = cache.packages(&sort);
 
     let mut res = HashMap::new();
 
