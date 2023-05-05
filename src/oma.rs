@@ -288,14 +288,13 @@ impl Oma {
             sort = sort.upgradable();
         }
 
-        let pkgs = if opt.packages.is_none() {
-            cache.packages(&sort).collect::<Vec<_>>()
-        } else {
-            let pkgs_names = opt.packages.clone().unwrap_or_default();
-            cache
-                .packages(&sort)
-                .filter(|x| pkgs_names.contains(&x.name().to_string()))
-                .collect::<Vec<_>>()
+        let pkgs = match opt.packages {
+            Some(ref v) => Either::Left(
+                cache
+                    .packages(&sort)
+                    .filter(|x| v.contains(&x.name().to_string())),
+            ),
+            None => Either::Right(cache.packages(&sort)),
         };
 
         let mut query_pkgs = vec![];
