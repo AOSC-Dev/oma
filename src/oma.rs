@@ -246,7 +246,7 @@ impl Oma {
             update_db_runner(&self.runtime, &get_sources()?, &self.client, None)?;
         }
 
-        let mut count = 0;
+        let mut count = 1;
         loop {
             match self.install_inner(&opt, count) {
                 Err(e) => {
