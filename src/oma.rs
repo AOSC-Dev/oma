@@ -184,7 +184,7 @@ impl Oma {
             Ok(action)
         }
 
-        let mut count = 0;
+        let mut count = 1;
 
         loop {
             match update_inner(&self.runtime, &self.client, count, &u) {
