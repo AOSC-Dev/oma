@@ -681,9 +681,6 @@ async fn download_and_extract_db(
     .await?;
 
     if !is_download {
-        if let Some(ref gb) = opb.global_bar {
-            gb.inc(i.size);
-        }
         return Ok(());
     }
 
@@ -760,7 +757,6 @@ fn decompress(
     typ: String,
 ) -> Result<()> {
     let compress_f = std::fs::File::open(compress_file_path)?;
-    let len = compress_f.metadata()?.len();
     let reader = std::io::BufReader::new(compress_f);
     let pb = opb.mbc.add(ProgressBar::new_spinner());
 
@@ -790,9 +786,6 @@ fn decompress(
         Box::new(XzDecoder::new(reader))
     } else {
         pb.finish_and_clear();
-        if let Some(pb) = opb.global_bar {
-            pb.inc(len);
-        }
         return Ok(());
     };
 
@@ -801,15 +794,10 @@ fn decompress(
         if read_count == 0 {
             break;
         }
-        pb.inc(read_count as u64);
         extract_f.write_all(&buf[..read_count])?;
     }
 
     pb.finish_and_clear();
-
-    if let Some(pb) = opb.global_bar {
-        pb.inc(len);
-    }
 
     Ok(())
 }
