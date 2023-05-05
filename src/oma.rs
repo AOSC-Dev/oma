@@ -210,7 +210,14 @@ impl Oma {
                     log_to_file(&v, &start_time, &end_time)?;
 
                     if u.dpkg_force_all && cache.depcache().broken_count() != 0 {
-                        bail!("Your system has broken dependencies, try to use {} to fix broken dependencies\nIf this does not work, please contact upstream: https://github.com/aosc-dev/aosc-os-abbs", style("oma fix-broken").green().bold())
+                        let e = anyhow!("Your system has broken dependencies");
+
+                        return Err(
+                            e.context(
+                                format!("Try to use {} to fix broken dependencies\nIf this does not work, please contact upstream: https://github.com/aosc-dev/aosc-os-abbs",
+                                style("oma fix-broken").green().bold()
+                            ))
+                        );
                     }
 
                     return Ok(0);
@@ -1369,7 +1376,7 @@ fn apt_install(
         OmaAptInstallProgress::new_box(yes, force_yes, force_confnew, dpkg_force_all);
 
     if let Err(e) = cache.do_install(&mut progress) {
-        apt_lock_inner()?;
+        apt_lock_inner().map_err(|e| anyhow!("{e}"))?;
         apt_unlock();
         return Err(e.into());
     }
