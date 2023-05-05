@@ -329,7 +329,6 @@ pub fn command_builder() -> Command {
         Command::new("pkgnames")
                 .hide(true)
                 .arg(Arg::new("keyword")
-                    .required(true)
                     .action(ArgAction::Set)
                     .num_args(1)
                 )

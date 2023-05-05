@@ -1,6 +1,7 @@
 use anyhow::{anyhow, bail, Context, Result};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Select};
+use either::Either;
 use indicatif::{HumanBytes, ProgressBar};
 use reqwest::Client;
 use rust_apt::{
@@ -1200,10 +1201,16 @@ impl Oma {
         Ok(0)
     }
 
-    pub fn pkgnames(s: &str) -> Result<i32> {
+    pub fn pkgnames(s: Option<String>) -> Result<i32> {
         let cache = new_cache!()?;
         let sort = PackageSort::default().names();
-        let pkgs = cache.packages(&sort).filter(|x| x.name().starts_with(s));
+
+        let pkgs = match s {
+            Some(ref s) => {
+                Either::Left(cache.packages(&sort).filter(|x| x.name().starts_with(&*s)))
+            }
+            None => Either::Right(cache.packages(&sort)),
+        };
 
         for pkg in pkgs {
             println!("{}", pkg.name());
