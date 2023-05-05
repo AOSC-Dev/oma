@@ -58,12 +58,11 @@ fn main() {
         Err(e) => {
             if !e.to_string().is_empty() {
                 error!("{e}");
-                e.chain().skip(1).for_each(|cause| {
-                    due_to!("{}", cause);
-                });
             }
+            e.chain().skip(1).for_each(|cause| {
+                due_to!("{}", cause);
+            });
             unlock_oma().ok();
-            print!("\x07"); // bell character
             1
         }
     };
