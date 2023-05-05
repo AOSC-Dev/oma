@@ -1,9 +1,12 @@
+use clap_complete::{generate_to, Shell};
 use clap_mangen::Man;
 
 include!("src/args.rs");
 
+const GENERATED_COMPLETIONS: &[Shell] = &[Shell::Bash, Shell::Zsh, Shell::Fish];
+
 fn main() -> std::io::Result<()> {
-    let cmd = command_builder();
+    let mut cmd = command_builder();
 
     let man = Man::new(cmd.clone());
     let mut buffer: Vec<u8> = Default::default();
@@ -32,6 +35,22 @@ fn main() -> std::io::Result<()> {
             std::path::PathBuf::from(&man_dir).join(format!("{}{}", &subcommand_name, ".1")),
             buffer,
         )?;
+    }
+
+    println!("cargo:rerun-if-env-changed=CIEL_GEN_COMPLETIONS");
+
+    // generate completions on demand
+    if std::env::var("CIEL_GEN_COMPLETIONS").is_ok() {
+        let p = std::path::PathBuf::from(
+            std::env::var_os("CARGO_MANIFEST_DIR").ok_or(std::io::ErrorKind::NotFound)?,
+        );
+
+        std::fs::create_dir_all(p.join("completions"))?;
+
+        for shell in GENERATED_COMPLETIONS {
+            generate_to(*shell, &mut cmd, "oma", "completions")
+                .expect("Failed to generate shell completions");
+        }
     }
 
     Ok(())

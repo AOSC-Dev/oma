@@ -68,7 +68,7 @@ fn main() {
     };
 
     unlock_oma().ok();
-    print!("\x07"); // bell character
+    eprint!("\x07"); // bell character
 
     exit(code);
 }

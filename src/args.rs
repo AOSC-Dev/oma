@@ -1,7 +1,7 @@
 use anstyle::RgbColor;
 use clap::{
     builder::{PossibleValue, Styles},
-    command, Arg, ArgAction, Command,
+    command, Arg, ArgAction, Command, ValueHint,
 };
 
 pub fn command_builder() -> Command {
@@ -11,7 +11,10 @@ pub fn command_builder() -> Command {
         .long_help("Run Omakase in “dry-run” mode. Useful for testing changes and operations without making changes to the system")
         .action(clap::ArgAction::SetTrue);
 
-    let pkgs = Arg::new("packages").action(clap::ArgAction::Append);
+    let pkgs = Arg::new("packages")
+        .num_args(1..)
+        .trailing_var_arg(true)
+        .value_hint(ValueHint::CommandWithArguments);
 
     let no_fixbroken = Arg::new("no_fix_broken")
         .long("no-fix-broken")
@@ -173,7 +176,7 @@ pub fn command_builder() -> Command {
                 .alias("delete")
                 .alias("purge")
                 .about("Remove the specified package(s)")
-                .arg(pkgs.clone().num_args(1..).required(true).help("Package(s) to remove"))
+                .arg(pkgs.clone().required(true).help("Package(s) to remove"))
                 .arg(yes.requires("packages"))
                 .arg(force_yes.requires("packages"))
                 .arg(no_autoremove.requires("packages"))
@@ -261,7 +264,7 @@ pub fn command_builder() -> Command {
                     PossibleValue::new("manual").help("Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed"),
                     PossibleValue::new("auto").help("Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed")])
                 .required(true).num_args(1).action(ArgAction::Set))
-                .arg(pkgs.clone().num_args(1..).required(true).requires("action").help("Package(s) to mark status for"))
+                .arg(pkgs.clone().required(true).requires("action").help("Package(s) to mark status for"))
                 .arg(&dry_run))
         .subcommand(
             Command::new("command-not-found").hide(true).arg(

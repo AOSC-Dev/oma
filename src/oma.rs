@@ -170,7 +170,7 @@ impl Oma {
             list.extend(action.install.clone());
             list.extend(action.downgrade.clone());
 
-            if count == 0 {
+            if count == 1 {
                 let disk_size = cache.depcache().disk_size();
                 size_checker(&disk_size, download_size(&list, &cache)?)?;
                 if len != 0 && !u.yes {
@@ -692,7 +692,7 @@ impl Oma {
         list.extend(action.downgrade.clone());
         list.extend(action.reinstall.clone());
 
-        if count == 0 {
+        if count == 1 {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
             if len != 0 && !opt.yes {
@@ -1202,7 +1202,7 @@ impl Oma {
 
     pub fn pkgnames(s: &str) -> Result<i32> {
         let cache = new_cache!()?;
-        let sort = PackageSort::default();
+        let sort = PackageSort::default().names();
         let pkgs = cache.packages(&sort).filter(|x| x.name().starts_with(s));
 
         for pkg in pkgs {

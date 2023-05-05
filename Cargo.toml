@@ -58,6 +58,7 @@ indexmap = {version = "1.9", features = ["serde-1"], optional = true }
 
 [build-dependencies]
 clap_mangen = "0.2.10"
+clap_complete = "4.2"
 clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color", "unstable-styles"] }
 anstyle = "1.0"
 
