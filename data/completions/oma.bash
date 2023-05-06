@@ -565,7 +565,7 @@ _oma() {
             return 0
             ;;
         oma__install)
-            opts="-y -h --install-dbg --reinstall --install-recommend --install-suggest --no-fix-broken --no-refresh --yes --force-yes --force-confnew --dry-run --dpkg-force-all --debug --help"
+            opts="-y -h --install-dbg --reinstall --install-recommends --install-suggests --no-fix-broken --no-refresh --yes --force-yes --force-confnew --dry-run --dpkg-force-all --debug --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

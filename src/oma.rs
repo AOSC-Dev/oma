@@ -34,6 +34,7 @@ use crate::{
     contents::find,
     db::{get_sources, update_db_runner, DOWNLOAD_DIR},
     download::{oma_spinner, packages_download_runner},
+    error,
     formatter::{
         display_result, download_size, find_unmet_deps, find_unmet_deps_with_markinstall,
         NoProgress, OmaAptInstallProgress,
@@ -43,7 +44,7 @@ use crate::{
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{lock_oma, log_to_file, needs_root, size_checker},
-    warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER, error,
+    warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
 };
 
 #[cfg(feature = "aosc")]
@@ -674,8 +675,8 @@ impl Oma {
             &pkgs,
             opt.install_dbg,
             opt.reinstall,
-            opt.install_recommend,
-            opt.install_suggest,
+            opt.install_recommends,
+            opt.install_suggests,
         )?;
 
         let (action, len, need_fixsystem) =

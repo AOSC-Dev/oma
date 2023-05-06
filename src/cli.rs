@@ -98,8 +98,8 @@ pub struct InstallOptions {
     /// Dry-run oma
     pub dry_run: bool,
     pub dpkg_force_all: bool,
-    pub install_recommend: bool,
-    pub install_suggest: bool,
+    pub install_recommends: bool,
+    pub install_suggests: bool,
 }
 
 pub struct UpgradeOptions {
@@ -308,8 +308,8 @@ impl CommandMatcher for OmaCommandRunner {
                 force_confnew: args.get_flag("force_confnew"),
                 dry_run: args.get_flag("dry_run"),
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
-                install_recommend: args.get_flag("install_recommend"),
-                install_suggest: args.get_flag("install_suggest"),
+                install_recommends: args.get_flag("install_recommends"),
+                install_suggests: args.get_flag("install_suggests"),
             }),
             Some(("upgrade", args)) => OmaCommand::Upgrade(UpgradeOptions {
                 packages: pkgs_getter(args),
