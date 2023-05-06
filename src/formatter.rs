@@ -111,9 +111,18 @@ pub struct OmaAptInstallProgress {
 
 impl OmaAptInstallProgress {
     #[allow(dead_code)]
-    pub fn new(config: Config, yes: bool, force_yes: bool, dpkg_force_confnew: bool, dpkg_force_all: bool) -> Self {
+    pub fn new(
+        config: Config,
+        yes: bool,
+        force_yes: bool,
+        dpkg_force_confnew: bool,
+        dpkg_force_all: bool,
+    ) -> Self {
         if yes {
-            rust_apt::raw::config::raw::config_set("APT::Get::Assume-Yes".to_owned(), "true".to_owned());
+            rust_apt::raw::config::raw::config_set(
+                "APT::Get::Assume-Yes".to_owned(),
+                "true".to_owned(),
+            );
             tracing::debug!("APT::Get::Assume-Yes is set to true");
         }
 

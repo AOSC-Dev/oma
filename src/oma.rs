@@ -760,8 +760,13 @@ impl Oma {
 
         display_result(&action, &cache, r.yes)?;
 
-        let mut progress =
-            OmaAptInstallProgress::new_box(AptConfig::new_clear(), r.yes, r.force_yes, false, false);
+        let mut progress = OmaAptInstallProgress::new_box(
+            AptConfig::new_clear(),
+            r.yes,
+            r.force_yes,
+            false,
+            false,
+        );
 
         if !DRYRUN.load(Ordering::Relaxed) {
             cache.commit(&mut NoProgress::new_box(), &mut progress)?;
