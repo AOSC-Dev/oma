@@ -6,7 +6,7 @@ use indicatif::{HumanBytes, ProgressBar};
 use reqwest::Client;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
-    config::Config,
+    config::Config as AptConfig,
     new_cache,
     package::{Package, Version},
     raw::{progress::AptInstallProgress, util::raw::apt_lock_inner},
@@ -761,7 +761,7 @@ impl Oma {
         display_result(&action, &cache, r.yes)?;
 
         let mut progress =
-            OmaAptInstallProgress::new_box(Config::new_clear(), r.yes, r.force_yes, false, false);
+            OmaAptInstallProgress::new_box(AptConfig::new_clear(), r.yes, r.force_yes, false, false);
 
         if !DRYRUN.load(Ordering::Relaxed) {
             cache.commit(&mut NoProgress::new_box(), &mut progress)?;
@@ -925,7 +925,7 @@ impl Oma {
 
             packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 
-            apt_install(Config::new_clear(), cache, false, false, false, false)?;
+            apt_install(AptConfig::new_clear(), cache, false, false, false, false)?;
 
             let end_time = OffsetDateTime::now_utc().to_offset(*TIME_OFFSET);
 
@@ -1345,7 +1345,7 @@ fn autoremove(cache: &Cache, is_purge: bool, no_autoremove: bool) -> Result<Vec<
 
 /// Install packages
 fn apt_install(
-    config: Config,
+    config: AptConfig,
     cache: Cache,
     yes: bool,
     force_yes: bool,
@@ -1417,13 +1417,13 @@ fn install_handle(
     install_suggest: bool,
     no_install_recommends: bool,
     no_install_suggests: bool,
-) -> Result<(Cache, Config)> {
+) -> Result<(Cache, AptConfig)> {
     tracing::debug!("Querying the packages database ...");
     let pb = MB.add(ProgressBar::new_spinner());
     pb.set_message("Querying packages database ...");
     oma_spinner(&pb);
 
-    let config = Config::new_clear();
+    let config = AptConfig::new_clear();
 
     if no_install_recommends {
         config.set("APT::Install-Recommends", "false");
