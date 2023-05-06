@@ -160,8 +160,15 @@ impl Oma {
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len, need_fix_system) =
-                apt_handler(&cache, false, u.force_yes, false, u.no_autoremove)?;
+            let (action, len, need_fix_system) = apt_handler(
+                &cache,
+                false,
+                u.force_yes,
+                false,
+                u.no_autoremove,
+                false,
+                false,
+            )?;
 
             if len == 0 && !need_fix_system {
                 success!("No need to do anything.");
@@ -512,7 +519,8 @@ impl Oma {
 
         let cache = new_cache!()?;
 
-        let (action, len, need_fixsystem) = apt_handler(&cache, false, false, false, false)?;
+        let (action, len, need_fixsystem) =
+            apt_handler(&cache, false, false, false, false, false, false)?;
 
         if len == 0 && !need_fixsystem {
             info!("No need to do anything");
@@ -679,8 +687,15 @@ impl Oma {
             opt.install_suggests,
         )?;
 
-        let (action, len, need_fixsystem) =
-            apt_handler(&cache, opt.no_fixbroken, opt.force_yes, false, true)?;
+        let (action, len, need_fixsystem) = apt_handler(
+            &cache,
+            opt.no_fixbroken,
+            opt.force_yes,
+            false,
+            true,
+            opt.no_install_recommends,
+            opt.no_install_suggests,
+        )?;
 
         if len == 0 && !need_fixsystem {
             success!("No need to do anything.");
@@ -741,8 +756,15 @@ impl Oma {
             mark_delete(&pkg, !r.keep_config)?;
         }
 
-        let (action, len, need_fixsystem) =
-            apt_handler(&cache, false, r.force_yes, !r.keep_config, r.no_autoremove)?;
+        let (action, len, need_fixsystem) = apt_handler(
+            &cache,
+            false,
+            r.force_yes,
+            !r.keep_config,
+            r.no_autoremove,
+            false,
+            false,
+        )?;
 
         if len == 0 && !need_fixsystem {
             success!("No need to do anything.");
@@ -902,7 +924,8 @@ impl Oma {
             pkg.mark_install(true, true);
             pkg.protect();
 
-            let (action, _, _) = apt_handler(&cache, p.no_fixbroken, false, false, true)?;
+            let (action, _, _) =
+                apt_handler(&cache, p.no_fixbroken, false, false, true, false, false)?;
             let disk_size = cache.depcache().disk_size();
 
             let mut list = vec![];
@@ -1615,11 +1638,22 @@ fn apt_handler(
     force_yes: bool,
     is_purge: bool,
     no_autoremove: bool,
+    no_install_recommends: bool,
+    no_install_suggests: bool,
 ) -> Result<(Action, usize, bool)> {
+    let config = Config::new_clear();
+
     if force_yes {
-        let config = Config::new_clear();
         config.set("APT::Get::force-yes", "true");
         tracing::debug!("dpkg force-yes mode is enabled");
+    }
+
+    if no_install_recommends {
+        config.set("APT::Install-Recommends", "false");
+    }
+
+    if no_install_suggests {
+        config.set("APT::Install-Suggests", "false");
     }
 
     let fix_broken = !no_fixbroken;

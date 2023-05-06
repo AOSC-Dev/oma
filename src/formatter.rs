@@ -112,7 +112,7 @@ pub struct OmaAptInstallProgress {
 impl OmaAptInstallProgress {
     #[allow(dead_code)]
     pub fn new(yes: bool, force_yes: bool, dpkg_force_confnew: bool, dpkg_force_all: bool) -> Self {
-        let config = Config::new_clear();
+        let config = Config::new();
 
         if yes {
             config.set("APT::Get::Assume-Yes", "true");

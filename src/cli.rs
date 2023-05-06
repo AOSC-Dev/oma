@@ -100,6 +100,8 @@ pub struct InstallOptions {
     pub dpkg_force_all: bool,
     pub install_recommends: bool,
     pub install_suggests: bool,
+    pub no_install_recommends: bool,
+    pub no_install_suggests: bool,
 }
 
 pub struct UpgradeOptions {
@@ -310,6 +312,8 @@ impl CommandMatcher for OmaCommandRunner {
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
                 install_recommends: args.get_flag("install_recommends"),
                 install_suggests: args.get_flag("install_suggests"),
+                no_install_recommends: args.get_flag("no_install_recommends"),
+                no_install_suggests: args.get_flag("no_install_suggests"),
             }),
             Some(("upgrade", args)) => OmaCommand::Upgrade(UpgradeOptions {
                 packages: pkgs_getter(args),

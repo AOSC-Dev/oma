@@ -40,7 +40,7 @@ fn main() -> std::io::Result<()> {
     println!("cargo:rerun-if-env-changed=CIEL_GEN_COMPLETIONS");
 
     // generate completions on demand
-    if std::env::var("CIEL_GEN_COMPLETIONS").is_ok() {
+    if std::env::var("OMA_GEN_COMPLETIONS").is_ok() {
         let p = std::path::PathBuf::from(
             std::env::var_os("CARGO_MANIFEST_DIR").ok_or(std::io::ErrorKind::NotFound)?,
         );
