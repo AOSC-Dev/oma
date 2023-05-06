@@ -139,7 +139,7 @@ impl Oma {
             u: &UpgradeOptions,
         ) -> InstallResult<Action> {
             let pkgs = u.packages.clone().unwrap_or_default();
-            let cache = install_handle(&pkgs, false, false, false, false)?;
+            let (cache, config) = install_handle(&pkgs, false, false, false, false, false, false)?;
 
             // 检查一遍是否有依赖不存在的升级
             {
@@ -160,15 +160,8 @@ impl Oma {
                 .upgrade(&Upgrade::FullUpgrade)
                 .map_err(|e| anyhow!("{e}"))?;
 
-            let (action, len, need_fix_system) = apt_handler(
-                &cache,
-                false,
-                u.force_yes,
-                false,
-                u.no_autoremove,
-                false,
-                false,
-            )?;
+            let (action, len, need_fix_system) =
+                apt_handler(&cache, false, false, u.no_autoremove)?;
 
             if len == 0 && !need_fix_system {
                 success!("No need to do anything.");
@@ -188,7 +181,14 @@ impl Oma {
             }
 
             packages_download_runner(runtime, &list, client, None, None)?;
-            apt_install(cache, u.yes, u.force_yes, u.force_confnew, u.dpkg_force_all)?;
+            apt_install(
+                config,
+                cache,
+                u.yes,
+                u.force_yes,
+                u.force_confnew,
+                u.dpkg_force_all,
+            )?;
 
             Ok(action)
         }
@@ -519,8 +519,7 @@ impl Oma {
 
         let cache = new_cache!()?;
 
-        let (action, len, need_fixsystem) =
-            apt_handler(&cache, false, false, false, false, false, false)?;
+        let (action, len, need_fixsystem) = apt_handler(&cache, false, false, false)?;
 
         if len == 0 && !need_fixsystem {
             info!("No need to do anything");
@@ -679,23 +678,17 @@ impl Oma {
 
     fn install_inner(&self, opt: &InstallOptions, count: usize) -> InstallResult<Action> {
         let pkgs = opt.packages.clone().unwrap_or_default();
-        let cache = install_handle(
+        let (cache, config) = install_handle(
             &pkgs,
             opt.install_dbg,
             opt.reinstall,
             opt.install_recommends,
             opt.install_suggests,
-        )?;
-
-        let (action, len, need_fixsystem) = apt_handler(
-            &cache,
-            opt.no_fixbroken,
-            opt.force_yes,
-            false,
-            true,
             opt.no_install_recommends,
             opt.no_install_suggests,
         )?;
+
+        let (action, len, need_fixsystem) = apt_handler(&cache, opt.no_fixbroken, false, true)?;
 
         if len == 0 && !need_fixsystem {
             success!("No need to do anything.");
@@ -719,6 +712,7 @@ impl Oma {
         // TODO: limit 参数（限制下载包并发）目前是写死的，以后将允许用户自定义并发数
         packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
         apt_install(
+            config,
             cache,
             opt.yes,
             opt.force_yes,
@@ -756,15 +750,8 @@ impl Oma {
             mark_delete(&pkg, !r.keep_config)?;
         }
 
-        let (action, len, need_fixsystem) = apt_handler(
-            &cache,
-            false,
-            r.force_yes,
-            !r.keep_config,
-            r.no_autoremove,
-            false,
-            false,
-        )?;
+        let (action, len, need_fixsystem) =
+            apt_handler(&cache, false, !r.keep_config, r.no_autoremove)?;
 
         if len == 0 && !need_fixsystem {
             success!("No need to do anything.");
@@ -773,7 +760,8 @@ impl Oma {
 
         display_result(&action, &cache, r.yes)?;
 
-        let mut progress = OmaAptInstallProgress::new_box(r.yes, r.force_yes, false, false);
+        let mut progress =
+            OmaAptInstallProgress::new_box(Config::new_clear(), r.yes, r.force_yes, false, false);
 
         if !DRYRUN.load(Ordering::Relaxed) {
             cache.commit(&mut NoProgress::new_box(), &mut progress)?;
@@ -924,8 +912,7 @@ impl Oma {
             pkg.mark_install(true, true);
             pkg.protect();
 
-            let (action, _, _) =
-                apt_handler(&cache, p.no_fixbroken, false, false, true, false, false)?;
+            let (action, _, _) = apt_handler(&cache, p.no_fixbroken, false, true)?;
             let disk_size = cache.depcache().disk_size();
 
             let mut list = vec![];
@@ -938,7 +925,7 @@ impl Oma {
 
             packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 
-            apt_install(cache, false, false, false, false)?;
+            apt_install(Config::new_clear(), cache, false, false, false, false)?;
 
             let end_time = OffsetDateTime::now_utc().to_offset(*TIME_OFFSET);
 
@@ -1358,6 +1345,7 @@ fn autoremove(cache: &Cache, is_purge: bool, no_autoremove: bool) -> Result<Vec<
 
 /// Install packages
 fn apt_install(
+    config: Config,
     cache: Cache,
     yes: bool,
     force_yes: bool,
@@ -1403,7 +1391,7 @@ fn apt_install(
     apt_unlock_inner();
 
     let mut progress =
-        OmaAptInstallProgress::new_box(yes, force_yes, force_confnew, dpkg_force_all);
+        OmaAptInstallProgress::new_box(config, yes, force_yes, force_confnew, dpkg_force_all);
 
     if let Err(e) = cache.do_install(&mut progress) {
         apt_lock_inner().map_err(|e| anyhow!("{e}"))?;
@@ -1427,11 +1415,23 @@ fn install_handle(
     reinstall: bool,
     install_recommends: bool,
     install_suggest: bool,
-) -> Result<Cache> {
+    no_install_recommends: bool,
+    no_install_suggests: bool,
+) -> Result<(Cache, Config)> {
     tracing::debug!("Querying the packages database ...");
     let pb = MB.add(ProgressBar::new_spinner());
     pb.set_message("Querying packages database ...");
     oma_spinner(&pb);
+
+    let config = Config::new_clear();
+
+    if no_install_recommends {
+        config.set("APT::Install-Recommends", "false");
+    }
+
+    if no_install_suggests {
+        config.set("APT::Install-Suggests", "false");
+    }
 
     // Get local packages
     let local_debs = list
@@ -1505,7 +1505,7 @@ fn install_handle(
 
     pb.finish_and_clear();
 
-    Ok(cache)
+    Ok((cache, config))
 }
 
 fn install_other(
@@ -1635,27 +1635,9 @@ impl Debug for Action {
 fn apt_handler(
     cache: &Cache,
     no_fixbroken: bool,
-    force_yes: bool,
     is_purge: bool,
     no_autoremove: bool,
-    no_install_recommends: bool,
-    no_install_suggests: bool,
 ) -> Result<(Action, usize, bool)> {
-    let config = Config::new_clear();
-
-    if force_yes {
-        config.set("APT::Get::force-yes", "true");
-        tracing::debug!("dpkg force-yes mode is enabled");
-    }
-
-    if no_install_recommends {
-        config.set("APT::Install-Recommends", "false");
-    }
-
-    if no_install_suggests {
-        config.set("APT::Install-Suggests", "false");
-    }
-
     let fix_broken = !no_fixbroken;
     if fix_broken {
         cache.fix_broken();

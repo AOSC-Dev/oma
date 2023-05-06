@@ -111,11 +111,9 @@ pub struct OmaAptInstallProgress {
 
 impl OmaAptInstallProgress {
     #[allow(dead_code)]
-    pub fn new(yes: bool, force_yes: bool, dpkg_force_confnew: bool, dpkg_force_all: bool) -> Self {
-        let config = Config::new();
-
+    pub fn new(config: Config, yes: bool, force_yes: bool, dpkg_force_confnew: bool, dpkg_force_all: bool) -> Self {
         if yes {
-            config.set("APT::Get::Assume-Yes", "true");
+            rust_apt::raw::config::raw::config_set("APT::Get::Assume-Yes".to_owned(), "true".to_owned());
             tracing::debug!("APT::Get::Assume-Yes is set to true");
         }
 
@@ -145,23 +143,19 @@ impl OmaAptInstallProgress {
     /// Return the AptInstallProgress in a box
     /// To easily pass through to do_install
     pub fn new_box(
+        config: Config,
         yes: bool,
         force_yes: bool,
         dpkg_force_confnew: bool,
         dpkg_force_all: bool,
     ) -> Box<dyn InstallProgress> {
         Box::new(Self::new(
+            config,
             yes,
             force_yes,
             dpkg_force_confnew,
             dpkg_force_all,
         ))
-    }
-}
-
-impl Default for OmaAptInstallProgress {
-    fn default() -> Self {
-        Self::new(false, false, false, false)
     }
 }
 
