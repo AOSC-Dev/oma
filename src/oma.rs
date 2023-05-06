@@ -174,8 +174,8 @@ impl Oma {
             if count == 1 {
                 let disk_size = cache.depcache().disk_size();
                 size_checker(&disk_size, download_size(&list, &cache)?)?;
-                if len != 0 && !u.yes {
-                    display_result(&action, &cache)?;
+                if len != 0 {
+                    display_result(&action, &cache, u.yes)?;
                 }
             }
 
@@ -525,7 +525,7 @@ impl Oma {
         let install_size = cache.depcache().disk_size();
         size_checker(&install_size, download_size(&list, &cache)?)?;
         if len != 0 {
-            display_result(&action, &cache)?;
+            display_result(&action, &cache, false)?;
         }
 
         packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
@@ -695,8 +695,8 @@ impl Oma {
         if count == 1 {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
-            if len != 0 && !opt.yes {
-                display_result(&action, &cache)?;
+            if len != 0 {
+                display_result(&action, &cache, opt.yes)?;
             }
         }
 
@@ -748,9 +748,7 @@ impl Oma {
             return Ok(0);
         }
 
-        if !r.yes {
-            display_result(&action, &cache)?;
-        }
+        display_result(&action, &cache, r.yes)?;
 
         let mut progress = OmaAptInstallProgress::new_box(r.yes, r.force_yes, false, false);
 
@@ -912,7 +910,7 @@ impl Oma {
             list.extend(action.downgrade.clone());
 
             size_checker(&disk_size, download_size(&list, &cache)?)?;
-            display_result(&action, &cache)?;
+            display_result(&action, &cache, false)?;
 
             packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 

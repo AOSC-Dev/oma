@@ -751,7 +751,7 @@ fn format_breaks(
 }
 
 /// Display apt resolver results
-pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
+pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<()> {
     if DRYRUN.load(Ordering::Relaxed) {
         return Ok(());
     }
@@ -762,11 +762,11 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
     let reinstall = action.reinstall.clone();
     let downgrade = action.downgrade.clone();
 
-    let mut pager = Pager::new(false, true)?;
+    let mut pager = Pager::new(no_pager, true)?;
     let pager_name = pager.pager_name().to_owned();
     let mut out = pager.get_writer()?;
 
-    write_review_help_message(&mut out).ok();
+    write_review_help_message(&mut out, pager_name).ok();
 
     if pager_name == Some("less") {
         let has_x11 = std::env::var("DISPLAY");
@@ -916,6 +916,8 @@ pub fn display_result(action: &Action, cache: &Cache) -> Result<()> {
     )
     .ok();
 
+    writeln!(out)?;
+
     drop(out);
     let success = pager.wait_for_exit()?;
 
@@ -949,12 +951,15 @@ pub fn download_size(install_and_update: &[InstallRow], cache: &Cache) -> Result
     Ok(result)
 }
 
-fn write_review_help_message(w: &mut dyn Write) -> Result<()> {
-    writeln!(
-        w,
-        "{:<80}",
-        style("Pending Operations").bold().bg(Color::Color256(25))
-    )?;
+fn write_review_help_message(w: &mut dyn Write, pager_name: Option<&str>) -> Result<()> {
+    if pager_name == Some("less") {
+        writeln!(
+            w,
+            "{:<80}",
+            style("Pending Operations").bold().bg(Color::Color256(25))
+        )?;
+    }
+
     writeln!(w)?;
     writeln!(w, "Shown below is an overview of the pending changes Omakase will apply to your\nsystem, please review them carefully.\n")?;
     writeln!(
