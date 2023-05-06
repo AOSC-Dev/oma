@@ -403,10 +403,9 @@ impl CommandMatcher for OmaCommandRunner {
                     .get_many::<String>("opt_out")
                     .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
             }),
-            Some(("pkgnames", v)) => OmaCommand::Pkgnames(
-                v.get_one::<String>("keyword")
-                    .map(|x| x.to_owned()),
-            ),
+            Some(("pkgnames", v)) => {
+                OmaCommand::Pkgnames(v.get_one::<String>("keyword").map(|x| x.to_owned()))
+            }
             _ => unreachable!(),
         };
 

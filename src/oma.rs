@@ -1204,7 +1204,7 @@ impl Oma {
 
         let pkgs = match s {
             Some(ref s) => {
-                Either::Left(cache.packages(&sort).filter(|x| x.name().starts_with(&*s)))
+                Either::Left(cache.packages(&sort).filter(|x| x.name().starts_with(&**s)))
             }
             None => Either::Right(cache.packages(&sort)),
         };
