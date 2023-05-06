@@ -5,7 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.35.0 (2023-05-06)
+
+### New Features
+
+ - <csr-id-5b2006a1bf92580d6bb290752adb72aa5b02305a/> add oma install --no-install-recommends and --no-install-suggests
+ - <csr-id-aab59d4c1e1ceef3fae33882db010ca25b6d4b3e/> recommend -> recommends, suggest -> suggests in oma install [ARGS]
+
+### Bug Fixes
+
+ - <csr-id-63c1c36fc7ef11e594fbe5ef7818568e70d29c3a/> fix force-yes, no-install-{recommends,suggests} argument
+
+### Refactor
+
+ - <csr-id-be95c599c7e36fe542e7b4aa3eebce602842d56c/> set Config struct name as AptConfig
+
+### Style
+
+ - <csr-id-71b844d32bdba7ed4df35e7de16c5e7e210ef5dc/> use cargo-fmt to format code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Use cargo-fmt to format code ([`71b844d`](https://github.com/AOSC-Dev/oma/commit/71b844d32bdba7ed4df35e7de16c5e7e210ef5dc))
+    - Set Config struct name as AptConfig ([`be95c59`](https://github.com/AOSC-Dev/oma/commit/be95c599c7e36fe542e7b4aa3eebce602842d56c))
+    - Fix force-yes, no-install-{recommends,suggests} argument ([`63c1c36`](https://github.com/AOSC-Dev/oma/commit/63c1c36fc7ef11e594fbe5ef7818568e70d29c3a))
+    - Add oma install --no-install-recommends and --no-install-suggests ([`5b2006a`](https://github.com/AOSC-Dev/oma/commit/5b2006a1bf92580d6bb290752adb72aa5b02305a))
+    - Recommend -> recommends, suggest -> suggests in oma install [ARGS] ([`aab59d4`](https://github.com/AOSC-Dev/oma/commit/aab59d4c1e1ceef3fae33882db010ca25b6d4b3e))
+</details>
+
 ## v0.34.0 (2023-05-06)
+
+<csr-id-2b270aec994b01b0fbeb6a4948bde259528edc84/>
+<csr-id-84e4ca451e167c79a44412790e2b128c353db8f0/>
+<csr-id-0de4fcd240c3f61bbcf89fe0bf5e6dc73e2fe6ec/>
+<csr-id-58e2913c9852074c040681d1dc6499f7c7e4bdb4/>
+<csr-id-da0655a4ffa0e845cec23c57d854e0675eb03c1f/>
 
 ### Chore
 
@@ -13,16 +60,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-0a1bcbb270cd78804a3ae12c1ab615b4e62347fb/>
+<csr-id-91acc4314a7558aef5c9a4506e31f92a6417e2bb/>
+
  - <csr-id-426c6fc1dd6b2a35e788860f5cb6a9d5b5c73af0/> display command not found error if oma command-not-found no results found
  - <csr-id-84464c26a063e8c8188987af7e2162d39ddf30dc/> oma install/remove/upgrade -y should display review message
  - <csr-id-eb2af8149e62e5215eac88987bf3941eae3e4313/> add oma systemd service
  - <csr-id-e00e9ccbd7c99d9ff5e82a2412f3cc2db7366bb4/> support fish completion
  - <csr-id-8b15ee13c5158f47b370feebe1dfd42fcb7b0b23/> add shell competions feature
    - Also fix pengding ui display
- - <csr-id-0a1bcbb270cd78804a3ae12c1ab615b4e62347fb/> add oma pkgnames for shell completion
- - <csr-id-91acc4314a7558aef5c9a4506e31f92a6417e2bb/> return 1 if oma show pkgs result is empty
 
 ### Bug Fixes
+
+<csr-id-73f1ce593b7fb4edcc4b9502cb7a147cbf63a821/>
 
  - <csr-id-9e56acaa1fdbfbc33a2aa41c74d88e8da68ab92c/> fix wrong oma pkgnames parameter name ...
    ...Wrong parameter name causes the pkgnames method to always pass in a None parameter, which always completes all packages in the database
@@ -31,7 +81,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-ee8c562777b0e3d1c137d55432d10fdf84f836cb/> retry 3 times, not 4
  - <csr-id-300c9a3f9ebfbab4789db18c3e6fb53223cf99cc/> apt_lock_inner failed do not retry
    - Also set some error message due to
- - <csr-id-73f1ce593b7fb4edcc4b9502cb7a147cbf63a821/> improve UI strings for oma pending ui output
 
 ### Refactor
 
@@ -47,7 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 18 commits contributed to the release over the course of 1 calendar day.
+ - 19 commits contributed to the release over the course of 1 calendar day.
  - 1 day passed between releases.
  - 18 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -59,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.34.0 ([`4efff56`](https://github.com/AOSC-Dev/oma/commit/4efff56490c77d138302ed39e6912a6fec9f1685))
     - Update all deps ([`2b270ae`](https://github.com/AOSC-Dev/oma/commit/2b270aec994b01b0fbeb6a4948bde259528edc84))
     - Display command not found error if oma command-not-found no results found ([`426c6fc`](https://github.com/AOSC-Dev/oma/commit/426c6fc1dd6b2a35e788860f5cb6a9d5b5c73af0))
     - Use cargo clippy and cargo fmt to lint code ([`da0655a`](https://github.com/AOSC-Dev/oma/commit/da0655a4ffa0e845cec23c57d854e0675eb03c1f))
@@ -78,6 +128,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Oma args function return exit code ([`58e2913`](https://github.com/AOSC-Dev/oma/commit/58e2913c9852074c040681d1dc6499f7c7e4bdb4))
     - Improve UI strings for oma pending ui output ([`73f1ce5`](https://github.com/AOSC-Dev/oma/commit/73f1ce593b7fb4edcc4b9502cb7a147cbf63a821))
 </details>
+
+<csr-unknown>
+ add oma pkgnames for shell completion return 1 if oma show pkgs result is empty improve UI strings for oma pending ui output<csr-unknown/>
 
 ## v0.33.1 (2023-05-04)
 
