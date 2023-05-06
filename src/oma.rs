@@ -43,7 +43,7 @@ use crate::{
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
     utils::{lock_oma, log_to_file, needs_root, size_checker},
-    warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
+    warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER, error,
 };
 
 #[cfg(feature = "aosc")]
@@ -1081,6 +1081,8 @@ impl Oma {
             for i in res {
                 println!("{i}");
             }
+        } else {
+            error!("Command not found: {kw}");
         }
 
         Ok(127)
