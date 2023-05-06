@@ -404,7 +404,7 @@ impl CommandMatcher for OmaCommandRunner {
                     .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
             }),
             Some(("pkgnames", v)) => OmaCommand::Pkgnames(
-                v.get_one::<String>("packages")
+                v.get_one::<String>("keyword")
                     .map(|x| x.to_owned()),
             ),
             _ => unreachable!(),
