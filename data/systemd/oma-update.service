@@ -1,0 +1,8 @@
+[Unit]
+Description=Check for package update
+Documentation=man:oma(1)
+ConditionACPower=true
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/oma refresh
