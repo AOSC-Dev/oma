@@ -82,69 +82,48 @@ async fn try_download(
     let mut all_is_err = true;
     let mut retry = 1;
     for (i, c) in urls.iter().enumerate() {
-        let mut allow_resule = true;
+        let mut allow_resume = true;
+
         loop {
-            if let Err(e) = download(
+            match download(
                 c,
                 client,
                 filename.to_string(),
                 download_dir,
                 Some(&hash),
                 opb.clone(),
-                allow_resule,
+                allow_resume,
             )
             .await
             {
-                match e {
-                    DownloadError::ChecksumMisMatch(_) => {
-                        allow_resule = false;
-                        if retry == 3 {
+                Ok(_) => {
+                    all_is_err = false;
+                    break;
+                }
+                Err(e) => {
+                    match e {
+                        DownloadError::ChecksumMisMatch(_) => {
+                            allow_resume = false;
+                            if retry == 3 {
+                                break;
+                            }
+                            let s = format!("{c} checksum mismatch, retry {retry} times ...");
+                            try_download_msg_display(&opb, i, &urls, &s);
+                            retry += 1;
+                        }
+                        _ => {
+                            let mut s = format!("{e}");
+                            if i < urls.len() - 1 {
+                                s += ", try next url to download this package ...";
+                            }
+                            try_download_msg_display(&opb, i, &urls, &s);
                             break;
                         }
-                        let s = format!("{c} checksum mismatch, retry {retry} times ...");
-                        if let Some(ref gpb) = opb.global_bar {
-                            gpb.println(format!(
-                                "{}{s}",
-                                if i < urls.len() - 1 {
-                                    gen_prefix(&style("WARNING").yellow().bold().to_string())
-                                } else {
-                                    gen_prefix(&style("ERROR").red().bold().to_string())
-                                }
-                            ));
-                        } else if i < urls.len() - 1 {
-                            warn!("{s}");
-                        } else {
-                            error!("{s}");
-                        }
-                        retry += 1;
-                    }
-                    _ => {
-                        let mut s = format!("{e}");
-                        if i < urls.len() - 1 {
-                            s += ", try next url to download this package ...";
-                        }
-                        if let Some(ref gpb) = opb.global_bar {
-                            gpb.println(format!(
-                                "{}{s}",
-                                if i < urls.len() - 1 {
-                                    gen_prefix(&style("WARNING").yellow().bold().to_string())
-                                } else {
-                                    gen_prefix(&style("ERROR").red().bold().to_string())
-                                }
-                            ));
-                        } else if i < urls.len() - 1 {
-                            warn!("{s}");
-                        } else {
-                            error!("{s}");
-                        }
-                        break;
-                    }
+                    };
                 }
-            } else {
-                all_is_err = false;
-                break;
             }
         }
+
         break;
     }
 
@@ -152,6 +131,23 @@ async fn try_download(
         bail!("Can not download package: {filename}, Maybe your network connect is broken!")
     } else {
         Ok(())
+    }
+}
+
+fn try_download_msg_display(opb: &OmaProgressBar, i: usize, urls: &Vec<String>, s: &str) {
+    if let Some(ref gpb) = opb.global_bar {
+        gpb.println(format!(
+            "{}{s}",
+            if i < urls.len() - 1 {
+                gen_prefix(&style("WARNING").yellow().bold().to_string())
+            } else {
+                gen_prefix(&style("ERROR").red().bold().to_string())
+            }
+        ));
+    } else if i < urls.len() - 1 {
+        warn!("{s}");
+    } else {
+        error!("{s}");
     }
 }
 
