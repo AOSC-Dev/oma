@@ -363,7 +363,7 @@ pub fn find_unmet_deps_with_markinstall(
 }
 
 pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
-    let changes = cache.get_changes(true);
+    let changes = cache.get_changes(true)?;
 
     let mut v = vec![];
 

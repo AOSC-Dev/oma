@@ -148,7 +148,7 @@ impl Oma {
                 oma_spinner(&pb);
                 pb.set_message("Quering upgradable packages ...");
                 let sort = PackageSort::default().upgradable();
-                let upgrable_pkgs = cache.packages(&sort);
+                let upgrable_pkgs = cache.packages(&sort)?;
 
                 for pkg in upgrable_pkgs {
                     find_unmet_deps_with_markinstall(&cache, &pkg.candidate().unwrap(), false)?;
@@ -299,10 +299,10 @@ impl Oma {
         let pkgs = match opt.packages {
             Some(ref v) => Either::Left(
                 cache
-                    .packages(&sort)
+                    .packages(&sort)?
                     .filter(|x| v.contains(&x.name().to_string())),
             ),
-            None => Either::Right(cache.packages(&sort)),
+            None => Either::Right(cache.packages(&sort)?),
         };
 
         let mut query_pkgs = vec![];
@@ -321,7 +321,7 @@ impl Oma {
 
         for (ver, pkg) in query_pkgs {
             let pkg = Package::new(&cache, pkg);
-            let ver = Version::new(ver, &pkg);
+            let ver = Version::new(ver, &cache);
 
             let mut stdout = std::io::stdout();
 
@@ -539,10 +539,12 @@ impl Oma {
         packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 
         if !DRYRUN.load(Ordering::Relaxed) {
-            cache.commit(
-                &mut NoProgress::new_box(),
-                &mut AptInstallProgress::new_box(),
-            )?;
+            cache
+                .commit(
+                    &mut NoProgress::new_box(),
+                    &mut AptInstallProgress::new_box(),
+                )
+                .map_err(|e| anyhow!("{e}"))?;
         }
 
         let end_time = OffsetDateTime::now_utc()
@@ -769,7 +771,9 @@ impl Oma {
         );
 
         if !DRYRUN.load(Ordering::Relaxed) {
-            cache.commit(&mut NoProgress::new_box(), &mut progress)?;
+            cache
+                .commit(&mut NoProgress::new_box(), &mut progress)
+                .map_err(|e| anyhow!("{e}"))?;
         }
 
         let end_time = OffsetDateTime::now_utc()
@@ -795,8 +799,8 @@ impl Oma {
 
         let upgradable = PackageSort::default().upgradable();
         let autoremove = PackageSort::default().auto_removable();
-        let upgradable = cache.packages(&upgradable).collect::<Vec<_>>();
-        let autoremove = cache.packages(&autoremove).collect::<Vec<_>>();
+        let upgradable = cache.packages(&upgradable)?.collect::<Vec<_>>();
+        let autoremove = cache.packages(&autoremove)?.collect::<Vec<_>>();
 
         pb.finish_and_clear();
 
@@ -1027,10 +1031,12 @@ impl Oma {
                     return Ok(0);
                 }
 
-                cache.commit(
-                    &mut NoProgress::new_box(),
-                    &mut AptInstallProgress::new_box(),
-                )?;
+                cache
+                    .commit(
+                        &mut NoProgress::new_box(),
+                        &mut AptInstallProgress::new_box(),
+                    )
+                    .map_err(|e| anyhow!("{e}"))?;
             }
             MarkAction::Auto(args) => {
                 for i in &args.pkgs {
@@ -1051,10 +1057,12 @@ impl Oma {
                     return Ok(0);
                 }
 
-                cache.commit(
-                    &mut NoProgress::new_box(),
-                    &mut AptInstallProgress::new_box(),
-                )?;
+                cache
+                    .commit(
+                        &mut NoProgress::new_box(),
+                        &mut AptInstallProgress::new_box(),
+                    )
+                    .map_err(|e| anyhow!("{e}"))?;
             }
         }
 
@@ -1221,10 +1229,12 @@ impl Oma {
         let sort = PackageSort::default().names();
 
         let pkgs = match s {
-            Some(ref s) => {
-                Either::Left(cache.packages(&sort).filter(|x| x.name().starts_with(&**s)))
-            }
-            None => Either::Right(cache.packages(&sort)),
+            Some(ref s) => Either::Left(
+                cache
+                    .packages(&sort)?
+                    .filter(|x| x.name().starts_with(&**s)),
+            ),
+            None => Either::Right(cache.packages(&sort)?),
         };
 
         for pkg in pkgs {
@@ -1235,9 +1245,9 @@ impl Oma {
     }
 }
 
-fn needs_fix_system(cache: &Cache) -> (bool, Vec<String>) {
+fn needs_fix_system(cache: &Cache) -> Result<(bool, Vec<String>)> {
     let sort = PackageSort::default().installed();
-    let pkgs = cache.packages(&sort);
+    let pkgs = cache.packages(&sort)?;
 
     let mut reinstall = vec![];
 
@@ -1267,7 +1277,7 @@ fn needs_fix_system(cache: &Cache) -> (bool, Vec<String>) {
 
     tracing::info!("Needs reinstall package: {reinstall:?}");
 
-    (need, reinstall)
+    Ok((need, reinstall))
 }
 
 fn dpkg_set_selections(pkg: &str, user_action: &str) -> Result<()> {
@@ -1334,7 +1344,7 @@ fn autoremove(cache: &Cache, is_purge: bool, no_autoremove: bool) -> Result<Vec<
 
     let mut pkgs = vec![];
 
-    for pkg in cache.packages(&sort) {
+    for pkg in cache.packages(&sort)? {
         if pkg.marked_delete() {
             continue;
         }
@@ -1477,8 +1487,7 @@ fn install_handle(
             continue;
         }
 
-        let pkg = Package::new(&cache, pkginfo.raw_pkg);
-        let version = Version::new(pkginfo.version_raw, &pkg);
+        let version = Version::new(pkginfo.version_raw, &cache);
 
         mark_install(
             &cache,
@@ -1669,9 +1678,9 @@ fn apt_handler(
         return Err(e.into());
     }
 
-    let (need_fix_system, _) = needs_fix_system(cache);
+    let (need_fix_system, _) = needs_fix_system(cache)?;
 
-    let changes = cache.get_changes(true).collect::<Vec<_>>();
+    let changes = cache.get_changes(true)?.collect::<Vec<_>>();
     let len = changes.len();
 
     let mut update: Vec<InstallRow> = vec![];
@@ -1690,18 +1699,29 @@ fn apt_handler(
             let size = cand.installed_size();
             let human_size = format!("+{}", HumanBytes(size));
 
+            // 避开 cand 的生命周期问题
+            let raw_version = cand.unique();
+            let cand = Version::new(raw_version, cache);
+
+            let uri = cand.uris().map(|x| x.to_string()).collect::<Vec<_>>();
+
+            let version = cand.version();
+
+            let checksum = cand.get_record(RecordField::SHA256);
+
+            let size = cand.size();
             install.push(InstallRow {
                 name: style(pkg.name()).green().to_string(),
                 name_no_color: pkg.name().to_string(),
-                version: cand.version().to_string(),
-                new_version: cand.version().to_string(),
+                version: version.to_string(),
+                new_version: version.to_string(),
                 size: human_size,
-                pkg_urls: cand.uris().collect(),
-                checksum: cand.get_record(RecordField::SHA256),
-                pure_download_size: cand.size(),
+                pkg_urls: uri,
+                checksum,
+                pure_download_size: size,
             });
 
-            tracing::info!("Pkg {} {} is marked as install", pkg.name(), cand.version());
+            tracing::info!("Pkg {} {} is marked as install", pkg.name(), version);
 
             // If the package is marked install then it will also
             // show up as marked upgrade, downgrade etc.
@@ -1737,6 +1757,10 @@ fn apt_handler(
             } else {
                 format!("-{}", HumanBytes(size.unsigned_abs()))
             };
+
+            // 避开 cand 的生命周期问题
+            let raw_version = cand.unique();
+            let cand = Version::new(raw_version, cache);
 
             update.push(InstallRow {
                 name: style(pkg.name()).color256(87).to_string(),
@@ -1797,6 +1821,11 @@ fn apt_handler(
 
         if pkg.marked_reinstall() {
             let version = pkg.installed().unwrap();
+
+            // 避开 cand 的生命周期问题
+            let raw_version = version.unique();
+            let version = Version::new(raw_version, cache);
+
             reinstall.push(InstallRow {
                 name: style(pkg.name()).blue().to_string(),
                 name_no_color: pkg.name().to_string(),
@@ -1812,6 +1841,7 @@ fn apt_handler(
         }
 
         if pkg.marked_downgrade() {
+            let raw_pkg = pkg.unique();
             let cand = pkg.candidate().take().context(format!(
                 "Can not get package version in apt database: {}",
                 pkg.name()
@@ -1826,6 +1856,8 @@ fn apt_handler(
             let old_version = old_pkg.version();
             let old_size = old_pkg.installed_size() as i64;
 
+            let pkg = Package::new(cache, raw_pkg);
+
             let new_pkg = pkg.get_version(version).context(format!(
                 "Can not get package version in apt database: {}",
                 pkg.name()
@@ -1839,6 +1871,10 @@ fn apt_handler(
             } else {
                 format!("-{}", HumanBytes(size.unsigned_abs()))
             };
+
+            // 避开 cand 的生命周期问题
+            let raw_version = cand.unique();
+            let cand = Version::new(raw_version, cache);
 
             downgrade.push(InstallRow {
                 name: style(pkg.name()).yellow().to_string(),

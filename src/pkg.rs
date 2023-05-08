@@ -44,7 +44,7 @@ pub struct PkgInfo {
 impl PkgInfo {
     pub fn new(cache: &Cache, version_raw: RawVersion, pkg: &Package) -> Result<Self> {
         // 直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
-        let version = Version::new(version_raw, pkg);
+        let version = Version::new(version_raw, cache);
         let version_raw = version.unique();
 
         let section = version.section().ok().map(|x| x.to_owned());
@@ -192,7 +192,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
     } else if input.ends_with(".deb") {
         let sort = PackageSort::default().only_virtual();
         let glob = cache
-            .packages(&sort)
+            .packages(&sort)?
             .filter(|x| glob_match_with_captures(input, x.name()).is_some())
             .collect::<Vec<_>>();
 
@@ -213,14 +213,15 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
 
                 for ver in pkg.versions() {
                     let oma_pkg = PkgInfo::new(cache, ver.unique(), &pkg)?;
-                    res.push((oma_pkg, ver.uris().any(|x| x == path)));
+                    let has = oma_pkg.apt_sources.iter().any(|x| x == &path);
+                    res.push((oma_pkg, has));
                 }
             }
         }
     } else {
         let sort = PackageSort::default();
         let mut search_res = cache
-            .packages(&sort)
+            .packages(&sort)?
             .filter(|x| glob_match_with_captures(input, x.name()).is_some())
             .collect::<Vec<_>>();
 
@@ -233,7 +234,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
             }
         }
 
-        for pkg in search_res {
+        for pkg in &search_res {
             let versions = pkg.versions();
 
             for ver in versions {
@@ -249,7 +250,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
 pub fn get_real_pkg(cache: &Cache, pkgname: &str) -> Option<RawPackage> {
     let mut res = None;
     let sort = PackageSort::default().only_virtual();
-    let mut pkgs = cache.packages(&sort);
+    let mut pkgs = cache.packages(&sort).unwrap();
 
     let r = pkgs.find(|x| x.name() == pkgname);
 
@@ -305,7 +306,7 @@ pub struct OmaDependency {
 impl OmaDependency {
     fn new(dep: &BaseDep) -> Self {
         Self {
-            name: dep.name(),
+            name: dep.name().to_owned(),
             comp_symbol: dep.comp().map(|x| x.to_string()),
             ver: dep.version().map(|x| x.to_string()),
             comp_ver: dep
@@ -381,7 +382,7 @@ impl Ord for PackageStatus {
 
 pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let sort = PackageSort::default().include_virtual();
-    let packages = cache.packages(&sort);
+    let packages = cache.packages(&sort)?;
 
     let mut res = HashMap::new();
 
@@ -532,7 +533,7 @@ pub fn mark_install(
     pb: Option<&ProgressBar>,
 ) -> Result<()> {
     let pkg = cache.get(pkgname).unwrap();
-    let ver = Version::new(ver, &pkg);
+    let ver = Version::new(ver, &cache);
     ver.set_candidate();
 
     let version = ver.version();
