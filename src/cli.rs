@@ -223,8 +223,8 @@ pub trait CommandMatcher {
             OmaCommand::Mark(v) => Oma::mark(v),
             OmaCommand::CommandNotFound(v) => Oma::command_not_found(&v.kw),
             OmaCommand::List(v) => Oma::list(&v),
-            OmaCommand::Depends(v) => Oma::dep(&v.pkgs, false),
-            OmaCommand::Rdepends(v) => Oma::dep(&v.pkgs, true),
+            OmaCommand::Depends(v) => Oma::dep(&v.pkgs),
+            OmaCommand::Rdepends(v) => Oma::rdep(&v.pkgs),
             OmaCommand::Clean => Oma::clean(),
             OmaCommand::History => Oma::log(),
             #[cfg(feature = "aosc")]

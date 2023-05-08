@@ -556,7 +556,7 @@ impl Oma {
         Ok(0)
     }
 
-    pub fn dep(list: &[String], rdep: bool) -> Result<i32> {
+    pub fn dep(list: &[String]) -> Result<i32> {
         let cache = new_cache!()?;
         let mut res = vec![];
         for c in list {
@@ -573,37 +573,19 @@ impl Oma {
                 continue;
             }
 
-            let deps = if rdep { pkginfo.rdeps } else { pkginfo.deps };
+            let deps = pkginfo.deps;
 
             println!("{}:", pkginfo.package);
-
-            if rdep {
-                println!("Reverse Depends:")
-            }
 
             for (k, v) in deps {
                 for i in v {
                     let mut s = String::new();
 
-                    let k = if rdep {
-                        let k = k.strip_suffix('s').unwrap();
-                        if k.ends_with('e') {
-                            format!("{k}d by")
-                        } else if k == "Break" {
-                            "Broken by".to_string()
-                        } else if k == "PreDepend" {
-                            "Pre-depended by".to_string()
-                        } else {
-                            format!("{k}ed by")
-                        }
-                    } else {
-                        k.clone()
-                    };
-
                     if i.len() == 1 {
                         let entry = i.first().unwrap();
 
                         s.push_str(&format!("  {k}: {}", entry.name));
+
                         if let Some(ref comp) = entry.comp_ver {
                             s.push_str(&format!(" ({comp})"));
                         }
@@ -629,6 +611,115 @@ impl Oma {
             }
         }
 
+        Ok(0)
+    }
+
+    pub fn rdep(list: &[String]) -> Result<i32> {
+        let cache = new_cache!()?;
+        let mut res = vec![];
+        for c in list {
+            let oma_pkg = query_pkgs(&cache, c)?;
+            if oma_pkg.is_empty() {
+                bail!("Could not find any package for: {}", c);
+            }
+
+            res.extend(oma_pkg);
+        }
+
+        let mut res_2 = vec![];
+
+        for (pkginfo, is_cand) in res {
+            if !is_cand {
+                continue;
+            }
+            let deps = pkginfo.rdeps;
+
+            println!("{}:", pkginfo.package);
+
+            for (k, v) in deps {
+                for i in v {
+                    let mut s = String::new();
+
+                    let k = k.strip_suffix('s').unwrap();
+                    let k = if k.ends_with('e') {
+                        format!("{k}d by")
+                    } else if k == "Break" {
+                        "Broken by".to_string()
+                    } else if k == "PreDepend" {
+                        "Pre-depended by".to_string()
+                    } else {
+                        format!("{k}ed by")
+                    };
+
+
+                    let target = if i.len() == 1 {
+                        let entry = i.first().unwrap();
+
+                        s.push_str(&format!("  {k}: {}", entry.name));
+                        if let Some(ref comp) = entry.comp_ver {
+                            s.push_str(&format!(" ({comp})"));
+                        }
+
+                        entry.target_ver.clone().unwrap_or("all".to_string())
+                    } else {
+                        let mut or_str = String::new();
+                        let total = i.len() - 1;
+                        for (num, c) in i.iter().enumerate() {
+                            or_str.push_str(&c.name);
+                            if let Some(comp) = &c.comp_ver {
+                                let _ = write!(or_str, " ({comp})");
+                            }
+                            if num != total {
+                                or_str.push_str(" | ");
+                            } else {
+                                or_str.push_str(", ");
+                            }
+                        }
+                        s = format!("{k}: {or_str}");
+
+                        let entry = i.first().unwrap();
+                        entry.target_ver.clone().unwrap_or("all".to_string())
+                    };
+
+                    res_2.push((target, s))
+                }
+            }
+        }
+
+        res_2.sort_by(|a, b| b.0.cmp(&a.0));
+
+        let all = res_2.iter().filter(|(x, _)| x == "all");
+
+        let mut all_res = vec![];
+
+        for i in all {
+            if !all_res.contains(i) {
+                all_res.push(i.clone());
+            }
+        }
+
+        if !all_res.is_empty() {
+            println!("all:");
+        }
+
+        for i in all_res {
+            println!("{}", i.1);
+        }
+
+        let mut last_ver = "".to_string();
+
+        for (ver, s) in res_2 {
+            if ver == "all" {
+                continue;
+            }
+            if last_ver != ver {
+                println!("{ver}:");
+                last_ver = ver;
+            }
+
+            println!("{s}");
+        }
+    
         Ok(0)
     }
 
