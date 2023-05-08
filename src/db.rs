@@ -773,10 +773,12 @@ fn decompress(
     pb.set_message(format!("{progress}Decompressing {typ}"));
 
     let mut extract_f = std::fs::OpenOptions::new()
-        .append(true)
+        .truncate(true)
         .write(true)
         .create(true)
         .open(path)?;
+
+    extract_f.set_len(0)?;
 
     let mut buf = vec![0; 4096];
 
