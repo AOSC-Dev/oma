@@ -145,6 +145,7 @@ async fn try_download(
                 break;
             }
         }
+        break;
     }
 
     if all_is_err {
