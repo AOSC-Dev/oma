@@ -43,7 +43,7 @@ use crate::{
     pager::Pager,
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
-    utils::{lock_oma, log_to_file, needs_root, size_checker},
+    utils::{error_due_to, lock_oma, log_to_file, needs_root, size_checker},
     warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
 };
 
@@ -219,9 +219,15 @@ impl Oma {
                     log_to_file(&v, &start_time, &end_time)?;
 
                     if u.dpkg_force_all && cache.depcache().broken_count() != 0 {
-                        let e = anyhow!("Try to use {} to fix broken dependencies,If this does not work, please contact upstream: https://github.com/aosc-dev/aosc-os-abbs", style("oma fix-broken").green().bold());
-
-                        return Err(e.context("Your system has broken dependencie"));
+                        return Err(
+                            error_due_to(
+                                "Your system has broken dependencie".to_string(),
+                            format!(
+                                    "Try to use {} to fix broken dependencies,If this does not work, please contact upstream: https://github.com/aosc-dev/aosc-os-abbs", 
+                                    style("oma fix-broken").green().bold()
+                                )
+                            )
+                        );
                     }
 
                     return Ok(0);

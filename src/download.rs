@@ -21,8 +21,14 @@ use reqwest::{
 use tokio::io::AsyncWriteExt;
 
 use crate::{
-    checksum::Checksum, cli::gen_prefix, db::DOWNLOAD_DIR, error, info, oma::InstallRow, success,
-    utils::reverse_apt_style_url, warn, AILURUS, DRYRUN, WRITER,
+    checksum::Checksum,
+    cli::gen_prefix,
+    db::DOWNLOAD_DIR,
+    error, info,
+    oma::InstallRow,
+    success,
+    utils::{error_due_to, reverse_apt_style_url},
+    warn, AILURUS, DRYRUN, WRITER,
 };
 
 /// Download a package
@@ -133,9 +139,10 @@ async fn try_download(
     }
 
     if all_is_err {
-        let e = anyhow!("Maybe, you should check your internet connection?");
-
-        Err(e.context(format!("Can not download package: {filename}")))
+        Err(error_due_to(
+            format!("Can not download package: {filename}"),
+            "Maybe, you should check your internet connection?".to_owned(),
+        ))
     } else {
         Ok(())
     }

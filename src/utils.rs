@@ -6,7 +6,7 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Result, Error};
 use once_cell::sync::Lazy;
 use rust_apt::util::DiskSpace;
 
@@ -159,4 +159,10 @@ pub fn polkit_run_itself() -> Result<()> {
             .code()
             .expect("Can not get pkexec oma exit status"),
     );
+}
+
+pub fn error_due_to(err: String, due_to: String) -> Error {
+    let e = anyhow!(due_to);
+    
+    e.context(err)
 }
