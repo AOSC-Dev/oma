@@ -75,7 +75,7 @@ impl PkgInfo {
             .collect::<Vec<_>>();
 
         let deps = deps_to_map(version.depends_map());
-        let rdeps = deps_to_map(&pkg.rdepends_map());
+        let rdeps = deps_to_map(pkg.rdepends_map());
 
         let raw_pkg = pkg.unique();
 
@@ -238,7 +238,7 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
             let versions = pkg.versions();
 
             for ver in versions {
-                let oma_pkg = PkgInfo::new(cache, ver.unique(), &pkg)?;
+                let oma_pkg = PkgInfo::new(cache, ver.unique(), pkg)?;
                 res.push((oma_pkg, pkg.candidate() == Some(ver)));
             }
         }
@@ -535,7 +535,7 @@ pub fn mark_install(
     pb: Option<&ProgressBar>,
 ) -> Result<()> {
     let pkg = cache.get(pkgname).unwrap();
-    let ver = Version::new(ver, &cache);
+    let ver = Version::new(ver, cache);
     ver.set_candidate();
 
     let version = ver.version();

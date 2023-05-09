@@ -1794,7 +1794,7 @@ fn apt_handler(
             let raw_version = cand.unique();
             let cand = Version::new(raw_version, cache);
 
-            let uri = cand.uris().map(|x| x.to_string()).collect::<Vec<_>>();
+            let uri = cand.uris().collect::<Vec<_>>();
 
             let version = cand.version();
 

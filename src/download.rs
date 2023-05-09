@@ -123,8 +123,6 @@ async fn try_download(
                 }
             }
         }
-
-        break;
     }
 
     if all_is_err {
