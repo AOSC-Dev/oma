@@ -1,7 +1,7 @@
 use anstyle::RgbColor;
 use clap::{
     builder::{PossibleValue, Styles},
-    command, Arg, ArgAction, Command, ValueHint,
+    command, Arg, ArgAction, Command,
 };
 
 pub fn command_builder() -> Command {
@@ -13,8 +13,7 @@ pub fn command_builder() -> Command {
 
     let pkgs = Arg::new("packages")
         .num_args(1..)
-        .trailing_var_arg(true)
-        .value_hint(ValueHint::CommandWithArguments);
+        .action(clap::ArgAction::Append);
 
     let no_fixbroken = Arg::new("no_fix_broken")
         .long("no-fix-broken")
