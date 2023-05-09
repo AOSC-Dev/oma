@@ -12,7 +12,7 @@ use tokio::{
     runtime::Runtime,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
@@ -133,7 +133,9 @@ async fn try_download(
     }
 
     if all_is_err {
-        bail!("Can not download package: {filename}, Maybe your network connect is broken!")
+        let e = anyhow!("Can not download package: {filename}");
+
+        return Err(e.context("Maybe your network connect is broken?"));
     } else {
         Ok(())
     }
