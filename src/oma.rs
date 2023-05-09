@@ -1790,10 +1790,6 @@ fn apt_handler(
             let size = cand.installed_size();
             let human_size = format!("+{}", HumanBytes(size));
 
-            // 避开 cand 的生命周期问题
-            let raw_version = cand.unique();
-            let cand = Version::new(raw_version, cache);
-
             let uri = cand.uris().collect::<Vec<_>>();
 
             let version = cand.version();
@@ -1848,10 +1844,6 @@ fn apt_handler(
             } else {
                 format!("-{}", HumanBytes(size.unsigned_abs()))
             };
-
-            // 避开 cand 的生命周期问题
-            let raw_version = cand.unique();
-            let cand = Version::new(raw_version, cache);
 
             update.push(InstallRow {
                 name: style(pkg.name()).color256(87).to_string(),
@@ -1913,10 +1905,6 @@ fn apt_handler(
         if pkg.marked_reinstall() {
             let version = pkg.installed().unwrap();
 
-            // 避开 cand 的生命周期问题
-            let raw_version = version.unique();
-            let version = Version::new(raw_version, cache);
-
             reinstall.push(InstallRow {
                 name: style(pkg.name()).blue().to_string(),
                 name_no_color: pkg.name().to_string(),
@@ -1962,11 +1950,6 @@ fn apt_handler(
             } else {
                 format!("-{}", HumanBytes(size.unsigned_abs()))
             };
-
-            // 避开 cand 的生命周期问题
-            let raw_version = cand.unique();
-            let cand = Version::new(raw_version, cache);
-
             downgrade.push(InstallRow {
                 name: style(pkg.name()).yellow().to_string(),
                 name_no_color: pkg.name().to_string(),
