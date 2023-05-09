@@ -753,7 +753,7 @@ fn decompress(
     typ: String,
 ) -> Result<()> {
     if typ == "BinContents" || typ == "Contents" || typ == "Package List" {
-        return Ok(())
+        return Ok(());
     }
 
     let compress_f = std::fs::File::open(compress_file_path)?;

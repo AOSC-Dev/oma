@@ -135,7 +135,7 @@ async fn try_download(
     if all_is_err {
         let e = anyhow!("Can not download package: {filename}");
 
-        return Err(e.context("Maybe your network connect is broken?"));
+        Err(e.context("Maybe your network connect is broken?"))
     } else {
         Ok(())
     }
