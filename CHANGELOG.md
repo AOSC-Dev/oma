@@ -5,7 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.36.1 (2023-05-09)
+
+### Bug Fixes
+
+ - <csr-id-ea2ae64d144c1b72f3d790492b167f43304dd32a/> packages argument after add some argument flag to wrong result
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Packages argument after add some argument flag to wrong result ([`ea2ae64`](https://github.com/AOSC-Dev/aoscpt/commit/ea2ae64d144c1b72f3d790492b167f43304dd32a))
+</details>
+
 ## v0.36.0 (2023-05-09)
+
+<csr-id-fc8c14b178067c9dc16c8bbc00dc93ced9a26d3c/>
+<csr-id-d1498032a44581c9008723d1b41ffe273abb91e6/>
+<csr-id-983f0a5868e439d192c94dedde8315626b8317af/>
+<csr-id-8615f21c2ec8bee7e20b11926787240f95dec742/>
+<csr-id-52091d27e0522ab36a679b9c05c10be3888afad5/>
 
 ### Chore
 
@@ -19,11 +49,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes
 
+<csr-id-4343d1dfe5a247ca96aa1a9159ebca8ecf5a3380/>
+<csr-id-eb87d41fd058c579cac061007aa793fd2dd6a4d4/>
+
  - <csr-id-866d89f6dddeaea3cf20b1af6e9575a44e78a64b/> download success break loop in try_download method
  - <csr-id-98838f200b7a164813885f44b0792b56f45bd441/> this loop never actually loops in try_download method
    - Also use cargo clippy
- - <csr-id-4343d1dfe5a247ca96aa1a9159ebca8ecf5a3380/> do not append decompress file
- - <csr-id-eb87d41fd058c579cac061007aa793fd2dd6a4d4/> do not download package success download next package
 
 ### Refactor
 
@@ -38,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 11 commits contributed to the release.
+ - 12 commits contributed to the release.
  - 2 days passed between releases.
  - 11 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -50,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.36.0 ([`9eef033`](https://github.com/AOSC-Dev/aoscpt/commit/9eef0331274e67dfead7c3560b9267a9cfc6ee55))
     - Update all deps ([`fc8c14b`](https://github.com/AOSC-Dev/aoscpt/commit/fc8c14b178067c9dc16c8bbc00dc93ced9a26d3c))
     - Use cargo-fmt to format code ([`52091d2`](https://github.com/AOSC-Dev/aoscpt/commit/52091d27e0522ab36a679b9c05c10be3888afad5))
     - Use true/false replaced Ok/Err in try_download method ([`983f0a5`](https://github.com/AOSC-Dev/aoscpt/commit/983f0a5868e439d192c94dedde8315626b8317af))
@@ -62,6 +94,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Improve oma repends output ([`51df071`](https://github.com/AOSC-Dev/aoscpt/commit/51df071218161ee9745544b17d0d8684fbfa50f0))
     - Update some deps and adapt new rust-apt version ([`d149803`](https://github.com/AOSC-Dev/aoscpt/commit/d1498032a44581c9008723d1b41ffe273abb91e6))
 </details>
+
+<csr-unknown>
+ do not append decompress file do not download package success download next package<csr-unknown/>
 
 ## v0.35.0 (2023-05-06)
 
