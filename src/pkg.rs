@@ -397,11 +397,14 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
                 let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
                 res.insert(
                     pkg.name().to_string(),
-                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                    (
+                        oma_pkg,
+                        cand.is_installed(),
+                        pkg.is_upgradable(),
+                        pkg_score(input, pkg.name(), false),
+                    ),
                 );
-            }
-
-            if cand.description().unwrap_or("".to_owned()).contains(input)
+            } else if cand.description().unwrap_or("".to_owned()).contains(input)
                 && !res.contains_key(pkg.name())
                 && !pkg.name().contains("-dbg")
                 && res.get(pkg.name()).is_none()
@@ -409,7 +412,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
                 let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
                 res.insert(
                     pkg.name().to_string(),
-                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                    (
+                        oma_pkg,
+                        cand.is_installed(),
+                        pkg.is_upgradable(),
+                        pkg_score(input, pkg.name(), false),
+                    ),
                 );
             }
         } else if pkg.name() == input && pkg.has_provides() {
@@ -421,7 +429,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
                 res.insert(
                     pkg.name().to_string(),
-                    (oma_pkg, cand.is_installed(), pkg.is_upgradable(), true),
+                    (
+                        oma_pkg,
+                        cand.is_installed(),
+                        pkg.is_upgradable(),
+                        pkg_score(input, pkg.name(), true),
+                    ),
                 );
             }
         }
@@ -430,8 +443,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let mut res = res.into_values().collect::<Vec<_>>();
 
     res.sort_unstable_by(|x, y| {
-        let x_score = pkg_score(input, &x.0, x.3);
-        let y_score = pkg_score(input, &y.0, y.3);
+        let x_score = x.3;
+        let y_score = y.3;
 
         let c = y_score.cmp(&x_score);
 
@@ -450,7 +463,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     let mut output = vec![];
 
-    for (pkg, installed, upgradable, _) in res {
+    for (pkg, installed, upgradable, pkg_score) in res {
         let prefix = if installed {
             PackageStatus::Installed
         } else if upgradable {
@@ -489,13 +502,25 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             prefix,
             pkg_info_line,
             pkg.description.unwrap_or("".to_owned()),
+            pkg_score,
         ));
     }
 
     output.sort_by(|a, b| b.0.cmp(&a.0));
 
+    let mut index = 0;
+
+    while index < output.len() {
+        if output[index].3 == 1000 {
+            let del = output.remove(index);
+            output.insert(0, del);
+        }
+
+        index += 1;
+    }
+
     if output.len() * 2 <= height.into() {
-        for (prefix, line, desc) in output {
+        for (prefix, line, desc, _) in output {
             crate::WRITER.writeln(&prefix.to_string(), &line)?;
             crate::WRITER.writeln("", &desc)?;
         }
@@ -505,7 +530,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
-        for (prefix, line, desc) in output {
+        for (prefix, line, desc, _) in output {
             writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
             writeln!(out, "{}{desc}", gen_prefix("")).ok();
         }
@@ -517,12 +542,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     Ok(())
 }
 
-fn pkg_score(input: &str, pkginfo: &PkgInfo, is_provide: bool) -> u16 {
+fn pkg_score(input: &str, pkg_name: &str, is_provide: bool) -> u16 {
     if is_provide {
         return 1000;
     }
 
-    (strsim::jaro_winkler(&pkginfo.package, input) * 1000.0) as u16
+    (strsim::jaro_winkler(pkg_name, input) * 1000.0) as u16
 }
 
 /// Mark package as install status
