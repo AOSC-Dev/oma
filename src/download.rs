@@ -84,7 +84,7 @@ async fn try_download(
     for (i, c) in urls.iter().enumerate() {
         let mut allow_resume = true;
 
-        loop {
+        let r = loop {
             match download(
                 c,
                 client,
@@ -98,14 +98,14 @@ async fn try_download(
             {
                 Ok(_) => {
                     all_is_err = false;
-                    break;
+                    break Ok(());
                 }
                 Err(e) => {
                     match e {
                         DownloadError::ChecksumMisMatch(_) => {
                             allow_resume = false;
                             if retry == 3 {
-                                break;
+                                break Err("");
                             }
                             let s = format!("{c} checksum mismatch, retry {retry} times ...");
                             try_download_msg_display(&opb, i, &urls, &s);
@@ -117,11 +117,16 @@ async fn try_download(
                                 s += ", try next url to download this package ...";
                             }
                             try_download_msg_display(&opb, i, &urls, &s);
-                            break;
+                            break Err("");
                         }
                     };
                 }
             }
+        };
+
+        match r {
+            Ok(_) => break,
+            Err(_) => continue,
         }
     }
 
