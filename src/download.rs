@@ -98,7 +98,7 @@ async fn try_download(
             {
                 Ok(_) => {
                     all_is_err = false;
-                    break Ok(());
+                    break true;
                 }
                 Err(e) => {
                     match e {
@@ -107,7 +107,7 @@ async fn try_download(
                             if retry == 3 {
                                 let s = format!("{c} checksum mismatch,, try next url to download this package ...");
                                 try_download_msg_display(&opb, i, &urls, &s);
-                                break Err("");
+                                break false;
                             }
                             let s = format!("{c} checksum mismatch, retry {retry} times ...");
                             try_download_msg_display(&opb, i, &urls, &s);
@@ -119,7 +119,7 @@ async fn try_download(
                                 s += ", try next url to download this package ...";
                             }
                             try_download_msg_display(&opb, i, &urls, &s);
-                            break Err("");
+                            break false;
                         }
                     };
                 }
@@ -127,8 +127,8 @@ async fn try_download(
         };
 
         match r {
-            Ok(_) => break,
-            Err(_) => continue,
+            true => break,
+            false => continue,
         }
     }
 
