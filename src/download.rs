@@ -105,6 +105,8 @@ async fn try_download(
                         DownloadError::ChecksumMisMatch(_) => {
                             allow_resume = false;
                             if retry == 3 {
+                                let s = format!("{c} checksum mismatch,, try next url to download this package ...");
+                                try_download_msg_display(&opb, i, &urls, &s);
                                 break Err("");
                             }
                             let s = format!("{c} checksum mismatch, retry {retry} times ...");
