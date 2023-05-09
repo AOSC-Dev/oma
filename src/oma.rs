@@ -651,7 +651,6 @@ impl Oma {
                         format!("{k}ed by")
                     };
 
-
                     let target = if i.len() == 1 {
                         let entry = i.first().unwrap();
 
@@ -719,7 +718,7 @@ impl Oma {
 
             println!("{s}");
         }
-    
+
         Ok(0)
     }
 
