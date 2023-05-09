@@ -5,7 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.36.3 (2023-05-09)
+
+### Chore
+
+ - <csr-id-53bf31b428bc6565b0063a2a340d5c70b6df2e2c/> Update rust-apt version and adapt it
+
+### Bug Fixes
+
+ - <csr-id-e2bf48b14a67e3637fec635e15d02dad4c858458/> Error and due_to to right order
+
+### Refactor
+
+ - <csr-id-6338d51de8d189fac1d03c2b34373ff91b95e1bb/> Abtsract error_due_to method
+ - <csr-id-cdc9c38dd30339ae8a34a2df89df3bdc9ae06eef/> Use error_due_to function to easily handle the due_to case
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Abtsract error_due_to method ([`6338d51`](https://github.com/AOSC-Dev/oma/commit/6338d51de8d189fac1d03c2b34373ff91b95e1bb))
+    - Update rust-apt version and adapt it ([`53bf31b`](https://github.com/AOSC-Dev/oma/commit/53bf31b428bc6565b0063a2a340d5c70b6df2e2c))
+    - Use error_due_to function to easily handle the due_to case ([`cdc9c38`](https://github.com/AOSC-Dev/oma/commit/cdc9c38dd30339ae8a34a2df89df3bdc9ae06eef))
+    - Error and due_to to right order ([`e2bf48b`](https://github.com/AOSC-Dev/oma/commit/e2bf48b14a67e3637fec635e15d02dad4c858458))
+</details>
+
 ## v0.36.2 (2023-05-09)
+
+<csr-id-61bf4767f4a6b6df3ea9ebeba2d53d9e9b638b36/>
 
 ### New Features
 
@@ -23,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -34,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.36.2 ([`8def847`](https://github.com/AOSC-Dev/oma/commit/8def847aaa956305fb0ad2aac765b5a42489b927))
     - Use cargo clippy and fmt to lint code ([`61bf476`](https://github.com/AOSC-Dev/oma/commit/61bf4767f4a6b6df3ea9ebeba2d53d9e9b638b36))
     - Do not decompress BinContents ([`e886c87`](https://github.com/AOSC-Dev/oma/commit/e886c87864ba235145c9e0da6b4d10458de1f7b8))
     - Try_download return error display due_to ([`aaeb44e`](https://github.com/AOSC-Dev/oma/commit/aaeb44e15374f85b942f332598a673f980312d6f))
