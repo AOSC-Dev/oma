@@ -141,7 +141,7 @@ async fn try_download(
     if all_is_err {
         Err(error_due_to(
             format!("Can not download package: {filename}"),
-            "Maybe, you should check your internet connection?".to_owned(),
+            "Maybe, you should check your internet connection?",
         ))
     } else {
         Ok(())

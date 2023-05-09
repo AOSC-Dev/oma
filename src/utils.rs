@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     io::Write,
     path::{Path, PathBuf},
     process::{exit, Command},
@@ -6,7 +7,9 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use anyhow::{anyhow, bail, Result, Error};
+use std::fmt::Debug;
+
+use anyhow::{anyhow, bail, Error, Result};
 use once_cell::sync::Lazy;
 use rust_apt::util::DiskSpace;
 
@@ -161,8 +164,14 @@ pub fn polkit_run_itself() -> Result<()> {
     );
 }
 
-pub fn error_due_to(err: String, due_to: String) -> Error {
+pub fn error_due_to<
+    M: Display + Debug + Send + Sync + 'static,
+    S: Display + Debug + Send + Sync + 'static,
+>(
+    err: M,
+    due_to: S,
+) -> Error {
     let e = anyhow!(due_to);
-    
+
     e.context(err)
 }

@@ -221,7 +221,7 @@ impl Oma {
                     if u.dpkg_force_all && cache.depcache().broken_count() != 0 {
                         return Err(
                             error_due_to(
-                                "Your system has broken dependencie".to_string(),
+                                "Your system has broken dependencie",
                             format!(
                                     "Try to use {} to fix broken dependencies,If this does not work, please contact upstream: https://github.com/aosc-dev/aosc-os-abbs", 
                                     style("oma fix-broken").green().bold()
