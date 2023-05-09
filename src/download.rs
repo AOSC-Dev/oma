@@ -368,7 +368,7 @@ pub async fn download(
             }
 
             if v.finish() {
-                tracing::debug!("checksum success, no need to download anything.");
+                tracing::debug!("{filename} checksum success, no need to download anything.");
                 return Ok(false);
             }
 

@@ -735,11 +735,7 @@ async fn download_and_extract_db_local(
 
     let opbc = opb.clone();
 
-    if i.file_type == DistFileType::CompressContents
-        || i.file_type == DistFileType::CompressPackageList
-    {
-        spawn_blocking(move || decompress(Path::new(&path), &name.0, opbc, &p, typ)).await??
-    }
+    spawn_blocking(move || decompress(Path::new(&path), &name.0, opbc, &p, typ)).await??;
 
     if let Some(pb) = opb.global_bar {
         pb.inc(buf_len as u64);
@@ -756,6 +752,10 @@ fn decompress(
     path: &Path,
     typ: String,
 ) -> Result<()> {
+    if typ == "BinContents" || typ == "Contents" || typ == "Package List" {
+        return Ok(())
+    }
+
     let compress_f = std::fs::File::open(compress_file_path)?;
     let reader = std::io::BufReader::new(compress_f);
     let pb = opb.mbc.add(ProgressBar::new_spinner());
@@ -788,7 +788,7 @@ fn decompress(
         Box::new(XzDecoder::new(reader))
     } else {
         pb.finish_and_clear();
-        return Ok(());
+        bail!("BUG: unsupport decompress file: {name}, Please report this error to upstream: https://github.com/aosc-dev/oma");
     };
 
     loop {
