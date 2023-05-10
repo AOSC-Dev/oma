@@ -327,6 +327,14 @@ pub async fn download(
     opb: OmaProgressBar,
     allow_resume: bool,
 ) -> DownloadResult<bool> {
+    if !dir.is_dir() {
+        return Err(anyhow!(
+            "Directory: {} does not exist",
+            dir.canonicalize().unwrap_or(dir.to_path_buf()).display()
+        )
+        .into());
+    }
+
     let file = dir.join(&filename);
     let file_exist = file.exists();
     let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
