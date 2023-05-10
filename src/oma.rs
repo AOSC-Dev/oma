@@ -1050,6 +1050,9 @@ impl Oma {
                 bail!("Can not get package {pkg}")
             }
             let package = package.unwrap();
+            if package.candidate().is_none() {
+                bail!("{pkg} has no candidate version.");
+            }
             package
                 .installed()
                 .context(format!("{pkg} is not installed!"))?;
