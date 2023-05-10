@@ -1600,7 +1600,7 @@ fn install_handle(
 
             mark_install(
                 &cache,
-                &format!("{}-dbg", dbg_pkgname.package),
+                &dbg_pkgname.package,
                 version,
                 reinstall,
                 false,
