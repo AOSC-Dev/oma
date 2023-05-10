@@ -136,9 +136,9 @@ async fn try_download(
         match r {
             Ok(_) => return Ok(()),
             Err(e) => match e {
-                DownloadError::ChecksumMisMatch(s) => {
+                DownloadError::ChecksumMisMatch(_) => {
                     return Err(error_due_to(
-                        format!("Can not download {s} to dir {}", download_dir.display()),
+                        format!("Can not download file: {filename} to dir {}, checksum mismatch.", download_dir.display()),
                         "Maybe mirror still sync progress?",
                     ));
                 }
@@ -147,13 +147,13 @@ async fn try_download(
                         continue;
                     }
                     return Err(error_due_to(
-                        format!("Can not download file: {c}, why: {e}"),
+                        format!("Can not download file: {filename}, why: {e}"),
                         "Maybe check your network settings?",
                     ));
                 }
                 DownloadError::IOError(e) => {
                     bail!(
-                        "Can not download {c} to dir {}, why: {e}",
+                        "Can not download file: {filename} to dir {}, why: {e}",
                         download_dir.display()
                     );
                 }
