@@ -302,7 +302,7 @@ pub fn dialoguer(
         ..Default::default()
     };
 
-    let ans = MultiSelect::new(
+    let ans = match MultiSelect::new(
         "Select topic(s) to enroll in testing updates, deselect to rollback to stable:",
         display.iter().map(|x| x.as_str()).collect(),
     )
@@ -311,7 +311,10 @@ pub fn dialoguer(
     .with_page_size(20)
     .with_render_config(render_config)
     .prompt()
-    .context("")?;
+    {
+        Ok(ans) => ans,
+        Err(_) => bail!(""),
+    };
 
     for i in &ans {
         let index = display.iter().position(|x| x == i).unwrap();
