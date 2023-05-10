@@ -69,7 +69,6 @@ pub struct CommandNotFound {
 pub struct FixBroken {
     /// Dry-run oma
     pub dry_run: bool,
-    pub dpkg_force_all: bool,
 }
 pub struct Download {
     /// Package(s) name
@@ -355,7 +354,6 @@ impl CommandMatcher for OmaCommandRunner {
             }),
             Some(("fix-broken", args)) => OmaCommand::FixBroken(FixBroken {
                 dry_run: args.get_flag("dry_run"),
-                dpkg_force_all: args.get_flag("dpkg_force_all"),
             }),
             Some(("pick", args)) => OmaCommand::Pick(PickOptions {
                 package: args.get_one::<String>("package").unwrap().to_string(),
