@@ -12,7 +12,7 @@ use tokio::{
     runtime::Runtime,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Result, bail};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
@@ -85,7 +85,6 @@ async fn try_download(
     opb: OmaProgressBar,
     download_dir: &Path,
 ) -> Result<()> {
-    let mut all_is_err = true;
     let mut retry = 1;
     for (i, c) in urls.iter().enumerate() {
         let mut allow_resume = true;
@@ -103,29 +102,31 @@ async fn try_download(
             .await
             {
                 Ok(_) => {
-                    all_is_err = false;
-                    break true;
+                    break Ok(());
                 }
                 Err(e) => {
                     match e {
                         DownloadError::ChecksumMisMatch(_) => {
                             allow_resume = false;
                             if retry == 3 {
-                                let s = format!("{c} checksum mismatch,, try next url to download this package ...");
+                                let s = format!("{c} checksum mismatch, try next url to download this package ...");
                                 try_download_msg_display(&opb, i, &urls, &s);
-                                break false;
+                                break Err(e);
                             }
                             let s = format!("{c} checksum mismatch, retry {retry} times ...");
                             try_download_msg_display(&opb, i, &urls, &s);
                             retry += 1;
                         }
-                        _ => {
+                        DownloadError::ReqwestError(_) => {
                             let mut s = format!("{e}");
                             if i < urls.len() - 1 {
                                 s += ", try next url to download this package ...";
                             }
                             try_download_msg_display(&opb, i, &urls, &s);
-                            break false;
+                            break Err(e);
+                        }
+                        _ => {
+                            break Err(e);
                         }
                     };
                 }
@@ -133,19 +134,32 @@ async fn try_download(
         };
 
         match r {
-            true => break,
-            false => continue,
+            Ok(_) => return Ok(()),
+            Err(e) => match e {
+                DownloadError::ChecksumMisMatch(s) => {
+                    return Err(error_due_to(
+                        format!("Can not download {s} to dir {}", download_dir.display()),
+                        "Maybe mirror still sync progress?",
+                    ));
+                }
+                DownloadError::ReqwestError(e) => {
+                    if i != urls.len() - 1 {
+                        continue;
+                    }
+                    return Err(error_due_to(
+                        format!("Can not download file: {c}, why: {e}"),
+                        "Maybe check your network settings?",
+                    ));
+                }
+                DownloadError::IOError(e) => {
+                    bail!("Can not download {c} to dir {}, why: {e}", download_dir.display());
+                }
+                _ => return Err(e.into()),
+            },
         }
     }
 
-    if all_is_err {
-        Err(error_due_to(
-            format!("Can not download package: {filename}"),
-            "Maybe, you should check your internet connection?",
-        ))
-    } else {
-        Ok(())
-    }
+    Ok(())
 }
 
 fn try_download_msg_display(opb: &OmaProgressBar, i: usize, urls: &Vec<String>, s: &str) {
@@ -311,7 +325,7 @@ pub enum DownloadError {
     #[error(transparent)]
     IOError(#[from] tokio::io::Error),
     #[error(transparent)]
-    SendRequestError(#[from] reqwest::Error),
+    ReqwestError(#[from] reqwest::Error),
 }
 
 type DownloadResult<T> = std::result::Result<T, DownloadError>;
@@ -327,14 +341,6 @@ pub async fn download(
     opb: OmaProgressBar,
     allow_resume: bool,
 ) -> DownloadResult<bool> {
-    if !dir.is_dir() {
-        return Err(anyhow!(
-            "Directory: {} does not exist",
-            dir.canonicalize().unwrap_or(dir.to_path_buf()).display()
-        )
-        .into());
-    }
-
     let file = dir.join(&filename);
     let file_exist = file.exists();
     let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
