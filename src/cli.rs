@@ -474,6 +474,7 @@ impl Writer {
         let mut first_run = true;
 
         let mut msg = msg.to_string();
+    
         // Print msg with left padding
         while !msg.is_empty() {
             let line_msg = console::truncate_str(&msg, max_len.into(), "\n");
@@ -490,7 +491,11 @@ impl Writer {
                 .context("Failed to write message to console.")?;
             // Remove the already written part, strip ANSI since it can mess everything up
             let mut new_msg = console::strip_ansi_codes(&msg).to_string();
-            new_msg.replace_range(..new_msg.len(), "");
+            new_msg = if line_msg.len() > max_len.into() {
+                new_msg[line_msg.len() - 1..].to_string()
+            } else {
+                "".to_string()
+            };
             // Swap
             std::mem::swap(&mut msg, &mut new_msg);
         }

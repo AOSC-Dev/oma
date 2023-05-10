@@ -16,7 +16,7 @@ clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color", "unstable
 dialoguer = "0.10"
 tabled = { version = "0.12", features = ["color"] }
 indicatif = "0.17"
-console = "0.15"
+console = { version = "0.15", features = ["unicode-width"] }
 inquire = { git = "https://github.com/AOSC-Dev/inquire", rev = "3230e6daefb71e335764d901d1c6d3a5e706312e", optional = true }
 # For Database, Packages Download
 reqwest = { version = "0.11", features = ["json"] }
@@ -56,6 +56,7 @@ once_cell = "1.17"
 anstyle = "1.0"
 indexmap = {version = "1.9", features = ["serde-1"], optional = true }
 either = "1.8"
+
 
 [build-dependencies]
 clap_mangen = "0.2.10"

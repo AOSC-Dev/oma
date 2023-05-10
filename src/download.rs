@@ -12,7 +12,7 @@ use tokio::{
     runtime::Runtime,
 };
 
-use anyhow::{anyhow, Context, Result, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
@@ -152,7 +152,10 @@ async fn try_download(
                     ));
                 }
                 DownloadError::IOError(e) => {
-                    bail!("Can not download {c} to dir {}, why: {e}", download_dir.display());
+                    bail!(
+                        "Can not download {c} to dir {}, why: {e}",
+                        download_dir.display()
+                    );
                 }
                 _ => return Err(e.into()),
             },
@@ -486,13 +489,7 @@ pub async fn download(
         pb.finish_and_clear();
         match e.status() {
             Some(StatusCode::NOT_FOUND) => return Err(DownloadError::NotFound(url.to_string())),
-            e => {
-                return Err(DownloadError::Anyhow(anyhow!(
-                    "Couldn't download URL: {}. Status Code: {:?}",
-                    url,
-                    e,
-                )))
-            }
+            _ => return Err(e.into()),
         }
     } else {
         pb.finish_and_clear();
