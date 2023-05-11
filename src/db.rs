@@ -750,21 +750,11 @@ async fn download_and_extract_db_local(
             APT_LIST_DISTS.display()
         ))?;
 
-    let buf = tokio::fs::read(&from_path)
-        .await
-        .context(format!("Can not read file {path}"))?;
-
-    let buf_len = buf.len();
-
     let p = APT_LIST_DISTS.join(not_compress_file);
 
     let opbc = opb.clone();
 
     spawn_blocking(move || decompress(Path::new(&from_path), &name.0, opbc, &p, typ)).await??;
-
-    if let Some(pb) = opb.global_bar {
-        pb.inc(buf_len as u64);
-    }
 
     Ok(())
 }
