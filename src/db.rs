@@ -704,28 +704,30 @@ async fn download_and_extract_db_local(
 ) -> Result<()> {
     let path = path.split("://").nth(1).unwrap_or(&path).to_owned();
 
-    let path = format!("{path}/{}", i.name);
-    let pc = path.clone();
+    let from_path = format!("{path}/{}", i.name);
     let name = FileName::new(&i.name);
 
     let checksum = i.checksum.clone();
 
+    let copy_to_path = APT_LIST_DISTS.join(&name.0);
+    let copy_to_path_clone = copy_to_path.clone();
+
     let result =
-        spawn_blocking(move || Checksum::from_sha256_str(&checksum)?.cmp_file(Path::new(&pc)))
+        spawn_blocking(move || Checksum::from_sha256_str(&checksum)?.cmp_file(&copy_to_path_clone))
             .await??;
 
     if result {
         return Ok(());
     }
 
-    tokio::fs::copy(&path, APT_LIST_DISTS.join(&name.0))
+    tokio::fs::copy(&from_path, copy_to_path)
         .await
         .context(format!(
             "Can not copy {path} to {}",
             APT_LIST_DISTS.display()
         ))?;
 
-    let buf = tokio::fs::read(&path)
+    let buf = tokio::fs::read(&from_path)
         .await
         .context(format!("Can not read file {path}"))?;
 
@@ -735,7 +737,7 @@ async fn download_and_extract_db_local(
 
     let opbc = opb.clone();
 
-    spawn_blocking(move || decompress(Path::new(&path), &name.0, opbc, &p, typ)).await??;
+    spawn_blocking(move || decompress(Path::new(&from_path), &name.0, opbc, &p, typ)).await??;
 
     if let Some(pb) = opb.global_bar {
         pb.inc(buf_len as u64);
