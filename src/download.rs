@@ -312,8 +312,19 @@ async fn download_single_pkg_local(
     let filename = trans_filename(filename, c.new_version.clone())?;
     let url = url.parent().unwrap().join(url_filename);
 
-    let mut f = tokio::fs::File::open(url).await?;
+    download_local(url, download_dir, filename, opb, c.pure_download_size).await?;
 
+    Ok(())
+}
+
+pub async fn download_local(
+    url: PathBuf,
+    download_dir: Option<&Path>,
+    filename: String,
+    opb: OmaProgressBar,
+    size: u64,
+) -> Result<()> {
+    let mut f = tokio::fs::File::open(url).await?;
     let mut to_f = tokio::fs::OpenOptions::new()
         .write(true)
         .create(true)
@@ -325,12 +336,11 @@ async fn download_single_pkg_local(
 
     let mut buf = vec![0; 4096];
 
-    let pb = opb.mbc.add(ProgressBar::new(c.pure_download_size));
+    let pb = opb.mbc.add(ProgressBar::new(size));
     pb.set_style(oma_style_pb(false)?);
     pb.enable_steady_tick(Duration::from_millis(100));
 
     let msg = opb.msg.unwrap_or_else(|| download_pkg_msg(&filename));
-
     let progress = if let Some((count, len)) = opb.progress {
         format!("({count}/{len}) ")
     } else {

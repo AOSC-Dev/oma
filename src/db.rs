@@ -20,7 +20,7 @@ use xz2::read::XzDecoder;
 
 use crate::{
     checksum::Checksum,
-    download::{download, oma_spinner, oma_style_pb, DownloadError, OmaProgressBar},
+    download::{download, oma_spinner, oma_style_pb, DownloadError, OmaProgressBar, download_local},
     error, info, verify, warn, ARCH, MB,
 };
 
@@ -74,7 +74,7 @@ pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| {
 static MIRROR: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct FileName(String);
 
 impl FileName {
@@ -726,6 +726,7 @@ async fn download_and_extract_db_local(
 
     let from_path = format!("{path_no_prefix}/{}", i.name);
     let name = FileName::new(&from_path);
+    let nc = name.clone();
 
     let checksum = i.checksum.clone();
 
@@ -743,18 +744,13 @@ async fn download_and_extract_db_local(
         }
     }
 
-    tokio::fs::copy(&from_path, &copy_to_path)
-        .await
-        .context(format!(
-            "Can not copy {path} to {}",
-            APT_LIST_DISTS.display()
-        ))?;
+    download_local(PathBuf::from(&from_path), Some(&*APT_LIST_DISTS), name.0, opb.clone(), i.size).await?;
 
     let p = APT_LIST_DISTS.join(not_compress_file);
 
     let opbc = opb.clone();
 
-    spawn_blocking(move || decompress(Path::new(&copy_to_path), &name.0, opbc, &p, typ)).await??;
+    spawn_blocking(move || decompress(Path::new(&copy_to_path), &nc.0, opbc, &p, typ)).await??;
 
     Ok(())
 }
