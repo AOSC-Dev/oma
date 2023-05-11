@@ -702,10 +702,10 @@ async fn download_and_extract_db_local(
     opb: OmaProgressBar,
     typ: String,
 ) -> Result<()> {
-    let path = path.split("://").nth(1).unwrap_or(&path).to_owned();
+    let path_no_prefix = path.split("://").nth(1).unwrap_or(&path).to_owned();
 
-    let from_path = format!("{path}/{}", i.name);
-    let name = FileName::new(&i.name);
+    let from_path = format!("{path_no_prefix}/{}", i.name);
+    let name = FileName::new(&from_path);
 
     let checksum = i.checksum.clone();
 
