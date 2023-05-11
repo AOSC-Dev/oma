@@ -712,12 +712,15 @@ async fn download_and_extract_db_local(
     let copy_to_path = APT_LIST_DISTS.join(&name.0);
     let copy_to_path_clone = copy_to_path.clone();
 
-    let result =
-        spawn_blocking(move || Checksum::from_sha256_str(&checksum)?.cmp_file(&copy_to_path_clone))
-            .await??;
+    if copy_to_path.exists() {
+        let result = spawn_blocking(move || {
+            Checksum::from_sha256_str(&checksum)?.cmp_file(&copy_to_path_clone)
+        })
+        .await??;
 
-    if result {
-        return Ok(());
+        if result {
+            return Ok(());
+        }
     }
 
     tokio::fs::copy(&from_path, copy_to_path)
