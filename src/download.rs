@@ -7,6 +7,7 @@ use std::{
 
 use console::style;
 use futures::StreamExt;
+use futures_util::future::BoxFuture;
 use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
     runtime::Runtime,
@@ -235,28 +236,24 @@ async fn packages_download(
         let mbc = mb.clone();
 
         if let Some(url) = c.pkg_urls.iter().find(|x| x.starts_with("file:")) {
-            global_bar.inc(c.pure_download_size);
-            let url = url.strip_prefix("file:").unwrap();
-            let url = Path::new(url);
-            let filename = url
-                .file_name()
-                .context(format!("Can not get filename {}!", url.display()))?
-                .to_str()
-                .context(format!("Can not get str {}!", url.display()))?;
+            let t: BoxFuture<'_, Result<()>> = Box::pin(download_single_pkg_local(
+                url,
+                c,
+                OmaProgressBar::new(
+                    None,
+                    Some((i + 1, list_len)),
+                    mbc.clone(),
+                    Some(global_bar.clone()),
+                ),
+            ));
 
-            let url_filename = reverse_apt_style_url(filename);
-            let filename = trans_filename(filename, c.new_version.clone())?;
-            let url = url.parent().unwrap().join(url_filename);
-
-            tokio::fs::copy(&url, DOWNLOAD_DIR.join(filename))
-                .await
-                .context(format!("Can not find file: {}", url.display()))?;
+            task.push(t);
         } else {
             let hash = c.checksum.as_ref().unwrap().to_owned();
 
             let download_dir_def = DOWNLOAD_DIR.clone();
 
-            task.push(download_single_pkg(
+            let t: BoxFuture<'_, Result<()>> = Box::pin(download_single_pkg(
                 c.pkg_urls.clone(),
                 client,
                 hash,
@@ -269,6 +266,8 @@ async fn packages_download(
                 ),
                 download_dir.unwrap_or(&download_dir_def).to_path_buf(),
             ));
+
+            task.push(t);
         }
 
         download_len += 1;
@@ -290,6 +289,52 @@ async fn packages_download(
     } else {
         info!("No need to Fetch anything.");
     }
+
+    Ok(())
+}
+
+async fn download_single_pkg_local(
+    url: &String,
+    c: &InstallRow,
+    opb: OmaProgressBar,
+) -> Result<()> {
+    let url = url.strip_prefix("file:").unwrap();
+    let url = Path::new(url);
+    let filename = url
+        .file_name()
+        .context(format!("Can not get filename {}!", url.display()))?
+        .to_str()
+        .context(format!("Can not get str {}!", url.display()))?;
+
+    let url_filename = reverse_apt_style_url(filename);
+    let filename = trans_filename(filename, c.new_version.clone())?;
+    let url = url.parent().unwrap().join(url_filename);
+
+    let mut f = tokio::fs::File::open(url).await?;
+
+    let mut to_f = tokio::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(DOWNLOAD_DIR.join(filename))
+        .await?;
+
+    to_f.set_len(0).await?;
+
+    let mut buf = vec![0; 4096];
+
+    let pb = opb.mbc.add(ProgressBar::new(c.pure_download_size));
+
+    loop {
+        let read_count = f.read(&mut buf).await?;
+        if read_count == 0 {
+            break;
+        }
+        to_f.write_all(&buf[..read_count]).await?;
+        pb.inc(read_count as u64);
+    }
+
+    pb.finish_and_clear();
 
     Ok(())
 }
