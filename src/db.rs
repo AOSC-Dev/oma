@@ -743,7 +743,7 @@ async fn download_and_extract_db_local(
         }
     }
 
-    tokio::fs::copy(&from_path, copy_to_path)
+    tokio::fs::copy(&from_path, &copy_to_path)
         .await
         .context(format!(
             "Can not copy {path} to {}",
@@ -754,7 +754,7 @@ async fn download_and_extract_db_local(
 
     let opbc = opb.clone();
 
-    spawn_blocking(move || decompress(Path::new(&from_path), &name.0, opbc, &p, typ)).await??;
+    spawn_blocking(move || decompress(Path::new(&copy_to_path), &name.0, opbc, &p, typ)).await??;
 
     Ok(())
 }
