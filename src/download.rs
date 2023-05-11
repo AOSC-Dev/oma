@@ -138,7 +138,10 @@ async fn try_download(
             Err(e) => match e {
                 DownloadError::ChecksumMisMatch(_) => {
                     return Err(error_due_to(
-                        format!("Can not download file: {filename} to dir {}, checksum mismatch.", download_dir.display()),
+                        format!(
+                            "Can not download file: {filename} to dir {}, checksum mismatch.",
+                            download_dir.display()
+                        ),
                         "Maybe mirror still sync progress?",
                     ));
                 }

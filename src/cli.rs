@@ -474,7 +474,7 @@ impl Writer {
         let mut first_run = true;
 
         let mut msg = msg.to_string();
-    
+
         // Print msg with left padding
         while !msg.is_empty() {
             let line_msg = console::truncate_str(&msg, max_len.into(), "\n");
