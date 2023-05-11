@@ -424,16 +424,16 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
 async fn download_db_local(
     db_path: &str,
     count: usize,
+    opb: OmaProgressBar,
 ) -> std::result::Result<(FileName, usize, bool), DownloadError> {
     let db_path = db_path.split("://").nth(1).unwrap_or(db_path);
     let name = FileName::new(db_path);
+    let nc = name.clone();
 
-    tokio::fs::copy(db_path, APT_LIST_DISTS.join(&name.0))
-        .await
-        .context(format!(
-            "Can not copy {db_path} to {}",
-            APT_LIST_DISTS.display()
-        ))?;
+    let db_path = PathBuf::from(db_path);
+    let size = db_path.metadata()?.len();
+
+    download_local(PathBuf::from(db_path), Some(&*APT_LIST_DISTS), nc.0, opb, size).await?;
 
     Ok((name, count, true))
 }
@@ -478,7 +478,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 let task: BoxFuture<
                     '_,
                     std::result::Result<(FileName, usize, bool), DownloadError>,
-                > = Box::pin(download_db_local(&c.inrelease_path, i));
+                > = Box::pin(download_db_local(&c.inrelease_path, i, OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None), ));
                 tracing::debug!("oma will fetch {} InRelease", c.url);
                 tasks.push(task);
             }
