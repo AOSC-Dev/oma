@@ -343,6 +343,7 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
     Ok(res)
 }
 
+#[derive(Debug)]
 pub struct OmaSourceEntry {
     from: OmaSourceEntryFrom,
     components: Vec<String>,
@@ -354,7 +355,7 @@ pub struct OmaSourceEntry {
     signed_by: Option<String>,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 enum OmaSourceEntryFrom {
     Http,
     Local,
@@ -470,6 +471,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     None,
                 ));
 
+                tracing::debug!("oma will fetch {} InRelease", c.url);
                 tasks.push(task);
             }
             OmaSourceEntryFrom::Local => {
@@ -477,6 +479,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     '_,
                     std::result::Result<(FileName, usize, bool), DownloadError>,
                 > = Box::pin(download_db_local(&c.inrelease_path, i));
+                tracing::debug!("oma will fetch {} InRelease", c.url);
                 tasks.push(task);
             }
         }
@@ -490,10 +493,15 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
     for i in res {
         if cfg!(feature = "aosc") {
             match i {
-                Ok(i) => res_2.push(i),
+                Ok(i) => {
+                    tracing::debug!("{} fetched", &i.0 .0);
+                    res_2.push(i)
+                }
                 Err(e) => match e {
                     DownloadError::NotFound(url) => {
                         let removed_suites = topics::scan_closed_topic(client).await?;
+
+                        tracing::debug!("Removed topics: {removed_suites:?}");
 
                         let suite = url
                             .split('/')
@@ -511,12 +519,16 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 },
             }
         } else {
-            res_2.push(i?);
+            let i = i?;
+            tracing::debug!("{} fetched", &i.0 .0);
+            res_2.push(i);
         }
     }
 
     for (name, index, _) in res_2 {
         let ose = sources.get(index).unwrap();
+
+        tracing::debug!("Getted Oma source entry: {:?}", ose);
 
         let inrelease = InReleaseParser::new(
             &APT_LIST_DISTS.join(name.0),
@@ -536,10 +548,12 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 
         let mut total = 0;
         let handle = if ose.is_flat {
+            tracing::debug!("{} is flat repo", ose.url);
             // Flat repo
             let mut handle = vec![];
             for i in &inrelease.checksums {
                 if i.file_type == DistFileType::PackageList {
+                    tracing::debug!("oma will download package list: {}", i.name);
                     handle.push(i);
                     total += i.size;
                 }
@@ -551,17 +565,21 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             for i in &checksums {
                 match i.file_type {
                     DistFileType::BinaryContents => {
+                        tracing::debug!("oma will download Binary Contents: {}", i.name);
                         handle.push(i);
                         total += i.size;
                     }
                     DistFileType::Contents | DistFileType::PackageList => {
                         if ARCH.get() == Some(&"mips64r6el".to_string()) {
+                            tracing::debug!("oma will download Package List/Contetns: {}", i.name);
                             handle.push(i);
                             total += i.size;
                         }
                     }
                     DistFileType::CompressContents | DistFileType::CompressPackageList => {
                         if ARCH.get() != Some(&"mips64r6el".to_string()) {
+                            tracing::debug!("oma will download compress Package List/compress Contetns: {}", i.name);
+
                             handle.push(i);
                             total += i.size;
                         }
@@ -615,6 +633,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                     };
 
+                    tracing::debug!("oma will download http source database: {p}");
                     let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db(
                         p,
                         c,
@@ -633,6 +652,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                     };
 
+                    tracing::debug!("oma will download local source database: {p}");
                     let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db_local(
                         p,
                         not_compress_filename.0,
