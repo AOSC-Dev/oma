@@ -245,6 +245,7 @@ async fn packages_download(
                     mbc.clone(),
                     Some(global_bar.clone()),
                 ),
+                download_dir,
             ));
 
             task.push(t);
@@ -297,6 +298,7 @@ async fn download_single_pkg_local(
     url: &String,
     c: &InstallRow,
     opb: OmaProgressBar,
+    download_dir: Option<&Path>,
 ) -> Result<()> {
     let url = url.strip_prefix("file:").unwrap();
     let url = Path::new(url);
@@ -316,7 +318,7 @@ async fn download_single_pkg_local(
         .write(true)
         .create(true)
         .truncate(true)
-        .open(DOWNLOAD_DIR.join(filename))
+        .open(download_dir.unwrap_or(&DOWNLOAD_DIR).join(&filename))
         .await?;
 
     to_f.set_len(0).await?;
@@ -324,14 +326,31 @@ async fn download_single_pkg_local(
     let mut buf = vec![0; 4096];
 
     let pb = opb.mbc.add(ProgressBar::new(c.pure_download_size));
+    pb.set_style(oma_style_pb(false)?);
+    pb.enable_steady_tick(Duration::from_millis(100));
+
+    let msg = opb.msg.unwrap_or_else(|| download_pkg_msg(&filename));
+
+    let progress = if let Some((count, len)) = opb.progress {
+        format!("({count}/{len}) ")
+    } else {
+        "".to_string()
+    };
+
+    pb.set_message(format!("{progress}{msg}"));
 
     loop {
         let read_count = f.read(&mut buf).await?;
+
         if read_count == 0 {
             break;
         }
+
         to_f.write_all(&buf[..read_count]).await?;
         pb.inc(read_count as u64);
+        if let Some(ref gb) = opb.global_bar {
+            gb.inc(read_count as u64);
+        }
     }
 
     pb.finish_and_clear();
@@ -452,18 +471,7 @@ pub async fn download(
     }
 
     // 写入进度条显示的信息
-    let mut msg = opb.msg.unwrap_or_else(|| {
-        let mut filename_split = filename.split('_');
-        let name = filename_split.next();
-        let version = filename_split.next().map(|x| x.replace("%3a", ":"));
-        let arch = filename_split.next().map(|x| x.replace(".deb", ""));
-
-        if name.and(version.clone()).and(arch.clone()).is_none() {
-            filename.clone()
-        } else {
-            format!("{} {} ({})", name.unwrap(), version.unwrap(), arch.unwrap())
-        }
-    });
+    let mut msg = opb.msg.unwrap_or_else(|| download_pkg_msg(&filename));
 
     let progress = if let Some((count, len)) = opb.progress {
         format!("({count}/{len}) ")
@@ -644,6 +652,19 @@ pub async fn download(
     pb.finish_and_clear();
 
     Ok(true)
+}
+
+fn download_pkg_msg(filename: &str) -> String {
+    let mut filename_split = filename.split('_');
+    let name = filename_split.next();
+    let version = filename_split.next().map(|x| x.replace("%3a", ":"));
+    let arch = filename_split.next().map(|x| x.replace(".deb", ""));
+
+    if name.and(version.clone()).and(arch.clone()).is_none() {
+        filename.to_string()
+    } else {
+        format!("{} {} ({})", name.unwrap(), version.unwrap(), arch.unwrap())
+    }
 }
 
 pub fn oma_spinner(pb: &ProgressBar) {
