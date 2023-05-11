@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.37.1 (2023-05-11)
+
+### Chore
+
+ - <csr-id-6af62b0cbd78e1132ffb03ef58c91b395bd840ff/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-cfebaf569cf561905ff1d96971932c9c25074d0d/> Fix fetch local source database filename
+ - <csr-id-798fe7964960f61ac876635b3dce5eb080e77cc2/> Check file is exist in download_and_extract_db_local
+ - <csr-id-cc6f289d9072db61c724bf9b9c5dc70765981cb5/> Fix fetch local source database file
+
+### Style
+
+ - <csr-id-d1039634ba86a8c45e3ba3bb617269d792482467/> Use cargo fmt to format code
+ - <csr-id-7a9a1c1b8ae48e1f56704c2b2802a52dc079cb22/> Use cargo clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Fix fetch local source database filename ([`cfebaf5`](https://github.com/AOSC-Dev/oma/commit/cfebaf569cf561905ff1d96971932c9c25074d0d))
+    - Check file is exist in download_and_extract_db_local ([`798fe79`](https://github.com/AOSC-Dev/oma/commit/798fe7964960f61ac876635b3dce5eb080e77cc2))
+    - Fix fetch local source database file ([`cc6f289`](https://github.com/AOSC-Dev/oma/commit/cc6f289d9072db61c724bf9b9c5dc70765981cb5))
+    - Use cargo fmt to format code ([`d103963`](https://github.com/AOSC-Dev/oma/commit/d1039634ba86a8c45e3ba3bb617269d792482467))
+    - Use cargo clippy to lint code ([`7a9a1c1`](https://github.com/AOSC-Dev/oma/commit/7a9a1c1b8ae48e1f56704c2b2802a52dc079cb22))
+    - Update all deps ([`6af62b0`](https://github.com/AOSC-Dev/oma/commit/6af62b0cbd78e1132ffb03ef58c91b395bd840ff))
+</details>
+
 ## v0.37.0 (2023-05-11)
 
 ### New Features
@@ -17,17 +57,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes
 
+<csr-id-cd2ba53f198d2dcacdf4f8c9cd32848a02078067/>
+<csr-id-13c0a6fb168b3932b45a29d3a3c7fec9d757127b/>
+<csr-id-baeea2a82ab6c3370f011cbbc852cb4567cb10f5/>
+
  - <csr-id-1ee0b2f9ead57f2056a8d9271cd9c82ec0ce4d22/> Cli::writeln do not output next empty line
    - Also, download method return Reqwest::Error, do not return anyhow
- - <csr-id-cd2ba53f198d2dcacdf4f8c9cd32848a02078067/> Fix run oma install --install-dbg
- - <csr-id-13c0a6fb168b3932b45a29d3a3c7fec9d757127b/> Fix run oma fix-broken
- - <csr-id-baeea2a82ab6c3370f011cbbc852cb4567cb10f5/> Do not display error to due_to in oma topics
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 9 commits contributed to the release over the course of 1 calendar day.
+ - 10 commits contributed to the release over the course of 1 calendar day.
  - 1 day passed between releases.
  - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -39,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.37.0 ([`ec53fdc`](https://github.com/AOSC-Dev/oma/commit/ec53fdc10cb8335b5192c873be481123f823db06))
     - Improve try_download error output ([`8c5b1a8`](https://github.com/AOSC-Dev/oma/commit/8c5b1a88f5d8830a6406aabbe0b5b82699e74557))
     - Cli::writeln do not output next empty line ([`1ee0b2f`](https://github.com/AOSC-Dev/oma/commit/1ee0b2f9ead57f2056a8d9271cd9c82ec0ce4d22))
     - More precise handling of IOError in the try_download function ([`d5f6aef`](https://github.com/AOSC-Dev/oma/commit/d5f6aef89ab7ca0b5fc4fedad1100e66dfe7ab0a))
@@ -49,6 +91,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Do not display error to due_to in oma topics ([`baeea2a`](https://github.com/AOSC-Dev/oma/commit/baeea2a82ab6c3370f011cbbc852cb4567cb10f5))
     - Search order move package to top if pkg.name == input and installed ([`95cf354`](https://github.com/AOSC-Dev/oma/commit/95cf354f9b262eab3d19b69719eb35e89c3d705f))
 </details>
+
+<csr-unknown>
+ Fix run oma install –install-dbg Fix run oma fix-broken Do not display error to due_to in oma topics<csr-unknown/>
 
 ## v0.36.3 (2023-05-09)
 
