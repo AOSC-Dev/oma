@@ -5,7 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.37.0 (2023-05-11)
+
+### New Features
+
+ - <csr-id-8c5b1a88f5d8830a6406aabbe0b5b82699e74557/> Improve try_download error output
+ - <csr-id-d5f6aef89ab7ca0b5fc4fedad1100e66dfe7ab0a/> More precise handling of IOError in the try_download function
+ - <csr-id-ca7099ab7129afdee76927cc30680c7fb8e68b11/> Improve download dir not exist error output
+ - <csr-id-bdc2ecced9900237bd461384c11d0344487fd331/> Tips user virtual package didn't mark
+ - <csr-id-95cf354f9b262eab3d19b69719eb35e89c3d705f/> Search order move package to top if pkg.name == input and installed
+
+### Bug Fixes
+
+ - <csr-id-1ee0b2f9ead57f2056a8d9271cd9c82ec0ce4d22/> Cli::writeln do not output next empty line
+   - Also, download method return Reqwest::Error, do not return anyhow
+ - <csr-id-cd2ba53f198d2dcacdf4f8c9cd32848a02078067/> Fix run oma install --install-dbg
+ - <csr-id-13c0a6fb168b3932b45a29d3a3c7fec9d757127b/> Fix run oma fix-broken
+ - <csr-id-baeea2a82ab6c3370f011cbbc852cb4567cb10f5/> Do not display error to due_to in oma topics
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Improve try_download error output ([`8c5b1a8`](https://github.com/AOSC-Dev/oma/commit/8c5b1a88f5d8830a6406aabbe0b5b82699e74557))
+    - Cli::writeln do not output next empty line ([`1ee0b2f`](https://github.com/AOSC-Dev/oma/commit/1ee0b2f9ead57f2056a8d9271cd9c82ec0ce4d22))
+    - More precise handling of IOError in the try_download function ([`d5f6aef`](https://github.com/AOSC-Dev/oma/commit/d5f6aef89ab7ca0b5fc4fedad1100e66dfe7ab0a))
+    - Improve download dir not exist error output ([`ca7099a`](https://github.com/AOSC-Dev/oma/commit/ca7099ab7129afdee76927cc30680c7fb8e68b11))
+    - Fix run oma install --install-dbg ([`cd2ba53`](https://github.com/AOSC-Dev/oma/commit/cd2ba53f198d2dcacdf4f8c9cd32848a02078067))
+    - Tips user virtual package didn't mark ([`bdc2ecc`](https://github.com/AOSC-Dev/oma/commit/bdc2ecced9900237bd461384c11d0344487fd331))
+    - Fix run oma fix-broken ([`13c0a6f`](https://github.com/AOSC-Dev/oma/commit/13c0a6fb168b3932b45a29d3a3c7fec9d757127b))
+    - Do not display error to due_to in oma topics ([`baeea2a`](https://github.com/AOSC-Dev/oma/commit/baeea2a82ab6c3370f011cbbc852cb4567cb10f5))
+    - Search order move package to top if pkg.name == input and installed ([`95cf354`](https://github.com/AOSC-Dev/oma/commit/95cf354f9b262eab3d19b69719eb35e89c3d705f))
+</details>
+
 ## v0.36.3 (2023-05-09)
+
+<csr-id-53bf31b428bc6565b0063a2a340d5c70b6df2e2c/>
+<csr-id-6338d51de8d189fac1d03c2b34373ff91b95e1bb/>
+<csr-id-cdc9c38dd30339ae8a34a2df89df3bdc9ae06eef/>
 
 ### Chore
 
@@ -24,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -35,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.36.3 ([`975e78d`](https://github.com/AOSC-Dev/oma/commit/975e78de0991c4391b1a1dcfa0230226bc08602d))
     - Abtsract error_due_to method ([`6338d51`](https://github.com/AOSC-Dev/oma/commit/6338d51de8d189fac1d03c2b34373ff91b95e1bb))
     - Update rust-apt version and adapt it ([`53bf31b`](https://github.com/AOSC-Dev/oma/commit/53bf31b428bc6565b0063a2a340d5c70b6df2e2c))
     - Use error_due_to function to easily handle the due_to case ([`cdc9c38`](https://github.com/AOSC-Dev/oma/commit/cdc9c38dd30339ae8a34a2df89df3bdc9ae06eef))
