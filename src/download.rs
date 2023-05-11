@@ -254,7 +254,7 @@ async fn packages_download(
 
             let download_dir_def = DOWNLOAD_DIR.clone();
 
-            let t: BoxFuture<'_, Result<()>> = Box::pin(download_single_pkg(
+            download_single_pkg(
                 c.pkg_urls.clone(),
                 client,
                 hash,
@@ -266,9 +266,7 @@ async fn packages_download(
                     Some(global_bar.clone()),
                 ),
                 download_dir.unwrap_or(&download_dir_def).to_path_buf(),
-            ));
-
-            task.push(t);
+            ).await?;
         }
 
         download_len += 1;

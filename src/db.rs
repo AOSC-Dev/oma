@@ -20,7 +20,9 @@ use xz2::read::XzDecoder;
 
 use crate::{
     checksum::Checksum,
-    download::{download, oma_spinner, oma_style_pb, DownloadError, OmaProgressBar, download_local},
+    download::{
+        download, download_local, oma_spinner, oma_style_pb, DownloadError, OmaProgressBar,
+    },
     error, info, verify, warn, ARCH, MB,
 };
 
@@ -433,7 +435,14 @@ async fn download_db_local(
     let db_path = PathBuf::from(db_path);
     let size = db_path.metadata()?.len();
 
-    download_local(PathBuf::from(db_path), Some(&*APT_LIST_DISTS), nc.0, opb, size).await?;
+    download_local(
+        PathBuf::from(db_path),
+        Some(&*APT_LIST_DISTS),
+        nc.0,
+        opb,
+        size,
+    )
+    .await?;
 
     Ok((name, count, true))
 }
@@ -475,12 +484,13 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 tasks.push(task);
             }
             OmaSourceEntryFrom::Local => {
-                let task: BoxFuture<
-                    '_,
-                    std::result::Result<(FileName, usize, bool), DownloadError>,
-                > = Box::pin(download_db_local(&c.inrelease_path, i, OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None), ));
-                tracing::debug!("oma will fetch {} InRelease", c.url);
-                tasks.push(task);
+                download_db_local(
+                    &c.inrelease_path,
+                    i,
+                    OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
+                )
+                .await?;
+                tracing::debug!("oma fetched local source: {} InRelease", c.url);
             }
         }
     }
@@ -578,7 +588,10 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     }
                     DistFileType::CompressContents | DistFileType::CompressPackageList => {
                         if ARCH.get() != Some(&"mips64r6el".to_string()) {
-                            tracing::debug!("oma will download compress Package List/compress Contetns: {}", i.name);
+                            tracing::debug!(
+                                "oma will download compress Package List/compress Contetns: {}",
+                                i.name
+                            );
 
                             handle.push(i);
                             total += i.size;
@@ -652,16 +665,15 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                     };
 
-                    tracing::debug!("oma will download local source database: {p}");
-                    let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db_local(
+                    tracing::debug!("oma downloading local source database: {p}");
+                    download_and_extract_db_local(
                         p,
                         not_compress_filename.0,
                         c,
                         opb,
                         typ.to_string(),
-                    ));
-
-                    tasks.push(task);
+                    )
+                    .await?;
                 }
             }
         }
@@ -744,7 +756,14 @@ async fn download_and_extract_db_local(
         }
     }
 
-    download_local(PathBuf::from(&from_path), Some(&*APT_LIST_DISTS), name.0, opb.clone(), i.size).await?;
+    download_local(
+        PathBuf::from(&from_path),
+        Some(&*APT_LIST_DISTS),
+        name.0,
+        opb.clone(),
+        i.size,
+    )
+    .await?;
 
     let p = APT_LIST_DISTS.join(not_compress_file);
 
@@ -764,7 +783,7 @@ fn decompress(
     typ: String,
 ) -> Result<()> {
     if compress_file_path == path {
-        return Ok(())
+        return Ok(());
     }
 
     let compress_f = std::fs::File::open(compress_file_path)?;
