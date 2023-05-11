@@ -423,7 +423,7 @@ impl Oma {
                     let source = &entry.apt_sources[0];
                     s += &format!(
                         "APT-Sources: {}\n",
-                        source_url_to_apt_style(&source).unwrap_or(source.to_string())
+                        source_url_to_apt_style(source).unwrap_or(source.to_string())
                     );
                 } else {
                     s += "APT-Sources:\n";

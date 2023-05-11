@@ -436,7 +436,7 @@ async fn download_db_local(
     let size = db_path.metadata()?.len();
 
     download_local(
-        PathBuf::from(db_path),
+        db_path,
         Some(&*APT_LIST_DISTS),
         nc.0,
         opb,
