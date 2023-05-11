@@ -43,7 +43,9 @@ use crate::{
     pager::Pager,
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
     success,
-    utils::{error_due_to, lock_oma, log_to_file, needs_root, size_checker},
+    utils::{
+        error_due_to, lock_oma, log_to_file, needs_root, size_checker, source_url_to_apt_style,
+    },
     warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
 };
 
@@ -416,7 +418,19 @@ impl Oma {
                     s += &format!("{k}: {v}\n");
                 }
                 s += &format!("Download-Size: {}\n", entry.download_size);
-                s += &format!("APT-Sources: {:?}\n", entry.apt_sources);
+                // s += &format!("APT-Sources: {:?}\n", entry.apt_sources);
+                if entry.apt_sources.len() == 1 {
+                    let source = &entry.apt_sources[0];
+                    s += &format!(
+                        "APT-Sources: {}\n",
+                        source_url_to_apt_style(&source).unwrap_or(source.to_string())
+                    );
+                } else {
+                    s += "APT-Sources:\n";
+                    for i in entry.apt_sources {
+                        s += &format!(" {}\n", source_url_to_apt_style(&i).unwrap_or(i));
+                    }
+                }
                 if let Some(desc) = entry.description {
                     s += &format!("Description: {desc}\n");
                 }

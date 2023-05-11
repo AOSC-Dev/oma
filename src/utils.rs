@@ -175,3 +175,24 @@ pub fn error_due_to<
 
     e.context(err)
 }
+
+// input: like http://50.50.1.183/debs/pool/stable/main/f/fish_3.6.0-0_amd64.deb
+// output: http://50.50.1.183/debs stable main
+pub fn source_url_to_apt_style(s: &str) -> Option<String> {
+    let mut s_split = s.split('/').rev();
+    let component = s_split.nth(2)?;
+    let branch = s_split.next()?;
+    let pool = s_split.position(|x| x == "pool")?;
+
+    let host = &s_split.rev().collect::<Vec<_>>().join("/")[pool..];
+
+    Some(format!("{host} {branch} {component}"))
+}
+
+#[test]
+fn test_source_url_to_apt_style() {
+    let url = "http://50.50.1.183/debs/pool/stable/main/f/fish_3.6.0-0_amd64.deb";
+    let s = source_url_to_apt_style(url);
+
+    assert_eq!(s, Some("http://50.50.1.183/debs stable main".to_string()));
+}
