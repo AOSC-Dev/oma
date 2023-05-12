@@ -1374,7 +1374,7 @@ fn needs_fix_system(cache: &Cache) -> Result<(bool, Vec<String>)> {
             );
             need = true;
             match pkg.current_state() {
-                2 | 4 => {
+                4 => {
                     pkg.mark_reinstall(true);
                     reinstall.push(pkg.name().to_string());
                 }
