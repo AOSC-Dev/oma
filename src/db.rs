@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -815,6 +815,7 @@ fn decompress(
     };
 
     std::io::copy(&mut decompress, &mut extract_f)?;
+    extract_f.flush()?;
 
     pb.finish_and_clear();
 
