@@ -77,9 +77,9 @@ fn try_main() -> Result<i32> {
     let _ = ARCH
         .get_or_try_init(get_arch_name)
         .map_err(|e| anyhow!("Can not run dpkg --print-architecture, why: {e}"))?;
-
-    let code = OmaCommandRunner::new().run()?;
+    
     tracing::info!("Running oma with args: {}", *ARGS);
+    let code = OmaCommandRunner::new().run()?;
 
     Ok(code)
 }

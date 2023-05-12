@@ -817,6 +817,9 @@ fn decompress(
     std::io::copy(&mut decompress, &mut extract_f)?;
     extract_f.flush()?;
 
+    drop(extract_f);
+    drop(decompress);
+
     pb.finish_and_clear();
 
     Ok(())
