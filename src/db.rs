@@ -433,14 +433,12 @@ async fn download_db_local(
     let nc = name.clone();
 
     let db_path = PathBuf::from(db_path);
-    let size = db_path.metadata()?.len();
 
     download_local(
         db_path,
         Some(&*APT_LIST_DISTS),
         nc.0,
         opb,
-        size,
     )
     .await?;
 
@@ -765,7 +763,6 @@ async fn download_and_extract_db_local(
         Some(&*APT_LIST_DISTS),
         name.0,
         opb.clone(),
-        i.size,
     )
     .await?;
 

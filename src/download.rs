@@ -312,7 +312,7 @@ async fn download_single_pkg_local(
     let filename = trans_filename(filename, c.new_version.clone())?;
     let url = url.parent().unwrap().join(url_filename);
 
-    download_local(url, download_dir, filename, opb, c.pure_download_size).await?;
+    download_local(url, download_dir, filename, opb).await?;
 
     Ok(())
 }
@@ -322,47 +322,10 @@ pub async fn download_local(
     download_dir: Option<&Path>,
     filename: String,
     opb: OmaProgressBar,
-    size: u64,
 ) -> Result<()> {
-    let mut f = tokio::fs::File::open(url).await?;
-    let mut to_f = tokio::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(download_dir.unwrap_or(&DOWNLOAD_DIR).join(&filename))
-        .await?;
-
-    to_f.set_len(0).await?;
-
-    let mut buf = vec![0; 4096];
-
-    let pb = opb.mbc.add(ProgressBar::new(size));
-    pb.set_style(oma_style_pb(false)?);
-    pb.enable_steady_tick(Duration::from_millis(100));
-
-    let msg = opb.msg.unwrap_or_else(|| download_pkg_msg(&filename));
-    let progress = if let Some((count, len)) = opb.progress {
-        format!("({count}/{len}) ")
-    } else {
-        "".to_string()
-    };
-
-    pb.set_message(format!("{progress}{msg}"));
-
-    loop {
-        let read_count = f.read(&mut buf).await?;
-
-        if read_count == 0 {
-            break;
-        }
-
-        to_f.write_all(&buf[..read_count]).await?;
-        pb.inc(read_count as u64);
-        if let Some(ref gb) = opb.global_bar {
-            gb.inc(read_count as u64);
-        }
-    }
-
+    let pb = opb.mbc.add(ProgressBar::new_spinner());
+    oma_spinner(&pb);
+    tokio::fs::copy(url, download_dir.unwrap_or(&DOWNLOAD_DIR).join(&filename)).await?;
     pb.finish_and_clear();
 
     Ok(())
