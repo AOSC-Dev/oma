@@ -295,7 +295,7 @@ async fn packages_download(
 }
 
 async fn download_single_pkg_local(
-    url: &str,
+    url: &String,
     c: &InstallRow,
     opb: OmaProgressBar,
     download_dir: Option<&Path>,
@@ -325,8 +325,13 @@ pub async fn download_local(
 ) -> Result<()> {
     let pb = opb.mbc.add(ProgressBar::new_spinner());
     oma_spinner(&pb);
-    tokio::fs::copy(url, download_dir.unwrap_or(&DOWNLOAD_DIR).join(&filename)).await?;
+    tokio::fs::copy(&url, download_dir.unwrap_or(&DOWNLOAD_DIR).join(&filename)).await?;
     pb.finish_and_clear();
+
+    if let Some(ref gb) = opb.global_bar {
+        let size = url.metadata()?.len();
+        gb.inc(size);
+    }
 
     Ok(())
 }
