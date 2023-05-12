@@ -295,7 +295,7 @@ async fn packages_download(
 }
 
 async fn download_single_pkg_local(
-    url: &String,
+    url: &str,
     c: &InstallRow,
     opb: OmaProgressBar,
     download_dir: Option<&Path>,
