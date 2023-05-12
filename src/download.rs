@@ -443,8 +443,10 @@ pub async fn download(
 
             tracing::debug!("checksum fail, will download this file: {filename}");
 
-            dest = Some(f);
-            validator = Some(v);
+            if allow_resume {
+                dest = Some(f);
+                validator = Some(v);
+            }
         }
     }
 
