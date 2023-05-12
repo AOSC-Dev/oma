@@ -434,13 +434,7 @@ async fn download_db_local(
 
     let db_path = PathBuf::from(db_path);
 
-    download_local(
-        db_path,
-        Some(&*APT_LIST_DISTS),
-        nc.0,
-        opb,
-    )
-    .await?;
+    download_local(db_path, Some(&*APT_LIST_DISTS), nc.0, opb).await?;
 
     Ok((name, count, true))
 }
