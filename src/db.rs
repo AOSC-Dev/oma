@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{Read, Write},
+    io::Read,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -805,8 +805,6 @@ fn decompress(
 
     extract_f.set_len(0)?;
 
-    let mut buf = vec![0; 4096];
-
     let mut decompress: Box<dyn Read> = if name.ends_with(".gz") {
         Box::new(GzDecoder::new(reader))
     } else if name.ends_with(".xz") {
@@ -816,13 +814,7 @@ fn decompress(
         bail!("BUG: unsupport decompress file: {name}, Please report this error to upstream: https://github.com/aosc-dev/oma");
     };
 
-    loop {
-        let read_count = decompress.read(&mut buf)?;
-        if read_count == 0 {
-            break;
-        }
-        extract_f.write_all(&buf[..read_count])?;
-    }
+    std::io::copy(&mut decompress, &mut extract_f)?;
 
     pb.finish_and_clear();
 

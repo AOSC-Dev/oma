@@ -325,11 +325,15 @@ pub async fn download_local(
 ) -> Result<()> {
     let pb = opb.mbc.add(ProgressBar::new_spinner());
     oma_spinner(&pb);
-    tokio::fs::copy(&url, download_dir.unwrap_or(&DOWNLOAD_DIR).join(&filename)).await?;
+
+    let mut from = tokio::fs::File::open(url).await?;
+    let mut to =
+        tokio::fs::File::create(download_dir.unwrap_or(&DOWNLOAD_DIR).join(&filename)).await?;
+
+    let size = tokio::io::copy(&mut from, &mut to).await?;
     pb.finish_and_clear();
 
     if let Some(ref gb) = opb.global_bar {
-        let size = url.metadata()?.len();
         gb.inc(size);
     }
 
