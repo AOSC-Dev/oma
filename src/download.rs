@@ -443,7 +443,11 @@ pub async fn download(
 
             tracing::debug!("checksum fail, will download this file: {filename}");
 
-            if allow_resume {
+            if !allow_resume {
+                if let Some(ref global_bar) = opb.global_bar {
+                    global_bar.set_position(global_bar.position() - readed);
+                }
+            } else {
                 dest = Some(f);
                 validator = Some(v);
             }
