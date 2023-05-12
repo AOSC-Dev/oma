@@ -5,7 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.38.2 (2023-05-12)
+
+### New Features
+
+ - <csr-id-f17b335d8c8d42878de1a042b733826a1a732f1d/> Try to flushing file add progress spinner again
+ - <csr-id-128b93057a1002d5ddb7c8761359b53edc20ab90/> Try to flushing file add progress spinner
+
+### Bug Fixes
+
+ - <csr-id-ae9aa241f9e12ccec30e25ff84290c94d66edbe7/> Use tokio::io::copy replaced tokio::fs::copy
+
+### Style
+
+ - <csr-id-0d99d40254fbb946f43bb53ee140aeec2db9c1e0/> Use cargo-fmt to format code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Use cargo-fmt to format code ([`0d99d40`](https://github.com/AOSC-Dev/oma/commit/0d99d40254fbb946f43bb53ee140aeec2db9c1e0))
+    - Try to flushing file add progress spinner again ([`f17b335`](https://github.com/AOSC-Dev/oma/commit/f17b335d8c8d42878de1a042b733826a1a732f1d))
+    - Try to flushing file add progress spinner ([`128b930`](https://github.com/AOSC-Dev/oma/commit/128b93057a1002d5ddb7c8761359b53edc20ab90))
+    - Use tokio::io::copy replaced tokio::fs::copy ([`ae9aa24`](https://github.com/AOSC-Dev/oma/commit/ae9aa241f9e12ccec30e25ff84290c94d66edbe7))
+</details>
+
 ## v0.38.1 (2023-05-12)
+
+<csr-id-ef92fe7328ad1a6df3f5cff77e1be7101b96d25e/>
+<csr-id-36acc15bf8a3e58c05f0b13696d6c9053a33c8e6/>
+<csr-id-dfb0ea73555f26f993b7dd9f61e95cd884459632/>
 
 ### Chore
 
@@ -31,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 8 commits contributed to the release.
+ - 9 commits contributed to the release.
  - 8 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -42,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.38.1 ([`5dca1fc`](https://github.com/AOSC-Dev/oma/commit/5dca1fc5e6751484bb981714a303fdcd7de9348a))
     - Use cargo clippy to lint code ([`36acc15`](https://github.com/AOSC-Dev/oma/commit/36acc15bf8a3e58c05f0b13696d6c9053a33c8e6))
     - Use cargo-fmt to format code ([`dfb0ea7`](https://github.com/AOSC-Dev/oma/commit/dfb0ea73555f26f993b7dd9f61e95cd884459632))
     - Update all deps ([`ef92fe7`](https://github.com/AOSC-Dev/oma/commit/ef92fe7328ad1a6df3f5cff77e1be7101b96d25e))
@@ -121,9 +162,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Add fetch local source package progress bar ([`a4c0f68`](https://github.com/AOSC-Dev/oma/commit/a4c0f68dd5bfe43b28fbedc448f03bfb71c3fda6))
     - Add some update database debug message ([`a505125`](https://github.com/AOSC-Dev/oma/commit/a5051258c2bcb5e022ce20333ccc40ac8916b0fd))
 </details>
-
-<csr-unknown>
- Use current thread to fetch local source Add fetch local source package progress bar Add some update database debug message<csr-unknown/>
 
 ## v0.37.1 (2023-05-11)
 
