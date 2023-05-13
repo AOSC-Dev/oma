@@ -383,6 +383,7 @@ impl Ord for PackageStatus {
 }
 
 pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
+    let input = input.to_lowercase();
     let sort = PackageSort::default().include_virtual();
     let packages = cache.packages(&sort)?;
 
@@ -391,8 +392,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     for pkg in packages {
         if let Some(cand) = pkg.candidate() {
             let desc = cand.description().unwrap_or("".to_owned()).to_lowercase();
-            if (pkg.name().contains(input)
-                || desc.contains(&input.to_lowercase()))
+            if (pkg.name().contains(&input) || desc.contains(&input))
                 && !pkg.name().contains("-dbg")
                 && res.get(pkg.name()).is_none()
             {
@@ -403,7 +403,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
                         oma_pkg,
                         cand.is_installed(),
                         pkg.is_upgradable(),
-                        pkg_score(input, pkg.name(), false),
+                        pkg_score(&input, pkg.name(), false),
                     ),
                 );
             }
@@ -420,7 +420,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
                         oma_pkg,
                         cand.is_installed(),
                         pkg.is_upgradable(),
-                        pkg_score(input, pkg.name(), true),
+                        pkg_score(&input, pkg.name(), true),
                     ),
                 );
             }
