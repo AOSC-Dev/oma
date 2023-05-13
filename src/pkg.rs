@@ -390,8 +390,9 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     for pkg in packages {
         if let Some(cand) = pkg.candidate() {
+            let desc = cand.description().unwrap_or("".to_owned()).to_lowercase();
             if (pkg.name().contains(input)
-                || cand.description().unwrap_or("".to_owned()).contains(input))
+                || desc.contains(&input.to_lowercase()))
                 && !pkg.name().contains("-dbg")
                 && res.get(pkg.name()).is_none()
             {

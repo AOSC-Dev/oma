@@ -37,7 +37,7 @@ use crate::{
     error,
     formatter::{
         display_result, download_size, find_unmet_deps, find_unmet_deps_with_markinstall,
-        NoProgress, OmaAptInstallProgress,
+        NoProgress, OmaAptInstallProgress, capitalize_str,
     },
     info,
     pager::Pager,
@@ -1896,13 +1896,8 @@ fn apt_handler(
             }
 
             let s = if !v.is_empty() {
-                let mut v = v.join("; ");
-                v.get_mut(0..1).map(|s| {
-                    s.make_ascii_uppercase();
-                    &*s
-                });
-
-                v
+                let v = v.join("; ");
+                capitalize_str(v)
             } else {
                 "".to_string()
             };

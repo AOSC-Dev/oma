@@ -978,3 +978,12 @@ fn write_review_help_message(w: &mut dyn Write, pager_name: Option<&str>) -> Res
 
     Ok(())
 }
+
+pub fn capitalize_str(mut v: String) -> String {
+    v.get_mut(0..1).map(|s| {
+        s.make_ascii_uppercase();
+        &*s
+    });
+
+    v
+}
