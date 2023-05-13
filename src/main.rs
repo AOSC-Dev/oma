@@ -62,7 +62,6 @@ fn main() {
             e.chain().skip(1).for_each(|cause| {
                 due_to!("{}", cause);
             });
-            unlock_oma().ok();
             1
         }
     };
