@@ -451,7 +451,13 @@ impl Writer {
     }
 
     pub fn get_max_len(&self) -> u16 {
-        self.term.size_checked().unwrap_or((25, 80)).1 - PREFIX_LEN
+        let len = self.term.size_checked().unwrap_or((25, 80)).1 - PREFIX_LEN;
+
+        if len > 150 {
+            150
+        } else {
+            len
+        }
     }
 
     pub fn get_height(&self) -> u16 {
