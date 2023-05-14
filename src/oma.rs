@@ -785,8 +785,11 @@ impl Oma {
 
         packages_download_runner(&self.runtime, &downloads, &self.client, None, Some(path))?;
 
+        let len = v.packages.len();
+
         success!(
-            "Successfully downloaded some packages to path: {}",
+            "Successfully downloaded {len} {} to path: {}",
+            if len == 1 { "package" } else { "packages" },
             path.canonicalize().unwrap_or(path.to_path_buf()).display()
         );
 
