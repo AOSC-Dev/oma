@@ -355,12 +355,13 @@ impl Oma {
 
             let mut status = vec![];
 
-            if pkg.is_installed() {
-                status.push("installed".to_owned());
-            }
-
-            if pkg.is_auto_installed() {
-                status.push("automatic".to_owned());
+            if let Some(inst_ver) = pkg.installed() {
+                if ver == inst_ver {
+                    status.push("installed".to_owned());
+                    if pkg.is_auto_installed() {
+                        status.push("automatic".to_owned());
+                    }
+                }
             }
 
             if pkg.is_upgradable() {
