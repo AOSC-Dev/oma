@@ -485,6 +485,11 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             pkg_info_line.push_str(&style("(debug symbols available)").dim().to_string());
         }
 
+        if pkg_score == 1000 {
+            pkg_info_line.push(' ');
+            pkg_info_line.push_str(&style("[full match]").yellow().bold().to_string());
+        }
+
         output.push((
             prefix,
             pkg_info_line,
