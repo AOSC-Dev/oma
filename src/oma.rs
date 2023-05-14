@@ -2,6 +2,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Select};
 use either::Either;
+use glob_match::glob_match_with_captures;
 use indicatif::{HumanBytes, ProgressBar};
 use reqwest::Client;
 use rust_apt::{
@@ -36,8 +37,8 @@ use crate::{
     download::{oma_spinner, packages_download_runner},
     error,
     formatter::{
-        display_result, download_size, find_unmet_deps, find_unmet_deps_with_markinstall,
-        NoProgress, OmaAptInstallProgress, capitalize_str,
+        capitalize_str, display_result, download_size, find_unmet_deps,
+        find_unmet_deps_with_markinstall, NoProgress, OmaAptInstallProgress,
     },
     info,
     pager::Pager,
@@ -300,12 +301,20 @@ impl Oma {
         }
 
         let pkgs = match opt.packages {
-            Some(ref v) => Either::Left(
-                cache
-                    .packages(&sort)?
-                    .filter(|x| v.contains(&x.name().to_string())),
-            ),
-            None => Either::Right(cache.packages(&sort)?),
+            Some(ref v) => {
+                let p = cache.packages(&sort)?.collect::<Vec<_>>();
+                let mut res = vec![];
+                for i in v {
+                    for j in &p {
+                        if glob_match_with_captures(i, j.name()).is_some() {
+                            res.push(Package::new(&cache, j.unique()));
+                        }
+                    }
+                }
+
+                res
+            }
+            None => cache.packages(&sort)?.collect(),
         };
 
         let mut query_pkgs = vec![];
