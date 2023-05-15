@@ -5,7 +5,7 @@ use std::{
     time::SystemTime,
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use console::style;
 use grep::{
     regex::RegexMatcherBuilder,
@@ -180,14 +180,20 @@ pub fn find(kw: &str, is_list: bool, only_bin: bool) -> Result<Vec<(String, Stri
                                 ))
                             }
 
+                            let search_bin_name = kw.split('/').last()
+                                .context("BUG: can not parse search kwywprd: {kw}, Please report this to upstream:  https://github.com/aosc-dev/oma")?;
+                            
                             for j in submatches {
                                 let m = j.m.text;
                                 if let Some(l) = parse_line(&m, is_list, kw) {
                                     if only_bin {
                                         let last = l.1.split_whitespace().last();
-                                        if last != Some(kw)
-                                            && last != Some(&format!("/{kw}"))
-                                            && last != Some(&format!("./{kw}"))
+                                        let bin_name = last
+                                            .and_then(|x| x.split('/').last())
+                                            .context(format!("BUG: Contents entry: {} missing path last, Please report this to upstrem: https://github.com/aosc-dev/oma", l.1))?;
+
+                                        if strsim::jaro_winkler(search_bin_name, bin_name).abs()
+                                            < 0.9
                                         {
                                             continue;
                                         }
