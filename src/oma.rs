@@ -478,8 +478,8 @@ impl Oma {
         Ok(0)
     }
 
-    pub fn list_files(kw: &str) -> Result<i32> {
-        let res = find(kw, true, false)?;
+    pub fn list_files(kw: &str, bin: bool) -> Result<i32> {
+        let res = find(kw, true, false, bin)?;
 
         let height = WRITER.get_height();
 
@@ -504,8 +504,8 @@ impl Oma {
         Ok(0)
     }
 
-    pub fn search_file(kw: &str) -> Result<i32> {
-        let res = find(kw, false, false)?;
+    pub fn search_file(kw: &str, bin: bool) -> Result<i32> {
+        let res = find(kw, false, false, bin)?;
 
         let height = WRITER.get_height();
 
@@ -1192,7 +1192,7 @@ impl Oma {
 
     pub fn command_not_found(kw: &str) -> Result<i32> {
         let cache = new_cache!()?;
-        let f = find(&format!("usr/bin/{kw}"), false, true);
+        let f = find(&format!("usr/bin/{kw}"), false, true, true);
 
         let mut res = vec![];
 

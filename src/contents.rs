@@ -48,7 +48,7 @@ struct MatchValue {
     text: String,
 }
 
-pub fn find(kw: &str, is_list: bool, only_bin: bool) -> Result<Vec<(String, String)>> {
+pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(String, String)>> {
     let arch = ARCH.get().unwrap();
     let kw = if Path::new(kw).is_absolute() {
         kw.strip_prefix('/').unwrap()
@@ -67,7 +67,7 @@ pub fn find(kw: &str, is_list: bool, only_bin: bool) -> Result<Vec<(String, Stri
     let dir = std::fs::read_dir(&*APT_LIST_DISTS)?;
     let mut paths = Vec::new();
     for i in dir.flatten() {
-        if !only_bin {
+        if !cnf && !only_bin {
             if i.file_name()
                 .to_str()
                 .unwrap_or("")
@@ -123,7 +123,7 @@ pub fn find(kw: &str, is_list: bool, only_bin: bool) -> Result<Vec<(String, Stri
     let mut res = if which::which("rg").is_ok() {
         let mut res = vec![];
 
-        let pb = if !only_bin {
+        let pb = if !cnf {
             let pb = ProgressBar::new_spinner();
             oma_spinner(&pb);
             Some(pb)
@@ -186,7 +186,7 @@ pub fn find(kw: &str, is_list: bool, only_bin: bool) -> Result<Vec<(String, Stri
                             for j in submatches {
                                 let m = j.m.text;
                                 if let Some(l) = parse_line(&m, is_list, kw) {
-                                    if only_bin {
+                                    if cnf {
                                         let last = l.1.split_whitespace().last();
                                         let bin_name = last
                                             .and_then(|x| x.split('/').last())
@@ -241,7 +241,7 @@ pub fn find(kw: &str, is_list: bool, only_bin: bool) -> Result<Vec<(String, Stri
                 UTF8(|_, line| {
                     let line = parse_line(line, is_list, kw);
                     if let Some(l) = line {
-                        if only_bin && l.1.split_whitespace().last() != Some(kw) {
+                        if cnf && l.1.split_whitespace().last() != Some(kw) {
                             return Ok(true);
                         }
                         if !res.contains(&l) {

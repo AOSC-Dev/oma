@@ -222,7 +222,8 @@ pub fn command_builder() -> Command {
                         .action(ArgAction::Set)
                         .num_args(0..=1)
                         .required(true),
-                ),
+                )
+                .arg(Arg::new("bin").long("bin").help("Search binary of package(s)").action(ArgAction::SetTrue).requires("pattern"))
         )
         .subcommand(
             Command::new("provides")
@@ -233,7 +234,8 @@ pub fn command_builder() -> Command {
                         .action(ArgAction::Set)
                         .num_args(0..=1)
                         .required(true),
-                ),
+                )
+                .arg(Arg::new("bin").long("bin").help("Search binary of package(s)").action(ArgAction::SetTrue).requires("pattern"))
         )
         .subcommand(
             Command::new("fix-broken")

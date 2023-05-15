@@ -121,6 +121,7 @@ pub struct UpgradeOptions {
 pub struct ListFiles {
     /// Package name
     pub package: String,
+    pub bin: bool,
 }
 
 pub struct PickOptions {
@@ -137,6 +138,7 @@ pub struct PickOptions {
 pub struct Provides {
     /// Search keyword
     pub kw: String,
+    pub bin: bool,
 }
 
 pub struct RemoveOptions {
@@ -215,8 +217,8 @@ pub trait CommandMatcher {
             OmaCommand::Refresh => Oma::build_async_runtime()?.refresh(),
             OmaCommand::Show(v) => Oma::show(&v.packages, v.is_all),
             OmaCommand::Search(v) => Oma::search(&v.keyword.join(" ")),
-            OmaCommand::ListFiles(v) => Oma::list_files(&v.package),
-            OmaCommand::Provides(v) => Oma::search_file(&v.kw),
+            OmaCommand::ListFiles(v) => Oma::list_files(&v.package, v.bin),
+            OmaCommand::Provides(v) => Oma::search_file(&v.kw, v.bin),
             OmaCommand::FixBroken(v) => Oma::build_async_runtime()?.fix_broken(v),
             OmaCommand::Pick(v) => Oma::build_async_runtime()?.pick(v),
             OmaCommand::Mark(v) => Oma::mark(v),
@@ -348,9 +350,11 @@ impl CommandMatcher for OmaCommandRunner {
             }),
             Some(("list-files", args)) => OmaCommand::ListFiles(ListFiles {
                 package: args.get_one::<String>("package").unwrap().to_string(),
+                bin: args.get_flag("bin"),
             }),
             Some(("provides", args)) => OmaCommand::Provides(Provides {
                 kw: args.get_one::<String>("pattern").unwrap().to_string(),
+                bin: args.get_flag("bin"),
             }),
             Some(("fix-broken", args)) => OmaCommand::FixBroken(FixBroken {
                 dry_run: args.get_flag("dry_run"),
