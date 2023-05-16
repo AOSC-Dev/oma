@@ -1,7 +1,7 @@
 use std::process::exit;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
 use cli::Writer;
 use indicatif::MultiProgress;
@@ -29,9 +29,9 @@ mod pkg;
 #[cfg(feature = "aosc")]
 mod topics;
 
+mod i18n;
 mod utils;
 mod verify;
-mod i18n;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
@@ -45,6 +45,7 @@ static ARGS: Lazy<String> = Lazy::new(|| std::env::args().collect::<Vec<_>>().jo
 static MB: Lazy<Arc<MultiProgress>> = Lazy::new(|| Arc::new(MultiProgress::new()));
 
 static ARCH: OnceCell<String> = OnceCell::new();
+use i18n::I18N_LOADER;
 
 fn main() {
     // 初始化时区偏移量，这个操作不能在多线程环境下运行
@@ -74,9 +75,7 @@ fn main() {
 }
 
 fn try_main() -> Result<i32> {
-    let _ = ARCH
-        .get_or_try_init(get_arch_name)
-        .map_err(|e| anyhow!("Can not run dpkg --print-architecture, why: {e}"))?;
+    let _ = ARCH.get_or_try_init(get_arch_name)?;
 
     tracing::info!("Running oma with args: {}", *ARGS);
     let code = OmaCommandRunner::new().run()?;

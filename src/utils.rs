@@ -16,7 +16,7 @@ use rust_apt::util::DiskSpace;
 use indicatif::HumanBytes;
 use sysinfo::{Pid, System, SystemExt};
 
-use crate::{oma::Action, ARGS, DRYRUN};
+use crate::{oma::Action, ARGS, DRYRUN, fl};
 
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
@@ -24,7 +24,7 @@ pub fn get_arch_name() -> Result<String> {
     let dpkg = Command::new("dpkg")
         .arg("--print-architecture")
         .output()
-        .map_err(|e| anyhow!("Can not run dpkg, why: {e}"))?;
+        .map_err(|e| anyhow!(fl!("can-not-run-dpkg-print-arch", e = e.to_string())))?;
 
     if !dpkg.status.success() {
         bail!("dpkg return non-zero code: {:?}", dpkg.status.code());

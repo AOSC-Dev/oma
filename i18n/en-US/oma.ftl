@@ -1,0 +1,1 @@
+can-not-run-dpkg-print-arch = Can not run dpkg, why: {$e}

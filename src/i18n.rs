@@ -1,4 +1,3 @@
-use anyhow::Result;
 use i18n_embed::{
     fluent::{fluent_language_loader, FluentLanguageLoader},
     DesktopLanguageRequester, LanguageLoader,
@@ -19,14 +18,7 @@ macro_rules! fl {
     }};
 }
 
-pub static I18N_LOADER: Lazy<FluentLanguageLoader> =
-    load_i18n().expect("Unable to load i18n strings.");
-
-#[derive(RustEmbed)]
-#[folder = "i18n"]
-struct Localizations;
-
-fn load_i18n() -> Result<FluentLanguageLoader> {
+pub static I18N_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
     let language_loader: FluentLanguageLoader = fluent_language_loader!();
     let requested_languages = DesktopLanguageRequester::requested_languages();
     let fallback_language: &[LanguageIdentifier] = &["en-US".parse().unwrap()];
@@ -34,7 +26,12 @@ fn load_i18n() -> Result<FluentLanguageLoader> {
         .iter()
         .chain(fallback_language.iter())
         .collect();
-    language_loader.load_languages(&Localizations, &languages)?;
+    language_loader
+        .load_languages(&Localizations, &languages)
+        .expect("Unable to local i18n languager");
+    language_loader
+});
 
-    Ok(language_loader)
-}
+#[derive(RustEmbed)]
+#[folder = "i18n"]
+struct Localizations;
