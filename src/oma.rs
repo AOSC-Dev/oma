@@ -1,7 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Select};
-use either::Either;
 use glob_match::glob_match_with_captures;
 use indicatif::{HumanBytes, ProgressBar};
 use reqwest::Client;
@@ -1349,14 +1348,11 @@ impl Oma {
         let cache = new_cache!()?;
         let sort = PackageSort::default().names();
 
-        let pkgs = match s {
-            Some(ref s) => Either::Left(
-                cache
-                    .packages(&sort)?
-                    .filter(|x| x.name().starts_with(&**s)),
-            ),
-            None => Either::Right(cache.packages(&sort)?),
-        };
+        let mut pkgs: Box<dyn Iterator<Item = Package>> = Box::new(cache.packages(&sort)?);
+
+        if let Some(ref s) = s {
+            pkgs = Box::new(pkgs.filter(|x| x.name().starts_with(&*s)));
+        }
 
         for pkg in pkgs {
             println!("{}", pkg.name());

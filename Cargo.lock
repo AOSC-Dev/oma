@@ -1611,7 +1611,6 @@ dependencies = [
  "ctrlc",
  "debcontrol",
  "dialoguer",
- "either",
  "flate2",
  "fs4",
  "futures",
