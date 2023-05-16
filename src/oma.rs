@@ -1351,7 +1351,7 @@ impl Oma {
         let mut pkgs: Box<dyn Iterator<Item = _>> = Box::new(cache.packages(&sort)?);
 
         if let Some(ref s) = s {
-            pkgs = Box::new(pkgs.filter(|x| x.name().starts_with(&*s)));
+            pkgs = Box::new(pkgs.filter(|x| x.name().starts_with(&**s)));
         }
 
         for pkg in pkgs {
