@@ -31,6 +31,7 @@ mod topics;
 
 mod utils;
 mod verify;
+mod i18n;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
