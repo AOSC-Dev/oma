@@ -10,3 +10,9 @@ can-not-unlock-oma = Can not unlock oma! why: {$e}
 can-not-create-oma-log-dir = Can not create oma log directory, why: {$e}
 can-not-create-oma-log = Can not create oma history file, why: {$e}
 execute-pkexec-fail = Execute pkexec failed, why: {$e}
+
+# verify
+fail-load-certs-from-file = Failed to load certs from file {$path}
+cert-file-is-bad = A cert from file {$path} is bad
+inrelease-bad-signature = InRelease contains bad signature: {$e} 
+inrelease-must-signed = Malformed PGP signature, InRelease must be signed.

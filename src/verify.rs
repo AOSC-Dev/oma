@@ -11,6 +11,8 @@ use sequoia_openpgp::{
     Cert, KeyHandle,
 };
 
+use crate::fl;
+
 pub struct InReleaseVerifier {
     certs: Vec<Cert>,
     _mirror: String,
@@ -20,13 +22,13 @@ impl InReleaseVerifier {
     pub fn new<P: AsRef<Path>>(cert_paths: &[P], mirror: &str) -> Result<Self> {
         let mut certs: Vec<Cert> = Vec::new();
         for f in cert_paths {
-            for maybe_cert in CertParser::from_file(f).context(format!(
-                "Failed to load certs from file {:?}",
-                f.as_ref().display()
+            for maybe_cert in CertParser::from_file(f).context(fl!(
+                "fail-load-certs-from-file",
+                path = f.as_ref().display().to_string()
             ))? {
-                certs.push(maybe_cert.context(format!(
-                    "A cert from file {:?} is bad",
-                    f.as_ref().display()
+                certs.push(maybe_cert.context(fl!(
+                    "cert-file-is-bad",
+                    path = f.as_ref().display().to_string()
                 ))?);
             }
         }
@@ -48,11 +50,11 @@ impl VerificationHelper for InReleaseVerifier {
             if let MessageLayer::SignatureGroup { results } = layer {
                 for r in results {
                     if let Err(e) = r {
-                        bail!("InRelease contains bad signature: {} .", e)
+                        bail!(fl!("inrelease-bad-signature", e = e.to_string()))
                     }
                 }
             } else {
-                bail!("Malformed PGP signature, InRelease must be signed.")
+                bail!(fl!("inrelease-must-signed"))
             }
         }
 
