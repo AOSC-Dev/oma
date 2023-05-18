@@ -34,7 +34,7 @@ use crate::{
     contents::find,
     db::{get_sources, update_db_runner, DOWNLOAD_DIR},
     download::{oma_spinner, packages_download_runner},
-    error,
+    error, fl,
     formatter::{
         capitalize_str, display_result, download_size, find_unmet_deps,
         find_unmet_deps_with_markinstall, NoProgress, OmaAptInstallProgress,
@@ -166,7 +166,7 @@ impl Oma {
                 apt_handler(&cache, false, false, u.no_autoremove)?;
 
             if len == 0 && !need_fix_system {
-                success!("No need to do anything.");
+                success!("{}", fl!("no-need-to-do-anything"));
                 return Ok(action);
             }
 
@@ -203,7 +203,7 @@ impl Oma {
                     match e {
                         InstallError::Anyhow(e) => return Err(e),
                         InstallError::RustApt(e) => {
-                            warn!("apt has retrn non-zero code, retrying {count} times");
+                            warn!("{}", fl!("retry-apt", count = count));
                             // Retry 3 times, if Error is rust_apt return
                             if count == 3 {
                                 return Err(e.into());
@@ -221,15 +221,13 @@ impl Oma {
                     log_to_file(&v, &start_time, &end_time)?;
 
                     if u.dpkg_force_all && cache.depcache().broken_count() != 0 {
-                        return Err(
-                            error_due_to(
-                                "Your system has broken dependencie",
-                            format!(
-                                    "Try to use {} to fix broken dependencies,If this does not work, please contact upstream: https://github.com/aosc-dev/aosc-os-abbs", 
-                                    style("oma fix-broken").green().bold()
-                                )
-                            )
-                        );
+                        return Err(error_due_to(
+                            fl!("system-has-broken-dep"),
+                            fl!(
+                                "system-has-broken-dep-due-to",
+                                cmd = style("oma fix-broken").green().bold().to_string()
+                            ),
+                        ));
                     }
 
                     return Ok(0);
@@ -387,10 +385,8 @@ impl Oma {
             let len = pkg.versions().collect::<Vec<_>>().len();
 
             if !opt.all && len > 1 && result_len == 1 {
-                info!(
-                    "There is {} additional version. Please use the '-a' switch to see it",
-                    len - 1
-                );
+                let len = len - 1;
+                info!("{}", fl!("additional-version", len = len));
             }
         }
 
@@ -409,7 +405,7 @@ impl Oma {
             len = oma_pkg.len();
 
             if len == 0 {
-                warn!("Could not find any package for keyword {c}");
+                warn!("{}", fl!("could-not-find-pkg-from-keyword", c = c.as_str()));
             }
 
             for (i, (entry, is_cand)) in oma_pkg.into_iter().enumerate() {
@@ -427,7 +423,6 @@ impl Oma {
                     s += &format!("{k}: {v}\n");
                 }
                 s += &format!("Download-Size: {}\n", entry.download_size);
-                // s += &format!("APT-Sources: {:?}\n", entry.apt_sources);
                 if entry.apt_sources.len() == 1 {
                     let source = &entry.apt_sources[0];
                     s += &format!(
@@ -457,10 +452,8 @@ impl Oma {
         print!("{s}");
 
         if !is_all && len > 1 {
-            info!(
-                "There are {} additional records. Please use the '-a' switch to see them.",
-                len - 1
-            );
+            let len = len - 1;
+            info!("{}", fl!("additional-version", len = len));
         }
 
         if s.is_empty() {
@@ -546,7 +539,7 @@ impl Oma {
         let (action, len, need_fixsystem) = apt_handler(&cache, false, false, false)?;
 
         if len == 0 && !need_fixsystem {
-            info!("No need to do anything");
+            info!("{}", fl!("no-need-to-do-anything"));
             return Ok(0);
         }
 
@@ -586,7 +579,7 @@ impl Oma {
         for c in list {
             let oma_pkg = query_pkgs(&cache, c)?;
             if oma_pkg.is_empty() {
-                bail!("Could not find any package for: {}", c);
+                bail!(fl!("could-not-find-pkg-from-keyword", c = c.as_str()));
             }
 
             res.extend(oma_pkg);
@@ -644,7 +637,7 @@ impl Oma {
         for c in list {
             let oma_pkg = query_pkgs(&cache, c)?;
             if oma_pkg.is_empty() {
-                bail!("Could not find any package for: {}", c);
+                bail!(fl!("could-not-find-pkg-from-keyword", c = c.as_str()));
             }
 
             res.extend(oma_pkg);
@@ -668,9 +661,9 @@ impl Oma {
                     let k = if k.ends_with('e') {
                         format!("{k}d by")
                     } else if k == "Break" {
-                        "Broken by".to_string()
+                        fl!("broken-by")
                     } else if k == "PreDepend" {
-                        "Pre-depended by".to_string()
+                        fl!("pre-depended-by")
                     } else {
                         format!("{k}ed by")
                     };
@@ -787,9 +780,16 @@ impl Oma {
         let len = v.packages.len();
 
         success!(
-            "Successfully downloaded {len} {} to path: {}",
-            if len == 1 { "package" } else { "packages" },
-            path.canonicalize().unwrap_or(path.to_path_buf()).display()
+            "{}",
+            fl!(
+                "successfully-download-to-path",
+                len = len,
+                path = path
+                    .canonicalize()
+                    .unwrap_or(path.to_path_buf())
+                    .display()
+                    .to_string()
+            )
         );
 
         Ok(0)
@@ -810,7 +810,7 @@ impl Oma {
         let (action, len, need_fixsystem) = apt_handler(&cache, opt.no_fixbroken, false, true)?;
 
         if len == 0 && !need_fixsystem {
-            success!("No need to do anything.");
+            success!("{}", fl!("no-need-to-do-anything"));
             return Ok(action);
         }
 
@@ -863,7 +863,7 @@ impl Oma {
         for i in &r.packages {
             let pkg = cache.get(i).context(format!("Can not get package {i}"))?;
             if !pkg.is_installed() {
-                info!("Package {i} is not installed, so no need to remove.");
+                info!("{}", fl!("no-need-to-remove", name = pkg.name()));
                 continue;
             }
             mark_delete(&pkg, !r.keep_config)?;
@@ -873,7 +873,7 @@ impl Oma {
             apt_handler(&cache, false, !r.keep_config, r.no_autoremove)?;
 
         if len == 0 && !need_fixsystem {
-            success!("No need to do anything.");
+            success!("{}", fl!("no-need-to-do-anything"));
             return Ok(0);
         }
 
@@ -923,19 +923,19 @@ impl Oma {
 
         let mut output = vec![];
         if !upgradable.is_empty() {
-            output.push(format!("{} package(s) can be upgraded", upgradable.len()));
+            output.push(fl!("packages-can-be-upgrade", len = upgradable.len()));
         }
 
         if !autoremove.is_empty() {
-            output.push(format!("{} package(s) can be removed", autoremove.len()));
+            output.push(fl!("packages-can-be-removed", len = autoremove.len()));
         }
 
         if !output.is_empty() {
-            output.push("Run 'oma upgrade' to see it".to_string());
-            let s = output.join(", ") + ".";
-            success!("Successfully refreshed package database. {s}");
+            output.push(fl!("run-oma-upgrade-tips"));
+            let s = output.join(fl!("comma").as_str()) + fl!("full-comma").as_str();
+            success!("{}", fl!("successfully-refresh-with-tips", s = s.as_str()));
         } else {
-            success!("Successfully refreshed package database. No update available.");
+            success!("{}", fl!("successfully-refresh"));
         }
 
         Ok(0)
@@ -960,7 +960,7 @@ impl Oma {
         let cache = new_cache!()?;
         let pkg = cache
             .get(&p.package)
-            .context(format!("Can not get package: {}", p.package))?;
+            .context(fl!("can-not-get-pkg-from-database", name = p.package))?;
 
         let versions = pkg.versions().collect::<Vec<_>>();
 
@@ -1073,15 +1073,15 @@ impl Oma {
         fn check(cache: &Cache, pkg: &str) -> Result<()> {
             let package = cache.get(pkg);
             if package.is_none() {
-                bail!("Can not get package {pkg}")
+                bail!(fl!("can-not-get-pkg-from-database", name = pkg))
             }
             let package = package.unwrap();
             if package.candidate().is_none() {
-                bail!("{pkg} has no candidate version.");
+                bail!(fl!("no-candidate-ver", pkg = pkg));
             }
             package
                 .installed()
-                .context(format!("{pkg} is not installed!"))?;
+                .context(fl!("pkg-is-not-installed", pkg = pkg))?;
 
             Ok(())
         }
@@ -1100,15 +1100,15 @@ impl Oma {
                     let v = selections
                         .iter()
                         .find(|x| x.0 == i)
-                        .context("dpkg data is broken!")?;
+                        .context(fl!("dpkg-data-is-broken"))?;
 
                     if v.1 == "hold" {
-                        info!("{} is already hold!", i);
+                        info!("{}", fl!("already-hold", name = i.as_str()));
                         continue;
                     }
 
                     dpkg_set_selections(&i, "hold")?;
-                    success!("{} is set to hold.", i);
+                    success!("{}", fl!("set-to-hold", name = i.as_str()));
                 }
             }
             MarkAction::Unhold(args) => {
@@ -1121,15 +1121,15 @@ impl Oma {
                     let v = selections
                         .iter()
                         .find(|x| x.0 == i)
-                        .context("dpkg data is broken!")?;
+                        .context(fl!("dpkg-data-is-broken"))?;
 
                     if v.1 == "install" {
-                        info!("{} is already unhold!", i);
+                        info!("{}", fl!("already-unhold", name = i.as_str()));
                         continue;
                     }
 
                     dpkg_set_selections(&i, "unhold")?;
-                    success!("{} is set to unhold.", i);
+                    success!("{}", fl!("set-to-unhold", name = i.as_str()));
                 }
             }
             MarkAction::Manual(args) => {
@@ -1140,10 +1140,10 @@ impl Oma {
                 for i in args.pkgs {
                     let pkg = cache.get(&i).unwrap();
                     if !pkg.is_auto_installed() {
-                        info!("{i} is already manual installed status.");
+                        info!("{}", fl!("already-manual", name = i.as_str()));
                         continue;
                     }
-                    info!("Setting {i} to manual installed status ...");
+                    info!("{}", fl!("setting-manual"));
                     pkg.mark_auto(false);
                 }
 
@@ -1166,10 +1166,10 @@ impl Oma {
                 for i in args.pkgs {
                     let pkg = cache.get(&i).unwrap();
                     if pkg.is_auto_installed() {
-                        info!("{i} is already auto installed status.");
+                        info!("{}", fl!("already-auto", name = i.as_str()));
                         continue;
                     }
-                    info!("Setting {i} to auto installed status ...");
+                    info!("{}", fl!("setting-auto", name = i.as_str()));
                     pkg.mark_auto(true);
                 }
 
@@ -1217,7 +1217,8 @@ impl Oma {
             println!(
                 "{}",
                 style(format!(
-                    "Command not found: {kw}. This command may be found from the following package(s):\n"
+                    "{}\n",
+                    fl!("command-not-found-with-result", kw = kw)
                 ))
                 .bold()
             );
@@ -1226,7 +1227,7 @@ impl Oma {
                 println!("{i}");
             }
         } else {
-            error!("Command not found: {kw}");
+            error!("{}", fl!("command-not-found", kw = kw));
         }
 
         Ok(127)
@@ -1252,7 +1253,7 @@ impl Oma {
         std::fs::remove_file(p.join("pkgcache.bin")).ok();
         std::fs::remove_file(p.join("srcpkgcache.bin")).ok();
 
-        success!("Clean successfully.");
+        success!("{}", fl!("clean-successfully"));
 
         Ok(0)
     }
@@ -1431,7 +1432,8 @@ fn dpkg_selections() -> Result<Vec<(String, String)>> {
 
     if !output.status.success() {
         bail!(
-            "dpkg --get-selections return non-zero code.\n{}",
+            "{}\n{}",
+            fl!("dpkg-get-selections-non-zero"),
             String::from_utf8_lossy(&output.stderr)
         )
     }
@@ -1443,8 +1445,8 @@ fn dpkg_selections() -> Result<Vec<(String, String)>> {
 
     for i in seclections {
         let mut split = i.split_whitespace();
-        let name = split.next().context("line is broken: {i}")?;
-        let status = split.next().context("line is broken: {i}")?;
+        let name = split.next().context(fl!("can-not-parse-line", i = i))?;
+        let status = split.next().context(fl!("can-not-parse-line", i = i))?;
 
         list.push((name.to_string(), status.to_string()));
     }
@@ -1492,7 +1494,8 @@ fn apt_install(
         let e = e.to_string();
         if e.contains("dpkg --configure -a") {
             info!(
-                "dpkg was interrupted, running {} ...",
+                "{} {} ...",
+                fl!("dpkg-was-interrupted"),
                 style("dpkg --configure -a").green().bold()
             );
             let cmd = Command::new("dpkg")
@@ -1503,7 +1506,8 @@ fn apt_install(
 
             if !cmd.status.success() {
                 InstallError::Anyhow(anyhow!(
-                    "Running `dpkg --configure -a` return non-zero code: {}",
+                    "{} {}",
+                    fl!("dpkg-configure-a-non-zero"),
                     cmd.status.code().unwrap()
                 ));
             }
@@ -1513,7 +1517,7 @@ fn apt_install(
     }
 
     let pb = MB.add(ProgressBar::new_spinner());
-    pb.set_message("Verifying the integrity of packages ...");
+    pb.set_message(fl!("verifying-the-interity-of-pkgs"));
     oma_spinner(&pb);
 
     cache.get_archives(&mut NoProgress::new_box())?;
@@ -1537,7 +1541,7 @@ fn apt_install(
 }
 
 fn yes_warn() {
-    warn!("Now you are using automatic mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
+    warn!("{}", fl!("automatic-mode-warn"));
 }
 
 /// Handle user input, find pkgs
@@ -1577,7 +1581,7 @@ fn install_handle(
     for i in list {
         let i_res = query_pkgs(&cache, i)?;
         if i_res.is_empty() {
-            bail!("Package {i} does not exist.");
+            bail!(fl!("can-not-get-pkg-from-database", name = i.as_str()));
         }
         pkgs.extend(i_res);
         tracing::info!("Select pkg: {i}");
@@ -1630,7 +1634,10 @@ fn install_handle(
                 Some(&pb),
             )?;
         } else if install_dbg && !pkginfo.has_dbg {
-            warn!("{} has no debug symbol package!", &pkginfo.package);
+            warn!(
+                "{}",
+                fl!("has-no-symbol-pkg", name = pkginfo.package.as_str())
+            );
         }
     }
 
@@ -1667,8 +1674,7 @@ fn install_other(
                         pkg.candidate()
                     };
 
-                    let version = version
-                        .context(format!("Can not get version of package: {}", pkg.name()))?;
+                    let version = version.context(fl!("pkg-no-version", name = pkg.name()))?;
 
                     let pkginfo = PkgInfo::new(cache, version.unique(), &pkg)?;
                     tracing::info!("Select pkg: {}", j.name);
@@ -1808,10 +1814,10 @@ fn apt_handler(
 
     for pkg in changes {
         if pkg.marked_install() {
-            let cand = pkg.candidate().take().context(format!(
-                "Can not get package version in apt database: {}",
-                pkg.name()
-            ))?;
+            let cand = pkg
+                .candidate()
+                .take()
+                .context(fl!("pkg-no-version", name = pkg.name()))?;
 
             let size = cand.installed_size();
             let human_size = format!("+{}", HumanBytes(size));
@@ -1843,10 +1849,10 @@ fn apt_handler(
         }
 
         if pkg.marked_upgrade() {
-            let cand = pkg.candidate().take().context(format!(
-                "Can not get package version in apt database: {}",
-                pkg.name()
-            ))?;
+            let cand = pkg
+                .candidate()
+                .take()
+                .context(fl!("pkg-no-version", name = pkg.name()))?;
 
             let version = cand.version();
 
@@ -1897,15 +1903,15 @@ fn apt_handler(
             let mut v = Vec::new();
 
             if autoremove_list.contains(&pkg.name().to_string()) {
-                v.push("removed as unneeded dependency");
+                v.push(fl!("removed-as-unneed-dep"));
             }
 
             if is_purge {
-                v.push("purge configuration files");
+                v.push(fl!("purge-file"));
             }
 
             let s = if !v.is_empty() {
-                let v = v.join("; ");
+                let v = v.join(&format!("{} ", fl!("semicolon").as_str()));
                 capitalize_str(v)
             } else {
                 "".to_string()
@@ -1942,26 +1948,25 @@ fn apt_handler(
 
         if pkg.marked_downgrade() {
             let raw_pkg = pkg.unique();
-            let cand = pkg.candidate().take().context(format!(
-                "Can not get package version in apt database: {}",
-                pkg.name()
-            ))?;
+            let cand = pkg
+                .candidate()
+                .take()
+                .context(fl!("pkg-no-version", name = pkg.name()))?;
 
             let version = cand.version();
 
             let old_pkg = pkg
                 .installed()
-                .context(format!("Can not get installed version: {}", pkg.name()))?;
+                .context(fl!("should-installed", name = pkg.name()))?;
 
             let old_version = old_pkg.version();
             let old_size = old_pkg.installed_size() as i64;
 
             let pkg = Package::new(cache, raw_pkg);
 
-            let new_pkg = pkg.get_version(version).context(format!(
-                "Can not get package version in apt database: {}",
-                pkg.name()
-            ))?;
+            let new_pkg = pkg
+                .get_version(version)
+                .context(fl!("pkg-no-version", name = pkg.name()))?;
 
             let new_size = new_pkg.installed_size() as i64;
             let size = new_size - old_size;
