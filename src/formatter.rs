@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use std::{io::Write, sync::atomic::Ordering};
+use std::{format, io::Write, sync::atomic::Ordering};
 
 use console::{style, Color};
 use indicatif::HumanBytes;
@@ -24,6 +24,7 @@ use tabled::{
 use std::cmp::Ordering as CmpOrdering;
 
 use crate::{
+    fl,
     oma::{Action, InstallRow},
     pager::Pager,
     pkg::OmaDependency,
@@ -94,7 +95,7 @@ impl AcquireProgress for NoProgress {
         _pending_errors: bool,
     ) {
         if fetched_bytes != 0 {
-            warn!("Download is not done, running apt download ...\nIf you are not install package from local sources/local packages, Please run debug mode and report to upstream: https://github.com/aosc-dev/oma");
+            warn!("{}", fl!("download-not-done"));
             tracing::debug!(
                 "Fetched {} in {} ({}/s)",
                 unit_str(fetched_bytes, NumSys::Decimal),
@@ -135,13 +136,13 @@ impl OmaAptInstallProgress {
         }
 
         if force_yes {
-            warn!("Now you are using FORCE automatic mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
+            warn!("{}", fl!("force-auto-mode"));
             config.set("APT::Get::force-yes", "true");
             tracing::debug!("APT::Get::force-Yes is set to true");
         }
 
         if dpkg_force_all {
-            warn!("Now you are using DPKG FORCE ALL mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!");
+            warn!("{}", fl!("dpkg-force-all-mode"));
             config.set("Dpkg::Options::", "--force-all");
             tracing::debug!("Dpkg::Options:: is set to --force-all");
         }
@@ -269,7 +270,7 @@ pub fn find_unmet_deps_with_markinstall(
                 if dep_pkg.is_none() {
                     v.push(UnmetTable {
                         package: style(&d.name).red().bold().to_string(),
-                        unmet_dependency: format!("Dep: {} does not exist", d.name),
+                        unmet_dependency: fl!("dep-does-not-exist", name = d.name.as_str()),
                         specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
                     })
                 }
@@ -278,7 +279,7 @@ pub fn find_unmet_deps_with_markinstall(
                     if dep_pkg.candidate().is_none() {
                         v.push(UnmetTable {
                             package: style(&d.name).red().bold().to_string(),
-                            unmet_dependency: format!("Dep: {} does not exist", d.name),
+                            unmet_dependency: fl!("dep-does-not-exist", name = d.name.as_str()),
                             specified_dependency: format!(
                                 "{} {}",
                                 ver.parent().name(),
@@ -299,7 +300,7 @@ pub fn find_unmet_deps_with_markinstall(
                 if dep_pkg.is_none() {
                     v.push(UnmetTable {
                         package: style(&d.name).red().bold().to_string(),
-                        unmet_dependency: format!("Dep: {} does not exist", d.name),
+                        unmet_dependency: fl!("dep-does-not-exist", name = d.name.as_str()),
                         specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
                     })
                 }
@@ -308,7 +309,7 @@ pub fn find_unmet_deps_with_markinstall(
                     if dep_pkg.candidate().is_none() {
                         v.push(UnmetTable {
                             package: style(&d.name).red().bold().to_string(),
-                            unmet_dependency: format!("Dep: {} does not exist", d.name),
+                            unmet_dependency: fl!("dep-does-not-exist", name = d.name.as_str()),
                             specified_dependency: format!(
                                 "{} {}",
                                 ver.parent().name(),
@@ -338,8 +339,8 @@ pub fn find_unmet_deps_with_markinstall(
 
             writeln!(
                 out,
-                "{} package(s) has {}\n",
-                v.len(),
+                "{} {}\n",
+                fl!("count-pkg-has-desc", count = v.len()),
                 style("unmet dependencies:").red().bold()
             )
             .ok();
@@ -413,8 +414,8 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
 
         writeln!(
             out,
-            "{} package(s) has {}\n",
-            v.len(),
+            "{} {}\n",
+            fl!("count-pkg-has-desc", count = v.len()),
             style("unmet dependencies:").red().bold()
         )
         .ok();
@@ -430,22 +431,17 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
 
 pub fn write_dep_issue_msg(out: &mut dyn Write) -> Result<()> {
     ALLOWCTRLC.store(true, Ordering::Relaxed);
-    writeln!(out, "{:<80}\n", style("Dependency Error").on_red().bold())?;
-    writeln!(out, "Omakase has detected dependency errors(s) in your system and cannot proceed with\nyour specified operation(s). This may be caused by missing or mismatched\npackages, or that you have specified a version of a package that is not\ncompatible with your system.\n")?;
+    writeln!(out, "{:<80}\n", style(fl!("dep-error")).on_red().bold())?;
     writeln!(
         out,
-        "Please contact your system administrator or developer\n"
+        "{}\n{}\n{}\n",
+        fl!("dep-error-desc-1"),
+        fl!("dep-error-desc-2"),
+        fl!("dep-error-desc-3")
     )?;
-    writeln!(
-        out,
-        "    {}",
-        style("Press [q] or [Ctrl-c] to abort.").bold()
-    )?;
-    writeln!(
-        out,
-        "    {}\n\n",
-        style("Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.").bold()
-    )?;
+    writeln!(out, "{}\n", fl!("contact-admin-tips"))?;
+    writeln!(out, "    {}", style(fl!("how-to-abort")).bold())?;
+    writeln!(out, "    {}\n\n", style(fl!("how-to-op-with-x")).bold())?;
 
     Ok(())
 }
@@ -774,18 +770,17 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if pager_name == Some("less") {
         let has_x11 = std::env::var("DISPLAY");
 
+        let line1 = format!("    {}", fl!("end-review"));
+        let line2 = format!("    {}", fl!("cc-to-abort"));
+
         if has_x11.is_ok() {
-            let line1 = "    Press [q] to end review";
-            let line2 = "    Press [Ctrl-c] to abort";
-            let line3 = "    Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.\n\n";
+            let line3 = format!("   {}\n\n", fl!("how-to-op-with-x"));
 
             writeln!(out, "{}", style(line1).bold()).ok();
             writeln!(out, "{}", style(line2).bold()).ok();
             writeln!(out, "{}", style(line3).bold()).ok();
         } else {
-            let line1 = "    Press [q] to end review";
-            let line2 = "    Press [Ctrl-c] to abort";
-            let line3 = "    Press [PgUp/Dn] or arrow keys to scroll.\n\n";
+            let line3 = format!("   {}\n\n", fl!("how-to-op"));
 
             writeln!(out, "{}", style(line1).bold()).ok();
             writeln!(out, "{}", style(line2).bold()).ok();
@@ -796,9 +791,9 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !del.is_empty() {
         writeln!(
             out,
-            "{} packages will be {}:\n",
-            del.len(),
-            style("REMOVED").red().bold()
+            "{} {}",
+            fl!("count-pkg-has-desc", count = del.len()),
+            style(fl!("removed")).red().bold()
         )
         .ok();
 
@@ -815,9 +810,9 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !install.is_empty() {
         writeln!(
             out,
-            "{} packages will be {}:\n",
-            install.len(),
-            style("installed").green().bold()
+            "{} {}",
+            fl!("count-pkg-has-desc", count = install.len()),
+            style(fl!("installed")).green().bold()
         )?;
 
         let mut table = Table::new(&install);
@@ -835,9 +830,9 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !update.is_empty() {
         writeln!(
             out,
-            "{} packages will be {}:\n",
-            update.len(),
-            style("upgraded").color256(87)
+            "{} {}",
+            fl!("count-pkg-has-desc", count = update.len()),
+            style(fl!("upgrade")).color256(87)
         )?;
 
         let mut table = Table::new(&update);
@@ -855,9 +850,9 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !downgrade.is_empty() {
         writeln!(
             out,
-            "{} packages will be {}:\n",
-            downgrade.len(),
-            style("downgraded").yellow().bold()
+            "{} {}",
+            fl!("count-pkg-has-desc", count = downgrade.len()),
+            style(fl!("downgraded")).yellow().bold()
         )?;
 
         let mut table = Table::new(&downgrade);
@@ -875,9 +870,9 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !reinstall.is_empty() {
         writeln!(
             out,
-            "{} packages will be {}:\n",
-            reinstall.len(),
-            style("reinstall").blue().bold()
+            "{} {}",
+            fl!("count-pkg-has-desc", count = reinstall.len()),
+            style(fl!("reinstall")).blue().bold()
         )?;
 
         let mut table = Table::new(&reinstall);
@@ -900,7 +895,7 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     writeln!(
         out,
         "{} {}",
-        style("Total download size:").bold(),
+        style(fl!("total-download-size")).bold(),
         HumanBytes(download_size(&list, cache)?)
     )
     .ok();
@@ -913,7 +908,7 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     writeln!(
         out,
         "{} {}{}",
-        style("Estimated change in storage usage:").bold(),
+        style(fl!("change-storage-usage")).bold(),
         symbol,
         HumanBytes(abs_install_size_change)
     )
@@ -937,13 +932,15 @@ pub fn download_size(install_and_update: &[InstallRow], cache: &Cache) -> Result
     let mut result = 0;
 
     for i in install_and_update {
-        let pkg = cache
-            .get(&i.name_no_color)
-            .context(format!("Can not get package {}", i.name_no_color))?;
+        let pkg = cache.get(&i.name_no_color).context(fl!(
+            "can-not-get-pkg-from-database",
+            name = i.name_no_color.as_str()
+        ))?;
 
-        let ver = pkg.get_version(&i.new_version).context(format!(
-            "Can not get package {} version {}",
-            i.name_no_color, i.new_version
+        let ver = pkg.get_version(&i.new_version).context(fl!(
+            "can-not-get-pkg-version-from-database",
+            name = i.name_no_color.as_str(),
+            version = i.new_version.as_str()
         ))?;
 
         let size = ver.size();
@@ -959,20 +956,28 @@ fn write_review_help_message(w: &mut dyn Write, pager_name: Option<&str>) -> Res
         writeln!(
             w,
             "{:<80}",
-            style("Pending Operations").bold().bg(Color::Color256(25))
+            style(fl!("pending-op")).bold().bg(Color::Color256(25))
         )?;
     }
 
     writeln!(w)?;
-    writeln!(w, "Shown below is an overview of the pending changes Omakase will apply to your\nsystem, please review them carefully.\n")?;
     writeln!(
         w,
-        "Omakase may {}, {}, {}, {}, or {} packages in order\nto fulfill your requested changes.",
-        style("install").green(),
-        style("remove").red(),
-        style("upgrade").color256(87),
-        style("downgrade").yellow(),
-        style("reinstall").blue()
+        "{}",
+        format!("{}\n{}\n", fl!("review-msg-1"), fl!("review-msg-2"))
+    )?;
+    writeln!(
+        w,
+        "{}\n{}",
+        fl!(
+            "oma-may-1",
+            a = style(fl!("install")).green().to_string(),
+            b = style(fl!("remove")).red().to_string(),
+            c = style(fl!("upgrade")).color256(87).to_string(),
+            d = style(fl!("downgrade")).yellow().to_string(),
+            e = style(fl!("reinstall")).blue().to_string()
+        ),
+        fl!("oma-may-2")
     )?;
     writeln!(w)?;
 

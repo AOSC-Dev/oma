@@ -90,3 +90,36 @@ should-installed = BUG: package {$name} should installed, please report this to 
 
 # main
 user-aborted-op = User aborted the operation
+
+# formatter
+download-not-done = Download is not done, running apt download ...\nIf you are not install package from local sources/local packages, Please run debug mode and report to upstream: https://github.com/aosc-dev/oma
+force-auto-mode = Now you are using FORCE automatic mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!
+dpkg-force-all-mode = Now you are using DPKG FORCE ALL mode, if this is not your intention, press Ctrl + C to stop the operation!!!!!
+dep-does-not-exist = Dep: {$name} does not exist
+count-pkg-has-desc = {$count} package(s) has
+dep-error = Dependency Error
+dep-error-desc-1 = Omakase has detected dependency errors(s) in your system and cannot proceed with
+dep-error-desc-2 = your specified operation(s). This may be caused by missing or mismatched\npackages, or that you have specified a version of a package that is not
+dep-error-desc-3 = compatible with your system.
+contact-admin-tips = Please contact your system administrator or developer
+how-to-abort = Press [q] or [Ctrl-c] to abort.
+how-to-op-with-x = Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.
+end-review = Press [q] to end review
+cc-to-abort = Press [Ctrl-c] to abort
+how-to-op = Press [PgUp/Dn] or arrow keys to scroll.
+total-download-size = Total download size:
+change-storage-usage = Estimated change in storage usage:
+pending-op = Pending Operations
+review-msg-1 = Shown below is an overview of the pending changes Omakase will apply to your
+review-msg-2 = system, please review them carefully.
+removed = REMOVED
+installed = installed
+upgrade = upgrade
+downgraded = downgraded
+reinstall = reinstall
+oma-may-1 = Omakase may {$a}, {$b}, {$c}, {$d}, or {$e} packages in order
+oma-may-2 = to fulfill your requested changes.
+install = install
+remove = remove
+upgrade = upgrade
+downgrade = downgrade

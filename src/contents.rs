@@ -97,7 +97,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
 
     if paths.is_empty() {
         bail!(
-            "Contents database does not exist!\nPlease use {} to refresh the contents.",
+            "Contents database does not exist! Please use {} to refresh the contents.",
             style("oma refresh").green()
         );
     }
