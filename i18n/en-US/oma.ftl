@@ -34,6 +34,11 @@ debug-symbol-available = (debug symbols available)
 full-match = full match
 already-installed = {$name} {$version} os already installed
 can-not-mark-reinstall = Pkg: {$name} {$version} cannot be marked for reinstallation as the specified version {$version} could not be found in any enabled repository.
-mayble-dep-issue =  {$name} can't marked installed! maybe dependency issue?
+mayble-dep-issue = {$name} can't marked installed! maybe dependency issue?
 pkg-is-essential = Pkg {$name} is essential, so can not mark it as deleted
 
+# pager
+question-tips-with-x11 = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
+normal-tips-with-x11 = "Press [q] or [Ctrl-c] to exit, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
+question-tips = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn] or arrow keys to scroll.
+normal-tips = Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll.

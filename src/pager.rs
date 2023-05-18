@@ -1,6 +1,8 @@
 use anyhow::{format_err, Result};
 use std::{env::var, io::Write, process::Child, sync::atomic::Ordering};
 
+use crate::fl;
+
 pub enum Pager {
     Plain,
     External((String, Child)),
@@ -28,14 +30,14 @@ impl Pager {
 
         let tips = if has_x11.is_ok() {
             if is_question {
-                "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll."
+                fl!("question-tips-with-x11")
             } else {
-                "Press [q] or [Ctrl-c] to exit, [PgUp/Dn], arrow keys, or mouse wheel to scroll."
+                fl!("normal-tips-with-x11")
             }
         } else if is_question {
-            "Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn] or arrow keys to scroll."
+            fl!("question-tips")
         } else {
-            "Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll."
+            fl!("normal-tips")
         };
 
         if pager_name == &"less" {
