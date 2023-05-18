@@ -17,7 +17,7 @@ use std::{
 };
 
 use crate::{
-    cli::gen_prefix, formatter::find_unmet_deps_with_markinstall, info, pager::Pager,
+    cli::gen_prefix, fl, formatter::find_unmet_deps_with_markinstall, info, pager::Pager,
     utils::apt_style_url, ALLOWCTRLC,
 };
 
@@ -147,25 +147,29 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
     let mut res = Vec::new();
     if input.contains('=') {
         let mut split_arg = input.split('=');
-        let name = split_arg.next().context(format!("Not Support: {input}"))?;
-        let pkg = get_real_pkg(cache, name).context(format!("Can not get package: {name}"))?;
+        let name = split_arg.next().unwrap();
+        let pkg =
+            get_real_pkg(cache, name).context(fl!("can-not-get-pkg-from-database", name = name))?;
         let pkg = Package::new(cache, pkg);
 
         let version_str = split_arg.collect::<String>();
 
-        let version = pkg
-            .get_version(&version_str)
-            .context(format!("Can not get pkg {name} version {version_str}"))?;
+        let version = pkg.get_version(&version_str).context(fl!(
+            "can-not-get-pkg-version-from-database",
+            name = pkg.name(),
+            version = version_str
+        ))?;
 
         let oma_pkg = PkgInfo::new(cache, version.unique(), &pkg)?;
 
         res.push((oma_pkg, true));
     } else if input.contains('/') && !input.ends_with(".deb") {
         let mut split_arg = input.split('/');
-        let name = split_arg.next().context(format!("Not Support: {input}"))?;
+        let name = split_arg.next().unwrap();
         let branch = split_arg.collect::<String>();
 
-        let pkg = get_real_pkg(cache, name).context(format!("Can not get package: {name}"))?;
+        let pkg =
+            get_real_pkg(cache, name).context(fl!("can-not-get-pkg-from-database", name = name))?;
         let pkg = Package::new(cache, pkg);
 
         let mut sort = vec![];
@@ -181,7 +185,11 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
         }
 
         if sort.is_empty() {
-            bail!("Can not get package {} with {} branch.", name, branch);
+            bail!(fl!(
+                "can-not-get-package-with-branch",
+                name = name,
+                branch = branch
+            ));
         }
 
         sort.sort_by(|x, y| rust_apt::util::cmp_versions(x.version(), y.version()));
@@ -470,7 +478,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let res = search_index.search(&input);
 
     if res.is_empty() {
-        bail!("Could not find any packages for keyword: {input}");
+        bail!(fl!("search-pkg-no-result", input = input));
     }
 
     let height = crate::WRITER.get_height();
@@ -506,13 +514,22 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         if pkg.has_dbg {
             pkg_info_line.push(' ');
-            pkg_info_line.push_str(&style("(debug symbols available)").dim().to_string());
+            pkg_info_line.push_str(
+                &style(format!("({})", fl!("debug-symbol-available")))
+                    .dim()
+                    .to_string(),
+            );
         }
 
         if pkg.package == input || entry.provide == Some(input.to_string()) {
             pkg_info_line.push(' ');
-            pkg_info_line.push_str(&style("[full match]").yellow().bold().to_string());
             full_match = true;
+            pkg_info_line.push_str(
+                &style(format!("[{}]", fl!("full-match")))
+                    .yellow()
+                    .bold()
+                    .to_string(),
+            );
         }
 
         output.push((
@@ -591,17 +608,24 @@ pub fn mark_install(
     if pkg.installed().as_ref() == Some(&ver) && !reinstall {
         if let Some(pb) = pb {
             pb.println(format!(
-                "{}{} {version} is already installed.",
+                "{}{}",
                 style(gen_prefix("INFO")).blue().bold(),
-                pkg.name()
+                fl!("already-installed", name = pkg.name(), version = version),
             ));
         } else {
-            info!("{} {version} is already installed.", pkg.name());
+            info!(
+                "{}",
+                fl!("already-installed", name = pkg.name(), version = version)
+            );
         }
         return Ok(());
     } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
         if ver.uris().next().is_none() {
-            bail!("Pkg: {} {version} cannot be marked for reinstallation as the specified version {version} could not be found in any enabled repository.", pkg.name());
+            bail!(fl!(
+                "can-not-mark-reinstall",
+                name = pkg.name(),
+                version = version
+            ));
         }
         pkg.mark_reinstall(true);
     } else {
@@ -612,14 +636,12 @@ pub fn mark_install(
             if fined {
                 bail!("")
             } else {
-                bail!(
-                    "{} can't marked installed! maybe dependency issue?",
-                    if is_local {
-                        ver.uris().next().unwrap_or(pkg.name().to_string())
-                    } else {
-                        pkg.name().to_string()
-                    }
-                );
+                let d = if is_local {
+                    ver.uris().next().unwrap_or(pkg.name().to_string())
+                } else {
+                    pkg.name().to_string()
+                };
+                bail!(fl!("mayble-dep-issue", name = d));
             }
         }
     }
@@ -632,10 +654,7 @@ pub fn mark_install(
 /// Mark package as delete status
 pub fn mark_delete(pkg: &Package, is_purge: bool) -> Result<()> {
     if pkg.is_essential() {
-        bail!(
-            "Pkg {} is essential, so can not mark it as deleted",
-            pkg.name()
-        );
+        bail!(fl!("pkg-is-essential", name = pkg.name()));
     }
 
     pkg.mark_delete(is_purge);
