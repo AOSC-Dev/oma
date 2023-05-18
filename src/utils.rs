@@ -27,7 +27,7 @@ pub fn get_arch_name() -> Result<String> {
         .map_err(|e| anyhow!(fl!("can-not-run-dpkg-print-arch", e = e.to_string())))?;
 
     if !dpkg.status.success() {
-        bail!("dpkg return non-zero code: {:?}", dpkg.status.code());
+        bail!(fl!("dpkg-return-non-zero", e = dpkg.status.code().unwrap()));
     }
 
     let output = std::str::from_utf8(&dpkg.stdout)?.trim().to_string();
@@ -47,7 +47,11 @@ pub fn size_checker(size: &DiskSpace, download_size: u64) -> Result<()> {
     let need_str = HumanBytes(need as u64);
 
     if need > avail {
-        bail!("Your disk space is too small, need size: {need_str}, available space: {avail_str}")
+        bail!(fl!(
+            "need-more-size",
+            n = need_str.to_string(),
+            a = avail_str.to_string()
+        ));
     }
 
     Ok(())
@@ -61,10 +65,7 @@ pub fn lock_oma() -> Result<()> {
         let old_pid = Pid::from_str(&old_pid)?;
 
         if s.process(old_pid).is_some() {
-            bail!(
-                "Another instance of oma (pid: {}) is still running!",
-                old_pid
-            );
+            bail!(fl!("old-pid-still-running", pid = old_pid.to_string()));
         } else {
             unlock_oma()?;
         }
@@ -72,11 +73,11 @@ pub fn lock_oma() -> Result<()> {
 
     if !Path::new("/run/lock").is_dir() {
         std::fs::create_dir_all("/run/lock")
-            .map_err(|e| anyhow!("Can not create /run/lock dir! why: {e}"))?;
+            .map_err(|e| anyhow!(fl!("can-not-create-lock-dir", e = e.to_string())))?;
     }
 
     let mut lock_file = std::fs::File::create(LOCK.as_path())
-        .map_err(|e| anyhow!("Can not create lock file! why: {e}"))?;
+        .map_err(|e| anyhow!(fl!("can-not-create-lock-file", e = e.to_string())))?;
     let pid = std::process::id().to_string();
 
     // Set global lock parameter
@@ -84,7 +85,7 @@ pub fn lock_oma() -> Result<()> {
 
     lock_file
         .write_all(pid.as_bytes())
-        .map_err(|e| anyhow!("Can not write oma lock, why: {e}"))?;
+        .map_err(|e| anyhow!(fl!("can-not-write-lock-file", e = e.to_string())))?;
 
     Ok(())
 }
@@ -93,7 +94,7 @@ pub fn lock_oma() -> Result<()> {
 pub fn unlock_oma() -> Result<()> {
     if LOCK.exists() {
         std::fs::remove_file(LOCK.as_path())
-            .map_err(|e| anyhow!("Can not unlock oma, why: {e}"))?;
+            .map_err(|e| anyhow!(fl!("can-not-unlock-oma", e = e.to_string())))?;
     }
 
     Ok(())
@@ -105,13 +106,13 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<
     }
 
     std::fs::create_dir_all("/var/log/oma")
-        .map_err(|e| anyhow!("Can not create oma log directory, why: {e}"))?;
+        .map_err(|e| anyhow!(fl!("can-not-create-oma-log-dir", e = e.to_string())))?;
 
     let mut f = std::fs::OpenOptions::new()
         .append(true)
         .create(true)
         .open("/var/log/oma/history")
-        .map_err(|e| anyhow!("Can not create oma history file, why: {e}"))?;
+        .map_err(|e| anyhow!(fl!("can-not-create-oma-log", e = e.to_string())))?;
 
     f.write_all(format!("Start-Date: {start_time}\n").as_bytes())?;
     f.write_all(format!("Action: {}\n{action:#?}", *ARGS).as_bytes())?;
@@ -153,9 +154,8 @@ pub fn polkit_run_itself() -> Result<()> {
     let out = Command::new("pkexec")
         .args(args)
         .spawn()
-        .map_err(|e| anyhow!("Spawn pkexec failed, why: {e}"))?
-        .wait_with_output()
-        .map_err(|e| anyhow!("Spawn pkexec failed, why: {e}"))?;
+        .and_then(|x| x.wait_with_output())
+        .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
 
     exit(
         out.status
