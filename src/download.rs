@@ -25,7 +25,7 @@ use crate::{
     checksum::Checksum,
     cli::gen_prefix,
     db::DOWNLOAD_DIR,
-    error, info,
+    error, fl, info,
     oma::InstallRow,
     success,
     utils::{error_due_to, reverse_apt_style_url},
@@ -45,7 +45,7 @@ async fn download_single_pkg(
         .first()
         .and_then(|x| x.split('/').last())
         .take()
-        .context("URLs is none or Invalid URL")?;
+        .context(fl!("invalid-url"))?;
 
     let filename = trans_filename(filename, version)?;
 
@@ -59,12 +59,12 @@ fn trans_filename(filename: &str, version: String) -> Result<String> {
     let package = filename_split
         .next()
         .take()
-        .context(format!("Can not parse filename: {filename}"))?;
+        .context(fl!("invaild-filename", name = filename))?;
 
     let arch_deb = filename_split
         .nth(1)
         .take()
-        .context(format!("Can not parse version: {version}"))?;
+        .context(fl!("invaild-ver", ver = version.as_str()))?;
 
     let arch_deb = if arch_deb == "noarch.deb" {
         "all.deb"
@@ -110,19 +110,16 @@ async fn try_download(
                         DownloadError::ChecksumMisMatch(_) => {
                             allow_resume = false;
                             if retry == 3 {
-                                let s = format!("{c} checksum mismatch, try next url to download this package ...");
+                                let s = fl!("checksum-mismatch-try-next-url", c = c.as_str());
                                 try_download_msg_display(&opb, i, &urls, &s);
                                 break Err(e);
                             }
-                            let s = format!("{c} checksum mismatch, retry {retry} times ...");
+                            let s = fl!("checksum-mismatch-retry", c = c.as_str(), retry = retry);
                             try_download_msg_display(&opb, i, &urls, &s);
                             retry += 1;
                         }
                         DownloadError::ReqwestError(_) => {
-                            let mut s = format!("{e}");
-                            if i < urls.len() - 1 {
-                                s += ", try next url to download this package ...";
-                            }
+                            let s = fl!("can-not-get-source-next-url", e = e.to_string());
                             try_download_msg_display(&opb, i, &urls, &s);
                             break Err(e);
                         }
@@ -139,11 +136,12 @@ async fn try_download(
             Err(e) => match e {
                 DownloadError::ChecksumMisMatch(_) => {
                     return Err(error_due_to(
-                        format!(
-                            "Can not download file: {filename} to dir {}, checksum mismatch.",
-                            download_dir.display()
+                        fl!(
+                            "checksum-mismatch",
+                            filename = filename.as_str(),
+                            dir = download_dir.display().to_string()
                         ),
-                        "Maybe mirror still sync progress?",
+                        fl!("maybe-mirror-syncing"),
                     ));
                 }
                 DownloadError::ReqwestError(e) => {
@@ -151,15 +149,21 @@ async fn try_download(
                         continue;
                     }
                     return Err(error_due_to(
-                        format!("Can not download file: {filename}, why: {e}"),
-                        "Maybe check your network settings?",
+                        fl!(
+                            "can-not-download-file",
+                            filename = filename.as_str(),
+                            e = e.to_string()
+                        ),
+                        fl!("check-network-settings"),
                     ));
                 }
                 DownloadError::IOError(e) => {
-                    bail!(
-                        "Can not download file: {filename} to dir {}, why: {e}",
-                        download_dir.display()
-                    );
+                    bail!(fl!(
+                        "can-not-download-file-with-why",
+                        filename = filename.as_str(),
+                        dir = download_dir.display().to_string(),
+                        e = e.to_string()
+                    ));
                 }
                 _ => return Err(e.into()),
             },
@@ -217,7 +221,7 @@ async fn packages_download(
         return Ok(());
     }
 
-    info!("Downloading {} packages ...", list.len());
+    info!("{}", fl!("downloading-count-pkg", count = list.len()));
 
     for i in list.iter() {
         total += i.pure_download_size;
@@ -226,7 +230,7 @@ async fn packages_download(
     let global_bar = mb.insert(0, ProgressBar::new(total));
     global_bar.set_style(oma_style_pb(true)?);
     global_bar.enable_steady_tick(Duration::from_millis(100));
-    global_bar.set_message(style("Progress:").bold().to_string());
+    global_bar.set_message(style(fl!("progress")).bold().to_string());
 
     let list_len = list.len();
 
@@ -286,9 +290,12 @@ async fn packages_download(
     }
 
     if download_len != 0 {
-        success!("Downloaded {download_len} package.");
+        success!(
+            "{}",
+            fl!("success-download-pkg", download_len = download_len)
+        );
     } else {
-        info!("No need to Fetch anything.");
+        info!("{}", fl!("no-need-to-fetch-anything"));
     }
 
     Ok(())
@@ -302,11 +309,10 @@ async fn download_single_pkg_local(
 ) -> Result<()> {
     let url = url.strip_prefix("file:").unwrap();
     let url = Path::new(url);
-    let filename = url
-        .file_name()
-        .context(format!("Can not get filename {}!", url.display()))?
-        .to_str()
-        .context(format!("Can not get str {}!", url.display()))?;
+    let filename = url.file_name().and_then(|x| x.to_str()).context(fl!(
+        "can-not-get-filename",
+        name = url.display().to_string()
+    ))?;
 
     let url_filename = reverse_apt_style_url(filename);
     let filename = trans_filename(filename, c.new_version.clone())?;

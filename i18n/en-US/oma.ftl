@@ -123,3 +123,21 @@ install = install
 remove = remove
 upgrade = upgrade
 downgrade = downgrade
+
+# download
+invalid-url = URLs is none or Invalid URL
+invaild-filename = Invalid file name: {$name}
+invaild-ver = Invalid version: {$ver}
+checksum-mismatch-try-next-url = {$c} checksum mismatch, try next url to download this package ...
+checksum-mismatch-retry = {$c} checksum mismatch, retry {$retry} times ...
+can-not-get-source-next-url = Can not get source, why: {$e}, try next url to download this package ..."
+checksum-mismatch = Can not download file: {$filename} to dir {$dir}, checksum mismatch.
+maybe-mirror-syncing = Maybe mirror still sync progress?
+can-not-download-file = Can not download file: {$filename}, why: {$e}
+check-network-settings = Maybe check your network settings?
+can-not-download-file-with-why =  Can not download file: {$filename} to dir {$dir}, why: {$e}
+downloading-count-pkg = Downloading {$count} packages ...
+progress = Progress:
+success-download-pkg = Downloaded {$download_len} package.
+no-need-to-fetch-anything = No need to Fetch anything.
+can-not-get-filename = BUG: Can not get filename {$name}! please report this to upstream: https://github.com/aosc-dev/oma
