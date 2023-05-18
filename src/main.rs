@@ -91,7 +91,7 @@ fn single_handler() {
         let pid = nix::unistd::Pid::from_raw(subprocess_pid);
         signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
         if !allow_ctrlc {
-            info!("User aborted the operation");
+            info!("{}", fl!("user-aborted-op"));
         }
     }
 

@@ -88,4 +88,5 @@ purge-file = purge configuration files
 semicolon = ;
 should-installed = BUG: package {$name} should installed, please report this to upstream: https://github.com/aosc-dev/oma
 
-
+# main
+user-aborted-op = User aborted the operation
