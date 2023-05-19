@@ -178,7 +178,6 @@ execute-ripgrep-failed = Execute rg failed, why: {$e}
 searching = Searching ...
 parse-rg-result-failed = BUG: Parse rg result {$i} failed, why: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
 search-with-result-count = Searching, found {$count} results so far ...
-can-not-parse-search
 contents-entry-missing-path-list = BUG: Contents entry: {$entry} missing path last, Please report this to upstrem: https://github.com/aosc-dev/oma
 rg-non-zero = ripgrep return not-zero code!
 
