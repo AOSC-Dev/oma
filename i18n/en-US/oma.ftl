@@ -181,3 +181,8 @@ search-with-result-count = Searching, found {$count} results so far ...
 can-not-parse-search
 contents-entry-missing-path-list = BUG: Contents entry: {$entry} missing path last, Please report this to upstrem: https://github.com/aosc-dev/oma
 rg-non-zero = ripgrep return not-zero code!
+
+# checksum
+sha256-bad-length = Malformed SHA256 checksum: bad length.
+can-not-checksum = Unexpected error: Can not checksum sha256, why: {$e}, maybe your environment is broken?
+failed-to-open-to-checksum = Failed to open {$path} for checking checksum

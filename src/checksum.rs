@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
 use std::{fmt::Display, fs::File, io, path::Path};
 
+use crate::fl;
+
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum Checksum {
     Sha256(Vec<u8>),
@@ -46,7 +48,7 @@ impl Checksum {
     /// This function does not do input sanitization, so do checks before!
     pub fn from_sha256_str(s: &str) -> Result<Self> {
         if s.len() != 64 {
-            bail!("Malformed SHA256 checksum: bad length.")
+            bail!(fl!("sha256-bad-length"))
         }
         Ok(Checksum::Sha256(hex::decode(s)?))
     }
@@ -70,13 +72,15 @@ impl Checksum {
         match self {
             Checksum::Sha256(hex) => {
                 let mut hasher = Sha256::new();
-                io::copy(&mut r, &mut hasher).map_err(|e| anyhow!("Unexpected error: Can not checksum sha256, why: {e}, maybe your environment is broken?"))?;
+                io::copy(&mut r, &mut hasher)
+                    .map_err(|e| anyhow!(fl!("can-not-checksum", e = e.to_string())))?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Sha512(hex) => {
                 let mut hasher = Sha512::new();
-                io::copy(&mut r, &mut hasher).map_err(|e| anyhow!("Unexpected error: Can not checksum sha256, why: {e}, maybe your environment is broken?"))?;
+                io::copy(&mut r, &mut hasher)
+                    .map_err(|e| anyhow!(fl!("can-not-checksum", e = e.to_string())))?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
@@ -84,9 +88,9 @@ impl Checksum {
     }
 
     pub fn cmp_file(&self, path: &Path) -> Result<bool> {
-        let file = File::open(path).context(format!(
-            "Failed to open {} for checking checksum",
-            path.display()
+        let file = File::open(path).context(fl!(
+            "failed-to-open-to-checksum",
+            path = path.display().to_string()
         ))?;
 
         self.cmp_read(Box::new(file) as Box<dyn std::io::Read>)
