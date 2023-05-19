@@ -23,7 +23,7 @@ use crate::{
     download::{
         download, download_local, oma_spinner, oma_style_pb, DownloadError, OmaProgressBar,
     },
-    error, info, verify, warn, ARCH, MB,
+    error, fl, info, verify, warn, ARCH, MB,
 };
 
 #[cfg(feature = "aosc")]
@@ -57,8 +57,11 @@ pub static DOWNLOAD_DIR: Lazy<PathBuf> = Lazy::new(|| {
 
     if !path.is_dir() {
         warn!(
-            "Dir::Cache::Archives path: {} does not exist! fallback to /var/cache/apt/archives",
-            path.display()
+            "{}",
+            fl!(
+                "setting-path-does-not-exist",
+                path = path.display().to_string()
+            )
         );
 
         let p = PathBuf::from("/var/cache/apt/archives/");
@@ -123,28 +126,37 @@ struct MirrorMapItem {
 }
 
 pub async fn get_url_short_and_branch(url: &str) -> Result<String> {
-    let url = Url::parse(url).map_err(|e| anyhow!("Invalid URL: {url}, why: {e}"))?;
-    let host = url.host_str().context("Can not parse {url} host!")?;
+    let url = Url::parse(url)
+        .map_err(|e| anyhow!(fl!("invaild-url-with-err", url = url, e = e.to_string())))?;
+    let host = url.host_str().context(anyhow!(fl!("invalid-url")))?;
     let schema = url.scheme();
     let branch = url
         .path()
         .split('/')
         .nth_back(1)
-        .context("Can not get {url} branch!")?;
+        .context(anyhow!(fl!("invalid-url")))?;
     let url = format!("{schema}://{host}/");
 
     // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
     if let Ok(mirror_map_f) = tokio::fs::read(&*MIRROR).await {
         let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&mirror_map_f)
-            .map_err(|e| anyhow!("Can not parse distro-repository-data file: {}, why: {e}, maybe you environment is broken?", MIRROR.display()))?;
+            .map_err(|e| {
+                anyhow!(fl!(
+                    "cant-parse-distro-repo-data",
+                    mirror = MIRROR.display().to_string(),
+                    e = e.to_string()
+                ))
+            })?;
 
         for (k, v) in mirror_map.iter() {
             let mirror_url = Url::parse(&v.url).map_err(|e| {
-                anyhow!("Distro repository data file have invalid URL: {url}, why: {e}")
+                anyhow!(fl!(
+                    "distro-repo-data-invalid-url",
+                    url = v.url.as_str(),
+                    e = e.to_string()
+                ))
             })?;
-            let mirror_url_host = mirror_url
-                .host_str()
-                .context("Can not get host str from mirror map!")?;
+            let mirror_url_host = mirror_url.host_str().context(fl!("host-str-err"))?;
             let schema = mirror_url.scheme();
             let mirror_url = format!("{schema}://{mirror_url_host}/");
 
@@ -192,41 +204,48 @@ impl InReleaseParser {
             s
         };
 
-        let source = debcontrol_from_str(&s)
-            .map_err(|e| anyhow!("Can not parse InRelease file: {}, why: {e}", p.display()))?;
+        let source = debcontrol_from_str(&s).map_err(|e| {
+            anyhow!(fl!(
+                "can-nnot-read-inrelease-file",
+                path = p.display().to_string(),
+                e = e.to_string()
+            ))
+        })?;
 
         let source_first = source.first();
 
         let date = source_first
             .and_then(|x| x.get("Date"))
             .take()
-            .context("InRelease Date entry is empty!")?;
+            .context(fl!("inrelease-date-empty"))?;
 
         let valid_until = source_first
             .and_then(|x| x.get("Valid-Until"))
             .take()
-            .context("InRelease Valid-Until entry is empty")?;
+            .context(fl!("inrelease-valid-until-empty"))?;
 
         let date = OffsetDateTime::parse(date, &Rfc2822)
-            .context(format!("BUG: can not parse data field: {date} to Rfc2822, Please report this error to upstream: https://github.com/aosc-dev/oma"))?;
+            .context(fl!("can-not-parse-date", date = date.as_str()))?;
 
-        let valid_until = OffsetDateTime::parse(valid_until, &Rfc2822)
-            .context(format!("BUG: can not parse valid_until field: {valid_until} to Rfc2822, Please report this error to upstream: https://github.com/aosc-dev/oma"))?;
+        let valid_until = OffsetDateTime::parse(valid_until, &Rfc2822).context(fl!(
+            "can-not-parse-valid-until",
+            valid_until = valid_until.as_str()
+        ))?;
 
         let now = OffsetDateTime::now_utc();
 
         if now < date {
-            bail!("The computer time is earlier than the signature time in InRelease.")
+            bail!(fl!("earlier-signature"))
         }
 
         if now > valid_until {
-            bail!("InRelease signature file has expired.")
+            bail!(fl!("expired-signature"))
         }
 
         let sha256 = source_first
             .and_then(|x| x.get("SHA256"))
             .take()
-            .context("InRelease sha256 entry is empty!")?;
+            .context(fl!("inrelease-sha256-empty"))?;
 
         let mut checksums = sha256.split('\n');
 
@@ -239,13 +258,13 @@ impl InReleaseParser {
             let mut checksum_entry = i.split_whitespace();
             let checksum = checksum_entry
                 .next()
-                .context(format!("Could not parse checksum entry: {i}"))?;
+                .context(fl!("inrelease-checksum-can-not-parse", i = i))?;
             let size = checksum_entry
                 .next()
-                .context(format!("Could not parse checksum entry: {i}"))?;
+                .context(fl!("inrelease-checksum-can-not-parse", i = i))?;
             let name = checksum_entry
                 .next()
-                .context(format!("Could not parse checksum entry: {i}"))?;
+                .context(fl!("inrelease-checksum-can-not-parse", i = i))?;
             checksums_res.push((name, size, checksum));
         }
 
@@ -276,7 +295,7 @@ impl InReleaseParser {
             } else if i.0.contains("Release") {
                 DistFileType::Release
             } else {
-                bail!("BUG: InRelease Parser unsupport file type: {i:?}, Please report this to upstream: https://github.com/aosc-dev/oma");
+                bail!("{} {i:?}", fl!("inrelease-parse-unsupport-file-type"));
             };
 
             res.push(ChecksumItem {
@@ -317,7 +336,7 @@ fn debcontrol_from_str(s: &str) -> Result<Vec<HashMap<String, String>>> {
 pub fn get_sources() -> Result<Vec<SourceEntry>> {
     let mut res = Vec::new();
     let list = SourcesLists::scan()
-        .map_err(|e| anyhow!("Can not scan and parse source.list file, why: {e}"))?;
+        .map_err(|e| anyhow!(fl!("can-not-parse-sources-list", e = e.to_string())))?;
 
     for file in list.iter() {
         for i in &file.lines {
@@ -335,11 +354,11 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
         .collect::<Vec<_>>();
 
     for i in &cdrom {
-        error!("Omakase does not support cdrom protocol in url: {}", i.url);
+        error!("{}", fl!("unsupport-cdrom", url = i.url()));
     }
 
     if !cdrom.is_empty() {
-        bail!("Omakase unsupport some mirror.");
+        bail!(fl!("unsupport-some-mirror"));
     }
 
     Ok(res)
@@ -370,7 +389,7 @@ impl OmaSourceEntry {
         } else if v.url().starts_with("file://") {
             OmaSourceEntryFrom::Local
         } else {
-            bail!("Unsupport SourceEntry: {v:#?}")
+            bail!("{} {v:?}", fl!("unsupport-sourceentry"))
         };
 
         let components = v.components.clone();
@@ -389,7 +408,7 @@ impl OmaSourceEntry {
             // Normal Repo
             format!("{dist_path}/InRelease")
         } else {
-            bail!("Unsupport SourceEntry: {v:?}")
+            bail!("{} {v:?}", fl!("unsupport-sourceentry"))
         };
 
         let options = v.options.as_deref().unwrap_or_default();
@@ -452,7 +471,7 @@ pub fn update_db_runner(
 
 // Update database
 async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize>) -> Result<()> {
-    info!("Refreshing local repository metadata ...");
+    info!("{}", fl!("refreshing-repo-metadata"));
 
     let sources = hr_sources(sources)?;
     let mut tasks = vec![];
@@ -511,12 +530,12 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         let suite = url
                             .split('/')
                             .nth_back(1)
-                            .context(format!("Can not get suite: {url}"))?
+                            .context(fl!("can-not-get-suite", url = url.as_str()))?
                             .to_string();
 
                         if !removed_suites.contains(&suite) {
                             return Err(anyhow!(
-                                "Could not get InRelease in url: {url}, Reason: 404 Not found."
+                                fl!("not-found", url = url.as_str())
                             ));
                         }
                     }
@@ -620,9 +639,9 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             ));
 
             let typ = match c.file_type {
-                DistFileType::CompressContents => "Contents",
-                DistFileType::CompressPackageList | DistFileType::PackageList => "Package List",
-                DistFileType::BinaryContents => "BinContents",
+                DistFileType::CompressContents => fl!("contents"),
+                DistFileType::CompressPackageList | DistFileType::PackageList => fl!("pkg_list"),
+                DistFileType::BinaryContents => fl!("bincontents"),
                 _ => unreachable!(),
             };
 
@@ -795,7 +814,7 @@ fn decompress(
         "".to_string()
     };
 
-    pb.set_message(format!("{progress}Decompressing {typ}"));
+    pb.set_message(format!("{progress}{} {typ}", fl!("decompressing")));
 
     let mut extract_f = std::fs::OpenOptions::new()
         .truncate(true)
@@ -811,7 +830,7 @@ fn decompress(
         Box::new(XzDecoder::new(reader))
     } else {
         pb.finish_and_clear();
-        bail!("BUG: unsupport decompress file: {name}, Please report this error to upstream: https://github.com/aosc-dev/oma");
+        bail!(fl!("unsupport-decompress-file", name = name));
     };
 
     std::io::copy(&mut decompress, &mut extract_f)?;
