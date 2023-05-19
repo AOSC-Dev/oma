@@ -192,7 +192,7 @@ impl TopicManager {
         let mut f = std::fs::File::create("/etc/apt/sources.list.d/atm.list")?;
         let mirrors = enabled_mirror()?;
 
-        f.write_all(fl!("do-not-edit-topic-sources-list").as_bytes())?;
+        f.write_all(format!("{}\n", fl!("do-not-edit-topic-sources-list")).as_bytes())?;
 
         for i in &self.enabled {
             f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())?;
