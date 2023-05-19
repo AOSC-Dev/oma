@@ -142,7 +142,7 @@ success-download-pkg = Downloaded {$download_len} package.
 no-need-to-fetch-anything = No need to Fetch anything.
 can-not-get-filename = BUG: Can not get filename {$name}! please report this to upstream: https://github.com/aosc-dev/oma
 
-#db
+# db
 setting-path-does-not-exist = Dir::Cache::Archives path: {$path} does not exist! fallback to /var/cache/apt/archives"
 invaild-url-with-err = Invalid URL: {$url}, why: {$e}
 cant-parse-distro-repo-data = Can not parse distro-repository-data file: {$mirror}, why: {$e}, maybe you environment is broken?
@@ -170,3 +170,14 @@ pkg_list = Package List
 bincontents = BinContents
 decompressing = Decompressing
 unsupport-decompress-file = BUG: unsupport decompress file: {$name}, Please report this error to upstream: https://github.com/aosc-dev/oma
+
+# contents
+contents-does-not-exist = Contents database does not exist! Please use {$cmd} to refresh the contents.
+contents-may-not-be-accurate = Contents file: {$file} has not been updated for a week, so the search results may not be accurate, please use 'oma refresh' to refresh the database."
+execute-ripgrep-failed = Execute rg failed, why: {$e}
+searching = Searching ...
+parse-rg-result-failed = BUG: Parse rg result {$i} failed, why: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
+search-with-result-count = Searching, found {$count} results so far ...
+can-not-parse-search
+contents-entry-missing-path-list = BUG: Contents entry: {$entry} missing path last, Please report this to upstrem: https://github.com/aosc-dev/oma
+rg-non-zero = ripgrep return not-zero code!

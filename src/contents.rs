@@ -14,7 +14,7 @@ use grep::{
 use indicatif::ProgressBar;
 use time::OffsetDateTime;
 
-use crate::{db::APT_LIST_DISTS, download::oma_spinner, warn, ARCH};
+use crate::{db::APT_LIST_DISTS, download::oma_spinner, fl, warn, ARCH};
 use std::sync::atomic::Ordering;
 
 use serde::Deserialize;
@@ -96,10 +96,10 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
     let pc = paths.clone();
 
     if paths.is_empty() {
-        bail!(
-            "Contents database does not exist! Please use {} to refresh the contents.",
-            style("oma refresh").green()
-        );
+        bail!(fl!(
+            "contents-does-not-exist",
+            cmd = style("oma refresh").green().to_string()
+        ));
     }
 
     std::thread::spawn(move || -> Result<()> {
@@ -110,8 +110,11 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
             let delta = delta.as_seconds_f64() / 60.0 / 60.0 / 24.0;
             if delta > 7.0 {
                 warn!(
-                    "Contents file: {} has not been updated for a week, so the search results may not be accurate, please use 'oma refresh' to refresh the database.",
-                    i.file_name().unwrap_or_default().to_string_lossy()
+                    "{}",
+                    fl!(
+                        "contents-may-not-be-accurate",
+                        file = i.file_name().unwrap_or_default().to_string_lossy()
+                    )
                 );
             }
         }
@@ -138,11 +141,11 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
             .args(&paths)
             .stdout(Stdio::piped())
             .spawn()
-            .map_err(|e| anyhow!("Spawn rg failed, why: {e}"))?;
+            .map_err(|e| anyhow!(fl!("execute-ripgrep-failed", e = e.to_string())))?;
 
         {
             if let Some(ref pb) = pb {
-                pb.set_message("Searching ...");
+                pb.set_message(fl!("searching"));
             }
 
             let stdout = cmd
@@ -157,14 +160,19 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
 
             for i in stdout_lines.flatten() {
                 if !i.is_empty() {
-                    let line: RgJson = serde_json::from_str(&i)
-                        .map_err(|e| anyhow!("BUG: Parse rg item {} failed, why: {e}, Please report to upstream: https://github.com/aosc-dev/oma", &i))?;
+                    let line: RgJson = serde_json::from_str(&i).map_err(|e| {
+                        anyhow!(fl!(
+                            "parse-rg-result-failed",
+                            i = i.as_str(),
+                            e = e.to_string()
+                        ))
+                    })?;
                     let data = line.data;
                     if line.t == Some("summary".to_owned()) {
                         let stats = data.stats;
                         if let Some(stats) = stats {
                             if stats.matched_lines == 0 {
-                                bail!("Can't find any item for: {kw}");
+                                bail!("");
                             }
                         }
                     }
@@ -175,13 +183,15 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
                             count += 1;
 
                             if let Some(x) = pb.as_ref() {
-                                x.set_message(format!(
-                                    "Searching, found {count} results so far ..."
-                                ))
+                                x.set_message(fl!("search-with-result-count", count = count))
                             }
 
+<<<<<<< HEAD
                             let search_bin_name = kw.split('/').last()
                                 .context("BUG: can not parse search kwywprd: {kw}, Please report this to upstream:  https://github.com/aosc-dev/oma")?;
+=======
+                            let search_bin_name = if cnf { kw.split('/').last() } else { None };
+>>>>>>> 0eb56d9 (feat: add contents.rs translate template)
 
                             for j in submatches {
                                 let m = j.m.text;
@@ -190,9 +200,10 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
                                         let last = l.1.split_whitespace().last();
                                         let bin_name = last
                                             .and_then(|x| x.split('/').last())
-                                            .context(format!("BUG: Contents entry: {} missing path last, Please report this to upstrem: https://github.com/aosc-dev/oma", l.1))?;
+                                            .context(fl!("contents-entry-missing-path-list", entry = l.1.as_str()))?;
 
-                                        if strsim::jaro_winkler(search_bin_name, bin_name).abs()
+                                        if strsim::jaro_winkler(search_bin_name.unwrap(), bin_name)
+                                            .abs()
                                             < 0.9
                                         {
                                             continue;
@@ -210,7 +221,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
         }
 
         if !cmd.wait()?.success() {
-            bail!("rg return not-zero code!");
+            bail!(fl!("rg-non-zero"));
         }
 
         if let Some(x) = pb {
