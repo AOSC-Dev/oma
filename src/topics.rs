@@ -316,6 +316,7 @@ pub fn dialoguer(
         fl!("select-topics-dialog").as_str(),
         display.iter().map(|x| x.as_str()).collect(),
     )
+    .with_help_message(fl!("tips").as_str())
     .with_formatter(formatter)
     .with_default(&default)
     .with_page_size(20)
