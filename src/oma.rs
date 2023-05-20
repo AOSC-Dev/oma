@@ -933,7 +933,10 @@ impl Oma {
         if !output.is_empty() {
             output.push(fl!("run-oma-upgrade-tips"));
             let s = output.join(fl!("comma").as_str()) + fl!("full-comma").as_str();
-            success!("{}", fl!("successfully-refresh-with-tips", s = s.to_string()));
+            success!(
+                "{}",
+                fl!("successfully-refresh-with-tips", s = s.to_string())
+            );
         } else {
             success!("{}", fl!("successfully-refresh"));
         }
@@ -1858,13 +1861,13 @@ fn apt_handler(
 
             let old_pkg = pkg
                 .installed()
-                .context(format!("Can not get installed version: {}", pkg.name()))?;
+                .context(fl!("should-installed", name = pkg.name()))?;
 
             let old_version = old_pkg.version();
 
             let new_pkg = pkg
                 .candidate()
-                .context(format!("Can not get candidate version: {}", pkg.name()))?;
+                .context(fl!("no-candidate-ver", pkg = pkg.name()))?;
 
             let new_size = new_pkg.installed_size() as i64;
             let old_size = old_pkg.installed_size() as i64;
