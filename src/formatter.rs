@@ -339,9 +339,10 @@ pub fn find_unmet_deps_with_markinstall(
 
             writeln!(
                 out,
-                "{} {}\n",
+                "{} {}{}\n",
                 fl!("count-pkg-has-desc", count = v.len()),
-                style("unmet dependencies:").red().bold()
+                style(fl!("unmet-dep")).red().bold(),
+                fl!("semicolon")
             )
             .ok();
 
@@ -414,9 +415,10 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
 
         writeln!(
             out,
-            "{} {}\n",
+            "{} {}{}\n",
             fl!("count-pkg-has-desc", count = v.len()),
-            style("unmet dependencies:").red().bold()
+            style(fl!("unmet-dep")).red().bold(),
+            fl!("semicolon")
         )
         .ok();
 
@@ -785,9 +787,10 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !del.is_empty() {
         writeln!(
             out,
-            "{} {}",
+            "{} {}{}\n",
             fl!("count-pkg-has-desc", count = del.len()),
-            style(fl!("removed")).red().bold()
+            style(fl!("removed")).red().bold(),
+            fl!("semicolon")
         )
         .ok();
 
@@ -804,9 +807,10 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !install.is_empty() {
         writeln!(
             out,
-            "{} {}",
+            "{} {}{}\n",
             fl!("count-pkg-has-desc", count = install.len()),
-            style(fl!("installed")).green().bold()
+            style(fl!("installed")).green().bold(),
+            fl!("semicolon")
         )?;
 
         let mut table = Table::new(&install);
@@ -824,9 +828,10 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !update.is_empty() {
         writeln!(
             out,
-            "{} {}",
+            "{} {}{}\n",
             fl!("count-pkg-has-desc", count = update.len()),
-            style(fl!("upgrade")).color256(87)
+            style(fl!("upgrade")).color256(87),
+            fl!("colon")
         )?;
 
         let mut table = Table::new(&update);
@@ -844,9 +849,10 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !downgrade.is_empty() {
         writeln!(
             out,
-            "{} {}",
+            "{} {}{}\n",
             fl!("count-pkg-has-desc", count = downgrade.len()),
-            style(fl!("downgraded")).yellow().bold()
+            style(fl!("downgraded")).yellow().bold(),
+            fl!("colon")
         )?;
 
         let mut table = Table::new(&downgrade);
@@ -864,9 +870,10 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     if !reinstall.is_empty() {
         writeln!(
             out,
-            "{} {}",
+            "{} {}{}\n",
             fl!("count-pkg-has-desc", count = reinstall.len()),
-            style(fl!("reinstall")).blue().bold()
+            style(fl!("reinstall")).blue().bold(),
+            fl!("colon")
         )?;
 
         let mut table = Table::new(&reinstall);

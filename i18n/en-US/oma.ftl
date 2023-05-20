@@ -124,6 +124,8 @@ install = install
 remove = remove
 upgrade = upgrade
 downgrade = downgrade
+unmet-dep = unmet dependencies
+colon = : 
 
 # download
 invalid-url = BUG: URL is not valid. Please report this issue at https://github.com/AOSC-Dev/oma.
