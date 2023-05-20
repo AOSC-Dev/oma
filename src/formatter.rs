@@ -432,13 +432,7 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
 pub fn write_dep_issue_msg(out: &mut dyn Write) -> Result<()> {
     ALLOWCTRLC.store(true, Ordering::Relaxed);
     writeln!(out, "{:<80}\n", style(fl!("dep-error")).on_red().bold())?;
-    writeln!(
-        out,
-        "{}\n{}\n{}\n",
-        fl!("dep-error-desc-1"),
-        fl!("dep-error-desc-2"),
-        fl!("dep-error-desc-3")
-    )?;
+    writeln!(out, "{}\n", fl!("dep-error-desc"),)?;
     writeln!(out, "{}\n", fl!("contact-admin-tips"))?;
     writeln!(out, "    {}", style(fl!("how-to-abort")).bold())?;
     writeln!(out, "    {}\n\n", style(fl!("how-to-op-with-x")).bold())?;
@@ -961,23 +955,18 @@ fn write_review_help_message(w: &mut dyn Write, pager_name: Option<&str>) -> Res
     }
 
     writeln!(w)?;
+    writeln!(w, "{}\n", fl!("review-msg"))?;
     writeln!(
         w,
-        "{}",
-        format!("{}\n{}\n", fl!("review-msg-1"), fl!("review-msg-2"))
-    )?;
-    writeln!(
-        w,
-        "{}\n{}",
+        "{}\n",
         fl!(
-            "oma-may-1",
+            "oma-may",
             a = style(fl!("install")).green().to_string(),
             b = style(fl!("remove")).red().to_string(),
             c = style(fl!("upgrade")).color256(87).to_string(),
             d = style(fl!("downgrade")).yellow().to_string(),
             e = style(fl!("reinstall")).blue().to_string()
         ),
-        fl!("oma-may-2")
     )?;
     writeln!(w)?;
 
