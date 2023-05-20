@@ -366,6 +366,7 @@ pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
         let suite_clone = suite.clone();
 
         if all.iter().all(|x| x.name != suite) {
+            info!("{}", fl!("scan-topic-is-removed"));
             spawn_blocking(move || rm_topic(&suite)).await??;
         }
 
