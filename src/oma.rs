@@ -1005,7 +1005,7 @@ impl Oma {
             let mut dialoguer = Select::with_theme(&theme);
 
             dialoguer.items(&versions_str_display);
-            dialoguer.with_prompt(format!("Select {} version:", pkg.name()));
+            dialoguer.with_prompt(fl!("pick-tips", pkgname = pkg.name()));
 
             let pos = if let Some(installed) = installed {
                 versions_str

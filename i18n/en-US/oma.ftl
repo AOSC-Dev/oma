@@ -88,6 +88,7 @@ removed-as-unneed-dep = removed as unneeded dependency
 purge-file = purge configuration files
 semicolon = ;
 should-installed = BUG: Package {$name} marked for pending operation but it is not installed. This is a program exception. Please report this issue at https://github.com/AOSC-Dev/oma.
+pick-tips = Select {$pkgname} version:
 
 # main
 user-aborted-op = User aborted the operation.
