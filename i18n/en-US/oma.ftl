@@ -31,7 +31,6 @@ scan-topic-is-removed = topic {$name} is removed, oma will automatic disable top
 can-not-get-pkg-from-database = Can not get package: {$name} from database.
 can-not-get-pkg-version-from-database = Can not get package: {$name} {$version} from database.
 can-not-get-package-with-branch = Can not get package {$name} with {$branch} branch.
-search-pkg-no-result = Could not find any packages for keyword: {$input}
 debug-symbol-available = (debug symbols available)
 full-match = full match
 already-installed = {$name} {$version} os already installed

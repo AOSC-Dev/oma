@@ -478,7 +478,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let res = search_index.search(&input);
 
     if res.is_empty() {
-        bail!(fl!("search-pkg-no-result", input = input));
+        bail!(fl!("could-not-find-pkg-from-keyword", c = input));
     }
 
     let height = crate::WRITER.get_height();
