@@ -1,8 +1,8 @@
 # utils
-can-not-run-dpkg-print-arch = Failed to run `dpkg --print-architecture': {$e}
-dpkg-return-non-zero = `dpkg' process exited with error: {$e}
-need-more-size = Insufficient storage space: {$n} needed, but only {$a} is available.
-old-pid-still-running = Another instance of Omakase (pid: {$pid}) is still running, aborting.
+can-not-run-dpkg-print-arch = 无法执行 `dpkg --print-architecture'：{$e}
+dpkg-return-non-zero = `dpkg' 返回错误：{$e}
+need-more-size = 存储空间不足：{$a} 可用，但需要 {$n}。
+old-pid-still-running = 目前有另外一个正在运行 Omakase 的实例 (PID: {$pid}) is still running, aborting.
 can-not-create-lock-dir = Failed to create /run/lock: {$e}
 can-not-create-lock-file = Failed to create lock file: {$e}
 can-not-write-lock-file = Failed to write to lock file: {$e}
