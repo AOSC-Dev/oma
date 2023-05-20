@@ -46,9 +46,9 @@ normal-tips = Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll.
 
 # oma
 no-need-to-do-anything = No need to do anything.
-retry-apt = `apt' returned an error, retrying {$count} times ...
+retry-apt = `apt' returned an error, retrying: attempt {$count} ...
 system-has-broken-dep = Omakase has detected broken dependencies on your system.
-system-has-broken-dep-due-to = Omakase can help fix dependency issues. Please use the `{$cmd}' command. If this still fails, please inform us of your issue at https://github.com/aosc-dev/aosc-os-abbs.
+system-has-broken-dep-due-to = Omakase can help fix dependency issues. Please use the `{$cmd}' command. If this still fails, please inform us of your issue at https://github.com/AOSC-Dev/aosc-os-abbs.
 additional-version = {$len} additional version(s) available. Please use the `-a' switch to list all available version(s).
 could-not-find-pkg-from-keyword = Could not find any package for keyword {$c}
 broken-by = Broken by
