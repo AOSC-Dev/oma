@@ -932,7 +932,7 @@ impl Oma {
 
         if !output.is_empty() {
             output.push(fl!("run-oma-upgrade-tips"));
-            let s = output.join(fl!("comma").as_str()) + fl!("full-comma").as_str();
+            let s = output.join(fl!("comma").as_str());
             success!(
                 "{}",
                 fl!("successfully-refresh-with-tips", s = s.to_string())
