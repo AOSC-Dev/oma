@@ -100,7 +100,8 @@ dep-does-not-exist = Dependency package {$name} is not available from any availa
 count-pkg-has-desc = {$count} package(s) has
 dep-error = Dependency Error
 dep-error-desc = Omakase has detected dependency errors(s) in your system and cannot proceed with
-    your specified operation(s). This may be caused by missing or mismatched\npackages, or that you have specified a version of a package that is not
+    your specified operation(s). This may be caused by missing or mismatched
+    packages, or that you have specified a version of a package that is not
     compatible with your system.
 contact-admin-tips = Please contact your system administrator or developer.
 how-to-abort = Press [q] or [Ctrl-c] to abort.
