@@ -768,13 +768,13 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
         let line2 = format!("    {}", fl!("cc-to-abort"));
 
         if has_x11.is_ok() {
-            let line3 = format!("   {}\n\n", fl!("how-to-op-with-x"));
+            let line3 = format!("    {}\n\n", fl!("how-to-op-with-x"));
 
             writeln!(out, "{}", style(line1).bold()).ok();
             writeln!(out, "{}", style(line2).bold()).ok();
             writeln!(out, "{}", style(line3).bold()).ok();
         } else {
-            let line3 = format!("   {}\n\n", fl!("how-to-op"));
+            let line3 = format!("    {}\n\n", fl!("how-to-op"));
 
             writeln!(out, "{}", style(line1).bold()).ok();
             writeln!(out, "{}", style(line2).bold()).ok();

@@ -530,12 +530,12 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         let suite = url
                             .split('/')
                             .nth_back(1)
-                            .context(fl!("can-not-get-suite", url = url.as_str()))?
+                            .context(fl!("can-not-get-suite", url = url.to_string()))?
                             .to_string();
 
                         if !removed_suites.contains(&suite) {
                             return Err(anyhow!(
-                                fl!("not-found", url = url.as_str())
+                                fl!("not-found", url = url.to_string())
                             ));
                         }
                     }
