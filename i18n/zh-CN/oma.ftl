@@ -37,6 +37,9 @@ already-installed = 软件包 {$name} ({$version}) 已经安装。
 can-not-mark-reinstall = 无法重装软件包 {$name} ({$version})，因为当前可用的软件源中找不到指定的软件包和版本。
 mayble-dep-issue = 由于依赖问题，无法安装软件包 {$name}。
 pkg-is-essential = 软件包 {$name} 是不允许删除的必备组件。
+pkg-search-avail = AVAIL
+pkg-search-installed = INSTALLED
+pkg-search-upgrade = UPGRADE
 
 # pager
 question-tips-with-x11 = 按 [q] 结束审阅并应用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。
@@ -88,6 +91,7 @@ removed-as-unneed-dep = removed as unneeded dependency
 purge-file = purge configuration files
 semicolon = ;
 should-installed = BUG: Package {$name} marked for pending operation but it is not installed. This is a program exception. Please report this issue at https://github.com/AOSC-Dev/oma.
+pick-tips = Select {$pkgname} version:
 
 # main
 user-aborted-op = User aborted the operation.
@@ -124,6 +128,8 @@ install = install
 remove = remove
 upgrade = upgrade
 downgrade = downgrade
+unmet-dep = unmet dependencies
+colon = : 
 
 # download
 invalid-url = BUG: URL is not valid. Please report this issue at https://github.com/AOSC-Dev/oma.

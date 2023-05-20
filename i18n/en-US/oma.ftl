@@ -37,6 +37,9 @@ already-installed = {$name} ({$version}) is already installed
 can-not-mark-reinstall = Cannot reinstall package {$name} ({$version}), as the specified package and version could not be found in any available repository.
 mayble-dep-issue = Cannot install package {$name} due to a dependency issue.
 pkg-is-essential = Package {$name} is essential. Refusing to remove.
+pkg-search-avail = AVAIL
+pkg-search-installed = INSTALLED
+pkg-search-upgrade = UPGRADE
 
 # pager
 question-tips-with-x11 = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
@@ -58,8 +61,7 @@ no-need-to-remove = Package {$name} is not installed. No need to remove.
 packages-can-be-upgrade = {$len} package(s) can be upgraded.
 packages-can-be-removed = {$len} package(s) can be removed.
 run-oma-upgrade-tips = Upgrade system packages with `oma upgrade'.
-comma = ,
-full-comma = .
+comma = {", "}
 successfully-refresh-with-tips = Successfully refreshed the package database. {$s}
 successfully-refresh = Successfully refreshed the package database. System is up to date.
 no-candidate-ver = Current version for package {$pkg} is not available from the repository.
@@ -86,7 +88,7 @@ has-no-symbol-pkg = Package {$name} has no debug symbol available.
 pkg-no-version = Failed to get version of package {$name}.
 removed-as-unneed-dep = removed as unneeded dependency
 purge-file = purge configuration files
-semicolon = ;
+semicolon = {"; "}
 should-installed = BUG: Package {$name} marked for pending operation but it is not installed. This is a program exception. Please report this issue at https://github.com/AOSC-Dev/oma.
 pick-tips = Select {$pkgname} version:
 

@@ -356,9 +356,9 @@ enum PackageStatus {
 impl Display for PackageStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PackageStatus::Avail => write!(f, "{}", style("AVAIL").dim()),
-            PackageStatus::Installed => write!(f, "{}", style("INSTALLED").green()),
-            PackageStatus::Upgrade => write!(f, "{}", style("UPGRADE").yellow()),
+            PackageStatus::Avail => write!(f, "{}", style(fl!("pkg-search-avail")).dim()),
+            PackageStatus::Installed => write!(f, "{}", style(fl!("pkg-search-installed")).green()),
+            PackageStatus::Upgrade => write!(f, "{}", style(fl!("pkg-search-upgrade")).yellow()),
         }
     }
 }

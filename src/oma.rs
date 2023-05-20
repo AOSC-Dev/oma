@@ -1032,7 +1032,7 @@ impl Oma {
             if installed.as_ref() == Some(version)
                 && installed.map(|x| x.sha256()) == Some(version.sha256())
             {
-                success!("No need to do anything.");
+                success!("{}", fl!("no-need-to-do-anything"));
                 return Ok(0);
             }
 
