@@ -515,7 +515,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
         if pkg.has_dbg {
             pkg_info_line.push(' ');
             pkg_info_line.push_str(
-                &style(format!("({})", fl!("debug-symbol-available")))
+                &style(fl!("debug-symbol-available"))
                     .dim()
                     .to_string(),
             );
