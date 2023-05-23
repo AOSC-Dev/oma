@@ -483,9 +483,7 @@ impl Writer {
         let max_len = self.get_max_len();
         let mut first_run = true;
 
-        let msg = msg.to_string();
-
-        let mut ref_s = msg.as_str();
+        let mut ref_s = msg;
         let mut i = 1;
 
         let mut added_count = 0;
@@ -510,11 +508,17 @@ impl Writer {
                 .write_str(&line_msg)
                 .context("Failed to write message to console.")?;
 
+            // added_count 是已经处理过字符串的长度
             added_count += line_msg.len();
+
+            // i 代表了有多少个换行符
+            // 因此，当预处理的消息长度等于已经处理的消息长度，减去加入的换行符
+            // 则处理结束
             if msg.len() == added_count - i {
                 break;
             }
 
+            // 把本次已经处理的字符串切片剔除
             ref_s = &ref_s[line_msg.len() - 1..];
             i += 1;
         }
