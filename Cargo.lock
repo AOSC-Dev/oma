@@ -1873,7 +1873,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unic-langid",
- "unicode-width",
  "which",
  "xz2",
 ]
