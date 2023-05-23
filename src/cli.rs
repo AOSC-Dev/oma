@@ -483,11 +483,21 @@ impl Writer {
         let max_len = self.get_max_len();
         let mut first_run = true;
 
-        let mut msg = msg.to_string();
+        let msg = msg.to_string();
+
+        let mut ref_s = msg.as_str();
+        let mut i = 1;
+
+        let mut added_count = 0;
 
         // Print msg with left padding
-        while !msg.is_empty() {
-            let line_msg = console::truncate_str(&msg, max_len.into(), "\n");
+        loop {
+            let line_msg = if ref_s.len() < max_len.into() {
+                format!("{}\n", ref_s).into()
+            } else {
+                console::truncate_str(ref_s, max_len.into(), "\n")
+            };
+
             if first_run {
                 self.write_prefix(prefix)
                     .context("Failed to write prefix to console.")?;
@@ -499,17 +509,15 @@ impl Writer {
             self.term
                 .write_str(&line_msg)
                 .context("Failed to write message to console.")?;
-            // Remove the already written part, strip ANSI since it can mess everything up
-            let mut new_msg = console::strip_ansi_codes(&msg).to_string();
-            new_msg = if line_msg.len() > max_len.into() {
-                new_msg[line_msg.len() - 1..].to_string()
-            } else {
-                "".to_string()
-            };
-            // Swap
-            std::mem::swap(&mut msg, &mut new_msg);
+
+            added_count += line_msg.len();
+            if msg.len() == added_count - i {
+                break;
+            }
+
+            ref_s = &ref_s[line_msg.len() - 1..];
+            i += 1;
         }
-        self.term.write_line("")?;
 
         Ok(())
     }
