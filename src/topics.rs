@@ -125,8 +125,9 @@ impl TopicManager {
     }
 
     pub fn opt_in(&mut self, client: &Client, rt: &Runtime, topic: &str) -> Result<()> {
+        tracing::info!("oma will opt_in: {}", topic);
+
         if DRYRUN.load(Ordering::Relaxed) {
-            info!("oma will opt_in: {}", topic);
             return Ok(());
         }
         let all = if self.all.is_empty() {
@@ -135,12 +136,19 @@ impl TopicManager {
             self.all.clone()
         };
 
+        tracing::debug!("all topic: {all:?}");
+
         let index = all.iter().find(|x| {
             x.name.to_ascii_lowercase() == topic.to_ascii_lowercase()
-                && x.arch.as_ref().map(|x| x.contains(ARCH.get().unwrap())) == Some(true)
+                && x.arch
+                    .as_ref()
+                    .map(|x| x.contains(ARCH.get().unwrap()) || x.contains(&"all".to_string()))
+                    == Some(true)
         });
 
         let enabled_names = self.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
+
+        tracing::debug!("Enabled: {enabled_names:?}");
 
         if let Some(index) = index {
             if !enabled_names.contains(&&index.name) {
@@ -149,6 +157,8 @@ impl TopicManager {
 
             return Ok(());
         }
+
+        tracing::debug!("index: {index:?} does not exist");
 
         bail!("Cannot find the specified topic: {topic}")
     }
