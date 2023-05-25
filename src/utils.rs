@@ -16,7 +16,7 @@ use rust_apt::util::DiskSpace;
 use indicatif::HumanBytes;
 use sysinfo::{Pid, System, SystemExt};
 
-use crate::{oma::Action, ARGS, DRYRUN, fl};
+use crate::{fl, oma::Action, ARGS, DRYRUN};
 
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
