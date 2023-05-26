@@ -387,6 +387,7 @@ struct SearchEntry {
     pkgname: String,
     pkginfo: PkgInfo,
     status: PackageStatus,
+    provide: Option<String>,
 }
 
 impl Indexable for SearchEntry {
@@ -425,15 +426,26 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
                     pkgname: pkg.name().to_string(),
                     pkginfo: PkgInfo::new(cache, cand.unique(), &pkg)?,
                     status,
+                    provide: None,
                 },
             );
             continue;
         }
 
-        let real_pkgs = pkg.provides().map(|x| x.target_pkg());
+        let real_pkgs = pkg
+            .provides()
+            .map(|x| (x.name().to_string(), x.target_pkg()));
 
-        for i in real_pkgs {
+        for (provide, i) in real_pkgs {
             let pkg = Package::new(cache, i.unique());
+
+            let status = if pkg.is_upgradable() {
+                PackageStatus::Upgrade
+            } else if pkg.is_installed() {
+                PackageStatus::Installed
+            } else {
+                PackageStatus::Avail
+            };
 
             if let Some(cand) = pkg.candidate() {
                 pkg_map.insert(
@@ -441,7 +453,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
                     SearchEntry {
                         pkgname: pkg.name().to_string(),
                         pkginfo: PkgInfo::new(cache, cand.unique(), &pkg)?,
-                        status: status.clone(),
+                        status,
+                        provide: Some(provide.to_string()),
                     },
                 );
             }
@@ -496,7 +509,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             pkg_info_line.push_str(&style("(debug symbols available)").dim().to_string());
         }
 
-        if pkg.package == input {
+        if pkg.package == input || entry.provide == Some(input.to_string()) {
             pkg_info_line.push(' ');
             pkg_info_line.push_str(&style("[full match]").yellow().bold().to_string());
             full_match = true;
