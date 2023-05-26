@@ -37,6 +37,7 @@ sha2 = "0.10"
 # For Search package
 glob-match = "0.2"
 strsim = "0.10"
+indicium = "0.4"
 # For read AOSC OS MIRROR file
 serde_yaml = "0.9"
 # For oma provides/list-files

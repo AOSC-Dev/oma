@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use console::style;
 use glob_match::glob_match_with_captures;
 use indicatif::{HumanBytes, ProgressBar};
+use indicium::simple::{Indexable, SearchIndex};
 use rust_apt::{
     cache::{Cache, PackageSort},
     package::{BaseDep, DepType, Dependency, Package, Version},
@@ -337,7 +338,7 @@ impl OmaDependency {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 enum PackageStatus {
     Avail,
     Installed,
@@ -382,65 +383,78 @@ impl Ord for PackageStatus {
     }
 }
 
+struct SearchEntry {
+    pkgname: String,
+    pkginfo: PkgInfo,
+    status: PackageStatus,
+}
+
+impl Indexable for SearchEntry {
+    fn strings(&self) -> Vec<String> {
+        vec![
+            self.pkgname.clone(),
+            self.pkginfo.description.clone().unwrap_or("".to_string()),
+        ]
+    }
+}
+
 pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     let input = input.to_lowercase();
     let sort = PackageSort::default().include_virtual();
     let packages = cache.packages(&sort)?;
 
-    let mut res = HashMap::new();
+    let mut pkg_map = HashMap::new();
 
     for pkg in packages {
-        if let Some(cand) = pkg.candidate() {
-            let desc = cand.description().unwrap_or("".to_owned()).to_lowercase();
-            if (pkg.name().contains(&input) || desc.contains(&input))
-                && !pkg.name().contains("-dbg")
-                && res.get(pkg.name()).is_none()
-            {
-                let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
-                res.insert(
-                    pkg.name().to_string(),
-                    (
-                        oma_pkg,
-                        cand.is_installed(),
-                        pkg.is_upgradable(),
-                        pkg_score(&input, pkg.name(), false),
-                    ),
-                );
-            }
-        } else if pkg.name() == input && pkg.has_provides() {
-            let real_pkgs = pkg.provides().map(|x| x.target_pkg());
-            for pkg in real_pkgs {
-                let pkg = Package::new(cache, pkg);
-                let cand = pkg.candidate().unwrap();
-                let oma_pkg = PkgInfo::new(cache, cand.unique(), &pkg)?;
+        if pkg.name().contains("-dbg") {
+            continue;
+        }
 
-                res.insert(
-                    pkg.name().to_string(),
-                    (
-                        oma_pkg,
-                        cand.is_installed(),
-                        pkg.is_upgradable(),
-                        pkg_score(&input, pkg.name(), true),
-                    ),
+        let status = if pkg.is_upgradable() {
+            PackageStatus::Upgrade
+        } else if pkg.is_installed() {
+            PackageStatus::Installed
+        } else {
+            PackageStatus::Avail
+        };
+
+        if let Some(cand) = pkg.candidate() {
+            pkg_map.insert(
+                pkg.name().to_string(),
+                SearchEntry {
+                    pkgname: pkg.name().to_string(),
+                    pkginfo: PkgInfo::new(cache, cand.unique(), &pkg)?,
+                    status,
+                },
+            );
+            continue;
+        }
+
+        let real_pkgs = pkg.provides().map(|x| x.target_pkg());
+
+        for i in real_pkgs {
+            let pkg = Package::new(cache, i.unique());
+
+            if let Some(cand) = pkg.candidate() {
+                pkg_map.insert(
+                    i.name().to_string(),
+                    SearchEntry {
+                        pkgname: pkg.name().to_string(),
+                        pkginfo: PkgInfo::new(cache, cand.unique(), &pkg)?,
+                        status: status.clone(),
+                    },
                 );
             }
         }
     }
 
-    let mut res = res.into_values().collect::<Vec<_>>();
+    let mut search_index: SearchIndex<String> = SearchIndex::default();
 
-    res.sort_unstable_by(|x, y| {
-        let x_score = x.3;
-        let y_score = y.3;
+    pkg_map
+        .iter()
+        .for_each(|(key, value)| search_index.insert(key, value));
 
-        let c = y_score.cmp(&x_score);
-
-        if c == std::cmp::Ordering::Equal {
-            x.0.package.cmp(&y.0.package)
-        } else {
-            c
-        }
-    });
+    let res = search_index.search(&input);
 
     if res.is_empty() {
         bail!("Could not find any packages for keyword: {input}");
@@ -450,14 +464,11 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
     let mut output = vec![];
 
-    for (pkg, installed, upgradable, pkg_score) in res {
-        let prefix = if installed {
-            PackageStatus::Installed
-        } else if upgradable {
-            PackageStatus::Upgrade
-        } else {
-            PackageStatus::Avail
-        };
+    for i in res {
+        let mut full_match = false;
+        let entry = pkg_map.get(i).unwrap();
+
+        let pkg = &entry.pkginfo;
 
         let mut pkg_info_line = if pkg.section == Some("Bases".to_owned()) {
             style(&pkg.package).bold().blue().to_string()
@@ -467,14 +478,14 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         pkg_info_line.push(' ');
 
-        if upgradable {
+        if entry.status == PackageStatus::Upgrade {
             let p = cache.get(&pkg.package).unwrap();
             let installed = p.installed().unwrap();
             let now_version = installed.version();
             pkg_info_line.push_str(&format!(
                 "{} -> {}",
                 style(now_version).yellow(),
-                style(pkg.version).green()
+                style(&pkg.version).green()
             ));
         } else {
             pkg_info_line.push_str(&style(&pkg.version).green().to_string());
@@ -485,34 +496,33 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             pkg_info_line.push_str(&style("(debug symbols available)").dim().to_string());
         }
 
-        if pkg_score == 1000 {
+        if pkg.package == input {
             pkg_info_line.push(' ');
             pkg_info_line.push_str(&style("[full match]").yellow().bold().to_string());
+            full_match = true;
         }
 
         output.push((
-            prefix,
+            entry.status.clone(),
             pkg_info_line,
-            pkg.description.unwrap_or("".to_owned()),
+            pkg.description.clone().unwrap_or("".to_owned()),
             pkg_score,
+            full_match,
         ));
     }
 
     output.sort_by(|a, b| b.0.cmp(&a.0));
 
-    let mut index = 0;
+    if output.len() * 2 <= height.into() {
+        let fm = output.iter().position(|x| x.4);
 
-    while index < output.len() {
-        if output[index].3 == 1000 {
-            let del = output.remove(index);
-            output.insert(0, del);
+        if let Some(fm) = fm {
+            let (prefix, line, desc, _, _) = output.remove(fm);
+            crate::WRITER.writeln(&prefix.to_string(), &line)?;
+            crate::WRITER.writeln("", &desc)?;
         }
 
-        index += 1;
-    }
-
-    if output.len() * 2 <= height.into() {
-        for (prefix, line, desc, _) in output {
+        for (prefix, line, desc, _, _) in output {
             crate::WRITER.writeln(&prefix.to_string(), &line)?;
             crate::WRITER.writeln("", &desc)?;
         }
@@ -522,7 +532,15 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
-        for (prefix, line, desc, _) in output {
+        let fm = output.iter().position(|x| x.4);
+
+        if let Some(fm) = fm {
+            let (prefix, line, desc, _, _) = output.remove(fm);
+            writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
+            writeln!(out, "{}{desc}", gen_prefix("")).ok();
+        }
+
+        for (prefix, line, desc, _, _) in output {
             writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
             writeln!(out, "{}{desc}", gen_prefix("")).ok();
         }

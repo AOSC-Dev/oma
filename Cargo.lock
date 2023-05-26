@@ -1345,6 +1345,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicium"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ae94d7617a39d80701145d58094484a171a628adca4064e51078b11db790ee2"
+dependencies = [
+ "strsim",
+ "tracing",
+]
+
+[[package]]
 name = "inquire"
 version = "0.6.1"
 source = "git+https://github.com/AOSC-Dev/inquire?rev=3230e6daefb71e335764d901d1c6d3a5e706312e#3230e6daefb71e335764d901d1c6d3a5e706312e"
@@ -1846,6 +1856,7 @@ dependencies = [
  "i18n-embed-fl",
  "indexmap",
  "indicatif",
+ "indicium",
  "inquire",
  "nix",
  "once_cell",
