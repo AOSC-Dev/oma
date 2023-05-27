@@ -13,6 +13,7 @@ fn main() -> Result<()> {
     );
 
     // i18n
+    println!("cargo:rerun-if-env-changed=OMA_I18N");
     println!("cargo:rerun-if-changed={}", srcdir.join("i18n").display());
 
     let cmd = command_builder();
