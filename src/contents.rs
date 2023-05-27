@@ -186,12 +186,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
                                 x.set_message(fl!("search-with-result-count", count = count))
                             }
 
-<<<<<<< HEAD
-                            let search_bin_name = kw.split('/').last()
-                                .context("BUG: can not parse search kwywprd: {kw}, Please report this to upstream:  https://github.com/aosc-dev/oma")?;
-=======
                             let search_bin_name = if cnf { kw.split('/').last() } else { None };
->>>>>>> 0eb56d9 (feat: add contents.rs translate template)
 
                             for j in submatches {
                                 let m = j.m.text;
