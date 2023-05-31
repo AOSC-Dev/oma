@@ -187,6 +187,7 @@ parse-rg-result-failed = BUG: Failed to parse `rg' result {$i}: {$e}. Please rep
 search-with-result-count = Searching, found {$count} results so far ...
 contents-entry-missing-path-list = BUG: Omakase failed to parse an entry {$entry} in the local contents database. Please report this issue at https://github.com/AOSC-Dev/oma.
 rg-non-zero = `rg' returned an error.
+cnf-wrong-argument = BUG: The command-not-found method was not passed with the correct parameters, please report upstream: https://github.com/AOSC-dev/oma.
 
 # checksum
 sha256-bad-length = Malformed SHA256 checksum: bad length.
