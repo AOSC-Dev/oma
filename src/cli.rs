@@ -75,6 +75,7 @@ pub struct Download {
     pub packages: Vec<String>,
     /// Download to path
     pub path: Option<String>,
+    pub with_deps: bool,
 }
 
 pub struct InstallOptions {
@@ -328,6 +329,7 @@ impl CommandMatcher for OmaCommandRunner {
             Some(("download", args)) => OmaCommand::Download(Download {
                 packages: pkgs_getter(args).unwrap(),
                 path: args.get_one::<String>("path").cloned(),
+                with_deps: args.get_flag("with_deps"),
             }),
             Some(("remove", args)) => OmaCommand::Remove(RemoveOptions {
                 packages: pkgs_getter(args).unwrap(),

@@ -13,7 +13,7 @@ use rust_apt::{
     records::RecordField,
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
-use std::{fmt::Write as FmtWrite, io::BufRead};
+use std::{collections::HashMap, fmt::Write as FmtWrite, io::BufRead};
 use tabled::Tabled;
 use time::OffsetDateTime;
 use tokio::runtime::Runtime;
@@ -41,7 +41,7 @@ use crate::{
     },
     info,
     pager::Pager,
-    pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, PkgInfo},
+    pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, OmaDependency, PkgInfo},
     success,
     utils::{
         error_due_to, lock_oma, log_to_file, needs_root, size_checker, source_url_to_apt_style,
@@ -768,16 +768,22 @@ impl Oma {
                     pkg_urls: urls.collect(),
                     checksum: version.sha256(),
                     pure_download_size: version.size(),
-                })
+                });
+
+                if v.with_deps {
+                    map_deps_to_download(i.deps, &cache, &mut downloads);
+                }
             }
         }
+
+        if downloads.is_empty() {}
 
         let path = v.path.unwrap_or(".".to_owned());
         let path = Path::new(&path);
 
         packages_download_runner(&self.runtime, &downloads, &self.client, None, Some(path))?;
 
-        let len = v.packages.len();
+        let len = downloads.len();
 
         success!(
             "{}",
@@ -1363,6 +1369,59 @@ impl Oma {
         }
 
         Ok(0)
+    }
+}
+
+fn map_deps_to_download(
+    deps: HashMap<String, Vec<Vec<OmaDependency>>>,
+    cache: &Cache,
+    downloads: &mut Vec<InstallRow>,
+) {
+    let need_deps = deps
+        .get("Depends")
+        .into_iter()
+        .chain(deps.get("PreDepends").into_iter())
+        .chain(deps.get("Recommends").into_iter());
+
+    for deps_with_type in need_deps {
+        for deps in deps_with_type {
+            for base_dep in deps {
+                let pkg = cache.get(&base_dep.name);
+
+                if let Some(pkg) = pkg {
+                    let version = if let Some(ver) = &base_dep.target_ver {
+                        pkg.get_version(&ver)
+                    } else {
+                        pkg.candidate()
+                    };
+
+                    if let Some(version) = version {
+                        let urls = version.uris();
+
+                        downloads.push(InstallRow {
+                            name: pkg.name().to_string(),
+                            name_no_color: pkg.name().to_string(),
+                            new_version: version.version().to_string(),
+                            version: version.version().to_string(),
+                            size: version.installed_size().to_string(),
+                            pkg_urls: urls.collect(),
+                            checksum: version.sha256(),
+                            pure_download_size: version.size(),
+                        });
+                    } else {
+                        error!("{}", fl!("pkg-no-version", name = pkg.name()));
+                    }
+                } else {
+                    error!(
+                        "{}",
+                        fl!(
+                            "can-not-get-pkg-from-database",
+                            name = base_dep.name.to_string()
+                        )
+                    );
+                }
+            }
+        }
     }
 }
 
