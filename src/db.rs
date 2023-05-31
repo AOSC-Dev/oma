@@ -510,6 +510,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
     }
 
     let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
+
     let res = stream.collect::<Vec<_>>().await;
 
     let mut res_2 = vec![];
@@ -534,9 +535,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                             .to_string();
 
                         if !removed_suites.contains(&suite) {
-                            return Err(anyhow!(
-                                fl!("not-found", url = url.to_string())
-                            ));
+                            return Err(anyhow!(fl!("not-found", url = url.to_string())));
                         }
                     }
                     _ => return Err(e.into()),
@@ -695,14 +694,14 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 
         // 默认限制一次最多下载八个包，减少服务器负担
         let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
-        let res = stream.collect::<Vec<_>>().await;
+
+        stream
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
 
         global_bar.finish_and_clear();
-
-        // 遍历结果看是否有下载出错
-        for i in res {
-            i?;
-        }
     }
 
     Ok(())

@@ -280,14 +280,14 @@ async fn packages_download(
 
     // 默认限制一次最多下载八个包，减少服务器负担
     let stream = futures::stream::iter(task).buffer_unordered(limit.unwrap_or(4));
-    let res = stream.collect::<Vec<_>>().await;
+
+    stream
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
 
     global_bar.finish_and_clear();
-
-    // 遍历结果看是否有下载出错
-    for i in res {
-        i?;
-    }
 
     if download_len != 0 {
         success!(
