@@ -11,6 +11,18 @@ can-not-create-oma-log-dir = 无法创建 Omakase 日志目录：{$e}。
 can-not-create-oma-log = 无法创建 Omakase 历史记录：{$e}。
 execute-pkexec-fail = 无法执行 `pkexec' 命令：{$e}。
 
+# history
+can-not-create-oma-log-dir = Failed to create log directory for Omakase: {$e}.
+can-not-create-oma-log = Failed to create history file for Omakase: {$e}.
+can-not-create-oma-log-database = Failed to read and create oma history database file: {$e}.
+can-not-read-oma-log-database = Failed to read oma history database: {$e}, Maybe database is broken.
+can-not-ser-oma-log-database = BUG: Failed to serialize database: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
+can-not-deser-oma-log-database = BUG: Failed to deserialize database: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
+invaild-index = Invaild index: {$index}.
+index-is-nothing = index: {$index} does not any action
+select-op-undo = Select an operation ID to undo
+select-op-redo = Select an operation ID to redo
+
 # verify
 fail-load-certs-from-file = 无法从 {$path} 载入软件源签名。
 cert-file-is-bad = 位于 {$path} 的软件源签名无效。
