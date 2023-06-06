@@ -10,17 +10,17 @@ can-not-unlock-oma = Failed to unlock Omakase: {$e}.
 execute-pkexec-fail = Failed to execute `pkexec': {$e}.
 
 # history
-can-not-create-oma-log-dir = Failed to create log directory for Omakase: {$e}.
-can-not-create-oma-log = Failed to create history file for Omakase: {$e}.
-can-not-create-oma-log-database = Failed to read and create oma history database file: {$e}.
-can-not-read-oma-log-database = Failed to read oma history database: {$e}, Maybe database is broken.
-can-not-ser-oma-log-database = BUG: Failed to serialize database: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
-can-not-deser-oma-log-database = BUG: Failed to deserialize database: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
-invaild-index = Invaild index: {$index}.
-index-is-nothing = index: {$index} does not any action
-select-op-undo = Select an operation ID to undo
-select-op-redo = Select an operation ID to redo
-history-tips = 系统修改已经成功完成。若这次修改并非你的意愿，请使用 `oma history undo' 撤销此次的修改。
+can-not-create-oma-log-dir = Failed to create Omakase log directory: {$e}.
+can-not-create-oma-log = Failed to create Omakase history file: {$e}.
+can-not-create-oma-log-database = Failed to create Omakase history database: {$e}.
+can-not-read-oma-log-database = Failed to read Omakase history database: {$e}. Database may be corrupted.
+can-not-ser-oma-log-database = BUG: Failed to serialize Omakase history database: {$e}. Please report this issue at https://github.com/AOSC-Dev/oma.
+can-not-deser-oma-log-database = BUG: Failed to deserialize Omakase history database: {$e}. Please report this issue at https://github.com/AOSC-Dev/oma.
+invaild-index = Invaild Omakase history index: {$index}.
+index-is-nothing = Index {$index} does not contain any action.
+select-op-undo = Select an operation ID to undo:
+select-op-redo = Select an operation ID to redo:
+history-tips = Omakase has completed applying changes to your system. If you would like to undo these changes, please use the `oma history undo' command.
 
 # verify
 fail-load-certs-from-file = Failed to load repository signature from {$path}.
