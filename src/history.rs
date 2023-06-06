@@ -3,6 +3,7 @@ use std::{
     sync::atomic::Ordering,
 };
 
+use crate::fl;
 use crate::{
     cli::InstallOptions,
     error, info,
@@ -198,9 +199,12 @@ fn undo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
         }
 
         error!(
-            "Can not get package: {} version: {}",
-            i.name_no_color,
-            i.old_version.as_ref().unwrap()
+            "{}",
+            fl!(
+                "can-not-get-pkg-version-from-database",
+                name = i.name_no_color.to_string(),
+                version = i.old_version.as_ref().unwrap().to_string()
+            )
         );
     }
     for i in &action.downgrade {
@@ -213,9 +217,12 @@ fn undo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
         }
 
         error!(
-            "Can not get package: {} version: {}",
-            i.name_no_color,
-            i.old_version.as_ref().unwrap()
+            "{}",
+            fl!(
+                "can-not-get-pkg-version-from-database",
+                name = i.name_no_color.to_string(),
+                version = i.old_version.as_ref().unwrap().to_string()
+            )
         );
     }
     for i in &action.del {
@@ -228,8 +235,12 @@ fn undo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
         }
 
         error!(
-            "Can not get package: {} version: {}",
-            i.name_no_color, i.version
+            "{}",
+            fl!(
+                "can-not-get-pkg-version-from-database",
+                name = i.name_no_color.to_string(),
+                version = i.version.to_string()
+            )
         );
     }
     for i in &action.install {
@@ -244,8 +255,12 @@ fn undo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
         }
 
         error!(
-            "Can not get package: {} version: {}",
-            i.name_no_color, i.version
+            "{}",
+            fl!(
+                "can-not-get-pkg-version-from-database",
+                name = i.name_no_color.to_string(),
+                version = i.version.to_string()
+            )
         );
     }
 
@@ -265,9 +280,12 @@ fn redo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
         }
 
         error!(
-            "Can not get package: {} version: {}",
-            i.name_no_color,
-            i.old_version.as_ref().unwrap()
+            "{}",
+            fl!(
+                "can-not-get-pkg-version-from-database",
+                name = i.name_no_color.to_string(),
+                version = i.new_version.to_string()
+            )
         );
     }
     for i in &action.downgrade {
@@ -280,9 +298,12 @@ fn redo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
         }
 
         error!(
-            "Can not get package: {} version: {}",
-            i.name_no_color,
-            i.old_version.as_ref().unwrap()
+            "{}",
+            fl!(
+                "can-not-get-pkg-version-from-database",
+                name = i.name_no_color.to_string(),
+                version = i.new_version.to_string()
+            )
         );
     }
     for i in &action.del {
@@ -293,8 +314,12 @@ fn redo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
         }
 
         error!(
-            "Can not get package: {} version: {}",
-            i.name_no_color, i.version
+            "{}",
+            fl!(
+                "can-not-get-pkg-version-from-database",
+                name = i.name_no_color.to_string(),
+                version = i.version.to_string()
+            )
         );
     }
     for i in &action.install {
@@ -302,15 +327,19 @@ fn redo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
         if let Some(pkg) = pkg {
             if let Some(v) = pkg.installed() {
                 if v.version() == i.new_version {
-                    mark_delete(&pkg, false)?;
+                    mark_install(cache, pkg.name(), v.unique(), false, false, None)?;
                     continue;
                 }
             }
         }
 
         error!(
-            "Can not get package: {} version: {}",
-            i.name_no_color, i.version
+            "{}",
+            fl!(
+                "can-not-get-pkg-version-from-database",
+                name = i.name_no_color.to_string(),
+                version = i.version.to_string()
+            )
         );
     }
 
