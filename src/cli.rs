@@ -113,6 +113,27 @@ pub struct InstallOptions {
     pub no_install_suggests: bool,
 }
 
+impl Default for InstallOptions {
+    fn default() -> Self {
+        Self {
+            packages: None,
+            install_dbg: false,
+            reinstall: false,
+            no_fixbroken: false,
+            no_refresh: false,
+            yes: false,
+            force_yes: false,
+            force_confnew: false,
+            dry_run: false,
+            dpkg_force_all: false,
+            no_install_recommends: false,
+            no_install_suggests: true,
+            install_recommends: true,
+            install_suggests: false,
+        }
+    }
+}
+
 pub struct UpgradeOptions {
     /// Package(s) name
     pub packages: Option<Vec<String>>,
@@ -415,7 +436,7 @@ impl CommandMatcher for OmaCommandRunner {
                     Some("undo") => HistoryAction::Undo(args.get_one::<usize>("index").copied()),
                     Some("redo") => HistoryAction::Redo(args.get_one::<usize>("index").copied()),
                     _ => unimplemented!(),
-                }
+                },
             }),
             #[cfg(feature = "aosc")]
             Some(("topics", v)) => OmaCommand::Topics(Topics {
@@ -424,7 +445,7 @@ impl CommandMatcher for OmaCommandRunner {
                     .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
                 opt_out: v
                     .get_many::<String>("opt_out")
-                    .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
+                    .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
             }),
             Some(("pkgnames", v)) => {
                 OmaCommand::Pkgnames(v.get_one::<String>("keyword").map(|x| x.to_owned()))

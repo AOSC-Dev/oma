@@ -83,33 +83,6 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<
     Ok(())
 }
 
-// pub fn info(index: usize) -> Result<()> {
-//     let buf = std::fs::read(HISTORY_DB_FILE)
-//         .map_err(|e| anyhow!("Can not read history database, why: {e}"))?;
-
-//     let db: Vec<History> = serde_json::from_reader(&*buf)
-//         .map_err(|e| anyhow!("Can not read oma history database, why: {e}, database is broken?"))?;
-
-//     let history = db
-//         .get(index)
-//         .context(format!("Can not get index: {index}"))?;
-
-//     let action = &history.action;
-
-//     if action.is_empty() {
-//         info!("index: {} does not any action", index);
-//         return Ok(());
-//     }
-
-//     let mut pager = Pager::new(false, true)?;
-
-//     result_inner(action, &mut pager)?;
-
-//     let _ = pager.wait_for_exit();
-
-//     Ok(())
-// }
-
 pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
     needs_root()?;
 
@@ -204,23 +177,9 @@ fn do_inner(
         count,
         cache,
         len,
-        &InstallOptions {
-            packages: None,
-            install_dbg: false,
-            reinstall: false,
-            no_fixbroken: false,
-            no_refresh: false,
-            yes: false,
-            force_yes: false,
-            force_confnew: false,
-            dry_run: false,
-            dpkg_force_all: false,
-            no_install_recommends: false,
-            no_install_suggests: true,
-            install_recommends: true,
-            install_suggests: false,
-        },
+        &InstallOptions::default(),
     )?;
+
     let end_time = OffsetDateTime::now_utc()
         .to_offset(*TIME_OFFSET)
         .to_string();
