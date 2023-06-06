@@ -22,6 +22,7 @@ invaild-index = Invaild index: {$index}.
 index-is-nothing = index: {$index} does not any action
 select-op-undo = Select an operation ID to undo
 select-op-redo = Select an operation ID to redo
+history-tips = 系统修改已经成功完成。若这次修改并非你的意愿，请使用 `oma history undo' 撤销此次的修改。
 
 # verify
 fail-load-certs-from-file = 无法从 {$path} 载入软件源签名。
