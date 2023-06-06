@@ -782,8 +782,8 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
 
     writeln!(
         out,
-        "{} {}",
-        style("Total download size:").bold(),
+        "{}{}",
+        style(fl!("total-download-size")).bold(),
         HumanBytes(download_size(&list, cache)?)
     )
     .ok();
@@ -795,8 +795,8 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
 
     writeln!(
         out,
-        "{} {}{}",
-        style("Estimated change in storage usage:").bold(),
+        "{}{}{}",
+        style(fl!("change-storage-usage")).bold(),
         symbol,
         HumanBytes(abs_install_size_change)
     )

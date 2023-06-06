@@ -123,8 +123,8 @@ how-to-op-with-x = Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll
 end-review = Press [q] to end review
 cc-to-abort = Press [Ctrl-c] to abort
 how-to-op = Press [PgUp/Dn] or arrow keys to scroll.
-total-download-size = Total download size:
-change-storage-usage = Estimated change in storage usage:
+total-download-size = {"Total download size: "}
+change-storage-usage = {"Estimated change in storage usage: "}
 pending-op = Pending Operations
 review-msg = Shown below is an overview of the pending changes Omakase will apply to your
     system, please review them carefully.
