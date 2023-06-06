@@ -12,17 +12,17 @@ can-not-create-oma-log = 无法创建 Omakase 历史记录：{$e}。
 execute-pkexec-fail = 无法执行 `pkexec' 命令：{$e}。
 
 # history
-can-not-create-oma-log-dir = Failed to create log directory for Omakase: {$e}.
-can-not-create-oma-log = Failed to create history file for Omakase: {$e}.
-can-not-create-oma-log-database = Failed to read and create oma history database file: {$e}.
-can-not-read-oma-log-database = Failed to read oma history database: {$e}, Maybe database is broken.
-can-not-ser-oma-log-database = BUG: Failed to serialize database: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
-can-not-deser-oma-log-database = BUG: Failed to deserialize database: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
-invaild-index = Invaild index: {$index}.
-index-is-nothing = index: {$index} does not any action
-select-op-undo = Select an operation ID to undo
-select-op-redo = Select an operation ID to redo
-history-tips = 系统修改已经成功完成。若这次修改并非你的意愿，请使用 `oma history undo' 撤销此次的修改。
+can-not-create-oma-log-dir = 无法创建 Omakase 日志目录：{$e}。
+can-not-create-oma-log = 无法创建 Omakase 历史记录文件：{$e}。
+can-not-create-oma-log-database = 无法创建 Omakase 历史数据库文件：{$e}。
+can-not-read-oma-log-database = 无法读取 Omakase 历史数据库文件：{$e}，该数据库可能已损坏。
+can-not-ser-oma-log-database = BUG：无法序列化 Omakase 历史数据库：{$e}，请于 https://github.com/AOSC-Dev/oma 报告问题。
+can-not-deser-oma-log-database = BUG：无法反序列化 Omakase 历史数据库：{$e}，请于 https://github.com/AOSC-Dev/oma 报告问题。
+invaild-index = 历史操作编号无效：{$index}。
+index-is-nothing = 历史操作编号 {$index} 未包含任何操作记录。
+select-op-undo = 请选择要撤销的历史操作编号：
+select-op-redo = 请选择要复用的历史操作编号：
+history-tips = Omakase 已成功应用对系统的更改。如需撤销本次操作，请使用 `oma history undo' 命令。
 
 # verify
 fail-load-certs-from-file = 无法从 {$path} 载入软件源签名。
