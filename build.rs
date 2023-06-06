@@ -1,7 +1,7 @@
-use std::path::Path;
 use clap_complete::{generate_to, Shell};
 use clap_mangen::Man;
 use std::io::Result;
+use std::path::Path;
 
 include!("src/args.rs");
 
@@ -54,13 +54,13 @@ fn build_man(cmd: &Command, srcdir: &Path) -> Result<()> {
         if subcommand.is_hide_set() {
             continue;
         }
-    
+
         let subcommand_name = format!("oma-{}", subcommand.get_name());
         let mut buffer: Vec<u8> = Default::default();
-    
+
         let man = Man::new(subcommand.clone()).title(&subcommand_name);
         man.render(&mut buffer)?;
-    
+
         std::fs::write(
             std::path::PathBuf::from(&man_dir).join(format!("{}{}", &subcommand_name, ".1")),
             buffer,

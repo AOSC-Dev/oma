@@ -18,7 +18,7 @@ use rust_apt::{cache::Cache, config::Config as AptConfig, new_cache};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-const HISTORY_DB_FILE: &'static str = "/var/log/oma/history.json";
+const HISTORY_DB_FILE: &str = "/var/log/oma/history.json";
 
 #[derive(Serialize, Deserialize, Debug)]
 struct History {
@@ -194,7 +194,7 @@ fn undo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
     for i in &action.update {
         let pkg = cache.get(&i.name_no_color);
         if let Some(pkg) = pkg {
-            if let Some(v) = pkg.get_version(&i.old_version.as_ref().unwrap()) {
+            if let Some(v) = pkg.get_version(i.old_version.as_ref().unwrap()) {
                 mark_install(cache, pkg.name(), v.unique(), false, false, None)?;
                 continue;
             }
@@ -212,7 +212,7 @@ fn undo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
     for i in &action.downgrade {
         let pkg = cache.get(&i.name_no_color);
         if let Some(pkg) = pkg {
-            if let Some(v) = pkg.get_version(&i.old_version.as_ref().unwrap()) {
+            if let Some(v) = pkg.get_version(i.old_version.as_ref().unwrap()) {
                 mark_install(cache, pkg.name(), v.unique(), false, false, None)?;
                 continue;
             }

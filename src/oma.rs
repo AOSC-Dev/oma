@@ -14,8 +14,8 @@ use rust_apt::{
     util::{apt_lock, apt_unlock, apt_unlock_inner},
 };
 
-use std::{collections::HashMap, fmt::Write as FmtWrite};
 use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, fmt::Write as FmtWrite};
 use tabled::Tabled;
 use time::OffsetDateTime;
 use tokio::runtime::Runtime;
@@ -46,9 +46,7 @@ use crate::{
     pager::Pager,
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, OmaDependency, PkgInfo},
     success,
-    utils::{
-        error_due_to, lock_oma, needs_root, size_checker, source_url_to_apt_style,
-    },
+    utils::{error_due_to, lock_oma, needs_root, size_checker, source_url_to_apt_style},
     warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
 };
 
@@ -853,7 +851,7 @@ impl Oma {
             let disk_size = cache.depcache().disk_size();
             size_checker(&disk_size, download_size(&list, &cache)?)?;
             if action_len != 0 {
-                display_result(&action, &cache, opt.yes)?;
+                display_result(action, &cache, opt.yes)?;
             }
         }
 
@@ -961,10 +959,12 @@ impl Oma {
 
         if !output.is_empty() {
             output.push(fl!("run-oma-upgrade-tips"));
-            let s = output.join(fl!("comma").as_str());
             success!(
                 "{}",
-                fl!("successfully-refresh-with-tips", s = s.to_string())
+                fl!(
+                    "successfully-refresh-with-tips",
+                    s = output.join(fl!("comma").as_str())
+                ),
             );
         } else {
             success!("{}", fl!("successfully-refresh"));
@@ -1295,7 +1295,7 @@ impl Oma {
             HistoryAction::Undo(index) => (true, index),
             HistoryAction::Redo(index) => (false, index),
         };
-    
+
         history::run(index, is_undo)?;
 
         Ok(0)
@@ -1406,7 +1406,7 @@ fn map_deps_to_download(
 
                 if let Some(pkg) = pkg {
                     let version = if let Some(ver) = &base_dep.target_ver {
-                        pkg.get_version(&ver)
+                        pkg.get_version(ver)
                     } else {
                         pkg.candidate()
                     };
