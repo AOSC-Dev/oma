@@ -7,9 +7,19 @@ can-not-create-lock-dir = Failed to create /run/lock: {$e}.
 can-not-create-lock-file = Failed to create lock file: {$e}.
 can-not-write-lock-file = Failed to write to lock file: {$e}.
 can-not-unlock-oma = Failed to unlock Omakase: {$e}.
+execute-pkexec-fail = Failed to execute `pkexec': {$e}.
+
+# history
 can-not-create-oma-log-dir = Failed to create log directory for Omakase: {$e}.
 can-not-create-oma-log = Failed to create history file for Omakase: {$e}.
-execute-pkexec-fail = Failed to execute `pkexec': {$e}.
+can-not-create-oma-log-database = Failed to read and create oma history database file: {$e}.
+can-not-read-oma-log-database = Failed to read oma history database: {$e}, Maybe database is broken.
+can-not-ser-oma-log-database = BUG: Failed to serialize database: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
+can-not-deser-oma-log-database = BUG: Failed to deserialize database: {$e}, Please report to upstream: https://github.com/aosc-dev/oma
+invaild-index = Invaild index: {$index}.
+index-is-nothing = index: {$index} does not any action
+select-op-undo = Select an operation ID to undo
+select-op-redo = Select an operation ID to redo
 
 # verify
 fail-load-certs-from-file = Failed to load repository signature from {$path}.
