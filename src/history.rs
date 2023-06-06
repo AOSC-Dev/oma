@@ -80,7 +80,9 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<
     f.seek(SeekFrom::Start(0))?;
     f.write_all(&buf)?;
 
-    info!("{}", fl!("history-tips"));
+    if !action.is_empty() {
+        info!("{}", fl!("history-tips"));
+    }
 
     Ok(())
 }
