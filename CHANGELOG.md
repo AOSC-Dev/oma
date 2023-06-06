@@ -5,7 +5,167 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.41.0 (2023-06-06)
+
+### Chore
+
+ - <csr-id-f1000e691f6f864347399a5e62ce0e3d5e4ca788/> Update all deps
+ - <csr-id-dabaf02e65e8629f0a95776b43afbc3540d75e55/> Add not automatic build i18n method
+ - <csr-id-0d3effffc68041d3211e3e5acdc068d20d90b01d/> If i18n translate updated re run build.rs script
+   - Also lint code
+ - <csr-id-8071d6834f9162d9e41fb6c071c9704b5556c0f2/> Remove git rebase comment
+
+### New Features
+
+ - <csr-id-678d28c75686650680596c0b2e16761b45195a94/> If action not empty display undo tips
+ - <csr-id-a5aaaea5891b442e85e64d725f5a028fe640a4fd/> Add missing op done tips
+ - <csr-id-5887f8314c14509440e0e3424ae8df472d950322/> Add oma optration done undo tips
+ - <csr-id-c71116ede1e4e552a85fe051ac5e58ba5471a5be/> Add oma history feature
+ - <csr-id-09d507e7b1cbb659a02500e63d1df83d7a3cc873/> Oma download add --with-deps flag to download package(s) with deps
+   - Also fix path argument requires packages argument
+ - <csr-id-27fa7a798cbd4172551b0ccfccd252019de557cc/> Add scan topic to remove string
+ - <csr-id-d1187cadb15b381354849774e54340b608344227/> Move help message from inquire to topics.rs to translate
+ - <csr-id-ba9a16543092f5822579ca9c90ceb498162c76ab/> Add checksum.rs translate template
+ - <csr-id-c1690170900d505813c30aa6ce3e46436b109ca4/> Add contents.rs translate template
+ - <csr-id-59f887d02d29d98cf432f8f1ee44bb321844e0a5/> Add db.rs translate template
+ - <csr-id-7e8d0eed46e2e8cba5553f7fd01499f468e2a8f3/> Add download.rs translate template
+ - <csr-id-6cc6b0b3af8952fbaa4e74ac224bb79df0cf9bad/> Add formatter.rs translate template
+ - <csr-id-ed226a0122f889755f05aed1837f81aa4d284b9f/> Add main.rs translate template
+ - <csr-id-8837159a29ca633d943285439ce7096d59f99844/> Add oma.rs translate template
+ - <csr-id-5263de3401b98a7e543969074a43df40d0c333d5/> Add pager.rs translate template
+ - <csr-id-1c547dd10072cb42193c0dc9858ad51e9c7b18c8/> Add tpkgrs translate template
+ - <csr-id-07b60b286723edc5ca111df8823b89aa26d99b47/> Add topics.rs translate template
+ - <csr-id-728cfc7bb29cd18c042f1fed366e6b7dbdb83245/> Add verify.rs translate template
+ - <csr-id-f5e0c95384ea51f22d5732bc34e242689a35b585/> Add utils.rs translate template
+ - <csr-id-2e6c1fef66188c444dd010f8c9cd51b691a7d11b/> Use indicium search engine to oma search package
+
+### Bug Fixes
+
+ - <csr-id-732e17ed2d517c1d38259a6a479edd607f8be6d3/> Fluent some need use string
+ - <csr-id-ff4844c38c812bd7c28b972e17cdbde48c466376/> Use fluent new line format
+ - <csr-id-18412e16c84125ebcc6abc0e9cd2b0f5359eede2/> Remove useless " in oma.ftl
+ - <csr-id-2c05590feb6aa963b4c59f283d7f4224cec7077b/> Fix do-not-edit-topic-sources-list new line
+ - <csr-id-44a0444dc706a292a4a8eea2cc63f246f3812555/> Remove useless entry in oma.ftl
+ - <csr-id-243ce7a272ed6097968fa76e4f3c5137313a9dd0/> Fix some provide package order
+
+### Other
+
+ - <csr-id-a0ecccc92ebb6b0dc6273396c92b2fd163578505/> (zh-CN) complete localization
+ - <csr-id-565e0e037d0c6675af1f2f020b2dd92f92d18f53/> (en-US) improve UI strings
+ - <csr-id-49e63a18ff3b291f4514e9603bc0fe9120443b5e/> Sync en-US translate string to zh-CN
+ - <csr-id-20c5644a284e25cced38134606183be231f97d17/> Add all history string to i18n
+ - <csr-id-97bf425e5f1e1ff404f0b2ca490c4321c0ec3373/> Adapt some string to i18n; fix redo install package
+ - <csr-id-9f0a6a19373e93981272973a3b853972f87dbad0/> (zh-CN) finish translation
+ - <csr-id-93f71e7adff5d7e85c6a5af4f9f8b271e124c3e1/> (en-US) tweak wording and punctuation marks
+ - <csr-id-a2ca88dd53fa1898b22efd0ca5807f06485b9627/> Fix scan-topic-is-removed name display
+ - <csr-id-b2eb60d2fde1f32fb076ada021a53f706c464670/> Fix debug-symbol-available ui string issue
+ - <csr-id-7c7a30c5c6a736e8d5b29d2efb718766d67947a5/> Fill zh-CN missing translate template
+ - <csr-id-f9e4f5681934724940a33beef4956801ef578eda/> Delete repeated full comma
+ - <csr-id-e929eb8c8571e53608ef639c537bc0e19946060b/> Add missing i18n string
+ - <csr-id-b1690feaa325ba1168de1b746c6dbcd3314c5d57/> Add 'pick-tips' string
+ - <csr-id-fd232b39f97f001c74d4e0fed5e9f4c17b03ab61/> Fix dep-error-desc desc
+ - <csr-id-21116def098438f8edca492861f4c9514a5e51db/> Add colon symbol; adjust some output format
+ - <csr-id-1a67fa9e8a87f05ee214d97d262aa458557a9e71/> (WIP) zh-CN localization
+ - <csr-id-256b84deb2478a27d6c513a525f246889042cf39/> Fix typos in en-US
+ - <csr-id-d958f44148c76e95eab149262a85164beebf2677/> Remove 'type to filter item' in topic tips
+ - <csr-id-a62831f2a0a16fc4e4d24887e1f6a258c110ee4e/> Reword pid => PID
+ - <csr-id-76932b61a9f607c3d955b03180d4a7e718f73454/> Make Omakase speak English
+
+### Refactor
+
+ - <csr-id-16e7824302f8d9ed69d93093b3aacc760e2a7bb6/> Add InstallOptions::default()
+ - <csr-id-77e34ca606251225acf9b2113638acca86caa47a/> Refactor db.rs
+ - <csr-id-dd966219220843ca12f9ae6e1657eeb7be7d1b53/> Refactor contents.rs
+ - <csr-id-d874e9171c05be88608125394b355f05277e0b44/> Remove repeated string
+
+### Style
+
+ - <csr-id-3f300df031dd40b108c1e592b3d649338729cc25/> Run cargo clippy and cargo fmt to lint code
+ - <csr-id-ae446030b0b16de5da53c11b6dcf09752c65586f/> Add missing new line symbol in zh-CN/oma.ftl
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 57 commits contributed to the release over the course of 10 calendar days.
+ - 11 days passed between releases.
+ - 56 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Run cargo clippy and cargo fmt to lint code ([`3f300df`](https://github.com/AOSC-Dev/oma/commit/3f300df031dd40b108c1e592b3d649338729cc25))
+    - Update all deps ([`f1000e6`](https://github.com/AOSC-Dev/oma/commit/f1000e691f6f864347399a5e62ce0e3d5e4ca788))
+    - I18n improve total-download-size and change-storage-usage translate logic ([`26a5f59`](https://github.com/AOSC-Dev/oma/commit/26a5f59452295a237840941f602ac4659224fc52))
+    - If action not empty display undo tips ([`678d28c`](https://github.com/AOSC-Dev/oma/commit/678d28c75686650680596c0b2e16761b45195a94))
+    - Add missing op done tips ([`a5aaaea`](https://github.com/AOSC-Dev/oma/commit/a5aaaea5891b442e85e64d725f5a028fe640a4fd))
+    - (zh-CN) complete localization ([`a0ecccc`](https://github.com/AOSC-Dev/oma/commit/a0ecccc92ebb6b0dc6273396c92b2fd163578505))
+    - (en-US) improve UI strings ([`565e0e0`](https://github.com/AOSC-Dev/oma/commit/565e0e037d0c6675af1f2f020b2dd92f92d18f53))
+    - Add oma optration done undo tips ([`5887f83`](https://github.com/AOSC-Dev/oma/commit/5887f8314c14509440e0e3424ae8df472d950322))
+    - Add missing new line symbol in zh-CN/oma.ftl ([`ae44603`](https://github.com/AOSC-Dev/oma/commit/ae446030b0b16de5da53c11b6dcf09752c65586f))
+    - Sync en-US translate string to zh-CN ([`49e63a1`](https://github.com/AOSC-Dev/oma/commit/49e63a18ff3b291f4514e9603bc0fe9120443b5e))
+    - Add all history string to i18n ([`20c5644`](https://github.com/AOSC-Dev/oma/commit/20c5644a284e25cced38134606183be231f97d17))
+    - Adapt some string to i18n; fix redo install package ([`97bf425`](https://github.com/AOSC-Dev/oma/commit/97bf425e5f1e1ff404f0b2ca490c4321c0ec3373))
+    - Add InstallOptions::default() ([`16e7824`](https://github.com/AOSC-Dev/oma/commit/16e7824302f8d9ed69d93093b3aacc760e2a7bb6))
+    - Add oma history feature ([`c71116e`](https://github.com/AOSC-Dev/oma/commit/c71116ede1e4e552a85fe051ac5e58ba5471a5be))
+    - (zh-CN) finish translation ([`9f0a6a1`](https://github.com/AOSC-Dev/oma/commit/9f0a6a19373e93981272973a3b853972f87dbad0))
+    - (en-US) tweak wording and punctuation marks ([`93f71e7`](https://github.com/AOSC-Dev/oma/commit/93f71e7adff5d7e85c6a5af4f9f8b271e124c3e1))
+    - Oma download add --with-deps flag to download package(s) with deps ([`09d507e`](https://github.com/AOSC-Dev/oma/commit/09d507e7b1cbb659a02500e63d1df83d7a3cc873))
+    - Refactor db.rs ([`77e34ca`](https://github.com/AOSC-Dev/oma/commit/77e34ca606251225acf9b2113638acca86caa47a))
+    - Refactor contents.rs ([`dd96621`](https://github.com/AOSC-Dev/oma/commit/dd966219220843ca12f9ae6e1657eeb7be7d1b53))
+    - Add not automatic build i18n method ([`dabaf02`](https://github.com/AOSC-Dev/oma/commit/dabaf02e65e8629f0a95776b43afbc3540d75e55))
+    - If i18n translate updated re run build.rs script ([`0d3efff`](https://github.com/AOSC-Dev/oma/commit/0d3effffc68041d3211e3e5acdc068d20d90b01d))
+    - Fix scan-topic-is-removed name display ([`a2ca88d`](https://github.com/AOSC-Dev/oma/commit/a2ca88dd53fa1898b22efd0ca5807f06485b9627))
+    - Remove git rebase comment ([`8071d68`](https://github.com/AOSC-Dev/oma/commit/8071d6834f9162d9e41fb6c071c9704b5556c0f2))
+    - Fix debug-symbol-available ui string issue ([`b2eb60d`](https://github.com/AOSC-Dev/oma/commit/b2eb60d2fde1f32fb076ada021a53f706c464670))
+    - Fill zh-CN missing translate template ([`7c7a30c`](https://github.com/AOSC-Dev/oma/commit/7c7a30c5c6a736e8d5b29d2efb718766d67947a5))
+    - Delete repeated full comma ([`f9e4f56`](https://github.com/AOSC-Dev/oma/commit/f9e4f5681934724940a33beef4956801ef578eda))
+    - Add missing i18n string ([`e929eb8`](https://github.com/AOSC-Dev/oma/commit/e929eb8c8571e53608ef639c537bc0e19946060b))
+    - Add 'pick-tips' string ([`b1690fe`](https://github.com/AOSC-Dev/oma/commit/b1690feaa325ba1168de1b746c6dbcd3314c5d57))
+    - Fix dep-error-desc desc ([`fd232b3`](https://github.com/AOSC-Dev/oma/commit/fd232b39f97f001c74d4e0fed5e9f4c17b03ab61))
+    - Add colon symbol; adjust some output format ([`21116de`](https://github.com/AOSC-Dev/oma/commit/21116def098438f8edca492861f4c9514a5e51db))
+    - Fluent some need use string ([`732e17e`](https://github.com/AOSC-Dev/oma/commit/732e17ed2d517c1d38259a6a479edd607f8be6d3))
+    - (WIP) zh-CN localization ([`1a67fa9`](https://github.com/AOSC-Dev/oma/commit/1a67fa9e8a87f05ee214d97d262aa458557a9e71))
+    - Fix typos in en-US ([`256b84d`](https://github.com/AOSC-Dev/oma/commit/256b84deb2478a27d6c513a525f246889042cf39))
+    - Remove 'type to filter item' in topic tips ([`d958f44`](https://github.com/AOSC-Dev/oma/commit/d958f44148c76e95eab149262a85164beebf2677))
+    - Reword pid => PID ([`a62831f`](https://github.com/AOSC-Dev/oma/commit/a62831f2a0a16fc4e4d24887e1f6a258c110ee4e))
+    - Make Omakase speak English ([`76932b6`](https://github.com/AOSC-Dev/oma/commit/76932b61a9f607c3d955b03180d4a7e718f73454))
+    - Remove repeated string ([`d874e91`](https://github.com/AOSC-Dev/oma/commit/d874e9171c05be88608125394b355f05277e0b44))
+    - Use fluent new line format ([`ff4844c`](https://github.com/AOSC-Dev/oma/commit/ff4844c38c812bd7c28b972e17cdbde48c466376))
+    - Add scan topic to remove string ([`27fa7a7`](https://github.com/AOSC-Dev/oma/commit/27fa7a798cbd4172551b0ccfccd252019de557cc))
+    - Remove useless " in oma.ftl ([`18412e1`](https://github.com/AOSC-Dev/oma/commit/18412e16c84125ebcc6abc0e9cd2b0f5359eede2))
+    - Move help message from inquire to topics.rs to translate ([`d1187ca`](https://github.com/AOSC-Dev/oma/commit/d1187cadb15b381354849774e54340b608344227))
+    - Fix do-not-edit-topic-sources-list new line ([`2c05590`](https://github.com/AOSC-Dev/oma/commit/2c05590feb6aa963b4c59f283d7f4224cec7077b))
+    - Remove useless entry in oma.ftl ([`44a0444`](https://github.com/AOSC-Dev/oma/commit/44a0444dc706a292a4a8eea2cc63f246f3812555))
+    - Add checksum.rs translate template ([`ba9a165`](https://github.com/AOSC-Dev/oma/commit/ba9a16543092f5822579ca9c90ceb498162c76ab))
+    - Add contents.rs translate template ([`c169017`](https://github.com/AOSC-Dev/oma/commit/c1690170900d505813c30aa6ce3e46436b109ca4))
+    - Add db.rs translate template ([`59f887d`](https://github.com/AOSC-Dev/oma/commit/59f887d02d29d98cf432f8f1ee44bb321844e0a5))
+    - Add download.rs translate template ([`7e8d0ee`](https://github.com/AOSC-Dev/oma/commit/7e8d0eed46e2e8cba5553f7fd01499f468e2a8f3))
+    - Add formatter.rs translate template ([`6cc6b0b`](https://github.com/AOSC-Dev/oma/commit/6cc6b0b3af8952fbaa4e74ac224bb79df0cf9bad))
+    - Add main.rs translate template ([`ed226a0`](https://github.com/AOSC-Dev/oma/commit/ed226a0122f889755f05aed1837f81aa4d284b9f))
+    - Add oma.rs translate template ([`8837159`](https://github.com/AOSC-Dev/oma/commit/8837159a29ca633d943285439ce7096d59f99844))
+    - Add pager.rs translate template ([`5263de3`](https://github.com/AOSC-Dev/oma/commit/5263de3401b98a7e543969074a43df40d0c333d5))
+    - Add tpkgrs translate template ([`1c547dd`](https://github.com/AOSC-Dev/oma/commit/1c547dd10072cb42193c0dc9858ad51e9c7b18c8))
+    - Add topics.rs translate template ([`07b60b2`](https://github.com/AOSC-Dev/oma/commit/07b60b286723edc5ca111df8823b89aa26d99b47))
+    - Add verify.rs translate template ([`728cfc7`](https://github.com/AOSC-Dev/oma/commit/728cfc7bb29cd18c042f1fed366e6b7dbdb83245))
+    - Add utils.rs translate template ([`f5e0c95`](https://github.com/AOSC-Dev/oma/commit/f5e0c95384ea51f22d5732bc34e242689a35b585))
+    - Fix some provide package order ([`243ce7a`](https://github.com/AOSC-Dev/oma/commit/243ce7a272ed6097968fa76e4f3c5137313a9dd0))
+    - Use indicium search engine to oma search package ([`2e6c1fe`](https://github.com/AOSC-Dev/oma/commit/2e6c1fef66188c444dd010f8c9cd51b691a7d11b))
+</details>
+
 ## v0.40.0 (2023-05-25)
+
+<csr-id-4e5de74a34f9c127c125e7e9059d6c25651d6659/>
+<csr-id-3768394d114bbd9c8636ab2def920763419bf915/>
+<csr-id-2c742207b01c9fc4c686fd67022f0b794275abce/>
+<csr-id-eb77b477c98d52aa28766c83b11d637ebb0e0c96/>
+<csr-id-70f94f455206029d7105fcd85b7c30573a3c96f5/>
+<csr-id-e6b0898ec36b9d753ae27eb9a0a623e702181185/>
 
 ### Chore
 
@@ -43,7 +203,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 14 commits contributed to the release over the course of 10 calendar days.
+ - 15 commits contributed to the release over the course of 10 calendar days.
  - 11 days passed between releases.
  - 14 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -55,6 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.40.0 ([`1acba8a`](https://github.com/AOSC-Dev/oma/commit/1acba8ad4505edbd98e8682359a7c714692557c0))
     - Use cargo-fmt to format code ([`70f94f4`](https://github.com/AOSC-Dev/oma/commit/70f94f455206029d7105fcd85b7c30573a3c96f5))
     - Update all deps ([`4e5de74`](https://github.com/AOSC-Dev/oma/commit/4e5de74a34f9c127c125e7e9059d6c25651d6659))
     - Fix only noarch topic enable ([`d085919`](https://github.com/AOSC-Dev/oma/commit/d085919b0049bd1d0922b91a0adfbbea9df2c400))
