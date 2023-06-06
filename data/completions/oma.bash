@@ -206,7 +206,7 @@ _oma() {
             return 0
             ;;
         oma__download)
-            opts="-p -h --path --debug --help"
+            opts="-p -h --path --debug --help --with-deps"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -551,7 +551,7 @@ _oma() {
             return 0
             ;;
         oma__history)
-            opts="-h --debug --help"
+            opts="-h --debug --help undo redo"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
