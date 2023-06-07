@@ -82,9 +82,6 @@ _oma() {
             oma__help,clean)
                 cmd="oma__help__clean"
                 ;;
-            oma__help,command-not-found)
-                cmd="oma__help__command__not__found"
-                ;;
             oma__help,depends)
                 cmd="oma__help__depends"
                 ;;
@@ -114,9 +111,6 @@ _oma() {
                 ;;
             oma__help,pick)
                 cmd="oma__help__pick"
-                ;;
-            oma__help,pkgnames)
-                cmd="oma__help__pkgnames"
                 ;;
             oma__help,provides)
                 cmd="oma__help__provides"
@@ -149,7 +143,7 @@ _oma() {
 
     case "${cmd}" in
         oma)
-            opts="-v -h --debug --ailurus --version --help install upgrade download remove refresh show search list-files provides fix-broken pick mark command-not-found list depends rdepends clean history pkgnames topics help"
+            opts="-v -h --debug --ailurus --version --help install upgrade download remove refresh show search list-files provides fix-broken pick mark list depends rdepends clean history topics help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -176,23 +170,9 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        oma__command__not__found)
-            opts="-h --debug --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         oma__depends)
             opts="-h --debug --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -207,7 +187,7 @@ _oma() {
             ;;
         oma__download)
             opts="-p -h --path --debug --help --with-deps"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -581,7 +561,7 @@ _oma() {
             ;;
         oma__list)
             opts="-a -i -u -h --debug --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -596,7 +576,7 @@ _oma() {
             ;;
         oma__list__files)
             opts="-h --debug --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -625,7 +605,7 @@ _oma() {
             ;;
         oma__pick)
             opts="-h --no-fix-broken --no-refresh --dry-run --dpkg-force-all --debug --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -636,20 +616,6 @@ _oma() {
             esac
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             _oma_packages "${cur}"
-            return 0
-            ;;
-        oma__pkgnames)
-            opts="-h --debug --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
         oma__provides)
@@ -668,7 +634,7 @@ _oma() {
             ;;
         oma__rdepends)
             opts="-h --debug --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -726,7 +692,7 @@ _oma() {
             ;;
         oma__show)
             opts="-a -h --debug --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
