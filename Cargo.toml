@@ -17,6 +17,7 @@ dialoguer = "0.10"
 tabled = { version = "0.12", features = ["color"] }
 indicatif = "0.17"
 console = { version = "0.15", features = ["unicode-width"] }
+# console = { path = "../console" }
 inquire = { git = "https://github.com/AOSC-Dev/inquire", rev = "3230e6daefb71e335764d901d1c6d3a5e706312e", optional = true }
 # For Database, Packages Download
 reqwest = { version = "0.11", features = ["json"] }

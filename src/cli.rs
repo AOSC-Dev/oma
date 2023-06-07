@@ -528,7 +528,7 @@ impl Writer {
 
         // Print msg with left padding
         loop {
-            let line_msg = if ref_s.len() < max_len.into() {
+            let line_msg = if console::measure_text_width(ref_s) <= max_len.into() {
                 format!("{}\n", ref_s).into()
             } else {
                 console::truncate_str(ref_s, max_len.into(), "\n")
