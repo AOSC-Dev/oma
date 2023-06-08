@@ -544,13 +544,13 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         if let Some(fm) = fm {
             let (prefix, line, desc, _, _) = output.remove(fm);
-            crate::WRITER.writeln(&prefix.to_string(), &line)?;
-            crate::WRITER.writeln("", &desc)?;
+            crate::WRITER.writeln(&prefix.to_string(), &line, false)?;
+            crate::WRITER.writeln("", &desc, false)?;
         }
 
         for (prefix, line, desc, _, _) in output {
-            crate::WRITER.writeln(&prefix.to_string(), &line)?;
-            crate::WRITER.writeln("", &desc)?;
+            crate::WRITER.writeln(&prefix.to_string(), &line, false)?;
+            crate::WRITER.writeln("", &desc, false)?;
         }
     } else {
         let mut pager = Pager::new(false, false)?;
@@ -603,11 +603,11 @@ pub fn mark_install(
 
     if pkg.installed().as_ref() == Some(&ver) && !reinstall {
         if let Some(pb) = pb {
-            pb.println(format!(
-                "{}{}",
-                style(gen_prefix("INFO")).blue().bold(),
-                fl!("already-installed", name = pkg.name(), version = version),
-            ));
+            crate::WRITER.writeln_with_pb(
+                pb,
+                &style(gen_prefix("INFO")).blue().bold().to_string(),
+                fl!("already-installed", name = pkg.name(), version = version).as_str(),
+            )?;
         } else {
             info!(
                 "{}",

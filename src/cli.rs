@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Command};
 use console::{style, Term};
+use indicatif::ProgressBar;
 use os_release::OsRelease;
 use std::{io::Write, process::exit, sync::atomic::Ordering};
 use tracing::metadata::LevelFilter;
@@ -517,7 +518,12 @@ impl Writer {
         Ok(())
     }
 
-    pub fn writeln(&self, prefix: &str, msg: &str) -> Result<()> {
+    pub fn writeln(
+        &self,
+        prefix: &str,
+        msg: &str,
+        is_pb: bool,
+    ) -> Result<(Vec<String>, Vec<String>)> {
         let max_len = self.get_max_len();
         let mut first_run = true;
 
@@ -525,6 +531,8 @@ impl Writer {
         let mut i = 1;
 
         let mut added_count = 0;
+
+        let (mut prefix_res, mut msg_res) = (vec![], vec![]);
 
         // Print msg with left padding
         loop {
@@ -535,16 +543,29 @@ impl Writer {
             };
 
             if first_run {
-                self.write_prefix(prefix)
-                    .context("Failed to write prefix to console.")?;
+                if !is_pb {
+                    self.write_prefix(prefix)
+                        .context("Failed to write prefix to console.")?;
+                } else {
+                    prefix_res.push(gen_prefix(prefix));
+                }
                 first_run = false;
             } else {
-                self.write_prefix("")
-                    .context("Failed to write prefix to console.")?;
+                if !is_pb {
+                    self.write_prefix("")
+                        .context("Failed to write prefix to console.")?;
+                } else {
+                    prefix_res.push(gen_prefix(""));
+                }
             }
-            self.term
-                .write_str(&line_msg)
-                .context("Failed to write message to console.")?;
+
+            if !is_pb {
+                self.term
+                    .write_str(&line_msg)
+                    .context("Failed to write message to console.")?;
+            } else {
+                msg_res.push(line_msg.to_string());
+            }
 
             // added_count 是已经处理过字符串的长度
             added_count += line_msg.len();
@@ -559,6 +580,16 @@ impl Writer {
             // 把本次已经处理的字符串切片剔除
             ref_s = &ref_s[line_msg.len() - 1..];
             i += 1;
+        }
+
+        Ok((prefix_res, msg_res))
+    }
+
+    pub fn writeln_with_pb(&self, pb: &ProgressBar, prefix: &str, msg: &str) -> Result<()> {
+        let (prefix, line_msgs) = self.writeln(prefix, msg, true)?;
+
+        for (i, c) in prefix.iter().enumerate() {
+            pb.println(format!("{c}{}", line_msgs[i]));
         }
 
         Ok(())
@@ -609,7 +640,7 @@ macro_rules! msg {
 macro_rules! debug {
     ($($arg:tt)+) => {
         if !$crate::DRYRUN.load(Ordering::Relaxed) {
-            $crate::WRITER.writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+)).ok();
+            $crate::WRITER.writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+), false).ok();
         }
         tracing::debug!("{}", &format!($($arg)+));
     };
@@ -619,7 +650,7 @@ macro_rules! debug {
 macro_rules! success {
     ($($arg:tt)+) => {
         if !$crate::DRYRUN.load(Ordering::Relaxed) {
-            $crate::WRITER.writeln(&console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+)).ok();
+            $crate::WRITER.writeln(&console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+), false).ok();
         }
         tracing::info!("{}", &format!($($arg)+));
     };
@@ -629,7 +660,7 @@ macro_rules! success {
 macro_rules! info {
     ($($arg:tt)+) => {
         if !$crate::DRYRUN.load(Ordering::Relaxed) {
-            $crate::WRITER.writeln(&console::style("INFO").blue().bold().to_string(), &format!($($arg)+)).ok();
+            $crate::WRITER.writeln(&console::style("INFO").blue().bold().to_string(), &format!($($arg)+), false).ok();
         }
         tracing::info!("{}", &format!($($arg)+));
     };
@@ -639,7 +670,7 @@ macro_rules! info {
 macro_rules! warn {
     ($($arg:tt)+) => {
         if !$crate::DRYRUN.load(Ordering::Relaxed) {
-            $crate::WRITER.writeln(&console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+)).ok();
+            $crate::WRITER.writeln(&console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+), false).ok();
         }
         tracing::warn!("{}", &format!($($arg)+));
     };
@@ -649,7 +680,7 @@ macro_rules! warn {
 macro_rules! error {
     ($($arg:tt)+) => {
         if !$crate::DRYRUN.load(Ordering::Relaxed) {
-            $crate::WRITER.writeln(&console::style("ERROR").red().bold().to_string(), &format!($($arg)+)).ok();
+            $crate::WRITER.writeln(&console::style("ERROR").red().bold().to_string(), &format!($($arg)+), false).ok();
         }
         tracing::error!("{}", &format!($($arg)+));
     };
@@ -659,7 +690,7 @@ macro_rules! error {
 macro_rules! due_to {
     ($($arg:tt)+) => {
         if !$crate::DRYRUN.load(Ordering::Relaxed) {
-            $crate::WRITER.writeln(&console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
+            $crate::WRITER.writeln(&console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+), false).ok();
         }
         tracing::info!("{}", &format!($($arg)+));
     };

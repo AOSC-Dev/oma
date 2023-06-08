@@ -23,7 +23,6 @@ use tokio::io::AsyncWriteExt;
 
 use crate::{
     checksum::Checksum,
-    cli::gen_prefix,
     db::DOWNLOAD_DIR,
     error, fl, info,
     oma::InstallRow,
@@ -111,16 +110,16 @@ async fn try_download(
                             allow_resume = false;
                             if retry == 3 {
                                 let s = fl!("checksum-mismatch-try-next-url", c = c.as_str());
-                                try_download_msg_display(&opb, i, &urls, &s);
+                                try_download_msg_display(&opb, i, &urls, &s)?;
                                 break Err(e);
                             }
                             let s = fl!("checksum-mismatch-retry", c = c.as_str(), retry = retry);
-                            try_download_msg_display(&opb, i, &urls, &s);
+                            try_download_msg_display(&opb, i, &urls, &s)?;
                             retry += 1;
                         }
                         DownloadError::ReqwestError(_) => {
                             let s = fl!("can-not-get-source-next-url", e = e.to_string());
-                            try_download_msg_display(&opb, i, &urls, &s);
+                            try_download_msg_display(&opb, i, &urls, &s)?;
                             break Err(e);
                         }
                         _ => {
@@ -173,21 +172,25 @@ async fn try_download(
     Ok(())
 }
 
-fn try_download_msg_display(opb: &OmaProgressBar, i: usize, urls: &Vec<String>, s: &str) {
+fn try_download_msg_display(
+    opb: &OmaProgressBar,
+    i: usize,
+    urls: &Vec<String>,
+    s: &str,
+) -> Result<()> {
     if let Some(ref gpb) = opb.global_bar {
-        gpb.println(format!(
-            "{}{s}",
-            if i < urls.len() - 1 {
-                gen_prefix(&style("WARNING").yellow().bold().to_string())
-            } else {
-                gen_prefix(&style("ERROR").red().bold().to_string())
-            }
-        ));
+        if i < urls.len() - 1 {
+            crate::WRITER.writeln_with_pb(gpb, &style("WARNING").yellow().bold().to_string(), s)?;
+        } else {
+            crate::WRITER.writeln_with_pb(gpb, &style("ERROR").red().bold().to_string(), s)?;
+        };
     } else if i < urls.len() - 1 {
         warn!("{s}");
     } else {
         error!("{s}");
     }
+
+    Ok(())
 }
 
 pub fn packages_download_runner(
