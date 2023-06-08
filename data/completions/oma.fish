@@ -52,6 +52,7 @@ complete -c oma -n "__fish_seen_subcommand_from upgrade" -l debug -d 'Run oma wi
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from download" -s p -l path -d 'The path where package(s) should be downloaded to' -r
 complete -c oma -n "__fish_seen_subcommand_from download" -l debug -d 'Run oma with debug mode'
+complete -c oma -n "__fish_seen_subcommand_from download" -l with-deps -d 'Download package(s) from the repository with dependencies'
 complete -c oma -n "__fish_seen_subcommand_from download" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from remove" -s y -l yes -d 'Bypass confirmation prompts'
 complete -c oma -n "__fish_seen_subcommand_from remove" -l force-yes -d 'Ignore repository and package dependency issues'
