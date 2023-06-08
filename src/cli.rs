@@ -550,13 +550,11 @@ impl Writer {
                     prefix_res.push(gen_prefix(prefix));
                 }
                 first_run = false;
+            } else if !is_pb {
+                self.write_prefix("")
+                    .context("Failed to write prefix to console.")?;
             } else {
-                if !is_pb {
-                    self.write_prefix("")
-                        .context("Failed to write prefix to console.")?;
-                } else {
-                    prefix_res.push(gen_prefix(""));
-                }
+                prefix_res.push(gen_prefix(""));
             }
 
             if !is_pb {
