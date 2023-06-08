@@ -5,7 +5,85 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.41.1 (2023-06-08)
+
+### Chore
+
+ - <csr-id-1db7f9e05ea27cf2697ddb3b574a511b002bbea7/> Update all deps
+ - <csr-id-e7d051f30ecaf57ba034527f3865d8e02c0a54f5/> Remove useless line in Cargo.toml
+ - <csr-id-414d36259011d1f6b4fd069eb1f4ad08b0c64e6e/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-6c1d26de1dbe96153075b49a210af90adc9ff06e/> Sometimes progress bar println message not print to new line
+ - <csr-id-c2c797783eae0cd0de0379d5b102507c6e95b4a3/> Add missing fish completions
+ - <csr-id-028876bd245c1b37ebcb0f1204548647cc1bca38/> Use console::measure_text_width to calc string width to fix sometimes strip prefix will panic
+ - <csr-id-984070707447aa7813485d9ce9de08845cd6e662/> Fix some subcommand packages name completion
+ - <csr-id-4ceaad64f54ada9a86e00a29e6f70c656235fc34/> Add some missing oma bash completions
+
+### Style
+
+ - <csr-id-4b727fc3353a9a3952b50c2a82dee6902745e9ad/> Run cargo clippy and cargo fmt to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release over the course of 1 calendar day.
+ - 2 days passed between releases.
+ - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Run cargo clippy and cargo fmt to lint code ([`4b727fc`](https://github.com/AOSC-Dev/oma/commit/4b727fc3353a9a3952b50c2a82dee6902745e9ad))
+    - Update all deps ([`1db7f9e`](https://github.com/AOSC-Dev/oma/commit/1db7f9e05ea27cf2697ddb3b574a511b002bbea7))
+    - Remove useless line in Cargo.toml ([`e7d051f`](https://github.com/AOSC-Dev/oma/commit/e7d051f30ecaf57ba034527f3865d8e02c0a54f5))
+    - Sometimes progress bar println message not print to new line ([`6c1d26d`](https://github.com/AOSC-Dev/oma/commit/6c1d26de1dbe96153075b49a210af90adc9ff06e))
+    - Update all deps ([`414d362`](https://github.com/AOSC-Dev/oma/commit/414d36259011d1f6b4fd069eb1f4ad08b0c64e6e))
+    - Add missing fish completions ([`c2c7977`](https://github.com/AOSC-Dev/oma/commit/c2c797783eae0cd0de0379d5b102507c6e95b4a3))
+    - Use console::measure_text_width to calc string width to fix sometimes strip prefix will panic ([`028876b`](https://github.com/AOSC-Dev/oma/commit/028876bd245c1b37ebcb0f1204548647cc1bca38))
+    - Fix some subcommand packages name completion ([`9840707`](https://github.com/AOSC-Dev/oma/commit/984070707447aa7813485d9ce9de08845cd6e662))
+    - Add some missing oma bash completions ([`4ceaad6`](https://github.com/AOSC-Dev/oma/commit/4ceaad64f54ada9a86e00a29e6f70c656235fc34))
+</details>
+
 ## v0.41.0 (2023-06-06)
+
+<csr-id-f1000e691f6f864347399a5e62ce0e3d5e4ca788/>
+<csr-id-dabaf02e65e8629f0a95776b43afbc3540d75e55/>
+<csr-id-0d3effffc68041d3211e3e5acdc068d20d90b01d/>
+<csr-id-8071d6834f9162d9e41fb6c071c9704b5556c0f2/>
+<csr-id-a0ecccc92ebb6b0dc6273396c92b2fd163578505/>
+<csr-id-565e0e037d0c6675af1f2f020b2dd92f92d18f53/>
+<csr-id-49e63a18ff3b291f4514e9603bc0fe9120443b5e/>
+<csr-id-20c5644a284e25cced38134606183be231f97d17/>
+<csr-id-97bf425e5f1e1ff404f0b2ca490c4321c0ec3373/>
+<csr-id-9f0a6a19373e93981272973a3b853972f87dbad0/>
+<csr-id-93f71e7adff5d7e85c6a5af4f9f8b271e124c3e1/>
+<csr-id-a2ca88dd53fa1898b22efd0ca5807f06485b9627/>
+<csr-id-b2eb60d2fde1f32fb076ada021a53f706c464670/>
+<csr-id-7c7a30c5c6a736e8d5b29d2efb718766d67947a5/>
+<csr-id-f9e4f5681934724940a33beef4956801ef578eda/>
+<csr-id-e929eb8c8571e53608ef639c537bc0e19946060b/>
+<csr-id-b1690feaa325ba1168de1b746c6dbcd3314c5d57/>
+<csr-id-fd232b39f97f001c74d4e0fed5e9f4c17b03ab61/>
+<csr-id-21116def098438f8edca492861f4c9514a5e51db/>
+<csr-id-1a67fa9e8a87f05ee214d97d262aa458557a9e71/>
+<csr-id-256b84deb2478a27d6c513a525f246889042cf39/>
+<csr-id-d958f44148c76e95eab149262a85164beebf2677/>
+<csr-id-a62831f2a0a16fc4e4d24887e1f6a258c110ee4e/>
+<csr-id-76932b61a9f607c3d955b03180d4a7e718f73454/>
+<csr-id-16e7824302f8d9ed69d93093b3aacc760e2a7bb6/>
+<csr-id-77e34ca606251225acf9b2113638acca86caa47a/>
+<csr-id-dd966219220843ca12f9ae6e1657eeb7be7d1b53/>
+<csr-id-d874e9171c05be88608125394b355f05277e0b44/>
+<csr-id-3f300df031dd40b108c1e592b3d649338729cc25/>
+<csr-id-ae446030b0b16de5da53c11b6dcf09752c65586f/>
 
 ### Chore
 
@@ -17,27 +95,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-27fa7a798cbd4172551b0ccfccd252019de557cc/>
+<csr-id-d1187cadb15b381354849774e54340b608344227/>
+<csr-id-ba9a16543092f5822579ca9c90ceb498162c76ab/>
+<csr-id-c1690170900d505813c30aa6ce3e46436b109ca4/>
+<csr-id-59f887d02d29d98cf432f8f1ee44bb321844e0a5/>
+<csr-id-7e8d0eed46e2e8cba5553f7fd01499f468e2a8f3/>
+<csr-id-6cc6b0b3af8952fbaa4e74ac224bb79df0cf9bad/>
+<csr-id-ed226a0122f889755f05aed1837f81aa4d284b9f/>
+<csr-id-8837159a29ca633d943285439ce7096d59f99844/>
+<csr-id-5263de3401b98a7e543969074a43df40d0c333d5/>
+<csr-id-1c547dd10072cb42193c0dc9858ad51e9c7b18c8/>
+<csr-id-07b60b286723edc5ca111df8823b89aa26d99b47/>
+<csr-id-728cfc7bb29cd18c042f1fed366e6b7dbdb83245/>
+<csr-id-f5e0c95384ea51f22d5732bc34e242689a35b585/>
+<csr-id-2e6c1fef66188c444dd010f8c9cd51b691a7d11b/>
+
  - <csr-id-678d28c75686650680596c0b2e16761b45195a94/> If action not empty display undo tips
  - <csr-id-a5aaaea5891b442e85e64d725f5a028fe640a4fd/> Add missing op done tips
  - <csr-id-5887f8314c14509440e0e3424ae8df472d950322/> Add oma optration done undo tips
  - <csr-id-c71116ede1e4e552a85fe051ac5e58ba5471a5be/> Add oma history feature
  - <csr-id-09d507e7b1cbb659a02500e63d1df83d7a3cc873/> Oma download add --with-deps flag to download package(s) with deps
    - Also fix path argument requires packages argument
- - <csr-id-27fa7a798cbd4172551b0ccfccd252019de557cc/> Add scan topic to remove string
- - <csr-id-d1187cadb15b381354849774e54340b608344227/> Move help message from inquire to topics.rs to translate
- - <csr-id-ba9a16543092f5822579ca9c90ceb498162c76ab/> Add checksum.rs translate template
- - <csr-id-c1690170900d505813c30aa6ce3e46436b109ca4/> Add contents.rs translate template
- - <csr-id-59f887d02d29d98cf432f8f1ee44bb321844e0a5/> Add db.rs translate template
- - <csr-id-7e8d0eed46e2e8cba5553f7fd01499f468e2a8f3/> Add download.rs translate template
- - <csr-id-6cc6b0b3af8952fbaa4e74ac224bb79df0cf9bad/> Add formatter.rs translate template
- - <csr-id-ed226a0122f889755f05aed1837f81aa4d284b9f/> Add main.rs translate template
- - <csr-id-8837159a29ca633d943285439ce7096d59f99844/> Add oma.rs translate template
- - <csr-id-5263de3401b98a7e543969074a43df40d0c333d5/> Add pager.rs translate template
- - <csr-id-1c547dd10072cb42193c0dc9858ad51e9c7b18c8/> Add tpkgrs translate template
- - <csr-id-07b60b286723edc5ca111df8823b89aa26d99b47/> Add topics.rs translate template
- - <csr-id-728cfc7bb29cd18c042f1fed366e6b7dbdb83245/> Add verify.rs translate template
- - <csr-id-f5e0c95384ea51f22d5732bc34e242689a35b585/> Add utils.rs translate template
- - <csr-id-2e6c1fef66188c444dd010f8c9cd51b691a7d11b/> Use indicium search engine to oma search package
 
 ### Bug Fixes
 
@@ -87,7 +166,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 57 commits contributed to the release over the course of 10 calendar days.
+ - 58 commits contributed to the release over the course of 10 calendar days.
  - 11 days passed between releases.
  - 56 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -99,6 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.41.0 ([`7a65d04`](https://github.com/AOSC-Dev/oma/commit/7a65d04a69349ac2e885277e63c1d7b763be7123))
     - Run cargo clippy and cargo fmt to lint code ([`3f300df`](https://github.com/AOSC-Dev/oma/commit/3f300df031dd40b108c1e592b3d649338729cc25))
     - Update all deps ([`f1000e6`](https://github.com/AOSC-Dev/oma/commit/f1000e691f6f864347399a5e62ce0e3d5e4ca788))
     - I18n improve total-download-size and change-storage-usage translate logic ([`26a5f59`](https://github.com/AOSC-Dev/oma/commit/26a5f59452295a237840941f602ac4659224fc52))
@@ -157,6 +237,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fix some provide package order ([`243ce7a`](https://github.com/AOSC-Dev/oma/commit/243ce7a272ed6097968fa76e4f3c5137313a9dd0))
     - Use indicium search engine to oma search package ([`2e6c1fe`](https://github.com/AOSC-Dev/oma/commit/2e6c1fef66188c444dd010f8c9cd51b691a7d11b))
 </details>
+
+<csr-unknown>
+ Add scan topic to remove string Move help message from inquire to topics.rs to translate Add checksum.rs translate template Add contents.rs translate template Add db.rs translate template Add download.rs translate template Add formatter.rs translate template Add main.rs translate template Add oma.rs translate template Add pager.rs translate template Add tpkgrs translate template Add topics.rs translate template Add verify.rs translate template Add utils.rs translate template Use indicium search engine to oma search package<csr-unknown/>
 
 ## v0.40.0 (2023-05-25)
 
