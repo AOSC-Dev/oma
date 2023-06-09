@@ -141,11 +141,7 @@ pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
                     } else {
                         desc[..3].join(",")
                     },
-                    if desc.len() <= 3 {
-                        ""
-                    } else {
-                        "..."
-                    }
+                    if desc.len() <= 3 { "" } else { "..." }
                 )
             })
             .collect::<Vec<_>>();
