@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use std::{format, io::Write, sync::atomic::Ordering};
 
 use console::{style, Color};
@@ -803,9 +803,13 @@ pub fn display_result(action: &Action, cache: &Cache, no_pager: bool) -> Result<
     .ok();
 
     drop(out);
-    pager.wait_for_exit()?;
+    let exited = pager.wait_for_exit()?;
 
-    Ok(list)
+    if exited {
+        Ok(list)
+    } else {
+        bail!("")
+    }
 }
 
 pub fn result_inner(action: &Action, pager: &Pager) -> Result<Vec<InstallRow>> {
