@@ -605,7 +605,7 @@ pub fn mark_install(
         if let Some(pb) = pb {
             crate::WRITER.writeln_with_pb(
                 pb,
-                &style(gen_prefix("INFO")).blue().bold().to_string(),
+                &style("INFO").blue().bold().to_string(),
                 fl!("already-installed", name = pkg.name(), version = version).as_str(),
             )?;
         } else {

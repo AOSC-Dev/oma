@@ -26,9 +26,17 @@ struct History {
     end_date: String,
     args: String,
     action: Action,
+    op: Opration,
 }
 
-pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<()> {
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub enum Opration {
+    Undo,
+    Redo,
+    Other,
+}
+
+pub fn log_to_file(action: &Action, start_time: &str, end_time: &str, op: Opration) -> Result<()> {
     if DRYRUN.load(Ordering::Relaxed) {
         return Ok(());
     }
@@ -53,6 +61,7 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str) -> Result<
         end_date: end_time.to_string(),
         args: (*ARGS.clone()).to_string(),
         action: action.clone(),
+        op,
     };
 
     let mut f = std::fs::OpenOptions::new()
@@ -96,6 +105,14 @@ pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
     let db: Vec<History> = serde_json::from_reader(&*buf)
         .map_err(|e| anyhow!(fl!("can-not-deser-oma-log-database", e = e.to_string())))?;
 
+    let db: Vec<_> = if is_undo {
+        db.iter()
+            .filter(|x| x.op == Opration::Other || x.op == Opration::Redo)
+            .collect()
+    } else {
+        db.iter().filter(|x| x.op == Opration::Undo).collect()
+    };
+
     let action = if let Some(index) = index {
         let history = db.get(index).context(fl!("invaild-index", index = index))?;
 
@@ -113,7 +130,24 @@ pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
         let db_with_args = db
             .iter()
             .enumerate()
-            .map(|(i, x)| format!("[{}]: {}", i + 1, x.args))
+            .map(|(i, x)| {
+                let desc = x.action.get_description();
+                format!(
+                    "[{}]: {} ({}){}",
+                    i + 1,
+                    x.args,
+                    if desc.len() <= 3 {
+                        desc.join(",")
+                    } else {
+                        desc[..3].join(",")
+                    },
+                    if desc.len() <= 3 {
+                        ""
+                    } else {
+                        "..."
+                    }
+                )
+            })
             .collect::<Vec<_>>();
 
         dialoguer.items(&db_with_args);
@@ -140,8 +174,19 @@ pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
     let mut count = 1;
 
     loop {
-        match do_inner(action, count, is_undo) {
-            Ok((a, s, e)) => return log_to_file(&a, &s, &e),
+        match do_inner(action, count) {
+            Ok((a, s, e)) => {
+                return log_to_file(
+                    &a,
+                    &s,
+                    &e,
+                    if is_undo {
+                        Opration::Undo
+                    } else {
+                        Opration::Redo
+                    },
+                )
+            }
             Err(e) => {
                 match e {
                     InstallError::Anyhow(e) => return Err(e),
@@ -158,17 +203,9 @@ pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
     }
 }
 
-fn do_inner(
-    action: &Action,
-    count: usize,
-    is_undo: bool,
-) -> InstallResult<(Action, String, String)> {
+fn do_inner(action: &Action, count: usize) -> InstallResult<(Action, String, String)> {
     let cache = new_cache!()?;
-    let (action, len) = if is_undo {
-        undo_inner(action, &cache)?
-    } else {
-        redo_inner(action, &cache)?
-    };
+    let (action, len) = undo_inner(action, &cache)?;
 
     let start_time = OffsetDateTime::now_utc()
         .to_offset(*TIME_OFFSET)
@@ -251,85 +288,6 @@ fn undo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), Install
             if let Some(v) = pkg.installed() {
                 if v.version() == i.new_version {
                     mark_delete(&pkg, false)?;
-                    continue;
-                }
-            }
-        }
-
-        error!(
-            "{}",
-            fl!(
-                "can-not-get-pkg-version-from-database",
-                name = i.name_no_color.to_string(),
-                version = i.version.to_string()
-            )
-        );
-    }
-
-    let (action, len, _) = apt_handler(cache, false, false, true)?;
-
-    Ok((action, len))
-}
-
-fn redo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), InstallError> {
-    for i in &action.update {
-        let pkg = cache.get(&i.name_no_color);
-        if let Some(pkg) = pkg {
-            if let Some(v) = pkg.get_version(&i.new_version) {
-                mark_install(cache, pkg.name(), v.unique(), false, false, None)?;
-                continue;
-            }
-        }
-
-        error!(
-            "{}",
-            fl!(
-                "can-not-get-pkg-version-from-database",
-                name = i.name_no_color.to_string(),
-                version = i.new_version.to_string()
-            )
-        );
-    }
-    for i in &action.downgrade {
-        let pkg = cache.get(&i.name_no_color);
-        if let Some(pkg) = pkg {
-            if let Some(v) = pkg.get_version(&i.new_version) {
-                mark_install(cache, pkg.name(), v.unique(), false, false, None)?;
-                continue;
-            }
-        }
-
-        error!(
-            "{}",
-            fl!(
-                "can-not-get-pkg-version-from-database",
-                name = i.name_no_color.to_string(),
-                version = i.new_version.to_string()
-            )
-        );
-    }
-    for i in &action.del {
-        let pkg = cache.get(&i.name_no_color);
-        if let Some(pkg) = pkg {
-            mark_delete(&pkg, false)?;
-            continue;
-        }
-
-        error!(
-            "{}",
-            fl!(
-                "can-not-get-pkg-version-from-database",
-                name = i.name_no_color.to_string(),
-                version = i.version.to_string()
-            )
-        );
-    }
-    for i in &action.install {
-        let pkg = cache.get(&i.name_no_color);
-        if let Some(pkg) = pkg {
-            if let Some(v) = pkg.installed() {
-                if v.version() == i.new_version {
-                    mark_install(cache, pkg.name(), v.unique(), false, false, None)?;
                     continue;
                 }
             }

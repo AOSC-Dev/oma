@@ -41,7 +41,7 @@ use crate::{
         capitalize_str, display_result, download_size, find_unmet_deps,
         find_unmet_deps_with_markinstall, NoProgress, OmaAptInstallProgress,
     },
-    history::{self, log_to_file},
+    history::{self, log_to_file, Opration},
     info,
     pager::Pager,
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, OmaDependency, PkgInfo},
@@ -223,7 +223,7 @@ impl Oma {
                         .to_offset(*TIME_OFFSET)
                         .to_string();
 
-                    log_to_file(&v, &start_time, &end_time)?;
+                    log_to_file(&v, &start_time, &end_time, Opration::Other)?;
 
                     if u.dpkg_force_all && cache.depcache().broken_count() != 0 {
                         return Err(error_due_to(
@@ -281,7 +281,7 @@ impl Oma {
                         .to_offset(*TIME_OFFSET)
                         .to_string();
 
-                    log_to_file(&v, &start_time, &end_time)?;
+                    log_to_file(&v, &start_time, &end_time, Opration::Other)?;
 
                     return Ok(0);
                 }
@@ -573,7 +573,7 @@ impl Oma {
             .to_offset(*TIME_OFFSET)
             .to_string();
 
-        log_to_file(&action, &start_time, &end_time)?;
+        log_to_file(&action, &start_time, &end_time, Opration::Other)?;
 
         Ok(0)
     }
@@ -924,7 +924,7 @@ impl Oma {
             .to_offset(*TIME_OFFSET)
             .to_string();
 
-        log_to_file(&action, &start_time, &end_time)?;
+        log_to_file(&action, &start_time, &end_time, Opration::Other)?;
 
         Ok(0)
     }
@@ -1089,7 +1089,7 @@ impl Oma {
 
             let end_time = end_time.to_string();
 
-            log_to_file(&action, &start_time, &end_time)?;
+            log_to_file(&action, &start_time, &end_time, Opration::Other)?;
         }
 
         Ok(0)
@@ -1798,6 +1798,25 @@ impl Action {
             && self.del.is_empty()
             && self.reinstall.is_empty()
             && self.downgrade.is_empty()
+    }
+
+    pub fn get_description(&self) -> Vec<String> {
+        let mut res = vec![];
+
+        for i in self
+            .update
+            .iter()
+            .chain(self.install.iter())
+            .chain(self.downgrade.iter())
+        {
+            res.push(format!("{} (Install: {})", i.name_no_color, i.version));
+        }
+
+        for i in &self.del {
+            res.push(format!("{} (Remove: {})", i.name_no_color, i.version));
+        }
+
+        res
     }
 }
 
