@@ -1837,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "oma"
-version = "0.41.1"
+version = "0.42.0"
 dependencies = [
  "anstyle",
  "anyhow",

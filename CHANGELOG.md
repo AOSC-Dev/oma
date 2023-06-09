@@ -5,7 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.42.0 (2023-06-09)
+
+### Chore
+
+ - <csr-id-e176ec5d29beb33ce76fb4bf0690a22aa9e28f89/> Update all deps
+
+### New Features
+
+ - <csr-id-2a739e3cf3dba998680a7c66f6a75a0bf3115362/> Improve redo logic
+   redo is now generated relative to undo, and only undo operations are recorded in the redo list
+   
+   - Also improve history undo/redo output
+
+### Style
+
+ - <csr-id-ec50be31b8390bd1d55a6f4a3144ab6440c0edf7/> Use cargo-fmt to format code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`e176ec5`](https://github.com/AOSC-Dev/oma/commit/e176ec5d29beb33ce76fb4bf0690a22aa9e28f89))
+    - Use cargo-fmt to format code ([`ec50be3`](https://github.com/AOSC-Dev/oma/commit/ec50be31b8390bd1d55a6f4a3144ab6440c0edf7))
+    - Improve redo logic ([`2a739e3`](https://github.com/AOSC-Dev/oma/commit/2a739e3cf3dba998680a7c66f6a75a0bf3115362))
+</details>
+
 ## v0.41.1 (2023-06-08)
+
+<csr-id-1db7f9e05ea27cf2697ddb3b574a511b002bbea7/>
+<csr-id-e7d051f30ecaf57ba034527f3865d8e02c0a54f5/>
+<csr-id-414d36259011d1f6b4fd069eb1f4ad08b0c64e6e/>
+<csr-id-4b727fc3353a9a3952b50c2a82dee6902745e9ad/>
 
 ### Chore
 
@@ -29,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 9 commits contributed to the release over the course of 1 calendar day.
+ - 10 commits contributed to the release over the course of 1 calendar day.
  - 2 days passed between releases.
  - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -41,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.41.1 ([`0dec098`](https://github.com/AOSC-Dev/oma/commit/0dec09802bd057f50b22406c46a18f6210e9690e))
     - Run cargo clippy and cargo fmt to lint code ([`4b727fc`](https://github.com/AOSC-Dev/oma/commit/4b727fc3353a9a3952b50c2a82dee6902745e9ad))
     - Update all deps ([`1db7f9e`](https://github.com/AOSC-Dev/oma/commit/1db7f9e05ea27cf2697ddb3b574a511b002bbea7))
     - Remove useless line in Cargo.toml ([`e7d051f`](https://github.com/AOSC-Dev/oma/commit/e7d051f30ecaf57ba034527f3865d8e02c0a54f5))
@@ -237,9 +280,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fix some provide package order ([`243ce7a`](https://github.com/AOSC-Dev/oma/commit/243ce7a272ed6097968fa76e4f3c5137313a9dd0))
     - Use indicium search engine to oma search package ([`2e6c1fe`](https://github.com/AOSC-Dev/oma/commit/2e6c1fef66188c444dd010f8c9cd51b691a7d11b))
 </details>
-
-<csr-unknown>
- Add scan topic to remove string Move help message from inquire to topics.rs to translate Add checksum.rs translate template Add contents.rs translate template Add db.rs translate template Add download.rs translate template Add formatter.rs translate template Add main.rs translate template Add oma.rs translate template Add pager.rs translate template Add tpkgrs translate template Add topics.rs translate template Add verify.rs translate template Add utils.rs translate template Use indicium search engine to oma search package<csr-unknown/>
 
 ## v0.40.0 (2023-05-25)
 
