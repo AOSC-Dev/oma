@@ -192,7 +192,8 @@ unsupport-decompress-file = BUG: Omakase has encountered an unsupported compress
 
 # contents
 contents-does-not-exist = Package contents database (Contents) does not exist. Use the {$cmd} command to refresh the contents database.
-contents-may-not-be-accurate = The local package contents database {$file} has not been updated for over a week, search results may not be accurate. Use the `oma refresh' command to refresh the contents database.
+contents-may-not-be-accurate-1 = The local package contents database has not been updated for over a week, search results may not be accurate.
+contents-may-not-be-accurate-2 = Use the `oma refresh' command to refresh the contents database.
 execute-ripgrep-failed = Failed to execute `rg': {$e}.
 searching = Searching ...
 parse-rg-result-failed = BUG: Failed to parse `rg' result {$i}: {$e}. Please report this issue at https://github.com/AOSC-Dev/oma.

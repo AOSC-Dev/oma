@@ -14,7 +14,7 @@ use grep::{
 use indicatif::ProgressBar;
 use time::OffsetDateTime;
 
-use crate::{db::APT_LIST_DISTS, download::oma_spinner, fl, warn, ARCH};
+use crate::{db::APT_LIST_DISTS, download::oma_spinner, fl, warn, ARCH, info};
 use std::sync::atomic::Ordering;
 
 use serde::Deserialize;
@@ -109,13 +109,9 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
             let delta = now - m;
             let delta = delta.as_seconds_f64() / 60.0 / 60.0 / 24.0;
             if delta > 7.0 {
-                warn!(
-                    "{}",
-                    fl!(
-                        "contents-may-not-be-accurate",
-                        file = i.file_name().unwrap_or_default().to_string_lossy()
-                    )
-                );
+                warn!("{}", fl!("contents-may-not-be-accurate-1"));
+                info!("{}", fl!("contents-may-not-be-accurate-2"));
+                break;
             }
         }
 

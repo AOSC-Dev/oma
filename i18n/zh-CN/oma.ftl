@@ -191,7 +191,8 @@ unsupport-decompress-file = BUG：Omakase 不支持文件 {$name} 所使用的�
 
 # contents
 contents-does-not-exist = 找不到软件包内容数据库文件 (Contents)，请使用 {$cmd} 命令刷新该数据库。
-contents-may-not-be-accurate = 本机软件包内容数据库文件 {$file} 已超过一周未有更新，因此搜索结果可能不准确。请使用 `oma refresh' 命令刷新该数据库。
+contents-may-not-be-accurate-1 = 本机软件包内容数据库文件已超过一周未有更新，因此搜索结果可能不准确。
+contents-may-not-be-accurate-2 = 请使用 `oma refresh' 命令刷新该数据库。
 execute-ripgrep-failed = 无法执行 `rg' 命令：{$e}。
 searching = 正在搜索 ...
 parse-rg-result-failed = BUG：无法解析 `rg' 命令输出 {$i}：{$e}。请于 https://github.com/AOSC-Dev/oma 报告问题。
