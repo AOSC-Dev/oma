@@ -14,7 +14,7 @@ use grep::{
 use indicatif::ProgressBar;
 use time::OffsetDateTime;
 
-use crate::{db::APT_LIST_DISTS, download::oma_spinner, fl, warn, ARCH, info};
+use crate::{db::APT_LIST_DISTS, download::oma_spinner, fl, info, warn, ARCH};
 use std::sync::atomic::Ordering;
 
 use serde::Deserialize;
@@ -102,6 +102,16 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
         ));
     }
 
+    let pb = if !cnf {
+        let pb = ProgressBar::new_spinner();
+        oma_spinner(&pb);
+        Some(pb)
+    } else {
+        None
+    };
+
+    let pb_clone = pb.clone();
+
     std::thread::spawn(move || -> Result<()> {
         for i in pc {
             let m = OffsetDateTime::from(i.metadata()?.modified()?);
@@ -109,8 +119,21 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
             let delta = now - m;
             let delta = delta.as_seconds_f64() / 60.0 / 60.0 / 24.0;
             if delta > 7.0 {
-                warn!("{}", fl!("contents-may-not-be-accurate-1"));
-                info!("{}", fl!("contents-may-not-be-accurate-2"));
+                if let Some(pb) = pb_clone {
+                    crate::WRITER.writeln_with_pb(
+                        &pb,
+                        &style("WARNING").yellow().bold().to_string(),
+                        &fl!("contents-may-not-be-accurate-1"),
+                    )?;
+                    crate::WRITER.writeln_with_pb(
+                        &pb,
+                        &style("INFO").blue().bold().to_string(),
+                        &fl!("contents-may-not-be-accurate-2"),
+                    )?;
+                } else {
+                    warn!("{}", fl!("contents-may-not-be-accurate-1"));
+                    info!("{}", fl!("contents-may-not-be-accurate-2"));
+                }
                 break;
             }
         }
@@ -121,14 +144,6 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
     // 如果安装了 ripgrep，则使用 rg 来进行搜索操作，因为 rg 的速度比 grep 快十倍
     let mut res = if which::which("rg").is_ok() {
         let mut res = vec![];
-
-        let pb = if !cnf {
-            let pb = ProgressBar::new_spinner();
-            oma_spinner(&pb);
-            Some(pb)
-        } else {
-            None
-        };
 
         let mut cmd = Command::new("rg")
             .arg("--json")
