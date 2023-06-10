@@ -22,7 +22,8 @@ invaild-index = 历史操作编号无效：{$index}。
 index-is-nothing = 历史操作编号 {$index} 未包含任何操作记录。
 select-op-undo = 请选择要撤销的历史操作编号：
 select-op-redo = 请选择要复用的历史操作编号：
-history-tips = Omakase 已成功应用对系统的更改。如需撤销本次操作，请使用 `oma history undo' 命令。
+history-tips-1 = Omakase 已成功应用对系统的更改。
+history-tips-2 = 如需撤销本次操作，请使用 `oma history undo' 命令。
 
 # verify
 fail-load-certs-from-file = 无法从 {$path} 载入软件源签名。

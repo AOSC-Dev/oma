@@ -3,7 +3,7 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use crate::fl;
+use crate::{fl, success};
 use crate::{
     cli::InstallOptions,
     error, info,
@@ -90,7 +90,8 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str, op: Oprati
     f.write_all(&buf)?;
 
     if !action.is_empty() {
-        info!("{}", fl!("history-tips"));
+        success!("{}", fl!("history-tips-1"));
+        info!("{}", fl!("history-tips-2"));
     }
 
     Ok(())
