@@ -5,7 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.43.0 (2023-06-10)
+
+### Chore
+
+ - <csr-id-4bb7d618a4f44013c71a190b2beb3f65c4a1968e/> Update all deps
+
+### New Features
+
+ - <csr-id-923d761748ed310531ec41e1442b87591735cfaf/> Improve contents-may-not-be-accurate tips
+ - <csr-id-e549ec48cf80349849ce923349ee021e4316ef26/> New line for oma history undo tips
+
+### Bug Fixes
+
+ - <csr-id-4c99f9f93acdf79ea40f05f5341e30b3e1598262/> Sometimes progressbar stdout eat oma message
+ - <csr-id-a733c87727b784b52d9c9cb71faa0919de86206e/> Use modified() to get update time delta
+ - <csr-id-f5153f30d785bd4303a29f826878f2446c385d5b/> Undo opration tips should display 'redo'
+ - <csr-id-ec1aaf97fa34e68f11f67f1d13bfa134669d0dd6/> Do not display downloading package tips if user ctrlc pending ui
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 7 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`4bb7d61`](https://github.com/AOSC-Dev/oma/commit/4bb7d618a4f44013c71a190b2beb3f65c4a1968e))
+    - Sometimes progressbar stdout eat oma message ([`4c99f9f`](https://github.com/AOSC-Dev/oma/commit/4c99f9f93acdf79ea40f05f5341e30b3e1598262))
+    - Improve contents-may-not-be-accurate tips ([`923d761`](https://github.com/AOSC-Dev/oma/commit/923d761748ed310531ec41e1442b87591735cfaf))
+    - Use modified() to get update time delta ([`a733c87`](https://github.com/AOSC-Dev/oma/commit/a733c87727b784b52d9c9cb71faa0919de86206e))
+    - Undo opration tips should display 'redo' ([`f5153f3`](https://github.com/AOSC-Dev/oma/commit/f5153f30d785bd4303a29f826878f2446c385d5b))
+    - New line for oma history undo tips ([`e549ec4`](https://github.com/AOSC-Dev/oma/commit/e549ec48cf80349849ce923349ee021e4316ef26))
+    - Do not display downloading package tips if user ctrlc pending ui ([`ec1aaf9`](https://github.com/AOSC-Dev/oma/commit/ec1aaf97fa34e68f11f67f1d13bfa134669d0dd6))
+</details>
+
 ## v0.42.0 (2023-06-09)
+
+<csr-id-e176ec5d29beb33ce76fb4bf0690a22aa9e28f89/>
+<csr-id-ec50be31b8390bd1d55a6f4a3144ab6440c0edf7/>
 
 ### Chore
 
@@ -26,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -37,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.42.0 ([`cdfb973`](https://github.com/AOSC-Dev/oma/commit/cdfb973ec8ee168501a3fd131a064841a6f9e421))
     - Update all deps ([`e176ec5`](https://github.com/AOSC-Dev/oma/commit/e176ec5d29beb33ce76fb4bf0690a22aa9e28f89))
     - Use cargo-fmt to format code ([`ec50be3`](https://github.com/AOSC-Dev/oma/commit/ec50be31b8390bd1d55a6f4a3144ab6440c0edf7))
     - Improve redo logic ([`2a739e3`](https://github.com/AOSC-Dev/oma/commit/2a739e3cf3dba998680a7c66f6a75a0bf3115362))
