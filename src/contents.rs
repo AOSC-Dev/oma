@@ -104,7 +104,7 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
 
     std::thread::spawn(move || -> Result<()> {
         for i in pc {
-            let m = OffsetDateTime::from(i.metadata()?.created()?);
+            let m = OffsetDateTime::from(i.metadata()?.modified()?);
             let now = OffsetDateTime::from(SystemTime::now());
             let delta = now - m;
             let delta = delta.as_seconds_f64() / 60.0 / 60.0 / 24.0;
