@@ -21,7 +21,7 @@ index-is-nothing = Index {$index} does not contain any action.
 select-op-undo = Select an operation ID to undo:
 select-op-redo = Select an operation ID to redo:
 history-tips-1 = Omakase has completed applying changes to your system.
-history-tips-2 = If you would like to undo these changes, please use the `oma history undo' command.
+history-tips-2 = If you would like to undo these changes, please use the `oma history {$undo_or_redo}' command.
 
 # verify
 fail-load-certs-from-file = Failed to load repository signature from {$path}.

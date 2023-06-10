@@ -3,7 +3,6 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use crate::{fl, success};
 use crate::{
     cli::InstallOptions,
     error, info,
@@ -12,6 +11,7 @@ use crate::{
     utils::needs_root,
     ARGS, DRYRUN, TIME_OFFSET,
 };
+use crate::{fl, success};
 use anyhow::{anyhow, Context, Result};
 use dialoguer::{theme::ColorfulTheme, Select};
 use rust_apt::{cache::Cache, config::Config as AptConfig, new_cache};
@@ -29,7 +29,7 @@ struct History {
     op: Opration,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum Opration {
     Undo,
     Redo,
@@ -61,7 +61,7 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str, op: Oprati
         end_date: end_time.to_string(),
         args: (*ARGS.clone()).to_string(),
         action: action.clone(),
-        op,
+        op: op.clone(),
     };
 
     let mut f = std::fs::OpenOptions::new()
@@ -91,7 +91,11 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str, op: Oprati
 
     if !action.is_empty() {
         success!("{}", fl!("history-tips-1"));
-        info!("{}", fl!("history-tips-2"));
+        let op = match op {
+            Opration::Undo => "redo",
+            Opration::Redo | Opration::Other => "undo",
+        };
+        info!("{}", fl!("history-tips-2", undo_or_redo = op));
     }
 
     Ok(())
