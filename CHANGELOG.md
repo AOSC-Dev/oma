@@ -5,15 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.43.1 (2023-06-11)
+## v0.43.2 (2023-06-11)
 
-### Chore
+### New Features
 
- - <csr-id-8c5fe2fa6f9eea02530e8af34cdaa20f3826008e/> Update all deps
-
-### Bug Fixes
-
- - <csr-id-62395e8949da5d018c1f12556069846bc0bfe740/> Improve error message context in fetch local mirror (file://)
+ - <csr-id-1525de50d022646693239f58fd854dfb85c40c6c/> Use default clap style
+ - <csr-id-3aa5d097fa342fb1ae89b151e183eda8a5ca2560/> Only action is non empty push to oma history undo list
 
 ### Commit Statistics
 
@@ -30,6 +27,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Use default clap style ([`1525de5`](https://github.com/AOSC-Dev/oma/commit/1525de50d022646693239f58fd854dfb85c40c6c))
+    - Only action is non empty push to oma history undo list ([`3aa5d09`](https://github.com/AOSC-Dev/oma/commit/3aa5d097fa342fb1ae89b151e183eda8a5ca2560))
+</details>
+
+## v0.43.1 (2023-06-11)
+
+<csr-id-8c5fe2fa6f9eea02530e8af34cdaa20f3826008e/>
+
+### Chore
+
+ - <csr-id-8c5fe2fa6f9eea02530e8af34cdaa20f3826008e/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-62395e8949da5d018c1f12556069846bc0bfe740/> Improve error message context in fetch local mirror (file://)
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Bump oma v0.43.1 ([`7ea54a3`](https://github.com/AOSC-Dev/oma/commit/7ea54a37236cc372968a0d98c3998dbede17418c))
     - Update all deps ([`8c5fe2f`](https://github.com/AOSC-Dev/oma/commit/8c5fe2fa6f9eea02530e8af34cdaa20f3826008e))
     - Improve error message context in fetch local mirror (file://) ([`62395e8`](https://github.com/AOSC-Dev/oma/commit/62395e8949da5d018c1f12556069846bc0bfe740))
 </details>
