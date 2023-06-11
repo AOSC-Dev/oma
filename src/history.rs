@@ -56,40 +56,40 @@ pub fn log_to_file(action: &Action, start_time: &str, end_time: &str, op: Oprati
 
     drop(f);
 
-    let json = History {
-        start_date: start_time.to_string(),
-        end_date: end_time.to_string(),
-        args: (*ARGS.clone()).to_string(),
-        action: action.clone(),
-        op: op.clone(),
-    };
-
-    let mut f = std::fs::OpenOptions::new()
-        .create(true)
-        .read(true)
-        .write(true)
-        .open(HISTORY_DB_FILE)
-        .map_err(|e| anyhow!(fl!("can-not-create-oma-log-database", e = e.to_string())))?;
-
-    let mut buf = Vec::new();
-    f.read_to_end(&mut buf)?;
-
-    let mut history_db: Vec<History> = if !buf.is_empty() {
-        serde_json::from_reader(&*buf)
-            .map_err(|e| anyhow!(fl!("can-not-read-oma-log-database", e = e.to_string())))?
-    } else {
-        vec![]
-    };
-
-    history_db.insert(0, json);
-
-    let buf = serde_json::to_vec(&history_db)
-        .map_err(|e| anyhow!(fl!("can-not-ser-oma-log-database", e = e.to_string())))?;
-
-    f.seek(SeekFrom::Start(0))?;
-    f.write_all(&buf)?;
-
     if !action.is_empty() {
+        let json = History {
+            start_date: start_time.to_string(),
+            end_date: end_time.to_string(),
+            args: (*ARGS.clone()).to_string(),
+            action: action.clone(),
+            op: op.clone(),
+        };
+
+        let mut f = std::fs::OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(HISTORY_DB_FILE)
+            .map_err(|e| anyhow!(fl!("can-not-create-oma-log-database", e = e.to_string())))?;
+
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf)?;
+
+        let mut history_db: Vec<History> = if !buf.is_empty() {
+            serde_json::from_reader(&*buf)
+                .map_err(|e| anyhow!(fl!("can-not-read-oma-log-database", e = e.to_string())))?
+        } else {
+            vec![]
+        };
+
+        history_db.insert(0, json);
+
+        let buf = serde_json::to_vec(&history_db)
+            .map_err(|e| anyhow!(fl!("can-not-ser-oma-log-database", e = e.to_string())))?;
+
+        f.seek(SeekFrom::Start(0))?;
+        f.write_all(&buf)?;
+
         success!("{}", fl!("history-tips-1"));
         let op = match op {
             Opration::Undo => "redo",
