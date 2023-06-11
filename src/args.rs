@@ -1,8 +1,4 @@
-use anstyle::RgbColor;
-use clap::{
-    builder::{PossibleValue, Styles},
-    command, value_parser, Arg, ArgAction, Command,
-};
+use clap::{builder::PossibleValue, command, value_parser, Arg, ArgAction, Command};
 
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
@@ -52,27 +48,6 @@ pub fn command_builder() -> Command {
         .action(ArgAction::SetTrue);
 
     let mut cmd = command!()
-        .styles(
-            Styles::styled()
-            .usage(
-                anstyle::Style::new()
-                    .bold()
-                    .fg_color(Some(anstyle::Color::Rgb(RgbColor(147, 190, 242))))
-                    .underline()
-            )
-            .header(
-                anstyle::Style::new()
-                    .bold()
-                    .fg_color(Some(anstyle::Color::Rgb(RgbColor(147, 190, 242))))
-                    .underline()
-            )
-            .invalid(
-                anstyle::Style::new()
-                    .bold()
-                    .fg_color(Some(anstyle::Color::Rgb(RgbColor(240, 243, 235))))
-            )
-            .literal(anstyle::Style::new().bold().fg_color(Some(anstyle::Color::Rgb(RgbColor(102, 186, 183)))))
-        )
         .arg_required_else_help(true)
         .max_term_width(100)
         .disable_version_flag(true)

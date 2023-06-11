@@ -1839,7 +1839,6 @@ dependencies = [
 name = "oma"
 version = "0.43.1"
 dependencies = [
- "anstyle",
  "anyhow",
  "apt-sources-lists",
  "clap",
