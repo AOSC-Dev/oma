@@ -335,11 +335,33 @@ pub async fn download_local(
     let pb = opb.mbc.add(ProgressBar::new_spinner());
     oma_spinner(&pb);
 
-    let mut from = tokio::fs::File::open(url).await?;
-    let mut to =
-        tokio::fs::File::create(download_dir.unwrap_or(&DOWNLOAD_DIR).join(&filename)).await?;
+    let mut from = tokio::fs::File::open(&url).await.map_err(|e| {
+        anyhow!(fl!(
+            "can-not-get-file",
+            name = url.display().to_string(),
+            e = e.to_string()
+        ))
+    })?;
 
-    let size = tokio::io::copy(&mut from, &mut to).await?;
+    let mut to = tokio::fs::File::create(download_dir.unwrap_or(&DOWNLOAD_DIR).join(&filename))
+        .await
+        .map_err(|e| {
+            anyhow!(fl!(
+                "can-not-download-file-with-why",
+                dir = DOWNLOAD_DIR.display().to_string(),
+                filename = filename.as_str(),
+                e = e.to_string()
+            ))
+        })?;
+
+    let size = tokio::io::copy(&mut from, &mut to).await.map_err(|e| {
+        anyhow!(fl!(
+            "can-not-download-file",
+            filename = filename,
+            e = e.to_string()
+        ))
+    })?;
+
     pb.finish_and_clear();
 
     if let Some(ref gb) = opb.global_bar {

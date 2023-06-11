@@ -159,6 +159,7 @@ progress = 总进度：
 success-download-pkg = 成功下载 {$download_len} 个软件包。
 no-need-to-fetch-anything = 所有软件包均已于本机缓存，无需下载。
 can-not-get-filename = BUG：无法读取文件 {$name}，请于 https://github.com/AOSC-Dev/oma 报告问题。
+can-not-get-file = 无法打开文件 {$name}: {$e}
 
 # db
 setting-path-does-not-exist = 找不到指定的软件包缓存目录 {$path}，将使用默认缓存目录 /var/cache/apt/archives 。
