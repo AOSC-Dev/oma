@@ -15,8 +15,14 @@ use rust_apt::util::DiskSpace;
 
 use indicatif::HumanBytes;
 use sysinfo::{Pid, System, SystemExt};
+use time::OffsetDateTime;
 
-use crate::{fl, ARGS};
+use crate::{
+    fl,
+    history::{log_to_file, Operation},
+    oma::InstallError,
+    ARGS, TIME_OFFSET,
+};
 
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
@@ -154,6 +160,67 @@ pub fn error_due_to<
 
     e.context(err)
 }
+
+pub fn handle_install_error(
+    e: InstallError,
+    count: &mut usize,
+    start_time: &String,
+    is_undo: bool,
+) -> Result<()> {
+    match e {
+        InstallError::Anyhow(e) => return Err(e),
+        InstallError::RustApt(e) => {
+            // Retry 3 times, if Error is rust_apt return
+            if *count == 3 {
+                return Err(e.into());
+            }
+            *count += 1;
+        }
+        InstallError::RustAptAfter { source, action } => {
+            if *count == 3 {
+                let end_time = OffsetDateTime::now_utc()
+                    .to_offset(*TIME_OFFSET)
+                    .to_string();
+
+                log_to_file(
+                    &action,
+                    start_time,
+                    &end_time,
+                    if is_undo {
+                        Operation::Undo
+                    } else {
+                        Operation::Redo
+                    },
+                    false
+                )?;
+                return Err(source.into());
+            }
+            *count += 1;
+        }
+    }
+
+    Ok(())
+}
+
+// pub fn handle_install_result(i: InstallResult<(Action, String)>) -> {
+//     match i {
+//         Ok((a, e)) => {
+//             return log_to_file(
+//                 &a,
+//                 &start_time,
+//                 &e,
+//                 if is_undo {
+//                     Opration::Undo
+//                 } else {
+//                     Opration::Redo
+//                 },
+//             )
+//         }
+//         Err(e) => {
+//             handle_install_error(e, &mut count, &start_time, is_undo)?;
+//         }
+//     }
+// }
 
 // input: like http://50.50.1.183/debs/pool/stable/main/f/fish_3.6.0-0_amd64.deb
 // output: http://50.50.1.183/debs stable main
