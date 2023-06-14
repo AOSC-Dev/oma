@@ -202,26 +202,6 @@ pub fn handle_install_error(
     Ok(())
 }
 
-// pub fn handle_install_result(i: InstallResult<(Action, String)>) -> {
-//     match i {
-//         Ok((a, e)) => {
-//             return log_to_file(
-//                 &a,
-//                 &start_time,
-//                 &e,
-//                 if is_undo {
-//                     Opration::Undo
-//                 } else {
-//                     Opration::Redo
-//                 },
-//             )
-//         }
-//         Err(e) => {
-//             handle_install_error(e, &mut count, &start_time, is_undo)?;
-//         }
-//     }
-// }
-
 // input: like http://50.50.1.183/debs/pool/stable/main/f/fish_3.6.0-0_amd64.deb
 // output: http://50.50.1.183/debs stable main
 pub fn source_url_to_apt_style(s: &str) -> Option<String> {
