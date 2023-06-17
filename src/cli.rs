@@ -135,6 +135,7 @@ impl Default for InstallOptions {
     }
 }
 
+#[derive(Clone)]
 pub struct UpgradeOptions {
     /// Package(s) name
     pub packages: Option<Vec<String>>,

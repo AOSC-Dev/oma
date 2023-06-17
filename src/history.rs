@@ -8,8 +8,8 @@ use crate::{
     error, info,
     oma::{apt_handler, Action, InstallError, InstallResult, Oma},
     pkg::{mark_delete, mark_install},
-    utils::{needs_root, handle_install_error},
-    ARGS, DRYRUN, TIME_OFFSET,
+    utils::{needs_root},
+    ARGS, DRYRUN, TIME_OFFSET, handle_install_error,
 };
 use crate::{fl, success};
 use anyhow::{anyhow, Context, Result};
@@ -108,7 +108,7 @@ pub fn log_to_file(
     Ok(())
 }
 
-pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
+pub fn run(index: Option<usize>, is_undo: bool) -> Result<i32> {
     needs_root()?;
 
     let buf = std::fs::read(HISTORY_DB_FILE)
@@ -131,7 +131,7 @@ pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
         let action = &history.action;
         if action.is_empty() {
             info!("{}", fl!("index-is-nothing", index = index));
-            return Ok(());
+            return Ok(0);
         }
 
         action
@@ -173,7 +173,7 @@ pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
         let action = &history.action;
         if action.is_empty() {
             info!("{}", fl!("index-is-nothing", index = index));
-            return Ok(());
+            return Ok(0);
         }
 
         action
@@ -185,29 +185,13 @@ pub fn run(index: Option<usize>, is_undo: bool) -> Result<()> {
         .to_offset(*TIME_OFFSET)
         .to_string();
 
-    loop {
-        match do_inner(action, count) {
-            Ok((a, e)) => {
-                return log_to_file(
-                    &a,
-                    &start_time,
-                    &e,
-                    if is_undo {
-                        Operation::Undo
-                    } else {
-                        Operation::Redo
-                    },
-                    true,
-                )
-            }
-            Err(e) => {
-                handle_install_error(e, &mut count, &start_time, is_undo)?;
-            }
-        }
-    }
+    let op = if is_undo { Operation::Undo } else { Operation::Redo };
+
+    handle_install_error!(do_inner(action, count), count, start_time, op)
+
 }
 
-fn do_inner(action: &Action, count: usize) -> InstallResult<(Action, String)> {
+fn do_inner(action: &Action, count: usize) -> InstallResult<Action> {
     let cache = new_cache!()?;
     let (action, len) = undo_inner(action, &cache)?;
 
@@ -220,11 +204,7 @@ fn do_inner(action: &Action, count: usize) -> InstallResult<(Action, String)> {
         &InstallOptions::default(),
     )?;
 
-    let end_time = OffsetDateTime::now_utc()
-        .to_offset(*TIME_OFFSET)
-        .to_string();
-
-    Ok((action, end_time))
+    Ok(action)
 }
 
 fn undo_inner(action: &Action, cache: &Cache) -> Result<(Action, usize), InstallError> {

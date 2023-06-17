@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use anyhow::{anyhow, bail, Error, Result};
 use once_cell::sync::Lazy;
-use rust_apt::util::DiskSpace;
+use rust_apt::{cache::Cache, util::DiskSpace};
 
 use indicatif::HumanBytes;
 use sysinfo::{Pid, System, SystemExt};
@@ -20,9 +20,13 @@ use time::OffsetDateTime;
 use crate::{
     fl,
     history::{log_to_file, Operation},
-    oma::InstallError,
+    oma::Action,
     ARGS, TIME_OFFSET,
 };
+
+use crate::oma::apt_install;
+
+use rust_apt::config::Config as AptConfig;
 
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
@@ -161,45 +165,85 @@ pub fn error_due_to<
     e.context(err)
 }
 
-pub fn handle_install_error(
-    e: InstallError,
-    count: &mut usize,
-    start_time: &String,
-    is_undo: bool,
-) -> Result<()> {
-    match e {
-        InstallError::Anyhow(e) => return Err(e),
-        InstallError::RustApt(e) => {
-            // Retry 3 times, if Error is rust_apt return
-            if *count == 3 {
-                return Err(e.into());
-            }
-            *count += 1;
-        }
-        InstallError::RustAptAfter { source, action } => {
-            if *count == 3 {
-                let end_time = OffsetDateTime::now_utc()
-                    .to_offset(*TIME_OFFSET)
-                    .to_string();
+#[macro_export]
+macro_rules! handle_install_error {
+    ($f:expr, $count:ident, $start_time:ident, $op:ident) => {
+        loop {
+            match $f {
+                Err(e) => {
+                    match e {
+                        InstallError::Anyhow(e) => return Err(e),
+                        InstallError::RustApt(e) => {
+                            // Retry 3 times, if Error is rust_apt return
+                            if $count == 3 {
+                                return Err(e.into());
+                            }
+                            $count += 1;
+                        }
+                        InstallError::RustAptAfter { source, action } => {
+                            if $count == 3 {
+                                let end_time = OffsetDateTime::now_utc()
+                                    .to_offset(*TIME_OFFSET)
+                                    .to_string();
 
-                log_to_file(
-                    &action,
-                    start_time,
-                    &end_time,
-                    if is_undo {
-                        Operation::Undo
-                    } else {
-                        Operation::Redo
-                    },
-                    false
-                )?;
-                return Err(source.into());
+                                log_to_file(&action, $start_time.as_str(), &end_time, $op, false)?;
+                                return Err(source.into());
+                            }
+                            $count += 1;
+                        }
+                    }
+                }
+                Ok(v) => {
+                    let end_time = OffsetDateTime::now_utc()
+                        .to_offset(*TIME_OFFSET)
+                        .to_string();
+
+                    log_to_file(&v, &$start_time, &end_time, $op, true)?;
+
+                    return Ok(0);
+                }
             }
-            *count += 1;
+        }
+    };
+}
+
+pub fn handle_install_error_no_retry(
+    action: Action,
+    cache: Cache,
+    start_time: &str,
+    yes: bool,
+    force_yes: bool,
+    force_confnew: bool,
+    dpkg_force_all: bool
+) -> Result<()> {
+    match apt_install(
+        action.clone(),
+        AptConfig::new_clear(),
+        cache,
+        yes,
+        force_yes,
+        force_confnew,
+        dpkg_force_all,
+    ) {
+        Ok(_) => {
+            let end_time = OffsetDateTime::now_utc()
+                .to_offset(*TIME_OFFSET)
+                .to_string();
+
+            log_to_file(&action, start_time, &end_time, Operation::Other, true)?;
+
+            Ok(())
+        }
+        Err(e) => {
+            let end_time = OffsetDateTime::now_utc()
+                .to_offset(*TIME_OFFSET)
+                .to_string();
+
+            log_to_file(&action, start_time, &end_time, Operation::Other, true)?;
+
+            return Err(e.into());
         }
     }
-
-    Ok(())
 }
 
 // input: like http://50.50.1.183/debs/pool/stable/main/f/fish_3.6.0-0_amd64.deb

@@ -28,6 +28,9 @@ use std::{
     sync::atomic::Ordering,
 };
 
+use crate::handle_install_error;
+use crate::utils::handle_install_error_no_retry;
+
 use crate::{
     cli::{
         Download, FixBroken, History, HistoryAction, InstallOptions, ListOptions, Mark, MarkAction,
@@ -46,10 +49,7 @@ use crate::{
     pager::Pager,
     pkg::{mark_delete, mark_install, query_pkgs, search_pkgs, OmaDependency, PkgInfo},
     success,
-    utils::{
-        error_due_to, handle_install_error, lock_oma, needs_root, size_checker,
-        source_url_to_apt_style,
-    },
+    utils::{error_due_to, lock_oma, needs_root, size_checker, source_url_to_apt_style},
     warn, ALLOWCTRLC, DRYRUN, MB, TIME_OFFSET, WRITER,
 };
 
@@ -211,35 +211,33 @@ impl Oma {
 
         let mut count = 1;
 
-        loop {
-            match update_inner(&self.runtime, &self.client, count, &u) {
-                Err(e) => {
-                    return Err(
-                        handle_install_error(e, &mut count, &start_time, false).unwrap_err()
-                    );
-                }
-                Ok(v) => {
-                    let cache = new_cache!()?;
-                    let end_time = OffsetDateTime::now_utc()
-                        .to_offset(*TIME_OFFSET)
-                        .to_string();
+        let op = Operation::Other;
+        let uc = u.clone();
 
-                    log_to_file(&v, &start_time, &end_time, Operation::Other, true)?;
+        let f = move || -> Result<i32> {
+            handle_install_error!(
+                update_inner(&self.runtime, &self.client, count, &uc),
+                count,
+                start_time,
+                op
+            )
+        };
 
-                    if u.dpkg_force_all && cache.depcache().broken_count() != 0 {
-                        return Err(error_due_to(
-                            fl!("system-has-broken-dep"),
-                            fl!(
-                                "system-has-broken-dep-due-to",
-                                cmd = style("oma fix-broken").green().bold().to_string()
-                            ),
-                        ));
-                    }
+        let r = f()?;
 
-                    return Ok(0);
-                }
-            }
+        let cache = new_cache!()?;
+
+        if u.dpkg_force_all && cache.depcache().broken_count() != 0 {
+            return Err(error_due_to(
+                fl!("system-has-broken-dep"),
+                fl!(
+                    "system-has-broken-dep-due-to",
+                    cmd = style("oma fix-broken").green().bold().to_string()
+                ),
+            ));
         }
+
+        Ok(r)
     }
 
     pub fn install(&self, opt: InstallOptions) -> Result<i32> {
@@ -263,22 +261,9 @@ impl Oma {
         }
 
         let mut count = 1;
-        loop {
-            match self.install_inner(&opt, count) {
-                Err(e) => {
-                    return Err(handle_install_error(e, &mut count, &start_time, false).unwrap_err())
-                }
-                Ok(v) => {
-                    let end_time = OffsetDateTime::now_utc()
-                        .to_offset(*TIME_OFFSET)
-                        .to_string();
 
-                    log_to_file(&v, &start_time, &end_time, Operation::Other, true)?;
-
-                    return Ok(0);
-                }
-            }
-        }
+        let op = Operation::Other;
+        handle_install_error!(self.install_inner(&opt, count), count, start_time, op)
     }
 
     pub fn list(opt: &ListOptions) -> Result<i32> {
@@ -553,19 +538,8 @@ impl Oma {
         packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 
         if !DRYRUN.load(Ordering::Relaxed) {
-            cache
-                .commit(
-                    &mut NoProgress::new_box(),
-                    &mut AptInstallProgress::new_box(),
-                )
-                .map_err(|e| anyhow!("{e}"))?;
+            handle_install_error_no_retry(action, cache, &start_time, false, false, false, false)?;
         }
-
-        let end_time = OffsetDateTime::now_utc()
-            .to_offset(*TIME_OFFSET)
-            .to_string();
-
-        log_to_file(&action, &start_time, &end_time, Operation::Other, true)?;
 
         Ok(0)
     }
@@ -899,25 +873,17 @@ impl Oma {
 
         display_result(&action, &cache, r.yes)?;
 
-        let mut progress = OmaAptInstallProgress::new_box(
-            AptConfig::new_clear(),
-            r.yes,
-            r.force_yes,
-            false,
-            false,
-        );
-
         if !DRYRUN.load(Ordering::Relaxed) {
-            cache
-                .commit(&mut NoProgress::new_box(), &mut progress)
-                .map_err(|e| anyhow!("{e}"))?;
+            handle_install_error_no_retry(
+                action,
+                cache,
+                &start_time,
+                r.yes,
+                r.force_yes,
+                false,
+                false,
+            )?;
         }
-
-        let end_time = OffsetDateTime::now_utc()
-            .to_offset(*TIME_OFFSET)
-            .to_string();
-
-        log_to_file(&action, &start_time, &end_time, Operation::Other, true)?;
 
         Ok(0)
     }
@@ -1076,21 +1042,7 @@ impl Oma {
 
             packages_download_runner(&self.runtime, &list, &self.client, None, None)?;
 
-            apt_install(
-                action.clone(),
-                AptConfig::new_clear(),
-                cache,
-                false,
-                false,
-                false,
-                false,
-            )?;
-
-            let end_time = OffsetDateTime::now_utc().to_offset(*TIME_OFFSET);
-
-            let end_time = end_time.to_string();
-
-            log_to_file(&action, &start_time, &end_time, Operation::Other, true)?;
+            handle_install_error_no_retry(action, cache, &start_time, false, false, false, false)?;
         }
 
         Ok(0)
@@ -1558,7 +1510,7 @@ fn autoremove(cache: &Cache, is_purge: bool, no_autoremove: bool) -> Result<Vec<
 }
 
 /// Install packages
-fn apt_install(
+pub fn apt_install(
     action: Action,
     config: AptConfig,
     cache: Cache,
@@ -1603,7 +1555,10 @@ fn apt_install(
 
     cache
         .get_archives(&mut NoProgress::new_box())
-        .map_err(|e| InstallError::RustAptAfter { source: e, action: action.clone() })?;
+        .map_err(|e| InstallError::RustAptAfter {
+            source: e,
+            action: action.clone(),
+        })?;
 
     pb.finish_and_clear();
 
