@@ -70,6 +70,8 @@ pub enum OmaContentsError {
     GrepBuilderError(#[from] grep::regex::Error),
     #[error(transparent)]
     EventError(#[from] std::sync::mpsc::SendError<Event>),
+    #[error("")]
+    NoResult,
 }
 
 pub struct Request<'a> {
@@ -201,7 +203,9 @@ pub fn find(req: Request) -> Result<Vec<(String, String)>> {
                     if line.t == Some("summary".to_owned()) {
                         let stats = data.stats;
                         if let Some(stats) = stats {
-                            if stats.matched_lines == 0 {}
+                            if stats.matched_lines == 0 {
+                                return Err(OmaContentsError::NoResult);
+                            }
                         }
                     }
 
