@@ -1944,6 +1944,17 @@ dependencies = [
 [[package]]
 name = "oma-contents"
 version = "0.1.0"
+dependencies = [
+ "grep",
+ "indicatif",
+ "regex",
+ "serde",
+ "serde_json",
+ "strsim",
+ "thiserror",
+ "time",
+ "which",
+]
 
 [[package]]
 name = "once_cell"
