@@ -15,7 +15,7 @@ pub enum Pager {
 }
 
 impl Pager {
-    pub fn new(no_pager: bool, _is_question: bool) -> Result<Self> {
+    pub fn new(no_pager: bool, tips: &str) -> Result<Self> {
         if no_pager {
             return Ok(Pager::Plain);
         }
@@ -31,28 +31,13 @@ impl Pager {
         let pager_name = pager_cmd_segments.first().unwrap_or(&"less");
         let mut p = std::process::Command::new(pager_name);
 
-        // 检查用户是否在跑桌面环境，如果有则提示用户可以使用鼠标滚动
-        // let has_x11 = std::env::var("DISPLAY");
-
-        // let tips = if has_x11.is_ok() {
-        //     if is_question {
-        //         fl!("question-tips-with-x11")
-        //     } else {
-        //         fl!("normal-tips-with-x11")
-        //     }
-        // } else if is_question {
-        //     fl!("question-tips")
-        // } else {
-        //     fl!("normal-tips")
-        // };
-
         if pager_name == &"less" {
             p.arg("-R"); // Show ANSI escape sequences correctly
             p.arg("-c"); // Start from the top of the screen
             p.arg("-S"); // 打开横向滚动
             p.arg("-~"); // 让 less 不显示空行的波浪线
-            // p.arg("-P"); // 打开滚动提示
-            // p.arg(tips);
+            p.arg("-P"); // 打开滚动提示
+            p.arg(tips);
             p.env("LESSCHARSET", "UTF-8"); // Rust uses UTF-8
         } else if pager_cmd_segments.len() > 1 {
             p.args(&pager_cmd_segments[1..]);
