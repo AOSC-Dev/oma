@@ -1910,6 +1910,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-console"
+version = "0.1.0"
+dependencies = [
+ "console",
+ "indicatif",
+ "once_cell",
+ "thiserror",
+]
+
+[[package]]
 name = "oma-contents"
 version = "0.1.0"
 dependencies = [
