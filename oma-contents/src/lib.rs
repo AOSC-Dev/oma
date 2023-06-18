@@ -2,7 +2,8 @@ use std::{
     io::{BufRead, BufReader},
     path::Path,
     process::{Command, Stdio},
-    time::SystemTime, sync::mpsc::Sender,
+    sync::mpsc::Sender,
+    time::SystemTime,
 };
 
 // use console::style;
@@ -68,7 +69,7 @@ pub enum OmaContentsError {
     #[error(transparent)]
     GrepBuilderError(#[from] grep::regex::Error),
     #[error(transparent)]
-    EventError(#[from] std::sync::mpsc::SendError<Event>)
+    EventError(#[from] std::sync::mpsc::SendError<Event>),
 }
 
 pub struct Request<'a> {
@@ -78,7 +79,7 @@ pub struct Request<'a> {
     pub only_bin: bool,
     pub dists_dir: &'a Path,
     pub arch: &'a str,
-    pub event: Option<Sender<Event>>
+    pub event: Option<Sender<Event>>,
 }
 
 #[derive(Debug)]
@@ -91,9 +92,7 @@ pub enum Event {
     Done,
 }
 
-pub fn find(
-    req: Request,
-) -> Result<Vec<(String, String)>> {
+pub fn find(req: Request) -> Result<Vec<(String, String)>> {
     let kw = if Path::new(req.kw).is_absolute() {
         req.kw.strip_prefix('/').unwrap()
     } else {
@@ -225,11 +224,15 @@ pub fn find(
                                         let bin_name = last
                                             .and_then(|x| x.split('/').last())
                                             .ok_or_else(|| {
-                                                OmaContentsError::ContentsEntryMissingPathList(l.1.to_string())
+                                                OmaContentsError::ContentsEntryMissingPathList(
+                                                    l.1.to_string(),
+                                                )
                                             })?;
 
                                         if strsim::jaro_winkler(
-                                            search_bin_name.ok_or_else(|| OmaContentsError::CnfWrongArgument)?,
+                                            search_bin_name.ok_or_else(|| {
+                                                OmaContentsError::CnfWrongArgument
+                                            })?,
                                             bin_name,
                                         )
                                         .abs()
@@ -250,7 +253,7 @@ pub fn find(
         }
 
         if !cmd.wait()?.success() {
-           return Err(OmaContentsError::RgWithError);
+            return Err(OmaContentsError::RgWithError);
         }
 
         if let Some(event) = &req.event {
