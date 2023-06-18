@@ -1967,6 +1967,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-topics"
+version = "0.1.0"
+dependencies = [
+ "apt-sources-lists",
+ "futures",
+ "indexmap",
+ "inquire",
+ "oma-console",
+ "once_cell",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
