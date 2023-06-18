@@ -5,7 +5,7 @@ use inquire::{
 };
 use oma_console::{
     info,
-    writer::{console, WRITER},
+    writer::{console, Writer},
 };
 use oma_topics::Result;
 use oma_topics::{list, TopicManager};
@@ -89,10 +89,12 @@ fn main() -> Result<()> {
         Ok(())
     });
 
+    let w = Writer::default();
+
     while let Ok(log) = rx.recv() {
         match log {
             oma_topics::TopicsEvent::Info(s) => {
-                info!(WRITER, "{}", s);
+                info!(w, "{}", s);
             }
         }
     }
