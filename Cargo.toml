@@ -73,3 +73,6 @@ clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color"] }
 [features]
 aosc = ["indexmap", "inquire"]
 default  = ["aosc"]
+
+[workspace]
+members = ["oma-contents"]
