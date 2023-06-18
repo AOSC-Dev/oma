@@ -532,7 +532,6 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             entry.status.clone(),
             pkg_info_line,
             pkg.description.clone().unwrap_or("".to_owned()),
-            pkg_score,
             full_match,
         ));
     }
@@ -540,15 +539,15 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     output.sort_by(|a, b| b.0.cmp(&a.0));
 
     if output.len() * 2 <= height.into() {
-        let fm = output.iter().position(|x| x.4);
+        let fm = output.iter().position(|x| x.3);
 
         if let Some(fm) = fm {
-            let (prefix, line, desc, _, _) = output.remove(fm);
+            let (prefix, line, desc, _) = output.remove(fm);
             crate::WRITER.writeln(&prefix.to_string(), &line, false)?;
             crate::WRITER.writeln("", &desc, false)?;
         }
 
-        for (prefix, line, desc, _, _) in output {
+        for (prefix, line, desc, _) in output {
             crate::WRITER.writeln(&prefix.to_string(), &line, false)?;
             crate::WRITER.writeln("", &desc, false)?;
         }
@@ -558,15 +557,15 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
 
         ALLOWCTRLC.store(true, Ordering::Relaxed);
 
-        let fm = output.iter().position(|x| x.4);
+        let fm = output.iter().position(|x| x.3);
 
         if let Some(fm) = fm {
-            let (prefix, line, desc, _, _) = output.remove(fm);
+            let (prefix, line, desc, _) = output.remove(fm);
             writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
             writeln!(out, "{}{desc}", gen_prefix("")).ok();
         }
 
-        for (prefix, line, desc, _, _) in output {
+        for (prefix, line, desc, _) in output {
             writeln!(out, "{}{line}", gen_prefix(&prefix.to_string())).ok();
             writeln!(out, "{}{desc}", gen_prefix("")).ok();
         }
@@ -576,14 +575,6 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn pkg_score(input: &str, pkg_name: &str, is_provide: bool) -> u16 {
-    if is_provide {
-        return 1000;
-    }
-
-    (strsim::jaro_winkler(pkg_name, input) * 1000.0) as u16
 }
 
 /// Mark package as install status
