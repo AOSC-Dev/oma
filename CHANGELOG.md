@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.44.0 (2023-06-18)
+
+### Chore
+
+ - <csr-id-4395c373c3ff9f230dc125216d6377d4350a5625/> Update all deps
+
+### New Features
+
+ - <csr-id-daf799250993dc3c5a72133d25c1b6bd8a28a0a1/> Log oma run result status
+
+### Refactor
+
+ - <csr-id-a68dda43bba8c2625c2f211d607bb580f0a37f39/> Refact install_handle_error and install_handle_error_retry
+
+### Style
+
+ - <csr-id-ccff288b2afad69b005399e87ee2a2c6f6f328ec/> Use cargo-fmt to format code
+ - <csr-id-11868fe261de648e91bc1f38304ac0bb79a31c6f/> Remove useless line
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 6 calendar days.
+ - 7 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`4395c37`](https://github.com/AOSC-Dev/oma/commit/4395c373c3ff9f230dc125216d6377d4350a5625))
+    - Use cargo-fmt to format code ([`ccff288`](https://github.com/AOSC-Dev/oma/commit/ccff288b2afad69b005399e87ee2a2c6f6f328ec))
+    - Refact install_handle_error and install_handle_error_retry ([`a68dda4`](https://github.com/AOSC-Dev/oma/commit/a68dda43bba8c2625c2f211d607bb580f0a37f39))
+    - Remove useless line ([`11868fe`](https://github.com/AOSC-Dev/oma/commit/11868fe261de648e91bc1f38304ac0bb79a31c6f))
+    - Log oma run result status ([`daf7992`](https://github.com/AOSC-Dev/oma/commit/daf799250993dc3c5a72133d25c1b6bd8a28a0a1))
+</details>
+
 ## v0.43.2 (2023-06-11)
 
 ### New Features
@@ -16,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -27,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.43.2 ([`e6d5ce0`](https://github.com/AOSC-Dev/oma/commit/e6d5ce0b2c72c054c726b24225ac62dfe22f959d))
     - Use default clap style ([`1525de5`](https://github.com/AOSC-Dev/oma/commit/1525de50d022646693239f58fd854dfb85c40c6c))
     - Only action is non empty push to oma history undo list ([`3aa5d09`](https://github.com/AOSC-Dev/oma/commit/3aa5d097fa342fb1ae89b151e183eda8a5ca2560))
 </details>
