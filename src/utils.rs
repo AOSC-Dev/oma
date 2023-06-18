@@ -170,29 +170,20 @@ macro_rules! handle_install_error {
     ($f:expr, $count:ident, $start_time:ident, $op:ident) => {
         loop {
             match $f {
-                Err(e) => {
-                    match e {
-                        InstallError::Anyhow(e) => return Err(e),
-                        InstallError::RustApt(e) => {
-                            // Retry 3 times, if Error is rust_apt return
-                            if $count == 3 {
-                                return Err(e.into());
-                            }
-                            $count += 1;
-                        }
-                        InstallError::RustAptAfter { source, action } => {
-                            if $count == 3 {
-                                let end_time = OffsetDateTime::now_utc()
-                                    .to_offset(*TIME_OFFSET)
-                                    .to_string();
+                Err(e) => match e {
+                    InstallError::Anyhow(e) => return Err(e),
+                    InstallError::RustApt { source, action } => {
+                        if $count == 3 {
+                            let end_time = OffsetDateTime::now_utc()
+                                .to_offset(*TIME_OFFSET)
+                                .to_string();
 
-                                log_to_file(&action, $start_time.as_str(), &end_time, $op, false)?;
-                                return Err(source.into());
-                            }
-                            $count += 1;
+                            log_to_file(&action, $start_time.as_str(), &end_time, $op, false)?;
+                            return Err(source.into());
                         }
+                        $count += 1;
                     }
-                }
+                },
                 Ok(v) => {
                     let end_time = OffsetDateTime::now_utc()
                         .to_offset(*TIME_OFFSET)
@@ -214,7 +205,7 @@ pub fn handle_install_error_no_retry(
     yes: bool,
     force_yes: bool,
     force_confnew: bool,
-    dpkg_force_all: bool
+    dpkg_force_all: bool,
 ) -> Result<()> {
     match apt_install(
         action.clone(),
@@ -241,7 +232,7 @@ pub fn handle_install_error_no_retry(
 
             log_to_file(&action, start_time, &end_time, Operation::Other, true)?;
 
-            return Err(e.into());
+            Err(e.into())
         }
     }
 }

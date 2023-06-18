@@ -5,11 +5,11 @@ use std::{
 
 use crate::{
     cli::InstallOptions,
-    error, info,
+    error, handle_install_error, info,
     oma::{apt_handler, Action, InstallError, InstallResult, Oma},
     pkg::{mark_delete, mark_install},
-    utils::{needs_root},
-    ARGS, DRYRUN, TIME_OFFSET, handle_install_error,
+    utils::needs_root,
+    ARGS, DRYRUN, TIME_OFFSET,
 };
 use crate::{fl, success};
 use anyhow::{anyhow, Context, Result};
@@ -185,14 +185,17 @@ pub fn run(index: Option<usize>, is_undo: bool) -> Result<i32> {
         .to_offset(*TIME_OFFSET)
         .to_string();
 
-    let op = if is_undo { Operation::Undo } else { Operation::Redo };
+    let op = if is_undo {
+        Operation::Undo
+    } else {
+        Operation::Redo
+    };
 
     handle_install_error!(do_inner(action, count), count, start_time, op)
-
 }
 
 fn do_inner(action: &Action, count: usize) -> InstallResult<Action> {
-    let cache = new_cache!()?;
+    let cache = new_cache!().map_err(|e| anyhow!("{e}"))?;
     let (action, len) = undo_inner(action, &cache)?;
 
     Oma::build_async_runtime()?.action_to_install(

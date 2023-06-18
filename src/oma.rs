@@ -105,12 +105,10 @@ pub struct Oma {
 pub enum InstallError {
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
-    #[error(transparent)]
-    RustApt(#[from] rust_apt::util::Exception),
     #[error("apt return error: {source:?}")]
-    RustAptAfter {
+    RustApt {
         source: rust_apt::util::Exception,
-        action: Action,
+        action: Box<Action>,
     },
 }
 
@@ -163,7 +161,7 @@ impl Oma {
                 oma_spinner(&pb);
                 pb.set_message("Quering upgradable packages ...");
                 let sort = PackageSort::default().upgradable();
-                let upgrable_pkgs = cache.packages(&sort)?;
+                let upgrable_pkgs = cache.packages(&sort).map_err(|e| anyhow!("{e}"))?;
 
                 for pkg in upgrable_pkgs {
                     find_unmet_deps_with_markinstall(&cache, &pkg.candidate().unwrap(), false)?;
@@ -1545,7 +1543,7 @@ pub fn apt_install(
                 ));
             }
 
-            apt_lock()?;
+            apt_lock().map_err(|e| anyhow!("{e}"))?;
         }
     }
 
@@ -1555,9 +1553,9 @@ pub fn apt_install(
 
     cache
         .get_archives(&mut NoProgress::new_box())
-        .map_err(|e| InstallError::RustAptAfter {
+        .map_err(|e| InstallError::RustApt {
             source: e,
-            action: action.clone(),
+            action: Box::new(action.clone()),
         })?;
 
     pb.finish_and_clear();
@@ -1570,7 +1568,10 @@ pub fn apt_install(
     if let Err(e) = cache.do_install(&mut progress) {
         apt_lock_inner().map_err(|e| anyhow!("{e}"))?;
         apt_unlock();
-        return Err(InstallError::RustAptAfter { source: e, action });
+        return Err(InstallError::RustApt {
+            source: e,
+            action: Box::new(action),
+        });
     }
 
     apt_unlock();
