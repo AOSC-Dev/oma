@@ -5,6 +5,8 @@ use indicatif::ProgressBar;
 use once_cell::sync::Lazy;
 use crate::Result;
 
+pub use console;
+
 pub static WRITER: Lazy<Writer> = Lazy::new(Writer::default);
 
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
