@@ -1,0 +1,22 @@
+[package]
+name = "oma-topics"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+once_cell = "1.18"
+indexmap = {version = "1.9", features = ["serde-1"]}
+apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists", rev = "0df4611ec7293010551f95659f28f1b1da9cc0c8" }
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.28", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
+thiserror = "1.0"
+tracing = "0.1"
+futures = "0.3"
+
+[dev-dependencies]
+inquire = { git = "https://github.com/AOSC-Dev/inquire", rev = "3230e6daefb71e335764d901d1c6d3a5e706312e" }
+oma-console = { path = "../oma-console"}
