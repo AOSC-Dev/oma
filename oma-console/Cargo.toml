@@ -9,4 +9,3 @@ edition = "2021"
 console = "0.15"
 thiserror = "1.0"
 indicatif = "0.17"
-
