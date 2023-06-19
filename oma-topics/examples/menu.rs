@@ -5,7 +5,8 @@ use inquire::{
 };
 use oma_console::{
     info,
-    writer::{console, Writer},
+    console,
+    writer::{Writer},
 };
 use oma_topics::Result;
 use oma_topics::{list, TopicManager};
