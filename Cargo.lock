@@ -1934,6 +1934,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-fetcher"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "indicatif",
+ "reqwest",
+ "serde",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "oma-topics"
 version = "0.1.0"
 dependencies = [

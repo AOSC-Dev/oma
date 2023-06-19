@@ -1,5 +1,6 @@
 pub mod pager;
 pub mod writer;
+pub use console;
 
 pub type Result<T> = std::result::Result<T, OmaConsoleError>;
 

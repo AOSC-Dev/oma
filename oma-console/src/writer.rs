@@ -4,8 +4,6 @@ use console::Term;
 use indicatif::ProgressBar;
 use crate::Result;
 
-pub use console;
-
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
     if console::measure_text_width(prefix) > (prefix_len - 1).into() {
         panic!("Line prefix \"{prefix}\" too long!");

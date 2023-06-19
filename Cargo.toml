@@ -75,4 +75,4 @@ aosc = ["indexmap", "inquire"]
 default  = ["aosc"]
 
 [workspace]
-members = ["oma-contents", "oma-console", "oma-topics"]
+members = ["oma-contents", "oma-console", "oma-topics", "oma-fetcher"]
