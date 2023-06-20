@@ -1,9 +1,10 @@
-use std::{io::SeekFrom, path::Path, sync::Arc};
+use std::{io::SeekFrom, path::PathBuf, sync::Arc};
 
+use futures::StreamExt;
 use indicatif::{MultiProgress, ProgressBar};
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
-    Client, StatusCode,
+    Client, ClientBuilder, StatusCode,
 };
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
@@ -31,28 +32,133 @@ pub enum DownloadError {
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 
-pub struct FetchFile<'a> {
-    url: &'a str,
-    client: &'a Client,
+pub struct DownloadEntry {
+    url: String,
     filename: String,
-    dir: &'a Path,
-    hash: Option<&'a str>,
+    dir: PathBuf,
+    hash: Option<String>,
     allow_resume: bool,
-    fpb: Option<FetchProgressBar>,
+}
+
+impl DownloadEntry {
+    pub fn new(
+        url: String,
+        filename: String,
+        dir: PathBuf,
+        hash: Option<String>,
+        allow_resume: bool,
+    ) -> Self {
+        Self {
+            url,
+            filename,
+            dir,
+            hash,
+            allow_resume,
+        }
+    }
 }
 
 #[derive(Clone)]
 pub struct FetchProgressBar {
     mb: Arc<MultiProgress>,
     global_bar: Option<ProgressBar>,
-    pub progress: Option<(usize, usize)>,
-    pub msg: Option<String>,
+    progress: Option<(usize, usize)>,
+    msg: Option<String>,
+}
+
+impl FetchProgressBar {
+    pub fn new(
+        mb: Arc<MultiProgress>,
+        global_bar: Option<ProgressBar>,
+        progress: Option<(usize, usize)>,
+        msg: Option<String>,
+    ) -> Self {
+        Self {
+            mb,
+            global_bar,
+            progress,
+            msg,
+        }
+    }
+}
+
+pub struct OmaFetcher {
+    client: Client,
+    bar: Option<(Arc<MultiProgress>, Option<ProgressBar>)>,
+    download_list: Vec<DownloadEntry>,
+    limit_thread: usize,
+}
+
+impl OmaFetcher {
+    pub fn new(
+        client: Option<Client>,
+        bar: bool,
+        total_size: Option<u64>,
+        download_list: Vec<DownloadEntry>,
+        limit_thread: Option<usize>,
+    ) -> DownloadResult<Self> {
+        let client = client.unwrap_or(ClientBuilder::new().user_agent("oma").build()?);
+
+        let bar = if bar {
+            let mb = Arc::new(MultiProgress::new());
+            let gpb = if let Some(total) = total_size {
+                Some(mb.insert(0, ProgressBar::new(total)))
+            } else {
+                None
+            };
+
+            Some((mb, gpb))
+        } else {
+            None
+        };
+
+        Ok(Self {
+            client,
+            bar,
+            download_list,
+            limit_thread: limit_thread.unwrap_or(4),
+        })
+    }
+
+    pub async fn start_download(&self) -> DownloadResult<Vec<bool>> {
+        let mut tasks = Vec::new();
+        for (i, c) in self.download_list.iter().enumerate() {
+            tasks.push(download(
+                &self.client,
+                c,
+                if let Some((mb, gpb)) = &self.bar {
+                    Some(FetchProgressBar {
+                        mb: mb.clone(),
+                        global_bar: gpb.clone(),
+                        progress: Some((i + 1, self.download_list.len())),
+                        msg: None,
+                    })
+                } else {
+                    None
+                },
+            ));
+        }
+
+        let stream = futures::stream::iter(tasks).buffer_unordered(self.limit_thread);
+
+        let res = stream
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect::<DownloadResult<Vec<_>>>();
+
+        res
+    }
 }
 
 /// Download file
 /// Return bool is file is started download
-pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
-    let file = ff.dir.join(&ff.filename);
+async fn download(
+    client: &Client,
+    entry: &DownloadEntry,
+    fpb: Option<FetchProgressBar>,
+) -> DownloadResult<bool> {
+    let file = entry.dir.join(&entry.filename);
     let file_exist = file.exists();
     let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
@@ -63,10 +169,13 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
     // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
     // 如果不存在，则继续往下走
     if file_exist {
-        tracing::debug!("File: {} exists, oma will checksum this file.", ff.filename);
-        if let Some(hash) = ff.hash {
+        tracing::debug!(
+            "File: {} exists, oma will checksum this file.",
+            entry.filename
+        );
+        let hash = entry.hash.clone();
+        if let Some(hash) = hash {
             tracing::debug!("Hash exist! It is: {hash}");
-            let hash = hash.to_owned();
 
             let mut f = tokio::fs::OpenOptions::new()
                 .create(true)
@@ -77,7 +186,7 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
 
             tracing::debug!(
                 "oma opened file: {} with create, write and read mode",
-                ff.filename
+                entry.filename
             );
 
             let mut v = Checksum::from_sha256_str(&hash)?.get_validator();
@@ -95,8 +204,7 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
                 let count = f.read(&mut buf[..]).await?;
                 v.update(&buf[..count]);
 
-                let fpb = ff.fpb.clone();
-                if let Some(fpb) = fpb {
+                if let Some(ref fpb) = fpb {
                     if let Some(ref gpb) = fpb.global_bar {
                         gpb.inc(count as u64);
                     }
@@ -108,16 +216,15 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
             if v.finish() {
                 tracing::debug!(
                     "{} checksum success, no need to download anything.",
-                    ff.filename
+                    entry.filename
                 );
                 return Ok(false);
             }
 
-            tracing::debug!("checksum fail, will download this file: {}", ff.filename);
+            tracing::debug!("checksum fail, will download this file: {}", entry.filename);
 
-            if !ff.allow_resume {
-                let fpb = ff.fpb.clone();
-                if let Some(ref gpb) = fpb.and_then(|x| x.global_bar) {
+            if !entry.allow_resume {
+                if let Some(ref gpb) = fpb.as_ref().and_then(|x| x.global_bar.clone()) {
                     gpb.set_position(gpb.position() - readed);
                 }
             } else {
@@ -127,8 +234,8 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
         }
     }
 
-    let fpb = ff.fpb.clone();
-    let progress = if let Some((count, len)) = fpb.and_then(|x| x.progress) {
+    let fpbc = fpb.clone();
+    let progress = if let Some((count, len)) = fpbc.and_then(|x| x.progress) {
         format!("({count}/{len}) ")
     } else {
         "".to_string()
@@ -137,10 +244,10 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
     let progress_clone = progress.clone();
 
     // 若请求头的速度太慢，会看到 Spinner 直到拿到头的信息
-    let fpb = ff.fpb.clone();
-    let pb = if let Some(fpb) = fpb {
+    let fpbc = fpb.clone();
+    let pb = if let Some(fpb) = fpbc {
         let pb = fpb.mb.add(ProgressBar::new_spinner());
-        let msg = "todo";
+        let msg = fpb.msg.unwrap_or("todo".to_string());
         pb.set_message(format!("{progress_clone}{msg}"));
 
         Some(pb)
@@ -148,7 +255,8 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
         None
     };
 
-    let resp_head = ff.client.head(ff.url).send().await?;
+    let url = entry.url.clone();
+    let resp_head = client.head(url).send().await?;
 
     let head = resp_head.headers();
 
@@ -170,18 +278,21 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
             .map(|x| x.to_owned())
             .unwrap_or(HeaderValue::from(0));
 
+        let url = entry.url.clone();
+
         total_size
             .to_str()
             .ok()
             .and_then(|x| x.parse::<u64>().ok())
-            .ok_or_else(|| DownloadError::InvaildTotal(ff.url.to_string()))?
+            .ok_or_else(move || DownloadError::InvaildTotal(url.to_string()))?
     };
 
     tracing::debug!("File total size is: {total_size}");
 
-    let mut req = ff.client.get(ff.url);
+    let url = entry.url.clone();
+    let mut req = client.get(url);
 
-    if can_resume && ff.allow_resume {
+    if can_resume && entry.allow_resume {
         // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
         // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
         if total_size <= file_size {
@@ -204,7 +315,10 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
             pb.finish_and_clear();
         }
         match e.status() {
-            Some(StatusCode::NOT_FOUND) => return Err(DownloadError::NotFound(ff.url.to_string())),
+            Some(StatusCode::NOT_FOUND) => {
+                let url = entry.url.to_string();
+                return Err(DownloadError::NotFound(url.to_string()));
+            }
             _ => return Err(e.into()),
         }
     } else {
@@ -213,15 +327,14 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
         }
     }
 
-    let fpb = ff.fpb.clone();
-    let pb = if let Some(fpb) = fpb {
+    let fpbc = fpb.clone();
+    let pb = if let Some(fpb) = fpbc {
         Some(fpb.mb.add(ProgressBar::new(total_size)))
     } else {
         None
     };
 
-    let fpb = ff.fpb.clone();
-    let progress = if let Some((count, len)) = fpb.and_then(|x| x.progress) {
+    let progress = if let Some((count, len)) = fpb.clone().and_then(|x| x.progress) {
         format!("({count}/{len}) ")
     } else {
         "".to_string()
@@ -236,23 +349,25 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
 
     // 初始化 checksum 验证器
     // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
+
+    let hash = entry.hash.clone();
     let mut validator = if let Some(v) = validator {
         if let Some(pb) = &pb {
             pb.inc(file_size);
         }
         Some(v)
-    } else if let Some(hash) = ff.hash {
-        Some(Checksum::from_sha256_str(hash)?.get_validator())
+    } else if let Some(hash) = hash {
+        Some(Checksum::from_sha256_str(&hash)?.get_validator())
     } else {
         None
     };
 
-    let mut dest = if !ff.allow_resume || !can_resume {
+    let mut dest = if !entry.allow_resume || !can_resume {
         // 如果不能 resume，则加入 truncate 这个 flag，告诉内核截断文件
         // 并把文件长度设置为 0
         tracing::debug!(
             "oma will open file: {} as truncate, create, write and read mode.",
-            ff.filename
+            entry.filename
         );
         let f = tokio::fs::OpenOptions::new()
             .truncate(true)
@@ -267,13 +382,13 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
 
         f
     } else if let Some(dest) = dest {
-        tracing::debug!("oma will re use opened dest file for {}", ff.filename);
+        tracing::debug!("oma will re use opened dest file for {}", entry.filename);
 
         dest
     } else {
         tracing::debug!(
             "oma will open file: {} as create, write and read mode.",
-            ff.filename
+            entry.filename
         );
 
         tokio::fs::OpenOptions::new()
@@ -285,7 +400,7 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
     };
 
     // 把文件指针移动到末尾
-    tracing::debug!("oma will seek file: {} to end", ff.filename);
+    tracing::debug!("oma will seek file: {} to end", entry.filename);
     dest.seek(SeekFrom::End(0)).await?;
 
     // 下载！
@@ -296,8 +411,8 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
             pb.inc(chunk.len() as u64);
         }
 
-        let fpb = ff.fpb.clone();
-        if let Some(ref gpb) = fpb.and_then(|x| x.global_bar) {
+        let fpbc = fpb.clone();
+        if let Some(ref gpb) = fpbc.and_then(|x| x.global_bar) {
             gpb.inc(chunk.len() as u64);
         }
 
@@ -313,19 +428,18 @@ pub async fn download(ff: FetchFile<'_>) -> DownloadResult<bool> {
     // 最后看看 chekcsum 验证是否通过
     if let Some(v) = validator {
         if !v.finish() {
-            tracing::debug!("checksum fail: {}", ff.filename);
-
-            let fpb = ff.fpb.clone();
-            if let Some(ref gpb) = fpb.and_then(|x| x.global_bar) {
+            tracing::debug!("checksum fail: {}", entry.filename);
+            let fpbc = fpb.clone();
+            if let Some(ref gpb) = fpbc.and_then(|x| x.global_bar) {
                 let pb = pb.unwrap();
                 gpb.set_position(gpb.position() - pb.position());
                 pb.reset();
             }
 
-            return Err(DownloadError::ChecksumMisMatch(ff.url.to_string()));
+            return Err(DownloadError::ChecksumMisMatch(entry.url.to_string()));
         }
 
-        tracing::debug!("checksum success: {}", ff.filename);
+        tracing::debug!("checksum success: {}", entry.filename);
     }
 
     if let Some(pb) = pb {
