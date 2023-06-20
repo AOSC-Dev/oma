@@ -1973,6 +1973,7 @@ dependencies = [
  "futures",
  "hex",
  "indicatif",
+ "oma-console",
  "reqwest",
  "serde",
  "sha2",
