@@ -37,7 +37,7 @@ Commands:
   refresh     Refresh repository metadata/catalog
   show        Show information on the specified package(s)
   search      Search for package(s) available from the repository
-  list-files  List files in the specified package
+  files  List files in the specified package
   provides    Search for package(s) that provide(s) certain patterns in a path
   fix-broken  Resolve broken system dependencies in the system
   pick        Install specific version of a package
