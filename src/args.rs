@@ -192,7 +192,7 @@ pub fn command_builder() -> Command {
                 )
         )
         .subcommand(
-            Command::new("list-files")
+            Command::new("files")
                 .about("List files in the specified package")
                 .arg(
                     Arg::new("package")

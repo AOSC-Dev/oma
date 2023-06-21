@@ -43,8 +43,8 @@ _oma() {
             oma,list)
                 cmd="oma__list"
                 ;;
-            oma,list-files)
-                cmd="oma__list__files"
+            oma,files)
+                cmd="oma__files"
                 ;;
             oma,mark)
                 cmd="oma__mark"
@@ -103,8 +103,8 @@ _oma() {
             oma__help,list)
                 cmd="oma__help__list"
                 ;;
-            oma__help,list-files)
-                cmd="oma__help__list__files"
+            oma__help,files)
+                cmd="oma__help__files"
                 ;;
             oma__help,mark)
                 cmd="oma__help__mark"
@@ -143,7 +143,7 @@ _oma() {
 
     case "${cmd}" in
         oma)
-            opts="-v -h --debug --ailurus --version --help install upgrade download remove refresh show search list-files provides fix-broken pick mark list depends rdepends clean history topics help"
+            opts="-v -h --debug --ailurus --version --help install upgrade download remove refresh show search files provides fix-broken pick mark list depends rdepends clean history topics help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -223,7 +223,7 @@ _oma() {
             return 0
             ;;
         oma__help)
-            opts="install upgrade download remove refresh show search list-files provides fix-broken pick mark command-not-found list depends rdepends clean history pkgnames topics help"
+            opts="install upgrade download remove refresh show search files provides fix-broken pick mark command-not-found list depends rdepends clean history pkgnames topics help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -574,7 +574,7 @@ _oma() {
             _oma_packages "${cur}"
             return 0
             ;;
-        oma__list__files)
+        oma__files)
             opts="-h --debug --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )

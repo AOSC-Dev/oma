@@ -382,7 +382,7 @@ impl CommandMatcher for OmaCommandRunner {
                     .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                     .unwrap(),
             }),
-            Some(("list-files", args)) => OmaCommand::ListFiles(ListFiles {
+            Some(("files", args)) => OmaCommand::ListFiles(ListFiles {
                 package: args.get_one::<String>("package").unwrap().to_string(),
                 bin: args.get_flag("bin"),
             }),
