@@ -314,3 +314,32 @@ pub(crate) async fn http_download(
 
     Ok(true)
 }
+
+pub async fn download_local(
+    entry: &DownloadEntry,
+    fpb: Option<FetchProgressBar>,
+) -> DownloadResult<bool> {
+    let pb = fpb.as_ref().map(|x| x.mb.add(ProgressBar::new_spinner()));
+
+    let mut from = tokio::fs::File::open(&entry.url)
+        .await
+        .map_err(|e| DownloadError::FailedOpenLocalSourceFile(entry.filename.clone(), e.to_string()))?;
+
+    let mut to = tokio::fs::File::create(entry.dir.join(&entry.filename))
+        .await
+        .map_err(|e| DownloadError::FailedOpenLocalSourceFile(entry.filename.clone(), e.to_string()))?;
+
+    let size = tokio::io::copy(&mut from, &mut to)
+        .await
+        .map_err(|e| DownloadError::FailedOpenLocalSourceFile(entry.filename.clone(), e.to_string()))?;
+
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
+
+    if let Some(ref gb) = fpb.and_then(|x| x.global_bar) {
+        gb.inc(size);
+    }
+
+    Ok(true)
+}
