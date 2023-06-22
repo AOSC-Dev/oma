@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use futures::StreamExt;
+use futures::{StreamExt, future::BoxFuture};
 use indicatif::{MultiProgress, ProgressBar};
 use oma_console::writer::Writer;
 use reqwest::{Client, ClientBuilder};
@@ -8,7 +8,7 @@ use reqwest::{Client, ClientBuilder};
 pub mod checksum;
 mod download;
 
-use download::http_download;
+use download::{http_download, download_local};
 
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
@@ -28,6 +28,8 @@ pub enum DownloadError {
     InvaildTotal(String),
     #[error(transparent)]
     TemplateError(#[from] indicatif::style::TemplateError),
+    #[error("Failed to open local source file {0}: {1}")]
+    FailedOpenLocalSourceFile(String, String),
 }
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
@@ -38,6 +40,12 @@ pub struct DownloadEntry {
     dir: PathBuf,
     hash: Option<String>,
     allow_resume: bool,
+    source_type: DownloadSourceType,
+}
+
+pub enum DownloadSourceType {
+    Http,
+    Local,
 }
 
 impl DownloadEntry {
@@ -47,6 +55,7 @@ impl DownloadEntry {
         dir: PathBuf,
         hash: Option<String>,
         allow_resume: bool,
+        source_type: DownloadSourceType,
     ) -> Self {
         Self {
             url,
@@ -54,6 +63,7 @@ impl DownloadEntry {
             dir,
             hash,
             allow_resume,
+            source_type,
         }
     }
 }
@@ -130,20 +140,30 @@ impl OmaFetcher {
     pub async fn start_download(&self) -> DownloadResult<Vec<bool>> {
         let mut tasks = Vec::new();
         for (i, c) in self.download_list.iter().enumerate() {
-            tasks.push(http_download(
-                &self.client,
-                c,
-                if let Some((mb, gpb)) = &self.bar {
-                    Some(FetchProgressBar {
-                        mb: mb.clone(),
-                        global_bar: gpb.clone(),
-                        progress: Some((i + 1, self.download_list.len())),
-                        msg: None,
-                    })
-                } else {
-                    None
-                },
-            ));
+            let fpb = if let Some((mb, gpb)) = &self.bar {
+                Some(FetchProgressBar {
+                    mb: mb.clone(),
+                    global_bar: gpb.clone(),
+                    progress: Some((i + 1, self.download_list.len())),
+                    msg: None,
+                })
+            } else {
+                None
+            };
+            match c.source_type {
+                DownloadSourceType::Http => {
+                    let task: BoxFuture<'_, DownloadResult<bool>> = Box::pin(http_download(
+                        &self.client,
+                        c,
+                        fpb
+                    ));
+                    tasks.push(task);
+                }
+                DownloadSourceType::Local => {
+                    let task: BoxFuture<'_, DownloadResult<bool>> = Box::pin(download_local(c, fpb));
+                    tasks.push(task);
+                }
+            }
         }
 
         let stream = futures::stream::iter(tasks).buffer_unordered(self.limit_thread);
