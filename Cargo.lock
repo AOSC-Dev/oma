@@ -1992,6 +1992,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-fetcher"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "hex",
+ "oma-console",
+ "reqwest",
+ "serde",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "oma-refresh"
+version = "0.1.0"
+dependencies = [
+ "apt-sources-lists",
+ "debcontrol",
+ "futures",
+ "oma-fetcher",
+ "once_cell",
+ "serde",
+ "serde_yaml",
+ "thiserror",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "oma-topics"
 version = "0.1.0"
 dependencies = [
