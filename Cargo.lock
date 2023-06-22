@@ -1935,7 +1935,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "oma-fetcher"
+name = "oma-fetch"
 version = "0.1.0"
 dependencies = [
  "futures",
