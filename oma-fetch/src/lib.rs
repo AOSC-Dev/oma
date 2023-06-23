@@ -1,14 +1,17 @@
 use std::{path::PathBuf, sync::Arc};
 
-use futures::{StreamExt, future::BoxFuture};
-use indicatif::{MultiProgress, ProgressBar};
-use oma_console::writer::Writer;
+use futures::{future::BoxFuture, StreamExt};
+use oma_console::{
+    indicatif::{self, MultiProgress, ProgressBar},
+    writer::Writer,
+};
+
 use reqwest::{Client, ClientBuilder};
 
 pub mod checksum;
 mod download;
 
-use download::{http_download, download_local};
+use download::{download_local, http_download};
 
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
@@ -152,15 +155,13 @@ impl OmaFetcher {
             };
             match c.source_type {
                 DownloadSourceType::Http => {
-                    let task: BoxFuture<'_, DownloadResult<bool>> = Box::pin(http_download(
-                        &self.client,
-                        c,
-                        fpb
-                    ));
+                    let task: BoxFuture<'_, DownloadResult<bool>> =
+                        Box::pin(http_download(&self.client, c, fpb));
                     tasks.push(task);
                 }
                 DownloadSourceType::Local => {
-                    let task: BoxFuture<'_, DownloadResult<bool>> = Box::pin(download_local(c, fpb));
+                    let task: BoxFuture<'_, DownloadResult<bool>> =
+                        Box::pin(download_local(c, fpb));
                     tasks.push(task);
                 }
             }
