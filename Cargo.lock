@@ -1981,22 +1981,6 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "hex",
- "indicatif",
- "oma-console",
- "reqwest",
- "serde",
- "sha2",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "oma-fetcher"
-version = "0.1.0"
-dependencies = [
- "futures",
- "hex",
  "oma-console",
  "reqwest",
  "serde",
@@ -2010,14 +1994,17 @@ dependencies = [
 name = "oma-refresh"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "apt-sources-lists",
  "debcontrol",
  "futures",
- "oma-fetcher",
+ "oma-fetch",
  "once_cell",
+ "sequoia-openpgp",
  "serde",
  "serde_yaml",
  "thiserror",
+ "time",
  "tokio",
  "url",
 ]

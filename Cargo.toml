@@ -77,3 +77,4 @@ default  = ["aosc"]
 
 [workspace]
 members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh"]
+
