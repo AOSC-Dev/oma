@@ -233,13 +233,13 @@ impl InReleaseParser {
         ))?;
 
         let now = OffsetDateTime::now_utc();
-
+        
         if now < date {
-            bail!(fl!("earlier-signature"))
+            bail!(fl!("earlier-signature", filename = mirror.to_string()))
         }
 
         if now > valid_until {
-            bail!(fl!("expired-signature"))
+            bail!(fl!("expired-signature", filename = mirror.to_string()))
         }
 
         let sha256 = source_first
