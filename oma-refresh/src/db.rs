@@ -1,5 +1,9 @@
-use std::{collections::HashMap, path::{PathBuf, Path}};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
+use apt_sources_lists::{SourceEntry, SourcesLists};
 use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -13,38 +17,44 @@ struct MirrorMapItem {
 static MIRROR: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
 
-pub async fn get_url_short_and_branch(url: &str) -> Result<String> {
-    let url = Url::parse(url)
-        .map_err(|e| anyhow!(fl!("invaild-url-with-err", url = url, e = e.to_string())))?;
-    let host = url.host_str().context(anyhow!(fl!("invalid-url")))?;
+#[derive(Debug, thiserror::Error)]
+pub enum RefreshError {
+    #[error("Invalid URL: {0}")]
+    InvaildUrl(String),
+    #[error("Can not parse distro repo data: {0}")]
+    ParseDistroRepoDataErrpr(String),
+    #[error("Can not read file {}: {}", .path, .error)]
+    ReadFileError { path: String, error: std::io::Error },
+}
+
+type Result<T> = std::result::Result<T, RefreshError>;
+
+pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
+    let url = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
+    let host = url
+        .host_str()
+        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+
     let schema = url.scheme();
     let branch = url
         .path()
         .split('/')
         .nth_back(1)
-        .context(anyhow!(fl!("invalid-url")))?;
+        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
     let url = format!("{schema}://{host}/");
 
     // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
     if let Ok(mirror_map_f) = tokio::fs::read(&*MIRROR).await {
         let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&mirror_map_f)
-            .map_err(|e| {
-                anyhow!(fl!(
-                    "cant-parse-distro-repo-data",
-                    mirror = MIRROR.display().to_string(),
-                    e = e.to_string()
-                ))
-            })?;
+            .map_err(|_| RefreshError::ParseDistroRepoDataErrpr(MIRROR.display().to_string()))?;
 
         for (k, v) in mirror_map.iter() {
-            let mirror_url = Url::parse(&v.url).map_err(|e| {
-                anyhow!(fl!(
-                    "distro-repo-data-invalid-url",
-                    url = v.url.as_str(),
-                    e = e.to_string()
-                ))
-            })?;
-            let mirror_url_host = mirror_url.host_str().context(fl!("host-str-err"))?;
+            let mirror_url =
+                Url::parse(&v.url).map_err(|_| RefreshError::InvaildUrl(v.url.to_string()))?;
+            let mirror_url_host = mirror_url
+                .host_str()
+                .ok_or_else(|| RefreshError::InvaildUrl(v.url.to_string()))?;
+
             let schema = mirror_url.scheme();
             let mirror_url = format!("{schema}://{mirror_url_host}/");
 
@@ -55,169 +65,6 @@ pub async fn get_url_short_and_branch(url: &str) -> Result<String> {
     }
 
     Ok(format!("{host}:{branch}"))
-}
-
-#[derive(Debug)]
-struct InReleaseParser {
-    _source: Vec<HashMap<String, String>>,
-    checksums: Vec<ChecksumItem>,
-}
-
-#[derive(Debug, Clone)]
-struct ChecksumItem {
-    name: String,
-    size: u64,
-    checksum: String,
-    file_type: DistFileType,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-enum DistFileType {
-    BinaryContents,
-    Contents,
-    CompressContents,
-    PackageList,
-    CompressPackageList,
-    Release,
-}
-
-impl InReleaseParser {
-    fn new(p: &Path, trust_files: Option<&str>, mirror: &str) -> Result<Self> {
-        let s = std::fs::read_to_string(p)
-            .map_err(|e| anyhow!("Can not read InRelease file, why: {e}"))?;
-
-        let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-            verify::verify(&s, trust_files, mirror)?
-        } else {
-            s
-        };
-
-        let source = debcontrol_from_str(&s).map_err(|e| {
-            anyhow!(fl!(
-                "can-nnot-read-inrelease-file",
-                path = p.display().to_string(),
-                e = e.to_string()
-            ))
-        })?;
-
-        let source_first = source.first();
-
-        let date = source_first
-            .and_then(|x| x.get("Date"))
-            .take()
-            .context(fl!("inrelease-date-empty"))?;
-
-        let valid_until = source_first
-            .and_then(|x| x.get("Valid-Until"))
-            .take()
-            .context(fl!("inrelease-valid-until-empty"))?;
-
-        let date = OffsetDateTime::parse(date, &Rfc2822)
-            .context(fl!("can-not-parse-date", date = date.as_str()))?;
-
-        let valid_until = OffsetDateTime::parse(valid_until, &Rfc2822).context(fl!(
-            "can-not-parse-valid-until",
-            valid_until = valid_until.as_str()
-        ))?;
-
-        let now = OffsetDateTime::now_utc();
-
-        if now < date {
-            bail!(fl!("earlier-signature"))
-        }
-
-        if now > valid_until {
-            bail!(fl!("expired-signature"))
-        }
-
-        let sha256 = source_first
-            .and_then(|x| x.get("SHA256"))
-            .take()
-            .context(fl!("inrelease-sha256-empty"))?;
-
-        let mut checksums = sha256.split('\n');
-
-        // remove first item, It's empty
-        checksums.next();
-
-        let mut checksums_res = vec![];
-
-        for i in checksums {
-            let mut checksum_entry = i.split_whitespace();
-            let checksum = checksum_entry
-                .next()
-                .context(fl!("inrelease-checksum-can-not-parse", i = i))?;
-            let size = checksum_entry
-                .next()
-                .context(fl!("inrelease-checksum-can-not-parse", i = i))?;
-            let name = checksum_entry
-                .next()
-                .context(fl!("inrelease-checksum-can-not-parse", i = i))?;
-            checksums_res.push((name, size, checksum));
-        }
-
-        let arch = ARCH.get().unwrap();
-
-        let mut res = vec![];
-
-        let c_res_clone = checksums_res.clone();
-
-        let c = checksums_res
-            .into_iter()
-            .filter(|(name, _, _)| name.contains("all") || name.contains(arch))
-            .collect::<Vec<_>>();
-
-        let c = if c.is_empty() { c_res_clone } else { c };
-
-        for i in c {
-            let t = if i.0.contains("BinContents") {
-                DistFileType::BinaryContents
-            } else if i.0.contains("/Contents-") && i.0.contains('.') {
-                DistFileType::CompressContents
-            } else if i.0.contains("/Contents-") && !i.0.contains('.') {
-                DistFileType::Contents
-            } else if i.0.contains("Packages") && !i.0.contains('.') {
-                DistFileType::PackageList
-            } else if i.0.contains("Packages") && i.0.contains('.') {
-                DistFileType::CompressPackageList
-            } else if i.0.contains("Release") {
-                DistFileType::Release
-            } else {
-                bail!("{} {i:?}", fl!("inrelease-parse-unsupport-file-type"));
-            };
-
-            res.push(ChecksumItem {
-                name: i.0.to_owned(),
-                size: i.1.parse::<u64>()?,
-                checksum: i.2.to_owned(),
-                file_type: t,
-            })
-        }
-
-        Ok(Self {
-            _source: source,
-            checksums: res,
-        })
-    }
-}
-
-fn debcontrol_from_str(s: &str) -> Result<Vec<HashMap<String, String>>> {
-    let mut res = vec![];
-
-    let debcontrol = debcontrol::parse_str(s).map_err(|e| anyhow!("{}", e))?;
-
-    for i in debcontrol {
-        let mut item = HashMap::new();
-        let field = i.fields;
-
-        for j in field {
-            item.insert(j.name.to_string(), j.value.to_string());
-        }
-
-        res.push(item);
-    }
-
-    Ok(res)
 }
 
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
@@ -329,7 +176,6 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
 
     Ok(res)
 }
-
 
 // Update database
 async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize>) -> Result<()> {
