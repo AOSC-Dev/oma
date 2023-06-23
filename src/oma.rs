@@ -174,7 +174,7 @@ impl Oma {
                 .map_err(|e| anyhow!("{e}"))?;
 
             let (action, len, need_fix_system) =
-                apt_handler(&cache, false, false, u.no_autoremove)?;
+                apt_handler(&cache, false, true, u.no_autoremove)?;
 
             if len == 0 && !need_fix_system {
                 success!("{}", fl!("no-need-to-do-anything"));
