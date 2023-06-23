@@ -103,7 +103,7 @@ async fn download_db(
 
     let mut opb = opb;
 
-    opb.msg = Some(format!("{url_short} {typ}"));
+    opb.msg = Some(fl!("downloading-database", source = url_short, file = typ));
     let opb = opb.clone();
 
     let is_download = download(
@@ -233,7 +233,7 @@ impl InReleaseParser {
         ))?;
 
         let now = OffsetDateTime::now_utc();
-        
+
         if now < date {
             bail!(fl!("earlier-signature", filename = mirror.to_string()))
         }

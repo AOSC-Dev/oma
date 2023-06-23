@@ -189,6 +189,7 @@ pkg_list = `Packages' 文件
 bincontents = `BinContents' 文件
 decompressing = 正在解压
 unsupport-decompress-file = BUG：Omakase 不支持文件 {$name} 所使用的压缩方式，请于 https://github.com/AOSC-Dev/oma 报告问题。
+downloading-database = 正在从 {$source} 下载 {$file}。
 
 # contents
 contents-does-not-exist = 找不到软件包内容数据库文件 (Contents)，请使用 {$cmd} 命令刷新该数据库。

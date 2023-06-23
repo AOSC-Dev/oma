@@ -190,6 +190,7 @@ bincontents = `BinContents' file
 decompressing = Decompressing the
 unsupport-decompress-file = BUG: Omakase has encountered an unsupported compression method in {$name}. Please report this issue at https://github.com/AOSC-Dev/oma.
 can-not-get-file = Failed to open file {$name}: {$e}
+downloading-database = Downloading {$file} from {$source}.
 
 # contents
 contents-does-not-exist = Package contents database (Contents) does not exist. Use the {$cmd} command to refresh the contents database.
