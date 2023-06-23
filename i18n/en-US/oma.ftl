@@ -184,13 +184,13 @@ unsupport-sourceentry = Unsupported sources.list entry(ies):
 refreshing-repo-metadata = Refreshing local database ...
 can-not-get-suite = Failed to detect suite from sources.list entry: {$url}.
 not-found = Failed to download InRelease from URL {$url}: Remote file not found (HTTP 404).
-contents = `Contents' file
-pkg_list = `Packages' file
-bincontents = `BinContents' file
+contents = `Contents'
+pkg_list = `Packages'
+bincontents = `BinContents'
 decompressing = Decompressing the
 unsupport-decompress-file = BUG: Omakase has encountered an unsupported compression method in {$name}. Please report this issue at https://github.com/AOSC-Dev/oma.
 can-not-get-file = Failed to open file {$name}: {$e}
-downloading-database = Downloading {$file} from {$source}.
+downloading-database = {$file} {$source}
 
 # contents
 contents-does-not-exist = Package contents database (Contents) does not exist. Use the {$cmd} command to refresh the contents database.

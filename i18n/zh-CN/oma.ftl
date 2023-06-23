@@ -184,12 +184,12 @@ unsupport-sourceentry = 探测到不受支持的 sources.list 文件条目：
 refreshing-repo-metadata = 正在刷新本机软件包数据库 ...
 can-not-get-suite = 无法从 sources.list 条目中解析套件信息：{$url}。
 not-found = 无法从 {$url} 下载 InRelease 文件：找不到远端文件 (HTTP 404)。
-contents = `Contents' 文件
-pkg_list = `Packages' 文件
-bincontents = `BinContents' 文件
+contents = `Contents' 
+pkg_list = `Packages'
+bincontents = `BinContents'
 decompressing = 正在解压
 unsupport-decompress-file = BUG：Omakase 不支持文件 {$name} 所使用的压缩方式，请于 https://github.com/AOSC-Dev/oma 报告问题。
-downloading-database = 正在从 {$source} 下载 {$file}。
+downloading-database = {$source} {$file}
 
 # contents
 contents-does-not-exist = 找不到软件包内容数据库文件 (Contents)，请使用 {$cmd} 命令刷新该数据库。
