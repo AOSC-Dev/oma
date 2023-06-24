@@ -3,11 +3,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use apt_sources_lists::{SourceEntry, SourcesLists};
-use futures::future::BoxFuture;
+use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
+use futures::{channel::mpsc::UnboundedSender, future::BoxFuture, SinkExt};
+use oma_fetch::{DownloadEntry, DownloadSourceType, OmaFetcher};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use url::Url;
+
+use crate::util::database_filename;
 
 #[derive(Deserialize)]
 struct MirrorMapItem {
@@ -17,6 +20,16 @@ struct MirrorMapItem {
 static MIRROR: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
 
+pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| {
+    let p = PathBuf::from("/var/lib/apt/lists");
+
+    if !p.is_dir() {
+        let _ = std::fs::create_dir_all(&p);
+    }
+
+    p
+});
+
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
     #[error("Invalid URL: {0}")]
@@ -25,6 +38,12 @@ pub enum RefreshError {
     ParseDistroRepoDataErrpr(String),
     #[error("Can not read file {}: {}", .path, .error)]
     ReadFileError { path: String, error: std::io::Error },
+    #[error("Scan sources.list failed: {0}")]
+    ScanSourceError(String),
+    #[error("Unsupport Protocol: {0}")]
+    UnsupportedProtocol(String),
+    #[error(transparent)]
+    FetcherError(#[from] oma_fetch::DownloadError),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -70,8 +89,7 @@ pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
 pub fn get_sources() -> Result<Vec<SourceEntry>> {
     let mut res = Vec::new();
-    let list = SourcesLists::scan()
-        .map_err(|e| anyhow!(fl!("can-not-parse-sources-list", e = e.to_string())))?;
+    let list = SourcesLists::scan().map_err(|e| RefreshError::ScanSourceError(e.to_string()))?;
 
     for file in list.iter() {
         for i in &file.lines {
@@ -88,13 +106,13 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
         .filter(|x| x.url().starts_with("cdrom://"))
         .collect::<Vec<_>>();
 
-    for i in &cdrom {
-        error!("{}", fl!("unsupport-cdrom", url = i.url()));
-    }
+    // for i in &cdrom {
+    //     error!("{}", fl!("unsupport-cdrom", url = i.url()));
+    // }
 
-    if !cdrom.is_empty() {
-        bail!(fl!("unsupport-some-mirror"));
-    }
+    // if !cdrom.is_empty() {
+    //     bail!(fl!("unsupport-some-mirror"));
+    // }
 
     Ok(res)
 }
@@ -117,6 +135,10 @@ enum OmaSourceEntryFrom {
     Local,
 }
 
+pub enum Event {
+    Info(String),
+}
+
 impl OmaSourceEntry {
     fn new(v: &SourceEntry) -> Result<Self> {
         let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
@@ -124,7 +146,7 @@ impl OmaSourceEntry {
         } else if v.url().starts_with("file://") {
             OmaSourceEntryFrom::Local
         } else {
-            bail!("{} {v:?}", fl!("unsupport-sourceentry"))
+            return Err(RefreshError::UnsupportedProtocol(format!("{v:?}")));
         };
 
         let components = v.components.clone();
@@ -143,7 +165,7 @@ impl OmaSourceEntry {
             // Normal Repo
             format!("{dist_path}/InRelease")
         } else {
-            bail!("{} {v:?}", fl!("unsupport-sourceentry"))
+            return Err(RefreshError::UnsupportedProtocol(format!("{v:?}")));
         };
 
         let options = v.options.as_deref().unwrap_or_default();
@@ -178,48 +200,61 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
 }
 
 // Update database
-async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize>) -> Result<()> {
-    info!("{}", fl!("refreshing-repo-metadata"));
+async fn update_db(
+    sources: &[SourceEntry],
+    limit: Option<usize>,
+    event: UnboundedSender<Event>,
+) -> Result<()> {
+    event.send(Event::Info("refreshing-repo-metadata".to_string()));
 
     let sources = hr_sources(sources)?;
+
     let mut tasks = vec![];
 
     for (i, c) in sources.iter().enumerate() {
         match c.from {
             OmaSourceEntryFrom::Http => {
-                let task: BoxFuture<
-                    '_,
-                    std::result::Result<(FileName, usize, bool), DownloadError>,
-                > = Box::pin(download_db(
+                // let task: BoxFuture<
+                //     '_,
+                //     std::result::Result<(FileName, usize, bool), DownloadError>,
+                // > = Box::pin(download_db(
+                //     c.inrelease_path.clone(),
+                //     client,
+                //     "InRelease".to_owned(),
+                //     OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
+                //     i,
+                //     None,
+                // ));
+
+                let task = DownloadEntry::new(
                     c.inrelease_path.clone(),
-                    client,
-                    "InRelease".to_owned(),
-                    OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
-                    i,
+                    database_filename(&c.inrelease_path),
+                    *APT_LIST_DISTS,
                     None,
-                ));
+                    false,
+                    DownloadSourceType::Http,
+                );
 
                 tracing::debug!("oma will fetch {} InRelease", c.url);
                 tasks.push(task);
             }
             OmaSourceEntryFrom::Local => {
-                let task: BoxFuture<
-                    '_,
-                    std::result::Result<(FileName, usize, bool), DownloadError>,
-                > = Box::pin(download_db_local(
-                    &c.inrelease_path,
-                    i,
-                    OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
-                ));
+                let task = DownloadEntry::new(
+                    c.inrelease_path.clone(),
+                    database_filename(&c.inrelease_path),
+                    *APT_LIST_DISTS,
+                    None,
+                    false,
+                    DownloadSourceType::Http,
+                );
+    
                 tracing::debug!("oma will fetch {} InRelease", c.url);
                 tasks.push(task);
             }
         }
     }
 
-    let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
-
-    let res = stream.collect::<Vec<_>>().await;
+    let downloader = OmaFetcher::new(None, true, None, tasks, None)?.start_download().await;
 
     let mut res_2 = vec![];
 
