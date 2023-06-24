@@ -140,7 +140,7 @@ impl OmaFetcher {
         })
     }
 
-    pub async fn start_download(&self) -> DownloadResult<Vec<bool>> {
+    pub async fn start_download(&self) -> Vec<DownloadResult<bool>> {
         let mut tasks = Vec::new();
         for (i, c) in self.download_list.iter().enumerate() {
             let fpb = if let Some((mb, gpb)) = &self.bar {
@@ -172,7 +172,5 @@ impl OmaFetcher {
         stream
             .collect::<Vec<_>>()
             .await
-            .into_iter()
-            .collect::<DownloadResult<Vec<_>>>()
     }
 }
