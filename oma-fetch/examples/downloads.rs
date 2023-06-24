@@ -36,7 +36,11 @@ async fn main() -> DownloadResult<()> {
     let fetcher = OmaFetcher::new(None, true, None, vec![file_1, file_2, file_3], None)?;
 
     tokio::fs::create_dir_all("./oma-fetcher-test").await?;
-    fetcher.start_download().await?;
+    fetcher
+        .start_download()
+        .await
+        .into_iter()
+        .collect::<DownloadResult<Vec<_>>>()?;
 
     Ok(())
 }
