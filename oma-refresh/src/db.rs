@@ -5,7 +5,7 @@ use std::{
 
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use futures::{channel::mpsc::UnboundedSender, future::BoxFuture, SinkExt};
-use oma_fetch::{DownloadEntry, DownloadSourceType, OmaFetcher};
+use oma_fetch::{DownloadEntry, DownloadSourceType, OmaFetcher, DownloadError};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use url::Url;
@@ -254,11 +254,11 @@ async fn update_db(
         }
     }
 
-    let downloader = OmaFetcher::new(None, true, None, tasks, None)?.start_download().await;
+    let res_2 = OmaFetcher::new(None, true, None, tasks, None)?.start_download().await;
 
-    let mut res_2 = vec![];
+    // let mut res_2 = vec![];
 
-    for i in res {
+    for i in res_2 {
         if cfg!(feature = "aosc") {
             match i {
                 Ok(i) => {

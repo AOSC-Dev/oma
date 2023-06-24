@@ -1990,6 +1990,7 @@ dependencies = [
  "debcontrol",
  "futures",
  "oma-fetch",
+ "oma-topics",
  "once_cell",
  "sequoia-openpgp",
  "serde",

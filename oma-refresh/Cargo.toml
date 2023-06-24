@@ -20,3 +20,4 @@ sequoia-openpgp = "1.13"
 anyhow = "1.0"
 time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
 tracing = "0.1"
+oma-topics = { path = "../oma-topics" }
