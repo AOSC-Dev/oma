@@ -19,3 +19,4 @@ debcontrol = { git = "https://github.com/AOSC-Dev/debcontrol-rs/", rev = "e92376
 sequoia-openpgp = "1.13"
 anyhow = "1.0"
 time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
+tracing = "0.1"
