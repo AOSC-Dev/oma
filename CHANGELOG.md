@@ -5,7 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.44.1 (2023-06-25)
+
+### Chore
+
+ - <csr-id-73a2e8a3aac9bf44b555d0d39220062c8571bb41/> Update README
+
+### New Features
+
+ - <csr-id-41db9936e1257266601c4b518eb3b4f6c8686257/> Improve download database message display (again)
+ - <csr-id-017fa9ff5f904a2fe860e29b564d2ee2edd87104/> Improve download database message display
+ - <csr-id-518f72c6d5a2eb1134e636e9080dc9bbcaf791ee/> Display earlier/expired signature mirror name
+ - <csr-id-53a981f5703fd66c47ed0156dfd24f59a724b091/> Oma list-files -> oma files
+
+### Bug Fixes
+
+ - <csr-id-5ba19aca06aeb2fc68424e4028efb0dfd41c2071/> Oma upgrade will auto purge autoremove package
+
+### Refactor
+
+ - <csr-id-089455f90e7066c0f94fd034c1a252070c522ed8/> No need to push pkg_score function
+
+### Style
+
+ - <csr-id-44d6ad1d39ba7c2026f3fa62b8f673d539cbcc6b/> Run cargo clippy and cargo fmt to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 8 commits contributed to the release over the course of 6 calendar days.
+ - 7 days passed between releases.
+ - 8 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Run cargo clippy and cargo fmt to lint code ([`44d6ad1`](https://github.com/AOSC-Dev/oma/commit/44d6ad1d39ba7c2026f3fa62b8f673d539cbcc6b))
+    - Improve download database message display (again) ([`41db993`](https://github.com/AOSC-Dev/oma/commit/41db9936e1257266601c4b518eb3b4f6c8686257))
+    - Improve download database message display ([`017fa9f`](https://github.com/AOSC-Dev/oma/commit/017fa9ff5f904a2fe860e29b564d2ee2edd87104))
+    - Display earlier/expired signature mirror name ([`518f72c`](https://github.com/AOSC-Dev/oma/commit/518f72c6d5a2eb1134e636e9080dc9bbcaf791ee))
+    - Oma upgrade will auto purge autoremove package ([`5ba19ac`](https://github.com/AOSC-Dev/oma/commit/5ba19aca06aeb2fc68424e4028efb0dfd41c2071))
+    - Update README ([`73a2e8a`](https://github.com/AOSC-Dev/oma/commit/73a2e8a3aac9bf44b555d0d39220062c8571bb41))
+    - Oma list-files -> oma files ([`53a981f`](https://github.com/AOSC-Dev/oma/commit/53a981f5703fd66c47ed0156dfd24f59a724b091))
+    - No need to push pkg_score function ([`089455f`](https://github.com/AOSC-Dev/oma/commit/089455f90e7066c0f94fd034c1a252070c522ed8))
+</details>
+
 ## v0.44.0 (2023-06-18)
+
+<csr-id-4395c373c3ff9f230dc125216d6377d4350a5625/>
+<csr-id-a68dda43bba8c2625c2f211d607bb580f0a37f39/>
+<csr-id-ccff288b2afad69b005399e87ee2a2c6f6f328ec/>
+<csr-id-11868fe261de648e91bc1f38304ac0bb79a31c6f/>
 
 ### Chore
 
@@ -28,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 6 calendar days.
+ - 6 commits contributed to the release over the course of 6 calendar days.
  - 7 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -40,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.44.0 ([`6348dde`](https://github.com/AOSC-Dev/oma/commit/6348dde1b2df0e62382c7d08e38075fbc73bc42a))
     - Update all deps ([`4395c37`](https://github.com/AOSC-Dev/oma/commit/4395c373c3ff9f230dc125216d6377d4350a5625))
     - Use cargo-fmt to format code ([`ccff288`](https://github.com/AOSC-Dev/oma/commit/ccff288b2afad69b005399e87ee2a2c6f6f328ec))
     - Refact install_handle_error and install_handle_error_retry ([`a68dda4`](https://github.com/AOSC-Dev/oma/commit/a68dda43bba8c2625c2f211d607bb580f0a37f39))
