@@ -9,7 +9,7 @@ edition = "2021"
 oma-fetch = { path = "../oma-fetch" }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-url = "2.4"
+url = "2.3"
 tokio = { version = "1.28", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
 serde_yaml = "0.9"
 once_cell = "1.18"
@@ -21,3 +21,4 @@ anyhow = "1.0"
 time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
 tracing = "0.1"
 oma-topics = { path = "../oma-topics" }
+reqwest = "0.11"
