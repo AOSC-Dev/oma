@@ -8,7 +8,7 @@ use reqwest::{
 };
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-use crate::{checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, FetchProgressBar};
+use crate::{checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, FetchProgressBar, Summary};
 
 /// Download file
 /// Return bool is file is started download
@@ -16,7 +16,8 @@ pub(crate) async fn http_download(
     client: &Client,
     entry: &DownloadEntry,
     fpb: Option<FetchProgressBar>,
-) -> DownloadResult<bool> {
+    count: usize,
+) -> DownloadResult<Summary> {
     let file = entry.dir.join(&entry.filename);
     let file_exist = file.exists();
     let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
@@ -77,7 +78,7 @@ pub(crate) async fn http_download(
                     "{} checksum success, no need to download anything.",
                     entry.filename
                 );
-                return Ok(false);
+                return Ok(Summary::new(&entry.filename, false, count));
             }
 
             tracing::debug!("checksum fail, will download this file: {}", entry.filename);
@@ -312,13 +313,14 @@ pub(crate) async fn http_download(
         pb.finish_and_clear();
     }
 
-    Ok(true)
+    Ok(Summary::new(&entry.filename, true, count))
 }
 
 pub async fn download_local(
     entry: &DownloadEntry,
     fpb: Option<FetchProgressBar>,
-) -> DownloadResult<bool> {
+    count: usize
+) -> DownloadResult<Summary> {
     let pb = fpb.as_ref().map(|x| x.mb.add(ProgressBar::new_spinner()));
 
     let mut from = tokio::fs::File::open(&entry.url).await.map_err(|e| {
@@ -343,5 +345,5 @@ pub async fn download_local(
         gb.inc(size);
     }
 
-    Ok(true)
+    Ok(Summary::new(&entry.filename, true, count))
 }

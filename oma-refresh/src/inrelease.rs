@@ -5,21 +5,21 @@ use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 use crate::verify;
 
 #[derive(Debug)]
-struct InReleaseParser {
+pub struct InReleaseParser {
     _source: Vec<HashMap<String, String>>,
-    checksums: Vec<ChecksumItem>,
+    pub checksums: Vec<ChecksumItem>,
 }
 
 #[derive(Debug, Clone)]
 struct ChecksumItem {
-    name: String,
-    size: u64,
+    pub name: String,
+    pub size: u64,
     checksum: String,
-    file_type: DistFileType,
+    pub file_type: DistFileType,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-enum DistFileType {
+pub enum DistFileType {
     BinaryContents,
     Contents,
     CompressContents,
@@ -57,7 +57,7 @@ pub enum InReleaseParserError {
 pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
 
 impl InReleaseParser {
-    fn new(
+    pub fn new(
         p: &Path,
         trust_files: Option<&str>,
         mirror: &str,
