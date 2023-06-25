@@ -102,6 +102,18 @@ pub struct OmaFetcher {
     limit_thread: usize,
 }
 
+pub struct Summary {
+    pub filename: String,
+    pub writed: bool,
+    pub count: usize,
+}
+
+impl Summary {
+    fn new(filename: &str, writed: bool, count: usize) -> Self {
+        Self { filename: filename.to_string(), writed, count }
+    }
+}
+
 impl OmaFetcher {
     pub fn new(
         client: Option<Client>,
@@ -140,7 +152,7 @@ impl OmaFetcher {
         })
     }
 
-    pub async fn start_download(&self) -> Vec<DownloadResult<bool>> {
+    pub async fn start_download(&self) -> Vec<DownloadResult<Summary>> {
         let mut tasks = Vec::new();
         for (i, c) in self.download_list.iter().enumerate() {
             let fpb = if let Some((mb, gpb)) = &self.bar {
@@ -155,13 +167,13 @@ impl OmaFetcher {
             };
             match c.source_type {
                 DownloadSourceType::Http => {
-                    let task: BoxFuture<'_, DownloadResult<bool>> =
-                        Box::pin(http_download(&self.client, c, fpb));
+                    let task: BoxFuture<'_, DownloadResult<Summary>> =
+                        Box::pin(http_download(&self.client, c, fpb, i));
                     tasks.push(task);
                 }
                 DownloadSourceType::Local => {
-                    let task: BoxFuture<'_, DownloadResult<bool>> =
-                        Box::pin(download_local(c, fpb));
+                    let task: BoxFuture<'_, DownloadResult<Summary>> =
+                        Box::pin(download_local(c, fpb, i));
                     tasks.push(task);
                 }
             }

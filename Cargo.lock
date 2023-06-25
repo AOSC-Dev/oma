@@ -2001,6 +2001,7 @@ dependencies = [
  "oma-fetch",
  "oma-topics",
  "once_cell",
+ "reqwest",
  "sequoia-openpgp",
  "serde",
  "serde_yaml",

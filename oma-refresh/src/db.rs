@@ -5,12 +5,14 @@ use std::{
 
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use futures::{channel::mpsc::UnboundedSender, future::BoxFuture, SinkExt};
-use oma_fetch::{DownloadEntry, DownloadSourceType, OmaFetcher, DownloadError};
+use oma_fetch::{DownloadEntry, DownloadError, DownloadSourceType, OmaFetcher};
+use oma_topics::TopicsEvent;
 use once_cell::sync::Lazy;
+use reqwest::ClientBuilder;
 use serde::Deserialize;
 use url::Url;
 
-use crate::util::database_filename;
+use crate::{util::database_filename, inrelease::{InReleaseParser, InReleaseParserError, DistFileType}};
 
 #[derive(Deserialize)]
 struct MirrorMapItem {
@@ -44,6 +46,15 @@ pub enum RefreshError {
     UnsupportedProtocol(String),
     #[error(transparent)]
     FetcherError(#[from] oma_fetch::DownloadError),
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
+    #[error(transparent)]
+    TopicsError(#[from] oma_topics::OmaTopicsError),
+    #[error("Failed to download InRelease from URL {0}: Remote file not found (HTTP 404).")]
+    NoInReleaseFile(String),
+    #[error(transparent)]
+    InReleaseParserError(#[from] InReleaseParserError),
+    
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -204,6 +215,7 @@ async fn update_db(
     sources: &[SourceEntry],
     limit: Option<usize>,
     event: UnboundedSender<Event>,
+    arch: &str
 ) -> Result<()> {
     event.send(Event::Info("refreshing-repo-metadata".to_string()));
 
@@ -214,18 +226,6 @@ async fn update_db(
     for (i, c) in sources.iter().enumerate() {
         match c.from {
             OmaSourceEntryFrom::Http => {
-                // let task: BoxFuture<
-                //     '_,
-                //     std::result::Result<(FileName, usize, bool), DownloadError>,
-                // > = Box::pin(download_db(
-                //     c.inrelease_path.clone(),
-                //     client,
-                //     "InRelease".to_owned(),
-                //     OmaProgressBar::new(None, Some((i + 1, sources.len())), MB.clone(), None),
-                //     i,
-                //     None,
-                // ));
-
                 let task = DownloadEntry::new(
                     c.inrelease_path.clone(),
                     database_filename(&c.inrelease_path),
@@ -247,38 +247,43 @@ async fn update_db(
                     false,
                     DownloadSourceType::Http,
                 );
-    
+
                 tracing::debug!("oma will fetch {} InRelease", c.url);
                 tasks.push(task);
             }
         }
     }
 
-    let res_2 = OmaFetcher::new(None, true, None, tasks, None)?.start_download().await;
+    let res = OmaFetcher::new(None, true, None, tasks, None)?
+        .start_download()
+        .await;
 
-    // let mut res_2 = vec![];
+    let mut res_2 = vec![];
 
-    for i in res_2 {
+    for i in res {
         if cfg!(feature = "aosc") {
             match i {
                 Ok(i) => {
-                    tracing::debug!("{} fetched", &i.0 .0);
+                    tracing::debug!("{} fetched", &i.filename);
                     res_2.push(i)
                 }
                 Err(e) => match e {
                     DownloadError::NotFound(url) => {
-                        let removed_suites = topics::scan_closed_topic(client).await?;
+                        let client = ClientBuilder::new().user_agent("oma").build()?;
+                        let (tx, rx) = std::sync::mpsc::channel();
+                        let removed_suites =
+                            oma_topics::scan_closed_topic(&client, Some(tx)).await?;
 
                         tracing::debug!("Removed topics: {removed_suites:?}");
 
                         let suite = url
                             .split('/')
                             .nth_back(1)
-                            .context(fl!("can-not-get-suite", url = url.to_string()))?
+                            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
                             .to_string();
 
                         if !removed_suites.contains(&suite) {
-                            return Err(anyhow!(fl!("not-found", url = url.to_string())));
+                            return Err(RefreshError::NoInReleaseFile(url.to_string()));
                         }
                     }
                     _ => return Err(e.into()),
@@ -286,20 +291,21 @@ async fn update_db(
             }
         } else {
             let i = i?;
-            tracing::debug!("{} fetched", &i.0 .0);
+            tracing::debug!("{} fetched", i.filename);
             res_2.push(i);
         }
     }
 
-    for (name, index, _) in res_2 {
-        let ose = sources.get(index).unwrap();
+    for summary in res_2 {
+        let ose = sources.get(summary.count).unwrap();
 
         tracing::debug!("Getted Oma source entry: {:?}", ose);
 
         let inrelease = InReleaseParser::new(
-            &APT_LIST_DISTS.join(name.0),
+            &APT_LIST_DISTS.join(summary.filename),
             ose.signed_by.as_deref(),
             &ose.url,
+            arch
         )?;
 
         let checksums = inrelease
@@ -336,14 +342,14 @@ async fn update_db(
                         total += i.size;
                     }
                     DistFileType::Contents | DistFileType::PackageList => {
-                        if ARCH.get() == Some(&"mips64r6el".to_string()) {
+                        if arch == "mips64r6el" {
                             tracing::debug!("oma will download Package List/Contetns: {}", i.name);
                             handle.push(i);
                             total += i.size;
                         }
                     }
                     DistFileType::CompressContents | DistFileType::CompressPackageList => {
-                        if ARCH.get() != Some(&"mips64r6el".to_string()) {
+                        if arch != "mips64r6el" {
                             tracing::debug!(
                                 "oma will download compress Package List/compress Contetns: {}",
                                 i.name
@@ -360,10 +366,10 @@ async fn update_db(
             handle
         };
 
-        let global_bar = MB.insert(0, ProgressBar::new(total));
-        global_bar.set_style(oma_style_pb(true)?);
-        global_bar.enable_steady_tick(Duration::from_millis(100));
-        global_bar.set_message("Progress");
+        // let global_bar = MB.insert(0, ProgressBar::new(total));
+        // global_bar.set_style(oma_style_pb(true)?);
+        // global_bar.enable_steady_tick(Duration::from_millis(100));
+        // global_bar.set_message("Progress");
 
         let len = handle.len();
 
