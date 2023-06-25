@@ -4,15 +4,19 @@ use std::{
 };
 
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
-use futures::{channel::mpsc::UnboundedSender, future::BoxFuture, SinkExt};
+use futures::{SinkExt};
 use oma_fetch::{DownloadEntry, DownloadError, DownloadSourceType, OmaFetcher};
 use oma_topics::TopicsEvent;
 use once_cell::sync::Lazy;
 use reqwest::ClientBuilder;
 use serde::Deserialize;
 use url::Url;
+use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{util::database_filename, inrelease::{InReleaseParser, InReleaseParserError, DistFileType}};
+use crate::{
+    inrelease::{DistFileType, InReleaseParser, InReleaseParserError},
+    util::database_filename,
+};
 
 #[derive(Deserialize)]
 struct MirrorMapItem {
@@ -54,7 +58,6 @@ pub enum RefreshError {
     NoInReleaseFile(String),
     #[error(transparent)]
     InReleaseParserError(#[from] InReleaseParserError),
-    
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -211,11 +214,11 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
 }
 
 // Update database
-async fn update_db(
+pub async fn update_db(
     sources: &[SourceEntry],
     limit: Option<usize>,
-    event: UnboundedSender<Event>,
-    arch: &str
+    mut event: UnboundedSender<Event>,
+    arch: &str,
 ) -> Result<()> {
     event.send(Event::Info("refreshing-repo-metadata".to_string()));
 
@@ -229,7 +232,7 @@ async fn update_db(
                 let task = DownloadEntry::new(
                     c.inrelease_path.clone(),
                     database_filename(&c.inrelease_path),
-                    *APT_LIST_DISTS,
+                    APT_LIST_DISTS.clone(),
                     None,
                     false,
                     DownloadSourceType::Http,
@@ -242,7 +245,7 @@ async fn update_db(
                 let task = DownloadEntry::new(
                     c.inrelease_path.clone(),
                     database_filename(&c.inrelease_path),
-                    *APT_LIST_DISTS,
+                    APT_LIST_DISTS.clone(),
                     None,
                     false,
                     DownloadSourceType::Http,
@@ -291,7 +294,7 @@ async fn update_db(
             }
         } else {
             let i = i?;
-            tracing::debug!("{} fetched", i.filename);
+            tracing::debug!("{} fetched", &i.filename);
             res_2.push(i);
         }
     }
@@ -302,10 +305,10 @@ async fn update_db(
         tracing::debug!("Getted Oma source entry: {:?}", ose);
 
         let inrelease = InReleaseParser::new(
-            &APT_LIST_DISTS.join(summary.filename),
+            &APT_LIST_DISTS.join(&summary.filename),
             ose.signed_by.as_deref(),
             &ose.url,
-            arch
+            arch,
         )?;
 
         let checksums = inrelease
@@ -366,11 +369,6 @@ async fn update_db(
             handle
         };
 
-        // let global_bar = MB.insert(0, ProgressBar::new(total));
-        // global_bar.set_style(oma_style_pb(true)?);
-        // global_bar.enable_steady_tick(Duration::from_millis(100));
-        // global_bar.set_message("Progress");
-
         let len = handle.len();
 
         let mut tasks = vec![];
@@ -380,43 +378,44 @@ async fn update_db(
             p_not_compress.set_extension("");
             let not_compress_filename_before = p_not_compress.to_string_lossy().to_string();
 
-            let source_index = sources.get(index).unwrap();
-            let not_compress_filename = FileName::new(&format!(
+            let source_index = sources.get(summary.count).unwrap();
+            let not_compress_filename = database_filename(&format!(
                 "{}/{}",
                 source_index.dist_path, not_compress_filename_before
             ));
 
             let typ = match c.file_type {
-                DistFileType::CompressContents => fl!("contents"),
-                DistFileType::CompressPackageList | DistFileType::PackageList => fl!("pkg_list"),
-                DistFileType::BinaryContents => fl!("bincontents"),
+                DistFileType::CompressContents => "Contents",
+                DistFileType::CompressPackageList | DistFileType::PackageList => "Package List",
+                DistFileType::BinaryContents => "BinContents",
                 _ => unreachable!(),
             };
 
-            let opb = OmaProgressBar::new(
-                None,
-                Some((i + 1, len)),
-                MB.clone(),
-                Some(global_bar.clone()),
-            );
+            // let opb = OmaProgressBar::new(
+            //     None,
+            //     Some((i + 1, len)),
+            //     MB.clone(),
+            //     Some(global_bar.clone()),
+            // );
 
             match source_index.from {
                 OmaSourceEntryFrom::Http => {
                     let p = if !ose.is_flat {
                         source_index.dist_path.clone()
                     } else {
-                        format!("{}/{}", source_index.dist_path, not_compress_filename.0)
+                        format!("{}/{}", source_index.dist_path, not_compress_filename)
                     };
 
+                    let task = DownloadEntry::new(
+                        p.to_string(),
+                        database_filename(&p),
+                        APT_LIST_DISTS.clone(),
+                        Some(c.checksum.clone()),
+                        false,
+                        DownloadSourceType::Http,
+                    );
+
                     tracing::debug!("oma will download http source database: {p}");
-                    let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db(
-                        p,
-                        c,
-                        client,
-                        not_compress_filename.0,
-                        typ.to_string(),
-                        opb,
-                    ));
 
                     tasks.push(task);
                 }
@@ -424,33 +423,37 @@ async fn update_db(
                     let p = if !ose.is_flat {
                         source_index.dist_path.clone()
                     } else {
-                        format!("{}/{}", source_index.dist_path, not_compress_filename.0)
+                        format!("{}/{}", source_index.dist_path, not_compress_filename)
                     };
 
                     tracing::debug!("oma will download local source database: {p} {}", c.name);
-                    let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db_local(
-                        p,
-                        not_compress_filename.0,
-                        c,
-                        opb,
-                        typ.to_string(),
-                    ));
+                    // let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db_local(
+                    //     p,
+                    //     not_compress_filename.0,
+                    //     c,
+                    //     opb,
+                    //     typ.to_string(),
+                    // ));
+
+                    let task = DownloadEntry::new(
+                        p.clone(),
+                        database_filename(&p),
+                        APT_LIST_DISTS.clone(),
+                        Some(c.checksum.clone()),
+                        false,
+                        DownloadSourceType::Local,
+                    );
 
                     tasks.push(task);
                 }
             }
         }
 
-        // 默认限制一次最多下载八个包，减少服务器负担
-        let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
+        let downloader = OmaFetcher::new(None, true, Some(total), tasks, None)?
+            .start_download()
+            .await;
 
-        stream
-            .collect::<Vec<_>>()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>>>()?;
-
-        global_bar.finish_and_clear();
+        //todo: 解压
     }
 
     Ok(())
