@@ -11,10 +11,10 @@ pub struct InReleaseParser {
 }
 
 #[derive(Debug, Clone)]
-struct ChecksumItem {
+pub struct ChecksumItem {
     pub name: String,
     pub size: u64,
-    checksum: String,
+    pub checksum: String,
     pub file_type: DistFileType,
 }
 
