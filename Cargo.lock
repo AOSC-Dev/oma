@@ -1988,9 +1988,12 @@ dependencies = [
  "anyhow",
  "apt-sources-lists",
  "debcontrol",
+ "flate2",
  "futures",
+ "oma-console",
  "oma-fetch",
  "oma-topics",
+ "oma-utils",
  "once_cell",
  "reqwest",
  "sequoia-openpgp",
@@ -2000,7 +2003,9 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "url",
+ "xz2",
 ]
 
 [[package]]
@@ -2019,6 +2024,13 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
 ]
 
 [[package]]
