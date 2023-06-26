@@ -1,7 +1,14 @@
-use std::{path::{Path, PathBuf}, io::{Read, Write}, sync::Arc};
+use std::{
+    io::{Read, Write},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use flate2::read::GzDecoder;
-use oma_console::{indicatif::{ProgressBar, style::TemplateError, MultiProgress}, writer::Writer};
+use oma_console::{
+    indicatif::{style::TemplateError, MultiProgress, ProgressBar},
+    writer::Writer,
+};
 use oma_fetch::FetchProgressBar;
 use xz2::read::XzDecoder;
 
@@ -15,6 +22,8 @@ pub enum DecompressError {
     UnsupportedFileType,
     #[error(transparent)]
     TemplateError(#[from] TemplateError),
+    #[error("Failed to get file name")]
+    FileNameError,
 }
 
 pub enum OmaDecompresser {
@@ -25,7 +34,6 @@ pub enum OmaDecompresser {
 
 impl OmaDecompresser {
     pub fn new(compress_file_path: PathBuf) -> Self {
-
         match compress_file_path.extension().and_then(|x| x.to_str()) {
             Some("gz") => Self::Gz(compress_file_path),
             Some("xz") => Self::Xz(compress_file_path),
@@ -33,11 +41,22 @@ impl OmaDecompresser {
         }
     }
 
-    pub fn decompress(&self, bar: bool, count: usize, total: usize, extract_to: &Path) -> DecompressResult<()> {
+    pub fn decompress(
+        &self,
+        bar: bool,
+        count: usize,
+        total: usize,
+        extract_to: &Path,
+    ) -> DecompressResult<()> {
         let bar = if bar {
             let mb = Arc::new(MultiProgress::new());
 
-            Some(FetchProgressBar::new(mb, None, Some((count, total)), Some("todo".to_string())))
+            Some(FetchProgressBar::new(
+                mb,
+                None,
+                Some((count, total)),
+                Some("todo".to_string()),
+            ))
         } else {
             None
         };
@@ -50,15 +69,15 @@ impl OmaDecompresser {
 fn decompress(
     fpb: Option<FetchProgressBar>,
     extract_to: &Path,
-    typ: &OmaDecompresser
+    typ: &OmaDecompresser,
 ) -> DecompressResult<()> {
-    let conpress_file = match typ {
+    let compress_file = match typ {
         OmaDecompresser::Gz(p) => p,
         OmaDecompresser::Xz(p) => p,
         OmaDecompresser::NoNeedtoDecompress => return Ok(()),
     };
 
-    let compress_f = std::fs::File::open(conpress_file)?;
+    let compress_f = std::fs::File::open(compress_file)?;
     let reader = std::io::BufReader::new(compress_f);
 
     let pb = if let Some(mb) = fpb.map(|x| x.mb) {
@@ -70,7 +89,6 @@ fn decompress(
         None
     };
 
-
     // let progress = if let Some((cur, total)) = fpb.and_then(|x| x.progress) {
     //     format!("({cur}/{total}) ")
     // } else {
@@ -81,11 +99,21 @@ fn decompress(
         pb.set_message("todo");
     }
 
+    let mut compress_file_no_ext = compress_file.clone();
+    compress_file_no_ext.set_extension("");
+
+    let filename = compress_file_no_ext
+        .file_name()
+        .and_then(|x| x.to_str())
+        .ok_or_else(|| DecompressError::FileNameError)?;
+
+    let extract_path = extract_to.join(filename);
+
     let mut extract_f = std::fs::OpenOptions::new()
         .truncate(true)
         .write(true)
         .create(true)
-        .open(extract_to)?;
+        .open(extract_path)?;
 
     extract_f.set_len(0)?;
 
