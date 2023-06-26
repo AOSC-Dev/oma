@@ -12,7 +12,7 @@ use url::Url;
 
 use crate::{
     inrelease::{DistFileType, InReleaseParser, InReleaseParserError},
-    util::database_filename,
+    util::database_filename, decompress::OmaDecompresser,
 };
 
 #[derive(Deserialize)]
@@ -349,8 +349,11 @@ async fn update_db(
 
         tracing::debug!("Getted Oma source entry: {:?}", ose);
 
+        let download_dir = download_dir.clone();
+        let inrelease_path = download_dir.join(&summary.filename);
+
         let inrelease = InReleaseParser::new(
-            &download_dir.join(&summary.filename),
+            &inrelease_path,
             ose.signed_by.as_deref(),
             &ose.url,
             &arch,
@@ -503,6 +506,14 @@ async fn update_db(
         let res = res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
         
         //todo: 解压
+        let mut tasks = vec![];
+        let len = res.len();
+        for (i, c) in res.iter().enumerate() {
+            let download_dir = download_dir.clone();
+            let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
+            let f = tokio::task::spawn_blocking(move || decompresser.decompress(bar, i, len, &download_dir));
+            tasks.push(f);
+        }
     }
 
     Ok(())

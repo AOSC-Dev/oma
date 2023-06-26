@@ -1,5 +1,5 @@
 pub mod db;
-mod decompress;
+pub mod decompress;
 mod verify;
 mod inrelease;
 mod util;
