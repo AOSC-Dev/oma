@@ -37,6 +37,7 @@ pub enum DownloadError {
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 
+#[derive(Debug)]
 pub struct DownloadEntry {
     url: String,
     filename: String,
@@ -46,6 +47,7 @@ pub struct DownloadEntry {
     source_type: DownloadSourceType,
 }
 
+#[derive(Debug)]
 pub enum DownloadSourceType {
     Http,
     Local,
@@ -73,10 +75,10 @@ impl DownloadEntry {
 
 #[derive(Clone)]
 pub struct FetchProgressBar {
-    mb: Arc<MultiProgress>,
-    global_bar: Option<ProgressBar>,
-    progress: Option<(usize, usize)>,
-    msg: Option<String>,
+    pub mb: Arc<MultiProgress>,
+    pub global_bar: Option<ProgressBar>,
+    pub progress: Option<(usize, usize)>,
+    pub msg: Option<String>,
 }
 
 impl FetchProgressBar {
@@ -102,6 +104,7 @@ pub struct OmaFetcher {
     limit_thread: usize,
 }
 
+#[derive(Debug)]
 pub struct Summary {
     pub filename: String,
     pub writed: bool,
@@ -110,7 +113,11 @@ pub struct Summary {
 
 impl Summary {
     fn new(filename: &str, writed: bool, count: usize) -> Self {
-        Self { filename: filename.to_string(), writed, count }
+        Self {
+            filename: filename.to_string(),
+            writed,
+            count,
+        }
     }
 }
 
@@ -138,6 +145,10 @@ impl OmaFetcher {
             } else {
                 None
             };
+
+            if let Some(ref gpb) = gpb {
+                gpb.set_message("Progress")
+            }
 
             Some((mb, gpb))
         } else {
@@ -181,8 +192,12 @@ impl OmaFetcher {
 
         let stream = futures::stream::iter(tasks).buffer_unordered(self.limit_thread);
 
-        stream
-            .collect::<Vec<_>>()
-            .await
+        let res = stream.collect::<Vec<_>>().await;
+
+        if let Some(gpb) = self.bar.as_ref().and_then(|x| x.1.as_ref()) {
+            gpb.finish_and_clear();
+        }
+
+        res
     }
 }
