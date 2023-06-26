@@ -4,14 +4,11 @@ use std::{
 };
 
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
-use futures::{SinkExt};
-use oma_fetch::{DownloadEntry, DownloadError, DownloadSourceType, OmaFetcher};
-use oma_topics::TopicsEvent;
+use oma_fetch::{DownloadEntry, DownloadError, DownloadSourceType, OmaFetcher, DownloadResult};
 use once_cell::sync::Lazy;
 use reqwest::ClientBuilder;
 use serde::Deserialize;
 use url::Url;
-use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     inrelease::{DistFileType, InReleaseParser, InReleaseParserError},
@@ -58,6 +55,8 @@ pub enum RefreshError {
     NoInReleaseFile(String),
     #[error(transparent)]
     InReleaseParserError(#[from] InReleaseParserError),
+    #[error(transparent)]
+    DpkgArchError(#[from] oma_utils::DpkgArchError),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -131,7 +130,7 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
     Ok(res)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OmaSourceEntry {
     from: OmaSourceEntryFrom,
     components: Vec<String>,
@@ -143,7 +142,7 @@ pub struct OmaSourceEntry {
     signed_by: Option<String>,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 enum OmaSourceEntryFrom {
     Http,
     Local,
@@ -213,26 +212,72 @@ fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
     Ok(res)
 }
 
-// Update database
-pub async fn update_db(
-    sources: &[SourceEntry],
+pub struct OmaRefresh {
+    sources: Vec<OmaSourceEntry>,
     limit: Option<usize>,
-    mut event: UnboundedSender<Event>,
-    arch: &str,
+    arch: String,
+    download_dir: PathBuf,
+    bar: bool,
+}
+
+impl OmaRefresh {
+    pub fn scan(limit: Option<usize>) -> Result<Self> {
+        let sources = get_sources()?;
+        let sources = hr_sources(&sources)?;
+        let arch = oma_utils::dpkg_arch()?;
+
+        let download_dir = APT_LIST_DISTS.clone();
+
+        Ok(Self {
+            sources,
+            limit,
+            arch,
+            download_dir,
+            bar: true,
+        })
+    }
+
+    pub fn download_dir(&mut self, download_dir: &Path) -> &mut Self {
+        self.download_dir = download_dir.to_path_buf();
+
+        self
+    }
+
+    pub fn bar(&mut self, bar: bool) -> &mut Self {
+        self.bar = bar;
+
+        self
+    }
+
+    pub async fn start(self) -> Result<()> {
+        update_db(
+            self.sources,
+            self.limit,
+            self.arch,
+            self.download_dir,
+            self.bar,
+        )
+        .await
+    }
+}
+
+// Update database
+async fn update_db(
+    sources: Vec<OmaSourceEntry>,
+    limit: Option<usize>,
+    arch: String,
+    download_dir: PathBuf,
+    bar: bool,
 ) -> Result<()> {
-    event.send(Event::Info("refreshing-repo-metadata".to_string()));
-
-    let sources = hr_sources(sources)?;
-
     let mut tasks = vec![];
 
-    for (i, c) in sources.iter().enumerate() {
+    for c in &sources {
         match c.from {
             OmaSourceEntryFrom::Http => {
                 let task = DownloadEntry::new(
                     c.inrelease_path.clone(),
                     database_filename(&c.inrelease_path),
-                    APT_LIST_DISTS.clone(),
+                    download_dir.clone(),
                     None,
                     false,
                     DownloadSourceType::Http,
@@ -245,7 +290,7 @@ pub async fn update_db(
                 let task = DownloadEntry::new(
                     c.inrelease_path.clone(),
                     database_filename(&c.inrelease_path),
-                    APT_LIST_DISTS.clone(),
+                    download_dir.clone(),
                     None,
                     false,
                     DownloadSourceType::Http,
@@ -257,7 +302,7 @@ pub async fn update_db(
         }
     }
 
-    let res = OmaFetcher::new(None, true, None, tasks, None)?
+    let res = OmaFetcher::new(None, bar, None, tasks, limit)?
         .start_download()
         .await;
 
@@ -305,10 +350,10 @@ pub async fn update_db(
         tracing::debug!("Getted Oma source entry: {:?}", ose);
 
         let inrelease = InReleaseParser::new(
-            &APT_LIST_DISTS.join(&summary.filename),
+            &download_dir.join(&summary.filename),
             ose.signed_by.as_deref(),
             &ose.url,
-            arch,
+            &arch,
         )?;
 
         let checksums = inrelease
@@ -400,22 +445,24 @@ pub async fn update_db(
 
             match source_index.from {
                 OmaSourceEntryFrom::Http => {
-                    let p = if !ose.is_flat {
+                    let dist_url = if !ose.is_flat {
                         source_index.dist_path.clone()
                     } else {
                         format!("{}/{}", source_index.dist_path, not_compress_filename)
                     };
 
+                    let file_path = format!("{}/{}", dist_url, c.name);
+
                     let task = DownloadEntry::new(
-                        p.to_string(),
-                        database_filename(&p),
-                        APT_LIST_DISTS.clone(),
+                        file_path.clone(),
+                        database_filename(&file_path),
+                        download_dir.clone(),
                         Some(c.checksum.clone()),
                         false,
                         DownloadSourceType::Http,
                     );
 
-                    tracing::debug!("oma will download http source database: {p}");
+                    tracing::debug!("oma will download http source database: {file_path}");
 
                     tasks.push(task);
                 }
@@ -438,7 +485,7 @@ pub async fn update_db(
                     let task = DownloadEntry::new(
                         p.clone(),
                         database_filename(&p),
-                        APT_LIST_DISTS.clone(),
+                        download_dir.clone(),
                         Some(c.checksum.clone()),
                         false,
                         DownloadSourceType::Local,
@@ -449,10 +496,12 @@ pub async fn update_db(
             }
         }
 
-        let downloader = OmaFetcher::new(None, true, Some(total), tasks, None)?
+        let res = OmaFetcher::new(None, bar, Some(total), tasks, None)?
             .start_download()
             .await;
-
+        
+        let res = res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
+        
         //todo: 解压
     }
 

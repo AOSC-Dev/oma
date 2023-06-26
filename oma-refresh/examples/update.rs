@@ -1,13 +1,14 @@
-use std::result::Result;
+use std::{result::Result, path::Path};
 
-use oma_refresh::db::{RefreshError, update_db, get_sources, Event};
-use tokio::sync::mpsc::UnboundedSender;
+use oma_refresh::db::{RefreshError, OmaRefresh};
 
 #[tokio::main]
 async fn main() -> Result<(), RefreshError> {
-    let (tx, rx): (UnboundedSender<Event>, _) = tokio::sync::mpsc::unbounded_channel();
+    let p = Path::new("./oma-fetcher-test");
+    tokio::fs::create_dir_all(p).await.unwrap();
+    let mut refresher = OmaRefresh::scan(None)?;
+    refresher.download_dir(p);
+    refresher.start().await?;
 
-    let sources = get_sources()?;
-    update_db(&sources, None, tx, "amd64").await?;
     Ok(())
 }
