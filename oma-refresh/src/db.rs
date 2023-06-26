@@ -4,6 +4,7 @@ use std::{
 };
 
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
+use futures::StreamExt;
 use oma_fetch::{DownloadEntry, DownloadError, DownloadSourceType, OmaFetcher, DownloadResult};
 use once_cell::sync::Lazy;
 use reqwest::ClientBuilder;
@@ -57,6 +58,10 @@ pub enum RefreshError {
     InReleaseParserError(#[from] InReleaseParserError),
     #[error(transparent)]
     DpkgArchError(#[from] oma_utils::DpkgArchError),
+    #[error(transparent)]
+    JoinError(#[from] tokio::task::JoinError),
+    #[error(transparent)]
+    DecompressError(#[from] crate::decompress::DecompressError),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -513,6 +518,12 @@ async fn update_db(
             let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
             let f = tokio::task::spawn_blocking(move || decompresser.decompress(bar, i, len, &download_dir));
             tasks.push(f);
+        }
+
+        let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
+        let res = stream.collect::<Vec<_>>().await;
+        for i in res {
+            i??;
         }
     }
 
