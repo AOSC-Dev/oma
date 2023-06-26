@@ -22,3 +22,10 @@ time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
 tracing = "0.1"
 oma-topics = { path = "../oma-topics" }
 reqwest = "0.11"
+oma-utils = { path = "../oma-utils" }
+oma-console = { path = "../oma-console" }
+xz2 = "0.1"
+flate2 = { version = "1.0", features = ["zlib-ng"], default-features = false }
+
+[dev-dependencies]
+tracing-subscriber = "0.3"
