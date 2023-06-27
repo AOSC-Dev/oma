@@ -17,6 +17,7 @@ pub(crate) async fn http_download(
     entry: &DownloadEntry,
     fpb: Option<FetchProgressBar>,
     count: usize,
+    context: Option<String>
 ) -> DownloadResult<Summary> {
     let file = entry.dir.join(&entry.filename);
     let file_exist = file.exists();
@@ -78,7 +79,7 @@ pub(crate) async fn http_download(
                     "{} checksum success, no need to download anything.",
                     entry.filename
                 );
-                return Ok(Summary::new(&entry.filename, false, count));
+                return Ok(Summary::new(&entry.filename, false, count, context));
             }
 
             tracing::debug!("checksum fail, will download this file: {}", entry.filename);
@@ -313,13 +314,14 @@ pub(crate) async fn http_download(
         pb.finish_and_clear();
     }
 
-    Ok(Summary::new(&entry.filename, true, count))
+    Ok(Summary::new(&entry.filename, true, count, context))
 }
 
 pub async fn download_local(
     entry: &DownloadEntry,
     fpb: Option<FetchProgressBar>,
-    count: usize
+    count: usize,
+    context: Option<String>
 ) -> DownloadResult<Summary> {
     let pb = fpb.as_ref().map(|x| x.mb.add(ProgressBar::new_spinner()));
 
@@ -345,5 +347,5 @@ pub async fn download_local(
         gb.inc(size);
     }
 
-    Ok(Summary::new(&entry.filename, true, count))
+    Ok(Summary::new(&entry.filename, true, count, context))
 }
