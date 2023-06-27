@@ -5,10 +5,7 @@ use std::{
 };
 
 use flate2::read::GzDecoder;
-use oma_console::{
-    indicatif::{style::TemplateError, MultiProgress, ProgressBar},
-    writer::Writer,
-};
+use oma_console::indicatif::{style::TemplateError, MultiProgress, ProgressBar};
 use oma_fetch::FetchProgressBar;
 use xz2::read::XzDecoder;
 
@@ -47,6 +44,7 @@ impl OmaDecompresser {
         count: usize,
         total: usize,
         extract_to: &Path,
+        typ: &str,
     ) -> DecompressResult<()> {
         let bar = if bar {
             let mb = Arc::new(MultiProgress::new());
@@ -55,7 +53,7 @@ impl OmaDecompresser {
                 mb,
                 None,
                 Some((count, total)),
-                Some("todo".to_string()),
+                Some(typ.to_owned())
             ))
         } else {
             None
@@ -80,25 +78,6 @@ fn decompress(
     let compress_f = std::fs::File::open(compress_file)?;
     let reader = std::io::BufReader::new(compress_f);
 
-    let pb = if let Some(mb) = fpb.map(|x| x.mb) {
-        let (style, inv) = oma_console::pb::oma_spinner(false)?;
-        let pb = mb.add(ProgressBar::new_spinner().with_style(style));
-        pb.enable_steady_tick(inv);
-        Some(pb)
-    } else {
-        None
-    };
-
-    // let progress = if let Some((cur, total)) = fpb.and_then(|x| x.progress) {
-    //     format!("({cur}/{total}) ")
-    // } else {
-    //     "".to_string()
-    // };
-
-    if let Some(pb) = pb {
-        pb.set_message("todo");
-    }
-
     let mut compress_file_no_ext = compress_file.clone();
     compress_file_no_ext.set_extension("");
 
@@ -106,6 +85,24 @@ fn decompress(
         .file_name()
         .and_then(|x| x.to_str())
         .ok_or_else(|| DecompressError::FileNameError)?;
+
+    let pb = if let Some((mb, progress, msg)) = fpb.map(|x| (x.mb, x.progress, x.msg)) {
+        let (style, inv) = oma_console::pb::oma_spinner(false)?;
+        let pb = mb.add(ProgressBar::new_spinner().with_style(style));
+        pb.enable_steady_tick(inv);
+
+        let progress = if let Some((cur, total)) = progress {
+            format!("({cur}/{total}) ")
+        } else {
+            "".to_string()
+        };
+
+        pb.set_message(format!("{progress}{}", msg.unwrap()));
+
+        Some(pb)
+    } else {
+        None
+    };
 
     let extract_path = extract_to.join(filename);
 
@@ -128,6 +125,10 @@ fn decompress(
 
     drop(extract_f);
     drop(decompress);
+
+    if let Some(ref pb) = pb {
+        pb.finish_and_clear();
+    }
 
     Ok(())
 }
