@@ -45,6 +45,7 @@ pub struct DownloadEntry {
     hash: Option<String>,
     allow_resume: bool,
     source_type: DownloadSourceType,
+    msg: Option<String>,
 }
 
 #[derive(Debug)]
@@ -61,6 +62,7 @@ impl DownloadEntry {
         hash: Option<String>,
         allow_resume: bool,
         source_type: DownloadSourceType,
+        msg: Option<String>,
     ) -> Self {
         Self {
             url,
@@ -69,6 +71,7 @@ impl DownloadEntry {
             hash,
             allow_resume,
             source_type,
+            msg,
         }
     }
 }
@@ -109,14 +112,16 @@ pub struct Summary {
     pub filename: String,
     pub writed: bool,
     pub count: usize,
+    pub context: Option<String>,
 }
 
 impl Summary {
-    fn new(filename: &str, writed: bool, count: usize) -> Self {
+    fn new(filename: &str, writed: bool, count: usize, context: Option<String>) -> Self {
         Self {
             filename: filename.to_string(),
             writed,
             count,
+            context,
         }
     }
 }
@@ -171,7 +176,7 @@ impl OmaFetcher {
                     mb: mb.clone(),
                     global_bar: gpb.clone(),
                     progress: Some((i + 1, self.download_list.len())),
-                    msg: None,
+                    msg: c.msg.clone(),
                 })
             } else {
                 None
@@ -179,12 +184,12 @@ impl OmaFetcher {
             match c.source_type {
                 DownloadSourceType::Http => {
                     let task: BoxFuture<'_, DownloadResult<Summary>> =
-                        Box::pin(http_download(&self.client, c, fpb, i));
+                        Box::pin(http_download(&self.client, c, fpb, i, c.msg.clone()));
                     tasks.push(task);
                 }
                 DownloadSourceType::Local => {
                     let task: BoxFuture<'_, DownloadResult<Summary>> =
-                        Box::pin(download_local(c, fpb, i));
+                        Box::pin(download_local(c, fpb, i, c.msg.clone()));
                     tasks.push(task);
                 }
             }
