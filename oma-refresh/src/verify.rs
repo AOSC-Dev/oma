@@ -37,7 +37,7 @@ impl InReleaseVerifier {
         let mut certs: Vec<Cert> = Vec::new();
         for f in cert_paths {
             for maybe_cert in CertParser::from_file(f)
-                .map_err(|e| VerifyError::CertParseFileError(f.as_ref().display().to_string()))?
+                .map_err(|_| VerifyError::CertParseFileError(f.as_ref().display().to_string()))?
             {
                 certs.push(
                     maybe_cert

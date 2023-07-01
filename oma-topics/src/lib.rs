@@ -91,7 +91,7 @@ pub struct Topic {
     pub packages: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum TopicsEvent {
     Info(String),
 }

@@ -185,6 +185,7 @@ pub(crate) async fn http_download(
             _ => return Err(e.into()),
         }
     } else if let Some(pb) = pb {
+        // dbg!("111");
         pb.finish_and_clear();
     }
 
