@@ -45,15 +45,14 @@ impl OmaDecompresser {
         total: usize,
         extract_to: &Path,
         typ: &str,
+        mb: MultiProgress,
     ) -> DecompressResult<()> {
         let bar = if bar {
-            let mb = Arc::new(MultiProgress::new());
-
             Some(FetchProgressBar::new(
-                mb,
+                Arc::new(mb),
                 None,
                 Some((count, total)),
-                Some(typ.to_owned())
+                Some(typ.to_owned()),
             ))
         } else {
             None
@@ -97,7 +96,7 @@ fn decompress(
             "".to_string()
         };
 
-        pb.set_message(format!("{progress}{}", msg.unwrap()));
+        pb.set_message(format!("d: {progress}{}", msg.unwrap()));
 
         Some(pb)
     } else {
@@ -117,7 +116,12 @@ fn decompress(
     let mut decompress: Box<dyn Read> = match typ {
         OmaDecompresser::Gz(_) => Box::new(GzDecoder::new(reader)),
         OmaDecompresser::Xz(_) => Box::new(XzDecoder::new(reader)),
-        _ => return Err(DecompressError::UnsupportedFileType),
+        _ => {
+            if let Some(pb) = pb {
+                pb.finish_and_clear();
+            }
+            return Err(DecompressError::UnsupportedFileType);
+        }
     };
 
     std::io::copy(&mut decompress, &mut extract_f)?;
@@ -126,7 +130,7 @@ fn decompress(
     drop(extract_f);
     drop(decompress);
 
-    if let Some(ref pb) = pb {
+    if let Some(pb) = pb {
         pb.finish_and_clear();
     }
 

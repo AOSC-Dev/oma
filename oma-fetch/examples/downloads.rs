@@ -10,7 +10,8 @@ async fn main() -> DownloadResult<()> {
         PathBuf::from("./oma-fetcher-test"),
         Some("0625cbba48a14438eea144682567a026a17e173420c5bdcbc06dcb11aba50628".to_string()),
         true,
-        DownloadSourceType::Http
+        DownloadSourceType::Http,
+        None
     );
 
     let file_2 = DownloadEntry::new("https://mirrors.bfsu.edu.cn/anthon/debs/pool/stable/main/v/vscodium_1.77.3.23102-0_arm64.deb".to_string(),
@@ -18,7 +19,8 @@ async fn main() -> DownloadResult<()> {
         PathBuf::from("./oma-fetcher-test"),
         None,
         true,
-        DownloadSourceType::Http
+        DownloadSourceType::Http,
+        None
     );
 
     let mut test_local_file = tokio::fs::File::create("test").await?;
@@ -31,6 +33,7 @@ async fn main() -> DownloadResult<()> {
         None,
         false,
         DownloadSourceType::Local,
+        None
     );
 
     let fetcher = OmaFetcher::new(None, true, None, vec![file_1, file_2, file_3], None)?;
