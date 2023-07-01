@@ -5,6 +5,7 @@ use std::{
 
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use futures::StreamExt;
+use oma_console::indicatif::MultiProgress;
 use oma_fetch::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, OmaFetcher};
 use once_cell::sync::Lazy;
 use reqwest::ClientBuilder;
@@ -120,10 +121,10 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
 
     // AOSC OS/Retro 以后也许会支持使用光盘源安装软件包，但目前因为没有实例，所以无法测试
     // 因此 Omakase 暂不支持 cdrom:// 源的安装
-    let cdrom = res
-        .iter()
-        .filter(|x| x.url().starts_with("cdrom://"))
-        .collect::<Vec<_>>();
+    // let cdrom = res
+    //     .iter()
+    //     .filter(|x| x.url().starts_with("cdrom://"))
+    //     .collect::<Vec<_>>();
 
     // for i in &cdrom {
     //     error!("{}", fl!("unsupport-cdrom", url = i.url()));
@@ -141,7 +142,7 @@ pub struct OmaSourceEntry {
     from: OmaSourceEntryFrom,
     components: Vec<String>,
     url: String,
-    suite: String,
+    _suite: String,
     inrelease_path: String,
     dist_path: String,
     is_flat: bool,
@@ -200,7 +201,7 @@ impl OmaSourceEntry {
             from,
             components,
             url,
-            suite,
+            _suite: suite,
             is_flat,
             inrelease_path,
             dist_path,
@@ -328,8 +329,17 @@ async fn update_db(
                     DownloadError::NotFound(url) => {
                         let client = ClientBuilder::new().user_agent("oma").build()?;
                         let (tx, rx) = std::sync::mpsc::channel();
+
+                        let event_worker = tokio::task::spawn_blocking(move || {
+                            while let Ok(v) = rx.recv() {
+                                tracing::info!("{:?}", v);
+                            }
+                        });
+
                         let removed_suites =
                             oma_topics::scan_closed_topic(&client, Some(tx)).await?;
+
+                        event_worker.await?;
 
                         tracing::debug!("Removed topics: {removed_suites:?}");
 
@@ -422,11 +432,9 @@ async fn update_db(
             handle
         };
 
-        let len = handle.len();
-
         let mut tasks = vec![];
 
-        for (i, c) in handle.iter().enumerate() {
+        for c in handle {
             let mut p_not_compress = Path::new(&c.name).to_path_buf();
             p_not_compress.set_extension("");
             let not_compress_filename_before = p_not_compress.to_string_lossy().to_string();
@@ -494,7 +502,7 @@ async fn update_db(
             }
         }
 
-        let res = OmaFetcher::new(None, bar, Some(total), tasks, None)?
+        let res = OmaFetcher::new(None, bar, Some(total), tasks, limit)?
             .start_download()
             .await;
 
@@ -503,11 +511,14 @@ async fn update_db(
         // 解压
         let mut tasks = vec![];
         let len = res.len();
+        let mb = MultiProgress::new();
         for (i, c) in res.into_iter().enumerate() {
             let download_dir = download_dir.clone();
             let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
+            let mbc = mb.clone();
+            
             let f = tokio::task::spawn_blocking(move || {
-                decompresser.decompress(bar, i, len, &download_dir, c.context.as_ref().unwrap())
+                decompresser.decompress(bar, i, len, &download_dir, c.context.as_ref().unwrap(), mbc)
             });
             tasks.push(f);
         }
