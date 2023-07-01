@@ -162,7 +162,7 @@ impl InReleaseParser {
                 size: i
                     .1
                     .parse::<u64>()
-                    .map_err(|e| InReleaseParserError::SizeShouldIsNumber(i.1.to_string()))?,
+                    .map_err(|_| InReleaseParserError::SizeShouldIsNumber(i.1.to_string()))?,
                 checksum: i.2.to_owned(),
                 file_type: t,
             })
