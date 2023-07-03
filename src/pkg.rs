@@ -457,7 +457,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> Result<()> {
             let status = if pkg.is_upgradable() {
                 PackageStatus::Upgrade
             } else if pkg.is_installed() {
-                PackageStatus::Installed
+                PackageStatus::Installed 
             } else {
                 PackageStatus::Avail
             };
