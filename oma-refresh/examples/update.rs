@@ -1,14 +1,16 @@
-use std::{result::Result, path::Path};
+use std::{path::Path, result::Result};
 
-use oma_refresh::db::{RefreshError, OmaRefresh};
-use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, fmt, EnvFilter, util::SubscriberInitExt};
+use oma_refresh::db::{OmaRefresh, RefreshError};
+use tracing_subscriber::{
+    fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), RefreshError> {
     tracing_subscriber::registry()
-    .with(fmt::layer())
-    .with(EnvFilter::from_default_env())
-    .init();
+        .with(fmt::layer())
+        .with(EnvFilter::from_default_env())
+        .init();
 
     let mut refresher = OmaRefresh::scan(None)?;
     let p = Path::new("./oma-fetcher-test");
