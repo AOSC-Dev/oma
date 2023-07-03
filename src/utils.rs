@@ -140,8 +140,21 @@ pub fn polkit_run_itself() -> Result<()> {
     }
 
     let args = ARGS.split(' ').collect::<Vec<_>>();
+    let mut handled_args = vec![];
+
+    // Handle pkexec user input path
+    for arg in args {
+        let mut arg = arg.to_string();
+        if arg.ends_with(".deb") {
+            let path = Path::new(&arg);
+            let path = path.canonicalize().unwrap_or(path.to_path_buf());
+            arg = path.display().to_string();
+        }
+        handled_args.push(arg);
+    }
+
     let out = Command::new("pkexec")
-        .args(args)
+        .args(handled_args)
         .spawn()
         .and_then(|x| x.wait_with_output())
         .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
