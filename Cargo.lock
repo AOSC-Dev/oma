@@ -1991,6 +1991,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-pm"
+version = "0.1.0"
+dependencies = [
+ "glob-match",
+ "indicium",
+ "oma-utils",
+ "rust-apt",
+ "thiserror",
+ "time",
+ "tracing",
+]
+
+[[package]]
 name = "oma-refresh"
 version = "0.1.0"
 dependencies = [
@@ -2039,6 +2052,7 @@ dependencies = [
 name = "oma-utils"
 version = "0.1.0"
 dependencies = [
+ "number_prefix",
  "thiserror",
 ]
 
