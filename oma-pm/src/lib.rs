@@ -1,4 +1,4 @@
-pub mod db;
+pub mod pkginfo;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
