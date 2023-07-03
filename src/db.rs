@@ -118,7 +118,7 @@ async fn download_db(
     )
     .await?;
 
-    Ok((FileName::new(&url), i, is_download))
+    Ok((FileName::new(&url), i, is_download)) 
 }
 
 #[derive(Deserialize)]
