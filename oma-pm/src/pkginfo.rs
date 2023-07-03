@@ -68,7 +68,7 @@ impl Display for OmaDependencyGroup {
 }
 
 impl OmaDependency {
-    fn map_deps(deps: &[Dependency]) -> OmaDependencyGroup {
+    pub fn map_deps(deps: &[Dependency]) -> OmaDependencyGroup {
         let mut res = vec![];
 
         for dep in deps {
@@ -249,7 +249,7 @@ impl Display for PkgInfo {
 
 // input: like http://50.50.1.183/debs/pool/stable/main/f/fish_3.6.0-0_amd64.deb
 // output: http://50.50.1.183/debs stable main
-pub(crate) fn source_url_to_apt_style(s: &str) -> Option<String> {
+fn source_url_to_apt_style(s: &str) -> Option<String> {
     let mut s_split = s.split('/');
     let component = s_split.nth_back(2)?;
     let branch = s_split.next_back()?;
