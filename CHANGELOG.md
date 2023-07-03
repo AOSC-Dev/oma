@@ -5,7 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.44.2 (2023-07-03)
+
+### Chore
+
+ - <csr-id-43655a8cd26149e4ecfe621f754640e2331d0815/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-88f638da2bf479970cc4c847866dd84cd53f4377/> Handle pkexec file path 'no such file or directory'
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 8 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`43655a8`](https://github.com/AOSC-Dev/oma/commit/43655a8cd26149e4ecfe621f754640e2331d0815))
+    - Handle pkexec file path 'no such file or directory' ([`88f638d`](https://github.com/AOSC-Dev/oma/commit/88f638da2bf479970cc4c847866dd84cd53f4377))
+</details>
+
 ## v0.44.1 (2023-06-25)
+
+<csr-id-73a2e8a3aac9bf44b555d0d39220062c8571bb41/>
+<csr-id-089455f90e7066c0f94fd034c1a252070c522ed8/>
+<csr-id-44d6ad1d39ba7c2026f3fa62b8f673d539cbcc6b/>
 
 ### Chore
 
@@ -34,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 8 commits contributed to the release over the course of 6 calendar days.
+ - 9 commits contributed to the release over the course of 6 calendar days.
  - 7 days passed between releases.
  - 8 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -46,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.44.1 ([`1b8a0a1`](https://github.com/AOSC-Dev/oma/commit/1b8a0a12097ba33c18366f599220a1530ecefb9f))
     - Run cargo clippy and cargo fmt to lint code ([`44d6ad1`](https://github.com/AOSC-Dev/oma/commit/44d6ad1d39ba7c2026f3fa62b8f673d539cbcc6b))
     - Improve download database message display (again) ([`41db993`](https://github.com/AOSC-Dev/oma/commit/41db9936e1257266601c4b518eb3b4f6c8686257))
     - Improve download database message display ([`017fa9f`](https://github.com/AOSC-Dev/oma/commit/017fa9ff5f904a2fe860e29b564d2ee2edd87104))
