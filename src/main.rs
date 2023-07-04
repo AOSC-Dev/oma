@@ -14,6 +14,7 @@ use utils::{get_arch_name, unlock_oma};
 
 use crate::cli::CommandMatcher;
 use crate::cli::OmaCommandRunner;
+use crate::config::Config;
 
 mod args;
 mod checksum;
@@ -33,6 +34,7 @@ mod history;
 mod i18n;
 mod utils;
 mod verify;
+mod config;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
@@ -44,8 +46,9 @@ static TIME_OFFSET: Lazy<UtcOffset> =
     Lazy::new(|| UtcOffset::local_offset_at(OffsetDateTime::UNIX_EPOCH).unwrap_or(offset!(UTC)));
 static ARGS: Lazy<String> = Lazy::new(|| std::env::args().collect::<Vec<_>>().join(" "));
 static MB: Lazy<Arc<MultiProgress>> = Lazy::new(|| Arc::new(MultiProgress::new()));
-
+static CONFIG: OnceCell<Config> = OnceCell::new();
 static ARCH: OnceCell<String> = OnceCell::new();
+
 use i18n::I18N_LOADER;
 
 fn main() {

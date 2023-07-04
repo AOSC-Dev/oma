@@ -43,6 +43,8 @@ serde_yaml = "0.9"
 # For oma provides/list-files
 regex = "1.7"
 grep = "0.2"
+# For config
+toml = "0.7"
 # Other Dependencies
 fs4 = "0.6"
 sysinfo = "0.29"

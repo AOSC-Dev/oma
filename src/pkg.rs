@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use console::style;
+use dialoguer::{theme::ColorfulTheme, Confirm, Input};
 use glob_match::glob_match_with_captures;
 use indicatif::{HumanBytes, ProgressBar};
 use indicium::simple::{Indexable, SearchIndex};
@@ -18,7 +19,7 @@ use std::{
 
 use crate::{
     cli::gen_prefix, fl, formatter::find_unmet_deps_with_markinstall, info, pager::Pager,
-    utils::apt_style_url, ALLOWCTRLC,
+    utils::apt_style_url, ALLOWCTRLC, CONFIG,
 };
 
 pub struct PkgInfo {
@@ -640,8 +641,33 @@ pub fn mark_install(
 
 /// Mark package as delete status
 pub fn mark_delete(pkg: &Package, is_purge: bool) -> Result<()> {
-    if pkg.is_essential() {
+    let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.general.protect_essentials;
+
+    if pkg.is_essential() && oma_config {
         bail!(fl!("pkg-is-essential", name = pkg.name()));
+    } else if !oma_config {
+        let theme = ColorfulTheme::default();
+        let delete = Confirm::with_theme(&theme)
+            .with_prompt(format!("DELETE THIS PACKAGE? PACKAGE {} IS ESSENTIAL!", pkg.name()))
+            .default(false)
+            .interact()?;
+        if !delete {
+            info!("Not confirmed.");
+            return Ok(());
+        }
+        info!(
+            "If you are absolutely sure, please type the following:\n{}",
+            style("Do as I say!").bold()
+        );
+        if Input::<String>::with_theme(&theme)
+            .with_prompt("Your turn")
+            .interact()?
+            != "Do as I say!"
+        {
+            info!("Prompt answered incorrectly. Not confirmed.");
+            return Ok(());
+        }
+    
     }
 
     pkg.mark_delete(is_purge);

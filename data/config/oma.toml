@@ -1,0 +1,10 @@
+[general]
+# Set to false to allow removal of "Essential" packages.
+protect_essentials = true
+
+[network]
+# Number of network threads to use when downloading metadata and packages.
+#
+# Note: It is not advised to set this value to more than 4 to avoid flooding
+# remote servers.
+network_threads = 4
