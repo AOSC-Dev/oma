@@ -47,7 +47,7 @@ impl Pager {
         SUBPROCESS.store(pager_process.id() as i32, Ordering::SeqCst);
 
         let res = Pager::External((pager_name.to_string(), pager_process));
-    
+
         Ok(res)
     }
 

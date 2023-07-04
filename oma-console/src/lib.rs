@@ -1,6 +1,6 @@
 pub mod pager;
-pub mod writer;
 pub mod pb;
+pub mod writer;
 pub use console;
 pub use indicatif;
 
