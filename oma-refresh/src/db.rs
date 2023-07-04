@@ -516,9 +516,16 @@ async fn update_db(
             let download_dir = download_dir.clone();
             let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
             let mbc = mb.clone();
-            
+
             let f = tokio::task::spawn_blocking(move || {
-                decompresser.decompress(bar, i, len, &download_dir, c.context.as_ref().unwrap(), mbc)
+                decompresser.decompress(
+                    bar,
+                    i,
+                    len,
+                    &download_dir,
+                    c.context.as_ref().unwrap(),
+                    mbc,
+                )
             });
             tasks.push(f);
         }
