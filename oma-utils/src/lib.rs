@@ -1,4 +1,4 @@
-use std::{process::Command, fmt};
+use std::{fmt, process::Command};
 
 use number_prefix::NumberPrefix;
 
