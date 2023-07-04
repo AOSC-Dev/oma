@@ -33,7 +33,7 @@ async fn main() -> DownloadResult<()> {
         None,
         false,
         DownloadSourceType::Local,
-        None
+        None,
     );
 
     let fetcher = OmaFetcher::new(None, true, None, vec![file_1, file_2, file_3], None)?;

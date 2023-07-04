@@ -1,8 +1,8 @@
 use std::io::Write;
 
+use crate::Result;
 use console::Term;
 use indicatif::ProgressBar;
-use crate::Result;
 
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
     if console::measure_text_width(prefix) > (prefix_len - 1).into() {
@@ -139,7 +139,12 @@ impl Writer {
         Ok(())
     }
 
-    pub fn write_chunks<S: AsRef<str>>(&self, prefix: &str, chunks: &[S], prefix_len: u16) -> Result<()> {
+    pub fn write_chunks<S: AsRef<str>>(
+        &self,
+        prefix: &str,
+        chunks: &[S],
+        prefix_len: u16,
+    ) -> Result<()> {
         if chunks.is_empty() {
             return Ok(());
         }

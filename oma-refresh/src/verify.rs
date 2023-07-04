@@ -77,7 +77,8 @@ impl VerificationHelper for InReleaseVerifier {
 
 /// Verify InRelease PGP signature
 pub fn verify(s: &str, trust_files: Option<&str>, mirror: &str) -> VerifyResult<String> {
-    let dir = std::fs::read_dir("/etc/apt/trusted.gpg.d").map_err(|_| VerifyError::TrustedDirNotExist)?;
+    let dir =
+        std::fs::read_dir("/etc/apt/trusted.gpg.d").map_err(|_| VerifyError::TrustedDirNotExist)?;
     let mut cert_files = vec![];
 
     if let Some(trust_files) = trust_files {

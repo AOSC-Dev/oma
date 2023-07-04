@@ -8,7 +8,9 @@ use reqwest::{
 };
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-use crate::{checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, FetchProgressBar, Summary};
+use crate::{
+    checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, FetchProgressBar, Summary,
+};
 
 /// Download file
 /// Return bool is file is started download
@@ -17,7 +19,7 @@ pub(crate) async fn http_download(
     entry: &DownloadEntry,
     fpb: Option<FetchProgressBar>,
     count: usize,
-    context: Option<String>
+    context: Option<String>,
 ) -> DownloadResult<Summary> {
     let file = entry.dir.join(&entry.filename);
     let file_exist = file.exists();
@@ -322,7 +324,7 @@ pub async fn download_local(
     entry: &DownloadEntry,
     fpb: Option<FetchProgressBar>,
     count: usize,
-    context: Option<String>
+    context: Option<String>,
 ) -> DownloadResult<Summary> {
     let pb = fpb.as_ref().map(|x| x.mb.add(ProgressBar::new_spinner()));
 
