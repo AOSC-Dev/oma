@@ -139,6 +139,7 @@ pub struct PkgInfo {
     pub raw_pkg: RawPackage,
     pub recommend: OmaDependencyGroup,
     pub suggest: OmaDependencyGroup,
+    pub is_candidate: bool,
 }
 
 impl PkgInfo {
@@ -155,6 +156,8 @@ impl PkgInfo {
 
         let installed_size = version.installed_size();
         let download_size = version.size();
+
+        let is_cand = pkg.candidate().map(|x| x.unique()) == Some(version.unique());
 
         let apt_sources = version.uris().collect::<Vec<_>>();
         let description = version.description();
@@ -203,7 +206,14 @@ impl PkgInfo {
             raw_pkg,
             recommend,
             suggest,
+            is_candidate: is_cand,
         }
+    }
+
+    pub fn set_candidate(&mut self, cache: &Cache) {
+        let version = Version::new(self.version_raw.unique(), &cache);
+        version.set_candidate();
+        self.is_candidate = true;
     }
 }
 
