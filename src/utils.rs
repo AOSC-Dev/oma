@@ -118,15 +118,6 @@ pub fn needs_root() -> Result<()> {
     Ok(())
 }
 
-/// Get apt style url: like: go_1.19.4%2btools0.4.0%2bnet0.4.0_amd64.deb
-#[inline]
-pub fn apt_style_url(s: &str) -> String {
-    s.replace(':', "%3a")
-        .replace('+', "%2b")
-        .replace('~', "%7e")
-        .replace('%', "%25")
-}
-
 /// Reverse apt style url: like: file:/home/saki/aoscpt/go_1.19.4+tools0.4.0+net0.4.0_amd64.deb
 #[inline]
 pub fn reverse_apt_style_url(s: &str) -> String {
@@ -134,6 +125,19 @@ pub fn reverse_apt_style_url(s: &str) -> String {
         .replace("%2b", "+")
         .replace("%7e", "~")
         .replace("%25", "%")
+}
+
+pub fn url_no_escape(s: &str) -> String {
+    let mut tmp = s.to_string();
+    loop {
+        let res = url_escape::decode(&tmp);
+        let res2 = url_escape::decode(&res);
+        if res == res2 {
+            return res.to_string();
+        } else {
+            tmp = res.to_string();
+        }
+    }
 }
 
 pub fn polkit_run_itself() -> Result<()> {

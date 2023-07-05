@@ -19,7 +19,7 @@ use std::{
 
 use crate::{
     cli::gen_prefix, fl, formatter::find_unmet_deps_with_markinstall, info, pager::Pager,
-    utils::apt_style_url, ALLOWCTRLC, CONFIG,
+    utils::url_no_escape, ALLOWCTRLC, CONFIG,
 };
 
 pub struct PkgInfo {
@@ -211,19 +211,21 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
             if let Some(pkg) = real_pkg {
                 let pkg = Package::new(cache, pkg);
 
-                let path = format!(
+                let path = url_no_escape(&format!(
                     "file:{}",
-                    apt_style_url(
-                        Path::new(i.name())
-                            .canonicalize()?
-                            .to_str()
-                            .unwrap_or(i.name())
-                    )
-                );
+                    Path::new(i.name())
+                        .canonicalize()?
+                        .to_str()
+                        .unwrap_or(i.name())
+                ))
+                .to_string();
 
                 for ver in pkg.versions() {
                     let oma_pkg = PkgInfo::new(cache, ver.unique(), &pkg)?;
-                    let has = oma_pkg.apt_sources.iter().any(|x| x == &path);
+                    let has = oma_pkg
+                        .apt_sources
+                        .iter()
+                        .any(|x| url_no_escape(x) == path.as_str());
                     tracing::debug!("{:?}", oma_pkg.apt_sources);
                     tracing::debug!("{}", &path);
                     res.push((oma_pkg, has));
