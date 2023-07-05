@@ -641,14 +641,20 @@ pub fn mark_install(
 
 /// Mark package as delete status
 pub fn mark_delete(pkg: &Package, is_purge: bool) -> Result<()> {
-    let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.general.protect_essentials;
+    let oma_config = CONFIG
+        .get_or_try_init(crate::Config::read)?
+        .general
+        .protect_essentials;
 
     if pkg.is_essential() && oma_config {
         bail!(fl!("pkg-is-essential", name = pkg.name()));
     } else if !oma_config {
         let theme = ColorfulTheme::default();
         let delete = Confirm::with_theme(&theme)
-            .with_prompt(format!("DELETE THIS PACKAGE? PACKAGE {} IS ESSENTIAL!", pkg.name()))
+            .with_prompt(format!(
+                "DELETE THIS PACKAGE? PACKAGE {} IS ESSENTIAL!",
+                pkg.name()
+            ))
             .default(false)
             .interact()?;
         if !delete {
@@ -667,7 +673,6 @@ pub fn mark_delete(pkg: &Package, is_purge: bool) -> Result<()> {
             info!("Prompt answered incorrectly. Not confirmed.");
             return Ok(());
         }
-    
     }
 
     pkg.mark_delete(is_purge);

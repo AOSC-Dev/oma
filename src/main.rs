@@ -30,11 +30,11 @@ mod pkg;
 #[cfg(feature = "aosc")]
 mod topics;
 
+mod config;
 mod history;
 mod i18n;
 mod utils;
 mod verify;
-mod config;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);

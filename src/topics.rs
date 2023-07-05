@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use tokio::{runtime::Runtime, task::spawn_blocking};
 
-use crate::{fl, info, ARCH, DRYRUN, download::oma_spinner};
+use crate::{download::oma_spinner, fl, info, ARCH, DRYRUN};
 
 static ATM_STATE: Lazy<PathBuf> = Lazy::new(|| {
     let p = PathBuf::from("/var/lib/atm/state");
@@ -230,8 +230,6 @@ async fn refresh_all_topics_innter(client: &Client, urls: Vec<String>) -> Result
         let v = client.get(url).send();
         tasks.push(v);
     }
-
-
 
     let res = futures::future::try_join_all(tasks).await?;
 

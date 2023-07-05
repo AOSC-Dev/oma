@@ -140,8 +140,16 @@ impl Oma {
             DRYRUN.store(true, Ordering::Relaxed);
         }
 
-        let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.network.network_threads;
-        update_db_runner(&self.runtime, &get_sources()?, &self.client, Some(oma_config))?;
+        let oma_config = CONFIG
+            .get_or_try_init(crate::Config::read)?
+            .network
+            .network_threads;
+        update_db_runner(
+            &self.runtime,
+            &get_sources()?,
+            &self.client,
+            Some(oma_config),
+        )?;
 
         let start_time = OffsetDateTime::now_utc()
             .to_offset(*TIME_OFFSET)
@@ -196,7 +204,13 @@ impl Oma {
 
             let oma_config = CONFIG.get_or_try_init(crate::Config::read)?;
 
-            packages_download_runner(runtime, &list, client, Some(oma_config.network.network_threads), None)?;
+            packages_download_runner(
+                runtime,
+                &list,
+                client,
+                Some(oma_config.network.network_threads),
+                None,
+            )?;
             apt_install(
                 action.clone(),
                 config,
@@ -258,8 +272,16 @@ impl Oma {
         }
 
         if !opt.no_refresh {
-            let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.network.network_threads;
-            update_db_runner(&self.runtime, &get_sources()?, &self.client, Some(oma_config))?;
+            let oma_config = CONFIG
+                .get_or_try_init(crate::Config::read)?
+                .network
+                .network_threads;
+            update_db_runner(
+                &self.runtime,
+                &get_sources()?,
+                &self.client,
+                Some(oma_config),
+            )?;
         }
 
         let mut count = 1;
@@ -537,7 +559,10 @@ impl Oma {
             display_result(&action, &cache, false)?;
         }
 
-        let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.network.network_threads;
+        let oma_config = CONFIG
+            .get_or_try_init(crate::Config::read)?
+            .network
+            .network_threads;
         packages_download_runner(&self.runtime, &list, &self.client, Some(oma_config), None)?;
 
         if !DRYRUN.load(Ordering::Relaxed) {
@@ -756,9 +781,18 @@ impl Oma {
         let path = v.path.unwrap_or(".".to_owned());
         let path = Path::new(&path);
 
-        let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.network.network_threads;
+        let oma_config = CONFIG
+            .get_or_try_init(crate::Config::read)?
+            .network
+            .network_threads;
 
-        packages_download_runner(&self.runtime, &downloads, &self.client, Some(oma_config), Some(path))?;
+        packages_download_runner(
+            &self.runtime,
+            &downloads,
+            &self.client,
+            Some(oma_config),
+            Some(path),
+        )?;
 
         let len = downloads.len();
 
@@ -826,7 +860,10 @@ impl Oma {
             }
         }
 
-        let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.network.network_threads;
+        let oma_config = CONFIG
+            .get_or_try_init(crate::Config::read)?
+            .network
+            .network_threads;
         packages_download_runner(&self.runtime, &list, &self.client, Some(oma_config), None)?;
 
         apt_install(
@@ -898,8 +935,16 @@ impl Oma {
         needs_root()?;
         lock_oma()?;
 
-        let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.network.network_threads;
-        update_db_runner(&self.runtime, &get_sources()?, &self.client, Some(oma_config))?;
+        let oma_config = CONFIG
+            .get_or_try_init(crate::Config::read)?
+            .network
+            .network_threads;
+        update_db_runner(
+            &self.runtime,
+            &get_sources()?,
+            &self.client,
+            Some(oma_config),
+        )?;
 
         let cache = new_cache!()?;
 
@@ -948,8 +993,16 @@ impl Oma {
         }
 
         if !p.no_refresh {
-            let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.network.network_threads;
-            update_db_runner(&self.runtime, &get_sources()?, &self.client, Some(oma_config))?;
+            let oma_config = CONFIG
+                .get_or_try_init(crate::Config::read)?
+                .network
+                .network_threads;
+            update_db_runner(
+                &self.runtime,
+                &get_sources()?,
+                &self.client,
+                Some(oma_config),
+            )?;
         }
 
         let start_time = OffsetDateTime::now_utc()
@@ -1048,7 +1101,10 @@ impl Oma {
             size_checker(&disk_size, download_size(&list, &cache)?)?;
             display_result(&action, &cache, false)?;
 
-            let oma_config = CONFIG.get_or_try_init(crate::Config::read)?.network.network_threads;
+            let oma_config = CONFIG
+                .get_or_try_init(crate::Config::read)?
+                .network
+                .network_threads;
             packages_download_runner(&self.runtime, &list, &self.client, Some(oma_config), None)?;
 
             handle_install_error_no_retry(action, cache, &start_time, false, false, false, false)?;
