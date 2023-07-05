@@ -658,19 +658,19 @@ impl Oma {
 
                     let k = k.strip_suffix('s').unwrap();
                     let k = if k.ends_with('e') {
-                        format!("{k}d by")
+                        format!("{k}d by:")
                     } else if k == "Break" {
                         fl!("broken-by")
                     } else if k == "PreDepend" {
                         fl!("pre-depended-by")
                     } else {
-                        format!("{k}ed by")
+                        format!("{k}ed by:")
                     };
 
                     let target = if i.len() == 1 {
                         let entry = i.first().unwrap();
 
-                        s.push_str(&format!("  {k}: {}", entry.name));
+                        s.push_str(&format!("  {k} {}", entry.name));
                         if let Some(ref comp) = entry.comp_ver {
                             s.push_str(&format!(" ({comp})"));
                         }
