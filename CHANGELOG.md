@@ -5,7 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.45.0 (2023-07-05)
+
+### Chore
+
+ - <csr-id-832c67da659a6b41de625d7e7f8d74fe2e8d1a8c/> Update all deps
+
+### New Features
+
+ - <csr-id-f0b3b70c92b585e5e570b0ccf70ef752df5a0504/> Add oma topics progress spinner
+ - <csr-id-d66fda23925f66acc5348d37b284fc6c4b4b9e25/> Add oma config to config oma network_thread and protect_essentials
+
+### Style
+
+ - <csr-id-75b0563cb13c4a0607c4f13c664dd3590a8f1666/> Run cargo clippy and cargo fmt to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 1 day passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`832c67d`](https://github.com/AOSC-Dev/oma/commit/832c67da659a6b41de625d7e7f8d74fe2e8d1a8c))
+    - Run cargo clippy and cargo fmt to lint code ([`75b0563`](https://github.com/AOSC-Dev/oma/commit/75b0563cb13c4a0607c4f13c664dd3590a8f1666))
+    - Add oma topics progress spinner ([`f0b3b70`](https://github.com/AOSC-Dev/oma/commit/f0b3b70c92b585e5e570b0ccf70ef752df5a0504))
+    - Add oma config to config oma network_thread and protect_essentials ([`d66fda2`](https://github.com/AOSC-Dev/oma/commit/d66fda23925f66acc5348d37b284fc6c4b4b9e25))
+</details>
+
 ## v0.44.2 (2023-07-03)
+
+<csr-id-43655a8cd26149e4ecfe621f754640e2331d0815/>
 
 ### Chore
 
@@ -19,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 8 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -31,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.44.2 ([`c04c1ef`](https://github.com/AOSC-Dev/oma/commit/c04c1ef94ed217a690a4b1ad98a38888fd133884))
     - Update all deps ([`43655a8`](https://github.com/AOSC-Dev/oma/commit/43655a8cd26149e4ecfe621f754640e2331d0815))
     - Handle pkexec file path 'no such file or directory' ([`88f638d`](https://github.com/AOSC-Dev/oma/commit/88f638da2bf479970cc4c847866dd84cd53f4377))
 </details>
