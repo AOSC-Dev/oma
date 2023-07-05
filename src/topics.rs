@@ -3,6 +3,7 @@ use std::{io::Write, path::PathBuf};
 use anyhow::{bail, Context, Result};
 use apt_sources_lists::{SourceLine, SourcesLists};
 use indexmap::IndexMap;
+use indicatif::ProgressBar;
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use tokio::{runtime::Runtime, task::spawn_blocking};
 
-use crate::{fl, info, ARCH, DRYRUN};
+use crate::{fl, info, ARCH, DRYRUN, download::oma_spinner};
 
 static ATM_STATE: Lazy<PathBuf> = Lazy::new(|| {
     let p = PathBuf::from("/var/lib/atm/state");
@@ -230,6 +231,8 @@ async fn refresh_all_topics_innter(client: &Client, urls: Vec<String>) -> Result
         tasks.push(v);
     }
 
+
+
     let res = futures::future::try_join_all(tasks).await?;
 
     let mut tasks = vec![];
@@ -276,7 +279,11 @@ pub fn dialoguer(
 ) -> Result<(Vec<String>, Vec<String>)> {
     let mut opt_in = vec![];
     let mut opt_out = vec![];
+    let pb = ProgressBar::new_spinner();
+    oma_spinner(&pb);
+    pb.set_message(fl!("refreshing-topic-metadata"));
     let display = list(tm, client, rt)?;
+    pb.finish_and_clear();
     let all = tm.all.clone();
 
     let enabled_names = tm.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();

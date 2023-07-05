@@ -38,6 +38,7 @@ select-topics-dialog = Enable topic(s) to receive testing updates, deselect to r
 removing-topic = Removing topic: {$name}
 tips = Press [Space]/[Enter] to toggle selection, [q] to apply changes, [Ctrl-c] to abort.
 scan-topic-is-removed = Topic {$name} has been removed from the repository, disabling ...
+refreshing-topic-metadata = Refreshing topics metadata ...
 
 # pkg
 can-not-get-pkg-from-database = Failed to get metadata for package {$name} from the local database.
