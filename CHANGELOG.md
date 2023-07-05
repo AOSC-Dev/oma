@@ -5,7 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.45.1 (2023-07-05)
+
+### Bug Fixes
+
+ - <csr-id-b3a7db6da4ccc2776dc0b4fa5140f7ca196dbf4a/> Oma rdepends output i18n issue
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Oma rdepends output i18n issue ([`b3a7db6`](https://github.com/AOSC-Dev/oma/commit/b3a7db6da4ccc2776dc0b4fa5140f7ca196dbf4a))
+</details>
+
 ## v0.45.0 (2023-07-05)
+
+<csr-id-832c67da659a6b41de625d7e7f8d74fe2e8d1a8c/>
+<csr-id-75b0563cb13c4a0607c4f13c664dd3590a8f1666/>
 
 ### Chore
 
@@ -24,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 1 day passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -36,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.45.0 ([`ae62650`](https://github.com/AOSC-Dev/oma/commit/ae62650716e9917c9c7e2e48c826d9f5314508d4))
     - Update all deps ([`832c67d`](https://github.com/AOSC-Dev/oma/commit/832c67da659a6b41de625d7e7f8d74fe2e8d1a8c))
     - Run cargo clippy and cargo fmt to lint code ([`75b0563`](https://github.com/AOSC-Dev/oma/commit/75b0563cb13c4a0607c4f13c664dd3590a8f1666))
     - Add oma topics progress spinner ([`f0b3b70`](https://github.com/AOSC-Dev/oma/commit/f0b3b70c92b585e5e570b0ccf70ef752df5a0504))
