@@ -1713,7 +1713,10 @@ fn install_handle(
         if !is_cand {
             tracing::debug!("{} is not candidate", pkginfo.version_raw.version());
             let pkg = Package::new(&cache, pkginfo.raw_pkg);
-            tracing::debug!("candidate is: {:?}", pkg.candidate().map(|x| x.version().to_string()));
+            tracing::debug!(
+                "candidate is: {:?}",
+                pkg.candidate().map(|x| x.version().to_string())
+            );
             continue;
         }
 

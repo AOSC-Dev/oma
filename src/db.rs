@@ -364,7 +364,7 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
     Ok(res)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OmaSourceEntry {
     from: OmaSourceEntryFrom,
     components: Vec<String>,
@@ -376,7 +376,7 @@ pub struct OmaSourceEntry {
     signed_by: Option<String>,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 enum OmaSourceEntryFrom {
     Http,
     Local,
@@ -548,16 +548,30 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
         }
     }
 
+    let mut total = 0;
+    let mut tasks = vec![];
+
+    let global_bar = MB.insert(0, ProgressBar::new(total));
+    global_bar.set_style(oma_style_pb(true)?);
+    global_bar.enable_steady_tick(Duration::from_millis(100));
+    global_bar.set_message("Progress");
+
     for (name, index, _) in res_2 {
-        let ose = sources.get(index).unwrap();
+        let ose = sources.get(index).unwrap().to_owned();
+        // let osec = ose.clone();
+        // let signed_by = ose.signed_by.clone();
+        let urlc = ose.url.clone();
 
         tracing::debug!("Getted Oma source entry: {:?}", ose);
 
-        let inrelease = InReleaseParser::new(
-            &APT_LIST_DISTS.join(name.0),
-            ose.signed_by.as_deref(),
-            &ose.url,
-        )?;
+        let inrelease = spawn_blocking(move || {
+            InReleaseParser::new(
+                &APT_LIST_DISTS.join(name.0),
+                ose.signed_by.as_deref(),
+                &urlc,
+            )
+        })
+        .await??;
 
         let checksums = inrelease
             .checksums
@@ -569,15 +583,14 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             .map(|x| x.to_owned())
             .collect::<Vec<_>>();
 
-        let mut total = 0;
         let handle = if ose.is_flat {
             tracing::debug!("{} is flat repo", ose.url);
             // Flat repo
             let mut handle = vec![];
-            for i in &inrelease.checksums {
+            for i in inrelease.checksums {
                 if i.file_type == DistFileType::PackageList {
                     tracing::debug!("oma will download package list: {}", i.name);
-                    handle.push(i);
+                    handle.push(i.clone());
                     total += i.size;
                 }
             }
@@ -585,17 +598,17 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             handle
         } else {
             let mut handle = vec![];
-            for i in &checksums {
+            for i in checksums {
                 match i.file_type {
                     DistFileType::BinaryContents => {
                         tracing::debug!("oma will download Binary Contents: {}", i.name);
-                        handle.push(i);
+                        handle.push(i.clone());
                         total += i.size;
                     }
                     DistFileType::Contents | DistFileType::PackageList => {
                         if ARCH.get() == Some(&"mips64r6el".to_string()) {
                             tracing::debug!("oma will download Package List/Contetns: {}", i.name);
-                            handle.push(i);
+                            handle.push(i.clone());
                             total += i.size;
                         }
                     }
@@ -606,7 +619,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                                 i.name
                             );
 
-                            handle.push(i);
+                            handle.push(i.clone());
                             total += i.size;
                         }
                     }
@@ -617,16 +630,11 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             handle
         };
 
-        let global_bar = MB.insert(0, ProgressBar::new(total));
-        global_bar.set_style(oma_style_pb(true)?);
-        global_bar.enable_steady_tick(Duration::from_millis(100));
-        global_bar.set_message("Progress");
-
         let len = handle.len();
 
-        let mut tasks = vec![];
+        let hc = handle.clone();
 
-        for (i, c) in handle.iter().enumerate() {
+        for (i, c) in hc.into_iter().enumerate() {
             let mut p_not_compress = Path::new(&c.name).to_path_buf();
             p_not_compress.set_extension("");
             let not_compress_filename_before = p_not_compress.to_string_lossy().to_string();
@@ -662,7 +670,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     tracing::debug!("oma will download http source database: {p}");
                     let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db(
                         p,
-                        c,
+                        c.clone(),
                         client,
                         not_compress_filename.0,
                         typ.to_string(),
@@ -682,7 +690,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db_local(
                         p,
                         not_compress_filename.0,
-                        c,
+                        c.clone(),
                         opb,
                         typ.to_string(),
                     ));
@@ -691,18 +699,19 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 }
             }
         }
-
-        // 默认限制一次最多下载八个包，减少服务器负担
-        let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
-
-        stream
-            .collect::<Vec<_>>()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>>>()?;
-
-        global_bar.finish_and_clear();
     }
+
+    global_bar.set_length(total);
+
+    let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
+
+    stream
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
+
+    global_bar.finish_and_clear();
 
     Ok(())
 }
@@ -710,7 +719,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 /// Download and extract package list database
 async fn download_and_extract_db(
     dist_url: String,
-    i: &ChecksumItem,
+    i: ChecksumItem,
     client: &Client,
     not_compress_file: String,
     typ: String,
@@ -744,7 +753,7 @@ async fn download_and_extract_db(
 async fn download_and_extract_db_local(
     path: String,
     not_compress_file: String,
-    i: &ChecksumItem,
+    i: ChecksumItem,
     opb: OmaProgressBar,
     typ: String,
 ) -> Result<()> {
