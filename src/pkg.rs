@@ -593,7 +593,11 @@ pub fn mark_install(
 
     let version = ver.version();
 
+    dbg!(version);
+    dbg!(pkg.installed().as_ref().unwrap().version());
+
     if pkg.installed().as_ref() == Some(&ver) && !reinstall {
+        dbg!("123");
         if let Some(pb) = pb {
             crate::WRITER.writeln_with_pb(
                 pb,

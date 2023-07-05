@@ -77,7 +77,7 @@ pub struct CommandNotFound {
 }
 
 pub struct FixBroken {
-    /// Dry-run oma
+    /// Dry-run omausize
     pub dry_run: bool,
 }
 pub struct Download {
