@@ -363,16 +363,22 @@ async fn update_db(
         }
     }
 
+    let mut total = 0;
+    let mut tasks = vec![];
     for inrelease_summary in all_inrelease {
-        let ose = sourceslist.get(inrelease_summary.count).unwrap();
+        let ose = sourceslist.get(inrelease_summary.count).unwrap().to_owned();
+        let urlc = ose.url.clone();
+        let archc = arch.to_owned();
 
         tracing::debug!("Getted Oma source entry: {:?}", ose);
 
         let download_dir = download_dir.clone();
         let inrelease_path = download_dir.join(&inrelease_summary.filename);
 
-        let inrelease =
-            InReleaseParser::new(&inrelease_path, ose.signed_by.as_deref(), &ose.url, &arch)?;
+        let inrelease = tokio::task::spawn_blocking(move || {
+            InReleaseParser::new(&inrelease_path, ose.signed_by.as_deref(), &urlc, &archc)
+        })
+        .await??;
 
         let checksums = inrelease
             .checksums
@@ -384,7 +390,6 @@ async fn update_db(
             .map(|x| x.to_owned())
             .collect::<Vec<_>>();
 
-        let mut total = 0;
         let handle = if ose.is_flat {
             tracing::debug!("{} is flat repo", ose.url);
             // Flat repo
@@ -431,8 +436,6 @@ async fn update_db(
 
             handle
         };
-
-        let mut tasks = vec![];
 
         for c in handle {
             let mut p_not_compress = Path::new(&c.name).to_path_buf();
@@ -501,41 +504,33 @@ async fn update_db(
                 }
             }
         }
-
-        let res = OmaFetcher::new(None, bar, Some(total), tasks, limit)?
-            .start_download()
-            .await;
-
-        let res = res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
-
-        // 解压
-        let mut tasks = vec![];
-        let len = res.len();
-        let mb = MultiProgress::new();
-        for (i, c) in res.into_iter().enumerate() {
-            let download_dir = download_dir.clone();
-            let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
-            let mbc = mb.clone();
-
-            let f = tokio::task::spawn_blocking(move || {
-                decompresser.decompress(
-                    bar,
-                    i,
-                    len,
-                    &download_dir,
-                    c.context.as_ref().unwrap(),
-                    mbc,
-                )
-            });
-            tasks.push(f);
-        }
-
-        let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
-        let res = stream.collect::<Vec<_>>().await;
-        for i in res {
-            i??;
-        }
     }
 
+    let res = OmaFetcher::new(None, bar, Some(total), tasks, limit)?
+        .start_download()
+        .await;
+
+    let res = res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
+
+    // 解压
+    let mut tasks = vec![];
+    let len = res.len();
+    let mb = MultiProgress::new();
+    for (i, c) in res.into_iter().enumerate() {
+        let download_dir = download_dir.clone();
+        let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
+        let mbc = mb.clone();
+
+        let f = tokio::task::spawn_blocking(move || {
+            decompresser.decompress(bar, i, len, &download_dir, c.context.as_ref().unwrap(), mbc)
+        });
+        tasks.push(f);
+    }
+
+    let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
+    let res = stream.collect::<Vec<_>>().await;
+    for i in res {
+        i??;
+    }
     Ok(())
 }
