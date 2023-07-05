@@ -162,3 +162,13 @@ fn test_virtual_pkg_search() {
         println!("{}", i);
     }
 }
+
+#[test]
+fn test_branch_search() {
+    let db = OmaDatabase::new().unwrap();
+    let res_filter = db.query_from_branch("apt/stable", true).unwrap();
+
+    for i in res_filter {
+        println!("{}", i);
+    }
+}
