@@ -224,6 +224,8 @@ pub fn query_pkgs(cache: &Cache, input: &str) -> Result<Vec<(PkgInfo, bool)>> {
                 for ver in pkg.versions() {
                     let oma_pkg = PkgInfo::new(cache, ver.unique(), &pkg)?;
                     let has = oma_pkg.apt_sources.iter().any(|x| x == &path);
+                    tracing::debug!("{:?}", oma_pkg.apt_sources);
+                    tracing::debug!("{}", &path);
                     res.push((oma_pkg, has));
                 }
             }
@@ -593,11 +595,7 @@ pub fn mark_install(
 
     let version = ver.version();
 
-    dbg!(version);
-    dbg!(pkg.installed().as_ref().unwrap().version());
-
     if pkg.installed().as_ref() == Some(&ver) && !reinstall {
-        dbg!("123");
         if let Some(pb) = pb {
             crate::WRITER.writeln_with_pb(
                 pb,
