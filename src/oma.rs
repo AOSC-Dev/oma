@@ -1373,7 +1373,8 @@ impl Oma {
             }
         }
 
-        tm.write_enabled()?;
+        self.runtime
+            .block_on(async move { tm.write_enabled(&self.client).await })?;
 
         self.update(UpgradeOptions {
             packages: Some(pkgs),

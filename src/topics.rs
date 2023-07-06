@@ -1,4 +1,4 @@
-use std::{io::Write, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
 use apt_sources_lists::{SourceLine, SourcesLists};
@@ -13,9 +13,9 @@ use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
-use tokio::{runtime::Runtime, task::spawn_blocking};
+use tokio::{io::AsyncWriteExt, runtime::Runtime, task::spawn_blocking};
 
-use crate::{download::oma_spinner, fl, info, ARCH, DRYRUN};
+use crate::{download::oma_spinner, fl, info, ARCH, DRYRUN, warn};
 
 static ATM_STATE: Lazy<PathBuf> = Lazy::new(|| {
     let p = PathBuf::from("/var/lib/atm/state");
@@ -184,38 +184,43 @@ impl TopicManager {
         bail!(fl!("failed-to-enable-following-topics", topic = topic))
     }
 
-    pub fn write_enabled(&self) -> Result<()> {
+    pub async fn write_enabled(&self, client: &Client) -> Result<()> {
         info!("{}", fl!("saving-topic-settings"));
         if DRYRUN.load(Ordering::Relaxed) {
             return Ok(());
         }
 
-        let mut f = std::fs::File::create("/etc/apt/sources.list.d/atm.list")?;
+        let mut f = tokio::fs::File::create("/etc/apt/sources.list.d/atm.list").await?;
         let mirrors = enabled_mirror()?;
 
-        f.write_all(format!("{}\n", fl!("do-not-edit-topic-sources-list")).as_bytes())?;
+        f.write_all(format!("{}\n", fl!("do-not-edit-topic-sources-list")).as_bytes())
+            .await?;
 
         for i in &self.enabled {
-            f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())?;
+            f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())
+                .await?;
             for j in &mirrors {
-                f.write_all(
-                    format!(
-                        "deb {}debs {} main\n",
-                        if j.ends_with('/') {
-                            j.to_owned()
-                        } else {
-                            format!("{j}/")
-                        },
-                        i.name
+                if mirror_is_ok(client, j).await {
+                    f.write_all(
+                        format!(
+                            "deb {}debs {} main\n",
+                            if j.ends_with('/') {
+                                j.to_owned()
+                            } else {
+                                format!("{j}/")
+                            },
+                            i.name
+                        )
+                        .as_bytes(),
                     )
-                    .as_bytes(),
-                )?;
+                    .await?;
+                }
             }
         }
 
         let s = serde_json::to_vec(&self.enabled)?;
 
-        std::fs::write(&*ATM_STATE, s)?;
+        tokio::fs::write(&*ATM_STATE, s).await?;
 
         Ok(())
     }
@@ -251,6 +256,19 @@ async fn refresh_all_topics_innter(client: &Client, urls: Vec<String>) -> Result
     }
 
     Ok(json)
+}
+
+async fn mirror_is_ok(client: &Client, url: &str) -> bool {
+    match client.get(url).send().await {
+        Ok(r) => {
+            info!("Mirror: {url} is ok.");
+            r.error_for_status().is_ok()
+        },
+        Err(_) => {
+            warn!("Mirror: {url} is not ok. still sync progress?");
+            false
+        }
+    }
 }
 
 fn list(tm: &mut TopicManager, client: &Client, rt: &Runtime) -> Result<Vec<String>> {
@@ -372,7 +390,7 @@ pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
 
         if all.iter().all(|x| x.name != suite) {
             info!("{}", fl!("scan-topic-is-removed", name = suite.as_str()));
-            spawn_blocking(move || rm_topic(&suite)).await??;
+            rm_topic(&suite, client).await?;
         }
 
         res.push(suite_clone);
@@ -381,12 +399,13 @@ pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
     Ok(res)
 }
 
-pub fn rm_topic(name: &str) -> Result<()> {
+pub async fn rm_topic(name: &str, client: &Client) -> Result<()> {
     if DRYRUN.load(Ordering::Relaxed) {
         return Ok(());
     }
 
-    let mut tm = TopicManager::new()?;
+    let mut tm = spawn_blocking(move || TopicManager::new()).await??;
+
     let mut enabled = tm.enabled;
 
     let index = enabled
@@ -400,7 +419,7 @@ pub fn rm_topic(name: &str) -> Result<()> {
 
     tm.enabled = enabled;
 
-    tm.write_enabled()?;
+    tm.write_enabled(client).await?;
 
     Ok(())
 }
