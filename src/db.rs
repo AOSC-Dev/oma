@@ -551,13 +551,10 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
     let mut total = 0;
     let mut tasks = vec![];
 
-    let global_bar = MB.insert(0, ProgressBar::new(total));
-    global_bar.set_style(oma_style_pb(true)?);
-    global_bar.enable_steady_tick(Duration::from_millis(100));
-    global_bar.set_message("Progress");
+    let mut handler = vec![];
 
-    for (name, index, _) in res_2 {
-        let ose = sources.get(index).unwrap().to_owned();
+    for (name, index, _) in res_2.clone() {
+        let ose = sources.get(index.to_owned()).unwrap().to_owned();
         // let osec = ose.clone();
         // let signed_by = ose.signed_by.clone();
         let urlc = ose.url.clone();
@@ -630,35 +627,47 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
             handle
         };
 
-        let len = handle.len();
+        handler.push(handle);
+    }
 
-        let hc = handle.clone();
+    let global_bar = MB.insert(0, ProgressBar::new(total));
+    global_bar.set_style(oma_style_pb(true)?);
+    global_bar.enable_steady_tick(Duration::from_millis(100));
+    global_bar.set_message("Progress");
 
-        for (i, c) in hc.into_iter().enumerate() {
+    let len: usize = handler.iter().map(|x| x.len()).sum();
+
+    let mut count = 0;
+    
+    for (i, (_, index, _)) in res_2.into_iter().enumerate() {
+        let ose = sources.get(index.to_owned()).unwrap().to_owned();
+        for c in handler[i].clone() {
             let mut p_not_compress = Path::new(&c.name).to_path_buf();
             p_not_compress.set_extension("");
             let not_compress_filename_before = p_not_compress.to_string_lossy().to_string();
-
+    
             let source_index = sources.get(index).unwrap();
             let not_compress_filename = FileName::new(&format!(
                 "{}/{}",
                 source_index.dist_path, not_compress_filename_before
             ));
-
+    
             let typ = match c.file_type {
                 DistFileType::CompressContents => fl!("contents"),
                 DistFileType::CompressPackageList | DistFileType::PackageList => fl!("pkg_list"),
                 DistFileType::BinaryContents => fl!("bincontents"),
                 _ => unreachable!(),
             };
-
+    
             let opb = OmaProgressBar::new(
                 None,
-                Some((i + 1, len)),
+                Some((count + 1, len)),
                 MB.clone(),
                 Some(global_bar.clone()),
             );
 
+            count += 1;
+    
             match source_index.from {
                 OmaSourceEntryFrom::Http => {
                     let p = if !ose.is_flat {
@@ -666,7 +675,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     } else {
                         format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                     };
-
+    
                     tracing::debug!("oma will download http source database: {p}");
                     let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db(
                         p,
@@ -676,7 +685,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         typ.to_string(),
                         opb,
                     ));
-
+    
                     tasks.push(task);
                 }
                 OmaSourceEntryFrom::Local => {
@@ -685,7 +694,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     } else {
                         format!("{}/{}", source_index.dist_path, not_compress_filename.0)
                     };
-
+    
                     tracing::debug!("oma will download local source database: {p} {}", c.name);
                     let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db_local(
                         p,
@@ -694,14 +703,12 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         opb,
                         typ.to_string(),
                     ));
-
+    
                     tasks.push(task);
                 }
             }
         }
     }
-
-    global_bar.set_length(total);
 
     let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
 
