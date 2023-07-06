@@ -415,7 +415,7 @@ pub async fn rm_topic(name: &str, client: &Client) -> Result<()> {
         return Ok(());
     }
 
-    let mut tm = spawn_blocking(move || TopicManager::new()).await??;
+    let mut tm = spawn_blocking(TopicManager::new).await??;
 
     let mut enabled = tm.enabled;
 
