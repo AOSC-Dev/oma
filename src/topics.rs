@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use tokio::{io::AsyncWriteExt, runtime::Runtime, task::spawn_blocking};
 
-use crate::{download::oma_spinner, fl, info, warn, ARCH, DRYRUN};
+use crate::{download::oma_spinner, fl, info, ARCH, DRYRUN};
 
 static ATM_STATE: Lazy<PathBuf> = Lazy::new(|| {
     let p = PathBuf::from("/var/lib/atm/state");
@@ -204,6 +204,8 @@ impl TopicManager {
         f.write_all(format!("{}\n", fl!("do-not-edit-topic-sources-list")).as_bytes())
             .await?;
 
+        let pb = ProgressBar::new_spinner();
+        oma_spinner(&pb);
         for i in &self.enabled {
             f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())
                 .await?;
@@ -225,6 +227,7 @@ impl TopicManager {
                 }
             }
         }
+        pb.finish_and_clear();
 
         let s = serde_json::to_vec(&self.enabled)?;
 
@@ -274,7 +277,7 @@ async fn refresh_all_topics_innter(client: &Client, urls: Vec<String>) -> Result
 async fn mirror_is_ok(client: &Client, url: &str) -> bool {
     match client.get(url).send().await {
         Ok(r) => {
-            info!(
+            tracing::debug!(
                 "Mirror: {url} is {}.",
                 match r.error_for_status_ref().is_ok() {
                     true => "ok",
@@ -284,7 +287,7 @@ async fn mirror_is_ok(client: &Client, url: &str) -> bool {
             r.error_for_status().is_ok()
         }
         Err(_) => {
-            warn!("Mirror: {url} is not ok. still sync progress?");
+            tracing::debug!("Mirror: {url} is not ok. still sync progress?");
             false
         }
     }
