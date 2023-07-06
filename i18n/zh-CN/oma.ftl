@@ -55,6 +55,7 @@ pkg-is-essential = 软件包 {$name} 是不允许删除的必备组件。
 pkg-search-avail = AVAIL
 pkg-search-installed = INSTALLED
 pkg-search-upgrade = UPGRADE
+flushing-data = 正在将数据写入至磁盘 …
 
 # pager
 question-tips-with-x11 = 按 [q] 结束审阅并应用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。

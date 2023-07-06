@@ -711,6 +711,14 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
         .into_iter()
         .collect::<Result<Vec<_>>>()?;
 
+    let pb = MB.add(ProgressBar::new_spinner());
+    oma_spinner(&pb);
+    pb.set_message(fl!("flushing-data"));
+
+    // Flush 一下避免退出的时候卡一会
+    nix::unistd::sync();
+
+    pb.finish_and_clear();
     global_bar.finish_and_clear();
 
     Ok(())
