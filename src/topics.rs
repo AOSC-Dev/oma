@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use apt_sources_lists::{SourceLine, SourcesLists};
 use indexmap::IndexMap;
 use indicatif::ProgressBar;
@@ -98,7 +98,8 @@ impl TryFrom<&str> for TopicManager {
 
 impl TopicManager {
     pub fn new() -> Result<Self> {
-        let f = std::fs::read_to_string(&*ATM_STATE)?;
+        let f = std::fs::read_to_string(&*ATM_STATE)
+            .map_err(|e| anyhow!("Failed to read atm state file: {e}."))?;
 
         Ok(Self {
             enabled: serde_json::from_str(&f).unwrap_or(vec![]),
@@ -107,7 +108,11 @@ impl TopicManager {
     }
 
     async fn refresh_all_topics(&mut self, client: &Client) -> Result<Vec<Topic>> {
-        let urls = enabled_mirror()?
+        let urls = enabled_mirror()
+            .unwrap_or_else(|_| {
+                info!("apt-gen-list status file is empty, fallbacking to repo.aosc.io ...");
+                vec!["http://repo.aosc.io/".to_string()]
+            })
             .iter()
             .map(|x| {
                 if x.ends_with('/') {
