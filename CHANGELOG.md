@@ -5,6 +5,88 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.45.2 (2023-07-06)
+
+### Chore
+
+ - <csr-id-126db05b06ae4d834dd704ecb935514dca1ee81c/> Update all deps
+ - <csr-id-1de8e4cf6aa6cdec86be169637d099abef4a9ac4/> Update all deps
+ - <csr-id-2fe130791c1c1758397fbeabd4f8321a90a78230/> Update all deps
+
+### New Features
+
+ - <csr-id-aeae354827dcb6917802a1fbc88f30f971a032e8/> Improve save topics message display
+ - <csr-id-1ad648ca4190568d0bd05187bae97e69bdfb1ffe/> Refresh database flush display progress spinner
+ - <csr-id-1cc8fdf9e5c9f0b34b5d2b4aa0c26b3dcf8c872d/> Add more debug info
+
+### Bug Fixes
+
+ - <csr-id-b7d005e4d442bfb0daf9bef8a8b9ede704110f2b/> Tty envivment do not overflow display
+ - <csr-id-dc5bdd0c4a8f1087f41da0fb8588710049f4f7a7/> Add missing fallback in write_enabled function
+ - <csr-id-01d259894f9f64a1dfbf1f39a5a27d3a632237ed/> Do not display incompatible arch topics
+ - <csr-id-efa2bc98be912ec7700422e34ea7a97d9f8ae408/> Oma topics fallback repo.aosc.io use https oops
+ - <csr-id-4f9827b2ea0e8c3a04bcddfe8d1fb1f39e358516/> Oma topics will fallback to repo.aosc.io mirror if apt-gen-list status file is empty
+ - <csr-id-7fbdc2dd9dd977f95a86ca3e826a0e0eeb93d4d4/> Do not write not sync mirror to atm.list
+ - <csr-id-89710fb9ed2be8b12d6fb7d583f26a27c4adf0f8/> Some deb filename (like apt) local name parse
+
+### Other
+
+ - <csr-id-327a05f18daa0913707b6ea38be32808d2d70e1d/> Add config.rs translate
+ - <csr-id-b660cb4712af185d45dd870753c9c701fe07af79/> Refine new strings
+ - <csr-id-dfee422bd7d516639900df5ac0f655c4668233be/> Add some translate
+
+### Refactor
+
+ - <csr-id-3b7be9cca9088c6ca1aa54f3f96b9775bb7e1a4f/> Improve update database logic
+ - <csr-id-2e3523e4a9c7629d64f59af7ddaec26817c2c264/> Improve mirror_is_ok function message
+ - <csr-id-973e0cf3e4aa916d25539bab4d5913e2bc0857ec/> Improve refresh database logic
+ - <csr-id-d56da672f37b0f43f5a0a3ef78f2c7aa99c99c08/> Improve handle url method
+
+### Style
+
+ - <csr-id-7f56fcd8d5395f275754013f31e996e929c2f207/> Run cargo clippy and cargo fmt to lint code
+ - <csr-id-a675a75672403bbf1c300f89a318ec226fb68d68/> Run cargo clippy and cargo fmt to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 22 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 22 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`126db05`](https://github.com/AOSC-Dev/oma/commit/126db05b06ae4d834dd704ecb935514dca1ee81c))
+    - Tty envivment do not overflow display ([`b7d005e`](https://github.com/AOSC-Dev/oma/commit/b7d005e4d442bfb0daf9bef8a8b9ede704110f2b))
+    - Run cargo clippy and cargo fmt to lint code ([`7f56fcd`](https://github.com/AOSC-Dev/oma/commit/7f56fcd8d5395f275754013f31e996e929c2f207))
+    - Improve update database logic ([`3b7be9c`](https://github.com/AOSC-Dev/oma/commit/3b7be9cca9088c6ca1aa54f3f96b9775bb7e1a4f))
+    - Improve save topics message display ([`aeae354`](https://github.com/AOSC-Dev/oma/commit/aeae354827dcb6917802a1fbc88f30f971a032e8))
+    - Add config.rs translate ([`327a05f`](https://github.com/AOSC-Dev/oma/commit/327a05f18daa0913707b6ea38be32808d2d70e1d))
+    - Add missing fallback in write_enabled function ([`dc5bdd0`](https://github.com/AOSC-Dev/oma/commit/dc5bdd0c4a8f1087f41da0fb8588710049f4f7a7))
+    - Do not display incompatible arch topics ([`01d2598`](https://github.com/AOSC-Dev/oma/commit/01d259894f9f64a1dfbf1f39a5a27d3a632237ed))
+    - Run cargo clippy and cargo fmt to lint code ([`a675a75`](https://github.com/AOSC-Dev/oma/commit/a675a75672403bbf1c300f89a318ec226fb68d68))
+    - Update all deps ([`1de8e4c`](https://github.com/AOSC-Dev/oma/commit/1de8e4cf6aa6cdec86be169637d099abef4a9ac4))
+    - Refresh database flush display progress spinner ([`1ad648c`](https://github.com/AOSC-Dev/oma/commit/1ad648ca4190568d0bd05187bae97e69bdfb1ffe))
+    - Oma topics fallback repo.aosc.io use https oops ([`efa2bc9`](https://github.com/AOSC-Dev/oma/commit/efa2bc98be912ec7700422e34ea7a97d9f8ae408))
+    - Oma topics will fallback to repo.aosc.io mirror if apt-gen-list status file is empty ([`4f9827b`](https://github.com/AOSC-Dev/oma/commit/4f9827b2ea0e8c3a04bcddfe8d1fb1f39e358516))
+    - Improve mirror_is_ok function message ([`2e3523e`](https://github.com/AOSC-Dev/oma/commit/2e3523e4a9c7629d64f59af7ddaec26817c2c264))
+    - Do not write not sync mirror to atm.list ([`7fbdc2d`](https://github.com/AOSC-Dev/oma/commit/7fbdc2dd9dd977f95a86ca3e826a0e0eeb93d4d4))
+    - Improve refresh database logic ([`973e0cf`](https://github.com/AOSC-Dev/oma/commit/973e0cf3e4aa916d25539bab4d5913e2bc0857ec))
+    - Refine new strings ([`b660cb4`](https://github.com/AOSC-Dev/oma/commit/b660cb4712af185d45dd870753c9c701fe07af79))
+    - Add some translate ([`dfee422`](https://github.com/AOSC-Dev/oma/commit/dfee422bd7d516639900df5ac0f655c4668233be))
+    - Update all deps ([`2fe1307`](https://github.com/AOSC-Dev/oma/commit/2fe130791c1c1758397fbeabd4f8321a90a78230))
+    - Improve handle url method ([`d56da67`](https://github.com/AOSC-Dev/oma/commit/d56da672f37b0f43f5a0a3ef78f2c7aa99c99c08))
+    - Some deb filename (like apt) local name parse ([`89710fb`](https://github.com/AOSC-Dev/oma/commit/89710fb9ed2be8b12d6fb7d583f26a27c4adf0f8))
+    - Add more debug info ([`1cc8fdf`](https://github.com/AOSC-Dev/oma/commit/1cc8fdf9e5c9f0b34b5d2b4aa0c26b3dcf8c872d))
+</details>
+
 ## v0.45.1 (2023-07-05)
 
 ### Bug Fixes
@@ -15,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.45.1 ([`f535ae0`](https://github.com/AOSC-Dev/oma/commit/f535ae06cab7d55429fa3b5f97689aa586346a63))
     - Oma rdepends output i18n issue ([`b3a7db6`](https://github.com/AOSC-Dev/oma/commit/b3a7db6da4ccc2776dc0b4fa5140f7ca196dbf4a))
 </details>
 
