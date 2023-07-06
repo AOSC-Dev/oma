@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use tokio::{io::AsyncWriteExt, runtime::Runtime, task::spawn_blocking};
 
-use crate::{download::oma_spinner, fl, info, ARCH, DRYRUN, warn};
+use crate::{download::oma_spinner, fl, info, warn, ARCH, DRYRUN};
 
 static ATM_STATE: Lazy<PathBuf> = Lazy::new(|| {
     let p = PathBuf::from("/var/lib/atm/state");
@@ -261,9 +261,15 @@ async fn refresh_all_topics_innter(client: &Client, urls: Vec<String>) -> Result
 async fn mirror_is_ok(client: &Client, url: &str) -> bool {
     match client.get(url).send().await {
         Ok(r) => {
-            info!("Mirror: {url} is ok.");
+            info!(
+                "Mirror: {url} is {}.",
+                match r.error_for_status_ref().is_ok() {
+                    true => "ok",
+                    false => "not ok",
+                }
+            );
             r.error_for_status().is_ok()
-        },
+        }
         Err(_) => {
             warn!("Mirror: {url} is not ok. still sync progress?");
             false
