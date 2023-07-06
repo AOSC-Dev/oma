@@ -196,7 +196,10 @@ impl TopicManager {
         }
 
         let mut f = tokio::fs::File::create("/etc/apt/sources.list.d/atm.list").await?;
-        let mirrors = enabled_mirror()?;
+        let mirrors = enabled_mirror().unwrap_or_else(|_| {
+            info!("apt-gen-list status file is empty, fallbacking to repo.aosc.io ...");
+            vec!["https://repo.aosc.io/".to_string()]
+        });
 
         f.write_all(format!("{}\n", fl!("do-not-edit-topic-sources-list")).as_bytes())
             .await?;
