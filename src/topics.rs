@@ -111,7 +111,7 @@ impl TopicManager {
         let urls = enabled_mirror()
             .unwrap_or_else(|_| {
                 info!("apt-gen-list status file is empty, fallbacking to repo.aosc.io ...");
-                vec!["http://repo.aosc.io/".to_string()]
+                vec!["https://repo.aosc.io/".to_string()]
             })
             .iter()
             .map(|x| {
