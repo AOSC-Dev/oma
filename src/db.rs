@@ -103,7 +103,7 @@ async fn download_db(
 
     let mut opb = opb;
 
-    opb.msg = Some(fl!("downloading-database", source = url_short, file = typ));
+    opb.msg = Some(format!("{url_short} {typ}"));
     let opb = opb.clone();
 
     let is_download = download(
