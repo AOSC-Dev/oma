@@ -2,6 +2,7 @@ use crate::warn;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
+use crate::fl;
 
 const DEFAULT_CONFIG: &str = include_str!("../data/config/oma.toml");
 
@@ -28,7 +29,7 @@ impl Config {
         Ok(match s {
             Ok(s) => toml::from_str(&s)?,
             Err(_) => {
-                warn!("Invaild Config /etc/oma.toml! fallbacking to default configuration.");
+                warn!("{}", fl!("config-invaild"));
                 toml::from_str(DEFAULT_CONFIG)?
             }
         })

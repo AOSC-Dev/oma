@@ -224,3 +224,6 @@ rg-non-zero = `rg' 报错退出。
 sha256-bad-length = SHA256 校验和无效：长度不正确。
 can-not-checksum = BUG：无碍发解析 SHA256 校验和 {$e}，请于 https://github.com/AOSC-Dev/oma 报告问题。
 failed-to-open-to-checksum = BUG：无法打开用于验证校验和的路径 {$path}，请于 https://github.com/AOSC-Dev/oma 报告问题。
+
+# config
+config-invaild = Invaild Config /etc/oma.toml! fallbacking to default configuration.

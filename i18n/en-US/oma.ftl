@@ -226,3 +226,6 @@ cnf-wrong-argument = BUG: The command-not-found method was not passed with the c
 sha256-bad-length = Malformed SHA256 checksum: bad length.
 can-not-checksum = BUG: Failed to parse SHA256 checksum {$e}. Please report this issue at https://github.com/AOSC-Dev/oma.
 failed-to-open-to-checksum = BUG: Failed to open {$path} for checksum verification. Please report this issue at https://github.com/AOSC-Dev/oma.
+
+# config
+config-invaild = Invaild Config /etc/oma.toml! fallbacking to default configuration.
