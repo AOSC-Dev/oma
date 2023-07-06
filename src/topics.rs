@@ -252,10 +252,15 @@ async fn refresh_all_topics_innter(client: &Client, urls: Vec<String>) -> Result
     let res = futures::future::try_join_all(tasks).await?;
 
     for i in res {
-        let f = i
-            .into_iter()
-            .filter(|x| !json.contains(x))
-            .collect::<Vec<_>>();
+        let f =
+            i.into_iter()
+                .filter(|x| {
+                    !json.contains(x)
+                        && x.arch.as_ref().map(|x| {
+                            x.contains(ARCH.get().unwrap()) || x.contains(&"all".to_string())
+                        }) == Some(true)
+                })
+                .collect::<Vec<_>>();
 
         json.extend(f);
     }
