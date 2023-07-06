@@ -1,8 +1,8 @@
+use crate::fl;
 use crate::warn;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
-use crate::fl;
 
 const DEFAULT_CONFIG: &str = include_str!("../data/config/oma.toml");
 
