@@ -5,7 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.45.3 (2023-07-07)
+
+### Chore
+
+ - <csr-id-f9316f3d458a8e15ac42b21c50727860576a6898/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-bdb719ae405fd5af472f2689d60e36791f38fe6b/> Pin grep-cli version to fix rustc 1.68.2 build
+
+### Other
+
+ - <csr-id-f00395ba8b35c4b78ff072eb14ffbe7a8681e3d4/> Fix some zh-CN wrong ui string
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`f9316f3`](https://github.com/AOSC-Dev/oma/commit/f9316f3d458a8e15ac42b21c50727860576a6898))
+    - Pin grep-cli version to fix rustc 1.68.2 build ([`bdb719a`](https://github.com/AOSC-Dev/oma/commit/bdb719ae405fd5af472f2689d60e36791f38fe6b))
+    - Fix some zh-CN wrong ui string ([`f00395b`](https://github.com/AOSC-Dev/oma/commit/f00395ba8b35c4b78ff072eb14ffbe7a8681e3d4))
+</details>
+
 ## v0.45.2 (2023-07-06)
+
+<csr-id-126db05b06ae4d834dd704ecb935514dca1ee81c/>
+<csr-id-1de8e4cf6aa6cdec86be169637d099abef4a9ac4/>
+<csr-id-2fe130791c1c1758397fbeabd4f8321a90a78230/>
+<csr-id-327a05f18daa0913707b6ea38be32808d2d70e1d/>
+<csr-id-b660cb4712af185d45dd870753c9c701fe07af79/>
+<csr-id-dfee422bd7d516639900df5ac0f655c4668233be/>
+<csr-id-3b7be9cca9088c6ca1aa54f3f96b9775bb7e1a4f/>
+<csr-id-2e3523e4a9c7629d64f59af7ddaec26817c2c264/>
+<csr-id-973e0cf3e4aa916d25539bab4d5913e2bc0857ec/>
+<csr-id-d56da672f37b0f43f5a0a3ef78f2c7aa99c99c08/>
+<csr-id-7f56fcd8d5395f275754013f31e996e929c2f207/>
+<csr-id-a675a75672403bbf1c300f89a318ec226fb68d68/>
 
 ### Chore
 
@@ -51,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 22 commits contributed to the release over the course of 1 calendar day.
+ - 23 commits contributed to the release over the course of 1 calendar day.
  - 1 day passed between releases.
  - 22 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -63,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.45.2 ([`d97ac5b`](https://github.com/AOSC-Dev/oma/commit/d97ac5b4f5fe05ec40d92d3345c02d189728b61d))
     - Update all deps ([`126db05`](https://github.com/AOSC-Dev/oma/commit/126db05b06ae4d834dd704ecb935514dca1ee81c))
     - Tty envivment do not overflow display ([`b7d005e`](https://github.com/AOSC-Dev/oma/commit/b7d005e4d442bfb0daf9bef8a8b9ede704110f2b))
     - Run cargo clippy and cargo fmt to lint code ([`7f56fcd`](https://github.com/AOSC-Dev/oma/commit/7f56fcd8d5395f275754013f31e996e929c2f207))
