@@ -827,7 +827,7 @@ pub fn result_inner(action: &Action, pager: &Pager) -> Result<Vec<InstallRow>> {
             "{} {}{}\n",
             fl!("count-pkg-has-desc", count = del.len()),
             style(fl!("removed")).red().bold(),
-            fl!("semicolon")
+            fl!("colon")
         )
         .ok();
 
@@ -835,7 +835,7 @@ pub fn result_inner(action: &Action, pager: &Pager) -> Result<Vec<InstallRow>> {
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
-            .with(Modify::new(Columns::new(1..2)).with(Alignment::left()))
+            .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
             .with(Style::psql());
 
         writeln!(out, "{table}\n\n").ok();
@@ -847,7 +847,7 @@ pub fn result_inner(action: &Action, pager: &Pager) -> Result<Vec<InstallRow>> {
             "{} {}{}\n",
             fl!("count-pkg-has-desc", count = install.len()),
             style(fl!("installed")).green().bold(),
-            fl!("semicolon")
+            fl!("colon")
         )?;
 
         let mut table = Table::new(&install);
