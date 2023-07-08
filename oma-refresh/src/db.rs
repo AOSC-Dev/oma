@@ -1,11 +1,11 @@
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}
 };
 
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use futures::StreamExt;
-use oma_console::indicatif::MultiProgress;
+use oma_console::indicatif::{MultiProgress, ProgressBar, style::TemplateError};
 use oma_fetch::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, OmaFetcher};
 use once_cell::sync::Lazy;
 use reqwest::ClientBuilder;
@@ -64,6 +64,8 @@ pub enum RefreshError {
     JoinError(#[from] tokio::task::JoinError),
     #[error(transparent)]
     DecompressError(#[from] crate::decompress::DecompressError),
+    #[error(transparent)]
+    TemplateError(#[from] TemplateError),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -536,5 +538,25 @@ async fn update_db(
     for i in res {
         i??;
     }
+
+    // Fsync
+    let pb = if bar {
+        let (style, inv) = oma_console::pb::oma_spinner(false)?;
+        let pb = mb.add(ProgressBar::new_spinner().with_style(style));
+        pb.enable_steady_tick(inv);
+        pb.set_message("Flushing data to hard disk …");
+
+        Some(pb)
+    } else {
+        None
+    };
+
+    nix::unistd::sync();
+
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
+
+
     Ok(())
 }
