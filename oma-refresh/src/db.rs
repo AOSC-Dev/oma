@@ -516,15 +516,19 @@ async fn update_db(
     let mut tasks = vec![];
     let len = res.len();
     let mb = MultiProgress::new();
+    
     for (i, c) in res.into_iter().enumerate() {
-        let download_dir = download_dir.clone();
-        let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
-        let mbc = mb.clone();
-
-        let f = tokio::task::spawn_blocking(move || {
-            decompresser.decompress(bar, i, len, &download_dir, c.context.as_ref().unwrap(), mbc)
-        });
-        tasks.push(f);
+        // 如果已经写入，说明下载的东西与之前的不一样，代表上游数据库已经刷新了
+        if c.writed {
+            let download_dir = download_dir.clone();
+            let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
+            let mbc = mb.clone();
+    
+            let f = tokio::task::spawn_blocking(move || {
+                decompresser.decompress(bar, i, len, &download_dir, c.context.as_ref().unwrap(), mbc)
+            });
+            tasks.push(f);
+        }
     }
 
     let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
