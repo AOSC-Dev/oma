@@ -2000,6 +2000,7 @@ dependencies = [
  "debcontrol",
  "flate2",
  "futures",
+ "nix",
  "oma-console",
  "oma-fetch",
  "oma-topics",
