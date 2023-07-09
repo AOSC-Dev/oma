@@ -515,6 +515,8 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 
     let mut res_2 = vec![];
 
+    let mut handled_closed_topic = false;
+
     for i in res {
         if cfg!(feature = "aosc") {
             match i {
@@ -524,18 +526,22 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 }
                 Err(e) => match e {
                     DownloadError::NotFound(url) => {
-                        let removed_suites = topics::scan_closed_topic(client).await?;
+                        if !handled_closed_topic {
+                            let removed_suites = topics::scan_closed_topic(client).await?;
 
-                        tracing::debug!("Removed topics: {removed_suites:?}");
+                            tracing::debug!("Removed topics: {removed_suites:?}");
+    
+                            let suite = url
+                                .split('/')
+                                .nth_back(1)
+                                .context(fl!("can-not-get-suite", url = url.to_string()))?
+                                .to_string();
+    
+                            if !removed_suites.contains(&suite) {
+                                return Err(anyhow!(fl!("not-found", url = url.to_string())));
+                            }
 
-                        let suite = url
-                            .split('/')
-                            .nth_back(1)
-                            .context(fl!("can-not-get-suite", url = url.to_string()))?
-                            .to_string();
-
-                        if !removed_suites.contains(&suite) {
-                            return Err(anyhow!(fl!("not-found", url = url.to_string())));
+                            handled_closed_topic = true;
                         }
                     }
                     _ => return Err(e.into()),
