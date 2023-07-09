@@ -515,7 +515,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 
     let mut res_2 = vec![];
 
-    let mut handled_closed_topic = false;
+    let mut closed_topics = vec![];
 
     for i in res {
         if cfg!(feature = "aosc") {
@@ -526,22 +526,24 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 }
                 Err(e) => match e {
                     DownloadError::NotFound(url) => {
-                        if !handled_closed_topic {
-                            let removed_suites = topics::scan_closed_topic(client).await?;
+                        let removed_suites = if closed_topics.is_empty() {
+                            topics::scan_closed_topic(client).await?;
+                            closed_topics = removed_suites.clone();
+                            closed_topics
+                        } else {
+                            closed_topics
+                        };
 
-                            tracing::debug!("Removed topics: {removed_suites:?}");
-    
-                            let suite = url
-                                .split('/')
-                                .nth_back(1)
-                                .context(fl!("can-not-get-suite", url = url.to_string()))?
-                                .to_string();
-    
-                            if !removed_suites.contains(&suite) {
-                                return Err(anyhow!(fl!("not-found", url = url.to_string())));
-                            }
+                        tracing::debug!("Removed topics: {removed_suites:?}");
 
-                            handled_closed_topic = true;
+                        let suite = url
+                            .split('/')
+                            .nth_back(1)
+                            .context(fl!("can-not-get-suite", url = url.to_string()))?
+                            .to_string();
+
+                        if !removed_suites.contains(&suite) {
+                            return Err(anyhow!(fl!("not-found", url = url.to_string())));
                         }
                     }
                     _ => return Err(e.into()),
