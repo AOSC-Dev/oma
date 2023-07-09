@@ -17,6 +17,7 @@ use serde::Deserialize;
 use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 use tokio::{runtime::Runtime, task::spawn_blocking};
 use xz2::read::XzDecoder;
+use crate::utils::error_due_to;
 
 use crate::{
     checksum::Checksum,
@@ -546,7 +547,10 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                             return Err(anyhow!(fl!("not-found", url = url.to_string())));
                         }
                     }
-                    _ => return Err(e.into()),
+                    _ => return Err(error_due_to(
+                        anyhow!("{e}"),
+                        fl!("check-network-settings"),
+                    )),
                 },
             }
         } else {
