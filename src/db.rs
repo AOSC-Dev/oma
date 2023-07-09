@@ -527,11 +527,11 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 Err(e) => match e {
                     DownloadError::NotFound(url) => {
                         let removed_suites = if closed_topics.is_empty() {
-                            topics::scan_closed_topic(client).await?;
+                            let removed_suites = topics::scan_closed_topic(client).await?;
                             closed_topics = removed_suites.clone();
-                            closed_topics
+                            closed_topics.clone()
                         } else {
-                            closed_topics
+                            closed_topics.clone()
                         };
 
                         tracing::debug!("Removed topics: {removed_suites:?}");
