@@ -529,7 +529,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                         let removed_suites = if closed_topics.is_empty() {
                             let removed_suites = topics::scan_closed_topic(client).await?;
                             closed_topics = removed_suites.clone();
-                            closed_topics.clone()
+                            removed_suites
                         } else {
                             closed_topics.clone()
                         };
