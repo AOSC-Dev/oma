@@ -12,9 +12,33 @@ use crate::{
     checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, FetchProgressBar, Summary,
 };
 
+pub(crate) async fn try_http_download(
+    client: &Client,
+    entry: &DownloadEntry,
+    fpb: Option<FetchProgressBar>,
+    count: usize,
+    retry_times: usize,
+    context: Option<String>,
+) -> DownloadResult<Summary> {
+    let mut times = 0;
+    loop {
+        match http_download(client, entry, fpb.clone(), count, context.clone()).await {
+            Ok(s) => {
+                return Ok(s);
+            }
+            Err(e) => {
+                if retry_times == times {
+                    return Err(e);
+                }
+                tracing::warn!("Download Error: {e:?}, retrying {times} times ...");
+                times += 1;
+            }
+        }
+    }
+}
+
 /// Download file
-/// Return bool is file is started download
-pub(crate) async fn http_download(
+async fn http_download(
     client: &Client,
     entry: &DownloadEntry,
     fpb: Option<FetchProgressBar>,
