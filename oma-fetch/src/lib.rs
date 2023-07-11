@@ -11,7 +11,7 @@ use reqwest::{Client, ClientBuilder};
 pub mod checksum;
 mod download;
 
-use download::{download_local, http_download};
+use download::{download_local, try_http_download};
 
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
@@ -105,6 +105,7 @@ pub struct OmaFetcher {
     bar: Option<(Arc<MultiProgress>, Option<ProgressBar>)>,
     download_list: Vec<DownloadEntry>,
     limit_thread: usize,
+    retry_times: usize,
 }
 
 #[derive(Debug)]
@@ -165,7 +166,13 @@ impl OmaFetcher {
             bar,
             download_list,
             limit_thread: limit_thread.unwrap_or(4),
+            retry_times: 3,
         })
+    }
+
+    pub fn retry_times(&mut self, retry_times: usize) -> &mut Self {
+        self.retry_times = retry_times;
+        self
     }
 
     pub async fn start_download(&self) -> Vec<DownloadResult<Summary>> {
@@ -183,8 +190,14 @@ impl OmaFetcher {
             };
             match c.source_type {
                 DownloadSourceType::Http => {
-                    let task: BoxFuture<'_, DownloadResult<Summary>> =
-                        Box::pin(http_download(&self.client, c, fpb, i, c.msg.clone()));
+                    let task: BoxFuture<'_, DownloadResult<Summary>> = Box::pin(try_http_download(
+                        &self.client,
+                        c,
+                        fpb,
+                        i,
+                        self.retry_times,
+                        c.msg.clone(),
+                    ));
                     tasks.push(task);
                 }
                 DownloadSourceType::Local => {
