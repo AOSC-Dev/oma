@@ -27,11 +27,16 @@ pub(crate) async fn try_http_download(
                 return Ok(s);
             }
             Err(e) => {
-                if retry_times == times {
-                    return Err(e);
+                match e {
+                    DownloadError::ChecksumMisMatch(_) | DownloadError::ReqwestError(_) => {
+                        if retry_times == times {
+                            return Err(e);
+                        }
+                        tracing::warn!("Download Error: {e:?}, retrying {times} times ...");
+                        times += 1;
+                    }
+                    _ => return Err(e),
                 }
-                tracing::warn!("Download Error: {e:?}, retrying {times} times ...");
-                times += 1;
             }
         }
     }
