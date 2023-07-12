@@ -27,6 +27,9 @@ oma-console = { path = "../oma-console" }
 xz2 = "0.1"
 flate2 = { version = "1.0", features = ["zlib-ng"], default-features = false }
 nix = "0.26"
+i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"] }
+i18n-embed-fl = "0.6"
+rust-embed = "6.2"
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
