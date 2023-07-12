@@ -3,7 +3,7 @@
 # source code for gettext system, and the primary fallback language
 # (for which all strings must be present) when using the fluent
 # system.
-fallback_language = "en"
+fallback_language = "en-US"
 
 # Use the fluent localization system.
 [fluent]
