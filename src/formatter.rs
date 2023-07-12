@@ -456,7 +456,7 @@ fn format_deps(
             if let Some(pkg) = pkg {
                 if pkg.is_installed() {
                     let comp = dep.comp_symbol;
-                    let ver = dep.ver;
+                    let ver = dep.target_ver;
                     if let (Some(comp), Some(need_ver)) = (comp, ver) {
                         match comp.as_str() {
                             ">=" => {
@@ -466,9 +466,9 @@ fn format_deps(
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
-                                            "{} {}",
+                                            "{} >= {}",
                                             c.name(),
-                                            dep.comp_ver.unwrap()
+                                            need_ver,
                                         ),
                                         specified_dependency: format!(
                                             "{} {}",
@@ -484,7 +484,7 @@ fn format_deps(
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
-                                            "{} {}",
+                                            "{} >> {}",
                                             c.name(),
                                             dep.comp_ver.unwrap()
                                         ),
@@ -502,7 +502,7 @@ fn format_deps(
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
-                                            "{} {}",
+                                            "{} > {}",
                                             c.name(),
                                             dep.comp_ver.unwrap()
                                         ),
@@ -520,7 +520,7 @@ fn format_deps(
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
-                                            "{} {}",
+                                            "{} = {}",
                                             c.name(),
                                             dep.comp_ver.unwrap()
                                         ),
@@ -539,7 +539,7 @@ fn format_deps(
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
-                                            "{} {}",
+                                            "{} <= {}",
                                             c.name(),
                                             dep.comp_ver.unwrap()
                                         ),
@@ -558,7 +558,7 @@ fn format_deps(
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
-                                            "{} {}",
+                                            "{} << {}",
                                             c.name(),
                                             dep.comp_ver.unwrap()
                                         ),
@@ -577,7 +577,7 @@ fn format_deps(
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
                                         unmet_dependency: format!(
-                                            "{} {}",
+                                            "{} < {}",
                                             c.name(),
                                             dep.comp_ver.unwrap()
                                         ),

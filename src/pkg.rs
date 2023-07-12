@@ -316,6 +316,7 @@ pub struct OmaDependency {
     pub ver: Option<String>,
     pub target_ver: Option<String>,
     pub comp_ver: Option<String>,
+    pub parent_ver: String
 }
 
 impl OmaDependency {
@@ -325,6 +326,7 @@ impl OmaDependency {
             comp_symbol: dep.comp().map(|x| x.to_string()),
             ver: dep.version().map(|x| x.to_string()),
             target_ver: dep.target_ver().ok().map(|x| x.to_string()),
+            parent_ver: dep.parent_ver().version().to_string(),
             comp_ver: dep
                 .comp()
                 .and_then(|x| Some(format!("{x} {}", dep.version()?))),
