@@ -157,8 +157,9 @@ install = 安装
 remove = 卸载
 upgrade = 更新
 downgrade = 降级
-unmet-dep = 无法满足的依赖
+unmet-dep = 无法满足
 colon = ：
+unmet-dep-before = 有 {$count} 个软件包的依赖
 
 # download
 invalid-url = BUG：URL 无效，请于 https://github.com/AOSC-Dev/oma 报告问题。

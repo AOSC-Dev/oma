@@ -416,9 +416,9 @@ pub fn find_unmet_deps(cache: &Cache) -> Result<bool> {
         writeln!(
             out,
             "{} {}{}\n",
-            fl!("count-pkg-has-desc", count = v.len()),
+            fl!("unmet-dep-before", count = v.len()),
             style(fl!("unmet-dep")).red().bold(),
-            fl!("semicolon")
+            fl!("colon")
         )
         .ok();
 

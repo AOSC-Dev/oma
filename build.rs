@@ -12,10 +12,6 @@ fn main() -> Result<()> {
         std::env::var_os("CARGO_MANIFEST_DIR").ok_or(std::io::ErrorKind::NotFound)?,
     );
 
-    // i18n
-    // println!("cargo:rerun-if-env-changed=OMA_I18N");
-    println!("cargo:rerun-if-changed={}", srcdir.join("i18n").display());
-
     let cmd = command_builder();
     build_man(&cmd, &srcdir)?;
     build_completions(srcdir, cmd)?;
