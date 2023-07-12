@@ -451,9 +451,3 @@ pub async fn rm_topic(name: &str, client: &Client) -> Result<()> {
 
     Ok(())
 }
-
-#[tokio::test]
-async fn test() {
-    let client = Client::new();
-    scan_closed_topic(&client).await.unwrap();
-}
