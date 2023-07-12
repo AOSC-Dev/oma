@@ -390,7 +390,13 @@ pub fn dialoguer(
 
 pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
     let mut atm_sources = vec![];
-    let s = match SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter()) {
+
+    let s = spawn_blocking(|| {
+        SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter())
+    })
+    .await?;
+
+    let s = match s {
         Ok(s) => s,
         Err(_) => {
             tracing::info!("Machine has no atm.list, so will return empty list");
