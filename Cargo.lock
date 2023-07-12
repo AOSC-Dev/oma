@@ -1979,6 +1979,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-i18n"
+version = "0.1.0"
+dependencies = [
+ "i18n-embed",
+ "i18n-embed-fl",
+ "once_cell",
+ "rust-embed",
+]
+
+[[package]]
 name = "oma-pm"
 version = "0.1.0"
 dependencies = [
