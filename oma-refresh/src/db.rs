@@ -1,11 +1,12 @@
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf}
+    path::{Path, PathBuf},
 };
 
+use crate::fl;
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use futures::StreamExt;
-use oma_console::indicatif::{MultiProgress, ProgressBar, style::TemplateError};
+use oma_console::indicatif::{style::TemplateError, MultiProgress, ProgressBar};
 use oma_fetch::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, OmaFetcher};
 use once_cell::sync::Lazy;
 use reqwest::ClientBuilder;
@@ -518,16 +519,23 @@ async fn update_db(
     let mut tasks = vec![];
     let len = res.len();
     let mb = MultiProgress::new();
-    
+
     for (i, c) in res.into_iter().enumerate() {
         // 如果已经写入，说明下载的东西与之前的不一样，代表上游数据库已经刷新了
         if c.writed {
             let download_dir = download_dir.clone();
             let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
             let mbc = mb.clone();
-    
+
             let f = tokio::task::spawn_blocking(move || {
-                decompresser.decompress(bar, i, len, &download_dir, c.context.as_ref().unwrap(), mbc)
+                decompresser.decompress(
+                    bar,
+                    i,
+                    len,
+                    &download_dir,
+                    c.context.as_ref().unwrap(),
+                    mbc,
+                )
             });
             tasks.push(f);
         }
@@ -544,7 +552,7 @@ async fn update_db(
         let (style, inv) = oma_console::pb::oma_spinner(false)?;
         let pb = mb.add(ProgressBar::new_spinner().with_style(style));
         pb.enable_steady_tick(inv);
-        pb.set_message("Flushing data to hard disk …");
+        pb.set_message(fl!("flushing-data"));
 
         Some(pb)
     } else {
@@ -556,7 +564,6 @@ async fn update_db(
     if let Some(pb) = pb {
         pb.finish_and_clear();
     }
-
 
     Ok(())
 }

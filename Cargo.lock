@@ -1979,16 +1979,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "oma-i18n"
-version = "0.1.0"
-dependencies = [
- "i18n-embed",
- "i18n-embed-fl",
- "once_cell",
- "rust-embed",
-]
-
-[[package]]
 name = "oma-pm"
 version = "0.1.0"
 dependencies = [
@@ -2010,6 +2000,8 @@ dependencies = [
  "debcontrol",
  "flate2",
  "futures",
+ "i18n-embed",
+ "i18n-embed-fl",
  "nix",
  "oma-console",
  "oma-fetch",
@@ -2017,6 +2009,7 @@ dependencies = [
  "oma-utils",
  "once_cell",
  "reqwest",
+ "rust-embed",
  "sequoia-openpgp",
  "serde",
  "serde_yaml",
