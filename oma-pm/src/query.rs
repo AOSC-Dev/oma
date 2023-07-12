@@ -1,6 +1,5 @@
 use rust_apt::{
     cache::{Cache, PackageSort},
-    new_cache,
     package::Package,
     raw::package::RawPackage,
     records::RecordField,
@@ -20,17 +19,15 @@ pub enum OmaDatabaseError {
     NoVersion(String, String),
 }
 
-pub struct OmaDatabase {
-    cache: Cache,
+pub struct OmaDatabase<'a> {
+    cache: &'a Cache,
 }
 
 pub type OmaDatabaseResult<T> = Result<T, OmaDatabaseError>;
 
-impl OmaDatabase {
-    pub fn new() -> OmaDatabaseResult<Self> {
-        Ok(Self {
-            cache: new_cache!()?,
-        })
+impl<'a> OmaDatabase<'a> {
+    pub fn new(cache: &'a Cache) -> OmaDatabaseResult<OmaDatabase<'a>> {
+        Ok(Self { cache })
     }
 
     pub fn query_from_glob(
@@ -46,7 +43,7 @@ impl OmaDatabase {
             .filter(|x| glob_match::glob_match_with_captures(glob, x.name()).is_some());
 
         let pkgs = pkgs
-            .map(|x| read_pkg(&x))
+            .map(|x| real_pkg(&x))
             .map(|x| Package::new(&self.cache, x));
 
         for pkg in pkgs {
@@ -128,7 +125,7 @@ impl OmaDatabase {
     }
 }
 
-fn read_pkg(pkg: &Package) -> RawPackage {
+fn real_pkg(pkg: &Package) -> RawPackage {
     if let Some(provide) = pkg.provides().next() {
         return provide.target_pkg();
     }
@@ -136,39 +133,48 @@ fn read_pkg(pkg: &Package) -> RawPackage {
     pkg.unique()
 }
 
-#[test]
-fn test_glob_search() {
-    let db = OmaDatabase::new().unwrap();
-    let res_filter = db.query_from_glob("apt*", true).unwrap();
-    let res = db.query_from_glob("apt*", false).unwrap();
+#[cfg(test)]
+mod test {
+    use super::OmaDatabase;
+    use rust_apt::new_cache;
 
-    for i in res_filter {
-        println!("{}", i);
+    #[test]
+    fn test_glob_search() {
+        let cache = new_cache!().unwrap();
+        let db = OmaDatabase::new(&cache).unwrap();
+        let res_filter = db.query_from_glob("apt*", true).unwrap();
+        let res = db.query_from_glob("apt*", false).unwrap();
+
+        for i in res_filter {
+            println!("{}", i);
+        }
+
+        println!("---\n");
+
+        for i in res {
+            println!("{}", i);
+        }
     }
 
-    println!("---\n");
+    #[test]
+    fn test_virtual_pkg_search() {
+        let cache = new_cache!().unwrap();
+        let db = OmaDatabase::new(&cache).unwrap();
+        let res_filter = db.query_from_glob("telegram", true).unwrap();
 
-    for i in res {
-        println!("{}", i);
+        for i in res_filter {
+            println!("{}", i);
+        }
     }
-}
 
-#[test]
-fn test_virtual_pkg_search() {
-    let db = OmaDatabase::new().unwrap();
-    let res_filter = db.query_from_glob("telegram", true).unwrap();
+    #[test]
+    fn test_branch_search() {
+        let cache = new_cache!().unwrap();
+        let db = OmaDatabase::new(&cache).unwrap();
+        let res_filter = db.query_from_branch("apt/stable", true).unwrap();
 
-    for i in res_filter {
-        println!("{}", i);
-    }
-}
-
-#[test]
-fn test_branch_search() {
-    let db = OmaDatabase::new().unwrap();
-    let res_filter = db.query_from_branch("apt/stable", true).unwrap();
-
-    for i in res_filter {
-        println!("{}", i);
+        for i in res_filter {
+            println!("{}", i);
+        }
     }
 }

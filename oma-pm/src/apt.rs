@@ -41,7 +41,7 @@ impl OmaApt {
     }
 
     pub fn install(&self, keywords: Vec<&str>, reinstall: bool) -> OmaAptResult<()> {
-        let db = OmaDatabase::new()?;
+        let db = OmaDatabase::new(&self.cache)?;
         let mut pkgs = vec![];
         for keyword in keywords {
             pkgs.extend(match keyword {
