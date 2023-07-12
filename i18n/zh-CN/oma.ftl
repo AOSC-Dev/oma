@@ -7,8 +7,6 @@ can-not-create-lock-dir = 无法创建 /run/lock：{$e}。
 can-not-create-lock-file = 无法创建进程锁文件：{$e}。
 can-not-write-lock-file = 无法写入进程锁文件：{$e}。
 can-not-unlock-oma = 无法解锁 Omakase 进程：{$e}。
-can-not-create-oma-log-dir = 无法创建 Omakase 日志目录：{$e}。
-can-not-create-oma-log = 无法创建 Omakase 历史记录：{$e}。
 execute-pkexec-fail = 无法执行 `pkexec' 命令：{$e}。
 
 # history
@@ -155,7 +153,6 @@ reinstall = 重装
 oma-may = 为应用您指定的更改，Omakase 可能 {$a}、{$b}、{$c}、{$d} 或 {$e} 软件包。
 install = 安装
 remove = 卸载
-upgrade = 更新
 downgrade = 降级
 unmet-dep = 无法满足
 colon = ：

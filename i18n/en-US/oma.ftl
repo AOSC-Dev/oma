@@ -155,7 +155,6 @@ oma-may = Omakase may {$a}, {$b}, {$c}, {$d}, or {$e} packages in order
     to fulfill your requested changes.
 install = install
 remove = remove
-upgrade = upgrade
 downgrade = downgrade
 unmet-dep = unmet dependency(ies)
 colon = : 
