@@ -394,7 +394,7 @@ pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
         Ok(s) => s,
         Err(_) => {
             tracing::info!("Machine has no atm.list, so will return empty list");
-            return Ok(vec![])
+            return Ok(vec![]);
         }
     };
 
