@@ -5,7 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.45.4 (2023-07-12)
+
+### Chore
+
+ - <csr-id-f80c74a8716eec4e1f92452af17b538bc728700c/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-490476915e93acef1d8906492d829314b99bf0b3/> Handle if atm.list does not exist
+ - <csr-id-9848ccf29cba8033616fd5f827cbcbc3f8022071/> Do not download error message write to due to
+ - <csr-id-68495613c654d03532459935b43530e404086748/> Fix build
+ - <csr-id-c5f07f819ea25bdf5eaee09daa849f11314d6ab2/> Fix not topics url 404 not found error handle
+ - <csr-id-8cd43b7c7700a5aa8cf6b3b0ecbd8f70b0a078f5/> Do not scan closed topics multi times
+
+### Other
+
+ - <csr-id-493c8a150b9edc13efb9e44980709210fd9b1102/> 校验和验证 -> 完整性验证
+
+### Refactor
+
+ - <csr-id-996f4ef45e660af0f988228983fb14390fc26813/> Improve sources.list scan error handle
+ - <csr-id-fd435127120400335b91b2d11af64c90f8003359/> Use tokio::task::spawn_blocking to run scan sources.list
+ - <csr-id-8026dfa552454dfa764fb08f57430f3bab611bab/> Improve logic
+
+### Style
+
+ - <csr-id-db2a36ba10a43038c3c1288f3dfce0d1bf815150/> Run cargo clippy and cargo fmt to lint code
+ - <csr-id-6628e697da549284c86a5858ec70788423b0b954/> Clean up useless code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 12 commits contributed to the release over the course of 3 calendar days.
+ - 4 days passed between releases.
+ - 12 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`f80c74a`](https://github.com/AOSC-Dev/oma/commit/f80c74a8716eec4e1f92452af17b538bc728700c))
+    - Improve sources.list scan error handle ([`996f4ef`](https://github.com/AOSC-Dev/oma/commit/996f4ef45e660af0f988228983fb14390fc26813))
+    - Use tokio::task::spawn_blocking to run scan sources.list ([`fd43512`](https://github.com/AOSC-Dev/oma/commit/fd435127120400335b91b2d11af64c90f8003359))
+    - Run cargo clippy and cargo fmt to lint code ([`db2a36b`](https://github.com/AOSC-Dev/oma/commit/db2a36ba10a43038c3c1288f3dfce0d1bf815150))
+    - Clean up useless code ([`6628e69`](https://github.com/AOSC-Dev/oma/commit/6628e697da549284c86a5858ec70788423b0b954))
+    - Handle if atm.list does not exist ([`4904769`](https://github.com/AOSC-Dev/oma/commit/490476915e93acef1d8906492d829314b99bf0b3))
+    - Do not download error message write to due to ([`9848ccf`](https://github.com/AOSC-Dev/oma/commit/9848ccf29cba8033616fd5f827cbcbc3f8022071))
+    - Improve logic ([`8026dfa`](https://github.com/AOSC-Dev/oma/commit/8026dfa552454dfa764fb08f57430f3bab611bab))
+    - Fix build ([`6849561`](https://github.com/AOSC-Dev/oma/commit/68495613c654d03532459935b43530e404086748))
+    - Fix not topics url 404 not found error handle ([`c5f07f8`](https://github.com/AOSC-Dev/oma/commit/c5f07f819ea25bdf5eaee09daa849f11314d6ab2))
+    - Do not scan closed topics multi times ([`8cd43b7`](https://github.com/AOSC-Dev/oma/commit/8cd43b7c7700a5aa8cf6b3b0ecbd8f70b0a078f5))
+    - 校验和验证 -> 完整性验证 ([`493c8a1`](https://github.com/AOSC-Dev/oma/commit/493c8a150b9edc13efb9e44980709210fd9b1102))
+</details>
+
 ## v0.45.3 (2023-07-07)
+
+<csr-id-f9316f3d458a8e15ac42b21c50727860576a6898/>
+<csr-id-f00395ba8b35c4b78ff072eb14ffbe7a8681e3d4/>
 
 ### Chore
 
@@ -23,7 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -34,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.45.3 ([`5ac021c`](https://github.com/AOSC-Dev/oma/commit/5ac021ce01af8315700eb85b8a1994349e845ce1))
     - Update all deps ([`f9316f3`](https://github.com/AOSC-Dev/oma/commit/f9316f3d458a8e15ac42b21c50727860576a6898))
     - Pin grep-cli version to fix rustc 1.68.2 build ([`bdb719a`](https://github.com/AOSC-Dev/oma/commit/bdb719ae405fd5af472f2689d60e36791f38fe6b))
     - Fix some zh-CN wrong ui string ([`f00395b`](https://github.com/AOSC-Dev/oma/commit/f00395ba8b35c4b78ff072eb14ffbe7a8681e3d4))
