@@ -390,7 +390,13 @@ pub fn dialoguer(
 
 pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
     let mut atm_sources = vec![];
-    let s = SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter())?;
+    let s = match SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter()) {
+        Ok(s) => s,
+        Err(_) => {
+            tracing::info!("Machine has no atm.list, so will return empty list");
+            return Ok(vec![])
+        }
+    };
 
     for file in s.iter() {
         for i in &file.lines {
@@ -444,4 +450,10 @@ pub async fn rm_topic(name: &str, client: &Client) -> Result<()> {
     tm.write_enabled(client).await?;
 
     Ok(())
+}
+
+#[tokio::test]
+async fn test() {
+    let client = Client::new();
+    scan_closed_topic(&client).await.unwrap();
 }
