@@ -465,11 +465,7 @@ fn format_deps(
                                 if cmp == CmpOrdering::Greater {
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
-                                        unmet_dependency: format!(
-                                            "{} >= {}",
-                                            c.name(),
-                                            need_ver,
-                                        ),
+                                        unmet_dependency: format!("{} >= {}", c.name(), need_ver,),
                                         specified_dependency: format!(
                                             "{} {}",
                                             c.name(),

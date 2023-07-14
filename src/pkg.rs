@@ -316,7 +316,7 @@ pub struct OmaDependency {
     pub ver: Option<String>,
     pub target_ver: Option<String>,
     pub comp_ver: Option<String>,
-    pub parent_ver: String
+    pub parent_ver: String,
 }
 
 impl OmaDependency {

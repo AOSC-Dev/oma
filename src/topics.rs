@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail, Context, Result};
-use apt_sources_lists::{SourceLine, SourcesLists, SourceError};
+use apt_sources_lists::{SourceError, SourceLine, SourcesLists};
 use indexmap::IndexMap;
 use indicatif::ProgressBar;
 use inquire::{
@@ -398,15 +398,13 @@ pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
 
     let s = match s {
         Ok(s) => s,
-        Err(e) => {
-            match e {
-                SourceError::SourcesListOpen { .. } => {
-                    tracing::info!("Machine has no atm.list, so will return empty list");
-                    return Ok(vec![]);
-                }
-                _ => bail!(e)
+        Err(e) => match e {
+            SourceError::SourcesListOpen { .. } => {
+                tracing::info!("Machine has no atm.list, so will return empty list");
+                return Ok(vec![]);
             }
-        }
+            _ => bail!(e),
+        },
     };
 
     for file in s.iter() {
