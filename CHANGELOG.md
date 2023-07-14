@@ -5,7 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.45.5 (2023-07-14)
+
+### Chore
+
+ - <csr-id-6ea9b4efad02f87835b02a8362aa60ea97bbf1b9/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-c22b113383ab2d7e9d8378faa82c5612fcc26f62/> Fix find_unmet_dep logic
+
+### Other
+
+ - <csr-id-e022bea19a537c725b2c5e6dcc0e3a82b544fa50/> Fix unmet-dependencies ui string
+
+### Style
+
+ - <csr-id-92115c9a11457a4a26bbf4f80dcbe65b8ab6c4c3/> Run cargo clippy and cargo fmt to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 1 calendar day.
+ - 2 days passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`6ea9b4e`](https://github.com/AOSC-Dev/oma/commit/6ea9b4efad02f87835b02a8362aa60ea97bbf1b9))
+    - Run cargo clippy and cargo fmt to lint code ([`92115c9`](https://github.com/AOSC-Dev/oma/commit/92115c9a11457a4a26bbf4f80dcbe65b8ab6c4c3))
+    - Fix find_unmet_dep logic ([`c22b113`](https://github.com/AOSC-Dev/oma/commit/c22b113383ab2d7e9d8378faa82c5612fcc26f62))
+    - Fix unmet-dependencies ui string ([`e022bea`](https://github.com/AOSC-Dev/oma/commit/e022bea19a537c725b2c5e6dcc0e3a82b544fa50))
+</details>
+
 ## v0.45.4 (2023-07-12)
+
+<csr-id-f80c74a8716eec4e1f92452af17b538bc728700c/>
+<csr-id-493c8a150b9edc13efb9e44980709210fd9b1102/>
+<csr-id-996f4ef45e660af0f988228983fb14390fc26813/>
+<csr-id-fd435127120400335b91b2d11af64c90f8003359/>
+<csr-id-8026dfa552454dfa764fb08f57430f3bab611bab/>
+<csr-id-db2a36ba10a43038c3c1288f3dfce0d1bf815150/>
+<csr-id-6628e697da549284c86a5858ec70788423b0b954/>
 
 ### Chore
 
@@ -38,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 12 commits contributed to the release over the course of 3 calendar days.
+ - 13 commits contributed to the release over the course of 3 calendar days.
  - 4 days passed between releases.
  - 12 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -50,6 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.45.4 ([`07314df`](https://github.com/AOSC-Dev/oma/commit/07314df9e94bae562793c898b0ea14a39c2536ad))
     - Update all deps ([`f80c74a`](https://github.com/AOSC-Dev/oma/commit/f80c74a8716eec4e1f92452af17b538bc728700c))
     - Improve sources.list scan error handle ([`996f4ef`](https://github.com/AOSC-Dev/oma/commit/996f4ef45e660af0f988228983fb14390fc26813))
     - Use tokio::task::spawn_blocking to run scan sources.list ([`fd43512`](https://github.com/AOSC-Dev/oma/commit/fd435127120400335b91b2d11af64c90f8003359))
