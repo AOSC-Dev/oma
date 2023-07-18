@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use rust_apt::{
     cache::{Cache, PackageSort},
     package::Package,
@@ -17,6 +19,8 @@ pub enum OmaDatabaseError {
     NoPackage(String),
     #[error("Pkg {0} has no version {1}")]
     NoVersion(String, String),
+    #[error("Can not find path for local package {0}")]
+    NoPath(String),
 }
 
 pub struct OmaDatabase<'a> {
@@ -28,6 +32,44 @@ pub type OmaDatabaseResult<T> = Result<T, OmaDatabaseError>;
 impl<'a> OmaDatabase<'a> {
     pub fn new(cache: &'a Cache) -> OmaDatabaseResult<OmaDatabase<'a>> {
         Ok(Self { cache })
+    }
+
+    pub fn query_local_glob(&self, file_glob: &str) -> OmaDatabaseResult<Vec<PkgInfo>> {
+        let mut res = vec![];
+        let sort = PackageSort::default().only_virtual();
+
+        let glob = self
+            .cache
+            .packages(&sort)?
+            .filter(|x| glob_match::glob_match_with_captures(file_glob, x.name()).is_some())
+            .collect::<Vec<_>>();
+
+        for i in glob {
+            let real_pkg = real_pkg(&i);
+            let pkg = Package::new(self.cache, real_pkg);
+            let path = url_no_escape(&format!(
+                "file:{}",
+                Path::new(i.name())
+                    .canonicalize()
+                    .map_err(|_| OmaDatabaseError::NoPath(i.name().to_string()))?
+                    .to_str()
+                    .unwrap_or(pkg.name())
+            ))
+            .to_string();
+
+            for ver in i.versions() {
+                let info = PkgInfo::new(self.cache, ver.unique(), &pkg);
+                let has = info
+                    .apt_sources
+                    .iter()
+                    .any(|x| url_no_escape(x) == path.as_str());
+                if has {
+                    res.push(info);
+                }
+            }
+        }
+
+        Ok(res)
     }
 
     pub fn query_from_glob(
@@ -131,6 +173,19 @@ fn real_pkg(pkg: &Package) -> RawPackage {
     }
 
     pkg.unique()
+}
+
+fn url_no_escape(s: &str) -> String {
+    let mut tmp = s.to_string();
+    loop {
+        let res = url_escape::decode(&tmp);
+        let res2 = url_escape::decode(&res);
+        if res == res2 {
+            return res.to_string();
+        } else {
+            tmp = res.to_string();
+        }
+    }
 }
 
 #[cfg(test)]

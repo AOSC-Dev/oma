@@ -2001,6 +2001,7 @@ dependencies = [
  "thiserror",
  "time",
  "tracing",
+ "url-escape",
 ]
 
 [[package]]
