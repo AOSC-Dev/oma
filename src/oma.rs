@@ -1245,24 +1245,30 @@ impl Oma {
 
         let mut res = vec![];
 
-        if let Ok(f) = f {
-            for (pkg, pkg_str) in f {
-                let p = cache.get(&pkg);
-                if p.is_none() {
-                    continue;
+        match f {
+            Ok(f) => {
+                for (pkg, pkg_str) in f {
+                    let p = cache.get(&pkg);
+                    if p.is_none() {
+                        continue;
+                    }
+                    let p = p.unwrap();
+                    let version = p.candidate().unwrap();
+                    let pkg_str = pkg_str.replace(": ", " (") + ")";
+                    let s = format!(
+                        "{pkg_str}: {}",
+                        version.description().unwrap_or("".to_string())
+                    );
+                    if !res.contains(&s) {
+                        res.push(s);
+                    }
                 }
-                let p = p.unwrap();
-                let version = p.candidate().unwrap();
-                let pkg_str = pkg_str.replace(": ", " (") + ")";
-                let s = format!(
-                    "{pkg_str}: {}",
-                    version.description().unwrap_or("".to_string())
-                );
-                if !res.contains(&s) {
-                    res.push(s);
-                }
+            },
+            Err(e) => {
+                error!("{e}");
             }
         }
+    
         if !res.is_empty() {
             println!(
                 "{}",
