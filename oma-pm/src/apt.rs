@@ -40,18 +40,25 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn install(&self, keywords: Vec<&str>, reinstall: bool) -> OmaAptResult<()> {
-        let pkgs = select_pkg(keywords, &self.cache)?;
-
+    pub fn install(&self, pkgs: Vec<PkgInfo>, reinstall: bool) -> OmaAptResult<()> {
         for pkg in pkgs {
             mark_install(&self.cache, pkg, reinstall)?;
         }
 
         Ok(())
     }
+
+    pub fn remove(&self, pkgs: Vec<PkgInfo>, purge: bool) -> OmaAptResult<()> {
+        for pkg in pkgs {
+            let pkg = Package::new(&self.cache, pkg.raw_pkg.unique());
+            pkg.mark_delete(purge);
+        }
+        
+        Ok(())
+    }
 }
 
-fn select_pkg(keywords: Vec<&str>, cache: &Cache) -> OmaAptResult<Vec<PkgInfo>> {
+pub fn select_pkg(keywords: Vec<&str>, cache: &Cache) -> OmaAptResult<Vec<PkgInfo>> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
     for keyword in keywords {
