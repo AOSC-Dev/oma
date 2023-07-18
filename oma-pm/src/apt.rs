@@ -41,15 +41,7 @@ impl OmaApt {
     }
 
     pub fn install(&self, keywords: Vec<&str>, reinstall: bool) -> OmaAptResult<()> {
-        let db = OmaDatabase::new(&self.cache)?;
-        let mut pkgs = vec![];
-        for keyword in keywords {
-            pkgs.extend(match keyword {
-                x if x.split_once('/').is_some() => db.query_from_branch(x, true)?,
-                x if x.split_once('=').is_some() => vec![db.query_from_version(x)?],
-                x => db.query_from_glob(x, true)?,
-            });
-        }
+        let pkgs = select_pkg(keywords, &self.cache)?;
 
         for pkg in pkgs {
             mark_install(&self.cache, pkg, reinstall)?;
@@ -57,6 +49,21 @@ impl OmaApt {
 
         Ok(())
     }
+}
+
+fn select_pkg(keywords: Vec<&str>, cache: &Cache) -> OmaAptResult<Vec<PkgInfo>> {
+    let db = OmaDatabase::new(cache)?;
+    let mut pkgs = vec![];
+    for keyword in keywords {
+        pkgs.extend(match keyword {
+            x if x.ends_with(".deb") => db.query_local_glob(x)?,
+            x if x.split_once('/').is_some() => db.query_from_branch(x, true)?,
+            x if x.split_once('=').is_some() => vec![db.query_from_version(x)?],
+            x => db.query_from_glob(x, true)?,
+        });
+    }
+
+    Ok(pkgs)
 }
 
 fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResult<()> {
@@ -79,6 +86,7 @@ fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResul
         pkg.mark_install(true, true);
         if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
             // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
+            // TODO: 依赖信息显示
             tracing::error!("Dep issue: {}", pkg.name());
             return Err(OmaAptError::DependencyIssue);
         }
