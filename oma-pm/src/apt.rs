@@ -23,6 +23,8 @@ pub enum OmaAptError {
     MarkReinstallError(String),
     #[error("Dep issue")]
     DependencyIssue,
+    #[error("Package: {0} is essential.")]
+    PkgIsEssential(String),
 }
 
 type OmaAptResult<T> = Result<T, OmaAptError>;
@@ -48,12 +50,19 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn remove(&self, pkgs: Vec<PkgInfo>, purge: bool) -> OmaAptResult<()> {
+    pub fn remove(&self, pkgs: Vec<PkgInfo>, purge: bool, protect: bool) -> OmaAptResult<()> {
         for pkg in pkgs {
             let pkg = Package::new(&self.cache, pkg.raw_pkg.unique());
+            if pkg.is_essential() {
+                if protect {
+                    return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
+                } else {
+                    todo!()
+                }
+            }
             pkg.mark_delete(purge);
         }
-        
+
         Ok(())
     }
 }
