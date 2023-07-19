@@ -1,3 +1,5 @@
+use std::io::IsTerminal;
+
 use rust_apt::{
     cache::{Cache, Upgrade},
     new_cache,
@@ -57,13 +59,21 @@ impl OmaApt {
                 if protect {
                     return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
                 } else {
-                    todo!()
+                    if std::io::stdout().is_terminal() {
+                        todo!()
+                    } else {
+                        return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
+                    }
                 }
             }
             pkg.mark_delete(purge);
         }
 
         Ok(())
+    }
+
+    pub fn commit(self) -> OmaAptResult<()> {
+        todo!()
     }
 }
 
