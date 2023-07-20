@@ -2,7 +2,8 @@ pub struct InstallEntry {
     name: String,
     old_version: Option<String>,
     new_version: String,
-    size: u64,
+    old_size: Option<u64>,
+    new_size: u64,
     pkg_urls: Vec<String>,
     checksum: String,
 }
@@ -11,15 +12,26 @@ pub struct RemoveEntry {
     name: String,
     version: String,
     size: u64,
-    details: Option<String>,
+    details: Vec<RemoveTag>
 }
 
-pub enum OmaOpration {
+pub enum RemoveTag {
+    Purge,
+    AutoRemove,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum OmaOperation {
+    Install,
+    ReInstall,
+    Remove,
+    Upgrade,
+    Downgrade,
+}
+
+pub enum OperationEntry {
     Install(InstallEntry),
-    ReInstall(InstallEntry),
     Remove(RemoveEntry),
-    Upgrade(InstallEntry),
-    Downgrade(InstallEntry),
 }
 
 impl InstallEntry {
@@ -27,7 +39,8 @@ impl InstallEntry {
         name: String,
         old_version: Option<String>,
         new_version: String,
-        size: u64,
+        old_size: Option<u64>,
+        new_size: u64,
         pkg_urls: Vec<String>,
         checksum: String,
     ) -> Self {
@@ -35,7 +48,8 @@ impl InstallEntry {
             name,
             old_version,
             new_version,
-            size,
+            old_size,
+            new_size,
             pkg_urls,
             checksum,
         }
@@ -45,8 +59,12 @@ impl InstallEntry {
         &self.name
     }
 
-    pub fn size(&self) -> u64 {
-        self.size
+    pub fn old_size(&self) -> Option<u64> {
+        self.old_size
+    }
+
+    pub fn new_size(&self) -> u64 {
+        self.new_size
     }
 
     pub fn old_version(&self) -> Option<&str> {
@@ -67,7 +85,7 @@ impl InstallEntry {
 }
 
 impl RemoveEntry {
-    pub fn new(name: String, version: String, size: u64, details: Option<String>) -> Self {
+    pub fn new(name: String, version: String, size: u64, details: Vec<RemoveTag>) -> Self {
         Self {
             name,
             version,
@@ -88,7 +106,7 @@ impl RemoveEntry {
         self.size
     }
 
-    pub fn details(&self) -> Option<&str> {
-        self.details.as_deref()
+    pub fn details(&self) -> &[RemoveTag] {
+        &self.details
     }
 }
