@@ -1,12 +1,14 @@
-use std::io::IsTerminal;
+use std::{collections::HashMap, io::IsTerminal};
 
 use rust_apt::{
     cache::{Cache, Upgrade},
     new_cache,
     package::{Package, Version},
+    records::RecordField,
 };
 
 use crate::{
+    operation::{InstallEntry, OmaOperation, OperationEntry, RemoveEntry, RemoveTag},
     pkginfo::PkgInfo,
     query::{OmaDatabase, OmaDatabaseError},
 };
@@ -27,6 +29,10 @@ pub enum OmaAptError {
     DependencyIssue,
     #[error("Package: {0} is essential.")]
     PkgIsEssential(String),
+    #[error("Package: {0} is no candidate.")]
+    PkgNoCandidate(String),
+    #[error("Package: {0} has no SHA256 checksum.")]
+    PkgNoChecksum(String),
 }
 
 type OmaAptResult<T> = Result<T, OmaAptError>;
@@ -74,6 +80,108 @@ impl OmaApt {
 
     pub fn commit(self) -> OmaAptResult<()> {
         todo!()
+    }
+
+    pub fn into_operation_map(&self) -> OmaAptResult<HashMap<OmaOperation, Vec<OperationEntry>>> {
+        let mut res = HashMap::new();
+        let changes = self.cache.get_changes(false)?;
+
+        res.insert(OmaOperation::Install, vec![]);
+        res.insert(OmaOperation::Upgrade, vec![]);
+        res.insert(OmaOperation::ReInstall, vec![]);
+        res.insert(OmaOperation::Remove, vec![]);
+        res.insert(OmaOperation::Downgrade, vec![]);
+
+        for pkg in changes {
+            if pkg.marked_install() {
+                let cand = pkg
+                    .candidate()
+                    .take()
+                    .ok_or_else(|| OmaAptError::PkgNoCandidate(pkg.name().to_string()))?;
+
+                let uri = cand.uris().collect::<Vec<_>>();
+                let version = cand.version();
+                let checksum = cand
+                    .get_record(RecordField::SHA256)
+                    .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?;
+
+                let size = cand.size();
+
+                let install_entry = InstallEntry::new(
+                    pkg.name().to_string(),
+                    None,
+                    version.to_string(),
+                    None,
+                    size,
+                    uri,
+                    checksum,
+                );
+
+                res.get_mut(&OmaOperation::Install)
+                    .unwrap()
+                    .push(OperationEntry::Install(install_entry));
+
+                // If the package is marked install then it will also
+                // show up as marked upgrade, downgrade etc.
+                // Check this first and continue.
+                continue;
+            }
+
+            if pkg.marked_upgrade() {
+                let cand = pkg
+                    .candidate()
+                    .take()
+                    .ok_or_else(|| OmaAptError::PkgNoCandidate(pkg.name().to_string()))?;
+
+                let new_version = cand.version();
+
+                let installed = pkg.installed().unwrap();
+
+                let old_version = installed.version();
+
+                let checksum = cand
+                    .get_record(RecordField::SHA256)
+                    .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?;
+
+                let install_entry = InstallEntry::new(
+                    pkg.name().to_string(),
+                    Some(old_version.to_string()),
+                    new_version.to_owned(),
+                    Some(installed.installed_size()),
+                    cand.installed_size(),
+                    cand.uris().collect::<Vec<_>>(),
+                    checksum,
+                );
+
+                res.get_mut(&OmaOperation::Upgrade)
+                    .unwrap()
+                    .push(OperationEntry::Install(install_entry));
+            }
+
+            if pkg.marked_delete() {
+                let name = pkg.name();
+                let is_purge = pkg.marked_purge();
+
+                let mut tags = vec![];
+                if is_purge {
+                    tags.push(RemoveTag::Purge);
+                }
+                // TODO: autoremove
+
+                let installed = pkg.installed().unwrap();
+                let version = installed.version();
+                let size = installed.size();
+
+                let remove_entry =
+                    RemoveEntry::new(name.to_string(), version.to_owned(), size, tags);
+
+                res.get_mut(&OmaOperation::Remove)
+                    .unwrap()
+                    .push(OperationEntry::Remove(remove_entry));
+            }
+        }
+
+        Ok(res)
     }
 }
 
