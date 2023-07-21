@@ -128,30 +128,7 @@ impl OmaApt {
             }
 
             if pkg.marked_upgrade() {
-                let cand = pkg
-                    .candidate()
-                    .take()
-                    .ok_or_else(|| OmaAptError::PkgNoCandidate(pkg.name().to_string()))?;
-
-                let new_version = cand.version();
-
-                let installed = pkg.installed().unwrap();
-
-                let old_version = installed.version();
-
-                let checksum = cand
-                    .get_record(RecordField::SHA256)
-                    .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?;
-
-                let install_entry = InstallEntry::new(
-                    pkg.name().to_string(),
-                    Some(old_version.to_string()),
-                    new_version.to_owned(),
-                    Some(installed.installed_size()),
-                    cand.installed_size(),
-                    cand.uris().collect::<Vec<_>>(),
-                    checksum,
-                );
+                let install_entry = pkg_delta(&pkg)?;
 
                 res.get_mut(&OmaOperation::Upgrade)
                     .unwrap()
@@ -179,10 +156,67 @@ impl OmaApt {
                     .unwrap()
                     .push(OperationEntry::Remove(remove_entry));
             }
+
+            if pkg.marked_reinstall() {
+                let version = pkg.installed().unwrap();
+
+                let checksum = version
+                    .get_record(RecordField::SHA256)
+                    .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?;
+
+                let install_entry = InstallEntry::new(
+                    pkg.name().to_string(),
+                    None,
+                    version.version().to_string(),
+                    Some(version.installed_size()),
+                    version.installed_size(),
+                    version.uris().collect(),
+                    checksum,
+                );
+
+                res.get_mut(&OmaOperation::ReInstall)
+                    .unwrap()
+                    .push(OperationEntry::Install(install_entry))
+            }
+
+            if pkg.marked_downgrade() {
+                let install_entry = pkg_delta(&pkg)?;
+
+                res.get_mut(&OmaOperation::Downgrade)
+                    .unwrap()
+                    .push(OperationEntry::Install(install_entry));
+            }
         }
 
         Ok(res)
     }
+}
+
+fn pkg_delta(new_pkg: &Package) -> OmaAptResult<InstallEntry> {
+    let cand = new_pkg
+        .candidate()
+        .take()
+        .ok_or_else(|| OmaAptError::PkgNoCandidate(new_pkg.name().to_string()))?;
+
+    let new_version = cand.version();
+    let installed = new_pkg.installed().unwrap();
+    let old_version = installed.version();
+
+    let checksum = cand
+        .get_record(RecordField::SHA256)
+        .ok_or_else(|| OmaAptError::PkgNoChecksum(new_pkg.name().to_string()))?;
+
+    let install_entry = InstallEntry::new(
+        new_pkg.name().to_string(),
+        Some(old_version.to_string()),
+        new_version.to_owned(),
+        Some(installed.installed_size()),
+        cand.installed_size(),
+        cand.uris().collect::<Vec<_>>(),
+        checksum,
+    );
+
+    Ok(install_entry)
 }
 
 pub fn select_pkg(keywords: Vec<&str>, cache: &Cache) -> OmaAptResult<Vec<PkgInfo>> {
