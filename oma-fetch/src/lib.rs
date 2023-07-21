@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use futures::{future::BoxFuture, StreamExt};
+use futures::StreamExt;
 use oma_console::{
     indicatif::{self, MultiProgress, ProgressBar},
     writer::Writer,
@@ -11,7 +11,7 @@ use reqwest::{Client, ClientBuilder};
 pub mod checksum;
 mod download;
 
-use download::{download_local, try_http_download};
+use download::try_download;
 
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
@@ -33,44 +33,71 @@ pub enum DownloadError {
     TemplateError(#[from] indicatif::style::TemplateError),
     #[error("Failed to open local source file {0}: {1}")]
     FailedOpenLocalSourceFile(String, String),
+    #[error("Download all file failed: {0}")]
+    DownloadAllFailed(String),
 }
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DownloadEntry {
-    url: String,
+    source: Vec<DownloadSource>,
     filename: String,
     dir: PathBuf,
     hash: Option<String>,
     allow_resume: bool,
-    source_type: DownloadSourceType,
     msg: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct DownloadSource {
+    url: String,
+    source_type: DownloadSourceType,
+}
+
+
+impl DownloadSource {
+    pub fn new(url: String, source_type: DownloadSourceType) -> Self {
+        Self { url, source_type }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Clone)]
 pub enum DownloadSourceType {
     Http,
     Local,
 }
 
+impl Ord for DownloadSourceType {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self {
+            DownloadSourceType::Http => match other {
+                DownloadSourceType::Http => std::cmp::Ordering::Equal,
+                DownloadSourceType::Local => std::cmp::Ordering::Less,
+            },
+            DownloadSourceType::Local => match other {
+                DownloadSourceType::Http => std::cmp::Ordering::Greater,
+                DownloadSourceType::Local => std::cmp::Ordering::Equal,
+            },
+        }
+    }
+}
+
 impl DownloadEntry {
     pub fn new(
-        url: String,
+        source: Vec<DownloadSource>,
         filename: String,
         dir: PathBuf,
         hash: Option<String>,
         allow_resume: bool,
-        source_type: DownloadSourceType,
         msg: Option<String>,
     ) -> Self {
         Self {
-            url,
+            source,
             filename,
             dir,
             hash,
             allow_resume,
-            source_type,
             msg,
         }
     }
@@ -188,24 +215,15 @@ impl OmaFetcher {
             } else {
                 None
             };
-            match c.source_type {
-                DownloadSourceType::Http => {
-                    let task: BoxFuture<'_, DownloadResult<Summary>> = Box::pin(try_http_download(
-                        &self.client,
-                        c,
-                        fpb,
-                        i,
-                        self.retry_times,
-                        c.msg.clone(),
-                    ));
-                    tasks.push(task);
-                }
-                DownloadSourceType::Local => {
-                    let task: BoxFuture<'_, DownloadResult<Summary>> =
-                        Box::pin(download_local(c, fpb, i, c.msg.clone()));
-                    tasks.push(task);
-                }
-            }
+
+            tasks.push(try_download(
+                &self.client,
+                c,
+                fpb,
+                i,
+                self.retry_times,
+                None,
+            ));
         }
 
         let stream = futures::stream::iter(tasks).buffer_unordered(self.limit_thread);
