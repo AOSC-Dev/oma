@@ -7,7 +7,9 @@ use crate::fl;
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use futures::StreamExt;
 use oma_console::indicatif::{style::TemplateError, MultiProgress, ProgressBar};
-use oma_fetch::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, OmaFetcher};
+use oma_fetch::{
+    DownloadEntry, DownloadError, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
+};
 use once_cell::sync::Lazy;
 use reqwest::ClientBuilder;
 use serde::Deserialize;
@@ -286,12 +288,14 @@ async fn update_db(
         match source_entry.from {
             OmaSourceEntryFrom::Http => {
                 let task = DownloadEntry::new(
-                    source_entry.inrelease_path.clone(),
+                    vec![DownloadSource::new(
+                        source_entry.inrelease_path.clone(),
+                        DownloadSourceType::Http,
+                    )],
                     database_filename(&source_entry.inrelease_path),
                     download_dir.clone(),
                     None,
                     false,
-                    DownloadSourceType::Http,
                     Some(format!("{msg} InRelease")),
                 );
 
@@ -300,12 +304,14 @@ async fn update_db(
             }
             OmaSourceEntryFrom::Local => {
                 let task = DownloadEntry::new(
-                    source_entry.inrelease_path.clone(),
+                    vec![DownloadSource::new(
+                        source_entry.inrelease_path.clone(),
+                        DownloadSourceType::Local,
+                    )],
                     database_filename(&source_entry.inrelease_path),
                     download_dir.clone(),
                     None,
                     false,
-                    DownloadSourceType::Http,
                     Some(msg),
                 );
 
@@ -471,12 +477,14 @@ async fn update_db(
                     let file_path = format!("{}/{}", dist_url, c.name);
 
                     let task = DownloadEntry::new(
-                        file_path.clone(),
+                        vec![DownloadSource::new(
+                            file_path.clone(),
+                            DownloadSourceType::Http,
+                        )],
                         database_filename(&file_path),
                         download_dir.clone(),
                         Some(c.checksum.clone()),
                         false,
-                        DownloadSourceType::Http,
                         Some(format!("{msg} {typ}")),
                     );
 
@@ -494,12 +502,11 @@ async fn update_db(
                     tracing::debug!("oma will download local source database: {p} {}", c.name);
 
                     let task = DownloadEntry::new(
-                        p.clone(),
+                        vec![DownloadSource::new(p.clone(), DownloadSourceType::Local)],
                         database_filename(&p),
                         download_dir.clone(),
                         Some(c.checksum.clone()),
                         false,
-                        DownloadSourceType::Local,
                         Some(format!("{msg} {typ}")),
                     );
 

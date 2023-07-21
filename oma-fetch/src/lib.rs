@@ -222,7 +222,7 @@ impl OmaFetcher {
                 fpb,
                 i,
                 self.retry_times,
-                None,
+                c.msg.clone(),
             ));
         }
 
