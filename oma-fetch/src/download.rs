@@ -9,10 +9,11 @@ use reqwest::{
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::{
-    checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, FetchProgressBar, Summary,
+    checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, DownloadSourceType,
+    FetchProgressBar, Summary,
 };
 
-pub(crate) async fn try_http_download(
+pub(crate) async fn try_download(
     client: &Client,
     entry: &DownloadEntry,
     fpb: Option<FetchProgressBar>,
@@ -20,24 +21,69 @@ pub(crate) async fn try_http_download(
     retry_times: usize,
     context: Option<String>,
 ) -> DownloadResult<Summary> {
+    let mut sources = entry.source.clone();
+    sources.sort_by(|a, b| a.source_type.cmp(&b.source_type));
+
+    let mut res = None;
+
+    for (i, c) in sources.iter().enumerate() {
+        let download_res = match c.source_type {
+            DownloadSourceType::Http => {
+                try_http_download(
+                    client,
+                    entry,
+                    fpb.clone(),
+                    count,
+                    retry_times,
+                    context.clone(),
+                    i
+                )
+                .await
+            }
+            DownloadSourceType::Local => {
+                download_local(entry, fpb.clone(), count, context.clone(), i).await
+            }
+        };
+
+        match download_res {
+            Ok(download_res) => {
+                res = Some(download_res);
+                break;
+            }
+            Err(e) => {
+                tracing::error!("Download failed: {e}, trying next mirror ...");
+            }
+        }
+    }
+
+    res.ok_or_else(|| DownloadError::DownloadAllFailed(entry.filename.to_string()))
+}
+
+async fn try_http_download(
+    client: &Client,
+    entry: &DownloadEntry,
+    fpb: Option<FetchProgressBar>,
+    count: usize,
+    retry_times: usize,
+    context: Option<String>,
+    position: usize,
+) -> DownloadResult<Summary> {
     let mut times = 0;
     loop {
-        match http_download(client, entry, fpb.clone(), count, context.clone()).await {
+        match http_download(client, entry, fpb.clone(), count, context.clone(), position).await {
             Ok(s) => {
                 return Ok(s);
             }
-            Err(e) => {
-                match e {
-                    DownloadError::ChecksumMisMatch(_) | DownloadError::ReqwestError(_) => {
-                        if retry_times == times {
-                            return Err(e);
-                        }
-                        tracing::warn!("Download Error: {e:?}, retrying {times} times ...");
-                        times += 1;
+            Err(e) => match e {
+                DownloadError::ChecksumMisMatch(_) | DownloadError::ReqwestError(_) => {
+                    if retry_times == times {
+                        return Err(e);
                     }
-                    _ => return Err(e),
+                    tracing::warn!("Download Error: {e:?}, retrying {times} times ...");
+                    times += 1;
                 }
-            }
+                _ => return Err(e),
+            },
         }
     }
 }
@@ -49,6 +95,7 @@ async fn http_download(
     fpb: Option<FetchProgressBar>,
     count: usize,
     context: Option<String>,
+    position: usize,
 ) -> DownloadResult<Summary> {
     let file = entry.dir.join(&entry.filename);
     let file_exist = file.exists();
@@ -149,7 +196,7 @@ async fn http_download(
         None
     };
 
-    let url = entry.url.clone();
+    let url = entry.source[position].url.clone();
     let resp_head = client.head(url).send().await?;
 
     let head = resp_head.headers();
@@ -172,7 +219,7 @@ async fn http_download(
             .map(|x| x.to_owned())
             .unwrap_or(HeaderValue::from(0));
 
-        let url = entry.url.clone();
+        let url = entry.source[position].url.clone();
 
         total_size
             .to_str()
@@ -183,7 +230,7 @@ async fn http_download(
 
     tracing::debug!("File total size is: {total_size}");
 
-    let url = entry.url.clone();
+    let url = entry.source[position].url.clone();
     let mut req = client.get(url);
 
     if can_resume && entry.allow_resume {
@@ -210,7 +257,7 @@ async fn http_download(
         }
         match e.status() {
             Some(StatusCode::NOT_FOUND) => {
-                let url = entry.url.to_string();
+                let url = entry.source[position].url.clone();
                 return Err(DownloadError::NotFound(url));
             }
             _ => return Err(e.into()),
@@ -336,7 +383,8 @@ async fn http_download(
                 pb.reset();
             }
 
-            return Err(DownloadError::ChecksumMisMatch(entry.url.to_string()));
+            let url = entry.source[position].url.clone();
+            return Err(DownloadError::ChecksumMisMatch(url));
         }
 
         tracing::debug!("checksum success: {}", entry.filename);
@@ -354,10 +402,12 @@ pub async fn download_local(
     fpb: Option<FetchProgressBar>,
     count: usize,
     context: Option<String>,
+    position: usize,
 ) -> DownloadResult<Summary> {
     let pb = fpb.as_ref().map(|x| x.mb.add(ProgressBar::new_spinner()));
 
-    let mut from = tokio::fs::File::open(&entry.url).await.map_err(|e| {
+    let url = &entry.source[position].url;
+    let mut from = tokio::fs::File::open(url).await.map_err(|e| {
         DownloadError::FailedOpenLocalSourceFile(entry.filename.clone(), e.to_string())
     })?;
 
