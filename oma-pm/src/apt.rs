@@ -1,9 +1,10 @@
 use std::{
     collections::HashMap,
     io::{IsTerminal, Write},
+    path::{Path, PathBuf},
 };
 
-use oma_fetch::{DownloadEntry, DownloadSource, DownloadSourceType, OmaFetcher};
+use oma_fetch::{DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher};
 use rust_apt::{
     cache::{Cache, Upgrade},
     config::Config as AptConfig,
@@ -41,6 +42,10 @@ pub enum OmaAptError {
     PkgNoCandidate(String),
     #[error("Package: {0} has no SHA256 checksum.")]
     PkgNoChecksum(String),
+    #[error("Ivaild file name: {0}")]
+    InvalidFileName(String),
+    #[error(transparent)]
+    DownlaodError(#[from] DownloadError),
 }
 
 type OmaAptResult<T> = Result<T, OmaAptError>;
@@ -49,7 +54,7 @@ impl OmaApt {
     pub fn new() -> OmaAptResult<Self> {
         Ok(Self {
             cache: new_cache!()?,
-            config: AptConfig::new_clear(),
+            config: AptConfig::new(),
         })
     }
 
@@ -97,6 +102,10 @@ impl OmaApt {
             .flatten()
             .collect::<Vec<_>>();
 
+        let mut download_list = vec![];
+
+        let mut total_size = 0;
+
         for entry in download_pkg_list {
             let OperationEntry::Install(v) = entry else { unreachable!() };
             let uris = v.pkg_urls();
@@ -113,10 +122,46 @@ impl OmaApt {
                 })
                 .collect::<Vec<_>>();
 
-            let entry = DownloadEntry::new(sources, filename, dir, hash, allow_resume, msg)
+            let filename = uris
+                .first()
+                .and_then(|x| x.split('/').last())
+                .take()
+                .ok_or_else(|| OmaAptError::InvalidFileName(v.name().to_string()))?;
+
+            let download_entry = DownloadEntry::new(
+                sources,
+                apt_style_filename(filename, v.new_version().to_string())?,
+                self.get_archive_dir(),
+                Some(v.checksum().to_owned()),
+                true,
+                Some(format!("{} {} ({})", v.name(), v.new_version(), v.arch())),
+            );
+
+            total_size += v.download_size();
+
+            download_list.push(download_entry);
         }
 
+        let downloader =
+            OmaFetcher::new(None, true, Some(total_size), download_list, network_thread)?;
+
         todo!()
+    }
+
+    fn get_archive_dir(&self) -> PathBuf {
+        let archives_dir = self.config.get("Dir::Cache::Archives");
+
+        let path = if let Some(archives_dir) = archives_dir {
+            if !Path::new(&archives_dir).is_absolute() {
+                PathBuf::from(format!("/var/cache/apt/{archives_dir}"))
+            } else {
+                PathBuf::from(archives_dir)
+            }
+        } else {
+            PathBuf::from("/var/cache/apt/archives/")
+        };
+
+        path
     }
 
     pub fn operation_map(&self) -> OmaAptResult<HashMap<OmaOperation, Vec<OperationEntry>>> {
@@ -142,7 +187,7 @@ impl OmaApt {
                     .get_record(RecordField::SHA256)
                     .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?;
 
-                let size = cand.size();
+                let size = cand.installed_size();
 
                 let install_entry = InstallEntry::new(
                     pkg.name().to_string(),
@@ -152,6 +197,8 @@ impl OmaApt {
                     size,
                     uri,
                     checksum,
+                    pkg.arch().to_string(),
+                    cand.size(),
                 );
 
                 res.get_mut(&OmaOperation::Install)
@@ -209,6 +256,8 @@ impl OmaApt {
                     version.installed_size(),
                     version.uris().collect(),
                     checksum,
+                    pkg.arch().to_string(),
+                    0,
                 );
 
                 res.get_mut(&OmaOperation::ReInstall)
@@ -251,6 +300,8 @@ fn pkg_delta(new_pkg: &Package) -> OmaAptResult<InstallEntry> {
         cand.installed_size(),
         cand.uris().collect::<Vec<_>>(),
         checksum,
+        new_pkg.arch().to_string(),
+        cand.size(),
     );
 
     Ok(install_entry)
@@ -436,4 +487,29 @@ impl InstallProgress for OmaAptInstallProgress {
 
     // TODO: Need to figure out when to use this.
     fn error(&mut self, _pkgname: String, _steps_done: u64, _total_steps: u64, _error: String) {}
+}
+
+fn apt_style_filename(filename: &str, version: String) -> OmaAptResult<String> {
+    let mut filename_split = filename.split('_');
+
+    let package = filename_split
+        .next()
+        .take()
+        .ok_or_else(|| OmaAptError::InvalidFileName(filename.to_owned()))?;
+
+    let arch_deb = filename_split
+        .nth(1)
+        .take()
+        .ok_or_else(|| OmaAptError::InvalidFileName(filename.to_owned()))?;
+
+    let arch_deb = if arch_deb == "noarch.deb" {
+        "all.deb"
+    } else {
+        arch_deb
+    };
+
+    let version = version.replace(':', "%3a");
+    let filename = format!("{package}_{version}_{arch_deb}").replace("%2b", "+");
+
+    Ok(filename)
 }

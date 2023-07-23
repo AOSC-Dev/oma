@@ -6,13 +6,15 @@ pub struct InstallEntry {
     new_size: u64,
     pkg_urls: Vec<String>,
     checksum: String,
+    arch: String,
+    download_size: u64,
 }
 
 pub struct RemoveEntry {
     name: String,
     version: String,
     size: u64,
-    details: Vec<RemoveTag>
+    details: Vec<RemoveTag>,
 }
 
 pub enum RemoveTag {
@@ -43,6 +45,8 @@ impl InstallEntry {
         new_size: u64,
         pkg_urls: Vec<String>,
         checksum: String,
+        arch: String,
+        download_size: u64,
     ) -> Self {
         Self {
             name,
@@ -52,6 +56,8 @@ impl InstallEntry {
             new_size,
             pkg_urls,
             checksum,
+            arch,
+            download_size,
         }
     }
 
@@ -81,6 +87,14 @@ impl InstallEntry {
 
     pub fn checksum(&self) -> &str {
         &self.checksum
+    }
+
+    pub fn arch(&self) -> &str {
+        &self.arch
+    }
+
+    pub fn download_size(&self) -> u64 {
+        self.download_size
     }
 }
 
