@@ -140,6 +140,7 @@ pub struct PkgInfo {
     pub recommend: OmaDependencyGroup,
     pub suggest: OmaDependencyGroup,
     pub is_candidate: bool,
+    pub arch: String,
 }
 
 impl PkgInfo {
@@ -190,6 +191,8 @@ impl PkgInfo {
 
         let raw_pkg = pkg.unique();
 
+        let arch = pkg.arch();
+
         Self {
             section,
             maintainer,
@@ -207,6 +210,7 @@ impl PkgInfo {
             recommend,
             suggest,
             is_candidate: is_cand,
+            arch: arch.to_string(),
         }
     }
 
