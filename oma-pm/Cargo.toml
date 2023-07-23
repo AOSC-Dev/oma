@@ -14,3 +14,4 @@ glob-match = "0.2"
 indicium = "0.4"
 oma-utils = { path = "../oma-utils" }
 url-escape = "0.1"
+oma-fetch = { path = "../oma-fetch" }

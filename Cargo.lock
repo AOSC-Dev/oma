@@ -1996,6 +1996,7 @@ version = "0.1.0"
 dependencies = [
  "glob-match",
  "indicium",
+ "oma-fetch",
  "oma-utils",
  "rust-apt",
  "thiserror",
