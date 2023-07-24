@@ -3,6 +3,7 @@ pub mod pb;
 pub mod writer;
 pub use console;
 pub use indicatif;
+pub use dialoguer;
 
 pub type Result<T> = std::result::Result<T, OmaConsoleError>;
 
