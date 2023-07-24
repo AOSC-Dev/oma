@@ -111,32 +111,7 @@ impl OmaApt {
                     return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
                 } else {
                     if cli_output {
-                        let writer = Writer::default();
-                        let theme = ColorfulTheme::default();
-                        let delete = Confirm::with_theme(&theme)
-                            .with_prompt(format!(
-                                "DELETE THIS PACKAGE? PACKAGE {} IS ESSENTIAL!",
-                                pkg.name()
-                            ))
-                            .default(false)
-                            .interact()?;
-                        if !delete {
-                            info!(writer, "Not confirmed.");
-                            return Ok(());
-                        }
-                        info!(
-                            writer,
-                            "If you are absolutely sure, please type the following: {}",
-                            style("Do as I say!").bold()
-                        );
-                        if Input::<String>::with_theme(&theme)
-                            .with_prompt("Your turn")
-                            .interact()?
-                            != "Do as I say!"
-                        {
-                            info!(writer, "Prompt answered incorrectly. Not confirmed.");
-                            return Ok(());
-                        }
+                        ask_user_do_as_i_say(&pkg)?;
                     } else {
                         return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
                     }
@@ -160,13 +135,13 @@ impl OmaApt {
             })
             .collect::<Vec<_>>();
 
-        let runtime = tokio::runtime::Builder::new_multi_thread()
+        let tokio = tokio::runtime::Builder::new_multi_thread()
             .enable_io()
             .build()?;
 
         let path = self.get_archive_dir();
 
-        let (success, failed) = runtime.block_on(async move {
+        let (success, failed) = tokio.block_on(async move {
             Self::download_pkgs(download_pkg_list, network_thread, &path).await
         })?;
 
@@ -366,6 +341,35 @@ impl OmaApt {
 
         Ok(res)
     }
+}
+
+fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<(), OmaAptError> {
+    let writer = Writer::default();
+    let theme = ColorfulTheme::default();
+    let delete = Confirm::with_theme(&theme)
+        .with_prompt(format!(
+            "DELETE THIS PACKAGE? PACKAGE {} IS ESSENTIAL!",
+            pkg.name()
+        ))
+        .default(false)
+        .interact()?;
+    if !delete {
+        info!(writer, "Not confirmed.");
+        return Ok(());
+    }
+    info!(
+        writer,
+        "If you are absolutely sure, please type the following: {}",
+        style("Do as I say!").bold()
+    );
+    Ok(if Input::<String>::with_theme(&theme)
+        .with_prompt("Your turn")
+        .interact()?
+        != "Do as I say!"
+    {
+        info!(writer, "Prompt answered incorrectly. Not confirmed.");
+        return Ok(());
+    })
 }
 
 fn pkg_delta(new_pkg: &Package) -> OmaAptResult<InstallEntry> {
