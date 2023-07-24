@@ -1956,6 +1956,7 @@ name = "oma-console"
 version = "0.1.0"
 dependencies = [
  "console",
+ "dialoguer",
  "indicatif",
  "thiserror",
 ]
@@ -1996,6 +1997,7 @@ version = "0.1.0"
 dependencies = [
  "glob-match",
  "indicium",
+ "oma-console",
  "oma-fetch",
  "oma-utils",
  "rust-apt",

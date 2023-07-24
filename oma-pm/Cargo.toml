@@ -16,3 +16,4 @@ oma-utils = { path = "../oma-utils" }
 url-escape = "0.1"
 oma-fetch = { path = "../oma-fetch" }
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread", "macros"] }
+oma-console = { path = "../oma-console" }
