@@ -111,7 +111,9 @@ impl OmaApt {
                     return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
                 } else {
                     if cli_output {
-                        ask_user_do_as_i_say(&pkg)?;
+                        if !ask_user_do_as_i_say(&pkg)? {
+                            return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
+                        }
                     } else {
                         return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
                     }
@@ -347,7 +349,7 @@ impl OmaApt {
     }
 }
 
-fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<(), OmaAptError> {
+fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<bool, OmaAptError> {
     let writer = Writer::default();
     let theme = ColorfulTheme::default();
     let delete = Confirm::with_theme(&theme)
@@ -359,7 +361,7 @@ fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<(), OmaAptError> {
         .interact()?;
     if !delete {
         info!(writer, "Not confirmed.");
-        return Ok(());
+        return Ok(false);
     }
     info!(
         writer,
@@ -373,10 +375,10 @@ fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<(), OmaAptError> {
         != "Do as I say!"
     {
         info!(writer, "Prompt answered incorrectly. Not confirmed.");
-        return Ok(());
+        return Ok(false);
     }
 
-    Ok(())
+    Ok(true)
 }
 
 fn pkg_delta(new_pkg: &Package) -> OmaAptResult<InstallEntry> {
