@@ -141,6 +141,7 @@ pub struct PkgInfo {
     pub suggest: OmaDependencyGroup,
     pub is_candidate: bool,
     pub arch: String,
+    pub checksum: Option<String>,
 }
 
 impl PkgInfo {
@@ -154,6 +155,8 @@ impl PkgInfo {
         let maintainer = version
             .get_record(RecordField::Maintainer)
             .unwrap_or("Null <null>".to_owned());
+
+        let checksum = version.get_record(RecordField::SHA256);
 
         let installed_size = version.installed_size();
         let download_size = version.size();
@@ -211,6 +214,7 @@ impl PkgInfo {
             suggest,
             is_candidate: is_cand,
             arch: arch.to_string(),
+            checksum
         }
     }
 
