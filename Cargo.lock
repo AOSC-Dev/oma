@@ -2001,6 +2001,7 @@ dependencies = [
  "rust-apt",
  "thiserror",
  "time",
+ "tokio",
  "tracing",
  "url-escape",
 ]

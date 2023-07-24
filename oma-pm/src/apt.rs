@@ -1,23 +1,24 @@
 use std::{
-    collections::HashMap,
-    io::{IsTerminal, Write},
+    io::IsTerminal,
     path::{Path, PathBuf},
 };
 
-use oma_fetch::{DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher};
+use oma_fetch::{
+    DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
+};
 use rust_apt::{
     cache::{Cache, Upgrade},
-    config::Config as AptConfig,
     new_cache,
     package::{Package, Version},
-    raw::progress::InstallProgress,
     records::RecordField,
-    util::{get_apt_progress_string, terminal_height, terminal_width},
 };
 
+pub use rust_apt::config::Config as AptConfig;
+
 use crate::{
-    operation::{InstallEntry, OmaOperation, OperationEntry, RemoveEntry, RemoveTag},
+    operation::{InstallEntry, OmaOperation, RemoveEntry, RemoveTag},
     pkginfo::PkgInfo,
+    progress::{NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
 };
 
@@ -46,6 +47,26 @@ pub enum OmaAptError {
     InvalidFileName(String),
     #[error(transparent)]
     DownlaodError(#[from] DownloadError),
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
+}
+
+pub struct AptArgs {
+    yes: bool,
+    force_yes: bool,
+    dpkg_force_confnew: bool,
+    dpkg_force_all: bool,
+}
+
+impl Default for AptArgs {
+    fn default() -> Self {
+        Self {
+            yes: false,
+            force_yes: false,
+            dpkg_force_confnew: false,
+            dpkg_force_all: false,
+        }
+    }
 }
 
 type OmaAptResult<T> = Result<T, OmaAptError>;
@@ -92,23 +113,58 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn commit(self, network_thread: Option<usize>) -> OmaAptResult<()> {
-        let map = self.operation_map()?;
+    pub fn commit(self, network_thread: Option<usize>, args_config: AptArgs) -> OmaAptResult<()> {
+        let v = self.operation_vec()?;
 
-        let download_pkg_list = map
+        let download_pkg_list = v
             .into_iter()
-            .filter(|(k, _)| k != &OmaOperation::Remove)
-            .map(|(_, v)| v)
-            .flatten()
+            .filter(|x| !matches!(x, &OmaOperation::Remove(_)))
+            .map(|x| {
+                let OmaOperation::Install(v) = x else { unreachable!() };
+                v
+            })
             .collect::<Vec<_>>();
 
-        let mut download_list = vec![];
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_io()
+            .build()?;
 
+        let path = self.get_archive_dir();
+
+        let (success, failed) = runtime.block_on(async move {
+            Self::download_pkgs(download_pkg_list, network_thread, &path).await
+        })?;
+
+        tracing::debug!("Success: {success:?}");
+        tracing::debug!("Failed: {failed:?}");
+
+        let mut no_progress = NoProgress::new_box();
+
+        self.cache.get_archives(&mut no_progress)?;
+
+        let mut progress = OmaAptInstallProgress::new_box(
+            AptConfig::new(),
+            args_config.yes,
+            args_config.force_yes,
+            args_config.dpkg_force_confnew,
+            args_config.dpkg_force_all,
+        );
+
+        self.cache.do_install(&mut progress)?;
+
+        Ok(())
+    }
+
+    async fn download_pkgs(
+        download_pkg_list: Vec<InstallEntry>,
+        network_thread: Option<usize>,
+        download_dir: &Path,
+    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
+        let mut download_list = vec![];
         let mut total_size = 0;
 
         for entry in download_pkg_list {
-            let OperationEntry::Install(v) = entry else { unreachable!() };
-            let uris = v.pkg_urls();
+            let uris = entry.pkg_urls();
             let sources = uris
                 .into_iter()
                 .map(|x| {
@@ -126,26 +182,41 @@ impl OmaApt {
                 .first()
                 .and_then(|x| x.split('/').last())
                 .take()
-                .ok_or_else(|| OmaAptError::InvalidFileName(v.name().to_string()))?;
+                .ok_or_else(|| OmaAptError::InvalidFileName(entry.name().to_string()))?;
 
             let download_entry = DownloadEntry::new(
                 sources,
-                apt_style_filename(filename, v.new_version().to_string())?,
-                self.get_archive_dir(),
-                Some(v.checksum().to_owned()),
+                apt_style_filename(filename, entry.new_version().to_string())?,
+                download_dir.to_path_buf(),
+                Some(entry.checksum().to_owned()),
                 true,
-                Some(format!("{} {} ({})", v.name(), v.new_version(), v.arch())),
+                Some(format!(
+                    "{} {} ({})",
+                    entry.name(),
+                    entry.new_version(),
+                    entry.arch()
+                )),
             );
 
-            total_size += v.download_size();
+            total_size += entry.download_size();
 
             download_list.push(download_entry);
         }
-
         let downloader =
             OmaFetcher::new(None, true, Some(total_size), download_list, network_thread)?;
 
-        todo!()
+        let res = downloader.start_download().await;
+
+        let (mut success, mut failed) = (vec![], vec![]);
+
+        for i in res {
+            match i {
+                Ok(s) => success.push(s),
+                Err(e) => failed.push(e),
+            }
+        }
+
+        Ok((success, failed))
     }
 
     fn get_archive_dir(&self) -> PathBuf {
@@ -164,15 +235,9 @@ impl OmaApt {
         path
     }
 
-    pub fn operation_map(&self) -> OmaAptResult<HashMap<OmaOperation, Vec<OperationEntry>>> {
-        let mut res = HashMap::new();
+    pub fn operation_vec(&self) -> OmaAptResult<Vec<OmaOperation>> {
+        let mut res = vec![];
         let changes = self.cache.get_changes(false)?;
-
-        res.insert(OmaOperation::Install, vec![]);
-        res.insert(OmaOperation::Upgrade, vec![]);
-        res.insert(OmaOperation::ReInstall, vec![]);
-        res.insert(OmaOperation::Remove, vec![]);
-        res.insert(OmaOperation::Downgrade, vec![]);
 
         for pkg in changes {
             if pkg.marked_install() {
@@ -201,9 +266,7 @@ impl OmaApt {
                     cand.size(),
                 );
 
-                res.get_mut(&OmaOperation::Install)
-                    .unwrap()
-                    .push(OperationEntry::Install(install_entry));
+                res.push(OmaOperation::Install(install_entry));
 
                 // If the package is marked install then it will also
                 // show up as marked upgrade, downgrade etc.
@@ -214,9 +277,7 @@ impl OmaApt {
             if pkg.marked_upgrade() {
                 let install_entry = pkg_delta(&pkg)?;
 
-                res.get_mut(&OmaOperation::Upgrade)
-                    .unwrap()
-                    .push(OperationEntry::Install(install_entry));
+                res.push(OmaOperation::Upgrade(install_entry));
             }
 
             if pkg.marked_delete() {
@@ -236,9 +297,7 @@ impl OmaApt {
                 let remove_entry =
                     RemoveEntry::new(name.to_string(), version.to_owned(), size, tags);
 
-                res.get_mut(&OmaOperation::Remove)
-                    .unwrap()
-                    .push(OperationEntry::Remove(remove_entry));
+                res.push(OmaOperation::Remove(remove_entry));
             }
 
             if pkg.marked_reinstall() {
@@ -260,17 +319,13 @@ impl OmaApt {
                     0,
                 );
 
-                res.get_mut(&OmaOperation::ReInstall)
-                    .unwrap()
-                    .push(OperationEntry::Install(install_entry))
+                res.push(OmaOperation::ReInstall(install_entry));
             }
 
             if pkg.marked_downgrade() {
                 let install_entry = pkg_delta(&pkg)?;
 
-                res.get_mut(&OmaOperation::Downgrade)
-                    .unwrap()
-                    .push(OperationEntry::Install(install_entry));
+                res.push(OmaOperation::Downgrade(install_entry));
             }
         }
 
@@ -351,142 +406,6 @@ fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResul
     pkg.protect();
 
     Ok(())
-}
-
-pub struct OmaAptInstallProgress {
-    config: AptConfig,
-}
-
-impl OmaAptInstallProgress {
-    #[allow(dead_code)]
-    pub fn new(
-        config: AptConfig,
-        yes: bool,
-        force_yes: bool,
-        dpkg_force_confnew: bool,
-        dpkg_force_all: bool,
-    ) -> Self {
-        if yes {
-            rust_apt::raw::config::raw::config_set(
-                "APT::Get::Assume-Yes".to_owned(),
-                "true".to_owned(),
-            );
-            tracing::debug!("APT::Get::Assume-Yes is set to true");
-        }
-
-        if dpkg_force_confnew {
-            config.set("Dpkg::Options::", "--force-confnew");
-            tracing::debug!("Dpkg::Options:: is set to --force-confnew");
-        } else if yes {
-            config.set("Dpkg::Options::", "--force-confold");
-            tracing::debug!("Dpkg::Options:: is set to --force-confold");
-        }
-
-        if force_yes {
-            // warn!("{}", fl!("force-auto-mode"));
-            config.set("APT::Get::force-yes", "true");
-            tracing::debug!("APT::Get::force-Yes is set to true");
-        }
-
-        if dpkg_force_all {
-            // warn!("{}", fl!("dpkg-force-all-mode"));
-            config.set("Dpkg::Options::", "--force-all");
-            tracing::debug!("Dpkg::Options:: is set to --force-all");
-        }
-
-        Self { config }
-    }
-
-    /// Return the AptInstallProgress in a box
-    /// To easily pass through to do_install
-    pub fn new_box(
-        config: AptConfig,
-        yes: bool,
-        force_yes: bool,
-        dpkg_force_confnew: bool,
-        dpkg_force_all: bool,
-    ) -> Box<dyn InstallProgress> {
-        Box::new(Self::new(
-            config,
-            yes,
-            force_yes,
-            dpkg_force_confnew,
-            dpkg_force_all,
-        ))
-    }
-}
-
-impl InstallProgress for OmaAptInstallProgress {
-    fn status_changed(
-        &mut self,
-        _pkgname: String,
-        steps_done: u64,
-        total_steps: u64,
-        _action: String,
-    ) {
-        // Get the terminal's width and height.
-        let term_height = terminal_height();
-        let term_width = terminal_width();
-
-        // Save the current cursor position.
-        print!("\x1b7");
-
-        // Go to the progress reporting line.
-        print!("\x1b[{term_height};0f");
-        std::io::stdout().flush().unwrap();
-
-        // Convert the float to a percentage string.
-        let percent = steps_done as f32 / total_steps as f32;
-        let mut percent_str = (percent * 100.0).round().to_string();
-
-        let percent_padding = match percent_str.len() {
-            1 => "  ",
-            2 => " ",
-            3 => "",
-            _ => unreachable!(),
-        };
-
-        percent_str = percent_padding.to_owned() + &percent_str;
-
-        // Get colors for progress reporting.
-        // NOTE: The APT implementation confusingly has 'Progress-fg' for 'bg_color',
-        // and the same the other way around.
-        let bg_color = self
-            .config
-            .find("Dpkg::Progress-Fancy::Progress-fg", "\x1b[42m");
-        let fg_color = self
-            .config
-            .find("Dpkg::Progress-Fancy::Progress-bg", "\x1b[30m");
-        const BG_COLOR_RESET: &str = "\x1b[49m";
-        const FG_COLOR_RESET: &str = "\x1b[39m";
-
-        print!("{bg_color}{fg_color}Progress: [{percent_str}%]{BG_COLOR_RESET}{FG_COLOR_RESET} ");
-
-        // The length of "Progress: [100%] ".
-        const PROGRESS_STR_LEN: usize = 17;
-
-        // Print the progress bar.
-        // We should safely be able to convert the `usize`.try_into() into the `u32`
-        // needed by `get_apt_progress_string`, as usize ints only take up 8 bytes on a
-        // 64-bit processor.
-        print!(
-            "{}",
-            get_apt_progress_string(percent, (term_width - PROGRESS_STR_LEN).try_into().unwrap())
-        );
-        std::io::stdout().flush().unwrap();
-
-        // If this is the last change, remove the progress reporting bar.
-        // if steps_done == total_steps {
-        // print!("{}", " ".repeat(term_width));
-        // print!("\x1b[0;{}r", term_height);
-        // }
-        // Finally, go back to the previous cursor position.
-        print!("\x1b8");
-        std::io::stdout().flush().unwrap();
-    }
-
-    // TODO: Need to figure out when to use this.
-    fn error(&mut self, _pkgname: String, _steps_done: u64, _total_steps: u64, _error: String) {}
 }
 
 fn apt_style_filename(filename: &str, version: String) -> OmaAptResult<String> {
