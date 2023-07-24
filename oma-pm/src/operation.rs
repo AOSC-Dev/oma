@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct InstallEntry {
     name: String,
     old_version: Option<String>,
@@ -10,6 +11,7 @@ pub struct InstallEntry {
     download_size: u64,
 }
 
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct RemoveEntry {
     name: String,
     version: String,
@@ -17,6 +19,7 @@ pub struct RemoveEntry {
     details: Vec<RemoveTag>,
 }
 
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum RemoveTag {
     Purge,
     AutoRemove,
@@ -24,16 +27,11 @@ pub enum RemoveTag {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum OmaOperation {
-    Install,
-    ReInstall,
-    Remove,
-    Upgrade,
-    Downgrade,
-}
-
-pub enum OperationEntry {
     Install(InstallEntry),
+    ReInstall(InstallEntry),
     Remove(RemoveEntry),
+    Upgrade(InstallEntry),
+    Downgrade(InstallEntry),
 }
 
 impl InstallEntry {
