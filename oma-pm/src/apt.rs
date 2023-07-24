@@ -27,7 +27,7 @@ use crate::{
 };
 
 pub struct OmaApt {
-    cache: Cache,
+    pub cache: Cache,
     config: AptConfig,
 }
 
