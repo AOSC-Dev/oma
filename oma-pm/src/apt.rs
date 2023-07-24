@@ -97,6 +97,47 @@ impl OmaApt {
         Ok(())
     }
 
+    pub fn download(
+        &self,
+        pkgs: Vec<PkgInfo>,
+        network_thread: Option<usize>,
+        download_dir: Option<&Path>,
+    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
+        let mut download_list = vec![];
+        for pkg in pkgs {
+            let name = pkg.raw_pkg.name().to_string();
+            let entry = InstallEntry::new(
+                pkg.raw_pkg.name().to_string(),
+                None,
+                pkg.version_raw.version().to_string(),
+                None,
+                pkg.installed_size,
+                pkg.apt_sources,
+                pkg.checksum
+                    .ok_or_else(|| OmaAptError::PkgNoChecksum(name))?,
+                pkg.arch,
+                pkg.download_size,
+            );
+            download_list.push(entry);
+        }
+
+        let tokio = tokio::runtime::Builder::new_multi_thread()
+            .enable_io()
+            .enable_time()
+            .build()?;
+
+        let res = tokio.block_on(async move {
+            Self::download_pkgs(
+                download_list,
+                network_thread,
+                download_dir.unwrap_or(Path::new(".")),
+            )
+            .await
+        })?;
+
+        Ok(res)
+    }
+
     pub fn remove(
         &self,
         pkgs: Vec<PkgInfo>,
@@ -138,6 +179,7 @@ impl OmaApt {
             .collect::<Vec<_>>();
 
         let tokio = tokio::runtime::Builder::new_multi_thread()
+            .enable_time()
             .enable_io()
             .build()?;
 
