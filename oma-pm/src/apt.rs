@@ -1,8 +1,12 @@
-use std::{
-    io::IsTerminal,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
+use oma_console::{
+    console,
+    console::style,
+    dialoguer::{theme::ColorfulTheme, Confirm, Input},
+    info,
+    writer::Writer,
+};
 use oma_fetch::{
     DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
@@ -93,15 +97,46 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn remove(&self, pkgs: Vec<PkgInfo>, purge: bool, protect: bool) -> OmaAptResult<()> {
+    pub fn remove(
+        &self,
+        pkgs: Vec<PkgInfo>,
+        purge: bool,
+        protect: bool,
+        cli_output: bool,
+    ) -> OmaAptResult<()> {
         for pkg in pkgs {
             let pkg = Package::new(&self.cache, pkg.raw_pkg.unique());
             if pkg.is_essential() {
                 if protect {
                     return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
                 } else {
-                    if std::io::stdout().is_terminal() {
-                        todo!()
+                    if cli_output {
+                        let writer = Writer::default();
+                        let theme = ColorfulTheme::default();
+                        let delete = Confirm::with_theme(&theme)
+                            .with_prompt(format!(
+                                "DELETE THIS PACKAGE? PACKAGE {} IS ESSENTIAL!",
+                                pkg.name()
+                            ))
+                            .default(false)
+                            .interact()?;
+                        if !delete {
+                            info!(writer, "Not confirmed.");
+                            return Ok(());
+                        }
+                        info!(
+                            writer,
+                            "If you are absolutely sure, please type the following: {}",
+                            style("Do as I say!").bold()
+                        );
+                        if Input::<String>::with_theme(&theme)
+                            .with_prompt("Your turn")
+                            .interact()?
+                            != "Do as I say!"
+                        {
+                            info!(writer, "Prompt answered incorrectly. Not confirmed.");
+                            return Ok(());
+                        }
                     } else {
                         return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
                     }
