@@ -229,6 +229,10 @@ impl OmaApt {
         Ok((success, failed))
     }
 
+    pub fn select_pkg(&self, keywords: Vec<&str>) -> OmaAptResult<Vec<PkgInfo>> {
+        select_pkg(keywords, &self.cache)
+    }
+
     fn get_archive_dir(&self) -> PathBuf {
         let archives_dir = self.config.get("Dir::Cache::Archives");
 
@@ -362,14 +366,16 @@ fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<(), OmaAptError> {
         "If you are absolutely sure, please type the following: {}",
         style("Do as I say!").bold()
     );
-    Ok(if Input::<String>::with_theme(&theme)
-        .with_prompt("Your turn")
-        .interact()?
-        != "Do as I say!"
-    {
-        info!(writer, "Prompt answered incorrectly. Not confirmed.");
-        return Ok(());
-    })
+    Ok(
+        if Input::<String>::with_theme(&theme)
+            .with_prompt("Your turn")
+            .interact()?
+            != "Do as I say!"
+        {
+            info!(writer, "Prompt answered incorrectly. Not confirmed.");
+            return Ok(());
+        },
+    )
 }
 
 fn pkg_delta(new_pkg: &Package) -> OmaAptResult<InstallEntry> {

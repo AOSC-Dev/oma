@@ -1,8 +1,8 @@
-use oma_pm::apt::{OmaAptError, OmaApt, select_pkg, AptArgs};
+use oma_pm::apt::{AptArgs, OmaApt, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
     let apt = OmaApt::new()?;
-    let pkgs = select_pkg(vec!["fish"], &apt.cache)?;
+    let pkgs = apt.select_pkg(vec!["fish"])?;
 
     apt.install(pkgs, false)?;
     let op = apt.operation_vec()?;
