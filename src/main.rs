@@ -3,38 +3,18 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use cli::Writer;
 use indicatif::MultiProgress;
 use nix::sys::signal;
 use once_cell::sync::{Lazy, OnceCell};
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use time::macros::offset;
 use time::{OffsetDateTime, UtcOffset};
-use utils::{get_arch_name, unlock_oma};
 
-use crate::cli::CommandMatcher;
-use crate::cli::OmaCommandRunner;
-use crate::config::Config;
+
+
 
 mod args;
-mod checksum;
-mod cli;
-mod contents;
-mod db;
-mod download;
-mod formatter;
-mod oma;
-mod pager;
-mod pkg;
 
-#[cfg(feature = "aosc")]
-mod topics;
-
-mod config;
-mod history;
-mod i18n;
-mod utils;
-mod verify;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
@@ -48,8 +28,6 @@ static ARGS: Lazy<String> = Lazy::new(|| std::env::args().collect::<Vec<_>>().jo
 static MB: Lazy<Arc<MultiProgress>> = Lazy::new(|| Arc::new(MultiProgress::new()));
 static CONFIG: OnceCell<Config> = OnceCell::new();
 static ARCH: OnceCell<String> = OnceCell::new();
-
-use i18n::I18N_LOADER;
 
 fn main() {
     // 初始化时区偏移量，这个操作不能在多线程环境下运行
