@@ -366,16 +366,17 @@ fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<(), OmaAptError> {
         "If you are absolutely sure, please type the following: {}",
         style("Do as I say!").bold()
     );
-    Ok(
-        if Input::<String>::with_theme(&theme)
-            .with_prompt("Your turn")
-            .interact()?
-            != "Do as I say!"
-        {
-            info!(writer, "Prompt answered incorrectly. Not confirmed.");
-            return Ok(());
-        },
-    )
+
+    if Input::<String>::with_theme(&theme)
+        .with_prompt("Your turn")
+        .interact()?
+        != "Do as I say!"
+    {
+        info!(writer, "Prompt answered incorrectly. Not confirmed.");
+        return Ok(());
+    }
+
+    Ok(())
 }
 
 fn pkg_delta(new_pkg: &Package) -> OmaAptResult<InstallEntry> {
