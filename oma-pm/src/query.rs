@@ -57,8 +57,9 @@ impl<'a> OmaDatabase<'a> {
             ))
             .to_string();
 
-            for ver in i.versions() {
+            for ver in pkg.versions() {
                 let info = PkgInfo::new(self.cache, ver.unique(), &pkg);
+
                 let has = info
                     .apt_sources
                     .iter()
