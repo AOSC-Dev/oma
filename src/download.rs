@@ -549,6 +549,9 @@ pub async fn download(
             tracing::debug!("Exist file size is reset to 0, because total size <= exist file size");
             file_size = 0;
             can_resume = false;
+            if let Some(ref global_bar) = opb.global_bar {
+                global_bar.set_position(global_bar.position() - file_size);
+            }
         }
 
         // 发送 RANGE 的头，传入的是已经下载的文件的大小
