@@ -9,7 +9,7 @@ fn main() -> Result<(), OmaAptError> {
         .with(EnvFilter::from_default_env())
         .init();
 
-    let apt = OmaApt::new()?;
+    let apt = OmaApt::new(vec![])?;
 
     let pkgs = apt.select_pkg(vec!["vscodium", "go"])?;
     std::fs::create_dir_all("./test").unwrap();

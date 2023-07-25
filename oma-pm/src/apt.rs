@@ -76,9 +76,9 @@ impl Default for AptArgs {
 type OmaAptResult<T> = Result<T, OmaAptError>;
 
 impl OmaApt {
-    pub fn new() -> OmaAptResult<Self> {
+    pub fn new(local_debs: Vec<String>) -> OmaAptResult<Self> {
         Ok(Self {
-            cache: new_cache!()?,
+            cache: new_cache!(&local_debs)?,
             config: AptConfig::new(),
         })
     }
