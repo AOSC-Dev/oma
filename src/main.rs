@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::{path::Path, process::exit};
+
+use std::process::exit;
 
 mod args;
 mod lang;
@@ -14,7 +14,7 @@ use oma_console::{due_to, error};
 use oma_pm::apt::{AptArgs, OmaApt};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
-use once_cell::sync::{Lazy, OnceCell};
+
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::{
@@ -22,8 +22,6 @@ use tracing_subscriber::{
 };
 
 use oma_console::console;
-
-use lang::LANGUAGE_LOADER;
 
 static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
@@ -75,7 +73,7 @@ fn try_main() -> Result<i32> {
     }
 
     // Init dry-run flag
-    let dry_run = if let Some(Ok(Some(true))) = matches
+    let _dry_run = if let Some(Ok(Some(true))) = matches
         .subcommand()
         .map(|(_, x)| x.try_get_one::<bool>("dry_run"))
     {
@@ -102,7 +100,7 @@ fn try_main() -> Result<i32> {
     };
 
     // Init debug flag
-    let debug = if matches.get_flag("debug") {
+    let _debug = if matches.get_flag("debug") {
         tracing_subscriber::registry()
             .with(
                 fmt::layer()
@@ -132,11 +130,22 @@ fn try_main() -> Result<i32> {
     let exit_code = match matches.subcommand() {
         Some(("install", args)) => {
             refresh()?;
-            let apt = OmaApt::new()?;
+
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
+
+            let local_debs = pkgs_unparse
+                .iter()
+                .filter(|x| x.ends_with(".deb"))
+                .map(|x| x.to_owned())
+                .collect::<Vec<_>>();
+
             let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
+            let apt = OmaApt::new(local_debs)?;
+
             let pkgs = apt.select_pkg(pkgs_unparse)?;
+
+            dbg!(pkgs.len());
 
             apt.install(pkgs, args.get_flag("reinstall"))?;
             // TODO: network thread
@@ -163,14 +172,20 @@ fn try_main() -> Result<i32> {
         // }
         Some(("upgrade", args)) => {
             refresh()?;
-            let apt = OmaApt::new()?;
-            let pkgs = apt.select_pkg(
-                pkgs_getter(args)
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|x| x.as_str())
-                    .collect::<Vec<_>>(),
-            )?;
+
+            let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
+
+            let local_debs = pkgs_unparse
+                .iter()
+                .filter(|x| x.ends_with(".deb"))
+                .map(|x| x.to_owned())
+                .collect::<Vec<_>>();
+
+            let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+
+            let apt = OmaApt::new(local_debs)?;
+
+            let pkgs = apt.select_pkg(pkgs_unparse)?;
 
             apt.upgrade()?;
             apt.install(pkgs, false)?;
@@ -188,7 +203,7 @@ fn try_main() -> Result<i32> {
         //     no_autoremove: args.get_flag("no_autoremove"),
         // }),
         Some(("download", args)) => {
-            let apt = OmaApt::new()?;
+            let apt = OmaApt::new(vec![])?;
             let pkgs = apt.select_pkg(
                 pkgs_getter(args)
                     .unwrap_or_default()
@@ -212,7 +227,7 @@ fn try_main() -> Result<i32> {
         //     with_deps: args.get_flag("with_deps"),
         // }),
         Some(("remove", args)) => {
-            let apt = OmaApt::new()?;
+            let apt = OmaApt::new(vec![])?;
             let pkgs = apt.select_pkg(
                 pkgs_getter(args)
                     .unwrap_or_default()
@@ -242,40 +257,40 @@ fn try_main() -> Result<i32> {
 
             0
         }
-        Some(("show", args)) => todo!(),
+        Some(("show", _args)) => todo!(),
         // OmaCommand::Show(Show {
         //     packages: pkgs_getter(args).unwrap(),
         //     is_all: args.get_flag("all"),
         // }),
-        Some(("search", args)) => todo!(),
+        Some(("search", _args)) => todo!(),
         // OmaCommand::Search(Search {
         //     keyword: args
         //         .get_many::<String>("pattern")
         //         .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
         //         .unwrap(),
         // }),
-        Some(("files", args)) => todo!(),
+        Some(("files", _args)) => todo!(),
         // OmaCommand::ListFiles(ListFiles {
         //     package: args.get_one::<String>("package").unwrap().to_string(),
         //     bin: args.get_flag("bin"),
         // }),
-        Some(("provides", args)) => todo!(),
+        Some(("provides", _args)) => todo!(),
         // OmaCommand::Provides(Provides {
         //     kw: args.get_one::<String>("pattern").unwrap().to_string(),
         //     bin: args.get_flag("bin"),
         // }),
-        Some(("fix-broken", args)) => todo!(),
+        Some(("fix-broken", _args)) => todo!(),
         // OmaCommand::FixBroken(FixBroken {
         //     dry_run: args.get_flag("dry_run"),
         // }),
-        Some(("pick", args)) => todo!(),
+        Some(("pick", _args)) => todo!(),
         // OmaCommand::Pick(PickOptions {
         //     package: args.get_one::<String>("package").unwrap().to_string(),
         //     no_fixbroken: args.get_flag("no_fix_broken"),
         //     no_refresh: args.get_flag("no_refresh"),
         //     dry_run: args.get_flag("dry_run"),
         // }),
-        Some(("mark", args)) => todo!(),
+        Some(("mark", _args)) => todo!(),
         // OmaCommand::Mark(Mark {
         //     action: match args.get_one::<String>("action").map(|x| x.as_str()) {
         //         Some("hold") => MarkAction::Hold(MarkActionArgs {
@@ -294,27 +309,27 @@ fn try_main() -> Result<i32> {
         //     },
         //     dry_run: args.get_flag("dry_run"),
         // }),
-        Some(("command-not-found", args)) => todo!(),
+        Some(("command-not-found", _args)) => todo!(),
         // OmaCommand::CommandNotFound(CommandNotFound {
         //     kw: args.get_one::<String>("package").unwrap().to_string(),
         // }),
-        Some(("list", args)) => todo!(),
+        Some(("list", _args)) => todo!(),
         // OmaCommand::List(ListOptions {
         //     packages: pkgs_getter(args),
         //     all: args.get_flag("all"),
         //     installed: args.get_flag("installed"),
         //     upgradable: args.get_flag("upgradable"),
         // }),
-        Some(("depends", args)) => todo!(),
+        Some(("depends", _args)) => todo!(),
         // OmaCommand::Depends(Dep {
         //     pkgs: pkgs_getter(args).unwrap(),
         // }),
-        Some(("rdepends", args)) => todo!(),
+        Some(("rdepends", _args)) => todo!(),
         // OmaCommand::Rdepends(Dep {
         //     pkgs: pkgs_getter(args).unwrap(),
         // }),
         Some(("clean", _)) => todo!(),
-        Some(("history", args)) => todo!(),
+        Some(("history", _args)) => todo!(),
         // OmaCommand::History(History {
         //     action: match args.get_one::<String>("action").map(|x| x.as_str()) {
         //         Some("undo") => HistoryAction::Undo(args.get_one::<usize>("index").copied()),
@@ -323,7 +338,7 @@ fn try_main() -> Result<i32> {
         //     },
         // }),
         #[cfg(feature = "aosc")]
-        Some(("topics", v)) => todo!(),
+        Some(("topics", _v)) => todo!(),
         // OmaCommand::Topics(Topics {
         //     opt_in: v
         //         .get_many::<String>("opt_in")
@@ -332,7 +347,7 @@ fn try_main() -> Result<i32> {
         //         .get_many::<String>("opt_out")
         //         .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
         // }),
-        Some(("pkgnames", v)) => todo!(),
+        Some(("pkgnames", _v)) => todo!(),
         // {
         //     OmaCommand::Pkgnames(v.get_one::<String>("keyword").map(|x| x.to_owned()))
         // }
