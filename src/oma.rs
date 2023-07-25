@@ -1265,7 +1265,9 @@ impl Oma {
                 }
             },
             Err(e) => {
-                error!("{e}");
+                if !e.to_string().is_empty() {
+                    error!("{e}");
+                }
             }
         }
     
