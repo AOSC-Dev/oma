@@ -9,6 +9,7 @@ pub struct InstallEntry {
     checksum: String,
     arch: String,
     download_size: u64,
+    op: InstallOperation,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -26,12 +27,13 @@ pub enum RemoveTag {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub enum OmaOperation {
-    Install(InstallEntry),
-    ReInstall(InstallEntry),
-    Remove(RemoveEntry),
-    Upgrade(InstallEntry),
-    Downgrade(InstallEntry),
+pub enum InstallOperation {
+    Install,
+    ReInstall,
+    Remove,
+    Upgrade,
+    Downgrade,
+    Download
 }
 
 impl InstallEntry {
@@ -45,6 +47,7 @@ impl InstallEntry {
         checksum: String,
         arch: String,
         download_size: u64,
+        op: InstallOperation
     ) -> Self {
         Self {
             name,
@@ -56,6 +59,7 @@ impl InstallEntry {
             checksum,
             arch,
             download_size,
+            op
         }
     }
 
