@@ -1,6 +1,13 @@
-use std::{fmt, process::Command};
+use std::{fmt, path::PathBuf, process::Command};
 
 use number_prefix::NumberPrefix;
+use once_cell::sync::Lazy;
+
+static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
+
+type IOResult<T> = std::io::Result<T>;
+
+pub use os_release::OsRelease;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DpkgArchError {
@@ -35,4 +42,25 @@ impl fmt::Display for HumanBytes {
             NumberPrefix::Prefixed(prefix, number) => write!(f, "{number:.2} {prefix}B"),
         }
     }
+}
+
+pub fn lock_oma() -> IOResult<()> {
+    if !LOCK.is_file() {
+        std::fs::create_dir_all("/run/lock")?;
+        std::fs::File::create(&*LOCK)?;
+    }
+
+    Ok(())
+}
+
+pub fn unlock_oma() -> IOResult<()> {
+    if LOCK.is_file() {
+        std::fs::remove_file(&*LOCK)?;
+    }
+
+    Ok(())
+}
+
+pub fn terminal_ring() {
+    eprint!("\x07"); // bell character
 }
