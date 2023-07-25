@@ -547,11 +547,11 @@ pub async fn download(
         // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
         if total_size <= file_size {
             tracing::debug!("Exist file size is reset to 0, because total size <= exist file size");
-            file_size = 0;
-            can_resume = false;
             if let Some(ref global_bar) = opb.global_bar {
                 global_bar.set_position(global_bar.position() - file_size);
             }
+            file_size = 0;
+            can_resume = false;
         }
 
         // 发送 RANGE 的头，传入的是已经下载的文件的大小
