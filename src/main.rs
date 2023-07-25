@@ -9,8 +9,8 @@ use anyhow::Result;
 
 use clap::ArgMatches;
 use nix::sys::signal;
-use oma_console::{error, due_to};
 use oma_console::{console::style, info, writer::Writer};
+use oma_console::{due_to, error};
 use oma_pm::apt::{AptArgs, OmaApt};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
@@ -135,13 +135,10 @@ fn try_main() -> Result<i32> {
         Some(("install", args)) => {
             refresh()?;
             let apt = OmaApt::new()?;
-            let pkgs = apt.select_pkg(
-                pkgs_getter(args)
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|x| x.as_str())
-                    .collect::<Vec<_>>(),
-            )?;
+            let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
+            let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+
+            let pkgs = apt.select_pkg(pkgs_unparse)?;
 
             apt.install(pkgs, args.get_flag("reinstall"))?;
             // TODO: network thread
@@ -202,14 +199,12 @@ fn try_main() -> Result<i32> {
                     .collect::<Vec<_>>(),
             )?;
 
-            let path = args.get_one::<String>("path")
-            .cloned().map(|x| PathBuf::from(&x));
+            let path = args
+                .get_one::<String>("path")
+                .cloned()
+                .map(|x| PathBuf::from(&x));
 
-            apt.download(
-                pkgs,
-                None,
-                path.as_deref()
-            )?;
+            apt.download(pkgs, None, path.as_deref())?;
 
             0
         }

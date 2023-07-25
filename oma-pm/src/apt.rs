@@ -20,7 +20,7 @@ use rust_apt::{
 pub use rust_apt::config::Config as AptConfig;
 
 use crate::{
-    operation::{InstallEntry, OmaOperation, RemoveEntry, RemoveTag},
+    operation::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag},
     pkginfo::PkgInfo,
     progress::{NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
@@ -117,6 +117,7 @@ impl OmaApt {
                     .ok_or_else(|| OmaAptError::PkgNoChecksum(name))?,
                 pkg.arch,
                 pkg.download_size,
+                InstallOperation::Download,
             );
             download_list.push(entry);
         }
@@ -169,14 +170,7 @@ impl OmaApt {
     pub fn commit(self, network_thread: Option<usize>, args_config: AptArgs) -> OmaAptResult<()> {
         let v = self.operation_vec()?;
 
-        let download_pkg_list = v
-            .into_iter()
-            .filter(|x| !matches!(x, &OmaOperation::Remove(_)))
-            .map(|x| {
-                let OmaOperation::Install(v) = x else { unreachable!() };
-                v
-            })
-            .collect::<Vec<_>>();
+        let (download_pkg_list, _) = v;
 
         let tokio = tokio::runtime::Builder::new_multi_thread()
             .enable_time()
@@ -293,8 +287,9 @@ impl OmaApt {
         path
     }
 
-    pub fn operation_vec(&self) -> OmaAptResult<Vec<OmaOperation>> {
-        let mut res = vec![];
+    pub fn operation_vec(&self) -> OmaAptResult<(Vec<InstallEntry>, Vec<RemoveEntry>)> {
+        let mut install = vec![];
+        let mut remove = vec![];
         let changes = self.cache.get_changes(false)?;
 
         for pkg in changes {
@@ -322,9 +317,10 @@ impl OmaApt {
                     checksum,
                     pkg.arch().to_string(),
                     cand.size(),
+                    InstallOperation::Install,
                 );
 
-                res.push(OmaOperation::Install(install_entry));
+                install.push(install_entry);
 
                 // If the package is marked install then it will also
                 // show up as marked upgrade, downgrade etc.
@@ -333,9 +329,9 @@ impl OmaApt {
             }
 
             if pkg.marked_upgrade() {
-                let install_entry = pkg_delta(&pkg)?;
+                let install_entry = pkg_delta(&pkg, InstallOperation::Upgrade)?;
 
-                res.push(OmaOperation::Upgrade(install_entry));
+                install.push(install_entry);
             }
 
             if pkg.marked_delete() {
@@ -355,7 +351,7 @@ impl OmaApt {
                 let remove_entry =
                     RemoveEntry::new(name.to_string(), version.to_owned(), size, tags);
 
-                res.push(OmaOperation::Remove(remove_entry));
+                remove.push(remove_entry);
             }
 
             if pkg.marked_reinstall() {
@@ -375,19 +371,20 @@ impl OmaApt {
                     checksum,
                     pkg.arch().to_string(),
                     0,
+                    InstallOperation::ReInstall,
                 );
 
-                res.push(OmaOperation::ReInstall(install_entry));
+                install.push(install_entry);
             }
 
             if pkg.marked_downgrade() {
-                let install_entry = pkg_delta(&pkg)?;
+                let install_entry = pkg_delta(&pkg, InstallOperation::Downgrade)?;
 
-                res.push(OmaOperation::Downgrade(install_entry));
+                install.push(install_entry);
             }
         }
 
-        Ok(res)
+        Ok((install, remove))
     }
 }
 
@@ -423,7 +420,7 @@ fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<bool, OmaAptError> {
     Ok(true)
 }
 
-fn pkg_delta(new_pkg: &Package) -> OmaAptResult<InstallEntry> {
+fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEntry> {
     let cand = new_pkg
         .candidate()
         .take()
@@ -447,6 +444,7 @@ fn pkg_delta(new_pkg: &Package) -> OmaAptResult<InstallEntry> {
         checksum,
         new_pkg.arch().to_string(),
         cand.size(),
+        op,
     );
 
     Ok(install_entry)
