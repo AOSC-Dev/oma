@@ -11,7 +11,7 @@ use clap::ArgMatches;
 use nix::sys::signal;
 use oma_console::{console::style, info, writer::Writer};
 use oma_console::{due_to, error};
-use oma_pm::apt::{AptArgs, OmaApt};
+use oma_pm::apt::{AptArgs, OmaApt, OmaArgs};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
 
@@ -129,8 +129,10 @@ fn try_main() -> Result<i32> {
 
     let exit_code = match matches.subcommand() {
         Some(("install", args)) => {
-            refresh()?;
-            
+            if !args.get_flag("no_refresh") {
+                refresh()?;
+            }
+
             let install_dbg = args.get_flag("install_dbg");
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
 
@@ -146,9 +148,19 @@ fn try_main() -> Result<i32> {
 
             let pkgs = apt.select_pkg(pkgs_unparse, install_dbg)?;
 
+            let mut oma_args = OmaArgs::new();
+            oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
+
             apt.install(pkgs, args.get_flag("reinstall"))?;
             // TODO: network thread
-            apt.commit(None, AptArgs::default())?;
+
+            let mut apt_args = AptArgs::new();
+            apt_args.yes(args.get_flag("yes"));
+            apt_args.force_yes(args.get_flag("force_yes"));
+            apt_args.dbkg_force_confnew(args.get_flag("dbkg_force_confnew"));
+            apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
+
+            apt.commit(None, &apt_args, &oma_args)?;
 
             0
         }
@@ -170,7 +182,9 @@ fn try_main() -> Result<i32> {
         //     no_install_suggests: args.get_flag("no_install_suggests"),
         // }
         Some(("upgrade", args)) => {
-            refresh()?;
+            if !args.get_flag("no_refresh") {
+                refresh()?;
+            }
 
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
 
@@ -188,7 +202,18 @@ fn try_main() -> Result<i32> {
 
             apt.upgrade()?;
             apt.install(pkgs, false)?;
-            apt.commit(None, AptArgs::default())?;
+
+            let mut oma_args = OmaArgs::new();
+            oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
+            
+
+            let mut apt_args = AptArgs::new();
+            apt_args.yes(args.get_flag("yes"));
+            apt_args.force_yes(args.get_flag("force_yes"));
+            apt_args.dbkg_force_confnew(args.get_flag("dbkg_force_confnew"));
+            apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
+
+            apt.commit(None, &apt_args, &oma_args)?;
 
             0
         }
@@ -209,7 +234,7 @@ fn try_main() -> Result<i32> {
                     .iter()
                     .map(|x| x.as_str())
                     .collect::<Vec<_>>(),
-                    false
+                false,
             )?;
 
             let path = args
@@ -234,13 +259,22 @@ fn try_main() -> Result<i32> {
                     .iter()
                     .map(|x| x.as_str())
                     .collect::<Vec<_>>(),
-                    false
+                false,
             )?;
 
             // TODO: protect
             apt.remove(pkgs, !args.get_flag("keep_config"), true, true)?;
 
-            apt.commit(None, AptArgs::default())?;
+            let mut oma_args = OmaArgs::new();
+            oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
+
+            let mut apt_args = AptArgs::new();
+            apt_args.yes(args.get_flag("yes"));
+            apt_args.force_yes(args.get_flag("force_yes"));
+            apt_args.dbkg_force_confnew(args.get_flag("dbkg_force_confnew"));
+            apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
+
+            apt.commit(None, &apt_args, &oma_args)?;
 
             0
         }
