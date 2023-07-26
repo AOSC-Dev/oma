@@ -1263,14 +1263,14 @@ impl Oma {
                         res.push(s);
                     }
                 }
-            },
+            }
             Err(e) => {
                 if !e.to_string().is_empty() {
                     error!("{e}");
                 }
             }
         }
-    
+
         if !res.is_empty() {
             println!(
                 "{}",
