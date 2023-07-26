@@ -5,7 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.45.6 (2023-07-26)
+
+### Chore
+
+ - <csr-id-a43bade1ea67de3fe0b9b2ef104001ac1d9884a2/> Update all deps
+
+### New Features
+
+ - <csr-id-b47fc3a572351032736bb465cb734fea146cc8a9/> Display command-not-found error message
+
+### Bug Fixes
+
+ - <csr-id-c00dde4b594bfae3553b80c316ca1bed031b6e76/> Do not display empty error message
+ - <csr-id-5d6d2e82f0125d4c8f871228b8cbeb3de53260f1/> Fix logic mistake
+ - <csr-id-9a1cbae0016521ba57b0ef984e4cf44da408b946/> If downloaded wrong file size > right size, reset global bar
+
+### Style
+
+ - <csr-id-2f5845ec4d68aff086502ee617789f27691ca355/> Run cargo clippy and cargo fmt to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release over the course of 7 calendar days.
+ - 11 days passed between releases.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Run cargo clippy and cargo fmt to lint code ([`2f5845e`](https://github.com/AOSC-Dev/oma/commit/2f5845ec4d68aff086502ee617789f27691ca355))
+    - Update all deps ([`a43bade`](https://github.com/AOSC-Dev/oma/commit/a43bade1ea67de3fe0b9b2ef104001ac1d9884a2))
+    - Do not display empty error message ([`c00dde4`](https://github.com/AOSC-Dev/oma/commit/c00dde4b594bfae3553b80c316ca1bed031b6e76))
+    - Fix logic mistake ([`5d6d2e8`](https://github.com/AOSC-Dev/oma/commit/5d6d2e82f0125d4c8f871228b8cbeb3de53260f1))
+    - If downloaded wrong file size > right size, reset global bar ([`9a1cbae`](https://github.com/AOSC-Dev/oma/commit/9a1cbae0016521ba57b0ef984e4cf44da408b946))
+    - Display command-not-found error message ([`b47fc3a`](https://github.com/AOSC-Dev/oma/commit/b47fc3a572351032736bb465cb734fea146cc8a9))
+</details>
+
 ## v0.45.5 (2023-07-14)
+
+<csr-id-6ea9b4efad02f87835b02a8362aa60ea97bbf1b9/>
+<csr-id-e022bea19a537c725b2c5e6dcc0e3a82b544fa50/>
+<csr-id-92115c9a11457a4a26bbf4f80dcbe65b8ab6c4c3/>
 
 ### Chore
 
@@ -27,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 1 calendar day.
+ - 5 commits contributed to the release over the course of 1 calendar day.
  - 2 days passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -39,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.45.5 ([`3ab552d`](https://github.com/AOSC-Dev/oma/commit/3ab552dc4194cbc1be94d251806d159d74e659d9))
     - Update all deps ([`6ea9b4e`](https://github.com/AOSC-Dev/oma/commit/6ea9b4efad02f87835b02a8362aa60ea97bbf1b9))
     - Run cargo clippy and cargo fmt to lint code ([`92115c9`](https://github.com/AOSC-Dev/oma/commit/92115c9a11457a4a26bbf4f80dcbe65b8ab6c4c3))
     - Fix find_unmet_dep logic ([`c22b113`](https://github.com/AOSC-Dev/oma/commit/c22b113383ab2d7e9d8378faa82c5612fcc26f62))
