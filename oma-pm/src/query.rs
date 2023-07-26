@@ -2,7 +2,7 @@ use std::path::Path;
 
 use rust_apt::{
     cache::{Cache, PackageSort},
-    package::Package,
+    package::{Package, Version},
     raw::package::RawPackage,
     records::RecordField,
 };
@@ -77,6 +77,7 @@ impl<'a> OmaDatabase<'a> {
         &self,
         glob: &str,
         filter_candidate: bool,
+        select_dbg: bool,
     ) -> OmaDatabaseResult<Vec<PkgInfo>> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
@@ -93,10 +94,20 @@ impl<'a> OmaDatabase<'a> {
             let versions = pkg.versions().collect::<Vec<_>>();
             for ver in versions {
                 let pkginfo = PkgInfo::new(&self.cache, ver.unique(), &pkg);
+                let has_dbg = pkginfo.has_dbg;
+                let is_cand = pkginfo.is_candidate;
                 if filter_candidate && pkginfo.is_candidate {
                     res.push(pkginfo);
                 } else if !filter_candidate {
                     res.push(pkginfo);
+                }
+
+                if has_dbg && select_dbg {
+                    if filter_candidate && is_cand {
+                        self.select_dbg(&pkg, &ver, &mut res);
+                    } else if !filter_candidate {
+                        self.select_dbg(&pkg, &ver, &mut res);
+                    }
                 }
             }
         }
@@ -104,8 +115,8 @@ impl<'a> OmaDatabase<'a> {
         Ok(res)
     }
 
-    pub fn query_from_version(&self, pat: &str) -> OmaDatabaseResult<PkgInfo> {
-        let (pkgname, version) = pat
+    pub fn query_from_version(&self, pat: &str, dbg: bool) -> OmaDatabaseResult<Vec<PkgInfo>> {
+        let (pkgname, version_str) = pat
             .split_once('=')
             .ok_or_else(|| OmaDatabaseError::InvaildPattern(pat.to_string()))?;
 
@@ -114,20 +125,30 @@ impl<'a> OmaDatabase<'a> {
             .get(pkgname)
             .ok_or_else(|| OmaDatabaseError::NoPackage(pkgname.to_string()))?;
 
-        let version = pkg
-            .get_version(version)
-            .ok_or_else(|| OmaDatabaseError::NoVersion(pkgname.to_string(), version.to_string()))?
-            .unique();
+        let version = pkg.get_version(version_str).ok_or_else(|| {
+            OmaDatabaseError::NoVersion(pkgname.to_string(), version_str.to_string())
+        })?;
 
-        let info = PkgInfo::new(&self.cache, version, &pkg);
+        let mut res = vec![];
 
-        Ok(info)
+        let pkginfo = PkgInfo::new(&self.cache, version.unique(), &pkg);
+
+        let has_dbg = pkginfo.has_dbg;
+
+        res.push(pkginfo);
+
+        if has_dbg && dbg {
+            self.select_dbg(&pkg, &version, &mut res);
+        }
+
+        Ok(res)
     }
 
     pub fn query_from_branch(
         &self,
         pat: &str,
         filter_candidate: bool,
+        select_dbg: bool,
     ) -> OmaDatabaseResult<Vec<PkgInfo>> {
         let mut res = vec![];
         let (pkgname, branch) = pat
@@ -155,16 +176,40 @@ impl<'a> OmaDatabase<'a> {
 
         if filter_candidate {
             let version = &sort[sort.len() - 1];
-            let oma_pkg = PkgInfo::new(&self.cache, version.unique(), &pkg);
-            res.push(oma_pkg);
+            let pkginfo = PkgInfo::new(&self.cache, version.unique(), &pkg);
+
+            if pkginfo.has_dbg && select_dbg {
+                self.select_dbg(&pkg, version, &mut res);
+            }
+
+            res.push(pkginfo);
         } else {
             for i in sort {
-                let oma_pkg = PkgInfo::new(&self.cache, i.unique(), &pkg);
-                res.push(oma_pkg);
+                let pkginfo = PkgInfo::new(&self.cache, i.unique(), &pkg);
+
+                if pkginfo.has_dbg && select_dbg {
+                    self.select_dbg(&pkg, &i, &mut res);
+                }
+
+                res.push(pkginfo);
             }
         }
 
         Ok(res)
+    }
+
+    fn select_dbg(&self, pkg: &Package, version: &Version, res: &mut Vec<PkgInfo>) {
+        let dbg_pkg_name = format!("{}-dbg", pkg.name());
+        let dbg_pkg = self.cache.get(&dbg_pkg_name);
+        let version_str = version.version();
+
+        if let Some(dbg_pkg) = dbg_pkg {
+            let dbg_ver = dbg_pkg.get_version(version_str);
+            if let Some(dbg_ver) = dbg_ver {
+                let pkginfo_dbg = PkgInfo::new(&self.cache, dbg_ver.unique(), &dbg_pkg);
+                res.push(pkginfo_dbg);
+            }
+        }
     }
 }
 
@@ -198,8 +243,8 @@ mod test {
     fn test_glob_search() {
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db.query_from_glob("apt*", true).unwrap();
-        let res = db.query_from_glob("apt*", false).unwrap();
+        let res_filter = db.query_from_glob("apt*", true, false).unwrap();
+        let res = db.query_from_glob("apt*", false, false).unwrap();
 
         for i in res_filter {
             println!("{}", i);
@@ -216,7 +261,7 @@ mod test {
     fn test_virtual_pkg_search() {
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db.query_from_glob("telegram", true).unwrap();
+        let res_filter = db.query_from_glob("telegram", true, false).unwrap();
 
         for i in res_filter {
             println!("{}", i);
@@ -227,7 +272,7 @@ mod test {
     fn test_branch_search() {
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db.query_from_branch("apt/stable", true).unwrap();
+        let res_filter = db.query_from_branch("apt/stable", true, false).unwrap();
 
         for i in res_filter {
             println!("{}", i);
