@@ -267,8 +267,8 @@ impl OmaApt {
         Ok((success, failed))
     }
 
-    pub fn select_pkg(&self, keywords: Vec<&str>) -> OmaAptResult<Vec<PkgInfo>> {
-        select_pkg(keywords, &self.cache)
+    pub fn select_pkg(&self, keywords: Vec<&str>, select_dbg: bool) -> OmaAptResult<Vec<PkgInfo>> {
+        select_pkg(keywords, &self.cache, select_dbg)
     }
 
     fn get_archive_dir(&self) -> PathBuf {
@@ -450,15 +450,19 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     Ok(install_entry)
 }
 
-pub fn select_pkg(keywords: Vec<&str>, cache: &Cache) -> OmaAptResult<Vec<PkgInfo>> {
+pub fn select_pkg(
+    keywords: Vec<&str>,
+    cache: &Cache,
+    select_dbg: bool,
+) -> OmaAptResult<Vec<PkgInfo>> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
     for keyword in keywords {
         pkgs.extend(match keyword {
             x if x.ends_with(".deb") => db.query_local_glob(x)?,
-            x if x.split_once('/').is_some() => db.query_from_branch(x, true)?,
-            x if x.split_once('=').is_some() => vec![db.query_from_version(x)?],
-            x => db.query_from_glob(x, true)?,
+            x if x.split_once('/').is_some() => db.query_from_branch(x, true, select_dbg)?,
+            x if x.split_once('=').is_some() => db.query_from_version(x, select_dbg)?,
+            x => db.query_from_glob(x, true, select_dbg)?,
         });
     }
 

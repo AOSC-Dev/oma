@@ -130,7 +130,8 @@ fn try_main() -> Result<i32> {
     let exit_code = match matches.subcommand() {
         Some(("install", args)) => {
             refresh()?;
-
+            
+            let install_dbg = args.get_flag("install_dbg");
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
 
             let local_debs = pkgs_unparse
@@ -143,9 +144,7 @@ fn try_main() -> Result<i32> {
 
             let apt = OmaApt::new(local_debs)?;
 
-            let pkgs = apt.select_pkg(pkgs_unparse)?;
-
-            dbg!(pkgs.len());
+            let pkgs = apt.select_pkg(pkgs_unparse, install_dbg)?;
 
             apt.install(pkgs, args.get_flag("reinstall"))?;
             // TODO: network thread
@@ -185,7 +184,7 @@ fn try_main() -> Result<i32> {
 
             let apt = OmaApt::new(local_debs)?;
 
-            let pkgs = apt.select_pkg(pkgs_unparse)?;
+            let pkgs = apt.select_pkg(pkgs_unparse, false)?;
 
             apt.upgrade()?;
             apt.install(pkgs, false)?;
@@ -210,6 +209,7 @@ fn try_main() -> Result<i32> {
                     .iter()
                     .map(|x| x.as_str())
                     .collect::<Vec<_>>(),
+                    false
             )?;
 
             let path = args
@@ -234,6 +234,7 @@ fn try_main() -> Result<i32> {
                     .iter()
                     .map(|x| x.as_str())
                     .collect::<Vec<_>>(),
+                    false
             )?;
 
             // TODO: protect
