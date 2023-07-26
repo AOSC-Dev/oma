@@ -11,7 +11,7 @@ fn main() -> Result<(), OmaAptError> {
 
     let apt = OmaApt::new(vec![])?;
 
-    let pkgs = apt.select_pkg(vec!["vscodium", "go"])?;
+    let pkgs = apt.select_pkg(vec!["vscodium", "go"], false)?;
     std::fs::create_dir_all("./test").unwrap();
     let res = apt.download(pkgs, None, Some(Path::new("test")))?;
 
