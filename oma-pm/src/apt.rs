@@ -73,6 +73,55 @@ impl Default for AptArgs {
     }
 }
 
+impl AptArgs {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn yes(&mut self, yes: bool) -> &mut Self {
+        self.yes = yes;
+        self
+    }
+
+    pub fn force_yes(&mut self, force_yes: bool) -> &mut Self {
+        self.force_yes = force_yes;
+        self
+    }
+
+    pub fn dbkg_force_confnew(&mut self, dbkg_force_confnew: bool) -> &mut Self {
+        self.dpkg_force_confnew = dbkg_force_confnew;
+        self
+    }
+
+    pub fn dpkg_force_all(&mut self, dpkg_force_all: bool) -> &mut Self {
+        self.dpkg_force_all = dpkg_force_all;
+        self
+    }
+}
+
+pub struct OmaArgs {
+    no_fixbroken: bool,
+}
+
+impl Default for OmaArgs {
+    fn default() -> Self {
+        Self {
+            no_fixbroken: false,
+        }
+    }
+}
+
+impl OmaArgs {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn no_fix_broken(&mut self, no_fixbroken: bool) -> &mut Self {
+        self.no_fixbroken = no_fixbroken;
+        self
+    }
+}
+
 type OmaAptResult<T> = Result<T, OmaAptError>;
 
 impl OmaApt {
@@ -167,7 +216,23 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn commit(self, network_thread: Option<usize>, args_config: AptArgs) -> OmaAptResult<()> {
+    pub fn commit(
+        self,
+        network_thread: Option<usize>,
+        args_config: &AptArgs,
+        oma_args: &OmaArgs,
+    ) -> OmaAptResult<()> {
+        let no_fixbroen = oma_args.no_fixbroken;
+
+        if !no_fixbroen {
+            self.cache.fix_broken();
+        }
+
+        if let Err(e) = self.cache.resolve(!no_fixbroen) {
+            tracing::error!("{e}");
+            todo!()
+        }
+
         let v = self.operation_vec()?;
 
         let (download_pkg_list, _) = v;
