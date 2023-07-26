@@ -1,4 +1,4 @@
-use oma_pm::apt::{AptArgs, OmaApt, OmaAptError};
+use oma_pm::apt::{AptArgs, OmaApt, OmaAptError, OmaArgs};
 
 fn main() -> Result<(), OmaAptError> {
     let apt = OmaApt::new(vec![])?;
@@ -8,7 +8,7 @@ fn main() -> Result<(), OmaAptError> {
     let op = apt.operation_vec()?;
     dbg!(op);
 
-    apt.commit(None, AptArgs::default())?;
+    apt.commit(None, &AptArgs::default(), &OmaArgs::default())?;
 
     Ok(())
 }
