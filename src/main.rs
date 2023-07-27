@@ -4,6 +4,7 @@ use std::process::exit;
 
 mod args;
 mod lang;
+mod table;
 
 use anyhow::Result;
 
@@ -15,8 +16,7 @@ use oma_pm::apt::{AptArgs, OmaApt, OmaArgs};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
 
-use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-
+use std::sync::atomic::{AtomicBool, Ordering};
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::{
     fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
@@ -24,7 +24,10 @@ use tracing_subscriber::{
 
 use oma_console::console;
 
-static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
+use crate::table::table_for_install_pending;
+
+use oma_console::pager::SUBPROCESS;
+
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
@@ -154,14 +157,23 @@ fn try_main() -> Result<i32> {
             oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
 
             apt.install(pkgs, args.get_flag("reinstall"))?;
-            // TODO: network thread
 
             let mut apt_args = AptArgs::new();
-            apt_args.yes(args.get_flag("yes"));
+            let yes = args.get_flag("yes");
+            apt_args.yes(yes);
             apt_args.force_yes(args.get_flag("force_yes"));
-            apt_args.dbkg_force_confnew(args.get_flag("dbkg_force_confnew"));
+            // apt_args.dpkg_force_confnew(args.get_flag("dpkg_force_confnew"));
             apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
 
+            let (install, remove, disk_size) = apt.operation_vec()?;
+
+            if !install.is_empty() || !remove.is_empty() {
+                if !yes {
+                    table_for_install_pending(install, remove, disk_size)?;
+                }
+            }
+
+            // TODO: network thread
             apt.commit(None, &apt_args, &oma_args)?;
 
             0
@@ -184,9 +196,7 @@ fn try_main() -> Result<i32> {
         //     no_install_suggests: args.get_flag("no_install_suggests"),
         // }
         Some(("upgrade", args)) => {
-            if !args.get_flag("no_refresh") {
-                refresh()?;
-            }
+            refresh()?;
 
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
 
@@ -205,14 +215,14 @@ fn try_main() -> Result<i32> {
             apt.upgrade()?;
             apt.install(pkgs, false)?;
 
-            let mut oma_args = OmaArgs::new();
-            oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
-            
+            let oma_args = OmaArgs::new();
+            // oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
+
 
             let mut apt_args = AptArgs::new();
             apt_args.yes(args.get_flag("yes"));
             apt_args.force_yes(args.get_flag("force_yes"));
-            apt_args.dbkg_force_confnew(args.get_flag("dbkg_force_confnew"));
+            // apt_args.dpkg_force_confnew(args.get_flag("dpkg_force_confnew"));
             apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
 
             apt.commit(None, &apt_args, &oma_args)?;
@@ -267,14 +277,11 @@ fn try_main() -> Result<i32> {
             // TODO: protect
             apt.remove(pkgs, !args.get_flag("keep_config"), true, true)?;
 
-            let mut oma_args = OmaArgs::new();
-            oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
+            let oma_args = OmaArgs::new();
 
             let mut apt_args = AptArgs::new();
             apt_args.yes(args.get_flag("yes"));
             apt_args.force_yes(args.get_flag("force_yes"));
-            apt_args.dbkg_force_confnew(args.get_flag("dbkg_force_confnew"));
-            apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
 
             apt.commit(None, &apt_args, &oma_args)?;
 
