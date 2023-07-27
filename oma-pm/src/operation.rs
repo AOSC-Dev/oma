@@ -30,7 +30,6 @@ pub enum RemoveTag {
 pub enum InstallOperation {
     Install,
     ReInstall,
-    Remove,
     Upgrade,
     Downgrade,
     Download
@@ -98,7 +97,12 @@ impl InstallEntry {
     pub fn download_size(&self) -> u64 {
         self.download_size
     }
+
+    pub fn op(&self) -> &InstallOperation {
+        &self.op
+    }
 }
+
 
 impl RemoveEntry {
     pub fn new(name: String, version: String, size: u64, details: Vec<RemoveTag>) -> Self {
