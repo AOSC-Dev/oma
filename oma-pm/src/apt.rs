@@ -11,7 +11,7 @@ use oma_fetch::{
     DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 use rust_apt::{
-    cache::{Cache, Upgrade},
+    cache::{Cache, Upgrade, PackageSort},
     new_cache,
     package::{Package, Version},
     records::RecordField,
@@ -30,6 +30,7 @@ use crate::{
 pub struct OmaApt {
     pub cache: Cache,
     config: AptConfig,
+    autoremove: Vec<String>
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -130,6 +131,7 @@ impl OmaApt {
         Ok(Self {
             cache: new_cache!(&local_debs)?,
             config: AptConfig::new(),
+            autoremove: vec![],
         })
     }
 
@@ -190,11 +192,12 @@ impl OmaApt {
     }
 
     pub fn remove(
-        &self,
+        &mut self,
         pkgs: Vec<PkgInfo>,
         purge: bool,
         protect: bool,
         cli_output: bool,
+        no_autoremove: bool
     ) -> OmaAptResult<()> {
         for pkg in pkgs {
             let pkg = Package::new(&self.cache, pkg.raw_pkg.unique());
@@ -212,6 +215,20 @@ impl OmaApt {
                 }
             }
             pkg.mark_delete(purge);
+        }
+
+        // 寻找系统有哪些不必要的软件包
+        if !no_autoremove {
+            let sort = PackageSort::default().installed();
+            let pkgs = self.cache.packages(&sort)?;
+    
+            for pkg in pkgs {
+                if pkg.is_auto_removable() {
+                    pkg.mark_delete(purge);
+
+                    self.autoremove.push(pkg.name().to_string());
+                }
+            }
         }
 
         Ok(())
@@ -411,6 +428,10 @@ impl OmaApt {
                     tags.push(RemoveTag::Purge);
                 }
                 // TODO: autoremove
+
+                if self.autoremove.contains(&pkg.name().to_string()) {
+                    tags.push(RemoveTag::AutoRemove);
+                }
 
                 let installed = pkg.installed().unwrap();
                 let version = installed.version();
