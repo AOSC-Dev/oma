@@ -88,8 +88,8 @@ impl AptArgs {
         self
     }
 
-    pub fn dbkg_force_confnew(&mut self, dbkg_force_confnew: bool) -> &mut Self {
-        self.dpkg_force_confnew = dbkg_force_confnew;
+    pub fn dpkg_force_confnew(&mut self, dpkg_force_confnew: bool) -> &mut Self {
+        self.dpkg_force_confnew = dpkg_force_confnew;
         self
     }
 
