@@ -38,32 +38,28 @@ macro_rules! debug {
 #[macro_export]
 macro_rules! success {
     ($($arg:tt)+) => {
-        use oma_console::WRITER as SUCCESS_WRITER;
-        SUCCESS_WRITER.writeln(&console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln(&console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+), false).ok();
     };
 }
 
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)+) => {
-        use oma_console::WRITER as INFO_WRITER;
-        INFO_WRITER.writeln(&console::style("INFO").blue().bold().to_string(), &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln(&console::style("INFO").blue().bold().to_string(), &format!($($arg)+), false).ok();
     };
 }
 
 #[macro_export]
 macro_rules! warn {
     ($($arg:tt)+) => {
-        use oma_console::WRITER as WARN_WRITER;
-        WARN_WRITER.writeln(&console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln(&console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+), false).ok();
     };
 }
 
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)+) => {
-        use oma_console::WRITER as ERR_WRITER;
-        ERR_WRITER.writeln(&console::style("ERROR").red().bold().to_string(), &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln(&console::style("ERROR").red().bold().to_string(), &format!($($arg)+), false).ok();
     };
 }
 
