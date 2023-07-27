@@ -1,7 +1,7 @@
 use std::io::SeekFrom;
 
 use indicatif::ProgressBar;
-use oma_console::{indicatif, writer::Writer};
+use oma_console::{indicatif, writer::Writer, debug, warn, error};
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client, StatusCode,
@@ -51,7 +51,7 @@ pub(crate) async fn try_download(
                 break;
             }
             Err(e) => {
-                tracing::error!("Download failed: {e}, trying next mirror ...");
+                error!("Download failed: {e}, trying next mirror ...");
             }
         }
     }
@@ -79,7 +79,7 @@ async fn try_http_download(
                     if retry_times == times {
                         return Err(e);
                     }
-                    tracing::warn!("Download Error: {e:?}, retrying {times} times ...");
+                    warn!("Download Error: {e:?}, retrying {times} times ...");
                     times += 1;
                 }
                 _ => return Err(e),
@@ -101,20 +101,20 @@ async fn http_download(
     let file_exist = file.exists();
     let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
-    tracing::debug!("Exist file size is: {file_size}");
+    debug!("Exist file size is: {file_size}");
     let mut dest = None;
     let mut validator = None;
 
     // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
     // 如果不存在，则继续往下走
     if file_exist {
-        tracing::debug!(
+        debug!(
             "File: {} exists, oma will checksum this file.",
             entry.filename
         );
         let hash = entry.hash.clone();
         if let Some(hash) = hash {
-            tracing::debug!("Hash exist! It is: {hash}");
+            debug!("Hash exist! It is: {hash}");
 
             let mut f = tokio::fs::OpenOptions::new()
                 .create(true)
@@ -123,14 +123,14 @@ async fn http_download(
                 .open(&file)
                 .await?;
 
-            tracing::debug!(
+            debug!(
                 "oma opened file: {} with create, write and read mode",
                 entry.filename
             );
 
             let mut v = Checksum::from_sha256_str(&hash)?.get_validator();
 
-            tracing::debug!("Validator created.");
+            debug!("Validator created.");
 
             let mut buf = vec![0; 4096];
             let mut readed = 0;
@@ -153,14 +153,14 @@ async fn http_download(
             }
 
             if v.finish() {
-                tracing::debug!(
+                debug!(
                     "{} checksum success, no need to download anything.",
                     entry.filename
                 );
                 return Ok(Summary::new(&entry.filename, false, count, context));
             }
 
-            tracing::debug!("checksum fail, will download this file: {}", entry.filename);
+            debug!("checksum fail, will download this file: {}", entry.filename);
 
             if !entry.allow_resume {
                 if let Some(ref gpb) = fpb.as_ref().and_then(|x| x.global_bar.clone()) {
@@ -210,7 +210,7 @@ async fn http_download(
         None => false,
     };
 
-    tracing::debug!("Can resume? {can_resume}");
+    debug!("Can resume? {can_resume}");
 
     // 从服务器获取文件的总大小
     let total_size = {
@@ -228,7 +228,7 @@ async fn http_download(
             .ok_or_else(move || DownloadError::InvaildTotal(url))?
     };
 
-    tracing::debug!("File total size is: {total_size}");
+    debug!("File total size is: {total_size}");
 
     let url = entry.source[position].url.clone();
     let mut req = client.get(url);
@@ -237,17 +237,17 @@ async fn http_download(
         // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
         // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
         if total_size <= file_size {
-            tracing::debug!("Exist file size is reset to 0, because total size <= exist file size");
+            debug!("Exist file size is reset to 0, because total size <= exist file size");
             file_size = 0;
             can_resume = false;
         }
 
         // 发送 RANGE 的头，传入的是已经下载的文件的大小
-        tracing::debug!("oma will set header range as bytes={file_size}-");
+        debug!("oma will set header range as bytes={file_size}-");
         req = req.header(RANGE, format!("bytes={}-", file_size));
     }
 
-    tracing::debug!("Can resume? {can_resume}");
+    debug!("Can resume? {can_resume}");
 
     let resp = req.send().await?;
 
@@ -312,7 +312,7 @@ async fn http_download(
     let mut dest = if !entry.allow_resume || !can_resume {
         // 如果不能 resume，则加入 truncate 这个 flag，告诉内核截断文件
         // 并把文件长度设置为 0
-        tracing::debug!(
+        debug!(
             "oma will open file: {} as truncate, create, write and read mode.",
             entry.filename
         );
@@ -324,16 +324,16 @@ async fn http_download(
             .open(&file)
             .await?;
 
-        tracing::debug!("Setting file length as 0");
+        debug!("Setting file length as 0");
         f.set_len(0).await?;
 
         f
     } else if let Some(dest) = dest {
-        tracing::debug!("oma will re use opened dest file for {}", entry.filename);
+        debug!("oma will re use opened dest file for {}", entry.filename);
 
         dest
     } else {
-        tracing::debug!(
+        debug!(
             "oma will open file: {} as create, write and read mode.",
             entry.filename
         );
@@ -347,11 +347,11 @@ async fn http_download(
     };
 
     // 把文件指针移动到末尾
-    tracing::debug!("oma will seek file: {} to end", entry.filename);
+    debug!("oma will seek file: {} to end", entry.filename);
     dest.seek(SeekFrom::End(0)).await?;
 
     // 下载！
-    tracing::debug!("Start download!");
+    debug!("Start download!");
     while let Some(chunk) = source.chunk().await? {
         dest.write_all(&chunk).await?;
         if let Some(pb) = &pb {
@@ -369,13 +369,13 @@ async fn http_download(
     }
 
     // 下载完成，告诉内核不再写这个文件了
-    tracing::debug!("Download complete! shutting down dest file stream ...");
+    debug!("Download complete! shutting down dest file stream ...");
     dest.shutdown().await?;
 
     // 最后看看 chekcsum 验证是否通过
     if let Some(v) = validator {
         if !v.finish() {
-            tracing::debug!("checksum fail: {}", entry.filename);
+            debug!("checksum fail: {}", entry.filename);
             let fpbc = fpb.clone();
             if let Some(ref gpb) = fpbc.and_then(|x| x.global_bar) {
                 let pb = pb.unwrap();
@@ -387,7 +387,7 @@ async fn http_download(
             return Err(DownloadError::ChecksumMisMatch(url));
         }
 
-        tracing::debug!("checksum success: {}", entry.filename);
+        debug!("checksum success: {}", entry.filename);
     }
 
     if let Some(pb) = pb {
