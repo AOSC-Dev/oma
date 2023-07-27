@@ -11,16 +11,12 @@ use anyhow::Result;
 use clap::ArgMatches;
 use nix::sys::signal;
 use oma_console::{console::style, info};
-use oma_console::{due_to, error, WRITER};
+use oma_console::{due_to, error, WRITER, debug, DEBUG};
 use oma_pm::apt::{AptArgs, OmaApt, OmaArgs};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use tracing::metadata::LevelFilter;
-use tracing_subscriber::{
-    fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
-};
 
 use oma_console::console;
 
@@ -75,26 +71,11 @@ fn try_main() -> Result<i32> {
     }
 
     // Init dry-run flag
-    let _dry_run = if let Some(Ok(Some(true))) = matches
+    let dry_run = if let Some(Ok(Some(true))) = matches
         .subcommand()
         .map(|(_, x)| x.try_get_one::<bool>("dry_run"))
     {
-        tracing_subscriber::registry()
-            .with(
-                fmt::layer()
-                    .with_writer(std::io::stdout)
-                    .without_time()
-                    .with_target(false)
-                    .with_filter(if matches.get_flag("debug") {
-                        LevelFilter::DEBUG
-                    } else {
-                        LevelFilter::INFO
-                    }),
-            )
-            .try_init()
-            .expect("Can not setup dry_run logger");
 
-        tracing::info!("Running in Dry-run mode");
 
         true
     } else {
@@ -102,23 +83,15 @@ fn try_main() -> Result<i32> {
     };
 
     // Init debug flag
-    let _debug = if matches.get_flag("debug") {
-        tracing_subscriber::registry()
-            .with(
-                fmt::layer()
-                    .with_writer(std::io::stdout)
-                    .without_time()
-                    .with_target(false)
-                    .with_filter(LevelFilter::DEBUG),
-            )
-            .try_init()?;
+    let debug = if matches.get_flag("debug") {
+        DEBUG.store(true, Ordering::Relaxed);
 
         true
     } else {
         false
     };
 
-    tracing::debug!(
+    debug!(
         "oma version: {}\n OS: {:#?}",
         env!("CARGO_PKG_VERSION"),
         OsRelease::new()

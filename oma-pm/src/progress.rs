@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use crate::apt::AptConfig;
+use oma_console::debug;
 use rust_apt::{
     raw::progress::{AcquireProgress, InstallProgress},
     util::{get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys},
@@ -33,15 +34,15 @@ impl AcquireProgress for NoProgress {
     }
 
     fn hit(&mut self, _id: u32, description: String) {
-        tracing::debug!("{}", description);
+        debug!("{}", description);
     }
 
     fn fetch(&mut self, _id: u32, description: String, _file_size: u64) {
-        tracing::debug!("{}", description);
+        debug!("{}", description);
     }
 
     fn fail(&mut self, _id: u32, description: String, _status: u32, _error_text: String) {
-        tracing::debug!("{}", description);
+        debug!("{}", description);
     }
 
     fn pulse(
@@ -66,7 +67,7 @@ impl AcquireProgress for NoProgress {
         _pending_errors: bool,
     ) {
         if fetched_bytes != 0 {
-            tracing::debug!(
+            debug!(
                 "Fetched {} in {} ({}/s)",
                 unit_str(fetched_bytes, NumSys::Decimal),
                 time_str(elapsed_time),
@@ -94,27 +95,27 @@ impl OmaAptInstallProgress {
                 "APT::Get::Assume-Yes".to_owned(),
                 "true".to_owned(),
             );
-            tracing::debug!("APT::Get::Assume-Yes is set to true");
+            debug!("APT::Get::Assume-Yes is set to true");
         }
 
         if dpkg_force_confnew {
             config.set("Dpkg::Options::", "--force-confnew");
-            tracing::debug!("Dpkg::Options:: is set to --force-confnew");
+            debug!("Dpkg::Options:: is set to --force-confnew");
         } else if yes {
             config.set("Dpkg::Options::", "--force-confold");
-            tracing::debug!("Dpkg::Options:: is set to --force-confold");
+            debug!("Dpkg::Options:: is set to --force-confold");
         }
 
         if force_yes {
             // warn!("{}", fl!("force-auto-mode"));
             config.set("APT::Get::force-yes", "true");
-            tracing::debug!("APT::Get::force-Yes is set to true");
+            debug!("APT::Get::force-Yes is set to true");
         }
 
         if dpkg_force_all {
             // warn!("{}", fl!("dpkg-force-all-mode"));
             config.set("Dpkg::Options::", "--force-all");
-            tracing::debug!("Dpkg::Options:: is set to --force-all");
+            debug!("Dpkg::Options:: is set to --force-all");
         }
 
         Self { config }

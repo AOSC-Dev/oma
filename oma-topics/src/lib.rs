@@ -2,6 +2,7 @@ use std::{io::Write, path::PathBuf, sync::mpsc::Sender};
 
 use apt_sources_lists::{SourceLine, SourcesLists};
 use indexmap::IndexMap;
+use oma_console::debug;
 use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -150,7 +151,7 @@ impl TopicManager {
         dry_run: bool,
         arch: &str,
     ) -> Result<()> {
-        tracing::info!("oma will opt_in: {}", topic);
+        debug!("oma will opt_in: {}", topic);
 
         if dry_run {
             return Ok(());
@@ -162,7 +163,7 @@ impl TopicManager {
             self.all.clone()
         };
 
-        tracing::debug!("all topic: {all:?}");
+        debug!("all topic: {all:?}");
 
         let index = all.iter().find(|x| {
             x.name.to_ascii_lowercase() == topic.to_ascii_lowercase()
@@ -174,7 +175,7 @@ impl TopicManager {
 
         let enabled_names = self.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
 
-        tracing::debug!("Enabled: {enabled_names:?}");
+        debug!("Enabled: {enabled_names:?}");
 
         if let Some(index) = index {
             if !enabled_names.contains(&&index.name) {
@@ -184,7 +185,7 @@ impl TopicManager {
             return Ok(());
         }
 
-        tracing::debug!("index: {index:?} does not exist");
+        debug!("index: {index:?} does not exist");
 
         return Err(OmaTopicsError::CanNotFindTopic(topic.to_owned()));
     }
@@ -196,7 +197,7 @@ impl TopicManager {
             .position(|x| x.name.to_ascii_lowercase() == topic.to_ascii_lowercase());
 
         if dry_run {
-            tracing::info!("oma will opt_out: {}", topic);
+            debug!("oma will opt_out: {}", topic);
             return Ok(self.enabled[index.unwrap()].packages.clone());
         }
 

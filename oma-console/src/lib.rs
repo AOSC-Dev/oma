@@ -32,9 +32,8 @@ macro_rules! msg {
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)+) => {
-        use std::sync::atomic::Ordering as DebugOrdering;
-        if oma_console::DEBUG.load(DebugOrdering::Relaxed) {
-            oma_console::WRITER.writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+), false).ok();
+        if oma_console::DEBUG.load(std::sync::atomic::Ordering::Relaxed) {
+            oma_console::WRITER.writeln(&oma_console::console::style("DEBUG").dim().to_string(), &format!($($arg)+), false).ok();
         }
     };
 }
@@ -42,35 +41,34 @@ macro_rules! debug {
 #[macro_export]
 macro_rules! success {
     ($($arg:tt)+) => {
-        oma_console::WRITER.writeln(&console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln(&oma_console::console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+), false).ok();
     };
 }
 
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)+) => {
-        oma_console::WRITER.writeln(&console::style("INFO").blue().bold().to_string(), &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln(&oma_console::console::style("INFO").blue().bold().to_string(), &format!($($arg)+), false).ok();
     };
 }
 
 #[macro_export]
 macro_rules! warn {
     ($($arg:tt)+) => {
-        oma_console::WRITER.writeln(&console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln(&oma_console::console::style("WARNING").yellow().bold().to_string(), &format!($($arg)+), false).ok();
     };
 }
 
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)+) => {
-        oma_console::WRITER.writeln(&console::style("ERROR").red().bold().to_string(), &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln(&oma_console::console::style("ERROR").red().bold().to_string(), &format!($($arg)+), false).ok();
     };
 }
 
 #[macro_export]
 macro_rules! due_to {
     ($($arg:tt)+) => {
-        use oma_console::WRITER as DUE_TO_WRITER;
-        DUE_TO_WRITER.writeln(&console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+), false).ok();
     };
 }
