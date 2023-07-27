@@ -1862,7 +1862,6 @@ dependencies = [
  "oma-fetch",
  "oma-utils",
  "rust-apt",
- "tabled",
  "thiserror",
  "time",
  "tokio",
