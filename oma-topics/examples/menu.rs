@@ -3,7 +3,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::{console, info, writer::Writer};
+use oma_console::{console, info};
 use oma_topics::Result;
 use oma_topics::{list, TopicManager};
 
@@ -86,12 +86,10 @@ fn main() -> Result<()> {
         Ok(())
     });
 
-    let w = Writer::default();
-
     while let Ok(log) = rx.recv() {
         match log {
             oma_topics::TopicsEvent::Info(s) => {
-                info!(w, "{}", s);
+                info!("{}", s);
             }
         }
     }
