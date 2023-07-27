@@ -10,8 +10,8 @@ use anyhow::Result;
 
 use clap::ArgMatches;
 use nix::sys::signal;
-use oma_console::{console::style, info, writer::Writer};
-use oma_console::{due_to, error};
+use oma_console::{console::style, info};
+use oma_console::{due_to, error, WRITER};
 use oma_pm::apt::{AptArgs, OmaApt, OmaArgs};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
@@ -38,16 +38,14 @@ fn main() {
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
 
-    let writer = Writer::default();
-
     let code = match try_main() {
         Ok(exit_code) => exit_code,
         Err(e) => {
             if !e.to_string().is_empty() {
-                error!(writer, "{e}");
+                error!("{e}");
             }
             e.chain().skip(1).for_each(|cause| {
-                due_to!(writer, "{}", cause);
+                due_to!("{cause}");
             });
             1
         }
@@ -435,7 +433,6 @@ fn refresh() -> Result<()> {
 }
 
 fn single_handler() {
-    let writer = Writer::default();
     // Kill subprocess
     let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
     let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
@@ -443,7 +440,7 @@ fn single_handler() {
         let pid = nix::unistd::Pid::from_raw(subprocess_pid);
         signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
         if !allow_ctrlc {
-            info!(writer, "{}", fl!("user-aborted-op"));
+            info!("{}", fl!("user-aborted-op"));
         }
     }
 
@@ -454,7 +451,7 @@ fn single_handler() {
 
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
-    let _ = writer.show_cursor();
+    let _ = WRITER.show_cursor();
 
     std::process::exit(2);
 }
