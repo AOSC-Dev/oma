@@ -1808,8 +1808,6 @@ dependencies = [
  "rust-embed",
  "tabled",
  "tokio",
- "tracing",
- "tracing-subscriber",
  "unic-langid",
 ]
 
@@ -1851,7 +1849,6 @@ dependencies = [
  "sha2",
  "thiserror",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1867,7 +1864,6 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
- "tracing",
  "tracing-subscriber",
  "url-escape",
 ]
@@ -1897,8 +1893,6 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
- "tracing",
- "tracing-subscriber",
  "url",
  "xz2",
 ]
@@ -1918,7 +1912,6 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
- "tracing",
 ]
 
 [[package]]
