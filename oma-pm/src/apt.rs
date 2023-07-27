@@ -15,6 +15,7 @@ use rust_apt::{
     new_cache,
     package::{Package, Version},
     records::RecordField,
+    util::DiskSpace,
 };
 
 pub use rust_apt::config::Config as AptConfig;
@@ -235,7 +236,7 @@ impl OmaApt {
 
         let v = self.operation_vec()?;
 
-        let (download_pkg_list, _) = v;
+        let (download_pkg_list, _, _) = v;
 
         let tokio = tokio::runtime::Builder::new_multi_thread()
             .enable_time()
@@ -352,7 +353,9 @@ impl OmaApt {
         path
     }
 
-    pub fn operation_vec(&self) -> OmaAptResult<(Vec<InstallEntry>, Vec<RemoveEntry>)> {
+    pub fn operation_vec(
+        &self,
+    ) -> OmaAptResult<(Vec<InstallEntry>, Vec<RemoveEntry>, (&str, u64))> {
         let mut install = vec![];
         let mut remove = vec![];
         let changes = self.cache.get_changes(false)?;
@@ -449,7 +452,14 @@ impl OmaApt {
             }
         }
 
-        Ok((install, remove))
+        let disk_size = self.cache.depcache().disk_size();
+
+        let disk_size = match disk_size {
+            DiskSpace::Require(n) => ("+", n),
+            DiskSpace::Free(n) => ("-", n),
+        };
+
+        Ok((install, remove, disk_size))
     }
 }
 
