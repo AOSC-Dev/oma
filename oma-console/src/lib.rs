@@ -1,6 +1,8 @@
 pub mod pager;
 pub mod pb;
 pub mod writer;
+use std::sync::atomic::AtomicBool;
+
 pub use console;
 pub use dialoguer;
 pub use indicatif;
@@ -9,6 +11,7 @@ use writer::Writer;
 
 pub type Result<T> = std::result::Result<T, OmaConsoleError>;
 pub static WRITER: Lazy<Writer> = Lazy::new(writer::Writer::default);
+pub static DEBUG: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, thiserror::Error)]
 pub enum OmaConsoleError {
@@ -22,16 +25,17 @@ pub enum OmaConsoleError {
 #[macro_export]
 macro_rules! msg {
     ($($arg:tt)+) => {
-        use oma_console::WRITER as MSG_WRITER;
-        MSG_WRITER.writeln("", &format!($($arg)+), false).ok();
+        oma_console::WRITER.writeln("", &format!($($arg)+), false).ok();
     };
 }
 
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)+) => {
-        use oma_console::WRITER as DEBUG_WRITER;
-        DEBUG_WRITER.writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+), false).ok();
+        use std::sync::atomic::Ordering as DebugOrdering;
+        if oma_console::DEBUG.load(DebugOrdering::Relaxed) {
+            oma_console::WRITER.writeln(&console::style("DEBUG").dim().to_string(), &format!($($arg)+), false).ok();
+        }
     };
 }
 
