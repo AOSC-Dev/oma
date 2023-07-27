@@ -5,13 +5,12 @@ use oma_console::{
     console::style,
     dialoguer::{theme::ColorfulTheme, Confirm, Input},
     info,
-    writer::Writer,
 };
 use oma_fetch::{
     DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 use rust_apt::{
-    cache::{Cache, Upgrade, PackageSort},
+    cache::{Cache, PackageSort, Upgrade},
     new_cache,
     package::{Package, Version},
     records::RecordField,
@@ -30,7 +29,7 @@ use crate::{
 pub struct OmaApt {
     pub cache: Cache,
     config: AptConfig,
-    autoremove: Vec<String>
+    autoremove: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -197,7 +196,7 @@ impl OmaApt {
         purge: bool,
         protect: bool,
         cli_output: bool,
-        no_autoremove: bool
+        no_autoremove: bool,
     ) -> OmaAptResult<()> {
         for pkg in pkgs {
             let pkg = Package::new(&self.cache, pkg.raw_pkg.unique());
@@ -221,7 +220,7 @@ impl OmaApt {
         if !no_autoremove {
             let sort = PackageSort::default().installed();
             let pkgs = self.cache.packages(&sort)?;
-    
+
             for pkg in pkgs {
                 if pkg.is_auto_removable() {
                     pkg.mark_delete(purge);
@@ -485,7 +484,6 @@ impl OmaApt {
 }
 
 fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<bool, OmaAptError> {
-    let writer = Writer::default();
     let theme = ColorfulTheme::default();
     let delete = Confirm::with_theme(&theme)
         .with_prompt(format!(
@@ -495,11 +493,10 @@ fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<bool, OmaAptError> {
         .default(false)
         .interact()?;
     if !delete {
-        info!(writer, "Not confirmed.");
+        info!("Not confirmed.");
         return Ok(false);
     }
     info!(
-        writer,
         "If you are absolutely sure, please type the following: {}",
         style("Do as I say!").bold()
     );
@@ -509,7 +506,7 @@ fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<bool, OmaAptError> {
         .interact()?
         != "Do as I say!"
     {
-        info!(writer, "Prompt answered incorrectly. Not confirmed.");
+        info!("Prompt answered incorrectly. Not confirmed.");
         return Ok(false);
     }
 
