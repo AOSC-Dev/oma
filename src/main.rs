@@ -270,7 +270,7 @@ fn try_main() -> Result<i32> {
         //     with_deps: args.get_flag("with_deps"),
         // }),
         Some(("remove", args)) => {
-            let apt = OmaApt::new(vec![])?;
+            let mut apt = OmaApt::new(vec![])?;
             let pkgs = apt.select_pkg(
                 pkgs_getter(args)
                     .unwrap_or_default()
@@ -281,7 +281,13 @@ fn try_main() -> Result<i32> {
             )?;
 
             // TODO: protect
-            apt.remove(pkgs, !args.get_flag("keep_config"), true, true)?;
+            apt.remove(
+                pkgs,
+                !args.get_flag("keep_config"),
+                true,
+                true,
+                args.get_flag("no_autoremove"),
+            )?;
 
             let oma_args = OmaArgs::new();
 
