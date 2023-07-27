@@ -166,11 +166,11 @@ fn try_main() -> Result<i32> {
 
             let (install, remove, disk_size) = apt.operation_vec()?;
 
-            if !install.is_empty() || !remove.is_empty() {
-                if !yes {
-                    table_for_install_pending(install, remove, disk_size)?;
-                }
+            if install.is_empty() && remove.is_empty() {
+                return Ok(0);
             }
+
+            table_for_install_pending(install, remove, disk_size, !yes)?;
 
             // TODO: network thread
             apt.commit(None, &apt_args, &oma_args)?;
@@ -215,14 +215,20 @@ fn try_main() -> Result<i32> {
             apt.install(pkgs, false)?;
 
             let oma_args = OmaArgs::new();
-            // oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
-
 
             let mut apt_args = AptArgs::new();
-            apt_args.yes(args.get_flag("yes"));
+            let yes = args.get_flag("yes");
+            apt_args.yes(yes);
             apt_args.force_yes(args.get_flag("force_yes"));
-            // apt_args.dpkg_force_confnew(args.get_flag("dpkg_force_confnew"));
             apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
+
+            let (install, remove, disk_size) = apt.operation_vec()?;
+
+            if install.is_empty() && remove.is_empty() {
+                return Ok(0);
+            }
+
+            table_for_install_pending(install, remove, disk_size, !yes)?;
 
             apt.commit(None, &apt_args, &oma_args)?;
 
@@ -279,8 +285,17 @@ fn try_main() -> Result<i32> {
             let oma_args = OmaArgs::new();
 
             let mut apt_args = AptArgs::new();
-            apt_args.yes(args.get_flag("yes"));
+            let yes = args.get_flag("yes");
+            apt_args.yes(yes);
             apt_args.force_yes(args.get_flag("force_yes"));
+
+            let (install, remove, disk_size) = apt.operation_vec()?;
+
+            if install.is_empty() && remove.is_empty() {
+                return Ok(0);
+            }
+
+            table_for_install_pending(install, remove, disk_size, !yes)?;
 
             apt.commit(None, &apt_args, &oma_args)?;
 
