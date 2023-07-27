@@ -1,10 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use oma_console::{
-    console,
     console::style,
     dialoguer::{theme::ColorfulTheme, Confirm, Input},
-    info,
+    info, debug, error,
 };
 use oma_fetch::{
     DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
@@ -246,7 +245,7 @@ impl OmaApt {
         }
 
         if let Err(e) = self.cache.resolve(!no_fixbroen) {
-            tracing::error!("{e}");
+            error!("{e}");
             todo!()
         }
 
@@ -265,8 +264,8 @@ impl OmaApt {
             Self::download_pkgs(download_pkg_list, network_thread, &path).await
         })?;
 
-        tracing::debug!("Success: {success:?}");
-        tracing::debug!("Failed: {failed:?}");
+        debug!("Success: {success:?}");
+        debug!("Failed: {failed:?}");
 
         let mut no_progress = NoProgress::new_box();
 
@@ -570,7 +569,7 @@ fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResul
     ver.set_candidate();
 
     if pkg.installed().as_ref() == Some(&ver) && !reinstall {
-        tracing::info!("already-installed");
+        info!("already-installed");
 
         return Ok(());
     } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
@@ -583,7 +582,7 @@ fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResul
         if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
             // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
             // TODO: 依赖信息显示
-            tracing::error!("Dep issue: {}", pkg.name());
+            error!("Dep issue: {}", pkg.name());
             return Err(OmaAptError::DependencyIssue);
         }
     }

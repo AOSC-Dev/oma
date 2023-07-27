@@ -6,7 +6,7 @@ use std::{
 use crate::fl;
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use futures::StreamExt;
-use oma_console::indicatif::{style::TemplateError, MultiProgress, ProgressBar};
+use oma_console::{indicatif::{style::TemplateError, MultiProgress, ProgressBar}, debug, info};
 use oma_fetch::{
     DownloadEntry, DownloadError, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
 };
@@ -299,7 +299,7 @@ async fn update_db(
                     Some(format!("{msg} InRelease")),
                 );
 
-                tracing::debug!("oma will fetch {} InRelease", source_entry.url);
+                debug!("oma will fetch {} InRelease", source_entry.url);
                 tasks.push(task);
             }
             OmaSourceEntryFrom::Local => {
@@ -315,7 +315,7 @@ async fn update_db(
                     Some(msg),
                 );
 
-                tracing::debug!("oma will fetch {} InRelease", source_entry.url);
+                debug!("oma will fetch {} InRelease", source_entry.url);
                 tasks.push(task);
             }
         }
@@ -331,7 +331,7 @@ async fn update_db(
         if cfg!(feature = "aosc") {
             match inrelease {
                 Ok(i) => {
-                    tracing::debug!("{} fetched", &i.filename);
+                    debug!("{} fetched", &i.filename);
                     all_inrelease.push(i)
                 }
                 Err(e) => match e {
@@ -341,7 +341,7 @@ async fn update_db(
 
                         let event_worker = tokio::task::spawn_blocking(move || {
                             while let Ok(v) = rx.recv() {
-                                tracing::info!("{:?}", v);
+                                info!("{:?}", v);
                             }
                         });
 
@@ -350,7 +350,7 @@ async fn update_db(
 
                         event_worker.await?;
 
-                        tracing::debug!("Removed topics: {removed_suites:?}");
+                        debug!("Removed topics: {removed_suites:?}");
 
                         let suite = url
                             .split('/')
@@ -367,7 +367,7 @@ async fn update_db(
             }
         } else {
             let i = inrelease?;
-            tracing::debug!("{} fetched", &i.filename);
+            debug!("{} fetched", &i.filename);
             all_inrelease.push(i);
         }
     }
@@ -379,7 +379,7 @@ async fn update_db(
         let urlc = ose.url.clone();
         let archc = arch.to_owned();
 
-        tracing::debug!("Getted Oma source entry: {:?}", ose);
+        debug!("Getted Oma source entry: {:?}", ose);
 
         let download_dir = download_dir.clone();
         let inrelease_path = download_dir.join(&inrelease_summary.filename);
@@ -400,12 +400,12 @@ async fn update_db(
             .collect::<Vec<_>>();
 
         let handle = if ose.is_flat {
-            tracing::debug!("{} is flat repo", ose.url);
+            debug!("{} is flat repo", ose.url);
             // Flat repo
             let mut handle = vec![];
             for i in &inrelease.checksums {
                 if i.file_type == DistFileType::PackageList {
-                    tracing::debug!("oma will download package list: {}", i.name);
+                    debug!("oma will download package list: {}", i.name);
                     handle.push(i);
                     total += i.size;
                 }
@@ -417,20 +417,20 @@ async fn update_db(
             for i in &checksums {
                 match i.file_type {
                     DistFileType::BinaryContents => {
-                        tracing::debug!("oma will download Binary Contents: {}", i.name);
+                        debug!("oma will download Binary Contents: {}", i.name);
                         handle.push(i);
                         total += i.size;
                     }
                     DistFileType::Contents | DistFileType::PackageList => {
                         if arch == "mips64r6el" {
-                            tracing::debug!("oma will download Package List/Contetns: {}", i.name);
+                            debug!("oma will download Package List/Contetns: {}", i.name);
                             handle.push(i);
                             total += i.size;
                         }
                     }
                     DistFileType::CompressContents | DistFileType::CompressPackageList => {
                         if arch != "mips64r6el" {
-                            tracing::debug!(
+                            debug!(
                                 "oma will download compress Package List/compress Contetns: {}",
                                 i.name
                             );
@@ -488,7 +488,7 @@ async fn update_db(
                         Some(format!("{msg} {typ}")),
                     );
 
-                    tracing::debug!("oma will download http source database: {file_path}");
+                    debug!("oma will download http source database: {file_path}");
 
                     tasks.push(task);
                 }
@@ -499,7 +499,7 @@ async fn update_db(
                         format!("{}/{}", source_index.dist_path, not_compress_filename)
                     };
 
-                    tracing::debug!("oma will download local source database: {p} {}", c.name);
+                    debug!("oma will download local source database: {p} {}", c.name);
 
                     let task = DownloadEntry::new(
                         vec![DownloadSource::new(p.clone(), DownloadSourceType::Local)],

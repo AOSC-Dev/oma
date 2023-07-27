@@ -3,7 +3,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::{console, info};
+use oma_console::info;
 use oma_topics::Result;
 use oma_topics::{list, TopicManager};
 
