@@ -91,6 +91,7 @@ pub fn table_for_install_pending(
     install: Vec<InstallEntry>,
     remove: Vec<RemoveEntry>,
     disk_size: (&str, u64),
+    pager: bool
 ) -> Result<()> {
     let has_x11 = std::env::var("DISPLAY");
 
@@ -100,7 +101,7 @@ pub fn table_for_install_pending(
         fl!("question-tips")
     };
 
-    let mut pager = Pager::new(false, &tips)?;
+    let mut pager = Pager::new(!pager, &tips)?;
     let pager_name = pager.pager_name().to_owned();
     let mut out = pager.get_writer()?;
 
