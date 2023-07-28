@@ -169,7 +169,7 @@ impl Oma {
                 tracing::debug!("Finding unmet upgrade");
                 let pb = MB.add(ProgressBar::new_spinner());
                 oma_spinner(&pb);
-                pb.set_message("Quering upgradable packages ...");
+                pb.set_message("Querying upgradable packages ...");
                 let sort = PackageSort::default().upgradable();
                 let upgrable_pkgs = cache.packages(&sort).map_err(|e| anyhow!("{e}"))?;
 
@@ -950,7 +950,7 @@ impl Oma {
 
         let pb = MB.add(ProgressBar::new_spinner());
         oma_spinner(&pb);
-        pb.set_message("Quering status information ...");
+        pb.set_message("Querying status information ...");
 
         let upgradable = PackageSort::default().upgradable();
         let autoremove = PackageSort::default().auto_removable();
