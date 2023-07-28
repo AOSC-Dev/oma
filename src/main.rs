@@ -11,7 +11,7 @@ use anyhow::Result;
 use clap::ArgMatches;
 use nix::sys::signal;
 use oma_console::{console::style, info};
-use oma_console::{due_to, error, WRITER, debug, DEBUG};
+use oma_console::{debug, due_to, error, DEBUG, WRITER, success};
 use oma_pm::apt::{AptArgs, OmaApt, OmaArgs};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
@@ -75,8 +75,6 @@ fn try_main() -> Result<i32> {
         .subcommand()
         .map(|(_, x)| x.try_get_one::<bool>("dry_run"))
     {
-
-
         true
     } else {
         false
@@ -196,6 +194,7 @@ fn try_main() -> Result<i32> {
             let (install, remove, disk_size) = apt.operation_vec()?;
 
             if install.is_empty() && remove.is_empty() {
+                info!("successfully-refresh");
                 return Ok(0);
             }
 
@@ -289,6 +288,27 @@ fn try_main() -> Result<i32> {
         Some(("refresh", _)) => {
             // TODO: limit
             refresh()?;
+
+            let apt = OmaApt::new(vec![])?;
+            let (upgradable, removable) = apt.available_action()?;
+
+            let mut s = vec![];
+
+            if upgradable != 0 {
+                s.push(fl!("packages-can-be-upgrade", len = upgradable));
+            }
+
+            if removable != 0 {
+                s.push(fl!("packages-can-be-removed", len = removable));
+            }
+
+            if s.is_empty() {
+                success!("{}", fl!("successfully-refresh"));
+            } else {
+                let mut s = s.join(&fl!("comma"));
+                s = s + &fl!("full-comma");
+                success!("{}", fl!("successfully-refresh-with-tips", s = s));
+            }
 
             0
         }
@@ -393,6 +413,7 @@ fn try_main() -> Result<i32> {
 }
 
 fn refresh() -> Result<()> {
+    info!("{}", fl!("refreshing-repo-metadata"));
     let refresh = OmaRefresh::scan(None)?;
     let tokio = tokio::runtime::Builder::new_multi_thread()
         .enable_io()
