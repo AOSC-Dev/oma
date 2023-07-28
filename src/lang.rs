@@ -33,8 +33,3 @@ macro_rules! fl {
         i18n_embed_fl::fl!($crate::lang::LANGUAGE_LOADER, $message_id, $($args), *)
     }};
 }
-
-// Get the `Localizer` to be used for localizing this library.
-// pub fn localizer() -> Box<dyn Localizer> {
-//     Box::from(DefaultLocalizer::new(&*LANGUAGE_LOADER, &Localizations))
-// }

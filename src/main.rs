@@ -10,9 +10,12 @@ use anyhow::{anyhow, Result};
 
 use clap::ArgMatches;
 use nix::sys::signal;
+use oma_console::writer::gen_prefix;
 use oma_console::{console::style, info};
 use oma_console::{debug, due_to, error, success, warn, DEBUG, WRITER};
 use oma_pm::apt::{AptArgs, OmaApt, OmaAptError, OmaArgs};
+use oma_pm::query::OmaDatabase;
+use oma_pm::PackageStatus;
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
 
@@ -22,7 +25,7 @@ use oma_console::console;
 
 use crate::table::table_for_install_pending;
 
-use oma_console::pager::SUBPROCESS;
+use oma_console::pager::{Pager, SUBPROCESS};
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -358,7 +361,79 @@ fn try_main() -> Result<i32> {
 
             0
         }
-        Some(("search", _args)) => todo!(),
+        Some(("search", args)) => {
+            let apt = OmaApt::new(vec![])?;
+            let db = OmaDatabase::new(&apt.cache)?;
+            let s = args
+                .get_many::<String>("pattern")
+                .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
+                .unwrap();
+
+            let s = s.join(" ");
+
+            let res = db.search(&s)?;
+
+            let is_pager = res.len() * 2 > WRITER.get_height() as usize;
+
+            let has_x11 = std::env::var("DISPLAY");
+
+            let tips = if has_x11.is_ok() {
+                fl!("normal-tips-with-x11")
+            } else {
+                fl!("normal-tips")
+            };
+
+            let pager = Pager::new(!is_pager, &tips)?;
+            let mut writer = pager.get_writer()?;
+            ALLOWCTRLC.store(true, Ordering::Relaxed);
+
+            for i in res {
+                let mut pkg_info_line = if i.is_base {
+                    style(&i.name).bold().blue().to_string()
+                } else {
+                    style(&i.name).bold().to_string()
+                };
+
+                pkg_info_line.push(' ');
+
+                if i.status == PackageStatus::Upgrade {
+                    pkg_info_line.push_str(&format!(
+                        "{} -> {}",
+                        style(i.old_version.unwrap()).yellow(),
+                        style(&i.new_version).green()
+                    ));
+                } else {
+                    pkg_info_line.push_str(&style(&i.new_version).green().to_string());
+                }
+
+                if i.dbg_package {
+                    pkg_info_line.push(' ');
+                    pkg_info_line.push_str(&style(fl!("debug-symbol-available")).dim().to_string());
+                }
+
+                if i.full_match {
+                    pkg_info_line.push(' ');
+                    pkg_info_line.push_str(
+                        &style(format!("[{}]", fl!("full-match")))
+                            .yellow()
+                            .bold()
+                            .to_string(),
+                    );
+                }
+
+                let prefix = match i.status {
+                    PackageStatus::Avail => style(fl!("pkg-search-avail")).dim(),
+                    PackageStatus::Installed => style(fl!("pkg-search-installed")).green(),
+                    PackageStatus::Upgrade => style(fl!("pkg-search-upgrade")).yellow(),
+                }
+                .to_string();
+
+                writeln!(writer, "{}{}", gen_prefix(&prefix, 10), pkg_info_line).ok();
+                writeln!(writer, "{}{}", gen_prefix("", 10), i.desc).ok();
+            }
+
+            0
+        }
         // OmaCommand::Search(Search {
         //     keyword: args
         //         .get_many::<String>("pattern")
