@@ -6,13 +6,13 @@ mod args;
 mod lang;
 mod table;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 use clap::ArgMatches;
 use nix::sys::signal;
 use oma_console::{console::style, info};
-use oma_console::{debug, due_to, error, DEBUG, WRITER, success, warn};
-use oma_pm::apt::{AptArgs, OmaApt, OmaArgs, OmaAptError};
+use oma_console::{debug, due_to, error, success, warn, DEBUG, WRITER};
+use oma_pm::apt::{AptArgs, OmaApt, OmaAptError, OmaArgs};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
 
@@ -81,13 +81,9 @@ fn try_main() -> Result<i32> {
     };
 
     // Init debug flag
-    let debug = if matches.get_flag("debug") {
+    if matches.get_flag("debug") {
         DEBUG.store(true, Ordering::Relaxed);
-
-        true
-    } else {
-        false
-    };
+    }
 
     debug!(
         "oma version: {}\n OS: {:#?}",
@@ -119,7 +115,7 @@ fn try_main() -> Result<i32> {
 
             let apt = OmaApt::new(local_debs)?;
 
-            let pkgs = apt.select_pkg(pkgs_unparse, install_dbg)?;
+            let pkgs = apt.select_pkg(pkgs_unparse, install_dbg, true)?;
 
             let mut oma_args = OmaArgs::new();
             oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
@@ -181,28 +177,30 @@ fn try_main() -> Result<i32> {
             loop {
                 let apt = OmaApt::new(local_debs.clone())?;
 
-                let pkgs = apt.select_pkg(pkgs_unparse.clone(), false)?;
-    
+                let pkgs = apt.select_pkg(pkgs_unparse.clone(), false, true)?;
+
                 apt.upgrade()?;
                 apt.install(pkgs, false)?;
-    
+
                 let oma_args = OmaArgs::new();
-    
+
                 let mut apt_args = AptArgs::new();
                 let yes = args.get_flag("yes");
                 apt_args.yes(yes);
                 apt_args.force_yes(args.get_flag("force_yes"));
                 apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
-    
+
                 let (install, remove, disk_size) = apt.operation_vec()?;
-    
+
                 if install.is_empty() && remove.is_empty() {
                     success!("{}", fl!("successfully-refresh"));
                     return Ok(0);
                 }
-    
-                table_for_install_pending(install, remove, disk_size, !yes)?;
-    
+
+                if retry_times == 1 {
+                    table_for_install_pending(install, remove, disk_size, !yes)?;
+                }
+
                 match apt.commit(None, &apt_args, &oma_args) {
                     Ok(_) => break,
                     Err(e) => match e {
@@ -214,7 +212,7 @@ fn try_main() -> Result<i32> {
                             retry_times += 1;
                         }
                         _ => return Err(anyhow!("{e}")),
-                    }
+                    },
                 }
             }
 
@@ -238,6 +236,7 @@ fn try_main() -> Result<i32> {
                     .map(|x| x.as_str())
                     .collect::<Vec<_>>(),
                 false,
+                true,
             )?;
 
             let path = args
@@ -263,6 +262,7 @@ fn try_main() -> Result<i32> {
                     .map(|x| x.as_str())
                     .collect::<Vec<_>>(),
                 false,
+                true,
             )?;
 
             // TODO: protect
@@ -328,11 +328,36 @@ fn try_main() -> Result<i32> {
 
             0
         }
-        Some(("show", _args)) => todo!(),
-        // OmaCommand::Show(Show {
-        //     packages: pkgs_getter(args).unwrap(),
-        //     is_all: args.get_flag("all"),
-        // }),
+        Some(("show", args)) => {
+            let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
+
+            let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+
+            let apt = OmaApt::new(vec![])?;
+            let all = args.get_flag("all");
+            let pkg = apt.select_pkg(pkgs_unparse, false, false)?;
+
+            for (i, c) in pkg.iter().enumerate() {
+                if !all {
+                    if c.is_candidate {
+                        println!("{c}");
+                        let len = pkg.len() - 1;
+                        if len != 0 {
+                            info!("{}", fl!("additional-version", len = len));
+                        }
+                        break;
+                    }
+                } else {
+                    if i != pkg.len() - 1 {
+                        println!("{c}\n");
+                    } else {
+                        println!("{c}");
+                    }
+                }
+            }
+
+            0
+        }
         Some(("search", _args)) => todo!(),
         // OmaCommand::Search(Search {
         //     keyword: args
