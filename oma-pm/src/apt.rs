@@ -359,8 +359,8 @@ impl OmaApt {
         Ok((success, failed))
     }
 
-    pub fn select_pkg(&self, keywords: Vec<&str>, select_dbg: bool) -> OmaAptResult<Vec<PkgInfo>> {
-        select_pkg(keywords, &self.cache, select_dbg)
+    pub fn select_pkg(&self, keywords: Vec<&str>, select_dbg: bool, filter_candidate: bool) -> OmaAptResult<Vec<PkgInfo>> {
+        select_pkg(keywords, &self.cache, select_dbg, filter_candidate)
     }
 
     fn get_archive_dir(&self) -> PathBuf {
@@ -557,15 +557,16 @@ pub fn select_pkg(
     keywords: Vec<&str>,
     cache: &Cache,
     select_dbg: bool,
+    filter_candidate: bool,
 ) -> OmaAptResult<Vec<PkgInfo>> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
     for keyword in keywords {
         pkgs.extend(match keyword {
             x if x.ends_with(".deb") => db.query_local_glob(x)?,
-            x if x.split_once('/').is_some() => db.query_from_branch(x, true, select_dbg)?,
+            x if x.split_once('/').is_some() => db.query_from_branch(x, filter_candidate, select_dbg)?,
             x if x.split_once('=').is_some() => db.query_from_version(x, select_dbg)?,
-            x => db.query_from_glob(x, true, select_dbg)?,
+            x => db.query_from_glob(x, filter_candidate, select_dbg)?,
         });
     }
 
