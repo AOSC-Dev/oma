@@ -6,13 +6,13 @@ mod args;
 mod lang;
 mod table;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 
 use clap::ArgMatches;
 use nix::sys::signal;
 use oma_console::{console::style, info};
-use oma_console::{debug, due_to, error, DEBUG, WRITER, success};
-use oma_pm::apt::{AptArgs, OmaApt, OmaArgs};
+use oma_console::{debug, due_to, error, DEBUG, WRITER, success, warn};
+use oma_pm::apt::{AptArgs, OmaApt, OmaArgs, OmaAptError};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::{unlock_oma, OsRelease};
 
@@ -176,31 +176,47 @@ fn try_main() -> Result<i32> {
 
             let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
-            let apt = OmaApt::new(local_debs)?;
+            let mut retry_times = 1;
 
-            let pkgs = apt.select_pkg(pkgs_unparse, false)?;
+            loop {
+                let apt = OmaApt::new(local_debs.clone())?;
 
-            apt.upgrade()?;
-            apt.install(pkgs, false)?;
-
-            let oma_args = OmaArgs::new();
-
-            let mut apt_args = AptArgs::new();
-            let yes = args.get_flag("yes");
-            apt_args.yes(yes);
-            apt_args.force_yes(args.get_flag("force_yes"));
-            apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
-
-            let (install, remove, disk_size) = apt.operation_vec()?;
-
-            if install.is_empty() && remove.is_empty() {
-                info!("successfully-refresh");
-                return Ok(0);
+                let pkgs = apt.select_pkg(pkgs_unparse.clone(), false)?;
+    
+                apt.upgrade()?;
+                apt.install(pkgs, false)?;
+    
+                let oma_args = OmaArgs::new();
+    
+                let mut apt_args = AptArgs::new();
+                let yes = args.get_flag("yes");
+                apt_args.yes(yes);
+                apt_args.force_yes(args.get_flag("force_yes"));
+                apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
+    
+                let (install, remove, disk_size) = apt.operation_vec()?;
+    
+                if install.is_empty() && remove.is_empty() {
+                    success!("{}", fl!("successfully-refresh"));
+                    return Ok(0);
+                }
+    
+                table_for_install_pending(install, remove, disk_size, !yes)?;
+    
+                match apt.commit(None, &apt_args, &oma_args) {
+                    Ok(_) => break,
+                    Err(e) => match e {
+                        OmaAptError::RustApt(_) => {
+                            if retry_times == 3 {
+                                return Err(anyhow!("{e}"));
+                            }
+                            warn!("{e}, retrying ...");
+                            retry_times += 1;
+                        }
+                        _ => return Err(anyhow!("{e}")),
+                    }
+                }
             }
-
-            table_for_install_pending(install, remove, disk_size, !yes)?;
-
-            apt.commit(None, &apt_args, &oma_args)?;
 
             0
         }
