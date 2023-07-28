@@ -2,8 +2,9 @@ use std::path::{Path, PathBuf};
 
 use oma_console::{
     console::style,
+    debug,
     dialoguer::{theme::ColorfulTheme, Confirm, Input},
-    info, debug, error,
+    error, info,
 };
 use oma_fetch::{
     DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
@@ -131,6 +132,16 @@ impl OmaApt {
             config: AptConfig::new(),
             autoremove: vec![],
         })
+    }
+
+    pub fn available_action(&self) -> OmaAptResult<(usize, usize)> {
+        let sort = PackageSort::default().upgradable();
+        let upgradable = self.cache.packages(&sort)?.collect::<Vec<_>>().len();
+
+        let sort = PackageSort::default().auto_removable();
+        let removable = self.cache.packages(&sort)?.collect::<Vec<_>>().len();
+
+        Ok((upgradable, removable))
     }
 
     pub fn upgrade(&self) -> OmaAptResult<()> {
