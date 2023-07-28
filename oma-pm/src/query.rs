@@ -7,7 +7,7 @@ use rust_apt::{
     records::RecordField,
 };
 
-use crate::pkginfo::PkgInfo;
+use crate::{pkginfo::PkgInfo, search::{search_pkgs, OmaSearchError, SearchResult}};
 
 #[derive(Debug, thiserror::Error)]
 pub enum OmaDatabaseError {
@@ -21,6 +21,8 @@ pub enum OmaDatabaseError {
     NoVersion(String, String),
     #[error("Can not find path for local package {0}")]
     NoPath(String),
+    #[error(transparent)]
+    OmaSearchError(#[from] OmaSearchError),
 }
 
 pub struct OmaDatabase<'a> {
@@ -198,6 +200,12 @@ impl<'a> OmaDatabase<'a> {
         Ok(res)
     }
 
+    pub fn search(&self, keyword: &str) -> OmaDatabaseResult<Vec<SearchResult>> {
+        let res = search_pkgs(self.cache, keyword)?;
+
+        Ok(res)
+    }
+
     fn select_dbg(&self, pkg: &Package, version: &Version, res: &mut Vec<PkgInfo>) {
         let dbg_pkg_name = format!("{}-dbg", pkg.name());
         let dbg_pkg = self.cache.get(&dbg_pkg_name);
@@ -212,6 +220,7 @@ impl<'a> OmaDatabase<'a> {
         }
     }
 }
+
 
 fn real_pkg(pkg: &Package) -> RawPackage {
     if let Some(provide) = pkg.provides().next() {
