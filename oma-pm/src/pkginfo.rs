@@ -257,7 +257,7 @@ impl Display for PkgInfo {
         }
 
         f.write_str(&format!(
-            "Description: {}\n",
+            "Description: {}",
             self.description.as_deref().unwrap_or("No description")
         ))?;
 
