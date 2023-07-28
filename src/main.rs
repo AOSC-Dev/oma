@@ -384,7 +384,7 @@ fn try_main() -> Result<i32> {
                 fl!("normal-tips")
             };
 
-            let pager = Pager::new(!is_pager, &tips)?;
+            let mut pager = Pager::new(!is_pager, &tips)?;
             let mut writer = pager.get_writer()?;
             ALLOWCTRLC.store(true, Ordering::Relaxed);
 
@@ -432,6 +432,10 @@ fn try_main() -> Result<i32> {
                 writeln!(writer, "{}{}", gen_prefix(&prefix, 10), pkg_info_line).ok();
                 writeln!(writer, "{}{}", gen_prefix("", 10), i.desc).ok();
             }
+
+            drop(writer);
+
+            pager.wait_for_exit()?;
 
             0
         }
