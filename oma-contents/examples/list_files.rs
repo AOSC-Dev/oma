@@ -11,7 +11,7 @@ fn main() {
 
     let r = find(
         "apt",
-        QueryMode::ListFiles,
+        QueryMode::ListFiles(false),
         Path::new("/var/lib/apt/lists"),
         &dpkg_arch().unwrap(),
         |c| {
