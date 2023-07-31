@@ -75,7 +75,7 @@ pub enum OmaContentsError {
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryMode {
     Provides,
-    ListFiles,
+    ListFiles(bool),
     CommandNotFound,
 }
 
@@ -87,7 +87,7 @@ pub fn find<F>(
     callback: F,
 ) -> Result<Vec<(String, String)>>
 where
-    F: Fn(usize) -> (),
+    F: Fn(usize),
 {
     let kw = if Path::new(keyword).is_absolute() {
         keyword.strip_prefix('/').unwrap()
@@ -99,15 +99,15 @@ where
 
     let pattern = match query_mode {
         QueryMode::Provides | QueryMode::CommandNotFound => {
-            format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw_escape}(?:,\S*|))\s*$")
+            format!(r"^(.*?{kw_escape}(?:.*[^\s])?)\s+(\S+)\s*$")
         }
-        QueryMode::ListFiles => format!(r"^(.*?{kw_escape}(?:.*[^\s])?)\s+(\S+)\s*$"),
+        QueryMode::ListFiles(_) => format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw_escape}(?:,\S*|))\s*$"),
     };
 
     let dir = std::fs::read_dir(dist_dir)?;
     let mut paths = Vec::new();
     for i in dir.flatten() {
-        if query_mode != QueryMode::CommandNotFound {
+        if query_mode != QueryMode::CommandNotFound && query_mode != QueryMode::ListFiles(true) {
             if i.file_name()
                 .to_str()
                 .unwrap_or("")
@@ -212,7 +212,7 @@ where
                             for j in submatches {
                                 let m = j.m.text;
                                 if let Some(l) =
-                                    parse_line(&m, query_mode == QueryMode::ListFiles, kw)
+                                    parse_line(&m, matches!(query_mode, QueryMode::ListFiles(_)), kw)
                                 {
                                     if query_mode == QueryMode::CommandNotFound {
                                         let last = l.1.split_whitespace().last();
@@ -273,9 +273,11 @@ where
                 matcher.clone(),
                 i,
                 UTF8(|_, line| {
-                    let line = parse_line(line, query_mode == QueryMode::ListFiles, kw);
+                    let line = parse_line(line, matches!(query_mode, QueryMode::ListFiles(_)), kw);
                     if let Some(l) = line {
-                        if query_mode == QueryMode::CommandNotFound && l.1.split_whitespace().last() != Some(kw) {
+                        if query_mode == QueryMode::CommandNotFound
+                            && l.1.split_whitespace().last() != Some(kw)
+                        {
                             return Ok(true);
                         }
                         if !res.contains(&l) {
