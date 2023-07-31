@@ -5,7 +5,7 @@ use rust_apt::{
 };
 use std::collections::HashMap;
 
-use crate::pkginfo::{self, PkgInfo};
+use crate::pkginfo::PkgInfo;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum PackageStatus {

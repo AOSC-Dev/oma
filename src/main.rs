@@ -485,7 +485,12 @@ fn try_main() -> Result<i32> {
 
             0
         }
-        Some(("fix-broken", _args)) => todo!(),
+        Some(("fix-broken", _args)) => {
+            let apt = OmaApt::new(vec![])?;
+            apt.commit(None, &AptArgs::default(), &OmaArgs::default())?;
+
+            0
+        }
         // OmaCommand::FixBroken(FixBroken {
         //     dry_run: args.get_flag("dry_run"),
         // }),
