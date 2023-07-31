@@ -10,6 +10,8 @@ mod table;
 use anyhow::{anyhow, Result};
 
 use clap::ArgMatches;
+use dialoguer::theme::ColorfulTheme;
+use dialoguer::Select;
 use nix::sys::signal;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::oma_spinner;
@@ -18,6 +20,7 @@ use oma_console::{console::style, info};
 use oma_console::{debug, due_to, error, success, warn, DEBUG, WRITER};
 use oma_contents::QueryMode;
 use oma_pm::apt::{AptArgs, OmaApt, OmaAptError, OmaArgs};
+use oma_pm::pkginfo::PkgInfo;
 use oma_pm::query::OmaDatabase;
 use oma_pm::PackageStatus;
 use oma_refresh::db::OmaRefresh;
@@ -494,7 +497,90 @@ fn try_main() -> Result<i32> {
         // OmaCommand::FixBroken(FixBroken {
         //     dry_run: args.get_flag("dry_run"),
         // }),
-        Some(("pick", _args)) => todo!(),
+        Some(("pick", args)) => {
+            if !args.get_flag("no_refresh") {
+                refresh()?;
+            }
+
+            let apt = OmaApt::new(vec![])?;
+            let pkg_str = args.get_one::<String>("package").unwrap().to_string();
+
+            let pkg = apt.cache.get(&pkg_str).ok_or_else(|| {
+                anyhow!(fl!("can-not-get-pkg-from-database", name = pkg_str.clone()))
+            })?;
+
+            let versions = pkg.versions().collect::<Vec<_>>();
+
+            let versions_str = versions
+                .iter()
+                .map(|x| x.version().to_string())
+                .collect::<Vec<_>>();
+
+            let mut v = vec![];
+
+            for i in 0..versions.len() {
+                for j in 1..versions.len() {
+                    if i == j {
+                        continue;
+                    }
+
+                    if versions_str[i] == versions_str[j] {
+                        v.push((i, j));
+                    }
+                }
+            }
+
+            let mut version_str_display = versions_str.clone();
+
+            for (a, b) in v {
+                let uri_a = versions[a].uris().next().unwrap();
+                version_str_display[a] = format!("{} (from: {})", versions_str[a], uri_a);
+
+                let uri_b = versions[b].uris().next().unwrap();
+                version_str_display[b] = format!("{} (from: {})", versions_str[b], uri_b);
+            }
+
+            let theme = ColorfulTheme::default();
+            let mut dialoguer = Select::with_theme(&theme);
+
+            dialoguer.items(&versions_str);
+            dialoguer.with_prompt(fl!("pick-tips", pkgname = pkg.name()));
+
+            let pos = if let Some(installed) = pkg.installed() {
+                versions_str
+                    .iter()
+                    .position(|x| x == installed.version())
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+
+            dialoguer.default(pos);
+
+            let sel = dialoguer.interact()?;
+
+            let version = pkg.get_version(&versions_str[sel]).ok_or_else(|| {
+                anyhow!(fl!(
+                    "can-not-get-pkg-version-from-database",
+                    name = pkg_str,
+                    version = versions_str[sel].clone()
+                ))
+            })?;
+
+            let pkginfo = PkgInfo::new(&apt.cache, version.unique(), &pkg);
+            apt.install(vec![pkginfo], false)?;
+
+            let (install, remove, disk_size) = apt.operation_vec()?;
+
+            table_for_install_pending(install, remove, disk_size, true)?;
+
+            let mut oma_args = OmaArgs::new();
+            oma_args.no_fix_broken(args.get_flag("no_fix_broken"));
+
+            apt.commit(None, &AptArgs::new(), &oma_args)?;
+
+            0
+        }
         // OmaCommand::Pick(PickOptions {
         //     package: args.get_one::<String>("package").unwrap().to_string(),
         //     no_fixbroken: args.get_flag("no_fix_broken"),

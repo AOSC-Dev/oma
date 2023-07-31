@@ -145,7 +145,7 @@ pub struct PkgInfo {
 }
 
 impl PkgInfo {
-    pub(crate) fn new(cache: &Cache, version_raw: RawVersion, pkg: &Package) -> Self {
+    pub fn new(cache: &Cache, version_raw: RawVersion, pkg: &Package) -> Self {
         // 直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
         let version = Version::new(version_raw, cache);
         let version_raw = version.unique();
