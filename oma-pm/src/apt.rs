@@ -4,7 +4,7 @@ use oma_console::{
     console::style,
     debug,
     dialoguer::{theme::ColorfulTheme, Confirm, Input},
-    error, info,
+    error, info, warn,
 };
 use oma_fetch::{
     DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
@@ -158,6 +158,39 @@ impl OmaApt {
         Ok(())
     }
 
+    pub fn check_broken(&self) -> OmaAptResult<bool> {
+        let sort = PackageSort::default().installed();
+        let pkgs = self.cache.packages(&sort)?;
+    
+        // let mut reinstall = vec![];
+    
+        let mut need = false;
+    
+        for pkg in pkgs {
+            // current_state 的定义来自 apt 的源码:
+            //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
+            //    HalfInstalled=4,ConfigFiles=5,Installed=6,
+            //    TriggersAwaited=7,TriggersPending=8};
+            if pkg.current_state() != 6 {
+                debug!(
+                    "pkg {} current state is {}",
+                    pkg.name(),
+                    pkg.current_state()
+                );
+                need = true;
+                match pkg.current_state() {
+                    4 => {
+                        pkg.mark_reinstall(true);
+                        // reinstall.push(pkg.name().to_string());
+                    }
+                    _ => continue,
+                }
+            }
+        }
+
+        Ok(need)
+    }
+
     pub fn download(
         &self,
         pkgs: Vec<PkgInfo>,
@@ -253,6 +286,12 @@ impl OmaApt {
 
         if !no_fixbroen {
             self.cache.fix_broken();
+        }
+
+        let need_fix = self.check_broken()?;
+
+        if no_fixbroen && need_fix {
+            warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
         }
 
         if let Err(e) = self.cache.resolve(!no_fixbroen) {
