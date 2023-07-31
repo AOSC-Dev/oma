@@ -1800,6 +1800,7 @@ dependencies = [
  "i18n-embed-fl",
  "nix 0.26.4",
  "oma-console",
+ "oma-contents",
  "oma-pm",
  "oma-refresh",
  "oma-utils",
@@ -1827,6 +1828,8 @@ version = "0.1.0"
 dependencies = [
  "grep",
  "indicatif",
+ "oma-console",
+ "oma-utils",
  "regex",
  "serde",
  "serde_json",

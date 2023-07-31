@@ -1,6 +1,7 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use std::process::exit;
+use std::time::Duration;
 
 mod args;
 mod lang;
@@ -10,6 +11,8 @@ use anyhow::{anyhow, Result};
 
 use clap::ArgMatches;
 use nix::sys::signal;
+use oma_console::indicatif::ProgressBar;
+use oma_console::pb::oma_spinner;
 use oma_console::writer::gen_prefix;
 use oma_console::{console::style, info};
 use oma_console::{debug, due_to, error, success, warn, DEBUG, WRITER};
@@ -17,7 +20,7 @@ use oma_pm::apt::{AptArgs, OmaApt, OmaAptError, OmaArgs};
 use oma_pm::query::OmaDatabase;
 use oma_pm::PackageStatus;
 use oma_refresh::db::OmaRefresh;
-use oma_utils::{unlock_oma, OsRelease};
+use oma_utils::{dpkg_arch, unlock_oma, OsRelease};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -439,17 +442,40 @@ fn try_main() -> Result<i32> {
 
             0
         }
-        // OmaCommand::Search(Search {
-        //     keyword: args
-        //         .get_many::<String>("pattern")
-        //         .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
-        //         .unwrap(),
-        // }),
-        Some(("files", _args)) => todo!(),
-        // OmaCommand::ListFiles(ListFiles {
-        //     package: args.get_one::<String>("package").unwrap().to_string(),
-        //     bin: args.get_flag("bin"),
-        // }),
+        Some(("files", args)) => {
+            let pkg = args.get_one::<String>("package").unwrap().to_string();
+            let is_bin = args.get_flag("bin");
+
+            let pb = ProgressBar::new_spinner();
+            let (style, inv) = oma_spinner(false)?;
+            pb.set_style(style);
+            pb.enable_steady_tick(inv);
+            pb.set_message(fl!("searching"));
+
+            let res = oma_contents::find(
+                &pkg,
+                oma_contents::QueryMode::ListFiles(is_bin),
+                Path::new("/var/lib/apt/lists"),
+                &dpkg_arch()?,
+                |c| {
+                    pb.set_message(fl!("search-with-result-count", count = c));
+                },
+            )?;
+
+            pb.finish_and_clear();
+
+            let mut pager = Pager::new(res.len() < WRITER.get_height().into(), "TODO")?;
+            let mut out = pager.get_writer()?;
+
+            for (_, v) in res {
+                writeln!(out, "{v}").ok();
+            }
+
+            drop(out);
+            pager.wait_for_exit()?;
+
+            0
+        }
         Some(("provides", _args)) => todo!(),
         // OmaCommand::Provides(Provides {
         //     kw: args.get_one::<String>("pattern").unwrap().to_string(),
