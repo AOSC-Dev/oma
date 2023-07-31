@@ -16,6 +16,7 @@ use oma_console::pb::oma_spinner;
 use oma_console::writer::gen_prefix;
 use oma_console::{console::style, info};
 use oma_console::{debug, due_to, error, success, warn, DEBUG, WRITER};
+use oma_contents::QueryMode;
 use oma_pm::apt::{AptArgs, OmaApt, OmaAptError, OmaArgs};
 use oma_pm::query::OmaDatabase;
 use oma_pm::PackageStatus;
@@ -442,8 +443,9 @@ fn try_main() -> Result<i32> {
 
             0
         }
-        Some(("files", args)) => {
-            let pkg = args.get_one::<String>("package").unwrap().to_string();
+        Some((x, args)) if x == "files" || x == "provides" => {
+            let arg = if x == "files" { "package" } else { "pattern" };
+            let pkg = args.get_one::<String>(arg).unwrap().to_string();
             let is_bin = args.get_flag("bin");
 
             let pb = ProgressBar::new_spinner();
@@ -452,9 +454,15 @@ fn try_main() -> Result<i32> {
             pb.enable_steady_tick(inv);
             pb.set_message(fl!("searching"));
 
+            let query_mode = match x {
+                "files" => QueryMode::ListFiles(is_bin),
+                "provides" => QueryMode::Provides(is_bin),
+                _ => unreachable!(),
+            };
+
             let res = oma_contents::find(
                 &pkg,
-                oma_contents::QueryMode::ListFiles(is_bin),
+                query_mode,
                 Path::new("/var/lib/apt/lists"),
                 &dpkg_arch()?,
                 |c| {
@@ -465,6 +473,8 @@ fn try_main() -> Result<i32> {
             pb.finish_and_clear();
 
             let mut pager = Pager::new(res.len() < WRITER.get_height().into(), "TODO")?;
+
+            ALLOWCTRLC.store(true, Ordering::Relaxed);
             let mut out = pager.get_writer()?;
 
             for (_, v) in res {
@@ -476,11 +486,6 @@ fn try_main() -> Result<i32> {
 
             0
         }
-        Some(("provides", _args)) => todo!(),
-        // OmaCommand::Provides(Provides {
-        //     kw: args.get_one::<String>("pattern").unwrap().to_string(),
-        //     bin: args.get_flag("bin"),
-        // }),
         Some(("fix-broken", _args)) => todo!(),
         // OmaCommand::FixBroken(FixBroken {
         //     dry_run: args.get_flag("dry_run"),

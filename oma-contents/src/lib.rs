@@ -74,7 +74,7 @@ pub enum OmaContentsError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryMode {
-    Provides,
+    Provides(bool),
     ListFiles(bool),
     CommandNotFound,
 }
@@ -98,7 +98,7 @@ where
     let kw_escape = regex::escape(kw);
 
     let pattern = match query_mode {
-        QueryMode::Provides | QueryMode::CommandNotFound => {
+        QueryMode::Provides(_) | QueryMode::CommandNotFound => {
             format!(r"^(.*?{kw_escape}(?:.*[^\s])?)\s+(\S+)\s*$")
         }
         QueryMode::ListFiles(_) => format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw_escape}(?:,\S*|))\s*$"),
@@ -107,7 +107,7 @@ where
     let dir = std::fs::read_dir(dist_dir)?;
     let mut paths = Vec::new();
     for i in dir.flatten() {
-        if query_mode != QueryMode::CommandNotFound && query_mode != QueryMode::ListFiles(true) {
+        if query_mode != QueryMode::CommandNotFound && query_mode != QueryMode::ListFiles(true) && query_mode != QueryMode::Provides(true) {
             if i.file_name()
                 .to_str()
                 .unwrap_or("")
