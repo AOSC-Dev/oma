@@ -1796,6 +1796,7 @@ dependencies = [
  "clap_complete",
  "clap_mangen",
  "ctrlc",
+ "dialoguer",
  "i18n-embed",
  "i18n-embed-fl",
  "nix 0.26.4",
