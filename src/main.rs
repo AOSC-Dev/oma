@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use std::process::exit;
-use std::time::Duration;
 
 mod args;
 mod lang;
@@ -607,10 +606,48 @@ fn try_main() -> Result<i32> {
         //     },
         //     dry_run: args.get_flag("dry_run"),
         // }),
-        Some(("command-not-found", _args)) => todo!(),
-        // OmaCommand::CommandNotFound(CommandNotFound {
-        //     kw: args.get_one::<String>("package").unwrap().to_string(),
-        // }),
+        Some(("command-not-found", args)) => {
+            let pkg = args.get_one::<String>("package").unwrap().to_string();
+            let res = oma_contents::find(
+                &pkg,
+                QueryMode::CommandNotFound,
+                Path::new("/var/lib/apt/lists"),
+                &dpkg_arch()?,
+                |_| {},
+            );
+
+            match res {
+                Ok(res) if res.is_empty() => {
+                    error!("{}", fl!("command-not-found", kw = pkg));
+                }
+                Ok(res) => {
+                    println!("{}\n", fl!("command-not-found-with-result", kw = pkg));
+
+                    let apt = OmaApt::new(vec![])?;
+
+                    for (k, v) in res {
+                        let (pkg, bin_path) = v.split_once(':').unwrap();
+                        let bin_path = bin_path.trim();
+                        let pkg = apt.cache.get(pkg);
+
+                        let desc = pkg
+                            .unwrap()
+                            .candidate()
+                            .and_then(|x| x.description())
+                            .unwrap();
+
+                        println!("{k} ({bin_path}): {desc}",);
+                    }
+                }
+                Err(e) => {
+                    // TODO: match error to translate
+                    error!("{e}");
+                    error!("{}", fl!("command-not-found", kw = pkg));
+                }
+            }
+
+            127
+        }
         Some(("list", _args)) => todo!(),
         // OmaCommand::List(ListOptions {
         //     packages: pkgs_getter(args),
