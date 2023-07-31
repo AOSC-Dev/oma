@@ -17,6 +17,7 @@ ctrlc = "3.4"
 oma-utils = { path = "./oma-utils" }
 oma-pm = { path = "./oma-pm" }
 oma-refresh = { path = "./oma-refresh" }
+oma-contents = { path = "./oma-contents" }
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread", "macros"] }
 tabled = "0.13"
 
