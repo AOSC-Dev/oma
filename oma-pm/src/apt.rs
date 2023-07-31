@@ -14,7 +14,7 @@ use rust_apt::{
     new_cache,
     package::{Package, Version},
     records::RecordField,
-    util::DiskSpace,
+    util::DiskSpace, raw::package::RawPackage,
 };
 
 pub use rust_apt::config::Config as AptConfig;
@@ -529,6 +529,10 @@ impl OmaApt {
         };
 
         Ok((install, remove, disk_size))
+    }
+
+    pub fn trans_raw_pkg(&self, pkg: RawPackage) -> Package {
+        Package::new(&self.cache, pkg)
     }
 }
 
