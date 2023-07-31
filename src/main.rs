@@ -647,13 +647,76 @@ fn try_main() -> Result<i32> {
 
             127
         }
-        Some(("list", _args)) => todo!(),
-        // OmaCommand::List(ListOptions {
-        //     packages: pkgs_getter(args),
-        //     all: args.get_flag("all"),
-        //     installed: args.get_flag("installed"),
-        //     upgradable: args.get_flag("upgradable"),
-        // }),
+        Some(("list", args)) => {
+            let apt = OmaApt::new(vec![])?;
+            let pkgs = pkgs_getter(args).unwrap_or_default();
+            let pkgs = pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+            let pkgs = apt.select_pkg(pkgs, false, false)?;
+
+            let all = args.get_flag("all");
+
+            let len = pkgs.len();
+
+            for i in pkgs {
+                if !all && !i.is_candidate {
+                    continue;
+                }
+
+                let pkg_raw = i.raw_pkg;
+                let name = pkg_raw.name();
+                let branches = i
+                    .apt_sources
+                    .iter()
+                    .map(|x| x.split('/').nth_back(3))
+                    .flatten()
+                    .collect::<Vec<_>>();
+
+                let branches = branches.join(",");
+                let version = i.version_raw.version();
+                let installed = pkg_raw.is_installed();
+                let trans_pkg = apt.trans_raw_pkg(pkg_raw.unique());
+                let upgradable = trans_pkg.is_upgradable();
+                let automatic = trans_pkg.is_auto_installed();
+                let arch = trans_pkg.arch();
+
+                if args.get_flag("installed") && !installed {
+                    continue;
+                }
+
+                if args.get_flag("upgradable") && !upgradable {
+                    continue;
+                }
+
+                let mut tags = vec![];
+
+                if installed {
+                    tags.push("installed");
+                }
+
+                if upgradable {
+                    tags.push("upgradable");
+                }
+
+                if automatic {
+                    tags.push("automatic");
+                }
+
+                let s = if tags.is_empty() {
+                    "".to_string()
+                } else {
+                    format!("[{}]", tags.join(","))
+                };
+
+                println!("{}/{branches} {version} {arch} {s}", style(name).green().bold());
+            }
+
+            if len > 1 && !all {
+                let len = len - 1;
+                info!("{}", fl!("additional-version", len = len));
+            }
+
+            0
+        }
         Some(("depends", _args)) => todo!(),
         // OmaCommand::Depends(Dep {
         //     pkgs: pkgs_getter(args).unwrap(),
