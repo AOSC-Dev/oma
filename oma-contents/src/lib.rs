@@ -2,7 +2,6 @@ use std::{
     io::{BufRead, BufReader},
     path::Path,
     process::{Command, Stdio},
-    sync::mpsc::Sender,
     time::SystemTime,
 };
 
@@ -12,6 +11,7 @@ use grep::{
     searcher::{sinks::UTF8, Searcher},
 };
 
+use oma_console::{info, warn};
 use time::OffsetDateTime;
 
 // use crate::{db::APT_LIST_DISTS, download::oma_spinner, fl, info, warn, ARCH};
@@ -68,55 +68,50 @@ pub enum OmaContentsError {
     RgWithError,
     #[error(transparent)]
     GrepBuilderError(#[from] grep::regex::Error),
-    #[error(transparent)]
-    EventError(#[from] std::sync::mpsc::SendError<Event>),
     #[error("")]
     NoResult,
 }
 
-pub struct Request<'a> {
-    pub kw: &'a str,
-    pub is_list: bool,
-    pub cnf: bool,
-    pub only_bin: bool,
-    pub dists_dir: &'a Path,
-    pub arch: &'a str,
-    pub event: Option<Sender<Event>>,
+#[derive(Debug, PartialEq, Eq)]
+pub enum QueryMode {
+    Provides,
+    ListFiles,
+    CommandNotFound,
 }
 
-#[derive(Debug)]
-pub enum Event {
-    Info(String),
-    Warn(String),
-    Error(String),
-    Searching,
-    SearchingWithResult(usize),
-    Done,
-}
-
-pub fn find(req: Request) -> Result<Vec<(String, String)>> {
-    let kw = if Path::new(req.kw).is_absolute() {
-        req.kw.strip_prefix('/').unwrap()
+pub fn find<F>(
+    keyword: &str,
+    query_mode: QueryMode,
+    dist_dir: &Path,
+    arch: &str,
+    callback: F,
+) -> Result<Vec<(String, String)>>
+where
+    F: Fn(usize) -> (),
+{
+    let kw = if Path::new(keyword).is_absolute() {
+        keyword.strip_prefix('/').unwrap()
     } else {
-        req.kw
+        keyword
     };
 
     let kw_escape = regex::escape(kw);
 
-    let pattern = if req.is_list {
-        format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw_escape}(?:,\S*|))\s*$")
-    } else {
-        format!(r"^(.*?{kw_escape}(?:.*[^\s])?)\s+(\S+)\s*$")
+    let pattern = match query_mode {
+        QueryMode::Provides | QueryMode::CommandNotFound => {
+            format!(r"^\s*(.*?)\s+((?:\S*[,/])?{kw_escape}(?:,\S*|))\s*$")
+        }
+        QueryMode::ListFiles => format!(r"^(.*?{kw_escape}(?:.*[^\s])?)\s+(\S+)\s*$"),
     };
 
-    let dir = std::fs::read_dir(req.dists_dir)?;
+    let dir = std::fs::read_dir(dist_dir)?;
     let mut paths = Vec::new();
     for i in dir.flatten() {
-        if !req.cnf && !req.only_bin {
+        if query_mode != QueryMode::CommandNotFound {
             if i.file_name()
                 .to_str()
                 .unwrap_or("")
-                .ends_with(&format!("Contents-{}", req.arch))
+                .ends_with(&format!("Contents-{}", arch))
                 || i.file_name()
                     .to_str()
                     .unwrap_or("")
@@ -128,7 +123,7 @@ pub fn find(req: Request) -> Result<Vec<(String, String)>> {
             .file_name()
             .to_str()
             .unwrap_or("")
-            .ends_with(&format!("_BinContents-{}", req.arch))
+            .ends_with(&format!("_BinContents-{}", arch))
             || i.file_name()
                 .to_str()
                 .unwrap_or("")
@@ -144,8 +139,6 @@ pub fn find(req: Request) -> Result<Vec<(String, String)>> {
         return Err(OmaContentsError::ContentsNotExist);
     }
 
-    let event_clone = req.event.clone();
-
     std::thread::spawn(move || -> Result<()> {
         for i in pc {
             let m = OffsetDateTime::from(i.metadata()?.modified()?);
@@ -153,10 +146,8 @@ pub fn find(req: Request) -> Result<Vec<(String, String)>> {
             let delta = now - m;
             let delta = delta.as_seconds_f64() / 60.0 / 60.0 / 24.0;
             if delta > 7.0 {
-                if let Some(event) = event_clone {
-                    event.send(Event::Warn("contents-may-not-be-accurate-1".to_string()))?;
-                    event.send(Event::Info("contents-may-not-be-accurate-2".to_string()))?;
-                }
+                warn!("contents-may-not-be-accurate-1");
+                info!("contents-may-not-be-accurate-2");
                 break;
             }
         }
@@ -178,10 +169,6 @@ pub fn find(req: Request) -> Result<Vec<(String, String)>> {
             .map_err(|e| OmaContentsError::ExecuteRgFailed(e.to_string()))?;
 
         {
-            if let Some(event) = &req.event {
-                event.send(Event::Searching)?;
-            }
-
             let stdout = cmd
                 .stdout
                 .as_mut()
@@ -214,16 +201,20 @@ pub fn find(req: Request) -> Result<Vec<(String, String)>> {
                         if let Some(submatches) = submatches {
                             count += 1;
 
-                            if let Some(event) = &req.event {
-                                event.send(Event::SearchingWithResult(count))?;
-                            }
+                            callback(count);
 
-                            let search_bin_name = if req.cnf { kw.split('/').last() } else { None };
+                            let search_bin_name = if query_mode == QueryMode::CommandNotFound {
+                                kw.split('/').last()
+                            } else {
+                                None
+                            };
 
                             for j in submatches {
                                 let m = j.m.text;
-                                if let Some(l) = parse_line(&m, req.is_list, kw) {
-                                    if req.cnf {
+                                if let Some(l) =
+                                    parse_line(&m, query_mode == QueryMode::ListFiles, kw)
+                                {
+                                    if query_mode == QueryMode::CommandNotFound {
                                         let last = l.1.split_whitespace().last();
                                         let bin_name = last
                                             .and_then(|x| x.split('/').last())
@@ -260,10 +251,6 @@ pub fn find(req: Request) -> Result<Vec<(String, String)>> {
             return Err(OmaContentsError::RgWithError);
         }
 
-        if let Some(event) = &req.event {
-            event.send(Event::Done)?;
-        }
-
         res
     } else {
         // 如果没有 rg，则 fallback 到使用 grep 库，缺点是比较慢
@@ -286,9 +273,9 @@ pub fn find(req: Request) -> Result<Vec<(String, String)>> {
                 matcher.clone(),
                 i,
                 UTF8(|_, line| {
-                    let line = parse_line(line, req.is_list, kw);
+                    let line = parse_line(line, query_mode == QueryMode::ListFiles, kw);
                     if let Some(l) = line {
-                        if req.cnf && l.1.split_whitespace().last() != Some(kw) {
+                        if query_mode == QueryMode::CommandNotFound && l.1.split_whitespace().last() != Some(kw) {
                             return Ok(true);
                         }
                         if !res.contains(&l) {
