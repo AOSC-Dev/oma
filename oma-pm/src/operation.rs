@@ -1,10 +1,13 @@
 use derive_builder::Builder;
 
 #[derive(Debug, PartialEq, Eq, Hash, Builder, Clone, Default)]
+#[builder(default)]
 pub struct InstallEntry {
     name: String,
+    #[builder(setter(into, strip_option))]
     old_version: Option<String>,
     new_version: String,
+    #[builder(setter(into, strip_option))]
     old_size: Option<u64>,
     new_size: u64,
     pkg_urls: Vec<String>,
