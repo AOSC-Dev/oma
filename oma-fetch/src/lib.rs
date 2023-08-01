@@ -62,10 +62,16 @@ impl DownloadSource {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DownloadSourceType {
     Http,
     Local,
+}
+
+impl PartialOrd for DownloadSourceType {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Ord for DownloadSourceType {
