@@ -6,7 +6,11 @@ use std::{
 use crate::fl;
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use futures::StreamExt;
-use oma_console::{indicatif::{style::TemplateError, MultiProgress, ProgressBar}, debug, info};
+use oma_console::{
+    debug,
+    indicatif::{style::TemplateError, MultiProgress, ProgressBar},
+    info,
+};
 use oma_fetch::{
     DownloadEntry, DownloadError, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
 };
