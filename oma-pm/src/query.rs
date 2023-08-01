@@ -7,7 +7,10 @@ use rust_apt::{
     records::RecordField,
 };
 
-use crate::{pkginfo::PkgInfo, search::{search_pkgs, OmaSearchError, SearchResult}};
+use crate::{
+    pkginfo::PkgInfo,
+    search::{search_pkgs, OmaSearchError, SearchResult},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum OmaDatabaseError {
@@ -90,26 +93,20 @@ impl<'a> OmaDatabase<'a> {
 
         let pkgs = pkgs
             .map(|x| real_pkg(&x))
-            .map(|x| Package::new(&self.cache, x));
+            .map(|x| Package::new(self.cache, x));
 
         for pkg in pkgs {
             let versions = pkg.versions().collect::<Vec<_>>();
             for ver in versions {
-                let pkginfo = PkgInfo::new(&self.cache, ver.unique(), &pkg);
+                let pkginfo = PkgInfo::new(self.cache, ver.unique(), &pkg);
                 let has_dbg = pkginfo.has_dbg;
                 let is_cand = pkginfo.is_candidate;
-                if filter_candidate && pkginfo.is_candidate {
-                    res.push(pkginfo);
-                } else if !filter_candidate {
+                if pkginfo.is_candidate || !filter_candidate {
                     res.push(pkginfo);
                 }
 
-                if has_dbg && select_dbg {
-                    if filter_candidate && is_cand {
+                if has_dbg && select_dbg && (is_cand || !filter_candidate) {
                         self.select_dbg(&pkg, &ver, &mut res);
-                    } else if !filter_candidate {
-                        self.select_dbg(&pkg, &ver, &mut res);
-                    }
                 }
             }
         }
@@ -133,7 +130,7 @@ impl<'a> OmaDatabase<'a> {
 
         let mut res = vec![];
 
-        let pkginfo = PkgInfo::new(&self.cache, version.unique(), &pkg);
+        let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
 
         let has_dbg = pkginfo.has_dbg;
 
@@ -168,7 +165,7 @@ impl<'a> OmaDatabase<'a> {
             let item = i.get_record(RecordField::Filename);
 
             if let Some(item) = item {
-                if item.split('/').nth(1) == Some(&branch) {
+                if item.split('/').nth(1) == Some(branch) {
                     sort.push(i)
                 }
             }
@@ -178,7 +175,7 @@ impl<'a> OmaDatabase<'a> {
 
         if filter_candidate {
             let version = &sort[sort.len() - 1];
-            let pkginfo = PkgInfo::new(&self.cache, version.unique(), &pkg);
+            let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
 
             if pkginfo.has_dbg && select_dbg {
                 self.select_dbg(&pkg, version, &mut res);
@@ -187,7 +184,7 @@ impl<'a> OmaDatabase<'a> {
             res.push(pkginfo);
         } else {
             for i in sort {
-                let pkginfo = PkgInfo::new(&self.cache, i.unique(), &pkg);
+                let pkginfo = PkgInfo::new(self.cache, i.unique(), &pkg);
 
                 if pkginfo.has_dbg && select_dbg {
                     self.select_dbg(&pkg, &i, &mut res);
@@ -214,13 +211,12 @@ impl<'a> OmaDatabase<'a> {
         if let Some(dbg_pkg) = dbg_pkg {
             let dbg_ver = dbg_pkg.get_version(version_str);
             if let Some(dbg_ver) = dbg_ver {
-                let pkginfo_dbg = PkgInfo::new(&self.cache, dbg_ver.unique(), &dbg_pkg);
+                let pkginfo_dbg = PkgInfo::new(self.cache, dbg_ver.unique(), &dbg_pkg);
                 res.push(pkginfo_dbg);
             }
         }
     }
 }
-
 
 fn real_pkg(pkg: &Package) -> RawPackage {
     if let Some(provide) = pkg.provides().next() {

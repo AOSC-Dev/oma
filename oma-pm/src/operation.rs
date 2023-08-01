@@ -1,4 +1,6 @@
-#[derive(Debug, PartialEq, Eq, Hash)]
+use derive_builder::Builder;
+
+#[derive(Debug, PartialEq, Eq, Hash, Builder, Clone, Default)]
 pub struct InstallEntry {
     name: String,
     old_version: Option<String>,
@@ -26,8 +28,10 @@ pub enum RemoveTag {
     AutoRemove,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Default)]
 pub enum InstallOperation {
+    #[default]
+    Default,
     Install,
     ReInstall,
     Upgrade,
@@ -36,32 +40,6 @@ pub enum InstallOperation {
 }
 
 impl InstallEntry {
-    pub fn new(
-        name: String,
-        old_version: Option<String>,
-        new_version: String,
-        old_size: Option<u64>,
-        new_size: u64,
-        pkg_urls: Vec<String>,
-        checksum: String,
-        arch: String,
-        download_size: u64,
-        op: InstallOperation
-    ) -> Self {
-        Self {
-            name,
-            old_version,
-            new_version,
-            old_size,
-            new_size,
-            pkg_urls,
-            checksum,
-            arch,
-            download_size,
-            op
-        }
-    }
-
     pub fn name(&self) -> &str {
         &self.name
     }

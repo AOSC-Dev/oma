@@ -187,7 +187,7 @@ impl TopicManager {
 
         debug!("index: {index:?} does not exist");
 
-        return Err(OmaTopicsError::CanNotFindTopic(topic.to_owned()));
+        Err(OmaTopicsError::CanNotFindTopic(topic.to_owned()))
     }
 
     pub fn opt_out(&mut self, topic: &str, dry_run: bool) -> Result<Vec<String>> {
@@ -207,7 +207,7 @@ impl TopicManager {
             return Ok(pkgs);
         }
 
-        return Err(OmaTopicsError::FailedToEnableTopic(topic.to_string()));
+        Err(OmaTopicsError::FailedToEnableTopic(topic.to_string()))
     }
 
     pub fn write_enabled(&self, event: Option<Sender<TopicsEvent>>, dry_run: bool) -> Result<()> {
