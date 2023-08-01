@@ -18,7 +18,7 @@ use oma_console::writer::gen_prefix;
 use oma_console::{console::style, info};
 use oma_console::{debug, due_to, error, success, warn, DEBUG, WRITER};
 use oma_contents::QueryMode;
-use oma_pm::apt::{AptArgs, OmaApt, OmaAptError, OmaArgs};
+use oma_pm::apt::{AptArgs, FilterMode, OmaApt, OmaAptError, OmaArgs};
 use oma_pm::pkginfo::PkgInfo;
 use oma_pm::query::OmaDatabase;
 use oma_pm::PackageStatus;
@@ -347,21 +347,30 @@ fn try_main() -> Result<i32> {
             let pkg = apt.select_pkg(pkgs_unparse, false, false)?;
 
             for (i, c) in pkg.iter().enumerate() {
-                if !all {
-                    if c.is_candidate {
-                        println!("{c}");
-                        let len = pkg.len() - 1;
-                        if len != 0 {
-                            info!("{}", fl!("additional-version", len = len));
-                        }
-                        break;
-                    }
-                } else {
+                if !all && c.is_candidate {
                     if i != pkg.len() - 1 {
                         println!("{c}\n");
                     } else {
                         println!("{c}");
                     }
+                } else if all {
+                    if i != pkg.len() - 1 {
+                        println!("{c}\n");
+                    } else {
+                        println!("{c}");
+                    }
+                }
+            }
+
+            if !all {
+                let other_version = pkg
+                    .iter()
+                    .filter(|x| !x.is_candidate)
+                    .collect::<Vec<_>>()
+                    .len();
+
+                if other_version > 0 {
+                    info!("{}", fl!("additional-version", len = other_version));
                 }
             }
 
@@ -650,69 +659,49 @@ fn try_main() -> Result<i32> {
         Some(("list", args)) => {
             let apt = OmaApt::new(vec![])?;
             let pkgs = pkgs_getter(args).unwrap_or_default();
-            let pkgs = pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>();
-            let pkgs = apt.select_pkg(pkgs, false, false)?;
+
+            let mut filter_mode = vec![];
+
+            if args.get_flag("installed") {
+                filter_mode.push(FilterMode::Installed);
+            }
+
+            if args.get_flag("upgradable") {
+                filter_mode.push(FilterMode::Upgradable)
+            }
+
+            let filter_pkgs = apt.filter_pkgs(&filter_mode)?;
+
+            let filter_pkgs = if pkgs.is_empty() {
+                filter_pkgs
+            } else {
+                Box::new(filter_pkgs.filter(|x| pkgs.contains(&x.name().to_string())))
+            };
 
             let all = args.get_flag("all");
 
-            let len = pkgs.len();
-
-            for i in pkgs {
-                if !all && !i.is_candidate {
-                    continue;
-                }
-
-                let pkg_raw = i.raw_pkg;
-                let name = pkg_raw.name();
-                let branches = i
-                    .apt_sources
-                    .iter()
-                    .map(|x| x.split('/').nth_back(3))
-                    .flatten()
-                    .collect::<Vec<_>>();
-
-                let branches = branches.join(",");
-                let version = i.version_raw.version();
-                let installed = pkg_raw.is_installed();
-                let trans_pkg = apt.trans_raw_pkg(pkg_raw.unique());
-                let upgradable = trans_pkg.is_upgradable();
-                let automatic = trans_pkg.is_auto_installed();
-                let arch = trans_pkg.arch();
-
-                if args.get_flag("installed") && !installed {
-                    continue;
-                }
-
-                if args.get_flag("upgradable") && !upgradable {
-                    continue;
-                }
-
-                let mut tags = vec![];
-
-                if installed {
-                    tags.push("installed");
-                }
-
-                if upgradable {
-                    tags.push("upgradable");
-                }
-
-                if automatic {
-                    tags.push("automatic");
-                }
-
-                let s = if tags.is_empty() {
-                    "".to_string()
+            for pkg in filter_pkgs {
+                let name = pkg.name();
+                let versions = if all {
+                    pkg.versions().collect()
                 } else {
-                    format!("[{}]", tags.join(","))
+                    // Box::new(
+                    vec![pkg
+                        .candidate()
+                        .ok_or_else(|| anyhow!(fl!("no-candidate-ver", pkg = name)))?]
+                    // .into_iter(),
+                    // )
                 };
 
-                println!("{}/{branches} {version} {arch} {s}", style(name).green().bold());
-            }
-
-            if len > 1 && !all {
-                let len = len - 1;
-                info!("{}", fl!("additional-version", len = len));
+                for version in versions.iter() {
+                    let uris = version.uris().collect::<Vec<_>>();
+                    let mut branches = vec![];
+                    for uri in uris.iter() {
+                        let mut branch = uri.split('/');
+                        let branch = branch.nth_back(3).unwrap_or("");
+                        branches.push(branch);
+                    }
+                }
             }
 
             0
