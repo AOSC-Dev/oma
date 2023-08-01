@@ -13,7 +13,7 @@ use clap::ArgMatches;
 use nix::sys::signal;
 use oma_console::{console::style, info};
 use oma_console::{debug, due_to, error, DEBUG, WRITER};
-use oma_pm::apt::{AptArgs, OmaApt};
+use oma_pm::apt::{AptArgs, OmaApt, OmaAptArgsBuilder};
 use oma_utils::{terminal_ring, unlock_oma, OsRelease};
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -25,6 +25,37 @@ static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
 
+#[derive(Debug, Default)]
+pub struct InstallArgs {
+    no_refresh: bool,
+    install_dbg: bool,
+    reinstall: bool,
+    no_fixbroken: bool,
+    yes: bool,
+    force_yes: bool,
+    force_confnew: bool,
+    dpkg_force_all: bool,
+    install_recommends: bool,
+    install_suggests: bool,
+    no_install_recommends: bool,
+    no_install_suggests: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct UpgradeArgs {
+    yes: bool,
+    force_yes: bool,
+    force_confnew: bool,
+    dpkg_force_all: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct RemoveArgs {
+    yes: bool,
+    keep_config: bool,
+    no_autoremove: bool,
+    force_yes: bool,
+}
 
 fn main() {
     ctrlc::set_handler(single_handler).expect(
@@ -105,10 +136,10 @@ fn try_main() -> Result<i32> {
                 force_yes: args.get_flag("force_yes"),
                 force_confnew: args.get_flag("force_confnew"),
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
-                install_recommends: args.get_flag("install_recommends")
-                    && !args.get_flag("no_install_recommends"),
-                install_suggests: args.get_flag("install_suggests")
-                    && !args.get_flag("no_install_suggests"),
+                install_recommends: args.get_flag("install_recommends"),
+                install_suggests: args.get_flag("install_suggests"),
+                no_install_recommends: args.get_flag("no_install_recommends"),
+                no_install_suggests: args.get_flag("no_install_recommends"),
             };
 
             command::install(pkgs_unparse, args)?
@@ -150,7 +181,7 @@ fn try_main() -> Result<i32> {
 
             command::remove(pkgs_unparse, args)?
         }
-        Some(("refresh", _)) => command::refresh()?,
+        Some(("refresh", _)) => command::command_refresh()?,
         Some(("show", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
             let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
@@ -174,7 +205,8 @@ fn try_main() -> Result<i32> {
             command::find(x, is_bin, pkg)?
         }
         Some(("fix-broken", _args)) => {
-            let apt = OmaApt::new(vec![])?;
+            let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+            let apt = OmaApt::new(vec![], oma_apt_args)?;
             apt.commit(None, &AptArgs::default(), false)?;
 
             0
@@ -259,36 +291,6 @@ fn try_main() -> Result<i32> {
     };
 
     Ok(exit_code)
-}
-
-#[derive(Debug, Default)]
-pub struct InstallArgs {
-    no_refresh: bool,
-    install_dbg: bool,
-    reinstall: bool,
-    no_fixbroken: bool,
-    yes: bool,
-    force_yes: bool,
-    force_confnew: bool,
-    dpkg_force_all: bool,
-    install_recommends: bool,
-    install_suggests: bool,
-}
-
-#[derive(Debug, Default)]
-pub struct UpgradeArgs {
-    yes: bool,
-    force_yes: bool,
-    force_confnew: bool,
-    dpkg_force_all: bool,
-}
-
-#[derive(Debug, Default)]
-pub struct RemoveArgs {
-    yes: bool,
-    keep_config: bool,
-    no_autoremove: bool,
-    force_yes: bool,
 }
 
 fn single_handler() {
