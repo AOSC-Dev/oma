@@ -126,10 +126,11 @@ impl OmaArgs {
 type OmaAptResult<T> = Result<T, OmaAptError>;
 
 pub enum FilterMode {
-    All,
+    Default,
     Installed,
     Upgradable,
     Automatic,
+    Names,
 }
 
 impl OmaApt {
@@ -546,7 +547,7 @@ impl OmaApt {
     pub fn filter_pkgs(
         &self,
         query_mode: &[FilterMode],
-    ) -> OmaAptResult<Box<dyn Iterator<Item = Package> + '_>> {
+    ) -> OmaAptResult<impl Iterator<Item = rust_apt::package::Package>> {
         let mut sort = PackageSort::default();
 
         for i in query_mode {
@@ -554,13 +555,14 @@ impl OmaApt {
                 FilterMode::Installed => sort.installed(),
                 FilterMode::Upgradable => sort.upgradable(),
                 FilterMode::Automatic => sort.auto_installed(),
+                FilterMode::Names => sort.names(),
                 _ => sort,
             };
         }
 
         let pkgs = self.cache.packages(&sort)?;
 
-        Ok(Box::new(pkgs))
+        Ok(pkgs)
     }
 }
 

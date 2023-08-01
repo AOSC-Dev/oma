@@ -673,8 +673,8 @@ fn try_main() -> Result<i32> {
 
             let filter_pkgs = apt.filter_pkgs(&filter_mode)?;
 
-            let filter_pkgs = if pkgs.is_empty() {
-                filter_pkgs
+            let filter_pkgs: Box<dyn Iterator<Item = _>> = if pkgs.is_empty() {
+                Box::new(filter_pkgs)
             } else {
                 Box::new(filter_pkgs.filter(|x| pkgs.contains(&x.name().to_string())))
             };
@@ -780,10 +780,22 @@ fn try_main() -> Result<i32> {
         //         .get_many::<String>("opt_out")
         //         .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
         // }),
-        Some(("pkgnames", _v)) => todo!(),
-        // {
-        //     OmaCommand::Pkgnames(v.get_one::<String>("keyword").map(|x| x.to_owned()))
-        // }
+        Some(("pkgnames", args)) => {
+            let apt = OmaApt::new(vec![])?;
+            let mut pkgs: Box<dyn Iterator<Item = _>> =
+                Box::new(apt.filter_pkgs(&[FilterMode::Names])?);
+            let keyword = args.get_one::<String>("keyword").map(|x| x.to_owned());
+
+            if let Some(keyword) = keyword {
+                pkgs = Box::new(pkgs.filter(move |x| x.name().starts_with(&keyword)));
+            }
+
+            for pkg in pkgs {
+                println!("{}", pkg.name());
+            }
+
+            0
+        }
         _ => unreachable!(),
     };
 
