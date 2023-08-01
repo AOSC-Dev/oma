@@ -20,7 +20,10 @@ use rust_apt::{
 pub use rust_apt::config::Config as AptConfig;
 
 use crate::{
-    operation::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag},
+    operation::{
+        InstallEntry, InstallEntryBuilder, InstallEntryBuilderError, InstallOperation, RemoveEntry,
+        RemoveTag,
+    },
     pkginfo::PkgInfo,
     progress::{NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
@@ -54,24 +57,16 @@ pub enum OmaAptError {
     DownlaodError(#[from] DownloadError),
     #[error(transparent)]
     IOError(#[from] std::io::Error),
+    #[error(transparent)]
+    InstallEntryBuilderError(#[from] InstallEntryBuilderError),
 }
 
+#[derive(Default)]
 pub struct AptArgs {
     yes: bool,
     force_yes: bool,
     dpkg_force_confnew: bool,
     dpkg_force_all: bool,
-}
-
-impl Default for AptArgs {
-    fn default() -> Self {
-        Self {
-            yes: false,
-            force_yes: false,
-            dpkg_force_confnew: false,
-            dpkg_force_all: false,
-        }
-    }
 }
 
 impl AptArgs {
@@ -100,16 +95,9 @@ impl AptArgs {
     }
 }
 
+#[derive(Default)]
 pub struct OmaArgs {
     no_fixbroken: bool,
-}
-
-impl Default for OmaArgs {
-    fn default() -> Self {
-        Self {
-            no_fixbroken: false,
-        }
-    }
 }
 
 impl OmaArgs {
@@ -131,6 +119,12 @@ pub enum FilterMode {
     Upgradable,
     Automatic,
     Names,
+}
+
+pub struct OmaOperation<'a> {
+    pub install: Vec<InstallEntry>,
+    pub remove: Vec<RemoveEntry>,
+    pub disk_size: (&'a str, u64),
 }
 
 impl OmaApt {
@@ -208,19 +202,20 @@ impl OmaApt {
         let mut download_list = vec![];
         for pkg in pkgs {
             let name = pkg.raw_pkg.name().to_string();
-            let entry = InstallEntry::new(
-                pkg.raw_pkg.name().to_string(),
-                None,
-                pkg.version_raw.version().to_string(),
-                None,
-                pkg.installed_size,
-                pkg.apt_sources,
-                pkg.checksum
-                    .ok_or_else(|| OmaAptError::PkgNoChecksum(name))?,
-                pkg.arch,
-                pkg.download_size,
-                InstallOperation::Download,
-            );
+            let entry = InstallEntryBuilder::default()
+                .name(pkg.raw_pkg.name().to_string())
+                .new_version(pkg.version_raw.version().to_string())
+                .new_size(pkg.installed_size)
+                .pkg_urls(pkg.apt_sources)
+                .checksum(
+                    pkg.checksum
+                        .ok_or_else(|| OmaAptError::PkgNoChecksum(name))?,
+                )
+                .arch(pkg.arch)
+                .download_size(pkg.download_size)
+                .op(InstallOperation::Download)
+                .build()?;
+
             download_list.push(entry);
         }
 
@@ -254,14 +249,12 @@ impl OmaApt {
             if pkg.is_essential() {
                 if protect {
                     return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
-                } else {
-                    if cli_output {
-                        if !ask_user_do_as_i_say(&pkg)? {
-                            return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
-                        }
-                    } else {
+                } else if cli_output {
+                    if !ask_user_do_as_i_say(&pkg)? {
                         return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
                     }
+                } else {
+                    return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
                 }
             }
             pkg.mark_delete(purge);
@@ -309,7 +302,7 @@ impl OmaApt {
 
         let v = self.operation_vec()?;
 
-        let (download_pkg_list, _, _) = v;
+        let download_pkg_list = v.install;
 
         let tokio = tokio::runtime::Builder::new_multi_thread()
             .enable_time()
@@ -353,7 +346,7 @@ impl OmaApt {
         for entry in download_pkg_list {
             let uris = entry.pkg_urls();
             let sources = uris
-                .into_iter()
+                .iter()
                 .map(|x| {
                     let source_type = if x.starts_with("file:") {
                         DownloadSourceType::Local
@@ -418,7 +411,7 @@ impl OmaApt {
     pub fn get_archive_dir(&self) -> PathBuf {
         let archives_dir = self.config.get("Dir::Cache::Archives");
 
-        let path = if let Some(archives_dir) = archives_dir {
+        if let Some(archives_dir) = archives_dir {
             if !Path::new(&archives_dir).is_absolute() {
                 PathBuf::from(format!("/var/cache/apt/{archives_dir}"))
             } else {
@@ -426,14 +419,10 @@ impl OmaApt {
             }
         } else {
             PathBuf::from("/var/cache/apt/archives/")
-        };
-
-        path
+        }
     }
 
-    pub fn operation_vec(
-        &self,
-    ) -> OmaAptResult<(Vec<InstallEntry>, Vec<RemoveEntry>, (&str, u64))> {
+    pub fn operation_vec(&self) -> OmaAptResult<OmaOperation> {
         let mut install = vec![];
         let mut remove = vec![];
         let changes = self.cache.get_changes(false)?;
@@ -453,20 +442,18 @@ impl OmaApt {
 
                 let size = cand.installed_size();
 
-                let install_entry = InstallEntry::new(
-                    pkg.name().to_string(),
-                    None,
-                    version.to_string(),
-                    None,
-                    size,
-                    uri,
-                    checksum,
-                    pkg.arch().to_string(),
-                    cand.size(),
-                    InstallOperation::Install,
-                );
+                let entry = InstallEntryBuilder::default()
+                    .name(pkg.name().to_string())
+                    .new_version(version.to_string())
+                    .new_size(size)
+                    .pkg_urls(uri)
+                    .checksum(checksum)
+                    .arch(pkg.arch().to_string())
+                    .download_size(cand.size())
+                    .op(InstallOperation::Install)
+                    .build()?;
 
-                install.push(install_entry);
+                install.push(entry);
 
                 // If the package is marked install then it will also
                 // show up as marked upgrade, downgrade etc.
@@ -511,18 +498,17 @@ impl OmaApt {
                     .get_record(RecordField::SHA256)
                     .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?;
 
-                let install_entry = InstallEntry::new(
-                    pkg.name().to_string(),
-                    None,
-                    version.version().to_string(),
-                    Some(version.installed_size()),
-                    version.installed_size(),
-                    version.uris().collect(),
-                    checksum,
-                    pkg.arch().to_string(),
-                    0,
-                    InstallOperation::ReInstall,
-                );
+                let install_entry = InstallEntryBuilder::default()
+                    .name(pkg.name().to_string())
+                    .new_version(version.version().to_string())
+                    .old_size(Some(version.installed_size()))
+                    .new_size(version.installed_size())
+                    .pkg_urls(version.uris().collect())
+                    .checksum(checksum)
+                    .arch(pkg.arch().to_string())
+                    .download_size(0)
+                    .op(InstallOperation::ReInstall)
+                    .build()?;
 
                 install.push(install_entry);
             }
@@ -541,7 +527,11 @@ impl OmaApt {
             DiskSpace::Free(n) => ("-", n),
         };
 
-        Ok((install, remove, disk_size))
+        Ok(OmaOperation {
+            install,
+            remove,
+            disk_size,
+        })
     }
 
     pub fn filter_pkgs(
@@ -610,18 +600,18 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
         .get_record(RecordField::SHA256)
         .ok_or_else(|| OmaAptError::PkgNoChecksum(new_pkg.name().to_string()))?;
 
-    let install_entry = InstallEntry::new(
-        new_pkg.name().to_string(),
-        Some(old_version.to_string()),
-        new_version.to_owned(),
-        Some(installed.installed_size()),
-        cand.installed_size(),
-        cand.uris().collect::<Vec<_>>(),
-        checksum,
-        new_pkg.arch().to_string(),
-        cand.size(),
-        op,
-    );
+    let install_entry = InstallEntryBuilder::default()
+        .name(new_pkg.name().to_string())
+        .old_version(Some(old_version.to_string()))
+        .new_version(new_version.to_owned())
+        .old_size(Some(installed.installed_size()))
+        .new_size(cand.installed_size())
+        .pkg_urls(cand.uris().collect::<Vec<_>>())
+        .checksum(checksum)
+        .arch(new_pkg.arch().to_string())
+        .download_size(cand.size())
+        .op(op)
+        .build()?;
 
     Ok(install_entry)
 }

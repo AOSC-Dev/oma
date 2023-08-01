@@ -16,6 +16,7 @@ url-escape = "0.1"
 oma-fetch = { path = "../oma-fetch" }
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread", "macros"] }
 oma-console = { path = "../oma-console" }
+derive_builder = "0.12"
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
