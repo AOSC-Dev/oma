@@ -744,7 +744,25 @@ fn try_main() -> Result<i32> {
         // OmaCommand::Rdepends(Dep {
         //     pkgs: pkgs_getter(args).unwrap(),
         // }),
-        Some(("clean", _)) => todo!(),
+        Some(("clean", _)) => {
+            let apt = OmaApt::new(vec![])?;
+            let download_dir = apt.get_archive_dir();
+            let dir = std::fs::read_dir(&download_dir)?;
+
+            for i in dir.flatten() {
+                if i.path().extension().and_then(|x| x.to_str()) == Some("deb") {
+                    std::fs::remove_file(i.path()).ok();
+                }
+            }
+            let p = download_dir.join("..");
+
+            std::fs::remove_file(p.join("pkgcache.bin")).ok();
+            std::fs::remove_file(p.join("srcpkgcache.bin")).ok();
+
+            success!("{}", fl!("clean-successfully"));
+
+            0
+        }
         Some(("history", _args)) => todo!(),
         // OmaCommand::History(History {
         //     action: match args.get_one::<String>("action").map(|x| x.as_str()) {
