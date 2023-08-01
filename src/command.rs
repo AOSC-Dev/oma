@@ -1,14 +1,18 @@
-use std::{borrow::Cow, path::{Path, PathBuf}, sync::atomic::Ordering};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+    sync::atomic::Ordering,
+};
 
 use anyhow::{anyhow, Result};
 use dialoguer::{console::style, theme::ColorfulTheme, Select};
 use oma_console::{
-    error, indicatif::ProgressBar, info, pager::Pager, pb::oma_spinner, success,
-    writer::gen_prefix, WRITER, warn,
+    error, indicatif::ProgressBar, info, pager::Pager, pb::oma_spinner, success, warn,
+    writer::gen_prefix, WRITER,
 };
 use oma_contents::QueryMode;
 use oma_pm::{
-    apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptError},
+    apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder, OmaAptError},
     pkginfo::PkgInfo,
     query::OmaDatabase,
     PackageStatus,
@@ -16,11 +20,13 @@ use oma_pm::{
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg_arch;
 
-use crate::{fl, table::table_for_install_pending, InstallArgs, ALLOWCTRLC, UpgradeArgs, RemoveArgs};
+use crate::{
+    fl, table::table_for_install_pending, InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC,
+};
 
 pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
     if !args.no_refresh {
-        refresh_inner()?;
+        refresh()?;
     }
 
     let local_debs = pkgs_unparse
@@ -30,10 +36,37 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
         .collect::<Vec<_>>();
 
     let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
-    let apt = OmaApt::new(local_debs)?;
+
+    let oma_apt_args = OmaAptArgsBuilder::default()
+        .install_recommends(args.install_recommends)
+        .install_suggests(args.install_suggests)
+        .no_install_recommends(args.no_install_recommends)
+        .no_install_suggests(args.no_install_suggests)
+        .build()?;
+
+    let apt = OmaApt::new(local_debs, oma_apt_args)?;
     let pkgs = apt.select_pkg(pkgs_unparse, args.install_dbg, true)?;
 
-    apt.install(pkgs, args.reinstall)?;
+    let (system_install_recommend, system_install_suggests) =
+        get_recommend_and_suggest_system_config(&apt);
+
+    let install_recommend = if args.install_recommends {
+        true
+    } else if args.no_install_recommends {
+        false
+    } else {
+        system_install_recommend
+    };
+
+    let install_suggests = if args.install_suggests {
+        true
+    } else if args.no_install_suggests {
+        false
+    } else {
+        system_install_suggests
+    };
+
+    apt.install(pkgs, args.reinstall, install_recommend, install_suggests)?;
 
     let apt_args = AptArgsBuilder::default()
         .yes(args.yes)
@@ -58,7 +91,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
 }
 
 pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
-    refresh_inner()?;
+    refresh()?;
 
     let local_debs = pkgs_unparse
         .iter()
@@ -77,12 +110,22 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
         .build()?;
 
     loop {
-        let apt = OmaApt::new(local_debs.clone())?;
+        let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+        let apt = OmaApt::new(local_debs.clone(), oma_apt_args)?;
 
         let pkgs = apt.select_pkg(pkgs_unparse.clone(), false, true)?;
 
         apt.upgrade()?;
-        apt.install(pkgs, false)?;
+
+        let (system_install_recommend, system_install_suggests) =
+            get_recommend_and_suggest_system_config(&apt);
+
+        apt.install(
+            pkgs,
+            false,
+            system_install_recommend,
+            system_install_suggests,
+        )?;
 
         let op = apt.operation_vec()?;
         let install = op.install;
@@ -116,8 +159,25 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
     Ok(0)
 }
 
+fn get_recommend_and_suggest_system_config(apt: &OmaApt) -> (bool, bool) {
+    let system_install_recommend = match apt.config.get("APT::Install-Recommends").as_deref() {
+        Some("true") => true,
+        Some("false") => false,
+        Some(_) | None => true,
+    };
+
+    let system_install_suggests = match apt.config.get("APT::Install-Suggests").as_deref() {
+        Some("true") => true,
+        Some("false") => false,
+        Some(_) | None => false,
+    };
+
+    (system_install_recommend, system_install_suggests)
+}
+
 pub fn remove(pkgs: Vec<&str>, args: RemoveArgs) -> Result<i32> {
-    let mut apt = OmaApt::new(vec![])?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args)?;
     let pkgs = apt.select_pkg(pkgs, false, true)?;
 
     apt.remove(pkgs, !args.keep_config, true, true, args.no_autoremove)?;
@@ -143,12 +203,9 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs) -> Result<i32> {
 }
 
 pub fn download(keyword: Vec<&str>, path: Option<PathBuf>) -> Result<i32> {
-    let apt = OmaApt::new(vec![])?;
-    let pkgs = apt.select_pkg(
-        keyword,
-        false,
-        true,
-    )?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let pkgs = apt.select_pkg(keyword, false, true)?;
 
     apt.download(pkgs, None, path.as_deref())?;
 
@@ -156,7 +213,8 @@ pub fn download(keyword: Vec<&str>, path: Option<PathBuf>) -> Result<i32> {
 }
 
 pub fn search(args: &[String]) -> Result<i32> {
-    let apt = OmaApt::new(vec![])?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.join(" ");
     let res = db.search(&s)?;
@@ -223,10 +281,11 @@ pub fn search(args: &[String]) -> Result<i32> {
     Ok(0)
 }
 
-pub fn refresh() -> Result<i32> {
-    refresh_inner()?;
+pub fn command_refresh() -> Result<i32> {
+    refresh()?;
 
-    let apt = OmaApt::new(vec![])?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
     let (upgradable, removable) = apt.available_action()?;
     let mut s = vec![];
 
@@ -248,7 +307,7 @@ pub fn refresh() -> Result<i32> {
     Ok(0)
 }
 
-pub fn refresh_inner() -> Result<()> {
+fn refresh() -> Result<()> {
     info!("{}", fl!("refreshing-repo-metadata"));
     let refresh = OmaRefresh::scan(None)?;
     let tokio = tokio::runtime::Builder::new_multi_thread()
@@ -262,7 +321,8 @@ pub fn refresh_inner() -> Result<()> {
 }
 
 pub fn show(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32> {
-    let apt = OmaApt::new(vec![])?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
     let pkg = apt.select_pkg(pkgs_unparse, false, false)?;
     for (i, c) in pkg.iter().enumerate() {
         if c.is_candidate || all {
@@ -328,10 +388,11 @@ pub fn find(x: &str, is_bin: bool, pkg: String) -> Result<i32> {
 
 pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
     if !no_refresh {
-        refresh_inner()?;
+        refresh()?;
     }
 
-    let apt = OmaApt::new(vec![])?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
     let pkg = apt
         .cache
         .get(&pkg_str)
@@ -390,7 +451,16 @@ pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
     })?;
 
     let pkginfo = PkgInfo::new(&apt.cache, version.unique(), &pkg);
-    apt.install(vec![pkginfo], false)?;
+
+    let (system_install_recommend, system_install_suggests) =
+        get_recommend_and_suggest_system_config(&apt);
+
+    apt.install(
+        vec![pkginfo],
+        false,
+        system_install_recommend,
+        system_install_suggests,
+    )?;
 
     let op = apt.operation_vec()?;
     let install = op.install;
@@ -418,7 +488,8 @@ pub fn command_not_found(pkg: String) -> Result<i32> {
         Ok(res) => {
             println!("{}\n", fl!("command-not-found-with-result", kw = pkg));
 
-            let apt = OmaApt::new(vec![])?;
+            let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+            let apt = OmaApt::new(vec![], oma_apt_args)?;
 
             for (k, v) in res {
                 let (pkg, bin_path) = v.split_once(':').unwrap();
@@ -445,7 +516,8 @@ pub fn command_not_found(pkg: String) -> Result<i32> {
 }
 
 pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> Result<i32> {
-    let apt = OmaApt::new(vec![])?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
 
     let mut filter_mode = vec![];
     if installed {
@@ -518,7 +590,8 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
 }
 
 pub fn clean() -> Result<i32> {
-    let apt = OmaApt::new(vec![])?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
     let download_dir = apt.get_archive_dir();
     let dir = std::fs::read_dir(&download_dir)?;
 
@@ -538,7 +611,8 @@ pub fn clean() -> Result<i32> {
 }
 
 pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
-    let apt = OmaApt::new(vec![])?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
     let mut pkgs: Box<dyn Iterator<Item = _>> = Box::new(apt.filter_pkgs(&[FilterMode::Names])?);
 
     if let Some(keyword) = keyword {

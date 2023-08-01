@@ -30,9 +30,18 @@ use crate::{
     query::{OmaDatabase, OmaDatabaseError},
 };
 
+#[derive(Builder, Default)]
+#[builder(default)]
+pub struct OmaAptArgs {
+    install_recommends: bool,
+    install_suggests: bool,
+    no_install_recommends: bool,
+    no_install_suggests: bool,
+}
+
 pub struct OmaApt {
     pub cache: Cache,
-    config: AptConfig,
+    pub config: AptConfig,
     autoremove: Vec<String>,
 }
 
@@ -63,6 +72,7 @@ pub enum OmaAptError {
 }
 
 #[derive(Default, Builder)]
+#[builder(default)]
 pub struct AptArgs {
     yes: bool,
     force_yes: bool,
@@ -88,23 +98,6 @@ impl AptArgs {
     }
 }
 
-#[derive(Default, Builder)]
-pub struct OmaArgs {
-    no_fixbroken: bool,
-    install_dbg: bool,
-}
-
-impl OmaArgs {
-    pub fn no_fix_broken(&self) -> bool {
-        self.no_fixbroken
-    }
-
-    pub fn install_dbg(&self) -> bool {
-        self.install_dbg
-    }
-}
-
-
 type OmaAptResult<T> = Result<T, OmaAptError>;
 
 pub enum FilterMode {
@@ -122,12 +115,54 @@ pub struct OmaOperation<'a> {
 }
 
 impl OmaApt {
-    pub fn new(local_debs: Vec<String>) -> OmaAptResult<Self> {
+    pub fn new(local_debs: Vec<String>, args: OmaAptArgs) -> OmaAptResult<Self> {
+        let config = Self::init_config(args)?;
+
         Ok(Self {
             cache: new_cache!(&local_debs)?,
-            config: AptConfig::new(),
+            config: config,
             autoremove: vec![],
         })
+    }
+
+    fn init_config(args: OmaAptArgs) -> OmaAptResult<AptConfig> {
+        let config = AptConfig::new();
+
+        let install_recommend = if args.install_recommends {
+            true
+        } else if args.no_install_recommends {
+            false
+        } else {
+            match config.get("APT::Install-Recommends").as_deref() {
+                Some("true") => true,
+                Some("false") => false,
+                _ => true
+            }
+        };
+
+        let install_suggests = if args.install_suggests {
+            true
+        } else if args.no_install_suggests {
+            false
+        } else {
+            match config.get("APT::Install-Suggests").as_deref() {
+                Some("true") => true,
+                Some("false") => false,
+                _ => false
+            }
+        };
+
+        config.set("APT::Install-Recommends", match install_recommend {
+            true => "true",
+            false => "false",
+        });
+
+        config.set("APT::Install-Suggests", match install_suggests {
+            true => "true",
+            false => "false",
+        });
+
+        Ok(config)
     }
 
     pub fn available_action(&self) -> OmaAptResult<(usize, usize)> {
@@ -146,7 +181,31 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn install(&self, pkgs: Vec<PkgInfo>, reinstall: bool) -> OmaAptResult<()> {
+    pub fn install(
+        &self,
+        pkgs: Vec<PkgInfo>,
+        reinstall: bool,
+        install_recommends: bool,
+        install_suggests: bool,
+    ) -> OmaAptResult<()> {
+        self.config.set(
+            "APT::Install-Recommends",
+            match install_recommends {
+                true => "true",
+                false => "false",
+            },
+        );
+
+        // dbg!(install_suggests);
+
+        self.config.set(
+            "APT::Install-Suggests",
+            match install_suggests {
+                true => "true",
+                false => "false",
+            },
+        );
+
         for pkg in pkgs {
             mark_install(&self.cache, pkg, reinstall)?;
         }
@@ -315,7 +374,7 @@ impl OmaApt {
         self.cache.get_archives(&mut no_progress)?;
 
         let mut progress = OmaAptInstallProgress::new_box(
-            AptConfig::new(),
+            self.config,
             args_config.yes,
             args_config.force_yes,
             args_config.dpkg_force_confnew,
@@ -493,7 +552,7 @@ impl OmaApt {
                 let install_entry = InstallEntryBuilder::default()
                     .name(pkg.name().to_string())
                     .new_version(version.version().to_string())
-                    .old_size(Some(version.installed_size()))
+                    .old_size(version.installed_size())
                     .new_size(version.installed_size())
                     .pkg_urls(version.uris().collect())
                     .checksum(checksum)
@@ -594,9 +653,9 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
 
     let install_entry = InstallEntryBuilder::default()
         .name(new_pkg.name().to_string())
-        .old_version(Some(old_version.to_string()))
+        .old_version(old_version.to_string())
         .new_version(new_version.to_owned())
-        .old_size(Some(installed.installed_size()))
+        .old_size(installed.installed_size())
         .new_size(cand.installed_size())
         .pkg_urls(cand.uris().collect::<Vec<_>>())
         .checksum(checksum)
@@ -657,6 +716,7 @@ fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResul
     }
 
     pkg.protect();
+
 
     Ok(())
 }
