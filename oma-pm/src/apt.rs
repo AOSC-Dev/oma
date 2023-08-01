@@ -136,7 +136,7 @@ impl OmaApt {
             match config.get("APT::Install-Recommends").as_deref() {
                 Some("true") => true,
                 Some("false") => false,
-                _ => true
+                _ => true,
             }
         };
 
@@ -148,19 +148,25 @@ impl OmaApt {
             match config.get("APT::Install-Suggests").as_deref() {
                 Some("true") => true,
                 Some("false") => false,
-                _ => false
+                _ => false,
             }
         };
 
-        config.set("APT::Install-Recommends", match install_recommend {
-            true => "true",
-            false => "false",
-        });
+        config.set(
+            "APT::Install-Recommends",
+            match install_recommend {
+                true => "true",
+                false => "false",
+            },
+        );
 
-        config.set("APT::Install-Suggests", match install_suggests {
-            true => "true",
-            false => "false",
-        });
+        config.set(
+            "APT::Install-Suggests",
+            match install_suggests {
+                true => "true",
+                false => "false",
+            },
+        );
 
         Ok(config)
     }
@@ -181,11 +187,7 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn install(
-        &self,
-        pkgs: Vec<PkgInfo>,
-        reinstall: bool,
-    ) -> OmaAptResult<()> {
+    pub fn install(&self, pkgs: Vec<PkgInfo>, reinstall: bool) -> OmaAptResult<()> {
         for pkg in pkgs {
             mark_install(&self.cache, pkg, reinstall)?;
         }
@@ -318,6 +320,11 @@ impl OmaApt {
     ) -> OmaAptResult<()> {
         if !no_fixbroken {
             self.cache.fix_broken();
+        }
+
+        if let Err(e) = self.cache.resolve(!no_fixbroken) {
+            error!("{e}");
+            todo!()
         }
 
         let need_fix = self.check_broken()?;
@@ -696,7 +703,6 @@ fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResul
     }
 
     pkg.protect();
-
 
     Ok(())
 }

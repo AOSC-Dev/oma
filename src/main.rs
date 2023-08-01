@@ -13,7 +13,6 @@ use clap::ArgMatches;
 use nix::sys::signal;
 use oma_console::{console::style, info};
 use oma_console::{debug, due_to, error, DEBUG, WRITER};
-use oma_pm::apt::{AptArgs, OmaApt, OmaAptArgsBuilder};
 use oma_utils::{terminal_ring, unlock_oma, OsRelease};
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -204,13 +203,7 @@ fn try_main() -> Result<i32> {
 
             command::find(x, is_bin, pkg)?
         }
-        Some(("fix-broken", _args)) => {
-            let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-            let apt = OmaApt::new(vec![], oma_apt_args)?;
-            apt.commit(None, &AptArgs::default(), false)?;
-
-            0
-        }
+        Some(("fix-broken", _args)) => command::fix_broken()?,
         // OmaCommand::FixBroken(FixBroken {
         //     dry_run: args.get_flag("dry_run"),
         // }),
