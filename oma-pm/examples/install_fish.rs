@@ -1,4 +1,4 @@
-use oma_pm::apt::{AptArgs, OmaApt, OmaAptError, OmaArgs};
+use oma_pm::apt::{AptArgs, OmaApt, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
     let apt = OmaApt::new(vec![])?;
@@ -7,7 +7,7 @@ fn main() -> Result<(), OmaAptError> {
     apt.install(pkgs, false)?;
     // let op = apt.operation_vec()?;
 
-    apt.commit(None, &AptArgs::default(), &OmaArgs::default())?;
+    apt.commit(None, &AptArgs::default(), false)?;
 
     Ok(())
 }

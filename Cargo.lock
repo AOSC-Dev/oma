@@ -1869,6 +1869,7 @@ dependencies = [
  "clap_complete",
  "clap_mangen",
  "ctrlc",
+ "derive_builder",
  "dialoguer",
  "i18n-embed",
  "i18n-embed-fl",

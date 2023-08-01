@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use derive_builder::Builder;
 use oma_console::{
     console::style,
     debug,
@@ -61,7 +62,7 @@ pub enum OmaAptError {
     InstallEntryBuilderError(#[from] InstallEntryBuilderError),
 }
 
-#[derive(Default)]
+#[derive(Default, Builder)]
 pub struct AptArgs {
     yes: bool,
     force_yes: bool,
@@ -70,46 +71,39 @@ pub struct AptArgs {
 }
 
 impl AptArgs {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn yes(&self) -> bool {
+        self.yes
     }
 
-    pub fn yes(&mut self, yes: bool) -> &mut Self {
-        self.yes = yes;
-        self
+    pub fn force_yes(&self) -> bool {
+        self.force_yes
     }
 
-    pub fn force_yes(&mut self, force_yes: bool) -> &mut Self {
-        self.force_yes = force_yes;
-        self
+    pub fn dpkg_force_confnew(&self) -> bool {
+        self.dpkg_force_confnew
     }
 
-    pub fn dpkg_force_confnew(&mut self, dpkg_force_confnew: bool) -> &mut Self {
-        self.dpkg_force_confnew = dpkg_force_confnew;
-        self
-    }
-
-    pub fn dpkg_force_all(&mut self, dpkg_force_all: bool) -> &mut Self {
-        self.dpkg_force_all = dpkg_force_all;
-        self
+    pub fn dpkg_force_all(&self) -> bool {
+        self.dpkg_force_all
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Builder)]
 pub struct OmaArgs {
     no_fixbroken: bool,
+    install_dbg: bool,
 }
 
 impl OmaArgs {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn no_fix_broken(&self) -> bool {
+        self.no_fixbroken
     }
 
-    pub fn no_fix_broken(&mut self, no_fixbroken: bool) -> &mut Self {
-        self.no_fixbroken = no_fixbroken;
-        self
+    pub fn install_dbg(&self) -> bool {
+        self.install_dbg
     }
 }
+
 
 type OmaAptResult<T> = Result<T, OmaAptError>;
 
@@ -281,21 +275,19 @@ impl OmaApt {
         self,
         network_thread: Option<usize>,
         args_config: &AptArgs,
-        oma_args: &OmaArgs,
+        no_fixbroken: bool,
     ) -> OmaAptResult<()> {
-        let no_fixbroen = oma_args.no_fixbroken;
-
-        if !no_fixbroen {
+        if !no_fixbroken {
             self.cache.fix_broken();
         }
 
         let need_fix = self.check_broken()?;
 
-        if no_fixbroen && need_fix {
+        if no_fixbroken && need_fix {
             warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
         }
 
-        if let Err(e) = self.cache.resolve(!no_fixbroen) {
+        if let Err(e) = self.cache.resolve(!no_fixbroken) {
             error!("{e}");
             todo!()
         }
