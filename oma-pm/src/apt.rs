@@ -13,8 +13,9 @@ use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
     package::{Package, Version},
+    raw::package::RawPackage,
     records::RecordField,
-    util::DiskSpace, raw::package::RawPackage,
+    util::DiskSpace,
 };
 
 pub use rust_apt::config::Config as AptConfig;
@@ -125,6 +126,13 @@ impl OmaArgs {
 
 type OmaAptResult<T> = Result<T, OmaAptError>;
 
+pub enum FilterMode {
+    All,
+    Installed,
+    Upgradable,
+    Automatic,
+}
+
 impl OmaApt {
     pub fn new(local_debs: Vec<String>) -> OmaAptResult<Self> {
         Ok(Self {
@@ -161,11 +169,11 @@ impl OmaApt {
     pub fn check_broken(&self) -> OmaAptResult<bool> {
         let sort = PackageSort::default().installed();
         let pkgs = self.cache.packages(&sort)?;
-    
+
         // let mut reinstall = vec![];
-    
+
         let mut need = false;
-    
+
         for pkg in pkgs {
             // current_state 的定义来自 apt 的源码:
             //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
@@ -398,7 +406,12 @@ impl OmaApt {
         Ok((success, failed))
     }
 
-    pub fn select_pkg(&self, keywords: Vec<&str>, select_dbg: bool, filter_candidate: bool) -> OmaAptResult<Vec<PkgInfo>> {
+    pub fn select_pkg(
+        &self,
+        keywords: Vec<&str>,
+        select_dbg: bool,
+        filter_candidate: bool,
+    ) -> OmaAptResult<Vec<PkgInfo>> {
         select_pkg(keywords, &self.cache, select_dbg, filter_candidate)
     }
 
@@ -534,6 +547,26 @@ impl OmaApt {
     pub fn trans_raw_pkg(&self, pkg: RawPackage) -> Package {
         Package::new(&self.cache, pkg)
     }
+
+    pub fn filter_pkgs(
+        &self,
+        query_mode: &[FilterMode],
+    ) -> OmaAptResult<Box<dyn Iterator<Item = Package> + '_>> {
+        let mut sort = PackageSort::default();
+
+        for i in query_mode {
+            sort = match i {
+                FilterMode::Installed => sort.installed(),
+                FilterMode::Upgradable => sort.upgradable(),
+                FilterMode::Automatic => sort.auto_installed(),
+                _ => sort,
+            };
+        }
+
+        let pkgs = self.cache.packages(&sort)?;
+
+        Ok(Box::new(pkgs))
+    }
 }
 
 fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<bool, OmaAptError> {
@@ -607,7 +640,9 @@ pub fn select_pkg(
     for keyword in keywords {
         pkgs.extend(match keyword {
             x if x.ends_with(".deb") => db.query_local_glob(x)?,
-            x if x.split_once('/').is_some() => db.query_from_branch(x, filter_candidate, select_dbg)?,
+            x if x.split_once('/').is_some() => {
+                db.query_from_branch(x, filter_candidate, select_dbg)?
+            }
             x if x.split_once('=').is_some() => db.query_from_version(x, select_dbg)?,
             x => db.query_from_glob(x, filter_candidate, select_dbg)?,
         });
