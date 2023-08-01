@@ -13,7 +13,6 @@ use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
     package::{Package, Version},
-    raw::package::RawPackage,
     records::RecordField,
     util::DiskSpace,
 };
@@ -415,7 +414,7 @@ impl OmaApt {
         select_pkg(keywords, &self.cache, select_dbg, filter_candidate)
     }
 
-    fn get_archive_dir(&self) -> PathBuf {
+    pub fn get_archive_dir(&self) -> PathBuf {
         let archives_dir = self.config.get("Dir::Cache::Archives");
 
         let path = if let Some(archives_dir) = archives_dir {
@@ -542,10 +541,6 @@ impl OmaApt {
         };
 
         Ok((install, remove, disk_size))
-    }
-
-    pub fn trans_raw_pkg(&self, pkg: RawPackage) -> Package {
-        Package::new(&self.cache, pkg)
     }
 
     pub fn filter_pkgs(
