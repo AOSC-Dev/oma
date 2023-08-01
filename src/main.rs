@@ -24,7 +24,7 @@ use oma_pm::pkginfo::PkgInfo;
 use oma_pm::query::OmaDatabase;
 use oma_pm::PackageStatus;
 use oma_refresh::db::OmaRefresh;
-use oma_utils::{dpkg_arch, unlock_oma, OsRelease};
+use oma_utils::{dpkg_arch, unlock_oma, OsRelease, terminal_ring};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -57,6 +57,7 @@ fn main() {
         }
     };
 
+    terminal_ring();
     unlock_oma().ok();
 
     exit(code);

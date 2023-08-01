@@ -249,9 +249,11 @@ impl Display for PkgInfo {
             HumanBytes(self.download_size)
         ))?;
 
+        f.write_str("APT-Source:\n")?;
+
         for i in &self.apt_sources {
             f.write_str(&format!(
-                "APT-Sources: {}\n",
+                " {}\n",
                 source_url_to_apt_style(i).unwrap_or(i.to_string())
             ))?;
         }
