@@ -16,6 +16,7 @@ ctrlc = "3.4"
 tabled = "0.13"
 dialoguer = "0.10"
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread", "macros"] }
+derive_builder = "0.12"
 oma-utils = { path = "./oma-utils" }
 oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
