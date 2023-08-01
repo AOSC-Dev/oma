@@ -59,6 +59,7 @@ impl From<&InstallEntry> for InstallEntryDisplay {
             InstallOperation::Upgrade => style(value.name()).color256(87).to_string(),
             InstallOperation::Downgrade => style(value.name()).yellow().to_string(),
             InstallOperation::Download => value.name().to_string(),
+            InstallOperation::Default => unreachable!(),
         };
 
         let version_delta = if let Some(old_version) = value.old_version() {
@@ -74,9 +75,9 @@ impl From<&InstallEntry> for InstallEntryDisplay {
         };
 
         let size_delta = if size_delta >= 0 {
-            format!("+{}", HumanBytes(size_delta.abs() as u64))
+            format!("+{}", HumanBytes(size_delta.unsigned_abs()))
         } else {
-            format!("-{}", HumanBytes(size_delta.abs() as u64))
+            format!("-{}", HumanBytes(size_delta.unsigned_abs()))
         };
 
         Self {
@@ -162,7 +163,7 @@ pub fn table_for_install_pending(
 
         let remove_display = remove
             .into_iter()
-            .map(|x| RemoveEntryDisplay::from(x))
+            .map(RemoveEntryDisplay::from)
             .collect::<Vec<_>>();
 
         let mut table = Table::new(remove_display);
@@ -187,7 +188,7 @@ pub fn table_for_install_pending(
             .filter(|x| x.op() == &InstallOperation::Install);
 
         let install_e_display = install_e
-            .map(|x| InstallEntryDisplay::from(x))
+            .map(InstallEntryDisplay::from)
             .collect::<Vec<_>>();
 
         if !install_e_display.is_empty() {
@@ -216,7 +217,7 @@ pub fn table_for_install_pending(
             .filter(|x| x.op() == &InstallOperation::Upgrade);
 
         let update_display = update
-            .map(|x| InstallEntryDisplay::from(x))
+            .map(InstallEntryDisplay::from)
             .collect::<Vec<_>>();
 
         if !update_display.is_empty() {
@@ -245,7 +246,7 @@ pub fn table_for_install_pending(
             .filter(|x| x.op() == &InstallOperation::Downgrade);
 
         let downgrade_display = downgrade
-            .map(|x| InstallEntryDisplay::from(x))
+            .map(InstallEntryDisplay::from)
             .collect::<Vec<_>>();
 
         if !downgrade_display.is_empty() {
@@ -274,7 +275,7 @@ pub fn table_for_install_pending(
             .filter(|x| x.op() == &InstallOperation::ReInstall);
 
         let reinstall_display = reinstall
-            .map(|x| InstallEntryDisplay::from(x))
+            .map(InstallEntryDisplay::from)
             .collect::<Vec<_>>();
 
         if !reinstall_display.is_empty() {

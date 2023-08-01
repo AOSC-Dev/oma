@@ -219,7 +219,7 @@ impl PkgInfo {
     }
 
     pub fn set_candidate(&mut self, cache: &Cache) {
-        let version = Version::new(self.version_raw.unique(), &cache);
+        let version = Version::new(self.version_raw.unique(), cache);
         version.set_candidate();
         self.is_candidate = true;
     }
@@ -252,7 +252,7 @@ impl Display for PkgInfo {
         for i in &self.apt_sources {
             f.write_str(&format!(
                 "APT-Sources: {}\n",
-                source_url_to_apt_style(&i).unwrap_or(i.to_string())
+                source_url_to_apt_style(i).unwrap_or(i.to_string())
             ))?;
         }
 

@@ -82,14 +82,14 @@ fn try_main() -> Result<i32> {
     }
 
     // Init dry-run flag
-    let dry_run = if let Some(Ok(Some(true))) = matches
-        .subcommand()
-        .map(|(_, x)| x.try_get_one::<bool>("dry_run"))
-    {
-        true
-    } else {
-        false
-    };
+    // let _dry_run = if let Some(Ok(Some(true))) = matches
+    //     .subcommand()
+    //     .map(|(_, x)| x.try_get_one::<bool>("dry_run"))
+    // {
+    //     true
+    // } else {
+    //     false
+    // };
 
     // Init debug flag
     if matches.get_flag("debug") {
@@ -140,7 +140,10 @@ fn try_main() -> Result<i32> {
             // apt_args.dpkg_force_confnew(args.get_flag("dpkg_force_confnew"));
             apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
 
-            let (install, remove, disk_size) = apt.operation_vec()?;
+            let op = apt.operation_vec()?;
+            let install = op.install;
+            let remove = op.remove;
+            let disk_size = op.disk_size;
 
             if install.is_empty() && remove.is_empty() {
                 return Ok(0);
@@ -201,7 +204,10 @@ fn try_main() -> Result<i32> {
                 apt_args.force_yes(args.get_flag("force_yes"));
                 apt_args.dpkg_force_all(args.get_flag("dpkg_force_all"));
 
-                let (install, remove, disk_size) = apt.operation_vec()?;
+                let op = apt.operation_vec()?;
+                let install = op.install;
+                let remove = op.remove;
+                let disk_size = op.disk_size;
 
                 if install.is_empty() && remove.is_empty() {
                     success!("{}", fl!("successfully-refresh"));
@@ -292,7 +298,10 @@ fn try_main() -> Result<i32> {
             apt_args.yes(yes);
             apt_args.force_yes(args.get_flag("force_yes"));
 
-            let (install, remove, disk_size) = apt.operation_vec()?;
+            let op = apt.operation_vec()?;
+            let install = op.install;
+            let remove = op.remove;
+            let disk_size = op.disk_size;
 
             if install.is_empty() && remove.is_empty() {
                 return Ok(0);
@@ -349,13 +358,7 @@ fn try_main() -> Result<i32> {
             let pkg = apt.select_pkg(pkgs_unparse, false, false)?;
 
             for (i, c) in pkg.iter().enumerate() {
-                if !all && c.is_candidate {
-                    if i != pkg.len() - 1 {
-                        println!("{c}\n");
-                    } else {
-                        println!("{c}");
-                    }
-                } else if all {
+                if c.is_candidate || all {
                     if i != pkg.len() - 1 {
                         println!("{c}\n");
                     } else {
@@ -580,7 +583,10 @@ fn try_main() -> Result<i32> {
             let pkginfo = PkgInfo::new(&apt.cache, version.unique(), &pkg);
             apt.install(vec![pkginfo], false)?;
 
-            let (install, remove, disk_size) = apt.operation_vec()?;
+            let op = apt.operation_vec()?;
+            let install = op.install;
+            let remove = op.remove;
+            let disk_size = op.disk_size;
 
             table_for_install_pending(install, remove, disk_size, true)?;
 
