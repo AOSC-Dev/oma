@@ -36,7 +36,7 @@ pub enum InstallOperation {
     ReInstall,
     Upgrade,
     Downgrade,
-    Download
+    Download,
 }
 
 impl InstallEntry {
@@ -80,7 +80,6 @@ impl InstallEntry {
         &self.op
     }
 }
-
 
 impl RemoveEntry {
     pub fn new(name: String, version: String, size: u64, details: Vec<RemoveTag>) -> Self {

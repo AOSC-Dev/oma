@@ -1,7 +1,9 @@
 use std::path::Path;
 
 use oma_pm::apt::{OmaApt, OmaAptError};
-use tracing_subscriber::{EnvFilter, fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{
+    fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter,
+};
 
 fn main() -> Result<(), OmaAptError> {
     tracing_subscriber::registry()
