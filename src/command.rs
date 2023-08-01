@@ -12,7 +12,7 @@ use oma_console::{
 };
 use oma_contents::QueryMode;
 use oma_pm::{
-    apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder, OmaAptError},
+    apt::{AptArgs, AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder, OmaAptError},
     pkginfo::PkgInfo,
     query::OmaDatabase,
     PackageStatus,
@@ -418,6 +418,14 @@ pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
 
     table_for_install_pending(install, remove, disk_size, true)?;
     apt.commit(None, &AptArgsBuilder::default().build()?, false)?;
+
+    Ok(0)
+}
+
+pub fn fix_broken() -> Result<i32> {
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    apt.commit(None, &AptArgs::default(), false)?;
 
     Ok(0)
 }
