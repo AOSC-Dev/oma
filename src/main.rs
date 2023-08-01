@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 use std::process::exit;
@@ -644,7 +645,7 @@ fn try_main() -> Result<i32> {
                             .and_then(|x| x.description())
                             .unwrap();
 
-                        println!("{k} ({bin_path}): {desc}",);
+                        println!("{k} ({bin_path}): {desc}");
                     }
                 }
                 Err(e) => {
@@ -685,15 +686,12 @@ fn try_main() -> Result<i32> {
                 let versions = if all {
                     pkg.versions().collect()
                 } else {
-                    // Box::new(
                     vec![pkg
                         .candidate()
                         .ok_or_else(|| anyhow!(fl!("no-candidate-ver", pkg = name)))?]
-                    // .into_iter(),
-                    // )
                 };
 
-                for version in versions.iter() {
+                for version in &versions {
                     let uris = version.uris().collect::<Vec<_>>();
                     let mut branches = vec![];
                     for uri in uris.iter() {
@@ -701,6 +699,37 @@ fn try_main() -> Result<i32> {
                         let branch = branch.nth_back(3).unwrap_or("");
                         branches.push(branch);
                     }
+                    let branches = branches.join(",");
+                    let version_str = version.version();
+                    let arch = pkg.arch();
+                    let installed = pkg.installed().as_ref() == Some(version);
+                    let upgradable = pkg.is_upgradable();
+                    let automatic = pkg.is_auto_installed();
+
+                    let mut s = vec![];
+
+                    if installed {
+                        s.push("installed");
+                    }
+
+                    if upgradable {
+                        s.push("upgradable");
+                    }
+
+                    if automatic {
+                        s.push("automatc");
+                    }
+
+                    let s = if s.is_empty() {
+                        Cow::Borrowed("")
+                    } else {
+                        Cow::Owned(format!("[{}]", s.join(",")))
+                    };
+
+                    println!(
+                        "{}/{branches} {version_str} {arch} {s}",
+                        style(name).green().bold()
+                    );
                 }
             }
 
