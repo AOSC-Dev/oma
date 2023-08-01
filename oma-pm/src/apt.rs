@@ -185,27 +185,7 @@ impl OmaApt {
         &self,
         pkgs: Vec<PkgInfo>,
         reinstall: bool,
-        install_recommends: bool,
-        install_suggests: bool,
     ) -> OmaAptResult<()> {
-        self.config.set(
-            "APT::Install-Recommends",
-            match install_recommends {
-                true => "true",
-                false => "false",
-            },
-        );
-
-        // dbg!(install_suggests);
-
-        self.config.set(
-            "APT::Install-Suggests",
-            match install_suggests {
-                true => "true",
-                false => "false",
-            },
-        );
-
         for pkg in pkgs {
             mark_install(&self.cache, pkg, reinstall)?;
         }
