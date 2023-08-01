@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use oma_pm::apt::{OmaApt, OmaAptError, OmaAptArgsBuilder};
+use oma_pm::apt::{OmaApt, OmaAptArgsBuilder, OmaAptError};
 use tracing_subscriber::{
     fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter,
 };
