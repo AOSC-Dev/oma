@@ -106,7 +106,7 @@ impl<'a> OmaDatabase<'a> {
                 }
 
                 if has_dbg && select_dbg && (is_cand || !filter_candidate) {
-                        self.select_dbg(&pkg, &ver, &mut res);
+                    self.select_dbg(&pkg, &ver, &mut res);
                 }
             }
         }

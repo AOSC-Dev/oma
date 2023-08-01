@@ -1,7 +1,7 @@
 use std::io::SeekFrom;
 
 use indicatif::ProgressBar;
-use oma_console::{indicatif, writer::Writer, debug, warn, error};
+use oma_console::{debug, error, indicatif, warn, writer::Writer};
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client, StatusCode,
@@ -36,7 +36,7 @@ pub(crate) async fn try_download(
                     count,
                     retry_times,
                     context.clone(),
-                    i
+                    i,
                 )
                 .await
             }

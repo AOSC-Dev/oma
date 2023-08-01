@@ -1,6 +1,7 @@
 use i18n_embed::{
     fluent::{fluent_language_loader, FluentLanguageLoader},
-    LanguageLoader, DesktopLanguageRequester, unic_langid::LanguageIdentifier,
+    unic_langid::LanguageIdentifier,
+    DesktopLanguageRequester, LanguageLoader,
 };
 use once_cell::sync::Lazy;
 use rust_embed::RustEmbed;

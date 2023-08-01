@@ -107,7 +107,10 @@ where
     let dir = std::fs::read_dir(dist_dir)?;
     let mut paths = Vec::new();
     for i in dir.flatten() {
-        if query_mode != QueryMode::CommandNotFound && query_mode != QueryMode::ListFiles(true) && query_mode != QueryMode::Provides(true) {
+        if query_mode != QueryMode::CommandNotFound
+            && query_mode != QueryMode::ListFiles(true)
+            && query_mode != QueryMode::Provides(true)
+        {
             if i.file_name()
                 .to_str()
                 .unwrap_or("")
@@ -211,9 +214,11 @@ where
 
                             for j in submatches {
                                 let m = j.m.text;
-                                if let Some(l) =
-                                    parse_line(&m, matches!(query_mode, QueryMode::ListFiles(_)), kw)
-                                {
+                                if let Some(l) = parse_line(
+                                    &m,
+                                    matches!(query_mode, QueryMode::ListFiles(_)),
+                                    kw,
+                                ) {
                                     if query_mode == QueryMode::CommandNotFound {
                                         let last = l.1.split_whitespace().last();
                                         let bin_name = last

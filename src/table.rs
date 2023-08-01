@@ -92,7 +92,7 @@ pub fn table_for_install_pending(
     install: Vec<InstallEntry>,
     remove: Vec<RemoveEntry>,
     disk_size: (&str, u64),
-    pager: bool
+    pager: bool,
 ) -> Result<()> {
     let has_x11 = std::env::var("DISPLAY");
 
@@ -187,9 +187,7 @@ pub fn table_for_install_pending(
             .iter()
             .filter(|x| x.op() == &InstallOperation::Install);
 
-        let install_e_display = install_e
-            .map(InstallEntryDisplay::from)
-            .collect::<Vec<_>>();
+        let install_e_display = install_e.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !install_e_display.is_empty() {
             let _ = writeln!(
@@ -216,9 +214,7 @@ pub fn table_for_install_pending(
             .iter()
             .filter(|x| x.op() == &InstallOperation::Upgrade);
 
-        let update_display = update
-            .map(InstallEntryDisplay::from)
-            .collect::<Vec<_>>();
+        let update_display = update.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !update_display.is_empty() {
             let _ = writeln!(
@@ -245,9 +241,7 @@ pub fn table_for_install_pending(
             .iter()
             .filter(|x| x.op() == &InstallOperation::Downgrade);
 
-        let downgrade_display = downgrade
-            .map(InstallEntryDisplay::from)
-            .collect::<Vec<_>>();
+        let downgrade_display = downgrade.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !downgrade_display.is_empty() {
             let _ = writeln!(
@@ -274,9 +268,7 @@ pub fn table_for_install_pending(
             .iter()
             .filter(|x| x.op() == &InstallOperation::ReInstall);
 
-        let reinstall_display = reinstall
-            .map(InstallEntryDisplay::from)
-            .collect::<Vec<_>>();
+        let reinstall_display = reinstall.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !reinstall_display.is_empty() {
             let _ = writeln!(
