@@ -47,26 +47,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
     let apt = OmaApt::new(local_debs, oma_apt_args)?;
     let pkgs = apt.select_pkg(pkgs_unparse, args.install_dbg, true)?;
 
-    let (system_install_recommend, system_install_suggests) =
-        get_recommend_and_suggest_system_config(&apt);
-
-    let install_recommend = if args.install_recommends {
-        true
-    } else if args.no_install_recommends {
-        false
-    } else {
-        system_install_recommend
-    };
-
-    let install_suggests = if args.install_suggests {
-        true
-    } else if args.no_install_suggests {
-        false
-    } else {
-        system_install_suggests
-    };
-
-    apt.install(pkgs, args.reinstall, install_recommend, install_suggests)?;
+    apt.install(pkgs, args.reinstall)?;
 
     let apt_args = AptArgsBuilder::default()
         .yes(args.yes)
@@ -117,15 +98,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
 
         apt.upgrade()?;
 
-        let (system_install_recommend, system_install_suggests) =
-            get_recommend_and_suggest_system_config(&apt);
-
-        apt.install(
-            pkgs,
-            false,
-            system_install_recommend,
-            system_install_suggests,
-        )?;
+        apt.install(pkgs, false)?;
 
         let op = apt.operation_vec()?;
         let install = op.install;
@@ -157,22 +130,6 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
     }
 
     Ok(0)
-}
-
-fn get_recommend_and_suggest_system_config(apt: &OmaApt) -> (bool, bool) {
-    let system_install_recommend = match apt.config.get("APT::Install-Recommends").as_deref() {
-        Some("true") => true,
-        Some("false") => false,
-        Some(_) | None => true,
-    };
-
-    let system_install_suggests = match apt.config.get("APT::Install-Suggests").as_deref() {
-        Some("true") => true,
-        Some("false") => false,
-        Some(_) | None => false,
-    };
-
-    (system_install_recommend, system_install_suggests)
 }
 
 pub fn remove(pkgs: Vec<&str>, args: RemoveArgs) -> Result<i32> {
@@ -452,15 +409,7 @@ pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
 
     let pkginfo = PkgInfo::new(&apt.cache, version.unique(), &pkg);
 
-    let (system_install_recommend, system_install_suggests) =
-        get_recommend_and_suggest_system_config(&apt);
-
-    apt.install(
-        vec![pkginfo],
-        false,
-        system_install_recommend,
-        system_install_suggests,
-    )?;
+    apt.install(vec![pkginfo], false)?;
 
     let op = apt.operation_vec()?;
     let install = op.install;
