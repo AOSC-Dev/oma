@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use oma_pm::apt::{OmaApt, OmaAptError};
+use oma_pm::apt::{OmaApt, OmaAptError, OmaAptArgsBuilder};
 use tracing_subscriber::{
     fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter,
 };
@@ -11,7 +11,8 @@ fn main() -> Result<(), OmaAptError> {
         .with(EnvFilter::from_default_env())
         .init();
 
-    let apt = OmaApt::new(vec![])?;
+    let oma_apt_args = OmaAptArgsBuilder::default().build().unwrap();
+    let apt = OmaApt::new(vec![], oma_apt_args)?;
 
     let pkgs = apt.select_pkg(vec!["vscodium", "go"], false, true)?;
     std::fs::create_dir_all("./test").unwrap();
