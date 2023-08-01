@@ -214,7 +214,7 @@ impl PkgInfo {
             suggest,
             is_candidate: is_cand,
             arch: arch.to_string(),
-            checksum
+            checksum,
         }
     }
 

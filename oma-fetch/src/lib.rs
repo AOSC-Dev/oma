@@ -55,7 +55,6 @@ pub struct DownloadSource {
     source_type: DownloadSourceType,
 }
 
-
 impl DownloadSource {
     pub fn new(url: String, source_type: DownloadSourceType) -> Self {
         Self { url, source_type }
