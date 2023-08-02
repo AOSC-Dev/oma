@@ -8,7 +8,8 @@ fn main() -> Result<(), OmaAptError> {
     apt.install(pkgs, false)?;
     // let op = apt.operation_vec()?;
 
-    apt.commit(None, &AptArgs::default(), false)?;
+    apt.resolve(false)?;
+    apt.commit(None, &AptArgs::default())?;
 
     Ok(())
 }

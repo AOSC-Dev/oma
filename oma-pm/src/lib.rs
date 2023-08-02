@@ -5,3 +5,4 @@ mod progress;
 pub mod query;
 mod search;
 pub use search::PackageStatus;
+pub mod unmet;
