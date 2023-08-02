@@ -1,14 +1,12 @@
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
-    sync::atomic::Ordering,
 };
 
 use anyhow::{anyhow, Result};
 use dialoguer::{console::style, theme::ColorfulTheme, Select};
 use oma_console::{
-    error, indicatif::ProgressBar, info, pager::Pager, pb::oma_spinner, success, warn,
-    writer::gen_prefix, WRITER,
+    error, indicatif::ProgressBar, info, pb::oma_spinner, success, warn, writer::gen_prefix,
 };
 use oma_contents::QueryMode;
 use oma_pm::{
@@ -22,8 +20,8 @@ use oma_utils::dpkg_arch;
 
 use crate::{
     fl,
-    table::{handle_resolve, table_for_install_pending},
-    InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC,
+    table::{handle_resolve, oma_display, table_for_install_pending},
+    InstallArgs, RemoveArgs, UpgradeArgs,
 };
 
 pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
@@ -180,17 +178,9 @@ pub fn search(args: &[String]) -> Result<i32> {
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.join(" ");
     let res = db.search(&s)?;
-    let is_pager = res.len() * 2 > WRITER.get_height() as usize;
-    let has_x11 = std::env::var("DISPLAY");
-    let tips = if has_x11.is_ok() {
-        fl!("normal-tips-with-x11")
-    } else {
-        fl!("normal-tips")
-    };
+    let mut pager = oma_display(false, res.len())?;
 
-    let mut pager = Pager::new(!is_pager, &tips)?;
     let mut writer = pager.get_writer()?;
-    ALLOWCTRLC.store(true, Ordering::Relaxed);
 
     for i in res {
         let mut pkg_info_line = if i.is_base {
@@ -334,8 +324,7 @@ pub fn find(x: &str, is_bin: bool, pkg: String) -> Result<i32> {
     )?;
 
     pb.finish_and_clear();
-    let mut pager = Pager::new(res.len() < WRITER.get_height().into(), "TODO")?;
-    ALLOWCTRLC.store(true, Ordering::Relaxed);
+    let mut pager = oma_display(false, res.len())?;
     let mut out = pager.get_writer()?;
 
     for (_, v) in res {
