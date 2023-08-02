@@ -563,7 +563,6 @@ impl OmaApt {
                 if is_purge {
                     tags.push(RemoveTag::Purge);
                 }
-                // TODO: autoremove
 
                 if self.autoremove.contains(&pkg.name().to_string()) {
                     tags.push(RemoveTag::AutoRemove);

@@ -209,6 +209,5 @@ impl InstallProgress for OmaAptInstallProgress {
         std::io::stdout().flush().unwrap();
     }
 
-    // TODO: Need to figure out when to use this.
     fn error(&mut self, _pkgname: String, _steps_done: u64, _total_steps: u64, _error: String) {}
 }

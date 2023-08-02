@@ -188,7 +188,7 @@ async fn http_download(
         let (style, inv) = oma_console::pb::oma_spinner(false)?;
         let pb = fpb.mb.add(ProgressBar::new_spinner().with_style(style));
         pb.enable_steady_tick(inv);
-        let msg = fpb.msg.unwrap_or("todo".to_string());
+        let msg = fpb.msg.unwrap_or(entry.filename.clone());
         pb.set_message(format!("{progress_clone}{msg}"));
 
         Some(pb)
