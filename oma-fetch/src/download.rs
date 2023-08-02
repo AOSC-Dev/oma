@@ -238,6 +238,10 @@ async fn http_download(
         // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
         if total_size <= file_size {
             debug!("Exist file size is reset to 0, because total size <= exist file size");
+            let fpbc = fpb.clone();
+            if let Some(ref global_bar) = fpbc.and_then(|x| x.global_bar) {
+                global_bar.set_position(global_bar.position() - file_size);
+            }
             file_size = 0;
             can_resume = false;
         }
