@@ -1,9 +1,14 @@
+use std::sync::atomic::Ordering;
+
 use crate::console::{style, Color};
-use crate::fl;
-use anyhow::Result;
+use crate::{fl, ALLOWCTRLC};
+use anyhow::{anyhow, Result};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
+use oma_console::WRITER;
+use oma_pm::apt::{OmaApt, OmaAptError};
 use oma_pm::operation::{InstallEntry, InstallOperation, RemoveEntry};
+use oma_pm::unmet::{UnmetDep, WhyUnmet};
 use tabled::settings::object::{Columns, Segment};
 use tabled::settings::{Alignment, Format, Modify, Style};
 use tabled::{Table, Tabled};
@@ -24,6 +29,42 @@ struct RemoveEntryDisplay {
     name: String,
     #[tabled(rename = "Details")]
     detail: String,
+}
+
+#[derive(Debug, Tabled)]
+pub struct UnmetDepDisplay {
+    #[tabled(rename = "Package")]
+    package: String,
+    #[tabled(rename = "Unmet Dependency")]
+    unmet_dependency: String,
+    #[tabled(rename = "Specified Dependency")]
+    specified_dependency: String,
+}
+
+impl From<UnmetDep> for UnmetDepDisplay {
+    fn from(value: UnmetDep) -> Self {
+        Self {
+            package: style(value.package).red().bold().to_string(),
+            unmet_dependency: match value.unmet_dependency {
+                WhyUnmet::DepNotExist(s) => format!("{s} does not exist"),
+                WhyUnmet::Unmet {
+                    dep_name,
+                    need_ver,
+                    symbol,
+                } => format!("{dep_name} {symbol} {need_ver}"),
+                WhyUnmet::Breaks {
+                    break_type,
+                    dep_name,
+                    comp_ver,
+                } => {
+                    let comp_ver = comp_ver.unwrap_or_default();
+
+                    format!("{break_type} {dep_name} {comp_ver}")
+                }
+            },
+            specified_dependency: value.specified_dependency,
+        }
+    }
 }
 
 impl From<RemoveEntry> for RemoveEntryDisplay {
@@ -86,6 +127,55 @@ impl From<&InstallEntry> for InstallEntryDisplay {
             size_delta,
         }
     }
+}
+
+pub fn handle_resolve(apt: &OmaApt, no_fixbroken: bool) -> Result<()> {
+    if let Err(e) = apt.resolve(no_fixbroken) {
+        match e {
+            OmaAptError::DependencyIssue(e) => {
+                let mut pager = Pager::new(e.len() < WRITER.get_height().into(), "TODO")
+                    .map_err(|_| anyhow!("Dep Error: {e:?}"))?;
+
+                let mut out = pager
+                    .get_writer()
+                    .map_err(|_| anyhow!("Dep Error: {e:?}"))?;
+
+                ALLOWCTRLC.store(true, Ordering::Relaxed);
+                writeln!(out, "{:<80}\n", style(fl!("dep-error")).on_red().bold())?;
+                writeln!(out, "{}\n", fl!("dep-error-desc"),)?;
+                writeln!(out, "{}\n", fl!("contact-admin-tips"))?;
+                writeln!(out, "    {}", style(fl!("how-to-abort")).bold())?;
+                writeln!(out, "    {}\n\n", style(fl!("how-to-op-with-x")).bold())?;
+
+                let v = e.into_iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
+
+                writeln!(
+                    out,
+                    "{} {}{}\n",
+                    fl!("unmet-dep-before", count = v.len()),
+                    style(fl!("unmet-dep")).red().bold(),
+                    fl!("colon")
+                )
+                .ok();
+
+                let mut table = Table::new(v);
+
+                table
+                    .with(Modify::new(Segment::all()).with(Alignment::left()))
+                    .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
+                    .with(Style::psql())
+                    .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
+
+                writeln!(out, "{table}\n").ok();
+
+                drop(out);
+                pager.wait_for_exit()?;
+            }
+            e => return Err(e.into()),
+        }
+    }
+
+    Ok(())
 }
 
 pub fn table_for_install_pending(
