@@ -10,9 +10,9 @@ use crate::{pkginfo::OmaDependency, apt::OmaAptResult};
 
 #[derive(Debug)]
 pub struct UnmetDep {
-    package: String,
-    unmet_dependency: WhyUnmet,
-    specified_dependency: String,
+    pub package: String,
+    pub unmet_dependency: WhyUnmet,
+    pub specified_dependency: String,
 }
 
 #[derive(Debug)]
@@ -180,7 +180,7 @@ fn format_deps(
                                         package: dep.name.to_string(),
                                         unmet_dependency: WhyUnmet::Unmet {
                                             dep_name: c.name().to_string(),
-                                            need_ver: dep.comp_ver.unwrap(),
+                                            need_ver,
                                             symbol: ">>".to_string(),
                                         },
                                         specified_dependency: format!(
@@ -198,7 +198,7 @@ fn format_deps(
                                         package: dep.name.to_string(),
                                         unmet_dependency: WhyUnmet::Unmet {
                                             dep_name: c.name().to_string(),
-                                            need_ver: dep.comp_ver.unwrap(),
+                                            need_ver,
                                             symbol: ">".to_string(),
                                         },
                                         specified_dependency: format!(
@@ -216,7 +216,7 @@ fn format_deps(
                                         package: dep.name.to_string(),
                                         unmet_dependency: WhyUnmet::Unmet {
                                             dep_name: c.name().to_string(),
-                                            need_ver: dep.comp_ver.unwrap(),
+                                            need_ver,
                                             symbol: "=".to_string(),
                                         },
                                         specified_dependency: format!(
@@ -235,7 +235,7 @@ fn format_deps(
                                         package: dep.name.to_string(),
                                         unmet_dependency: WhyUnmet::Unmet {
                                             dep_name: c.name().to_string(),
-                                            need_ver: dep.comp_ver.unwrap(),
+                                            need_ver,
                                             symbol: "<=".to_string(),
                                         },
                                         specified_dependency: format!(
@@ -254,7 +254,7 @@ fn format_deps(
                                         package: dep.name.to_string(),
                                         unmet_dependency: WhyUnmet::Unmet {
                                             dep_name: c.name().to_string(),
-                                            need_ver: dep.comp_ver.unwrap(),
+                                            need_ver,
                                             symbol: "<<".to_string(),
                                         },
                                         specified_dependency: format!(
@@ -273,7 +273,7 @@ fn format_deps(
                                         package: dep.name.to_string(),
                                         unmet_dependency: WhyUnmet::Unmet {
                                             dep_name: c.name().to_string(),
-                                            need_ver: dep.comp_ver.unwrap(),
+                                            need_ver,
                                             symbol: "<".to_string(),
                                         },
                                         specified_dependency: format!(

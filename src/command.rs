@@ -21,7 +21,9 @@ use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg_arch;
 
 use crate::{
-    fl, table::table_for_install_pending, InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC,
+    fl,
+    table::{handle_resolve, table_for_install_pending},
+    InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC,
 };
 
 pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
@@ -65,7 +67,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
         return Ok(0);
     }
 
-    apt.resolve(args.no_fixbroken)?;
+    handle_resolve(&apt, args.no_fixbroken)?;
     table_for_install_pending(install, remove, disk_size, !args.yes)?;
     apt.commit(None, &apt_args)?;
 
@@ -115,7 +117,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
             table_for_install_pending(install, remove, disk_size, !args.yes)?;
         }
 
-        apt.resolve(false)?;
+        handle_resolve(&apt, false)?;
         match apt.commit(None, &apt_args) {
             Ok(_) => break,
             Err(e) => match e {
@@ -155,7 +157,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs) -> Result<i32> {
         .force_yes(args.force_yes)
         .build()?;
 
-    apt.resolve(false)?;
+    handle_resolve(&apt, false)?;
     table_for_install_pending(install, remove, disk_size, !args.yes)?;
     apt.commit(None, &apt_args)?;
 
@@ -419,7 +421,7 @@ pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
     let remove = op.remove;
     let disk_size = op.disk_size;
 
-    apt.resolve(false)?;
+    handle_resolve(&apt, false)?;
     table_for_install_pending(install, remove, disk_size, true)?;
     apt.commit(None, &AptArgsBuilder::default().build()?)?;
 
@@ -429,7 +431,7 @@ pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
 pub fn fix_broken() -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args)?;
-    apt.resolve(false)?;
+    handle_resolve(&apt, false)?;
     apt.commit(None, &AptArgs::default())?;
 
     Ok(0)
