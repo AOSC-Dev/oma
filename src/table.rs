@@ -142,12 +142,10 @@ pub fn oma_display(is_question: bool, len: usize) -> Result<Pager> {
         } else {
             fl!("question-tips")
         }
+    } else if has_x11.is_ok() {
+        fl!("normal-tips-with-x11")
     } else {
-        if has_x11.is_ok() {
-            fl!("normal-tips-with-x11")
-        } else {
-            fl!("normal-tips")
-        }
+        fl!("normal-tips")
     };
 
     let pager = Pager::new(len < WRITER.get_height().into(), &tips)?;
