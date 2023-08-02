@@ -129,18 +129,42 @@ impl From<&InstallEntry> for InstallEntryDisplay {
     }
 }
 
+pub fn oma_display(is_question: bool, len: usize) -> Result<Pager> {
+    let has_x11 = std::env::var("DISPLAY");
+
+    if !is_question {
+        ALLOWCTRLC.store(true, Ordering::Relaxed);
+    }
+
+    let tips = if is_question {
+        if has_x11.is_ok() {
+            fl!("question-tips-with-x11")
+        } else {
+            fl!("question-tips")
+        }
+    } else {
+        if has_x11.is_ok() {
+            fl!("normal-tips-with-x11")
+        } else {
+            fl!("normal-tips")
+        }
+    };
+
+    let pager = Pager::new(len < WRITER.get_height().into(), &tips)?;
+
+    Ok(pager)
+}
+
 pub fn handle_resolve(apt: &OmaApt, no_fixbroken: bool) -> Result<()> {
     if let Err(e) = apt.resolve(no_fixbroken) {
         match e {
             OmaAptError::DependencyIssue(e) => {
-                let mut pager = Pager::new(e.len() < WRITER.get_height().into(), "TODO")
-                    .map_err(|_| anyhow!("Dep Error: {e:?}"))?;
+                let mut pager = oma_display(false, e.len())?;
 
                 let mut out = pager
                     .get_writer()
                     .map_err(|_| anyhow!("Dep Error: {e:?}"))?;
 
-                ALLOWCTRLC.store(true, Ordering::Relaxed);
                 writeln!(out, "{:<80}\n", style(fl!("dep-error")).on_red().bold())?;
                 writeln!(out, "{}\n", fl!("dep-error-desc"),)?;
                 writeln!(out, "{}\n", fl!("contact-admin-tips"))?;
