@@ -65,8 +65,9 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
         return Ok(0);
     }
 
+    apt.resolve(args.no_fixbroken)?;
     table_for_install_pending(install, remove, disk_size, !args.yes)?;
-    apt.commit(None, &apt_args, args.no_fixbroken)?;
+    apt.commit(None, &apt_args)?;
 
     Ok(0)
 }
@@ -114,7 +115,8 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
             table_for_install_pending(install, remove, disk_size, !args.yes)?;
         }
 
-        match apt.commit(None, &apt_args, false) {
+        apt.resolve(false)?;
+        match apt.commit(None, &apt_args) {
             Ok(_) => break,
             Err(e) => match e {
                 OmaAptError::RustApt(_) => {
@@ -153,8 +155,9 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs) -> Result<i32> {
         .force_yes(args.force_yes)
         .build()?;
 
+    apt.resolve(false)?;
     table_for_install_pending(install, remove, disk_size, !args.yes)?;
-    apt.commit(None, &apt_args, false)?;
+    apt.commit(None, &apt_args)?;
 
     Ok(0)
 }
@@ -416,8 +419,9 @@ pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
     let remove = op.remove;
     let disk_size = op.disk_size;
 
+    apt.resolve(false)?;
     table_for_install_pending(install, remove, disk_size, true)?;
-    apt.commit(None, &AptArgsBuilder::default().build()?, false)?;
+    apt.commit(None, &AptArgsBuilder::default().build()?)?;
 
     Ok(0)
 }
@@ -425,7 +429,8 @@ pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
 pub fn fix_broken() -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args)?;
-    apt.commit(None, &AptArgs::default(), false)?;
+    apt.resolve(false)?;
+    apt.commit(None, &AptArgs::default())?;
 
     Ok(0)
 }

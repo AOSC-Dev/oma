@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use derive_builder::Builder;
 use oma_console::{
@@ -14,8 +17,9 @@ use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
     package::{Package, Version},
+    raw::util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
     records::RecordField,
-    util::DiskSpace,
+    util::{apt_lock, DiskSpace},
 };
 
 pub use rust_apt::config::Config as AptConfig;
@@ -28,6 +32,7 @@ use crate::{
     pkginfo::PkgInfo,
     progress::{NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
+    unmet::{find_unmet_deps, find_unmet_deps_with_markinstall, UnmetDep},
 };
 
 #[derive(Builder, Default)]
@@ -53,8 +58,8 @@ pub enum OmaAptError {
     OmaDatabaseError(#[from] OmaDatabaseError),
     #[error("Failed to mark reinstall pkg: {0}")]
     MarkReinstallError(String),
-    #[error("Dep issue")]
-    DependencyIssue,
+    #[error("Dep issue: {0:?}")]
+    DependencyIssue(Vec<UnmetDep>),
     #[error("Package: {0} is essential.")]
     PkgIsEssential(String),
     #[error("Package: {0} is no candidate.")]
@@ -69,6 +74,8 @@ pub enum OmaAptError {
     IOError(#[from] std::io::Error),
     #[error(transparent)]
     InstallEntryBuilderError(#[from] InstallEntryBuilderError),
+    #[error("Failed to run dpkg --configure -a: {0}")]
+    DpkgFailedConfigure(String),
 }
 
 #[derive(Default, Builder)]
@@ -98,7 +105,7 @@ impl AptArgs {
     }
 }
 
-type OmaAptResult<T> = Result<T, OmaAptError>;
+pub type OmaAptResult<T> = Result<T, OmaAptError>;
 
 pub enum FilterMode {
     Default,
@@ -297,15 +304,21 @@ impl OmaApt {
 
         // 寻找系统有哪些不必要的软件包
         if !no_autoremove {
-            let sort = PackageSort::default().installed();
-            let pkgs = self.cache.packages(&sort)?;
+            self.autoremove(purge)?;
+        }
 
-            for pkg in pkgs {
-                if pkg.is_auto_removable() {
-                    pkg.mark_delete(purge);
+        Ok(())
+    }
 
-                    self.autoremove.push(pkg.name().to_string());
-                }
+    fn autoremove(&mut self, purge: bool) -> OmaAptResult<()> {
+        let sort = PackageSort::default().installed();
+        let pkgs = self.cache.packages(&sort)?;
+
+        for pkg in pkgs {
+            if pkg.is_auto_removable() {
+                pkg.mark_delete(purge);
+
+                self.autoremove.push(pkg.name().to_string());
             }
         }
 
@@ -316,27 +329,7 @@ impl OmaApt {
         self,
         network_thread: Option<usize>,
         args_config: &AptArgs,
-        no_fixbroken: bool,
     ) -> OmaAptResult<()> {
-        if !no_fixbroken {
-            self.cache.fix_broken();
-        }
-
-        if let Err(e) = self.cache.resolve(!no_fixbroken) {
-            error!("{e}");
-            todo!()
-        }
-
-        let need_fix = self.check_broken()?;
-
-        if no_fixbroken && need_fix {
-            warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
-        }
-
-        if let Err(e) = self.cache.resolve(!no_fixbroken) {
-            error!("{e}");
-            todo!()
-        }
 
         let v = self.operation_vec()?;
 
@@ -358,7 +351,37 @@ impl OmaApt {
 
         let mut no_progress = NoProgress::new_box();
 
-        self.cache.get_archives(&mut no_progress)?;
+        if let Err(e) = apt_lock() {
+            let e_str = e.to_string();
+            if e_str.contains("dpkg --configure -a") {
+                // info!(
+                //     "{} {} ...",
+                //     fl!("dpkg-was-interrupted"),
+                //     style("dpkg --configure -a").green().bold()
+                // );
+                let cmd = Command::new("dpkg")
+                    .arg("--configure")
+                    .arg("-a")
+                    .output()
+                    .map_err(|e| OmaAptError::DpkgFailedConfigure(e.to_string()))?;
+
+                if !cmd.status.success() {
+                    return Err(OmaAptError::DpkgFailedConfigure(format!(
+                        "code: {:?}",
+                        cmd.status.code()
+                    )));
+                }
+
+                apt_lock()?;
+            } else {
+                return Err(e.into());
+            }
+        }
+
+        self.cache.get_archives(&mut no_progress).map_err(|e| {
+            apt_unlock();
+            e
+        })?;
 
         let mut progress = OmaAptInstallProgress::new_box(
             self.config,
@@ -368,8 +391,35 @@ impl OmaApt {
             args_config.dpkg_force_all,
         );
 
+        apt_lock_inner()?;
+
         self.cache.do_install(&mut progress)?;
 
+        unlock_apt();
+
+        Ok(())
+    }
+
+    pub fn resolve(&self, no_fixbroken: bool) -> OmaAptResult<()> {
+        if self.cache.resolve(!no_fixbroken).is_err() {
+            let unmet = find_unmet_deps(&self.cache)?;
+            return Err(OmaAptError::DependencyIssue(unmet));
+        }
+
+        let need_fix = self.check_broken()?;
+
+        if no_fixbroken && need_fix {
+            warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
+        }
+        if self.cache.resolve(!no_fixbroken).is_err() {
+            let unmet = find_unmet_deps(&self.cache)?;
+            return Err(OmaAptError::DependencyIssue(unmet));
+        }
+
+        if !no_fixbroken {
+            self.cache.fix_broken();
+        }
+    
         Ok(())
     }
 
@@ -676,6 +726,11 @@ pub fn select_pkg(
     Ok(pkgs)
 }
 
+fn unlock_apt() {
+    apt_unlock_inner();
+    apt_unlock();
+}
+
 fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResult<()> {
     let pkg = pkginfo.raw_pkg;
     let version = pkginfo.version_raw;
@@ -696,9 +751,8 @@ fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResul
         pkg.mark_install(true, true);
         if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
             // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-            // TODO: 依赖信息显示
-            error!("Dep issue: {}", pkg.name());
-            return Err(OmaAptError::DependencyIssue);
+            let v = find_unmet_deps_with_markinstall(cache, &ver);
+            return Err(OmaAptError::DependencyIssue(v));
         }
     }
 
