@@ -99,7 +99,7 @@ fn try_main() -> Result<i32> {
         return Ok(3);
     }
 
-    let dry_run = matches!(
+    let _dry_run = matches!(
         matches
             .subcommand()
             .map(|(_, x)| x.try_get_one::<bool>("dry_run")),
