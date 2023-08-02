@@ -33,6 +33,12 @@ impl From<&BaseDep<'_>> for OmaDependency {
 
 pub struct OmaDependencyGroup(Vec<Vec<OmaDependency>>);
 
+impl OmaDependencyGroup {
+    pub fn inner(self) -> Vec<Vec<OmaDependency>> {
+        self.0
+    }
+}
+
 impl Display for OmaDependencyGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, d) in self.0.iter().enumerate() {
