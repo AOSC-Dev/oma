@@ -26,7 +26,7 @@ use crate::{
 
 pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> Result<i32> {
     if !args.no_refresh {
-        refresh()?;
+        refresh(dry_run)?;
     }
 
     let local_debs = pkgs_unparse
@@ -67,14 +67,14 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
 
     handle_resolve(&apt, args.no_fixbroken)?;
     apt.check_disk_size()?;
-    table_for_install_pending(install, remove, disk_size, !args.yes)?;
+    table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
     apt.commit(None, &apt_args)?;
 
     Ok(0)
 }
 
 pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> Result<i32> {
-    refresh()?;
+    refresh(dry_run)?;
 
     let local_debs = pkgs_unparse
         .iter()
@@ -116,7 +116,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
         apt.check_disk_size()?;
 
         if retry_times == 1 {
-            table_for_install_pending(install, remove, disk_size, !args.yes)?;
+            table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
         }
 
         match apt.commit(None, &apt_args) {
@@ -160,7 +160,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
 
     handle_resolve(&apt, false)?;
     apt.check_disk_size()?;
-    table_for_install_pending(install, remove, disk_size, !args.yes)?;
+    table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
     apt.commit(None, &apt_args)?;
 
     Ok(0)
@@ -238,7 +238,7 @@ pub fn search(args: &[String]) -> Result<i32> {
 }
 
 pub fn command_refresh() -> Result<i32> {
-    refresh()?;
+    refresh(false)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
@@ -263,7 +263,11 @@ pub fn command_refresh() -> Result<i32> {
     Ok(0)
 }
 
-fn refresh() -> Result<()> {
+fn refresh(dry_run: bool) -> Result<()> {
+    if dry_run {
+        return Ok(());
+    }
+
     info!("{}", fl!("refreshing-repo-metadata"));
     let refresh = OmaRefresh::scan(None)?;
     let tokio = tokio::runtime::Builder::new_multi_thread()
@@ -375,7 +379,7 @@ pub fn depends(pkgs: Vec<String>) -> Result<i32> {
 
 pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
     if !no_refresh {
-        refresh()?;
+        refresh(dry_run)?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
@@ -448,7 +452,7 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
 
     handle_resolve(&apt, false)?;
     apt.check_disk_size()?;
-    table_for_install_pending(install, remove, disk_size, true)?;
+    table_for_install_pending(install, remove, disk_size, true, dry_run)?;
     apt.commit(None, &AptArgsBuilder::default().build()?)?;
 
     Ok(0)
