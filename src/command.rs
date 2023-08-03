@@ -24,7 +24,7 @@ use crate::{
     InstallArgs, RemoveArgs, UpgradeArgs,
 };
 
-pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
+pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> Result<i32> {
     if !args.no_refresh {
         refresh()?;
     }
@@ -44,7 +44,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
         .no_install_suggests(args.no_install_suggests)
         .build()?;
 
-    let apt = OmaApt::new(local_debs, oma_apt_args)?;
+    let apt = OmaApt::new(local_debs, oma_apt_args, dry_run)?;
     let pkgs = apt.select_pkg(pkgs_unparse, args.install_dbg, true)?;
 
     apt.install(pkgs, args.reinstall)?;
@@ -73,7 +73,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
     Ok(0)
 }
 
-pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
+pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> Result<i32> {
     refresh()?;
 
     let local_debs = pkgs_unparse
@@ -94,7 +94,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
 
     loop {
         let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-        let apt = OmaApt::new(local_debs.clone(), oma_apt_args)?;
+        let apt = OmaApt::new(local_debs.clone(), oma_apt_args, dry_run)?;
 
         let pkgs = apt.select_pkg(pkgs_unparse.clone(), false, true)?;
 
@@ -112,12 +112,13 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
             return Ok(0);
         }
 
+        handle_resolve(&apt, false)?;
+        apt.check_disk_size()?;
+
         if retry_times == 1 {
             table_for_install_pending(install, remove, disk_size, !args.yes)?;
         }
 
-        handle_resolve(&apt, false)?;
-        apt.check_disk_size()?;
         match apt.commit(None, &apt_args) {
             Ok(_) => break,
             Err(e) => match e {
@@ -136,9 +137,9 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
     Ok(0)
 }
 
-pub fn remove(pkgs: Vec<&str>, args: RemoveArgs) -> Result<i32> {
+pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let mut apt = OmaApt::new(vec![], oma_apt_args)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkgs = apt.select_pkg(pkgs, false, true)?;
 
     apt.remove(pkgs, !args.keep_config, true, true, args.no_autoremove)?;
@@ -165,19 +166,19 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs) -> Result<i32> {
     Ok(0)
 }
 
-pub fn download(keyword: Vec<&str>, path: Option<PathBuf>) -> Result<i32> {
+pub fn download(keyword: Vec<&str>, path: Option<PathBuf>, dry_run: bool) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkgs = apt.select_pkg(keyword, false, true)?;
 
-    apt.download(pkgs, None, path.as_deref())?;
+    apt.download(pkgs, None, path.as_deref(), dry_run)?;
 
     Ok(0)
 }
 
 pub fn search(args: &[String]) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.join(" ");
     let res = db.search(&s)?;
@@ -240,7 +241,7 @@ pub fn command_refresh() -> Result<i32> {
     refresh()?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let (upgradable, removable) = apt.available_action()?;
     let mut s = vec![];
 
@@ -277,7 +278,7 @@ fn refresh() -> Result<()> {
 
 pub fn show(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let pkg = apt.select_pkg(pkgs_unparse, false, false)?;
     for (i, c) in pkg.iter().enumerate() {
         if c.is_candidate || all {
@@ -342,7 +343,7 @@ pub fn find(x: &str, is_bin: bool, pkg: String) -> Result<i32> {
 
 pub fn depends(pkgs: Vec<String>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let pkgs = apt.select_pkg(
         pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
@@ -372,13 +373,13 @@ pub fn depends(pkgs: Vec<String>) -> Result<i32> {
     Ok(0)
 }
 
-pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
+pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
     if !no_refresh {
         refresh()?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkg = apt
         .cache
         .get(&pkg_str)
@@ -453,9 +454,9 @@ pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
     Ok(0)
 }
 
-pub fn fix_broken() -> Result<i32> {
+pub fn fix_broken(dry_run: bool) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     handle_resolve(&apt, false)?;
     apt.commit(None, &AptArgs::default())?;
 
@@ -478,7 +479,7 @@ pub fn command_not_found(pkg: String) -> Result<i32> {
             println!("{}\n", fl!("command-not-found-with-result", kw = pkg));
 
             let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-            let apt = OmaApt::new(vec![], oma_apt_args)?;
+            let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
             for (k, v) in res {
                 let (pkg, bin_path) = v.split_once(':').unwrap();
@@ -489,7 +490,7 @@ pub fn command_not_found(pkg: String) -> Result<i32> {
                     .unwrap()
                     .candidate()
                     .and_then(|x| x.description())
-                    .unwrap();
+                    .unwrap_or_else(|| "no description.".to_string());
 
                 println!("{k} ({bin_path}): {desc}");
             }
@@ -506,7 +507,7 @@ pub fn command_not_found(pkg: String) -> Result<i32> {
 
 pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let mut filter_mode = vec![];
     if installed {
@@ -580,7 +581,7 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
 
 pub fn clean() -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let download_dir = apt.get_archive_dir();
     let dir = std::fs::read_dir(&download_dir)?;
 
@@ -601,7 +602,7 @@ pub fn clean() -> Result<i32> {
 
 pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let mut pkgs: Box<dyn Iterator<Item = _>> = Box::new(apt.filter_pkgs(&[FilterMode::Names])?);
 
     if let Some(keyword) = keyword {
