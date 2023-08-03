@@ -99,7 +99,7 @@ fn try_main() -> Result<i32> {
         return Ok(3);
     }
 
-    let _dry_run = matches!(
+    let dry_run = matches!(
         matches
             .subcommand()
             .map(|(_, x)| x.try_get_one::<bool>("dry_run")),
@@ -107,7 +107,7 @@ fn try_main() -> Result<i32> {
     );
 
     // Init debug flag
-    if matches.get_flag("debug") {
+    if matches.get_flag("debug") || dry_run {
         DEBUG.store(true, Ordering::Relaxed);
     }
 
@@ -141,7 +141,7 @@ fn try_main() -> Result<i32> {
                 no_install_suggests: args.get_flag("no_install_recommends"),
             };
 
-            command::install(pkgs_unparse, args)?
+            command::install(pkgs_unparse, args, dry_run)?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -153,7 +153,7 @@ fn try_main() -> Result<i32> {
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
             };
 
-            command::upgrade(pkgs_unparse, args)?
+            command::upgrade(pkgs_unparse, args, dry_run)?
         }
         Some(("download", args)) => {
             // TODO: with deps
@@ -165,7 +165,7 @@ fn try_main() -> Result<i32> {
                 .cloned()
                 .map(|x| PathBuf::from(&x));
 
-            command::download(keyword, path)?
+            command::download(keyword, path, dry_run)?
         }
         Some(("remove", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap();
@@ -178,7 +178,7 @@ fn try_main() -> Result<i32> {
                 force_yes: args.get_flag("force_yes"),
             };
 
-            command::remove(pkgs_unparse, args)?
+            command::remove(pkgs_unparse, args, dry_run)?
         }
         Some(("refresh", _)) => command::command_refresh()?,
         Some(("show", args)) => {
@@ -203,21 +203,12 @@ fn try_main() -> Result<i32> {
 
             command::find(x, is_bin, pkg)?
         }
-        Some(("fix-broken", _args)) => command::fix_broken()?,
-        // OmaCommand::FixBroken(FixBroken {
-        //     dry_run: args.get_flag("dry_run"),
-        // }),
+        Some(("fix-broken", _)) => command::fix_broken(dry_run)?,
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap().to_string();
 
-            command::pick(pkg_str, args.get_flag("no_refresh"))?
+            command::pick(pkg_str, args.get_flag("no_refresh"), dry_run)?
         }
-        // OmaCommand::Pick(PickOptions {
-        //     package: args.get_one::<String>("package").unwrap().to_string(),
-        //     no_fixbroken: args.get_flag("no_fix_broken"),
-        //     no_refresh: args.get_flag("no_refresh"),
-        //     dry_run: args.get_flag("dry_run"),
-        // }),
         Some(("mark", _args)) => todo!(),
         // OmaCommand::Mark(Mark {
         //     action: match args.get_one::<String>("action").map(|x| x.as_str()) {
@@ -253,9 +244,6 @@ fn try_main() -> Result<i32> {
 
             command::depends(pkgs)?
         }
-        // OmaCommand::Depends(Dep {
-        //     pkgs: pkgs_getter(args).unwrap(),
-        // }),
         Some(("rdepends", _args)) => todo!(),
         // OmaCommand::Rdepends(Dep {
         //     pkgs: pkgs_getter(args).unwrap(),
