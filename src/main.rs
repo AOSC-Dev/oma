@@ -248,7 +248,11 @@ fn try_main() -> Result<i32> {
 
             command::list(all, installed, upgradable, pkgs)?
         }
-        Some(("depends", _args)) => todo!(),
+        Some(("depends", args)) => {
+            let pkgs = pkgs_getter(args).unwrap();
+
+            command::depends(pkgs)?
+        }
         // OmaCommand::Depends(Dep {
         //     pkgs: pkgs_getter(args).unwrap(),
         // }),
