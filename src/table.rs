@@ -205,7 +205,11 @@ pub fn table_for_install_pending(
     remove: Vec<RemoveEntry>,
     disk_size: (&str, u64),
     pager: bool,
+    dry_run: bool
 ) -> Result<()> {
+    if dry_run {
+        return Ok(());
+    }
     let has_x11 = std::env::var("DISPLAY");
 
     let tips = if has_x11.is_ok() {
