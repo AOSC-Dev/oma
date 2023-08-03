@@ -395,11 +395,15 @@ impl OmaApt {
             args_config.dpkg_force_all,
         );
 
-        apt_lock_inner()?;
+        apt_unlock_inner();
 
-        self.cache.do_install(&mut progress)?;
+        self.cache.do_install(&mut progress).map_err(|e| {
+            apt_lock_inner().ok();
+            apt_unlock();
+            e
+        })?;
 
-        unlock_apt();
+        apt_unlock();
 
         Ok(())
     }
@@ -644,7 +648,8 @@ impl OmaApt {
         let op = self.operation_vec()?;
 
         let (symbol, n) = op.disk_size;
-        let download_size = op.total_download_size;
+        let n = n as i64;
+        let download_size = op.total_download_size as i64;
 
         let need_space = match symbol {
             "+" => download_size + n,
@@ -652,12 +657,12 @@ impl OmaApt {
             _ => unreachable!(),
         };
 
-        let available_disk_size = fs4::available_space("/")?;
+        let available_disk_size = fs4::available_space("/")? as i64;
 
         if available_disk_size < need_space {
             return Err(OmaAptError::DiskSpaceInsufficient(
-                HumanBytes(need_space),
-                HumanBytes(available_disk_size),
+                HumanBytes(need_space as u64),
+                HumanBytes(available_disk_size as u64),
             ));
         }
 
@@ -686,7 +691,7 @@ impl OmaApt {
     }
 }
 
-fn ask_user_do_as_i_say(pkg: &Package<'_>) -> Result<bool, OmaAptError> {
+fn ask_user_do_as_i_say(pkg: &Package<'_>) -> OmaAptResult<bool> {
     let theme = ColorfulTheme::default();
     let delete = Confirm::with_theme(&theme)
         .with_prompt(format!(
@@ -766,11 +771,6 @@ pub fn select_pkg(
     }
 
     Ok(pkgs)
-}
-
-fn unlock_apt() {
-    apt_unlock_inner();
-    apt_unlock();
 }
 
 fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResult<()> {
