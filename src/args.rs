@@ -230,7 +230,6 @@ pub fn command_builder() -> Command {
                         .num_args(0..=1)
                         .required(true),
                 )
-                .arg(no_fixbroken.requires("package"))
                 .arg(no_refresh.requires("package"))
                 .arg(&dry_run)
                 .arg(&dpkg_force_all),
