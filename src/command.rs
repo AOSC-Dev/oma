@@ -66,6 +66,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs) -> Result<i32> {
     }
 
     handle_resolve(&apt, args.no_fixbroken)?;
+    apt.check_disk_size()?;
     table_for_install_pending(install, remove, disk_size, !args.yes)?;
     apt.commit(None, &apt_args)?;
 
@@ -116,6 +117,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs) -> Result<i32> {
         }
 
         handle_resolve(&apt, false)?;
+        apt.check_disk_size()?;
         match apt.commit(None, &apt_args) {
             Ok(_) => break,
             Err(e) => match e {
@@ -156,6 +158,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs) -> Result<i32> {
         .build()?;
 
     handle_resolve(&apt, false)?;
+    apt.check_disk_size()?;
     table_for_install_pending(install, remove, disk_size, !args.yes)?;
     apt.commit(None, &apt_args)?;
 
@@ -411,6 +414,7 @@ pub fn pick(pkg_str: String, no_refresh: bool) -> Result<i32> {
     let disk_size = op.disk_size;
 
     handle_resolve(&apt, false)?;
+    apt.check_disk_size()?;
     table_for_install_pending(install, remove, disk_size, true)?;
     apt.commit(None, &AptArgsBuilder::default().build()?)?;
 

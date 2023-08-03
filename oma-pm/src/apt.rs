@@ -8,7 +8,9 @@ use oma_console::{
     console::style,
     debug,
     dialoguer::{theme::ColorfulTheme, Confirm, Input},
-    error, info, warn,
+    error,
+    indicatif::HumanBytes,
+    info, warn,
 };
 use oma_fetch::{
     DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
@@ -76,6 +78,8 @@ pub enum OmaAptError {
     InstallEntryBuilderError(#[from] InstallEntryBuilderError),
     #[error("Failed to run dpkg --configure -a: {0}")]
     DpkgFailedConfigure(String),
+    #[error("Insufficient disk space: need: {0}, available: {1}")]
+    DiskSpaceInsufficient(HumanBytes, HumanBytes),
 }
 
 #[derive(Default, Builder)]
@@ -119,6 +123,7 @@ pub struct OmaOperation<'a> {
     pub install: Vec<InstallEntry>,
     pub remove: Vec<RemoveEntry>,
     pub disk_size: (&'a str, u64),
+    pub total_download_size: u64,
 }
 
 impl OmaApt {
@@ -127,7 +132,7 @@ impl OmaApt {
 
         Ok(Self {
             cache: new_cache!(&local_debs)?,
-            config: config,
+            config,
             autoremove: vec![],
         })
     }
@@ -167,6 +172,8 @@ impl OmaApt {
             },
         );
 
+        debug!("APT::Install-Recommends is set to {install_recommend}");
+
         config.set(
             "APT::Install-Suggests",
             match install_suggests {
@@ -174,6 +181,8 @@ impl OmaApt {
                 false => "false",
             },
         );
+
+        debug!("APT::Install-Suggests is set to {install_suggests}");
 
         Ok(config)
     }
@@ -325,12 +334,7 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn commit(
-        self,
-        network_thread: Option<usize>,
-        args_config: &AptArgs,
-    ) -> OmaAptResult<()> {
-
+    pub fn commit(self, network_thread: Option<usize>, args_config: &AptArgs) -> OmaAptResult<()> {
         let v = self.operation_vec()?;
 
         let download_pkg_list = v.install;
@@ -411,6 +415,7 @@ impl OmaApt {
         if no_fixbroken && need_fix {
             warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
         }
+
         if self.cache.resolve(!no_fixbroken).is_err() {
             let unmet = find_unmet_deps(&self.cache)?;
             return Err(OmaAptError::DependencyIssue(unmet));
@@ -418,8 +423,13 @@ impl OmaApt {
 
         if !no_fixbroken {
             self.cache.fix_broken();
+
+            if self.cache.resolve(!no_fixbroken).is_err() {
+                let unmet = find_unmet_deps(&self.cache)?;
+                return Err(OmaAptError::DependencyIssue(unmet));
+            }
         }
-    
+
         Ok(())
     }
 
@@ -614,11 +624,44 @@ impl OmaApt {
             DiskSpace::Free(n) => ("-", n),
         };
 
+        let total_download_size: u64 = install
+            .iter()
+            .filter(|x| {
+                x.op() == &InstallOperation::Install || x.op() == &InstallOperation::Upgrade
+            })
+            .map(|x| x.download_size())
+            .sum();
+
         Ok(OmaOperation {
             install,
             remove,
             disk_size,
+            total_download_size,
         })
+    }
+
+    pub fn check_disk_size(&self) -> OmaAptResult<()> {
+        let op = self.operation_vec()?;
+
+        let (symbol, n) = op.disk_size;
+        let download_size = op.total_download_size;
+
+        let need_space = match symbol {
+            "+" => download_size + n,
+            "-" => download_size - n,
+            _ => unreachable!(),
+        };
+
+        let available_disk_size = fs4::available_space("/")?;
+
+        if available_disk_size < need_space {
+            return Err(OmaAptError::DiskSpaceInsufficient(
+                HumanBytes(need_space),
+                HumanBytes(available_disk_size),
+            ));
+        }
+
+        Ok(())
     }
 
     pub fn filter_pkgs(
