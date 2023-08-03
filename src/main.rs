@@ -111,11 +111,8 @@ fn try_main() -> Result<i32> {
         DEBUG.store(true, Ordering::Relaxed);
     }
 
-    debug!(
-        "oma version: {}\n OS: {:#?}",
-        env!("CARGO_PKG_VERSION"),
-        OsRelease::new()
-    );
+    debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
+    debug!("OS: {:?}", OsRelease::new());
 
     let pkgs_getter = |args: &ArgMatches| {
         args.get_many::<String>("packages")
