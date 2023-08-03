@@ -50,6 +50,7 @@ pub struct OmaApt {
     pub cache: Cache,
     pub config: AptConfig,
     autoremove: Vec<String>,
+    dry_run: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -111,6 +112,7 @@ impl AptArgs {
 
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
 
+#[derive(Debug)]
 pub enum FilterMode {
     Default,
     Installed,
@@ -119,6 +121,7 @@ pub enum FilterMode {
     Names,
 }
 
+#[derive(Debug)]
 pub struct OmaOperation<'a> {
     pub install: Vec<InstallEntry>,
     pub remove: Vec<RemoveEntry>,
@@ -127,13 +130,14 @@ pub struct OmaOperation<'a> {
 }
 
 impl OmaApt {
-    pub fn new(local_debs: Vec<String>, args: OmaAptArgs) -> OmaAptResult<Self> {
+    pub fn new(local_debs: Vec<String>, args: OmaAptArgs, dry_run: bool) -> OmaAptResult<Self> {
         let config = Self::init_config(args)?;
 
         Ok(Self {
             cache: new_cache!(&local_debs)?,
             config,
             autoremove: vec![],
+            dry_run,
         })
     }
 
@@ -249,6 +253,7 @@ impl OmaApt {
         pkgs: Vec<PkgInfo>,
         network_thread: Option<usize>,
         download_dir: Option<&Path>,
+        dry_run: bool,
     ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
         let mut download_list = vec![];
         for pkg in pkgs {
@@ -268,6 +273,15 @@ impl OmaApt {
                 .build()?;
 
             download_list.push(entry);
+        }
+
+        debug!(
+            "Download list: {download_list:?}, download to: {}",
+            download_dir.unwrap_or(Path::new(".")).display()
+        );
+
+        if dry_run {
+            return Ok((vec![], vec![]));
         }
 
         let tokio = tokio::runtime::Builder::new_multi_thread()
@@ -336,6 +350,11 @@ impl OmaApt {
 
     pub fn commit(self, network_thread: Option<usize>, args_config: &AptArgs) -> OmaAptResult<()> {
         let v = self.operation_vec()?;
+
+        if self.dry_run {
+            debug!("op: {v:?}");
+            return Ok(());
+        }
 
         let download_pkg_list = v.install;
 
@@ -666,6 +685,8 @@ impl OmaApt {
             ));
         }
 
+        debug!("available_disk_size is: {available_disk_size}, need: {need_space}");
+
         Ok(())
     }
 
@@ -674,6 +695,8 @@ impl OmaApt {
         query_mode: &[FilterMode],
     ) -> OmaAptResult<impl Iterator<Item = rust_apt::package::Package>> {
         let mut sort = PackageSort::default();
+
+        debug!("Filter Mode: {query_mode:?}");
 
         for i in query_mode {
             sort = match i {
@@ -798,6 +821,7 @@ fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResul
         }
     }
 
+    debug!("{} will marked install", pkg.name());
     pkg.protect();
 
     Ok(())

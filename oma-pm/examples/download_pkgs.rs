@@ -12,11 +12,11 @@ fn main() -> Result<(), OmaAptError> {
         .init();
 
     let oma_apt_args = OmaAptArgsBuilder::default().build().unwrap();
-    let apt = OmaApt::new(vec![], oma_apt_args)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let pkgs = apt.select_pkg(vec!["vscodium", "go"], false, true)?;
     std::fs::create_dir_all("./test").unwrap();
-    let res = apt.download(pkgs, None, Some(Path::new("test")))?;
+    let res = apt.download(pkgs, None, Some(Path::new("test")), false)?;
 
     dbg!(res);
 
