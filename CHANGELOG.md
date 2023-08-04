@@ -5,7 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.1 (2023-08-04)
+
+### Chore
+
+ - <csr-id-252614587ebd6e747de15718605e8dc91aa89627/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-beba5c2f19712de8616fc8e8fc36ec794f2d3308/> (zh_CN) 职守 => 值守
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`2526145`](https://github.com/AOSC-Dev/oma/commit/252614587ebd6e747de15718605e8dc91aa89627))
+    - (zh_CN) 职守 => 值守 ([`beba5c2`](https://github.com/AOSC-Dev/oma/commit/beba5c2f19712de8616fc8e8fc36ec794f2d3308))
+</details>
+
 ## v1.0.0 (2023-08-04)
+
+<csr-id-c9bb039e213c6d5383f1b8209f387f82b35f4743/>
+<csr-id-3452fc23182423bf4c581717e2c04c536f7bc8ac/>
 
 ### Chore
 
@@ -20,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release over the course of 6 calendar days.
+ - 4 commits contributed to the release over the course of 7 calendar days.
  - 9 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -32,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v1.0.0 ([`98fc54f`](https://github.com/AOSC-Dev/oma/commit/98fc54fa9f4ba782ed81d52d9ab38fe7ef174b21))
     - Update all deps ([`c9bb039`](https://github.com/AOSC-Dev/oma/commit/c9bb039e213c6d5383f1b8209f387f82b35f4743))
     - Release 1.0 ([`3452fc2`](https://github.com/AOSC-Dev/oma/commit/3452fc23182423bf4c581717e2c04c536f7bc8ac))
     - Correct typos in oma.rs ([`90522b1`](https://github.com/AOSC-Dev/oma/commit/90522b15aaa6ed387acfb4328c0f09a3a01187a5))
