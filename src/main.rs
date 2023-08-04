@@ -241,10 +241,11 @@ fn try_main() -> Result<i32> {
 
             command::depends(pkgs)?
         }
-        Some(("rdepends", _args)) => todo!(),
-        // OmaCommand::Rdepends(Dep {
-        //     pkgs: pkgs_getter(args).unwrap(),
-        // }),
+        Some(("rdepends", args)) => {
+            let pkgs = pkgs_getter(args).unwrap();
+
+            command::rdepends(pkgs)?
+        }
         Some(("clean", _)) => command::clean()?,
         Some(("history", _args)) => todo!(),
         // OmaCommand::History(History {
