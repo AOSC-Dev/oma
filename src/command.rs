@@ -13,7 +13,7 @@ use oma_pm::{
     apt::{AptArgs, AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder, OmaAptError},
     pkginfo::PkgInfo,
     query::OmaDatabase,
-    PackageStatus,
+    PackageStatus, operation::{InstallEntry, RemoveEntry},
 };
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg_arch;
@@ -56,12 +56,12 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
         .dpkg_force_confnew(args.force_confnew)
         .build()?;
 
-    let op = apt.operation_vec()?;
+    let op = apt.summary()?;
     let install = op.install;
     let remove = op.remove;
     let disk_size = op.disk_size;
 
-    if install.is_empty() && remove.is_empty() {
+    if check_empty_op(&install, &remove) {
         return Ok(0);
     }
 
@@ -71,6 +71,15 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
     apt.commit(None, &apt_args)?;
 
     Ok(0)
+}
+
+fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
+    if install.is_empty() && remove.is_empty() {
+        success!("{}", fl!("no-need-to-do-anything"));
+        return true;
+    }
+
+    false
 }
 
 pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> Result<i32> {
@@ -102,13 +111,12 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
 
         apt.install(pkgs, false)?;
 
-        let op = apt.operation_vec()?;
+        let op = apt.summary()?;
         let install = op.install;
         let remove = op.remove;
         let disk_size = op.disk_size;
 
-        if install.is_empty() && remove.is_empty() {
-            success!("{}", fl!("successfully-refresh"));
+        if check_empty_op(&install, &remove) {
             return Ok(0);
         }
 
@@ -142,14 +150,20 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkgs = apt.select_pkg(pkgs, false, true)?;
 
-    apt.remove(pkgs, !args.keep_config, true, true, args.no_autoremove)?;
+    let context = apt.remove(pkgs, !args.keep_config, true, true, args.no_autoremove)?;
 
-    let op = apt.operation_vec()?;
+    if !context.is_empty() {
+        for c in context {
+            info!("{}", fl!("no-need-to-remove", name = c));
+        }
+    }
+
+    let op = apt.summary()?;
     let install = op.install;
     let remove = op.remove;
     let disk_size = op.disk_size;
 
-    if install.is_empty() && remove.is_empty() {
+    if check_empty_op(&install, &remove) {
         return Ok(0);
     }
 
@@ -478,10 +492,14 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
 
     apt.install(vec![pkginfo], false)?;
 
-    let op = apt.operation_vec()?;
+    let op = apt.summary()?;
     let install = op.install;
     let remove = op.remove;
     let disk_size = op.disk_size;
+
+    if check_empty_op(&install, &remove) {
+        return Ok(0);
+    }
 
     handle_resolve(&apt, false)?;
     apt.check_disk_size()?;
