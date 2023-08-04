@@ -185,7 +185,7 @@ io-error = Omakase 遇到了 I/O 错误：{$e}
 
 # db
 setting-path-does-not-exist = 找不到指定的软件包缓存目录 {$path}，将使用默认缓存目录 /var/cache/apt/archives 。
-invaild-url-with-err = URL {$url} 无效：{$e}
+invaild-url= URL {$url} 无效
 cant-parse-distro-repo-data = 无法解析软件包镜像源数据文件 {$mirror}：{$e}。
 distro-repo-data-invalid-url = 软件包镜像源数据文件中包含无效 URL {$url}：{$e}。
 host-str-err = 无法探测指定镜像源的主机名。
@@ -200,7 +200,7 @@ inrelease-sha256-empty = InRelease 文件无效：SHA256 值为空。
 inrelease-checksum-can-not-parse = InRelease 文件无效：无法解析校验和条目 {$i}。
 inrelease-parse-unsupport-file-type = BUG：解析器不支持该 InRelease 文件的格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 can-not-parse-sources-list = 无法解析 sources.list 文件 {path}：{$e}。
-unsupport-cdrom = Omakase 不支持 cdrom:// 协议：{$url}。
+unsupport-protocol = Omakase 不支持协议：{$url}。
 unsupport-some-mirror = Omakase 在 sources.list 文件中探测到无效条目。
 unsupport-sourceentry = 探测到不受支持的 sources.list 文件条目：
 refreshing-repo-metadata = 正在刷新本机软件包数据库 ...

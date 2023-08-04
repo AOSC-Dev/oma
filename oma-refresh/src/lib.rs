@@ -1,6 +1,6 @@
 pub mod db;
 pub mod decompress;
-mod inrelease;
+pub mod inrelease;
 mod lang;
 mod util;
 mod verify;
