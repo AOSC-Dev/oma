@@ -5,7 +5,7 @@ use crate::{fl, ALLOWCTRLC};
 use anyhow::{anyhow, Result};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
-use oma_console::WRITER;
+use oma_console::{WRITER, success};
 use oma_pm::apt::{OmaApt, OmaAptError};
 use oma_pm::operation::{InstallEntry, InstallOperation, RemoveEntry};
 use oma_pm::unmet::{UnmetDep, WhyUnmet};
@@ -205,11 +205,12 @@ pub fn table_for_install_pending(
     remove: Vec<RemoveEntry>,
     disk_size: (&str, u64),
     pager: bool,
-    dry_run: bool
+    dry_run: bool,
 ) -> Result<()> {
     if dry_run {
         return Ok(());
     }
+
     let has_x11 = std::env::var("DISPLAY");
 
     let tips = if has_x11.is_ok() {
