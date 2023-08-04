@@ -47,10 +47,8 @@ pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| {
 pub enum RefreshError {
     #[error("Invalid URL: {0}")]
     InvaildUrl(String),
-    #[error("Can not parse distro repo data: {0}")]
-    ParseDistroRepoDataErrpr(String),
-    #[error("Can not read file {}: {}", .path, .error)]
-    ReadFileError { path: String, error: std::io::Error },
+    #[error("Can not parse distro repo data {0}: {1}")]
+    ParseDistroRepoDataError(String, String),
     #[error("Scan sources.list failed: {0}")]
     ScanSourceError(String),
     #[error("Unsupport Protocol: {0}")]
@@ -94,7 +92,7 @@ pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
     // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
     if let Ok(mirror_map_f) = tokio::fs::read(&*MIRROR).await {
         let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&mirror_map_f)
-            .map_err(|_| RefreshError::ParseDistroRepoDataErrpr(MIRROR.display().to_string()))?;
+            .map_err(|e| RefreshError::ParseDistroRepoDataError(MIRROR.display().to_string(), e.to_string()))?;
 
         for (k, v) in mirror_map.iter() {
             let mirror_url =

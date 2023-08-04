@@ -187,7 +187,7 @@ not-found-other = Failed to download File from URL {$url}: Remote file not found
 
 # db
 setting-path-does-not-exist = Specified package cache directory {$path} does not exist. Falling back to /var/cache/apt/archives.
-invaild-url-with-err = Invalid URL {$url}: {$e}.
+invaild-url = Invalid URL {$url}.
 cant-parse-distro-repo-data = Failed to parse distribution repository data file {$mirror}: {$e}.
 distro-repo-data-invalid-url = Distribution repository data file contains invalid URL {$url}: {$e}.
 host-str-err = Failed to detect the hostname of the specified mirror.
@@ -202,7 +202,7 @@ inrelease-sha256-empty = InRelease file is invalid: The SHA256 field is empty.
 inrelease-checksum-can-not-parse = InRelease file is invalid: Failed to parse checksum entry {$i}.
 inrelease-parse-unsupport-file-type = BUG: InRelease parser has encountered an unsupport file format. Please report this issue at https://github.com/AOSC-Dev/oma.
 can-not-parse-sources-list = Failed parse the sources.list file {$path}: {$e}.
-unsupport-cdrom = Omakase does not support the cdrom:// protocol: {$url}.
+unsupport-protocol = Omakase does not support the protocol: {$url}.
 unsupport-some-mirror = Omakase has detected unsupported entries in sources.list.
 unsupport-sourceentry = Unsupported sources.list entry(ies):
 refreshing-repo-metadata = Refreshing local database ...
