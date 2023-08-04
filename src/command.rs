@@ -30,6 +30,10 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
         refresh(dry_run)?;
     }
 
+    if args.yes {
+        warn!("{}", fl!("automatic-mode-warn"));
+    }
+
     let local_debs = pkgs_unparse
         .iter()
         .filter(|x| x.ends_with(".deb"))
@@ -95,6 +99,10 @@ fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
 pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> Result<i32> {
     refresh(dry_run)?;
 
+    if args.yes {
+        warn!("{}", fl!("automatic-mode-warn"));
+    }
+
     let local_debs = pkgs_unparse
         .iter()
         .filter(|x| x.ends_with(".deb"))
@@ -156,6 +164,10 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
 }
 
 pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
+    if args.yes {
+        warn!("{}", fl!("automatic-mode-warn"));
+    }
+
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkgs = apt.select_pkg(pkgs, false, true)?;
