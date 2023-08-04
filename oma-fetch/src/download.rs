@@ -26,6 +26,8 @@ pub(crate) async fn try_download(
 
     let mut res = None;
 
+    let mut err = None;
+
     for (i, c) in sources.iter().enumerate() {
         let download_res = match c.source_type {
             DownloadSourceType::Http => {
@@ -51,12 +53,13 @@ pub(crate) async fn try_download(
                 break;
             }
             Err(e) => {
+                err = Some(e.to_string());
                 error!("Download failed: {e}, trying next mirror ...");
             }
         }
     }
 
-    res.ok_or_else(|| DownloadError::DownloadAllFailed(entry.filename.to_string()))
+    res.ok_or_else(|| DownloadError::DownloadAllFailed(entry.filename.to_string(), err.unwrap()))
 }
 
 async fn try_http_download(
@@ -75,7 +78,7 @@ async fn try_http_download(
                 return Ok(s);
             }
             Err(e) => match e {
-                DownloadError::ChecksumMisMatch(_) | DownloadError::ReqwestError(_) => {
+                DownloadError::ChecksumMisMatch(_, _) | DownloadError::ReqwestError(_) => {
                     if retry_times == times {
                         return Err(e);
                     }
@@ -219,13 +222,11 @@ async fn http_download(
             .map(|x| x.to_owned())
             .unwrap_or(HeaderValue::from(0));
 
-        let url = entry.source[position].url.clone();
-
         total_size
             .to_str()
             .ok()
             .and_then(|x| x.parse::<u64>().ok())
-            .ok_or_else(move || DownloadError::InvaildTotal(url))?
+            .unwrap_or_default()
     };
 
     debug!("File total size is: {total_size}");
@@ -388,7 +389,10 @@ async fn http_download(
             }
 
             let url = entry.source[position].url.clone();
-            return Err(DownloadError::ChecksumMisMatch(url));
+            return Err(DownloadError::ChecksumMisMatch(
+                url,
+                entry.dir.display().to_string(),
+            ));
         }
 
         debug!("checksum success: {}", entry.filename);

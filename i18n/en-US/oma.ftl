@@ -46,6 +46,7 @@ can-not-get-pkg-version-from-database = Failed to get metadata for package {$nam
 can-not-get-package-with-branch = Failed to get package {$name} from the {$branch} branch.
 debug-symbol-available = (debug symbols available)
 full-match = exact match
+invaild-path = Invaild path: {$p}
 already-installed = {$name} ({$version}) is already installed
 can-not-mark-reinstall = Cannot reinstall package {$name} ({$version}), as the specified package and version could not be found in any available repository.
 mayble-dep-issue = Cannot install package {$name} due to a dependency issue.
@@ -53,6 +54,7 @@ pkg-is-essential = Package {$name} is essential. Refusing to remove.
 pkg-search-avail = AVAIL
 pkg-search-installed = INSTALLED
 pkg-search-upgrade = UPGRADE
+pkg-no-checksum = Package {$name} no checksum.
 
 # pager
 question-tips-with-x11 = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
@@ -63,6 +65,8 @@ normal-tips = Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll.
 # oma
 no-need-to-do-anything = No need to do anything.
 retry-apt = `apt' returned an error, retrying: attempt {$count} ...
+apt-error = `apt' returned an error: {$e}
+invaild-pattern = Invalid pattern: {$p}
 system-has-broken-dep = Omakase has detected broken dependencies on your system.
 system-has-broken-dep-due-to = Omakase can help fix dependency issues. Please use the `{$cmd}' command. If this still fails, please inform us of your issue at https://github.com/AOSC-Dev/aosc-os-abbs.
 additional-version = {$len} additional version(s) available. Please use the `-a' switch to list all available version(s).
@@ -110,7 +114,7 @@ clean-successfully = Successfully cleaned Omakase database and cache.
 dpkg-get-selections-non-zero = `dpkg --get-selections' returned an error. The dpkg database may be corrupted.
 can-not-parse-line = Failed to parse line {$i} in the `dpkg --get-selections' output. The dpkg database may be corrupted.
 dpkg-was-interrupted = A previous `dpkg' operation was interrupted, Omakase will now resume that operation ...
-dpkg-configure-a-non-zero = `dpkg --configure -a' returned an error:
+dpkg-configure-a-non-zero = `dpkg --configure -a' returned an error: {$e}
 verifying-the-interity-of-pkgs = Verifying the integrity of downloaded packages ...
 automatic-mode-warn = Running Omakase in unattended mode. If this is not intended, press Ctrl + C now to abort the operation!
 has-no-symbol-pkg = Package {$name} has no debug symbol available.
@@ -178,6 +182,8 @@ progress = Progress:
 success-download-pkg = Downloaded {$download_len} package.
 no-need-to-fetch-anything = No need to fetch anything.
 can-not-get-filename = BUG: Cannot read file {$name}. Please report this issue at https://github.com/AOSC-Dev/oma.
+not-found-other = Failed to download File from URL {$url}: Remote file not found (HTTP 404).
+
 
 # db
 setting-path-does-not-exist = Specified package cache directory {$path} does not exist. Falling back to /var/cache/apt/archives.
@@ -195,7 +201,7 @@ expired-signature = InRelease file {$filename} is invalid: The enclosed signatur
 inrelease-sha256-empty = InRelease file is invalid: The SHA256 field is empty.
 inrelease-checksum-can-not-parse = InRelease file is invalid: Failed to parse checksum entry {$i}.
 inrelease-parse-unsupport-file-type = BUG: InRelease parser has encountered an unsupport file format. Please report this issue at https://github.com/AOSC-Dev/oma.
-can-not-parse-sources-list = Failed parse the sources.list file: {$e}.
+can-not-parse-sources-list = Failed parse the sources.list file {$path}: {$e}.
 unsupport-cdrom = Omakase does not support the cdrom:// protocol: {$url}.
 unsupport-some-mirror = Omakase has detected unsupported entries in sources.list.
 unsupport-sourceentry = Unsupported sources.list entry(ies):
@@ -210,6 +216,7 @@ unsupport-decompress-file = BUG: Omakase has encountered an unsupported compress
 can-not-get-file = Failed to open file {$name}: {$e}
 downloading-database = {$file} {$source}
 flushing-data = Flushing data to hard disk …
+io-error = I/O Error: {$e},
 
 # contents
 contents-does-not-exist = Package contents database (Contents) does not exist. Use the {$cmd} command to refresh the contents database.
