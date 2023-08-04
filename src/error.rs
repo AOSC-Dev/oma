@@ -9,6 +9,8 @@ use oma_pm::apt::{AptArgsBuilderError, OmaAptArgsBuilderError};
 use oma_pm::search::OmaSearchError;
 use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
 use oma_refresh::db::RefreshError;
+use oma_refresh::decompress::DecompressError;
+use oma_refresh::inrelease::InReleaseParserError;
 use oma_utils::DpkgArchError;
 
 use crate::fl;
@@ -69,29 +71,45 @@ impl From<OmaConsoleError> for OutputError {
 
 impl From<OmaDatabaseError> for OutputError {
     fn from(value: OmaDatabaseError) -> Self {
-        let s = oma_database_error(value);
-
-        Self(s)
+        Self(oma_database_error(value))
     }
 }
 
 impl From<RefreshError> for OutputError {
     fn from(value: RefreshError) -> Self {
         let s = match value {
-            RefreshError::InvaildUrl(_) => todo!(),
-            RefreshError::ParseDistroRepoDataErrpr(_) => todo!(),
-            RefreshError::ReadFileError { path, error } => todo!(),
-            RefreshError::ScanSourceError(_) => todo!(),
-            RefreshError::UnsupportedProtocol(_) => todo!(),
-            RefreshError::FetcherError(_) => todo!(),
-            RefreshError::ReqwestError(_) => todo!(),
-            RefreshError::TopicsError(_) => todo!(),
-            RefreshError::NoInReleaseFile(_) => todo!(),
-            RefreshError::InReleaseParserError(_) => todo!(),
-            RefreshError::DpkgArchError(_) => todo!(),
+            RefreshError::InvaildUrl(s) => fl!("invaild-url", url = s),
+            RefreshError::ParseDistroRepoDataError(path, e) => {
+                fl!("can-not-parse-sources-list", path = path, e = e)
+            }
+            RefreshError::ScanSourceError(e) => e,
+            RefreshError::UnsupportedProtocol(s) => fl!("unsupport-protocol", url = s),
+            RefreshError::FetcherError(e) => oma_download_error(e),
+            RefreshError::ReqwestError(e) => e.to_string(),
+            RefreshError::TopicsError(e) => todo!(),
+            RefreshError::NoInReleaseFile(s) => fl!("not-found", url = s),
+            RefreshError::InReleaseParserError(e) => match e {
+                InReleaseParserError::FailedToOpenInRelease(_, _) => todo!(),
+                InReleaseParserError::VerifyError(_) => todo!(),
+                InReleaseParserError::BadInReleaseData => todo!(),
+                InReleaseParserError::BadInReleaseVaildUntil => todo!(),
+                InReleaseParserError::EarlierSignature => todo!(),
+                InReleaseParserError::ExpiredSignature => todo!(),
+                InReleaseParserError::BadSha256Value => todo!(),
+                InReleaseParserError::BadChecksumEntry(_) => todo!(),
+                InReleaseParserError::InReleaseSyntaxError(_, _) => todo!(),
+                InReleaseParserError::UnsupportFileType => todo!(),
+                InReleaseParserError::SizeShouldIsNumber(_) => todo!(),
+            },
+            RefreshError::DpkgArchError(e) => OutputError::from(e).to_string(),
             RefreshError::JoinError(_) => todo!(),
-            RefreshError::DecompressError(_) => todo!(),
-            RefreshError::TemplateError(_) => todo!(),
+            RefreshError::DecompressError(e) => match e {
+                DecompressError::IOError(_) => todo!(),
+                DecompressError::UnsupportedFileType => todo!(),
+                DecompressError::TemplateError(_) => todo!(),
+                DecompressError::FileNameError => todo!(),
+            },
+            RefreshError::TemplateError(e) => e.to_string(),
         };
 
         Self(s)
