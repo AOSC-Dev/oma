@@ -44,6 +44,7 @@ refreshing-topic-metadata = 正在刷新测试源数据 ...
 can-not-get-pkg-from-database = 无法从本机数据库中获取软件包 {$name} 的元数据。
 can-not-get-pkg-version-from-database = 无法从本机获取软件包 {$name} ({$version}) 的元数据。
 can-not-get-package-with-branch = 无法获取 {$branch} 分支上的软件包 {$name}。
+invaild-path = 非法路径：{$p}
 debug-symbol-available = （调试符号可用）
 full-match = 完整匹配
 already-installed = 软件包 {$name} ({$version}) 已经安装。
@@ -53,6 +54,7 @@ pkg-is-essential = 软件包 {$name} 是不允许删除的必备组件。
 pkg-search-avail = AVAIL
 pkg-search-installed = INSTALLED
 pkg-search-upgrade = UPGRADE
+pkg-no-checksum = 软件包 {$name} 没有校验码。
 flushing-data = 正在将数据写入至磁盘 …
 
 # pager
@@ -64,6 +66,8 @@ normal-tips = 按 [q] 或 [Ctrl-c] 退出，按 [PgUp/Dn] 或方向键翻页。
 # oma
 no-need-to-do-anything = 无需进行任何操作。
 retry-apt = `apt' 返回错误，重试第 {$count} 次 ...
+apt-error = `apt' 返回了错误：{$e}
+invaild-pattern = 非法的表达式：{$p}
 system-has-broken-dep = Omakase 探测到系统中存在依赖问题。
 system-has-broken-dep-due-to = Omakase 可自动解决依赖问题，请使用 `{$cmd}' 命令。如果此命令无法解决问题，请移步 https://github.com/aosc-dev/aosc-os-abbs 报告问题。
 additional-version = 另有 {$len} 个可用版本。请使用 `-a' 列出所有可用版本。
@@ -112,7 +116,7 @@ clean-successfully = 成功清理 Omakase 本机数据库和缓存。
 dpkg-get-selections-non-zero = `dpkg --get-selections' 返回错误。dpkg 数据库可能已损坏。
 can-not-parse-line = 无法解析 `dpkg --get-selections' 命令输出的第 {$i} 行。dpkg 数据库可能已损坏。
 dpkg-was-interrupted = 先前 `dpkg' 操作被打断，Omakase 现将继续操作 ...
-dpkg-configure-a-non-zero = `dpkg --configure -a' 返回错误：
+dpkg-configure-a-non-zero = `dpkg --configure -a' 返回错误：{$e}
 verifying-the-interity-of-pkgs = 正在验证本机软件包的完整性 ...
 automatic-mode-warn = 正以无人值守模式运行 Omakase。如非本人所为，请立即按 Ctrl + C 中止操作！
 has-no-symbol-pkg = 软件包 {$name} 没有可用调试符号。
@@ -176,6 +180,8 @@ success-download-pkg = 成功下载 {$download_len} 个软件包。
 no-need-to-fetch-anything = 所有软件包均已于本机缓存，无需下载。
 can-not-get-filename = BUG：无法读取文件 {$name}，请于 https://github.com/AOSC-Dev/oma 报告问题。
 can-not-get-file = 无法打开文件 {$name}: {$e}
+not-found-other = 无法从 {$url} 下载文件：找不到远端文件 (HTTP 404)。
+io-error = Omakase 遇到了 I/O 错误：{$e}
 
 # db
 setting-path-does-not-exist = 找不到指定的软件包缓存目录 {$path}，将使用默认缓存目录 /var/cache/apt/archives 。
@@ -193,7 +199,7 @@ expired-signature = InRelease 文件 {$filename} 无效：内联签名已过期�
 inrelease-sha256-empty = InRelease 文件无效：SHA256 值为空。
 inrelease-checksum-can-not-parse = InRelease 文件无效：无法解析校验和条目 {$i}。
 inrelease-parse-unsupport-file-type = BUG：解析器不支持该 InRelease 文件的格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
-can-not-parse-sources-list = 无法解析 sources.list 文件：{$e}。
+can-not-parse-sources-list = 无法解析 sources.list 文件 {path}：{$e}。
 unsupport-cdrom = Omakase 不支持 cdrom:// 协议：{$url}。
 unsupport-some-mirror = Omakase 在 sources.list 文件中探测到无效条目。
 unsupport-sourceentry = 探测到不受支持的 sources.list 文件条目：

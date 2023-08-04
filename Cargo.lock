@@ -1910,6 +1910,7 @@ dependencies = [
  "nix 0.26.4",
  "oma-console",
  "oma-contents",
+ "oma-fetch",
  "oma-pm",
  "oma-refresh",
  "oma-utils",
