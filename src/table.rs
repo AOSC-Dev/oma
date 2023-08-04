@@ -5,7 +5,7 @@ use crate::{fl, ALLOWCTRLC};
 use anyhow::{anyhow, Result};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
-use oma_console::{WRITER, success};
+use oma_console::WRITER;
 use oma_pm::apt::{OmaApt, OmaAptError};
 use oma_pm::operation::{InstallEntry, InstallOperation, RemoveEntry};
 use oma_pm::unmet::{UnmetDep, WhyUnmet};
