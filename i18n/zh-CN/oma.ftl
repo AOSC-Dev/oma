@@ -116,7 +116,7 @@ can-not-parse-line = 无法解析 `dpkg --get-selections' 命令输出的第 {$i
 dpkg-was-interrupted = 先前 `dpkg' 操作被打断，Omakase 现将继续操作 ...
 dpkg-configure-a-non-zero = `dpkg --configure -a' 返回错误：
 verifying-the-interity-of-pkgs = 正在验证本机软件包的完整性 ...
-automatic-mode-warn = 正以无人职守模式运行 Omakase。如非本人所为，请立即按 Ctrl + C 中止操作！
+automatic-mode-warn = 正以无人值守模式运行 Omakase。如非本人所为，请立即按 Ctrl + C 中止操作！
 has-no-symbol-pkg = 软件包 {$name} 没有可用调试符号。
 pkg-no-version = 无法获取软件包 {$name} 的版本号。
 removed-as-unneed-dep = 清理未使用的依赖
@@ -130,7 +130,7 @@ user-aborted-op = 用户已中止操作。
 
 # formatter
 download-not-done = Omakase 已下载软件包，但 APT 后端报告运行状态不一致。请使用调试模式运行 Omakase （`--debug' 参数）并于 https://github.com/AOSC-Dev/oma 提交日志。
-force-auto-mode = 正以无人职守模式运行 Omakase，且开启了强制模式。如非本人所为，请立即按 Ctrl + C 中止操作！
+force-auto-mode = 正以无人值守模式运行 Omakase，且开启了强制模式。如非本人所为，请立即按 Ctrl + C 中止操作！
 dpkg-force-all-mode = 正以 dpkg 强制执行模式运行 Omakase（此时将忽略依赖不满足等问题）。如非本人所为，请立即按 Ctrl + C 中止操作！
 dep-does-not-exist = 无法从软件包仓库中获取依赖 {$name} 。
 count-pkg-has-desc = {$count} 个软件包将被
