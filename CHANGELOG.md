@@ -5,7 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.0 (2023-08-04)
+
+### Chore
+
+ - <csr-id-c9bb039e213c6d5383f1b8209f387f82b35f4743/> Update all deps
+ - <csr-id-3452fc23182423bf4c581717e2c04c536f7bc8ac/> Release 1.0
+
+### Bug Fixes
+
+ - <csr-id-90522b15aaa6ed387acfb4328c0f09a3a01187a5/> Correct typos in oma.rs
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release over the course of 6 calendar days.
+ - 9 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`c9bb039`](https://github.com/AOSC-Dev/oma/commit/c9bb039e213c6d5383f1b8209f387f82b35f4743))
+    - Release 1.0 ([`3452fc2`](https://github.com/AOSC-Dev/oma/commit/3452fc23182423bf4c581717e2c04c536f7bc8ac))
+    - Correct typos in oma.rs ([`90522b1`](https://github.com/AOSC-Dev/oma/commit/90522b15aaa6ed387acfb4328c0f09a3a01187a5))
+</details>
+
 ## v0.45.6 (2023-07-26)
+
+<csr-id-a43bade1ea67de3fe0b9b2ef104001ac1d9884a2/>
+<csr-id-2f5845ec4d68aff086502ee617789f27691ca355/>
 
 ### Chore
 
@@ -29,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release over the course of 7 calendar days.
+ - 7 commits contributed to the release over the course of 7 calendar days.
  - 11 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -41,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v0.45.6 ([`a62982c`](https://github.com/AOSC-Dev/oma/commit/a62982ccbfa0bf4c7231c41acbecd8a32baba2ef))
     - Run cargo clippy and cargo fmt to lint code ([`2f5845e`](https://github.com/AOSC-Dev/oma/commit/2f5845ec4d68aff086502ee617789f27691ca355))
     - Update all deps ([`a43bade`](https://github.com/AOSC-Dev/oma/commit/a43bade1ea67de3fe0b9b2ef104001ac1d9884a2))
     - Do not display empty error message ([`c00dde4`](https://github.com/AOSC-Dev/oma/commit/c00dde4b594bfae3553b80c316ca1bed031b6e76))
