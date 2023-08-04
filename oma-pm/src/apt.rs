@@ -207,12 +207,23 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn install(&self, pkgs: Vec<PkgInfo>, reinstall: bool) -> OmaAptResult<()> {
+    pub fn install(
+        &self,
+        pkgs: Vec<PkgInfo>,
+        reinstall: bool,
+    ) -> OmaAptResult<Vec<(String, String)>> {
+        let mut no_marked_install = vec![];
         for pkg in pkgs {
-            mark_install(&self.cache, pkg, reinstall)?;
+            let marked_install = mark_install(&self.cache, &pkg, reinstall)?;
+            if !marked_install {
+                no_marked_install.push((
+                    pkg.raw_pkg.name().to_string(),
+                    pkg.version_raw.version().to_string(),
+                ));
+            }
         }
 
-        Ok(())
+        Ok(no_marked_install)
     }
 
     pub fn check_broken(&self) -> OmaAptResult<bool> {
@@ -309,11 +320,11 @@ impl OmaApt {
         cli_output: bool,
         no_autoremove: bool,
     ) -> OmaAptResult<Vec<String>> {
-        let mut context = vec![];
+        let mut no_marked_remove = vec![];
         for pkg in pkgs {
             let is_marked_delete = mark_delete(&self.cache, &pkg, protect, cli_output, purge)?;
             if !is_marked_delete {
-                context.push(pkg.raw_pkg.name().to_string());
+                no_marked_remove.push(pkg.raw_pkg.name().to_string());
             }
         }
 
@@ -322,7 +333,7 @@ impl OmaApt {
             self.autoremove(purge)?;
         }
 
-        Ok(context)
+        Ok(no_marked_remove)
     }
 
     fn autoremove(&mut self, purge: bool) -> OmaAptResult<()> {
@@ -706,10 +717,19 @@ impl OmaApt {
     }
 }
 
-fn mark_delete(cache: &Cache, pkg: &PkgInfo, protect: bool, cli_output: bool, purge: bool) -> OmaAptResult<bool> {
+fn mark_delete(
+    cache: &Cache,
+    pkg: &PkgInfo,
+    protect: bool,
+    cli_output: bool,
+    purge: bool,
+) -> OmaAptResult<bool> {
     let pkg = Package::new(cache, pkg.raw_pkg.unique());
     if !pkg.is_installed() {
-        debug!("Package {} is not installed. No need to remove.", pkg.name());
+        debug!(
+            "Package {} is not installed. No need to remove.",
+            pkg.name()
+        );
         return Ok(false);
     }
 
@@ -812,17 +832,15 @@ pub fn select_pkg(
     Ok(pkgs)
 }
 
-fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResult<()> {
-    let pkg = pkginfo.raw_pkg;
-    let version = pkginfo.version_raw;
+fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResult<bool> {
+    let pkg = pkginfo.raw_pkg.unique();
+    let version = pkginfo.version_raw.unique();
     let ver = Version::new(version, cache);
     let pkg = Package::new(cache, pkg);
     ver.set_candidate();
 
     if pkg.installed().as_ref() == Some(&ver) && !reinstall {
-        info!("already-installed");
-
-        return Ok(());
+        return Ok(false);
     } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
         if ver.uris().next().is_none() {
             return Err(OmaAptError::MarkReinstallError(pkg.name().to_string()));
@@ -840,7 +858,7 @@ fn mark_install(cache: &Cache, pkginfo: PkgInfo, reinstall: bool) -> OmaAptResul
     debug!("{} will marked install", pkg.name());
     pkg.protect();
 
-    Ok(())
+    Ok(true)
 }
 
 fn apt_style_filename(filename: &str, version: String) -> OmaAptResult<String> {
