@@ -15,26 +15,22 @@ use download::try_download;
 
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
-    #[error("checksum mismatch {0}")]
-    ChecksumMisMatch(String),
+    #[error("checksum mismatch {0} at dir {1}")]
+    ChecksumMisMatch(String, String),
     #[error("404 not found: {0}")]
     NotFound(String),
-    #[error(transparent)]
-    JoinError(#[from] tokio::task::JoinError),
     #[error(transparent)]
     IOError(#[from] tokio::io::Error),
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
     #[error(transparent)]
     ChecksumError(#[from] crate::checksum::ChecksumError),
-    #[error("Invalid total: {0}")]
-    InvaildTotal(String),
     #[error(transparent)]
     TemplateError(#[from] indicatif::style::TemplateError),
     #[error("Failed to open local source file {0}: {1}")]
     FailedOpenLocalSourceFile(String, String),
-    #[error("Download all file failed: {0}")]
-    DownloadAllFailed(String),
+    #[error("Download all file failed: {0}: {1}")]
+    DownloadAllFailed(String, String),
 }
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;

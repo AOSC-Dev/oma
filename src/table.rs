@@ -1,8 +1,8 @@
 use std::sync::atomic::Ordering;
 
 use crate::console::{style, Color};
+use crate::error::OutputError;
 use crate::{fl, ALLOWCTRLC};
-use anyhow::{anyhow, Result};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
 use oma_console::WRITER;
@@ -41,11 +41,11 @@ pub struct UnmetDepDisplay {
     specified_dependency: String,
 }
 
-impl From<UnmetDep> for UnmetDepDisplay {
-    fn from(value: UnmetDep) -> Self {
+impl From<&UnmetDep> for UnmetDepDisplay {
+    fn from(value: &UnmetDep) -> Self {
         Self {
-            package: style(value.package).red().bold().to_string(),
-            unmet_dependency: match value.unmet_dependency {
+            package: style(&value.package).red().bold().to_string(),
+            unmet_dependency: match &value.unmet_dependency {
                 WhyUnmet::DepNotExist(s) => format!("{s} does not exist"),
                 WhyUnmet::Unmet {
                     dep_name,
@@ -57,12 +57,12 @@ impl From<UnmetDep> for UnmetDepDisplay {
                     dep_name,
                     comp_ver,
                 } => {
-                    let comp_ver = comp_ver.unwrap_or_default();
+                    let comp_ver = comp_ver.as_deref().unwrap_or("");
 
                     format!("{break_type} {dep_name} {comp_ver}")
                 }
             },
-            specified_dependency: value.specified_dependency,
+            specified_dependency: value.specified_dependency.clone(),
         }
     }
 }
@@ -129,7 +129,7 @@ impl From<&InstallEntry> for InstallEntryDisplay {
     }
 }
 
-pub fn oma_display(is_question: bool, len: usize) -> Result<Pager> {
+pub fn oma_display(is_question: bool, len: usize) -> Result<Pager, OutputError> {
     let has_x11 = std::env::var("DISPLAY");
 
     if !is_question {
@@ -153,23 +153,21 @@ pub fn oma_display(is_question: bool, len: usize) -> Result<Pager> {
     Ok(pager)
 }
 
-pub fn handle_resolve(apt: &OmaApt, no_fixbroken: bool) -> Result<()> {
+pub fn handle_resolve(apt: &OmaApt, no_fixbroken: bool) -> Result<(), OutputError> {
     if let Err(e) = apt.resolve(no_fixbroken) {
         match e {
-            OmaAptError::DependencyIssue(e) => {
-                let mut pager = oma_display(false, e.len())?;
+            OmaAptError::DependencyIssue(ref u) => {
+                let mut pager = oma_display(false, u.len())?;
 
-                let mut out = pager
-                    .get_writer()
-                    .map_err(|_| anyhow!("Dep Error: {e:?}"))?;
+                let mut out = pager.get_writer().unwrap();
 
-                writeln!(out, "{:<80}\n", style(fl!("dep-error")).on_red().bold())?;
-                writeln!(out, "{}\n", fl!("dep-error-desc"),)?;
-                writeln!(out, "{}\n", fl!("contact-admin-tips"))?;
-                writeln!(out, "    {}", style(fl!("how-to-abort")).bold())?;
-                writeln!(out, "    {}\n\n", style(fl!("how-to-op-with-x")).bold())?;
+                writeln!(out, "{:<80}\n", style(fl!("dep-error")).on_red().bold()).ok();
+                writeln!(out, "{}\n", fl!("dep-error-desc"),).ok();
+                writeln!(out, "{}\n", fl!("contact-admin-tips")).ok();
+                writeln!(out, "    {}", style(fl!("how-to-abort")).bold()).ok();
+                writeln!(out, "    {}\n\n", style(fl!("how-to-op-with-x")).bold()).ok();
 
-                let v = e.into_iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
+                let v = u.into_iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
 
                 writeln!(
                     out,
@@ -192,6 +190,8 @@ pub fn handle_resolve(apt: &OmaApt, no_fixbroken: bool) -> Result<()> {
 
                 drop(out);
                 pager.wait_for_exit()?;
+
+                return Err(OutputError::from(e));
             }
             e => return Err(e.into()),
         }
@@ -206,7 +206,7 @@ pub fn table_for_install_pending(
     disk_size: (&str, u64),
     pager: bool,
     dry_run: bool,
-) -> Result<()> {
+) -> Result<(), OutputError> {
     if dry_run {
         return Ok(());
     }

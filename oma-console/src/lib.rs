@@ -9,7 +9,7 @@ pub use indicatif;
 use once_cell::sync::Lazy;
 use writer::Writer;
 
-pub type Result<T> = std::result::Result<T, OmaConsoleError>;
+pub type OmaConsoleResult<T> = std::result::Result<T, OmaConsoleError>;
 pub static WRITER: Lazy<Writer> = Lazy::new(writer::Writer::default);
 pub static DEBUG: AtomicBool = AtomicBool::new(false);
 

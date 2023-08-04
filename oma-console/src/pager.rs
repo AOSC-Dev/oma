@@ -5,7 +5,7 @@ use std::{
     sync::atomic::{AtomicI32, Ordering},
 };
 
-use crate::{writer::Writer, OmaConsoleError, Result};
+use crate::{writer::Writer, OmaConsoleError, OmaConsoleResult};
 
 pub static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 
@@ -15,7 +15,7 @@ pub enum Pager {
 }
 
 impl Pager {
-    pub fn new(no_pager: bool, tips: &str) -> Result<Self> {
+    pub fn new(no_pager: bool, tips: &str) -> OmaConsoleResult<Self> {
         if no_pager {
             return Ok(Pager::Plain);
         }
@@ -58,7 +58,7 @@ impl Pager {
         }
     }
 
-    pub fn get_writer(&self) -> Result<Box<dyn Write + '_>> {
+    pub fn get_writer(&self) -> OmaConsoleResult<Box<dyn Write + '_>> {
         let res = match self {
             Pager::Plain => Writer::default().get_writer(),
             Pager::External((_, child)) => {
@@ -74,7 +74,7 @@ impl Pager {
         Ok(res)
     }
 
-    pub fn wait_for_exit(&mut self) -> Result<bool> {
+    pub fn wait_for_exit(&mut self) -> OmaConsoleResult<bool> {
         let success = if let Pager::External((_, child)) = self {
             child.wait()?.success()
         } else {

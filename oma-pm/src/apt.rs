@@ -60,7 +60,7 @@ pub enum OmaAptError {
     #[error(transparent)]
     OmaDatabaseError(#[from] OmaDatabaseError),
     #[error("Failed to mark reinstall pkg: {0}")]
-    MarkReinstallError(String),
+    MarkReinstallError(String, String),
     #[error("Dep issue: {0:?}")]
     DependencyIssue(Vec<UnmetDep>),
     #[error("Package: {0} is essential.")]
@@ -843,7 +843,7 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
         return Ok(false);
     } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
         if ver.uris().next().is_none() {
-            return Err(OmaAptError::MarkReinstallError(pkg.name().to_string()));
+            return Err(OmaAptError::MarkReinstallError(pkg.name().to_string(), ver.version().to_string()));
         }
         pkg.mark_reinstall(true);
     } else {
