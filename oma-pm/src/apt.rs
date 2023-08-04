@@ -308,21 +308,13 @@ impl OmaApt {
         protect: bool,
         cli_output: bool,
         no_autoremove: bool,
-    ) -> OmaAptResult<()> {
+    ) -> OmaAptResult<Vec<String>> {
+        let mut context = vec![];
         for pkg in pkgs {
-            let pkg = Package::new(&self.cache, pkg.raw_pkg.unique());
-            if pkg.is_essential() {
-                if protect {
-                    return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
-                } else if cli_output {
-                    if !ask_user_do_as_i_say(&pkg)? {
-                        return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
-                    }
-                } else {
-                    return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
-                }
+            let is_marked_delete = mark_delete(&self.cache, &pkg, protect, cli_output, purge)?;
+            if !is_marked_delete {
+                context.push(pkg.raw_pkg.name().to_string());
             }
-            pkg.mark_delete(purge);
         }
 
         // 寻找系统有哪些不必要的软件包
@@ -330,7 +322,7 @@ impl OmaApt {
             self.autoremove(purge)?;
         }
 
-        Ok(())
+        Ok(context)
     }
 
     fn autoremove(&mut self, purge: bool) -> OmaAptResult<()> {
@@ -349,7 +341,7 @@ impl OmaApt {
     }
 
     pub fn commit(self, network_thread: Option<usize>, args_config: &AptArgs) -> OmaAptResult<()> {
-        let v = self.operation_vec()?;
+        let v = self.summary()?;
 
         if self.dry_run {
             debug!("op: {v:?}");
@@ -543,7 +535,7 @@ impl OmaApt {
         }
     }
 
-    pub fn operation_vec(&self) -> OmaAptResult<OmaOperation> {
+    pub fn summary(&self) -> OmaAptResult<OmaOperation> {
         let mut install = vec![];
         let mut remove = vec![];
         let changes = self.cache.get_changes(false)?;
@@ -664,7 +656,7 @@ impl OmaApt {
     }
 
     pub fn check_disk_size(&self) -> OmaAptResult<()> {
-        let op = self.operation_vec()?;
+        let op = self.summary()?;
 
         let (symbol, n) = op.disk_size;
         let n = n as i64;
@@ -712,6 +704,30 @@ impl OmaApt {
 
         Ok(pkgs)
     }
+}
+
+fn mark_delete(cache: &Cache, pkg: &PkgInfo, protect: bool, cli_output: bool, purge: bool) -> OmaAptResult<bool> {
+    let pkg = Package::new(cache, pkg.raw_pkg.unique());
+    if !pkg.is_installed() {
+        debug!("Package {} is not installed. No need to remove.", pkg.name());
+        return Ok(false);
+    }
+
+    if pkg.is_essential() {
+        if protect {
+            return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
+        } else if cli_output {
+            if !ask_user_do_as_i_say(&pkg)? {
+                return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
+            }
+        } else {
+            return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
+        }
+    }
+
+    pkg.mark_delete(purge);
+
+    Ok(true)
 }
 
 fn ask_user_do_as_i_say(pkg: &Package<'_>) -> OmaAptResult<bool> {
