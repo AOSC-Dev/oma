@@ -11,9 +11,10 @@ use oma_console::{
 use oma_contents::QueryMode;
 use oma_pm::{
     apt::{AptArgs, AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder, OmaAptError},
+    operation::{InstallEntry, RemoveEntry},
     pkginfo::PkgInfo,
     query::OmaDatabase,
-    PackageStatus, operation::{InstallEntry, RemoveEntry},
+    PackageStatus,
 };
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg_arch;
@@ -47,7 +48,16 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
     let apt = OmaApt::new(local_debs, oma_apt_args, dry_run)?;
     let pkgs = apt.select_pkg(pkgs_unparse, args.install_dbg, true)?;
 
-    apt.install(pkgs, args.reinstall)?;
+    let no_marked_install = apt.install(pkgs, args.reinstall)?;
+
+    if !no_marked_install.is_empty() {
+        for (pkg, version) in no_marked_install {
+            info!(
+                "{}",
+                fl!("already-installed", name = pkg, version = version)
+            );
+        }
+    }
 
     let apt_args = AptArgsBuilder::default()
         .yes(args.yes)
