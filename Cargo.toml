@@ -22,6 +22,7 @@ oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
 oma-refresh = { path = "./oma-refresh" }
 oma-contents = { path = "./oma-contents" }
+oma-fetch = { path = "./oma-fetch" }
 
 # i18n
 i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"]}

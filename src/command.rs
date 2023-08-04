@@ -3,7 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
+
 use dialoguer::{console::style, theme::ColorfulTheme, Select};
 use oma_console::{
     error, indicatif::ProgressBar, info, pb::oma_spinner, success, warn, writer::gen_prefix,
@@ -22,8 +23,10 @@ use oma_utils::dpkg_arch;
 use crate::{
     fl,
     table::{handle_resolve, oma_display, table_for_install_pending},
-    InstallArgs, RemoveArgs, UpgradeArgs,
+    InstallArgs, RemoveArgs, UpgradeArgs, error::OutputError,
 };
+
+pub type Result<T> = std::result::Result<T, OutputError>;
 
 pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> Result<i32> {
     if !args.no_refresh {
@@ -150,12 +153,12 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
             Err(e) => match e {
                 OmaAptError::RustApt(_) => {
                     if retry_times == 3 {
-                        return Err(anyhow!("{e}"));
+                        return Err(OutputError::from(e));
                     }
                     warn!("{e}, retrying ...");
                     retry_times += 1;
                 }
-                _ => return Err(anyhow!("{e}")),
+                _ => return Err(OutputError::from(e)),
             },
         }
     }
@@ -346,7 +349,7 @@ pub fn show(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32> {
 
 pub fn find(x: &str, is_bin: bool, pkg: String) -> Result<i32> {
     let pb = ProgressBar::new_spinner();
-    let (style, inv) = oma_spinner(false)?;
+    let (style, inv) = oma_spinner(false).unwrap();
     pb.set_style(style);
     pb.enable_steady_tick(inv);
     pb.set_message(fl!("searching"));

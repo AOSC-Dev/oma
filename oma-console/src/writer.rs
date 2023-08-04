@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::Result;
+use crate::OmaConsoleResult;
 use console::Term;
 use indicatif::ProgressBar;
 
@@ -39,7 +39,7 @@ impl Writer {
         }
     }
 
-    pub fn show_cursor(&self) -> Result<()> {
+    pub fn show_cursor(&self) -> OmaConsoleResult<()> {
         self.term.show_cursor()?;
         Ok(())
     }
@@ -62,7 +62,7 @@ impl Writer {
         Box::new(self.term.clone())
     }
 
-    fn write_prefix(&self, prefix: &str) -> Result<()> {
+    fn write_prefix(&self, prefix: &str) -> OmaConsoleResult<()> {
         self.term.write_str(&gen_prefix(prefix, self.prefix_len))?;
 
         Ok(())
@@ -73,7 +73,7 @@ impl Writer {
         prefix: &str,
         msg: &str,
         is_pb: bool,
-    ) -> Result<(Vec<String>, Vec<String>)> {
+    ) -> OmaConsoleResult<(Vec<String>, Vec<String>)> {
         let max_len = self.get_max_len();
         let mut first_run = true;
 
@@ -129,7 +129,7 @@ impl Writer {
         Ok((prefix_res, msg_res))
     }
 
-    pub fn writeln_with_pb(&self, pb: &ProgressBar, prefix: &str, msg: &str) -> Result<()> {
+    pub fn writeln_with_pb(&self, pb: &ProgressBar, prefix: &str, msg: &str) -> OmaConsoleResult<()> {
         let (prefix, line_msgs) = self.writeln(prefix, msg, true)?;
 
         for (i, c) in prefix.iter().enumerate() {
@@ -144,7 +144,7 @@ impl Writer {
         prefix: &str,
         chunks: &[S],
         prefix_len: u16,
-    ) -> Result<()> {
+    ) -> OmaConsoleResult<()> {
         if chunks.is_empty() {
             return Ok(());
         }

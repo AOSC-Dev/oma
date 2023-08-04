@@ -1911,6 +1911,7 @@ dependencies = [
  "nix",
  "oma-console",
  "oma-contents",
+ "oma-fetch",
  "oma-pm",
  "oma-refresh",
  "oma-utils",

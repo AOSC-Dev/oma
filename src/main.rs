@@ -6,6 +6,7 @@ mod args;
 mod command;
 mod lang;
 mod table;
+mod error;
 
 use anyhow::Result;
 
