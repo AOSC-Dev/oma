@@ -903,12 +903,10 @@ impl Oma {
             .flat_map(|x| query_pkgs(&cache, x))
             .flatten()
             .filter(|(_, y)| *y)
-            .map(|(x, _)| x);
+            .map(|(x, _)| x.raw_pkg);
 
         for i in pkgs {
-            let pkg = cache
-                .get(&i.package)
-                .context(format!("Can not get package {}", i.package))?;
+            let pkg = Package::new(&cache, i);
             if !pkg.is_installed() {
                 info!("{}", fl!("no-need-to-remove", name = pkg.name()));
                 continue;
