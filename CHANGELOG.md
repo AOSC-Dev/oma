@@ -5,7 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.3 (2023-08-06)
+
+### Chore
+
+ - <csr-id-4161276d1284e3b889a454adecb18009f9ef7787/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-dff82f330387df88be32b8f134bf73dca9dbcf97/> Fix glob in oma remove
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`4161276`](https://github.com/AOSC-Dev/oma/commit/4161276d1284e3b889a454adecb18009f9ef7787))
+    - Fix glob in oma remove ([`dff82f3`](https://github.com/AOSC-Dev/oma/commit/dff82f330387df88be32b8f134bf73dca9dbcf97))
+</details>
+
 ## v1.0.2 (2023-08-06)
+
+<csr-id-9b7710c952c09e855396e6f62fb91a934276018a/>
 
 ### Chore
 
@@ -19,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 2 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -31,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v1.0.2 ([`1632c70`](https://github.com/AOSC-Dev/oma/commit/1632c70e411112a23ad619c61704031c0f058057))
     - Update all deps ([`9b7710c`](https://github.com/AOSC-Dev/oma/commit/9b7710c952c09e855396e6f62fb91a934276018a))
     - Fix space in file ([`9132ca8`](https://github.com/AOSC-Dev/oma/commit/9132ca8161a037dc238a3d17213bdf3d5a6fb282))
 </details>
