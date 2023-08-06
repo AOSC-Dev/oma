@@ -114,7 +114,7 @@ where
             if i.file_name()
                 .to_str()
                 .unwrap_or("")
-                .ends_with(&format!("Contents-{}", arch))
+                .ends_with(&format!("Contents-{arch}"))
                 || i.file_name()
                     .to_str()
                     .unwrap_or("")
@@ -126,7 +126,7 @@ where
             .file_name()
             .to_str()
             .unwrap_or("")
-            .ends_with(&format!("_BinContents-{}", arch))
+            .ends_with(&format!("_BinContents-{arch}"))
             || i.file_name()
                 .to_str()
                 .unwrap_or("")
@@ -305,43 +305,39 @@ where
 
 fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
     let contents_white = " ".repeat(3);
-    let mut split = line.split(contents_white.as_str());
-    let file = split.next();
-    let pkg_group = split.next();
+    let mut split = line.split(&contents_white);
+    let file = split.next()?;
+    let pkg_group = split.next()?;
+    let split_group = pkg_group.split(',').collect::<Vec<_>>();
 
-    if let Some((file, pkg_group)) = file.zip(pkg_group) {
-        let split_group = pkg_group.split(',').collect::<Vec<_>>();
-
-        // 比如 / admin/apt-file,admin/apt,...
-        if split_group.len() != 1 {
-            for i in split_group {
-                if is_list && i.split('/').nth(1) == Some(kw) {
-                    let file = prefix(file);
-                    let pkg = kw;
-                    let s = format!("{kw}: {file}");
-
-                    return Some((pkg.to_string(), s));
-                } else if !is_list && i.contains(kw) && i.split('/').nth_back(0).is_some() {
-                    let file = prefix(file);
-                    let pkg = i.split('/').nth_back(0).unwrap();
-                    let s = format!("{pkg}: {file}");
-                    return Some((pkg.to_string(), s));
-                }
-            }
-        } else {
-            // 比如 /usr/bin/apt admin/apt
-            let pkg = pkg_group.split('/').nth_back(0);
-            if let Some(pkg) = pkg {
+    // 比如 / admin/apt-file,admin/apt,...
+    if split_group.len() != 1 {
+        for i in split_group {
+            if is_list && i.split('/').nth(1) == Some(kw) {
                 let file = prefix(file);
+                let pkg = kw;
+                let s = format!("{kw}: {file}");
+
+                return Some((pkg.to_string(), s));
+            } else if !is_list && i.contains(kw) && i.split('/').nth_back(0).is_some() {
+                let file = prefix(file);
+                let pkg = i.split('/').nth_back(0)?;
                 let s = format!("{pkg}: {file}");
                 return Some((pkg.to_string(), s));
             }
         }
+    } else {
+        // 比如 /usr/bin/apt admin/apt
+        let pkg = pkg_group.split('/').nth_back(0)?;
+        let file = prefix(file);
+        let s = format!("{pkg}: {file}");
+        return Some((pkg.to_string(), s));
     }
 
     None
 }
 
+#[inline]
 fn prefix(s: &str) -> String {
     "/".to_owned() + s
 }
