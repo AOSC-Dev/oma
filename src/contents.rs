@@ -285,7 +285,8 @@ pub fn find(kw: &str, is_list: bool, cnf: bool, only_bin: bool) -> Result<Vec<(S
 }
 
 fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
-    let mut split = line.split_whitespace();
+    let contents_white = " ".repeat(3);
+    let mut split = line.split(contents_white.as_str());
     let file = split.next();
     let pkg_group = split.next();
 
