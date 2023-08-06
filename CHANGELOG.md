@@ -5,7 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.2 (2023-08-06)
+
+### Chore
+
+ - <csr-id-9b7710c952c09e855396e6f62fb91a934276018a/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-9132ca8161a037dc238a3d17213bdf3d5a6fb282/> Fix space in file
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`9b7710c`](https://github.com/AOSC-Dev/oma/commit/9b7710c952c09e855396e6f62fb91a934276018a))
+    - Fix space in file ([`9132ca8`](https://github.com/AOSC-Dev/oma/commit/9132ca8161a037dc238a3d17213bdf3d5a6fb282))
+</details>
+
 ## v1.0.1 (2023-08-04)
+
+<csr-id-252614587ebd6e747de15718605e8dc91aa89627/>
 
 ### Chore
 
@@ -19,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -30,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v1.0.1 ([`07f9c77`](https://github.com/AOSC-Dev/oma/commit/07f9c77e20e0c6e1274b6ce1d93d40c992036bb2))
     - Update all deps ([`2526145`](https://github.com/AOSC-Dev/oma/commit/252614587ebd6e747de15718605e8dc91aa89627))
     - (zh_CN) 职守 => 值守 ([`beba5c2`](https://github.com/AOSC-Dev/oma/commit/beba5c2f19712de8616fc8e8fc36ec794f2d3308))
 </details>
