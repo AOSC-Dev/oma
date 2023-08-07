@@ -1954,6 +1954,7 @@ dependencies = [
 name = "oma-fetch"
 version = "0.1.0"
 dependencies = [
+ "derive_builder",
  "futures",
  "hex",
  "oma-console",
