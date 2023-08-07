@@ -624,7 +624,7 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
             }
             let branches = branches.join(",");
             let version_str = version.version();
-            let arch = pkg.arch();
+            let arch = version.arch();
             let installed = pkg.installed().as_ref() == Some(version);
             let upgradable = pkg.is_upgradable();
             let automatic = pkg.is_auto_installed();

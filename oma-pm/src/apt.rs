@@ -269,16 +269,17 @@ impl OmaApt {
         let mut download_list = vec![];
         for pkg in pkgs {
             let name = pkg.raw_pkg.name().to_string();
+            let ver = Version::new(pkg.version_raw, &self.cache);
             let entry = InstallEntryBuilder::default()
                 .name(pkg.raw_pkg.name().to_string())
-                .new_version(pkg.version_raw.version().to_string())
+                .new_version(ver.version().to_string())
                 .new_size(pkg.installed_size)
                 .pkg_urls(pkg.apt_sources)
                 .checksum(
                     pkg.checksum
                         .ok_or_else(|| OmaAptError::PkgNoChecksum(name))?,
                 )
-                .arch(pkg.arch)
+                .arch(ver.arch().to_string())
                 .download_size(pkg.download_size)
                 .op(InstallOperation::Download)
                 .build()?;
@@ -572,7 +573,7 @@ impl OmaApt {
                     .new_size(size)
                     .pkg_urls(uri)
                     .checksum(checksum)
-                    .arch(pkg.arch().to_string())
+                    .arch(cand.arch().to_string())
                     .download_size(cand.size())
                     .op(InstallOperation::Install)
                     .build()?;
@@ -628,7 +629,7 @@ impl OmaApt {
                     .new_size(version.installed_size())
                     .pkg_urls(version.uris().collect())
                     .checksum(checksum)
-                    .arch(pkg.arch().to_string())
+                    .arch(version.arch().to_string())
                     .download_size(0)
                     .op(InstallOperation::ReInstall)
                     .build()?;
@@ -802,7 +803,7 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
         .new_size(cand.installed_size())
         .pkg_urls(cand.uris().collect::<Vec<_>>())
         .checksum(checksum)
-        .arch(new_pkg.arch().to_string())
+        .arch(cand.arch().to_string())
         .download_size(cand.size())
         .op(op)
         .build()?;
@@ -843,7 +844,10 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
         return Ok(false);
     } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
         if ver.uris().next().is_none() {
-            return Err(OmaAptError::MarkReinstallError(pkg.name().to_string(), ver.version().to_string()));
+            return Err(OmaAptError::MarkReinstallError(
+                pkg.name().to_string(),
+                ver.version().to_string(),
+            ));
         }
         pkg.mark_reinstall(true);
     } else {
