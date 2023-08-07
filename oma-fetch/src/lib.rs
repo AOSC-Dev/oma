@@ -1,5 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
+use derive_builder::Builder;
 use futures::StreamExt;
 use oma_console::{
     indicatif::{self, MultiProgress, ProgressBar},
@@ -31,17 +32,22 @@ pub enum DownloadError {
     FailedOpenLocalSourceFile(String, String),
     #[error("Download all file failed: {0}: {1}")]
     DownloadAllFailed(String, String),
+    #[error(transparent)]
+    DownloadSourceBuilderError(#[from] DownloadEntryBuilderError),
 }
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Builder, Default)]
+#[builder(default)]
 pub struct DownloadEntry {
     source: Vec<DownloadSource>,
     filename: String,
     dir: PathBuf,
+    #[builder(setter(into, strip_option))]
     hash: Option<String>,
     allow_resume: bool,
+    #[builder(setter(into, strip_option))]
     msg: Option<String>,
 }
 
@@ -80,26 +86,6 @@ impl Ord for DownloadSourceType {
                 DownloadSourceType::Http => std::cmp::Ordering::Greater,
                 DownloadSourceType::Local => std::cmp::Ordering::Equal,
             },
-        }
-    }
-}
-
-impl DownloadEntry {
-    pub fn new(
-        source: Vec<DownloadSource>,
-        filename: String,
-        dir: PathBuf,
-        hash: Option<String>,
-        allow_resume: bool,
-        msg: Option<String>,
-    ) -> Self {
-        Self {
-            source,
-            filename,
-            dir,
-            hash,
-            allow_resume,
-            msg,
         }
     }
 }
