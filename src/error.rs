@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::Display;
 
-use dialoguer::console::style;
+use oma_console::console::style;
 use oma_console::OmaConsoleError;
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
