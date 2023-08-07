@@ -6,7 +6,7 @@ use rust_apt::{
     util::cmp_versions,
 };
 
-use crate::{pkginfo::OmaDependency, apt::OmaAptResult};
+use crate::{apt::OmaAptResult, pkginfo::OmaDependency};
 
 #[derive(Debug)]
 pub struct UnmetDep {
@@ -40,58 +40,38 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
         let dep = OmaDependency::map_deps(dep);
         for b_dep in dep.inner() {
             for d in b_dep {
-                let dep_pkg = cache.get(&d.name);
-                if dep_pkg.is_none() {
-                    v.push(UnmetDep {
-                        package: d.name.to_string(),
-                        unmet_dependency: WhyUnmet::DepNotExist(d.name.to_string()),
-                        specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
-                    })
-                }
-
-                if let Some(dep_pkg) = dep_pkg {
-                    if dep_pkg.candidate().is_none() {
-                        v.push(UnmetDep {
-                            package: d.name.to_string(),
-                            unmet_dependency: WhyUnmet::DepNotExist(d.name.to_string()),
-                            specified_dependency: format!(
-                                "{} {}",
-                                ver.parent().name(),
-                                ver.version()
-                            ),
-                        })
+                if let Some(pkg) = cache.get(&d.name) {
+                    if let Some(cand) = pkg.candidate() {
+                        find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
+                        continue;
                     }
                 }
+
+                v.push(UnmetDep {
+                    package: d.name.to_string(),
+                    unmet_dependency: WhyUnmet::DepNotExist(d.name.to_string()),
+                    specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                });
             }
         }
     }
 
     if let Some(pdep) = pdep {
-        let dep = OmaDependency::map_deps(pdep);
-        for b_dep in dep.inner() {
+        let pdep = OmaDependency::map_deps(pdep);
+        for b_dep in pdep.inner() {
             for d in b_dep {
-                let dep_pkg = cache.get(&d.name);
-                if dep_pkg.is_none() {
-                    v.push(UnmetDep {
-                        package: d.name.to_string(),
-                        unmet_dependency: WhyUnmet::DepNotExist(d.name.to_string()),
-                        specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
-                    })
-                }
-
-                if let Some(dep_pkg) = dep_pkg {
-                    if dep_pkg.candidate().is_none() {
-                        v.push(UnmetDep {
-                            package: d.name.to_string(),
-                            unmet_dependency: WhyUnmet::DepNotExist(d.name.to_string()),
-                            specified_dependency: format!(
-                                "{} {}",
-                                ver.parent().name(),
-                                ver.version()
-                            ),
-                        })
+                if let Some(pkg) = cache.get(&d.name) {
+                    if let Some(cand) = pkg.candidate() {
+                        find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
+                        continue;
                     }
                 }
+
+                v.push(UnmetDep {
+                    package: d.name.to_string(),
+                    unmet_dependency: WhyUnmet::DepNotExist(d.name.to_string()),
+                    specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                });
             }
         }
     }
@@ -99,38 +79,41 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
     v
 }
 
+fn find_unmet_dep_inner(pkg: &Package, cache: &Cache, cand: &Version, v: &mut Vec<UnmetDep>) {
+    let rdep = pkg.rdepends_map();
+    let rdep_dep = rdep.get(&DepType::Depends);
+    let rdep_predep = rdep.get(&DepType::PreDepends);
+    let rdep_breaks = rdep.get(&DepType::Breaks);
+    let rdep_conflicts = rdep.get(&DepType::Conflicts);
+
+    // Format dep
+    if let Some(rdep_dep) = rdep_dep {
+        format_deps(rdep_dep, cache, &cand, v, &pkg);
+    }
+
+    // Format predep
+    if let Some(rdep_predep) = rdep_predep {
+        format_deps(rdep_predep, cache, &cand, v, &pkg);
+    }
+
+    // Format breaks
+    if let Some(rdep_breaks) = rdep_breaks {
+        format_breaks(rdep_breaks, cache, v, &pkg, &cand, "Breaks");
+    }
+
+    // Format Conflicts
+    if let Some(rdep_conflicts) = rdep_conflicts {
+        format_breaks(rdep_conflicts, cache, v, &pkg, &cand, "Conflicts");
+    }
+}
+
 pub(crate) fn find_unmet_deps(cache: &Cache) -> OmaAptResult<Vec<UnmetDep>> {
     let changes = cache.get_changes(true)?;
-
     let mut v = vec![];
 
-    for c in changes {
-        if let Some(cand) = c.candidate() {
-            let rdep = c.rdepends_map();
-            let rdep_dep = rdep.get(&DepType::Depends);
-            let rdep_predep = rdep.get(&DepType::PreDepends);
-            let rdep_breaks = rdep.get(&DepType::Breaks);
-            let rdep_conflicts = rdep.get(&DepType::Conflicts);
-
-            // Format dep
-            if let Some(rdep_dep) = rdep_dep {
-                format_deps(rdep_dep, cache, &cand, &mut v, &c);
-            }
-
-            // Format predep
-            if let Some(rdep_predep) = rdep_predep {
-                format_deps(rdep_predep, cache, &cand, &mut v, &c);
-            }
-
-            // Format breaks
-            if let Some(rdep_breaks) = rdep_breaks {
-                format_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Breaks");
-            }
-
-            // Format Conflicts
-            if let Some(rdep_conflicts) = rdep_conflicts {
-                format_breaks(rdep_conflicts, cache, &mut v, &c, &cand, "Conflicts");
-            }
+    for pkg in changes {
+        if let Some(cand) = pkg.candidate() {
+            find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
         }
     }
 
@@ -330,7 +313,7 @@ fn format_breaks(
                                         unmet_dependency: WhyUnmet::Breaks {
                                             break_type: typ.to_string(),
                                             dep_name: dep_pkg.name().to_string(),
-                                            comp_ver: dep.comp_ver
+                                            comp_ver: dep.comp_ver,
                                         },
                                         specified_dependency: format!(
                                             "{} {}",
@@ -349,7 +332,7 @@ fn format_breaks(
                                         unmet_dependency: WhyUnmet::Breaks {
                                             break_type: typ.to_string(),
                                             dep_name: dep_pkg.name().to_string(),
-                                            comp_ver: dep.comp_ver
+                                            comp_ver: dep.comp_ver,
                                         },
                                         specified_dependency: format!(
                                             "{} {}",
@@ -368,7 +351,7 @@ fn format_breaks(
                                         unmet_dependency: WhyUnmet::Breaks {
                                             break_type: typ.to_string(),
                                             dep_name: dep_pkg.name().to_string(),
-                                            comp_ver: dep.comp_ver
+                                            comp_ver: dep.comp_ver,
                                         },
                                         specified_dependency: format!(
                                             "{} {}",
@@ -387,7 +370,7 @@ fn format_breaks(
                                         unmet_dependency: WhyUnmet::Breaks {
                                             break_type: typ.to_string(),
                                             dep_name: dep_pkg.name().to_string(),
-                                            comp_ver: dep.comp_ver
+                                            comp_ver: dep.comp_ver,
                                         },
                                         specified_dependency: format!(
                                             "{} {}",
@@ -406,7 +389,7 @@ fn format_breaks(
                                         unmet_dependency: WhyUnmet::Breaks {
                                             break_type: typ.to_string(),
                                             dep_name: dep_pkg.name().to_string(),
-                                            comp_ver: dep.comp_ver
+                                            comp_ver: dep.comp_ver,
                                         },
                                         specified_dependency: format!(
                                             "{} {}",
@@ -425,7 +408,7 @@ fn format_breaks(
                                         unmet_dependency: WhyUnmet::Breaks {
                                             break_type: typ.to_string(),
                                             dep_name: dep_pkg.name().to_string(),
-                                            comp_ver: dep.comp_ver
+                                            comp_ver: dep.comp_ver,
                                         },
                                         specified_dependency: format!(
                                             "{} {}",
