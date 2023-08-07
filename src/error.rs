@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt::Display;
 
+use dialoguer::console::style;
 use oma_console::OmaConsoleError;
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
@@ -156,15 +157,22 @@ impl From<DpkgArchError> for OutputError {
 impl From<OmaContentsError> for OutputError {
     fn from(value: OmaContentsError) -> Self {
         let s = match value {
-            OmaContentsError::ContentsNotExist => todo!(),
-            OmaContentsError::ExecuteRgFailed(_) => todo!(),
-            OmaContentsError::IOError(_) => todo!(),
-            OmaContentsError::RgParseFailed { input, err } => todo!(),
-            OmaContentsError::ContentsEntryMissingPathList(_) => todo!(),
-            OmaContentsError::CnfWrongArgument => todo!(),
-            OmaContentsError::RgWithError => todo!(),
-            OmaContentsError::GrepBuilderError(_) => todo!(),
-            OmaContentsError::NoResult => todo!(),
+            OmaContentsError::ContentsNotExist => fl!(
+                "contents-does-not-exist",
+                cmd = style("oma refresh").green().to_string()
+            ),
+            OmaContentsError::ExecuteRgFailed(e) => fl!("execute-ripgrep-failed", e = e),
+            OmaContentsError::IOError(e) => OutputError::from(e).to_string(),
+            OmaContentsError::RgParseFailed { input, err } => {
+                fl!("parse-rg-result-failed", i = input, e = err)
+            }
+            OmaContentsError::ContentsEntryMissingPathList(e) => {
+                fl!("contents-entry-missing-path-list", entry = e)
+            }
+            OmaContentsError::CnfWrongArgument => value.to_string(),
+            OmaContentsError::RgWithError => fl!("rg-non-zero"),
+            OmaContentsError::GrepBuilderError(e) => e.to_string(),
+            OmaContentsError::NoResult => "".to_string(),
         };
 
         Self(s)
