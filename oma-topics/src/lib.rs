@@ -1,4 +1,4 @@
-use std::{io::Write, path::PathBuf, sync::mpsc::Sender};
+use std::path::PathBuf;
 
 use apt_sources_lists::{SourceLine, SourcesLists};
 use indexmap::IndexMap;
@@ -6,7 +6,7 @@ use oma_console::debug;
 use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use tokio::{runtime::Runtime, task::spawn_blocking};
+use tokio::io::AsyncWriteExt;
 
 static ATM_STATE: Lazy<PathBuf> = Lazy::new(|| {
     let p = PathBuf::from("/var/lib/atm/state");
@@ -115,8 +115,8 @@ impl TryFrom<&str> for TopicManager {
 }
 
 impl TopicManager {
-    pub fn new() -> Result<Self> {
-        let f = std::fs::read_to_string(&*ATM_STATE)?;
+    pub async fn new() -> Result<Self> {
+        let f = tokio::fs::read_to_string(&*ATM_STATE).await?;
 
         Ok(Self {
             enabled: serde_json::from_str(&f).unwrap_or(vec![]),
@@ -124,7 +124,7 @@ impl TopicManager {
         })
     }
 
-    async fn refresh_all_topics(&mut self, client: &Client) -> Result<Vec<Topic>> {
+    async fn refresh(&mut self, client: &Client) -> Result<Vec<Topic>> {
         let urls = enabled_mirror()?
             .iter()
             .map(|x| {
@@ -136,17 +136,16 @@ impl TopicManager {
             })
             .collect::<Vec<_>>();
 
-        let all = refresh_all_topics_innter(client, urls).await?;
+        let all = refresh_innter(client, urls).await?;
 
         self.all = all.clone();
 
         Ok(all)
     }
 
-    pub fn opt_in(
+    pub async fn add(
         &mut self,
         client: &Client,
-        rt: &Runtime,
         topic: &str,
         dry_run: bool,
         arch: &str,
@@ -158,7 +157,7 @@ impl TopicManager {
         }
 
         let all = if self.all.is_empty() {
-            rt.block_on(self.refresh_all_topics(client))?
+            self.refresh(client).await?
         } else {
             self.all.clone()
         };
@@ -190,7 +189,7 @@ impl TopicManager {
         Err(OmaTopicsError::CanNotFindTopic(topic.to_owned()))
     }
 
-    pub fn opt_out(&mut self, topic: &str, dry_run: bool) -> Result<Vec<String>> {
+    pub fn remove(&mut self, topic: &str, dry_run: bool) -> Result<Vec<String>> {
         let index = self
             .enabled
             .iter()
@@ -210,22 +209,19 @@ impl TopicManager {
         Err(OmaTopicsError::FailedToEnableTopic(topic.to_string()))
     }
 
-    pub fn write_enabled(&self, event: Option<Sender<TopicsEvent>>, dry_run: bool) -> Result<()> {
-        if let Some(event) = event {
-            event.send(TopicsEvent::Info("saving-topic-settings".to_string()))?;
-        }
-
+    pub async fn write_enabled(&self, dry_run: bool) -> Result<()> {
         if dry_run {
             return Ok(());
         }
 
-        let mut f = std::fs::File::create("/etc/apt/sources.list.d/atm.list")?;
+        let mut f = tokio::fs::File::create("/etc/apt/sources.list.d/atm.list").await?;
         let mirrors = enabled_mirror()?;
 
         // f.write_all(format!("{}\n", fl!("do-not-edit-topic-sources-list")).as_bytes())?;
 
         for i in &self.enabled {
-            f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())?;
+            f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())
+                .await?;
             for j in &mirrors {
                 f.write_all(
                     format!(
@@ -238,19 +234,20 @@ impl TopicManager {
                         i.name
                     )
                     .as_bytes(),
-                )?;
+                )
+                .await?;
             }
         }
 
         let s = serde_json::to_vec(&self.enabled)?;
 
-        std::fs::write(&*ATM_STATE, s)?;
+        tokio::fs::write(&*ATM_STATE, s).await?;
 
         Ok(())
     }
 }
 
-async fn refresh_all_topics_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>> {
+async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>> {
     let mut json = vec![];
 
     let mut tasks = vec![];
@@ -282,8 +279,8 @@ async fn refresh_all_topics_innter(client: &Client, urls: Vec<String>) -> Result
     Ok(json)
 }
 
-pub fn list(tm: &mut TopicManager, client: &Client, rt: &Runtime) -> Result<Vec<String>> {
-    let all = rt.block_on(tm.refresh_all_topics(client))?;
+pub async fn list(tm: &mut TopicManager, client: &Client) -> Result<Vec<String>> {
+    let all = tm.refresh(client).await?;
 
     let ft = all
         .iter()
@@ -299,10 +296,7 @@ pub fn list(tm: &mut TopicManager, client: &Client, rt: &Runtime) -> Result<Vec<
     Ok(ft)
 }
 
-pub async fn scan_closed_topic(
-    client: &Client,
-    event: Option<Sender<TopicsEvent>>,
-) -> Result<Vec<String>> {
+pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
     let mut atm_sources = vec![];
     let s = SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter())?;
 
@@ -314,9 +308,9 @@ pub async fn scan_closed_topic(
         }
     }
 
-    let mut tm = spawn_blocking(TopicManager::new).await??;
+    let mut tm = TopicManager::new().await?;
 
-    let all = tm.refresh_all_topics(client).await?;
+    let all = tm.refresh(client).await?;
 
     let mut res = vec![];
 
@@ -324,10 +318,8 @@ pub async fn scan_closed_topic(
         let suite = i.suite;
         let suite_clone = suite.clone();
 
-        let ec = event.clone();
-
         if all.iter().all(|x| x.name != suite) {
-            spawn_blocking(move || rm_topic(&suite, false, ec.clone())).await??;
+            rm_topic(&suite, false).await?;
         }
 
         res.push(suite_clone);
@@ -336,12 +328,12 @@ pub async fn scan_closed_topic(
     Ok(res)
 }
 
-pub fn rm_topic(name: &str, dry_run: bool, event: Option<Sender<TopicsEvent>>) -> Result<()> {
+pub async fn rm_topic(name: &str, dry_run: bool) -> Result<()> {
     if dry_run {
         return Ok(());
     }
 
-    let mut tm = TopicManager::new()?;
+    let mut tm = TopicManager::new().await?;
     let mut enabled = tm.enabled;
 
     let index = enabled
@@ -349,17 +341,11 @@ pub fn rm_topic(name: &str, dry_run: bool, event: Option<Sender<TopicsEvent>>) -
         .position(|x| x.name == name)
         .ok_or_else(|| OmaTopicsError::CanNotFindTopic(name.to_string()))?;
 
-    let ec = event.clone();
-
-    if let Some(event) = event {
-        event.send(TopicsEvent::Info("removing-topic".to_string()))?;
-    }
-
     enabled.remove(index);
 
     tm.enabled = enabled;
 
-    tm.write_enabled(ec, dry_run)?;
+    tm.write_enabled(dry_run).await?;
 
     Ok(())
 }

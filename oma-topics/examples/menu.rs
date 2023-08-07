@@ -3,21 +3,18 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::info;
+
 use oma_topics::Result;
 use oma_topics::{list, TopicManager};
 
-fn main() -> Result<()> {
-    let mut tm = TopicManager::new()?;
+#[tokio::main]
+async fn main() -> Result<()> {
+    let mut tm = TopicManager::new().await?;
     let mut opt_in = vec![];
     let mut opt_out = vec![];
     let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .expect("Can not init tokio runtime!");
 
-    let display = list(&mut tm, &client, &rt)?;
+    let display = list(&mut tm, &client).await?;
     let all = tm.all.clone();
 
     let enabled_names = tm.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
@@ -72,29 +69,14 @@ fn main() -> Result<()> {
     }
 
     for i in opt_in {
-        tm.opt_in(&client, &rt, &i, false, "amd64")?;
+        tm.add(&client, &i, false, "amd64").await?;
     }
 
     for i in opt_out {
-        tm.opt_out(&i, false)?;
+        tm.remove(&i, false)?;
     }
 
-    let (tx, rx) = std::sync::mpsc::channel();
-
-    let r = std::thread::spawn(move || -> Result<()> {
-        tm.write_enabled(Some(tx), false)?;
-        Ok(())
-    });
-
-    while let Ok(log) = rx.recv() {
-        match log {
-            oma_topics::TopicsEvent::Info(s) => {
-                info!("{}", s);
-            }
-        }
-    }
-
-    r.join().unwrap().unwrap();
+    tm.write_enabled(false).await?;
 
     Ok(())
 }

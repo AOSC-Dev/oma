@@ -217,6 +217,7 @@ can-not-get-file = Failed to open file {$name}: {$e}
 downloading-database = {$file} {$source}
 flushing-data = Flushing data to hard disk …
 io-error = I/O Error: {$e},
+inrelease-syntax-error = "InRelease file {$path} is invalid: {$e}"
 
 # contents
 contents-does-not-exist = Package contents database (Contents) does not exist. Use the {$cmd} command to refresh the contents database.
