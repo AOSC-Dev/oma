@@ -107,15 +107,15 @@ impl From<RefreshError> for OutputError {
                     }
                     VerifyError::Anyhow(e) => e.to_string(),
                 },
-                InReleaseParserError::BadInReleaseData => todo!(),
-                InReleaseParserError::BadInReleaseVaildUntil => todo!(),
+                InReleaseParserError::BadInReleaseData => fl!("can-not-parse-date"),
+                InReleaseParserError::BadInReleaseVaildUntil => fl!("can-not-parse-valid-until"),
                 InReleaseParserError::EarlierSignature(p) => fl!("earlier-signature", filename = p),
                 InReleaseParserError::ExpiredSignature(p) => fl!("expired-signature", filename = p),
-                InReleaseParserError::BadSha256Value(p) => todo!(),
+                InReleaseParserError::BadSha256Value(_) => fl!("inrelease-sha256-empty"),
                 InReleaseParserError::BadChecksumEntry(line) => {
                     fl!("inrelease-checksum-can-not-parse", i = line)
                 }
-                InReleaseParserError::InReleaseSyntaxError(_, _) => todo!(),
+                InReleaseParserError::InReleaseSyntaxError(p, e) => fl!("inrelease-syntax-error", path = p, e = e),
                 InReleaseParserError::UnsupportFileType => {
                     fl!("inrelease-parse-unsupport-file-type")
                 }
