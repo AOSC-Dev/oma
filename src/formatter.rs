@@ -28,7 +28,7 @@ use crate::{
     oma::{Action, InstallRow},
     pager::Pager,
     pkg::OmaDependency,
-    warn, ALLOWCTRLC, DRYRUN,
+    warn, ALLOWCTRLC, DRYRUN, error,
 };
 
 // TODO: Make better structs for pkgAcquire items, workers, owners.
@@ -275,8 +275,8 @@ pub fn find_unmet_deps_with_markinstall(
                     })
                 }
 
-                if let Some(dep_pkg) = dep_pkg {
-                    if dep_pkg.candidate().is_none() {
+                if let Some(c) = dep_pkg {
+                    if c.candidate().is_none() {
                         v.push(UnmetTable {
                             package: style(&d.name).red().bold().to_string(),
                             unmet_dependency: fl!("dep-does-not-exist", name = d.name.as_str()),
@@ -286,6 +286,41 @@ pub fn find_unmet_deps_with_markinstall(
                                 ver.version()
                             ),
                         })
+                    } else {
+                        if let Some(cand) = c.candidate() {
+                            let rdep = c.rdepends_map();
+                            let rdep_dep = rdep.get(&DepType::Depends);
+                            let rdep_predep = rdep.get(&DepType::PreDepends);
+                            let rdep_breaks = rdep.get(&DepType::Breaks);
+                            let rdep_conflicts = rdep.get(&DepType::Conflicts);
+
+                            // Format dep
+                            if let Some(rdep_dep) = rdep_dep {
+                                format_deps(rdep_dep, cache, &cand, &mut v, &c);
+                            }
+
+                            // Format predep
+                            if let Some(rdep_predep) = rdep_predep {
+                                format_deps(rdep_predep, cache, &cand, &mut v, &c);
+                            }
+
+                            // Format breaks
+                            if let Some(rdep_breaks) = rdep_breaks {
+                                format_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Breaks");
+                            }
+
+                            // Format Conflicts
+                            if let Some(rdep_conflicts) = rdep_conflicts {
+                                format_breaks(
+                                    rdep_conflicts,
+                                    cache,
+                                    &mut v,
+                                    &c,
+                                    &cand,
+                                    "Conflicts",
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -305,8 +340,8 @@ pub fn find_unmet_deps_with_markinstall(
                     })
                 }
 
-                if let Some(dep_pkg) = dep_pkg {
-                    if dep_pkg.candidate().is_none() {
+                if let Some(c) = dep_pkg {
+                    if c.candidate().is_none() {
                         v.push(UnmetTable {
                             package: style(&d.name).red().bold().to_string(),
                             unmet_dependency: fl!("dep-does-not-exist", name = d.name.as_str()),
@@ -316,6 +351,41 @@ pub fn find_unmet_deps_with_markinstall(
                                 ver.version()
                             ),
                         })
+                    } else {
+                        if let Some(cand) = c.candidate() {
+                            let rdep = c.rdepends_map();
+                            let rdep_dep = rdep.get(&DepType::Depends);
+                            let rdep_predep = rdep.get(&DepType::PreDepends);
+                            let rdep_breaks = rdep.get(&DepType::Breaks);
+                            let rdep_conflicts = rdep.get(&DepType::Conflicts);
+
+                            // Format dep
+                            if let Some(rdep_dep) = rdep_dep {
+                                format_deps(rdep_dep, cache, &cand, &mut v, &c);
+                            }
+
+                            // Format predep
+                            if let Some(rdep_predep) = rdep_predep {
+                                format_deps(rdep_predep, cache, &cand, &mut v, &c);
+                            }
+
+                            // Format breaks
+                            if let Some(rdep_breaks) = rdep_breaks {
+                                format_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Breaks");
+                            }
+
+                            // Format Conflicts
+                            if let Some(rdep_conflicts) = rdep_conflicts {
+                                format_breaks(
+                                    rdep_conflicts,
+                                    cache,
+                                    &mut v,
+                                    &c,
+                                    &cand,
+                                    "Conflicts",
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -352,7 +422,7 @@ pub fn find_unmet_deps_with_markinstall(
             pager.wait_for_exit().ok();
         } else {
             for i in &v {
-                warn!(
+                error!(
                     "Pkg {} {}",
                     i.specified_dependency,
                     i.unmet_dependency.to_ascii_lowercase()
