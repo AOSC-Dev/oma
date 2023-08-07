@@ -135,6 +135,8 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::TemplateError(e) => e.to_string(),
             RefreshError::DownloadEntryBuilderError(e) => e.to_string(),
+            RefreshError::ChecksumError(e) => oma_checksum_error(e),
+            RefreshError::IOError(_) => todo!(),
         };
 
         Self(s)
