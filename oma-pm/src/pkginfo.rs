@@ -200,7 +200,7 @@ impl PkgInfo {
 
         let raw_pkg = pkg.unique();
 
-        let arch = pkg.arch();
+        let arch = version.arch();
 
         Self {
             section,
