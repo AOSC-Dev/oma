@@ -3,4 +3,4 @@ pub mod decompress;
 pub mod inrelease;
 mod lang;
 mod util;
-mod verify;
+pub mod verify;

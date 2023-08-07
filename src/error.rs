@@ -11,6 +11,7 @@ use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::decompress::DecompressError;
 use oma_refresh::inrelease::InReleaseParserError;
+use oma_refresh::verify::VerifyError;
 use oma_utils::DpkgArchError;
 
 use crate::fl;
@@ -89,25 +90,45 @@ impl From<RefreshError> for OutputError {
             RefreshError::TopicsError(e) => todo!(),
             RefreshError::NoInReleaseFile(s) => fl!("not-found", url = s),
             RefreshError::InReleaseParserError(e) => match e {
-                InReleaseParserError::FailedToOpenInRelease(_, _) => todo!(),
-                InReleaseParserError::VerifyError(_) => todo!(),
+                InReleaseParserError::FailedToOpenInRelease(p, e) => {
+                    fl!("can-nnot-read-inrelease-file", path = p, e = e)
+                }
+                InReleaseParserError::VerifyError(e) => match e {
+                    VerifyError::CertParseFileError(p) => {
+                        fl!("fail-load-certs-from-file", path = p)
+                    }
+                    VerifyError::BadCertFile(p) => {
+                        fl!("cert-file-is-bad", path = p)
+                    }
+                    VerifyError::TrustedDirNotExist => e.to_string(),
+                    VerifyError::IOError(e) => {
+                        fl!("io-error", e = e.to_string())
+                    }
+                    VerifyError::Anyhow(e) => e.to_string(),
+                },
                 InReleaseParserError::BadInReleaseData => todo!(),
                 InReleaseParserError::BadInReleaseVaildUntil => todo!(),
-                InReleaseParserError::EarlierSignature => todo!(),
-                InReleaseParserError::ExpiredSignature => todo!(),
-                InReleaseParserError::BadSha256Value => todo!(),
-                InReleaseParserError::BadChecksumEntry(_) => todo!(),
+                InReleaseParserError::EarlierSignature(p) => fl!("earlier-signature", filename = p),
+                InReleaseParserError::ExpiredSignature(p) => fl!("expired-signature", filename = p),
+                InReleaseParserError::BadSha256Value(p) => todo!(),
+                InReleaseParserError::BadChecksumEntry(line) => {
+                    fl!("inrelease-checksum-can-not-parse", i = line)
+                }
                 InReleaseParserError::InReleaseSyntaxError(_, _) => todo!(),
-                InReleaseParserError::UnsupportFileType => todo!(),
-                InReleaseParserError::SizeShouldIsNumber(_) => todo!(),
+                InReleaseParserError::UnsupportFileType => {
+                    fl!("inrelease-parse-unsupport-file-type")
+                }
+                InReleaseParserError::SizeShouldIsNumber(e) => e.to_string(),
             },
             RefreshError::DpkgArchError(e) => OutputError::from(e).to_string(),
-            RefreshError::JoinError(_) => todo!(),
+            RefreshError::JoinError(e) => e.to_string(),
             RefreshError::DecompressError(e) => match e {
-                DecompressError::IOError(_) => todo!(),
-                DecompressError::UnsupportedFileType => todo!(),
-                DecompressError::TemplateError(_) => todo!(),
-                DecompressError::FileNameError => todo!(),
+                DecompressError::IOError(e) => fl!("io-error", e = e.to_string()),
+                DecompressError::UnsupportedFileType(p) => {
+                    fl!("unsupport-decompress-file", name = p)
+                }
+                DecompressError::TemplateError(e) => e.to_string(),
+                DecompressError::FileNameError => e.to_string(),
             },
             RefreshError::TemplateError(e) => e.to_string(),
         };

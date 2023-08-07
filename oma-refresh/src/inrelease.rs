@@ -38,17 +38,17 @@ pub enum InReleaseParserError {
     BadInReleaseData,
     #[error("Bad vaild until")]
     BadInReleaseVaildUntil,
-    #[error("Earlier signature")]
-    EarlierSignature,
-    #[error("Expired signature")]
-    ExpiredSignature,
-    #[error("Bad SHA256 value")]
-    BadSha256Value,
+    #[error("Earlier signature: {0}")]
+    EarlierSignature(String),
+    #[error("Expired signature: {0}")]
+    ExpiredSignature(String),
+    #[error("Bad SHA256 value: {0}")]
+    BadSha256Value(String),
     #[error("Bad checksum entry: {0}")]
     BadChecksumEntry(String),
     #[error("Bad InRelease {0}: {1}")]
     InReleaseSyntaxError(String, String),
-    #[error("Unsupport file type")]
+    #[error("Unsupport file type in path")]
     UnsupportFileType,
     #[error("Size should is number: {0}")]
     SizeShouldIsNumber(String),
@@ -96,17 +96,21 @@ impl InReleaseParser {
         let now = OffsetDateTime::now_utc();
 
         if now < date {
-            return Err(InReleaseParserError::EarlierSignature);
+            return Err(InReleaseParserError::EarlierSignature(
+                p.display().to_string(),
+            ));
         }
 
         if now > valid_until {
-            return Err(InReleaseParserError::ExpiredSignature);
+            return Err(InReleaseParserError::ExpiredSignature(
+                p.display().to_string(),
+            ));
         }
 
         let sha256 = source_first
             .and_then(|x| x.get("SHA256"))
             .take()
-            .ok_or_else(|| InReleaseParserError::BadSha256Value)?;
+            .ok_or_else(|| InReleaseParserError::BadSha256Value(p.display().to_string()))?;
 
         let mut checksums = sha256.split('\n');
 
@@ -141,20 +145,16 @@ impl InReleaseParser {
         let c = if c.is_empty() { c_res_clone } else { c };
 
         for i in c {
-            let t = if i.0.contains("BinContents") {
-                DistFileType::BinaryContents
-            } else if i.0.contains("/Contents-") && i.0.contains('.') {
-                DistFileType::CompressContents
-            } else if i.0.contains("/Contents-") && !i.0.contains('.') {
-                DistFileType::Contents
-            } else if i.0.contains("Packages") && !i.0.contains('.') {
-                DistFileType::PackageList
-            } else if i.0.contains("Packages") && i.0.contains('.') {
-                DistFileType::CompressPackageList
-            } else if i.0.contains("Release") {
-                DistFileType::Release
-            } else {
-                return Err(InReleaseParserError::UnsupportFileType);
+            let t = match i.0 {
+                x if x.contains("BinContents") => DistFileType::BinaryContents,
+                x if x.contains("/Contents-") && x.contains('.') => DistFileType::CompressContents,
+                x if x.contains("/Contents-") && !x.contains('.') => DistFileType::Contents,
+                x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
+                x if x.contains("Packages") && x.contains('.') => DistFileType::CompressPackageList,
+                x if x.contains("Release") => DistFileType::Release,
+                _ => {
+                    return Err(InReleaseParserError::UnsupportFileType);
+                }
             };
 
             res.push(ChecksumItem {
