@@ -192,8 +192,8 @@ host-str-err = 无法探测指定镜像源的主机名。
 can-nnot-read-inrelease-file = 无法解析位于 {$path} 的 InRelease 文件：{$e}。
 inrelease-date-empty = InRelease 文件无效：Date 值为空。
 inrelease-valid-until-empty = InRelease 文件无效：Valid-Until 值为空。
-can-not-parse-date = BUG：无法将 Date 值 {$date} 转换为 RFC2822 格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
-can-not-parse-valid-until = BUG：无法将 Valid-Until 值 {$valid_until} 转换为 RFC2822 格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
+can-not-parse-date = BUG：无法将 Date 值转换为 RFC2822 格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
+can-not-parse-valid-until = BUG：无法将 Valid-Until 值转换为 RFC2822 格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 earlier-signature = InRelease 文件 {$filename} 无效：系统时间早于内联签名时间戳。
 expired-signature = InRelease 文件 {$filename} 无效：内联签名已过期。
 inrelease-sha256-empty = InRelease 文件无效：SHA256 值为空。
@@ -212,6 +212,7 @@ bincontents = `BinContents'
 decompressing = 正在解压
 unsupport-decompress-file = BUG：Omakase 不支持文件 {$name} 所使用的压缩方式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 downloading-database = {$source} {$file}
+inrelease-syntax-error = 位于 {$path} 的 InRelease 文件解析失败：{$e}
 
 # contents
 contents-does-not-exist = 找不到软件包内容数据库文件 (Contents)，请使用 {$cmd} 命令刷新该数据库。

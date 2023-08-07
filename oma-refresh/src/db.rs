@@ -9,7 +9,6 @@ use futures::StreamExt;
 use oma_console::{
     debug,
     indicatif::{style::TemplateError, MultiProgress, ProgressBar},
-    info,
 };
 use oma_fetch::{
     DownloadEntry, DownloadError, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
@@ -92,7 +91,9 @@ pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
     // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
     if let Ok(mirror_map_f) = tokio::fs::read(&*MIRROR).await {
         let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&mirror_map_f)
-            .map_err(|e| RefreshError::ParseDistroRepoDataError(MIRROR.display().to_string(), e.to_string()))?;
+            .map_err(|e| {
+                RefreshError::ParseDistroRepoDataError(MIRROR.display().to_string(), e.to_string())
+            })?;
 
         for (k, v) in mirror_map.iter() {
             let mirror_url =
@@ -339,18 +340,8 @@ async fn update_db(
                 Err(e) => match e {
                     DownloadError::NotFound(url) => {
                         let client = ClientBuilder::new().user_agent("oma").build()?;
-                        let (tx, rx) = std::sync::mpsc::channel();
 
-                        let event_worker = tokio::task::spawn_blocking(move || {
-                            while let Ok(v) = rx.recv() {
-                                info!("{:?}", v);
-                            }
-                        });
-
-                        let removed_suites =
-                            oma_topics::scan_closed_topic(&client, Some(tx)).await?;
-
-                        event_worker.await?;
+                        let removed_suites = oma_topics::scan_closed_topic(&client).await?;
 
                         debug!("Removed topics: {removed_suites:?}");
 
