@@ -384,7 +384,7 @@ impl Oma {
                 style(pkg.name()).green().bold(),
                 mirrors.join(","),
                 ver.version(),
-                pkg.arch(),
+                ver.arch(),
                 status
             )?;
 
