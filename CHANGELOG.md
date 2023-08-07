@@ -5,7 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.4 (2023-08-07)
+
+### Chore
+
+ - <csr-id-55850342b0afc75d348415fe298f68bad4052f2e/> Update all deps
+
+### Bug Fixes
+
+ - <csr-id-c21d4d3589c239d57540bed92ead85d39e735c2f/> Use version.arch() replaced pkg.arch() to get package arch
+
+### Refactor
+
+ - <csr-id-835308b6b2a8e577c561542cc0a8f84ee75ebe79/> Lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update all deps ([`5585034`](https://github.com/AOSC-Dev/oma/commit/55850342b0afc75d348415fe298f68bad4052f2e))
+    - Use version.arch() replaced pkg.arch() to get package arch ([`c21d4d3`](https://github.com/AOSC-Dev/oma/commit/c21d4d3589c239d57540bed92ead85d39e735c2f))
+    - Lint code ([`835308b`](https://github.com/AOSC-Dev/oma/commit/835308b6b2a8e577c561542cc0a8f84ee75ebe79))
+</details>
+
 ## v1.0.3 (2023-08-06)
+
+<csr-id-4161276d1284e3b889a454adecb18009f9ef7787/>
 
 ### Chore
 
@@ -19,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -30,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v1.0.3 ([`3f43d89`](https://github.com/AOSC-Dev/oma/commit/3f43d89e72d9ebe125f5d16f93e8cffaae84c42e))
     - Update all deps ([`4161276`](https://github.com/AOSC-Dev/oma/commit/4161276d1284e3b889a454adecb18009f9ef7787))
     - Fix glob in oma remove ([`dff82f3`](https://github.com/AOSC-Dev/oma/commit/dff82f330387df88be32b8f134bf73dca9dbcf97))
 </details>
