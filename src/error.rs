@@ -115,7 +115,9 @@ impl From<RefreshError> for OutputError {
                 InReleaseParserError::BadChecksumEntry(line) => {
                     fl!("inrelease-checksum-can-not-parse", i = line)
                 }
-                InReleaseParserError::InReleaseSyntaxError(p, e) => fl!("inrelease-syntax-error", path = p, e = e),
+                InReleaseParserError::InReleaseSyntaxError(p, e) => {
+                    fl!("inrelease-syntax-error", path = p, e = e)
+                }
                 InReleaseParserError::UnsupportFileType => {
                     fl!("inrelease-parse-unsupport-file-type")
                 }
@@ -132,6 +134,7 @@ impl From<RefreshError> for OutputError {
                 DecompressError::FileNameError => e.to_string(),
             },
             RefreshError::TemplateError(e) => e.to_string(),
+            RefreshError::DownloadEntryBuilderError(e) => e.to_string(),
         };
 
         Self(s)
@@ -210,6 +213,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 n = need.to_string()
             )
         }
+        OmaAptError::DownloadEntryBuilderError(e) => e.to_string(),
     };
 
     OutputError(err)
@@ -231,6 +235,7 @@ fn oma_download_error(e: DownloadError) -> String {
         DownloadError::DownloadAllFailed(s, e) => {
             fl!("can-not-get-file", name = s, e = e)
         }
+        DownloadError::DownloadSourceBuilderError(e) => e.to_string(),
     }
 }
 
