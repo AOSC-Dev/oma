@@ -13,7 +13,8 @@ use oma_console::{
     info, warn,
 };
 use oma_fetch::{
-    DownloadEntry, DownloadError, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
+    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadSource,
+    DownloadSourceType, OmaFetcher, Summary,
 };
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
@@ -81,6 +82,8 @@ pub enum OmaAptError {
     DpkgFailedConfigure(String),
     #[error("Insufficient disk space: need: {0}, available: {1}")]
     DiskSpaceInsufficient(HumanBytes, HumanBytes),
+    #[error(transparent)]
+    DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
 }
 
 #[derive(Default, Builder)]
@@ -489,19 +492,22 @@ impl OmaApt {
                 .take()
                 .ok_or_else(|| OmaAptError::InvalidFileName(entry.name().to_string()))?;
 
-            let download_entry = DownloadEntry::new(
-                sources,
-                apt_style_filename(filename, entry.new_version().to_string())?,
-                download_dir.to_path_buf(),
-                Some(entry.checksum().to_owned()),
-                true,
-                Some(format!(
+            let download_entry = DownloadEntryBuilder::default()
+                .source(sources)
+                .filename(apt_style_filename(
+                    filename,
+                    entry.new_version().to_string(),
+                )?)
+                .dir(download_dir.to_path_buf())
+                .hash(entry.checksum().to_string())
+                .allow_resume(true)
+                .msg(format!(
                     "{} {} ({})",
                     entry.name(),
                     entry.new_version(),
                     entry.arch()
-                )),
-            );
+                ))
+                .build()?;
 
             total_size += entry.download_size();
 

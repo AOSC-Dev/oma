@@ -11,7 +11,8 @@ use oma_console::{
     indicatif::{style::TemplateError, MultiProgress, ProgressBar},
 };
 use oma_fetch::{
-    DownloadEntry, DownloadError, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
+    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadResult, DownloadSource,
+    DownloadSourceType, OmaFetcher,
 };
 use once_cell::sync::Lazy;
 use reqwest::ClientBuilder;
@@ -70,6 +71,8 @@ pub enum RefreshError {
     DecompressError(#[from] crate::decompress::DecompressError),
     #[error(transparent)]
     TemplateError(#[from] TemplateError),
+    #[error(transparent)]
+    DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -290,33 +293,35 @@ async fn update_db(
         let msg = get_url_short_and_branch(&source_entry.inrelease_path).await?;
         match source_entry.from {
             OmaSourceEntryFrom::Http => {
-                let task = DownloadEntry::new(
-                    vec![DownloadSource::new(
-                        source_entry.inrelease_path.clone(),
-                        DownloadSourceType::Http,
-                    )],
-                    database_filename(&source_entry.inrelease_path),
-                    download_dir.clone(),
-                    None,
-                    false,
-                    Some(format!("{msg} InRelease")),
-                );
+                let sources = vec![DownloadSource::new(
+                    source_entry.inrelease_path.clone(),
+                    DownloadSourceType::Http,
+                )];
+
+                let task = DownloadEntryBuilder::default()
+                    .source(sources)
+                    .filename(database_filename(&source_entry.inrelease_path))
+                    .dir(download_dir.clone())
+                    .allow_resume(false)
+                    .msg(format!("{msg} InRelease"))
+                    .build()?;
 
                 debug!("oma will fetch {} InRelease", source_entry.url);
                 tasks.push(task);
             }
             OmaSourceEntryFrom::Local => {
-                let task = DownloadEntry::new(
-                    vec![DownloadSource::new(
-                        source_entry.inrelease_path.clone(),
-                        DownloadSourceType::Local,
-                    )],
-                    database_filename(&source_entry.inrelease_path),
-                    download_dir.clone(),
-                    None,
-                    false,
-                    Some(msg),
-                );
+                let sources = vec![DownloadSource::new(
+                    source_entry.inrelease_path.clone(),
+                    DownloadSourceType::Local,
+                )];
+
+                let task = DownloadEntryBuilder::default()
+                    .source(sources)
+                    .filename(database_filename(&source_entry.inrelease_path))
+                    .dir(download_dir.clone())
+                    .allow_resume(false)
+                    .msg(format!("{msg} InRelease"))
+                    .build()?;
 
                 debug!("oma will fetch {} InRelease", source_entry.url);
                 tasks.push(task);
@@ -469,17 +474,19 @@ async fn update_db(
 
                     let file_path = format!("{}/{}", dist_url, c.name);
 
-                    let task = DownloadEntry::new(
-                        vec![DownloadSource::new(
-                            file_path.clone(),
-                            DownloadSourceType::Http,
-                        )],
-                        database_filename(&file_path),
-                        download_dir.clone(),
-                        Some(c.checksum.clone()),
-                        false,
-                        Some(format!("{msg} {typ}")),
-                    );
+                    let sources = vec![DownloadSource::new(
+                        file_path.clone(),
+                        DownloadSourceType::Http,
+                    )];
+
+                    let task = DownloadEntryBuilder::default()
+                        .source(sources)
+                        .filename(database_filename(&file_path))
+                        .dir(download_dir.clone())
+                        .hash(c.checksum.clone())
+                        .allow_resume(false)
+                        .msg(format!("{msg} {typ}"))
+                        .build()?;
 
                     debug!("oma will download http source database: {file_path}");
 
@@ -494,14 +501,16 @@ async fn update_db(
 
                     debug!("oma will download local source database: {p} {}", c.name);
 
-                    let task = DownloadEntry::new(
-                        vec![DownloadSource::new(p.clone(), DownloadSourceType::Local)],
-                        database_filename(&p),
-                        download_dir.clone(),
-                        Some(c.checksum.clone()),
-                        false,
-                        Some(format!("{msg} {typ}")),
-                    );
+                    let sources = vec![DownloadSource::new(p.clone(), DownloadSourceType::Local)];
+
+                    let task = DownloadEntryBuilder::default()
+                        .source(sources)
+                        .filename(database_filename(&p))
+                        .dir(download_dir.clone())
+                        .hash(c.checksum.clone())
+                        .allow_resume(false)
+                        .msg(format!("{msg} {typ}"))
+                        .build()?;
 
                     tasks.push(task);
                 }
