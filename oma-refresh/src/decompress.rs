@@ -15,8 +15,8 @@ pub type DecompressResult<T> = std::result::Result<T, DecompressError>;
 pub enum DecompressError {
     #[error(transparent)]
     IOError(#[from] std::io::Error),
-    #[error("Unsupport file type")]
-    UnsupportedFileType,
+    #[error("Unsupport file type: {0}")]
+    UnsupportedFileType(String),
     #[error(transparent)]
     TemplateError(#[from] TemplateError),
     #[error("Failed to get file name")]
@@ -120,7 +120,9 @@ fn decompress(
             if let Some(pb) = pb {
                 pb.finish_and_clear();
             }
-            return Err(DecompressError::UnsupportedFileType);
+            return Err(DecompressError::UnsupportedFileType(
+                compress_file.display().to_string(),
+            ));
         }
     };
 

@@ -18,7 +18,7 @@ pub struct InReleaseVerifier {
 
 #[derive(Debug, thiserror::Error)]
 pub enum VerifyError {
-    #[error("Can't parse certificate: {0}")]
+    #[error("Can't parse certificate {0}")]
     CertParseFileError(String),
     #[error("Cert file is bad: {0}")]
     BadCertFile(String),
