@@ -114,11 +114,11 @@ where
             if i.file_name()
                 .to_str()
                 .unwrap_or("")
-                .ends_with(&format!("Contents-{arch}"))
+                .contains(&format!("Contents-{arch}"))
                 || i.file_name()
                     .to_str()
                     .unwrap_or("")
-                    .ends_with("_Contents-all")
+                    .contains("_Contents-all")
             {
                 paths.push(i.path());
             }
@@ -126,11 +126,11 @@ where
             .file_name()
             .to_str()
             .unwrap_or("")
-            .ends_with(&format!("_BinContents-{arch}"))
+            .contains(&format!("_BinContents-{arch}"))
             || i.file_name()
                 .to_str()
                 .unwrap_or("")
-                .ends_with("_BinContents-all")
+                .contains("_BinContents-all")
         {
             paths.push(i.path());
         }
@@ -167,6 +167,7 @@ where
             .arg("-e")
             .arg(pattern)
             .args(&paths)
+            .arg("--search-zip")
             .stdout(Stdio::piped())
             .spawn()
             .map_err(|e| OmaContentsError::ExecuteRgFailed(e.to_string()))?;
