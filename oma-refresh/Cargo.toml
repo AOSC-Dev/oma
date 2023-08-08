@@ -19,7 +19,7 @@ debcontrol = { git = "https://github.com/AOSC-Dev/debcontrol-rs/", rev = "e92376
 sequoia-openpgp = "1.13"
 anyhow = "1.0"
 time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
-oma-topics = { path = "../oma-topics" }
+oma-topics = { path = "../oma-topics", optional = true }
 reqwest = "0.11"
 oma-utils = { path = "../oma-utils" }
 oma-console = { path = "../oma-console" }
@@ -27,3 +27,7 @@ nix = "0.26"
 i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"] }
 i18n-embed-fl = "0.6"
 rust-embed = "6.2"
+
+[features]
+aosc = ["oma-topics"]
+default = ["aosc"]

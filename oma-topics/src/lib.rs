@@ -88,11 +88,6 @@ pub struct Topic {
     pub packages: Vec<String>,
 }
 
-#[derive(Clone, Debug)]
-pub enum TopicsEvent {
-    Info(String),
-}
-
 #[derive(Debug)]
 pub struct TopicManager {
     pub enabled: Vec<Topic>,

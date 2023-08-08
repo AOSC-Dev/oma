@@ -927,7 +927,7 @@ version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2eeb4ed9e12f43b7fa0baae3f9cdda28352770132ef2e09a23760c29cae8bd47"
 dependencies = [
- "rustix 0.38.7",
+ "rustix 0.38.8",
  "windows-sys 0.48.0",
 ]
 
@@ -1431,21 +1431,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "inquire"
-version = "0.6.1"
-source = "git+https://github.com/AOSC-Dev/inquire?rev=3230e6daefb71e335764d901d1c6d3a5e706312e#3230e6daefb71e335764d901d1c6d3a5e706312e"
-dependencies = [
- "bitflags 2.4.0",
- "crossterm",
- "dyn-clone",
- "lazy_static",
- "newline-converter",
- "thiserror",
- "unicode-segmentation",
- "unicode-width",
-]
-
-[[package]]
 name = "instant"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1906,6 +1891,7 @@ dependencies = [
  "oma-console",
  "oma-contents",
  "oma-fetch",
+ "oma-inquire",
  "oma-pm",
  "oma-refresh",
  "oma-topics",
@@ -1962,6 +1948,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-inquire"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0202f85dc9e44d074580a86d619c8d39a9b43b1645faef2de73e203cc046199"
+dependencies = [
+ "bitflags 2.4.0",
+ "crossterm",
+ "dyn-clone",
+ "lazy_static",
+ "newline-converter",
+ "thiserror",
+ "unicode-segmentation",
+ "unicode-width",
+]
+
+[[package]]
 name = "oma-pm"
 version = "0.1.0"
 dependencies = [
@@ -2014,8 +2016,8 @@ dependencies = [
  "apt-sources-lists",
  "futures",
  "indexmap 2.0.0",
- "inquire",
  "oma-console",
+ "oma-inquire",
  "once_cell",
  "reqwest",
  "serde",
