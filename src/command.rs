@@ -577,8 +577,7 @@ pub fn command_not_found(pkg: String) -> Result<i32> {
             }
         }
         Err(e) => {
-            // TODO: match error to translate
-            error!("{e}");
+            error!("{}", OutputError::from(e).to_string());
             error!("{}", fl!("command-not-found", kw = pkg));
         }
     }

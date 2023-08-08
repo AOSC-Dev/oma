@@ -12,6 +12,7 @@ use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseParserError;
 use oma_refresh::verify::VerifyError;
+use oma_topics::OmaTopicsError;
 use oma_utils::DpkgArchError;
 
 use crate::fl;
@@ -87,7 +88,7 @@ impl From<RefreshError> for OutputError {
             RefreshError::UnsupportedProtocol(s) => fl!("unsupport-protocol", url = s),
             RefreshError::FetcherError(e) => oma_download_error(e),
             RefreshError::ReqwestError(e) => e.to_string(),
-            RefreshError::TopicsError(_e) => todo!(),
+            RefreshError::TopicsError(e) => oma_topics_error(e),
             RefreshError::NoInReleaseFile(s) => fl!("not-found", url = s),
             RefreshError::InReleaseParserError(e) => match e {
                 InReleaseParserError::FailedToOpenInRelease(p, e) => {
@@ -127,10 +128,25 @@ impl From<RefreshError> for OutputError {
             RefreshError::TemplateError(e) => e.to_string(),
             RefreshError::DownloadEntryBuilderError(e) => e.to_string(),
             RefreshError::ChecksumError(e) => oma_checksum_error(e),
-            RefreshError::IOError(_) => todo!(),
+            RefreshError::IOError(e) => OutputError::from(e).to_string(),
         };
 
         Self(s)
+    }
+}
+
+fn oma_topics_error(e: OmaTopicsError) -> String {
+    match e {
+        OmaTopicsError::SerdeError(e) => e.to_string(),
+        OmaTopicsError::IOError(e) => OutputError::from(e).to_string(),
+        OmaTopicsError::CanNotFindTopic(topic) => {
+            fl!("can-not-find-specified-topic", topic = topic)
+        }
+        OmaTopicsError::FailedToEnableTopic(topic) => {
+            fl!("failed-to-enable-following-topics", topic = topic)
+        }
+        OmaTopicsError::ReqwestError(e) => e.to_string(),
+        OmaTopicsError::SoutceListError(e) => e.to_string(),
     }
 }
 

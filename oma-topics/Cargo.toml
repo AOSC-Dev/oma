@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 once_cell = "1.18"
-indexmap = {version = "1.9", features = ["serde-1"] }
+indexmap = {version = "2.0", features = ["serde"] }
 apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists", rev = "0df4611ec7293010551f95659f28f1b1da9cc0c8" }
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
