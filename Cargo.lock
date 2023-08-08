@@ -138,6 +138,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-compression"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62b74f44609f0f91493e3082d3734d98497e094777144380ea4db9f9905dd5b6"
+dependencies = [
+ "flate2",
+ "futures-core",
+ "memchr",
+ "pin-project-lite",
+ "tokio",
+ "xz2",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1953,6 +1967,7 @@ dependencies = [
 name = "oma-fetch"
 version = "0.1.0"
 dependencies = [
+ "async-compression",
  "derive_builder",
  "futures",
  "hex",
