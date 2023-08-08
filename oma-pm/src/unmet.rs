@@ -88,22 +88,22 @@ fn find_unmet_dep_inner(pkg: &Package, cache: &Cache, cand: &Version, v: &mut Ve
 
     // Format dep
     if let Some(rdep_dep) = rdep_dep {
-        format_deps(rdep_dep, cache, &cand, v, &pkg);
+        format_deps(rdep_dep, cache, cand, v, pkg);
     }
 
     // Format predep
     if let Some(rdep_predep) = rdep_predep {
-        format_deps(rdep_predep, cache, &cand, v, &pkg);
+        format_deps(rdep_predep, cache, cand, v, pkg);
     }
 
     // Format breaks
     if let Some(rdep_breaks) = rdep_breaks {
-        format_breaks(rdep_breaks, cache, v, &pkg, &cand, "Breaks");
+        format_breaks(rdep_breaks, cache, v, pkg, cand, "Breaks");
     }
 
     // Format Conflicts
     if let Some(rdep_conflicts) = rdep_conflicts {
-        format_breaks(rdep_conflicts, cache, v, &pkg, &cand, "Conflicts");
+        format_breaks(rdep_conflicts, cache, v, pkg, cand, "Conflicts");
     }
 }
 

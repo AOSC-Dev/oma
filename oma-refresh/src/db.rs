@@ -69,8 +69,6 @@ pub enum RefreshError {
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
     #[error(transparent)]
-    DecompressError(#[from] crate::decompress::DecompressError),
-    #[error(transparent)]
     TemplateError(#[from] TemplateError),
     #[error(transparent)]
     DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),

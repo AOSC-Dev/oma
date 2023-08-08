@@ -10,7 +10,6 @@ use oma_pm::apt::{AptArgsBuilderError, OmaAptArgsBuilderError};
 use oma_pm::search::OmaSearchError;
 use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
 use oma_refresh::db::RefreshError;
-use oma_refresh::decompress::DecompressError;
 use oma_refresh::inrelease::InReleaseParserError;
 use oma_refresh::verify::VerifyError;
 use oma_utils::DpkgArchError;
@@ -88,7 +87,7 @@ impl From<RefreshError> for OutputError {
             RefreshError::UnsupportedProtocol(s) => fl!("unsupport-protocol", url = s),
             RefreshError::FetcherError(e) => oma_download_error(e),
             RefreshError::ReqwestError(e) => e.to_string(),
-            RefreshError::TopicsError(e) => todo!(),
+            RefreshError::TopicsError(_e) => todo!(),
             RefreshError::NoInReleaseFile(s) => fl!("not-found", url = s),
             RefreshError::InReleaseParserError(e) => match e {
                 InReleaseParserError::FailedToOpenInRelease(p, e) => {
@@ -125,14 +124,6 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::DpkgArchError(e) => OutputError::from(e).to_string(),
             RefreshError::JoinError(e) => e.to_string(),
-            RefreshError::DecompressError(e) => match e {
-                DecompressError::IOError(e) => fl!("io-error", e = e.to_string()),
-                DecompressError::UnsupportedFileType(p) => {
-                    fl!("unsupport-decompress-file", name = p)
-                }
-                DecompressError::TemplateError(e) => e.to_string(),
-                DecompressError::FileNameError => e.to_string(),
-            },
             RefreshError::TemplateError(e) => e.to_string(),
             RefreshError::DownloadEntryBuilderError(e) => e.to_string(),
             RefreshError::ChecksumError(e) => oma_checksum_error(e),

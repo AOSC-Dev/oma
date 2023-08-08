@@ -129,7 +129,12 @@ impl Writer {
         Ok((prefix_res, msg_res))
     }
 
-    pub fn writeln_with_pb(&self, pb: &ProgressBar, prefix: &str, msg: &str) -> OmaConsoleResult<()> {
+    pub fn writeln_with_pb(
+        &self,
+        pb: &ProgressBar,
+        prefix: &str,
+        msg: &str,
+    ) -> OmaConsoleResult<()> {
         let (prefix, line_msgs) = self.writeln(prefix, msg, true)?;
 
         for (i, c) in prefix.iter().enumerate() {
