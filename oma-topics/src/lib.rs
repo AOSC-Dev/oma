@@ -63,8 +63,8 @@ struct GenList {
     mirror: IndexMap<String, String>,
 }
 
-fn enabled_mirror() -> Result<Vec<String>> {
-    let s = std::fs::read_to_string(&*APT_GEN_LIST)?;
+async fn enabled_mirror() -> Result<Vec<String>> {
+    let s = tokio::fs::read_to_string(&*APT_GEN_LIST).await?;
     let gen_list: GenList = serde_json::from_str(&s)?;
 
     let urls = gen_list
@@ -121,7 +121,8 @@ impl TopicManager {
     }
 
     async fn refresh(&mut self, client: &Client) -> Result<Vec<Topic>> {
-        let urls = enabled_mirror()?
+        let urls = enabled_mirror()
+            .await?
             .iter()
             .map(|x| {
                 if x.ends_with('/') {
@@ -211,7 +212,7 @@ impl TopicManager {
         }
 
         let mut f = tokio::fs::File::create("/etc/apt/sources.list.d/atm.list").await?;
-        let mirrors = enabled_mirror()?;
+        let mirrors = enabled_mirror().await?;
 
         // f.write_all(format!("{}\n", fl!("do-not-edit-topic-sources-list")).as_bytes())?;
 
