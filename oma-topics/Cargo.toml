@@ -12,11 +12,11 @@ apt-sources-lists = { git = "https://github.com/pop-os/apt-sources-lists", rev =
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.28", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
+tokio = { version = "1.28", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread", "macros"] }
 thiserror = "1.0"
 futures = "0.3"
 oma-console = { path = "../oma-console" }
 
 [dev-dependencies]
-inquire = { git = "https://github.com/AOSC-Dev/inquire", rev = "3230e6daefb71e335764d901d1c6d3a5e706312e" }
+oma-inquire = "0.1"
 oma-console = { path = "../oma-console" }

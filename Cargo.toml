@@ -20,10 +20,11 @@ derive_builder = "0.12"
 oma-utils = { path = "./oma-utils" }
 oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
-oma-refresh = { path = "./oma-refresh" }
+oma-refresh = { path = "./oma-refresh", features = ["aosc"] }
 oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch" }
-oma-topics = { path = "./oma-topics" }
+oma-topics = { path = "./oma-topics", optional = true }
+oma-inquire = "0.1"
 
 # i18n
 i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"]}
@@ -37,7 +38,7 @@ clap_complete = "4.2"
 clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color"] }
 
 [features]
-aosc = []
+aosc = ["oma-topics"]
 default  = ["aosc"]
 
 [workspace]
