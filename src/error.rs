@@ -135,6 +135,18 @@ impl From<RefreshError> for OutputError {
     }
 }
 
+impl From<OmaTopicsError> for OutputError {
+    fn from(value: OmaTopicsError) -> Self {
+        Self(oma_topics_error(value))
+    }
+}
+
+impl From<reqwest::Error> for OutputError {
+    fn from(value: reqwest::Error) -> Self {
+        Self(value.to_string())
+    }
+}
+
 fn oma_topics_error(e: OmaTopicsError) -> String {
     match e {
         OmaTopicsError::SerdeError(e) => e.to_string(),
