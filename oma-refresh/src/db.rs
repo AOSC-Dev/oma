@@ -345,26 +345,31 @@ async fn update_db(
                     debug!("{} fetched", &i.filename);
                     all_inrelease.push(i)
                 }
-                Err(e) => match e {
-                    DownloadError::NotFound(url) => {
-                        let client = ClientBuilder::new().user_agent("oma").build()?;
+                Err(e) => {
+                    #[cfg(feature = "aosc")]
+                    match e {
+                        DownloadError::NotFound(url) => {
+                            let client = ClientBuilder::new().user_agent("oma").build()?;
 
-                        let removed_suites = oma_topics::scan_closed_topic(&client).await?;
+                            let removed_suites = oma_topics::scan_closed_topic(&client).await?;
 
-                        debug!("Removed topics: {removed_suites:?}");
+                            debug!("Removed topics: {removed_suites:?}");
 
-                        let suite = url
-                            .split('/')
-                            .nth_back(1)
-                            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
-                            .to_string();
+                            let suite = url
+                                .split('/')
+                                .nth_back(1)
+                                .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+                                .to_string();
 
-                        if !removed_suites.contains(&suite) {
-                            return Err(RefreshError::NoInReleaseFile(url.to_string()));
+                            if !removed_suites.contains(&suite) {
+                                return Err(RefreshError::NoInReleaseFile(url.to_string()));
+                            }
                         }
+                        _ => return Err(e.into()),
                     }
-                    _ => return Err(e.into()),
-                },
+                    #[cfg(not(feature = "aosc"))]
+                    return Err(e.into());
+                }
             }
         } else {
             let i = inrelease?;
