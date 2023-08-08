@@ -49,6 +49,7 @@ pub struct DownloadEntry {
     allow_resume: bool,
     #[builder(setter(into, strip_option))]
     msg: Option<String>,
+    extract: bool,
 }
 
 #[derive(Debug, Clone)]

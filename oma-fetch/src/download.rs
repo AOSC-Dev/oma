@@ -1,12 +1,13 @@
-use std::io::SeekFrom;
+use std::{io::SeekFrom, path::Path};
 
+use async_compression::tokio::write::{GzipDecoder as WGzipDecoder, XzDecoder as WXzDecoder};
 use indicatif::ProgressBar;
 use oma_console::{debug, error, indicatif, warn, writer::Writer};
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client, StatusCode,
 };
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 
 use crate::{
     checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, DownloadSourceType,
@@ -355,10 +356,19 @@ async fn http_download(
     debug!("oma will seek file: {} to end", entry.filename);
     dest.seek(SeekFrom::End(0)).await?;
 
+    let mut writer: Box<dyn AsyncWrite + Unpin + Send> = match Path::new(&entry.source[position].url)
+        .extension()
+        .and_then(|x| x.to_str())
+    {
+        Some("xz") if entry.extract => Box::new(WXzDecoder::new(&mut dest)),
+        Some("gz") if entry.extract => Box::new(WGzipDecoder::new(&mut dest)),
+        _ => Box::new(&mut dest),
+    };
+
     // 下载！
     debug!("Start download!");
     while let Some(chunk) = source.chunk().await? {
-        dest.write_all(&chunk).await?;
+        writer.write_all(&chunk).await?;
         if let Some(pb) = &pb {
             pb.inc(chunk.len() as u64);
         }
@@ -375,7 +385,7 @@ async fn http_download(
 
     // 下载完成，告诉内核不再写这个文件了
     debug!("Download complete! shutting down dest file stream ...");
-    dest.shutdown().await?;
+    writer.shutdown().await?;
 
     // 最后看看 chekcsum 验证是否通过
     if let Some(v) = validator {

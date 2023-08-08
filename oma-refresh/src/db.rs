@@ -6,10 +6,9 @@ use std::{
 
 use crate::fl;
 use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
-use futures::StreamExt;
 use oma_console::{
     debug,
-    indicatif::{style::TemplateError, MultiProgress, ProgressBar},
+    indicatif::{style::TemplateError, ProgressBar},
 };
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
@@ -23,7 +22,6 @@ use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::{
-    decompress::OmaDecompresser,
     inrelease::{DistFileType, InReleaseParser, InReleaseParserError},
     util::database_filename,
 };
@@ -509,23 +507,41 @@ async fn update_db(
                     let dist_url = if !ose.is_flat {
                         source_index.dist_path.clone()
                     } else {
-                        format!("{}/{}", source_index.dist_path, not_compress_filename)
+                        format!(
+                            "{}/{}",
+                            source_index.dist_path, not_compress_filename_before
+                        )
                     };
 
-                    let file_path = format!("{}/{}", dist_url, c.name);
+                    let file_path = if c.file_type == DistFileType::CompressContents {
+                        format!("{}/{}", dist_url, c.name)
+                    } else {
+                        format!("{}/{}", dist_url, not_compress_filename_before)
+                    };
 
                     let sources = vec![DownloadSource::new(
                         file_path.clone(),
                         DownloadSourceType::Http,
                     )];
 
+                    let checksum = if c.file_type == DistFileType::CompressContents {
+                        &c.checksum
+                    } else {
+                        &checksums
+                            .iter()
+                            .find(|x| x.name == not_compress_filename_before)
+                            .unwrap()
+                            .checksum
+                    };
+
                     let task = DownloadEntryBuilder::default()
                         .source(sources)
                         .filename(database_filename(&file_path))
                         .dir(download_dir.clone())
-                        .hash(c.checksum.clone())
+                        .hash(checksum)
                         .allow_resume(false)
                         .msg(format!("{msg} {typ}"))
+                        .extract(c.file_type != DistFileType::CompressContents)
                         .build()?;
 
                     debug!("oma will download http source database: {file_path}");
@@ -536,20 +552,43 @@ async fn update_db(
                     let p = if !ose.is_flat {
                         source_index.dist_path.clone()
                     } else {
-                        format!("{}/{}", source_index.dist_path, not_compress_filename)
+                        format!(
+                            "{}/{}",
+                            source_index.dist_path, not_compress_filename_before
+                        )
                     };
 
                     debug!("oma will download local source database: {p} {}", c.name);
 
-                    let sources = vec![DownloadSource::new(p.clone(), DownloadSourceType::Local)];
+                    let file_path = if c.file_type == DistFileType::CompressContents {
+                        format!("{}/{}", p, c.name)
+                    } else {
+                        format!("{}/{}", p, not_compress_filename_before)
+                    };
+
+                    let sources = vec![DownloadSource::new(
+                        file_path.clone(),
+                        DownloadSourceType::Local,
+                    )];
+
+                    let checksum = if c.file_type == DistFileType::CompressContents {
+                        &c.checksum
+                    } else {
+                        &checksums
+                            .iter()
+                            .find(|x| x.name == not_compress_filename_before)
+                            .unwrap()
+                            .checksum
+                    };
 
                     let task = DownloadEntryBuilder::default()
                         .source(sources)
-                        .filename(database_filename(&p))
+                        .filename(database_filename(&file_path))
                         .dir(download_dir.clone())
-                        .hash(c.checksum.clone())
+                        .hash(checksum)
                         .allow_resume(false)
                         .msg(format!("{msg} {typ}"))
+                        .extract(c.file_type != DistFileType::CompressContents)
                         .build()?;
 
                     tasks.push(task);
@@ -562,44 +601,12 @@ async fn update_db(
         .start_download()
         .await;
 
-    let res = res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
-
-    // 解压
-    let mut tasks = vec![];
-    let len = res.len();
-    let mb = MultiProgress::new();
-
-    for (i, c) in res.into_iter().enumerate() {
-        // 如果已经写入，说明下载的东西与之前的不一样，代表上游数据库已经刷新了
-        if c.writed {
-            let download_dir = download_dir.clone();
-            let decompresser = OmaDecompresser::new(download_dir.join(c.filename.clone()));
-            let mbc = mb.clone();
-
-            let f = tokio::task::spawn_blocking(move || {
-                decompresser.decompress(
-                    bar,
-                    i,
-                    len,
-                    &download_dir,
-                    c.context.as_ref().unwrap(),
-                    mbc,
-                )
-            });
-            tasks.push(f);
-        }
-    }
-
-    let stream = futures::stream::iter(tasks).buffer_unordered(limit.unwrap_or(4));
-    let res = stream.collect::<Vec<_>>().await;
-    for i in res {
-        i??;
-    }
+    res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
 
     // Fsync
     let pb = if bar {
         let (style, inv) = oma_console::pb::oma_spinner(false)?;
-        let pb = mb.add(ProgressBar::new_spinner().with_style(style));
+        let pb = ProgressBar::new_spinner().with_style(style);
         pb.enable_steady_tick(inv);
         pb.set_message(fl!("flushing-data"));
 
