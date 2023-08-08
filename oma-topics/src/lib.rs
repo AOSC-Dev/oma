@@ -56,10 +56,6 @@ pub enum OmaTopicsError {
     ReqwestError(#[from] reqwest::Error),
     #[error(transparent)]
     SoutceListError(#[from] apt_sources_lists::SourceError),
-    #[error(transparent)]
-    JoinError(#[from] tokio::task::JoinError),
-    #[error(transparent)]
-    SendError(#[from] std::sync::mpsc::SendError<TopicsEvent>),
 }
 
 #[derive(Deserialize)]

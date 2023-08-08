@@ -139,9 +139,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.1"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b74f44609f0f91493e3082d3734d98497e094777144380ea4db9f9905dd5b6"
+checksum = "bb42b2197bf15ccb092b62c74515dbd8b86d0effd934795f6687c93b6e679a2c"
 dependencies = [
  "flate2",
  "futures-core",
@@ -917,7 +917,7 @@ version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2eeb4ed9e12f43b7fa0baae3f9cdda28352770132ef2e09a23760c29cae8bd47"
 dependencies = [
- "rustix 0.38.7",
+ "rustix 0.38.18",
  "windows-sys 0.48.0",
 ]
 
@@ -1393,7 +1393,6 @@ checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown 0.12.3",
- "serde",
 ]
 
 [[package]]
@@ -1404,6 +1403,7 @@ checksum = "8adf3ddd720272c6ea8bf59463c04e0f93d0bbf7c5439b691bca2987e0270897"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.1",
+ "serde",
 ]
 
 [[package]]
@@ -1927,6 +1927,7 @@ dependencies = [
  "oma-fetch",
  "oma-pm",
  "oma-refresh",
+ "oma-topics",
  "oma-utils",
  "once_cell",
  "rust-embed",
@@ -2033,7 +2034,7 @@ version = "0.1.0"
 dependencies = [
  "apt-sources-lists",
  "futures",
- "indexmap 1.9.3",
+ "indexmap 2.0.2",
  "inquire",
  "oma-console",
  "once_cell",
@@ -2861,9 +2862,9 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d38d39c754ae037a9bc3ca1580a985db7371cd14f1229172d1db9093feb6739"
+checksum = "dfe9c3632da101aba5131ed63f9eed38665f8b3c68703a6bb18124835c1a5d22"
 dependencies = [
  "ansi-str",
  "ansitok",
