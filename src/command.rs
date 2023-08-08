@@ -6,6 +6,11 @@ use std::{
 use anyhow::anyhow;
 
 use dialoguer::{console::style, theme::ColorfulTheme, Select};
+use inquire::{
+    formatter::MultiOptionFormatter,
+    ui::{Color, RenderConfig, StyleSheet, Styled},
+    MultiSelect,
+};
 use oma_console::{
     error, indicatif::ProgressBar, info, pb::oma_spinner, success, warn, writer::gen_prefix,
 };
@@ -18,7 +23,9 @@ use oma_pm::{
     PackageStatus,
 };
 use oma_refresh::db::OmaRefresh;
+use oma_topics::TopicManager;
 use oma_utils::dpkg_arch;
+use reqwest::Client;
 
 use crate::{
     error::OutputError,
@@ -694,4 +701,145 @@ pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
     }
 
     Ok(0)
+}
+
+pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
+    let mut opt_in = opt_in;
+    let mut opt_out = opt_out;
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_io()
+        .enable_time()
+        .build()?;
+
+    rt.block_on(async move {
+        let mut tm = TopicManager::new().await?;
+        let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
+
+        if opt_in.is_empty() && opt_out.is_empty() {
+            inquire(&mut tm, &client, &mut opt_in, &mut opt_out).await?;
+        }
+
+        for i in opt_in {
+            tm.add(&client, &i, false, "amd64").await?;
+        }
+
+        let mut downgrade_pkgs = vec![];
+
+        for i in opt_out {
+            downgrade_pkgs.extend(tm.remove(&i, false)?);
+        }
+
+        tm.write_enabled(false).await?;
+
+        refresh(false)?;
+
+        let enabled_pkgs = tm
+            .enabled
+            .iter()
+            .flat_map(|x| &x.packages)
+            .collect::<Vec<_>>();
+
+        let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+        let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+
+        let mut pkgs = vec![];
+
+        for pkg in downgrade_pkgs {
+            let mut f = apt
+                .filter_pkgs(&[FilterMode::Default])?
+                .filter(|x| x.name() == pkg);
+
+            if let Some(pkg) = f.next() {
+                if enabled_pkgs.contains(&&pkg.name().to_string()) {
+                    continue;
+                }
+
+                if pkg.is_installed() {
+                    pkgs.push(format!("{}/stable", pkg.name()))
+                }
+            }
+        }
+
+        let pkgs = apt.select_pkg(pkgs.iter().map(|x| x.as_str()).collect(), false, true)?;
+        apt.install(pkgs, false)?;
+        apt.upgrade()?;
+
+        let op = apt.summary()?;
+        let install = op.install;
+        let remove = op.remove;
+        let disk_size = op.disk_size;
+
+        if check_empty_op(&install, &remove) {
+            return Ok(0);
+        }
+
+        let apt_args = AptArgsBuilder::default().build()?;
+
+        handle_resolve(&apt, false)?;
+        apt.check_disk_size()?;
+        table_for_install_pending(install, remove, disk_size, false, false)?;
+        apt.commit(None, &apt_args)?;
+
+        Ok(0)
+    })
+}
+
+async fn inquire(
+    tm: &mut TopicManager,
+    client: &Client,
+    opt_in: &mut Vec<String>,
+    opt_out: &mut Vec<String>,
+) -> Result<()> {
+    let display = oma_topics::list(tm, client).await?;
+    let all = tm.all.clone();
+    let enabled_names = tm.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
+    let all_names = all.iter().map(|x| &x.name).collect::<Vec<_>>();
+    let mut default = vec![];
+
+    for (i, c) in all_names.iter().enumerate() {
+        if enabled_names.contains(c) {
+            default.push(i);
+        }
+    }
+
+    let formatter: MultiOptionFormatter<&str> = &|a| format!("Activating {} topics", a.len());
+    let render_config = RenderConfig {
+        selected_checkbox: Styled::new("✔").with_fg(Color::LightGreen),
+        help_message: StyleSheet::empty().with_fg(Color::LightBlue),
+        unselected_checkbox: Styled::new(" "),
+        highlighted_option_prefix: Styled::new(""),
+        selected_option: Some(StyleSheet::new().with_fg(Color::DarkCyan)),
+        scroll_down_prefix: Styled::new("▼"),
+        scroll_up_prefix: Styled::new("▲"),
+        ..Default::default()
+    };
+
+    let ans = MultiSelect::new(
+        "Select topics",
+        display.iter().map(|x| x.as_str()).collect(),
+    )
+    .with_help_message(
+        "Press [Space]/[Enter] to toggle selection, [Esc] to apply changes, [Ctrl-c] to abort.",
+    )
+    .with_formatter(formatter)
+    .with_default(&default)
+    .with_page_size(20)
+    .with_render_config(render_config)
+    .prompt()
+    .map_err(|_| anyhow!(""))?;
+
+    for i in &ans {
+        let index = display.iter().position(|x| x == i).unwrap();
+        if !enabled_names.contains(&all_names[index]) {
+            opt_in.push(all_names[index].clone());
+        }
+    }
+
+    for (i, c) in all_names.iter().enumerate() {
+        if enabled_names.contains(c) && !ans.contains(&display[i].as_str()) {
+            opt_out.push(c.to_string());
+        }
+    }
+
+    Ok(())
 }

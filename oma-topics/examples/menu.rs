@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
         display.iter().map(|x| x.as_str()).collect(),
     )
     .with_help_message(
-        "Press [Space]/[Enter] to toggle selection, [q] to apply changes, [Ctrl-c] to abort.",
+        "Press [Space]/[Enter] to toggle selection, [Esc] to apply changes, [Ctrl-c] to abort.",
     )
     .with_formatter(formatter)
     .with_default(&default)

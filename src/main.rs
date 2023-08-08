@@ -257,15 +257,19 @@ fn try_main() -> Result<i32> {
         //     },
         // }),
         #[cfg(feature = "aosc")]
-        Some(("topics", _v)) => todo!(),
-        // OmaCommand::Topics(Topics {
-        //     opt_in: v
-        //         .get_many::<String>("opt_in")
-        //         .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
-        //     opt_out: v
-        //         .get_many::<String>("opt_out")
-        //         .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>()),
-        // }),
+        Some(("topics", args)) => {
+            let opt_in = args
+                .get_many::<String>("opt_in")
+                .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
+                .unwrap_or_default();
+
+            let opt_out = args
+                .get_many::<String>("opt_out")
+                .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
+                .unwrap_or_default();
+
+            command::topics(opt_in, opt_out)?
+        }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.to_owned());
 
