@@ -356,14 +356,15 @@ async fn http_download(
     debug!("oma will seek file: {} to end", entry.filename);
     dest.seek(SeekFrom::End(0)).await?;
 
-    let mut writer: Box<dyn AsyncWrite + Unpin + Send> = match Path::new(&entry.source[position].url)
-        .extension()
-        .and_then(|x| x.to_str())
-    {
-        Some("xz") if entry.extract => Box::new(WXzDecoder::new(&mut dest)),
-        Some("gz") if entry.extract => Box::new(WGzipDecoder::new(&mut dest)),
-        _ => Box::new(&mut dest),
-    };
+    let mut writer: Box<dyn AsyncWrite + Unpin + Send> =
+        match Path::new(&entry.source[position].url)
+            .extension()
+            .and_then(|x| x.to_str())
+        {
+            Some("xz") if entry.extract => Box::new(WXzDecoder::new(&mut dest)),
+            Some("gz") if entry.extract => Box::new(WGzipDecoder::new(&mut dest)),
+            _ => Box::new(&mut dest),
+        };
 
     // 下载！
     debug!("Start download!");

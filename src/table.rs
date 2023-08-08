@@ -167,7 +167,7 @@ pub fn handle_resolve(apt: &OmaApt, no_fixbroken: bool) -> Result<(), OutputErro
                 writeln!(out, "    {}", style(fl!("how-to-abort")).bold()).ok();
                 writeln!(out, "    {}\n\n", style(fl!("how-to-op-with-x")).bold()).ok();
 
-                let v = u.into_iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
+                let v = u.iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
 
                 writeln!(
                     out,

@@ -21,9 +21,10 @@ use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg_arch;
 
 use crate::{
+    error::OutputError,
     fl,
     table::{handle_resolve, oma_display, table_for_install_pending},
-    InstallArgs, RemoveArgs, UpgradeArgs, error::OutputError,
+    InstallArgs, RemoveArgs, UpgradeArgs,
 };
 
 pub type Result<T> = std::result::Result<T, OutputError>;

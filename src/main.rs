@@ -4,9 +4,9 @@ use std::process::exit;
 
 mod args;
 mod command;
+mod error;
 mod lang;
 mod table;
-mod error;
 
 use anyhow::Result;
 
