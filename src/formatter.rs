@@ -686,11 +686,11 @@ fn format_breaks(
                         })
                     }
                 } else if dep_pkg.is_installed() {
-                    if let (Some(comp), Some(break_ver)) = (dep.comp_symbol, dep.ver) {
+                    if let (Some(comp), Some(target_ver)) = (dep.comp_symbol, dep.target_ver) {
                         match comp.as_str() {
                             ">=" => {
                                 // a: breaks b >= 1.0，满足要求的条件是 break_ver > cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&target_ver, cand.version());
                                 if cmp != CmpOrdering::Greater {
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
@@ -709,7 +709,7 @@ fn format_breaks(
                             }
                             ">>" => {
                                 // a: breaks b >> 1.0，满足要求的条件是 break_ver >>= cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&target_ver, cand.version());
                                 if cmp == CmpOrdering::Less {
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
@@ -728,7 +728,7 @@ fn format_breaks(
                             }
                             ">" => {
                                 // a: breaks b > 1.0，满足要求的条件是 break_ver >= cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&target_ver, cand.version());
                                 if cmp == CmpOrdering::Less {
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
@@ -747,7 +747,8 @@ fn format_breaks(
                             }
                             "<=" => {
                                 // a: breaks b <= 1.0，满足要求的条件是 break_ver < cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                
+                                let cmp = cmp_versions(&target_ver, cand.version());
                                 if cmp != CmpOrdering::Less {
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
@@ -766,7 +767,7 @@ fn format_breaks(
                             }
                             "<<" => {
                                 // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&target_ver, cand.version());
                                 if cmp == CmpOrdering::Greater {
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
@@ -785,7 +786,7 @@ fn format_breaks(
                             }
                             "<" => {
                                 // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&target_ver, cand.version());
                                 if cmp == CmpOrdering::Greater {
                                     v.push(UnmetTable {
                                         package: style(dep.name).red().bold().to_string(),
