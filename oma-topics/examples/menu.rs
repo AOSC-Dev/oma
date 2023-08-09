@@ -12,9 +12,8 @@ async fn main() -> Result<()> {
     let mut tm = TopicManager::new().await?;
     let mut opt_in = vec![];
     let mut opt_out = vec![];
-    let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
 
-    let display = list(&mut tm, &client).await?;
+    let display = list(&mut tm).await?;
     let all = tm.all.clone();
 
     let enabled_names = tm.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
@@ -69,7 +68,7 @@ async fn main() -> Result<()> {
     }
 
     for i in opt_in {
-        tm.add(&client, &i, false, "amd64").await?;
+        tm.add(&i, false, "amd64").await?;
     }
 
     for i in opt_out {

@@ -16,7 +16,6 @@ use oma_fetch::{
     DownloadSourceType, OmaFetcher,
 };
 use once_cell::sync::Lazy;
-use reqwest::ClientBuilder;
 use serde::Deserialize;
 use tokio::task::spawn_blocking;
 use url::Url;
@@ -349,9 +348,7 @@ async fn update_db(
                     #[cfg(feature = "aosc")]
                     match e {
                         DownloadError::NotFound(url) => {
-                            let client = ClientBuilder::new().user_agent("oma").build()?;
-
-                            let removed_suites = oma_topics::scan_closed_topic(&client).await?;
+                            let removed_suites = oma_topics::scan_closed_topic().await?;
 
                             debug!("Removed topics: {removed_suites:?}");
 

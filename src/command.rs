@@ -25,7 +25,6 @@ use oma_pm::{
 use oma_refresh::db::OmaRefresh;
 use oma_topics::TopicManager;
 use oma_utils::dpkg_arch;
-use reqwest::Client;
 
 use crate::{
     error::OutputError,
@@ -768,14 +767,13 @@ async fn topics_inner(
     mut opt_out: Vec<String>,
 ) -> Result<(Vec<String>, Vec<String>)> {
     let mut tm = TopicManager::new().await?;
-    let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
-        inquire(&mut tm, &client, &mut opt_in, &mut opt_out).await?;
+        inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
     }
 
     for i in opt_in {
-        tm.add(&client, &i, false, "amd64").await?;
+        tm.add(&i, false, "amd64").await?;
     }
 
     let mut downgrade_pkgs = vec![];
@@ -796,11 +794,10 @@ async fn topics_inner(
 
 async fn inquire(
     tm: &mut TopicManager,
-    client: &Client,
     opt_in: &mut Vec<String>,
     opt_out: &mut Vec<String>,
 ) -> Result<()> {
-    let display = oma_topics::list(tm, client).await?;
+    let display = oma_topics::list(tm).await?;
     let all = tm.all.clone();
     let enabled_names = tm.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
     let all_names = all.iter().map(|x| &x.name).collect::<Vec<_>>();
