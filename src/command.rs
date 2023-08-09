@@ -302,8 +302,7 @@ pub fn command_refresh() -> Result<i32> {
     if s.is_empty() {
         success!("{}", fl!("successfully-refresh"));
     } else {
-        let mut s = s.join(&fl!("comma"));
-        s = s + &fl!("full-comma");
+        let s = s.join(&fl!("comma"));
         success!("{}", fl!("successfully-refresh-with-tips", s = s));
     }
     Ok(0)
