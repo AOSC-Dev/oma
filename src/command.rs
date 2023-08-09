@@ -721,6 +721,8 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
 
     let mut pkgs = vec![];
 
+    let db = OmaDatabase::new(&apt.cache)?;
+
     for pkg in downgrade_pkgs {
         let mut f = apt
             .filter_pkgs(&[FilterMode::Default])?
@@ -732,12 +734,13 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
             }
 
             if pkg.is_installed() {
-                pkgs.push(format!("{}/stable", pkg.name()))
+                let pkginfo = db.candidate(pkg.name())?;
+
+                pkgs.push(pkginfo);
             }
         }
     }
 
-    let pkgs = apt.select_pkg(pkgs.iter().map(|x| x.as_str()).collect(), false, true)?;
     apt.install(pkgs, false)?;
     apt.upgrade()?;
 
