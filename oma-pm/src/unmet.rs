@@ -79,7 +79,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
     v
 }
 
-fn  find_unmet_dep_inner(pkg: &Package, cache: &Cache, cand: &Version, v: &mut Vec<UnmetDep>) {
+fn find_unmet_dep_inner(pkg: &Package, cache: &Cache, cand: &Version, v: &mut Vec<UnmetDep>) {
     let dep = pkg.rdepends_map();
     let rdep_dep = dep.get(&DepType::Depends);
     let rdep_predep = dep.get(&DepType::PreDepends);
@@ -308,7 +308,7 @@ fn format_breaks(
                         match comp.as_str() {
                             ">=" => {
                                 // a: breaks b >= 1.0，满足要求的条件是 break_ver > cand.version
-                                let cmp = cmp_versions(&break_ver, dep_pkg.installed().unwrap().version());
+                                let cmp = cmp_versions(&break_ver, cand.version());
                                 if cmp != Ordering::Greater {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -327,7 +327,7 @@ fn format_breaks(
                             }
                             ">>" => {
                                 // a: breaks b >> 1.0，满足要求的条件是 break_ver >>= cand.version
-                                let cmp = cmp_versions(&break_ver, dep_pkg.installed().unwrap().version());
+                                let cmp = cmp_versions(&break_ver, cand.version());
                                 if cmp == Ordering::Less {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -346,7 +346,7 @@ fn format_breaks(
                             }
                             ">" => {
                                 // a: breaks b > 1.0，满足要求的条件是 break_ver >= cand.version
-                                let cmp = cmp_versions(&break_ver, dep_pkg.installed().unwrap().version());
+                                let cmp = cmp_versions(&break_ver, cand.version());
                                 if cmp == Ordering::Less {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -365,7 +365,7 @@ fn format_breaks(
                             }
                             "<=" => {
                                 // a: breaks b <= 1.0，满足要求的条件是 break_ver < cand.version
-                                let cmp = cmp_versions(&break_ver, dep_pkg.installed().unwrap().version());
+                                let cmp = cmp_versions(&break_ver, cand.version());
                                 if cmp != Ordering::Less {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -384,7 +384,7 @@ fn format_breaks(
                             }
                             "<<" => {
                                 // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
-                                let cmp = cmp_versions(&break_ver, dep_pkg.installed().unwrap().version());
+                                let cmp = cmp_versions(&break_ver, cand.version());
                                 if cmp == Ordering::Greater {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -403,7 +403,7 @@ fn format_breaks(
                             }
                             "<" => {
                                 // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
-                                let cmp = cmp_versions(&break_ver, dep_pkg.installed().unwrap().version());
+                                let cmp = cmp_versions(&break_ver, cand.version());
                                 if cmp == Ordering::Greater {
                                     v.push(UnmetDep {
                                         package: dep.name,
