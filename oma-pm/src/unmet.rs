@@ -80,11 +80,11 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
 }
 
 fn find_unmet_dep_inner(pkg: &Package, cache: &Cache, cand: &Version, v: &mut Vec<UnmetDep>) {
-    let rdep = pkg.rdepends_map();
-    let rdep_dep = rdep.get(&DepType::Depends);
-    let rdep_predep = rdep.get(&DepType::PreDepends);
-    let rdep_breaks = rdep.get(&DepType::Breaks);
-    let rdep_conflicts = rdep.get(&DepType::Conflicts);
+    let dep = pkg.rdepends_map();
+    let rdep_dep = dep.get(&DepType::Depends);
+    let rdep_predep = dep.get(&DepType::PreDepends);
+    let rdep_breaks = dep.get(&DepType::Breaks);
+    let rdep_conflicts = dep.get(&DepType::Conflicts);
 
     // Format dep
     if let Some(rdep_dep) = rdep_dep {
@@ -113,7 +113,9 @@ pub(crate) fn find_unmet_deps(cache: &Cache) -> OmaAptResult<Vec<UnmetDep>> {
 
     for pkg in changes {
         if let Some(cand) = pkg.candidate() {
-            find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
+            if !pkg.marked_delete() && !pkg.marked_purge() {
+                find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
+            }
         }
     }
 
