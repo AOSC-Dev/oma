@@ -22,6 +22,8 @@ pub enum OmaDatabaseError {
     NoPackage(String),
     #[error("Pkg {0} has no version {1}")]
     NoVersion(String, String),
+    #[error("Pkg {0} No candidate")]
+    NoCandidate(String),
     #[error("Can not find path for local package {0}")]
     NoPath(String),
     #[error(transparent)]
@@ -215,6 +217,17 @@ impl<'a> OmaDatabase<'a> {
                 res.push(pkginfo_dbg);
             }
         }
+    }
+
+    pub fn candidate(&self, pkg: &str) -> OmaDatabaseResult<PkgInfo> {
+        if let Some(pkg) = self.cache.get(pkg) {
+            if let Some(cand) = pkg.candidate() {
+                let pkginfo = PkgInfo::new(self.cache, cand.unique(), &pkg);
+                return Ok(pkginfo);
+            }
+        }
+
+        Err(OmaDatabaseError::NoCandidate(pkg.to_string()))
     }
 }
 
