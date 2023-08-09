@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    io::BufReader,
     path::{Path, PathBuf},
 };
 
@@ -11,13 +10,11 @@ use oma_console::{
     indicatif::{style::TemplateError, ProgressBar},
 };
 use oma_fetch::{
-    checksum::{Checksum, ChecksumError},
-    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadResult, DownloadSource,
-    DownloadSourceType, OmaFetcher,
+    checksum::ChecksumError, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError,
+    DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
 };
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::{
@@ -455,43 +452,6 @@ async fn update_db(
             let not_compress_filename_before = p_not_compress.to_string_lossy().to_string();
 
             let source_index = sourceslist.get(inrelease_summary.count).unwrap();
-            let not_compress_filename = database_filename(&format!(
-                "{}/{}",
-                source_index.dist_path, not_compress_filename_before
-            ));
-
-            let checksum = if Path::new(&c.name).extension().is_some() {
-                checksums
-                    .iter()
-                    .find(|x| x.name == not_compress_filename_before)
-                    .unwrap()
-                    .checksum
-                    .clone()
-            } else {
-                c.checksum.clone()
-            };
-
-            let ncfc = not_compress_filename.clone();
-
-            let ddc = download_dir.clone();
-
-            let checksum = spawn_blocking(move || -> Result<bool> {
-                if bar {
-                    let f = std::fs::File::open(ddc.join(ncfc))?;
-                    let len = f.metadata()?.len();
-                    let reader = BufReader::new(f);
-                    let pb = ProgressBar::new(len);
-                    let reader = pb.wrap_read(reader);
-                    Ok(Checksum::from_sha256_str(&checksum)?.cmp_read(Box::new(reader))?)
-                } else {
-                    Ok(Checksum::from_sha256_str(&checksum)?.cmp_file(&ddc.join(ncfc))?)
-                }
-            })
-            .await?;
-
-            if checksum.unwrap_or(false) {
-                continue;
-            }
 
             let typ = match c.file_type {
                 DistFileType::CompressContents => "Contents",
