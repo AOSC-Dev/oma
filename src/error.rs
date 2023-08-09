@@ -141,12 +141,6 @@ impl From<OmaTopicsError> for OutputError {
     }
 }
 
-impl From<reqwest::Error> for OutputError {
-    fn from(value: reqwest::Error) -> Self {
-        Self(value.to_string())
-    }
-}
-
 fn oma_topics_error(e: OmaTopicsError) -> String {
     match e {
         OmaTopicsError::SerdeError(e) => e.to_string(),

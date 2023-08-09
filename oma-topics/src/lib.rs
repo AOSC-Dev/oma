@@ -92,17 +92,7 @@ pub struct Topic {
 pub struct TopicManager {
     pub enabled: Vec<Topic>,
     pub all: Vec<Topic>,
-}
-
-impl TryFrom<&str> for TopicManager {
-    type Error = OmaTopicsError;
-
-    fn try_from(value: &str) -> Result<Self> {
-        Ok(Self {
-            enabled: serde_json::from_str(value)?,
-            all: vec![],
-        })
-    }
+    client: Client,
 }
 
 impl TopicManager {
@@ -112,10 +102,11 @@ impl TopicManager {
         Ok(Self {
             enabled: serde_json::from_str(&f).unwrap_or(vec![]),
             all: vec![],
+            client: reqwest::ClientBuilder::new().user_agent("oma").build()?
         })
     }
 
-    async fn refresh(&mut self, client: &Client) -> Result<Vec<Topic>> {
+    async fn refresh(&mut self) -> Result<Vec<Topic>> {
         let urls = enabled_mirror()
             .await?
             .iter()
@@ -128,7 +119,7 @@ impl TopicManager {
             })
             .collect::<Vec<_>>();
 
-        let all = refresh_innter(client, urls).await?;
+        let all = refresh_innter(&self.client, urls).await?;
 
         self.all = all.clone();
 
@@ -137,7 +128,6 @@ impl TopicManager {
 
     pub async fn add(
         &mut self,
-        client: &Client,
         topic: &str,
         dry_run: bool,
         arch: &str,
@@ -149,7 +139,7 @@ impl TopicManager {
         }
 
         let all = if self.all.is_empty() {
-            self.refresh(client).await?
+            self.refresh().await?
         } else {
             self.all.clone()
         };
@@ -271,8 +261,8 @@ async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>
     Ok(json)
 }
 
-pub async fn list(tm: &mut TopicManager, client: &Client) -> Result<Vec<String>> {
-    let all = tm.refresh(client).await?;
+pub async fn list(tm: &mut TopicManager) -> Result<Vec<String>> {
+    let all = tm.refresh().await?;
 
     let ft = all
         .iter()
@@ -288,7 +278,7 @@ pub async fn list(tm: &mut TopicManager, client: &Client) -> Result<Vec<String>>
     Ok(ft)
 }
 
-pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
+pub async fn scan_closed_topic() -> Result<Vec<String>> {
     let mut atm_sources = vec![];
     let s = SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter())?;
 
@@ -302,7 +292,7 @@ pub async fn scan_closed_topic(client: &Client) -> Result<Vec<String>> {
 
     let mut tm = TopicManager::new().await?;
 
-    let all = tm.refresh(client).await?;
+    let all = tm.refresh().await?;
 
     let mut res = vec![];
 

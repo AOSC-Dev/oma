@@ -1897,7 +1897,6 @@ dependencies = [
  "oma-topics",
  "oma-utils",
  "once_cell",
- "reqwest",
  "rust-embed",
  "tabled",
  "tokio",
