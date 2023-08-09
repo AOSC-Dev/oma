@@ -704,84 +704,91 @@ pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
 }
 
 pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
-    let mut opt_in = opt_in;
-    let mut opt_out = opt_out;
+    let opt_in = opt_in;
+    let opt_out = opt_out;
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_io()
         .enable_time()
         .build()?;
 
-    rt.block_on(async move {
-        let mut tm = TopicManager::new().await?;
-        let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
+    let (enabled_pkgs, downgrade_pkgs) =
+        rt.block_on(async move { topics_inner(opt_in, opt_out).await })?;
 
-        if opt_in.is_empty() && opt_out.is_empty() {
-            inquire(&mut tm, &client, &mut opt_in, &mut opt_out).await?;
-        }
+    refresh(false)?;
 
-        for i in opt_in {
-            tm.add(&client, &i, false, "amd64").await?;
-        }
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-        let mut downgrade_pkgs = vec![];
+    let mut pkgs = vec![];
 
-        for i in opt_out {
-            downgrade_pkgs.extend(tm.remove(&i, false)?);
-        }
+    for pkg in downgrade_pkgs {
+        let mut f = apt
+            .filter_pkgs(&[FilterMode::Default])?
+            .filter(|x| x.name() == pkg);
 
-        tm.write_enabled(false).await?;
+        if let Some(pkg) = f.next() {
+            if enabled_pkgs.contains(&&pkg.name().to_string()) {
+                continue;
+            }
 
-        refresh(false)?;
-
-        let enabled_pkgs = tm
-            .enabled
-            .iter()
-            .flat_map(|x| &x.packages)
-            .collect::<Vec<_>>();
-
-        let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-        let apt = OmaApt::new(vec![], oma_apt_args, false)?;
-
-        let mut pkgs = vec![];
-
-        for pkg in downgrade_pkgs {
-            let mut f = apt
-                .filter_pkgs(&[FilterMode::Default])?
-                .filter(|x| x.name() == pkg);
-
-            if let Some(pkg) = f.next() {
-                if enabled_pkgs.contains(&&pkg.name().to_string()) {
-                    continue;
-                }
-
-                if pkg.is_installed() {
-                    pkgs.push(format!("{}/stable", pkg.name()))
-                }
+            if pkg.is_installed() {
+                pkgs.push(format!("{}/stable", pkg.name()))
             }
         }
+    }
 
-        let pkgs = apt.select_pkg(pkgs.iter().map(|x| x.as_str()).collect(), false, true)?;
-        apt.install(pkgs, false)?;
-        apt.upgrade()?;
+    let pkgs = apt.select_pkg(pkgs.iter().map(|x| x.as_str()).collect(), false, true)?;
+    apt.install(pkgs, false)?;
+    apt.upgrade()?;
 
-        let op = apt.summary()?;
-        let install = op.install;
-        let remove = op.remove;
-        let disk_size = op.disk_size;
+    let op = apt.summary()?;
+    let install = op.install;
+    let remove = op.remove;
+    let disk_size = op.disk_size;
 
-        if check_empty_op(&install, &remove) {
-            return Ok(0);
-        }
+    if check_empty_op(&install, &remove) {
+        return Ok(0);
+    }
 
-        let apt_args = AptArgsBuilder::default().build()?;
+    let apt_args = AptArgsBuilder::default().build()?;
 
-        handle_resolve(&apt, false)?;
-        apt.check_disk_size()?;
-        table_for_install_pending(install, remove, disk_size, false, false)?;
-        apt.commit(None, &apt_args)?;
+    handle_resolve(&apt, false)?;
+    apt.check_disk_size()?;
+    table_for_install_pending(install, remove, disk_size, true, false)?;
+    apt.commit(None, &apt_args)?;
 
-        Ok(0)
-    })
+    Ok(0)
+}
+
+async fn topics_inner(
+    mut opt_in: Vec<String>,
+    mut opt_out: Vec<String>,
+) -> Result<(Vec<String>, Vec<String>)> {
+    let mut tm = TopicManager::new().await?;
+    let client = reqwest::ClientBuilder::new().user_agent("oma").build()?;
+
+    if opt_in.is_empty() && opt_out.is_empty() {
+        inquire(&mut tm, &client, &mut opt_in, &mut opt_out).await?;
+    }
+
+    for i in opt_in {
+        tm.add(&client, &i, false, "amd64").await?;
+    }
+
+    let mut downgrade_pkgs = vec![];
+    for i in opt_out {
+        downgrade_pkgs.extend(tm.remove(&i, false)?);
+    }
+
+    tm.write_enabled(false).await?;
+
+    let enabled_pkgs = tm
+        .enabled
+        .into_iter()
+        .flat_map(|x| x.packages)
+        .collect::<Vec<_>>();
+
+    Ok((enabled_pkgs, downgrade_pkgs))
 }
 
 async fn inquire(
