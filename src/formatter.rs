@@ -286,40 +286,38 @@ pub fn find_unmet_deps_with_markinstall(
                                 ver.version()
                             ),
                         })
-                    } else {
-                        if let Some(cand) = c.candidate() {
-                            let rdep = c.rdepends_map();
-                            let rdep_dep = rdep.get(&DepType::Depends);
-                            let rdep_predep = rdep.get(&DepType::PreDepends);
-                            let rdep_breaks = rdep.get(&DepType::Breaks);
-                            let rdep_conflicts = rdep.get(&DepType::Conflicts);
+                    } else if let Some(cand) = c.candidate() {
+                        let rdep = c.rdepends_map();
+                        let rdep_dep = rdep.get(&DepType::Depends);
+                        let rdep_predep = rdep.get(&DepType::PreDepends);
+                        let rdep_breaks = rdep.get(&DepType::Breaks);
+                        let rdep_conflicts = rdep.get(&DepType::Conflicts);
 
-                            // Format dep
-                            if let Some(rdep_dep) = rdep_dep {
-                                format_deps(rdep_dep, cache, &cand, &mut v, &c);
-                            }
+                        // Format dep
+                        if let Some(rdep_dep) = rdep_dep {
+                            format_deps(rdep_dep, cache, &cand, &mut v, &c);
+                        }
 
-                            // Format predep
-                            if let Some(rdep_predep) = rdep_predep {
-                                format_deps(rdep_predep, cache, &cand, &mut v, &c);
-                            }
+                        // Format predep
+                        if let Some(rdep_predep) = rdep_predep {
+                            format_deps(rdep_predep, cache, &cand, &mut v, &c);
+                        }
 
-                            // Format breaks
-                            if let Some(rdep_breaks) = rdep_breaks {
-                                format_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Breaks");
-                            }
+                        // Format breaks
+                        if let Some(rdep_breaks) = rdep_breaks {
+                            format_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Breaks");
+                        }
 
-                            // Format Conflicts
-                            if let Some(rdep_conflicts) = rdep_conflicts {
-                                format_breaks(
-                                    rdep_conflicts,
-                                    cache,
-                                    &mut v,
-                                    &c,
-                                    &cand,
-                                    "Conflicts",
-                                );
-                            }
+                        // Format Conflicts
+                        if let Some(rdep_conflicts) = rdep_conflicts {
+                            format_breaks(
+                                rdep_conflicts,
+                                cache,
+                                &mut v,
+                                &c,
+                                &cand,
+                                "Conflicts",
+                            );
                         }
                     }
                 }
@@ -351,40 +349,38 @@ pub fn find_unmet_deps_with_markinstall(
                                 ver.version()
                             ),
                         })
-                    } else {
-                        if let Some(cand) = c.candidate() {
-                            let rdep = c.rdepends_map();
-                            let rdep_dep = rdep.get(&DepType::Depends);
-                            let rdep_predep = rdep.get(&DepType::PreDepends);
-                            let rdep_breaks = rdep.get(&DepType::Breaks);
-                            let rdep_conflicts = rdep.get(&DepType::Conflicts);
+                    } else if let Some(cand) = c.candidate() {
+                        let rdep = c.rdepends_map();
+                        let rdep_dep = rdep.get(&DepType::Depends);
+                        let rdep_predep = rdep.get(&DepType::PreDepends);
+                        let rdep_breaks = rdep.get(&DepType::Breaks);
+                        let rdep_conflicts = rdep.get(&DepType::Conflicts);
 
-                            // Format dep
-                            if let Some(rdep_dep) = rdep_dep {
-                                format_deps(rdep_dep, cache, &cand, &mut v, &c);
-                            }
+                        // Format dep
+                        if let Some(rdep_dep) = rdep_dep {
+                            format_deps(rdep_dep, cache, &cand, &mut v, &c);
+                        }
 
-                            // Format predep
-                            if let Some(rdep_predep) = rdep_predep {
-                                format_deps(rdep_predep, cache, &cand, &mut v, &c);
-                            }
+                        // Format predep
+                        if let Some(rdep_predep) = rdep_predep {
+                            format_deps(rdep_predep, cache, &cand, &mut v, &c);
+                        }
 
-                            // Format breaks
-                            if let Some(rdep_breaks) = rdep_breaks {
-                                format_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Breaks");
-                            }
+                        // Format breaks
+                        if let Some(rdep_breaks) = rdep_breaks {
+                            format_breaks(rdep_breaks, cache, &mut v, &c, &cand, "Breaks");
+                        }
 
-                            // Format Conflicts
-                            if let Some(rdep_conflicts) = rdep_conflicts {
-                                format_breaks(
-                                    rdep_conflicts,
-                                    cache,
-                                    &mut v,
-                                    &c,
-                                    &cand,
-                                    "Conflicts",
-                                );
-                            }
+                        // Format Conflicts
+                        if let Some(rdep_conflicts) = rdep_conflicts {
+                            format_breaks(
+                                rdep_conflicts,
+                                cache,
+                                &mut v,
+                                &c,
+                                &cand,
+                                "Conflicts",
+                            );
                         }
                     }
                 }
@@ -582,22 +578,20 @@ fn format_deps(
                             }
                             "=" => {
                                 let cmp = cmp_versions(&need_ver, cand.version()); // 要求 = 2.36-4，但用户在安装 2.36-2
-                                if cmp != CmpOrdering::Equal {
-                                    if !dep.name.ends_with("-dbg") {
-                                        v.push(UnmetTable {
-                                            package: style(dep.name).red().bold().to_string(),
-                                            unmet_dependency: format!(
-                                                "{} = {}",
-                                                c.name(),
-                                                dep.comp_ver.unwrap()
-                                            ),
-                                            specified_dependency: format!(
-                                                "{} {}",
-                                                c.name(),
-                                                cand.version()
-                                            ),
-                                        })
-                                    }
+                                if cmp != CmpOrdering::Equal && !dep.name.ends_with("-dbg") {
+                                    v.push(UnmetTable {
+                                        package: style(dep.name).red().bold().to_string(),
+                                        unmet_dependency: format!(
+                                            "{} = {}",
+                                            c.name(),
+                                            dep.comp_ver.unwrap()
+                                        ),
+                                        specified_dependency: format!(
+                                            "{} {}",
+                                            c.name(),
+                                            cand.version()
+                                        ),
+                                    })
                                 }
                             }
                             "<=" => {
