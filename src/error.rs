@@ -285,5 +285,6 @@ fn oma_database_error(e: OmaDatabaseError) -> String {
             OmaSearchError::NoResult(e) => fl!("could-not-find-pkg-from-keyword", c = e),
             OmaSearchError::FailedGetCandidate(s) => fl!("no-candidate-ver", pkg = s),
         },
+        OmaDatabaseError::NoCandidate(s) => fl!("no-candidate-ver", pkg = s),
     }
 }
