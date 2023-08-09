@@ -169,6 +169,10 @@ pub fn handle_resolve(apt: &OmaApt, no_fixbroken: bool) -> Result<(), OutputErro
 
                 let v = u.iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
 
+                if v.is_empty() {
+                    return Err(OutputError::from(e));
+                }
+
                 writeln!(
                     out,
                     "{} {}{}\n",
