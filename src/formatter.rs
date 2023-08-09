@@ -24,11 +24,11 @@ use tabled::{
 use std::cmp::Ordering as CmpOrdering;
 
 use crate::{
-    fl,
+    error, fl,
     oma::{Action, InstallRow},
     pager::Pager,
     pkg::OmaDependency,
-    warn, ALLOWCTRLC, DRYRUN, error,
+    warn, ALLOWCTRLC, DRYRUN,
 };
 
 // TODO: Make better structs for pkgAcquire items, workers, owners.
@@ -583,19 +583,21 @@ fn format_deps(
                             "=" => {
                                 let cmp = cmp_versions(&need_ver, cand.version()); // 要求 = 2.36-4，但用户在安装 2.36-2
                                 if cmp != CmpOrdering::Equal {
-                                    v.push(UnmetTable {
-                                        package: style(dep.name).red().bold().to_string(),
-                                        unmet_dependency: format!(
-                                            "{} = {}",
-                                            c.name(),
-                                            dep.comp_ver.unwrap()
-                                        ),
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
-                                    })
+                                    if !dep.name.ends_with("-dbg") {
+                                        v.push(UnmetTable {
+                                            package: style(dep.name).red().bold().to_string(),
+                                            unmet_dependency: format!(
+                                                "{} = {}",
+                                                c.name(),
+                                                dep.comp_ver.unwrap()
+                                            ),
+                                            specified_dependency: format!(
+                                                "{} {}",
+                                                c.name(),
+                                                cand.version()
+                                            ),
+                                        })
+                                    }
                                 }
                             }
                             "<=" => {
@@ -747,7 +749,7 @@ fn format_breaks(
                             }
                             "<=" => {
                                 // a: breaks b <= 1.0，满足要求的条件是 break_ver < cand.version
-                                
+
                                 let cmp = cmp_versions(&target_ver, cand.version());
                                 if cmp != CmpOrdering::Less {
                                     v.push(UnmetTable {
