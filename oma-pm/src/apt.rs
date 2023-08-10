@@ -1,7 +1,6 @@
 use std::{
-    io::Write,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
 };
 
 use derive_builder::Builder;
@@ -21,7 +20,10 @@ use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
     package::{Package, Version},
-    raw::util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
+    raw::{
+        progress::AptInstallProgress,
+        util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
+    },
     records::RecordField,
     util::{apt_lock, DiskSpace},
 };
@@ -85,12 +87,8 @@ pub enum OmaAptError {
     DiskSpaceInsufficient(HumanBytes, HumanBytes),
     #[error(transparent)]
     DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
-    // #[error("Failed to get selection: {0}")]
-    // FailedToGetSelection(String),
-    // #[error(transparent)]
-    // Utf8Error(#[from] std::str::Utf8Error),
-    // #[error("Failed to query dpkg database")]
-    // FailedToQueryDpkgDatabase,
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
 }
 
 #[derive(Default, Builder)]
@@ -560,8 +558,31 @@ impl OmaApt {
         }
     }
 
-    pub fn mark_install_status(&self, pkgs: Vec<PkgInfo>) -> OmaAptResult<bool> {
-        todo!()
+    pub fn mark_install_status(self, pkgs: Vec<PkgInfo>, auto: bool) -> OmaAptResult<bool> {
+        for pkg in pkgs {
+            let pkg = Package::new(&self.cache, pkg.raw_pkg);
+
+            if pkg.is_auto_installed() {
+                if auto {
+                    return Ok(false);
+                } else {
+                    pkg.mark_auto(false);
+                }
+            } else if auto {
+                pkg.mark_auto(true);
+            } else {
+                return Ok(false);
+            }
+        }
+
+        self.cache
+            .commit(
+                &mut NoProgress::new_box(),
+                &mut AptInstallProgress::new_box(),
+            )
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+        Ok(true)
     }
 
     pub fn summary(&self) -> OmaAptResult<OmaOperation> {
