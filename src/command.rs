@@ -797,7 +797,14 @@ async fn inquire(
     opt_in: &mut Vec<String>,
     opt_out: &mut Vec<String>,
 ) -> Result<()> {
+    let pb = ProgressBar::new_spinner();
+    let (style, inv) = oma_spinner(false).unwrap();
+    pb.set_style(style);
+    pb.enable_steady_tick(inv);
+    pb.set_message(fl!("refreshing-topic-metadata"));
     let display = oma_topics::list(tm).await?;
+    pb.finish_and_clear();
+
     let all = tm.all.clone();
     let enabled_names = tm.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
     let all_names = all.iter().map(|x| &x.name).collect::<Vec<_>>();
@@ -822,12 +829,10 @@ async fn inquire(
     };
 
     let ans = MultiSelect::new(
-        "Select topics",
+        &fl!("select-topics-dialog"),
         display.iter().map(|x| x.as_str()).collect(),
     )
-    .with_help_message(
-        "Press [Space]/[Enter] to toggle selection, [Esc] to apply changes, [Ctrl-c] to abort.",
-    )
+    .with_help_message(&fl!("tips"))
     .with_formatter(formatter)
     .with_default(&default)
     .with_page_size(20)
