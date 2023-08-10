@@ -1,6 +1,7 @@
 use std::{
+    io::Write,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 
 use derive_builder::Builder;
@@ -84,6 +85,12 @@ pub enum OmaAptError {
     DiskSpaceInsufficient(HumanBytes, HumanBytes),
     #[error(transparent)]
     DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
+    // #[error("Failed to get selection: {0}")]
+    // FailedToGetSelection(String),
+    // #[error(transparent)]
+    // Utf8Error(#[from] std::str::Utf8Error),
+    // #[error("Failed to query dpkg database")]
+    // FailedToQueryDpkgDatabase,
 }
 
 #[derive(Default, Builder)]
@@ -551,6 +558,10 @@ impl OmaApt {
         } else {
             PathBuf::from("/var/cache/apt/archives/")
         }
+    }
+
+    pub fn mark_install_status(&self, pkgs: Vec<PkgInfo>) -> OmaAptResult<bool> {
+        todo!()
     }
 
     pub fn summary(&self) -> OmaAptResult<OmaOperation> {
