@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
+    process::{exit, Command},
 };
 
 use anyhow::anyhow;
@@ -36,6 +37,8 @@ use crate::{
 pub type Result<T> = std::result::Result<T, OutputError>;
 
 pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> Result<i32> {
+    root()?;
+
     if !args.no_refresh {
         refresh(dry_run)?;
     }
@@ -107,6 +110,7 @@ fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
 }
 
 pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> Result<i32> {
+    root()?;
     refresh(dry_run)?;
 
     if args.yes {
@@ -174,6 +178,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
 }
 
 pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
+    root()?;
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));
     }
@@ -284,6 +289,7 @@ pub fn search(args: &[String]) -> Result<i32> {
 }
 
 pub fn command_refresh() -> Result<i32> {
+    root()?;
     refresh(false)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
@@ -457,6 +463,7 @@ pub fn rdepends(pkgs: Vec<String>) -> Result<i32> {
 }
 
 pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
+    root()?;
     if !no_refresh {
         refresh(dry_run)?;
     }
@@ -542,6 +549,7 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
 }
 
 pub fn fix_broken(dry_run: bool) -> Result<i32> {
+    root()?;
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     handle_resolve(&apt, false)?;
@@ -666,6 +674,7 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
 }
 
 pub fn clean() -> Result<i32> {
+    root()?;
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let download_dir = apt.get_archive_dir();
@@ -703,6 +712,7 @@ pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
 }
 
 pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
+    root()?;
     let opt_in = opt_in;
     let opt_out = opt_out;
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -854,4 +864,32 @@ async fn inquire(
     }
 
     Ok(())
+}
+
+fn root() -> Result<()> {
+    let args = std::env::args().collect::<Vec<_>>();
+    let mut handled_args = vec![];
+
+    // Handle pkexec user input path
+    for arg in args {
+        let mut arg = arg.to_string();
+        if arg.ends_with(".deb") {
+            let path = Path::new(&arg);
+            let path = path.canonicalize().unwrap_or(path.to_path_buf());
+            arg = path.display().to_string();
+        }
+        handled_args.push(arg);
+    }
+
+    let out = Command::new("pkexec")
+        .args(handled_args)
+        .spawn()
+        .and_then(|x| x.wait_with_output())
+        .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
+
+    exit(
+        out.status
+            .code()
+            .expect("Can not get pkexec oma exit status"),
+    );
 }
