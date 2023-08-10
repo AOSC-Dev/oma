@@ -13,7 +13,7 @@ use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseParserError;
 use oma_refresh::verify::VerifyError;
 use oma_topics::OmaTopicsError;
-use oma_utils::DpkgArchError;
+use oma_utils::DpkgError;
 
 use crate::fl;
 
@@ -164,8 +164,8 @@ impl From<std::io::Error> for OutputError {
     }
 }
 
-impl From<DpkgArchError> for OutputError {
-    fn from(value: DpkgArchError) -> Self {
+impl From<DpkgError> for OutputError {
+    fn from(value: DpkgError) -> Self {
         let s = fl!("can-not-run-dpkg-print-arch", e = value.to_string());
 
         Self(s)

@@ -7,7 +7,7 @@ use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
 use oma_console::WRITER;
 use oma_pm::apt::{OmaApt, OmaAptError};
-use oma_pm::operation::{InstallEntry, InstallOperation, RemoveEntry};
+use oma_pm::operation::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 use oma_pm::unmet::{UnmetDep, WhyUnmet};
 use tabled::settings::object::{Columns, Segment};
 use tabled::settings::{Alignment, Format, Modify, Style};
@@ -73,8 +73,8 @@ impl From<RemoveEntry> for RemoveEntryDisplay {
         let mut detail = vec![];
         for i in value.details() {
             match i {
-                oma_pm::operation::RemoveTag::Purge => detail.push(fl!("purge-file")),
-                oma_pm::operation::RemoveTag::AutoRemove => {
+                RemoveTag::Purge => detail.push(fl!("purge-file")),
+                RemoveTag::AutoRemove => {
                     detail.push(fl!("removed-as-unneed-dep"))
                 }
             }

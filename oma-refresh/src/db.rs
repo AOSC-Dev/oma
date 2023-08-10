@@ -61,7 +61,7 @@ pub enum RefreshError {
     #[error(transparent)]
     InReleaseParserError(#[from] InReleaseParserError),
     #[error(transparent)]
-    DpkgArchError(#[from] oma_utils::DpkgArchError),
+    DpkgArchError(#[from] oma_utils::DpkgError),
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
     #[error(transparent)]
