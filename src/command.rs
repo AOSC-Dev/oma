@@ -867,6 +867,10 @@ async fn inquire(
 }
 
 fn root() -> Result<()> {
+    if nix::unistd::geteuid().is_root() {
+        return Ok(());
+    }
+
     let args = std::env::args().collect::<Vec<_>>();
     let mut handled_args = vec![];
 
