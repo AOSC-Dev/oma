@@ -1948,6 +1948,7 @@ dependencies = [
 name = "oma-pm"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "derive_builder",
  "fs4",
  "glob-match",
