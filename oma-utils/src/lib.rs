@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt,
     io::Write,
     path::PathBuf,
@@ -38,57 +39,59 @@ pub fn dpkg_arch() -> Result<String, DpkgError> {
     Ok(output)
 }
 
-pub fn mark_version_status(pkg: &str, hold: bool) -> Result<bool, DpkgError> {
+pub fn mark_version_status(pkgs: &[&str], hold: bool) -> Result<bool, DpkgError> {
     let dpkg = Command::new("dpkg").arg("--get-selections").output()?;
 
     if !dpkg.status.success() {
         return Err(DpkgError::DpkgRunError(dpkg.status.code().unwrap_or(1)));
     }
 
-    let mut seclections = std::str::from_utf8(&dpkg.stdout)?.split('\n');
-    seclections.nth_back(0);
+    let mut selections = std::str::from_utf8(&dpkg.stdout)?.split('\n');
+    selections.nth_back(0);
 
     let list = Some(())
         .and_then(|_| {
             let mut list = vec![];
-            for i in seclections {
+            for i in selections {
                 let mut split = i.split_whitespace();
                 let name = split.next()?;
                 let status = split.next()?;
 
-                list.push((name.to_string(), status.to_string()));
+                list.push((Cow::Borrowed(name), Cow::Borrowed(status)));
             }
 
             Some(list)
         })
         .ok_or_else(|| DpkgError::FailedToQueryDpkgDatabase)?;
 
-    if list.iter().any(|(x, status)| {
-        x == pkg
-            && match hold {
-                true => status == "hold",
-                false => status == "install",
-            }
-    }) {
-        return Ok(false);
+    for pkg in pkgs {
+        if list.iter().any(|(x, status)| {
+            x == pkg
+                && match hold {
+                    true => status == "hold",
+                    false => status == "install",
+                }
+        }) {
+            return Ok(false);
+        }
+
+        let mut dpkg = Command::new("dpkg")
+            .arg("--set-selections")
+            .stdin(Stdio::piped())
+            .spawn()?;
+
+        let op = match hold {
+            true => "hold",
+            false => "install",
+        };
+
+        dpkg.stdin
+            .as_mut()
+            .unwrap()
+            .write_all(format!("{pkg} {op}").as_bytes())?;
+
+        dpkg.wait()?;
     }
-
-    let mut dpkg = Command::new("dpkg")
-        .arg("--set-selections")
-        .stdin(Stdio::piped())
-        .spawn()?;
-
-    let op = match hold {
-        true => "hold",
-        false => "install",
-    };
-
-    dpkg.stdin
-        .as_mut()
-        .unwrap()
-        .write_all(format!("{pkg} {op}").as_bytes())?;
-
-    dpkg.wait()?;
 
     Ok(true)
 }
