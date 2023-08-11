@@ -558,21 +558,37 @@ impl OmaApt {
         }
     }
 
-    pub fn mark_install_status(self, pkgs: Vec<PkgInfo>, auto: bool) -> OmaAptResult<bool> {
+    pub fn mark_install_status(
+        self,
+        pkgs: Vec<PkgInfo>,
+        auto: bool,
+        dry_run: bool,
+    ) -> OmaAptResult<Vec<(String, bool)>> {
+        let mut res = vec![];
         for pkg in pkgs {
             let pkg = Package::new(&self.cache, pkg.raw_pkg);
 
             if pkg.is_auto_installed() {
                 if auto {
-                    return Ok(false);
+                    res.push((pkg.name().to_string(), false));
+                    debug!("pkg {} set to auto = {auto} is set = false", pkg.name());
                 } else {
                     pkg.mark_auto(false);
+                    res.push((pkg.name().to_string(), true));
+                    debug!("pkg {} set to auto = {auto} is set = true", pkg.name());
                 }
             } else if auto {
                 pkg.mark_auto(true);
+                res.push((pkg.name().to_string(), true));
+                debug!("pkg {} set to auto = {auto} is set = true", pkg.name());
             } else {
-                return Ok(false);
+                res.push((pkg.name().to_string(), false));
+                debug!("pkg {} set to auto = {auto} is set = false", pkg.name());
             }
+        }
+
+        if dry_run {
+            return Ok(res);
         }
 
         self.cache
@@ -582,7 +598,7 @@ impl OmaApt {
             )
             .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        Ok(true)
+        Ok(res)
     }
 
     pub fn summary(&self) -> OmaAptResult<OmaOperation> {
