@@ -25,7 +25,7 @@ use oma_pm::{
 };
 use oma_refresh::db::OmaRefresh;
 use oma_topics::TopicManager;
-use oma_utils::dpkg_arch;
+use oma_utils::{dpkg_arch, mark_version_status};
 
 use crate::{
     error::OutputError,
@@ -668,6 +668,42 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
                 style(name).green().bold()
             );
         }
+    }
+
+    Ok(0)
+}
+
+pub fn mark(op: &str, pkgs: Vec<String>, dry_run: bool) -> Result<i32> {
+    let set = match op {
+        "hold" | "unhold" => mark_version_status(&pkgs, op == "hold", dry_run)?
+            .into_iter()
+            .map(|(x, y)| (Cow::Borrowed(x), y))
+            .collect::<Vec<_>>(),
+        "auto" | "manual" => {
+            let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+            let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+            let pkgs = apt.select_pkg(pkgs.iter().map(|x| x.as_str()).collect(), false, true)?;
+
+            apt.mark_install_status(pkgs, op == "auto", dry_run)?
+                .into_iter()
+                .map(|(x, y)| (Cow::Owned(x), y))
+                .collect()
+        }
+        _ => unreachable!(),
+    };
+
+    for (pkg, is_set) in set {
+        match op {
+            "hold" if is_set => success!("{}", fl!("set-to-hold", name = pkg.to_string())),
+            "hold" => info!("{}", fl!("already-hold", name = pkg.to_string())),
+            "unhold" if is_set => success!("{}", fl!("set-to-unhold", name = pkg.to_string())),
+            "unhold" => info!("{}", fl!("already-unhold", name = pkg.to_string())),
+            "auto" if is_set => success!("{}", fl!("setting-auto", name = pkg.to_string())),
+            "auto" => info!("{}", fl!("already-auto", name = pkg.to_string())),
+            "manual" if is_set => success!("{}", fl!("setting-manual", name = pkg.to_string())),
+            "manual" => info!("{}", fl!("already-manual", name = pkg.to_string())),
+            _ => unreachable!(),
+        };
     }
 
     Ok(0)

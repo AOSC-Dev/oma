@@ -207,25 +207,16 @@ fn try_main() -> Result<i32> {
 
             command::pick(pkg_str, args.get_flag("no_refresh"), dry_run)?
         }
-        Some(("mark", _args)) => todo!(),
-        // OmaCommand::Mark(Mark {
-        //     action: match args.get_one::<String>("action").map(|x| x.as_str()) {
-        //         Some("hold") => MarkAction::Hold(MarkActionArgs {
-        //             pkgs: pkgs_getter(args).unwrap(),
-        //         }),
-        //         Some("unhold") => MarkAction::Unhold(MarkActionArgs {
-        //             pkgs: pkgs_getter(args).unwrap(),
-        //         }),
-        //         Some("auto") => MarkAction::Auto(MarkActionArgs {
-        //             pkgs: pkgs_getter(args).unwrap(),
-        //         }),
-        //         Some("manual") => MarkAction::Manual(MarkActionArgs {
-        //             pkgs: pkgs_getter(args).unwrap(),
-        //         }),
-        //         _ => unreachable!(),
-        //     },
-        //     dry_run: args.get_flag("dry_run"),
-        // }),
+        Some(("mark", args)) => {
+            let op = args
+                .get_one::<String>("action")
+                .map(|x| x.as_str())
+                .unwrap();
+            let pkgs  = pkgs_getter(args).unwrap();
+            let dry_run = args.get_flag("dry_run");
+
+            command::mark(op, pkgs, dry_run)?
+        }
         Some(("command-not-found", args)) => {
             command::command_not_found(args.get_one::<String>("package").unwrap().to_string())?
         }

@@ -10,3 +10,4 @@ thiserror = "1.0"
 number_prefix = "0.4"
 once_cell = "1.18"
 os-release = "0.1"
+oma-console = { path = "../oma-console" }
