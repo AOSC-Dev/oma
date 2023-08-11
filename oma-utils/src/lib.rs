@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     fmt,
     io::Write,
     path::PathBuf,
@@ -7,6 +6,7 @@ use std::{
 };
 
 use number_prefix::NumberPrefix;
+use oma_console::{debug, info};
 use once_cell::sync::Lazy;
 
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
@@ -39,7 +39,11 @@ pub fn dpkg_arch() -> Result<String, DpkgError> {
     Ok(output)
 }
 
-pub fn mark_version_status(pkgs: &[&str], hold: bool) -> Result<bool, DpkgError> {
+pub fn mark_version_status(
+    pkgs: &[String],
+    hold: bool,
+    dry_run: bool,
+) -> Result<Vec<(&str, bool)>, DpkgError> {
     let dpkg = Command::new("dpkg").arg("--get-selections").output()?;
 
     if !dpkg.status.success() {
@@ -57,22 +61,32 @@ pub fn mark_version_status(pkgs: &[&str], hold: bool) -> Result<bool, DpkgError>
                 let name = split.next()?;
                 let status = split.next()?;
 
-                list.push((Cow::Borrowed(name), Cow::Borrowed(status)));
+                list.push((name, status));
             }
 
             Some(list)
         })
         .ok_or_else(|| DpkgError::FailedToQueryDpkgDatabase)?;
 
+    let mut res = vec![];
+
     for pkg in pkgs {
         if list.iter().any(|(x, status)| {
             x == pkg
                 && match hold {
-                    true => status == "hold",
-                    false => status == "install",
+                    true => status == &"hold",
+                    false => status == &"install",
                 }
         }) {
-            return Ok(false);
+            debug!("pkg {pkg} set to hold = {hold} is set = false");
+            res.push((pkg.as_str(), false));
+            continue;
+        }
+
+        debug!("pkg {pkg} set to hold = {hold} is set = true");
+
+        if dry_run {
+            continue;
         }
 
         let mut dpkg = Command::new("dpkg")
@@ -91,9 +105,11 @@ pub fn mark_version_status(pkgs: &[&str], hold: bool) -> Result<bool, DpkgError>
             .write_all(format!("{pkg} {op}").as_bytes())?;
 
         dpkg.wait()?;
+
+        res.push((pkg.as_str(), true));
     }
 
-    Ok(true)
+    Ok(res)
 }
 
 /// Formats bytes for human readability
