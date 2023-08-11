@@ -783,7 +783,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
             }
 
             if pkg.is_installed() {
-                let pkginfo = db.candidate(pkg.name())?;
+                let pkginfo = db.candidate_by_pkgname(pkg.name())?;
 
                 pkgs.push(pkginfo);
             }
