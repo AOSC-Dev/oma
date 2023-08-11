@@ -230,6 +230,8 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         }
         OmaAptError::DownloadEntryBuilderError(e) => e.to_string(),
         OmaAptError::Anyhow(e) => e.to_string(),
+        OmaAptError::MarkPkgNotInstalled(pkg) => fl!("pkg-is-not-installed", pkg = pkg),
+        OmaAptError::DpkgError(e) => OutputError::from(e).to_string(),
     };
 
     OutputError(err)
