@@ -219,7 +219,7 @@ impl<'a> OmaDatabase<'a> {
         }
     }
 
-    pub fn candidate(&self, pkg: &str) -> OmaDatabaseResult<PkgInfo> {
+    pub fn candidate_by_pkgname(&self, pkg: &str) -> OmaDatabaseResult<PkgInfo> {
         if let Some(pkg) = self.cache.get(pkg) {
             if let Some(cand) = pkg.candidate() {
                 let pkginfo = PkgInfo::new(self.cache, cand.unique(), &pkg);
@@ -241,7 +241,11 @@ fn real_pkg(pkg: &Package) -> RawPackage {
 
 fn url_no_escape(s: &str) -> String {
     let mut tmp = s.to_string();
+    let mut c = 0;
     loop {
+        if c == 32 {
+            panic!("loop > 32 {tmp}");
+        }
         let res = url_escape::decode(&tmp);
         let res2 = url_escape::decode(&res);
         if res == res2 {
@@ -249,6 +253,8 @@ fn url_no_escape(s: &str) -> String {
         } else {
             tmp = res.to_string();
         }
+
+        c += 1;
     }
 }
 
