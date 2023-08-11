@@ -674,6 +674,8 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
 }
 
 pub fn mark(op: &str, pkgs: Vec<String>, dry_run: bool) -> Result<i32> {
+    root()?;
+
     let set = match op {
         "hold" | "unhold" => mark_version_status(&pkgs, op == "hold", dry_run)?
             .into_iter()
