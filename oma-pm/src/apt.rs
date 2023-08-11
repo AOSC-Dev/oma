@@ -16,6 +16,7 @@ use oma_fetch::{
     DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadSource,
     DownloadSourceType, OmaFetcher, Summary,
 };
+use oma_utils::DpkgError;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
@@ -89,6 +90,10 @@ pub enum OmaAptError {
     DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
+    #[error("Failed to mark pkg status: {0} is not installed")]
+    MarkPkgNotInstalled(String),
+    #[error(transparent)]
+    DpkgError(#[from] DpkgError),
 }
 
 #[derive(Default, Builder)]
@@ -558,6 +563,28 @@ impl OmaApt {
         }
     }
 
+    pub fn mark_version_status<'a>(
+        &'a self,
+        pkgs: &'a [String],
+        hold: bool,
+        dry_run: bool,
+    ) -> OmaAptResult<Vec<(&str, bool)>> {
+        for pkg in pkgs {
+            if !self
+                .cache
+                .get(pkg)
+                .map(|x| x.is_installed())
+                .unwrap_or(false)
+            {
+                return Err(OmaAptError::MarkPkgNotInstalled(pkg.to_string()));
+            }
+        }
+
+        let res = oma_utils::mark_version_status(pkgs, hold, dry_run)?;
+
+        Ok(res)
+    }
+
     pub fn mark_install_status(
         self,
         pkgs: Vec<PkgInfo>,
@@ -567,6 +594,10 @@ impl OmaApt {
         let mut res = vec![];
         for pkg in pkgs {
             let pkg = Package::new(&self.cache, pkg.raw_pkg);
+
+            if !pkg.is_installed() {
+                return Err(OmaAptError::MarkPkgNotInstalled(pkg.name().to_string()));
+            }
 
             if pkg.is_auto_installed() {
                 if auto {
