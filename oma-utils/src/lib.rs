@@ -6,7 +6,7 @@ use std::{
 };
 
 use number_prefix::NumberPrefix;
-use oma_console::{debug, info};
+use oma_console::debug;
 use once_cell::sync::Lazy;
 
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
