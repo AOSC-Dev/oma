@@ -239,7 +239,7 @@ fn try_main() -> Result<i32> {
             command::rdepends(pkgs)?
         }
         Some(("clean", _)) => command::clean()?,
-        Some(("history", _)) => todo!(),
+        Some(("history", _)) => command::hisotry()?,
         // OmaCommand::History(History {
         //     action: match args.get_one::<String>("action").map(|x| x.as_str()) {
         //         Some("undo") => HistoryAction::Undo(args.get_one::<usize>("index").copied()),
