@@ -752,7 +752,7 @@ pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
 }
 
 pub fn hisotry() -> Result<i32> {
-    let mut f = std::fs::File::open("/var/log/oma/history")?;
+    let f = std::fs::File::open("/var/log/oma/history")?;
 
     let buf = BufReader::new(f).lines().flatten().collect::<Vec<_>>();
     let len = buf.len();
@@ -764,6 +764,9 @@ pub fn hisotry() -> Result<i32> {
     for line in buf {
         writer.write_all(line.as_bytes()).ok();
     }
+
+    drop(writer);
+    pager.wait_for_exit()?;
 
     Ok(0)
 }
