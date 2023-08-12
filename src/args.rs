@@ -304,15 +304,6 @@ pub fn command_builder() -> Command {
             Command::new("history")
                         .alias("log")
                         .about("Show a history/log of package changes in the system")
-                        .arg(Arg::new("action")
-                        .value_parser([
-                            PossibleValue::new("undo"),
-                            PossibleValue::new("redo")
-                        ])
-                        .required(true)
-                        .num_args(1)
-                        .action(ArgAction::Set)
-                    )
         .arg(
             Arg::new("index")
             .value_parser(value_parser!(usize))
