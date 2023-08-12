@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
-    process::{exit, Command},
+    process::{exit, Command}, io::{BufReader, BufRead},
 };
 
 use anyhow::anyhow;
@@ -746,6 +746,23 @@ pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
 
     for pkg in pkgs {
         println!("{}", pkg.name());
+    }
+
+    Ok(0)
+}
+
+pub fn hisotry() -> Result<i32> {
+    let mut f = std::fs::File::open("/var/log/oma/history")?;
+
+    let buf = BufReader::new(f).lines().flatten().collect::<Vec<_>>();
+    let len = buf.len();
+
+    let mut pager = oma_display(false, len)?;
+
+    let mut writer = pager.get_writer()?;
+
+    for line in buf {
+        writer.write_all(line.as_bytes()).ok();
     }
 
     Ok(0)
