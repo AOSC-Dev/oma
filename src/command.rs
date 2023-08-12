@@ -762,7 +762,7 @@ pub fn hisotry() -> Result<i32> {
     let mut writer = pager.get_writer()?;
 
     for line in buf {
-        writer.write_all(line.as_bytes()).ok();
+        writeln!(writer, "{line}").ok();
     }
 
     drop(writer);
