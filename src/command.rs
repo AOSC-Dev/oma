@@ -1,7 +1,8 @@
 use std::{
     borrow::Cow,
+    io::{BufRead, BufReader},
     path::{Path, PathBuf},
-    process::{exit, Command}, io::{BufReader, BufRead},
+    process::{exit, Command},
 };
 
 use anyhow::anyhow;
@@ -62,7 +63,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
         .no_install_suggests(args.no_install_suggests)
         .build()?;
 
-    let apt = OmaApt::new(local_debs, oma_apt_args, dry_run)?;
+    let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run)?;
     let pkgs = apt.select_pkg(pkgs_unparse, args.install_dbg, true)?;
 
     let no_marked_install = apt.install(pkgs, args.reinstall)?;
@@ -135,7 +136,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
 
     loop {
         let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-        let apt = OmaApt::new(local_debs.clone(), oma_apt_args, dry_run)?;
+        let mut apt = OmaApt::new(local_debs.clone(), oma_apt_args, dry_run)?;
 
         let pkgs = apt.select_pkg(pkgs_unparse.clone(), false, true)?;
 
@@ -219,7 +220,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
 
 pub fn download(keyword: Vec<&str>, path: Option<PathBuf>, dry_run: bool) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkgs = apt.select_pkg(keyword, false, true)?;
 
     apt.download(pkgs, None, path.as_deref(), dry_run)?;
@@ -311,6 +312,7 @@ pub fn command_refresh() -> Result<i32> {
         let s = s.join(&fl!("comma"));
         success!("{}", fl!("successfully-refresh-with-tips", s = s));
     }
+
     Ok(0)
 }
 
@@ -333,7 +335,7 @@ fn refresh(dry_run: bool) -> Result<()> {
 
 pub fn show(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let pkg = apt.select_pkg(pkgs_unparse, false, false)?;
     for (i, c) in pkg.iter().enumerate() {
         if c.is_candidate || all {
@@ -344,6 +346,7 @@ pub fn show(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32> {
             }
         }
     }
+
     if !all {
         let other_version = pkg
             .iter()
@@ -398,7 +401,7 @@ pub fn find(x: &str, is_bin: bool, pkg: String) -> Result<i32> {
 
 pub fn depends(pkgs: Vec<String>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let pkgs = apt.select_pkg(
         pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
@@ -430,7 +433,7 @@ pub fn depends(pkgs: Vec<String>) -> Result<i32> {
 
 pub fn rdepends(pkgs: Vec<String>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let pkgs = apt.select_pkg(
         pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
@@ -677,7 +680,7 @@ pub fn mark(op: &str, pkgs: Vec<String>, dry_run: bool) -> Result<i32> {
     root()?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let set = match op {
         "hold" | "unhold" => apt
