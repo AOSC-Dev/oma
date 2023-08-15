@@ -169,7 +169,7 @@ impl<'a> Display for OmaOperation<'a> {
                     if !ins.automatic() {
                         install.push(format!("{name}:{arch} ({version})"));
                     } else {
-                        install.push(format!("{name}:{arch} ({version}, automatic"));
+                        install.push(format!("{name}:{arch} ({version}, automatic)"));
                     }
                 }
                 InstallOperation::ReInstall => {
@@ -177,12 +177,12 @@ impl<'a> Display for OmaOperation<'a> {
                 }
                 InstallOperation::Upgrade => {
                     upgrade.push(format!(
-                        "{name}:{arch} ({}, {version}",
+                        "{name}:{arch} ({}, {version})",
                         ins.old_version().unwrap()
                     ));
                 }
                 InstallOperation::Downgrade => {
-                    downgrade.push(format!("{name}:{arch} ({version}"));
+                    downgrade.push(format!("{name}:{arch} ({version})"));
                 }
             }
         }
@@ -193,35 +193,38 @@ impl<'a> Display for OmaOperation<'a> {
             let version = rm.version();
             let arch = rm.arch();
             if tags.contains(&RemoveTag::Purge) {
-                purge.push(format!("{name}:{arch} ({version}"));
+                purge.push(format!("{name}:{arch} ({version})"));
             } else {
-                remove.push(format!("{name}:{arch} ({version}"))
+                remove.push(format!("{name}:{arch} ({version})"))
             }
         }
 
         if !install.is_empty() {
-            writeln!(f, "Install: {}", install.join(","))?;
+            writeln!(f, "Install: {}", install.join(", "))?;
         }
 
         if !upgrade.is_empty() {
-            writeln!(f, "Upgrade: {}", upgrade.join(","))?;
+            writeln!(f, "Upgrade: {}", upgrade.join(", "))?;
         }
 
         if !reinstall.is_empty() {
-            writeln!(f, "ReInstall: {}", reinstall.join(","))?;
+            writeln!(f, "ReInstall: {}", reinstall.join(", "))?;
         }
 
         if !downgrade.is_empty() {
-            writeln!(f, "Downgrade: {}", downgrade.join(","))?;
+            writeln!(f, "Downgrade: {}", downgrade.join(", "))?;
         }
 
         if !remove.is_empty() {
-            writeln!(f, "Remove: {}", remove.join(","))?;
+            writeln!(f, "Remove: {}", remove.join(", "))?;
         }
 
         if !purge.is_empty() {
-            writeln!(f, "Purge: {}", remove.join(","))?;
+            writeln!(f, "Purge: {}", purge.join(", "))?;
         }
+
+        let (symbol, n) = self.disk_size;
+        writeln!(f, "Size-delta: {symbol}{}", HumanBytes(n))?;
 
         Ok(())
     }
@@ -543,8 +546,22 @@ impl OmaApt {
             .open("/var/log/oma/history")?;
 
         writeln!(log, "Start-Date: {start_time}").ok();
-        writeln!(log, "{v_str}").ok();
-        writeln!(log, "End-Date: {end_time}").ok();
+
+        let args = std::env::args().collect::<String>();
+
+        if !args.is_empty() {
+            writeln!(log, "Commandline: {args}").ok();
+        }
+
+        if let Some((user, uid)) = std::env::var("SUDO_USER")
+            .ok()
+            .zip(std::env::var("SUDO_UID").ok())
+        {
+            writeln!(log, "Requested-By: {user} ({uid})").ok();
+        }
+
+        write!(log, "{v_str}").ok();
+        writeln!(log, "End-Date: {end_time}\n").ok();
 
         Ok(())
     }
