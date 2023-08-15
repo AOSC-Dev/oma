@@ -35,7 +35,7 @@ unic-langid = "0.9"
 [build-dependencies]
 clap_mangen = "0.2.10"
 clap_complete = "4.2"
-clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color"] }
+clap = { version = "4.3", features = ["cargo", "wrap_help", "color"] }
 
 [features]
 aosc = ["oma-topics"]
