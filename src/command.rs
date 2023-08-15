@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::anyhow;
 
-use dialoguer::{console::style, theme::ColorfulTheme, Select};
+use dialoguer::{console::style, theme::ColorfulTheme, Confirm, Select};
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
@@ -26,7 +26,11 @@ use oma_pm::{
 };
 use oma_refresh::db::OmaRefresh;
 use oma_topics::TopicManager;
-use oma_utils::dpkg_arch;
+use oma_utils::{
+    dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
+    dpkg_arch,
+};
+use tokio::runtime::Runtime;
 
 use crate::{
     error::OutputError,
@@ -39,6 +43,11 @@ pub type Result<T> = std::result::Result<T, OutputError>;
 
 pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> Result<i32> {
     root()?;
+
+    let rt = create_async_runtime()?;
+    let conn = rt.block_on(create_dbus_connection())?;
+    rt.block_on(check_battery(&conn))?;
+    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
 
     if !args.no_refresh {
         refresh(dry_run)?;
@@ -112,6 +121,12 @@ fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
 
 pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> Result<i32> {
     root()?;
+
+    let rt = create_async_runtime()?;
+    let conn = rt.block_on(create_dbus_connection())?;
+    rt.block_on(check_battery(&conn))?;
+    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+
     refresh(dry_run)?;
 
     if args.yes {
@@ -180,6 +195,12 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
 
 pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
     root()?;
+
+    let rt = create_async_runtime()?;
+    let conn = rt.block_on(create_dbus_connection())?;
+    rt.block_on(check_battery(&conn))?;
+    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));
     }
@@ -467,6 +488,12 @@ pub fn rdepends(pkgs: Vec<String>) -> Result<i32> {
 
 pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
     root()?;
+
+    let rt = create_async_runtime()?;
+    let conn = rt.block_on(create_dbus_connection())?;
+    rt.block_on(check_battery(&conn))?;
+    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+
     if !no_refresh {
         refresh(dry_run)?;
     }
@@ -553,6 +580,12 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
 
 pub fn fix_broken(dry_run: bool) -> Result<i32> {
     root()?;
+
+    let rt = create_async_runtime()?;
+    let conn = rt.block_on(create_dbus_connection())?;
+    rt.block_on(check_battery(&conn))?;
+    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     handle_resolve(&apt, false)?;
@@ -776,6 +809,12 @@ pub fn hisotry() -> Result<i32> {
 
 pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
     root()?;
+
+    let rt = create_async_runtime()?;
+    let conn = rt.block_on(create_dbus_connection())?;
+    rt.block_on(check_battery(&conn))?;
+    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+
     let opt_in = opt_in;
     let opt_out = opt_out;
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -959,4 +998,30 @@ fn root() -> Result<()> {
             .code()
             .expect("Can not get pkexec oma exit status"),
     );
+}
+
+async fn check_battery(conn: &Connection) -> Result<()> {
+    let is_battery = is_using_battery(conn).await.unwrap_or(false);
+
+    if is_battery {
+        let theme = ColorfulTheme::default();
+        let cont = Confirm::with_theme(&theme)
+            .with_prompt(fl!("battery"))
+            .default(false)
+            .interact()?;
+
+        if !cont {
+            exit(0);
+        }
+    }
+
+    Ok(())
+}
+
+fn create_async_runtime() -> Result<Runtime> {
+    let tokio = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+
+    Ok(tokio)
 }
