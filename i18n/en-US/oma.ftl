@@ -125,6 +125,8 @@ semicolon = {"; "}
 should-installed = BUG: Package {$name} marked for pending operation but it is not installed. This is a program exception. Please report this issue at https://github.com/AOSC-Dev/oma.
 pick-tips = Please select {$pkgname} version to install:
 full-comma = .
+battery = You seem to be on battery power. oma may deplete the battery rather quickly during the transaction. It is recommended to plug in the power supply to prevent sudden power failure. Do you still wish to continue?
+changing-system = oma is modifying your system.
 
 # main
 user-aborted-op = User aborted the operation.
