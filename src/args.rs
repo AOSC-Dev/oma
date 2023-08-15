@@ -1,4 +1,4 @@
-use clap::{builder::PossibleValue, command, value_parser, Arg, ArgAction, Command};
+use clap::{builder::PossibleValue, command, Arg, ArgAction, Command};
 
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
@@ -303,14 +303,7 @@ pub fn command_builder() -> Command {
         .subcommand(
             Command::new("history")
                         .alias("log")
-                        .about("Show a history/log of package changes in the system")
-        .arg(
-            Arg::new("index")
-            .value_parser(value_parser!(usize))
-            .action(ArgAction::Set)
-            .requires("action")
-            .num_args(1)
-        ))
+                        .about("Show a history/log of package changes in the system"))
         .subcommand(
         Command::new("pkgnames")
                 .hide(true)
