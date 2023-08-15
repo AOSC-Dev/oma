@@ -1005,8 +1005,9 @@ async fn check_battery(conn: &Connection) -> Result<()> {
 
     if is_battery {
         let theme = ColorfulTheme::default();
+        warn!("{}", fl!("battery"));
         let cont = Confirm::with_theme(&theme)
-            .with_prompt(fl!("battery"))
+            .with_prompt(fl!("continue"))
             .default(false)
             .interact()?;
 
