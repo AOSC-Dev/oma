@@ -1,4 +1,6 @@
 use std::{
+    fmt::Display,
+    io::Write,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -17,6 +19,7 @@ use oma_fetch::{
     DownloadSourceType, OmaFetcher, Summary,
 };
 use oma_utils::DpkgError;
+use once_cell::sync::Lazy;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
@@ -30,6 +33,7 @@ use rust_apt::{
 };
 
 pub use rust_apt::config::Config as AptConfig;
+use time::{macros::offset, OffsetDateTime, UtcOffset};
 
 use crate::{
     operation::{
@@ -41,6 +45,9 @@ use crate::{
     query::{OmaDatabase, OmaDatabaseError},
     unmet::{find_unmet_deps, find_unmet_deps_with_markinstall, UnmetDep},
 };
+
+static TIME_OFFSET: Lazy<UtcOffset> =
+    Lazy::new(|| UtcOffset::local_offset_at(OffsetDateTime::UNIX_EPOCH).unwrap_or(offset!(UTC)));
 
 #[derive(Builder, Default)]
 #[builder(default)]
@@ -56,6 +63,7 @@ pub struct OmaApt {
     pub config: AptConfig,
     autoremove: Vec<String>,
     dry_run: bool,
+    select_pkgs: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -142,6 +150,83 @@ pub struct OmaOperation<'a> {
     pub total_download_size: u64,
 }
 
+impl<'a> Display for OmaOperation<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut install = vec![];
+        let mut upgrade = vec![];
+        let mut reinstall = vec![];
+        let mut downgrade = vec![];
+        let mut remove = vec![];
+        let mut purge = vec![];
+
+        for ins in &self.install {
+            let name = ins.name();
+            let arch = ins.arch();
+            let version = ins.new_version();
+            match ins.op() {
+                InstallOperation::Default | InstallOperation::Download => unreachable!(),
+                InstallOperation::Install => {
+                    if !ins.automatic() {
+                        install.push(format!("{name}:{arch} ({version})"));
+                    } else {
+                        install.push(format!("{name}:{arch} ({version}, automatic"));
+                    }
+                }
+                InstallOperation::ReInstall => {
+                    reinstall.push(format!("{name}:{arch} ({version})"));
+                }
+                InstallOperation::Upgrade => {
+                    upgrade.push(format!(
+                        "{name}:{arch} ({}, {version}",
+                        ins.old_version().unwrap()
+                    ));
+                }
+                InstallOperation::Downgrade => {
+                    downgrade.push(format!("{name}:{arch} ({version}"));
+                }
+            }
+        }
+
+        for rm in &self.remove {
+            let tags = rm.details();
+            let name = rm.name();
+            let version = rm.version();
+            let arch = rm.arch();
+            if tags.contains(&RemoveTag::Purge) {
+                purge.push(format!("{name}:{arch} ({version}"));
+            } else {
+                remove.push(format!("{name}:{arch} ({version}"))
+            }
+        }
+
+        if !install.is_empty() {
+            writeln!(f, "Install: {}", install.join(","))?;
+        }
+
+        if !upgrade.is_empty() {
+            writeln!(f, "Upgrade: {}", upgrade.join(","))?;
+        }
+
+        if !reinstall.is_empty() {
+            writeln!(f, "ReInstall: {}", reinstall.join(","))?;
+        }
+
+        if !downgrade.is_empty() {
+            writeln!(f, "Downgrade: {}", downgrade.join(","))?;
+        }
+
+        if !remove.is_empty() {
+            writeln!(f, "Remove: {}", remove.join(","))?;
+        }
+
+        if !purge.is_empty() {
+            writeln!(f, "Purge: {}", remove.join(","))?;
+        }
+
+        Ok(())
+    }
+}
+
 impl OmaApt {
     pub fn new(local_debs: Vec<String>, args: OmaAptArgs, dry_run: bool) -> OmaAptResult<Self> {
         let config = Self::init_config(args)?;
@@ -151,6 +236,7 @@ impl OmaApt {
             config,
             autoremove: vec![],
             dry_run,
+            select_pkgs: vec![],
         })
     }
 
@@ -367,6 +453,10 @@ impl OmaApt {
 
     pub fn commit(self, network_thread: Option<usize>, args_config: &AptArgs) -> OmaAptResult<()> {
         let v = self.summary()?;
+        let v_str = v.to_string();
+        let start_time = OffsetDateTime::now_utc()
+            .to_offset(*TIME_OFFSET)
+            .to_string();
 
         if self.dry_run {
             debug!("op: {v:?}");
@@ -394,11 +484,10 @@ impl OmaApt {
         if let Err(e) = apt_lock() {
             let e_str = e.to_string();
             if e_str.contains("dpkg --configure -a") {
-                // info!(
-                //     "{} {} ...",
-                //     fl!("dpkg-was-interrupted"),
-                //     style("dpkg --configure -a").green().bold()
-                // );
+                debug!(
+                    "dpkg-was-interrupted, running {} ...",
+                    style("dpkg --configure -a").green().bold()
+                );
                 let cmd = Command::new("dpkg")
                     .arg("--configure")
                     .arg("-a")
@@ -440,6 +529,22 @@ impl OmaApt {
         })?;
 
         apt_unlock();
+
+        let end_time = OffsetDateTime::now_utc()
+            .to_offset(*TIME_OFFSET)
+            .to_string();
+
+        std::fs::create_dir_all("/var/log/oma/")?;
+
+        let mut log = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .write(true)
+            .open("/var/log/oma/history")?;
+
+        writeln!(log, "Start-Date: {start_time}").ok();
+        writeln!(log, "{v_str}").ok();
+        writeln!(log, "End-Date: {end_time}").ok();
 
         Ok(())
     }
@@ -541,12 +646,18 @@ impl OmaApt {
     }
 
     pub fn select_pkg(
-        &self,
+        &mut self,
         keywords: Vec<&str>,
         select_dbg: bool,
         filter_candidate: bool,
     ) -> OmaAptResult<Vec<PkgInfo>> {
-        select_pkg(keywords, &self.cache, select_dbg, filter_candidate)
+        let res = select_pkg(keywords, &self.cache, select_dbg, filter_candidate)?;
+        self.select_pkgs = res
+            .iter()
+            .map(|x| x.raw_pkg.name().to_string())
+            .collect::<Vec<_>>();
+
+        Ok(res)
     }
 
     pub fn get_archive_dir(&self) -> PathBuf {
@@ -661,6 +772,7 @@ impl OmaApt {
                     .arch(cand.arch().to_string())
                     .download_size(cand.size())
                     .op(InstallOperation::Install)
+                    .automatic(!self.select_pkgs.contains(&pkg.name().to_string()))
                     .build()?;
 
                 install.push(entry);
@@ -694,8 +806,13 @@ impl OmaApt {
                 let version = installed.version();
                 let size = installed.size();
 
-                let remove_entry =
-                    RemoveEntry::new(name.to_string(), version.to_owned(), size, tags);
+                let remove_entry = RemoveEntry::new(
+                    name.to_string(),
+                    version.to_owned(),
+                    size,
+                    tags,
+                    installed.arch().to_owned(),
+                );
 
                 remove.push(remove_entry);
             }
