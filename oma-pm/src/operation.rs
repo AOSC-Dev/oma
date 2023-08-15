@@ -15,6 +15,7 @@ pub struct InstallEntry {
     arch: String,
     download_size: u64,
     op: InstallOperation,
+    automatic: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -23,6 +24,7 @@ pub struct RemoveEntry {
     version: String,
     size: u64,
     details: Vec<RemoveTag>,
+    arch: String,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -82,15 +84,20 @@ impl InstallEntry {
     pub fn op(&self) -> &InstallOperation {
         &self.op
     }
+
+    pub fn automatic(&self) -> bool {
+        self.automatic
+    }
 }
 
 impl RemoveEntry {
-    pub fn new(name: String, version: String, size: u64, details: Vec<RemoveTag>) -> Self {
+    pub fn new(name: String, version: String, size: u64, details: Vec<RemoveTag>, arch: String) -> Self {
         Self {
             name,
             version,
             size,
             details,
+            arch
         }
     }
 
@@ -108,5 +115,9 @@ impl RemoveEntry {
 
     pub fn details(&self) -> &[RemoveTag] {
         &self.details
+    }
+
+    pub fn arch(&self) -> &str {
+        &self.arch
     }
 }

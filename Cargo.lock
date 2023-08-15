@@ -1955,6 +1955,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-utils",
+ "once_cell",
  "rust-apt",
  "thiserror",
  "time",
