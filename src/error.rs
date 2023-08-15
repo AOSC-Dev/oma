@@ -13,6 +13,7 @@ use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseParserError;
 use oma_refresh::verify::VerifyError;
 use oma_topics::OmaTopicsError;
+use oma_utils::dbus::zError;
 use oma_utils::DpkgError;
 
 use crate::fl;
@@ -49,6 +50,12 @@ impl From<OmaAptError> for OutputError {
 impl From<OmaAptArgsBuilderError> for OutputError {
     fn from(value: OmaAptArgsBuilderError) -> Self {
         OutputError(value.to_string())
+    }
+}
+
+impl From<zError> for OutputError {
+    fn from(value: zError) -> Self {
+        Self(value.to_string())
     }
 }
 

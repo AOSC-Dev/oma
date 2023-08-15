@@ -15,6 +15,8 @@ type IOResult<T> = std::io::Result<T>;
 
 pub use os_release::OsRelease;
 
+pub mod dbus;
+
 #[derive(Debug, thiserror::Error)]
 pub enum DpkgError {
     #[error(transparent)]
@@ -145,3 +147,4 @@ pub fn unlock_oma() -> IOResult<()> {
 pub fn terminal_ring() {
     eprint!("\x07"); // bell character
 }
+
