@@ -652,7 +652,6 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
     let mut count = 0;
 
     for (i, (_, index, _)) in res_2.into_iter().enumerate() {
-        let ose = sources.get(index.to_owned()).unwrap().to_owned();
         for c in handler[i].clone() {
             let mut p_not_compress = Path::new(&c.name).to_path_buf();
             p_not_compress.set_extension("");
@@ -682,15 +681,9 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
 
             match source_index.from {
                 OmaSourceEntryFrom::Http => {
-                    let p = if !ose.is_flat {
-                        source_index.dist_path.clone()
-                    } else {
-                        format!("{}/{}", source_index.dist_path, not_compress_filename_before)
-                    };
-
-                    tracing::debug!("oma will download http source database: {p}");
+                    tracing::debug!("oma will download http source database: {} {}", &source_index.dist_path, c.name);
                     let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db(
-                        p,
+                        source_index.dist_path.clone(),
                         c.clone(),
                         client,
                         not_compress_filename.0,
@@ -701,15 +694,9 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     tasks.push(task);
                 }
                 OmaSourceEntryFrom::Local => {
-                    let p = if !ose.is_flat {
-                        source_index.dist_path.clone()
-                    } else {
-                        format!("{}/{}", source_index.dist_path, not_compress_filename_before)
-                    };
-
-                    tracing::debug!("oma will download local source database: {p} {}", c.name);
+                    tracing::debug!("oma will download local source database: {} {}", &source_index.dist_path, c.name);
                     let task: BoxFuture<'_, Result<()>> = Box::pin(download_and_extract_db_local(
-                        p,
+                        source_index.dist_path.clone(),
                         not_compress_filename.0,
                         c.clone(),
                         opb,
