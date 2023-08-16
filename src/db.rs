@@ -195,7 +195,7 @@ enum DistFileType {
 }
 
 impl InReleaseParser {
-    fn new(p: &Path, trust_files: Option<&str>, mirror: &str) -> Result<Self> {
+    fn new(p: &Path, trust_files: Option<&str>, mirror: &str, flat: bool) -> Result<Self> {
         let s = std::fs::read_to_string(p)
             .map_err(|e| anyhow!("Can not read InRelease file, why: {e}"))?;
 
@@ -215,32 +215,34 @@ impl InReleaseParser {
 
         let source_first = source.first();
 
-        let date = source_first
-            .and_then(|x| x.get("Date"))
-            .take()
-            .context(fl!("inrelease-date-empty"))?;
+        if !flat {
+            let date = source_first
+                .and_then(|x| x.get("Date"))
+                .take()
+                .context(fl!("inrelease-date-empty"))?;
 
-        let valid_until = source_first
-            .and_then(|x| x.get("Valid-Until"))
-            .take()
-            .context(fl!("inrelease-valid-until-empty"))?;
+            let valid_until = source_first
+                .and_then(|x| x.get("Valid-Until"))
+                .take()
+                .context(fl!("inrelease-valid-until-empty"))?;
 
-        let date = OffsetDateTime::parse(date, &Rfc2822)
-            .context(fl!("can-not-parse-date", date = date.as_str()))?;
+            let date = OffsetDateTime::parse(date, &Rfc2822)
+                .context(fl!("can-not-parse-date", date = date.as_str()))?;
 
-        let valid_until = OffsetDateTime::parse(valid_until, &Rfc2822).context(fl!(
-            "can-not-parse-valid-until",
-            valid_until = valid_until.as_str()
-        ))?;
+            let valid_until = OffsetDateTime::parse(valid_until, &Rfc2822).context(fl!(
+                "can-not-parse-valid-until",
+                valid_until = valid_until.as_str()
+            ))?;
 
-        let now = OffsetDateTime::now_utc();
+            let now = OffsetDateTime::now_utc();
 
-        if now < date {
-            bail!(fl!("earlier-signature", filename = mirror.to_string()))
-        }
+            if now < date {
+                bail!(fl!("earlier-signature", filename = mirror.to_string()))
+            }
 
-        if now > valid_until {
-            bail!(fl!("expired-signature", filename = mirror.to_string()))
+            if now > valid_until {
+                bail!(fl!("expired-signature", filename = mirror.to_string()))
+            }
         }
 
         let sha256 = source_first
@@ -575,6 +577,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                 &APT_LIST_DISTS.join(name.0),
                 ose.signed_by.as_deref(),
                 &urlc,
+                ose.is_flat,
             )
         })
         .await??;
