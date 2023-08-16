@@ -39,6 +39,10 @@ impl Writer {
         }
     }
 
+    pub fn is_terminal(&self) -> bool {
+        self.term.is_term()
+    }
+
     pub fn show_cursor(&self) -> OmaConsoleResult<()> {
         self.term.show_cursor()?;
         Ok(())

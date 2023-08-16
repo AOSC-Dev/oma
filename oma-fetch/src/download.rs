@@ -2,7 +2,9 @@ use std::{io::SeekFrom, path::Path};
 
 use async_compression::tokio::write::{GzipDecoder as WGzipDecoder, XzDecoder as WXzDecoder};
 use indicatif::ProgressBar;
-use oma_console::{console::style, debug, error, indicatif, warn, writer::Writer, WRITER};
+use oma_console::{
+    console::style, debug, error, indicatif, is_terminal, warn, writer::Writer, WRITER,
+};
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client, StatusCode,
@@ -171,6 +173,13 @@ async fn http_download(
                     "{} checksum success, no need to download anything.",
                     entry.filename
                 );
+
+                if !is_terminal() {
+                    let fpbc = fpb.clone();
+                    let msg = fpbc.and_then(|x| x.msg).unwrap_or(entry.filename.clone());
+                    WRITER.writeln("DONE", &msg, false).unwrap();
+                }
+
                 return Ok(Summary::new(&entry.filename, false, count, context));
             }
 
@@ -279,7 +288,6 @@ async fn http_download(
             _ => return Err(e.into()),
         }
     } else if let Some(pb) = pb {
-        // dbg!("111");
         pb.finish_and_clear();
     }
 
@@ -421,6 +429,12 @@ async fn http_download(
 
     if let Some(pb) = pb {
         pb.finish_and_clear();
+    }
+
+    if !is_terminal() {
+        let fpbc = fpb.clone();
+        let msg = fpbc.and_then(|x| x.msg).unwrap_or(entry.filename.clone());
+        WRITER.writeln("DONE", &msg, false).unwrap();
     }
 
     Ok(Summary::new(&entry.filename, true, count, context))
