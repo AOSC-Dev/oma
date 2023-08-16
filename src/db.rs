@@ -685,7 +685,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     let p = if !ose.is_flat {
                         source_index.dist_path.clone()
                     } else {
-                        format!("{}/{}", source_index.dist_path, not_compress_filename.0)
+                        format!("{}/{}", source_index.dist_path, not_compress_filename_before)
                     };
 
                     tracing::debug!("oma will download http source database: {p}");
@@ -704,7 +704,7 @@ async fn update_db(sources: &[SourceEntry], client: &Client, limit: Option<usize
                     let p = if !ose.is_flat {
                         source_index.dist_path.clone()
                     } else {
-                        format!("{}/{}", source_index.dist_path, not_compress_filename.0)
+                        format!("{}/{}", source_index.dist_path, not_compress_filename_before)
                     };
 
                     tracing::debug!("oma will download local source database: {p} {}", c.name);
