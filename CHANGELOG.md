@@ -5,7 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.6 (2023-08-16)
+
+### Bug Fixes
+
+ - <csr-id-c12e4634dedc804231f5d560073ef3a441924252/> try to fix flat repo path (2)
+ - <csr-id-188625071f8e5eeafa681e20abf2dbfdd9172c0c/> fix flat repo download path
+ - <csr-id-7b8c7f2ebb9420d1526585a3255bac5c1a73a3f0/> do not check inrelease valid_until and date field in flat repo
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 6 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Try to fix flat repo path (2) ([`c12e463`](https://github.com/AOSC-Dev/oma/commit/c12e4634dedc804231f5d560073ef3a441924252))
+    - Fix flat repo download path ([`1886250`](https://github.com/AOSC-Dev/oma/commit/188625071f8e5eeafa681e20abf2dbfdd9172c0c))
+    - Do not check inrelease valid_until and date field in flat repo ([`7b8c7f2`](https://github.com/AOSC-Dev/oma/commit/7b8c7f2ebb9420d1526585a3255bac5c1a73a3f0))
+</details>
+
 ## v1.0.5 (2023-08-09)
+
+<csr-id-bb8ee7e9b232e1ad4761413f6a353df7cc777e9b/>
+<csr-id-d8c0747accfba24a2f9dbbdd10a9a4f625142f99/>
 
 ### Chore
 
@@ -28,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 2 calendar days.
+ - 6 commits contributed to the release over the course of 2 calendar days.
  - 2 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -40,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v1.0.5 ([`04c56df`](https://github.com/AOSC-Dev/oma/commit/04c56df9ddecded54c311e2cc0fc91fdbf2be9e6))
     - Run cargo clippy and cargo fmt to lint code ([`d8c0747`](https://github.com/AOSC-Dev/oma/commit/d8c0747accfba24a2f9dbbdd10a9a4f625142f99))
     - Update all deps ([`bb8ee7e`](https://github.com/AOSC-Dev/oma/commit/bb8ee7e9b232e1ad4761413f6a353df7cc777e9b))
     - Do not add -dbg package to dep issue item ([`baf4535`](https://github.com/AOSC-Dev/oma/commit/baf4535dd5a5ae899cb4d4ba3ed15a19d508f8f2))
