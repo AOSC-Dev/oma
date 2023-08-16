@@ -21,6 +21,10 @@ pub enum OmaConsoleError {
     StdinDoesNotExist,
 }
 
+pub fn is_terminal() -> bool {
+    WRITER.is_terminal()
+}
+
 // We will ignore write errors in the following macros, since cannot print messages is not an emergency
 #[macro_export]
 macro_rules! msg {
