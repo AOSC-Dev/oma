@@ -2,7 +2,7 @@ use std::{io::SeekFrom, path::Path};
 
 use async_compression::tokio::write::{GzipDecoder as WGzipDecoder, XzDecoder as WXzDecoder};
 use indicatif::ProgressBar;
-use oma_console::{debug, error, indicatif, warn, writer::Writer};
+use oma_console::{console::style, debug, error, indicatif, warn, writer::Writer, WRITER};
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client, StatusCode,
@@ -83,7 +83,17 @@ async fn try_http_download(
                     if retry_times == times {
                         return Err(e);
                     }
-                    warn!("Download Error: {e:?}, retrying {times} times ...");
+                    if let Some(gpb) = fpb.clone().and_then(|x| x.global_bar) {
+                        WRITER
+                            .writeln_with_pb(
+                                &gpb,
+                                &style("WARNING").yellow().bold().to_string(),
+                                "Download Error: {e:?}, retrying {times} times ...",
+                            )
+                            .ok();
+                    } else {
+                        warn!("Download Error: {e:?}, retrying {times} times ...");
+                    }
                     times += 1;
                 }
                 _ => return Err(e),
