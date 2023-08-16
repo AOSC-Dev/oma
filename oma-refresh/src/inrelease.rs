@@ -62,6 +62,7 @@ impl InReleaseParser {
         trust_files: Option<&str>,
         mirror: &str,
         arch: &str,
+        is_flat: bool,
     ) -> InReleaseParserResult<Self> {
         let s = std::fs::read_to_string(p).map_err(|e| {
             InReleaseParserError::FailedToOpenInRelease(p.display().to_string(), e.to_string())
@@ -77,34 +78,36 @@ impl InReleaseParser {
 
         let source_first = source.first();
 
-        let date = source_first
-            .and_then(|x| x.get("Date"))
-            .take()
-            .ok_or_else(|| InReleaseParserError::BadInReleaseData)?;
+        if !is_flat {
+            let date = source_first
+                .and_then(|x| x.get("Date"))
+                .take()
+                .ok_or_else(|| InReleaseParserError::BadInReleaseData)?;
 
-        let valid_until = source_first
-            .and_then(|x| x.get("Valid-Until"))
-            .take()
-            .ok_or_else(|| InReleaseParserError::BadInReleaseVaildUntil)?;
+            let valid_until = source_first
+                .and_then(|x| x.get("Valid-Until"))
+                .take()
+                .ok_or_else(|| InReleaseParserError::BadInReleaseVaildUntil)?;
 
-        let date = OffsetDateTime::parse(date, &Rfc2822)
-            .map_err(|_| InReleaseParserError::BadInReleaseData)?;
+            let date = OffsetDateTime::parse(date, &Rfc2822)
+                .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
-        let valid_until = OffsetDateTime::parse(valid_until, &Rfc2822)
-            .map_err(|_| InReleaseParserError::BadInReleaseVaildUntil)?;
+            let valid_until = OffsetDateTime::parse(valid_until, &Rfc2822)
+                .map_err(|_| InReleaseParserError::BadInReleaseVaildUntil)?;
 
-        let now = OffsetDateTime::now_utc();
+            let now = OffsetDateTime::now_utc();
 
-        if now < date {
-            return Err(InReleaseParserError::EarlierSignature(
-                p.display().to_string(),
-            ));
-        }
+            if now < date {
+                return Err(InReleaseParserError::EarlierSignature(
+                    p.display().to_string(),
+                ));
+            }
 
-        if now > valid_until {
-            return Err(InReleaseParserError::ExpiredSignature(
-                p.display().to_string(),
-            ));
+            if now > valid_until {
+                return Err(InReleaseParserError::ExpiredSignature(
+                    p.display().to_string(),
+                ));
+            }
         }
 
         let sha256 = source_first

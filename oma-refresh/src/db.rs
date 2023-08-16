@@ -385,7 +385,7 @@ async fn update_db(
         let inrelease_path = download_dir.join(&inrelease_summary.filename);
 
         let inrelease = tokio::task::spawn_blocking(move || {
-            InReleaseParser::new(&inrelease_path, ose.signed_by.as_deref(), &urlc, &archc)
+            InReleaseParser::new(&inrelease_path, ose.signed_by.as_deref(), &urlc, &archc, ose.is_flat)
         })
         .await??;
 
@@ -464,14 +464,7 @@ async fn update_db(
 
             match source_index.from {
                 OmaSourceEntryFrom::Http => {
-                    let dist_url = if !ose.is_flat {
-                        source_index.dist_path.clone()
-                    } else {
-                        format!(
-                            "{}/{}",
-                            source_index.dist_path, not_compress_filename_before
-                        )
-                    };
+                    let dist_url = source_index.dist_path.clone();
 
                     let file_path = if c.file_type == DistFileType::CompressContents {
                         format!("{}/{}", dist_url, c.name)
@@ -509,21 +502,14 @@ async fn update_db(
                     tasks.push(task);
                 }
                 OmaSourceEntryFrom::Local => {
-                    let p = if !ose.is_flat {
-                        source_index.dist_path.clone()
-                    } else {
-                        format!(
-                            "{}/{}",
-                            source_index.dist_path, not_compress_filename_before
-                        )
-                    };
+                    let dist_url = source_index.dist_path.clone();
 
-                    debug!("oma will download local source database: {p} {}", c.name);
+                    debug!("oma will download local source database: {dist_url} {}", c.name);
 
                     let file_path = if c.file_type == DistFileType::CompressContents {
-                        format!("{}/{}", p, c.name)
+                        format!("{dist_url}/{}", c.name)
                     } else {
-                        format!("{}/{}", p, not_compress_filename_before)
+                        format!("{dist_url}/{}", not_compress_filename_before)
                     };
 
                     let sources = vec![DownloadSource::new(
