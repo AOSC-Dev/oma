@@ -74,11 +74,19 @@ pub enum OmaContentsError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum QueryMode {
+    /// apt-file search (bool is only search binary)
     Provides(bool),
+    /// apt-file list (bool is only search binary)
     ListFiles(bool),
+    /// command-not-found mode (only search binary)
     CommandNotFound,
 }
 
+/// Find contents
+/// keywords: search keyword
+/// query_mode: Query Mode
+/// dist_dir: where is contents dir
+/// callback: callback progress
 pub fn find<F>(
     keyword: &str,
     query_mode: QueryMode,
@@ -304,6 +312,7 @@ where
     Ok(res)
 }
 
+/// Parse contents line
 fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
     let contents_white = " ".repeat(3);
     let mut split = line.split(&contents_white);
