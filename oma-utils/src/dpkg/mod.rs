@@ -15,6 +15,7 @@ pub enum DpkgError {
     FailedToQueryDpkgDatabase,
 }
 
+/// Get architecture from dpkg
 pub fn dpkg_arch() -> Result<String, DpkgError> {
     let dpkg = Command::new("dpkg").arg("--print-architecture").output()?;
 
@@ -27,6 +28,7 @@ pub fn dpkg_arch() -> Result<String, DpkgError> {
     Ok(output)
 }
 
+/// Mark hold/unhold status use dpkg --set-selections
 pub fn mark_version_status(
     pkgs: &[String],
     hold: bool,
