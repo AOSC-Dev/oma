@@ -821,7 +821,7 @@ impl OmaApt {
 
                 let installed = pkg.installed().unwrap();
                 let version = installed.version();
-                let size = installed.size();
+                let size = installed.installed_size();
 
                 let remove_entry = RemoveEntry::new(
                     name.to_string(),
