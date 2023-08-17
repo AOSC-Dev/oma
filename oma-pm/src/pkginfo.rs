@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use oma_utils::HumanBytes;
+use oma_utils::human_bytes::HumanBytes;
 use rust_apt::{
     cache::Cache,
     package::{BaseDep, DepType, Dependency, Package, Version},

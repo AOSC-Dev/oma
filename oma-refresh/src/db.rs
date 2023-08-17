@@ -61,7 +61,7 @@ pub enum RefreshError {
     #[error(transparent)]
     InReleaseParserError(#[from] InReleaseParserError),
     #[error(transparent)]
-    DpkgArchError(#[from] oma_utils::DpkgError),
+    DpkgArchError(#[from] oma_utils::dpkg::DpkgError),
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
     #[error(transparent)]
@@ -241,7 +241,7 @@ impl OmaRefresh {
     pub fn scan(limit: Option<usize>) -> Result<Self> {
         let sources = get_sources()?;
         let sources = hr_sources(&sources)?;
-        let arch = oma_utils::dpkg_arch()?;
+        let arch = oma_utils::dpkg::dpkg_arch()?;
 
         let download_dir = APT_LIST_DISTS.clone();
 
