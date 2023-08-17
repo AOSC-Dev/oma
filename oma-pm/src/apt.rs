@@ -18,7 +18,7 @@ use oma_fetch::{
     DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadSource,
     DownloadSourceType, OmaFetcher, Summary,
 };
-use oma_utils::DpkgError;
+use oma_utils::dpkg::DpkgError;
 use once_cell::sync::Lazy;
 use rust_apt::{
     cache::{Cache, PackageSort, Upgrade},
@@ -708,7 +708,7 @@ impl OmaApt {
             }
         }
 
-        let res = oma_utils::mark_version_status(pkgs, hold, dry_run)?;
+        let res = oma_utils::dpkg::mark_version_status(pkgs, hold, dry_run)?;
 
         Ok(res)
     }
