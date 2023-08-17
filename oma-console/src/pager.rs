@@ -15,6 +15,9 @@ pub enum Pager {
 }
 
 impl Pager {
+    /// Create a new Pager (less or less-like Pager)
+    /// no_pager: if false, not use less-like to see file
+    /// tips: less tips
     pub fn new(no_pager: bool, tips: &str) -> OmaConsoleResult<Self> {
         if no_pager {
             return Ok(Pager::Plain);
@@ -51,6 +54,7 @@ impl Pager {
         Ok(res)
     }
 
+    /// Get pager name (like less)
     pub fn pager_name(&self) -> Option<&str> {
         match self {
             Pager::Plain => None,
@@ -58,6 +62,7 @@ impl Pager {
         }
     }
 
+    /// Get writer to writer something to pager
     pub fn get_writer(&self) -> OmaConsoleResult<Box<dyn Write + '_>> {
         let res = match self {
             Pager::Plain => Writer::default().get_writer(),
@@ -74,6 +79,7 @@ impl Pager {
         Ok(res)
     }
 
+    /// Wait pager to exit
     pub fn wait_for_exit(&mut self) -> OmaConsoleResult<bool> {
         let success = if let Pager::External((_, child)) = self {
             child.wait()?.success()
