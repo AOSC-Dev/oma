@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.1.0 (2023-08-17)
 
+<csr-id-0b0c1dbdf1faa21f01a54f889a65b984d74b4059/>
+<csr-id-30a708a8419dd4d07d833a56466dffb7f290fda8/>
+<csr-id-717bece8a874dede7a8ac58fc56f41daaf3daa48/>
+<csr-id-2c4554b6a9988e55e0d1bf41b05e4e24b82899f7/>
+<csr-id-c1e161f60650ed8feb562838ed9ecb5ecdadfe05/>
+<csr-id-a4207f7a57e8561f1aa58e4af66057227b2c00e2/>
+<csr-id-ee45498f402ccc6a686c44b1b4f887301e9801e1/>
+
 ### Chore
 
  - <csr-id-0b0c1dbdf1faa21f01a54f889a65b984d74b4059/> add desc and LICENSE (MIT) and comment
+
+### Chore
+
+ - <csr-id-0501e3ed5b24636e9c155a8781e7e7004cd8316c/> add changelog
 
 ### New Features
 
@@ -33,8 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 12 commits contributed to the release over the course of 10 calendar days.
- - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 13 commits contributed to the release over the course of 10 calendar days.
+ - 11 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -44,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Add changelog ([`0501e3e`](https://github.com/AOSC-Dev/oma/commit/0501e3ed5b24636e9c155a8781e7e7004cd8316c))
     - Add desc and LICENSE (MIT) and comment ([`0b0c1db`](https://github.com/AOSC-Dev/oma/commit/0b0c1dbdf1faa21f01a54f889a65b984d74b4059))
     - Re-abstract code ([`30a708a`](https://github.com/AOSC-Dev/oma/commit/30a708a8419dd4d07d833a56466dffb7f290fda8))
     - Add take walk lock and check battery feature ([`d6c45b2`](https://github.com/AOSC-Dev/oma/commit/d6c45b2360f26a00bfaec6c60521d274f03ee729))
