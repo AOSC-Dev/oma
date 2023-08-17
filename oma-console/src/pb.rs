@@ -5,6 +5,7 @@ use indicatif::{style::TemplateError, ProgressStyle};
 
 use crate::writer::Writer;
 
+/// oma style progress bar
 pub fn oma_style_pb(writer: Writer, is_global: bool) -> Result<ProgressStyle, TemplateError> {
     let bar_template = {
         let max_len = writer.get_max_len();
@@ -40,6 +41,7 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> Result<ProgressStyle, Te
     Ok(barsty)
 }
 
+/// oma style spinner
 pub fn oma_spinner(ailurus: bool) -> Result<(ProgressStyle, Duration), TemplateError> {
     let (is_egg, inv) = if ailurus {
         (

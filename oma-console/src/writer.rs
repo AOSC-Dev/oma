@@ -4,6 +4,7 @@ use crate::OmaConsoleResult;
 use console::Term;
 use indicatif::ProgressBar;
 
+/// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
     if console::measure_text_width(prefix) > (prefix_len - 1).into() {
         panic!("Line prefix \"{prefix}\" too long!");
@@ -39,15 +40,18 @@ impl Writer {
         }
     }
 
+    /// See environment is terminal
     pub fn is_terminal(&self) -> bool {
         self.term.is_term()
     }
 
+    /// Show terminal cursor
     pub fn show_cursor(&self) -> OmaConsoleResult<()> {
         self.term.show_cursor()?;
         Ok(())
     }
 
+    /// Get terminal max len to writer message to terminal
     pub fn get_max_len(&self) -> u16 {
         let len = self.term.size_checked().unwrap_or((25, 80)).1 - self.prefix_len;
 
@@ -58,20 +62,24 @@ impl Writer {
         }
     }
 
+    /// Get terminal height
     pub fn get_height(&self) -> u16 {
         self.term.size_checked().unwrap_or((25, 80)).0
     }
 
+    /// Get writer to write something to terminal
     pub fn get_writer(&self) -> Box<dyn Write> {
         Box::new(self.term.clone())
     }
 
+    /// Write oma-style message prefix to terminal
     fn write_prefix(&self, prefix: &str) -> OmaConsoleResult<()> {
         self.term.write_str(&gen_prefix(prefix, self.prefix_len))?;
 
         Ok(())
     }
 
+    /// Write oma-style string to terminal
     pub fn writeln(
         &self,
         prefix: &str,
@@ -133,6 +141,7 @@ impl Writer {
         Ok((prefix_res, msg_res))
     }
 
+    /// Write oma-style string to terminal with progress bar
     pub fn writeln_with_pb(
         &self,
         pb: &ProgressBar,
