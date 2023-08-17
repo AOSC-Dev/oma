@@ -7,10 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.1.0 (2023-08-17)
 
+<csr-id-3c7c29e6e5da4cc1b4e10006aa9cac2b2008d43a/>
+<csr-id-eb52b648a8b51af5bdf1cd39dd3045c49267f399/>
+<csr-id-119cc9f79cb3e0a2c1e5623614915c6e7c0b8769/>
+<csr-id-9e6f244eaf4e52c13107c2dc6b42432982b5eb37/>
+<csr-id-999ff58a1a4d6d5ceecb8563018a21b0002c90ae/>
+<csr-id-61b0cf19043ce4ee0a50fa2ee1584248a03d30bf/>
+<csr-id-b210c488cd00656131cf77ef7f98a5aef0999e73/>
+<csr-id-3f0e43a4b964113b261b5688b612c71f6c87b7b1/>
+<csr-id-5170f79611bb4b36baa7a179167de5cd3b141a2e/>
+<csr-id-255c03b6d49e612578cd75f7e8c92aba273a2308/>
+<csr-id-7dba4beee8cf26d469b01dbbe5b61b06d73622b2/>
+<csr-id-ee45498f402ccc6a686c44b1b4f887301e9801e1/>
+
 ### Chore
 
  - <csr-id-3c7c29e6e5da4cc1b4e10006aa9cac2b2008d43a/> fill of comment
  - <csr-id-eb52b648a8b51af5bdf1cd39dd3045c49267f399/> no need to use tracing
+
+### Chore
+
+ - <csr-id-ec5d5d35534f5200143f6d819ca5d2ed989fd21c/> add desc
+ - <csr-id-294cd1b853c63d48ab1fcb33db95ea3838ab47dd/> add changelog
 
 ### New Features
 
@@ -44,8 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 17 commits contributed to the release over the course of 10 calendar days.
- - 17 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 19 commits contributed to the release over the course of 10 calendar days.
+ - 19 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -55,6 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Add desc ([`ec5d5d3`](https://github.com/AOSC-Dev/oma/commit/ec5d5d35534f5200143f6d819ca5d2ed989fd21c))
+    - Add changelog ([`294cd1b`](https://github.com/AOSC-Dev/oma/commit/294cd1b853c63d48ab1fcb33db95ea3838ab47dd))
     - Fill of comment ([`3c7c29e`](https://github.com/AOSC-Dev/oma/commit/3c7c29e6e5da4cc1b4e10006aa9cac2b2008d43a))
     - Display done message if env is not atty ([`e8f56b5`](https://github.com/AOSC-Dev/oma/commit/e8f56b5f1634556fd269d2b598d37f12eb1dfab7))
     - Remove useless file; lint ([`119cc9f`](https://github.com/AOSC-Dev/oma/commit/119cc9f79cb3e0a2c1e5623614915c6e7c0b8769))
