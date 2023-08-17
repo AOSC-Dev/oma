@@ -16,7 +16,7 @@ which ="4.4"
 serde_json = "1.0"
 strsim = "0.10"
 thiserror = "1.0"
-oma-console = { path = "../oma-console" }
+oma-console = { version = "0.1.0", path = "../oma-console" }
 
 [dev-dependencies]
 indicatif = "0.17"
