@@ -27,6 +27,8 @@ struct InstallEntryDisplay {
 struct RemoveEntryDisplay {
     #[tabled(rename = "Name")]
     name: String,
+    #[tabled(rename = "Size")]
+    size: String,
     #[tabled(rename = "Details")]
     detail: String,
 }
@@ -88,7 +90,9 @@ impl From<RemoveEntry> for RemoveEntryDisplay {
             &*s
         });
 
-        Self { name, detail }
+        let size = format!("-{}", HumanBytes(value.size()));
+
+        Self { name, detail, size }
     }
 }
 
@@ -291,8 +295,9 @@ pub fn table_for_install_pending(
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
-            .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
-            .with(Style::psql());
+            .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
+            .with(Style::psql())
+            .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
         let _ = writeln!(out, "{table}\n\n");
     }
