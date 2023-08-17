@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use crate::apt::AptConfig;
-use oma_console::debug;
+use oma_console::{debug, is_terminal};
 use rust_apt::{
     raw::progress::{AcquireProgress, InstallProgress},
     util::{get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys},
@@ -148,16 +148,20 @@ impl InstallProgress for OmaAptInstallProgress {
         total_steps: u64,
         _action: String,
     ) {
+        if !is_terminal() {
+            return;
+        }
+
         // Get the terminal's width and height.
         let term_height = terminal_height();
         let term_width = terminal_width();
 
         // Save the current cursor position.
-        print!("\x1b7");
+        eprint!("\x1b7");
 
         // Go to the progress reporting line.
-        print!("\x1b[{term_height};0f");
-        std::io::stdout().flush().unwrap();
+        eprint!("\x1b[{term_height};0f");
+        std::io::stderr().flush().unwrap();
 
         // Convert the float to a percentage string.
         let percent = steps_done as f32 / total_steps as f32;
@@ -184,7 +188,7 @@ impl InstallProgress for OmaAptInstallProgress {
         const BG_COLOR_RESET: &str = "\x1b[49m";
         const FG_COLOR_RESET: &str = "\x1b[39m";
 
-        print!("{bg_color}{fg_color}Progress: [{percent_str}%]{BG_COLOR_RESET}{FG_COLOR_RESET} ");
+        eprint!("{bg_color}{fg_color}Progress: [{percent_str}%]{BG_COLOR_RESET}{FG_COLOR_RESET} ");
 
         // The length of "Progress: [100%] ".
         const PROGRESS_STR_LEN: usize = 17;
@@ -193,11 +197,11 @@ impl InstallProgress for OmaAptInstallProgress {
         // We should safely be able to convert the `usize`.try_into() into the `u32`
         // needed by `get_apt_progress_string`, as usize ints only take up 8 bytes on a
         // 64-bit processor.
-        print!(
+        eprint!(
             "{}",
             get_apt_progress_string(percent, (term_width - PROGRESS_STR_LEN).try_into().unwrap())
         );
-        std::io::stdout().flush().unwrap();
+        std::io::stderr().flush().unwrap();
 
         // If this is the last change, remove the progress reporting bar.
         // if steps_done == total_steps {
@@ -205,8 +209,8 @@ impl InstallProgress for OmaAptInstallProgress {
         // print!("\x1b[0;{}r", term_height);
         // }
         // Finally, go back to the previous cursor position.
-        print!("\x1b8");
-        std::io::stdout().flush().unwrap();
+        eprint!("\x1b8");
+        std::io::stderr().flush().unwrap();
     }
 
     fn error(&mut self, _pkgname: String, _steps_done: u64, _total_steps: u64, _error: String) {}
