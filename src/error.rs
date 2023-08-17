@@ -14,7 +14,7 @@ use oma_refresh::inrelease::InReleaseParserError;
 use oma_refresh::verify::VerifyError;
 use oma_topics::OmaTopicsError;
 use oma_utils::dbus::zError;
-use oma_utils::DpkgError;
+use oma_utils::dpkg::DpkgError;
 
 use crate::fl;
 

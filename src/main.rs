@@ -14,7 +14,8 @@ use clap::ArgMatches;
 use nix::sys::signal;
 use oma_console::{console::style, info};
 use oma_console::{debug, due_to, error, DEBUG, WRITER};
-use oma_utils::{terminal_ring, unlock_oma, OsRelease};
+use oma_utils::oma::{terminal_ring, unlock_oma};
+use oma_utils::OsRelease;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
