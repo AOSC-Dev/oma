@@ -25,7 +25,7 @@ pub fn is_terminal() -> bool {
     WRITER.is_terminal()
 }
 
-// We will ignore write errors in the following macros, since cannot print messages is not an emergency
+/// oma display normal message
 #[macro_export]
 macro_rules! msg {
     ($($arg:tt)+) => {
@@ -33,6 +33,7 @@ macro_rules! msg {
     };
 }
 
+/// oma display debug message
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)+) => {
@@ -42,6 +43,7 @@ macro_rules! debug {
     };
 }
 
+/// oma display success message
 #[macro_export]
 macro_rules! success {
     ($($arg:tt)+) => {
@@ -49,6 +51,7 @@ macro_rules! success {
     };
 }
 
+/// oma display info message
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)+) => {
@@ -56,6 +59,7 @@ macro_rules! info {
     };
 }
 
+/// oma display warn message
 #[macro_export]
 macro_rules! warn {
     ($($arg:tt)+) => {
@@ -63,6 +67,7 @@ macro_rules! warn {
     };
 }
 
+/// oma display error message
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)+) => {
@@ -70,6 +75,7 @@ macro_rules! error {
     };
 }
 
+/// oma display due_to message
 #[macro_export]
 macro_rules! due_to {
     ($($arg:tt)+) => {
