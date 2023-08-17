@@ -146,9 +146,6 @@ pub fn command_builder() -> Command {
                         .action(clap::ArgAction::Set)
                         .help("The path where package(s) should be downloaded to"),
                 )
-                .arg(
-                    Arg::new("with_deps").long("with-deps").requires("packages").action(ArgAction::SetTrue).help("Download package(s) from the repository with dependencies")
-                )
         )
         .subcommand(
             Command::new("remove")
