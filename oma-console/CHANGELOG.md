@@ -19,11 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-id-255c03b6d49e612578cd75f7e8c92aba273a2308/>
 <csr-id-7dba4beee8cf26d469b01dbbe5b61b06d73622b2/>
 <csr-id-ee45498f402ccc6a686c44b1b4f887301e9801e1/>
+<csr-id-ec5d5d35534f5200143f6d819ca5d2ed989fd21c/>
+<csr-id-294cd1b853c63d48ab1fcb33db95ea3838ab47dd/>
 
 ### Chore
 
  - <csr-id-3c7c29e6e5da4cc1b4e10006aa9cac2b2008d43a/> fill of comment
  - <csr-id-eb52b648a8b51af5bdf1cd39dd3045c49267f399/> no need to use tracing
+
+### Chore
+
+ - <csr-id-548a9e5febf471f0e62d0f1202d9465d493a889f/> use MIT license
 
 ### Chore
 
@@ -62,8 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 19 commits contributed to the release over the course of 10 calendar days.
- - 19 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 21 commits contributed to the release over the course of 10 calendar days.
+ - 20 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -73,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Use MIT license ([`548a9e5`](https://github.com/AOSC-Dev/oma/commit/548a9e5febf471f0e62d0f1202d9465d493a889f))
+    - Release oma-console v0.1.0 ([`4d378f6`](https://github.com/AOSC-Dev/oma/commit/4d378f6836febe26ab907fefa8fd19dbe4e7222e))
     - Add desc ([`ec5d5d3`](https://github.com/AOSC-Dev/oma/commit/ec5d5d35534f5200143f6d819ca5d2ed989fd21c))
     - Add changelog ([`294cd1b`](https://github.com/AOSC-Dev/oma/commit/294cd1b853c63d48ab1fcb33db95ea3838ab47dd))
     - Fill of comment ([`3c7c29e`](https://github.com/AOSC-Dev/oma/commit/3c7c29e6e5da4cc1b4e10006aa9cac2b2008d43a))
