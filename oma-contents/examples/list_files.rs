@@ -2,7 +2,7 @@ use std::{path::Path, time::Duration};
 
 use indicatif::ProgressBar;
 use oma_contents::{find, QueryMode};
-use oma_utils::dpkg_arch;
+use oma_utils::dpkg::dpkg_arch;
 
 fn main() {
     let pb = ProgressBar::new_spinner();

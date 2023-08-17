@@ -28,7 +28,7 @@ use oma_refresh::db::OmaRefresh;
 use oma_topics::TopicManager;
 use oma_utils::{
     dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
-    dpkg_arch,
+    dpkg::dpkg_arch,
 };
 use tokio::runtime::Runtime;
 

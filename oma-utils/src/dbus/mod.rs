@@ -47,6 +47,7 @@ pub async fn take_wake_lock(
         .await
 }
 
+/// Check computer is using battery (like laptop)
 pub async fn is_using_battery(conn: &Connection) -> zResult<bool> {
     let proxy = UPowerProxy::new(conn).await?;
 
