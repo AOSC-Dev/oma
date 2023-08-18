@@ -91,13 +91,19 @@ impl InstallEntry {
 }
 
 impl RemoveEntry {
-    pub fn new(name: String, version: String, size: u64, details: Vec<RemoveTag>, arch: String) -> Self {
+    pub fn new(
+        name: String,
+        version: String,
+        size: u64,
+        details: Vec<RemoveTag>,
+        arch: String,
+    ) -> Self {
         Self {
             name,
             version,
             size,
             details,
-            arch
+            arch,
         }
     }
 
