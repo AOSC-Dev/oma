@@ -2,6 +2,8 @@
 name = "oma-pm"
 version = "0.1.0"
 edition = "2021"
+description = "A crate to help oma handle package manager operation"
+license = "GPLv3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,7 +13,7 @@ thiserror = "1.0"
 time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
 glob-match = "0.2"
 indicium = "0.4"
-oma-utils = { path = "../oma-utils" }
+oma-utils = { version = "0.1.0", path = "../oma-utils" }
 url-escape = "0.1"
 oma-fetch = { path = "../oma-fetch" }
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread", "macros"] }
