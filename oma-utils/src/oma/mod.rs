@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use once_cell::sync::Lazy;
+use std::path::PathBuf;
 
 type IOResult<T> = std::io::Result<T>;
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));

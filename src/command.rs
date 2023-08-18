@@ -873,7 +873,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
 async fn topics_inner(
     mut opt_in: Vec<String>,
     mut opt_out: Vec<String>,
-    dry_run: bool
+    dry_run: bool,
 ) -> Result<(Vec<String>, Vec<String>)> {
     let mut tm = TopicManager::new().await?;
 

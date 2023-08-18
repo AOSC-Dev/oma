@@ -1,7 +1,9 @@
-use std::{process::{Command, Stdio}, io::Write};
+use std::{
+    io::Write,
+    process::{Command, Stdio},
+};
 
 use oma_console::debug;
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum DpkgError {

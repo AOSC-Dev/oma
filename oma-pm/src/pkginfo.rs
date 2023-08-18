@@ -1,12 +1,12 @@
 use std::{collections::HashMap, fmt::Display};
 
-use oma_utils::human_bytes::HumanBytes;
 use oma_apt::{
     cache::Cache,
     package::{BaseDep, DepType, Dependency, Package, Version},
     raw::package::{RawPackage, RawVersion},
     records::RecordField,
 };
+use oma_utils::human_bytes::HumanBytes;
 
 #[derive(Debug)]
 pub struct OmaDependency {

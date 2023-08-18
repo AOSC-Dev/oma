@@ -385,7 +385,13 @@ async fn update_db(
         let inrelease_path = download_dir.join(&inrelease_summary.filename);
 
         let inrelease = tokio::task::spawn_blocking(move || {
-            InReleaseParser::new(&inrelease_path, ose.signed_by.as_deref(), &urlc, &archc, ose.is_flat)
+            InReleaseParser::new(
+                &inrelease_path,
+                ose.signed_by.as_deref(),
+                &urlc,
+                &archc,
+                ose.is_flat,
+            )
         })
         .await??;
 
@@ -504,7 +510,10 @@ async fn update_db(
                 OmaSourceEntryFrom::Local => {
                     let dist_url = source_index.dist_path.clone();
 
-                    debug!("oma will download local source database: {dist_url} {}", c.name);
+                    debug!(
+                        "oma will download local source database: {dist_url} {}",
+                        c.name
+                    );
 
                     let file_path = if c.file_type == DistFileType::CompressContents {
                         format!("{dist_url}/{}", c.name)
