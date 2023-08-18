@@ -1,12 +1,12 @@
 use std::path::Path;
 
-use oma_console::debug;
 use oma_apt::{
     cache::{Cache, PackageSort},
     package::{Package, Version},
     raw::package::RawPackage,
     records::RecordField,
 };
+use oma_console::debug;
 
 use crate::{
     pkginfo::PkgInfo,

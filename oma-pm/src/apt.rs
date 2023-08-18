@@ -6,6 +6,17 @@ use std::{
 };
 
 use derive_builder::Builder;
+use oma_apt::{
+    cache::{Cache, PackageSort, Upgrade},
+    new_cache,
+    package::{Package, Version},
+    raw::{
+        progress::AptInstallProgress,
+        util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
+    },
+    records::RecordField,
+    util::{apt_lock, DiskSpace},
+};
 use oma_console::{
     console::style,
     debug,
@@ -20,17 +31,6 @@ use oma_fetch::{
 };
 use oma_utils::dpkg::DpkgError;
 use once_cell::sync::Lazy;
-use oma_apt::{
-    cache::{Cache, PackageSort, Upgrade},
-    new_cache,
-    package::{Package, Version},
-    raw::{
-        progress::AptInstallProgress,
-        util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
-    },
-    records::RecordField,
-    util::{apt_lock, DiskSpace},
-};
 
 pub use oma_apt::config::Config as AptConfig;
 use time::{macros::offset, OffsetDateTime, UtcOffset};

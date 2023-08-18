@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use oma_apt_sources_lists::{SourceLine, SourcesLists};
 use indexmap::IndexMap;
+use oma_apt_sources_lists::{SourceLine, SourcesLists};
 use oma_console::debug;
 use once_cell::sync::Lazy;
 use reqwest::Client;
@@ -102,7 +102,7 @@ impl TopicManager {
         Ok(Self {
             enabled: serde_json::from_str(&f).unwrap_or(vec![]),
             all: vec![],
-            client: reqwest::ClientBuilder::new().user_agent("oma").build()?
+            client: reqwest::ClientBuilder::new().user_agent("oma").build()?,
         })
     }
 
@@ -128,12 +128,7 @@ impl TopicManager {
     }
 
     /// Enable select topic
-    pub async fn add(
-        &mut self,
-        topic: &str,
-        dry_run: bool,
-        arch: &str,
-    ) -> Result<()> {
+    pub async fn add(&mut self, topic: &str, dry_run: bool, arch: &str) -> Result<()> {
         debug!("oma will opt_in: {}", topic);
 
         if dry_run {

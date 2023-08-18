@@ -76,9 +76,7 @@ impl From<RemoveEntry> for RemoveEntryDisplay {
         for i in value.details() {
             match i {
                 RemoveTag::Purge => detail.push(fl!("purge-file")),
-                RemoveTag::AutoRemove => {
-                    detail.push(fl!("removed-as-unneed-dep"))
-                }
+                RemoveTag::AutoRemove => detail.push(fl!("removed-as-unneed-dep")),
             }
         }
 

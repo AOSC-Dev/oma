@@ -441,7 +441,6 @@ async fn http_download(
     Ok(Summary::new(&entry.filename, true, count, context))
 }
 
-
 /// Download local source file
 pub async fn download_local(
     entry: &DownloadEntry,
