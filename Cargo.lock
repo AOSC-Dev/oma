@@ -116,14 +116,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
-name = "apt-sources-lists"
-version = "0.1.0"
-source = "git+https://github.com/pop-os/apt-sources-lists?rev=0df4611ec7293010551f95659f28f1b1da9cc0c8#0df4611ec7293010551f95659f28f1b1da9cc0c8"
-dependencies = [
- "err-derive 0.2.4",
-]
-
-[[package]]
 name = "arc-swap"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -784,14 +776,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "debcontrol"
-version = "0.1.1"
-source = "git+https://github.com/AOSC-Dev/debcontrol-rs/?rev=e92376703b20afe1360f3612472f2597029c7475#e92376703b20afe1360f3612472f2597029c7475"
-dependencies = [
- "nom",
-]
-
-[[package]]
 name = "deranged"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -979,20 +963,6 @@ name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
-
-[[package]]
-name = "err-derive"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22deed3a8124cff5fa835713fa105621e43bbdc46690c3a6b68328a012d350d4"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 1.0.109",
- "synstructure",
-]
 
 [[package]]
 name = "err-derive"
@@ -2145,7 +2115,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2fe7826fa9653da0e22df5a1062d9c7f5d47471bd5c39cf27b8e3c4af099a72"
 dependencies = [
- "err-derive 0.3.1",
+ "err-derive",
 ]
 
 [[package]]
@@ -2174,6 +2144,15 @@ dependencies = [
  "thiserror",
  "time",
  "which",
+]
+
+[[package]]
+name = "oma-debcontrol"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1c8a6ef58cc2b6e03eb52a115d13f52334c1d8a39c94153455137d7d3e3d39b"
+dependencies = [
+ "nom",
 ]
 
 [[package]]
@@ -2233,13 +2212,13 @@ name = "oma-refresh"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "apt-sources-lists",
- "debcontrol",
  "futures",
  "i18n-embed",
  "i18n-embed-fl",
  "nix",
+ "oma-apt-sources-lists",
  "oma-console",
+ "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
  "oma-utils",

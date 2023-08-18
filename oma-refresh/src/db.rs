@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::fl;
-use apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
+use oma_apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use oma_console::{
     debug,
     indicatif::{style::TemplateError, ProgressBar},
