@@ -231,6 +231,7 @@ impl<'a> Display for OmaOperation<'a> {
 }
 
 impl OmaApt {
+    /// Create a new apt manager
     pub fn new(local_debs: Vec<String>, args: OmaAptArgs, dry_run: bool) -> OmaAptResult<Self> {
         let config = Self::init_config(args)?;
 
@@ -243,6 +244,7 @@ impl OmaApt {
         })
     }
 
+    /// Init apt config (before create new apt manager)
     fn init_config(args: OmaAptArgs) -> OmaAptResult<AptConfig> {
         let config = AptConfig::new();
 
@@ -293,6 +295,7 @@ impl OmaApt {
         Ok(config)
     }
 
+    /// Get upgradable and removable packages
     pub fn available_action(&self) -> OmaAptResult<(usize, usize)> {
         let sort = PackageSort::default().upgradable();
         let upgradable = self.cache.packages(&sort)?.collect::<Vec<_>>().len();
@@ -303,12 +306,14 @@ impl OmaApt {
         Ok((upgradable, removable))
     }
 
+    /// Set apt manager status as upgrade
     pub fn upgrade(&self) -> OmaAptResult<()> {
         self.cache.upgrade(&Upgrade::FullUpgrade)?;
 
         Ok(())
     }
 
+    /// Set apt manager status as install
     pub fn install(
         &self,
         pkgs: Vec<PkgInfo>,
@@ -328,6 +333,7 @@ impl OmaApt {
         Ok(no_marked_install)
     }
 
+    /// Find system is broken
     pub fn check_broken(&self) -> OmaAptResult<bool> {
         let sort = PackageSort::default().installed();
         let pkgs = self.cache.packages(&sort)?;
@@ -361,6 +367,7 @@ impl OmaApt {
         Ok(need)
     }
 
+    /// Download packages
     pub fn download(
         &self,
         pkgs: Vec<PkgInfo>,
@@ -415,6 +422,7 @@ impl OmaApt {
         Ok(res)
     }
 
+    /// Set apt manager status as remove
     pub fn remove(
         &mut self,
         pkgs: Vec<PkgInfo>,
@@ -439,6 +447,7 @@ impl OmaApt {
         Ok(no_marked_remove)
     }
 
+    /// find autoremove and remove it
     fn autoremove(&mut self, purge: bool) -> OmaAptResult<()> {
         let sort = PackageSort::default().installed();
         let pkgs = self.cache.packages(&sort)?;
@@ -454,6 +463,7 @@ impl OmaApt {
         Ok(())
     }
 
+    /// Commit changes
     pub fn commit(self, network_thread: Option<usize>, args_config: &AptArgs) -> OmaAptResult<()> {
         let v = self.summary()?;
         let v_str = v.to_string();
@@ -566,6 +576,7 @@ impl OmaApt {
         Ok(())
     }
 
+    /// Resolve apt dependencies
     pub fn resolve(&self, no_fixbroken: bool) -> OmaAptResult<()> {
         if self.cache.resolve(!no_fixbroken).is_err() {
             let unmet = find_unmet_deps(&self.cache)?;
@@ -595,6 +606,7 @@ impl OmaApt {
         Ok(())
     }
 
+    /// Download packages (inner)
     async fn download_pkgs(
         download_pkg_list: Vec<InstallEntry>,
         network_thread: Option<usize>,
@@ -662,6 +674,7 @@ impl OmaApt {
         Ok((success, failed))
     }
 
+    /// Select packages from give some strings
     pub fn select_pkg(
         &mut self,
         keywords: Vec<&str>,
@@ -677,6 +690,7 @@ impl OmaApt {
         Ok(res)
     }
 
+    /// Get apt archive dir
     pub fn get_archive_dir(&self) -> PathBuf {
         let archives_dir = self.config.get("Dir::Cache::Archives");
 
@@ -691,6 +705,7 @@ impl OmaApt {
         }
     }
 
+    /// Mark version status (hold/unhold)
     pub fn mark_version_status<'a>(
         &'a self,
         pkgs: &'a [String],
@@ -713,6 +728,7 @@ impl OmaApt {
         Ok(res)
     }
 
+    /// Mark version status (auto/manual)
     pub fn mark_install_status(
         self,
         pkgs: Vec<PkgInfo>,
@@ -760,6 +776,7 @@ impl OmaApt {
         Ok(res)
     }
 
+    /// Show changes summary
     pub fn summary(&self) -> OmaAptResult<OmaOperation> {
         let mut install = vec![];
         let mut remove = vec![];
@@ -886,6 +903,7 @@ impl OmaApt {
         })
     }
 
+    /// Check available disk space
     pub fn check_disk_size(&self) -> OmaAptResult<()> {
         let op = self.summary()?;
 
@@ -913,6 +931,7 @@ impl OmaApt {
         Ok(())
     }
 
+    /// Filters pkgs
     pub fn filter_pkgs(
         &self,
         query_mode: &[FilterMode],
@@ -937,6 +956,7 @@ impl OmaApt {
     }
 }
 
+/// Mark package as delete.
 fn mark_delete(
     cache: &Cache,
     pkg: &PkgInfo,
@@ -970,6 +990,7 @@ fn mark_delete(
     Ok(true)
 }
 
+/// "Yes Do as I say" steps
 fn ask_user_do_as_i_say(pkg: &Package<'_>) -> OmaAptResult<bool> {
     let theme = ColorfulTheme::default();
     let delete = Confirm::with_theme(&theme)
@@ -1030,7 +1051,8 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     Ok(install_entry)
 }
 
-pub fn select_pkg(
+/// Select pkg from give strings (inber)
+fn select_pkg(
     keywords: Vec<&str>,
     cache: &Cache,
     select_dbg: bool,
@@ -1052,6 +1074,7 @@ pub fn select_pkg(
     Ok(pkgs)
 }
 
+/// Mark package as install.
 fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResult<bool> {
     let pkg = pkginfo.raw_pkg.unique();
     let version = pkginfo.version_raw.unique();
@@ -1084,6 +1107,7 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
     Ok(true)
 }
 
+/// trans filename to apt style file name
 fn apt_style_filename(filename: &str, version: String) -> OmaAptResult<String> {
     let mut filename_split = filename.split('_');
 
