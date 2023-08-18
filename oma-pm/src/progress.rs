@@ -2,7 +2,7 @@ use std::io::Write;
 
 use crate::apt::AptConfig;
 use oma_console::{debug, is_terminal};
-use rust_apt::{
+use oma_apt::{
     raw::progress::{AcquireProgress, InstallProgress},
     util::{get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys},
 };
@@ -47,7 +47,7 @@ impl AcquireProgress for NoProgress {
 
     fn pulse(
         &mut self,
-        _workers: Vec<rust_apt::raw::progress::Worker>,
+        _workers: Vec<oma_apt::raw::progress::Worker>,
         _percent: f32,
         _total_bytes: u64,
         _current_bytes: u64,
@@ -91,7 +91,7 @@ impl OmaAptInstallProgress {
         dpkg_force_all: bool,
     ) -> Self {
         if yes {
-            rust_apt::raw::config::raw::config_set(
+            oma_apt::raw::config::raw::config_set(
                 "APT::Get::Assume-Yes".to_owned(),
                 "true".to_owned(),
             );

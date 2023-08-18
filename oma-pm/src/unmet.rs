@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use rust_apt::{
+use oma_apt::{
     cache::Cache,
     package::{DepType, Dependency, Package, Version},
     util::cmp_versions,

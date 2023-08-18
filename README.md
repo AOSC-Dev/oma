@@ -61,7 +61,7 @@ Options:
 - [ ] Flatpak and Snap Support
 - [x] Improve provides (needs `p-vector-rs` support, see https://github.com/AOSC-Dev/p-vector-rs/pull/2)
 - [ ] CDROM Support for AOSC OS/Retro
-- [x] Improve `fix-broken` (wait for https://gitlab.com/volian/rust-apt/-/merge_requests/31)
-- [x] apt depends/rdepends (wait for https://gitlab.com/volian/rust-apt/-/issues/19)
+- [x] Improve `fix-broken` (wait for https://gitlab.com/volian/oma-apt/-/merge_requests/31)
+- [x] apt depends/rdepends (wait for https://gitlab.com/volian/oma-apt/-/issues/19)
 - [x] Improve pkg depends issue error output display
 - [ ] Compatible `apt-key`

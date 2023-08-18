@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use oma_console::debug;
-use rust_apt::{
+use oma_apt::{
     cache::{Cache, PackageSort},
     package::{Package, Version},
     raw::package::RawPackage,
@@ -16,7 +16,7 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum OmaDatabaseError {
     #[error(transparent)]
-    RustApt(#[from] rust_apt::util::Exception),
+    RustApt(#[from] oma_apt::util::Exception),
     #[error("Invaild pattern: {0}")]
     InvaildPattern(String),
     #[error("Can not find package {0} from database")]
@@ -174,7 +174,7 @@ impl<'a> OmaDatabase<'a> {
             }
         }
 
-        sort.sort_by(|x, y| rust_apt::util::cmp_versions(x.version(), y.version()));
+        sort.sort_by(|x, y| oma_apt::util::cmp_versions(x.version(), y.version()));
 
         if filter_candidate {
             let version = &sort[sort.len() - 1];
@@ -271,7 +271,7 @@ fn url_no_escape(s: &str) -> String {
 #[cfg(test)]
 mod test {
     use super::OmaDatabase;
-    use rust_apt::new_cache;
+    use oma_apt::new_cache;
 
     #[test]
     fn test_glob_search() {

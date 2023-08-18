@@ -1556,7 +1556,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Chore
 
- - <csr-id-53bf31b428bc6565b0063a2a340d5c70b6df2e2c/> Update rust-apt version and adapt it
+ - <csr-id-53bf31b428bc6565b0063a2a340d5c70b6df2e2c/> Update oma-apt version and adapt it
 
 ### Bug Fixes
 
@@ -1584,7 +1584,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **Uncategorized**
     - Bump oma v0.36.3 ([`975e78d`](https://github.com/AOSC-Dev/oma/commit/975e78de0991c4391b1a1dcfa0230226bc08602d))
     - Abtsract error_due_to method ([`6338d51`](https://github.com/AOSC-Dev/oma/commit/6338d51de8d189fac1d03c2b34373ff91b95e1bb))
-    - Update rust-apt version and adapt it ([`53bf31b`](https://github.com/AOSC-Dev/oma/commit/53bf31b428bc6565b0063a2a340d5c70b6df2e2c))
+    - Update oma-apt version and adapt it ([`53bf31b`](https://github.com/AOSC-Dev/oma/commit/53bf31b428bc6565b0063a2a340d5c70b6df2e2c))
     - Use error_due_to function to easily handle the due_to case ([`cdc9c38`](https://github.com/AOSC-Dev/oma/commit/cdc9c38dd30339ae8a34a2df89df3bdc9ae06eef))
     - Error and due_to to right order ([`e2bf48b`](https://github.com/AOSC-Dev/oma/commit/e2bf48b14a67e3637fec635e15d02dad4c858458))
 </details>
@@ -1662,7 +1662,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Chore
 
  - <csr-id-fc8c14b178067c9dc16c8bbc00dc93ced9a26d3c/> update all deps
- - <csr-id-d1498032a44581c9008723d1b41ffe273abb91e6/> update some deps and adapt new rust-apt version
+ - <csr-id-d1498032a44581c9008723d1b41ffe273abb91e6/> update some deps and adapt new oma-apt version
 
 ### New Features
 
@@ -1714,7 +1714,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Optimize try_download logic ([`8615f21`](https://github.com/AOSC-Dev/oma/commit/8615f21c2ec8bee7e20b11926787240f95dec742))
     - Do not download package success download next package ([`eb87d41`](https://github.com/AOSC-Dev/oma/commit/eb87d41fd058c579cac061007aa793fd2dd6a4d4))
     - Improve oma repends output ([`51df071`](https://github.com/AOSC-Dev/oma/commit/51df071218161ee9745544b17d0d8684fbfa50f0))
-    - Update some deps and adapt new rust-apt version ([`d149803`](https://github.com/AOSC-Dev/oma/commit/d1498032a44581c9008723d1b41ffe273abb91e6))
+    - Update some deps and adapt new oma-apt version ([`d149803`](https://github.com/AOSC-Dev/oma/commit/d1498032a44581c9008723d1b41ffe273abb91e6))
 </details>
 
 ## v0.35.0 (2023-05-06)
@@ -1870,7 +1870,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
  - <csr-id-22d449d555ff0b3e89cbfd9a8e4048df8d0e9b53/> license code under GPLv3
-   A key dependency, rust-apt, is licensed under GPLv3.
+   A key dependency, oma-apt, is licensed under GPLv3.
  - <csr-id-9a540fef0793c300c09efc7bbcd8f08320978bc5/> move PolicyKit rules to /data/policykit
 
 ### Commit Statistics
@@ -3350,7 +3350,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Chore
 
  - <csr-id-0dca24982887115dd11b30f58a65d5014b2e1419/> update all deps
- - <csr-id-6def641dc68e68b54970090dea4d618f19b60787/> update rust-apt to newest git snapshot
+ - <csr-id-6def641dc68e68b54970090dea4d618f19b60787/> update oma-apt to newest git snapshot
  - <csr-id-58fd8c6a8eea2aa918ed9d271f995bfc1b598851/> add dependencies comment in Cargo.toml
 
 ### New Features
@@ -3410,7 +3410,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Add .policy file to add policykit oma infomation ([`33cb84a`](https://github.com/AOSC-Dev/oma/commit/33cb84a6eddfb5b2a507dff3361a09a1c874d56f))
     - Decompress database do not block tokio runner ([`fddc86f`](https://github.com/AOSC-Dev/oma/commit/fddc86f2e61261f1e842c5a24eb94e6c49660bff))
     - Refactor content::file_handle method; rename to remove_prefix ([`6bc254e`](https://github.com/AOSC-Dev/oma/commit/6bc254e135c6613852f3a221df30694988310a50))
-    - Update rust-apt to newest git snapshot ([`6def641`](https://github.com/AOSC-Dev/oma/commit/6def641dc68e68b54970090dea4d618f19b60787))
+    - Update oma-apt to newest git snapshot ([`6def641`](https://github.com/AOSC-Dev/oma/commit/6def641dc68e68b54970090dea4d618f19b60787))
     - Add dependencies comment in Cargo.toml ([`58fd8c6`](https://github.com/AOSC-Dev/oma/commit/58fd8c6a8eea2aa918ed9d271f995bfc1b598851))
     - OmaAction => Oma ([`4f8a5ff`](https://github.com/AOSC-Dev/oma/commit/4f8a5ffdc160319ca28d6251bc2f6e5ccef0ceb7))
     - Refactor some code style ([`9bb7175`](https://github.com/AOSC-Dev/oma/commit/9bb717573b5ee6928f139613cd0145dd00f120d5))
@@ -3455,7 +3455,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - <csr-id-93835ef2382f6dfde75e59c35061f7ef5ed12f0b/> Fix oma start-date/end-date localtime offset
  - <csr-id-883dc2bb19810972b49c7b9129287b29c2b0f6d4/> Fix local package install
-   But not using a better approach, wait https://gitlab.com/volian/rust-apt/-/issues/23
+   But not using a better approach, wait https://gitlab.com/volian/oma-apt/-/issues/23
  - <csr-id-36cd76ffa6646d302fa2e5ad416b61a9c7c2fac3/> Add Dir::Cache::Archives fallback logic
  - <csr-id-3c62b065befd8e2cf9819ea41e3d6d2cee4e63e4/> Fix archive dir read logic
  - <csr-id-4e71663770db750e45ed749a645689ae9f3c4b1d/> Only virtual pkg get provides to get real pkg
@@ -4629,7 +4629,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-b562788198b26ab5ba7cda10bd5a4c6a21819a9e/> improve output result
  - <csr-id-8e63ac6269959f0f97502d06a476e1b7797a391d/> fix list-files package display
  - <csr-id-37f4ff109457765216c7c59c042b108976f149fe/> use stderr to output info/warn/debug/dueto ...
- - <csr-id-a136e82a8d0b386a39ad8d396c36f6afb0122303/> use rust-apt https://gitlab.com/volian/rust-apt/ newest git
+ - <csr-id-a136e82a8d0b386a39ad8d396c36f6afb0122303/> use oma-apt https://gitlab.com/volian/oma-apt/ newest git
  - <csr-id-80ac7ac85368afbd259be7539f11543b47045d41/> abstract is_root function
  - <csr-id-73cde8941210379abf7f2f1b572cfd064ddf8bb0/> revert update_db feature ...
    After discussion, this feature should remind the user to refresh the source data after a period of time without updates, instead of refreshing it immediately
@@ -4674,11 +4674,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-935a2f19a9129a7ee5f499e7f62c3895c158e1ef/> done, but so slow
  - <csr-id-d4d989b374705cda90987ce11f2ea80649b5bafa/> fix upgradable output
  - <csr-id-f66528dbf97dda74598984d4ae3532865b55223e/> fix a typo
- - <csr-id-1d14a40f141bd0d6c37c9edfeb024e2c4cc307b0/> rust-apt use my fork to fix search/show panic ...
-   ... This change has been sent back upstream (https://gitlab.com/volian/rust-apt/-/merge_requests/29), pending merging
+ - <csr-id-1d14a40f141bd0d6c37c9edfeb024e2c4cc307b0/> oma-apt use my fork to fix search/show panic ...
+   ... This change has been sent back upstream (https://gitlab.com/volian/oma-apt/-/merge_requests/29), pending merging
  - <csr-id-897768954112b2ef36a9e841550a4cd3598b6b0b/> no need to use indexmap
  - <csr-id-9ed8f895bb23713bc637d39fa5946666c7ee1614/> fix local install again ...
-   ... Since rust-apt doesn't have a good way to get the package names from local sources, use debarchive to parse the package names first
+   ... Since oma-apt doesn't have a good way to get the package names from local sources, use debarchive to parse the package names first
  - <csr-id-a606e361c9e2f6fefe977eef5ce51b45dccc9efc/> fix install with branch and version
  - <csr-id-300f311b293a7dddb481673c3d112af4a4f84b78/> improve search ui style
    Thanks szclsya/sasm !
@@ -4697,7 +4697,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-92cb689dc9159b74324c38fdad99aae72f38e9ad/> fix local install .deb package
  - <csr-id-2a114455a39402a5a77149eba747a07aff0c09de/> add oma info and root check ...
    ... and remove some useless code
- - <csr-id-59d47a77f29e8cbd3854333993124ce23839dca4/> update and set rust-apt to crate version
+ - <csr-id-59d47a77f29e8cbd3854333993124ce23839dca4/> update and set oma-apt to crate version
  - <csr-id-11296f38e6b30470f7339e7eb5e0c36e0d6b19c6/> use info to tell user what package is installed
  - <csr-id-a5eb1f11810f18f05d339d54165dadfdab422eba/> improve install tips ...
    ... if select package version is installed, output xxx VER is installed tips
@@ -4708,7 +4708,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-4c9930b49dbcc0c88868bf9c33f959d29b4cb6a5/> use cargo clippy
  - <csr-id-023080f6ba870a461a07ef70101d969efe342d2b/> code all clean up
  - <csr-id-4f4b0af7d0fc22aa64d54cc4eff26f96470ef3ea/> improve download logic ...
-   ... use rust-apt to get download urls
+   ... use oma-apt to get download urls
  - <csr-id-0eb592c20f4e29e96db3559ce1bb9e42256951e0/> add install .deb from local
  - <csr-id-e68970b2b3002988b462d61ef60b98402da1f47a/> improve display package version logic
  - <csr-id-63477bf49058f7455bd54e0d840bf915a36531c8/> improve download message
@@ -4718,10 +4718,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-6d0168a65d187f4d39ca7b95fd7991107a74fa63/> improve error handle
  - <csr-id-86066fe7938332c1170d7786364e42b38827772c/> add a comment
  - <csr-id-2cdb7c8ec64128caef2854f6f5c8734605514539/> handle file:// or cdrom:// mirror
- - <csr-id-154ccb7ca80060e68702beeb302e1b6a0cb02ffc/> update rust-apt to new git commit
+ - <csr-id-154ccb7ca80060e68702beeb302e1b6a0cb02ffc/> update oma-apt to new git commit
  - <csr-id-c65b9c58ea3f92cc11f0b4bce10d6e2da8cfc635/> improve global progress bar
- - <csr-id-320ec8904db17c343071b3eb6e3a09eec99cf5ed/> use more rust-apt library
- - <csr-id-4b2b92dfe5251161d5fc09f4222ca4df61f501de/> use rust-apt to read all new and old pkg database
+ - <csr-id-320ec8904db17c343071b3eb6e3a09eec99cf5ed/> use more oma-apt library
+ - <csr-id-4b2b92dfe5251161d5fc09f4222ca4df61f501de/> use oma-apt to read all new and old pkg database
  - <csr-id-661818a80e93370d07033ee80536db1b4062c2bd/> improve display result
  - <csr-id-5717149aa40319896414a0dd24057274fe959c4c/> fix remove result wrong issue ...
    ... use protect to protect resolv dep result and use resolver to resolv dep
@@ -4782,7 +4782,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-8d586168561a8b21e0bc7c5771c8f89212a66269/> support apt install fish/stable
  - <csr-id-cc15fae459ad8cff3505abe20bb66dd7029d3444/> fix comment typo
  - <csr-id-2be8ef9beec651c6d733961c7ae3fcffbe653f45/> update and install done
- - <csr-id-79db780e333d718244b202f9f1e4e53479d89d80/> use rust-apt to calculate dep
+ - <csr-id-79db780e333d718244b202f9f1e4e53479d89d80/> use oma-apt to calculate dep
  - <csr-id-be660cf3eb89fe2339fc753d846539a3df168604/> use debcontrol to replace 8dparser
  - <csr-id-749eebf42a2f0727f9e9ed765fa2048df7b35313/> new, this is User Action Control
  - <csr-id-75ad9a6911e3e8b2115b566cc20224053fae9e3d/> fill of remove and purge feature
@@ -4868,7 +4868,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Improve output result ([`b562788`](https://github.com/AOSC-Dev/oma/commit/b562788198b26ab5ba7cda10bd5a4c6a21819a9e))
     - Fix list-files package display ([`8e63ac6`](https://github.com/AOSC-Dev/oma/commit/8e63ac6269959f0f97502d06a476e1b7797a391d))
     - Use stderr to output info/warn/debug/dueto ... ([`37f4ff1`](https://github.com/AOSC-Dev/oma/commit/37f4ff109457765216c7c59c042b108976f149fe))
-    - Use rust-apt https://gitlab.com/volian/rust-apt/ newest git ([`a136e82`](https://github.com/AOSC-Dev/oma/commit/a136e82a8d0b386a39ad8d396c36f6afb0122303))
+    - Use oma-apt https://gitlab.com/volian/oma-apt/ newest git ([`a136e82`](https://github.com/AOSC-Dev/oma/commit/a136e82a8d0b386a39ad8d396c36f6afb0122303))
     - Abstract is_root function ([`80ac7ac`](https://github.com/AOSC-Dev/oma/commit/80ac7ac85368afbd259be7539f11543b47045d41))
     - Revert update_db feature ... ([`73cde89`](https://github.com/AOSC-Dev/oma/commit/73cde8941210379abf7f2f1b572cfd064ddf8bb0))
     - Remove dpkg ctrlc handler ... ([`82ecc5f`](https://github.com/AOSC-Dev/oma/commit/82ecc5f8ca5e8de1719cb6a78583a2803524c5c2))
@@ -4907,7 +4907,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Done, but so slow ([`935a2f1`](https://github.com/AOSC-Dev/oma/commit/935a2f19a9129a7ee5f499e7f62c3895c158e1ef))
     - Fix upgradable output ([`d4d989b`](https://github.com/AOSC-Dev/oma/commit/d4d989b374705cda90987ce11f2ea80649b5bafa))
     - Fix a typo ([`f66528d`](https://github.com/AOSC-Dev/oma/commit/f66528dbf97dda74598984d4ae3532865b55223e))
-    - Rust-apt use my fork to fix search/show panic ... ([`1d14a40`](https://github.com/AOSC-Dev/oma/commit/1d14a40f141bd0d6c37c9edfeb024e2c4cc307b0))
+    - oma-apt use my fork to fix search/show panic ... ([`1d14a40`](https://github.com/AOSC-Dev/oma/commit/1d14a40f141bd0d6c37c9edfeb024e2c4cc307b0))
     - No need to use indexmap ([`8977689`](https://github.com/AOSC-Dev/oma/commit/897768954112b2ef36a9e841550a4cd3598b6b0b))
     - Fix local install again ... ([`9ed8f89`](https://github.com/AOSC-Dev/oma/commit/9ed8f895bb23713bc637d39fa5946666c7ee1614))
     - Fix install with branch and version ([`a606e36`](https://github.com/AOSC-Dev/oma/commit/a606e361c9e2f6fefe977eef5ce51b45dccc9efc))
@@ -4922,7 +4922,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Install_handle add comment ([`1b683a9`](https://github.com/AOSC-Dev/oma/commit/1b683a9982aaa0bfb1120905fcdfa155879cd981))
     - Fix local install .deb package ([`92cb689`](https://github.com/AOSC-Dev/oma/commit/92cb689dc9159b74324c38fdad99aae72f38e9ad))
     - Add oma info and root check ... ([`2a11445`](https://github.com/AOSC-Dev/oma/commit/2a114455a39402a5a77149eba747a07aff0c09de))
-    - Update and set rust-apt to crate version ([`59d47a7`](https://github.com/AOSC-Dev/oma/commit/59d47a77f29e8cbd3854333993124ce23839dca4))
+    - Update and set oma-apt to crate version ([`59d47a7`](https://github.com/AOSC-Dev/oma/commit/59d47a77f29e8cbd3854333993124ce23839dca4))
     - Correct a typo in download.rs ([`139cdf1`](https://github.com/AOSC-Dev/oma/commit/139cdf14ef7871c765314de927f1ad50c405ea1d))
     - Use info to tell user what package is installed ([`11296f3`](https://github.com/AOSC-Dev/oma/commit/11296f38e6b30470f7339e7eb5e0c36e0d6b19c6))
     - Improve install tips ... ([`a5eb1f1`](https://github.com/AOSC-Dev/oma/commit/a5eb1f11810f18f05d339d54165dadfdab422eba))
@@ -4942,11 +4942,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Improve error handle ([`6d0168a`](https://github.com/AOSC-Dev/oma/commit/6d0168a65d187f4d39ca7b95fd7991107a74fa63))
     - Add a comment ([`86066fe`](https://github.com/AOSC-Dev/oma/commit/86066fe7938332c1170d7786364e42b38827772c))
     - Handle file:// or cdrom:// mirror ([`2cdb7c8`](https://github.com/AOSC-Dev/oma/commit/2cdb7c8ec64128caef2854f6f5c8734605514539))
-    - Update rust-apt to new git commit ([`154ccb7`](https://github.com/AOSC-Dev/oma/commit/154ccb7ca80060e68702beeb302e1b6a0cb02ffc))
+    - Update oma-apt to new git commit ([`154ccb7`](https://github.com/AOSC-Dev/oma/commit/154ccb7ca80060e68702beeb302e1b6a0cb02ffc))
     - Improve global progress bar ([`c65b9c5`](https://github.com/AOSC-Dev/oma/commit/c65b9c58ea3f92cc11f0b4bce10d6e2da8cfc635))
     - Action, pager: improve omakase ui ([`7b606f7`](https://github.com/AOSC-Dev/oma/commit/7b606f7bdde90a7e41d28c1ec2242cc1c26825c8))
-    - Use more rust-apt library ([`320ec89`](https://github.com/AOSC-Dev/oma/commit/320ec8904db17c343071b3eb6e3a09eec99cf5ed))
-    - Use rust-apt to read all new and old pkg database ([`4b2b92d`](https://github.com/AOSC-Dev/oma/commit/4b2b92dfe5251161d5fc09f4222ca4df61f501de))
+    - Use more oma-apt library ([`320ec89`](https://github.com/AOSC-Dev/oma/commit/320ec8904db17c343071b3eb6e3a09eec99cf5ed))
+    - Use oma-apt to read all new and old pkg database ([`4b2b92d`](https://github.com/AOSC-Dev/oma/commit/4b2b92dfe5251161d5fc09f4222ca4df61f501de))
     - Improve display result ([`661818a`](https://github.com/AOSC-Dev/oma/commit/661818a80e93370d07033ee80536db1b4062c2bd))
     - Fix remove result wrong issue ... ([`5717149`](https://github.com/AOSC-Dev/oma/commit/5717149aa40319896414a0dd24057274fe959c4c))
     - Remove useless function ([`9967e87`](https://github.com/AOSC-Dev/oma/commit/9967e879e2183efc04bba46a6665c97c601ee6b3))
@@ -4999,7 +4999,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Support apt install fish/stable ([`8d58616`](https://github.com/AOSC-Dev/oma/commit/8d586168561a8b21e0bc7c5771c8f89212a66269))
     - Fix comment typo ([`cc15fae`](https://github.com/AOSC-Dev/oma/commit/cc15fae459ad8cff3505abe20bb66dd7029d3444))
     - Update and install done ([`2be8ef9`](https://github.com/AOSC-Dev/oma/commit/2be8ef9beec651c6d733961c7ae3fcffbe653f45))
-    - Use rust-apt to calculate dep ([`79db780`](https://github.com/AOSC-Dev/oma/commit/79db780e333d718244b202f9f1e4e53479d89d80))
+    - Use oma-apt to calculate dep ([`79db780`](https://github.com/AOSC-Dev/oma/commit/79db780e333d718244b202f9f1e4e53479d89d80))
     - Use debcontrol to replace 8dparser ([`be660cf`](https://github.com/AOSC-Dev/oma/commit/be660cf3eb89fe2339fc753d846539a3df168604))
     - New, this is User Action Control ([`749eebf`](https://github.com/AOSC-Dev/oma/commit/749eebf42a2f0727f9e9ed765fa2048df7b35313))
     - Fill of remove and purge feature ([`75ad9a6`](https://github.com/AOSC-Dev/oma/commit/75ad9a6911e3e8b2115b566cc20224053fae9e3d))
