@@ -106,6 +106,7 @@ impl TopicManager {
         })
     }
 
+    /// Get all new topics
     async fn refresh(&mut self) -> Result<Vec<Topic>> {
         let urls = enabled_mirror()
             .await?
@@ -126,6 +127,7 @@ impl TopicManager {
         Ok(all)
     }
 
+    /// Enable select topic
     pub async fn add(
         &mut self,
         topic: &str,
@@ -171,6 +173,7 @@ impl TopicManager {
         Err(OmaTopicsError::CanNotFindTopic(topic.to_owned()))
     }
 
+    /// Disable select topic
     pub fn remove(&mut self, topic: &str, dry_run: bool) -> Result<Vec<String>> {
         let index = self
             .enabled
@@ -191,6 +194,7 @@ impl TopicManager {
         Err(OmaTopicsError::FailedToEnableTopic(topic.to_string()))
     }
 
+    /// Write topic changes to mirror list
     pub async fn write_enabled(&self, dry_run: bool) -> Result<()> {
         if dry_run {
             return Ok(());
@@ -261,6 +265,7 @@ async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>
     Ok(json)
 }
 
+/// Get topic list
 pub async fn list(tm: &mut TopicManager) -> Result<Vec<String>> {
     let all = tm.refresh().await?;
 
@@ -278,6 +283,7 @@ pub async fn list(tm: &mut TopicManager) -> Result<Vec<String>> {
     Ok(ft)
 }
 
+/// Scan all close topics from upstream and disable it
 pub async fn scan_closed_topic() -> Result<Vec<String>> {
     let mut atm_sources = vec![];
     let s = SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter())?;
@@ -301,33 +307,11 @@ pub async fn scan_closed_topic() -> Result<Vec<String>> {
         let suite_clone = suite.clone();
 
         if all.iter().all(|x| x.name != suite) {
-            rm_topic(&suite, false).await?;
+            tm.remove(&suite, false)?;
         }
 
         res.push(suite_clone);
     }
 
     Ok(res)
-}
-
-pub async fn rm_topic(name: &str, dry_run: bool) -> Result<()> {
-    if dry_run {
-        return Ok(());
-    }
-
-    let mut tm = TopicManager::new().await?;
-    let mut enabled = tm.enabled;
-
-    let index = enabled
-        .iter()
-        .position(|x| x.name == name)
-        .ok_or_else(|| OmaTopicsError::CanNotFindTopic(name.to_string()))?;
-
-    enabled.remove(index);
-
-    tm.enabled = enabled;
-
-    tm.write_enabled(dry_run).await?;
-
-    Ok(())
 }
