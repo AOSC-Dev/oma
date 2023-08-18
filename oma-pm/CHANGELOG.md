@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-id-583e126cd32a3ea19f11084cdcebdc50395f2975/>
 <csr-id-3dbc72701d26037b0e569bf3ebeb01f911965313/>
 <csr-id-7475d11b51a6488cb77bae231b6a6bee95f603b0/>
+<csr-id-63e0c04ee482843bd57c519d386dabfccb889999/>
 
 ### Chore
 
@@ -66,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-87ff82dbeb3199b5f87fe922d276549983ef15d9/> Switch to oma-apt (own rust-apt fork)
  - <csr-id-ae87eb333e10872f028e53818092487ed09b4e84/> Remove useless dep
  - <csr-id-fa15124038b9eaf8234766b33a98297c62d5b001/> No need to use tracing
+
+### Chore
+
+ - <csr-id-8ddd6809bbb1037a8c4d860b64adc52d6e9d2d3a/> Fix license
 
 ### Chore
 
@@ -170,8 +175,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 89 commits contributed to the release.
- - 81 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 91 commits contributed to the release.
+ - 82 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -181,6 +186,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Fix license ([`8ddd680`](https://github.com/AOSC-Dev/oma/commit/8ddd6809bbb1037a8c4d860b64adc52d6e9d2d3a))
+    - Release oma-pm v0.1.0 ([`df7f245`](https://github.com/AOSC-Dev/oma/commit/df7f2457870cea49fb9525937195e84d7c39fa31))
     - Add changelog ([`63e0c04`](https://github.com/AOSC-Dev/oma/commit/63e0c04ee482843bd57c519d386dabfccb889999))
     - Fill in comment ([`50d0af0`](https://github.com/AOSC-Dev/oma/commit/50d0af03dad3776a09223050d6cd0ca9acbff0c1))
     - Add desc and license ([`5399edd`](https://github.com/AOSC-Dev/oma/commit/5399edd1cfe450be52651b06ae110d06a3d20215))
@@ -271,7 +278,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Api adjust ([`90af4a4`](https://github.com/AOSC-Dev/oma/commit/90af4a45c3414783e97067a8790ff85e9fa9a1d0))
     - Pkg.rs => oma-pm ([`ecb46d4`](https://github.com/AOSC-Dev/oma/commit/ecb46d44b356e994225e00c5cc16439198fd4ff3))
 </details>
-
-<csr-unknown>
- Add Size-delta field on oma history; improve file output Add mark_install_status function Add mark_version_status function Find unmet dep only display layer 1 dep Fill of remove() function Add opration.rs ….zzz Remove pkg add protect bool Add remove package feature Support local package install Add OmaApt struct Add virtual pkg support and query_from_branch function Add query_from_version and query_from_branch function Add OmaDatabase impl<csr-unknown/>
 
