@@ -42,6 +42,7 @@ impl<'a> OmaDatabase<'a> {
         Ok(Self { cache })
     }
 
+    /// Query package from give local file glob
     pub fn query_local_glob(&self, file_glob: &str) -> OmaDatabaseResult<Vec<PkgInfo>> {
         let mut res = vec![];
         let sort = PackageSort::default().only_virtual();
@@ -81,6 +82,7 @@ impl<'a> OmaDatabase<'a> {
         Ok(res)
     }
 
+    /// Query package from give glob (like: apt*)
     pub fn query_from_glob(
         &self,
         glob: &str,
@@ -117,6 +119,7 @@ impl<'a> OmaDatabase<'a> {
         Ok(res)
     }
 
+    /// Query package from give package and version (like: apt=2.5.4)
     pub fn query_from_version(&self, pat: &str, dbg: bool) -> OmaDatabaseResult<Vec<PkgInfo>> {
         let (pkgname, version_str) = pat
             .split_once('=')
@@ -146,6 +149,7 @@ impl<'a> OmaDatabase<'a> {
         Ok(res)
     }
 
+    /// Query package from give package and branch (like: apt/stable)
     pub fn query_from_branch(
         &self,
         pat: &str,
@@ -200,12 +204,14 @@ impl<'a> OmaDatabase<'a> {
         Ok(res)
     }
 
+    /// Smart search pkgs
     pub fn search(&self, keyword: &str) -> OmaDatabaseResult<Vec<SearchResult>> {
         let res = search_pkgs(self.cache, keyword)?;
 
         Ok(res)
     }
 
+    /// Select -dpg package
     fn select_dbg(&self, pkg: &Package, version: &Version, res: &mut Vec<PkgInfo>) {
         let dbg_pkg_name = format!("{}-dbg", pkg.name());
         let dbg_pkg = self.cache.get(&dbg_pkg_name);
@@ -220,6 +226,7 @@ impl<'a> OmaDatabase<'a> {
         }
     }
 
+    /// Find mirror candidate and downloadable package version.
     pub fn find_candidate_by_pkgname(&self, pkg: &str) -> OmaDatabaseResult<PkgInfo> {
         if let Some(pkg) = self.cache.get(pkg) {
             // FIXME: candidate 版本不一定是源中能下载的版本
@@ -241,6 +248,7 @@ impl<'a> OmaDatabase<'a> {
     }
 }
 
+/// Get real pkg from real pkg or virtual package
 fn real_pkg(pkg: &Package) -> RawPackage {
     if let Some(provide) = pkg.provides().next() {
         return provide.target_pkg();
@@ -249,6 +257,7 @@ fn real_pkg(pkg: &Package) -> RawPackage {
     pkg.unique()
 }
 
+/// Get no escape url
 fn url_no_escape(s: &str) -> String {
     let mut tmp = s.to_string();
     let mut c = 0;
