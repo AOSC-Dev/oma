@@ -16,6 +16,7 @@ use crate::{
     FetchProgressBar, Summary,
 };
 
+/// Downlaod file with retry
 pub(crate) async fn try_download(
     client: &Client,
     entry: &DownloadEntry,
@@ -65,6 +66,7 @@ pub(crate) async fn try_download(
     res.ok_or_else(|| DownloadError::DownloadAllFailed(entry.filename.to_string(), err.unwrap()))
 }
 
+/// Downlaod file with retry (http)
 async fn try_http_download(
     client: &Client,
     entry: &DownloadEntry,
@@ -104,7 +106,7 @@ async fn try_http_download(
     }
 }
 
-/// Download file
+/// Download http file
 async fn http_download(
     client: &Client,
     entry: &DownloadEntry,
@@ -320,7 +322,6 @@ async fn http_download(
 
     // 初始化 checksum 验证器
     // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
-
     let hash = entry.hash.clone();
     let mut validator = if let Some(v) = validator {
         if let Some(pb) = &pb {
@@ -440,6 +441,8 @@ async fn http_download(
     Ok(Summary::new(&entry.filename, true, count, context))
 }
 
+
+/// Download local source file
 pub async fn download_local(
     entry: &DownloadEntry,
     fpb: Option<FetchProgressBar>,
