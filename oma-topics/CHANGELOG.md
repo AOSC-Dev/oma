@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.1.0 (2023-08-18)
 
+<csr-id-9b58969c8836740f4d205fba10f4857b70674070/>
+<csr-id-bbade3d123272c927ece6a8c0d7ef0a5d2f20ee9/>
+<csr-id-a9dbffa13072234f00b3058d68e2c61ff48a5cb5/>
+<csr-id-e408f1d2e34e132b74a3b91b09d904f536a4e184/>
+<csr-id-fa15124038b9eaf8234766b33a98297c62d5b001/>
+<csr-id-42a30f3c99799b933d4ae663c543376d9644c634/>
+<csr-id-c3ce6357561acc73e2cea20766230d27e860d96a/>
+<csr-id-53d477570f1519ccbd964ad6560a74b15acd7df0/>
+<csr-id-00e6c62d5b9a765dc8b11472614ca714c965a729/>
+<csr-id-a1695307a23587ced897257d400de39b645805e5/>
+<csr-id-6f65b3656809f431f3da938e7a9eac10b9922d60/>
+<csr-id-217a8b9e973971581591ecc5c95f0960ca1eba8a/>
+<csr-id-5356ded0e3fb12b175262319f9b29b5c64ec74c0/>
+<csr-id-e9063ab2283dd2d3e9c2f24db60bfe2561448de1/>
+
 ### Chore
 
  - <csr-id-9b58969c8836740f4d205fba10f4857b70674070/> fill in comment, desc and license
@@ -14,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-a9dbffa13072234f00b3058d68e2c61ff48a5cb5/> inquire -> oma-inquire
  - <csr-id-e408f1d2e34e132b74a3b91b09d904f536a4e184/> drop useless dep
  - <csr-id-fa15124038b9eaf8234766b33a98297c62d5b001/> no need to use tracing
+
+### Chore
+
+ - <csr-id-e3101b38d83114b13e89024a0fa21246eca764e5/> add changelog
 
 ### New Features
 
@@ -42,8 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 17 commits contributed to the release.
- - 16 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 18 commits contributed to the release.
+ - 17 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -53,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Add changelog ([`e3101b3`](https://github.com/AOSC-Dev/oma/commit/e3101b38d83114b13e89024a0fa21246eca764e5))
     - Fmt ([`42a30f3`](https://github.com/AOSC-Dev/oma/commit/42a30f3c99799b933d4ae663c543376d9644c634))
     - Fill in comment, desc and license ([`9b58969`](https://github.com/AOSC-Dev/oma/commit/9b58969c8836740f4d205fba10f4857b70674070))
     - Use oma-apt-sources-list crate (own fork) ([`bbade3d`](https://github.com/AOSC-Dev/oma/commit/bbade3d123272c927ece6a8c0d7ef0a5d2f20ee9))
