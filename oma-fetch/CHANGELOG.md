@@ -7,10 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.1.0 (2023-08-18)
 
+<csr-id-063342819b6d1350c06f268f90c04e125096aee4/>
+<csr-id-fa15124038b9eaf8234766b33a98297c62d5b001/>
+<csr-id-bbe38a4fafc8c87a602f78175ae02d3edb60c794/>
+<csr-id-a6e9e31fd80bdce5faea0162d3b7b47379dff987/>
+<csr-id-718d2ebf3b11fe3e7859d55f0e6b08346a8e6b5f/>
+<csr-id-31d6abe71e498a660b191542b120b44d98d34d2c/>
+<csr-id-3ef5ec5a6832a01f4ce85b40f754efd4bcc55514/>
+<csr-id-b84f130fad9fed69f9ca66a283c4a99db558b5fd/>
+<csr-id-bb833287d6d439c622e737148d609c1b848e5efa/>
+
 ### Chore
 
  - <csr-id-063342819b6d1350c06f268f90c04e125096aee4/> Fill in comment, desc, license
  - <csr-id-fa15124038b9eaf8234766b33a98297c62d5b001/> No need to use tracing
+
+### Chore
+
+ - <csr-id-653fb5a711e50c1d686dfc82ed99cbe5508bf03e/> Add changelog
 
 ### New Features
 
@@ -44,8 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 24 commits contributed to the release.
- - 18 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 25 commits contributed to the release.
+ - 19 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -55,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Add changelog ([`653fb5a`](https://github.com/AOSC-Dev/oma/commit/653fb5a711e50c1d686dfc82ed99cbe5508bf03e))
     - Fill in comment, desc, license ([`0633428`](https://github.com/AOSC-Dev/oma/commit/063342819b6d1350c06f268f90c04e125096aee4))
     - Display done message if env is not atty ([`44e6cdd`](https://github.com/AOSC-Dev/oma/commit/44e6cdd45bdc46a9e28cb277456f8d9f602f5671))
     - Use progress bar println to display message ([`4f5b4b6`](https://github.com/AOSC-Dev/oma/commit/4f5b4b641687620028a8574b829f1bbb1ecf1759))
