@@ -131,6 +131,7 @@ pub struct Summary {
     pub context: Option<String>,
 }
 
+/// Summary struct to save download result
 impl Summary {
     fn new(filename: &str, writed: bool, count: usize, context: Option<String>) -> Self {
         Self {
@@ -142,6 +143,7 @@ impl Summary {
     }
 }
 
+/// OmaFetcher is a Download Manager
 impl OmaFetcher {
     pub fn new(
         client: Option<Client>,
@@ -185,11 +187,13 @@ impl OmaFetcher {
         })
     }
 
+    /// Set retry times
     pub fn retry_times(&mut self, retry_times: usize) -> &mut Self {
         self.retry_times = retry_times;
         self
     }
 
+    /// Start download
     pub async fn start_download(&self) -> Vec<DownloadResult<Summary>> {
         let mut tasks = Vec::new();
         for (i, c) in self.download_list.iter().enumerate() {
