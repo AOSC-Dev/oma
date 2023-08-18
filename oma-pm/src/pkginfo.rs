@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
 use oma_utils::human_bytes::HumanBytes;
-use rust_apt::{
+use oma_apt::{
     cache::Cache,
     package::{BaseDep, DepType, Dependency, Package, Version},
     raw::package::{RawPackage, RawVersion},
@@ -114,17 +114,17 @@ impl Display for OmaDepType {
 }
 
 impl From<&DepType> for OmaDepType {
-    fn from(v: &rust_apt::package::DepType) -> Self {
+    fn from(v: &oma_apt::package::DepType) -> Self {
         match v {
-            rust_apt::package::DepType::Depends => OmaDepType::Depends,
-            rust_apt::package::DepType::PreDepends => OmaDepType::PreDepends,
-            rust_apt::package::DepType::Suggests => OmaDepType::Suggests,
-            rust_apt::package::DepType::Recommends => OmaDepType::Recommends,
-            rust_apt::package::DepType::Conflicts => OmaDepType::Conflicts,
-            rust_apt::package::DepType::Replaces => OmaDepType::Replaces,
-            rust_apt::package::DepType::Obsoletes => OmaDepType::Obsoletes,
-            rust_apt::package::DepType::Breaks => OmaDepType::Breaks,
-            rust_apt::package::DepType::Enhances => OmaDepType::Enhances,
+            oma_apt::package::DepType::Depends => OmaDepType::Depends,
+            oma_apt::package::DepType::PreDepends => OmaDepType::PreDepends,
+            oma_apt::package::DepType::Suggests => OmaDepType::Suggests,
+            oma_apt::package::DepType::Recommends => OmaDepType::Recommends,
+            oma_apt::package::DepType::Conflicts => OmaDepType::Conflicts,
+            oma_apt::package::DepType::Replaces => OmaDepType::Replaces,
+            oma_apt::package::DepType::Obsoletes => OmaDepType::Obsoletes,
+            oma_apt::package::DepType::Breaks => OmaDepType::Breaks,
+            oma_apt::package::DepType::Enhances => OmaDepType::Enhances,
         }
     }
 }
@@ -296,7 +296,7 @@ fn test_source_url_to_apt_style() {
 
 #[test]
 fn test_pkginfo_display() {
-    use rust_apt::new_cache;
+    use oma_apt::new_cache;
     let cache = new_cache!().unwrap();
     let pkg = cache.get("apt").unwrap();
     let version = pkg.candidate().unwrap().unique();

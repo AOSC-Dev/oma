@@ -20,7 +20,7 @@ use oma_fetch::{
 };
 use oma_utils::dpkg::DpkgError;
 use once_cell::sync::Lazy;
-use rust_apt::{
+use oma_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
     package::{Package, Version},
@@ -32,7 +32,7 @@ use rust_apt::{
     util::{apt_lock, DiskSpace},
 };
 
-pub use rust_apt::config::Config as AptConfig;
+pub use oma_apt::config::Config as AptConfig;
 use time::{macros::offset, OffsetDateTime, UtcOffset};
 
 use crate::{
@@ -69,7 +69,7 @@ pub struct OmaApt {
 #[derive(Debug, thiserror::Error)]
 pub enum OmaAptError {
     #[error(transparent)]
-    RustApt(#[from] rust_apt::util::Exception),
+    RustApt(#[from] oma_apt::util::Exception),
     #[error(transparent)]
     OmaDatabaseError(#[from] OmaDatabaseError),
     #[error("Failed to mark reinstall pkg: {0}")]
@@ -916,7 +916,7 @@ impl OmaApt {
     pub fn filter_pkgs(
         &self,
         query_mode: &[FilterMode],
-    ) -> OmaAptResult<impl Iterator<Item = rust_apt::package::Package>> {
+    ) -> OmaAptResult<impl Iterator<Item = oma_apt::package::Package>> {
         let mut sort = PackageSort::default();
 
         debug!("Filter Mode: {query_mode:?}");

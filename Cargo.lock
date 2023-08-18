@@ -2142,6 +2142,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-apt"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6194fabd786defa560e4098b15fdf9cb6ca6c8521f929402347bb929bf5467fa"
+dependencies = [
+ "cxx",
+ "cxx-build",
+ "once_cell",
+ "terminal_size 0.2.6",
+]
+
+[[package]]
 name = "oma-console"
 version = "0.1.0"
 dependencies = [
@@ -2210,11 +2222,11 @@ dependencies = [
  "fs4",
  "glob-match",
  "indicium",
+ "oma-apt",
  "oma-console",
  "oma-fetch",
  "oma-utils",
  "once_cell",
- "rust-apt",
  "thiserror",
  "time",
  "tokio",
@@ -2712,17 +2724,6 @@ name = "roff"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b833d8d034ea094b1ea68aa6d5c740e0d04bad9d16568d08ba6f76823a114316"
-
-[[package]]
-name = "rust-apt"
-version = "0.5.1"
-source = "git+https://gitlab.com/volian/rust-apt?rev=576f0aed20791121189e145c5965b079382203ca#576f0aed20791121189e145c5965b079382203ca"
-dependencies = [
- "cxx",
- "cxx-build",
- "once_cell",
- "terminal_size 0.2.6",
-]
 
 [[package]]
 name = "rust-embed"

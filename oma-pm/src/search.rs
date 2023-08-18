@@ -1,5 +1,5 @@
 use indicium::simple::{Indexable, SearchIndex};
-use rust_apt::{
+use oma_apt::{
     cache::{Cache, PackageSort},
     package::Package,
 };
@@ -61,7 +61,7 @@ impl Indexable for SearchEntry {
 #[derive(Debug, thiserror::Error)]
 pub enum OmaSearchError {
     #[error(transparent)]
-    RustApt(#[from] rust_apt::util::Exception),
+    RustApt(#[from] oma_apt::util::Exception),
     #[error("No result found: {0}")]
     NoResult(String),
     #[error("Failed to get candidate version: {0}")]
