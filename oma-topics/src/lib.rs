@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use apt_sources_lists::{SourceLine, SourcesLists};
+use oma_apt_sources_lists::{SourceLine, SourcesLists};
 use indexmap::IndexMap;
 use oma_console::debug;
 use once_cell::sync::Lazy;
@@ -55,7 +55,7 @@ pub enum OmaTopicsError {
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
     #[error(transparent)]
-    SoutceListError(#[from] apt_sources_lists::SourceError),
+    SoutceListError(#[from] oma_apt_sources_lists::SourceError),
 }
 
 #[derive(Deserialize)]
