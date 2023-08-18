@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.7 (2023-08-18)
+
+### Chore
+
+ - <csr-id-c1d71ebc2b9872c3242bd67f92b02b04312a7899/> no need to pin grep-cli version
+   Now, AOSC OS rustc version is 1.71
+ - <csr-id-adf2303700a753e18685c552bfc0fa897be3ed10/> update all deps
+
+### Bug Fixes
+
+ - <csr-id-e5cd5d41a30923b29c6e5557ab408f3b1647a45c/> switch flate zlib backend to default to fix loongarch64 build
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Switch flate zlib backend to default to fix loongarch64 build ([`e5cd5d4`](https://github.com/AOSC-Dev/oma/commit/e5cd5d41a30923b29c6e5557ab408f3b1647a45c))
+    - No need to pin grep-cli version ([`c1d71eb`](https://github.com/AOSC-Dev/oma/commit/c1d71ebc2b9872c3242bd67f92b02b04312a7899))
+    - Update all deps ([`adf2303`](https://github.com/AOSC-Dev/oma/commit/adf2303700a753e18685c552bfc0fa897be3ed10))
+</details>
+
 ## v1.0.6 (2023-08-16)
 
 ### Bug Fixes
@@ -17,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 6 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -29,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma v1.0.6 ([`35f6e5b`](https://github.com/AOSC-Dev/oma/commit/35f6e5b644a052ad0795e5578450940b24be282a))
     - Try to fix flat repo path (2) ([`c12e463`](https://github.com/AOSC-Dev/oma/commit/c12e4634dedc804231f5d560073ef3a441924252))
     - Fix flat repo download path ([`1886250`](https://github.com/AOSC-Dev/oma/commit/188625071f8e5eeafa681e20abf2dbfdd9172c0c))
     - Do not check inrelease valid_until and date field in flat repo ([`7b8c7f2`](https://github.com/AOSC-Dev/oma/commit/7b8c7f2ebb9420d1526585a3255bac5c1a73a3f0))
