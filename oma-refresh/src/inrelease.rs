@@ -181,7 +181,7 @@ impl InReleaseParser {
 fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<HashMap<String, String>>> {
     let mut res = vec![];
 
-    let debcontrol = debcontrol::parse_str(s)
+    let debcontrol = oma_debcontrol::parse_str(s)
         .map_err(|e| InReleaseParserError::InReleaseSyntaxError(s.to_string(), e.to_string()))?;
 
     for i in debcontrol {
