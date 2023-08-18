@@ -155,7 +155,6 @@ fn try_main() -> Result<i32> {
             command::upgrade(pkgs_unparse, args, dry_run)?
         }
         Some(("download", args)) => {
-            // TODO: with deps
             let keyword = pkgs_getter(args).unwrap_or_default();
             let keyword = keyword.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
@@ -213,7 +212,7 @@ fn try_main() -> Result<i32> {
                 .get_one::<String>("action")
                 .map(|x| x.as_str())
                 .unwrap();
-            let pkgs  = pkgs_getter(args).unwrap();
+            let pkgs = pkgs_getter(args).unwrap();
             let dry_run = args.get_flag("dry_run");
 
             command::mark(op, pkgs, dry_run)?
@@ -260,7 +259,7 @@ fn try_main() -> Result<i32> {
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap_or_default();
 
-            command::topics(opt_in, opt_out)?
+            command::topics(opt_in, opt_out, dry_run)?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.to_owned());

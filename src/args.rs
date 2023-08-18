@@ -327,7 +327,8 @@ pub fn command_builder() -> Command {
                         .help("Withdraw from one or more topic(s) and rollback to stable versions, delimited by space")
                         .action(ArgAction::Append)
                         .num_args(1..),
-                ),
+                )
+                .arg(&dry_run)
         );
     }
 
