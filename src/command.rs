@@ -807,7 +807,7 @@ pub fn hisotry() -> Result<i32> {
     Ok(0)
 }
 
-pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
+pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -817,15 +817,11 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
 
     let opt_in = opt_in;
     let opt_out = opt_out;
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .enable_io()
-        .enable_time()
-        .build()?;
 
     let (enabled_pkgs, downgrade_pkgs) =
-        rt.block_on(async move { topics_inner(opt_in, opt_out).await })?;
+        rt.block_on(async move { topics_inner(opt_in, opt_out, dry_run).await })?;
 
-    refresh(false)?;
+    refresh(dry_run)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
@@ -845,7 +841,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
             }
 
             if pkg.is_installed() {
-                let pkginfo = db.candidate_by_pkgname(pkg.name())?;
+                let pkginfo = db.find_candidate_by_pkgname(pkg.name())?;
 
                 pkgs.push(pkginfo);
             }
@@ -868,7 +864,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
 
     handle_resolve(&apt, false)?;
     apt.check_disk_size()?;
-    table_for_install_pending(install, remove, disk_size, true, false)?;
+    table_for_install_pending(install, remove, disk_size, true, dry_run)?;
     apt.commit(None, &apt_args)?;
 
     Ok(0)
@@ -877,6 +873,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>) -> Result<i32> {
 async fn topics_inner(
     mut opt_in: Vec<String>,
     mut opt_out: Vec<String>,
+    dry_run: bool
 ) -> Result<(Vec<String>, Vec<String>)> {
     let mut tm = TopicManager::new().await?;
 
@@ -885,7 +882,7 @@ async fn topics_inner(
     }
 
     for i in opt_in {
-        tm.add(&i, false, "amd64").await?;
+        tm.add(&i, dry_run, "amd64").await?;
     }
 
     let mut downgrade_pkgs = vec![];
@@ -893,7 +890,7 @@ async fn topics_inner(
         downgrade_pkgs.extend(tm.remove(&i, false)?);
     }
 
-    tm.write_enabled(false).await?;
+    tm.write_enabled(dry_run).await?;
 
     let enabled_pkgs = tm
         .enabled
