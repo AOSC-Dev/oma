@@ -680,9 +680,10 @@ impl OmaApt {
         keywords: Vec<&str>,
         select_dbg: bool,
         filter_candidate: bool,
-    ) -> OmaAptResult<Vec<PkgInfo>> {
+    ) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
         let res = select_pkg(keywords, &self.cache, select_dbg, filter_candidate)?;
         self.select_pkgs = res
+            .0
             .iter()
             .map(|x| x.raw_pkg.name().to_string())
             .collect::<Vec<_>>();
@@ -1057,21 +1058,29 @@ fn select_pkg(
     cache: &Cache,
     select_dbg: bool,
     filter_candidate: bool,
-) -> OmaAptResult<Vec<PkgInfo>> {
+) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
+    let mut no_result = vec![];
     for keyword in keywords {
-        pkgs.extend(match keyword {
+        let res = match keyword {
             x if x.ends_with(".deb") => db.query_local_glob(x)?,
             x if x.split_once('/').is_some() => {
                 db.query_from_branch(x, filter_candidate, select_dbg)?
             }
             x if x.split_once('=').is_some() => db.query_from_version(x, select_dbg)?,
             x => db.query_from_glob(x, filter_candidate, select_dbg)?,
-        });
+        };
+
+        if res.is_empty() {
+            no_result.push(keyword.to_string());
+            continue;
+        }
+
+        pkgs.extend(res);
     }
 
-    Ok(pkgs)
+    Ok((pkgs, no_result))
 }
 
 /// Mark package as install.

@@ -73,7 +73,8 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
         .build()?;
 
     let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run)?;
-    let pkgs = apt.select_pkg(pkgs_unparse, args.install_dbg, true)?;
+    let (pkgs, no_result) = apt.select_pkg(pkgs_unparse, args.install_dbg, true)?;
+    handle_no_result(no_result);
 
     let no_marked_install = apt.install(pkgs, args.reinstall)?;
 
@@ -153,7 +154,8 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
         let oma_apt_args = OmaAptArgsBuilder::default().build()?;
         let mut apt = OmaApt::new(local_debs.clone(), oma_apt_args, dry_run)?;
 
-        let pkgs = apt.select_pkg(pkgs_unparse.clone(), false, true)?;
+        let (pkgs, no_result) = apt.select_pkg(pkgs_unparse.clone(), false, true)?;
+        handle_no_result(no_result);
 
         apt.upgrade()?;
 
@@ -207,7 +209,8 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
-    let pkgs = apt.select_pkg(pkgs, false, true)?;
+    let (pkgs, no_result) = apt.select_pkg(pkgs, false, true)?;
+    handle_no_result(no_result);
 
     let context = apt.remove(pkgs, !args.keep_config, true, true, args.no_autoremove)?;
 
@@ -242,7 +245,8 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
 pub fn download(keyword: Vec<&str>, path: Option<PathBuf>, dry_run: bool) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
-    let pkgs = apt.select_pkg(keyword, false, true)?;
+    let (pkgs, no_result) = apt.select_pkg(keyword, false, true)?;
+    handle_no_result(no_result);
 
     apt.download(pkgs, None, path.as_deref(), dry_run)?;
 
@@ -357,10 +361,12 @@ fn refresh(dry_run: bool) -> Result<()> {
 pub fn show(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
-    let pkg = apt.select_pkg(pkgs_unparse, false, false)?;
-    for (i, c) in pkg.iter().enumerate() {
+    let (pkgs, no_result) = apt.select_pkg(pkgs_unparse, false, false)?;
+    handle_no_result(no_result);
+
+    for (i, c) in pkgs.iter().enumerate() {
         if c.is_candidate || all {
-            if i != pkg.len() - 1 {
+            if i != pkgs.len() - 1 {
                 println!("{c}\n");
             } else {
                 println!("{c}");
@@ -369,7 +375,7 @@ pub fn show(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32> {
     }
 
     if !all {
-        let other_version = pkg
+        let other_version = pkgs
             .iter()
             .filter(|x| !x.is_candidate)
             .collect::<Vec<_>>()
@@ -424,11 +430,12 @@ pub fn depends(pkgs: Vec<String>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-    let pkgs = apt.select_pkg(
+    let (pkgs, no_result) = apt.select_pkg(
         pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
         false,
         true,
     )?;
+    handle_no_result(no_result);
 
     for pkg in pkgs {
         println!("{}:", pkg.raw_pkg.name());
@@ -456,11 +463,12 @@ pub fn rdepends(pkgs: Vec<String>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-    let pkgs = apt.select_pkg(
+    let (pkgs, no_result) = apt.select_pkg(
         pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
         false,
         true,
     )?;
+    handle_no_result(no_result);
 
     for pkg in pkgs {
         println!("{}:", pkg.raw_pkg.name());
@@ -722,7 +730,9 @@ pub fn mark(op: &str, pkgs: Vec<String>, dry_run: bool) -> Result<i32> {
             .map(|(x, y)| (Cow::Borrowed(x), y))
             .collect::<Vec<_>>(),
         "auto" | "manual" => {
-            let pkgs = apt.select_pkg(pkgs.iter().map(|x| x.as_str()).collect(), false, true)?;
+            let (pkgs, no_result) =
+                apt.select_pkg(pkgs.iter().map(|x| x.as_str()).collect(), false, true)?;
+            handle_no_result(no_result);
 
             apt.mark_install_status(pkgs, op == "auto", dry_run)?
                 .into_iter()
@@ -1022,4 +1032,10 @@ fn create_async_runtime() -> Result<Runtime> {
         .build()?;
 
     Ok(tokio)
+}
+
+fn handle_no_result(no_result: Vec<String>) {
+    for word in no_result {
+        error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
+    }
 }
