@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::sync::atomic::Ordering;
 
 use crate::console::{style, Color};
@@ -12,6 +13,25 @@ use oma_pm::unmet::{UnmetDep, WhyUnmet};
 use tabled::settings::object::{Columns, Segment};
 use tabled::settings::{Alignment, Format, Modify, Style};
 use tabled::{Table, Tabled};
+
+macro_rules! terminal_write {
+    ($dst:expr, $pager:expr $(,)?) => {
+        {
+            writeln!($dst).ok();
+            if $pager {
+                writeln!(std::io::stderr()).ok();
+            }
+        }
+    };
+    ($dst:expr, $pager:expr, $($arg:tt)*) => {
+        {
+            writeln!($dst, "{}", format!($($arg)*)).ok();
+            if $pager {
+                writeln!(std::io::stderr(), "{}", format!($($arg)*)).ok();
+            }
+        }
+    };
+}
 
 #[derive(Debug, Tabled)]
 struct InstallEntryDisplay {
@@ -210,7 +230,7 @@ pub fn table_for_install_pending(
     install: Vec<InstallEntry>,
     remove: Vec<RemoveEntry>,
     disk_size: (&str, u64),
-    pager: bool,
+    is_pager: bool,
     dry_run: bool,
 ) -> Result<(), OutputError> {
     if dry_run {
@@ -225,7 +245,7 @@ pub fn table_for_install_pending(
         fl!("question-tips")
     };
 
-    let mut pager = Pager::new(!pager, &tips)?;
+    let mut pager = Pager::new(!is_pager, &tips)?;
     let pager_name = pager.pager_name().to_owned();
     let mut out = pager.get_writer()?;
 
@@ -237,10 +257,11 @@ pub fn table_for_install_pending(
         );
     }
 
-    let _ = writeln!(out);
-    let _ = writeln!(out, "{}\n", fl!("review-msg"));
-    let _ = writeln!(
+    let _ = terminal_write!(out, is_pager);
+    let _ = terminal_write!(out, is_pager, "{}\n", fl!("review-msg"));
+    let _ = terminal_write!(
         out,
+        is_pager,
         "{}\n",
         fl!(
             "oma-may",
@@ -252,7 +273,7 @@ pub fn table_for_install_pending(
         ),
     );
 
-    let _ = writeln!(out);
+    let _ = terminal_write!(out, is_pager);
 
     if pager_name == Some("less") {
         let has_x11 = std::env::var("DISPLAY");
@@ -276,8 +297,9 @@ pub fn table_for_install_pending(
     }
 
     if !remove.is_empty() {
-        let _ = writeln!(
+        let _ = terminal_write!(
             out,
+            is_pager,
             "{} {}{}\n",
             fl!("count-pkg-has-desc", count = remove.len()),
             style(fl!("removed")).red().bold(),
@@ -297,7 +319,7 @@ pub fn table_for_install_pending(
             .with(Style::psql())
             .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
-        let _ = writeln!(out, "{table}\n\n");
+        let _ = terminal_write!(out, is_pager, "{table}\n\n");
     }
 
     let total_download_size: u64 = install
@@ -314,8 +336,9 @@ pub fn table_for_install_pending(
         let install_e_display = install_e.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !install_e_display.is_empty() {
-            let _ = writeln!(
+            let _ = terminal_write!(
                 out,
+                is_pager,
                 "{} {}{}\n",
                 fl!("count-pkg-has-desc", count = install_e_display.len()),
                 style(fl!("installed")).green().bold(),
@@ -331,7 +354,7 @@ pub fn table_for_install_pending(
                 .with(Style::psql())
                 .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
-            writeln!(out, "{table}\n\n").ok();
+            terminal_write!(out, is_pager, "{table}\n\n");
         }
 
         let update = install
@@ -341,8 +364,9 @@ pub fn table_for_install_pending(
         let update_display = update.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !update_display.is_empty() {
-            let _ = writeln!(
+            let _ = terminal_write!(
                 out,
+                is_pager,
                 "{} {}{}\n",
                 fl!("count-pkg-has-desc", count = update_display.len()),
                 style(fl!("upgrade")).color256(87),
@@ -358,7 +382,7 @@ pub fn table_for_install_pending(
                 .with(Style::psql())
                 .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
-            writeln!(out, "{table}\n\n").ok();
+            terminal_write!(out, is_pager, "{table}\n\n");
         }
 
         let downgrade = install
@@ -368,8 +392,9 @@ pub fn table_for_install_pending(
         let downgrade_display = downgrade.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !downgrade_display.is_empty() {
-            let _ = writeln!(
+            let _ = terminal_write!(
                 out,
+                is_pager,
                 "{} {}{}\n",
                 fl!("count-pkg-has-desc", count = downgrade_display.len()),
                 style(fl!("downgraded")).yellow().bold(),
@@ -385,7 +410,7 @@ pub fn table_for_install_pending(
                 .with(Style::psql())
                 .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
-            writeln!(out, "{table}\n\n").ok();
+            terminal_write!(out, is_pager, "{table}\n\n");
         }
 
         let reinstall = install
@@ -395,8 +420,9 @@ pub fn table_for_install_pending(
         let reinstall_display = reinstall.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !reinstall_display.is_empty() {
-            let _ = writeln!(
+            let _ = terminal_write!(
                 out,
+                is_pager,
                 "{} {}{}\n",
                 fl!("count-pkg-has-desc", count = reinstall_display.len()),
                 style(fl!("reinstall")).blue().bold(),
@@ -412,28 +438,28 @@ pub fn table_for_install_pending(
                 .with(Style::psql())
                 .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
-            writeln!(out, "{table}\n\n").ok();
+            terminal_write!(out, is_pager, "{table}\n\n");
         }
     }
 
-    writeln!(
+    terminal_write!(
         out,
+        is_pager,
         "{}{}",
         style(fl!("total-download-size")).bold(),
         HumanBytes(total_download_size)
-    )
-    .ok();
+    );
 
     let (symbol, abs_install_size_change) = disk_size;
 
-    writeln!(
+    terminal_write!(
         out,
+        is_pager,
         "{}{}{}",
         style(fl!("change-storage-usage")).bold(),
         symbol,
         HumanBytes(abs_install_size_change)
-    )
-    .ok();
+    );
 
     drop(out);
 
