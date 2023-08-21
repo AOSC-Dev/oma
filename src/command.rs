@@ -35,6 +35,7 @@ use tokio::runtime::Runtime;
 use crate::{
     error::OutputError,
     fl,
+    history::{write_history_entry, SummaryType},
     table::{handle_resolve, oma_display, table_for_install_pending},
     InstallArgs, RemoveArgs, UpgradeArgs,
 };
@@ -76,7 +77,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
     let (pkgs, no_result) = apt.select_pkg(pkgs_unparse, args.install_dbg, true)?;
     handle_no_result(no_result);
 
-    let no_marked_install = apt.install(pkgs, args.reinstall)?;
+    let no_marked_install = apt.install(&pkgs, args.reinstall)?;
 
     if !no_marked_install.is_empty() {
         for (pkg, version) in no_marked_install {
@@ -95,6 +96,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
         .build()?;
 
     let op = apt.summary()?;
+    let op_after = op.clone();
     let install = op.install;
     let remove = op.remove;
     let disk_size = op.disk_size;
@@ -107,6 +109,14 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
     apt.check_disk_size()?;
     table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
     apt.commit(None, &apt_args)?;
+    write_history_entry(
+        op_after,
+        SummaryType::Install(
+            pkgs.iter()
+                .map(|x| x.raw_pkg.name().to_string())
+                .collect::<Vec<_>>(),
+        ),
+    )?;
 
     Ok(0)
 }
@@ -150,18 +160,19 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
         .yes(args.yes)
         .build()?;
 
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     loop {
-        let oma_apt_args = OmaAptArgsBuilder::default().build()?;
         let mut apt = OmaApt::new(local_debs.clone(), oma_apt_args, dry_run)?;
+        apt.upgrade()?;
 
         let (pkgs, no_result) = apt.select_pkg(pkgs_unparse.clone(), false, true)?;
         handle_no_result(no_result);
 
-        apt.upgrade()?;
-
-        apt.install(pkgs, false)?;
+        apt.install(&pkgs, false)?;
 
         let op = apt.summary()?;
+        let op_after = op.clone();
+
         let install = op.install;
         let remove = op.remove;
         let disk_size = op.disk_size;
@@ -178,7 +189,14 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
         }
 
         match apt.commit(None, &apt_args) {
-            Ok(_) => break,
+            Ok(_) => write_history_entry(
+                op_after,
+                SummaryType::Upgrade(
+                    pkgs.iter()
+                        .map(|x| x.raw_pkg.name().to_string())
+                        .collect::<Vec<_>>(),
+                ),
+            )?,
             Err(e) => match e {
                 OmaAptError::RustApt(_) => {
                     if retry_times == 3 {
@@ -191,8 +209,6 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
             },
         }
     }
-
-    Ok(0)
 }
 
 pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
@@ -212,7 +228,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
     let (pkgs, no_result) = apt.select_pkg(pkgs, false, true)?;
     handle_no_result(no_result);
 
-    let context = apt.remove(pkgs, !args.keep_config, true, true, args.no_autoremove)?;
+    let context = apt.remove(&pkgs, !args.keep_config, true, true, args.no_autoremove)?;
 
     if !context.is_empty() {
         for c in context {
@@ -221,6 +237,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
     }
 
     let op = apt.summary()?;
+    let op_after = op.clone();
     let install = op.install;
     let remove = op.remove;
     let disk_size = op.disk_size;
@@ -238,6 +255,15 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
     apt.check_disk_size()?;
     table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
     apt.commit(None, &apt_args)?;
+
+    write_history_entry(
+        op_after,
+        SummaryType::Remove(
+            pkgs.iter()
+                .map(|x| x.raw_pkg.name().to_string())
+                .collect::<Vec<_>>(),
+        ),
+    )?;
 
     Ok(0)
 }
@@ -565,11 +591,11 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
         ))
     })?;
 
-    let pkginfo = PkgInfo::new(&apt.cache, version.unique(), &pkg);
-
-    apt.install(vec![pkginfo], false)?;
+    let pkgs = vec![PkgInfo::new(&apt.cache, version.unique(), &pkg)];
+    apt.install(&pkgs, false)?;
 
     let op = apt.summary()?;
+    let op_after = op.clone();
     let install = op.install;
     let remove = op.remove;
     let disk_size = op.disk_size;
@@ -582,6 +608,15 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
     apt.check_disk_size()?;
     table_for_install_pending(install, remove, disk_size, true, dry_run)?;
     apt.commit(None, &AptArgsBuilder::default().build()?)?;
+
+    write_history_entry(
+        op_after,
+        SummaryType::Install(
+            pkgs.iter()
+                .map(|x| x.raw_pkg.name().to_string())
+                .collect::<Vec<_>>(),
+        ),
+    )?;
 
     Ok(0)
 }
@@ -597,7 +632,19 @@ pub fn fix_broken(dry_run: bool) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     handle_resolve(&apt, false)?;
+
+    let op = apt.summary()?;
+    let op_after = op.clone();
+    let install = op.install;
+    let remove = op.remove;
+    let disk_size = op.disk_size;
+
+    apt.check_disk_size()?;
+
+    table_for_install_pending(install, remove, disk_size, true, dry_run)?;
     apt.commit(None, &AptArgs::default())?;
+
+    write_history_entry(op_after, SummaryType::FixBroken)?;
 
     Ok(0)
 }
@@ -825,11 +872,11 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
     rt.block_on(check_battery(&conn))?;
     rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
 
-    let opt_in = opt_in;
-    let opt_out = opt_out;
-
-    let (enabled_pkgs, downgrade_pkgs) =
+    let topics_changed =
         rt.block_on(async move { topics_inner(opt_in, opt_out, dry_run).await })?;
+
+    let enabled_pkgs = topics_changed.enabled_pkgs;
+    let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
     refresh(dry_run)?;
 
@@ -858,10 +905,11 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
         }
     }
 
-    apt.install(pkgs, false)?;
+    apt.install(&pkgs, false)?;
     apt.upgrade()?;
 
     let op = apt.summary()?;
+    let op_after = op.clone();
     let install = op.install;
     let remove = op.remove;
     let disk_size = op.disk_size;
@@ -877,27 +925,42 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
     table_for_install_pending(install, remove, disk_size, true, dry_run)?;
     apt.commit(None, &apt_args)?;
 
+    write_history_entry(
+        op_after,
+        SummaryType::TopicsChanged {
+            add: topics_changed.opt_in,
+            remove: topics_changed.opt_out,
+        },
+    )?;
+
     Ok(0)
+}
+
+struct TopicChanged {
+    opt_in: Vec<String>,
+    opt_out: Vec<String>,
+    enabled_pkgs: Vec<String>,
+    downgrade_pkgs: Vec<String>,
 }
 
 async fn topics_inner(
     mut opt_in: Vec<String>,
     mut opt_out: Vec<String>,
     dry_run: bool,
-) -> Result<(Vec<String>, Vec<String>)> {
+) -> Result<TopicChanged> {
     let mut tm = TopicManager::new().await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
         inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
     }
 
-    for i in opt_in {
-        tm.add(&i, dry_run, "amd64").await?;
+    for i in &opt_in {
+        tm.add(i, dry_run, "amd64").await?;
     }
 
     let mut downgrade_pkgs = vec![];
-    for i in opt_out {
-        downgrade_pkgs.extend(tm.remove(&i, false)?);
+    for i in &opt_out {
+        downgrade_pkgs.extend(tm.remove(i, false)?);
     }
 
     tm.write_enabled(dry_run).await?;
@@ -908,7 +971,12 @@ async fn topics_inner(
         .flat_map(|x| x.packages)
         .collect::<Vec<_>>();
 
-    Ok((enabled_pkgs, downgrade_pkgs))
+    Ok(TopicChanged {
+        opt_in,
+        opt_out,
+        enabled_pkgs,
+        downgrade_pkgs,
+    })
 }
 
 async fn inquire(
