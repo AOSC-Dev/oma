@@ -2185,7 +2185,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-compression",
  "derive_builder",
@@ -2217,7 +2217,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "derive_builder",
@@ -2281,7 +2281,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "number_prefix",
  "oma-console",

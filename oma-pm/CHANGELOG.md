@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.2.0 (2023-08-21)
+
+### Bug Fixes
+
+ - <csr-id-2794b4dee123ec62e657defb107545fac2cd5aa2/> handle could not find any package for keyword
+
+### Other
+
+ - <csr-id-42a30f3c99799b933d4ae663c543376d9644c634/> fmt
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release over the course of 2 calendar days.
+ - 2 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Handle could not find any package for keyword ([`2794b4d`](https://github.com/AOSC-Dev/oma/commit/2794b4dee123ec62e657defb107545fac2cd5aa2))
+    - Fmt ([`42a30f3`](https://github.com/AOSC-Dev/oma/commit/42a30f3c99799b933d4ae663c543376d9644c634))
+</details>
+
 ## v0.1.0 (2023-08-18)
 
 <csr-id-50d0af03dad3776a09223050d6cd0ca9acbff0c1/>
@@ -59,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-id-3dbc72701d26037b0e569bf3ebeb01f911965313/>
 <csr-id-7475d11b51a6488cb77bae231b6a6bee95f603b0/>
 <csr-id-63e0c04ee482843bd57c519d386dabfccb889999/>
+<csr-id-8ddd6809bbb1037a8c4d860b64adc52d6e9d2d3a/>
 
 ### Chore
 
@@ -175,7 +206,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 91 commits contributed to the release.
+ - 92 commits contributed to the release.
  - 82 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -186,6 +217,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release oma-pm v0.1.0 ([`114fdcf`](https://github.com/AOSC-Dev/oma/commit/114fdcffdea419f2c4ed0fe11a345ee52e9d9ff5))
     - Fix license ([`8ddd680`](https://github.com/AOSC-Dev/oma/commit/8ddd6809bbb1037a8c4d860b64adc52d6e9d2d3a))
     - Release oma-pm v0.1.0 ([`df7f245`](https://github.com/AOSC-Dev/oma/commit/df7f2457870cea49fb9525937195e84d7c39fa31))
     - Add changelog ([`63e0c04`](https://github.com/AOSC-Dev/oma/commit/63e0c04ee482843bd57c519d386dabfccb889999))

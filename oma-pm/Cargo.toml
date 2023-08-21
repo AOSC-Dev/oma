@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "A crate to help oma handle package manager operation"
 license = "GPL-3.0-or-later"
@@ -13,9 +13,9 @@ thiserror = "1.0"
 time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
 glob-match = "0.2"
 indicium = "0.4"
-oma-utils = { version = "0.1", path = "../oma-utils" }
+oma-utils = { version = "^0.1.1", path = "../oma-utils" }
 url-escape = "0.1"
-oma-fetch = { version = "0.1", path = "../oma-fetch" }
+oma-fetch = { version = "^0.1.1", path = "../oma-fetch" }
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread", "macros"] }
 oma-console = { version = "0.1", path = "../oma-console" }
 derive_builder = "0.12"
