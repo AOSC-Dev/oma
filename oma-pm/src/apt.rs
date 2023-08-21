@@ -35,6 +35,8 @@ use once_cell::sync::Lazy;
 pub use oma_apt::config::Config as AptConfig;
 use time::{macros::offset, OffsetDateTime, UtcOffset};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{
     operation::{
         InstallEntry, InstallEntryBuilder, InstallEntryBuilderError, InstallOperation, RemoveEntry,
@@ -49,7 +51,7 @@ use crate::{
 static TIME_OFFSET: Lazy<UtcOffset> =
     Lazy::new(|| UtcOffset::local_offset_at(OffsetDateTime::UNIX_EPOCH).unwrap_or(offset!(UTC)));
 
-#[derive(Builder, Default)]
+#[derive(Builder, Default, Clone, Copy)]
 #[builder(default)]
 pub struct OmaAptArgs {
     install_recommends: bool,
@@ -142,15 +144,15 @@ pub enum FilterMode {
     Names,
 }
 
-#[derive(Debug)]
-pub struct OmaOperation<'a> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OmaOperation {
     pub install: Vec<InstallEntry>,
     pub remove: Vec<RemoveEntry>,
-    pub disk_size: (&'a str, u64),
+    pub disk_size: (String, u64),
     pub total_download_size: u64,
 }
 
-impl<'a> Display for OmaOperation<'a> {
+impl Display for OmaOperation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut install = vec![];
         let mut upgrade = vec![];
@@ -223,8 +225,8 @@ impl<'a> Display for OmaOperation<'a> {
             writeln!(f, "Purge: {}", purge.join(", "))?;
         }
 
-        let (symbol, n) = self.disk_size;
-        writeln!(f, "Size-delta: {symbol}{}", HumanBytes(n))?;
+        let (symbol, n) = &self.disk_size;
+        writeln!(f, "Size-delta: {symbol}{}", HumanBytes(n.to_owned()))?;
 
         Ok(())
     }
@@ -316,7 +318,7 @@ impl OmaApt {
     /// Set apt manager status as install
     pub fn install(
         &self,
-        pkgs: Vec<PkgInfo>,
+        pkgs: &[PkgInfo],
         reinstall: bool,
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
@@ -425,7 +427,7 @@ impl OmaApt {
     /// Set apt manager status as remove
     pub fn remove(
         &mut self,
-        pkgs: Vec<PkgInfo>,
+        pkgs: &[PkgInfo],
         purge: bool,
         protect: bool,
         cli_output: bool,
@@ -884,8 +886,8 @@ impl OmaApt {
         let disk_size = self.cache.depcache().disk_size();
 
         let disk_size = match disk_size {
-            DiskSpace::Require(n) => ("+", n),
-            DiskSpace::Free(n) => ("-", n),
+            DiskSpace::Require(n) => ("+".to_string(), n),
+            DiskSpace::Free(n) => ("-".to_string(), n),
         };
 
         let total_download_size: u64 = install
@@ -912,7 +914,7 @@ impl OmaApt {
         let n = n as i64;
         let download_size = op.total_download_size as i64;
 
-        let need_space = match symbol {
+        let need_space = match symbol.as_str() {
             "+" => download_size + n,
             "-" => download_size - n,
             _ => unreachable!(),

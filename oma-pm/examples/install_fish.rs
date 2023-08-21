@@ -5,7 +5,7 @@ fn main() -> Result<(), OmaAptError> {
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let pkgs = apt.select_pkg(vec!["fish"], false, true)?;
 
-    apt.install(pkgs.0, false)?;
+    apt.install(&pkgs.0, false)?;
     // let op = apt.operation_vec()?;
 
     apt.resolve(false)?;
