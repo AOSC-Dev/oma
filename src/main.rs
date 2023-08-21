@@ -7,6 +7,7 @@ mod command;
 mod error;
 mod lang;
 mod table;
+mod history;
 
 use anyhow::Result;
 

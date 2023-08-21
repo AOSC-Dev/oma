@@ -1,6 +1,7 @@
 use derive_builder::Builder;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Hash, Builder, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Hash, Builder, Clone, Default, Serialize, Deserialize)]
 #[builder(default)]
 pub struct InstallEntry {
     name: String,
@@ -18,7 +19,7 @@ pub struct InstallEntry {
     automatic: bool,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RemoveEntry {
     name: String,
     version: String,
@@ -27,13 +28,13 @@ pub struct RemoveEntry {
     arch: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum RemoveTag {
     Purge,
     AutoRemove,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize)]
 pub enum InstallOperation {
     #[default]
     Default,

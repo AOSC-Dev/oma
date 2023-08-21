@@ -229,7 +229,7 @@ pub fn handle_resolve(apt: &OmaApt, no_fixbroken: bool) -> Result<(), OutputErro
 pub fn table_for_install_pending(
     install: Vec<InstallEntry>,
     remove: Vec<RemoveEntry>,
-    disk_size: (&str, u64),
+    disk_size: (String, u64),
     is_pager: bool,
     dry_run: bool,
 ) -> Result<(), OutputError> {
