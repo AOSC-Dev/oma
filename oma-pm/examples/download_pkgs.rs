@@ -8,7 +8,7 @@ fn main() -> Result<(), OmaAptError> {
 
     let pkgs = apt.select_pkg(vec!["vscodium", "go"], false, true)?;
     std::fs::create_dir_all("./test").unwrap();
-    let res = apt.download(pkgs, None, Some(Path::new("test")), false)?;
+    let res = apt.download(pkgs.0, None, Some(Path::new("test")), false)?;
 
     dbg!(res);
 
