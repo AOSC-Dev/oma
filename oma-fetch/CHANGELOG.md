@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.1 (2023-08-21)
+
+### Other
+
+ - <csr-id-42a30f3c99799b933d4ae663c543376d9644c634/> fmt
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release over the course of 2 calendar days.
+ - 2 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Fmt ([`42a30f3`](https://github.com/AOSC-Dev/oma/commit/42a30f3c99799b933d4ae663c543376d9644c634))
+</details>
+
 ## v0.1.0 (2023-08-18)
 
 <csr-id-063342819b6d1350c06f268f90c04e125096aee4/>
@@ -16,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-id-3ef5ec5a6832a01f4ce85b40f754efd4bcc55514/>
 <csr-id-b84f130fad9fed69f9ca66a283c4a99db558b5fd/>
 <csr-id-bb833287d6d439c622e737148d609c1b848e5efa/>
+<csr-id-653fb5a711e50c1d686dfc82ed99cbe5508bf03e/>
 
 ### Chore
 
@@ -58,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 25 commits contributed to the release.
+ - 26 commits contributed to the release.
  - 19 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -69,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release oma-fetch v0.1.0 ([`aac4df6`](https://github.com/AOSC-Dev/oma/commit/aac4df6c53c9ebb0de1b695cda4bb9f0b6c1fb04))
     - Add changelog ([`653fb5a`](https://github.com/AOSC-Dev/oma/commit/653fb5a711e50c1d686dfc82ed99cbe5508bf03e))
     - Fill in comment, desc, license ([`0633428`](https://github.com/AOSC-Dev/oma/commit/063342819b6d1350c06f268f90c04e125096aee4))
     - Display done message if env is not atty ([`44e6cdd`](https://github.com/AOSC-Dev/oma/commit/44e6cdd45bdc46a9e28cb277456f8d9f602f5671))
