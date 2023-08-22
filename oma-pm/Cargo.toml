@@ -13,7 +13,7 @@ thiserror = "1.0"
 time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
 glob-match = "0.2"
 indicium = "0.4"
-oma-utils = { version = "^0.1.2", path = "../oma-utils", features = ["human-bytes"] }
+oma-utils = { version = "^0.1.3", path = "../oma-utils", features = ["human-bytes"] }
 url-escape = "0.1"
 oma-fetch = { version = "^0.1.1", path = "../oma-fetch" }
 tokio = { version = "1.15", default_features = false, features = [
