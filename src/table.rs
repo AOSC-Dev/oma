@@ -321,7 +321,7 @@ pub fn table_pending_inner(
         );
 
         let remove_display = remove
-            .into_iter()
+            .iter()
             .map(RemoveEntryDisplay::from)
             .collect::<Vec<_>>();
 
