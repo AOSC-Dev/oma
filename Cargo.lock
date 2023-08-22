@@ -2256,7 +2256,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "number_prefix",
  "oma-console",
