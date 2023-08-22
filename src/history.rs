@@ -1,6 +1,6 @@
 use std::{
     fs::{create_dir_all, File},
-    io::{BufReader, Read, Write},
+    io::{BufReader, Read, Write, Seek},
     path::Path,
 };
 
@@ -40,6 +40,7 @@ pub fn db_file() -> Result<File> {
         .read(true)
         .write(true)
         .create(true)
+        .append(false)
         .open(db_path)?;
 
     Ok(f)
@@ -59,6 +60,7 @@ pub fn write_history_entry(summary: OmaOperation, typ: SummaryType, mut f: File)
     db.insert(0, entry);
 
     let buf = serde_json::to_vec(&db)?;
+    f.seek(std::io::SeekFrom::Start(0))?;
     f.write_all(&buf)?;
 
     success!("{}", fl!("history-tips-1"));
