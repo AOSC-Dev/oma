@@ -101,7 +101,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
         dry_run,
         SummaryType::Install(
             pkgs.iter()
-                .map(|x| x.raw_pkg.name().to_string())
+                .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
         apt_args,
@@ -183,7 +183,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
                 op_after,
                 SummaryType::Upgrade(
                     pkgs.iter()
-                        .map(|x| x.raw_pkg.name().to_string())
+                        .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                         .collect::<Vec<_>>(),
                 ),
                 db_file()?,
@@ -232,7 +232,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
         dry_run,
         SummaryType::Remove(
             pkgs.iter()
-                .map(|x| x.raw_pkg.name().to_string())
+                .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
         AptArgsBuilder::default()
@@ -574,7 +574,7 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
     normal_commit(
         apt,
         dry_run,
-        SummaryType::Install(pkgs.iter().map(|x| x.raw_pkg.name().to_string()).collect()),
+        SummaryType::Install(pkgs.iter().map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version())).collect()),
         AptArgsBuilder::default().build()?,
         false,
     )?;
