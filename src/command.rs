@@ -19,7 +19,7 @@ use oma_console::{
 use oma_contents::QueryMode;
 use oma_pm::{
     apt::{AptArgs, AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder, OmaAptError},
-    operation::{InstallEntry, RemoveEntry},
+    operation::{InstallEntry, InstallOperation, RemoveEntry},
     pkginfo::PkgInfo,
     query::OmaDatabase,
     PackageStatus,
@@ -30,12 +30,13 @@ use oma_utils::{
     dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
     dpkg::dpkg_arch,
 };
+
 use tokio::runtime::Runtime;
 
 use crate::{
     error::OutputError,
     fl,
-    history::{write_history_entry, SummaryType, db_file},
+    history::{db_file, list_history, write_history_entry, SummaryType},
     table::{handle_resolve, oma_display, table_for_install_pending},
     InstallArgs, RemoveArgs, UpgradeArgs,
 };
@@ -185,7 +186,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
                         .map(|x| x.raw_pkg.name().to_string())
                         .collect::<Vec<_>>(),
                 ),
-                db_file()?
+                db_file()?,
             )?,
             Err(e) => match e {
                 OmaAptError::RustApt(_) => {
@@ -877,6 +878,96 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
     Ok(0)
 }
 
+pub fn undo() -> Result<i32> {
+    let f = db_file()?;
+    let list = list_history(f)?;
+
+    let display_list = list
+        .iter()
+        .map(|x| match &x.typ {
+            SummaryType::Install(v) => format!("Installl {}", v.join(" ")),
+            SummaryType::Upgrade(v) if v.is_empty() => format!("Upgrade system"),
+            SummaryType::Upgrade(v) => format!("Upgrade system and install {}", v.join(" ")),
+            SummaryType::Remove(v) => format!("Remove {}", v.join(" ")),
+            SummaryType::FixBroken => format!("Fix Broken"),
+            SummaryType::TopicsChanged { add, remove } => {
+                format!(
+                    "Topics changed: add topic: {}, remove topic: {}",
+                    add.join(" "),
+                    remove.join(" ")
+                )
+            }
+            SummaryType::Undo => format!("Undo"),
+        })
+        .collect::<Vec<_>>();
+
+    let selected = Select::with_theme(&ColorfulTheme::default())
+        .items(&display_list)
+        .default(0)
+        .interact()?;
+
+    let selected = &list[selected];
+    let op = &selected.op;
+
+    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
+
+    let mut delete = vec![];
+    let mut install = vec![];
+
+    if !op.install.is_empty() {
+        for i in &op.install {
+            match i.op() {
+                InstallOperation::Default | InstallOperation::Download => unreachable!(),
+                InstallOperation::Install => delete.push(i.name()),
+                InstallOperation::ReInstall => continue,
+                InstallOperation::Upgrade => install.push((i.name(), i.old_version().unwrap())),
+                InstallOperation::Downgrade => install.push((i.name(), i.old_version().unwrap())),
+            }
+        }
+    }
+
+    if !op.remove.is_empty() {
+        for i in &op.remove {
+            install.push((i.name(), i.version()))
+        }
+    }
+
+    let (delete, no_result) = apt.select_pkg(delete, false, true)?;
+    handle_no_result(no_result);
+
+    apt.remove(&delete, false, true, true, true)?;
+
+    let pkgs = apt.filter_pkgs(&[FilterMode::Default])?.collect::<Vec<_>>();
+
+    let install = install
+        .iter()
+        .map(|(pkg, ver)| {
+            let pkg = pkgs.iter().filter(move |y| &y.name() == pkg).next();
+
+            if let Some(pkg) = pkg {
+                Some((pkg, pkg.get_version(ver)?))
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .map(|(x, y)| PkgInfo::new(&apt.cache, y.unique(), x))
+        .collect::<Vec<_>>();
+
+    apt.install(&install, false)?;
+
+    normal_commit(
+        apt,
+        false,
+        SummaryType::Undo,
+        AptArgsBuilder::default().build()?,
+        false,
+    )?;
+
+    Ok(0)
+}
+
 struct TopicChanged {
     opt_in: Vec<String>,
     opt_out: Vec<String>,
@@ -1071,11 +1162,7 @@ fn normal_commit(
     table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)?;
     apt.commit(None, &apt_args)?;
 
-    write_history_entry(
-        op_after,
-        typ,
-        db_file()?
-    )?;
+    write_history_entry(op_after, typ, db_file()?)?;
 
     Ok(())
 }
