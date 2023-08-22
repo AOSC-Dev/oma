@@ -132,7 +132,6 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::DpkgArchError(e) => OutputError::from(e).to_string(),
             RefreshError::JoinError(e) => e.to_string(),
-            RefreshError::TemplateError(e) => e.to_string(),
             RefreshError::DownloadEntryBuilderError(e) => e.to_string(),
             RefreshError::ChecksumError(e) => oma_checksum_error(e),
             RefreshError::IOError(e) => OutputError::from(e).to_string(),

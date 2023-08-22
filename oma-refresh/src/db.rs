@@ -3,12 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::fl;
 use oma_apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
-use oma_console::{
-    debug,
-    indicatif::{style::TemplateError, ProgressBar},
-};
+use oma_console::debug;
 use oma_fetch::{
     checksum::ChecksumError, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError,
     DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
@@ -64,8 +60,6 @@ pub enum RefreshError {
     DpkgArchError(#[from] oma_utils::dpkg::DpkgError),
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
-    #[error(transparent)]
-    TemplateError(#[from] TemplateError),
     #[error(transparent)]
     DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
     #[error(transparent)]
@@ -557,24 +551,6 @@ async fn update_db(
         .await;
 
     res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
-
-    // Fsync
-    let pb = if bar {
-        let (style, inv) = oma_console::pb::oma_spinner(false)?;
-        let pb = ProgressBar::new_spinner().with_style(style);
-        pb.enable_steady_tick(inv);
-        pb.set_message(fl!("flushing-data"));
-
-        Some(pb)
-    } else {
-        None
-    };
-
-    nix::unistd::sync();
-
-    if let Some(pb) = pb {
-        pb.finish_and_clear();
-    }
 
     Ok(())
 }
