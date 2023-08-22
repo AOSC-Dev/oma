@@ -35,7 +35,7 @@ use once_cell::sync::Lazy;
 pub use oma_apt::config::Config as AptConfig;
 use time::{macros::offset, OffsetDateTime, UtcOffset};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     operation::{
@@ -323,7 +323,7 @@ impl OmaApt {
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
         for pkg in pkgs {
-            let marked_install = mark_install(&self.cache, &pkg, reinstall)?;
+            let marked_install = mark_install(&self.cache, pkg, reinstall)?;
             if !marked_install {
                 no_marked_install.push((
                     pkg.raw_pkg.name().to_string(),
@@ -435,7 +435,7 @@ impl OmaApt {
     ) -> OmaAptResult<Vec<String>> {
         let mut no_marked_remove = vec![];
         for pkg in pkgs {
-            let is_marked_delete = mark_delete(&self.cache, &pkg, protect, cli_output, purge)?;
+            let is_marked_delete = mark_delete(&self.cache, pkg, protect, cli_output, purge)?;
             if !is_marked_delete {
                 no_marked_remove.push(pkg.raw_pkg.name().to_string());
             }

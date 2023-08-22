@@ -5,9 +5,9 @@ use std::process::exit;
 mod args;
 mod command;
 mod error;
+mod history;
 mod lang;
 mod table;
-mod history;
 
 use anyhow::Result;
 

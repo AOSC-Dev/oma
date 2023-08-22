@@ -39,7 +39,7 @@ pub fn write_history_entry(summary: OmaOperation, typ: SummaryType) -> Result<()
         .read(true)
         .write(true)
         .create(true)
-        .open(&db_path)?;
+        .open(db_path)?;
 
     let mut buf = vec![];
     f.read_to_end(&mut buf)?;
