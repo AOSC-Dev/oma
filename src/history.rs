@@ -4,7 +4,9 @@ use std::{
     path::Path,
 };
 
+use crate::fl;
 use anyhow::Result;
+use oma_console::{info, success};
 use oma_pm::apt::OmaOperation;
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +55,9 @@ pub fn write_history_entry(summary: OmaOperation, typ: SummaryType) -> Result<()
 
     let buf = serde_json::to_vec(&db)?;
     f.write_all(&buf)?;
+
+    success!("{}", fl!("history-tips-1"));
+    info!("{}", fl!("history-tips-2"));
 
     Ok(())
 }
