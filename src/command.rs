@@ -179,15 +179,18 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
         }
 
         match apt.commit(None, &apt_args) {
-            Ok(_) => write_history_entry(
-                op_after,
-                SummaryType::Upgrade(
-                    pkgs.iter()
-                        .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
-                        .collect::<Vec<_>>(),
-                ),
-                db_file()?,
-            )?,
+            Ok(_) => {
+                write_history_entry(
+                    op_after,
+                    SummaryType::Upgrade(
+                        pkgs.iter()
+                            .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
+                            .collect::<Vec<_>>(),
+                    ),
+                    db_file()?,
+                )?;
+                return Ok(0);
+            }
             Err(e) => match e {
                 OmaAptError::RustApt(_) => {
                     if retry_times == 3 {
@@ -930,8 +933,8 @@ pub fn undo() -> Result<i32> {
 
     let install = install
         .iter()
-        .map(|(pkg, ver)| {
-            let pkg = pkgs.iter().filter(move |y| &y.name() == pkg).next();
+        .filter_map(|(pkg, ver)| {
+            let pkg = pkgs.iter().find(move |y| &y.name() == pkg);
 
             if let Some(pkg) = pkg {
                 Some((pkg, pkg.get_version(ver)?))
@@ -939,7 +942,6 @@ pub fn undo() -> Result<i32> {
                 None
             }
         })
-        .flatten()
         .map(|(x, y)| PkgInfo::new(&apt.cache, y.unique(), x))
         .collect::<Vec<_>>();
 
@@ -977,7 +979,7 @@ fn format_summary_log(list: &[SummaryLog]) -> Vec<String> {
                 v.len() - 3
             ),
             SummaryType::Install(v) => format!("Installl {}", v.join(" ")),
-            SummaryType::Upgrade(v) if v.is_empty() => format!("Upgrade system"),
+            SummaryType::Upgrade(v) if v.is_empty() => "Upgrade system".to_string(),
             SummaryType::Upgrade(v) if v.len() > 3 => format!(
                 "Upgrade system and install {} {} {} ... (and {} more)",
                 v[0],
@@ -994,7 +996,7 @@ fn format_summary_log(list: &[SummaryLog]) -> Vec<String> {
                 v.len() - 3
             ),
             SummaryType::Remove(v) => format!("Remove {}", v.join(" ")),
-            SummaryType::FixBroken => format!("Fix Broken"),
+            SummaryType::FixBroken => "Fix Broken".to_string(),
             SummaryType::TopicsChanged { add, remove } if remove.is_empty() => {
                 format!(
                     "Topics changed: add topic: {} {}",
@@ -1042,7 +1044,7 @@ fn format_summary_log(list: &[SummaryLog]) -> Vec<String> {
                     ""
                 )
             }
-            SummaryType::Undo => format!("Undo"),
+            SummaryType::Undo => "Undo".to_string(),
         })
         .collect::<Vec<_>>();
 
