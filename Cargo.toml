@@ -17,7 +17,7 @@ tabled = { version = "0.14", features = ["color"] }
 dialoguer = "0.10"
 tokio = { version = "1.15", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread", "macros"] }
 derive_builder = "0.12.0"
-oma-utils = { path = "./oma-utils" }
+oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
 oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
 oma-refresh = { path = "./oma-refresh", features = ["aosc"] }
