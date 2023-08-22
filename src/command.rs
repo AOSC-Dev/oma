@@ -35,7 +35,7 @@ use tokio::runtime::Runtime;
 use crate::{
     error::OutputError,
     fl,
-    history::{write_history_entry, SummaryType},
+    history::{write_history_entry, SummaryType, db_file},
     table::{handle_resolve, oma_display, table_for_install_pending},
     InstallArgs, RemoveArgs, UpgradeArgs,
 };
@@ -185,6 +185,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
                         .map(|x| x.raw_pkg.name().to_string())
                         .collect::<Vec<_>>(),
                 ),
+                db_file()?
             )?,
             Err(e) => match e {
                 OmaAptError::RustApt(_) => {
@@ -1070,7 +1071,11 @@ fn normal_commit(
     table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)?;
     apt.commit(None, &apt_args)?;
 
-    write_history_entry(op_after, typ)?;
+    write_history_entry(
+        op_after,
+        typ,
+        db_file()?
+    )?;
 
     Ok(())
 }
