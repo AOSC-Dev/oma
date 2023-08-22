@@ -1,6 +1,6 @@
 use std::{
     fs::{create_dir_all, File},
-    io::{BufReader, Read, Write, Seek},
+    io::{BufRead, BufReader, Write},
     path::Path,
 };
 
@@ -20,7 +20,7 @@ pub enum SummaryType {
         add: Vec<String>,
         remove: Vec<String>,
     },
-    Undo
+    Undo,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -40,27 +40,17 @@ pub fn db_file() -> Result<File> {
         .read(true)
         .write(true)
         .create(true)
-        .append(false)
+        .append(true)
         .open(db_path)?;
 
     Ok(f)
 }
 
 pub fn write_history_entry(summary: OmaOperation, typ: SummaryType, mut f: File) -> Result<()> {
-    let mut buf = vec![];
-    f.read_to_end(&mut buf)?;
-
-    let mut db: Vec<SummaryLog> = if buf.is_empty() {
-        vec![]
-    } else {
-        serde_json::from_slice(&buf)?
-    };
-
     let entry = SummaryLog { op: summary, typ };
-    db.insert(0, entry);
+    let mut buf = serde_json::to_vec(&entry)?;
+    buf.push(b'\n');
 
-    let buf = serde_json::to_vec(&db)?;
-    f.seek(std::io::SeekFrom::Start(0))?;
     f.write_all(&buf)?;
 
     success!("{}", fl!("history-tips-1"));
@@ -71,8 +61,11 @@ pub fn write_history_entry(summary: OmaOperation, typ: SummaryType, mut f: File)
 
 pub fn list_history(f: File) -> Result<Vec<SummaryLog>> {
     let reader = BufReader::new(f);
-    let db: Vec<SummaryLog> = serde_json::from_reader(reader)?;
+    let mut db = vec![];
+    for line in reader.lines() {
+        let summary_line: SummaryLog = serde_json::from_str(&line?)?;
+        db.insert(0, summary_line);
+    }
 
     Ok(db)
 }
-
