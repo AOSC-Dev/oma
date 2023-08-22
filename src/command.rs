@@ -639,6 +639,10 @@ pub fn fix_broken(dry_run: bool) -> Result<i32> {
     let remove = op.remove;
     let disk_size = op.disk_size;
 
+    if check_empty_op(&install, &remove) {
+        return Ok(0);
+    }
+
     apt.check_disk_size()?;
 
     table_for_install_pending(install, remove, disk_size, true, dry_run)?;
