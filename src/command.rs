@@ -95,27 +95,16 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
         .dpkg_force_confnew(args.force_confnew)
         .build()?;
 
-    let op = apt.summary()?;
-    let op_after = op.clone();
-    let install = op.install;
-    let remove = op.remove;
-    let disk_size = op.disk_size;
-
-    if check_empty_op(&install, &remove) {
-        return Ok(0);
-    }
-
-    handle_resolve(&apt, args.no_fixbroken)?;
-    apt.check_disk_size()?;
-    table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
-    apt.commit(None, &apt_args)?;
-    write_history_entry(
-        op_after,
+    normal_commit(
+        apt,
+        dry_run,
         SummaryType::Install(
             pkgs.iter()
                 .map(|x| x.raw_pkg.name().to_string())
                 .collect::<Vec<_>>(),
         ),
+        apt_args,
+        args.no_fixbroken
     )?;
 
     Ok(0)
@@ -236,33 +225,19 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
         }
     }
 
-    let op = apt.summary()?;
-    let op_after = op.clone();
-    let install = op.install;
-    let remove = op.remove;
-    let disk_size = op.disk_size;
-
-    if check_empty_op(&install, &remove) {
-        return Ok(0);
-    }
-
-    let apt_args = AptArgsBuilder::default()
-        .yes(args.yes)
-        .force_yes(args.force_yes)
-        .build()?;
-
-    handle_resolve(&apt, false)?;
-    apt.check_disk_size()?;
-    table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
-    apt.commit(None, &apt_args)?;
-
-    write_history_entry(
-        op_after,
+    normal_commit(
+        apt,
+        dry_run,
         SummaryType::Remove(
             pkgs.iter()
                 .map(|x| x.raw_pkg.name().to_string())
                 .collect::<Vec<_>>(),
         ),
+        AptArgsBuilder::default()
+            .yes(args.yes)
+            .force_yes(args.force_yes)
+            .build()?,
+        false
     )?;
 
     Ok(0)
@@ -594,28 +569,12 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
     let pkgs = vec![PkgInfo::new(&apt.cache, version.unique(), &pkg)];
     apt.install(&pkgs, false)?;
 
-    let op = apt.summary()?;
-    let op_after = op.clone();
-    let install = op.install;
-    let remove = op.remove;
-    let disk_size = op.disk_size;
-
-    if check_empty_op(&install, &remove) {
-        return Ok(0);
-    }
-
-    handle_resolve(&apt, false)?;
-    apt.check_disk_size()?;
-    table_for_install_pending(install, remove, disk_size, true, dry_run)?;
-    apt.commit(None, &AptArgsBuilder::default().build()?)?;
-
-    write_history_entry(
-        op_after,
-        SummaryType::Install(
-            pkgs.iter()
-                .map(|x| x.raw_pkg.name().to_string())
-                .collect::<Vec<_>>(),
-        ),
+    normal_commit(
+        apt,
+        dry_run,
+        SummaryType::Install(pkgs.iter().map(|x| x.raw_pkg.name().to_string()).collect()),
+        AptArgsBuilder::default().build()?,
+        false
     )?;
 
     Ok(0)
@@ -633,22 +592,13 @@ pub fn fix_broken(dry_run: bool) -> Result<i32> {
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     handle_resolve(&apt, false)?;
 
-    let op = apt.summary()?;
-    let op_after = op.clone();
-    let install = op.install;
-    let remove = op.remove;
-    let disk_size = op.disk_size;
-
-    if check_empty_op(&install, &remove) {
-        return Ok(0);
-    }
-
-    apt.check_disk_size()?;
-
-    table_for_install_pending(install, remove, disk_size, true, dry_run)?;
-    apt.commit(None, &AptArgs::default())?;
-
-    write_history_entry(op_after, SummaryType::FixBroken)?;
+    normal_commit(
+        apt,
+        dry_run,
+        SummaryType::FixBroken,
+        AptArgsBuilder::default().build()?,
+        false
+    )?;
 
     Ok(0)
 }
@@ -912,29 +862,15 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
     apt.install(&pkgs, false)?;
     apt.upgrade()?;
 
-    let op = apt.summary()?;
-    let op_after = op.clone();
-    let install = op.install;
-    let remove = op.remove;
-    let disk_size = op.disk_size;
-
-    if check_empty_op(&install, &remove) {
-        return Ok(0);
-    }
-
-    let apt_args = AptArgsBuilder::default().build()?;
-
-    handle_resolve(&apt, false)?;
-    apt.check_disk_size()?;
-    table_for_install_pending(install, remove, disk_size, true, dry_run)?;
-    apt.commit(None, &apt_args)?;
-
-    write_history_entry(
-        op_after,
+    normal_commit(
+        apt,
+        dry_run,
         SummaryType::TopicsChanged {
             add: topics_changed.opt_in,
             remove: topics_changed.opt_out,
         },
+        AptArgsBuilder::default().build()?,
+        false
     )?;
 
     Ok(0)
@@ -1110,4 +1046,25 @@ fn handle_no_result(no_result: Vec<String>) {
     for word in no_result {
         error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
     }
+}
+
+fn normal_commit(apt: OmaApt, dry_run: bool, typ: SummaryType, apt_args: AptArgs, no_fixbroken: bool) -> Result<()> {
+    let op = apt.summary()?;
+    let op_after = op.clone();
+    let install = op.install;
+    let remove = op.remove;
+    let disk_size = op.disk_size;
+    if check_empty_op(&install, &remove) {
+        return Ok(());
+    }
+
+    handle_resolve(&apt, no_fixbroken)?;
+    apt.check_disk_size()?;
+
+    table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)?;
+    apt.commit(None, &apt_args)?;
+
+    write_history_entry(op_after, typ)?;
+
+    Ok(())
 }
