@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.3 (2023-08-22)
+
+### Chore
+
+ - <csr-id-3af47b057182b1311d96e1fe6825ad32bbd0e23b/> 0.1.3
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - 0.1.3 ([`3af47b0`](https://github.com/AOSC-Dev/oma/commit/3af47b057182b1311d96e1fe6825ad32bbd0e23b))
+</details>
+
 ## v0.1.2 (2023-08-22)
 
 ### New Features
@@ -15,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 day passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma-utils v0.1.2 ([`f9ea8b2`](https://github.com/AOSC-Dev/oma/commit/f9ea8b237c0036eb3da87dd1a58946c17454c16c))
     - Use feature to select abstract code ([`ec61dda`](https://github.com/AOSC-Dev/oma/commit/ec61dda03a3ad18f3b9b34db398b39c550e0abbf))
 </details>
 
