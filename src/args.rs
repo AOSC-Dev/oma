@@ -302,6 +302,9 @@ pub fn command_builder() -> Command {
                         .alias("log")
                         .about("Show a history/log of package changes in the system"))
         .subcommand(
+            Command::new("undo")
+                        .about("Undo system changes operation"))
+        .subcommand(
         Command::new("pkgnames")
                 .hide(true)
                 .arg(Arg::new("keyword")

@@ -20,6 +20,7 @@ pub enum SummaryType {
         add: Vec<String>,
         remove: Vec<String>,
     },
+    Undo
 }
 
 #[derive(Debug, Serialize, Deserialize)]
