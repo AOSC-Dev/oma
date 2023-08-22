@@ -257,9 +257,9 @@ pub fn table_for_install_pending(
         );
     }
 
-    let _ = terminal_write!(out, is_pager);
-    let _ = terminal_write!(out, is_pager, "{}\n", fl!("review-msg"));
-    let _ = terminal_write!(
+    terminal_write!(out, is_pager);
+    terminal_write!(out, is_pager, "{}\n", fl!("review-msg"));
+    terminal_write!(
         out,
         is_pager,
         "{}\n",
@@ -273,7 +273,7 @@ pub fn table_for_install_pending(
         ),
     );
 
-    let _ = terminal_write!(out, is_pager);
+    terminal_write!(out, is_pager);
 
     if pager_name == Some("less") {
         let has_x11 = std::env::var("DISPLAY");
@@ -297,7 +297,7 @@ pub fn table_for_install_pending(
     }
 
     if !remove.is_empty() {
-        let _ = terminal_write!(
+        terminal_write!(
             out,
             is_pager,
             "{} {}{}\n",
@@ -319,7 +319,7 @@ pub fn table_for_install_pending(
             .with(Style::psql())
             .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
-        let _ = terminal_write!(out, is_pager, "{table}\n\n");
+        terminal_write!(out, is_pager, "{table}\n\n");
     }
 
     let total_download_size: u64 = install
@@ -336,7 +336,7 @@ pub fn table_for_install_pending(
         let install_e_display = install_e.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !install_e_display.is_empty() {
-            let _ = terminal_write!(
+            terminal_write!(
                 out,
                 is_pager,
                 "{} {}{}\n",
@@ -364,7 +364,7 @@ pub fn table_for_install_pending(
         let update_display = update.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !update_display.is_empty() {
-            let _ = terminal_write!(
+            terminal_write!(
                 out,
                 is_pager,
                 "{} {}{}\n",
@@ -392,7 +392,7 @@ pub fn table_for_install_pending(
         let downgrade_display = downgrade.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !downgrade_display.is_empty() {
-            let _ = terminal_write!(
+            terminal_write!(
                 out,
                 is_pager,
                 "{} {}{}\n",
@@ -420,7 +420,7 @@ pub fn table_for_install_pending(
         let reinstall_display = reinstall.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !reinstall_display.is_empty() {
-            let _ = terminal_write!(
+            terminal_write!(
                 out,
                 is_pager,
                 "{} {}{}\n",
