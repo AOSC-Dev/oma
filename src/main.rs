@@ -241,13 +241,7 @@ fn try_main() -> Result<i32> {
         }
         Some(("clean", _)) => command::clean()?,
         Some(("history", _)) => command::hisotry()?,
-        // OmaCommand::History(History {
-        //     action: match args.get_one::<String>("action").map(|x| x.as_str()) {
-        //         Some("undo") => HistoryAction::Undo(args.get_one::<usize>("index").copied()),
-        //         Some("redo") => HistoryAction::Redo(args.get_one::<usize>("index").copied()),
-        //         _ => unimplemented!(),
-        //     },
-        // }),
+        Some(("undo", _)) => command::undo()?,
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
             let opt_in = args
