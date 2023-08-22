@@ -25,6 +25,7 @@ use oma_pm::{
     PackageStatus,
 };
 use oma_refresh::db::OmaRefresh;
+#[cfg(feature = "aosc")]
 use oma_topics::TopicManager;
 use oma_utils::{
     dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
@@ -833,6 +834,7 @@ pub fn hisotry() -> Result<i32> {
     Ok(0)
 }
 
+#[cfg(feature = "aosc")]
 pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Result<i32> {
     root()?;
 
@@ -1058,6 +1060,7 @@ struct TopicChanged {
     downgrade_pkgs: Vec<String>,
 }
 
+#[cfg(feature = "aosc")]
 async fn topics_inner(
     mut opt_in: Vec<String>,
     mut opt_out: Vec<String>,
@@ -1094,6 +1097,7 @@ async fn topics_inner(
     })
 }
 
+#[cfg(feature = "aosc")]
 async fn inquire(
     tm: &mut TopicManager,
     opt_in: &mut Vec<String>,
