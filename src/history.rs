@@ -1,5 +1,5 @@
 use std::{
-    fs::create_dir_all,
+    fs::{create_dir_all, File},
     io::{BufReader, Read, Write},
     path::Path,
 };
@@ -28,19 +28,23 @@ pub struct SummaryLog {
     pub op: OmaOperation,
 }
 
-pub fn write_history_entry(summary: OmaOperation, typ: SummaryType) -> Result<()> {
+pub fn db_file() -> Result<File> {
     let dir = Path::new("/var/log/oma");
     let db_path = dir.join("history.json");
     if !dir.exists() {
         create_dir_all(dir)?;
     }
 
-    let mut f = std::fs::OpenOptions::new()
+    let f = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
         .open(db_path)?;
 
+    Ok(f)
+}
+
+pub fn write_history_entry(summary: OmaOperation, typ: SummaryType, mut f: File) -> Result<()> {
     let mut buf = vec![];
     f.read_to_end(&mut buf)?;
 
@@ -62,10 +66,10 @@ pub fn write_history_entry(summary: OmaOperation, typ: SummaryType) -> Result<()
     Ok(())
 }
 
-pub fn list_history() -> Result<Vec<SummaryLog>> {
-    let f = std::fs::File::open("/var/log/oma/history.json")?;
+pub fn list_history(f: File) -> Result<Vec<SummaryLog>> {
     let reader = BufReader::new(f);
     let db: Vec<SummaryLog> = serde_json::from_reader(reader)?;
 
     Ok(db)
 }
+
