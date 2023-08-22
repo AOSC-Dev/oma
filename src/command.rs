@@ -514,7 +514,7 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkg = apt
         .cache
         .get(&pkg_str)
@@ -852,7 +852,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
     refresh(dry_run)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let mut pkgs = vec![];
 

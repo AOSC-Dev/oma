@@ -317,7 +317,7 @@ impl OmaApt {
 
     /// Set apt manager status as install
     pub fn install(
-        &self,
+        &mut self,
         pkgs: &[PkgInfo],
         reinstall: bool,
     ) -> OmaAptResult<Vec<(String, String)>> {
@@ -329,6 +329,8 @@ impl OmaApt {
                     pkg.raw_pkg.name().to_string(),
                     pkg.version_raw.version().to_string(),
                 ));
+            } else if !self.select_pkgs.contains(&pkg.raw_pkg.name().to_string()) {
+                self.select_pkgs.push(pkg.raw_pkg.name().to_string());
             }
         }
 
@@ -438,6 +440,8 @@ impl OmaApt {
             let is_marked_delete = mark_delete(&self.cache, pkg, protect, cli_output, purge)?;
             if !is_marked_delete {
                 no_marked_remove.push(pkg.raw_pkg.name().to_string());
+            } else if !self.select_pkgs.contains(&pkg.raw_pkg.name().to_string()) {
+                self.select_pkgs.push(pkg.raw_pkg.name().to_string());
             }
         }
 
@@ -683,14 +687,7 @@ impl OmaApt {
         select_dbg: bool,
         filter_candidate: bool,
     ) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
-        let res = select_pkg(keywords, &self.cache, select_dbg, filter_candidate)?;
-        self.select_pkgs = res
-            .0
-            .iter()
-            .map(|x| x.raw_pkg.name().to_string())
-            .collect::<Vec<_>>();
-
-        Ok(res)
+        select_pkg(keywords, &self.cache, select_dbg, filter_candidate)
     }
 
     /// Get apt archive dir
