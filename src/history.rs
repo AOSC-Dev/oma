@@ -29,19 +29,23 @@ pub struct SummaryLog {
     pub op: OmaOperation,
 }
 
-pub fn db_file() -> Result<File> {
+pub fn db_file(write: bool) -> Result<File> {
     let dir = Path::new("/var/log/oma");
     let db_path = dir.join("history.json");
     if !dir.exists() {
         create_dir_all(dir)?;
     }
 
-    let f = std::fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .append(true)
-        .open(db_path)?;
+    let mut f_opt = std::fs::OpenOptions::new();
+    f_opt.read(true);
+
+    if write {
+        f_opt.write(true);
+        f_opt.create(true);
+        f_opt.append(true);
+    }
+
+    let f = f_opt.open(db_path)?;
 
     Ok(f)
 }
