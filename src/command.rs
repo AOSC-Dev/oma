@@ -104,7 +104,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
                 .collect::<Vec<_>>(),
         ),
         apt_args,
-        args.no_fixbroken
+        args.no_fixbroken,
     )?;
 
     Ok(0)
@@ -237,7 +237,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
             .yes(args.yes)
             .force_yes(args.force_yes)
             .build()?,
-        false
+        false,
     )?;
 
     Ok(0)
@@ -574,7 +574,7 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
         dry_run,
         SummaryType::Install(pkgs.iter().map(|x| x.raw_pkg.name().to_string()).collect()),
         AptArgsBuilder::default().build()?,
-        false
+        false,
     )?;
 
     Ok(0)
@@ -597,7 +597,7 @@ pub fn fix_broken(dry_run: bool) -> Result<i32> {
         dry_run,
         SummaryType::FixBroken,
         AptArgsBuilder::default().build()?,
-        false
+        false,
     )?;
 
     Ok(0)
@@ -847,7 +847,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
             .filter(|x| x.name() == pkg);
 
         if let Some(pkg) = f.next() {
-            if enabled_pkgs.contains(&&pkg.name().to_string()) {
+            if enabled_pkgs.contains(&pkg.name().to_string()) {
                 continue;
             }
 
@@ -870,7 +870,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
             remove: topics_changed.opt_out,
         },
         AptArgsBuilder::default().build()?,
-        false
+        false,
     )?;
 
     Ok(0)
@@ -1048,7 +1048,13 @@ fn handle_no_result(no_result: Vec<String>) {
     }
 }
 
-fn normal_commit(apt: OmaApt, dry_run: bool, typ: SummaryType, apt_args: AptArgs, no_fixbroken: bool) -> Result<()> {
+fn normal_commit(
+    apt: OmaApt,
+    dry_run: bool,
+    typ: SummaryType,
+    apt_args: AptArgs,
+    no_fixbroken: bool,
+) -> Result<()> {
     let op = apt.summary()?;
     let op_after = op.clone();
     let install = op.install;
