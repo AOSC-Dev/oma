@@ -21,7 +21,7 @@ anyhow = "1.0"
 time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
 oma-topics = { path = "../oma-topics", optional = true }
 reqwest = "0.11"
-oma-utils = { version = "0.1", path = "../oma-utils", features = ["dpkg"] }
+oma-utils = { version = "^0.1.2", path = "../oma-utils", features = ["dpkg"] }
 oma-console = { path = "../oma-console" }
 nix = "0.26"
 i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"] }

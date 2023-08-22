@@ -5,7 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.2 (2023-08-22)
+
+### New Features
+
+ - <csr-id-ec61dda03a3ad18f3b9b34db398b39c550e0abbf/> use feature to select abstract code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 day passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Use feature to select abstract code ([`ec61dda`](https://github.com/AOSC-Dev/oma/commit/ec61dda03a3ad18f3b9b34db398b39c550e0abbf))
+</details>
+
 ## v0.1.1 (2023-08-21)
+
+<csr-id-64280ae41d3df6a11e5806153a6cb0057f0875fe/>
+<csr-id-882ef91ff21a1376be3daecfd54359e89f6c35be/>
+<csr-id-42a30f3c99799b933d4ae663c543376d9644c634/>
+<csr-id-d900e4a30d02215f43d026a998b0a7bd95bbc099/>
+<csr-id-0ed23241a26d9fa82deca4c49ee676b905950f74/>
+<csr-id-201ff85c8c933370416f7bd8fd2100b86f10e40f/>
+<csr-id-9388436c646d65eb5527b6c6a1f3f39923aadeee/>
+<csr-id-ecb46d44b356e994225e00c5cc16439198fd4ff3/>
+<csr-id-bb833287d6d439c622e737148d609c1b848e5efa/>
 
 ### Chore
 
@@ -38,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 15 commits contributed to the release over the course of 3 calendar days.
+ - 16 commits contributed to the release over the course of 3 calendar days.
  - 12 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -49,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma-fetch v0.1.1, oma-utils v0.1.1, oma-pm v0.2.0 ([`b8e4272`](https://github.com/AOSC-Dev/oma/commit/b8e4272ccdda0b4a6f0d991b0b8f3f20409b0b1c))
     - Fmt ([`42a30f3`](https://github.com/AOSC-Dev/oma/commit/42a30f3c99799b933d4ae663c543376d9644c634))
     - Release oma-utils v0.1.0 ([`d18eb0e`](https://github.com/AOSC-Dev/oma/commit/d18eb0efe81bdb7d5c7d2b3d64ab05c037f327df))
     - Add changelog ([`64280ae`](https://github.com/AOSC-Dev/oma/commit/64280ae41d3df6a11e5806153a6cb0057f0875fe))
