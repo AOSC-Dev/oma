@@ -1,8 +1,8 @@
 use std::{
     borrow::Cow,
-    io::{BufRead, BufReader},
     path::{Path, PathBuf},
     process::{exit, Command},
+    sync::atomic::Ordering,
 };
 
 use anyhow::anyhow;
@@ -36,9 +36,9 @@ use tokio::runtime::Runtime;
 use crate::{
     error::OutputError,
     fl,
-    history::{db_file, list_history, write_history_entry, SummaryType},
-    table::{handle_resolve, oma_display, table_for_install_pending},
-    InstallArgs, RemoveArgs, UpgradeArgs,
+    history::{db_file, list_history, write_history_entry, SummaryLog, SummaryType},
+    table::{handle_resolve, oma_display, table_for_install_pending, table_pending_inner},
+    InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC,
 };
 
 pub type Result<T> = std::result::Result<T, OutputError>;
@@ -175,7 +175,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
         apt.check_disk_size()?;
 
         if retry_times == 1 {
-            table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
+            table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run, true)?;
         }
 
         match apt.commit(None, &apt_args) {
@@ -574,7 +574,11 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
     normal_commit(
         apt,
         dry_run,
-        SummaryType::Install(pkgs.iter().map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version())).collect()),
+        SummaryType::Install(
+            pkgs.iter()
+                .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
+                .collect(),
+        ),
         AptArgsBuilder::default().build()?,
         false,
     )?;
@@ -801,21 +805,27 @@ pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
 }
 
 pub fn hisotry() -> Result<i32> {
-    let f = std::fs::File::open("/var/log/oma/history")?;
+    let f = db_file()?;
+    let list = list_history(f)?;
+    let display_list = format_summary_log(&list);
+    let selected = dialoguer_select_history(display_list)?;
 
-    let buf = BufReader::new(f).lines().flatten().collect::<Vec<_>>();
-    let len = buf.len();
+    let selected = &list[selected];
+    let op = &selected.op;
+    let install = &op.install;
+    let remove = &op.remove;
+    let disk_size = &op.disk_size;
 
-    let mut pager = oma_display(false, len)?;
+    let has_x11 = std::env::var("DISPLAY");
+    ALLOWCTRLC.store(true, Ordering::Relaxed);
 
-    let mut writer = pager.get_writer()?;
+    let tips = if has_x11.is_ok() {
+        fl!("normal-tips-with-x11")
+    } else {
+        fl!("normal-tips")
+    };
 
-    for line in buf {
-        writeln!(writer, "{line}").ok();
-    }
-
-    drop(writer);
-    pager.wait_for_exit()?;
+    table_pending_inner(true, tips, false, remove, install, disk_size)?;
 
     Ok(0)
 }
@@ -881,30 +891,8 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
 pub fn undo() -> Result<i32> {
     let f = db_file()?;
     let list = list_history(f)?;
-
-    let display_list = list
-        .iter()
-        .map(|x| match &x.typ {
-            SummaryType::Install(v) => format!("Installl {}", v.join(" ")),
-            SummaryType::Upgrade(v) if v.is_empty() => format!("Upgrade system"),
-            SummaryType::Upgrade(v) => format!("Upgrade system and install {}", v.join(" ")),
-            SummaryType::Remove(v) => format!("Remove {}", v.join(" ")),
-            SummaryType::FixBroken => format!("Fix Broken"),
-            SummaryType::TopicsChanged { add, remove } => {
-                format!(
-                    "Topics changed: add topic: {}, remove topic: {}",
-                    add.join(" "),
-                    remove.join(" ")
-                )
-            }
-            SummaryType::Undo => format!("Undo"),
-        })
-        .collect::<Vec<_>>();
-
-    let selected = Select::with_theme(&ColorfulTheme::default())
-        .items(&display_list)
-        .default(0)
-        .interact()?;
+    let display_list = format_summary_log(&list);
+    let selected = dialoguer_select_history(display_list)?;
 
     let selected = &list[selected];
     let op = &selected.op;
@@ -966,6 +954,99 @@ pub fn undo() -> Result<i32> {
     )?;
 
     Ok(0)
+}
+
+fn dialoguer_select_history(display_list: Vec<String>) -> Result<usize> {
+    let selected = Select::with_theme(&ColorfulTheme::default())
+        .items(&display_list)
+        .default(0)
+        .interact()?;
+
+    Ok(selected)
+}
+
+fn format_summary_log(list: &[SummaryLog]) -> Vec<String> {
+    let display_list = list
+        .iter()
+        .map(|x| match &x.typ {
+            SummaryType::Install(v) if v.len() > 3 => format!(
+                "Install {} {} {} ... (and {} more)",
+                v[0],
+                v[1],
+                v[2],
+                v.len() - 3
+            ),
+            SummaryType::Install(v) => format!("Installl {}", v.join(" ")),
+            SummaryType::Upgrade(v) if v.is_empty() => format!("Upgrade system"),
+            SummaryType::Upgrade(v) if v.len() > 3 => format!(
+                "Upgrade system and install {} {} {} ... (and {} more)",
+                v[0],
+                v[1],
+                v[2],
+                v.len() - 3
+            ),
+            SummaryType::Upgrade(v) => format!("Upgrade system and install {}", v.join(" ")),
+            SummaryType::Remove(v) if v.len() > 3 => format!(
+                "Remove {} {} {} ... (and {} more)",
+                v[0],
+                v[1],
+                v[2],
+                v.len() - 3
+            ),
+            SummaryType::Remove(v) => format!("Remove {}", v.join(" ")),
+            SummaryType::FixBroken => format!("Fix Broken"),
+            SummaryType::TopicsChanged { add, remove } if remove.is_empty() => {
+                format!(
+                    "Topics changed: add topic: {} {}",
+                    if add.len() <= 3 {
+                        add.join(" ")
+                    } else {
+                        format!("{} {} {}", add[0], add[1], add[2])
+                    },
+                    if add.len() <= 3 {
+                        Cow::Borrowed("")
+                    } else {
+                        Cow::Owned(format!("... (and {} more)", add.len() - 3))
+                    }
+                )
+            }
+            SummaryType::TopicsChanged { add, remove } if add.is_empty() => {
+                format!(
+                    "Topics changed: remove topic: {} {}",
+                    if remove.len() <= 3 {
+                        add.join(" ")
+                    } else {
+                        format!("{} {} {}", remove[0], remove[1], remove[2])
+                    },
+                    if remove.len() <= 3 {
+                        Cow::Borrowed("")
+                    } else {
+                        Cow::Owned(format!("... (and {} more)", remove.len() - 3))
+                    }
+                )
+            }
+            SummaryType::TopicsChanged { add, remove } => {
+                format!(
+                    "Topics changed: enabled {} {}, disabled {} {}",
+                    if add.len() <= 3 {
+                        add.join(" ")
+                    } else {
+                        format!("{} {} {}", add[0], add[1], add[2])
+                    },
+                    if add.len() <= 3 {
+                        Cow::Borrowed("")
+                    } else {
+                        Cow::Owned(format!("... (and {} more)", add.len() - 3))
+                    },
+                    remove.join(" "),
+                    ""
+                )
+            }
+            SummaryType::Undo => format!("Undo"),
+        })
+        .collect::<Vec<_>>();
+
+    display_list
 }
 
 struct TopicChanged {
@@ -1159,7 +1240,14 @@ fn normal_commit(
     handle_resolve(&apt, no_fixbroken)?;
     apt.check_disk_size()?;
 
-    table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)?;
+    table_for_install_pending(
+        &install,
+        &remove,
+        &disk_size,
+        !apt_args.yes(),
+        dry_run,
+        true,
+    )?;
     apt.commit(None, &apt_args)?;
 
     write_history_entry(op_after, typ, db_file()?)?;
