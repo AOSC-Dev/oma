@@ -699,10 +699,18 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
         for version in &versions {
             let mut branches = vec![];
 
-            let desc_file = version.description_files().unwrap();
-            let pkg_file = desc_file.pkg_file();
-            let branch = pkg_file.archive().unwrap_or("unknown").to_string();
-            branches.push(branch);
+            let desc_file = version.description_files();
+
+            if let Some(desc_file) = desc_file {
+                let pkg_files = desc_file.into_iter().map(|x| x.pkg_file());
+
+                for pkg_file in pkg_files {
+                    let branch = pkg_file.archive().unwrap_or("unknown").to_string();
+                    branches.push(branch);
+                }
+            } else {
+                branches.push("unknown".to_string());
+            }
 
             let branches = branches.join(",");
             let version_str = version.version();
