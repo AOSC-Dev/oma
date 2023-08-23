@@ -697,13 +697,13 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
         };
 
         for version in &versions {
-            let uris = version.uris().collect::<Vec<_>>();
             let mut branches = vec![];
-            for uri in uris.iter() {
-                let mut branch = uri.split('/');
-                let branch = branch.nth_back(3).unwrap_or("");
-                branches.push(branch);
-            }
+
+            let desc_file = version.description_files().unwrap();
+            let pkg_file = desc_file.pkg_file();
+            let branch = pkg_file.archive().unwrap_or("unknown").to_string();
+            branches.push(branch);
+
             let branches = branches.join(",");
             let version_str = version.version();
             let arch = version.arch();
