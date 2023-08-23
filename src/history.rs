@@ -26,11 +26,6 @@ pub struct SummaryLog {
     pub op: OmaOperation,
 }
 
-struct SummaryLogDataEntry {
-    id: i32,
-    data: Vec<u8>,
-}
-
 pub fn connect_db(write: bool) -> Result<Connection> {
     let dir = Path::new("/var/log/oma");
     let db_path = dir.join("history.db");
@@ -77,15 +72,14 @@ pub fn list_history(conn: Connection) -> Result<Vec<SummaryLog>> {
     let mut res = vec![];
     let mut stmt = conn.prepare("SELECT id, data FROM history")?;
     let res_iter = stmt.query_map([], |row| {
-        let id: i32 = row.get(0)?;
         let data: Vec<u8> = row.get(1)?;
 
-        Ok(SummaryLogDataEntry { id, data })
+        Ok(data)
     })?;
 
     for i in res_iter {
         let entry = i?;
-        res.insert(0, serde_json::from_slice(&entry.data)?);
+        res.insert(0, serde_json::from_slice(&entry)?);
     }
 
     Ok(res)
