@@ -48,9 +48,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
     root()?;
 
     let rt = create_async_runtime()?;
-    let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn))?;
-    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+    dbus_check(&rt)?;
 
     if !args.no_refresh {
         refresh(dry_run)?;
@@ -112,22 +110,11 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
     Ok(0)
 }
 
-fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
-    if install.is_empty() && remove.is_empty() {
-        success!("{}", fl!("no-need-to-do-anything"));
-        return true;
-    }
-
-    false
-}
-
 pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
-    let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn))?;
-    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+    dbus_check(&rt)?;
 
     refresh(dry_run)?;
 
@@ -210,9 +197,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
-    let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn))?;
-    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+    dbus_check(&rt)?;
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));
@@ -346,23 +331,6 @@ pub fn command_refresh() -> Result<i32> {
     }
 
     Ok(0)
-}
-
-fn refresh(dry_run: bool) -> Result<()> {
-    if dry_run {
-        return Ok(());
-    }
-
-    info!("{}", fl!("refreshing-repo-metadata"));
-    let refresh = OmaRefresh::scan(None)?;
-    let tokio = tokio::runtime::Builder::new_multi_thread()
-        .enable_io()
-        .enable_time()
-        .build()?;
-
-    tokio.block_on(async move { refresh.start().await })?;
-
-    Ok(())
 }
 
 pub fn show(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32> {
@@ -505,9 +473,7 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
-    let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn))?;
-    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+    dbus_check(&rt)?;
 
     if !no_refresh {
         refresh(dry_run)?;
@@ -594,9 +560,7 @@ pub fn fix_broken(dry_run: bool) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
-    let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn))?;
-    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+    dbus_check(&rt)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
@@ -860,9 +824,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
     root()?;
 
     let rt = create_async_runtime()?;
-    let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn))?;
-    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+    dbus_check(&rt)?;
 
     let topics_changed =
         rt.block_on(async move { topics_inner(opt_in, opt_out, dry_run).await })?;
@@ -916,6 +878,9 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
 
 pub fn undo() -> Result<i32> {
     root()?;
+
+    let rt = create_async_runtime()?;
+    dbus_check(&rt)?;
 
     let conn = connect_db(false)?;
     let list = list_history(conn)?;
@@ -1280,6 +1245,37 @@ fn normal_commit(
     apt.commit(None, &apt_args)?;
 
     write_history_entry(op_after, typ, connect_db(true)?)?;
+
+    Ok(())
+}
+
+fn dbus_check(rt: &Runtime) -> Result<()> {
+    let conn = rt.block_on(create_dbus_connection())?;
+    rt.block_on(check_battery(&conn))?;
+    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+
+    Ok(())
+}
+
+fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
+    if install.is_empty() && remove.is_empty() {
+        success!("{}", fl!("no-need-to-do-anything"));
+        return true;
+    }
+
+    false
+}
+
+fn refresh(dry_run: bool) -> Result<()> {
+    if dry_run {
+        return Ok(());
+    }
+
+    info!("{}", fl!("refreshing-repo-metadata"));
+    let refresh = OmaRefresh::scan(None)?;
+    let tokio = create_async_runtime()?;
+
+    tokio.block_on(async move { refresh.start().await })?;
 
     Ok(())
 }
