@@ -1,7 +1,7 @@
 use std::{fs::create_dir_all, path::Path};
 
 use crate::fl;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use oma_console::{info, success};
 use oma_pm::apt::OmaOperation;
 use rusqlite::Connection;
@@ -70,16 +70,15 @@ pub fn write_history_entry(
 
 pub fn list_history(conn: Connection) -> Result<Vec<SummaryLog>> {
     let mut res = vec![];
-    let mut stmt = conn.prepare("SELECT id, data FROM history")?;
+    let mut stmt = conn.prepare("SELECT id, data FROM history ORDER BY id DESC")?;
     let res_iter = stmt.query_map([], |row| {
         let data: Vec<u8> = row.get(1)?;
-
         Ok(data)
     })?;
 
     for i in res_iter {
-        let entry = i?;
-        res.insert(0, serde_json::from_slice(&entry)?);
+        let entry: SummaryLog = serde_json::from_slice(&i?)?;
+        res.push(entry);
     }
 
     Ok(res)
