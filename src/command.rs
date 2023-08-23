@@ -37,7 +37,7 @@ use tokio::runtime::Runtime;
 use crate::{
     error::OutputError,
     fl,
-    history::{db_file, list_history, write_history_entry, SummaryLog, SummaryType},
+    history::{connect_db, list_history, write_history_entry, SummaryLog, SummaryType},
     table::{handle_resolve, oma_display, table_for_install_pending, table_pending_inner},
     InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC,
 };
@@ -188,7 +188,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
                             .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                             .collect::<Vec<_>>(),
                     ),
-                    db_file(true)?,
+                    connect_db(true)?,
                 )?;
                 return Ok(0);
             }
@@ -809,8 +809,8 @@ pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
 }
 
 pub fn hisotry() -> Result<i32> {
-    let f = db_file(false)?;
-    let list = list_history(f)?;
+    let conn = connect_db(false)?;
+    let list = list_history(conn)?;
     let display_list = format_summary_log(&list);
     let selected = dialoguer_select_history(display_list)?;
 
@@ -896,8 +896,8 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
 pub fn undo() -> Result<i32> {
     root()?;
 
-    let f = db_file(false)?;
-    let list = list_history(f)?;
+    let conn = connect_db(false)?;
+    let list = list_history(conn)?;
     let display_list = format_summary_log(&list);
     let selected = dialoguer_select_history(display_list)?;
 
@@ -1258,7 +1258,7 @@ fn normal_commit(
     )?;
     apt.commit(None, &apt_args)?;
 
-    write_history_entry(op_after, typ, db_file(true)?)?;
+    write_history_entry(op_after, typ, connect_db(true)?)?;
 
     Ok(())
 }

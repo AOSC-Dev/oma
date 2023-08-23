@@ -1,13 +1,10 @@
-use std::{
-    fs::{create_dir_all, File},
-    io::{BufRead, BufReader, Write},
-    path::Path,
-};
+use std::{fs::create_dir_all, path::Path};
 
 use crate::fl;
 use anyhow::Result;
 use oma_console::{info, success};
 use oma_pm::apt::OmaOperation;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,33 +26,46 @@ pub struct SummaryLog {
     pub op: OmaOperation,
 }
 
-pub fn db_file(write: bool) -> Result<File> {
+struct SummaryLogDataEntry {
+    id: i32,
+    data: Vec<u8>,
+}
+
+pub fn connect_db(write: bool) -> Result<Connection> {
     let dir = Path::new("/var/log/oma");
-    let db_path = dir.join("history.json");
+    let db_path = dir.join("history.db");
     if !dir.exists() {
         create_dir_all(dir)?;
     }
 
-    let mut f_opt = std::fs::OpenOptions::new();
-    f_opt.read(true);
-
-    if write {
-        f_opt.write(true);
-        f_opt.create(true);
-        f_opt.append(true);
+    if !db_path.exists() {
+        std::fs::File::create(&db_path)?;
     }
 
-    let f = f_opt.open(db_path)?;
+    let conn = Connection::open(db_path)?;
 
-    Ok(f)
+    if write {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS history (
+                id    INTEGER PRIMARY KEY,
+                data  BLOB
+            )",
+            (), // empty list of parameters.
+        )?;
+    }
+
+    Ok(conn)
 }
 
-pub fn write_history_entry(summary: OmaOperation, typ: SummaryType, mut f: File) -> Result<()> {
+pub fn write_history_entry(
+    summary: OmaOperation,
+    typ: SummaryType,
+    conn: Connection,
+) -> Result<()> {
     let entry = SummaryLog { op: summary, typ };
-    let mut buf = serde_json::to_vec(&entry)?;
-    buf.push(b'\n');
+    let buf = serde_json::to_vec(&entry)?;
 
-    f.write_all(&buf)?;
+    conn.execute("INSERT INTO history (data) VALUES (?1)", [buf])?;
 
     success!("{}", fl!("history-tips-1"));
     info!("{}", fl!("history-tips-2"));
@@ -63,13 +73,20 @@ pub fn write_history_entry(summary: OmaOperation, typ: SummaryType, mut f: File)
     Ok(())
 }
 
-pub fn list_history(f: File) -> Result<Vec<SummaryLog>> {
-    let reader = BufReader::new(f);
-    let mut db = vec![];
-    for line in reader.lines() {
-        let summary_line: SummaryLog = serde_json::from_str(&line?)?;
-        db.insert(0, summary_line);
+pub fn list_history(conn: Connection) -> Result<Vec<SummaryLog>> {
+    let mut res = vec![];
+    let mut stmt = conn.prepare("SELECT id, data FROM history")?;
+    let res_iter = stmt.query_map([], |row| {
+        let id: i32 = row.get(0)?;
+        let data: Vec<u8> = row.get(1)?;
+
+        Ok(SummaryLogDataEntry { id, data })
+    })?;
+
+    for i in res_iter {
+        let entry = i?;
+        res.insert(0, serde_json::from_slice(&entry.data)?);
     }
 
-    Ok(db)
+    Ok(res)
 }
