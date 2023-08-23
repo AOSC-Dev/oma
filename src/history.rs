@@ -1,7 +1,7 @@
 use std::{fs::create_dir_all, path::Path};
 
 use crate::fl;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use oma_console::{info, success};
 use oma_pm::apt::OmaOperation;
 use rusqlite::Connection;
@@ -77,8 +77,7 @@ pub fn list_history(conn: Connection) -> Result<Vec<SummaryLog>> {
     })?;
 
     for i in res_iter {
-        let entry: SummaryLog = serde_json::from_slice(&i?)?;
-        res.push(entry);
+        res.push(serde_json::from_slice(&i?)?);
     }
 
     Ok(res)
