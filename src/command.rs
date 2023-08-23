@@ -642,17 +642,19 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
         let versions = if all {
             pkg.versions().collect()
         } else {
-            let other_version = pkg
-                .versions()
-                .filter(|x| {
-                    pkg.candidate().map(|x| x.version().to_string())
-                        != Some(x.version().to_string())
-                })
-                .collect::<Vec<_>>()
-                .len();
+            if !pkgs.is_empty() {
+                let other_version = pkg
+                    .versions()
+                    .filter(|x| {
+                        pkg.candidate().map(|x| x.version().to_string())
+                            != Some(x.version().to_string())
+                    })
+                    .collect::<Vec<_>>()
+                    .len();
 
-            if other_version > 0 {
-                info!("{}", fl!("additional-version", len = other_version));
+                if other_version > 0 {
+                    info!("{}", fl!("additional-version", len = other_version));
+                }
             }
 
             vec![pkg
