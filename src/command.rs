@@ -665,16 +665,14 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
         for version in &versions {
             let mut branches = vec![];
 
-            let desc_file = version.description_files();
+            let pkg_files = version.package_files();
 
-            if let Some(desc_file) = desc_file {
-                let pkg_files = desc_file.into_iter().map(|x| x.pkg_file());
+            for pkg_file in pkg_files {
+                let branch = pkg_file.archive().unwrap_or("unknown").to_string();
+                branches.push(branch);
+            }
 
-                for pkg_file in pkg_files {
-                    let branch = pkg_file.archive().unwrap_or("unknown").to_string();
-                    branches.push(branch);
-                }
-            } else {
+            if branches.is_empty() {
                 branches.push("unknown".to_string());
             }
 
