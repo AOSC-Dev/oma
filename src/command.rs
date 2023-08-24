@@ -668,12 +668,12 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
             let pkg_files = version.package_files();
 
             for pkg_file in pkg_files {
-                let branch = pkg_file.archive().unwrap_or("unknown").to_string();
+                let branch = Cow::Owned(pkg_file.archive().unwrap_or("unknown").to_string());
                 branches.push(branch);
             }
 
             if branches.is_empty() {
-                branches.push("unknown".to_string());
+                branches.push(Cow::Borrowed("unknown"));
             }
 
             let branches = branches.join(",");
