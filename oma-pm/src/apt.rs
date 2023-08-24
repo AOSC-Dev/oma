@@ -563,7 +563,7 @@ impl OmaApt {
 
         writeln!(log, "Start-Date: {start_time}").ok();
 
-        let args = std::env::args().collect::<String>();
+        let args = std::env::args().collect::<Vec<_>>().join(" ");
 
         if !args.is_empty() {
             writeln!(log, "Commandline: {args}").ok();
