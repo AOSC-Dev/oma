@@ -44,7 +44,7 @@ use crate::{
 
 pub type Result<T> = std::result::Result<T, OutputError>;
 
-pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> Result<i32> {
+pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool, network_thread: usize) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -105,6 +105,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool) -> R
         ),
         apt_args,
         args.no_fixbroken,
+        network_thread
     )?;
 
     Ok(0)
@@ -195,7 +196,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
     }
 }
 
-pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
+pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool, protect: bool, network_thread: usize) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -210,7 +211,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
     let (pkgs, no_result) = apt.select_pkg(pkgs, false, true)?;
     handle_no_result(no_result);
 
-    let context = apt.remove(&pkgs, !args.keep_config, true, true, args.no_autoremove)?;
+    let context = apt.remove(&pkgs, !args.keep_config, protect, true, args.no_autoremove)?;
 
     if !context.is_empty() {
         for c in context {
@@ -231,6 +232,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool) -> Result<i32> {
             .force_yes(args.force_yes)
             .build()?,
         false,
+        network_thread
     )?;
 
     Ok(0)
@@ -471,7 +473,7 @@ pub fn rdepends(pkgs: Vec<String>) -> Result<i32> {
     Ok(0)
 }
 
-pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
+pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool, network_thread: usize) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -553,12 +555,13 @@ pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool) -> Result<i32> {
         ),
         AptArgsBuilder::default().build()?,
         false,
+        network_thread
     )?;
 
     Ok(0)
 }
 
-pub fn fix_broken(dry_run: bool) -> Result<i32> {
+pub fn fix_broken(dry_run: bool, network_thread: usize) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -574,6 +577,7 @@ pub fn fix_broken(dry_run: bool) -> Result<i32> {
         SummaryType::FixBroken,
         AptArgsBuilder::default().build()?,
         false,
+        network_thread
     )?;
 
     Ok(0)
@@ -822,7 +826,7 @@ pub fn hisotry() -> Result<i32> {
 }
 
 #[cfg(feature = "aosc")]
-pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Result<i32> {
+pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool, network_thread: usize) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -873,12 +877,13 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool) -> Resul
         },
         AptArgsBuilder::default().build()?,
         false,
+        network_thread
     )?;
 
     Ok(0)
 }
 
-pub fn undo() -> Result<i32> {
+pub fn undo(network_thread: usize) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -945,6 +950,7 @@ pub fn undo() -> Result<i32> {
         SummaryType::Undo,
         AptArgsBuilder::default().build()?,
         false,
+        network_thread,
     )?;
 
     Ok(0)
@@ -1233,6 +1239,7 @@ fn normal_commit(
     typ: SummaryType,
     apt_args: AptArgs,
     no_fixbroken: bool,
+    network_thread: usize
 ) -> Result<()> {
     let op = apt.summary()?;
     let op_after = op.clone();
@@ -1255,7 +1262,7 @@ fn normal_commit(
         true,
     )?;
 
-    let start_time = apt.commit(None, &apt_args)?;
+    let start_time = apt.commit(Some(network_thread), &apt_args)?;
 
     write_history_entry(op_after, typ, connect_db(true)?, dry_run, start_time)?;
 
