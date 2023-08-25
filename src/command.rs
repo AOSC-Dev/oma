@@ -176,6 +176,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
                             .collect::<Vec<_>>(),
                     ),
                     connect_db(true)?,
+                    dry_run
                 )?;
                 return Ok(0);
             }
@@ -1244,7 +1245,7 @@ fn normal_commit(
     )?;
     apt.commit(None, &apt_args)?;
 
-    write_history_entry(op_after, typ, connect_db(true)?)?;
+    write_history_entry(op_after, typ, connect_db(true)?, dry_run)?;
 
     Ok(())
 }

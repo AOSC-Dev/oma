@@ -2,7 +2,7 @@ use std::{fs::create_dir_all, path::Path};
 
 use crate::fl;
 use anyhow::Result;
-use oma_console::{info, success};
+use oma_console::{info, success, debug};
 use oma_pm::apt::OmaOperation;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -56,7 +56,13 @@ pub fn write_history_entry(
     summary: OmaOperation,
     typ: SummaryType,
     conn: Connection,
+    dry_run: bool,
 ) -> Result<()> {
+    if dry_run {
+        debug!("In dry-run mode, oma will not write history entries");
+        return Ok(());
+    }
+
     let entry = SummaryLog { op: summary, typ };
     let buf = serde_json::to_vec(&entry)?;
 
