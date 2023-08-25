@@ -6,7 +6,6 @@ fn main() -> Result<(), OmaAptError> {
     let pkgs = apt.select_pkg(vec!["fish"], false, true)?;
 
     apt.install(&pkgs.0, false)?;
-    // let op = apt.operation_vec()?;
 
     apt.resolve(false)?;
     apt.commit(None, &AptArgs::default())?;

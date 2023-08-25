@@ -2220,6 +2220,7 @@ dependencies = [
  "serde_json",
  "tabled",
  "tokio",
+ "toml 0.7.6",
  "unic-langid",
 ]
 

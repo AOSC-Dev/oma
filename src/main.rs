@@ -4,6 +4,7 @@ use std::process::exit;
 
 mod args;
 mod command;
+mod config;
 mod error;
 mod history;
 mod lang;
@@ -22,6 +23,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
 use oma_console::pager::SUBPROCESS;
+
+use crate::config::Config;
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -117,6 +120,9 @@ fn try_main() -> Result<i32> {
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
 
+    // Init config file
+    let config = Config::read()?;
+
     let pkgs_getter = |args: &ArgMatches| {
         args.get_many::<String>("packages")
             .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
@@ -141,7 +147,9 @@ fn try_main() -> Result<i32> {
                 no_install_suggests: args.get_flag("no_install_recommends"),
             };
 
-            command::install(pkgs_unparse, args, dry_run)?
+            let netwrk_thread = config.network.network_threads;
+
+            command::install(pkgs_unparse, args, dry_run, netwrk_thread)?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -177,7 +185,10 @@ fn try_main() -> Result<i32> {
                 force_yes: args.get_flag("force_yes"),
             };
 
-            command::remove(pkgs_unparse, args, dry_run)?
+            let protect_essentials = config.general.protect_essentials;
+            let netwrk_thread = config.network.network_threads;
+
+            command::remove(pkgs_unparse, args, dry_run, protect_essentials, netwrk_thread)?
         }
         Some(("refresh", _)) => command::command_refresh()?,
         Some(("show", args)) => {
@@ -202,11 +213,14 @@ fn try_main() -> Result<i32> {
 
             command::find(x, is_bin, pkg)?
         }
-        Some(("fix-broken", _)) => command::fix_broken(dry_run)?,
+        Some(("fix-broken", _)) => {
+            let network_thread = config.network.network_threads;
+            command::fix_broken(dry_run, network_thread)?
+        },
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap().to_string();
-
-            command::pick(pkg_str, args.get_flag("no_refresh"), dry_run)?
+            let network_thread = config.network.network_threads;
+            command::pick(pkg_str, args.get_flag("no_refresh"), dry_run, network_thread)?
         }
         Some(("mark", args)) => {
             let op = args
@@ -241,7 +255,10 @@ fn try_main() -> Result<i32> {
         }
         Some(("clean", _)) => command::clean()?,
         Some(("history", _)) => command::hisotry()?,
-        Some(("undo", _)) => command::undo()?,
+        Some(("undo", _)) => {
+            let network_thread = config.network.network_threads;
+            command::undo(network_thread)?
+        },
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
             let opt_in = args
@@ -254,7 +271,9 @@ fn try_main() -> Result<i32> {
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap_or_default();
 
-            command::topics(opt_in, opt_out, dry_run)?
+            let network_thread = config.network.network_threads;
+
+            command::topics(opt_in, opt_out, dry_run, network_thread)?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.to_owned());
