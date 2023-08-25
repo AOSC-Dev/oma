@@ -260,6 +260,7 @@ fn oma_download_error(e: DownloadError) -> String {
             fl!("can-not-get-file", name = s, e = e)
         }
         DownloadError::DownloadSourceBuilderError(e) => e.to_string(),
+        DownloadError::InvaildURL(s) => fl!("invaild-url", url = s),
     }
 }
 
