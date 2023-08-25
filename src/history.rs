@@ -70,9 +70,9 @@ pub fn write_history_entry(
 
 pub fn list_history(conn: Connection) -> Result<Vec<SummaryLog>> {
     let mut res = vec![];
-    let mut stmt = conn.prepare("SELECT id, data FROM history ORDER BY id DESC")?;
+    let mut stmt = conn.prepare("SELECT data FROM history ORDER BY id DESC")?;
     let res_iter = stmt.query_map([], |row| {
-        let data: Vec<u8> = row.get(1)?;
+        let data: Vec<u8> = row.get(0)?;
         Ok(data)
     })?;
 
