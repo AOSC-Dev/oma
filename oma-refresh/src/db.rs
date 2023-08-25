@@ -72,9 +72,13 @@ type Result<T> = std::result::Result<T, RefreshError>;
 
 pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
     let url = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
-    let host = url
-        .host_str()
-        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+
+    let host = if url.scheme() == "file" {
+        "Local Mirror"
+    } else {
+        url.host_str()
+            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+    };
 
     let schema = url.scheme();
     let branch = url
@@ -82,6 +86,7 @@ pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
         .split('/')
         .nth_back(1)
         .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+
     let url = format!("{schema}://{host}/");
 
     // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
