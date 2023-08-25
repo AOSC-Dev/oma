@@ -452,7 +452,8 @@ pub async fn download_local(
     let pb = fpb.as_ref().map(|x| x.mb.add(ProgressBar::new_spinner()));
 
     let url = &entry.source[position].url;
-    let mut from = tokio::fs::File::open(url).await.map_err(|e| {
+    let url_path = url.strip_prefix("file://").ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?;
+    let mut from = tokio::fs::File::open(url_path).await.map_err(|e| {
         DownloadError::FailedOpenLocalSourceFile(entry.filename.clone(), e.to_string())
     })?;
 
