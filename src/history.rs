@@ -1,8 +1,8 @@
-use std::{fs::create_dir_all, path::Path};
+use std::{borrow::Cow, fs::create_dir_all, path::Path};
 
 use crate::fl;
 use anyhow::Result;
-use oma_console::{info, success, debug};
+use oma_console::{debug, info, success};
 use oma_pm::apt::OmaOperation;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,8 @@ pub fn connect_db(write: bool) -> Result<Connection> {
         conn.execute(
             "CREATE TABLE IF NOT EXISTS history (
                 id    INTEGER PRIMARY KEY,
-                data  BLOB
+                data  BLOB,
+                time  TEXT
             )",
             (), // empty list of parameters.
         )?;
@@ -57,6 +58,7 @@ pub fn write_history_entry(
     typ: SummaryType,
     conn: Connection,
     dry_run: bool,
+    start_time: Cow<str>,
 ) -> Result<()> {
     if dry_run {
         debug!("In dry-run mode, oma will not write history entries");
@@ -66,7 +68,10 @@ pub fn write_history_entry(
     let entry = SummaryLog { op: summary, typ };
     let buf = serde_json::to_vec(&entry)?;
 
-    conn.execute("INSERT INTO history (data) VALUES (?1)", [buf])?;
+    conn.execute(
+        "INSERT INTO history (data, time) VALUES (?1, ?2)",
+        (buf, start_time),
+    )?;
 
     success!("{}", fl!("history-tips-1"));
     info!("{}", fl!("history-tips-2"));
@@ -74,16 +79,18 @@ pub fn write_history_entry(
     Ok(())
 }
 
-pub fn list_history(conn: Connection) -> Result<Vec<SummaryLog>> {
+pub fn list_history(conn: Connection) -> Result<Vec<(SummaryLog, String)>> {
     let mut res = vec![];
-    let mut stmt = conn.prepare("SELECT data FROM history ORDER BY id DESC")?;
+    let mut stmt = conn.prepare("SELECT data, time FROM history ORDER BY id DESC")?;
     let res_iter = stmt.query_map([], |row| {
         let data: Vec<u8> = row.get(0)?;
-        Ok(data)
+        let time: String = row.get(1)?;
+        Ok((data, time))
     })?;
 
     for i in res_iter {
-        res.push(serde_json::from_slice(&i?)?);
+        let (data, time) = i?;
+        res.push((serde_json::from_slice(&data)?, time));
     }
 
     Ok(res)
