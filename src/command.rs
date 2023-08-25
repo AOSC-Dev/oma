@@ -44,7 +44,12 @@ use crate::{
 
 pub type Result<T> = std::result::Result<T, OutputError>;
 
-pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool, network_thread: usize) -> Result<i32> {
+pub fn install(
+    pkgs_unparse: Vec<String>,
+    args: InstallArgs,
+    dry_run: bool,
+    network_thread: usize,
+) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -105,7 +110,7 @@ pub fn install(pkgs_unparse: Vec<String>, args: InstallArgs, dry_run: bool, netw
         ),
         apt_args,
         args.no_fixbroken,
-        network_thread
+        network_thread,
     )?;
 
     Ok(0)
@@ -196,7 +201,13 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
     }
 }
 
-pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool, protect: bool, network_thread: usize) -> Result<i32> {
+pub fn remove(
+    pkgs: Vec<&str>,
+    args: RemoveArgs,
+    dry_run: bool,
+    protect: bool,
+    network_thread: usize,
+) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -232,7 +243,7 @@ pub fn remove(pkgs: Vec<&str>, args: RemoveArgs, dry_run: bool, protect: bool, n
             .force_yes(args.force_yes)
             .build()?,
         false,
-        network_thread
+        network_thread,
     )?;
 
     Ok(0)
@@ -382,7 +393,7 @@ pub fn find(x: &str, is_bin: bool, pkg: &str) -> Result<i32> {
     };
 
     let res = oma_contents::find(
-        &pkg,
+        pkg,
         query_mode,
         Path::new("/var/lib/apt/lists"),
         &dpkg_arch()?,
@@ -487,7 +498,7 @@ pub fn pick(pkg_str: &str, no_refresh: bool, dry_run: bool, network_thread: usiz
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkg = apt
         .cache
-        .get(&pkg_str)
+        .get(pkg_str)
         .ok_or_else(|| anyhow!(fl!("can-not-get-pkg-from-database", name = pkg_str.clone())))?;
 
     let versions = pkg.versions().collect::<Vec<_>>();
@@ -555,7 +566,7 @@ pub fn pick(pkg_str: &str, no_refresh: bool, dry_run: bool, network_thread: usiz
         ),
         AptArgsBuilder::default().build()?,
         false,
-        network_thread
+        network_thread,
     )?;
 
     Ok(0)
@@ -577,7 +588,7 @@ pub fn fix_broken(dry_run: bool, network_thread: usize) -> Result<i32> {
         SummaryType::FixBroken,
         AptArgsBuilder::default().build()?,
         false,
-        network_thread
+        network_thread,
     )?;
 
     Ok(0)
@@ -585,7 +596,7 @@ pub fn fix_broken(dry_run: bool, network_thread: usize) -> Result<i32> {
 
 pub fn command_not_found(pkg: &str) -> Result<i32> {
     let res = oma_contents::find(
-        &pkg,
+        pkg,
         QueryMode::CommandNotFound,
         Path::new("/var/lib/apt/lists"),
         &dpkg_arch()?,
@@ -789,7 +800,7 @@ pub fn pkgnames(keyword: Option<&str>) -> Result<i32> {
     let mut pkgs: Box<dyn Iterator<Item = _>> = Box::new(apt.filter_pkgs(&[FilterMode::Names])?);
 
     if let Some(keyword) = keyword {
-        pkgs = Box::new(pkgs.filter(move |x| x.name().starts_with(&keyword)));
+        pkgs = Box::new(pkgs.filter(move |x| x.name().starts_with(keyword)));
     }
 
     for pkg in pkgs {
@@ -826,7 +837,12 @@ pub fn hisotry() -> Result<i32> {
 }
 
 #[cfg(feature = "aosc")]
-pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool, network_thread: usize) -> Result<i32> {
+pub fn topics(
+    opt_in: Vec<String>,
+    opt_out: Vec<String>,
+    dry_run: bool,
+    network_thread: usize,
+) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -877,7 +893,7 @@ pub fn topics(opt_in: Vec<String>, opt_out: Vec<String>, dry_run: bool, network_
         },
         AptArgsBuilder::default().build()?,
         false,
-        network_thread
+        network_thread,
     )?;
 
     Ok(0)
@@ -1239,7 +1255,7 @@ fn normal_commit(
     typ: SummaryType,
     apt_args: AptArgs,
     no_fixbroken: bool,
-    network_thread: usize
+    network_thread: usize,
 ) -> Result<()> {
     let op = apt.summary()?;
     let op_after = op.clone();
