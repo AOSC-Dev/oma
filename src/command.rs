@@ -368,7 +368,7 @@ pub fn show(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32> {
     Ok(0)
 }
 
-pub fn find(x: &str, is_bin: bool, pkg: String) -> Result<i32> {
+pub fn find(x: &str, is_bin: bool, pkg: &str) -> Result<i32> {
     let pb = ProgressBar::new_spinner();
     let (style, inv) = oma_spinner(false).unwrap();
     pb.set_style(style);
@@ -473,7 +473,7 @@ pub fn rdepends(pkgs: Vec<String>) -> Result<i32> {
     Ok(0)
 }
 
-pub fn pick(pkg_str: String, no_refresh: bool, dry_run: bool, network_thread: usize) -> Result<i32> {
+pub fn pick(pkg_str: &str, no_refresh: bool, dry_run: bool, network_thread: usize) -> Result<i32> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -583,7 +583,7 @@ pub fn fix_broken(dry_run: bool, network_thread: usize) -> Result<i32> {
     Ok(0)
 }
 
-pub fn command_not_found(pkg: String) -> Result<i32> {
+pub fn command_not_found(pkg: &str) -> Result<i32> {
     let res = oma_contents::find(
         &pkg,
         QueryMode::CommandNotFound,
@@ -783,7 +783,7 @@ pub fn clean() -> Result<i32> {
     Ok(0)
 }
 
-pub fn pkgnames(keyword: Option<String>) -> Result<i32> {
+pub fn pkgnames(keyword: Option<&str>) -> Result<i32> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let mut pkgs: Box<dyn Iterator<Item = _>> = Box::new(apt.filter_pkgs(&[FilterMode::Names])?);
