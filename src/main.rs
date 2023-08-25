@@ -29,7 +29,6 @@ use oma_console::pager::SUBPROCESS;
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
-
 static TIME_OFFSET: Lazy<UtcOffset> =
     Lazy::new(|| UtcOffset::local_offset_at(OffsetDateTime::UNIX_EPOCH).unwrap_or(offset!(UTC)));
 

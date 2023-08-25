@@ -1,4 +1,5 @@
 use oma_pm::apt::{AptArgs, OmaApt, OmaAptArgsBuilder, OmaAptError};
+use time::UtcOffset;
 
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgsBuilder::default().build().unwrap();
@@ -9,7 +10,7 @@ fn main() -> Result<(), OmaAptError> {
     // let op = apt.operation_vec()?;
 
     apt.resolve(false)?;
-    apt.commit(None, &AptArgs::default())?;
+    apt.commit(None, &AptArgs::default(), UtcOffset::UTC)?;
 
     Ok(())
 }
