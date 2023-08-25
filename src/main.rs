@@ -188,7 +188,13 @@ fn try_main() -> Result<i32> {
             let protect_essentials = config.general.protect_essentials;
             let netwrk_thread = config.network.network_threads;
 
-            command::remove(pkgs_unparse, args, dry_run, protect_essentials, netwrk_thread)?
+            command::remove(
+                pkgs_unparse,
+                args,
+                dry_run,
+                protect_essentials,
+                netwrk_thread,
+            )?
         }
         Some(("refresh", _)) => command::command_refresh()?,
         Some(("show", args)) => {
@@ -208,7 +214,7 @@ fn try_main() -> Result<i32> {
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
-            let pkg = args.get_one::<String>(arg).unwrap().to_string();
+            let pkg = args.get_one::<String>(arg).unwrap();
             let is_bin = args.get_flag("bin");
 
             command::find(x, is_bin, pkg)?
@@ -216,24 +222,28 @@ fn try_main() -> Result<i32> {
         Some(("fix-broken", _)) => {
             let network_thread = config.network.network_threads;
             command::fix_broken(dry_run, network_thread)?
-        },
+        }
         Some(("pick", args)) => {
-            let pkg_str = args.get_one::<String>("package").unwrap().to_string();
+            let pkg_str = args.get_one::<String>("package").unwrap();
             let network_thread = config.network.network_threads;
-            command::pick(pkg_str, args.get_flag("no_refresh"), dry_run, network_thread)?
+
+            command::pick(
+                pkg_str,
+                args.get_flag("no_refresh"),
+                dry_run,
+                network_thread,
+            )?
         }
         Some(("mark", args)) => {
-            let op = args
-                .get_one::<String>("action")
-                .map(|x| x.as_str())
-                .unwrap();
+            let op = args.get_one::<String>("action").unwrap();
+
             let pkgs = pkgs_getter(args).unwrap();
             let dry_run = args.get_flag("dry_run");
 
             command::mark(op, pkgs, dry_run)?
         }
         Some(("command-not-found", args)) => {
-            command::command_not_found(args.get_one::<String>("package").unwrap().to_string())?
+            command::command_not_found(args.get_one::<String>("package").unwrap())?
         }
         Some(("list", args)) => {
             let pkgs = pkgs_getter(args).unwrap_or_default();
@@ -258,7 +268,7 @@ fn try_main() -> Result<i32> {
         Some(("undo", _)) => {
             let network_thread = config.network.network_threads;
             command::undo(network_thread)?
-        },
+        }
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
             let opt_in = args
@@ -276,7 +286,7 @@ fn try_main() -> Result<i32> {
             command::topics(opt_in, opt_out, dry_run, network_thread)?
         }
         Some(("pkgnames", args)) => {
-            let keyword = args.get_one::<String>("keyword").map(|x| x.to_owned());
+            let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());
 
             command::pkgnames(keyword)?
         }
