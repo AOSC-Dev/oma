@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::Display,
     io::Write,
     path::{Path, PathBuf},
@@ -33,7 +34,7 @@ use oma_utils::dpkg::DpkgError;
 use once_cell::sync::Lazy;
 
 pub use oma_apt::config::Config as AptConfig;
-use time::{macros::offset, OffsetDateTime, UtcOffset};
+use time::{format_description, macros::offset, OffsetDateTime, UtcOffset};
 
 use serde::{Deserialize, Serialize};
 
@@ -470,16 +471,26 @@ impl OmaApt {
     }
 
     /// Commit changes
-    pub fn commit(self, network_thread: Option<usize>, args_config: &AptArgs) -> OmaAptResult<()> {
+    pub fn commit(
+        self,
+        network_thread: Option<usize>,
+        args_config: &AptArgs,
+        time_offset: UtcOffset,
+    ) -> OmaAptResult<Cow<str>> {
         let v = self.summary()?;
         let v_str = v.to_string();
+
+        let format =
+            format_description::parse("[hour]:[minute]:[second], on [year]-[month]-[day]").unwrap();
+
         let start_time = OffsetDateTime::now_utc()
-            .to_offset(*TIME_OFFSET)
-            .to_string();
+            .to_offset(time_offset)
+            .format(&format)
+            .unwrap();
 
         if self.dry_run {
             debug!("op: {v:?}");
-            return Ok(());
+            return Ok(Cow::Borrowed(""));
         }
 
         let download_pkg_list = v.install;
@@ -579,7 +590,7 @@ impl OmaApt {
         write!(log, "{v_str}").ok();
         writeln!(log, "End-Date: {end_time}\n").ok();
 
-        Ok(())
+        Ok(Cow::Owned(start_time))
     }
 
     /// Resolve apt dependencies

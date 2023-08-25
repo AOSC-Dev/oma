@@ -39,7 +39,7 @@ use crate::{
     fl,
     history::{connect_db, list_history, write_history_entry, SummaryLog, SummaryType},
     table::{handle_resolve, oma_display, table_for_install_pending, table_pending_inner},
-    InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC,
+    InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC, TIME_OFFSET,
 };
 
 pub type Result<T> = std::result::Result<T, OutputError>;
@@ -166,8 +166,8 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
             table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run, true)?;
         }
 
-        match apt.commit(None, &apt_args) {
-            Ok(_) => {
+        match apt.commit(None, &apt_args, *TIME_OFFSET) {
+            Ok(start_time) => {
                 write_history_entry(
                     op_after,
                     SummaryType::Upgrade(
@@ -176,7 +176,8 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
                             .collect::<Vec<_>>(),
                     ),
                     connect_db(true)?,
-                    dry_run
+                    dry_run,
+                    start_time,
                 )?;
                 return Ok(0);
             }
@@ -800,7 +801,7 @@ pub fn hisotry() -> Result<i32> {
     let display_list = format_summary_log(&list);
     let selected = dialoguer_select_history(display_list)?;
 
-    let selected = &list[selected];
+    let selected = &list[selected].0;
     let op = &selected.op;
     let install = &op.install;
     let remove = &op.remove;
@@ -888,7 +889,7 @@ pub fn undo() -> Result<i32> {
     let display_list = format_summary_log(&list);
     let selected = dialoguer_select_history(display_list)?;
 
-    let selected = &list[selected];
+    let selected = &list[selected].0;
     let op = &selected.op;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
@@ -958,27 +959,29 @@ fn dialoguer_select_history(display_list: Vec<String>) -> Result<usize> {
     Ok(selected)
 }
 
-fn format_summary_log(list: &[SummaryLog]) -> Vec<String> {
+fn format_summary_log(list: &[(SummaryLog, String)]) -> Vec<String> {
     let display_list = list
         .iter()
-        .map(|x| match &x.typ {
+        .map(|(log, date)| match &log.typ {
             SummaryType::Install(v) if v.len() > 3 => format!(
-                "Install {} {} {} ... (and {} more)",
+                "Install {} {} {} ... (and {} more) [{date}]",
                 v[0],
                 v[1],
                 v[2],
-                v.len() - 3
+                v.len() - 3,
             ),
-            SummaryType::Install(v) => format!("Installl {}", v.join(" ")),
-            SummaryType::Upgrade(v) if v.is_empty() => "Upgrade system".to_string(),
+            SummaryType::Install(v) => format!("Installl {} [{date}]", v.join(" ")),
+            SummaryType::Upgrade(v) if v.is_empty() => format!("Upgrade system [{date}]"),
             SummaryType::Upgrade(v) if v.len() > 3 => format!(
-                "Upgrade system and install {} {} {} ... (and {} more)",
+                "Upgrade system and install {} {} {} ... (and {} more) [{date}]",
                 v[0],
                 v[1],
                 v[2],
                 v.len() - 3
             ),
-            SummaryType::Upgrade(v) => format!("Upgrade system and install {}", v.join(" ")),
+            SummaryType::Upgrade(v) => {
+                format!("Upgrade system and install {} [{date}]", v.join(" "))
+            }
             SummaryType::Remove(v) if v.len() > 3 => format!(
                 "Remove {} {} {} ... (and {} more)",
                 v[0],
@@ -986,11 +989,11 @@ fn format_summary_log(list: &[SummaryLog]) -> Vec<String> {
                 v[2],
                 v.len() - 3
             ),
-            SummaryType::Remove(v) => format!("Remove {}", v.join(" ")),
-            SummaryType::FixBroken => "Fix Broken".to_string(),
+            SummaryType::Remove(v) => format!("Remove {} [{date}]", v.join(" ")),
+            SummaryType::FixBroken => format!("Fix Broken [{date}]"),
             SummaryType::TopicsChanged { add, remove } if remove.is_empty() => {
                 format!(
-                    "Topics changed: add topic: {} {}",
+                    "Topics changed: enabled {}{} [{date}]",
                     if add.len() <= 3 {
                         add.join(" ")
                     } else {
@@ -999,13 +1002,13 @@ fn format_summary_log(list: &[SummaryLog]) -> Vec<String> {
                     if add.len() <= 3 {
                         Cow::Borrowed("")
                     } else {
-                        Cow::Owned(format!("... (and {} more)", add.len() - 3))
+                        Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
                     }
                 )
             }
             SummaryType::TopicsChanged { add, remove } if add.is_empty() => {
                 format!(
-                    "Topics changed: remove topic: {} {}",
+                    "Topics changed: disabled {}{} [{date}]",
                     if remove.len() <= 3 {
                         add.join(" ")
                     } else {
@@ -1014,13 +1017,13 @@ fn format_summary_log(list: &[SummaryLog]) -> Vec<String> {
                     if remove.len() <= 3 {
                         Cow::Borrowed("")
                     } else {
-                        Cow::Owned(format!("... (and {} more)", remove.len() - 3))
+                        Cow::Owned(format!(" ... (and {} more)", remove.len() - 3))
                     }
                 )
             }
             SummaryType::TopicsChanged { add, remove } => {
                 format!(
-                    "Topics changed: enabled {} {}, disabled {} {}",
+                    "Topics changed: enabled {}{}, disabled {}{} [{date}]",
                     if add.len() <= 3 {
                         add.join(" ")
                     } else {
@@ -1029,13 +1032,21 @@ fn format_summary_log(list: &[SummaryLog]) -> Vec<String> {
                     if add.len() <= 3 {
                         Cow::Borrowed("")
                     } else {
-                        Cow::Owned(format!("... (and {} more)", add.len() - 3))
+                        Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
                     },
-                    remove.join(" "),
-                    ""
+                    if remove.len() <= 3 {
+                        remove.join(" ")
+                    } else {
+                        format!("{} {} {}", remove[0], remove[1], remove[2])
+                    },
+                    if remove.len() <= 3 {
+                        Cow::Borrowed("")
+                    } else {
+                        Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
+                    },
                 )
             }
-            SummaryType::Undo => "Undo".to_string(),
+            SummaryType::Undo => format!("Undo [{date}]"),
         })
         .collect::<Vec<_>>();
 
@@ -1243,9 +1254,10 @@ fn normal_commit(
         dry_run,
         true,
     )?;
-    apt.commit(None, &apt_args)?;
 
-    write_history_entry(op_after, typ, connect_db(true)?, dry_run)?;
+    let start_time = apt.commit(None, &apt_args, *TIME_OFFSET)?;
+
+    write_history_entry(op_after, typ, connect_db(true)?, dry_run, start_time)?;
 
     Ok(())
 }

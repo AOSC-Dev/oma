@@ -2149,6 +2149,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tabled",
+ "time",
  "tokio",
  "unic-langid",
 ]
@@ -3288,6 +3289,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a79d09ac6b08c1ab3906a2f7cc2e81a0e27c7ae89c63812df75e52bef0751e07"
 dependencies = [
  "deranged",
+ "itoa",
  "libc",
  "num_threads",
  "serde",
