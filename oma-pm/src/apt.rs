@@ -48,7 +48,7 @@ use crate::{
     unmet::{find_unmet_deps, find_unmet_deps_with_markinstall, UnmetDep},
 };
 
-const TIME_FORMAT: &'static str = "%T, %A %e %B %Y";
+const TIME_FORMAT: &str = "%T, %A %e %B %Y";
 
 #[derive(Builder, Default, Clone, Copy)]
 #[builder(default)]
@@ -473,13 +473,11 @@ impl OmaApt {
         self,
         network_thread: Option<usize>,
         args_config: &AptArgs,
-        // time_offset: UtcOffset,
     ) -> OmaAptResult<Cow<str>> {
         let v = self.summary()?;
         let v_str = v.to_string();
 
-        let start_time = Local::now();
-        let start_time = start_time.format(TIME_FORMAT).to_string();
+        let start_time = Local::now().format(TIME_FORMAT).to_string();
 
         if self.dry_run {
             debug!("op: {v:?}");
@@ -553,8 +551,7 @@ impl OmaApt {
 
         apt_unlock();
 
-        let end_time = Local::now();
-        let end_time = end_time.format(TIME_FORMAT).to_string();
+        let end_time = Local::now().format(TIME_FORMAT).to_string();
 
         std::fs::create_dir_all("/var/log/oma/")?;
 
