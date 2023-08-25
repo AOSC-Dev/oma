@@ -281,7 +281,7 @@ pub async fn list(tm: &mut TopicManager) -> Result<Vec<String>> {
 /// Scan all close topics from upstream and disable it
 pub async fn scan_closed_topic() -> Result<Vec<String>> {
     let mut atm_sources = vec![];
-    let s = SourcesLists::new_from_paths(vec!["/etc/apt/sources.list.d/atm.list"].iter())?;
+    let s = SourcesLists::new_from_paths(["/etc/apt/sources.list.d/atm.list"].iter())?;
 
     for file in s.iter() {
         for i in &file.lines {
