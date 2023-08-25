@@ -39,7 +39,7 @@ use crate::{
     fl,
     history::{connect_db, list_history, write_history_entry, SummaryLog, SummaryType},
     table::{handle_resolve, oma_display, table_for_install_pending, table_pending_inner},
-    InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC, TIME_OFFSET,
+    InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC,
 };
 
 pub type Result<T> = std::result::Result<T, OutputError>;
@@ -166,7 +166,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
             table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run, true)?;
         }
 
-        match apt.commit(None, &apt_args, *TIME_OFFSET) {
+        match apt.commit(None, &apt_args) {
             Ok(start_time) => {
                 write_history_entry(
                     op_after,
@@ -1255,7 +1255,7 @@ fn normal_commit(
         true,
     )?;
 
-    let start_time = apt.commit(None, &apt_args, *TIME_OFFSET)?;
+    let start_time = apt.commit(None, &apt_args)?;
 
     write_history_entry(op_after, typ, connect_db(true)?, dry_run, start_time)?;
 

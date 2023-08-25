@@ -6,6 +6,7 @@ use std::{
     process::Command,
 };
 
+use chrono::Local;
 use derive_builder::Builder;
 use oma_apt::{
     cache::{Cache, PackageSort, Upgrade},
@@ -31,10 +32,8 @@ use oma_fetch::{
     DownloadSourceType, OmaFetcher, Summary,
 };
 use oma_utils::dpkg::DpkgError;
-use once_cell::sync::Lazy;
 
 pub use oma_apt::config::Config as AptConfig;
-use time::{format_description, macros::offset, OffsetDateTime, UtcOffset};
 
 use serde::{Deserialize, Serialize};
 
@@ -49,8 +48,7 @@ use crate::{
     unmet::{find_unmet_deps, find_unmet_deps_with_markinstall, UnmetDep},
 };
 
-static TIME_OFFSET: Lazy<UtcOffset> =
-    Lazy::new(|| UtcOffset::local_offset_at(OffsetDateTime::UNIX_EPOCH).unwrap_or(offset!(UTC)));
+const TIME_FORMAT: &'static str = "%T, %A %e %B %Y";
 
 #[derive(Builder, Default, Clone, Copy)]
 #[builder(default)]
@@ -475,18 +473,13 @@ impl OmaApt {
         self,
         network_thread: Option<usize>,
         args_config: &AptArgs,
-        time_offset: UtcOffset,
+        // time_offset: UtcOffset,
     ) -> OmaAptResult<Cow<str>> {
         let v = self.summary()?;
         let v_str = v.to_string();
 
-        let format =
-            format_description::parse("[hour]:[minute]:[second], on [year]-[month]-[day]").unwrap();
-
-        let start_time = OffsetDateTime::now_utc()
-            .to_offset(time_offset)
-            .format(&format)
-            .unwrap();
+        let start_time = Local::now();
+        let start_time = start_time.format(TIME_FORMAT).to_string();
 
         if self.dry_run {
             debug!("op: {v:?}");
@@ -560,9 +553,8 @@ impl OmaApt {
 
         apt_unlock();
 
-        let end_time = OffsetDateTime::now_utc()
-            .to_offset(*TIME_OFFSET)
-            .to_string();
+        let end_time = Local::now();
+        let end_time = end_time.format(TIME_FORMAT).to_string();
 
         std::fs::create_dir_all("/var/log/oma/")?;
 
