@@ -66,6 +66,7 @@ pub struct RemoveArgs {
 }
 
 fn main() {
+    // FIXME: 多线程环境下无法获取 time offset
     let _ = &*TIME_OFFSET;
 
     ctrlc::set_handler(single_handler).expect(
