@@ -21,10 +21,12 @@ tokio = { version = "1.15", default_features = false, features = [
     "fs",
     "io-util",
     "rt-multi-thread",
-    "macros",
 ] }
 oma-console = { version = "^0.1.1", path = "../oma-console" }
 derive_builder = "0.12"
 fs4 = "0.6"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+tokio = { version = "1.28", default-features = false, features = ["macros"] }

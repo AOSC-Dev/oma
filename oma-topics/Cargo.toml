@@ -22,3 +22,4 @@ oma-console = { version = "^0.1.1", path = "../oma-console" }
 [dev-dependencies]
 oma-inquire = "0.1"
 oma-console = { path = "../oma-console" }
+tokio = { version = "1.28", default_features = false, features = ["macros"] }
