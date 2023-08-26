@@ -2340,8 +2340,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "futures",
- "i18n-embed",
- "i18n-embed-fl",
  "nix 0.26.4",
  "oma-apt-sources-lists",
  "oma-console",
@@ -2351,7 +2349,6 @@ dependencies = [
  "oma-utils",
  "once_cell",
  "reqwest",
- "rust-embed",
  "sequoia-openpgp",
  "serde",
  "serde_yaml",
