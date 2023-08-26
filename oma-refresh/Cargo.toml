@@ -24,10 +24,10 @@ reqwest = "0.11"
 oma-utils = { version = "^0.1.4", path = "../oma-utils", features = ["dpkg"] }
 oma-console = { path = "../oma-console" }
 nix = "0.26"
-i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"] }
-i18n-embed-fl = "0.6"
-rust-embed = "6.2"
 
 [features]
 aosc = ["oma-topics"]
 default = ["aosc"]
+
+[dev-dependencies]
+tokio = { version = "1.28", default_features = false, features = ["macros"] }
