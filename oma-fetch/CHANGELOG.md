@@ -5,19 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.1.1 (2023-08-21)
+## v0.1.2 (2023-08-26)
+
+### Chore
+
+ - <csr-id-aa5a70e9fbb44a2ee75f1d8d3e7923a867a81a2f/> Add changelog
+ - <csr-id-8d69e5d695da8e25a89274fd5ca562a01c8a39f5/> Fill in comment, desc, license
+ - <csr-id-0ca5be73a7ddb70e3a07b63ef21f2f873e420832/> No need to use tracing
+
+### New Features
+
+ - <csr-id-996417b5a659b404729d79522d02d11561b0375d/> Display done message if env is not atty
+ - <csr-id-67c9c44809f1ae091913d851fc2e8b18163eb037/> Download compress file after extract
+ - <csr-id-bf8ecc46a1741fc725e19d6727b1329fc429aa80/> Api change to support multi mirror download
+ - <csr-id-15a7ecc8638cc7d1591e6e0611ba58066e7a81a6/> Improve try_http_download error handle
+ - <csr-id-62cf61992658f55f86456a788c2490521d8ff48b/> Add retry times
+
+### Bug Fixes
+
+ - <csr-id-3d4a16a9c675a5ee8ed0bbcabd152fdd78761052/> Fix local mirror package fetch
+ - <csr-id-d6b4d8d439403fed3fa4dab41d205b29c77c052a/> Fix local mirror download url get
+ - <csr-id-f9148fd48f07bedb08c4ccb4099df634de1228b0/> Fix oma upgrade loop not return
+   - Also clippy and fmt
+ - <csr-id-00958c5b1824a4cbd32aafed5e899ca7da596c82/> Use progress bar println to display message
+ - <csr-id-e8f4fc32507d33fa24aaa71c474b2ce0d936ca37/> Merge master 5d6d2e82f0125d4c8f871228b8cbeb3de53260f1 change
+ - <csr-id-6ff39b47d20f24e194187e1c0a35f3f4f615d410/> Adapt new oma-fetch api
+ - <csr-id-2f40bc8d2709ffc8d1cfec391ef5eab6a42c1dd5/> Clear decompress progress bar
 
 ### Other
 
- - <csr-id-42a30f3c99799b933d4ae663c543376d9644c634/> fmt
+ - <csr-id-9bb6e19a703bc76515a7fa70c19aaafef38c7d7b/> Fmt
+
+### Refactor
+
+ - <csr-id-336b02cd7f1e950d028724c11d2318bed0495ddc/> Remove useless file; lint
+ - <csr-id-b097de9165dc0f1a8d970b750c84d6f5fc8ead81/> Use builder api design
+ - <csr-id-24ca3e6751a08cf5fcbbe0aa9c84d0ae4fc7de6b/> Fill of error translate (50%)
+ - <csr-id-7560c558cbfc68ccb488bac29aa15477e74d9607/> Do some todo
+ - <csr-id-88efbe1e674c3a3030144ad3b0690d1e2095cdaf/> Done 1
+ - <csr-id-53c3f0ea394ef470cb7be1d5dec077ba923cb860/> Do not handle result in start_download function
+
+### Style
+
+ - <csr-id-9de51fa2cf2993c10acfd05d3cda133e6140ac44/> Run cargo clippy and cargo fmt to lint code
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release over the course of 2 calendar days.
- - 2 days passed between releases.
- - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 31 commits contributed to the release over the course of 4 calendar days.
+ - 23 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -27,8 +64,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
-    - Fmt ([`42a30f3`](https://github.com/AOSC-Dev/oma/commit/42a30f3c99799b933d4ae663c543376d9644c634))
+    - Fix local mirror package fetch ([`3d4a16a`](https://github.com/AOSC-Dev/oma/commit/3d4a16a9c675a5ee8ed0bbcabd152fdd78761052))
+    - Fix local mirror download url get ([`d6b4d8d`](https://github.com/AOSC-Dev/oma/commit/d6b4d8d439403fed3fa4dab41d205b29c77c052a))
+    - Fix oma upgrade loop not return ([`f9148fd`](https://github.com/AOSC-Dev/oma/commit/f9148fd48f07bedb08c4ccb4099df634de1228b0))
+    - Bump oma-fetch v0.1.1, oma-utils v0.1.1, oma-pm v0.2.0 ([`51b4ab2`](https://github.com/AOSC-Dev/oma/commit/51b4ab259c5fe014493c78e04f5c6671f56d95e8))
+    - Fmt ([`9bb6e19`](https://github.com/AOSC-Dev/oma/commit/9bb6e19a703bc76515a7fa70c19aaafef38c7d7b))
+    - Release oma-fetch v0.1.0 ([`44310c7`](https://github.com/AOSC-Dev/oma/commit/44310c73d6f24473fd7ecab0d56f3d97a7164f65))
+    - Add changelog ([`aa5a70e`](https://github.com/AOSC-Dev/oma/commit/aa5a70e9fbb44a2ee75f1d8d3e7923a867a81a2f))
+    - Fill in comment, desc, license ([`8d69e5d`](https://github.com/AOSC-Dev/oma/commit/8d69e5d695da8e25a89274fd5ca562a01c8a39f5))
+    - Display done message if env is not atty ([`996417b`](https://github.com/AOSC-Dev/oma/commit/996417b5a659b404729d79522d02d11561b0375d))
+    - Use progress bar println to display message ([`00958c5`](https://github.com/AOSC-Dev/oma/commit/00958c5b1824a4cbd32aafed5e899ca7da596c82))
+    - Remove useless file; lint ([`336b02c`](https://github.com/AOSC-Dev/oma/commit/336b02cd7f1e950d028724c11d2318bed0495ddc))
+    - Download compress file after extract ([`67c9c44`](https://github.com/AOSC-Dev/oma/commit/67c9c44809f1ae091913d851fc2e8b18163eb037))
+    - Use builder api design ([`b097de9`](https://github.com/AOSC-Dev/oma/commit/b097de9165dc0f1a8d970b750c84d6f5fc8ead81))
+    - Fill of error translate (50%) ([`24ca3e6`](https://github.com/AOSC-Dev/oma/commit/24ca3e6751a08cf5fcbbe0aa9c84d0ae4fc7de6b))
+    - Merge master 5d6d2e82f0125d4c8f871228b8cbeb3de53260f1 change ([`e8f4fc3`](https://github.com/AOSC-Dev/oma/commit/e8f4fc32507d33fa24aaa71c474b2ce0d936ca37))
+    - Do some todo ([`7560c55`](https://github.com/AOSC-Dev/oma/commit/7560c558cbfc68ccb488bac29aa15477e74d9607))
+    - Cargo fmt ([`b0f6954`](https://github.com/AOSC-Dev/oma/commit/b0f69541f4d8baa5abb92d1db2e73fe6dc4c71f5))
+    - Fix cargo clippy ([`6757986`](https://github.com/AOSC-Dev/oma/commit/6757986e906cafe053bffd13dd6768931beb87ea))
+    - No need to use tracing ([`0ca5be7`](https://github.com/AOSC-Dev/oma/commit/0ca5be73a7ddb70e3a07b63ef21f2f873e420832))
+    - Adapt new oma-fetch api ([`6ff39b4`](https://github.com/AOSC-Dev/oma/commit/6ff39b47d20f24e194187e1c0a35f3f4f615d410))
+    - Api change to support multi mirror download ([`bf8ecc4`](https://github.com/AOSC-Dev/oma/commit/bf8ecc46a1741fc725e19d6727b1329fc429aa80))
+    - Improve try_http_download error handle ([`15a7ecc`](https://github.com/AOSC-Dev/oma/commit/15a7ecc8638cc7d1591e6e0611ba58066e7a81a6))
+    - Add retry times ([`62cf619`](https://github.com/AOSC-Dev/oma/commit/62cf61992658f55f86456a788c2490521d8ff48b))
+    - Run cargo clippy and cargo fmt to lint code ([`9de51fa`](https://github.com/AOSC-Dev/oma/commit/9de51fa2cf2993c10acfd05d3cda133e6140ac44))
+    - Clear decompress progress bar ([`2f40bc8`](https://github.com/AOSC-Dev/oma/commit/2f40bc8d2709ffc8d1cfec391ef5eab6a42c1dd5))
+    - Done 1 ([`88efbe1`](https://github.com/AOSC-Dev/oma/commit/88efbe1e674c3a3030144ad3b0690d1e2095cdaf))
+    - 6 ([`9b195b0`](https://github.com/AOSC-Dev/oma/commit/9b195b04f2f7e224f096aa6c04aaba56c55b1698))
+    - Some changes(4) ([`6450e2d`](https://github.com/AOSC-Dev/oma/commit/6450e2d2a7588d958be39cbecb375872422277f2))
+    - Do not handle result in start_download function ([`53c3f0e`](https://github.com/AOSC-Dev/oma/commit/53c3f0ea394ef470cb7be1d5dec077ba923cb860))
+    - Some change ([`5d16784`](https://github.com/AOSC-Dev/oma/commit/5d16784215b2c47059c335e5f03c94ffaaf63693))
+    - Oma-fetcher -> oma-fetch ([`70e11f8`](https://github.com/AOSC-Dev/oma/commit/70e11f8d3354a5989b4576fe924f66c5f7ec72ac))
 </details>
+
+## v0.1.1 (2023-08-21)
+
+<csr-id-42a30f3c99799b933d4ae663c543376d9644c634/>
+
+### Other
+
+ - <csr-id-42a30f3c99799b933d4ae663c543376d9644c634/> fmt
 
 ## v0.1.0 (2023-08-18)
 
@@ -79,47 +154,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Style
 
  - <csr-id-bb833287d6d439c622e737148d609c1b848e5efa/> Run cargo clippy and cargo fmt to lint code
-
-### Commit Statistics
-
-<csr-read-only-do-not-edit/>
-
- - 26 commits contributed to the release.
- - 19 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' were seen in commit messages
-
-### Commit Details
-
-<csr-read-only-do-not-edit/>
-
-<details><summary>view details</summary>
-
- * **Uncategorized**
-    - Release oma-fetch v0.1.0 ([`aac4df6`](https://github.com/AOSC-Dev/oma/commit/aac4df6c53c9ebb0de1b695cda4bb9f0b6c1fb04))
-    - Add changelog ([`653fb5a`](https://github.com/AOSC-Dev/oma/commit/653fb5a711e50c1d686dfc82ed99cbe5508bf03e))
-    - Fill in comment, desc, license ([`0633428`](https://github.com/AOSC-Dev/oma/commit/063342819b6d1350c06f268f90c04e125096aee4))
-    - Display done message if env is not atty ([`44e6cdd`](https://github.com/AOSC-Dev/oma/commit/44e6cdd45bdc46a9e28cb277456f8d9f602f5671))
-    - Use progress bar println to display message ([`4f5b4b6`](https://github.com/AOSC-Dev/oma/commit/4f5b4b641687620028a8574b829f1bbb1ecf1759))
-    - Remove useless file; lint ([`bbe38a4`](https://github.com/AOSC-Dev/oma/commit/bbe38a4fafc8c87a602f78175ae02d3edb60c794))
-    - Download compress file after extract ([`d0dfc7b`](https://github.com/AOSC-Dev/oma/commit/d0dfc7bdafa46443654c119bc0c774e3a0f9b387))
-    - Use builder api design ([`a6e9e31`](https://github.com/AOSC-Dev/oma/commit/a6e9e31fd80bdce5faea0162d3b7b47379dff987))
-    - Fill of error translate (50%) ([`718d2eb`](https://github.com/AOSC-Dev/oma/commit/718d2ebf3b11fe3e7859d55f0e6b08346a8e6b5f))
-    - Merge master 5d6d2e82f0125d4c8f871228b8cbeb3de53260f1 change ([`1df5364`](https://github.com/AOSC-Dev/oma/commit/1df53643e761c81b14d3b265bbb992c5e175a239))
-    - Do some todo ([`31d6abe`](https://github.com/AOSC-Dev/oma/commit/31d6abe71e498a660b191542b120b44d98d34d2c))
-    - Cargo fmt ([`75b6c86`](https://github.com/AOSC-Dev/oma/commit/75b6c866b398d90ee55655e29c436303673b8a52))
-    - Fix cargo clippy ([`687af7c`](https://github.com/AOSC-Dev/oma/commit/687af7c78c4ec7f7454ef5dafc300568b0bee354))
-    - No need to use tracing ([`fa15124`](https://github.com/AOSC-Dev/oma/commit/fa15124038b9eaf8234766b33a98297c62d5b001))
-    - Adapt new oma-fetch api ([`b40fc7d`](https://github.com/AOSC-Dev/oma/commit/b40fc7d2ec46274865adcd529f28a17ecd8f73e9))
-    - Api change to support multi mirror download ([`b68f74f`](https://github.com/AOSC-Dev/oma/commit/b68f74f150559c020643e8ded32b1b03089c4bae))
-    - Improve try_http_download error handle ([`33308c7`](https://github.com/AOSC-Dev/oma/commit/33308c75c1070aaaefa6c92330a4bf56c89fe6ed))
-    - Add retry times ([`924fc2b`](https://github.com/AOSC-Dev/oma/commit/924fc2bcf11e48f04776ce085237404480110f1f))
-    - Run cargo clippy and cargo fmt to lint code ([`bb83328`](https://github.com/AOSC-Dev/oma/commit/bb833287d6d439c622e737148d609c1b848e5efa))
-    - Clear decompress progress bar ([`948b6d9`](https://github.com/AOSC-Dev/oma/commit/948b6d93cd92ea9b52b0bb00f302ce037c6bc4ae))
-    - Done 1 ([`3ef5ec5`](https://github.com/AOSC-Dev/oma/commit/3ef5ec5a6832a01f4ce85b40f754efd4bcc55514))
-    - 6 ([`4b4d394`](https://github.com/AOSC-Dev/oma/commit/4b4d394642e2df41382b608ab4784793727a79bd))
-    - Some changes(4) ([`51780a0`](https://github.com/AOSC-Dev/oma/commit/51780a08a9f9f3b3a62fc968e9897673bcd882a0))
-    - Do not handle result in start_download function ([`b84f130`](https://github.com/AOSC-Dev/oma/commit/b84f130fad9fed69f9ca66a283c4a99db558b5fd))
-    - Some change ([`4e2e98b`](https://github.com/AOSC-Dev/oma/commit/4e2e98b722c908078293a8d6553665ecb4614b41))
-    - Oma-fetcher -> oma-fetch ([`2cc68ad`](https://github.com/AOSC-Dev/oma/commit/2cc68ade26e0882863fa0a1dde715ab3982cb222))
-</details>
 
