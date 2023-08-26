@@ -10,7 +10,7 @@ oma-fetch = { path = "../oma-fetch" }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 url = "2.3"
-tokio = { version = "1.28", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
+tokio = { version = "1.28", default_features = false, features = ["fs"] }
 serde_yaml = "0.9"
 once_cell = "1.18"
 futures = "0.3"
@@ -30,4 +30,4 @@ aosc = ["oma-topics"]
 default = ["aosc"]
 
 [dev-dependencies]
-tokio = { version = "1.28", default_features = false, features = ["macros"] }
+tokio = { version = "1.28", default_features = false, features = ["macros", "rt-multi-thread"] }
