@@ -1,6 +1,8 @@
 use std::{collections::HashMap, path::Path};
 
-use time::{format_description::well_known::Rfc2822, OffsetDateTime};
+// use time::{format_description::well_known::Rfc2822, OffsetDateTime};
+
+use chrono::{DateTime, Utc};
 
 use crate::verify;
 
@@ -52,6 +54,8 @@ pub enum InReleaseParserError {
     UnsupportFileType,
     #[error("Size should is number: {0}")]
     SizeShouldIsNumber(String),
+    #[error(transparent)]
+    DateParseError(#[from] chrono::ParseError),
 }
 
 pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
@@ -89,13 +93,11 @@ impl InReleaseParser {
                 .take()
                 .ok_or_else(|| InReleaseParserError::BadInReleaseVaildUntil)?;
 
-            let date = OffsetDateTime::parse(date, &Rfc2822)
-                .map_err(|_| InReleaseParserError::BadInReleaseData)?;
+            let date = DateTime::parse_from_rfc2822(&date)?;
 
-            let valid_until = OffsetDateTime::parse(valid_until, &Rfc2822)
-                .map_err(|_| InReleaseParserError::BadInReleaseVaildUntil)?;
+            let valid_until = DateTime::parse_from_rfc2822(&valid_until)?;
 
-            let now = OffsetDateTime::now_utc();
+            let now = Utc::now();
 
             if now < date {
                 return Err(InReleaseParserError::EarlierSignature(
