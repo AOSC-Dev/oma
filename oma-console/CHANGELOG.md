@@ -5,6 +5,83 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.1 (2023-08-26)
+
+### Chore
+
+ - <csr-id-ec081f1040db85091a7cc12f1b0db2fde4fe39bc/> Use MIT license
+ - <csr-id-d8f9c63926040c9595ce84d592d9efe611e0491f/> Add desc
+ - <csr-id-25d16028ab2d73a160e2b071957186b3a1b30758/> Add changelog
+ - <csr-id-a74fe0745663ea6d25249ff376bcaac9afda7393/> Fill of comment
+ - <csr-id-0ca5be73a7ddb70e3a07b63ef21f2f873e420832/> No need to use tracing
+
+### New Features
+
+ - <csr-id-996417b5a659b404729d79522d02d11561b0375d/> Display done message if env is not atty
+ - <csr-id-8d37b9d590b8085b6bbca9798a70286cc2c6816b/> Use DEBUG globar var to store yes/no display debug message
+ - <csr-id-1d9b5d15dc76e74672be7b0d610202ad1dc11fdb/> Fill of remove() function
+ - <csr-id-5cedd38dc69b89403b8f13aa8b68a6360481991b/> Init
+
+### Bug Fixes
+
+ - <csr-id-94239ec928737b94072cad2a399892e98e33f54e/> Fix logger marco multi use
+
+### Refactor
+
+ - <csr-id-336b02cd7f1e950d028724c11d2318bed0495ddc/> Remove useless file; lint
+ - <csr-id-24ca3e6751a08cf5fcbbe0aa9c84d0ae4fc7de6b/> Fill of error translate (50%)
+ - <csr-id-b8fc1a95ccb112e3f0be406f3ab7c6b70fcfefef/> Improve debug marco
+ - <csr-id-fbebfb815cdad214a609e9cf594648aaf7ee6b6a/> Add progressbar style
+   - Also add oma-fetcher ProgressStyle
+ - <csr-id-87ebc18929eb44c4b96f0cc9a30822a5277ff440/> Add todo
+ - <csr-id-f310ff2486eaba37b8e659991429a81dfea4dff7/> Do not const Writer::default as WRITER
+ - <csr-id-df5692d9cd2dea3e882205dcce6d0558b539e279/> Add oma-topics crate
+ - <csr-id-7de1d4f70f474a97d551cdbecc0c3e988f2544be/> Abstract tips and has_x11
+ - <csr-id-a0ba9b4f999eaf047ecc79312a36237c8c70d4d3/> Add crate oma-console
+
+### Style
+
+ - <csr-id-9de51fa2cf2993c10acfd05d3cda133e6140ac44/> Run cargo clippy and cargo fmt to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 22 commits contributed to the release over the course of 4 calendar days.
+ - 20 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Release oma-console v0.1.0 ([`d9b8f96`](https://github.com/AOSC-Dev/oma/commit/d9b8f963c7db7d074c6f3c09e5547772bdaff396))
+    - Use MIT license ([`ec081f1`](https://github.com/AOSC-Dev/oma/commit/ec081f1040db85091a7cc12f1b0db2fde4fe39bc))
+    - Release oma-console v0.1.0 ([`e36660d`](https://github.com/AOSC-Dev/oma/commit/e36660d6429addd513195b926bc3825f73f51863))
+    - Add desc ([`d8f9c63`](https://github.com/AOSC-Dev/oma/commit/d8f9c63926040c9595ce84d592d9efe611e0491f))
+    - Add changelog ([`25d1602`](https://github.com/AOSC-Dev/oma/commit/25d16028ab2d73a160e2b071957186b3a1b30758))
+    - Fill of comment ([`a74fe07`](https://github.com/AOSC-Dev/oma/commit/a74fe0745663ea6d25249ff376bcaac9afda7393))
+    - Display done message if env is not atty ([`996417b`](https://github.com/AOSC-Dev/oma/commit/996417b5a659b404729d79522d02d11561b0375d))
+    - Remove useless file; lint ([`336b02c`](https://github.com/AOSC-Dev/oma/commit/336b02cd7f1e950d028724c11d2318bed0495ddc))
+    - Fill of error translate (50%) ([`24ca3e6`](https://github.com/AOSC-Dev/oma/commit/24ca3e6751a08cf5fcbbe0aa9c84d0ae4fc7de6b))
+    - No need to use tracing ([`0ca5be7`](https://github.com/AOSC-Dev/oma/commit/0ca5be73a7ddb70e3a07b63ef21f2f873e420832))
+    - Use DEBUG globar var to store yes/no display debug message ([`8d37b9d`](https://github.com/AOSC-Dev/oma/commit/8d37b9d590b8085b6bbca9798a70286cc2c6816b))
+    - Fix logger marco multi use ([`94239ec`](https://github.com/AOSC-Dev/oma/commit/94239ec928737b94072cad2a399892e98e33f54e))
+    - Improve debug marco ([`b8fc1a9`](https://github.com/AOSC-Dev/oma/commit/b8fc1a95ccb112e3f0be406f3ab7c6b70fcfefef))
+    - Fill of remove() function ([`1d9b5d1`](https://github.com/AOSC-Dev/oma/commit/1d9b5d15dc76e74672be7b0d610202ad1dc11fdb))
+    - Run cargo clippy and cargo fmt to lint code ([`9de51fa`](https://github.com/AOSC-Dev/oma/commit/9de51fa2cf2993c10acfd05d3cda133e6140ac44))
+    - Init ([`5cedd38`](https://github.com/AOSC-Dev/oma/commit/5cedd38dc69b89403b8f13aa8b68a6360481991b))
+    - Add progressbar style ([`fbebfb8`](https://github.com/AOSC-Dev/oma/commit/fbebfb815cdad214a609e9cf594648aaf7ee6b6a))
+    - Add todo ([`87ebc18`](https://github.com/AOSC-Dev/oma/commit/87ebc18929eb44c4b96f0cc9a30822a5277ff440))
+    - Do not const Writer::default as WRITER ([`f310ff2`](https://github.com/AOSC-Dev/oma/commit/f310ff2486eaba37b8e659991429a81dfea4dff7))
+    - Add oma-topics crate ([`df5692d`](https://github.com/AOSC-Dev/oma/commit/df5692d9cd2dea3e882205dcce6d0558b539e279))
+    - Abstract tips and has_x11 ([`7de1d4f`](https://github.com/AOSC-Dev/oma/commit/7de1d4f70f474a97d551cdbecc0c3e988f2544be))
+    - Add crate oma-console ([`a0ba9b4`](https://github.com/AOSC-Dev/oma/commit/a0ba9b4f999eaf047ecc79312a36237c8c70d4d3))
+</details>
+
 ## v0.1.0 (2023-08-17)
 
 <csr-id-3c7c29e6e5da4cc1b4e10006aa9cac2b2008d43a/>
@@ -21,6 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-id-ee45498f402ccc6a686c44b1b4f887301e9801e1/>
 <csr-id-ec5d5d35534f5200143f6d819ca5d2ed989fd21c/>
 <csr-id-294cd1b853c63d48ab1fcb33db95ea3838ab47dd/>
+<csr-id-548a9e5febf471f0e62d0f1202d9465d493a889f/>
 
 ### Chore
 
@@ -38,14 +116,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
- - <csr-id-e8f56b5f1634556fd269d2b598d37f12eb1dfab7/> display done message if env is not atty
- - <csr-id-0a5a509cdd4d46e1848bbfae989f3dc752bf7e80/> use DEBUG globar var to store yes/no display debug message
- - <csr-id-e92a420653a852ebd2d26d2cbf91dd2f7cded154/> fill of remove() function
- - <csr-id-b50cfc0a5337053c496876de84eaf00f221884ed/> init
+ - <csr-id-e8f56b5f1634556fd269d2b598d37f12eb1dfab7/> Display done message if env is not atty
+ - <csr-id-0a5a509cdd4d46e1848bbfae989f3dc752bf7e80/> Use DEBUG globar var to store yes/no display debug message
+ - <csr-id-e92a420653a852ebd2d26d2cbf91dd2f7cded154/> Fill of remove() function
+ - <csr-id-b50cfc0a5337053c496876de84eaf00f221884ed/> Init
 
 ### Bug Fixes
 
- - <csr-id-2037757c6ebde5a94f85f4b1802674ac3c10d05f/> fix logger marco multi use
+ - <csr-id-2037757c6ebde5a94f85f4b1802674ac3c10d05f/> Fix logger marco multi use
 
 ### Refactor
 
@@ -63,42 +141,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Style
 
  - <csr-id-ee45498f402ccc6a686c44b1b4f887301e9801e1/> run cargo clippy and cargo fmt to lint code
-
-### Commit Statistics
-
-<csr-read-only-do-not-edit/>
-
- - 21 commits contributed to the release over the course of 10 calendar days.
- - 20 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' were seen in commit messages
-
-### Commit Details
-
-<csr-read-only-do-not-edit/>
-
-<details><summary>view details</summary>
-
- * **Uncategorized**
-    - Use MIT license ([`548a9e5`](https://github.com/AOSC-Dev/oma/commit/548a9e5febf471f0e62d0f1202d9465d493a889f))
-    - Release oma-console v0.1.0 ([`4d378f6`](https://github.com/AOSC-Dev/oma/commit/4d378f6836febe26ab907fefa8fd19dbe4e7222e))
-    - Add desc ([`ec5d5d3`](https://github.com/AOSC-Dev/oma/commit/ec5d5d35534f5200143f6d819ca5d2ed989fd21c))
-    - Add changelog ([`294cd1b`](https://github.com/AOSC-Dev/oma/commit/294cd1b853c63d48ab1fcb33db95ea3838ab47dd))
-    - Fill of comment ([`3c7c29e`](https://github.com/AOSC-Dev/oma/commit/3c7c29e6e5da4cc1b4e10006aa9cac2b2008d43a))
-    - Display done message if env is not atty ([`e8f56b5`](https://github.com/AOSC-Dev/oma/commit/e8f56b5f1634556fd269d2b598d37f12eb1dfab7))
-    - Remove useless file; lint ([`119cc9f`](https://github.com/AOSC-Dev/oma/commit/119cc9f79cb3e0a2c1e5623614915c6e7c0b8769))
-    - Fill of error translate (50%) ([`9e6f244`](https://github.com/AOSC-Dev/oma/commit/9e6f244eaf4e52c13107c2dc6b42432982b5eb37))
-    - No need to use tracing ([`eb52b64`](https://github.com/AOSC-Dev/oma/commit/eb52b648a8b51af5bdf1cd39dd3045c49267f399))
-    - Use DEBUG globar var to store yes/no display debug message ([`0a5a509`](https://github.com/AOSC-Dev/oma/commit/0a5a509cdd4d46e1848bbfae989f3dc752bf7e80))
-    - Fix logger marco multi use ([`2037757`](https://github.com/AOSC-Dev/oma/commit/2037757c6ebde5a94f85f4b1802674ac3c10d05f))
-    - Improve debug marco ([`999ff58`](https://github.com/AOSC-Dev/oma/commit/999ff58a1a4d6d5ceecb8563018a21b0002c90ae))
-    - Fill of remove() function ([`e92a420`](https://github.com/AOSC-Dev/oma/commit/e92a420653a852ebd2d26d2cbf91dd2f7cded154))
-    - Run cargo clippy and cargo fmt to lint code ([`ee45498`](https://github.com/AOSC-Dev/oma/commit/ee45498f402ccc6a686c44b1b4f887301e9801e1))
-    - Init ([`b50cfc0`](https://github.com/AOSC-Dev/oma/commit/b50cfc0a5337053c496876de84eaf00f221884ed))
-    - Add progressbar style ([`61b0cf1`](https://github.com/AOSC-Dev/oma/commit/61b0cf19043ce4ee0a50fa2ee1584248a03d30bf))
-    - Add todo ([`b210c48`](https://github.com/AOSC-Dev/oma/commit/b210c488cd00656131cf77ef7f98a5aef0999e73))
-    - Do not const Writer::default as WRITER ([`3f0e43a`](https://github.com/AOSC-Dev/oma/commit/3f0e43a4b964113b261b5688b612c71f6c87b7b1))
-    - Add oma-topics crate ([`5170f79`](https://github.com/AOSC-Dev/oma/commit/5170f79611bb4b36baa7a179167de5cd3b141a2e))
-    - Abstract tips and has_x11 ([`255c03b`](https://github.com/AOSC-Dev/oma/commit/255c03b6d49e612578cd75f7e8c92aba273a2308))
-    - Add crate oma-console ([`7dba4be`](https://github.com/AOSC-Dev/oma/commit/7dba4beee8cf26d469b01dbbe5b61b06d73622b2))
-</details>
 

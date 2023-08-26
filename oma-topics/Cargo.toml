@@ -17,7 +17,7 @@ serde_json = "1.0"
 tokio = { version = "1.28", default_features = false, features = ["rt", "fs", "io-util", "rt-multi-thread"] }
 thiserror = "1.0"
 futures = "0.3"
-oma-console = { version = "0.1", path = "../oma-console" }
+oma-console = { version = "^0.1.1", path = "../oma-console" }
 
 [dev-dependencies]
 oma-inquire = "0.1"
