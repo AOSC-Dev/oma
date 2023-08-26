@@ -1,7 +1,7 @@
 use std::{path::Path, time::Duration};
 
 use indicatif::ProgressBar;
-use oma_contents::{find, QueryMode};
+use oma_contents::{find, ContentsEvent, QueryMode};
 use oma_utils::dpkg::dpkg_arch;
 
 fn main() {
@@ -14,8 +14,12 @@ fn main() {
         QueryMode::ListFiles(false),
         Path::new("/var/lib/apt/lists"),
         &dpkg_arch().unwrap(),
-        |c| {
-            pb.set_message(format!("Searching, found {c} results so far ..."));
+        move |c| match c {
+            ContentsEvent::Progress(c) => {
+                pb.set_message(format!("Searching, found {c} results so far ..."))
+            }
+            ContentsEvent::ContentsMayNotBeAccurate => pb.println("ContentsMayNotBeAccurate"),
+            ContentsEvent::Done => pb.finish_and_clear(),
         },
     );
 

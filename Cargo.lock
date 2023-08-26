@@ -2213,7 +2213,6 @@ dependencies = [
  "chrono",
  "grep",
  "indicatif",
- "oma-console",
  "oma-utils",
  "regex",
  "serde",
