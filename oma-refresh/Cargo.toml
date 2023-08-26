@@ -18,7 +18,7 @@ oma-apt-sources-lists = "0.1"
 oma-debcontrol = "0.3"
 sequoia-openpgp = "1.13"
 anyhow = "1.0"
-time = { version = "0.3", features = ["local-offset", "macros", "parsing"] }
+chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { path = "../oma-topics", optional = true }
 reqwest = "0.11"
 oma-utils = { version = "^0.1.4", path = "../oma-utils", features = ["dpkg"] }

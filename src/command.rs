@@ -254,7 +254,6 @@ pub fn download(keyword: Vec<&str>, path: Option<PathBuf>, dry_run: bool) -> Res
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let (pkgs, no_result) = apt.select_pkg(keyword, false, true)?;
     handle_no_result(no_result);
-
     apt.download(pkgs, None, path.as_deref(), dry_run)?;
 
     Ok(0)
