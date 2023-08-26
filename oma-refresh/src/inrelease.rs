@@ -54,8 +54,6 @@ pub enum InReleaseParserError {
     UnsupportFileType,
     #[error("Size should is number: {0}")]
     SizeShouldIsNumber(String),
-    #[error(transparent)]
-    DateParseError(#[from] chrono::ParseError),
 }
 
 pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
@@ -93,9 +91,11 @@ impl InReleaseParser {
                 .take()
                 .ok_or_else(|| InReleaseParserError::BadInReleaseVaildUntil)?;
 
-            let date = DateTime::parse_from_rfc2822(&date)?;
+            let date = DateTime::parse_from_rfc2822(&date)
+                .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
-            let valid_until = DateTime::parse_from_rfc2822(&valid_until)?;
+            let valid_until = DateTime::parse_from_rfc2822(&valid_until)
+                .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
             let now = Utc::now();
 
