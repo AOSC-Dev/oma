@@ -11,8 +11,6 @@ use grep::{
     searcher::{sinks::UTF8, Searcher},
 };
 
-use oma_console::{info, warn};
-
 // use crate::{db::APT_LIST_DISTS, download::oma_spinner, fl, info, warn, ARCH};
 // use std::sync::atomic::Ordering;
 
@@ -81,6 +79,12 @@ pub enum QueryMode {
     CommandNotFound,
 }
 
+pub enum ContentsEvent {
+    Progress(usize),
+    ContentsMayNotBeAccurate,
+    Done
+}
+
 /// Find contents
 /// keywords: search keyword
 /// query_mode: Query Mode
@@ -94,7 +98,7 @@ pub fn find<F>(
     callback: F,
 ) -> Result<Vec<(String, String)>>
 where
-    F: Fn(usize),
+    F: Fn(ContentsEvent) + Send + Sync + Clone + 'static,
 {
     let kw = if Path::new(keyword).is_absolute() {
         keyword.strip_prefix('/').unwrap()
@@ -149,6 +153,10 @@ where
         return Err(OmaContentsError::ContentsNotExist);
     }
 
+    // let is_expire = AtomicBool::new(false);
+
+    let cc = callback.clone();
+
     std::thread::spawn(move || -> Result<()> {
         for i in pc {
             let m = DateTime::from(i.metadata()?.modified()?);
@@ -156,8 +164,7 @@ where
             let delta = now - m;
             let delta = delta.num_seconds() / 60 / 60 / 24;
             if delta > 7 {
-                warn!("contents-may-not-be-accurate-1");
-                info!("contents-may-not-be-accurate-2");
+                cc(ContentsEvent::ContentsMayNotBeAccurate);
                 break;
             }
         }
@@ -204,6 +211,8 @@ where
                             if stats.matched_lines == 0 {
                                 return Err(OmaContentsError::NoResult);
                             }
+
+                            callback(ContentsEvent::Done);
                         }
                     }
 
@@ -212,7 +221,7 @@ where
                         if let Some(submatches) = submatches {
                             count += 1;
 
-                            callback(count);
+                            callback(ContentsEvent::Progress(count));
 
                             let search_bin_name = if query_mode == QueryMode::CommandNotFound {
                                 kw.split('/').last()

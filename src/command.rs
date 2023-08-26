@@ -14,9 +14,9 @@ use inquire::{
     MultiSelect,
 };
 use oma_console::{
-    error, indicatif::ProgressBar, info, pb::oma_spinner, success, warn, writer::gen_prefix,
+    error, indicatif::ProgressBar, info, pb::oma_spinner, success, warn, writer::gen_prefix, WRITER,
 };
-use oma_contents::QueryMode;
+use oma_contents::{ContentsEvent, QueryMode};
 use oma_pm::{
     apt::{AptArgs, AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder, OmaAptError},
     operation::{InstallEntry, InstallOperation, RemoveEntry},
@@ -406,12 +406,22 @@ pub fn find(x: &str, is_bin: bool, pkg: &str) -> Result<i32> {
         query_mode,
         Path::new("/var/lib/apt/lists"),
         &dpkg_arch()?,
-        |c| {
-            pb.set_message(fl!("search-with-result-count", count = c));
+        move |c| match c {
+            ContentsEvent::Progress(c) => {
+                pb.set_message(fl!("search-with-result-count", count = c))
+            }
+            ContentsEvent::ContentsMayNotBeAccurate => {
+                WRITER
+                    .writeln_with_pb(&pb, "WARN", &fl!("contents-may-not-be-accurate-1"))
+                    .unwrap();
+                WRITER
+                    .writeln_with_pb(&pb, "INFO", &fl!("contents-may-not-be-accurate-2"))
+                    .unwrap();
+            }
+            ContentsEvent::Done => pb.finish_and_clear(),
         },
     )?;
 
-    pb.finish_and_clear();
     let mut pager = oma_display(false, res.len())?;
     let mut out = pager.get_writer()?;
 
