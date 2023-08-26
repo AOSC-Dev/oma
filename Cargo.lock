@@ -516,7 +516,7 @@ dependencies = [
  "js-sys",
  "num-traits",
  "pure-rust-locales",
- "time 0.1.45",
+ "time",
  "wasm-bindgen",
  "winapi",
 ]
@@ -803,12 +803,6 @@ dependencies = [
  "once_cell",
  "parking_lot_core",
 ]
-
-[[package]]
-name = "deranged"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2696e8a945f658fd14dc3b87242e6b80cd0f36ff04ea560fa39082368847946"
 
 [[package]]
 name = "derivative"
@@ -2216,6 +2210,7 @@ dependencies = [
 name = "oma-contents"
 version = "0.1.1"
 dependencies = [
+ "chrono",
  "grep",
  "indicatif",
  "oma-console",
@@ -2225,7 +2220,6 @@ dependencies = [
  "serde_json",
  "strsim",
  "thiserror",
- "time 0.3.27",
  "which",
 ]
 
@@ -3320,23 +3314,6 @@ dependencies = [
  "wasi 0.10.0+wasi-snapshot-preview1",
  "winapi",
 ]
-
-[[package]]
-name = "time"
-version = "0.3.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bb39ee79a6d8de55f48f2293a830e040392f1c5f16e336bdd1788cd0aadce07"
-dependencies = [
- "deranged",
- "serde",
- "time-core",
-]
-
-[[package]]
-name = "time-core"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7300fbefb4dadc1af235a9cef3737cea692a9d97e1b9cbcd4ebdae6f8868e6fb"
 
 [[package]]
 name = "tiny-keccak"

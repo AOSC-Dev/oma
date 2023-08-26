@@ -10,8 +10,8 @@ license = "MIT"
 [dependencies]
 grep = "0.2"
 serde = "1.0"
-time = "0.3"
 regex = "1.8"
+chrono = { version = "0.4", features = ["unstable-locales"] }
 which ="4.4"
 serde_json = "1.0"
 strsim = "0.10"
@@ -20,4 +20,4 @@ oma-console = { version = "^0.1.1", path = "../oma-console" }
 
 [dev-dependencies]
 indicatif = "0.17"
-oma-utils = { path = "../oma-utils" }
+oma-utils = { path = "../oma-utils", features = ["dpkg"]}

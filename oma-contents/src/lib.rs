@@ -2,9 +2,9 @@ use std::{
     io::{BufRead, BufReader},
     path::Path,
     process::{Command, Stdio},
-    time::SystemTime,
 };
 
+use chrono::{DateTime, Utc};
 // use console::style;
 use grep::{
     regex::RegexMatcherBuilder,
@@ -12,7 +12,6 @@ use grep::{
 };
 
 use oma_console::{info, warn};
-use time::OffsetDateTime;
 
 // use crate::{db::APT_LIST_DISTS, download::oma_spinner, fl, info, warn, ARCH};
 // use std::sync::atomic::Ordering;
@@ -152,11 +151,11 @@ where
 
     std::thread::spawn(move || -> Result<()> {
         for i in pc {
-            let m = OffsetDateTime::from(i.metadata()?.modified()?);
-            let now = OffsetDateTime::from(SystemTime::now());
+            let m = DateTime::from(i.metadata()?.modified()?);
+            let now = Utc::now();
             let delta = now - m;
-            let delta = delta.as_seconds_f64() / 60.0 / 60.0 / 24.0;
-            if delta > 7.0 {
+            let delta = delta.num_seconds() / 60 / 60 / 24;
+            if delta > 7 {
                 warn!("contents-may-not-be-accurate-1");
                 info!("contents-may-not-be-accurate-2");
                 break;
