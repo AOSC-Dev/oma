@@ -7,14 +7,15 @@ use std::{
 
 use anyhow::anyhow;
 
-use dialoguer::{console::style, theme::ColorfulTheme, Confirm, Select};
+use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
 use oma_console::{
-    error, indicatif::ProgressBar, info, pb::oma_spinner, success, warn, writer::gen_prefix, WRITER,
+    console::{style, self}, error, indicatif::ProgressBar, info, pb::oma_spinner, success, warn,
+    writer::gen_prefix, WRITER,
 };
 use oma_contents::{ContentsEvent, QueryMode};
 use oma_pm::{
@@ -412,10 +413,24 @@ pub fn find(x: &str, is_bin: bool, pkg: &str) -> Result<i32> {
             }
             ContentsEvent::ContentsMayNotBeAccurate => {
                 WRITER
-                    .writeln_with_pb(&pb, "WARN", &fl!("contents-may-not-be-accurate-1"))
+                    .writeln_with_pb(
+                        &pb,
+                        &console::style("WARNING")
+                            .yellow()
+                            .bold()
+                            .to_string(),
+                        &fl!("contents-may-not-be-accurate-1"),
+                    )
                     .unwrap();
                 WRITER
-                    .writeln_with_pb(&pb, "INFO", &fl!("contents-may-not-be-accurate-2"))
+                    .writeln_with_pb(
+                        &pb,
+                        &console::style("INFO")
+                            .blue()
+                            .bold()
+                            .to_string(),
+                        &fl!("contents-may-not-be-accurate-2"),
+                    )
                     .unwrap();
             }
             ContentsEvent::Done => pb.finish_and_clear(),
