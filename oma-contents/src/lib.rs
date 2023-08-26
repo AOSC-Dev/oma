@@ -98,7 +98,7 @@ pub fn find<F>(
     callback: F,
 ) -> Result<Vec<(String, String)>>
 where
-    F: Fn(ContentsEvent) + Send + Sync + Clone + 'static,
+    F: Fn(ContentsEvent) + Send + Clone + 'static,
 {
     let kw = if Path::new(keyword).is_absolute() {
         keyword.strip_prefix('/').unwrap()
@@ -152,8 +152,6 @@ where
     if paths.is_empty() {
         return Err(OmaContentsError::ContentsNotExist);
     }
-
-    // let is_expire = AtomicBool::new(false);
 
     let cc = callback.clone();
 
