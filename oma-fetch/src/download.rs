@@ -449,13 +449,21 @@ pub async fn download_local(
     context: Option<String>,
     position: usize,
 ) -> DownloadResult<Summary> {
+    debug!("{entry:?}");
     let pb = fpb.as_ref().map(|x| x.mb.add(ProgressBar::new_spinner()));
 
     let url = &entry.source[position].url;
-    let url_path = url.strip_prefix("file://").ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?;
+    let url_path = url
+        .strip_prefix("file:")
+        .ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?;
+
+    debug!("File path is: {url_path}");
+
     let mut from = tokio::fs::File::open(url_path).await.map_err(|e| {
         DownloadError::FailedOpenLocalSourceFile(entry.filename.clone(), e.to_string())
     })?;
+
+    debug!("Success open file: {url_path}");
 
     let mut to = tokio::fs::File::create(entry.dir.join(&entry.filename))
         .await
@@ -463,9 +471,19 @@ pub async fn download_local(
             DownloadError::FailedOpenLocalSourceFile(entry.filename.clone(), e.to_string())
         })?;
 
+    debug!(
+        "Success create file: {}",
+        entry.dir.join(&entry.filename).display()
+    );
+
     let size = tokio::io::copy(&mut from, &mut to).await.map_err(|e| {
         DownloadError::FailedOpenLocalSourceFile(entry.filename.clone(), e.to_string())
     })?;
+
+    debug!(
+        "Success copy file from {url_path} to {}",
+        entry.dir.join(&entry.filename).display()
+    );
 
     if let Some(pb) = pb {
         pb.finish_and_clear();
