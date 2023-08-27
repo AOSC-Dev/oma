@@ -176,7 +176,9 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
         apt.check_disk_size()?;
 
         if retry_times == 1 {
-            table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run, !args.yes)?;
+            table_for_install_pending(
+                &install, &remove, &disk_size, !args.yes, dry_run, !args.yes,
+            )?;
         }
 
         match apt.commit(None, &apt_args) {
@@ -816,10 +818,16 @@ pub fn mark(op: &str, pkgs: Vec<String>, dry_run: bool) -> Result<i32> {
 
 pub fn clean() -> Result<i32> {
     root()?;
+
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let download_dir = apt.get_archive_dir();
     let dir = std::fs::read_dir(&download_dir)?;
+
+    let (sty, inv) = oma_spinner(false).unwrap();
+    let pb = ProgressBar::new_spinner().with_style(sty);
+    pb.enable_steady_tick(inv);
+    pb.set_message("Searching ...");
 
     for i in dir.flatten() {
         if i.path().extension().and_then(|x| x.to_str()) == Some("deb") {
@@ -830,6 +838,8 @@ pub fn clean() -> Result<i32> {
     let p = download_dir.join("..");
     std::fs::remove_file(p.join("pkgcache.bin")).ok();
     std::fs::remove_file(p.join("srcpkgcache.bin")).ok();
+
+    pb.finish_and_clear();
 
     success!("{}", fl!("clean-successfully"));
 
