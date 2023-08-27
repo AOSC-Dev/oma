@@ -14,8 +14,14 @@ use inquire::{
     MultiSelect,
 };
 use oma_console::{
-    console::{style, self}, error, indicatif::ProgressBar, info, pb::oma_spinner, success, warn,
-    writer::gen_prefix, WRITER,
+    console::{self, style},
+    error,
+    indicatif::ProgressBar,
+    info,
+    pb::oma_spinner,
+    success, warn,
+    writer::gen_prefix,
+    WRITER,
 };
 use oma_contents::{ContentsEvent, QueryMode};
 use oma_pm::{
@@ -415,20 +421,14 @@ pub fn find(x: &str, is_bin: bool, pkg: &str) -> Result<i32> {
                 WRITER
                     .writeln_with_pb(
                         &pb,
-                        &console::style("WARNING")
-                            .yellow()
-                            .bold()
-                            .to_string(),
+                        &console::style("WARNING").yellow().bold().to_string(),
                         &fl!("contents-may-not-be-accurate-1"),
                     )
                     .unwrap();
                 WRITER
                     .writeln_with_pb(
                         &pb,
-                        &console::style("INFO")
-                            .blue()
-                            .bold()
-                            .to_string(),
+                        &console::style("INFO").blue().bold().to_string(),
                         &fl!("contents-may-not-be-accurate-2"),
                     )
                     .unwrap();

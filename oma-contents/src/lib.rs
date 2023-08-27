@@ -82,7 +82,7 @@ pub enum QueryMode {
 pub enum ContentsEvent {
     Progress(usize),
     ContentsMayNotBeAccurate,
-    Done
+    Done,
 }
 
 /// Find contents

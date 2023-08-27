@@ -319,7 +319,7 @@ pub fn table_pending_inner(
             .map(RemoveEntryDisplay::from)
             .collect::<Vec<_>>();
 
-        let mut table = Table::builder(&remove_display);
+        let mut table = Table::builder(remove_display);
         table.set_header(["Name", "Size", "Detail"]);
         let mut table = table.build();
 
@@ -483,7 +483,6 @@ where
 {
     let mut table = Table::builder(iter);
     table.set_header(["Name", "Version", "Installed size"]);
-    let table = table.build();
 
-    table
+    table.build()
 }

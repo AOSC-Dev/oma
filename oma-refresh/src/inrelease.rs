@@ -91,10 +91,10 @@ impl InReleaseParser {
                 .take()
                 .ok_or_else(|| InReleaseParserError::BadInReleaseVaildUntil)?;
 
-            let date = DateTime::parse_from_rfc2822(&date)
+            let date = DateTime::parse_from_rfc2822(date)
                 .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
-            let valid_until = DateTime::parse_from_rfc2822(&valid_until)
+            let valid_until = DateTime::parse_from_rfc2822(valid_until)
                 .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
             let now = Utc::now();
