@@ -172,6 +172,7 @@ pub fn command_builder() -> Command {
             Command::new("show").about("Show information on the specified package(s)").arg(pkgs.clone().required(true)).arg(
                 Arg::new("all")
                     .short('a')
+                    .long("all")
                     .help("Show information on all available version(s) of (a) package(s) from all repository(ies)")
                     .action(ArgAction::SetTrue)
                     .requires("packages")
@@ -258,6 +259,7 @@ pub fn command_builder() -> Command {
                 .arg(
                     Arg::new("all")
                         .short('a')
+                        .long("all")
                         .help("List all available version(s) of (a) package(s) from all repository(ies)")
                         .action(ArgAction::SetTrue),
                 )
