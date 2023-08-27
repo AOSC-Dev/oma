@@ -827,7 +827,7 @@ pub fn clean() -> Result<i32> {
     let (sty, inv) = oma_spinner(false).unwrap();
     let pb = ProgressBar::new_spinner().with_style(sty);
     pb.enable_steady_tick(inv);
-    pb.set_message("Searching ...");
+    pb.set_message("Cleaning ...");
 
     for i in dir.flatten() {
         if i.path().extension().and_then(|x| x.to_str()) == Some("deb") {
