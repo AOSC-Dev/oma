@@ -17,6 +17,7 @@ use oma_utils::dbus::zError;
 use oma_utils::dpkg::DpkgError;
 
 use crate::fl;
+use crate::table::handle_unmet_dep;
 
 #[derive(Debug)]
 pub struct OutputError(String);
@@ -216,7 +217,17 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::MarkReinstallError(pkg, version) => {
             fl!("can-not-mark-reinstall", name = pkg, version = version)
         }
-        OmaAptError::DependencyIssue(_) => "".to_string(),
+        OmaAptError::DependencyIssue(ref v) => {
+            if v.is_empty() {
+                err.to_string()
+            } else {
+                if handle_unmet_dep(v).is_err() {
+                    err.to_string()
+                } else {
+                    "".to_string()
+                }
+            }
+        }
         OmaAptError::PkgIsEssential(s) => fl!("pkg-is-essential", name = s),
         OmaAptError::PkgNoCandidate(s) => fl!("no-candidate-ver", pkg = s),
         OmaAptError::PkgNoChecksum(s) => fl!("pkg-no-checksum", name = s),

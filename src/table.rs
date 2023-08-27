@@ -7,7 +7,6 @@ use crate::{fl, ALLOWCTRLC};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
 use oma_console::WRITER;
-use oma_pm::apt::{OmaApt, OmaAptError};
 use oma_pm::operation::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 use oma_pm::unmet::{UnmetDep, WhyUnmet};
 use tabled::settings::object::{Columns, Segment};
@@ -169,53 +168,39 @@ pub fn oma_display(is_question: bool, len: usize) -> Result<Pager, OutputError> 
     Ok(pager)
 }
 
-pub fn handle_resolve(apt: &OmaApt, no_fixbroken: bool) -> Result<(), OutputError> {
-    if let Err(e) = apt.resolve(no_fixbroken) {
-        match e {
-            OmaAptError::DependencyIssue(ref u) => {
-                let mut pager = oma_display(false, u.len())?;
+pub fn handle_unmet_dep(u: &[UnmetDep]) -> Result<(), OutputError> {
+    let mut pager = oma_display(false, u.len())?;
+    let mut out = pager.get_writer().unwrap();
 
-                let mut out = pager.get_writer().unwrap();
+    writeln!(out, "{:<80}\n", style(fl!("dep-error")).on_red().bold()).ok();
+    writeln!(out, "{}\n", fl!("dep-error-desc"),).ok();
+    writeln!(out, "{}\n", fl!("contact-admin-tips")).ok();
+    writeln!(out, "    {}", style(fl!("how-to-abort")).bold()).ok();
+    writeln!(out, "    {}\n\n", style(fl!("how-to-op-with-x")).bold()).ok();
 
-                writeln!(out, "{:<80}\n", style(fl!("dep-error")).on_red().bold()).ok();
-                writeln!(out, "{}\n", fl!("dep-error-desc"),).ok();
-                writeln!(out, "{}\n", fl!("contact-admin-tips")).ok();
-                writeln!(out, "    {}", style(fl!("how-to-abort")).bold()).ok();
-                writeln!(out, "    {}\n\n", style(fl!("how-to-op-with-x")).bold()).ok();
+    let v = u.iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
 
-                let v = u.iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
+    writeln!(
+        out,
+        "{} {}{}\n",
+        fl!("unmet-dep-before", count = v.len()),
+        style(fl!("unmet-dep")).red().bold(),
+        fl!("colon")
+    )
+    .ok();
 
-                if v.is_empty() {
-                    return Err(OutputError::from(e));
-                }
+    let mut table = Table::new(v);
 
-                writeln!(
-                    out,
-                    "{} {}{}\n",
-                    fl!("unmet-dep-before", count = v.len()),
-                    style(fl!("unmet-dep")).red().bold(),
-                    fl!("colon")
-                )
-                .ok();
+    table
+        .with(Modify::new(Segment::all()).with(Alignment::left()))
+        .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
+        .with(Style::psql())
+        .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
-                let mut table = Table::new(v);
+    writeln!(out, "{table}\n").ok();
 
-                table
-                    .with(Modify::new(Segment::all()).with(Alignment::left()))
-                    .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
-                    .with(Style::psql())
-                    .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
-
-                writeln!(out, "{table}\n").ok();
-
-                drop(out);
-                pager.wait_for_exit()?;
-
-                return Err(OutputError::from(e));
-            }
-            e => return Err(e.into()),
-        }
-    }
+    drop(out);
+    pager.wait_for_exit()?;
 
     Ok(())
 }

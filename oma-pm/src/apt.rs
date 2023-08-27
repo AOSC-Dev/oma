@@ -446,6 +446,7 @@ impl OmaApt {
 
         // 寻找系统有哪些不必要的软件包
         if !no_autoremove {
+            self.resolve(false)?;
             self.autoremove(purge)?;
         }
 
@@ -460,6 +461,7 @@ impl OmaApt {
         for pkg in pkgs {
             if pkg.is_auto_removable() {
                 pkg.mark_delete(purge);
+                pkg.protect();
 
                 self.autoremove.push(pkg.name().to_string());
             }
@@ -986,6 +988,7 @@ fn mark_delete(
     }
 
     pkg.mark_delete(purge);
+    pkg.protect();
 
     Ok(true)
 }
