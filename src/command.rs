@@ -45,7 +45,7 @@ use crate::{
     error::OutputError,
     fl,
     history::{connect_db, list_history, write_history_entry, SummaryLog, SummaryType},
-    table::{handle_resolve, oma_display, table_for_install_pending, table_pending_inner},
+    table::{oma_display, table_for_install_pending, table_pending_inner},
     InstallArgs, RemoveArgs, UpgradeArgs, ALLOWCTRLC,
 };
 
@@ -172,7 +172,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
             return Ok(0);
         }
 
-        handle_resolve(&apt, false)?;
+        apt.resolve(false)?;
         apt.check_disk_size()?;
 
         if retry_times == 1 {
@@ -614,7 +614,7 @@ pub fn fix_broken(dry_run: bool, network_thread: usize) -> Result<i32> {
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
-    handle_resolve(&apt, false)?;
+    apt.resolve(false)?;
 
     normal_commit(
         apt,
@@ -1300,7 +1300,7 @@ fn normal_commit(
         return Ok(());
     }
 
-    handle_resolve(&apt, no_fixbroken)?;
+    apt.resolve(no_fixbroken)?;
     apt.check_disk_size()?;
 
     table_for_install_pending(
