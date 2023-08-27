@@ -186,7 +186,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
             .map(|x| x.version().to_string())
             .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
 
-        let is_base = entry.pkginfo.section == Some("Bases".to_string());
+        let is_base = entry.pkginfo.section.as_deref() == Some("Bases");
 
         search_res.push(SearchResult {
             name,
