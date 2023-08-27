@@ -176,7 +176,7 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
         apt.check_disk_size()?;
 
         if retry_times == 1 {
-            table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run, true)?;
+            table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run, !args.yes)?;
         }
 
         match apt.commit(None, &apt_args) {
@@ -1309,7 +1309,7 @@ fn normal_commit(
         &disk_size,
         !apt_args.yes(),
         dry_run,
-        true,
+        !apt_args.yes(),
     )?;
 
     let start_time = apt.commit(Some(network_thread), &apt_args)?;
