@@ -35,21 +35,15 @@ macro_rules! terminal_write {
 
 #[derive(Debug, Tabled)]
 struct InstallEntryDisplay {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Version")]
     version_delta: String,
-    #[tabled(rename = "Installed Size")]
     size_delta: String,
 }
 
 #[derive(Debug, Tabled)]
 struct RemoveEntryDisplay {
-    #[tabled(rename = "Name")]
     name: String,
-    #[tabled(rename = "Size")]
     size: String,
-    #[tabled(rename = "Details")]
     detail: String,
 }
 
@@ -325,7 +319,9 @@ pub fn table_pending_inner(
             .map(RemoveEntryDisplay::from)
             .collect::<Vec<_>>();
 
-        let mut table = Table::new(remove_display);
+        let mut table = Table::builder(&remove_display);
+        table.set_header(["Name", "Size", "Detail"]);
+        let mut table = table.build();
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -359,7 +355,7 @@ pub fn table_pending_inner(
                 fl!("colon")
             );
 
-            let mut table = Table::new(&install_e_display);
+            let mut table = install_table(install_e_display);
 
             table
                 .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -387,7 +383,7 @@ pub fn table_pending_inner(
                 fl!("colon")
             );
 
-            let mut table = Table::new(&update_display);
+            let mut table = install_table(update_display);
 
             table
                 .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -415,7 +411,7 @@ pub fn table_pending_inner(
                 fl!("colon")
             );
 
-            let mut table = Table::new(downgrade_display);
+            let mut table = install_table(downgrade_display);
 
             table
                 .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -443,7 +439,7 @@ pub fn table_pending_inner(
                 fl!("colon")
             );
 
-            let mut table = Table::new(reinstall_display);
+            let mut table = install_table(reinstall_display);
 
             table
                 .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -478,4 +474,16 @@ pub fn table_pending_inner(
     pager.wait_for_exit()?;
 
     Ok(())
+}
+
+fn install_table<I, T>(iter: I) -> Table
+where
+    T: Tabled,
+    I: IntoIterator<Item = T>,
+{
+    let mut table = Table::builder(iter);
+    table.set_header(["Name", "Version", "Installed size"]);
+    let table = table.build();
+
+    table
 }
