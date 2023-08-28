@@ -7,7 +7,7 @@ use oma_pm::apt::OmaOperation;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SummaryType {
     Install(Vec<String>),
     Upgrade(Vec<String>),
