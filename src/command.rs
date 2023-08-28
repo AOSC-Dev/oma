@@ -875,7 +875,7 @@ pub fn pkgnames(keyword: Option<&str>) -> Result<i32> {
 pub fn hisotry() -> Result<i32> {
     let conn = connect_db(false)?;
     let list = list_history(conn)?;
-    let display_list = format_summary_log(&list);
+    let display_list = format_summary_log(&list, false);
     let selected = dialoguer_select_history(display_list)?;
 
     let selected = &list[selected].0;
@@ -969,7 +969,7 @@ pub fn undo(network_thread: usize) -> Result<i32> {
 
     let conn = connect_db(false)?;
     let list = list_history(conn)?;
-    let display_list = format_summary_log(&list);
+    let display_list = format_summary_log(&list, true);
     let selected = dialoguer_select_history(display_list)?;
 
     let selected = &list[selected].0;
@@ -1043,9 +1043,16 @@ fn dialoguer_select_history(display_list: Vec<String>) -> Result<usize> {
     Ok(selected)
 }
 
-fn format_summary_log(list: &[(SummaryLog, String)]) -> Vec<String> {
+fn format_summary_log(list: &[(SummaryLog, String)], undo: bool) -> Vec<String> {
     let display_list = list
         .iter()
+        .filter(|(log, _)| {
+            if undo {
+                log.typ != SummaryType::FixBroken
+            } else {
+                true
+            }
+        })
         .map(|(log, date)| match &log.typ {
             SummaryType::Install(v) if v.len() > 3 => format!(
                 "Install {} {} {} ... (and {} more) [{date}]",
