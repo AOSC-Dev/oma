@@ -577,10 +577,10 @@ pub fn pick(pkg_str: &str, no_refresh: bool, dry_run: bool, network_thread: usiz
     let mut version_str_display = versions_str.clone();
     for (a, b) in v {
         let uri_a = versions[a].uris().next().unwrap();
-        version_str_display[a] = format!("{} (from: {})", versions_str[a], uri_a);
+        version_str_display[a] = format!("{} (from: {uri_a})", versions_str[a]);
 
         let uri_b = versions[b].uris().next().unwrap();
-        version_str_display[b] = format!("{} (from: {})", versions_str[b], uri_b);
+        version_str_display[b] = format!("{} (from: {uri_b})", versions_str[b]);
     }
 
     let theme = ColorfulTheme::default();

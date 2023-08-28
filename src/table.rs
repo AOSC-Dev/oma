@@ -453,6 +453,8 @@ pub fn table_pending_inner(
         HumanBytes(*abs_install_size_change)
     );
 
+    terminal_write!(out, stderr_output);
+
     drop(out);
     pager.wait_for_exit()?;
 
