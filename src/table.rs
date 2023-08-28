@@ -309,7 +309,6 @@ pub fn table_pending_inner(
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
-            .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
             .with(Style::psql())
             .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
 
