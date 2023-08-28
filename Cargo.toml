@@ -10,7 +10,7 @@ description = "Omakase (oma) - Package management interface for AOSC OS"
 # Cli
 clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color"] }
 once_cell = "1.18"
-nix = { version = "0.27", features = ["fs", "signal", "user"] }
+nix = { version = "0.27", features = ["signal", "user"] }
 anyhow = "1.0"
 ctrlc = "3.4"
 tabled = { version = "0.14", features = ["color"] }
