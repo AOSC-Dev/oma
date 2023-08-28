@@ -2089,7 +2089,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "memoffset",
- "pin-utils",
 ]
 
 [[package]]
@@ -2189,7 +2188,7 @@ dependencies = [
  "dialoguer",
  "i18n-embed",
  "i18n-embed-fl",
- "nix 0.26.4",
+ "nix 0.27.1",
  "oma-console",
  "oma-contents",
  "oma-fetch",
@@ -2325,7 +2324,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "futures",
- "nix 0.26.4",
  "oma-apt-sources-lists",
  "oma-console",
  "oma-debcontrol",
