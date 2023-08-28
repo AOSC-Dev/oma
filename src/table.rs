@@ -252,7 +252,7 @@ pub fn table_pending_inner(
 
     let _ = writeln!(out);
     let _ = writeln!(out, "{}\n", fl!("review-msg"));
-    let _ =writeln!(
+    let _ = writeln!(
         out,
         "{}\n",
         fl!(
