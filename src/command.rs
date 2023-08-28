@@ -270,9 +270,19 @@ pub fn download(keyword: Vec<&str>, path: Option<PathBuf>, dry_run: bool) -> Res
         error!("Have {} packages download failed.", failed.len());
     }
 
+    let path = path
+        .unwrap_or_else(|| PathBuf::from("."))
+        .canonicalize()?
+        .display()
+        .to_string();
+
     success!(
         "{}",
-        fl!("success-download-pkg", download_len = success.len())
+        fl!(
+            "successfully-download-to-path",
+            len = success.len(),
+            path = path
+        )
     );
 
     Ok(0)
