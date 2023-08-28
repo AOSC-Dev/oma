@@ -250,11 +250,10 @@ pub fn table_pending_inner(
         );
     }
 
-    terminal_write!(out, stderr_output);
-    terminal_write!(out, stderr_output, "{}\n", fl!("review-msg"));
-    terminal_write!(
+    let _ = writeln!(out);
+    let _ = writeln!(out, "{}\n", fl!("review-msg"));
+    let _ =writeln!(
         out,
-        stderr_output,
         "{}\n",
         fl!(
             "oma-may",
