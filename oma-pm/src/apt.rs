@@ -1097,15 +1097,15 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
     if let Some(installed) = pkg.installed() {
         if installed.version() == ver.version()
             && !reinstall
-            && installed.package_files().any(|x| {
+            && installed.package_files().any(|inst| {
                 ver.package_files()
-                    .any(|y| y.archive().ok() == x.archive().ok())
+                    .any(|ver| ver.archive().ok() == inst.archive().ok())
             })
         {
             return Ok(false);
         }
     } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
-        if ver.uris().next().is_none() {
+        if !ver.is_downloadable() {
             return Err(OmaAptError::MarkReinstallError(
                 pkg.name().to_string(),
                 ver.version().to_string(),
