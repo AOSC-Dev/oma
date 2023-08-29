@@ -446,6 +446,7 @@ impl OmaApt {
 
         // 寻找系统有哪些不必要的软件包
         if !no_autoremove {
+            // FIXME: 需要先计算依赖才知道后面多少软件包是不必要的
             self.resolve(false)?;
             self.autoremove(purge)?;
         }
@@ -979,7 +980,7 @@ fn mark_delete(
         if protect {
             return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
         } else if cli_output {
-            if !ask_user_do_as_i_say(&pkg)? {
+            if !ask_user_do_as_i_say(&pkg).unwrap_or(true) {
                 return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
             }
         } else {
@@ -1093,8 +1094,13 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
     let pkg = Package::new(cache, pkg);
     ver.set_candidate();
 
-    if pkg.installed().as_ref() == Some(&ver) && !reinstall {
-        return Ok(false);
+    if let Some(installed) = pkg.installed() {
+        if installed.version() == ver.version()
+            && !reinstall
+            && installed.uris().any(|x| ver.uris().any(|y| x == y))
+        {
+            return Ok(false);
+        }
     } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
         if ver.uris().next().is_none() {
             return Err(OmaAptError::MarkReinstallError(

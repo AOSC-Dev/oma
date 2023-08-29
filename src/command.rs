@@ -708,6 +708,8 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
         Box::new(filter_pkgs.filter(|x| pkgs.contains(&x.name().to_string())))
     };
 
+    let mut display_tips = (false, 0);
+
     for pkg in filter_pkgs {
         let name = pkg.name();
         let versions = if all {
@@ -724,7 +726,7 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
                     .len();
 
                 if other_version > 0 {
-                    info!("{}", fl!("additional-version", len = other_version));
+                    display_tips = (true, other_version);
                 }
             }
 
@@ -738,9 +740,17 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
 
             let pkg_files = version.package_files();
 
+            let mut installed = false;
+
             for pkg_file in pkg_files {
-                let branch = Cow::Owned(pkg_file.archive().unwrap_or("unknown").to_string());
-                branches.push(branch);
+                let branch = pkg_file.archive().unwrap_or("unknown").to_string();
+                branches.push(Cow::Owned(branch.clone()));
+
+                if let Some(inst) = pkg.installed() {
+                    let mut inst_pkg_files = inst.package_files();
+                    installed = inst_pkg_files.any(|x| x.archive().unwrap_or("") == &branch)
+                        && inst.version() == version.version();
+                }
             }
 
             if branches.is_empty() {
@@ -750,7 +760,7 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
             let branches = branches.join(",");
             let version_str = version.version();
             let arch = version.arch();
-            let installed = pkg.installed().as_ref() == Some(version);
+
             let upgradable = pkg.is_upgradable();
             let automatic = pkg.is_auto_installed();
 
@@ -779,6 +789,10 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
                 style(name).green().bold()
             );
         }
+    }
+
+    if display_tips.0 && pkgs.len() == 1 {
+        info!("{}", fl!("additional-version", len = display_tips.1));
     }
 
     Ok(0)
