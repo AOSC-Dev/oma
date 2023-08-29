@@ -1097,7 +1097,10 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
     if let Some(installed) = pkg.installed() {
         if installed.version() == ver.version()
             && !reinstall
-            && installed.uris().any(|x| ver.uris().any(|y| x == y))
+            && installed.package_files().any(|x| {
+                ver.package_files()
+                    .any(|y| y.archive().ok() == x.archive().ok())
+            })
         {
             return Ok(false);
         }
