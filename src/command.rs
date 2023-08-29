@@ -770,7 +770,7 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
                 s.push("installed");
             }
 
-            if upgradable {
+            if upgradable && installed {
                 s.push("upgradable");
             }
 
