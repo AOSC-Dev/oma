@@ -99,10 +99,22 @@ impl OmaAptInstallProgress {
         }
 
         if dpkg_force_confnew {
-            config.set("Dpkg::Options::", "--force-confnew");
+            let opts = config.get("Dpkg::Options::");
+            if let Some(opts) = opts {
+                config.set("Dpkg::Options::", &format!("{opts} --force-confnew"))
+            } else {
+                config.set("Dpkg::Options::", "--force-confnew")
+            }
+
             debug!("Dpkg::Options:: is set to --force-confnew");
         } else if yes {
-            config.set("Dpkg::Options::", "--force-confold");
+            let opts = config.get("Dpkg::Options::");
+            if let Some(opts) = opts {
+                config.set("Dpkg::Options::", &format!("{opts} --force-confold"))
+            } else {
+                config.set("Dpkg::Options::", "--force-confold")
+            }
+
             debug!("Dpkg::Options:: is set to --force-confold");
         }
 
@@ -114,7 +126,12 @@ impl OmaAptInstallProgress {
 
         if dpkg_force_all {
             // warn!("{}", fl!("dpkg-force-all-mode"));
-            config.set("Dpkg::Options::", "--force-all");
+            let opts = config.get("Dpkg::Options::");
+            if let Some(opts) = opts {
+                config.set("Dpkg::Options::", &format!("{opts} --force-all"))
+            } else {
+                config.set("Dpkg::Options::", "--force-all")
+            }
             debug!("Dpkg::Options:: is set to --force-all");
         }
 
