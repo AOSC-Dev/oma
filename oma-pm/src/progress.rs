@@ -137,8 +137,7 @@ impl OmaAptInstallProgress {
 
         if !is_terminal() {
             std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
-
-            config.set("Dpkg::Use-Pty", "false")
+            config.set("Dpkg::Use-Pty", "false");
         }
 
         Self { config }

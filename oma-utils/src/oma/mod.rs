@@ -1,3 +1,4 @@
+use oma_console::is_terminal;
 use once_cell::sync::Lazy;
 use std::path::PathBuf;
 
@@ -25,5 +26,9 @@ pub fn unlock_oma() -> IOResult<()> {
 
 /// terminal bell character
 pub fn terminal_ring() {
+    if !is_terminal() {
+        return;
+    }
+
     eprint!("\x07"); // bell character
 }
