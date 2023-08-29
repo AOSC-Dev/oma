@@ -748,7 +748,8 @@ pub fn list(all: bool, installed: bool, upgradable: bool, pkgs: Vec<String>) -> 
 
                 if let Some(inst) = pkg.installed() {
                     let mut inst_pkg_files = inst.package_files();
-                    installed = inst_pkg_files.any(|x| x.archive().unwrap_or("") == &branch)
+                    installed = inst_pkg_files
+                        .any(|x| x.archive().map(|x| x == branch).unwrap_or(false))
                         && inst.version() == version.version();
                 }
             }
