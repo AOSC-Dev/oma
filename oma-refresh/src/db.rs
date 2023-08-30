@@ -426,12 +426,10 @@ async fn update_db(
                         handle.push(i);
                         total += i.size;
                     }
-                    DistFileType::Contents | DistFileType::PackageList => {
-                        if arch == "mips64r6el" {
-                            debug!("oma will download Package List/Contetns: {}", i.name);
-                            handle.push(i);
-                            total += i.size;
-                        }
+                    DistFileType::Contents | DistFileType::PackageList if arch == "mips64r6el" => {
+                        debug!("oma will download Package List/Contetns: {}", i.name);
+                        handle.push(i);
+                        total += i.size;
                     }
                     DistFileType::CompressContents(_) | DistFileType::CompressPackageList(_) => {
                         if arch != "mips64r6el" {
