@@ -12,7 +12,7 @@ pub struct InReleaseParser {
     pub checksums: Vec<ChecksumItem>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChecksumItem {
     pub name: String,
     pub size: u64,
@@ -20,13 +20,13 @@ pub struct ChecksumItem {
     pub file_type: DistFileType,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum DistFileType {
     BinaryContents,
     Contents,
-    CompressContents,
+    CompressContents(String),
     PackageList,
-    CompressPackageList,
+    CompressPackageList(String),
     Release,
 }
 
@@ -152,10 +152,14 @@ impl InReleaseParser {
         for i in c {
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
-                x if x.contains("/Contents-") && x.contains('.') => DistFileType::CompressContents,
+                x if x.contains("/Contents-") && x.contains('.') => {
+                    DistFileType::CompressContents(x.split_once('.').unwrap().0.to_string())
+                }
                 x if x.contains("/Contents-") && !x.contains('.') => DistFileType::Contents,
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
-                x if x.contains("Packages") && x.contains('.') => DistFileType::CompressPackageList,
+                x if x.contains("Packages") && x.contains('.') => {
+                    DistFileType::CompressPackageList(x.split_once('.').unwrap().0.to_string())
+                }
                 x if x.contains("Release") => DistFileType::Release,
                 _ => {
                     return Err(InReleaseParserError::UnsupportFileType);

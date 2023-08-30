@@ -433,15 +433,30 @@ async fn update_db(
                             total += i.size;
                         }
                     }
-                    DistFileType::CompressContents | DistFileType::CompressPackageList => {
+                    DistFileType::CompressContents(_) => {
                         if arch != "mips64r6el" {
                             debug!(
                                 "oma will download compress Package List/compress Contetns: {}",
                                 i.name
                             );
 
-                            handle.push(i);
-                            total += i.size;
+                            if !handle.contains(&i) {
+                                handle.push(i);
+                                total += i.size;
+                            }
+                        }
+                    }
+                    DistFileType::CompressPackageList(_) => {
+                        if arch != "mips64r6el" {
+                            debug!(
+                                "oma will download compress Package List/compress Contetns: {}",
+                                i.name
+                            );
+
+                            if !handle.contains(&i) {
+                                handle.push(i);
+                                total += i.size;
+                            }
                         }
                     }
                     _ => continue,
@@ -459,8 +474,8 @@ async fn update_db(
             let source_index = sourceslist.get(inrelease_summary.count).unwrap();
 
             let typ = match c.file_type {
-                DistFileType::CompressContents => "Contents",
-                DistFileType::CompressPackageList | DistFileType::PackageList => "Package List",
+                DistFileType::CompressContents(_) => "Contents",
+                DistFileType::CompressPackageList(_) | DistFileType::PackageList => "Package List",
                 DistFileType::BinaryContents => "BinContents",
                 _ => unreachable!(),
             };
@@ -471,7 +486,7 @@ async fn update_db(
                 OmaSourceEntryFrom::Http => {
                     let dist_url = source_index.dist_path.clone();
 
-                    let file_path = if c.file_type == DistFileType::CompressContents {
+                    let file_path = if matches!(c.file_type, DistFileType::CompressContents(_)) {
                         format!("{}/{}", dist_url, c.name)
                     } else {
                         format!("{}/{}", dist_url, not_compress_filename_before)
@@ -482,7 +497,7 @@ async fn update_db(
                         DownloadSourceType::Http,
                     )];
 
-                    let checksum = if c.file_type == DistFileType::CompressContents {
+                    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
                         &c.checksum
                     } else {
                         &checksums
@@ -499,7 +514,7 @@ async fn update_db(
                         .hash(checksum)
                         .allow_resume(false)
                         .msg(format!("{msg} {typ}"))
-                        .extract(c.file_type != DistFileType::CompressContents)
+                        .extract(!matches!(c.file_type, DistFileType::CompressContents(_)))
                         .build()?;
 
                     debug!("oma will download http source database: {file_path}");
@@ -514,7 +529,7 @@ async fn update_db(
                         c.name
                     );
 
-                    let file_path = if c.file_type == DistFileType::CompressContents {
+                    let file_path = if matches!(c.file_type, DistFileType::CompressContents(_)) {
                         format!("{dist_url}/{}", c.name)
                     } else {
                         format!("{dist_url}/{}", not_compress_filename_before)
@@ -525,7 +540,7 @@ async fn update_db(
                         DownloadSourceType::Local,
                     )];
 
-                    let checksum = if c.file_type == DistFileType::CompressContents {
+                    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
                         &c.checksum
                     } else {
                         &checksums
@@ -542,7 +557,7 @@ async fn update_db(
                         .hash(checksum)
                         .allow_resume(false)
                         .msg(format!("{msg} {typ}"))
-                        .extract(c.file_type != DistFileType::CompressContents)
+                        .extract(matches!(c.file_type, DistFileType::CompressContents(_)))
                         .build()?;
 
                     tasks.push(task);
