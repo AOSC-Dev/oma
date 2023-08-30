@@ -452,16 +452,14 @@ async fn update_db(
         };
 
         for c in handle {
-            let mut p_not_compress = Path::new(&c.name).to_path_buf();
-            p_not_compress.set_extension("");
-            let not_compress_filename_before = p_not_compress.to_string_lossy().to_string();
-
             let source_index = sourceslist.get(inrelease_summary.count).unwrap();
 
-            let typ = match c.file_type {
-                DistFileType::CompressContents(_) => "Contents",
-                DistFileType::CompressPackageList(_) | DistFileType::PackageList => "Package List",
-                DistFileType::BinaryContents => "BinContents",
+            let (typ, not_compress_filename_before) = match &c.file_type {
+                DistFileType::CompressContents(s) => ("Contents", s),
+                DistFileType::Contents => ("Contents", &c.name),
+                DistFileType::CompressPackageList(s) => ("Package List", s),
+                DistFileType::PackageList => ("Package List", &c.name),
+                DistFileType::BinaryContents => ("BinContents", &c.name),
                 _ => unreachable!(),
             };
 
@@ -487,7 +485,7 @@ async fn update_db(
                     } else {
                         &checksums
                             .iter()
-                            .find(|x| x.name == not_compress_filename_before)
+                            .find(|x| &x.name == not_compress_filename_before)
                             .unwrap()
                             .checksum
                     };
@@ -530,7 +528,7 @@ async fn update_db(
                     } else {
                         &checksums
                             .iter()
-                            .find(|x| x.name == not_compress_filename_before)
+                            .find(|x| &x.name == not_compress_filename_before)
                             .unwrap()
                             .checksum
                     };
