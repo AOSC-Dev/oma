@@ -5,14 +5,10 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-// use console::style;
 use grep::{
     regex::RegexMatcherBuilder,
     searcher::{sinks::UTF8, Searcher},
 };
-
-// use crate::{db::APT_LIST_DISTS, download::oma_spinner, fl, info, warn, ARCH};
-// use std::sync::atomic::Ordering;
 
 use serde::Deserialize;
 
@@ -124,24 +120,24 @@ where
         {
             if i.file_name()
                 .to_str()
-                .unwrap_or("")
-                .contains(&format!("Contents-{arch}"))
+                .map(|x| x.contains(&format!("Contents-{arch}")))
+                .unwrap_or(false)
                 || i.file_name()
                     .to_str()
-                    .unwrap_or("")
-                    .contains("_Contents-all")
+                    .map(|x| x.contains("_Contents-all"))
+                    .unwrap_or(false)
             {
                 paths.push(i.path());
             }
         } else if i
             .file_name()
             .to_str()
-            .unwrap_or("")
-            .contains(&format!("_BinContents-{arch}"))
+            .map(|x| x.ends_with(&format!("_BinContents-{arch}")))
+            .unwrap_or(false)
             || i.file_name()
                 .to_str()
-                .unwrap_or("")
-                .contains("_BinContents-all")
+                .map(|x| x.ends_with(&format!("_BinContents-all")))
+                .unwrap_or(false)
         {
             paths.push(i.path());
         }
@@ -174,13 +170,19 @@ where
     let mut res = if which::which("rg").is_ok() {
         let mut res = vec![];
 
-        let mut cmd = Command::new("rg")
-            .arg("--json")
-            .arg("-e")
-            .arg(pattern)
-            .args(&paths)
-            .arg("--search-zip")
-            .stdout(Stdio::piped())
+        let mut cmd = Command::new("rg");
+        cmd.arg("--json");
+        cmd.arg("-e");
+        cmd.arg(pattern);
+        cmd.args(&paths);
+
+        if arch != "mips64elr6" {
+            cmd.arg("--search-zip");
+        }
+
+        cmd.stdout(Stdio::piped());
+
+        let mut cmd = cmd
             .spawn()
             .map_err(|e| OmaContentsError::ExecuteRgFailed(e.to_string()))?;
 
