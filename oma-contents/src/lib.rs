@@ -136,7 +136,7 @@ where
             .unwrap_or(false)
             || i.file_name()
                 .to_str()
-                .map(|x| x.ends_with(&format!("_BinContents-all")))
+                .map(|x| x.ends_with("_BinContents-all"))
                 .unwrap_or(false)
         {
             paths.push(i.path());
@@ -323,9 +323,7 @@ where
 /// Parse contents line
 fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
     let contents_white = " ".repeat(3);
-    let mut split = line.split(&contents_white);
-    let file = split.next()?;
-    let pkg_group = split.next()?;
+    let (file, pkg_group) = line.split_once(&contents_white)?;
     let split_group = pkg_group.split(',').collect::<Vec<_>>();
 
     // 比如 / admin/apt-file,admin/apt,...
