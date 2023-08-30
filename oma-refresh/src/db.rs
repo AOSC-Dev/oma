@@ -433,20 +433,7 @@ async fn update_db(
                             total += i.size;
                         }
                     }
-                    DistFileType::CompressContents(_) => {
-                        if arch != "mips64r6el" {
-                            debug!(
-                                "oma will download compress Package List/compress Contetns: {}",
-                                i.name
-                            );
-
-                            if !handle.contains(&i) {
-                                handle.push(i);
-                                total += i.size;
-                            }
-                        }
-                    }
-                    DistFileType::CompressPackageList(_) => {
+                    DistFileType::CompressContents(_) | DistFileType::CompressPackageList(_) => {
                         if arch != "mips64r6el" {
                             debug!(
                                 "oma will download compress Package List/compress Contetns: {}",
