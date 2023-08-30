@@ -428,11 +428,13 @@ pub fn find(x: &str, is_bin: bool, pkg: &str) -> Result<i32> {
         _ => unreachable!(),
     };
 
+    let arch = dpkg_arch()?;
+
     let res = oma_contents::find(
         pkg,
         query_mode,
         Path::new("/var/lib/apt/lists"),
-        &dpkg_arch()?,
+        &arch,
         move |c| match c {
             ContentsEvent::Progress(c) => {
                 pb.set_message(fl!("search-with-result-count", count = c))
@@ -455,6 +457,7 @@ pub fn find(x: &str, is_bin: bool, pkg: &str) -> Result<i32> {
             }
             ContentsEvent::Done => pb.finish_and_clear(),
         },
+        arch != "mips64r6el",
     )?;
 
     let mut pager = oma_display(false, res.len())?;
@@ -649,13 +652,16 @@ pub fn fix_broken(dry_run: bool, network_thread: usize) -> Result<i32> {
 }
 
 pub fn command_not_found(pkg: &str) -> Result<i32> {
+    let arch = dpkg_arch()?;
     let res = oma_contents::find(
         pkg,
         QueryMode::CommandNotFound,
         Path::new("/var/lib/apt/lists"),
-        &dpkg_arch()?,
+        &arch,
         |_| {},
+        arch != "mips64r6el",
     );
+
     match res {
         Ok(res) if res.is_empty() => {
             error!("{}", fl!("command-not-found", kw = pkg));
