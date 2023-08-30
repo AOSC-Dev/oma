@@ -21,6 +21,7 @@ fn main() {
             ContentsEvent::ContentsMayNotBeAccurate => pb.println("ContentsMayNotBeAccurate"),
             ContentsEvent::Done => pb.finish_and_clear(),
         },
+        true,
     );
 
     dbg!(r.unwrap());

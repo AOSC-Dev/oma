@@ -92,6 +92,7 @@ pub fn find<F>(
     dist_dir: &Path,
     arch: &str,
     callback: F,
+    search_zip: bool,
 ) -> Result<Vec<(String, String)>>
 where
     F: Fn(ContentsEvent) + Send + Clone + 'static,
@@ -114,6 +115,7 @@ where
     let dir = std::fs::read_dir(dist_dir)?;
     let mut paths = Vec::new();
     for i in dir.flatten() {
+        #[cfg(feature = "aosc")]
         if query_mode != QueryMode::CommandNotFound
             && query_mode != QueryMode::ListFiles(true)
             && query_mode != QueryMode::Provides(true)
@@ -140,6 +142,20 @@ where
                 .unwrap_or(false)
         {
             paths.push(i.path());
+        }
+        #[cfg(not(feature = "aosc"))]
+        {
+            if i.file_name()
+                .to_str()
+                .map(|x| x.contains(&format!("Contents-{arch}")))
+                .unwrap_or(false)
+                || i.file_name()
+                    .to_str()
+                    .map(|x| x.contains("_Contents-all"))
+                    .unwrap_or(false)
+            {
+                paths.push(i.path());
+            }
         }
     }
 
@@ -176,7 +192,7 @@ where
         cmd.arg(pattern);
         cmd.args(&paths);
 
-        if arch != "mips64elr6" {
+        if search_zip {
             cmd.arg("--search-zip");
         }
 
@@ -238,6 +254,17 @@ where
                                 ) {
                                     if query_mode == QueryMode::CommandNotFound {
                                         let last = l.1.split_whitespace().last();
+                                        if !cfg!(feature = "aosc") {
+                                            if last
+                                                .map(|x| {
+                                                    !x.contains("/usr/bin")
+                                                        && !x.contains("/usr/sbin")
+                                                })
+                                                .unwrap_or(true)
+                                            {
+                                                continue;
+                                            }
+                                        }
                                         let bin_name = last
                                             .and_then(|x| x.split('/').last())
                                             .ok_or_else(|| {
