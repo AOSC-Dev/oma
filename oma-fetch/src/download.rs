@@ -92,7 +92,7 @@ async fn try_http_download(
                             .writeln_with_pb(
                                 &gpb,
                                 &style("WARNING").yellow().bold().to_string(),
-                                "Download Error: {e:?}, retrying {times} times ...",
+                                &format!("Download Error: {e:?}, retrying {times} times ..."),
                             )
                             .ok();
                     } else {
