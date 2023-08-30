@@ -144,18 +144,16 @@ where
             paths.push(i.path());
         }
         #[cfg(not(feature = "aosc"))]
-        {
-            if i.file_name()
+        if i.file_name()
+            .to_str()
+            .map(|x| x.contains(&format!("Contents-{arch}")))
+            .unwrap_or(false)
+            || i.file_name()
                 .to_str()
-                .map(|x| x.contains(&format!("Contents-{arch}")))
+                .map(|x| x.contains("_Contents-all"))
                 .unwrap_or(false)
-                || i.file_name()
-                    .to_str()
-                    .map(|x| x.contains("_Contents-all"))
-                    .unwrap_or(false)
-            {
-                paths.push(i.path());
-            }
+        {
+            paths.push(i.path());
         }
     }
 
@@ -254,16 +252,15 @@ where
                                 ) {
                                     if query_mode == QueryMode::CommandNotFound {
                                         let last = l.1.split_whitespace().last();
-                                        if !cfg!(feature = "aosc") {
-                                            if last
+                                        if !cfg!(feature = "aosc")
+                                            && last
                                                 .map(|x| {
                                                     !x.contains("/usr/bin")
                                                         && !x.contains("/usr/sbin")
                                                 })
                                                 .unwrap_or(true)
-                                            {
-                                                continue;
-                                            }
+                                        {
+                                            continue;
                                         }
                                         let bin_name = last
                                             .and_then(|x| x.split('/').last())
