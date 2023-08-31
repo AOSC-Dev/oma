@@ -348,7 +348,13 @@ pub fn search(args: &[String]) -> Result<i32> {
         .to_string();
 
         writeln!(writer, "{}{}", gen_prefix(&prefix, 10), pkg_info_line).ok();
-        writeln!(writer, "{}{}", gen_prefix("", 10), style(i.desc).color256(182)).ok();
+        writeln!(
+            writer,
+            "{}{}",
+            gen_prefix("", 10),
+            style(i.desc).color256(182)
+        )
+        .ok();
     }
 
     drop(writer);
