@@ -310,7 +310,7 @@ pub fn search(args: &[String]) -> Result<i32> {
         let mut pkg_info_line = if i.is_base {
             style(&i.name).bold().color256(141).to_string()
         } else {
-            style(&i.name).bold().color256(149).to_string()
+            style(&i.name).bold().color256(148).to_string()
         };
 
         pkg_info_line.push(' ');
@@ -318,8 +318,8 @@ pub fn search(args: &[String]) -> Result<i32> {
         if i.status == PackageStatus::Upgrade {
             pkg_info_line.push_str(&format!(
                 "{} -> {}",
-                style(i.old_version.unwrap()).yellow(),
-                style(&i.new_version).green()
+                style(i.old_version.unwrap()).color256(214),
+                style(&i.new_version).color256(114)
             ));
         } else {
             pkg_info_line.push_str(&style(&i.new_version).color256(114).to_string());
@@ -343,7 +343,7 @@ pub fn search(args: &[String]) -> Result<i32> {
         let prefix = match i.status {
             PackageStatus::Avail => style(fl!("pkg-search-avail")).dim(),
             PackageStatus::Installed => style(fl!("pkg-search-installed")).color256(72),
-            PackageStatus::Upgrade => style(fl!("pkg-search-upgrade")).yellow(),
+            PackageStatus::Upgrade => style(fl!("pkg-search-upgrade")).color256(214),
         }
         .to_string();
 
