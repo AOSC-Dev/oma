@@ -11,6 +11,7 @@ use reqwest::{Client, ClientBuilder};
 
 pub mod checksum;
 mod download;
+mod lang;
 
 use download::try_download;
 

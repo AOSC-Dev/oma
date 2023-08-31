@@ -1,3 +1,4 @@
+use crate::fl;
 use std::{io::SeekFrom, path::Path};
 
 use async_compression::tokio::write::{GzipDecoder as WGzipDecoder, XzDecoder as WXzDecoder};
@@ -58,7 +59,7 @@ pub(crate) async fn try_download(
             }
             Err(e) => {
                 err = Some(e.to_string());
-                error!("Download failed: {e}, trying next mirror ...");
+                error!("{}", fl!("can-not-get-source-next-url", e = e.to_string()));
             }
         }
     }
@@ -83,7 +84,7 @@ async fn try_http_download(
                 return Ok(s);
             }
             Err(e) => match e {
-                DownloadError::ChecksumMisMatch(_, _) | DownloadError::ReqwestError(_) => {
+                DownloadError::ChecksumMisMatch(ref filename, _) => {
                     if retry_times == times {
                         return Err(e);
                     }
@@ -92,11 +93,22 @@ async fn try_http_download(
                             .writeln_with_pb(
                                 &gpb,
                                 &style("WARNING").yellow().bold().to_string(),
-                                &format!("Download Error: {e:?}, retrying {times} times ..."),
+                                &fl!(
+                                    "checksum-mismatch-retry",
+                                    c = filename.to_string(),
+                                    retry = times
+                                ),
                             )
                             .ok();
                     } else {
-                        warn!("Download Error: {e:?}, retrying {times} times ...");
+                        warn!(
+                            "{}",
+                            fl!(
+                                "checksum-mismatch-retry",
+                                c = filename.to_string(),
+                                retry = times
+                            )
+                        );
                     }
                     times += 1;
                 }

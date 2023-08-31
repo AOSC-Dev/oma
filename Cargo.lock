@@ -2248,12 +2248,17 @@ dependencies = [
  "derive_builder",
  "futures",
  "hex",
+ "i18n-embed",
+ "i18n-embed-fl",
  "oma-console",
+ "once_cell",
  "reqwest",
+ "rust-embed",
  "serde",
  "sha2",
  "thiserror",
  "tokio",
+ "unic-langid",
 ]
 
 [[package]]
