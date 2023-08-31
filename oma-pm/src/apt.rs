@@ -323,6 +323,10 @@ impl OmaApt {
         let mut no_marked_install = vec![];
         for pkg in pkgs {
             let marked_install = mark_install(&self.cache, pkg, reinstall)?;
+            debug!(
+                "Pkg {} marked_install: {marked_install}",
+                pkg.raw_pkg.name()
+            );
             if !marked_install {
                 no_marked_install.push((
                     pkg.raw_pkg.name().to_string(),
@@ -1075,6 +1079,10 @@ fn select_pkg(
             x => db.query_from_glob(x, filter_candidate, select_dbg)?,
         };
 
+        for i in &res {
+            debug!("{i}\n");
+        }
+
         if res.is_empty() {
             no_result.push(keyword.to_string());
             continue;
@@ -1103,22 +1111,26 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
             })
         {
             return Ok(false);
+        } else if installed.version() == ver.version() {
+            if !ver.is_downloadable() {
+                return Err(OmaAptError::MarkReinstallError(
+                    pkg.name().to_string(),
+                    ver.version().to_string(),
+                ));
+            }
+
+            return Ok(pkg.mark_reinstall(true));
         }
-    } else if pkg.installed().as_ref() == Some(&ver) && reinstall {
-        if !ver.is_downloadable() {
-            return Err(OmaAptError::MarkReinstallError(
-                pkg.name().to_string(),
-                ver.version().to_string(),
-            ));
-        }
-        pkg.mark_reinstall(true);
-    } else {
-        pkg.mark_install(true, true);
-        if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
-            // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-            let v = find_unmet_deps_with_markinstall(cache, &ver);
-            return Err(OmaAptError::DependencyIssue(v));
-        }
+    }
+
+    pkg.mark_install(true, true);
+    debug!("marked_install: {}", pkg.marked_install());
+    debug!("marked_downgrade: {}", pkg.marked_downgrade());
+    debug!("marked_upgrade: {}", pkg.marked_upgrade());
+    if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
+        // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
+        let v = find_unmet_deps_with_markinstall(cache, &ver);
+        return Err(OmaAptError::DependencyIssue(v));
     }
 
     debug!("{} will marked install", pkg.name());
