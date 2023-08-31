@@ -310,7 +310,7 @@ pub fn search(args: &[String]) -> Result<i32> {
         let mut pkg_info_line = if i.is_base {
             style(&i.name).bold().color256(141).to_string()
         } else {
-            style(&i.name).bold().color256(192).to_string()
+            style(&i.name).bold().color256(149).to_string()
         };
 
         pkg_info_line.push(' ');
@@ -322,7 +322,7 @@ pub fn search(args: &[String]) -> Result<i32> {
                 style(&i.new_version).green()
             ));
         } else {
-            pkg_info_line.push_str(&style(&i.new_version).color256(158).to_string());
+            pkg_info_line.push_str(&style(&i.new_version).color256(114).to_string());
         }
 
         if i.dbg_package {
@@ -342,13 +342,13 @@ pub fn search(args: &[String]) -> Result<i32> {
 
         let prefix = match i.status {
             PackageStatus::Avail => style(fl!("pkg-search-avail")).dim(),
-            PackageStatus::Installed => style(fl!("pkg-search-installed")).color256(120),
+            PackageStatus::Installed => style(fl!("pkg-search-installed")).color256(72),
             PackageStatus::Upgrade => style(fl!("pkg-search-upgrade")).yellow(),
         }
         .to_string();
 
         writeln!(writer, "{}{}", gen_prefix(&prefix, 10), pkg_info_line).ok();
-        writeln!(writer, "{}{}", gen_prefix("", 10), style(i.desc).color256(189)).ok();
+        writeln!(writer, "{}{}", gen_prefix("", 10), style(i.desc).color256(182)).ok();
     }
 
     drop(writer);
