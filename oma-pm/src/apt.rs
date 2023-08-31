@@ -1119,7 +1119,9 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
                 ));
             }
 
-            return Ok(pkg.mark_reinstall(true));
+            let is_marked = pkg.mark_reinstall(true);
+            pkg.protect();
+            return Ok(is_marked);
         }
     }
 
