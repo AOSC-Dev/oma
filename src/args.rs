@@ -104,6 +104,7 @@ pub fn command_builder() -> Command {
                         .long("install-recommends")
                         .help("Install recommended packages(s)")
                         .requires("packages")
+                        .conflicts_with("no_install_recommends")
                         .action(ArgAction::SetTrue)
                 )
                 .arg(
@@ -112,6 +113,7 @@ pub fn command_builder() -> Command {
                         .help("Install suggested package(s)")
                         .requires("packages")
                         .action(ArgAction::SetTrue)
+                        .conflicts_with("no_install_suggests")
                 )
                 .arg(Arg::new("no_install_recommends").long("no-install-recommends").requires("packages").help("Do not install recommend package(s)").conflicts_with("install_recommends").action(ArgAction::SetTrue))
                 .arg(Arg::new("no_install_suggests").long("no-install-suggests").requires("packages").help("Do not install recommend package(s)").conflicts_with("install_suggests").action(ArgAction::SetTrue))
