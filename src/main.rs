@@ -112,8 +112,24 @@ fn try_main() -> Result<i32> {
         Some(Ok(Some(true)))
     );
 
+    // --no-color option
+    if matches.get_flag("no_color")
+        || matches!(
+            matches.subcommand().map(|(_, x)| x.try_get_one("no_color")),
+            Some(Ok(Some(true)))
+        )
+    {
+        std::env::set_var("NO_COLOR", "");
+    }
+
     // Init debug flag
-    if matches.get_flag("debug") || dry_run {
+    if matches.get_flag("debug")
+        || matches!(
+            matches.subcommand().map(|(_, x)| x.try_get_one("debug")),
+            Some(Ok(Some(true)))
+        )
+        || dry_run
+    {
         DEBUG.store(true, Ordering::Relaxed);
     }
 
