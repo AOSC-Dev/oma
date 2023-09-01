@@ -254,11 +254,10 @@ impl OmaApt {
         } else if args.no_install_recommends {
             false
         } else {
-            match config.get("APT::Install-Recommends").as_deref() {
-                Some("true") => true,
-                Some("false") => false,
-                _ => true,
-            }
+            config
+                .get("APT::Install-Recommends")
+                .map(|x| x == "true")
+                .unwrap_or(true)
         };
 
         let install_suggests = if args.install_suggests {
@@ -266,31 +265,16 @@ impl OmaApt {
         } else if args.no_install_suggests {
             false
         } else {
-            match config.get("APT::Install-Suggests").as_deref() {
-                Some("true") => true,
-                Some("false") => false,
-                _ => false,
-            }
+            config
+                .get("APT::Install-Suggests")
+                .map(|x| x == "true")
+                .unwrap_or(false)
         };
 
-        config.set(
-            "APT::Install-Recommends",
-            match install_recommend {
-                true => "true",
-                false => "false",
-            },
-        );
-
+        config.set("APT::Install-Recommends", &install_recommend.to_string());
         debug!("APT::Install-Recommends is set to {install_recommend}");
 
-        config.set(
-            "APT::Install-Suggests",
-            match install_suggests {
-                true => "true",
-                false => "false",
-            },
-        );
-
+        config.set("APT::Install-Suggests", &install_suggests.to_string());
         debug!("APT::Install-Suggests is set to {install_suggests}");
 
         Ok(config)
