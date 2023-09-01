@@ -562,7 +562,7 @@ pub fn pick(pkg_str: &str, no_refresh: bool, dry_run: bool, network_thread: usiz
     let pkg = apt
         .cache
         .get(pkg_str)
-        .ok_or_else(|| anyhow!(fl!("can-not-get-pkg-from-database", name = pkg_str.clone())))?;
+        .ok_or_else(|| anyhow!(fl!("can-not-get-pkg-from-database", name = pkg_str)))?;
 
     let versions = pkg.versions().collect::<Vec<_>>();
     let versions_str = versions
