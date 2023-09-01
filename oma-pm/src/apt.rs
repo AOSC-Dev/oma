@@ -583,16 +583,11 @@ impl OmaApt {
 
         if !no_fixbroken {
             self.cache.fix_broken();
+        }
 
-            if self.cache.resolve(!no_fixbroken).is_err() {
-                let unmet = find_unmet_deps(&self.cache)?;
-                return Err(OmaAptError::DependencyIssue(unmet));
-            }
-        } else {
-            if self.cache.resolve(!no_fixbroken).is_err() {
-                let unmet = find_unmet_deps(&self.cache)?;
-                return Err(OmaAptError::DependencyIssue(unmet));
-            }
+        if self.cache.resolve(!no_fixbroken).is_err() {
+            let unmet = find_unmet_deps(&self.cache)?;
+            return Err(OmaAptError::DependencyIssue(unmet));
         }
 
         Ok(())
