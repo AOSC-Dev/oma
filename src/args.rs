@@ -60,6 +60,13 @@ pub fn command_builder() -> Command {
                 .global(true)
         )
         .arg(
+            Arg::new("no_color")
+                .long("no-color")
+                .help("No color output to result")
+                .action(ArgAction::SetTrue)
+                .global(true)
+        )
+        .arg(
             Arg::new("ailurus")
                 .long("ailurus")
                 .action(ArgAction::Count)
