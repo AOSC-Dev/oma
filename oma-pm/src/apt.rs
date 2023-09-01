@@ -575,25 +575,20 @@ impl OmaApt {
 
     /// Resolve apt dependencies
     pub fn resolve(&self, no_fixbroken: bool) -> OmaAptResult<()> {
-        if self.cache.resolve(!no_fixbroken).is_err() {
-            let unmet = find_unmet_deps(&self.cache)?;
-            return Err(OmaAptError::DependencyIssue(unmet));
-        }
-
         let need_fix = self.check_broken()?;
 
         if no_fixbroken && need_fix {
             warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
         }
 
-        if self.cache.resolve(!no_fixbroken).is_err() {
-            let unmet = find_unmet_deps(&self.cache)?;
-            return Err(OmaAptError::DependencyIssue(unmet));
-        }
-
         if !no_fixbroken {
             self.cache.fix_broken();
 
+            if self.cache.resolve(!no_fixbroken).is_err() {
+                let unmet = find_unmet_deps(&self.cache)?;
+                return Err(OmaAptError::DependencyIssue(unmet));
+            }
+        } else {
             if self.cache.resolve(!no_fixbroken).is_err() {
                 let unmet = find_unmet_deps(&self.cache)?;
                 return Err(OmaAptError::DependencyIssue(unmet));
