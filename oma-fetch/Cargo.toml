@@ -18,6 +18,7 @@ futures = "0.3"
 oma-console = { version = "^0.1.1", path = "../oma-console" }
 derive_builder = "0.12"
 async-compression = { version = "0.4", features = ["tokio", "gzip", "xz"] }
+oma-utils = { version = "^0.1", features = ["url-no-escape"] }
 
 # i18n
 i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"]}

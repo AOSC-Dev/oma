@@ -2163,14 +2163,14 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "nix 0.27.1",
- "oma-console",
+ "oma-console 0.1.1",
  "oma-contents",
  "oma-fetch",
  "oma-inquire",
  "oma-pm",
  "oma-refresh",
  "oma-topics",
- "oma-utils",
+ "oma-utils 0.1.5",
  "once_cell",
  "rusqlite",
  "rust-embed",
@@ -2215,13 +2215,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-console"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8652b5a55de61e25b197ae023d72604e7ceb6b854f8f058414c8e125affd9e2e"
+dependencies = [
+ "console",
+ "dialoguer",
+ "indicatif",
+ "once_cell",
+ "thiserror",
+]
+
+[[package]]
 name = "oma-contents"
 version = "0.1.1"
 dependencies = [
  "chrono",
  "grep",
  "indicatif",
- "oma-utils",
+ "oma-utils 0.1.5",
  "regex",
  "serde",
  "serde_json",
@@ -2249,7 +2262,8 @@ dependencies = [
  "hex",
  "i18n-embed",
  "i18n-embed-fl",
- "oma-console",
+ "oma-console 0.1.1",
+ "oma-utils 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell",
  "reqwest",
  "rust-embed",
@@ -2287,9 +2301,9 @@ dependencies = [
  "glob-match",
  "indicium",
  "oma-apt",
- "oma-console",
+ "oma-console 0.1.1",
  "oma-fetch",
- "oma-utils",
+ "oma-utils 0.1.5",
  "serde",
  "thiserror",
  "tokio",
@@ -2303,11 +2317,11 @@ dependencies = [
  "chrono",
  "futures",
  "oma-apt-sources-lists",
- "oma-console",
+ "oma-console 0.1.1",
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
- "oma-utils",
+ "oma-utils 0.1.5",
  "once_cell",
  "reqwest",
  "sequoia-openpgp",
@@ -2325,7 +2339,7 @@ dependencies = [
  "futures",
  "indexmap 2.0.0",
  "oma-apt-sources-lists",
- "oma-console",
+ "oma-console 0.1.1",
  "oma-inquire",
  "once_cell",
  "reqwest",
@@ -2340,12 +2354,25 @@ name = "oma-utils"
 version = "0.1.5"
 dependencies = [
  "number_prefix",
- "oma-console",
+ "oma-console 0.1.1",
  "once_cell",
  "os-release",
  "thiserror",
  "url-escape",
  "zbus",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7331240ead02eedc10b42738eba3fb25d4f787feb11b702a8d6825c18fd146e4"
+dependencies = [
+ "oma-console 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "once_cell",
+ "os-release",
+ "thiserror",
+ "url-escape",
 ]
 
 [[package]]
