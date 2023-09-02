@@ -570,7 +570,7 @@ pub fn pick(pkg_str: &str, no_refresh: bool, dry_run: bool, network_thread: usiz
         .map(|x| x.version().to_string())
         .collect::<Vec<_>>();
 
-    let mut v = vec![];                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+    let mut v = vec![];
     for i in 0..versions.len() {
         for j in 1..versions.len() {
             if i == j {
