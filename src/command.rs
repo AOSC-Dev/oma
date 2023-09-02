@@ -570,7 +570,7 @@ pub fn pick(pkg_str: &str, no_refresh: bool, dry_run: bool, network_thread: usiz
         .map(|x| x.version().to_string())
         .collect::<Vec<_>>();
 
-    let mut v = vec![];
+    let mut v = vec![];                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
     for i in 0..versions.len() {
         for j in 1..versions.len() {
             if i == j {
@@ -920,7 +920,7 @@ pub fn hisotry() -> Result<i32> {
         fl!("normal-tips")
     };
 
-    table_pending_inner(true, tips, false, remove, install, disk_size)?;
+    table_pending_inner(true, tips, false, remove, install, disk_size, false)?;
 
     Ok(0)
 }
@@ -1082,33 +1082,33 @@ fn format_summary_log(list: &[(SummaryLog, String)], undo: bool) -> Vec<String> 
         })
         .map(|(log, date)| match &log.typ {
             SummaryType::Install(v) if v.len() > 3 => format!(
-                "Install {} {} {} ... (and {} more) [{date}]",
+                "Installed {} {} {} ... (and {} more) [{date}]",
                 v[0],
                 v[1],
                 v[2],
                 v.len() - 3,
             ),
             SummaryType::Install(v) => format!("Installl {} [{date}]", v.join(" ")),
-            SummaryType::Upgrade(v) if v.is_empty() => format!("Upgrade system [{date}]"),
+            SummaryType::Upgrade(v) if v.is_empty() => format!("Upgraded system [{date}]"),
             SummaryType::Upgrade(v) if v.len() > 3 => format!(
-                "Upgrade system and install {} {} {} ... (and {} more) [{date}]",
+                "Upgraded system and installed {} {} {} ... (and {} more) [{date}]",
                 v[0],
                 v[1],
                 v[2],
                 v.len() - 3
             ),
             SummaryType::Upgrade(v) => {
-                format!("Upgrade system and install {} [{date}]", v.join(" "))
+                format!("Upgraded system and install {} [{date}]", v.join(" "))
             }
             SummaryType::Remove(v) if v.len() > 3 => format!(
-                "Remove {} {} {} ... (and {} more)",
+                "Removed {} {} {} ... (and {} more)",
                 v[0],
                 v[1],
                 v[2],
                 v.len() - 3
             ),
-            SummaryType::Remove(v) => format!("Remove {} [{date}]", v.join(" ")),
-            SummaryType::FixBroken => format!("Fix Broken [{date}]"),
+            SummaryType::Remove(v) => format!("Removed {} [{date}]", v.join(" ")),
+            SummaryType::FixBroken => format!("Attempted to fix broken dependencies [{date}]"),
             SummaryType::TopicsChanged { add, remove } if remove.is_empty() => {
                 format!(
                     "Topics changed: enabled {}{} [{date}]",
@@ -1164,7 +1164,7 @@ fn format_summary_log(list: &[(SummaryLog, String)], undo: bool) -> Vec<String> 
                     },
                 )
             }
-            SummaryType::Undo => format!("Undo [{date}]"),
+            SummaryType::Undo => format!("Undone [{date}]"),
         })
         .collect::<Vec<_>>();
 
