@@ -321,6 +321,8 @@ fn single_handler() {
         signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
         if !allow_ctrlc {
             info!("{}", fl!("user-aborted-op"));
+        } else {
+            std::process::exit(0);
         }
     }
 
