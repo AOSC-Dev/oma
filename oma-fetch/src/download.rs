@@ -6,6 +6,7 @@ use indicatif::ProgressBar;
 use oma_console::{
     console::style, debug, error, indicatif, is_terminal, warn, writer::Writer, WRITER,
 };
+use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client, StatusCode,
@@ -465,13 +466,14 @@ pub async fn download_local(
     let pb = fpb.as_ref().map(|x| x.mb.add(ProgressBar::new_spinner()));
 
     let url = &entry.source[position].url;
-    let url_path = url
-        .strip_prefix("file:")
-        .ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?;
+    let url_path = url_no_escape(
+        url.strip_prefix("file:")
+            .ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?,
+    );
 
     debug!("File path is: {url_path}");
 
-    let mut from = tokio::fs::File::open(url_path).await.map_err(|e| {
+    let mut from = tokio::fs::File::open(&url_path).await.map_err(|e| {
         DownloadError::FailedOpenLocalSourceFile(entry.filename.clone(), e.to_string())
     })?;
 
