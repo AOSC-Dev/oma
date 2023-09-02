@@ -1731,10 +1731,11 @@ dependencies = [
 
 [[package]]
 name = "indicium"
-version = "0.4.3"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ae94d7617a39d80701145d58094484a171a628adca4064e51078b11db790ee2"
+checksum = "734c7ab14634ab2b2c83d6f5a92c2c6e17a34b0a2c2b22bee785165cae234beb"
 dependencies = [
+ "kstring",
  "strsim",
  "tracing",
 ]
@@ -1817,6 +1818,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5f195fe497f702db0f318b07fdd68edb16955aed830df8363d837542f8f935a"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kstring"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec3066350882a1cd6d950d055997f379ac37fd39f81cd4d8ed186032eb3c5747"
+dependencies = [
+ "static_assertions",
 ]
 
 [[package]]
