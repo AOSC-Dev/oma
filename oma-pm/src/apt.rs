@@ -448,7 +448,7 @@ impl OmaApt {
         let pkgs = self.cache.packages(&sort)?;
 
         for pkg in pkgs {
-            if pkg.is_auto_removable() {
+            if pkg.is_auto_removable() && !pkg.marked_delete() {
                 pkg.mark_delete(purge);
                 pkg.protect();
 
