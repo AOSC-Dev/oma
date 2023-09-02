@@ -225,7 +225,15 @@ pub fn table_for_install_pending(
         fl!("question-tips")
     };
 
-    table_pending_inner(is_pager, tips, stderr_output, remove, install, disk_size)?;
+    table_pending_inner(
+        is_pager,
+        tips,
+        stderr_output,
+        remove,
+        install,
+        disk_size,
+        true,
+    )?;
 
     Ok(())
 }
@@ -237,12 +245,13 @@ pub fn table_pending_inner(
     remove: &[RemoveEntry],
     install: &[InstallEntry],
     disk_size: &(String, u64),
+    question: bool,
 ) -> Result<(), OutputError> {
     let mut pager = Pager::new(!is_pager, &tips)?;
     let pager_name = pager.pager_name().to_owned();
     let mut out = pager.get_writer()?;
 
-    if pager_name == Some("less") {
+    if pager_name == Some("less") && question {
         let _ = writeln!(
             out,
             "{:<80}",
@@ -250,24 +259,26 @@ pub fn table_pending_inner(
         );
     }
 
-    let _ = writeln!(out);
-    let _ = writeln!(out, "{}\n", fl!("review-msg"));
-    let _ = writeln!(
-        out,
-        "{}\n",
-        fl!(
-            "oma-may",
-            a = style(fl!("install")).green().to_string(),
-            b = style(fl!("remove")).red().to_string(),
-            c = style(fl!("upgrade")).color256(87).to_string(),
-            d = style(fl!("downgrade")).yellow().to_string(),
-            e = style(fl!("reinstall")).blue().to_string()
-        ),
-    );
+    if question {
+        let _ = writeln!(out);
+        let _ = writeln!(out, "{}\n", fl!("review-msg"));
+        let _ = writeln!(
+            out,
+            "{}\n",
+            fl!(
+                "oma-may",
+                a = style(fl!("install")).green().to_string(),
+                b = style(fl!("remove")).red().to_string(),
+                c = style(fl!("upgrade")).color256(87).to_string(),
+                d = style(fl!("downgrade")).yellow().to_string(),
+                e = style(fl!("reinstall")).blue().to_string()
+            ),
+        );
+    }
 
     terminal_write!(out, stderr_output);
 
-    if pager_name == Some("less") {
+    if pager_name == Some("less") && question {
         let has_x11 = std::env::var("DISPLAY");
 
         let line1 = format!("    {}", fl!("end-review"));

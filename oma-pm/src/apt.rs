@@ -48,7 +48,7 @@ use crate::{
     unmet::{find_unmet_deps, find_unmet_deps_with_markinstall, UnmetDep},
 };
 
-const TIME_FORMAT: &str = "%T, %A %e %B %Y";
+const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
 #[derive(Builder, Default, Clone, Copy)]
 #[builder(default)]
