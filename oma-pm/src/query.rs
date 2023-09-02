@@ -91,16 +91,22 @@ impl<'a> OmaDatabase<'a> {
     ) -> OmaDatabaseResult<Vec<PkgInfo>> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
-        let pkgs = self
-            .cache
-            .packages(&sort)?
-            .filter(|x| glob_match::glob_match_with_captures(glob, x.name()).is_some());
+
+        let pkgs = self.cache.packages(&sort)?.filter(|x| {
+            if glob_match::glob_match_with_captures(glob, x.name()).is_some() {
+                debug!("{glob} {}", x.name());
+                true
+            } else {
+                false
+            }
+        });
 
         let pkgs = pkgs
             .map(|x| real_pkg(&x))
             .map(|x| Package::new(self.cache, x));
 
         for pkg in pkgs {
+            debug!("Select pkg: {}", pkg.name());
             let versions = pkg.versions().collect::<Vec<_>>();
             for ver in versions {
                 let pkginfo = PkgInfo::new(self.cache, ver.unique(), &pkg);
@@ -250,8 +256,10 @@ impl<'a> OmaDatabase<'a> {
 
 /// Get real pkg from real pkg or virtual package
 fn real_pkg(pkg: &Package) -> RawPackage {
-    if let Some(provide) = pkg.provides().next() {
-        return provide.target_pkg();
+    if !pkg.has_versions() {
+        if let Some(provide) = pkg.provides().next() {
+            return provide.target_pkg();
+        }
     }
 
     pkg.unique()
@@ -321,4 +329,16 @@ mod test {
             println!("{}", i);
         }
     }
+}
+
+#[test]
+fn test() {
+    dbg!(glob_match::glob_match_with_captures(
+        "linux+kernel",
+        "linux+kernel"
+    ));
+    dbg!(glob_match::glob_match_with_captures(
+        "linux+kernel",
+        "linux+kernel+lts"
+    ));
 }
