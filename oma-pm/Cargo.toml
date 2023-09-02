@@ -16,8 +16,8 @@ indicium = "0.4"
 oma-utils = { version = "^0.1.4", path = "../oma-utils", features = [
     "human-bytes",
     "dpkg",
+    "url-no-escape"
 ] }
-url-escape = "0.1"
 oma-fetch = { version = "^0.1.2", path = "../oma-fetch" }
 tokio = { version = "1.15", default_features = false, features = ["fs", "rt-multi-thread"] }
 oma-console = { version = "^0.1.1", path = "../oma-console" }

@@ -8,3 +8,5 @@ pub mod dpkg;
 pub mod human_bytes;
 #[cfg(feature = "oma")]
 pub mod oma;
+#[cfg(feature = "url-no-escape")]
+pub mod url_no_escape;
