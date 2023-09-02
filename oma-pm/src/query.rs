@@ -7,6 +7,7 @@ use oma_apt::{
     records::RecordField,
 };
 use oma_console::debug;
+use oma_utils::url_no_escape::url_no_escape;
 
 use crate::{
     pkginfo::PkgInfo,
@@ -265,26 +266,6 @@ fn real_pkg(pkg: &Package) -> RawPackage {
     pkg.unique()
 }
 
-/// Get no escape url
-fn url_no_escape(s: &str) -> String {
-    let mut tmp = s.to_string();
-    let mut c = 0;
-    loop {
-        if c == 32 {
-            panic!("loop > 32 {tmp}");
-        }
-        let res = url_escape::decode(&tmp);
-        let res2 = url_escape::decode(&res);
-        if res == res2 {
-            return res.to_string();
-        } else {
-            tmp = res.to_string();
-        }
-
-        c += 1;
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::OmaDatabase;
@@ -329,16 +310,4 @@ mod test {
             println!("{}", i);
         }
     }
-}
-
-#[test]
-fn test() {
-    dbg!(glob_match::glob_match_with_captures(
-        "linux+kernel",
-        "linux+kernel"
-    ));
-    dbg!(glob_match::glob_match_with_captures(
-        "linux+kernel",
-        "linux+kernel+lts"
-    ));
 }

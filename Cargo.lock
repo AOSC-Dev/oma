@@ -2319,7 +2319,6 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio",
- "url-escape",
 ]
 
 [[package]]
@@ -2371,6 +2370,7 @@ dependencies = [
  "once_cell",
  "os-release",
  "thiserror",
+ "url-escape",
  "zbus",
 ]
 

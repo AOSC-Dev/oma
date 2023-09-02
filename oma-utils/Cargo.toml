@@ -14,9 +14,11 @@ once_cell = "1.18"
 os-release = "0.1"
 oma-console = { version = "^0.1.1", path = "../oma-console" }
 zbus = { version = "3.14", optional = true }
+url-escape = { version = "0.1", optional = true }
 
 [features]
 dpkg = []
 human-bytes = ["number_prefix"]
 dbus = ["zbus"]
 oma = []
+url-no-escape = ["url-escape"]
