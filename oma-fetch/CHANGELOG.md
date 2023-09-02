@@ -5,7 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.3 (2023-09-02)
+
+### Chore
+
+ - <csr-id-57003169329e01d60172d3531e7f3817bacf46da/> Adapt tokio enabled feature
+ - <csr-id-922fb8aa093a6050c4fdc848f2e5fab369db6095/> Adjust some deps
+
+### New Features
+
+ - <csr-id-2fe754324e2eb2b3d43c89e162059bfaffeabae3/> Add translate
+
+### Bug Fixes
+
+ - <csr-id-7f5dea18cdda862fc36fe2d4560ff10ed07baa1d/> Escape url try to fix can not download '+' in package name packages
+ - <csr-id-30b2f5c194cdb2fe74b74a20b200ebfb340b118c/> Fix warning message display
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 7 calendar days.
+ - 7 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Escape url try to fix can not download '+' in package name packages ([`7f5dea1`](https://github.com/AOSC-Dev/oma/commit/7f5dea18cdda862fc36fe2d4560ff10ed07baa1d))
+    - Add translate ([`2fe7543`](https://github.com/AOSC-Dev/oma/commit/2fe754324e2eb2b3d43c89e162059bfaffeabae3))
+    - Fix warning message display ([`30b2f5c`](https://github.com/AOSC-Dev/oma/commit/30b2f5c194cdb2fe74b74a20b200ebfb340b118c))
+    - Adapt tokio enabled feature ([`5700316`](https://github.com/AOSC-Dev/oma/commit/57003169329e01d60172d3531e7f3817bacf46da))
+    - Adjust some deps ([`922fb8a`](https://github.com/AOSC-Dev/oma/commit/922fb8aa093a6050c4fdc848f2e5fab369db6095))
+</details>
+
 ## v0.1.2 (2023-08-26)
+
+<csr-id-aa5a70e9fbb44a2ee75f1d8d3e7923a867a81a2f/>
+<csr-id-8d69e5d695da8e25a89274fd5ca562a01c8a39f5/>
+<csr-id-0ca5be73a7ddb70e3a07b63ef21f2f873e420832/>
+<csr-id-9bb6e19a703bc76515a7fa70c19aaafef38c7d7b/>
+<csr-id-336b02cd7f1e950d028724c11d2318bed0495ddc/>
+<csr-id-b097de9165dc0f1a8d970b750c84d6f5fc8ead81/>
+<csr-id-24ca3e6751a08cf5fcbbe0aa9c84d0ae4fc7de6b/>
+<csr-id-7560c558cbfc68ccb488bac29aa15477e74d9607/>
+<csr-id-88efbe1e674c3a3030144ad3b0690d1e2095cdaf/>
+<csr-id-53c3f0ea394ef470cb7be1d5dec077ba923cb860/>
+<csr-id-9de51fa2cf2993c10acfd05d3cda133e6140ac44/>
 
 ### Chore
 
@@ -23,14 +74,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes
 
+<csr-id-00958c5b1824a4cbd32aafed5e899ca7da596c82/>
+<csr-id-e8f4fc32507d33fa24aaa71c474b2ce0d936ca37/>
+<csr-id-6ff39b47d20f24e194187e1c0a35f3f4f615d410/>
+<csr-id-2f40bc8d2709ffc8d1cfec391ef5eab6a42c1dd5/>
+
  - <csr-id-3d4a16a9c675a5ee8ed0bbcabd152fdd78761052/> Fix local mirror package fetch
  - <csr-id-d6b4d8d439403fed3fa4dab41d205b29c77c052a/> Fix local mirror download url get
  - <csr-id-f9148fd48f07bedb08c4ccb4099df634de1228b0/> Fix oma upgrade loop not return
    - Also clippy and fmt
- - <csr-id-00958c5b1824a4cbd32aafed5e899ca7da596c82/> Use progress bar println to display message
- - <csr-id-e8f4fc32507d33fa24aaa71c474b2ce0d936ca37/> Merge master 5d6d2e82f0125d4c8f871228b8cbeb3de53260f1 change
- - <csr-id-6ff39b47d20f24e194187e1c0a35f3f4f615d410/> Adapt new oma-fetch api
- - <csr-id-2f40bc8d2709ffc8d1cfec391ef5eab6a42c1dd5/> Clear decompress progress bar
 
 ### Other
 
@@ -53,7 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 31 commits contributed to the release over the course of 4 calendar days.
+ - 32 commits contributed to the release over the course of 4 calendar days.
  - 23 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -64,6 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma-console v0.1.1, oma-fetch v0.1.2, oma-utils v0.1.4, oma-pm v0.2.1 ([`64f5d1b`](https://github.com/AOSC-Dev/oma/commit/64f5d1bf4f93b7b3b1f5a00134e232409458e5e3))
     - Fix local mirror package fetch ([`3d4a16a`](https://github.com/AOSC-Dev/oma/commit/3d4a16a9c675a5ee8ed0bbcabd152fdd78761052))
     - Fix local mirror download url get ([`d6b4d8d`](https://github.com/AOSC-Dev/oma/commit/d6b4d8d439403fed3fa4dab41d205b29c77c052a))
     - Fix oma upgrade loop not return ([`f9148fd`](https://github.com/AOSC-Dev/oma/commit/f9148fd48f07bedb08c4ccb4099df634de1228b0))
@@ -96,6 +149,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Some change ([`5d16784`](https://github.com/AOSC-Dev/oma/commit/5d16784215b2c47059c335e5f03c94ffaaf63693))
     - Oma-fetcher -> oma-fetch ([`70e11f8`](https://github.com/AOSC-Dev/oma/commit/70e11f8d3354a5989b4576fe924f66c5f7ec72ac))
 </details>
+
+<csr-unknown>
+ Use progress bar println to display message Merge master 5d6d2e82f0125d4c8f871228b8cbeb3de53260f1 change Adapt new oma-fetch api Clear decompress progress bar<csr-unknown/>
 
 ## v0.1.1 (2023-08-21)
 
