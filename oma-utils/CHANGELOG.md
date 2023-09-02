@@ -5,7 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.5 (2023-09-02)
+
+### New Features
+
+ - <csr-id-232b98246297a42b6294f2c39dc6d06b58ebbb32/> Do not ring if not is_terminal
+
+### Refactor
+
+ - <csr-id-25554c2835d2b2ce50815ce2aa3e8b3cd40071b3/> Move oma-pm url_no_escape function to oma-utils
+
+### Style
+
+ - <csr-id-177be7637ea9e6dce7a988d1b20553cb072ac33d/> Use cargo-fmt to format code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release over the course of 4 calendar days.
+ - 7 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Use cargo-fmt to format code ([`177be76`](https://github.com/AOSC-Dev/oma/commit/177be7637ea9e6dce7a988d1b20553cb072ac33d))
+    - Move oma-pm url_no_escape function to oma-utils ([`25554c2`](https://github.com/AOSC-Dev/oma/commit/25554c2835d2b2ce50815ce2aa3e8b3cd40071b3))
+    - Do not ring if not is_terminal ([`232b982`](https://github.com/AOSC-Dev/oma/commit/232b98246297a42b6294f2c39dc6d06b58ebbb32))
+</details>
+
 ## v0.1.4 (2023-08-26)
+
+<csr-id-08bafaf3f46c347f8f95ef2e0dbd420e7ee3e197/>
+<csr-id-5f8881a5f16b1798323ec1bd558c1c8abb7b44d1/>
+<csr-id-02d849fe98571c85ca78c5b6c1df71ef5077deb4/>
+<csr-id-9bb6e19a703bc76515a7fa70c19aaafef38c7d7b/>
+<csr-id-21864b9135312ce096ccfed57dc240fffd28fda1/>
+<csr-id-004cf53213308152b780115f50ec55589e08d3ae/>
+<csr-id-87f2218bd28559b2483a515b892043d65df8f576/>
+<csr-id-d921ccbec06258c1f30815b0685302376ecbd343/>
+<csr-id-e0208cd2160358e8125577f990df090f02dc9528/>
+<csr-id-9de51fa2cf2993c10acfd05d3cda133e6140ac44/>
 
 ### Chore
 
@@ -40,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 20 commits contributed to the release over the course of 4 calendar days.
+ - 21 commits contributed to the release over the course of 4 calendar days.
  - 14 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -51,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma-console v0.1.1, oma-fetch v0.1.2, oma-utils v0.1.4, oma-pm v0.2.1 ([`64f5d1b`](https://github.com/AOSC-Dev/oma/commit/64f5d1bf4f93b7b3b1f5a00134e232409458e5e3))
     - Bump oma-utils v0.1.3 ([`206806f`](https://github.com/AOSC-Dev/oma/commit/206806f036ed7f127955c14499c742c7864848f9))
     - 0.1.3 ([`08bafaf`](https://github.com/AOSC-Dev/oma/commit/08bafaf3f46c347f8f95ef2e0dbd420e7ee3e197))
     - Bump oma-utils v0.1.2 ([`27954dc`](https://github.com/AOSC-Dev/oma/commit/27954dc8346d57431f4d4f4cbf695841027eb440))
