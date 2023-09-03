@@ -251,7 +251,7 @@ pub fn table_pending_inner(
     let pager_name = pager.pager_name().to_owned();
     let mut out = pager.get_writer()?;
 
-    if pager_name == Some("less") && question {
+    if pager_name == Some("less") && question && is_pager {
         let _ = writeln!(
             out,
             "{:<80}",
@@ -259,7 +259,7 @@ pub fn table_pending_inner(
         );
     }
 
-    if question {
+    if question && is_pager {
         let _ = writeln!(out);
         let _ = writeln!(out, "{}\n", fl!("review-msg"));
         let _ = writeln!(
@@ -278,7 +278,7 @@ pub fn table_pending_inner(
 
     terminal_write!(out, stderr_output);
 
-    if pager_name == Some("less") && question {
+    if pager_name == Some("less") && question && is_pager {
         let has_x11 = std::env::var("DISPLAY");
 
         let line1 = format!("    {}", fl!("end-review"));
