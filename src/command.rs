@@ -2,11 +2,15 @@ use std::{
     borrow::Cow,
     path::{Path, PathBuf},
     process::{exit, Command},
-    sync::atomic::Ordering,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use anyhow::anyhow;
 
+use dashmap::DashMap;
 use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use inquire::{
     formatter::MultiOptionFormatter,
@@ -16,14 +20,15 @@ use inquire::{
 use oma_console::{
     console::{self, style},
     error,
-    indicatif::ProgressBar,
+    indicatif::{MultiProgress, ProgressBar},
     info,
-    pb::oma_spinner,
+    pb::{oma_spinner, oma_style_pb},
     success, warn,
-    writer::gen_prefix,
+    writer::{gen_prefix, Writer},
     WRITER,
 };
 use oma_contents::{ContentsEvent, QueryMode};
+use oma_fetch::DownloadEvent;
 use oma_pm::{
     apt::{AptArgs, AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder, OmaAptError},
     operation::{InstallEntry, InstallOperation, RemoveEntry},
@@ -50,6 +55,67 @@ use crate::{
 };
 
 pub type Result<T> = std::result::Result<T, OutputError>;
+
+
+// 似乎用函数无法修改 Dashmap 的内容，不知道该怎么办，所以用了宏
+/// Control progress bar
+macro_rules! pb {
+    ($event:expr, $mb:expr, $pb_map:expr, $count:expr, $total:expr, $global_is_set:expr) => {{
+        match $event {
+            DownloadEvent::ChecksumMismatchRetry { filename, times } => {
+                $mb.println(format!(
+                    "{filename} checksum failed, retrying {times} times"
+                ))
+                .unwrap();
+            }
+            DownloadEvent::GlobalProgressSet(size) => {
+                if let Some(pb) = $pb_map.get(&0) {
+                    pb.set_position(size);
+                }
+            }
+            DownloadEvent::GlobalProgressInc(size) => {
+                if let Some(pb) = $pb_map.get(&0) {
+                    pb.inc(size);
+                }
+            }
+            DownloadEvent::ProgressDone => {
+                if let Some(pb) = $pb_map.get(&($count + 1)) {
+                    pb.finish_and_clear();
+                }
+            }
+            DownloadEvent::NewProgressSpinner(msg) => {
+                let (sty, inv) = oma_spinner(false).unwrap();
+                let pb = $mb.insert($count + 1, ProgressBar::new_spinner().with_style(sty));
+                pb.set_message(msg);
+                pb.enable_steady_tick(inv);
+                $pb_map.insert($count + 1, pb);
+            }
+            DownloadEvent::NewProgress(size, msg) => {
+                let sty = oma_style_pb(Writer::default(), false).unwrap();
+                let pb = $mb.insert($count + 1, ProgressBar::new(size).with_style(sty));
+                pb.set_message(msg);
+                $pb_map.insert($count + 1, pb);
+            }
+            DownloadEvent::ProgressInc(size) => {
+                let pb = $pb_map.get(&($count + 1)).unwrap();
+                pb.inc(size);
+            }
+            DownloadEvent::CanNotGetSourceNextUrl(e) => {
+                $mb.println(format!("Error: {e}")).unwrap();
+            }
+        }
+
+        if let Some(total) = $total {
+            if !$global_is_set.load(Ordering::SeqCst) {
+                let sty = oma_style_pb(Writer::default(), true).unwrap();
+                let gpb = $mb.insert(0, ProgressBar::new(total).with_style(sty));
+                gpb.set_message("Progress");
+                $pb_map.insert(0, gpb);
+                $global_is_set.store(true, Ordering::SeqCst);
+            }
+        }
+    }};
+}
 
 pub fn install(
     pkgs_unparse: Vec<String>,
@@ -181,7 +247,11 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
             )?;
         }
 
-        match apt.commit(None, &apt_args) {
+        let (mb, pb_map, global_is_set) = multibar();
+        let pbc = pb_map.clone();
+        match apt.commit(None, &apt_args, |count, event, total| {
+            pb!(event, mb, pb_map, count, total, global_is_set)
+        }) {
             Ok(start_time) => {
                 write_history_entry(
                     op_after,
@@ -206,6 +276,10 @@ pub fn upgrade(pkgs_unparse: Vec<String>, args: UpgradeArgs, dry_run: bool) -> R
                 }
                 _ => return Err(OutputError::from(e)),
             },
+        }
+
+        if let Some(gpb) = pbc.clone().get(&0) {
+            gpb.finish_and_clear();
         }
     }
 }
@@ -263,7 +337,21 @@ pub fn download(keyword: Vec<&str>, path: Option<PathBuf>, dry_run: bool) -> Res
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let (pkgs, no_result) = apt.select_pkg(keyword, false, true)?;
     handle_no_result(no_result);
-    let (success, failed) = apt.download(pkgs, None, path.as_deref(), dry_run)?;
+
+    let (mb, pb_map, global_is_set) = multibar();
+    let (success, failed) = apt.download(
+        pkgs,
+        None,
+        path.as_deref(),
+        dry_run,
+        |count, event, total| pb!(event, mb, pb_map, count, total, global_is_set),
+    )?;
+
+    let pbc = pb_map.clone();
+
+    if let Some(gpb) = pbc.clone().get(&0) {
+        gpb.finish_and_clear();
+    }
 
     if !failed.is_empty() {
         // TODO: 翻译
@@ -1374,7 +1462,17 @@ fn normal_commit(
         !apt_args.yes(),
     )?;
 
-    let start_time = apt.commit(Some(network_thread), &apt_args)?;
+    let (mb, pb_map, global_is_set) = multibar();
+
+    let pbc = pb_map.clone();
+
+    let start_time = apt.commit(Some(network_thread), &apt_args, |count, event, total| {
+        pb!(event, mb, pb_map, count, total, global_is_set)
+    })?;
+
+    if let Some(gpb) = pbc.clone().get(&0) {
+        gpb.finish_and_clear();
+    }
 
     write_history_entry(op_after, typ, connect_db(true)?, dry_run, start_time)?;
 
@@ -1407,7 +1505,33 @@ fn refresh(dry_run: bool) -> Result<()> {
     let refresh = OmaRefresh::scan(None)?;
     let tokio = create_async_runtime()?;
 
-    tokio.block_on(async move { refresh.start().await })?;
+    let (mb, pb_map, global_is_set) = multibar();
+
+    let pbc = pb_map.clone();
+
+    tokio.block_on(async move {
+        refresh
+            .start(|count, event, total| pb!(event, mb, pb_map, count, total, global_is_set))
+            .await
+    })?;
+
+
+    if let Some(gpb) = pbc.get(&0) {
+        gpb.finish_and_clear();
+    }
 
     Ok(())
+}
+
+fn multibar() -> (
+    Arc<MultiProgress>,
+    DashMap<usize, ProgressBar>,
+    Arc<AtomicBool>,
+) {
+    let mb = Arc::new(MultiProgress::new());
+    let pb_map: DashMap<usize, ProgressBar> = DashMap::new();
+
+    let global_is_set = Arc::new(AtomicBool::new(false));
+
+    (mb, pb_map, global_is_set)
 }

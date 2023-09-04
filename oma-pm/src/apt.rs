@@ -28,7 +28,7 @@ use oma_console::{
     info, warn,
 };
 use oma_fetch::{
-    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadSource,
+    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
     DownloadSourceType, OmaFetcher, Summary,
 };
 use oma_utils::dpkg::DpkgError;
@@ -359,13 +359,17 @@ impl OmaApt {
     }
 
     /// Download packages
-    pub fn download(
+    pub fn download<F>(
         &self,
         pkgs: Vec<PkgInfo>,
         network_thread: Option<usize>,
         download_dir: Option<&Path>,
         dry_run: bool,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
+        callback: F,
+    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
+    where
+        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
+    {
         let mut download_list = vec![];
         for pkg in pkgs {
             let name = pkg.raw_pkg.name().to_string();
@@ -406,6 +410,7 @@ impl OmaApt {
                 download_list,
                 network_thread,
                 download_dir.unwrap_or(Path::new(".")),
+                callback,
             )
             .await
         })?;
@@ -460,11 +465,15 @@ impl OmaApt {
     }
 
     /// Commit changes
-    pub fn commit(
+    pub fn commit<F>(
         self,
         network_thread: Option<usize>,
         args_config: &AptArgs,
-    ) -> OmaAptResult<Cow<str>> {
+        callback: F,
+    ) -> OmaAptResult<Cow<str>>
+    where
+        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
+    {
         let v = self.summary()?;
         let v_str = v.to_string();
 
@@ -485,7 +494,7 @@ impl OmaApt {
         let path = self.get_archive_dir();
 
         let (success, failed) = tokio.block_on(async move {
-            Self::download_pkgs(download_pkg_list, network_thread, &path).await
+            Self::download_pkgs(download_pkg_list, network_thread, &path, callback).await
         })?;
 
         debug!("Success: {success:?}");
@@ -594,11 +603,15 @@ impl OmaApt {
     }
 
     /// Download packages (inner)
-    async fn download_pkgs(
+    async fn download_pkgs<F>(
         download_pkg_list: Vec<InstallEntry>,
         network_thread: Option<usize>,
         download_dir: &Path,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
+        callback: F,
+    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
+    where
+        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
+    {
         let mut download_list = vec![];
         let mut total_size = 0;
 
@@ -644,10 +657,12 @@ impl OmaApt {
 
             download_list.push(download_entry);
         }
-        let downloader =
-            OmaFetcher::new(None, true, Some(total_size), download_list, network_thread)?;
 
-        let res = downloader.start_download().await;
+        let downloader = OmaFetcher::new(None, download_list, network_thread)?;
+
+        let res = downloader
+            .start_download(|count, event| callback(count, event, Some(total_size)))
+            .await;
 
         let (mut success, mut failed) = (vec![], vec![]);
 
