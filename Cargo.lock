@@ -2322,7 +2322,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "dashmap",
  "futures",
+ "indicatif",
  "oma-apt-sources-lists",
  "oma-console 0.1.1",
  "oma-debcontrol",
