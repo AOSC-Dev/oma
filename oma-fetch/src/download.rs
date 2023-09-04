@@ -141,7 +141,7 @@ async fn http_download<F>(
     client: &Client,
     entry: &DownloadEntry,
     progress: (usize, usize, Option<String>),
-    count: usize,
+    list_count: usize,
     context: Option<String>,
     position: usize,
     callback: F,
@@ -193,14 +193,14 @@ where
                     break;
                 }
 
-                let count = f.read(&mut buf[..]).await?;
-                v.update(&buf[..count]);
+                let readed_count = f.read(&mut buf[..]).await?;
+                v.update(&buf[..readed_count]);
 
-                global_progress.fetch_add(count as u64, Ordering::SeqCst);
+                global_progress.fetch_add(readed_count as u64, Ordering::SeqCst);
 
-                callback(count, DownloadEvent::GlobalProgressInc(count as u64));
+                callback(list_count, DownloadEvent::GlobalProgressInc(readed_count as u64));
 
-                readed += count as u64;
+                readed += readed_count as u64;
             }
 
             if v.finish() {
@@ -209,9 +209,9 @@ where
                     entry.filename
                 );
 
-                callback(count, DownloadEvent::ProgressDone);
+                callback(list_count, DownloadEvent::ProgressDone);
 
-                return Ok(Summary::new(&entry.filename, false, count, context));
+                return Ok(Summary::new(&entry.filename, false, list_count, context));
             }
 
             debug!("checksum fail, will download this file: {}", entry.filename);
@@ -219,7 +219,7 @@ where
             if !entry.allow_resume {
                 global_progress.fetch_sub(readed, Ordering::SeqCst);
                 callback(
-                    count,
+                    list_count,
                     DownloadEvent::GlobalProgressSet(
                         global_progress.fetch_sub(readed, Ordering::SeqCst),
                     ),
@@ -234,7 +234,7 @@ where
     let (count, len, msg) = progress;
     let msg = msg.unwrap_or(entry.filename.clone());
     let msg = format!("({count}/{len}) {msg}");
-    callback(count, DownloadEvent::NewProgressSpinner(msg.clone()));
+    callback(list_count, DownloadEvent::NewProgressSpinner(msg.clone()));
 
     let url = entry.source[position].url.clone();
     let resp_head = client.head(url).send().await?;
@@ -277,7 +277,7 @@ where
         if total_size <= file_size {
             debug!("Exist file size is reset to 0, because total size <= exist file size");
             let gp = global_progress.load(Ordering::SeqCst);
-            callback(count, DownloadEvent::GlobalProgressSet(gp - file_size));
+            callback(list_count, DownloadEvent::GlobalProgressSet(gp - file_size));
             global_progress.store(gp - file_size, Ordering::SeqCst);
             file_size = 0;
             can_resume = false;
@@ -293,7 +293,7 @@ where
     let resp = req.send().await?;
 
     if let Err(e) = resp.error_for_status_ref() {
-        callback(count, DownloadEvent::ProgressDone);
+        callback(list_count, DownloadEvent::ProgressDone);
         match e.status() {
             Some(StatusCode::NOT_FOUND) => {
                 let url = entry.source[position].url.clone();
@@ -302,11 +302,11 @@ where
             _ => return Err(e.into()),
         }
     } else {
-        callback(count, DownloadEvent::ProgressDone);
+        callback(list_count, DownloadEvent::ProgressDone);
     }
 
     callback(
-        count,
+        list_count,
         DownloadEvent::NewProgress(total_size, msg.clone()),
     );
 
@@ -317,7 +317,7 @@ where
     let hash = entry.hash.clone();
     let mut validator = if let Some(v) = validator {
         callback(
-            count,
+            list_count,
             DownloadEvent::ProgressInc(file_size),
         );
         Some(v)
@@ -384,12 +384,12 @@ where
     while let Some(chunk) = source.chunk().await? {
         writer.write_all(&chunk).await?;
         callback(
-            count,
+            list_count,
             DownloadEvent::ProgressInc(chunk.len() as u64),
         );
         self_progress += chunk.len() as u64;
 
-        callback(count, DownloadEvent::GlobalProgressInc(chunk.len() as u64));
+        callback(list_count, DownloadEvent::GlobalProgressInc(chunk.len() as u64));
         global_progress.store(
             global_progress.load(Ordering::SeqCst) + chunk.len() as u64,
             Ordering::SeqCst,
@@ -410,7 +410,7 @@ where
             debug!("checksum fail: {}", entry.filename);
 
             callback(
-                count,
+                list_count,
                 DownloadEvent::GlobalProgressSet(
                     global_progress.load(Ordering::SeqCst) - self_progress,
                 ),
@@ -430,16 +430,16 @@ where
         debug!("checksum success: {}", entry.filename);
     }
 
-    callback(count, DownloadEvent::ProgressDone);
+    callback(list_count, DownloadEvent::ProgressDone);
 
-    Ok(Summary::new(&entry.filename, true, count, context))
+    Ok(Summary::new(&entry.filename, true, list_count, context))
 }
 
 /// Download local source file
 pub async fn download_local<F>(
     entry: &DownloadEntry,
     progress: (usize, usize, Option<String>),
-    count: usize,
+    list_count: usize,
     context: Option<String>,
     position: usize,
     callback: F,
@@ -451,8 +451,8 @@ where
     debug!("{entry:?}");
     let (c, len, msg) = progress;
     let msg = msg.unwrap_or(entry.filename.clone());
-    let msg = format!("({count}/{len}) {msg}");
-    callback(count, DownloadEvent::NewProgressSpinner(msg.clone()));
+    let msg = format!("({c}/{len}) {msg}");
+    callback(list_count, DownloadEvent::NewProgressSpinner(msg.clone()));
 
     let url = &entry.source[position].url;
     let url_path = url_no_escape(
@@ -488,8 +488,8 @@ where
         entry.dir.join(&entry.filename).display()
     );
 
-    callback(count, DownloadEvent::ProgressDone);
-    callback(count, DownloadEvent::GlobalProgressInc(size));
+    callback(list_count, DownloadEvent::ProgressDone);
+    callback(list_count, DownloadEvent::GlobalProgressInc(size));
     global_progress.fetch_add(size, Ordering::SeqCst);
 
     Ok(Summary::new(&entry.filename, true, c, context))

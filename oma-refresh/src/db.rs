@@ -7,7 +7,7 @@ use oma_apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use oma_console::debug;
 use oma_fetch::{
     checksum::ChecksumError, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError,
-    DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
+    DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
 };
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -265,26 +265,32 @@ impl OmaRefresh {
         self
     }
 
-    pub async fn start(self) -> Result<()> {
+    pub async fn start<F>(self, callback: F) -> Result<()>
+    where
+        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
+    {
         update_db(
             self.sources,
             self.limit,
             self.arch,
             self.download_dir,
-            self.bar,
+            callback,
         )
         .await
     }
 }
 
 // Update database
-async fn update_db(
+async fn update_db<F>(
     sourceslist: Vec<OmaSourceEntry>,
     limit: Option<usize>,
     arch: String,
     download_dir: PathBuf,
-    bar: bool,
-) -> Result<()> {
+    callback: F,
+) -> Result<()>
+where
+    F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
+{
     let mut tasks = vec![];
 
     for source_entry in &sourceslist {
@@ -327,8 +333,8 @@ async fn update_db(
         }
     }
 
-    let res = OmaFetcher::new(None, bar, None, tasks, limit)?
-        .start_download()
+    let res = OmaFetcher::new(None, tasks, limit)?
+        .start_download(|c, event| callback(c, event, None))
         .await;
 
     let mut all_inrelease = vec![];
@@ -373,6 +379,7 @@ async fn update_db(
 
     let mut total = 0;
     let mut tasks = vec![];
+
     for inrelease_summary in all_inrelease {
         let ose = sourceslist.get(inrelease_summary.count).unwrap().to_owned();
         let urlc = ose.url.clone();
@@ -549,8 +556,8 @@ async fn update_db(
         }
     }
 
-    let res = OmaFetcher::new(None, bar, Some(total), tasks, limit)?
-        .start_download()
+    let res = OmaFetcher::new(None, tasks, limit)?
+        .start_download(|count, event| callback(count, event, Some(total)))
         .await;
 
     res.into_iter().collect::<DownloadResult<Vec<_>>>()?;

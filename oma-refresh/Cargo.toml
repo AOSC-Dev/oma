@@ -30,3 +30,5 @@ default = ["aosc"]
 
 [dev-dependencies]
 tokio = { version = "1.28", default_features = false, features = ["macros", "rt-multi-thread"] }
+indicatif = "0.17"
+dashmap = "5.5"
