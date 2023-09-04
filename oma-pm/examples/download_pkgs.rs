@@ -1,8 +1,17 @@
-use std::{path::Path, sync::{Arc, atomic::{AtomicBool, Ordering}}};
+use std::{
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar};
-use oma_console::{pb::{oma_style_pb, oma_spinner}, writer::Writer};
+use oma_console::{
+    pb::{oma_spinner, oma_style_pb},
+    writer::Writer,
+};
 use oma_fetch::DownloadEvent;
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder, OmaAptError};
 

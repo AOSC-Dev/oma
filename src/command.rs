@@ -56,7 +56,6 @@ use crate::{
 
 pub type Result<T> = std::result::Result<T, OutputError>;
 
-
 // 似乎用函数无法修改 Dashmap 的内容，不知道该怎么办，所以用了宏
 /// Control progress bar
 macro_rules! pb {
@@ -1514,7 +1513,6 @@ fn refresh(dry_run: bool) -> Result<()> {
             .start(|count, event, total| pb!(event, mb, pb_map, count, total, global_is_set))
             .await
     })?;
-
 
     if let Some(gpb) = pbc.get(&0) {
         gpb.finish_and_clear();

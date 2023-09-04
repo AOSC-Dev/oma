@@ -126,7 +126,10 @@ where
                     }
                     callback(
                         count,
-                        DownloadEvent::ChecksumMismatchRetry {filename: filename.clone(), times }
+                        DownloadEvent::ChecksumMismatchRetry {
+                            filename: filename.clone(),
+                            times,
+                        },
                     );
                     times += 1;
                 }
@@ -198,7 +201,10 @@ where
 
                 global_progress.fetch_add(readed_count as u64, Ordering::SeqCst);
 
-                callback(list_count, DownloadEvent::GlobalProgressInc(readed_count as u64));
+                callback(
+                    list_count,
+                    DownloadEvent::GlobalProgressInc(readed_count as u64),
+                );
 
                 readed += readed_count as u64;
             }
@@ -316,10 +322,7 @@ where
     // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
     let hash = entry.hash.clone();
     let mut validator = if let Some(v) = validator {
-        callback(
-            list_count,
-            DownloadEvent::ProgressInc(file_size),
-        );
+        callback(list_count, DownloadEvent::ProgressInc(file_size));
         Some(v)
     } else if let Some(hash) = hash {
         Some(Checksum::from_sha256_str(&hash)?.get_validator())
@@ -383,13 +386,13 @@ where
     let mut self_progress = 0;
     while let Some(chunk) = source.chunk().await? {
         writer.write_all(&chunk).await?;
-        callback(
-            list_count,
-            DownloadEvent::ProgressInc(chunk.len() as u64),
-        );
+        callback(list_count, DownloadEvent::ProgressInc(chunk.len() as u64));
         self_progress += chunk.len() as u64;
 
-        callback(list_count, DownloadEvent::GlobalProgressInc(chunk.len() as u64));
+        callback(
+            list_count,
+            DownloadEvent::GlobalProgressInc(chunk.len() as u64),
+        );
         global_progress.store(
             global_progress.load(Ordering::SeqCst) + chunk.len() as u64,
             Ordering::SeqCst,
