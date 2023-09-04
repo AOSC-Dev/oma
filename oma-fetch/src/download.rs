@@ -1,11 +1,15 @@
-use crate::fl;
-use std::{io::SeekFrom, path::Path};
+use crate::DownloadEvent;
+use std::{
+    io::SeekFrom,
+    path::Path,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+};
 
 use async_compression::tokio::write::{GzipDecoder as WGzipDecoder, XzDecoder as WXzDecoder};
-use indicatif::ProgressBar;
-use oma_console::{
-    console::style, debug, error, indicatif, is_terminal, warn, writer::Writer, WRITER,
-};
+use oma_console::debug;
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
@@ -14,19 +18,23 @@ use reqwest::{
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 
 use crate::{
-    checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, DownloadSourceType,
-    FetchProgressBar, Summary,
+    checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Summary,
 };
 
 /// Downlaod file with retry
-pub(crate) async fn try_download(
+pub(crate) async fn try_download<F>(
     client: &Client,
     entry: &DownloadEntry,
-    fpb: Option<FetchProgressBar>,
+    progress: (usize, usize, Option<String>),
     count: usize,
     retry_times: usize,
     context: Option<String>,
-) -> DownloadResult<Summary> {
+    callback: F,
+    global_progress: Arc<AtomicU64>,
+) -> DownloadResult<Summary>
+where
+    F: Fn(usize, DownloadEvent) + Clone,
+{
     let mut sources = entry.source.clone();
     sources.sort_by(|a, b| a.source_type.cmp(&b.source_type));
 
@@ -40,16 +48,27 @@ pub(crate) async fn try_download(
                 try_http_download(
                     client,
                     entry,
-                    fpb.clone(),
+                    progress.clone(),
                     count,
                     retry_times,
                     context.clone(),
                     i,
+                    callback.clone(),
+                    global_progress.clone(),
                 )
                 .await
             }
             DownloadSourceType::Local => {
-                download_local(entry, fpb.clone(), count, context.clone(), i).await
+                download_local(
+                    entry,
+                    progress.clone(),
+                    count,
+                    context.clone(),
+                    i,
+                    callback.clone(),
+                    global_progress.clone(),
+                )
+                .await
             }
         };
 
@@ -60,7 +79,7 @@ pub(crate) async fn try_download(
             }
             Err(e) => {
                 err = Some(e.to_string());
-                error!("{}", fl!("can-not-get-source-next-url", e = e.to_string()));
+                callback(count, DownloadEvent::CanNotGetSourceNextUrl(e.to_string()));
             }
         }
     }
@@ -69,18 +88,34 @@ pub(crate) async fn try_download(
 }
 
 /// Downlaod file with retry (http)
-async fn try_http_download(
+async fn try_http_download<F>(
     client: &Client,
     entry: &DownloadEntry,
-    fpb: Option<FetchProgressBar>,
+    progress: (usize, usize, Option<String>),
     count: usize,
     retry_times: usize,
     context: Option<String>,
     position: usize,
-) -> DownloadResult<Summary> {
+    callback: F,
+    global_progress: Arc<AtomicU64>,
+) -> DownloadResult<Summary>
+where
+    F: Fn(usize, DownloadEvent) + Clone,
+{
     let mut times = 0;
     loop {
-        match http_download(client, entry, fpb.clone(), count, context.clone(), position).await {
+        match http_download(
+            client,
+            entry,
+            progress.clone(),
+            count,
+            context.clone(),
+            position,
+            callback.clone(),
+            global_progress.clone(),
+        )
+        .await
+        {
             Ok(s) => {
                 return Ok(s);
             }
@@ -89,28 +124,10 @@ async fn try_http_download(
                     if retry_times == times {
                         return Err(e);
                     }
-                    if let Some(gpb) = fpb.clone().and_then(|x| x.global_bar) {
-                        WRITER
-                            .writeln_with_pb(
-                                &gpb,
-                                &style("WARNING").yellow().bold().to_string(),
-                                &fl!(
-                                    "checksum-mismatch-retry",
-                                    c = filename.to_string(),
-                                    retry = times
-                                ),
-                            )
-                            .ok();
-                    } else {
-                        warn!(
-                            "{}",
-                            fl!(
-                                "checksum-mismatch-retry",
-                                c = filename.to_string(),
-                                retry = times
-                            )
-                        );
-                    }
+                    callback(
+                        count,
+                        DownloadEvent::ChecksumMismatchRetry {filename: filename.clone(), times }
+                    );
                     times += 1;
                 }
                 _ => return Err(e),
@@ -120,14 +137,19 @@ async fn try_http_download(
 }
 
 /// Download http file
-async fn http_download(
+async fn http_download<F>(
     client: &Client,
     entry: &DownloadEntry,
-    fpb: Option<FetchProgressBar>,
+    progress: (usize, usize, Option<String>),
     count: usize,
     context: Option<String>,
     position: usize,
-) -> DownloadResult<Summary> {
+    callback: F,
+    global_progress: Arc<AtomicU64>,
+) -> DownloadResult<Summary>
+where
+    F: Fn(usize, DownloadEvent) + Clone,
+{
     let file = entry.dir.join(&entry.filename);
     let file_exist = file.exists();
     let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
@@ -174,11 +196,9 @@ async fn http_download(
                 let count = f.read(&mut buf[..]).await?;
                 v.update(&buf[..count]);
 
-                if let Some(ref fpb) = fpb {
-                    if let Some(ref gpb) = fpb.global_bar {
-                        gpb.inc(count as u64);
-                    }
-                }
+                global_progress.fetch_add(count as u64, Ordering::SeqCst);
+
+                callback(count, DownloadEvent::GlobalProgressInc(count as u64));
 
                 readed += count as u64;
             }
@@ -189,11 +209,7 @@ async fn http_download(
                     entry.filename
                 );
 
-                if !is_terminal() {
-                    let fpbc = fpb.clone();
-                    let msg = fpbc.and_then(|x| x.msg).unwrap_or(entry.filename.clone());
-                    WRITER.writeln("DONE", &msg, false).unwrap();
-                }
+                callback(count, DownloadEvent::ProgressDone);
 
                 return Ok(Summary::new(&entry.filename, false, count, context));
             }
@@ -201,9 +217,13 @@ async fn http_download(
             debug!("checksum fail, will download this file: {}", entry.filename);
 
             if !entry.allow_resume {
-                if let Some(ref gpb) = fpb.as_ref().and_then(|x| x.global_bar.clone()) {
-                    gpb.set_position(gpb.position() - readed);
-                }
+                global_progress.fetch_sub(readed, Ordering::SeqCst);
+                callback(
+                    count,
+                    DownloadEvent::GlobalProgressSet(
+                        global_progress.fetch_sub(readed, Ordering::SeqCst),
+                    ),
+                );
             } else {
                 dest = Some(f);
                 validator = Some(v);
@@ -211,28 +231,10 @@ async fn http_download(
         }
     }
 
-    let fpbc = fpb.clone();
-    let progress = if let Some((count, len)) = fpbc.and_then(|x| x.progress) {
-        format!("({count}/{len}) ")
-    } else {
-        "".to_string()
-    };
-
-    let progress_clone = progress.clone();
-
-    // 若请求头的速度太慢，会看到 Spinner 直到拿到头的信息
-    let fpbc = fpb.clone();
-    let pb = if let Some(fpb) = fpbc {
-        let (style, inv) = oma_console::pb::oma_spinner(false)?;
-        let pb = fpb.mb.add(ProgressBar::new_spinner().with_style(style));
-        pb.enable_steady_tick(inv);
-        let msg = fpb.msg.unwrap_or(entry.filename.clone());
-        pb.set_message(format!("{progress_clone}{msg}"));
-
-        Some(pb)
-    } else {
-        None
-    };
+    let (count, len, msg) = progress;
+    let msg = msg.unwrap_or(entry.filename.clone());
+    let msg = format!("({count}/{len}) {msg}");
+    callback(count, DownloadEvent::NewProgressSpinner(msg.clone()));
 
     let url = entry.source[position].url.clone();
     let resp_head = client.head(url).send().await?;
@@ -274,10 +276,9 @@ async fn http_download(
         // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
         if total_size <= file_size {
             debug!("Exist file size is reset to 0, because total size <= exist file size");
-            let fpbc = fpb.clone();
-            if let Some(ref global_bar) = fpbc.and_then(|x| x.global_bar) {
-                global_bar.set_position(global_bar.position() - file_size);
-            }
+            let gp = global_progress.load(Ordering::SeqCst);
+            callback(count, DownloadEvent::GlobalProgressSet(gp - file_size));
+            global_progress.store(gp - file_size, Ordering::SeqCst);
             file_size = 0;
             can_resume = false;
         }
@@ -292,9 +293,7 @@ async fn http_download(
     let resp = req.send().await?;
 
     if let Err(e) = resp.error_for_status_ref() {
-        if let Some(pb) = pb {
-            pb.finish_and_clear();
-        }
+        callback(count, DownloadEvent::ProgressDone);
         match e.status() {
             Some(StatusCode::NOT_FOUND) => {
                 let url = entry.source[position].url.clone();
@@ -302,34 +301,14 @@ async fn http_download(
             }
             _ => return Err(e.into()),
         }
-    } else if let Some(pb) = pb {
-        pb.finish_and_clear();
+    } else {
+        callback(count, DownloadEvent::ProgressDone);
     }
 
-    let fpbc = fpb.clone();
-    let pb = if let Some(fpb) = fpbc {
-        let writer = Writer::default();
-        let pb = fpb.mb.add(
-            ProgressBar::new(total_size).with_style(oma_console::pb::oma_style_pb(writer, false)?),
-        );
-
-        Some(pb)
-    } else {
-        None
-    };
-
-    let progress = if let Some((count, len)) = fpb.clone().and_then(|x| x.progress) {
-        format!("({count}/{len}) ")
-    } else {
-        "".to_string()
-    };
-
-    if let Some(pb) = &pb {
-        let fpbc = fpb.clone();
-        let msg = fpbc.and_then(|x| x.msg).unwrap_or(entry.filename.clone());
-
-        pb.set_message(format!("{progress}{msg}"));
-    }
+    callback(
+        count,
+        DownloadEvent::NewProgress(total_size, msg.clone()),
+    );
 
     let mut source = resp;
 
@@ -337,9 +316,10 @@ async fn http_download(
     // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
     let hash = entry.hash.clone();
     let mut validator = if let Some(v) = validator {
-        if let Some(pb) = &pb {
-            pb.inc(file_size);
-        }
+        callback(
+            count,
+            DownloadEvent::ProgressInc(file_size),
+        );
         Some(v)
     } else if let Some(hash) = hash {
         Some(Checksum::from_sha256_str(&hash)?.get_validator())
@@ -400,16 +380,20 @@ async fn http_download(
 
     // 下载！
     debug!("Start download!");
+    let mut self_progress = 0;
     while let Some(chunk) = source.chunk().await? {
         writer.write_all(&chunk).await?;
-        if let Some(pb) = &pb {
-            pb.inc(chunk.len() as u64);
-        }
+        callback(
+            count,
+            DownloadEvent::ProgressInc(chunk.len() as u64),
+        );
+        self_progress += chunk.len() as u64;
 
-        let fpbc = fpb.clone();
-        if let Some(ref gpb) = fpbc.and_then(|x| x.global_bar) {
-            gpb.inc(chunk.len() as u64);
-        }
+        callback(count, DownloadEvent::GlobalProgressInc(chunk.len() as u64));
+        global_progress.store(
+            global_progress.load(Ordering::SeqCst) + chunk.len() as u64,
+            Ordering::SeqCst,
+        );
 
         if let Some(ref mut v) = validator {
             v.update(&chunk);
@@ -424,12 +408,17 @@ async fn http_download(
     if let Some(v) = validator {
         if !v.finish() {
             debug!("checksum fail: {}", entry.filename);
-            let fpbc = fpb.clone();
-            if let Some(ref gpb) = fpbc.and_then(|x| x.global_bar) {
-                let pb = pb.unwrap();
-                gpb.set_position(gpb.position() - pb.position());
-                pb.reset();
-            }
+
+            callback(
+                count,
+                DownloadEvent::GlobalProgressSet(
+                    global_progress.load(Ordering::SeqCst) - self_progress,
+                ),
+            );
+            global_progress.store(
+                global_progress.load(Ordering::SeqCst) - self_progress,
+                Ordering::SeqCst,
+            );
 
             let url = entry.source[position].url.clone();
             return Err(DownloadError::ChecksumMisMatch(
@@ -441,29 +430,29 @@ async fn http_download(
         debug!("checksum success: {}", entry.filename);
     }
 
-    if let Some(pb) = pb {
-        pb.finish_and_clear();
-    }
-
-    if !is_terminal() {
-        let fpbc = fpb.clone();
-        let msg = fpbc.and_then(|x| x.msg).unwrap_or(entry.filename.clone());
-        WRITER.writeln("DONE", &msg, false).unwrap();
-    }
+    callback(count, DownloadEvent::ProgressDone);
 
     Ok(Summary::new(&entry.filename, true, count, context))
 }
 
 /// Download local source file
-pub async fn download_local(
+pub async fn download_local<F>(
     entry: &DownloadEntry,
-    fpb: Option<FetchProgressBar>,
+    progress: (usize, usize, Option<String>),
     count: usize,
     context: Option<String>,
     position: usize,
-) -> DownloadResult<Summary> {
+    callback: F,
+    global_progress: Arc<AtomicU64>,
+) -> DownloadResult<Summary>
+where
+    F: Fn(usize, DownloadEvent) + Clone,
+{
     debug!("{entry:?}");
-    let pb = fpb.as_ref().map(|x| x.mb.add(ProgressBar::new_spinner()));
+    let (c, len, msg) = progress;
+    let msg = msg.unwrap_or(entry.filename.clone());
+    let msg = format!("({count}/{len}) {msg}");
+    callback(count, DownloadEvent::NewProgressSpinner(msg.clone()));
 
     let url = &entry.source[position].url;
     let url_path = url_no_escape(
@@ -499,13 +488,9 @@ pub async fn download_local(
         entry.dir.join(&entry.filename).display()
     );
 
-    if let Some(pb) = pb {
-        pb.finish_and_clear();
-    }
+    callback(count, DownloadEvent::ProgressDone);
+    callback(count, DownloadEvent::GlobalProgressInc(size));
+    global_progress.fetch_add(size, Ordering::SeqCst);
 
-    if let Some(ref gb) = fpb.and_then(|x| x.global_bar) {
-        gb.inc(size);
-    }
-
-    Ok(Summary::new(&entry.filename, true, count, context))
+    Ok(Summary::new(&entry.filename, true, c, context))
 }
