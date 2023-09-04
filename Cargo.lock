@@ -2293,21 +2293,18 @@ name = "oma-fetch"
 version = "0.1.3"
 dependencies = [
  "async-compression",
+ "dashmap",
  "derive_builder",
  "futures",
  "hex",
- "i18n-embed",
- "i18n-embed-fl",
+ "indicatif",
  "oma-console 0.1.1",
  "oma-utils 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "once_cell",
  "reqwest",
- "rust-embed",
  "serde",
  "sha2",
  "thiserror",
  "tokio",
- "unic-langid",
 ]
 
 [[package]]
