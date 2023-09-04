@@ -175,8 +175,6 @@ impl OmaFetcher {
 
         let stream = futures::stream::iter(tasks).buffer_unordered(self.limit_thread);
 
-        let res = stream.collect::<Vec<_>>().await;
-
-        res
+        stream.collect::<Vec<_>>().await
     }
 }
