@@ -40,8 +40,6 @@ where
 
     let mut res = None;
 
-    let mut err = None;
-
     for (i, c) in sources.iter().enumerate() {
         let download_res = match c.source_type {
             DownloadSourceType::Http => {
@@ -78,13 +76,15 @@ where
                 break;
             }
             Err(e) => {
-                err = Some(e.to_string());
+                if i == sources.len() - 1 {
+                    return Err(e);
+                }
                 callback(count, DownloadEvent::CanNotGetSourceNextUrl(e.to_string()));
             }
         }
     }
 
-    res.ok_or_else(|| DownloadError::DownloadAllFailed(entry.filename.to_string(), err.unwrap()))
+    Ok(res.unwrap())
 }
 
 /// Downlaod file with retry (http)

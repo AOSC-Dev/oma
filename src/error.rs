@@ -256,7 +256,6 @@ fn oma_download_error(e: DownloadError) -> String {
         DownloadError::IOError(e) => fl!("io-error", e = e.to_string()),
         DownloadError::ReqwestError(e) => format!("Reqwest Error: {e}"),
         DownloadError::ChecksumError(e) => oma_checksum_error(e),
-        DownloadError::TemplateError(e) => e.to_string(),
         DownloadError::FailedOpenLocalSourceFile(path, e) => {
             fl!("can-not-parse-sources-list", path = path, e = e)
         }
