@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use std::process::exit;
 
 mod args;
-mod command;
 mod config;
 mod error;
 mod history;
 mod lang;
+mod subcommand;
 mod table;
+mod utils;
 
 use anyhow::Result;
 
@@ -25,6 +26,7 @@ use oma_console::console;
 use oma_console::pager::SUBPROCESS;
 
 use crate::config::Config;
+use crate::subcommand::*;
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -165,7 +167,7 @@ fn try_main() -> Result<i32> {
 
             let netwrk_thread = config.network.network_threads;
 
-            command::install(pkgs_unparse, args, dry_run, netwrk_thread)?
+            install::execute(pkgs_unparse, args, dry_run, netwrk_thread)?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -177,7 +179,7 @@ fn try_main() -> Result<i32> {
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
             };
 
-            command::upgrade(pkgs_unparse, args, dry_run)?
+            upgrade::execute(pkgs_unparse, args, dry_run)?
         }
         Some(("download", args)) => {
             let keyword = pkgs_getter(args).unwrap_or_default();
@@ -188,7 +190,7 @@ fn try_main() -> Result<i32> {
                 .cloned()
                 .map(|x| PathBuf::from(&x));
 
-            command::download(keyword, path, dry_run)?
+            download::execute(keyword, path, dry_run)?
         }
         Some(("remove", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap();
@@ -204,7 +206,7 @@ fn try_main() -> Result<i32> {
             let protect_essentials = config.general.protect_essentials;
             let netwrk_thread = config.network.network_threads;
 
-            command::remove(
+            remove::execute(
                 pkgs_unparse,
                 args,
                 dry_run,
@@ -212,13 +214,13 @@ fn try_main() -> Result<i32> {
                 netwrk_thread,
             )?
         }
-        Some(("refresh", _)) => command::command_refresh()?,
+        Some(("refresh", _)) => refresh::execute()?,
         Some(("show", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
             let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
             let all = args.get_flag("all");
 
-            command::show(all, pkgs_unparse)?
+            show::execute(all, pkgs_unparse)?
         }
         Some(("search", args)) => {
             let args = args
@@ -226,24 +228,24 @@ fn try_main() -> Result<i32> {
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap();
 
-            command::search(&args)?
+            search::execute(&args)?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
             let pkg = args.get_one::<String>(arg).unwrap();
             let is_bin = args.get_flag("bin");
 
-            command::find(x, is_bin, pkg)?
+            contents_find::execute(x, is_bin, pkg)?
         }
         Some(("fix-broken", _)) => {
             let network_thread = config.network.network_threads;
-            command::fix_broken(dry_run, network_thread)?
+            fix_broken::execute(dry_run, network_thread)?
         }
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
             let network_thread = config.network.network_threads;
 
-            command::pick(
+            pick::execute(
                 pkg_str,
                 args.get_flag("no_refresh"),
                 dry_run,
@@ -256,10 +258,10 @@ fn try_main() -> Result<i32> {
             let pkgs = pkgs_getter(args).unwrap();
             let dry_run = args.get_flag("dry_run");
 
-            command::mark(op, pkgs, dry_run)?
+            mark::execute(op, pkgs, dry_run)?
         }
         Some(("command-not-found", args)) => {
-            command::command_not_found(args.get_one::<String>("package").unwrap())?
+            command_not_found::execute(args.get_one::<String>("package").unwrap())?
         }
         Some(("list", args)) => {
             let pkgs = pkgs_getter(args).unwrap_or_default();
@@ -267,23 +269,23 @@ fn try_main() -> Result<i32> {
             let installed = args.get_flag("installed");
             let upgradable = args.get_flag("upgradable");
 
-            command::list(all, installed, upgradable, pkgs)?
+            list::execute(all, installed, upgradable, pkgs)?
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
 
-            command::depends(pkgs)?
+            depends::execute(pkgs)?
         }
         Some(("rdepends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
 
-            command::rdepends(pkgs)?
+            rdepends::execute(pkgs)?
         }
-        Some(("clean", _)) => command::clean()?,
-        Some(("history", _)) => command::hisotry()?,
+        Some(("clean", _)) => clean::execute()?,
+        Some(("history", _)) => subcommand::history::execute()?,
         Some(("undo", _)) => {
             let network_thread = config.network.network_threads;
-            command::undo(network_thread)?
+            undo::execute(network_thread)?
         }
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
@@ -299,12 +301,12 @@ fn try_main() -> Result<i32> {
 
             let network_thread = config.network.network_threads;
 
-            command::topics(opt_in, opt_out, dry_run, network_thread)?
+            topics::execute(opt_in, opt_out, dry_run, network_thread)?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());
 
-            command::pkgnames(keyword)?
+            pkgnames::execute(keyword)?
         }
         _ => unreachable!(),
     };
