@@ -135,6 +135,15 @@ fn try_main() -> Result<i32> {
         DEBUG.store(true, Ordering::Relaxed);
     }
 
+    // --no-progress
+    let no_progress = matches.get_flag("no_progress")
+        || matches!(
+            matches
+                .subcommand()
+                .map(|(_, x)| x.try_get_one("no_progress")),
+            Some(Ok(Some(true)))
+        );
+
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
 
@@ -167,7 +176,7 @@ fn try_main() -> Result<i32> {
 
             let netwrk_thread = config.network.network_threads;
 
-            install::execute(pkgs_unparse, args, dry_run, netwrk_thread)?
+            install::execute(pkgs_unparse, args, dry_run, netwrk_thread, no_progress)?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -179,7 +188,7 @@ fn try_main() -> Result<i32> {
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
             };
 
-            upgrade::execute(pkgs_unparse, args, dry_run)?
+            upgrade::execute(pkgs_unparse, args, dry_run, no_progress)?
         }
         Some(("download", args)) => {
             let keyword = pkgs_getter(args).unwrap_or_default();
@@ -212,9 +221,10 @@ fn try_main() -> Result<i32> {
                 dry_run,
                 protect_essentials,
                 netwrk_thread,
+                no_progress,
             )?
         }
-        Some(("refresh", _)) => refresh::execute()?,
+        Some(("refresh", _)) => refresh::execute(no_progress)?,
         Some(("show", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
             let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();

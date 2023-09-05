@@ -18,6 +18,7 @@ use crate::utils::root;
 use crate::UpgradeArgs;
 
 use super::utils::check_empty_op;
+use super::utils::handle_event_without_progressbar;
 use super::utils::handle_no_result;
 use super::utils::refresh;
 
@@ -25,13 +26,14 @@ pub fn execute(
     pkgs_unparse: Vec<String>,
     args: UpgradeArgs,
     dry_run: bool,
+    no_progress: bool,
 ) -> Result<i32, OutputError> {
     root()?;
 
     let rt = create_async_runtime()?;
     dbus_check(&rt)?;
 
-    refresh(dry_run)?;
+    refresh(dry_run, no_progress)?;
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));
@@ -86,7 +88,11 @@ pub fn execute(
         let (mb, pb_map, global_is_set) = multibar();
         let pbc = pb_map.clone();
         match apt.commit(None, &apt_args, |count, event, total| {
-            pb!(event, mb, pb_map, count, total, global_is_set)
+            if !no_progress {
+                pb!(event, mb, pb_map, count, total, global_is_set)
+            } else {
+                handle_event_without_progressbar(event);
+            }
         }) {
             Ok(start_time) => {
                 write_history_entry(

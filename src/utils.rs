@@ -88,6 +88,9 @@ macro_rules! pb {
                     )
                     .unwrap();
             }
+            oma_fetch::DownloadEvent::Done(filename) => {
+                oma_console::debug!("Downloaded {filename}");
+            }
         }
 
         if let Some(total) = $total {

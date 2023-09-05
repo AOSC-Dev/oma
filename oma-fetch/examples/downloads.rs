@@ -100,6 +100,9 @@ async fn main() -> DownloadResult<()> {
             DownloadEvent::CanNotGetSourceNextUrl(e) => {
                 mb.println(format!("Error: {e}")).unwrap();
             }
+            DownloadEvent::Done(_) => {
+                return;
+            }
         })
         .await
         .into_iter()

@@ -21,6 +21,7 @@ pub fn execute(
     args: InstallArgs,
     dry_run: bool,
     network_thread: usize,
+    no_progress: bool,
 ) -> Result<i32> {
     root()?;
 
@@ -28,7 +29,7 @@ pub fn execute(
     dbus_check(&rt)?;
 
     if !args.no_refresh {
-        refresh(dry_run)?;
+        refresh(dry_run, no_progress)?;
     }
 
     if args.yes {
@@ -83,6 +84,7 @@ pub fn execute(
         apt_args,
         args.no_fixbroken,
         network_thread,
+        no_progress
     )?;
 
     Ok(0)

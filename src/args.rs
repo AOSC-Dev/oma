@@ -67,6 +67,13 @@ pub fn command_builder() -> Command {
                 .global(true)
         )
         .arg(
+            Arg::new("no_progress")
+            .long("no-progress")
+            .help("Do not display progress bar")
+            .action(ArgAction::SetTrue)
+            .global(true)
+        )
+        .arg(
             Arg::new("ailurus")
                 .long("ailurus")
                 .action(ArgAction::Count)

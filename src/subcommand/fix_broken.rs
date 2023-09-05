@@ -25,6 +25,7 @@ pub fn execute(dry_run: bool, network_thread: usize) -> Result<i32, OutputError>
         AptArgsBuilder::default().build()?,
         false,
         network_thread,
+        false
     )?;
 
     Ok(0)

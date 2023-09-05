@@ -75,6 +75,9 @@ fn main() -> Result<(), OmaAptError> {
                 DownloadEvent::CanNotGetSourceNextUrl(e) => {
                     mb.println(format!("Error: {e}")).unwrap();
                 }
+                DownloadEvent::Done(_) => {
+                    return;
+                }
             }
 
             if let Some(total) = total {

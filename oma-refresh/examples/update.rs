@@ -76,6 +76,9 @@ async fn main() -> Result<(), RefreshError> {
                     DownloadEvent::CanNotGetSourceNextUrl(e) => {
                         mb.println(format!("Error: {e}")).unwrap();
                     }
+                    DownloadEvent::Done(_) => {
+                        return;
+                    }
                 },
             }
 

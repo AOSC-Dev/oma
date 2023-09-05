@@ -116,6 +116,7 @@ pub enum DownloadEvent {
     NewProgress(u64, String),
     ProgressInc(u64),
     CanNotGetSourceNextUrl(String),
+    Done(String),
 }
 
 /// Summary struct to save download result

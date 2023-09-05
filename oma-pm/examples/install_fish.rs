@@ -68,6 +68,9 @@ fn main() -> Result<(), OmaAptError> {
             DownloadEvent::CanNotGetSourceNextUrl(e) => {
                 mb.println(format!("Error: {e}")).unwrap();
             }
+            DownloadEvent::Done(_) => {
+                return;
+            }
         }
         if let Some(total) = total {
             if !global_is_set.load(Ordering::SeqCst) {
