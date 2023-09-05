@@ -20,7 +20,7 @@ oma-utils = { version = "^0.1.5", path = "../oma-utils", features = [
 ] }
 oma-fetch = { version = "^0.2.0", path = "../oma-fetch" }
 tokio = { version = "1.15", default_features = false, features = ["fs", "rt-multi-thread"] }
-oma-console = { version = "^0.1.1", path = "../oma-console" }
+oma-console = { version = "^0.1.2", path = "../oma-console" }
 derive_builder = "0.12"
 fs4 = "0.6"
 anyhow = "1.0"

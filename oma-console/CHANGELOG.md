@@ -5,7 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.2 (2023-09-05)
+
+### Bug Fixes
+
+ - <csr-id-5b3e7018d238a50e9ac1e203cdfdfb76aec051b0/> I18n message in progress bar display
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 9 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - I18n message in progress bar display ([`5b3e701`](https://github.com/AOSC-Dev/oma/commit/5b3e7018d238a50e9ac1e203cdfdfb76aec051b0))
+</details>
+
 ## v0.1.1 (2023-08-26)
+
+<csr-id-ec081f1040db85091a7cc12f1b0db2fde4fe39bc/>
+<csr-id-d8f9c63926040c9595ce84d592d9efe611e0491f/>
+<csr-id-25d16028ab2d73a160e2b071957186b3a1b30758/>
+<csr-id-a74fe0745663ea6d25249ff376bcaac9afda7393/>
+<csr-id-0ca5be73a7ddb70e3a07b63ef21f2f873e420832/>
+<csr-id-336b02cd7f1e950d028724c11d2318bed0495ddc/>
+<csr-id-24ca3e6751a08cf5fcbbe0aa9c84d0ae4fc7de6b/>
+<csr-id-b8fc1a95ccb112e3f0be406f3ab7c6b70fcfefef/>
+<csr-id-fbebfb815cdad214a609e9cf594648aaf7ee6b6a/>
+<csr-id-87ebc18929eb44c4b96f0cc9a30822a5277ff440/>
+<csr-id-f310ff2486eaba37b8e659991429a81dfea4dff7/>
+<csr-id-df5692d9cd2dea3e882205dcce6d0558b539e279/>
+<csr-id-7de1d4f70f474a97d551cdbecc0c3e988f2544be/>
+<csr-id-a0ba9b4f999eaf047ecc79312a36237c8c70d4d3/>
+<csr-id-9de51fa2cf2993c10acfd05d3cda133e6140ac44/>
 
 ### Chore
 
@@ -47,7 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 22 commits contributed to the release over the course of 4 calendar days.
+ - 23 commits contributed to the release over the course of 4 calendar days.
  - 20 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -58,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma-console v0.1.1, oma-fetch v0.1.2, oma-utils v0.1.4, oma-pm v0.2.1 ([`64f5d1b`](https://github.com/AOSC-Dev/oma/commit/64f5d1bf4f93b7b3b1f5a00134e232409458e5e3))
     - Release oma-console v0.1.0 ([`d9b8f96`](https://github.com/AOSC-Dev/oma/commit/d9b8f963c7db7d074c6f3c09e5547772bdaff396))
     - Use MIT license ([`ec081f1`](https://github.com/AOSC-Dev/oma/commit/ec081f1040db85091a7cc12f1b0db2fde4fe39bc))
     - Release oma-console v0.1.0 ([`e36660d`](https://github.com/AOSC-Dev/oma/commit/e36660d6429addd513195b926bc3825f73f51863))
