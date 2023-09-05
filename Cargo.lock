@@ -2225,9 +2225,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8652b5a55de61e25b197ae023d72604e7ceb6b854f8f058414c8e125affd9e2e"
+version = "0.1.2"
 dependencies = [
  "console",
  "dialoguer",
@@ -2239,6 +2237,8 @@ dependencies = [
 [[package]]
 name = "oma-console"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5669d0f3f062233f9d501a17b72f666b8d3f4b29378efbc69aa30c62a3ae1b7"
 dependencies = [
  "console",
  "dialoguer",
@@ -2389,7 +2389,7 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7331240ead02eedc10b42738eba3fb25d4f787feb11b702a8d6825c18fd146e4"
 dependencies = [
- "oma-console 0.1.1",
+ "oma-console 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell",
  "os-release",
  "thiserror",
