@@ -17,6 +17,7 @@ use oma_console::error;
 use oma_console::info;
 use oma_console::success;
 use oma_console::WRITER;
+use oma_fetch::DownloadEvent;
 use oma_pm::apt::AptArgs;
 use oma_pm::apt::OmaApt;
 use oma_pm::operation::InstallEntry;
@@ -30,7 +31,7 @@ pub(crate) fn handle_no_result(no_result: Vec<String>) {
     }
 }
 
-pub(crate) fn refresh(dry_run: bool) -> Result<()> {
+pub(crate) fn refresh(dry_run: bool, no_progress: bool) -> Result<()> {
     if dry_run {
         return Ok(());
     }
@@ -45,18 +46,31 @@ pub(crate) fn refresh(dry_run: bool) -> Result<()> {
 
     tokio.block_on(async move {
         refresh
-            .start(|count, event, total| match event {
-                RefreshEvent::ClosingTopic(topic_name) => {
-                    WRITER
-                        .writeln_with_mb(
-                            &mb,
-                            &style("INFO").blue().bold().to_string(),
-                            &fl!("scan-topic-is-removed", name = topic_name),
-                        )
-                        .ok();
-                }
-                RefreshEvent::DownloadEvent(event) => {
-                    pb!(event, mb, pb_map, count, total, global_is_set)
+            .start(|count, event, total| {
+                if !no_progress {
+                    match event {
+                        RefreshEvent::ClosingTopic(topic_name) => {
+                            WRITER
+                                .writeln_with_mb(
+                                    &mb,
+                                    &style("INFO").blue().bold().to_string(),
+                                    &fl!("scan-topic-is-removed", name = topic_name),
+                                )
+                                .ok();
+                        }
+                        RefreshEvent::DownloadEvent(event) => {
+                            pb!(event, mb, pb_map, count, total, global_is_set)
+                        }
+                    }
+                } else {
+                    match event {
+                        RefreshEvent::DownloadEvent(d) => {
+                            handle_event_without_progressbar(d);
+                        }
+                        RefreshEvent::ClosingTopic(topic_name) => {
+                            info!("{}", fl!("scan-topic-is-removed", name = topic_name));
+                        }
+                    }
                 }
             })
             .await
@@ -76,6 +90,7 @@ pub(crate) fn normal_commit(
     apt_args: AptArgs,
     no_fixbroken: bool,
     network_thread: usize,
+    no_progress: bool,
 ) -> Result<()> {
     let op = apt.summary()?;
     let op_after = op.clone();
@@ -103,7 +118,11 @@ pub(crate) fn normal_commit(
     let pbc = pb_map.clone();
 
     let start_time = apt.commit(Some(network_thread), &apt_args, |count, event, total| {
-        pb!(event, mb, pb_map, count, total, global_is_set)
+        if !no_progress {
+            pb!(event, mb, pb_map, count, total, global_is_set)
+        } else {
+            handle_event_without_progressbar(event);
+        }
     })?;
 
     if let Some(gpb) = pbc.clone().get(&0) {
@@ -113,6 +132,26 @@ pub(crate) fn normal_commit(
     write_history_entry(op_after, typ, connect_db(true)?, dry_run, start_time)?;
 
     Ok(())
+}
+
+pub(crate) fn handle_event_without_progressbar(event: DownloadEvent) {
+    match event {
+        DownloadEvent::ChecksumMismatchRetry { filename, times } => {
+            error!(
+                "{}",
+                fl!("checksum-mismatch-retry", c = filename, retry = times)
+            );
+        }
+        DownloadEvent::CanNotGetSourceNextUrl(e) => {
+            error!("{}", fl!("can-not-get-source-next-url", e = e.to_string()));
+        }
+        DownloadEvent::Done(msg) => {
+            WRITER.writeln("DONE", &msg, false).ok();
+        }
+        _ => {
+            return;
+        }
+    }
 }
 
 pub(crate) fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {

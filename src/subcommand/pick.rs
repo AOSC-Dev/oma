@@ -26,7 +26,7 @@ pub fn execute(
     dbus_check(&rt)?;
 
     if !no_refresh {
-        refresh(dry_run)?;
+        refresh(dry_run, false)?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
@@ -102,6 +102,7 @@ pub fn execute(
         AptArgsBuilder::default().build()?,
         false,
         network_thread,
+        false
     )?;
 
     Ok(0)

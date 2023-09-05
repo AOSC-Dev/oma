@@ -44,7 +44,7 @@ pub fn execute(
     let enabled_pkgs = topics_changed.enabled_pkgs;
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
-    refresh(dry_run)?;
+    refresh(dry_run, false)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
@@ -84,6 +84,7 @@ pub fn execute(
         AptArgsBuilder::default().build()?,
         false,
         network_thread,
+        false
     )?;
 
     Ok(0)

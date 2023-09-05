@@ -73,6 +73,10 @@ where
         match download_res {
             Ok(download_res) => {
                 res = Some(download_res);
+                callback(
+                    download_list_index,
+                    DownloadEvent::Done(progress.2.unwrap_or(entry.filename.clone())),
+                );
                 break;
             }
             Err(e) => {

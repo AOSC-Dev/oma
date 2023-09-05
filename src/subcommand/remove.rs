@@ -17,6 +17,7 @@ pub fn execute(
     dry_run: bool,
     protect: bool,
     network_thread: usize,
+    no_progress: bool,
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -54,6 +55,7 @@ pub fn execute(
             .build()?,
         false,
         network_thread,
+        no_progress
     )?;
 
     Ok(0)
