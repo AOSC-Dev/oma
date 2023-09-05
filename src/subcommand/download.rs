@@ -4,12 +4,14 @@ use oma_console::{error, success};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 
 use crate::fl;
+use crate::subcommand::utils::handle_event_without_progressbar;
 use crate::{error::OutputError, pb, subcommand::utils::handle_no_result, utils::multibar};
 
 pub fn execute(
     keyword: Vec<&str>,
     path: Option<PathBuf>,
     dry_run: bool,
+    no_progress: bool
 ) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
@@ -22,7 +24,13 @@ pub fn execute(
         None,
         path.as_deref(),
         dry_run,
-        |count, event, total| pb!(event, mb, pb_map, count, total, global_is_set),
+        |count, event, total| {
+            if !no_progress {
+                pb!(event, mb, pb_map, count, total, global_is_set)
+            } else {
+                handle_event_without_progressbar(event);
+            }
+        }
     )?;
 
     let pbc = pb_map.clone();

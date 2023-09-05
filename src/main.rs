@@ -199,7 +199,7 @@ fn try_main() -> Result<i32> {
                 .cloned()
                 .map(|x| PathBuf::from(&x));
 
-            download::execute(keyword, path, dry_run)?
+            download::execute(keyword, path, dry_run, no_progress)?
         }
         Some(("remove", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap();
@@ -238,18 +238,18 @@ fn try_main() -> Result<i32> {
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap();
 
-            search::execute(&args)?
+            search::execute(&args, no_progress)?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
             let pkg = args.get_one::<String>(arg).unwrap();
             let is_bin = args.get_flag("bin");
 
-            contents_find::execute(x, is_bin, pkg)?
+            contents_find::execute(x, is_bin, pkg, no_progress)?
         }
         Some(("fix-broken", _)) => {
             let network_thread = config.network.network_threads;
-            fix_broken::execute(dry_run, network_thread)?
+            fix_broken::execute(dry_run, network_thread, no_progress)?
         }
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
@@ -260,6 +260,7 @@ fn try_main() -> Result<i32> {
                 args.get_flag("no_refresh"),
                 dry_run,
                 network_thread,
+                no_progress
             )?
         }
         Some(("mark", args)) => {
@@ -291,11 +292,11 @@ fn try_main() -> Result<i32> {
 
             rdepends::execute(pkgs)?
         }
-        Some(("clean", _)) => clean::execute()?,
+        Some(("clean", _)) => clean::execute(no_progress)?,
         Some(("history", _)) => subcommand::history::execute()?,
         Some(("undo", _)) => {
             let network_thread = config.network.network_threads;
-            undo::execute(network_thread)?
+            undo::execute(network_thread, no_progress)?
         }
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
@@ -311,7 +312,7 @@ fn try_main() -> Result<i32> {
 
             let network_thread = config.network.network_threads;
 
-            topics::execute(opt_in, opt_out, dry_run, network_thread)?
+            topics::execute(opt_in, opt_out, dry_run, network_thread, no_progress)?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());

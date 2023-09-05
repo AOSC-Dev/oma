@@ -9,20 +9,30 @@ use oma_pm::{
 use crate::fl;
 use crate::{error::OutputError, table::oma_display};
 
-pub fn execute(args: &[String]) -> Result<i32, OutputError> {
+pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.join(" ");
 
     let (sty, inv) = oma_spinner(false).unwrap();
-    let pb = ProgressBar::new_spinner().with_style(sty);
-    pb.enable_steady_tick(inv);
-    pb.set_message("Searching ...");
+
+    let pb = if !no_progress {
+        let pb = ProgressBar::new_spinner().with_style(sty);
+        pb.enable_steady_tick(inv);
+        pb.set_message("Searching ...");
+
+        Some(pb)
+    } else {
+        None
+    };
 
     let res = db.search(&s)?;
 
-    pb.finish_and_clear();
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
+
     let mut pager = oma_display(false, res.len())?;
 
     let mut writer = pager.get_writer()?;
