@@ -2,7 +2,7 @@ use std::io::Write;
 
 use crate::OmaConsoleResult;
 use console::Term;
-use indicatif::ProgressBar;
+use indicatif::{MultiProgress, ProgressBar};
 
 /// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
@@ -152,6 +152,21 @@ impl Writer {
 
         for (i, c) in prefix.iter().enumerate() {
             pb.println(format!("{c}{}", line_msgs[i]));
+        }
+
+        Ok(())
+    }
+
+    pub fn writeln_with_mb(
+        &self,
+        mb: &MultiProgress,
+        prefix: &str,
+        msg: &str,
+    ) -> OmaConsoleResult<()> {
+        let (prefix, line_msgs) = self.writeln(prefix, msg, true)?;
+
+        for (i, c) in prefix.iter().enumerate() {
+            mb.println(format!("{c}{}", line_msgs[i]))?;
         }
 
         Ok(())
