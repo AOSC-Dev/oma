@@ -2200,7 +2200,7 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "nix 0.27.1",
- "oma-console 0.1.1",
+ "oma-console 0.1.2",
  "oma-contents",
  "oma-fetch",
  "oma-inquire",
@@ -2242,7 +2242,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "console",
  "dialoguer",
@@ -2298,7 +2298,7 @@ dependencies = [
  "futures",
  "hex",
  "indicatif",
- "oma-console 0.1.1",
+ "oma-console 0.1.2",
  "oma-utils 0.1.7",
  "reqwest",
  "serde",
@@ -2336,7 +2336,7 @@ dependencies = [
  "indicatif",
  "indicium",
  "oma-apt",
- "oma-console 0.1.1",
+ "oma-console 0.1.2",
  "oma-fetch",
  "oma-utils 0.1.5",
  "serde",
@@ -2346,7 +2346,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2354,7 +2354,7 @@ dependencies = [
  "futures",
  "indicatif",
  "oma-apt-sources-lists",
- "oma-console 0.1.1",
+ "oma-console 0.1.2",
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
@@ -2371,12 +2371,12 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "futures",
  "indexmap 2.0.2",
  "oma-apt-sources-lists",
- "oma-console 0.1.1",
+ "oma-console 0.1.2",
  "oma-inquire",
  "once_cell",
  "reqwest",
@@ -2391,7 +2391,7 @@ name = "oma-utils"
 version = "0.1.5"
 dependencies = [
  "number_prefix",
- "oma-console 0.1.1",
+ "oma-console 0.1.2",
  "once_cell",
  "os-release",
  "thiserror",
