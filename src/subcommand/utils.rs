@@ -10,16 +10,19 @@ use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::multibar;
 use crate::Result;
+use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
 use oma_console::error;
 use oma_console::info;
 use oma_console::success;
+use oma_console::WRITER;
 use oma_pm::apt::AptArgs;
 use oma_pm::apt::OmaApt;
 use oma_pm::operation::InstallEntry;
 use oma_pm::operation::RemoveEntry;
 use oma_refresh::db::OmaRefresh;
+use oma_refresh::db::RefreshEvent;
 
 pub(crate) fn handle_no_result(no_result: Vec<String>) {
     for word in no_result {
@@ -42,7 +45,20 @@ pub(crate) fn refresh(dry_run: bool) -> Result<()> {
 
     tokio.block_on(async move {
         refresh
-            .start(|count, event, total| pb!(event, mb, pb_map, count, total, global_is_set))
+            .start(|count, event, total| match event {
+                RefreshEvent::ClosingTopic(topic_name) => {
+                    WRITER
+                        .writeln_with_mb(
+                            &mb,
+                            &style("INFO").blue().bold().to_string(),
+                            &fl!("scan-topic-is-removed", name = topic_name),
+                        )
+                        .ok();
+                }
+                RefreshEvent::DownloadEvent(event) => {
+                    pb!(event, mb, pb_map, count, total, global_is_set)
+                }
+            })
             .await
     })?;
 

@@ -267,7 +267,7 @@ impl OmaRefresh {
 
     pub async fn start<F>(self, callback: F) -> Result<()>
     where
-        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
+        F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
     {
         update_db(
             self.sources,
@@ -280,6 +280,18 @@ impl OmaRefresh {
     }
 }
 
+#[derive(Debug)]
+pub enum RefreshEvent {
+    DownloadEvent(DownloadEvent),
+    ClosingTopic(String),
+}
+
+impl From<DownloadEvent> for RefreshEvent {
+    fn from(value: DownloadEvent) -> Self {
+        RefreshEvent::DownloadEvent(value)
+    }
+}
+
 // Update database
 async fn update_db<F>(
     sourceslist: Vec<OmaSourceEntry>,
@@ -289,7 +301,7 @@ async fn update_db<F>(
     callback: F,
 ) -> Result<()>
 where
-    F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
+    F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
 {
     let mut tasks = vec![];
 
@@ -334,7 +346,7 @@ where
     }
 
     let res = OmaFetcher::new(None, tasks, limit)?
-        .start_download(|c, event| callback(c, event, None))
+        .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
         .await;
 
     let mut all_inrelease = vec![];
@@ -557,7 +569,7 @@ where
     }
 
     let res = OmaFetcher::new(None, tasks, limit)?
-        .start_download(|count, event| callback(count, event, Some(total)))
+        .start_download(|count, event| callback(count, RefreshEvent::from(event), Some(total)))
         .await;
 
     res.into_iter().collect::<DownloadResult<Vec<_>>>()?;

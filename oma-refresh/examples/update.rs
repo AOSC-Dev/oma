@@ -14,7 +14,7 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::DownloadEvent;
-use oma_refresh::db::{OmaRefresh, RefreshError};
+use oma_refresh::db::{OmaRefresh, RefreshError, RefreshEvent};
 
 #[tokio::main]
 async fn main() -> Result<(), RefreshError> {
@@ -31,47 +31,52 @@ async fn main() -> Result<(), RefreshError> {
     refresher
         .start(move |count, event, total| {
             match event {
-                DownloadEvent::ChecksumMismatchRetry { filename, times } => {
-                    mb.println(format!(
-                        "{filename} checksum failed, retrying {times} times"
-                    ))
-                    .unwrap();
+                RefreshEvent::ClosingTopic(topic_name) => {
+                    mb.println(format!("Closing topic {topic_name}")).unwrap();
                 }
-                DownloadEvent::GlobalProgressSet(size) => {
-                    if let Some(pb) = pb_map.get(&0) {
-                        pb.set_position(size);
+                RefreshEvent::DownloadEvent(event) => match event {
+                    DownloadEvent::ChecksumMismatchRetry { filename, times } => {
+                        mb.println(format!(
+                            "{filename} checksum failed, retrying {times} times"
+                        ))
+                        .unwrap();
                     }
-                }
-                DownloadEvent::GlobalProgressInc(size) => {
-                    if let Some(pb) = pb_map.get(&0) {
+                    DownloadEvent::GlobalProgressSet(size) => {
+                        if let Some(pb) = pb_map.get(&0) {
+                            pb.set_position(size);
+                        }
+                    }
+                    DownloadEvent::GlobalProgressInc(size) => {
+                        if let Some(pb) = pb_map.get(&0) {
+                            pb.inc(size);
+                        }
+                    }
+                    DownloadEvent::ProgressDone => {
+                        if let Some(pb) = pb_map.get(&(count + 1)) {
+                            pb.finish_and_clear();
+                        }
+                    }
+                    DownloadEvent::NewProgressSpinner(msg) => {
+                        let (sty, inv) = oma_spinner(false).unwrap();
+                        let pb = mb.insert(count + 1, ProgressBar::new_spinner().with_style(sty));
+                        pb.set_message(msg);
+                        pb.enable_steady_tick(inv);
+                        pb_map.insert(count + 1, pb);
+                    }
+                    DownloadEvent::NewProgress(size, msg) => {
+                        let sty = oma_style_pb(Writer::default(), false).unwrap();
+                        let pb = mb.insert(count + 1, ProgressBar::new(size).with_style(sty));
+                        pb.set_message(msg);
+                        pb_map.insert(count + 1, pb);
+                    }
+                    DownloadEvent::ProgressInc(size) => {
+                        let pb = pb_map.get(&(count + 1)).unwrap();
                         pb.inc(size);
                     }
-                }
-                DownloadEvent::ProgressDone => {
-                    if let Some(pb) = pb_map.get(&(count + 1)) {
-                        pb.finish_and_clear();
+                    DownloadEvent::CanNotGetSourceNextUrl(e) => {
+                        mb.println(format!("Error: {e}")).unwrap();
                     }
-                }
-                DownloadEvent::NewProgressSpinner(msg) => {
-                    let (sty, inv) = oma_spinner(false).unwrap();
-                    let pb = mb.insert(count + 1, ProgressBar::new_spinner().with_style(sty));
-                    pb.set_message(msg);
-                    pb.enable_steady_tick(inv);
-                    pb_map.insert(count + 1, pb);
-                }
-                DownloadEvent::NewProgress(size, msg) => {
-                    let sty = oma_style_pb(Writer::default(), false).unwrap();
-                    let pb = mb.insert(count + 1, ProgressBar::new(size).with_style(sty));
-                    pb.set_message(msg);
-                    pb_map.insert(count + 1, pb);
-                }
-                DownloadEvent::ProgressInc(size) => {
-                    let pb = pb_map.get(&(count + 1)).unwrap();
-                    pb.inc(size);
-                }
-                DownloadEvent::CanNotGetSourceNextUrl(e) => {
-                    mb.println(format!("Error: {e}")).unwrap();
-                }
+                },
             }
 
             if let Some(total) = total {
