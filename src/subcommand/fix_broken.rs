@@ -22,7 +22,7 @@ pub fn execute(dry_run: bool, network_thread: usize, no_progress: bool) -> Resul
         apt,
         dry_run,
         SummaryType::FixBroken,
-        AptArgsBuilder::default().build()?,
+        AptArgsBuilder::default().no_progress(no_progress).build()?,
         false,
         network_thread,
         no_progress

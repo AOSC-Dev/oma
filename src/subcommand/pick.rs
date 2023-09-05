@@ -100,7 +100,7 @@ pub fn execute(
                 .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                 .collect(),
         ),
-        AptArgsBuilder::default().build()?,
+        AptArgsBuilder::default().no_progress(no_progress).build()?,
         false,
         network_thread,
         no_progress

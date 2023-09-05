@@ -52,6 +52,7 @@ pub fn execute(
         AptArgsBuilder::default()
             .yes(args.yes)
             .force_yes(args.force_yes)
+            .no_progress(no_progress)
             .build()?,
         false,
         network_thread,

@@ -71,6 +71,7 @@ pub fn execute(
         .force_yes(args.force_yes)
         .dpkg_force_all(args.dpkg_force_all)
         .dpkg_force_confnew(args.force_confnew)
+        .no_progress(no_progress)
         .build()?;
 
     normal_commit(
