@@ -25,10 +25,16 @@ macro_rules! pb {
     ($event:expr, $mb:expr, $pb_map:expr, $count:expr, $total:expr, $global_is_set:expr) => {{
         match $event {
             oma_fetch::DownloadEvent::ChecksumMismatchRetry { filename, times } => {
-                $mb.println(format!(
-                    "{filename} checksum failed, retrying {times} times"
-                ))
-                .unwrap();
+                oma_console::WRITER
+                    .writeln_with_mb(
+                        &*$mb,
+                        &oma_console::console::style("ERROR")
+                            .red()
+                            .bold()
+                            .to_string(),
+                        &fl!("checksum-mismatch-retry", c = filename, retry = times),
+                    )
+                    .unwrap();
             }
             oma_fetch::DownloadEvent::GlobalProgressSet(size) => {
                 if let Some(pb) = $pb_map.get(&0) {
@@ -71,7 +77,16 @@ macro_rules! pb {
                 pb.inc(size);
             }
             oma_fetch::DownloadEvent::CanNotGetSourceNextUrl(e) => {
-                $mb.println(format!("Error: {e}")).unwrap();
+                oma_console::WRITER
+                    .writeln_with_mb(
+                        &*$mb,
+                        &oma_console::console::style("ERROR")
+                            .red()
+                            .bold()
+                            .to_string(),
+                        &fl!("can-not-get-source-next-url", e = e.to_string()),
+                    )
+                    .unwrap();
             }
         }
 
