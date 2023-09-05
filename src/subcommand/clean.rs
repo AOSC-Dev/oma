@@ -4,7 +4,7 @@ use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 
 use crate::{error::OutputError, utils::root};
 
-pub fn execute() -> Result<i32, OutputError> {
+pub fn execute(no_progress: bool) -> Result<i32, OutputError> {
     root()?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
@@ -12,10 +12,16 @@ pub fn execute() -> Result<i32, OutputError> {
     let download_dir = apt.get_archive_dir();
     let dir = std::fs::read_dir(&download_dir)?;
 
-    let (sty, inv) = oma_spinner(false).unwrap();
-    let pb = ProgressBar::new_spinner().with_style(sty);
-    pb.enable_steady_tick(inv);
-    pb.set_message("Cleaning ...");
+    let pb = if no_progress {
+        let (sty, inv) = oma_spinner(false).unwrap();
+        let pb = ProgressBar::new_spinner().with_style(sty);
+        pb.enable_steady_tick(inv);
+        pb.set_message("Cleaning ...");
+
+        Some(pb)
+    } else {
+        None
+    };
 
     for i in dir.flatten() {
         if i.path().extension().and_then(|x| x.to_str()) == Some("deb") {
@@ -27,7 +33,9 @@ pub fn execute() -> Result<i32, OutputError> {
     std::fs::remove_file(p.join("pkgcache.bin")).ok();
     std::fs::remove_file(p.join("srcpkgcache.bin")).ok();
 
-    pb.finish_and_clear();
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
 
     success!("{}", fl!("clean-successfully"));
 

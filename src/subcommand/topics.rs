@@ -32,6 +32,7 @@ pub fn execute(
     opt_out: Vec<String>,
     dry_run: bool,
     network_thread: usize,
+    no_progress: bool,
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -39,12 +40,12 @@ pub fn execute(
     dbus_check(&rt)?;
 
     let topics_changed =
-        rt.block_on(async move { topics_inner(opt_in, opt_out, dry_run).await })?;
+        rt.block_on(async move { topics_inner(opt_in, opt_out, dry_run, no_progress).await })?;
 
     let enabled_pkgs = topics_changed.enabled_pkgs;
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
-    refresh(dry_run, false)?;
+    refresh(dry_run, no_progress)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
@@ -84,7 +85,7 @@ pub fn execute(
         AptArgsBuilder::default().build()?,
         false,
         network_thread,
-        false
+        no_progress
     )?;
 
     Ok(0)
@@ -94,11 +95,12 @@ async fn topics_inner(
     mut opt_in: Vec<String>,
     mut opt_out: Vec<String>,
     dry_run: bool,
+    no_progress: bool
 ) -> Result<TopicChanged, OutputError> {
     let mut tm = TopicManager::new().await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
-        inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
+        inquire(&mut tm, &mut opt_in, &mut opt_out, no_progress).await?;
     }
 
     for i in &opt_in {
@@ -130,14 +132,25 @@ async fn inquire(
     tm: &mut TopicManager,
     opt_in: &mut Vec<String>,
     opt_out: &mut Vec<String>,
+    no_progress: bool
 ) -> Result<(), OutputError> {
-    let pb = ProgressBar::new_spinner();
-    let (style, inv) = oma_spinner(false).unwrap();
-    pb.set_style(style);
-    pb.enable_steady_tick(inv);
-    pb.set_message(fl!("refreshing-topic-metadata"));
+    let pb = if !no_progress {
+        let pb = ProgressBar::new_spinner();
+        let (style, inv) = oma_spinner(false).unwrap();
+        pb.set_style(style);
+        pb.enable_steady_tick(inv);
+        pb.set_message(fl!("refreshing-topic-metadata"));
+
+        Some(pb)
+    } else {
+        None
+    };
+
     let display = oma_topics::list(tm).await?;
-    pb.finish_and_clear();
+
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
 
     let all = tm.all.clone();
     let enabled_names = tm.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();

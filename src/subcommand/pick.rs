@@ -19,6 +19,7 @@ pub fn execute(
     no_refresh: bool,
     dry_run: bool,
     network_thread: usize,
+    no_progress: bool
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -26,7 +27,7 @@ pub fn execute(
     dbus_check(&rt)?;
 
     if !no_refresh {
-        refresh(dry_run, false)?;
+        refresh(dry_run, no_progress)?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
@@ -102,7 +103,7 @@ pub fn execute(
         AptArgsBuilder::default().build()?,
         false,
         network_thread,
-        false
+        no_progress
     )?;
 
     Ok(0)

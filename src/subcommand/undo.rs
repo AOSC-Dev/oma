@@ -12,7 +12,7 @@ use crate::{
 
 use super::utils::{dialoguer_select_history, format_summary_log, handle_no_result, normal_commit};
 
-pub fn execute(network_thread: usize) -> Result<i32, OutputError> {
+pub fn execute(network_thread: usize, no_progress: bool) -> Result<i32, OutputError> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -80,7 +80,7 @@ pub fn execute(network_thread: usize) -> Result<i32, OutputError> {
         AptArgsBuilder::default().build()?,
         false,
         network_thread,
-        false
+        no_progress
     )?;
 
     Ok(0)
