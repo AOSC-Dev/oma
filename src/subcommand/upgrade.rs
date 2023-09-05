@@ -53,6 +53,7 @@ pub fn execute(
         .dpkg_force_confnew(args.force_confnew)
         .force_yes(args.force_yes)
         .yes(args.yes)
+        .no_progress(no_progress)
         .build()?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;

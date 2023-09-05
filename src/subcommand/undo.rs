@@ -77,10 +77,10 @@ pub fn execute(network_thread: usize, no_progress: bool) -> Result<i32, OutputEr
         apt,
         false,
         SummaryType::Undo,
-        AptArgsBuilder::default().build()?,
+        AptArgsBuilder::default().no_progress(no_progress).build()?,
         false,
         network_thread,
-        no_progress
+        no_progress,
     )?;
 
     Ok(0)

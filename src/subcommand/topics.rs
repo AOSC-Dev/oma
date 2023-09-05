@@ -82,7 +82,7 @@ pub fn execute(
             add: topics_changed.opt_in,
             remove: topics_changed.opt_out,
         },
-        AptArgsBuilder::default().build()?,
+        AptArgsBuilder::default().no_progress(no_progress).build()?,
         false,
         network_thread,
         no_progress

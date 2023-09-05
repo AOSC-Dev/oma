@@ -79,6 +79,7 @@ impl AcquireProgress for NoProgress {
 
 pub struct OmaAptInstallProgress {
     config: AptConfig,
+    no_progress: bool,
 }
 
 impl OmaAptInstallProgress {
@@ -89,6 +90,7 @@ impl OmaAptInstallProgress {
         force_yes: bool,
         dpkg_force_confnew: bool,
         dpkg_force_all: bool,
+        no_progress: bool,
     ) -> Self {
         if yes {
             oma_apt::raw::config::raw::config_set(
@@ -135,12 +137,15 @@ impl OmaAptInstallProgress {
             debug!("Dpkg::Options:: is set to --force-all");
         }
 
-        if !is_terminal() {
+        if !is_terminal() || no_progress {
             std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
             config.set("Dpkg::Use-Pty", "false");
         }
 
-        Self { config }
+        Self {
+            config,
+            no_progress,
+        }
     }
 
     /// Return the AptInstallProgress in a box
@@ -151,6 +156,7 @@ impl OmaAptInstallProgress {
         force_yes: bool,
         dpkg_force_confnew: bool,
         dpkg_force_all: bool,
+        no_progress: bool,
     ) -> Box<dyn InstallProgress> {
         Box::new(Self::new(
             config,
@@ -158,6 +164,7 @@ impl OmaAptInstallProgress {
             force_yes,
             dpkg_force_confnew,
             dpkg_force_all,
+            no_progress,
         ))
     }
 }
@@ -170,7 +177,7 @@ impl InstallProgress for OmaAptInstallProgress {
         total_steps: u64,
         _action: String,
     ) {
-        if !is_terminal() {
+        if !is_terminal() || self.no_progress {
             return;
         }
 

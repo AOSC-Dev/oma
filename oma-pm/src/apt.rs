@@ -112,6 +112,7 @@ pub struct AptArgs {
     force_yes: bool,
     dpkg_force_confnew: bool,
     dpkg_force_all: bool,
+    no_progress: bool,
 }
 
 impl AptArgs {
@@ -539,6 +540,7 @@ impl OmaApt {
             args_config.force_yes,
             args_config.dpkg_force_confnew,
             args_config.dpkg_force_all,
+            args_config.no_progress
         );
 
         apt_unlock_inner();
