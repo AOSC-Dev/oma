@@ -5,7 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.2.0 (2023-09-05)
+
+### New Features
+
+ - <csr-id-0ee47f5f866bc12c59955bd88822bb2e487af743/> Switch to callback event, no more indicatif in oma-fetch
+
+### Refactor
+
+ - <csr-id-8f2cb7c6f2bf4e118d0b5fe17105a4a2fd6164f5/> Adapt oma-fetch new API
+ - <csr-id-1943b764ee60248d6c02f820e50cdc1e5d73716b/> Adapt new oma-fetch api
+
+### Style
+
+ - <csr-id-b4283b72c5e8ed5ffaed7ca27fe345d0d43394dd/> Improve code style
+ - <csr-id-1875106a3ac133a463bb1c251ba11b5b8b1429d6/> Use cargo-fmt to format code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release.
+ - 2 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Improve code style ([`b4283b7`](https://github.com/AOSC-Dev/oma/commit/b4283b72c5e8ed5ffaed7ca27fe345d0d43394dd))
+    - Use cargo-fmt to format code ([`1875106`](https://github.com/AOSC-Dev/oma/commit/1875106a3ac133a463bb1c251ba11b5b8b1429d6))
+    - Adapt oma-fetch new API ([`8f2cb7c`](https://github.com/AOSC-Dev/oma/commit/8f2cb7c6f2bf4e118d0b5fe17105a4a2fd6164f5))
+    - Adapt new oma-fetch api ([`1943b76`](https://github.com/AOSC-Dev/oma/commit/1943b764ee60248d6c02f820e50cdc1e5d73716b))
+    - Switch to callback event, no more indicatif in oma-fetch ([`0ee47f5`](https://github.com/AOSC-Dev/oma/commit/0ee47f5f866bc12c59955bd88822bb2e487af743))
+</details>
+
 ## v0.1.3 (2023-09-02)
+
+<csr-id-57003169329e01d60172d3531e7f3817bacf46da/>
+<csr-id-922fb8aa093a6050c4fdc848f2e5fab369db6095/>
 
 ### Chore
 
@@ -25,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 7 calendar days.
+ - 6 commits contributed to the release over the course of 7 calendar days.
  - 7 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -37,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma-fetch v0.1.3 ([`808db0b`](https://github.com/AOSC-Dev/oma/commit/808db0bef0e9b4c001d1c2e1a291bd2d7a4a1871))
     - Escape url try to fix can not download '+' in package name packages ([`7f5dea1`](https://github.com/AOSC-Dev/oma/commit/7f5dea18cdda862fc36fe2d4560ff10ed07baa1d))
     - Add translate ([`2fe7543`](https://github.com/AOSC-Dev/oma/commit/2fe754324e2eb2b3d43c89e162059bfaffeabae3))
     - Fix warning message display ([`30b2f5c`](https://github.com/AOSC-Dev/oma/commit/30b2f5c194cdb2fe74b74a20b200ebfb340b118c))
@@ -149,9 +192,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Some change ([`5d16784`](https://github.com/AOSC-Dev/oma/commit/5d16784215b2c47059c335e5f03c94ffaaf63693))
     - Oma-fetcher -> oma-fetch ([`70e11f8`](https://github.com/AOSC-Dev/oma/commit/70e11f8d3354a5989b4576fe924f66c5f7ec72ac))
 </details>
-
-<csr-unknown>
- Use progress bar println to display message Merge master 5d6d2e82f0125d4c8f871228b8cbeb3de53260f1 change Adapt new oma-fetch api Clear decompress progress bar<csr-unknown/>
 
 ## v0.1.1 (2023-08-21)
 
