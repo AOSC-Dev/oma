@@ -21,7 +21,7 @@ oma-debcontrol = "0.3"
 sequoia-openpgp = "1.13"
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
-oma-topics = { version = "0.1.1", path = "../oma-topics", optional = true }
+oma-topics = { version = "^0.1.2", path = "../oma-topics", optional = true }
 reqwest = "0.11"
 oma-utils = { version = "^0.1.5", path = "../oma-utils", features = ["dpkg"] }
 oma-console = { version = "0.1.1", path = "../oma-console" }
