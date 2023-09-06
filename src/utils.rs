@@ -91,6 +91,11 @@ macro_rules! pb {
             oma_fetch::DownloadEvent::Done(filename) => {
                 oma_console::debug!("Downloaded {filename}");
             }
+            oma_fetch::DownloadEvent::AllDone => {
+                if let Some(gpb) = $pb_map.get(&0) {
+                    gpb.finish_and_clear();
+                }
+            }
         }
 
         if let Some(total) = $total {

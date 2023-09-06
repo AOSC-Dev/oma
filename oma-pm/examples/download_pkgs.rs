@@ -78,6 +78,9 @@ fn main() -> Result<(), OmaAptError> {
                 DownloadEvent::Done(_) => {
                     return;
                 }
+                DownloadEvent::AllDone => {
+                    pb_map.get(&0).unwrap().finish_and_clear();
+                }
             }
 
             if let Some(total) = total {
@@ -90,8 +93,6 @@ fn main() -> Result<(), OmaAptError> {
             }
         },
     )?;
-
-    pb_map.get(&0).unwrap().finish_and_clear();
 
     dbg!(res);
 

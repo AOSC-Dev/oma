@@ -87,7 +87,6 @@ pub fn execute(
         }
 
         let (mb, pb_map, global_is_set) = multibar();
-        let pbc = pb_map.clone();
         match apt.commit(None, &apt_args, |count, event, total| {
             if !no_progress {
                 pb!(event, mb, pb_map, count, total, global_is_set)
@@ -119,10 +118,6 @@ pub fn execute(
                 }
                 _ => return Err(OutputError::from(e)),
             },
-        }
-
-        if let Some(gpb) = pbc.clone().get(&0) {
-            gpb.finish_and_clear();
         }
     }
 }

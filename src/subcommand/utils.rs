@@ -115,8 +115,6 @@ pub(crate) fn normal_commit(
 
     let (mb, pb_map, global_is_set) = multibar();
 
-    let pbc = pb_map.clone();
-
     let start_time = apt.commit(Some(network_thread), &apt_args, |count, event, total| {
         if !no_progress {
             pb!(event, mb, pb_map, count, total, global_is_set)
@@ -124,10 +122,6 @@ pub(crate) fn normal_commit(
             handle_event_without_progressbar(event);
         }
     })?;
-
-    if let Some(gpb) = pbc.clone().get(&0) {
-        gpb.finish_and_clear();
-    }
 
     write_history_entry(op_after, typ, connect_db(true)?, dry_run, start_time)?;
 

@@ -79,6 +79,11 @@ async fn main() -> Result<(), RefreshError> {
                     DownloadEvent::Done(_) => {
                         return;
                     }
+                    DownloadEvent::AllDone => {
+                        if let Some(gpb) = pb_map.get(&0) {
+                            gpb.finish_and_clear();
+                        }
+                    }
                 },
             }
 
