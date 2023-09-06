@@ -19,7 +19,7 @@ pub fn execute(
     no_refresh: bool,
     dry_run: bool,
     network_thread: usize,
-    no_progress: bool
+    no_progress: bool,
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -103,7 +103,7 @@ pub fn execute(
         AptArgsBuilder::default().no_progress(no_progress).build()?,
         false,
         network_thread,
-        no_progress
+        no_progress,
     )?;
 
     Ok(0)
