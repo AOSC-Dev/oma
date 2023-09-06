@@ -1,3 +1,6 @@
+use std::ffi::OsStr;
+
+use anyhow::anyhow;
 use clap::{builder::PossibleValue, command, Arg, ArgAction, Command};
 
 pub fn command_builder() -> Command {
@@ -329,7 +332,20 @@ pub fn command_builder() -> Command {
                     .action(ArgAction::Set)
                     .num_args(1)
                 )
-        );
+        )
+        .subcommands({
+            let plugins = list_plugin();
+            if let Ok(plugins) = plugins {
+                plugins.iter().filter_map(|plugin| {
+                    let name = plugin.strip_prefix("oma-");
+                    name
+                }).map(|name| Command::new(name.to_string())
+                .arg(Arg::new("COMMANDS").required(false).num_args(1..).help("Applet specific commands"))
+                .about("")).collect()
+            } else {
+                vec![]
+            }
+        });
 
     if cfg!(feature = "aosc") {
         cmd = cmd.subcommand(
@@ -354,4 +370,28 @@ pub fn command_builder() -> Command {
     }
 
     cmd
+}
+
+/// List all the available plugins/helper scripts
+fn list_plugin() -> anyhow::Result<Vec<String>> {
+    let exe_dir = std::env::current_exe().and_then(std::fs::canonicalize)?;
+    let exe_dir = exe_dir.parent().ok_or_else(|| anyhow!("Where am I?"))?;
+    let plugins_dir = exe_dir.read_dir()?;
+    let plugins = plugins_dir
+        .filter_map(|x| {
+            if let Ok(x) = x {
+                let path = x.path();
+                let filename = path
+                    .file_name()
+                    .unwrap_or_else(|| OsStr::new(""))
+                    .to_string_lossy();
+                if path.is_file() && filename.starts_with("oma-") {
+                    return Some(filename.to_string());
+                }
+            }
+            None
+        })
+        .collect();
+
+    Ok(plugins)
 }
