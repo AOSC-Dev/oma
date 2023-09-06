@@ -618,6 +618,7 @@ impl OmaApt {
             callback(0, DownloadEvent::AllDone, None);
             return Ok((vec![], vec![]));
         }
+
         let mut download_list = vec![];
         let mut total_size = 0;
 

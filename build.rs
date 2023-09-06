@@ -58,7 +58,7 @@ fn build_man(cmd: &Command, srcdir: &Path) -> Result<()> {
         man.render(&mut buffer)?;
 
         std::fs::write(
-            std::path::PathBuf::from(&man_dir).join(format!("{}{}", &subcommand_name, ".1")),
+            std::path::PathBuf::from(&man_dir).join(format!("{subcommand_name}.1")),
             buffer,
         )?;
     }
