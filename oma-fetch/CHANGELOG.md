@@ -5,7 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.0 (2023-09-06)
+
+### New Features
+
+ - <csr-id-a0750502605cabb6d7385f1cbc96edf639324cb5/> Add DownloadEvent::AllDone to allow control global progress bar finish and clear
+ - <csr-id-13018326745688027422575eb5a364a050c4c691/> Add --no-progress option to no output progress bar to terminal
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Add DownloadEvent::AllDone to allow control global progress bar finish and clear ([`a075050`](https://github.com/AOSC-Dev/oma/commit/a0750502605cabb6d7385f1cbc96edf639324cb5))
+    - Add --no-progress option to no output progress bar to terminal ([`1301832`](https://github.com/AOSC-Dev/oma/commit/13018326745688027422575eb5a364a050c4c691))
+</details>
+
 ## v0.2.0 (2023-09-05)
+
+<csr-id-8f2cb7c6f2bf4e118d0b5fe17105a4a2fd6164f5/>
+<csr-id-1943b764ee60248d6c02f820e50cdc1e5d73716b/>
+<csr-id-b4283b72c5e8ed5ffaed7ca27fe345d0d43394dd/>
+<csr-id-1875106a3ac133a463bb1c251ba11b5b8b1429d6/>
 
 ### New Features
 
@@ -25,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 6 commits contributed to the release.
  - 2 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -37,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release oma-fetch v0.2.0, safety bump 2 crates ([`3d643f9`](https://github.com/AOSC-Dev/oma/commit/3d643f98588d93c60a094808b794624e78d464b7))
     - Improve code style ([`b4283b7`](https://github.com/AOSC-Dev/oma/commit/b4283b72c5e8ed5ffaed7ca27fe345d0d43394dd))
     - Use cargo-fmt to format code ([`1875106`](https://github.com/AOSC-Dev/oma/commit/1875106a3ac133a463bb1c251ba11b5b8b1429d6))
     - Adapt oma-fetch new API ([`8f2cb7c`](https://github.com/AOSC-Dev/oma/commit/8f2cb7c6f2bf4e118d0b5fe17105a4a2fd6164f5))
