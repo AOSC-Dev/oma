@@ -56,7 +56,7 @@ pub fn execute(
             .build()?,
         false,
         network_thread,
-        no_progress
+        no_progress,
     )?;
 
     Ok(0)

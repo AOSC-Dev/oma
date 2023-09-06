@@ -85,7 +85,7 @@ pub fn execute(
         apt_args,
         args.no_fixbroken,
         network_thread,
-        no_progress
+        no_progress,
     )?;
 
     Ok(0)

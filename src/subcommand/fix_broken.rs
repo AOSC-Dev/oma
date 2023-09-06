@@ -8,7 +8,11 @@ use crate::{
 
 use super::utils::normal_commit;
 
-pub fn execute(dry_run: bool, network_thread: usize, no_progress: bool) -> Result<i32, OutputError> {
+pub fn execute(
+    dry_run: bool,
+    network_thread: usize,
+    no_progress: bool,
+) -> Result<i32, OutputError> {
     root()?;
 
     let rt = create_async_runtime()?;
@@ -25,7 +29,7 @@ pub fn execute(dry_run: bool, network_thread: usize, no_progress: bool) -> Resul
         AptArgsBuilder::default().no_progress(no_progress).build()?,
         false,
         network_thread,
-        no_progress
+        no_progress,
     )?;
 
     Ok(0)

@@ -11,7 +11,7 @@ pub fn execute(
     keyword: Vec<&str>,
     path: Option<PathBuf>,
     dry_run: bool,
-    no_progress: bool
+    no_progress: bool,
 ) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
@@ -30,7 +30,7 @@ pub fn execute(
             } else {
                 handle_event_without_progressbar(event);
             }
-        }
+        },
     )?;
 
     let pbc = pb_map.clone();

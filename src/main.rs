@@ -260,7 +260,7 @@ fn try_main() -> Result<i32> {
                 args.get_flag("no_refresh"),
                 dry_run,
                 network_thread,
-                no_progress
+                no_progress,
             )?
         }
         Some(("mark", args)) => {

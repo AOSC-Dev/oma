@@ -142,9 +142,7 @@ pub(crate) fn handle_event_without_progressbar(event: DownloadEvent) {
         DownloadEvent::Done(msg) => {
             WRITER.writeln("DONE", &msg, false).ok();
         }
-        _ => {
-            return;
-        }
+        _ => {}
     }
 }
 

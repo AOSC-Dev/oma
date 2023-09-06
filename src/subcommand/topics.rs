@@ -85,7 +85,7 @@ pub fn execute(
         AptArgsBuilder::default().no_progress(no_progress).build()?,
         false,
         network_thread,
-        no_progress
+        no_progress,
     )?;
 
     Ok(0)
@@ -95,7 +95,7 @@ async fn topics_inner(
     mut opt_in: Vec<String>,
     mut opt_out: Vec<String>,
     dry_run: bool,
-    no_progress: bool
+    no_progress: bool,
 ) -> Result<TopicChanged, OutputError> {
     let mut tm = TopicManager::new().await?;
 
@@ -132,7 +132,7 @@ async fn inquire(
     tm: &mut TopicManager,
     opt_in: &mut Vec<String>,
     opt_out: &mut Vec<String>,
-    no_progress: bool
+    no_progress: bool,
 ) -> Result<(), OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();

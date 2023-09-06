@@ -46,14 +46,14 @@ pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool) -> Result<i3
                 if let Some(pb) = &pb {
                     WRITER
                         .writeln_with_pb(
-                            &pb,
+                            pb,
                             &console::style("WARNING").yellow().bold().to_string(),
                             &fl!("contents-may-not-be-accurate-1"),
                         )
                         .unwrap();
                     WRITER
                         .writeln_with_pb(
-                            &pb,
+                            pb,
                             &console::style("INFO").blue().bold().to_string(),
                             &fl!("contents-may-not-be-accurate-2"),
                         )
