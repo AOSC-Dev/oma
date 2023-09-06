@@ -5,10 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.1.1 (2023-09-05)
+## v0.1.2 (2023-09-06)
 
 ### Chore
 
+ - <csr-id-bdaa6b35f91364b02c6e7d125ca2edbe1b9a427f/> Bump to 0.1.2
  - <csr-id-57003169329e01d60172d3531e7f3817bacf46da/> Adapt tokio enabled feature
  - <csr-id-4d25b67028aab447a042bf0d6cbe4fcd9a1a4eac/> Adjust some deps (again)
  - <csr-id-ae9e8606bb35ace1db58d2ce88dff0545892c9c8/> Add changelog
@@ -49,8 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 23 commits contributed to the release over the course of 13 calendar days.
- - 20 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 25 commits contributed to the release over the course of 14 calendar days.
+ - 21 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -60,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump to 0.1.2 ([`bdaa6b3`](https://github.com/AOSC-Dev/oma/commit/bdaa6b35f91364b02c6e7d125ca2edbe1b9a427f))
+    - Release oma-console v0.1.2, oma-topics v0.1.1, oma-refresh v0.3.0 ([`5f4e6d8`](https://github.com/AOSC-Dev/oma/commit/5f4e6d8262f42724c8f796fc0b6c560a39d3fd5f))
     - Adapt tokio enabled feature ([`5700316`](https://github.com/AOSC-Dev/oma/commit/57003169329e01d60172d3531e7f3817bacf46da))
     - Adjust some deps (again) ([`4d25b67`](https://github.com/AOSC-Dev/oma/commit/4d25b67028aab447a042bf0d6cbe4fcd9a1a4eac))
     - Bump oma-console v0.1.1, oma-fetch v0.1.2, oma-utils v0.1.4, oma-pm v0.2.1 ([`64f5d1b`](https://github.com/AOSC-Dev/oma/commit/64f5d1bf4f93b7b3b1f5a00134e232409458e5e3))
@@ -84,6 +87,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Do not const Writer::default as WRITER ([`f310ff2`](https://github.com/AOSC-Dev/oma/commit/f310ff2486eaba37b8e659991429a81dfea4dff7))
     - Add oma-topics crate ([`df5692d`](https://github.com/AOSC-Dev/oma/commit/df5692d9cd2dea3e882205dcce6d0558b539e279))
 </details>
+
+## v0.1.1 (2023-09-05)
+
+<csr-id-57003169329e01d60172d3531e7f3817bacf46da/>
+<csr-id-4d25b67028aab447a042bf0d6cbe4fcd9a1a4eac/>
+<csr-id-ae9e8606bb35ace1db58d2ce88dff0545892c9c8/>
+<csr-id-4731867afda8d6eb3397d383b8a26bf04c4f8364/>
+<csr-id-831f0c306f3f362af003da83a8ccc4351031d1df/>
+<csr-id-57fcaa531bc827a8661cf2a4f0f8a50c39289277/>
+<csr-id-0e14c25a9f5ad34da79df93cd3e686e81323f320/>
+<csr-id-0ca5be73a7ddb70e3a07b63ef21f2f873e420832/>
+<csr-id-9bb6e19a703bc76515a7fa70c19aaafef38c7d7b/>
+<csr-id-1a3d60e8665faf452a217a478bf0b1c7ce3e445b/>
+<csr-id-db0240919451651f494b5bb6a828240c6310b9c7/>
+<csr-id-2e01d440b78c79d07b1f04ef67866865934c4049/>
+<csr-id-5622e3699691081f0de4466379c14bc539e69c11/>
+<csr-id-b8fc1a95ccb112e3f0be406f3ab7c6b70fcfefef/>
+<csr-id-87ebc18929eb44c4b96f0cc9a30822a5277ff440/>
+<csr-id-f310ff2486eaba37b8e659991429a81dfea4dff7/>
+<csr-id-df5692d9cd2dea3e882205dcce6d0558b539e279/>
+<csr-id-95dd8757eca13ade18af1fea8435336a956a7406/>
+
+### Chore
+
+ - <csr-id-57003169329e01d60172d3531e7f3817bacf46da/> Adapt tokio enabled feature
+ - <csr-id-4d25b67028aab447a042bf0d6cbe4fcd9a1a4eac/> Adjust some deps (again)
+ - <csr-id-ae9e8606bb35ace1db58d2ce88dff0545892c9c8/> Add changelog
+ - <csr-id-4731867afda8d6eb3397d383b8a26bf04c4f8364/> Fill in comment, desc and license
+ - <csr-id-831f0c306f3f362af003da83a8ccc4351031d1df/> Use oma-apt-sources-list crate (own fork)
+ - <csr-id-57fcaa531bc827a8661cf2a4f0f8a50c39289277/> Inquire -> oma-inquire
+ - <csr-id-0e14c25a9f5ad34da79df93cd3e686e81323f320/> Drop useless dep
+ - <csr-id-0ca5be73a7ddb70e3a07b63ef21f2f873e420832/> No need to use tracing
+
+### New Features
+
+ - <csr-id-bff724f28c2943ef490c4c7b0a2b15384cb95550/> Add download local source feature
+
+### Bug Fixes
+
+ - <csr-id-2f40bc8d2709ffc8d1cfec391ef5eab6a42c1dd5/> Clear decompress progress bar
+
+### Other
+
+ - <csr-id-9bb6e19a703bc76515a7fa70c19aaafef38c7d7b/> Fmt
+
+### Refactor
+
+ - <csr-id-1a3d60e8665faf452a217a478bf0b1c7ce3e445b/> Inner reqwest::Client
+ - <csr-id-db0240919451651f494b5bb6a828240c6310b9c7/> Oma topics is back
+ - <csr-id-2e01d440b78c79d07b1f04ef67866865934c4049/> Fill of error output (100%)
+ - <csr-id-5622e3699691081f0de4466379c14bc539e69c11/> Use async
+ - <csr-id-b8fc1a95ccb112e3f0be406f3ab7c6b70fcfefef/> Improve debug marco
+ - <csr-id-87ebc18929eb44c4b96f0cc9a30822a5277ff440/> Add todo
+ - <csr-id-f310ff2486eaba37b8e659991429a81dfea4dff7/> Do not const Writer::default as WRITER
+ - <csr-id-df5692d9cd2dea3e882205dcce6d0558b539e279/> Add oma-topics crate
+
+### Style
+
+ - <csr-id-95dd8757eca13ade18af1fea8435336a956a7406/> Run cargo clippy and cargo fmt to lint code
 
 ## v0.1.0 (2023-08-18)
 

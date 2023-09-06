@@ -5,7 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.4.0 (2023-09-06)
+
+### New Features
+
+ - <csr-id-a0750502605cabb6d7385f1cbc96edf639324cb5/> Add DownloadEvent::AllDone to allow control global progress bar finish and clear
+ - <csr-id-13018326745688027422575eb5a364a050c4c691/> Add --no-progress option to no output progress bar to terminal
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Release oma-fetch v0.3.0, safety bump 2 crates ([`0959dfb`](https://github.com/AOSC-Dev/oma/commit/0959dfb5414f46c96d7b7aa39c485bdc1d3862de))
+    - Add DownloadEvent::AllDone to allow control global progress bar finish and clear ([`a075050`](https://github.com/AOSC-Dev/oma/commit/a0750502605cabb6d7385f1cbc96edf639324cb5))
+    - Add --no-progress option to no output progress bar to terminal ([`1301832`](https://github.com/AOSC-Dev/oma/commit/13018326745688027422575eb5a364a050c4c691))
+</details>
+
 ## v0.3.0 (2023-09-05)
+
+<csr-id-11fd26ec2732fe5be0137601fe3388a1f9aaf014/>
+<csr-id-adffcfbc7c19c8e559ba45f991cb4af55f1c8224/>
+<csr-id-57003169329e01d60172d3531e7f3817bacf46da/>
+<csr-id-922fb8aa093a6050c4fdc848f2e5fab369db6095/>
+<csr-id-0f2613cb0419e58d10a6bf453d4e4417b02f6e4a/>
+<csr-id-57fcaa531bc827a8661cf2a4f0f8a50c39289277/>
+<csr-id-0e14c25a9f5ad34da79df93cd3e686e81323f320/>
+<csr-id-0ca5be73a7ddb70e3a07b63ef21f2f873e420832/>
+<csr-id-f875de43cb615ab3f620e5e1c6989b3f07c651be/>
+<csr-id-9bb6e19a703bc76515a7fa70c19aaafef38c7d7b/>
+<csr-id-1943b764ee60248d6c02f820e50cdc1e5d73716b/>
+<csr-id-21864b9135312ce096ccfed57dc240fffd28fda1/>
+<csr-id-2768dc5e3070661cc797121575c25ba88819d8a9/>
+<csr-id-1a3d60e8665faf452a217a478bf0b1c7ce3e445b/>
+<csr-id-336b02cd7f1e950d028724c11d2318bed0495ddc/>
+<csr-id-b097de9165dc0f1a8d970b750c84d6f5fc8ead81/>
+<csr-id-5622e3699691081f0de4466379c14bc539e69c11/>
+<csr-id-20818083ca01c6209cd28d5279637d7e21422192/>
+<csr-id-a3c910b6cf9ef432f2b93e38adb61fd6b021d819/>
+<csr-id-88efbe1e674c3a3030144ad3b0690d1e2095cdaf/>
+<csr-id-1e637a4c0b535d095c8f35229a8ce910c3a163a6/>
+<csr-id-0e32ceead5727a79c2841c5d137fd32a8cd88753/>
+<csr-id-65fa216e325fe96f964a31c47d500e3197c9a269/>
+<csr-id-20ee30139b0da28db1d422d4605cbe3582a71e15/>
+<csr-id-9de51fa2cf2993c10acfd05d3cda133e6140ac44/>
 
 ### Chore
 
@@ -18,6 +71,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-0e14c25a9f5ad34da79df93cd3e686e81323f320/> Drop useless dep
  - <csr-id-0ca5be73a7ddb70e3a07b63ef21f2f873e420832/> No need to use tracing
  - <csr-id-f875de43cb615ab3f620e5e1c6989b3f07c651be/> Fmt example
+
+### Documentation
+
+ - <csr-id-54bc679fe098faceea2ed461f5da6178b34330f0/> Add changelog
+
+### Chore
+
+ - <csr-id-b8b68685187bf1740c91372b9aa73bb777e3d134/> Fill some dep version
+ - <csr-id-86d65eb054576ec4e2fea52d3722beb7dc8c0c32/> Add license and desc
 
 ### New Features
 
@@ -72,8 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 57 commits contributed to the release over the course of 13 calendar days.
- - 42 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 61 commits contributed to the release over the course of 13 calendar days.
+ - 45 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -83,6 +145,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Fill some dep version ([`b8b6868`](https://github.com/AOSC-Dev/oma/commit/b8b68685187bf1740c91372b9aa73bb777e3d134))
+    - Add license and desc ([`86d65eb`](https://github.com/AOSC-Dev/oma/commit/86d65eb054576ec4e2fea52d3722beb7dc8c0c32))
+    - Add changelog ([`54bc679`](https://github.com/AOSC-Dev/oma/commit/54bc679fe098faceea2ed461f5da6178b34330f0))
+    - Release oma-console v0.1.2, oma-topics v0.1.1, oma-refresh v0.3.0 ([`5f4e6d8`](https://github.com/AOSC-Dev/oma/commit/5f4e6d8262f42724c8f796fc0b6c560a39d3fd5f))
     - Add topic closing message ([`9665cd4`](https://github.com/AOSC-Dev/oma/commit/9665cd4b3e50ca8fbe18c388bd3c75f6c4b81b2e))
     - Release oma-fetch v0.2.0, safety bump 2 crates ([`3d643f9`](https://github.com/AOSC-Dev/oma/commit/3d643f98588d93c60a094808b794624e78d464b7))
     - Adapt new oma-fetch api ([`1943b76`](https://github.com/AOSC-Dev/oma/commit/1943b764ee60248d6c02f820e50cdc1e5d73716b))
