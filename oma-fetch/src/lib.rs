@@ -4,14 +4,13 @@ use std::{
 };
 
 use derive_builder::Builder;
+use download::SingleDownloaderBuilder;
 use futures::StreamExt;
 
 use reqwest::{Client, ClientBuilder};
 
 pub mod checksum;
 mod download;
-
-use download::try_download;
 
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
@@ -162,17 +161,23 @@ impl OmaFetcher {
         F: Fn(usize, DownloadEvent) + Clone + Send + Sync,
     {
         let mut tasks = Vec::new();
+        let mut list = vec![];
         for (i, c) in self.download_list.iter().enumerate() {
-            tasks.push(try_download(
-                &self.client,
-                c,
-                (i + 1, self.download_list.len(), c.msg.clone()),
-                i,
-                self.retry_times,
-                c.msg.clone(),
-                callback.clone(),
-                self.global_progress.clone(),
-            ));
+            let single = SingleDownloaderBuilder::default()
+                .client(&self.client)
+                .context(c.msg.clone())
+                .download_list_index(i)
+                .entry(c)
+                .progress((i + 1, self.download_list.len(), c.msg.clone()))
+                .retry_times(self.retry_times)
+                .build()
+                .unwrap();
+
+            list.push(single);
+        }
+
+        for single in list {
+            tasks.push(single.try_download(self.global_progress.clone(), callback.clone()));
         }
 
         let stream = futures::stream::iter(tasks).buffer_unordered(self.limit_thread);
