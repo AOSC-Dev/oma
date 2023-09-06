@@ -540,7 +540,7 @@ impl OmaApt {
             args_config.force_yes,
             args_config.dpkg_force_confnew,
             args_config.dpkg_force_all,
-            args_config.no_progress
+            args_config.no_progress,
         );
 
         apt_unlock_inner();
@@ -614,6 +614,10 @@ impl OmaApt {
     where
         F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
     {
+        if download_pkg_list.is_empty() {
+            callback(0, DownloadEvent::AllDone, None);
+            return Ok((vec![], vec![]));
+        }
         let mut download_list = vec![];
         let mut total_size = 0;
 
