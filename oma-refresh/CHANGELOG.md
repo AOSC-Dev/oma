@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release oma-topics v0.1.2, oma-refresh v0.4.0 ([`14edf42`](https://github.com/AOSC-Dev/oma/commit/14edf42022306405c9e4583b3445d3fd573a100e))
     - Release oma-fetch v0.3.0, safety bump 2 crates ([`0959dfb`](https://github.com/AOSC-Dev/oma/commit/0959dfb5414f46c96d7b7aa39c485bdc1d3862de))
     - Add DownloadEvent::AllDone to allow control global progress bar finish and clear ([`a075050`](https://github.com/AOSC-Dev/oma/commit/a0750502605cabb6d7385f1cbc96edf639324cb5))
     - Add --no-progress option to no output progress bar to terminal ([`1301832`](https://github.com/AOSC-Dev/oma/commit/13018326745688027422575eb5a364a050c4c691))
@@ -59,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-id-65fa216e325fe96f964a31c47d500e3197c9a269/>
 <csr-id-20ee30139b0da28db1d422d4605cbe3582a71e15/>
 <csr-id-9de51fa2cf2993c10acfd05d3cda133e6140ac44/>
+<csr-id-b8b68685187bf1740c91372b9aa73bb777e3d134/>
+<csr-id-86d65eb054576ec4e2fea52d3722beb7dc8c0c32/>
 
 ### Chore
 
