@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use std::process::exit;
+use std::process::{exit, Command};
 
 mod args;
 mod config;
@@ -11,7 +11,7 @@ mod subcommand;
 mod table;
 mod utils;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use clap::ArgMatches;
 use nix::sys::signal;
@@ -318,6 +318,25 @@ fn try_main() -> Result<i32> {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());
 
             pkgnames::execute(keyword)?
+        }
+        Some((cmd, args)) => {
+            let exe_dir = std::env::current_exe()?;
+            let exe_dir = exe_dir.parent().expect("Where am I?");
+            let plugin = exe_dir.join(format!("oma-{}", cmd));
+            if !plugin.is_file() {
+                return Err(anyhow!("Unknown command: `{cmd}'."));
+            }
+            info!("Executing applet oma-{cmd}");
+            let mut process = &mut Command::new(plugin);
+            if let Some(args) = args.get_many::<String>("COMMANDS") {
+                process = process.args(args);
+            }
+            let status = process.status().unwrap().code().unwrap();
+            if status != 0 {
+                error!("Applet exited with error {status}");
+            }
+
+            return Ok(status);
         }
         _ => unreachable!(),
     };
