@@ -117,6 +117,7 @@ pub enum DownloadEvent {
     ProgressInc(u64),
     CanNotGetSourceNextUrl(String),
     Done(String),
+    AllDone,
 }
 
 /// Summary struct to save download result
@@ -175,7 +176,9 @@ impl OmaFetcher {
         }
 
         let stream = futures::stream::iter(tasks).buffer_unordered(self.limit_thread);
+        let res = stream.collect::<Vec<_>>().await;
+        callback(0, DownloadEvent::AllDone);
 
-        stream.collect::<Vec<_>>().await
+        res
     }
 }

@@ -100,7 +100,7 @@ async fn main() -> DownloadResult<()> {
             DownloadEvent::CanNotGetSourceNextUrl(e) => {
                 mb.println(format!("Error: {e}")).unwrap();
             }
-            DownloadEvent::Done(_) => {
+            DownloadEvent::Done(_) | DownloadEvent::AllDone => {
                 return;
             }
         })

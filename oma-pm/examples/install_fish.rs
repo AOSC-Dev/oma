@@ -71,6 +71,9 @@ fn main() -> Result<(), OmaAptError> {
             DownloadEvent::Done(_) => {
                 return;
             }
+            DownloadEvent::AllDone => {
+                pb_map.get(&0).unwrap().finish_and_clear();
+            }
         }
         if let Some(total) = total {
             if !global_is_set.load(Ordering::SeqCst) {
