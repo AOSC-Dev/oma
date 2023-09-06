@@ -5,7 +5,161 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.4.1 (2023-09-06)
+
+### Chore
+
+ - <csr-id-fd0c5d0ca12294b58c7251dc69d4b9a80f3cee0b/> update indicium to 0.5.1
+ - <csr-id-57003169329e01d60172d3531e7f3817bacf46da/> adapt tokio enabled feature
+ - <csr-id-4d25b67028aab447a042bf0d6cbe4fcd9a1a4eac/> adjust some deps (again)
+
+### New Features
+
+ - <csr-id-a0750502605cabb6d7385f1cbc96edf639324cb5/> add DownloadEvent::AllDone to allow control global progress bar finish and clear
+ - <csr-id-eefd6a8ed8d528ff308ef76a1a2c7effd2a95561/> add no_progress option to control dpkg use-pty value
+ - <csr-id-13018326745688027422575eb5a364a050c4c691/> add --no-progress option to no output progress bar to terminal
+ - <csr-id-232b98246297a42b6294f2c39dc6d06b58ebbb32/> do not ring if not is_terminal
+ - <csr-id-dea6e5e59573a480933d42bffd9a90cc13c19734/> if not is_terminal disable dpkg read database indicatif
+
+### Bug Fixes
+
+ - <csr-id-10ae79a09065b1c3f3c360662dddd4f71b5ed858/> do not download empty list
+ - <csr-id-2144cd9d35cdcb817e7934f0fc5786c60427cd15/> fix real_pkg function if pkg has version and provides
+ - <csr-id-b7ce7810f766d73fa18f7ecf8a051f58dbcf2027/> fix user remove package also display autoremove tag
+ - <csr-id-f55963e9514bce0baf52c8295efa0725aa649fb0/> fix oma history ui string
+ - <csr-id-e732e8ceea33787407f0124593f8d75a083f0572/> fix oma fix-broken with different results from apt install -f
+ - <csr-id-d3195ea58fe14c24f8d82dd444a0d54689498285/> mark reinstall protect package mark
+ - <csr-id-1167d0357c78071259390f0794f6f4a539f330a2/> fix oma install downgrade package mark install logic
+ - <csr-id-ad3a2b78652acad3c0f1e9a7ffc78fbce9884da2/> allow multi value set at the same time
+ - <csr-id-9def10a52588fbe6ccafa2a51b0abd6d6ebdf358/> mark_install use branch to compare source
+ - <csr-id-9803474892095380871b76ec0c0512f520351803/> try to fix version source check
+   - Also improve oma list tips output order
+ - <csr-id-5c571ef867974dbc7ccc0fce464d434e8ae85d5b/> mark_delete after resolve deps to fix autoremove packages
+
+### Refactor
+
+ - <csr-id-8f2cb7c6f2bf4e118d0b5fe17105a4a2fd6164f5/> adapt oma-fetch new API
+ - <csr-id-25554c2835d2b2ce50815ce2aa3e8b3cd40071b3/> move oma-pm url_no_escape function to oma-utils
+ - <csr-id-79648fa18f3adf5e60bab608635093fb877771d9/> use version.is_downloadable to check package version is downloadable
+ - <csr-id-9b3f923deb1da81abc0360577a0d743c34ff311d/> no need to clone some var in search function
+
+### Style
+
+ - <csr-id-1875106a3ac133a463bb1c251ba11b5b8b1429d6/> use cargo-fmt to format code
+ - <csr-id-0b60dcd970bde752af1a81a04285b4e9577582fd/> improve code style
+ - <csr-id-73ceb521eefe915b72e197783f9102dd3d78a3b6/> improve code style
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 32 commits contributed to the release over the course of 10 calendar days.
+ - 10 days passed between releases.
+ - 26 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Release oma-fetch v0.3.1 ([`1e65ad3`](https://github.com/AOSC-Dev/oma/commit/1e65ad3641b396cb5c6e8675b431d4b176f9e314))
+    - Do not download empty list ([`10ae79a`](https://github.com/AOSC-Dev/oma/commit/10ae79a09065b1c3f3c360662dddd4f71b5ed858))
+    - Release oma-fetch v0.3.0, safety bump 2 crates ([`0959dfb`](https://github.com/AOSC-Dev/oma/commit/0959dfb5414f46c96d7b7aa39c485bdc1d3862de))
+    - Add DownloadEvent::AllDone to allow control global progress bar finish and clear ([`a075050`](https://github.com/AOSC-Dev/oma/commit/a0750502605cabb6d7385f1cbc96edf639324cb5))
+    - Add no_progress option to control dpkg use-pty value ([`eefd6a8`](https://github.com/AOSC-Dev/oma/commit/eefd6a8ed8d528ff308ef76a1a2c7effd2a95561))
+    - Add --no-progress option to no output progress bar to terminal ([`1301832`](https://github.com/AOSC-Dev/oma/commit/13018326745688027422575eb5a364a050c4c691))
+    - Release oma-console v0.1.2, oma-topics v0.1.1, oma-refresh v0.3.0 ([`5f4e6d8`](https://github.com/AOSC-Dev/oma/commit/5f4e6d8262f42724c8f796fc0b6c560a39d3fd5f))
+    - Release oma-fetch v0.2.0, safety bump 2 crates ([`3d643f9`](https://github.com/AOSC-Dev/oma/commit/3d643f98588d93c60a094808b794624e78d464b7))
+    - Use cargo-fmt to format code ([`1875106`](https://github.com/AOSC-Dev/oma/commit/1875106a3ac133a463bb1c251ba11b5b8b1429d6))
+    - Adapt oma-fetch new API ([`8f2cb7c`](https://github.com/AOSC-Dev/oma/commit/8f2cb7c6f2bf4e118d0b5fe17105a4a2fd6164f5))
+    - Update indicium to 0.5.1 ([`fd0c5d0`](https://github.com/AOSC-Dev/oma/commit/fd0c5d0ca12294b58c7251dc69d4b9a80f3cee0b))
+    - Bump oma-fetch v0.1.3 ([`808db0b`](https://github.com/AOSC-Dev/oma/commit/808db0bef0e9b4c001d1c2e1a291bd2d7a4a1871))
+    - Bump oma-utils v0.1.5 ([`f671881`](https://github.com/AOSC-Dev/oma/commit/f67188176dfaa546bcfec4512c00509a60c86f98))
+    - Move oma-pm url_no_escape function to oma-utils ([`25554c2`](https://github.com/AOSC-Dev/oma/commit/25554c2835d2b2ce50815ce2aa3e8b3cd40071b3))
+    - Fix real_pkg function if pkg has version and provides ([`2144cd9`](https://github.com/AOSC-Dev/oma/commit/2144cd9d35cdcb817e7934f0fc5786c60427cd15))
+    - Fix user remove package also display autoremove tag ([`b7ce781`](https://github.com/AOSC-Dev/oma/commit/b7ce7810f766d73fa18f7ecf8a051f58dbcf2027))
+    - Fix oma history ui string ([`f55963e`](https://github.com/AOSC-Dev/oma/commit/f55963e9514bce0baf52c8295efa0725aa649fb0))
+    - Improve code style ([`0b60dcd`](https://github.com/AOSC-Dev/oma/commit/0b60dcd970bde752af1a81a04285b4e9577582fd))
+    - Fix oma fix-broken with different results from apt install -f ([`e732e8c`](https://github.com/AOSC-Dev/oma/commit/e732e8ceea33787407f0124593f8d75a083f0572))
+    - Improve code style ([`73ceb52`](https://github.com/AOSC-Dev/oma/commit/73ceb521eefe915b72e197783f9102dd3d78a3b6))
+    - Mark reinstall protect package mark ([`d3195ea`](https://github.com/AOSC-Dev/oma/commit/d3195ea58fe14c24f8d82dd444a0d54689498285))
+    - Fix oma install downgrade package mark install logic ([`1167d03`](https://github.com/AOSC-Dev/oma/commit/1167d0357c78071259390f0794f6f4a539f330a2))
+    - Do not ring if not is_terminal ([`232b982`](https://github.com/AOSC-Dev/oma/commit/232b98246297a42b6294f2c39dc6d06b58ebbb32))
+    - If not is_terminal disable dpkg read database indicatif ([`dea6e5e`](https://github.com/AOSC-Dev/oma/commit/dea6e5e59573a480933d42bffd9a90cc13c19734))
+    - Allow multi value set at the same time ([`ad3a2b7`](https://github.com/AOSC-Dev/oma/commit/ad3a2b78652acad3c0f1e9a7ffc78fbce9884da2))
+    - Use version.is_downloadable to check package version is downloadable ([`79648fa`](https://github.com/AOSC-Dev/oma/commit/79648fa18f3adf5e60bab608635093fb877771d9))
+    - Mark_install use branch to compare source ([`9def10a`](https://github.com/AOSC-Dev/oma/commit/9def10a52588fbe6ccafa2a51b0abd6d6ebdf358))
+    - Try to fix version source check ([`9803474`](https://github.com/AOSC-Dev/oma/commit/9803474892095380871b76ec0c0512f520351803))
+    - Mark_delete after resolve deps to fix autoremove packages ([`5c571ef`](https://github.com/AOSC-Dev/oma/commit/5c571ef867974dbc7ccc0fce464d434e8ae85d5b))
+    - No need to clone some var in search function ([`9b3f923`](https://github.com/AOSC-Dev/oma/commit/9b3f923deb1da81abc0360577a0d743c34ff311d))
+    - Adapt tokio enabled feature ([`5700316`](https://github.com/AOSC-Dev/oma/commit/57003169329e01d60172d3531e7f3817bacf46da))
+    - Adjust some deps (again) ([`4d25b67`](https://github.com/AOSC-Dev/oma/commit/4d25b67028aab447a042bf0d6cbe4fcd9a1a4eac))
+</details>
+
 ## v0.2.1 (2023-08-26)
+
+<csr-id-0da16ac5e46ec5152b99383e87b8473443e286ba/>
+<csr-id-d97162225f4f6bd989ea877663462ecda0f2260d/>
+<csr-id-b8cbd746f11741ba2d6a0b2fc08fc096d7a294f8/>
+<csr-id-1735e90d53db25c588e79143f4fc98a742a1c99b/>
+<csr-id-0e0b8eb6912b3b6eaf340f7974b12e1f0b4893b6/>
+<csr-id-24c4d3b3335b1df0378b2706f74b2c10427d757e/>
+<csr-id-aac287434f3c9590d4c056ae69e4637f51605fff/>
+<csr-id-0ca5be73a7ddb70e3a07b63ef21f2f873e420832/>
+<csr-id-9bb6e19a703bc76515a7fa70c19aaafef38c7d7b/>
+<csr-id-f315784d7e1081e906148c5d07c1abe40c033755/>
+<csr-id-f7cf4a1db505958cccf77b4e0703336318dc8b2d/>
+<csr-id-5aa02c250f7344f2e97300a0e072fe94d181cda9/>
+<csr-id-21864b9135312ce096ccfed57dc240fffd28fda1/>
+<csr-id-cfb7d0509673b85ea770987f2660f323dc3621e2/>
+<csr-id-004cf53213308152b780115f50ec55589e08d3ae/>
+<csr-id-8fe6a3147820fbee5a99f3ac16a45b5148be4e7a/>
+<csr-id-336b02cd7f1e950d028724c11d2318bed0495ddc/>
+<csr-id-b097de9165dc0f1a8d970b750c84d6f5fc8ead81/>
+<csr-id-24ca3e6751a08cf5fcbbe0aa9c84d0ae4fc7de6b/>
+<csr-id-f14236ef10dc77d1b912c4f29d7e56d6181e1bee/>
+<csr-id-07c07e77179c318eb3fcce1327238037c212c025/>
+<csr-id-2b37d6c7bc57bbfbcaa8175bb6b23b796d7814f4/>
+<csr-id-baf2b96e4a423cfe5e981b486c6975d36b577249/>
+<csr-id-7560c558cbfc68ccb488bac29aa15477e74d9607/>
+<csr-id-5be647ac17030fa8e5aaf3d2366dec454b9f4803/>
+<csr-id-2f367e93d8bf5568b057d356335900059dd6ff08/>
+<csr-id-4f9a0750c1917a6ea74857a22e60d4564e1b8184/>
+<csr-id-744de142f4401e57eaf3e52ec57e467a3ae4157f/>
+<csr-id-a5fddd1f052a61442a2e712521cfb6705f4492f9/>
+<csr-id-916b1c26ea32039845263e8f39f3e08a4f7719d7/>
+<csr-id-e2ca9f8ffb9c4e9d80d1017e2fe72aa6b9e22b70/>
+<csr-id-f6eaf24e87ef942889624b277703381f528d3656/>
+<csr-id-7b87edd6554a60316f645c538cab61bfcd1bea9c/>
+<csr-id-2bca031a16a01b3474a3136dfaf305f6f6b5e3f7/>
+<csr-id-03c395718e2b2b73a55767381ad5442c55f367fa/>
+<csr-id-3f3c7ed693312735efd9714ee3a76a84029fb647/>
+<csr-id-b8fc1a95ccb112e3f0be406f3ab7c6b70fcfefef/>
+<csr-id-7839bd1f49759e5a937e587ab231b9fe384cd119/>
+<csr-id-5210a35f685fe23ad53af7d0cf1ef5c9f3d3f9a2/>
+<csr-id-2edbfb3b213d75e9920c314ea8ef831fc9126124/>
+<csr-id-24a69b81d1eb4c3dd1efc62f305e97831537679e/>
+<csr-id-4b1e6bf5e29755b80426d84f21cb4daed34c16a2/>
+<csr-id-8dc2091c1e7da9237647ebaa61d83d87888b86d6/>
+<csr-id-97e8bffac933a9c450f38e1626a25888e9a19a51/>
+<csr-id-4e28e415ebaceb64cd85145f3a940516d50730e6/>
+<csr-id-6f199d842ce0fe9c8493556e2988c6895cacd5c1/>
+<csr-id-1871c05c869a7d759dbcee788173d2b4217a4481/>
+<csr-id-e0208cd2160358e8125577f990df090f02dc9528/>
+<csr-id-3c48d031ce68621ca49d3a47b9424f7269038b17/>
+<csr-id-9de51fa2cf2993c10acfd05d3cda133e6140ac44/>
+<csr-id-b0ff13ba140eee1634bca70b244f4f58cd63d9d4/>
+<csr-id-37ba4023d6a93ddaacb1dab4a53e636bd66a81cf/>
+<csr-id-8c5ee5fc38c441708aa338bf27a193708e583c39/>
+<csr-id-047f7c728924d7b34ecb71e333713eb92da42573/>
+<csr-id-2e6b1b2fee9912585bce067497ec5d597d6abfca/>
+<csr-id-90d7308c28f0b89839e18969788ef89464b7c810/>
+<csr-id-e8e83b6dfcfd669a62bc54f2a941a9932bbffcf5/>
+<csr-id-1e01e6c459701d05052e5ed178792e647a46bb94/>
+<csr-id-afd08b3d813a774bc2fbfc28af7b07142de23788/>
 
 ### Chore
 
@@ -20,26 +174,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-69a17fe9bbc77374992e617a62db681bb7a1bca6/>
+<csr-id-f81beb312f6fb7fb371f676ffefc647117f8de56/>
+<csr-id-4677a5841c842b5cfee83c2b76e341d55209b219/>
+<csr-id-a760fd334d1790dff050be56c895f2a76dee18b6/>
+<csr-id-d4b01d927d5dc96c7047a51fd03097a3aa71caed/>
+<csr-id-578b5e39890ec6a53b378c56201b0e179107f451/>
+<csr-id-0dc6354c69cc885fadcc10d719179ac27dcebcad/>
+<csr-id-1d9b5d15dc76e74672be7b0d610202ad1dc11fdb/>
+<csr-id-53363a77097badf966faa33c927d2d8b8d0edd16/>
+<csr-id-1a43ad7b9ebf2111c632b71e735e2289e4d39e12/>
+<csr-id-530935f6d61e8a91681adcaa85a16614585fccd6/>
+<csr-id-f0907c73484046dcc36b17f3040b6e86e1bd96bc/>
+<csr-id-8cc1f724f1d7ed67355513323d8a1c1bf68d04d2/>
+<csr-id-b99bf3ded4326eb148e19ef83d90497900b15580/>
+<csr-id-ff1362eb4615acd0220afb5f5677249e411a5217/>
+<csr-id-438b8fffe4c465b22981937bc0979546f797a62a/>
+
  - <csr-id-128c85cf11311743f76944d05cc481db268a11d4/> Use chrono to get and parse datetime
  - <csr-id-56529cf371b0239e81ad7a2d75d65cf75841b595/> Add oma history/undo date display
    - Also fix time offset get
- - <csr-id-69a17fe9bbc77374992e617a62db681bb7a1bca6/> Use feature to select abstract code
- - <csr-id-f81beb312f6fb7fb371f676ffefc647117f8de56/> Table display remove size delta message
- - <csr-id-4677a5841c842b5cfee83c2b76e341d55209b219/> Do not display apt progress if not is terminal
-   - Also display progress from stderr not stdout
- - <csr-id-a760fd334d1790dff050be56c895f2a76dee18b6/> Add Size-delta field on oma history; improve file output
- - <csr-id-d4b01d927d5dc96c7047a51fd03097a3aa71caed/> Add mark_install_status function
- - <csr-id-578b5e39890ec6a53b378c56201b0e179107f451/> Add mark_version_status function
- - <csr-id-0dc6354c69cc885fadcc10d719179ac27dcebcad/> Find unmet dep only display layer 1 dep
- - <csr-id-1d9b5d15dc76e74672be7b0d610202ad1dc11fdb/> Fill of remove() function
- - <csr-id-53363a77097badf966faa33c927d2d8b8d0edd16/> Add opration.rs ....zzz
- - <csr-id-1a43ad7b9ebf2111c632b71e735e2289e4d39e12/> Remove pkg add protect bool
- - <csr-id-530935f6d61e8a91681adcaa85a16614585fccd6/> Add remove package feature
- - <csr-id-f0907c73484046dcc36b17f3040b6e86e1bd96bc/> Support local package install
- - <csr-id-8cc1f724f1d7ed67355513323d8a1c1bf68d04d2/> Add OmaApt struct
- - <csr-id-b99bf3ded4326eb148e19ef83d90497900b15580/> Add virtual pkg support and query_from_branch function
- - <csr-id-ff1362eb4615acd0220afb5f5677249e411a5217/> Add query_from_version and query_from_branch function
- - <csr-id-438b8fffe4c465b22981937bc0979546f797a62a/> Add OmaDatabase impl
+- Also display progress from stderr not stdout
 
 ### Bug Fixes
 
@@ -130,7 +285,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 109 commits contributed to the release over the course of 4 calendar days.
+ - 110 commits contributed to the release over the course of 4 calendar days.
  - 96 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -141,6 +296,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma-console v0.1.1, oma-fetch v0.1.2, oma-utils v0.1.4, oma-pm v0.2.1 ([`64f5d1b`](https://github.com/AOSC-Dev/oma/commit/64f5d1bf4f93b7b3b1f5a00134e232409458e5e3))
     - Oma read oma.toml config feature is back ([`f7cf4a1`](https://github.com/AOSC-Dev/oma/commit/f7cf4a1db505958cccf77b4e0703336318dc8b2d))
     - Update all deps and cargo clippy ([`0da16ac`](https://github.com/AOSC-Dev/oma/commit/0da16ac5e46ec5152b99383e87b8473443e286ba))
     - Use chrono to get and parse datetime ([`128c85c`](https://github.com/AOSC-Dev/oma/commit/128c85cf11311743f76944d05cc481db268a11d4))
@@ -251,6 +407,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Api adjust ([`1871c05`](https://github.com/AOSC-Dev/oma/commit/1871c05c869a7d759dbcee788173d2b4217a4481))
     - Pkg.rs => oma-pm ([`e0208cd`](https://github.com/AOSC-Dev/oma/commit/e0208cd2160358e8125577f990df090f02dc9528))
 </details>
+
+<csr-unknown>
+ Use feature to select abstract code Table display remove size delta message Do not display apt progress if not is terminal Add Size-delta field on oma history; improve file output Add mark_install_status function Add mark_version_status function Find unmet dep only display layer 1 dep Fill of remove() function Add opration.rs ….zzz Remove pkg add protect bool Add remove package feature Support local package install Add OmaApt struct Add virtual pkg support and query_from_branch function Add query_from_version and query_from_branch function Add OmaDatabase impl<csr-unknown/>
 
 ## v0.2.0 (2023-08-21)
 
