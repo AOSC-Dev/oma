@@ -366,6 +366,10 @@ where
 
                             debug!("Removed topics: {removed_suites:?}");
 
+                            for i in &removed_suites {
+                                callback(0, RefreshEvent::ClosingTopic(i.clone()), None);
+                            }
+
                             let suite = url
                                 .split('/')
                                 .nth_back(1)
