@@ -308,5 +308,7 @@ pub async fn scan_closed_topic() -> Result<Vec<String>> {
         res.push(suite_clone);
     }
 
+    tm.write_enabled(false).await?;
+
     Ok(res)
 }
