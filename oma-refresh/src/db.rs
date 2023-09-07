@@ -351,6 +351,8 @@ where
 
     let mut all_inrelease = vec![];
 
+    let mut not_found = vec![];
+
     for inrelease in res {
         if cfg!(feature = "aosc") {
             match inrelease {
@@ -362,23 +364,7 @@ where
                     #[cfg(feature = "aosc")]
                     match e {
                         DownloadError::NotFound(url) => {
-                            let removed_suites = oma_topics::scan_closed_topic().await?;
-
-                            debug!("Removed topics: {removed_suites:?}");
-
-                            let suite = url
-                                .split('/')
-                                .nth_back(1)
-                                .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
-                                .to_string();
-
-                            if !removed_suites.contains(&suite) {
-                                return Err(RefreshError::NoInReleaseFile(url.to_string()));
-                            }
-
-                            for i in &removed_suites {
-                                callback(0, RefreshEvent::ClosingTopic(i.clone()), None);
-                            }
+                            not_found.push(url);
                         }
                         _ => return Err(e.into()),
                     }
@@ -390,6 +376,25 @@ where
             let i = inrelease?;
             debug!("{} fetched", &i.filename);
             all_inrelease.push(i);
+        }
+    }
+
+    if !not_found.is_empty() {
+        let removed_suites = oma_topics::scan_closed_topic().await?;
+        for url in not_found {
+            let suite = url
+                .split('/')
+                .nth_back(1)
+                .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+                .to_string();
+
+            if !removed_suites.contains(&suite) {
+                return Err(RefreshError::NoInReleaseFile(url.to_string()));
+            }
+
+            for i in &removed_suites {
+                callback(0, RefreshEvent::ClosingTopic(i.clone()), None);
+            }
         }
     }
 
