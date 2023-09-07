@@ -21,7 +21,7 @@ pub fn execute(network_thread: usize, no_progress: bool) -> Result<i32, OutputEr
     let conn = connect_db(false)?;
     let list = list_history(conn)?;
     let display_list = format_summary_log(&list, true);
-    let selected = dialoguer_select_history(display_list)?;
+    let selected = dialoguer_select_history(&display_list, 0)?;
 
     let selected = &list[selected].0;
     let op = &selected.op;
