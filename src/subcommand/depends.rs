@@ -4,9 +4,13 @@ use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 
 use crate::error::OutputError;
 
-use super::utils::handle_no_result;
+use super::utils::{handle_no_result, check_unsupport_stmt};
 
 pub fn execute(pkgs: Vec<String>) -> Result<i32, OutputError> {
+    for pkg in &pkgs {
+        check_unsupport_stmt(pkg);
+    }
+
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 

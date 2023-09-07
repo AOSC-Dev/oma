@@ -8,6 +8,8 @@ use crate::error::OutputError;
 use crate::fl;
 use anyhow::anyhow;
 
+use super::utils::check_unsupport_stmt;
+
 pub fn execute(
     all: bool,
     installed: bool,
@@ -23,6 +25,12 @@ pub fn execute(
     }
     if upgradable {
         filter_mode.push(FilterMode::Upgradable)
+    }
+
+    if !pkgs.is_empty() {
+        for pkg in &pkgs {
+            check_unsupport_stmt(pkg);
+        }
     }
 
     let filter_pkgs = apt.filter_pkgs(&filter_mode)?;

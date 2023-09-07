@@ -17,6 +17,7 @@ use oma_console::error;
 use oma_console::info;
 use oma_console::success;
 use oma_console::WRITER;
+use oma_console::warn;
 use oma_fetch::DownloadEvent;
 use oma_pm::apt::AptArgs;
 use oma_pm::apt::OmaApt;
@@ -263,4 +264,13 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, String)], undo: bool) -> V
         .collect::<Vec<_>>();
 
     display_list
+}
+
+pub(crate) fn check_unsupport_stmt(s: &str) {
+    let unsupport = vec!['=', '/'];
+    for i in unsupport {
+        if s.contains(i) {
+            warn!("Expected pattern: {s}");
+        }
+    }
 }

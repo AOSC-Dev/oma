@@ -9,7 +9,13 @@ use oma_pm::{
 use crate::fl;
 use crate::{error::OutputError, table::oma_display};
 
+use super::utils::check_unsupport_stmt;
+
 pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
+    for arg in args {
+        check_unsupport_stmt(arg);
+    }
+
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let db = OmaDatabase::new(&apt.cache)?;
