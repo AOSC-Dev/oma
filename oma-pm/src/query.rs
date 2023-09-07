@@ -189,16 +189,18 @@ impl<'a> OmaDatabase<'a> {
         sort.sort_by(|x, y| oma_apt::util::cmp_versions(x.version(), y.version()));
 
         if filter_candidate {
-            let version = &sort[sort.len() - 1];
-            let mut pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
+            let version = sort.get(sort.len() - 1);
+            if let Some(version) = version {
+                let mut pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
 
-            if pkginfo.has_dbg && select_dbg {
-                self.select_dbg(&pkg, version, &mut res);
+                if pkginfo.has_dbg && select_dbg {
+                    self.select_dbg(&pkg, version, &mut res);
+                }
+
+                pkginfo.set_candidate(self.cache);
+
+                res.push(pkginfo);
             }
-
-            pkginfo.set_candidate(self.cache);
-
-            res.push(pkginfo);
         } else {
             for i in sort {
                 let pkginfo = PkgInfo::new(self.cache, i.unique(), &pkg);
