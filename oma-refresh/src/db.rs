@@ -392,9 +392,7 @@ where
                 return Err(RefreshError::NoInReleaseFile(url.to_string()));
             }
 
-            for i in &removed_suites {
-                callback(0, RefreshEvent::ClosingTopic(i.clone()), None);
-            }
+            callback(0, RefreshEvent::ClosingTopic(suite), None);
         }
     }
 
