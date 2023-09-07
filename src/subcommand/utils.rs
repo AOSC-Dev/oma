@@ -155,10 +155,10 @@ pub(crate) fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -
     false
 }
 
-pub(crate) fn dialoguer_select_history(display_list: Vec<String>) -> Result<usize> {
+pub(crate) fn dialoguer_select_history(display_list: &[String], old_selected: usize) -> Result<usize> {
     let selected = Select::with_theme(&ColorfulTheme::default())
-        .items(&display_list)
-        .default(0)
+        .items(display_list)
+        .default(old_selected)
         .interact()?;
 
     Ok(selected)
