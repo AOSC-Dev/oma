@@ -143,7 +143,8 @@ impl<'a> OmaDatabase<'a> {
 
         let mut res = vec![];
 
-        let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
+        let mut pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
+        pkginfo.set_candidate(self.cache);
 
         let has_dbg = pkginfo.has_dbg;
 
@@ -189,11 +190,13 @@ impl<'a> OmaDatabase<'a> {
 
         if filter_candidate {
             let version = &sort[sort.len() - 1];
-            let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
+            let mut pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
 
             if pkginfo.has_dbg && select_dbg {
                 self.select_dbg(&pkg, version, &mut res);
             }
+
+            pkginfo.set_candidate(self.cache);
 
             res.push(pkginfo);
         } else {
