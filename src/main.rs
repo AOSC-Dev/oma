@@ -89,8 +89,8 @@ fn main() {
 }
 
 fn try_main() -> Result<i32> {
-    let mut cmd = args::command_builder();
-    let matches = cmd.get_matches_mut();
+    let cmd = args::command_builder();
+    let matches = cmd.get_matches();
 
     // Egg
     if matches.get_count("ailurus") == 3 {
@@ -338,10 +338,7 @@ fn try_main() -> Result<i32> {
 
             return Ok(status);
         }
-        None => {
-            cmd.print_help()?;
-            return Ok(1);
-        }
+        None => unreachable!(),
     };
 
     Ok(exit_code)
