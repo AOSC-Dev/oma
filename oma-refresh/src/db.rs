@@ -366,10 +366,6 @@ where
 
                             debug!("Removed topics: {removed_suites:?}");
 
-                            for i in &removed_suites {
-                                callback(0, RefreshEvent::ClosingTopic(i.clone()), None);
-                            }
-
                             let suite = url
                                 .split('/')
                                 .nth_back(1)
@@ -378,6 +374,10 @@ where
 
                             if !removed_suites.contains(&suite) {
                                 return Err(RefreshError::NoInReleaseFile(url.to_string()));
+                            }
+
+                            for i in &removed_suites {
+                                callback(0, RefreshEvent::ClosingTopic(i.clone()), None);
                             }
                         }
                         _ => return Err(e.into()),
