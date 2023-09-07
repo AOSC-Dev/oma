@@ -302,10 +302,9 @@ pub async fn scan_closed_topic() -> Result<Vec<String>> {
         let suite_clone = suite.clone();
 
         if all.iter().all(|x| x.name != suite) {
+            res.push(suite_clone);
             tm.remove(&suite, false)?;
         }
-
-        res.push(suite_clone);
     }
 
     tm.write_enabled(false).await?;
