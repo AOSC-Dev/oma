@@ -20,7 +20,7 @@ pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner().with_style(sty);
         pb.enable_steady_tick(inv);
-        pb.set_message("Searching ...");
+        pb.set_message(fl!("searching"));
 
         Some(pb)
     } else {
