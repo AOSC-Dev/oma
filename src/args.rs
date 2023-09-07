@@ -52,6 +52,7 @@ pub fn command_builder() -> Command {
 
     let mut cmd = command!()
         .max_term_width(100)
+        .arg_required_else_help(true)
         .disable_version_flag(true)
         .arg(
             Arg::new("debug")
