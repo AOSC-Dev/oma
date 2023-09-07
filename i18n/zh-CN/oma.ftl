@@ -235,3 +235,6 @@ failed-to-open-to-checksum = BUG：无法打开用于验证校验和的路径 {$
 
 # config
 config-invaild = Invaild Config /etc/oma.toml! fallbacking to default configuration.
+
+searching = 正在搜索软件包 ...
+cleaning = 正在清理本地软件包缓存 ...

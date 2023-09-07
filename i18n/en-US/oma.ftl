@@ -241,3 +241,6 @@ failed-to-open-to-checksum = BUG: Failed to open {$path} for checksum verificati
 
 # config
 config-invaild = Invaild Config /etc/oma.toml! fallbacking to default configuration.
+
+searching = Searching ...
+cleaning = Cleaning packages cache ...

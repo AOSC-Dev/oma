@@ -16,7 +16,7 @@ pub fn execute(no_progress: bool) -> Result<i32, OutputError> {
         let (sty, inv) = oma_spinner(false).unwrap();
         let pb = ProgressBar::new_spinner().with_style(sty);
         pb.enable_steady_tick(inv);
-        pb.set_message("Cleaning ...");
+        pb.set_message(fl!("cleaning"));
 
         Some(pb)
     } else {
