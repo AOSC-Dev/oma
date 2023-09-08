@@ -174,9 +174,9 @@ fn try_main() -> Result<i32> {
                 no_install_suggests: args.get_flag("no_install_recommends"),
             };
 
-            let netwrk_thread = config.network.network_threads;
+            let network_thread = config.network.network_threads;
 
-            install::execute(pkgs_unparse, args, dry_run, netwrk_thread, no_progress)?
+            install::execute(pkgs_unparse, args, dry_run, network_thread, no_progress)?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -213,14 +213,14 @@ fn try_main() -> Result<i32> {
             };
 
             let protect_essentials = config.general.protect_essentials;
-            let netwrk_thread = config.network.network_threads;
+            let network_thread = config.network.network_threads;
 
             remove::execute(
                 pkgs_unparse,
                 args,
                 dry_run,
                 protect_essentials,
-                netwrk_thread,
+                network_thread,
                 no_progress,
             )?
         }
