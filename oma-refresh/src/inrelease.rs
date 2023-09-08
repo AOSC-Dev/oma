@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, borrow::Cow};
 
 // use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
@@ -60,20 +60,17 @@ pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
 
 impl InReleaseParser {
     pub fn new(
-        p: &Path,
+        s: &str,
         trust_files: Option<&str>,
         mirror: &str,
         arch: &str,
         is_flat: bool,
+        p: &Path
     ) -> InReleaseParserResult<Self> {
-        let s = std::fs::read_to_string(p).map_err(|e| {
-            InReleaseParserError::FailedToOpenInRelease(p.display().to_string(), e.to_string())
-        })?;
-
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-            verify::verify(&s, trust_files, mirror)?
+            Cow::Owned(verify::verify(s, trust_files, mirror)?)
         } else {
-            s
+            Cow::Borrowed(s)
         };
 
         let source = debcontrol_from_str(&s)?;
