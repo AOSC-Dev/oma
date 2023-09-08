@@ -409,16 +409,16 @@ where
         let download_dir = download_dir.clone();
         let inrelease_path = download_dir.join(&inrelease_summary.filename);
 
-        let inrelease = tokio::task::spawn_blocking(move || {
-            InReleaseParser::new(
-                &inrelease_path,
-                ose.signed_by.as_deref(),
-                &urlc,
-                &archc,
-                ose.is_flat,
-            )
-        })
-        .await??;
+        let s = tokio::fs::read_to_string(&inrelease_path).await?;
+
+        let inrelease = InReleaseParser::new(
+            &s,
+            ose.signed_by.as_deref(),
+            &urlc,
+            &archc,
+            ose.is_flat,
+            &inrelease_path,
+        )?;
 
         let checksums = inrelease
             .checksums
