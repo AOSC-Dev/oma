@@ -123,6 +123,16 @@ impl<'a> OmaDatabase<'a> {
             }
         }
 
+        // 确保数组第一个是 candidate version
+        if !filter_candidate {
+            let candidate = res.iter().position(|x| x.is_candidate);
+
+            if let Some(index) = candidate {
+                let pkg = res.remove(index);
+                res.insert(0, pkg);
+            }
+        }
+
         Ok(res)
     }
 
@@ -143,9 +153,7 @@ impl<'a> OmaDatabase<'a> {
 
         let mut res = vec![];
 
-        let mut pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
-        pkginfo.set_candidate(self.cache);
-
+        let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
         let has_dbg = pkginfo.has_dbg;
 
         res.push(pkginfo);
@@ -191,13 +199,11 @@ impl<'a> OmaDatabase<'a> {
         if filter_candidate {
             let version = sort.get(sort.len() - 1);
             if let Some(version) = version {
-                let mut pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
+                let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
 
                 if pkginfo.has_dbg && select_dbg {
                     self.select_dbg(&pkg, version, &mut res);
                 }
-
-                pkginfo.set_candidate(self.cache);
 
                 res.push(pkginfo);
             }
