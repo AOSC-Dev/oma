@@ -197,7 +197,7 @@ impl<'a> OmaDatabase<'a> {
         sort.sort_by(|x, y| oma_apt::util::cmp_versions(x.version(), y.version()));
 
         if filter_candidate {
-            let version = sort.get(sort.len() - 1);
+            let version = sort.last();
             if let Some(version) = version {
                 let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
 
