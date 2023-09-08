@@ -14,7 +14,7 @@ pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
 
     if !all {
         if let Some(pkg) = pkgs.get(0) {
-            println!("{}", pkg);
+            println!("{pkg}");
         }
 
         let other_version = pkgs.iter().collect::<Vec<_>>().len() - 1;
