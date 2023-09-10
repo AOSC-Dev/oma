@@ -169,17 +169,15 @@ pub fn command_builder() -> Command {
         .subcommand(
             Command::new("remove")
                 .alias("delete")
-                .alias("purge")
                 .about("Remove the specified package(s)")
                 .arg(pkgs.clone().required(true).help("Package(s) to remove"))
                 .arg(yes.requires("packages"))
                 .arg(force_yes.requires("packages"))
                 .arg(no_autoremove.requires("packages"))
                 .arg(
-                    Arg::new("keep_config")
-                        .long("keep-config")
-                        .short('k')
-                        .help("Keep configuration file(s), this may be useful if you intend to install the package(s) again in the future")
+                    Arg::new("remove_config")
+                        .long("remove-config")
+                        .help("Remove package(s) also remove configuration file(s), like apt purge")
                         .action(ArgAction::SetTrue),
                 )
                 .arg(&dry_run),
