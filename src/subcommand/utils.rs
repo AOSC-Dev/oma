@@ -279,7 +279,7 @@ pub(crate) fn check_unsupport_stmt(s: &str) {
     let unsupport = vec!['=', '/'];
     for i in unsupport {
         if s.contains(i) {
-            warn!("Expected pattern: {s}");
+            warn!("Unexpected pattern: {s}");
         }
     }
 }
