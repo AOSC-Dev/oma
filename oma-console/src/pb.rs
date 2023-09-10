@@ -1,12 +1,12 @@
 use std::time::Duration;
 
 use console::style;
-use indicatif::{style::TemplateError, ProgressStyle};
+use indicatif::ProgressStyle;
 
 use crate::writer::Writer;
 
 /// oma style progress bar
-pub fn oma_style_pb(writer: Writer, is_global: bool) -> Result<ProgressStyle, TemplateError> {
+pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
     let bar_template = {
         let max_len = writer.get_max_len();
         if is_global {
@@ -35,14 +35,15 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> Result<ProgressStyle, Te
     };
 
     let barsty = ProgressStyle::default_bar()
-        .template(&bar_template)?
+        .template(&bar_template)
+        .unwrap()
         .progress_chars("=>-");
 
-    Ok(barsty)
+    barsty
 }
 
 /// oma style spinner
-pub fn oma_spinner(ailurus: bool) -> Result<(ProgressStyle, Duration), TemplateError> {
+pub fn oma_spinner(ailurus: bool) -> (ProgressStyle, Duration) {
     let (is_egg, inv) = if ailurus {
         (
             &[
@@ -69,7 +70,9 @@ pub fn oma_spinner(ailurus: bool) -> Result<(ProgressStyle, Duration), TemplateE
         )
     };
 
-    let style = ProgressStyle::with_template(" {msg:<48} {spinner}")?.tick_strings(is_egg);
+    let style = ProgressStyle::with_template(" {msg:<48} {spinner}")
+        .unwrap()
+        .tick_strings(is_egg);
 
-    Ok((style, Duration::from_millis(inv)))
+    (style, Duration::from_millis(inv))
 }

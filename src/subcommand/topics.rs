@@ -136,7 +136,7 @@ async fn inquire(
 ) -> Result<(), OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
-        let (style, inv) = oma_spinner(false).unwrap();
+        let (style, inv) = oma_spinner(false);
         pb.set_style(style);
         pb.enable_steady_tick(inv);
         pb.set_message(fl!("refreshing-topic-metadata"));

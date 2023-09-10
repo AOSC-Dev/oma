@@ -55,7 +55,7 @@ macro_rules! pb {
                 }
             }
             oma_fetch::DownloadEvent::NewProgressSpinner(msg) => {
-                let (sty, inv) = oma_console::pb::oma_spinner(false).unwrap();
+                let (sty, inv) = oma_console::pb::oma_spinner(false);
                 let pb = $mb.insert(
                     $count + 1,
                     oma_console::indicatif::ProgressBar::new_spinner().with_style(sty),
@@ -66,8 +66,7 @@ macro_rules! pb {
             }
             oma_fetch::DownloadEvent::NewProgress(size, msg) => {
                 let sty =
-                    oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), false)
-                        .unwrap();
+                    oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), false);
                 let pb = $mb.insert(
                     $count + 1,
                     oma_console::indicatif::ProgressBar::new(size).with_style(sty),
@@ -104,8 +103,7 @@ macro_rules! pb {
         if let Some(total) = $total {
             if !$global_is_set.load(std::sync::atomic::Ordering::SeqCst) {
                 let sty =
-                    oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), true)
-                        .unwrap();
+                    oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), true);
                 let gpb = $mb.insert(
                     0,
                     oma_console::indicatif::ProgressBar::new(total).with_style(sty),

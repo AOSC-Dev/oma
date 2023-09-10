@@ -13,7 +13,7 @@ use crate::table::oma_display;
 pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool) -> Result<i32, OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
-        let (style, inv) = oma_spinner(false).unwrap();
+        let (style, inv) = oma_spinner(false);
         pb.set_style(style);
         pb.enable_steady_tick(inv);
         pb.set_message(fl!("searching"));
