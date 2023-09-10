@@ -191,7 +191,7 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, u64)], undo: bool) -> Vec<
                     v.len() - 3,
                     date
                 ),
-                SummaryType::Install(v) => format!("Installl {} [{date}]", v.join(" ")),
+                SummaryType::Install(v) => format!("Installed {} [{date}]", v.join(" ")),
                 SummaryType::Upgrade(v) if v.is_empty() => format!("Upgraded system [{date}]"),
                 SummaryType::Upgrade(v) if v.len() > 3 => format!(
                     "Upgraded system and installed {} {} {} ... (and {} more) [{date}]",
