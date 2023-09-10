@@ -10,8 +10,8 @@ use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::multibar;
 use crate::Result;
+use chrono::Local;
 use chrono::TimeZone;
-use chrono::Utc;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
@@ -285,7 +285,7 @@ pub(crate) fn check_unsupport_stmt(s: &str) {
 }
 
 fn format_date(date: i64) -> String {
-    let dt = Utc.timestamp_opt(date, 0).unwrap().naive_local();
+    let dt = Local.timestamp_opt(date, 0).unwrap();
     let s = dt.format("%H:%M:%S on %Y-%m-%d").to_string();
 
     s
