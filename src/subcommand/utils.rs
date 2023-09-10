@@ -11,6 +11,7 @@ use crate::utils::create_async_runtime;
 use crate::utils::multibar;
 use crate::Result;
 use chrono::Local;
+use chrono::LocalResult;
 use chrono::TimeZone;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
@@ -285,7 +286,11 @@ pub(crate) fn check_unsupport_stmt(s: &str) {
 }
 
 fn format_date(date: i64) -> String {
-    let dt = Local.timestamp_opt(date, 0).unwrap();
+    let dt = match Local.timestamp_opt(date, 0) {
+        LocalResult::None => Local.timestamp_opt(0, 0).unwrap(),
+        x => x.unwrap(),
+    };
+
     let s = dt.format("%H:%M:%S on %Y-%m-%d").to_string();
 
     s
