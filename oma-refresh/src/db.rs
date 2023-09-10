@@ -400,6 +400,7 @@ where
     let mut tasks = vec![];
 
     for inrelease_summary in all_inrelease {
+        // 源数据确保是存在的，所以直接 unwrap
         let ose = sourceslist.get(inrelease_summary.count).unwrap().to_owned();
         let urlc = ose.url.clone();
         let archc = arch.to_owned();

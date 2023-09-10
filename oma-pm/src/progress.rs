@@ -190,6 +190,8 @@ impl InstallProgress for OmaAptInstallProgress {
 
         // Go to the progress reporting line.
         eprint!("\x1b[{term_height};0f");
+        // 这里（和下面的）所返回的错误都是因为无法操作终端导致的，这时程序应该直接崩溃
+        // 所以下面都是 unwrap
         std::io::stderr().flush().unwrap();
 
         // Convert the float to a percentage string.
