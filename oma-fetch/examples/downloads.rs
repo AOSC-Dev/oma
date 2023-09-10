@@ -81,14 +81,14 @@ async fn main() -> DownloadResult<()> {
                 }
             }
             DownloadEvent::NewProgressSpinner(msg) => {
-                let (sty, inv) = oma_spinner(false).unwrap();
+                let (sty, inv) = oma_spinner(false);
                 let pb = mb.insert(count + 1, ProgressBar::new_spinner().with_style(sty));
                 pb.set_message(msg);
                 pb.enable_steady_tick(inv);
                 pb_map.insert(count + 1, pb);
             }
             DownloadEvent::NewProgress(size, msg) => {
-                let sty = oma_style_pb(Writer::default(), false).unwrap();
+                let sty = oma_style_pb(Writer::default(), false);
                 let pb = mb.insert(count + 1, ProgressBar::new(size).with_style(sty));
                 pb.set_message(msg);
                 pb_map.insert(count + 1, pb);

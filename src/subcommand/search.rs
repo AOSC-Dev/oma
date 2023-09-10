@@ -21,7 +21,7 @@ pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.join(" ");
 
-    let (sty, inv) = oma_spinner(false).unwrap();
+    let (sty, inv) = oma_spinner(false);
 
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner().with_style(sty);
