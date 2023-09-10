@@ -11,14 +11,14 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
         let max_len = writer.get_max_len();
         if is_global {
             if max_len < 90 {
-                " {msg:.blue.bold}".to_owned()
+                " {prefix:.blue.bold}".to_owned()
                     + " {bytes:>10.green.bold} "
                     + &style("/").green().bold().to_string()
                     + " {total_bytes:.green.bold} "
                     + &style("@").green().bold().to_string()
                     + " {binary_bytes_per_sec:<13.green.bold}"
             } else {
-                " {msg:.blue.bold}".to_owned()
+                " {prefix:.blue.bold}".to_owned()
                     + " {bytes:>10.green.bold} "
                     + &style("/").green().bold().to_string()
                     + " {total_bytes:.green.bold} "

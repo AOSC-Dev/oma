@@ -108,7 +108,7 @@ macro_rules! pb {
                     0,
                     oma_console::indicatif::ProgressBar::new(total).with_style(sty),
                 );
-                gpb.set_message("Progress");
+                gpb.set_prefix("Progress");
                 $pb_map.insert(0, gpb);
                 $global_is_set.store(true, std::sync::atomic::Ordering::SeqCst);
             }
