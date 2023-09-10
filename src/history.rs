@@ -79,12 +79,12 @@ pub fn write_history_entry(
     Ok(())
 }
 
-pub fn list_history(conn: Connection) -> Result<Vec<(SummaryLog, u64)>> {
+pub fn list_history(conn: Connection) -> Result<Vec<(SummaryLog, i64)>> {
     let mut res = vec![];
     let mut stmt = conn.prepare("SELECT data, time FROM history ORDER BY id DESC")?;
     let res_iter = stmt.query_map([], |row| {
         let data: Vec<u8> = row.get(0)?;
-        let time: u64 = row.get(1)?;
+        let time: i64 = row.get(1)?;
         Ok((data, time))
     })?;
 

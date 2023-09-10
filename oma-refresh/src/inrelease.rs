@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path, borrow::Cow};
+use std::{borrow::Cow, collections::HashMap, path::Path};
 
 // use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
@@ -65,7 +65,7 @@ impl InReleaseParser {
         mirror: &str,
         arch: &str,
         is_flat: bool,
-        p: &Path
+        p: &Path,
     ) -> InReleaseParserResult<Self> {
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
             Cow::Owned(verify::verify(s, trust_files, mirror)?)

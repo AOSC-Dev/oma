@@ -170,7 +170,7 @@ pub(crate) fn dialoguer_select_history(
     Ok(selected)
 }
 
-pub(crate) fn format_summary_log(list: &[(SummaryLog, u64)], undo: bool) -> Vec<String> {
+pub(crate) fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<String> {
     let display_list = list
         .iter()
         .filter(|(log, _)| {
@@ -284,8 +284,8 @@ pub(crate) fn check_unsupport_stmt(s: &str) {
     }
 }
 
-fn format_date(date: u64) -> String {
-    let dt = Utc.timestamp_opt(date as i64, 0).unwrap().naive_local();
+fn format_date(date: i64) -> String {
+    let dt = Utc.timestamp_opt(date, 0).unwrap().naive_local();
     let s = dt.format("%H:%M:%S on %Y-%m-%d").to_string();
 
     s
