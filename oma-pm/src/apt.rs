@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     fmt::Display,
     io::Write,
     path::{Path, PathBuf},
@@ -471,18 +470,19 @@ impl OmaApt {
         network_thread: Option<usize>,
         args_config: &AptArgs,
         callback: F,
-    ) -> OmaAptResult<Cow<str>>
+    ) -> OmaAptResult<i64>
     where
         F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
     {
         let v = self.summary()?;
         let v_str = v.to_string();
 
-        let start_time = Local::now().format(TIME_FORMAT).to_string();
+        let start_time = Local::now();
+        let ts = start_time.timestamp();
 
         if self.dry_run {
             debug!("op: {v:?}");
-            return Ok(Cow::Borrowed(""));
+            return Ok(ts);
         }
 
         let download_pkg_list = v.install;
@@ -581,7 +581,7 @@ impl OmaApt {
         write!(log, "{v_str}").ok();
         writeln!(log, "End-Date: {end_time}\n").ok();
 
-        Ok(Cow::Owned(start_time))
+        Ok(ts)
     }
 
     /// Resolve apt dependencies

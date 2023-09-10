@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::create_dir_all, path::Path};
+use std::{fs::create_dir_all, path::Path};
 
 use crate::fl;
 use anyhow::Result;
@@ -44,7 +44,7 @@ pub fn connect_db(write: bool) -> Result<Connection> {
             "CREATE TABLE IF NOT EXISTS history (
                 id    INTEGER PRIMARY KEY,
                 data  BLOB,
-                time  TEXT
+                time  INTEGER
             )",
             (), // empty list of parameters.
         )?;
@@ -58,7 +58,7 @@ pub fn write_history_entry(
     typ: SummaryType,
     conn: Connection,
     dry_run: bool,
-    start_time: Cow<str>,
+    start_time: i64,
 ) -> Result<()> {
     if dry_run {
         debug!("In dry-run mode, oma will not write history entries");
@@ -79,12 +79,12 @@ pub fn write_history_entry(
     Ok(())
 }
 
-pub fn list_history(conn: Connection) -> Result<Vec<(SummaryLog, String)>> {
+pub fn list_history(conn: Connection) -> Result<Vec<(SummaryLog, u64)>> {
     let mut res = vec![];
     let mut stmt = conn.prepare("SELECT data, time FROM history ORDER BY id DESC")?;
     let res_iter = stmt.query_map([], |row| {
         let data: Vec<u8> = row.get(0)?;
-        let time: String = row.get(1)?;
+        let time: u64 = row.get(1)?;
         Ok((data, time))
     })?;
 

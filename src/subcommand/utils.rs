@@ -10,14 +10,16 @@ use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::multibar;
 use crate::Result;
+use chrono::TimeZone;
+use chrono::Utc;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
 use oma_console::error;
 use oma_console::info;
 use oma_console::success;
-use oma_console::WRITER;
 use oma_console::warn;
+use oma_console::WRITER;
 use oma_fetch::DownloadEvent;
 use oma_pm::apt::AptArgs;
 use oma_pm::apt::OmaApt;
@@ -156,7 +158,10 @@ pub(crate) fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -
     false
 }
 
-pub(crate) fn dialoguer_select_history(display_list: &[String], old_selected: usize) -> Result<usize> {
+pub(crate) fn dialoguer_select_history(
+    display_list: &[String],
+    old_selected: usize,
+) -> Result<usize> {
     let selected = Select::with_theme(&ColorfulTheme::default())
         .items(display_list)
         .default(old_selected)
@@ -165,7 +170,7 @@ pub(crate) fn dialoguer_select_history(display_list: &[String], old_selected: us
     Ok(selected)
 }
 
-pub(crate) fn format_summary_log(list: &[(SummaryLog, String)], undo: bool) -> Vec<String> {
+pub(crate) fn format_summary_log(list: &[(SummaryLog, u64)], undo: bool) -> Vec<String> {
     let display_list = list
         .iter()
         .filter(|(log, _)| {
@@ -175,91 +180,95 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, String)], undo: bool) -> V
                 true
             }
         })
-        .map(|(log, date)| match &log.typ {
-            SummaryType::Install(v) if v.len() > 3 => format!(
-                "Installed {} {} {} ... (and {} more) [{date}]",
-                v[0],
-                v[1],
-                v[2],
-                v.len() - 3,
-            ),
-            SummaryType::Install(v) => format!("Installl {} [{date}]", v.join(" ")),
-            SummaryType::Upgrade(v) if v.is_empty() => format!("Upgraded system [{date}]"),
-            SummaryType::Upgrade(v) if v.len() > 3 => format!(
-                "Upgraded system and installed {} {} {} ... (and {} more) [{date}]",
-                v[0],
-                v[1],
-                v[2],
-                v.len() - 3
-            ),
-            SummaryType::Upgrade(v) => {
-                format!("Upgraded system and install {} [{date}]", v.join(" "))
+        .map(|(log, date)| {
+            let date = format_date(*date);
+            match &log.typ {
+                SummaryType::Install(v) if v.len() > 3 => format!(
+                    "Installed {} {} {} ... (and {} more) [{}]",
+                    v[0],
+                    v[1],
+                    v[2],
+                    v.len() - 3,
+                    date
+                ),
+                SummaryType::Install(v) => format!("Installl {} [{date}]", v.join(" ")),
+                SummaryType::Upgrade(v) if v.is_empty() => format!("Upgraded system [{date}]"),
+                SummaryType::Upgrade(v) if v.len() > 3 => format!(
+                    "Upgraded system and installed {} {} {} ... (and {} more) [{date}]",
+                    v[0],
+                    v[1],
+                    v[2],
+                    v.len() - 3
+                ),
+                SummaryType::Upgrade(v) => {
+                    format!("Upgraded system and install {} [{date}]", v.join(" "))
+                }
+                SummaryType::Remove(v) if v.len() > 3 => format!(
+                    "Removed {} {} {} ... (and {} more)",
+                    v[0],
+                    v[1],
+                    v[2],
+                    v.len() - 3
+                ),
+                SummaryType::Remove(v) => format!("Removed {} [{date}]", v.join(" ")),
+                SummaryType::FixBroken => format!("Attempted to fix broken dependencies [{date}]"),
+                SummaryType::TopicsChanged { add, remove } if remove.is_empty() => {
+                    format!(
+                        "Topics changed: enabled {}{} [{date}]",
+                        if add.len() <= 3 {
+                            add.join(" ")
+                        } else {
+                            format!("{} {} {}", add[0], add[1], add[2])
+                        },
+                        if add.len() <= 3 {
+                            Cow::Borrowed("")
+                        } else {
+                            Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
+                        }
+                    )
+                }
+                SummaryType::TopicsChanged { add, remove } if add.is_empty() => {
+                    format!(
+                        "Topics changed: disabled {}{} [{date}]",
+                        if remove.len() <= 3 {
+                            add.join(" ")
+                        } else {
+                            format!("{} {} {}", remove[0], remove[1], remove[2])
+                        },
+                        if remove.len() <= 3 {
+                            Cow::Borrowed("")
+                        } else {
+                            Cow::Owned(format!(" ... (and {} more)", remove.len() - 3))
+                        }
+                    )
+                }
+                SummaryType::TopicsChanged { add, remove } => {
+                    format!(
+                        "Topics changed: enabled {}{}, disabled {}{} [{date}]",
+                        if add.len() <= 3 {
+                            add.join(" ")
+                        } else {
+                            format!("{} {} {}", add[0], add[1], add[2])
+                        },
+                        if add.len() <= 3 {
+                            Cow::Borrowed("")
+                        } else {
+                            Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
+                        },
+                        if remove.len() <= 3 {
+                            remove.join(" ")
+                        } else {
+                            format!("{} {} {}", remove[0], remove[1], remove[2])
+                        },
+                        if remove.len() <= 3 {
+                            Cow::Borrowed("")
+                        } else {
+                            Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
+                        },
+                    )
+                }
+                SummaryType::Undo => format!("Undone [{date}]"),
             }
-            SummaryType::Remove(v) if v.len() > 3 => format!(
-                "Removed {} {} {} ... (and {} more)",
-                v[0],
-                v[1],
-                v[2],
-                v.len() - 3
-            ),
-            SummaryType::Remove(v) => format!("Removed {} [{date}]", v.join(" ")),
-            SummaryType::FixBroken => format!("Attempted to fix broken dependencies [{date}]"),
-            SummaryType::TopicsChanged { add, remove } if remove.is_empty() => {
-                format!(
-                    "Topics changed: enabled {}{} [{date}]",
-                    if add.len() <= 3 {
-                        add.join(" ")
-                    } else {
-                        format!("{} {} {}", add[0], add[1], add[2])
-                    },
-                    if add.len() <= 3 {
-                        Cow::Borrowed("")
-                    } else {
-                        Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
-                    }
-                )
-            }
-            SummaryType::TopicsChanged { add, remove } if add.is_empty() => {
-                format!(
-                    "Topics changed: disabled {}{} [{date}]",
-                    if remove.len() <= 3 {
-                        add.join(" ")
-                    } else {
-                        format!("{} {} {}", remove[0], remove[1], remove[2])
-                    },
-                    if remove.len() <= 3 {
-                        Cow::Borrowed("")
-                    } else {
-                        Cow::Owned(format!(" ... (and {} more)", remove.len() - 3))
-                    }
-                )
-            }
-            SummaryType::TopicsChanged { add, remove } => {
-                format!(
-                    "Topics changed: enabled {}{}, disabled {}{} [{date}]",
-                    if add.len() <= 3 {
-                        add.join(" ")
-                    } else {
-                        format!("{} {} {}", add[0], add[1], add[2])
-                    },
-                    if add.len() <= 3 {
-                        Cow::Borrowed("")
-                    } else {
-                        Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
-                    },
-                    if remove.len() <= 3 {
-                        remove.join(" ")
-                    } else {
-                        format!("{} {} {}", remove[0], remove[1], remove[2])
-                    },
-                    if remove.len() <= 3 {
-                        Cow::Borrowed("")
-                    } else {
-                        Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
-                    },
-                )
-            }
-            SummaryType::Undo => format!("Undone [{date}]"),
         })
         .collect::<Vec<_>>();
 
@@ -273,4 +282,11 @@ pub(crate) fn check_unsupport_stmt(s: &str) {
             warn!("Expected pattern: {s}");
         }
     }
+}
+
+fn format_date(date: u64) -> String {
+    let dt = Utc.timestamp_opt(date as i64, 0).unwrap().naive_local();
+    let s = dt.format("%H:%M:%S on %Y-%m-%d").to_string();
+
+    s
 }
