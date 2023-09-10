@@ -33,7 +33,7 @@ pub fn execute(
     let (pkgs, no_result) = apt.select_pkg(pkgs, false, true)?;
     handle_no_result(no_result);
 
-    let context = apt.remove(&pkgs, !args.keep_config, protect, true, args.no_autoremove)?;
+    let context = apt.remove(&pkgs, args.remove_config, protect, true, args.no_autoremove)?;
 
     if !context.is_empty() {
         for c in context {

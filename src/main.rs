@@ -59,7 +59,7 @@ pub struct UpgradeArgs {
 #[derive(Debug, Default)]
 pub struct RemoveArgs {
     yes: bool,
-    keep_config: bool,
+    remove_config: bool,
     no_autoremove: bool,
     force_yes: bool,
 }
@@ -207,7 +207,7 @@ fn try_main() -> Result<i32> {
 
             let args = RemoveArgs {
                 yes: args.get_flag("yes"),
-                keep_config: args.get_flag("keep_config"),
+                remove_config: args.get_flag("remove_config"),
                 no_autoremove: args.get_flag("no_autoremove"),
                 force_yes: args.get_flag("force_yes"),
             };
