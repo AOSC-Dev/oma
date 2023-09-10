@@ -98,6 +98,8 @@ where
     F: Fn(ContentsEvent) + Send + Clone + 'static,
 {
     let kw = if Path::new(keyword).is_absolute() {
+        // 当确定 keyword 是一个绝对路径时，则 strip / 肯定有值，所以直接 unwrap
+        // 这在 Windows 上可能会崩溃，后面 oma 要跑在 Windows 上面再说吧……
         keyword.strip_prefix('/').unwrap()
     } else {
         keyword

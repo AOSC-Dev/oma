@@ -177,6 +177,7 @@ impl Display for OmaOperation {
                     reinstall.push(format!("{name}:{arch} ({version})"));
                 }
                 InstallOperation::Upgrade => {
+                    // Upgrade 的情况下 old_version 的值肯定存在，因此直接 unwreap
                     upgrade.push(format!(
                         "{name}:{arch} ({}, {version})",
                         ins.old_version().unwrap()
@@ -839,6 +840,8 @@ impl OmaApt {
                     tags.push(RemoveTag::AutoRemove);
                 }
 
+                // 如果一个包被标记为删除，则肯定已经安装
+                // 所以请求已安装版本应该直接 unwrap
                 let installed = pkg.installed().unwrap();
                 let version = installed.version();
                 let size = installed.installed_size();
@@ -855,6 +858,8 @@ impl OmaApt {
             }
 
             if pkg.marked_reinstall() {
+                // 如果一个包被标记为重装，则肯定已经安装
+                // 所以请求已安装版本应该直接 unwrap
                 let version = pkg.installed().unwrap();
 
                 let checksum = version
@@ -1032,6 +1037,8 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
         .ok_or_else(|| OmaAptError::PkgNoCandidate(new_pkg.name().to_string()))?;
 
     let new_version = cand.version();
+    // 如果一个包有版本修改，则肯定之前已经安装
+    // 所以请求已安装版本应该直接 unwrap
     let installed = new_pkg.installed().unwrap();
     let old_version = installed.version();
 

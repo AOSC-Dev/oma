@@ -163,6 +163,7 @@ impl OmaFetcher {
         let mut tasks = Vec::new();
         let mut list = vec![];
         for (i, c) in self.download_list.iter().enumerate() {
+            // 因为数据的来源是确定的，所以这里能够确定肯定不崩溃，因此直接 unwrap
             let single = SingleDownloaderBuilder::default()
                 .client(&self.client)
                 .context(c.msg.clone())

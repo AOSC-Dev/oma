@@ -159,6 +159,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
     }
 
     for i in res {
+        // res 的源确保是存在的，所以直接 unwrap
         let entry = pkg_map.get(i).unwrap();
 
         let name = entry.pkgname.clone();

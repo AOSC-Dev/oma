@@ -43,6 +43,8 @@ impl Display for OmaDependencyGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, d) in self.0.iter().enumerate() {
             if d.len() == 1 {
+                // 如果数组长度为一，则肯定第一个位置有值
+                // 因此直接 unwrap
                 let dep = d.first().unwrap();
                 f.write_str(&dep.name)?;
                 if let Some(comp) = &dep.comp_ver {

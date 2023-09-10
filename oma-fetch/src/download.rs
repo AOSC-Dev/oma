@@ -80,6 +80,7 @@ impl SingleDownloader<'_> {
             }
         }
 
+        // 如果能够推出循环，则说明 res 肯定有值
         Ok(res.unwrap())
     }
 
