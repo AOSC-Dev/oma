@@ -22,7 +22,8 @@ pub fn execute() -> Result<i32, OutputError> {
     let mut old_selected = 0;
 
     loop {
-        let selected = dialoguer_select_history(&display_list, old_selected).map_err(|_| anyhow!(""))?;
+        let selected =
+            dialoguer_select_history(&display_list, old_selected).map_err(|_| anyhow!(""))?;
         old_selected = selected;
 
         let selected = &list[selected].0;
