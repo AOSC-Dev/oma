@@ -33,9 +33,9 @@ dashmap = "5.5"
 chrono = "0.4"
 
 # i18n
-i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"]}
-i18n-embed-fl = "0.6"
-rust-embed = "^6"
+i18n-embed = { version = "0.14", features = ["fluent-system", "desktop-requester"]}
+i18n-embed-fl = "0.7"
+rust-embed = "^8"
 unic-langid = "0.9"
 
 [build-dependencies]
