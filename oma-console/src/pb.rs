@@ -34,12 +34,10 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
         }
     };
 
-    let barsty = ProgressStyle::default_bar()
+    ProgressStyle::default_bar()
         .template(&bar_template)
         .unwrap()
-        .progress_chars("=>-");
-
-    barsty
+        .progress_chars("=>-")
 }
 
 /// oma style spinner
