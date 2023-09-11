@@ -14,6 +14,7 @@ mod utils;
 use anyhow::{anyhow, Result};
 
 use clap::ArgMatches;
+use error::OutputError;
 use nix::sys::signal;
 use oma_console::{console::style, info};
 use oma_console::{debug, due_to, error, DEBUG, WRITER};
@@ -72,12 +73,12 @@ fn main() {
     let code = match try_main() {
         Ok(exit_code) => exit_code,
         Err(e) => {
-            if !e.to_string().is_empty() {
-                error!("{e}");
+            let (err, dueto) = e.inner();
+            if !err.is_empty() {
+                error!("{err}");
             }
-            e.chain().skip(1).for_each(|cause| {
-                due_to!("{cause}");
-            });
+            let dueto = dueto.unwrap_or(fl!("debug"));
+            due_to!("{dueto}");
             1
         }
     };
@@ -88,7 +89,7 @@ fn main() {
     exit(code);
 }
 
-fn try_main() -> Result<i32> {
+fn try_main() -> Result<i32, OutputError> {
     let cmd = args::command_builder();
     let matches = cmd.get_matches();
 
@@ -324,7 +325,7 @@ fn try_main() -> Result<i32> {
             let exe_dir = exe_dir.parent().expect("Where am I?");
             let plugin = exe_dir.join(format!("oma-{}", cmd));
             if !plugin.is_file() {
-                return Err(anyhow!("Unknown command: `{cmd}'."));
+                return Err(OutputError::from(anyhow!("Unknown command: `{cmd}'.")));
             }
             info!("Executing applet oma-{cmd}");
             let mut process = &mut Command::new(plugin);

@@ -223,7 +223,8 @@ io-error = I/O Error: {$e},
 inrelease-syntax-error = "InRelease file {$path} is invalid: {$e}"
 
 # contents
-contents-does-not-exist = Package contents database (Contents) does not exist. Use the {$cmd} command to refresh the contents database.
+contents-does-not-exist = Package contents database (Contents) does not exist.
+contents-does-not-exist-dueto = Use the `oma refresh' command to refresh the contents database.
 contents-may-not-be-accurate-1 = The local package contents database has not been updated for over a week, search results may not be accurate.
 contents-may-not-be-accurate-2 = Use the `oma refresh' command to refresh the contents database.
 execute-ripgrep-failed = Failed to execute `rg': {$e}.
@@ -244,3 +245,19 @@ config-invaild = Invaild Config /etc/oma.toml! fallbacking to default configurat
 
 searching = Searching ...
 cleaning = Cleaning packages cache ...
+
+right-pattern = oma supports the following special expressions:
+    "package name = version number": will query the package with the specific version number associated with that name, e.g.: oma=1.0.7
+    "package name/branch": will look up the latest package with that name in a particular repository branch, e.g.: oma/stable
+    "package name": will query all set repositories for the latest package with that name, e.g.: oma
+    "/path/to/files.deb": will specify the local .deb package for that path.
+    "GLOB": will query all packages matching the GLOB rule, e.g.: oma-*
+check-sources-list = Please check that your sources.list file is correct!
+mirror-data-maybe-broken = The local source data cache may be corrupted, please use `oma refresh' to refresh the source data and try again.
+mirror-data-maybe-expire = The local source data cache may be out of date, please use `oma refresh' to refresh the source data and try again.
+reinstall-failed-due-to = Make sure the package is available in the setup source.
+bug = Please report this issue at https://github.com/AOSC-Dev/oma.
+clean-storage = Please free up space before proceeding.
+ripgrep-right-installed = Make sure Ripgrep is installed correctly.
+support-protocol = Omakase currently only supports http, https and file protocols. Please check your sources.list file entry.
+debug = If this is not expected behavior, please use debug mode (add the --debug flag) to see a detailed run report and report the problem at https://github.com/AOSC-Dev/oma.
