@@ -218,7 +218,8 @@ downloading-database = {$source} {$file}
 inrelease-syntax-error = 位于 {$path} 的 InRelease 文件解析失败：{$e}
 
 # contents
-contents-does-not-exist = 找不到软件包内容数据库文件 (Contents)，请使用 {$cmd} 命令刷新该数据库。
+contents-does-not-exist = 找不到软件包内容数据库文件 (Contents)。
+contents-does-not-exist-dueto = 请使用 `oma refresh' 命令刷新该数据库。
 contents-may-not-be-accurate-1 = 本机软件包内容数据库文件已超过一周未有更新，因此搜索结果可能不准确。
 contents-may-not-be-accurate-2 = 请使用 `oma refresh' 命令刷新该数据库。
 execute-ripgrep-failed = 无法执行 `rg' 命令：{$e}。
@@ -238,3 +239,18 @@ config-invaild = Invaild Config /etc/oma.toml! fallbacking to default configurat
 
 searching = 正在搜索软件包 ...
 cleaning = 正在清理本地软件包缓存 ...
+right-pattern = oma 支持以下特殊表达式：
+    "包名=版本号"：将查询特定版本号与该名字相关的软件包，例如：oma=1.0.7
+    "包名/分支"：将查询特定仓库分支的最新的与该名字相关的软件包，例如：oma/stable
+    "包名"：将查询所有已经设置的软件仓库中最新的该名字相关的软件包：例如：oma
+    "/path/to/文件.deb"：将指定本地该路径的 .deb 软件包。
+    "GLOB": 将查询所有与 GLOB 规则相匹配的软件包，例如：oma-*
+check-sources-list = 请检查你的 sources.list 文件是否正确。 
+mirror-data-maybe-broken = 本地源数据缓存可能已经损坏，请使用 `oma refresh' 刷新源数据再试一次。
+mirror-data-maybe-expire = 本地源数据缓存可能已经过期，请使用 `oma refresh' 刷新源数据再试一次。
+reinstall-failed-due-to = 请确保软件包在已设置的源中可用。
+bug = 请于 https://github.com/AOSC-Dev/oma 报告问题。
+clean-storage = 请腾出空间后再继续操作。
+ripgrep-right-installed = 请确认 Ripgrep 已经正确安装。
+support-protocol = Omakase 目前仅支持 http, https 和 file 协议。请检查你的 sources.list 文件条目。
+debug = 若这是未预期行为，请使用 debug 模式（添加 --debug 标志） 查看详细运行报告，并于 https://github.com/AOSC-Dev/oma 报告问题。
