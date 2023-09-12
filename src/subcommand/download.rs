@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use anyhow::anyhow;
 use oma_console::success;
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 
@@ -46,18 +45,23 @@ pub fn execute(
         .display()
         .to_string();
 
-    success!(
-        "{}",
-        fl!(
-            "successfully-download-to-path",
-            len = success.len(),
-            path = path
-        )
-    );
+    if !success.is_empty() {
+        success!(
+            "{}",
+            fl!(
+                "successfully-download-to-path",
+                len = success.len(),
+                path = path
+            )
+        );
+    }
 
     if !failed.is_empty() {
         let len = failed.len();
-        return Err(anyhow!(fl!("download-failed-with-len", len = len)).into());
+        return Err(OutputError::new(
+            fl!("download-failed-with-len", len = len),
+            Some(fl!("check-network-settings")),
+        ));
     }
 
     Ok(0)
