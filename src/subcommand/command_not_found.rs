@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use oma_console::error;
+use oma_console::{due_to, error};
 use oma_contents::{OmaContentsError, QueryMode};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use oma_utils::dpkg::dpkg_arch;
@@ -45,7 +45,11 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
         }
         Err(e) => {
             if !matches!(e, OmaContentsError::NoResult) {
-                error!("{}", OutputError::from(e).to_string());
+                let (err, dueto) = OutputError::from(e).inner();
+                error!("{err}");
+                if let Some(dueto) = dueto {
+                    due_to!("{dueto}");
+                }
             }
             error!("{}", fl!("command-not-found", kw = pkg));
         }
