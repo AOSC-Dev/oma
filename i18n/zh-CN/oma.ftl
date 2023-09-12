@@ -235,23 +235,24 @@ can-not-checksum = BUG：无碍发解析 SHA256 校验和 {$e}，请于 https://
 failed-to-open-to-checksum = BUG：无法打开用于验证校验和的路径 {$path}，请于 https://github.com/AOSC-Dev/oma 报告问题。
 
 # config
-config-invaild = Invaild Config /etc/oma.toml! fallbacking to default configuration.
+config-invaild = Omakase 配置文件 (/etc/oma.toml) 似乎已损坏！将使用默认配置。
 
 searching = 正在搜索软件包 ...
 cleaning = 正在清理本地软件包缓存 ...
 right-pattern = oma 支持以下特殊表达式：
-    "包名=版本号"：将查询特定版本号与该名字相关的软件包，例如：oma=1.0.7
-    "包名/分支"：将查询特定仓库分支的最新的与该名字相关的软件包，例如：oma/stable
-    "包名"：将查询所有已经设置的软件仓库中最新的该名字相关的软件包：例如：oma
-    "/path/to/文件.deb"：将指定本地该路径的 .deb 软件包。
-    "GLOB": 将查询所有与 GLOB 规则相匹配的软件包，例如：oma-*
-check-sources-list = 请检查你的 sources.list 文件是否正确。 
-mirror-data-maybe-broken = 本地源数据缓存可能已经损坏，请使用 `oma refresh' 刷新源数据再试一次。
-mirror-data-maybe-expire = 本地源数据缓存可能已经过期，请使用 `oma refresh' 刷新源数据再试一次。
-reinstall-failed-due-to = 请确保软件包在已设置的源中可用。
+    
+    “[包名]=[版本号]”：查询特定版本的软件包，例如：oma=1.0.7
+    “[包名]/[分支]”：查询指定仓库分支中软件包的最新版本，例如：oma/stable
+    “[包名]”：查询所有仓库中最新版本的软件包，例如：oma
+    “/path/to/软件包.deb”：查询本地路径中的 .deb 软件包，例如：/home/aosc/oma_1.0.7-1_amd64.deb
+    "GLOB": 查询所有与 GLOB 规则相匹配的软件包，例如：oma-*
+check-sources-list = 请检查你的 sources.list 文件内容是否正确。 
+mirror-data-maybe-broken = 本地源数据缓存可能已损坏，请使用 `oma refresh' 刷新源数据。
+mirror-data-maybe-expire = 本地源数据缓存可能已过期，请使用 `oma refresh' 刷新源数据。
+reinstall-failed-due-to = 请确保该软件包在已设置的源中可用。
 bug = 请于 https://github.com/AOSC-Dev/oma 报告问题。
-clean-storage = 请腾出空间后再继续操作。
-ripgrep-right-installed = 请确认 Ripgrep 已经正确安装。
-support-protocol = Omakase 目前仅支持 http, https 和 file 协议。请检查你的 sources.list 文件条目。
-debug = 若这是未预期行为，请使用 debug 模式（添加 --debug 标志）查看详细运行报告，并于 https://github.com/AOSC-Dev/oma 报告问题。
-download-failed-with-len = 有 {$len} 个包下载失败。
+clean-storage = 请腾出所需存储空间后再继续操作。
+ripgrep-right-installed = 请确认 Ripgrep 已正确安装。
+support-protocol = Omakase 目前仅支持 http://、https:// 和 file:/ 协议。请检查你的 sources.list 文件条目。
+debug = 若这是未预期行为，请使用 debug 模式（添加 `--debug' 参数）查看详细程序输出，并于 https://github.com/AOSC-Dev/oma 报告问题时附上相关输出。
+download-failed-with-len = {$len} 个软件包下载失败。
