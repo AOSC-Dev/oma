@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use oma_console::{error, success};
+use anyhow::anyhow;
+use oma_console::success;
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 
 use crate::fl;
@@ -39,11 +40,6 @@ pub fn execute(
         gpb.finish_and_clear();
     }
 
-    if !failed.is_empty() {
-        // TODO: 翻译
-        error!("Have {} packages download failed.", failed.len());
-    }
-
     let path = path
         .unwrap_or_else(|| PathBuf::from("."))
         .canonicalize()?
@@ -58,6 +54,11 @@ pub fn execute(
             path = path
         )
     );
+
+    if !failed.is_empty() {
+        let len = failed.len();
+        return Err(anyhow!(fl!("download-failed-with-len", len = len)).into());
+    }
 
     Ok(0)
 }
