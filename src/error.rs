@@ -25,6 +25,10 @@ impl OutputError {
     pub fn inner(self) -> (String, Option<String>) {
         self.0
     }
+
+    pub fn new(error: String, due_to: Option<String>) -> OutputError {
+        OutputError((error, due_to))
+    }
 }
 
 impl Display for OutputError {

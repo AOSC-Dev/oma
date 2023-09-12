@@ -233,7 +233,13 @@ impl SingleDownloader<'_> {
         );
 
         let url = self.entry.source[position].url.clone();
-        let resp_head = self.client.head(url).send().await?;
+        let resp_head = match self.client.head(url).send().await {
+            Ok(resp) => resp,
+            Err(e) => {
+                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                return Err(DownloadError::ReqwestError(e));
+            }
+        };
 
         let head = resp_head.headers();
 
