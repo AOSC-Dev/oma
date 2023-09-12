@@ -241,24 +241,25 @@ can-not-checksum = BUG: Failed to parse SHA256 checksum {$e}. Please report this
 failed-to-open-to-checksum = BUG: Failed to open {$path} for checksum verification. Please report this issue at https://github.com/AOSC-Dev/oma.
 
 # config
-config-invaild = Invaild Config /etc/oma.toml! fallbacking to default configuration.
+config-invaild = Omakase configuration file appears to be broken (/etc/oma.toml)! Falling back to default configuration.
 
 searching = Searching ...
-cleaning = Cleaning packages cache ...
+cleaning = Clearing packages cache ...
 
-right-pattern = oma supports the following special expressions:
-    "package name = version number": will query the package with the specific version number associated with that name, e.g.: oma=1.0.7
-    "package name/branch": will look up the latest package with that name in a particular repository branch, e.g.: oma/stable
-    "package name": will query all set repositories for the latest package with that name, e.g.: oma
-    "/path/to/files.deb": will specify the local .deb package for that path.
-    "GLOB": will query all packages matching the GLOB rule, e.g.: oma-*
-check-sources-list = Please check that your sources.list file is correct!
-mirror-data-maybe-broken = The local source data cache may be corrupted, please use `oma refresh' to refresh the source data and try again.
-mirror-data-maybe-expire = The local source data cache may be out of date, please use `oma refresh' to refresh the source data and try again.
-reinstall-failed-due-to = Make sure the package is available in the setup source.
+right-pattern = Omakase supports the following special expressions:
+    
+    "[package]=[version]": Queries the package of a specific version, e.g.: oma=1.0.7
+    "[package]/[branch]": Queries the latest package of a specific repository branch, e.g.: oma/stable
+    "[package]": Queries all latest packages in enabled repositories, e.g.: oma
+    "/path/to/package.deb": Queries the .deb package from that specific path, e.g.: /home/aosc/oma_1.0.7-1_amd64.deb
+    "GLOB": Queries all package matching the glob pattern, e.g.: oma-*
+check-sources-list = Please check if your sources.list is configured properly.
+mirror-data-maybe-broken = The local package metadata database may be corrupted, please run `oma refresh' to refresh your local database.
+mirror-data-maybe-expire = The local package metadata database may be out-of-date, please run `oma refresh' to refresh your local database.
+reinstall-failed-due-to = Please make sure that the specified package(s) is available from the configured repositories.
 bug = Please report this issue at https://github.com/AOSC-Dev/oma.
-clean-storage = Please free up space before proceeding.
-ripgrep-right-installed = Make sure Ripgrep is installed correctly.
-support-protocol = Omakase currently only supports http, https and file protocols. Please check your sources.list file entry.
-debug = If this is not expected behavior, please use debug mode (add the --debug flag) to see a detailed run report and report the problem at https://github.com/AOSC-Dev/oma.
-download-failed-with-len = Has {$len} packages download failed.
+clean-storage = Please free up some storage space before proceeding.
+ripgrep-right-installed = Please make sure that Ripgrep is installed correctly.
+support-protocol = Omakase only supports http://, https://, and file:/ protocols. Please check your sources.list entries.
+debug = If this is not an expected behavior, please enable debug mode (by adding the `--debug' flag) to record detailed program output, and submit it along with your bug report at https://github.com/AOSC-Dev/oma.
+download-failed-with-len = {$len} package(s) failed to download.
