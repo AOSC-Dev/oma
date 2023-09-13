@@ -28,6 +28,7 @@ use oma_pm::operation::InstallEntry;
 use oma_pm::operation::RemoveEntry;
 use oma_refresh::db::OmaRefresh;
 use oma_refresh::db::RefreshEvent;
+use oma_utils::dpkg::dpkg_arch;
 
 pub(crate) fn handle_no_result(no_result: Vec<String>) {
     for word in no_result {
@@ -41,7 +42,7 @@ pub(crate) fn refresh(dry_run: bool, no_progress: bool) -> Result<()> {
     }
 
     info!("{}", fl!("refreshing-repo-metadata"));
-    let refresh = OmaRefresh::scan(None)?;
+    let refresh = OmaRefresh::scan(None, dpkg_arch().map(|x| x != "mips64r6el").unwrap_or(true))?;
     let tokio = create_async_runtime()?;
 
     let (mb, pb_map, global_is_set) = multibar();
