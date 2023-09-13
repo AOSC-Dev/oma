@@ -462,8 +462,21 @@ where
                         handle.push(i);
                         total += i.size;
                     }
-                    DistFileType::CompressContents(s) | DistFileType::CompressPackageList(s) => {
-                        if arch != "mips64r6el" {
+                    DistFileType::CompressContents(_) => {
+                        if download_compress {
+                            debug!(
+                                "oma will download compress Package List/compress Contetns: {}",
+                                i.name
+                            );
+
+                            if !handle.contains(&i) {
+                                handle.push(i);
+                                total += i.size;
+                            }
+                        }
+                    }
+                    DistFileType::CompressPackageList(s) => {
+                        if download_compress {
                             debug!(
                                 "oma will download compress Package List/compress Contetns: {}",
                                 i.name
@@ -536,6 +549,7 @@ where
                     task.dir(download_dir.clone());
                     task.allow_resume(false);
                     task.msg(format!("{msg} {typ}"));
+
                     task.extract(!matches!(c.file_type, DistFileType::CompressContents(_)));
 
                     if let Some(checksum) = checksum {
