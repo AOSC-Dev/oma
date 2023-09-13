@@ -49,7 +49,7 @@ pub(crate) fn refresh(dry_run: bool, no_progress: bool, download_pure_db: bool) 
         download_pure_db
     };
 
-    let refresh = OmaRefresh::scan(None, download_pure_db)?;
+    let refresh = OmaRefresh::scan(None, !download_pure_db)?;
     let tokio = create_async_runtime()?;
 
     let (mb, pb_map, global_is_set) = multibar();
