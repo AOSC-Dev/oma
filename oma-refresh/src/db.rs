@@ -447,7 +447,7 @@ where
         } else {
             let mut handle = vec![];
             for i in &checksums {
-                match i.file_type {
+                match &i.file_type {
                     DistFileType::BinaryContents => {
                         debug!("oma will download Binary Contents: {}", i.name);
                         handle.push(i);
@@ -458,7 +458,7 @@ where
                         handle.push(i);
                         total += i.size;
                     }
-                    DistFileType::CompressContents(_) | DistFileType::CompressPackageList(_) => {
+                    DistFileType::CompressContents(s) | DistFileType::CompressPackageList(s) => {
                         if arch != "mips64r6el" {
                             debug!(
                                 "oma will download compress Package List/compress Contetns: {}",
@@ -467,7 +467,13 @@ where
 
                             if !handle.contains(&i) {
                                 handle.push(i);
-                                total += i.size;
+                                let size = checksums
+                                    .iter()
+                                    .find(|x| &x.name == s)
+                                    .map(|x| x.size)
+                                    .unwrap_or(i.size);
+
+                                total += size;
                             }
                         }
                     }
