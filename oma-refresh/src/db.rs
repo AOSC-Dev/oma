@@ -514,24 +514,31 @@ where
                     )];
 
                     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
-                        &c.checksum
+                        Some(&c.checksum)
                     } else {
-                        &checksums
+                        if let Some(c) = &checksums
                             .iter()
                             .find(|x| &x.name == not_compress_filename_before)
-                            .unwrap()
-                            .checksum
+                        {
+                            Some(&c.checksum)
+                        } else {
+                            None
+                        }
                     };
 
-                    let task = DownloadEntryBuilder::default()
-                        .source(sources)
-                        .filename(database_filename(&file_path))
-                        .dir(download_dir.clone())
-                        .hash(checksum)
-                        .allow_resume(false)
-                        .msg(format!("{msg} {typ}"))
-                        .extract(!matches!(c.file_type, DistFileType::CompressContents(_)))
-                        .build()?;
+                    let mut task = DownloadEntryBuilder::default();
+                    task.source(sources);
+                    task.filename(database_filename(&file_path));
+                    task.dir(download_dir.clone());
+                    task.allow_resume(false);
+                    task.msg(format!("{msg} {typ}"));
+                    task.extract(!matches!(c.file_type, DistFileType::CompressContents(_)));
+
+                    if let Some(checksum) = checksum {
+                        task.hash(checksum);
+                    }
+
+                    let task = task.build()?;
 
                     debug!("oma will download http source database: {file_path}");
 
@@ -557,24 +564,31 @@ where
                     )];
 
                     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
-                        &c.checksum
+                        Some(&c.checksum)
                     } else {
-                        &checksums
+                        if let Some(c) = &checksums
                             .iter()
                             .find(|x| &x.name == not_compress_filename_before)
-                            .unwrap()
-                            .checksum
+                        {
+                            Some(&c.checksum)
+                        } else {
+                            None
+                        }
                     };
 
-                    let task = DownloadEntryBuilder::default()
-                        .source(sources)
-                        .filename(database_filename(&file_path))
-                        .dir(download_dir.clone())
-                        .hash(checksum)
-                        .allow_resume(false)
-                        .msg(format!("{msg} {typ}"))
-                        .extract(matches!(c.file_type, DistFileType::CompressContents(_)))
-                        .build()?;
+                    let mut task = DownloadEntryBuilder::default();
+                    task.source(sources);
+                    task.filename(database_filename(&file_path));
+                    task.dir(download_dir.clone());
+                    task.allow_resume(false);
+                    task.msg(format!("{msg} {typ}"));
+                    task.extract(!matches!(c.file_type, DistFileType::CompressContents(_)));
+
+                    if let Some(checksum) = checksum {
+                        task.hash(checksum);
+                    }
+
+                    let task = task.build()?;
 
                     tasks.push(task);
                 }
