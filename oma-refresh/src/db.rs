@@ -233,11 +233,12 @@ pub struct OmaRefresh {
     limit: Option<usize>,
     arch: String,
     download_dir: PathBuf,
+    download_compress: bool,
     bar: bool,
 }
 
 impl OmaRefresh {
-    pub fn scan(limit: Option<usize>) -> Result<Self> {
+    pub fn scan(limit: Option<usize>, download_compress: bool) -> Result<Self> {
         let sources = get_sources()?;
         let sources = hr_sources(&sources)?;
         let arch = oma_utils::dpkg::dpkg_arch()?;
@@ -249,6 +250,7 @@ impl OmaRefresh {
             limit,
             arch,
             download_dir,
+            download_compress,
             bar: true,
         })
     }
@@ -274,6 +276,7 @@ impl OmaRefresh {
             self.limit,
             self.arch,
             self.download_dir,
+            self.download_compress,
             callback,
         )
         .await
@@ -298,6 +301,7 @@ async fn update_db<F>(
     limit: Option<usize>,
     arch: String,
     download_dir: PathBuf,
+    download_compress: bool,
     callback: F,
 ) -> Result<()>
 where
@@ -453,7 +457,7 @@ where
                         handle.push(i);
                         total += i.size;
                     }
-                    DistFileType::Contents | DistFileType::PackageList if arch == "mips64r6el" => {
+                    DistFileType::Contents | DistFileType::PackageList if !download_compress => {
                         debug!("oma will download Package List/Contetns: {}", i.name);
                         handle.push(i);
                         total += i.size;
