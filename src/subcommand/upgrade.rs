@@ -27,13 +27,14 @@ pub fn execute(
     args: UpgradeArgs,
     dry_run: bool,
     no_progress: bool,
+    download_pure_db: bool
 ) -> Result<i32, OutputError> {
     root()?;
 
     let rt = create_async_runtime()?;
     dbus_check(&rt)?;
 
-    refresh(dry_run, no_progress)?;
+    refresh(dry_run, no_progress, download_pure_db)?;
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));

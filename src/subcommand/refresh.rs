@@ -6,9 +6,9 @@ use crate::{error::OutputError, utils::root};
 
 use super::utils::refresh;
 
-pub fn execute(no_progress: bool) -> Result<i32, OutputError> {
+pub fn execute(no_progress: bool, download_pure_db: bool) -> Result<i32, OutputError> {
     root()?;
-    refresh(false, no_progress)?;
+    refresh(false, no_progress, download_pure_db)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;

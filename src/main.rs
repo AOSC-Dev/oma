@@ -26,7 +26,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use oma_console::console;
 use oma_console::pager::SUBPROCESS;
 
-use crate::config::Config;
+use crate::config::{Config, GeneralConfig};
 use crate::subcommand::*;
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
@@ -175,9 +175,9 @@ fn try_main() -> Result<i32, OutputError> {
                 no_install_suggests: args.get_flag("no_install_recommends"),
             };
 
-            let network_thread = config.network.network_threads;
+            let network_thread = config.network_thread();
 
-            install::execute(pkgs_unparse, args, dry_run, network_thread, no_progress)?
+            install::execute(pkgs_unparse, args, dry_run, network_thread, no_progress, config.pure_db())?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -189,7 +189,7 @@ fn try_main() -> Result<i32, OutputError> {
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
             };
 
-            upgrade::execute(pkgs_unparse, args, dry_run, no_progress)?
+            upgrade::execute(pkgs_unparse, args, dry_run, no_progress, config.pure_db())?
         }
         Some(("download", args)) => {
             let keyword = pkgs_getter(args).unwrap_or_default();
@@ -213,19 +213,22 @@ fn try_main() -> Result<i32, OutputError> {
                 force_yes: args.get_flag("force_yes"),
             };
 
-            let protect_essentials = config.general.protect_essentials;
-            let network_thread = config.network.network_threads;
+            let protect_essentials = config
+                .general
+                .as_ref()
+                .map(|x| x.protect_essentials)
+                .unwrap_or_else(|| GeneralConfig::default_protect_essentials());
 
             remove::execute(
                 pkgs_unparse,
                 args,
                 dry_run,
                 protect_essentials,
-                network_thread,
+                config.network_thread(),
                 no_progress,
             )?
         }
-        Some(("refresh", _)) => refresh::execute(no_progress)?,
+        Some(("refresh", _)) => refresh::execute(no_progress, config.pure_db())?,
         Some(("show", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
             let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
@@ -249,12 +252,12 @@ fn try_main() -> Result<i32, OutputError> {
             contents_find::execute(x, is_bin, pkg, no_progress)?
         }
         Some(("fix-broken", _)) => {
-            let network_thread = config.network.network_threads;
+            let network_thread = config.network_thread();
             fix_broken::execute(dry_run, network_thread, no_progress)?
         }
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
-            let network_thread = config.network.network_threads;
+            let network_thread = config.network_thread();
 
             pick::execute(
                 pkg_str,
@@ -262,6 +265,7 @@ fn try_main() -> Result<i32, OutputError> {
                 dry_run,
                 network_thread,
                 no_progress,
+                config.pure_db()
             )?
         }
         Some(("mark", args)) => {
@@ -296,7 +300,7 @@ fn try_main() -> Result<i32, OutputError> {
         Some(("clean", _)) => clean::execute(no_progress)?,
         Some(("history", _)) => subcommand::history::execute()?,
         Some(("undo", _)) => {
-            let network_thread = config.network.network_threads;
+            let network_thread = config.network_thread();
             undo::execute(network_thread, no_progress)?
         }
         #[cfg(feature = "aosc")]
@@ -311,9 +315,9 @@ fn try_main() -> Result<i32, OutputError> {
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap_or_default();
 
-            let network_thread = config.network.network_threads;
+            let network_thread = config.network_thread();
 
-            topics::execute(opt_in, opt_out, dry_run, network_thread, no_progress)?
+            topics::execute(opt_in, opt_out, dry_run, network_thread, no_progress, config.pure_db())?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());

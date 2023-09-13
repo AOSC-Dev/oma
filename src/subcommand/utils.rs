@@ -36,13 +36,20 @@ pub(crate) fn handle_no_result(no_result: Vec<String>) {
     }
 }
 
-pub(crate) fn refresh(dry_run: bool, no_progress: bool) -> Result<()> {
+pub(crate) fn refresh(dry_run: bool, no_progress: bool, download_pure_db: bool) -> Result<()> {
     if dry_run {
         return Ok(());
     }
 
     info!("{}", fl!("refreshing-repo-metadata"));
-    let refresh = OmaRefresh::scan(None, dpkg_arch().map(|x| x != "mips64r6el").unwrap_or(true))?;
+
+    let download_pure_db = if dpkg_arch().map(|x| x == "mips64r6el").unwrap_or(false) {
+        false
+    } else {
+        download_pure_db
+    };
+
+    let refresh = OmaRefresh::scan(None, download_pure_db)?;
     let tokio = create_async_runtime()?;
 
     let (mb, pb_map, global_is_set) = multibar();
