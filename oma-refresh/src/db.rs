@@ -533,14 +533,9 @@ where
                     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
                         Some(&c.checksum)
                     } else {
-                        if let Some(c) = &checksums
+                        checksums
                             .iter()
-                            .find(|x| &x.name == not_compress_filename_before)
-                        {
-                            Some(&c.checksum)
-                        } else {
-                            None
-                        }
+                            .find(|x| &x.name == not_compress_filename_before).as_ref().map(|c| &c.checksum)
                     };
 
                     let mut task = DownloadEntryBuilder::default();
@@ -584,14 +579,9 @@ where
                     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
                         Some(&c.checksum)
                     } else {
-                        if let Some(c) = &checksums
+                        checksums
                             .iter()
-                            .find(|x| &x.name == not_compress_filename_before)
-                        {
-                            Some(&c.checksum)
-                        } else {
-                            None
-                        }
+                            .find(|x| &x.name == not_compress_filename_before).as_ref().map(|c| &c.checksum)
                     };
 
                     let mut task = DownloadEntryBuilder::default();
