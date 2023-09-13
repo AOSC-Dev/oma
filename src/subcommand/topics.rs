@@ -33,6 +33,7 @@ pub fn execute(
     dry_run: bool,
     network_thread: usize,
     no_progress: bool,
+    download_pure_db: bool
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -45,7 +46,7 @@ pub fn execute(
     let enabled_pkgs = topics_changed.enabled_pkgs;
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
-    refresh(dry_run, no_progress)?;
+    refresh(dry_run, no_progress, download_pure_db)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
