@@ -160,6 +160,7 @@ impl OmaFetcher {
     where
         F: Fn(usize, DownloadEvent) + Clone + Send + Sync,
     {
+        let callback = Arc::new(callback);
         let mut tasks = Vec::new();
         let mut list = vec![];
         for (i, c) in self.download_list.iter().enumerate() {
