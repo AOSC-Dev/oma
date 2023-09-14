@@ -147,8 +147,7 @@ impl SingleDownloader<'_> {
                 "File: {} exists, oma will checksum this file.",
                 self.entry.filename
             );
-            let hash = self.entry.hash.clone();
-            if let Some(hash) = hash {
+            if let Some(hash) = &self.entry.hash {
                 debug!("Hash exist! It is: {hash}");
 
                 let mut f = tokio::fs::OpenOptions::new()
@@ -163,7 +162,7 @@ impl SingleDownloader<'_> {
                     self.entry.filename
                 );
 
-                let mut v = Checksum::from_sha256_str(&hash)?.get_validator();
+                let mut v = Checksum::from_sha256_str(hash)?.get_validator();
 
                 debug!("Validator created.");
 
@@ -232,8 +231,12 @@ impl SingleDownloader<'_> {
             DownloadEvent::NewProgressSpinner(msg.clone()),
         );
 
-        let url = self.entry.source[position].url.clone();
-        let resp_head = match self.client.head(url).send().await {
+        let resp_head = match self
+            .client
+            .head(&self.entry.source[position].url)
+            .send()
+            .await
+        {
             Ok(resp) => resp,
             Err(e) => {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
@@ -270,8 +273,7 @@ impl SingleDownloader<'_> {
 
         debug!("File total size is: {total_size}");
 
-        let url = self.entry.source[position].url.clone();
-        let mut req = self.client.get(url);
+        let mut req = self.client.get(&self.entry.source[position].url);
 
         if can_resume && self.entry.allow_resume {
             // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
@@ -319,7 +321,7 @@ impl SingleDownloader<'_> {
 
         // 初始化 checksum 验证器
         // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
-        let hash = self.entry.hash.clone();
+        let hash = &self.entry.hash;
         let mut validator = if let Some(v) = validator {
             callback(
                 self.download_list_index,
