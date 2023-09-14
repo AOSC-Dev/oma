@@ -649,7 +649,7 @@ impl OmaApt {
                 .filename(apt_style_filename(
                     filename,
                     entry.new_version().to_string(),
-                )?)
+                )?.into())
                 .dir(download_dir.to_path_buf())
                 .hash(entry.checksum().to_string())
                 .allow_resume(true)

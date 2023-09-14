@@ -21,7 +21,7 @@ async fn main() -> DownloadResult<()> {
 
     let file_1 = DownloadEntryBuilder::default()
         .source(vec![source_1])
-        .filename("go.deb".to_string())
+        .filename("go.deb".to_string().into())
         .dir(PathBuf::from("./oma-fetcher-test"))
         .hash("0625cbba48a14438eea144682567a026a17e173420c5bdcbc06dcb11aba50628".to_string())
         .allow_resume(true)
@@ -34,7 +34,7 @@ async fn main() -> DownloadResult<()> {
 
     let file_2 = DownloadEntryBuilder::default()
         .source(vec![source_2])
-        .filename("vscode.deb".to_string())
+        .filename("vscode.deb".to_string().into())
         .dir(PathBuf::from("./oma-fetcher-test"))
         .allow_resume(false)
         .build()?;

@@ -334,7 +334,7 @@ fn oma_download_error(e: DownloadError) -> (String, Option<String>) {
         ),
         DownloadError::ChecksumError(e) => oma_checksum_error(e),
         DownloadError::FailedOpenLocalSourceFile(path, e) => (
-            fl!("can-not-parse-sources-list", path = path, e = e),
+            fl!("can-not-parse-sources-list", path = path.to_string(), e = e),
             Some(fl!("check-sources-list")),
         ),
         DownloadError::DownloadAllFailed(s, e) => (
