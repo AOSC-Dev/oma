@@ -68,6 +68,7 @@ pub enum RefreshError {
     IOError(#[from] std::io::Error),
 }
 
+
 type Result<T> = std::result::Result<T, RefreshError>;
 
 pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
@@ -383,20 +384,22 @@ where
         }
     }
 
-    if !not_found.is_empty() {
-        let removed_suites = oma_topics::scan_closed_topic().await?;
-        for url in not_found {
-            let suite = url
-                .split('/')
-                .nth_back(1)
-                .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
-                .to_string();
-
-            if !removed_suites.contains(&suite) {
-                return Err(RefreshError::NoInReleaseFile(url.to_string()));
+    #[cfg(feature = "aosc")] {
+        if !not_found.is_empty() {
+            let removed_suites = oma_topics::scan_closed_topic().await?;
+            for url in not_found {
+                let suite = url
+                    .split('/')
+                    .nth_back(1)
+                    .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+                    .to_string();
+    
+                if !removed_suites.contains(&suite) {
+                    return Err(RefreshError::NoInReleaseFile(url.to_string()));
+                }
+    
+                callback(0, RefreshEvent::ClosingTopic(suite), None);
             }
-
-            callback(0, RefreshEvent::ClosingTopic(suite), None);
         }
     }
 

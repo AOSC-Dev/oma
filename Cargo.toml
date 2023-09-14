@@ -20,7 +20,7 @@ derive_builder = "0.12.0"
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
 oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
-oma-refresh = { path = "./oma-refresh", features = ["aosc"] }
+oma-refresh = { path = "./oma-refresh" }
 oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch" }
 oma-topics = { path = "./oma-topics", optional = true }
@@ -45,7 +45,7 @@ clap = { version = "4.3", features = ["cargo", "wrap_help", "color", "string"] }
 anyhow = "1.0.75"
 
 [features]
-aosc = ["oma-topics"]
+aosc = ["dep:oma-topics", "oma-refresh/aosc"]
 default  = ["aosc"]
 
 [workspace]
