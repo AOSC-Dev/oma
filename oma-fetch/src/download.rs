@@ -28,7 +28,7 @@ pub(crate) struct SingleDownloader<'a> {
     entry: &'a DownloadEntry,
     progress: (usize, usize, Option<String>),
     retry_times: usize,
-    context: Option<String>,
+    context: Arc<Option<String>>,
     download_list_index: usize,
 }
 
@@ -51,8 +51,8 @@ impl SingleDownloader<'_> {
         let msg = self
             .progress
             .2
-            .clone()
-            .unwrap_or(self.entry.filename.clone());
+            .as_ref()
+            .unwrap_or(&self.entry.filename);
 
         for (i, c) in sources.iter().enumerate() {
             let download_res = match c.source_type {
@@ -65,7 +65,7 @@ impl SingleDownloader<'_> {
             match download_res {
                 Ok(download_res) => {
                     res = Some(download_res);
-                    callback(self.download_list_index, DownloadEvent::Done(msg));
+                    callback(self.download_list_index, DownloadEvent::Done(msg.to_string()));
                     break;
                 }
                 Err(e) => {

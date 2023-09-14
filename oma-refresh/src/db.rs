@@ -285,12 +285,12 @@ impl OmaRefresh {
 }
 
 #[derive(Debug)]
-pub enum RefreshEvent {
-    DownloadEvent(DownloadEvent),
+pub enum RefreshEvent<'a> {
+    DownloadEvent(DownloadEvent<'a>),
     ClosingTopic(String),
 }
 
-impl From<DownloadEvent> for RefreshEvent {
+impl From<DownloadEvent<'_>> for RefreshEvent {
     fn from(value: DownloadEvent) -> Self {
         RefreshEvent::DownloadEvent(value)
     }

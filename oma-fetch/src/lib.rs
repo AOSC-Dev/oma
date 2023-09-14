@@ -102,7 +102,7 @@ pub struct Summary {
     pub filename: String,
     pub writed: bool,
     pub count: usize,
-    pub context: Option<String>,
+    pub context: Arc<Option<String>>,
 }
 
 #[derive(Debug)]
@@ -121,7 +121,7 @@ pub enum DownloadEvent {
 
 /// Summary struct to save download result
 impl Summary {
-    fn new(filename: &str, writed: bool, count: usize, context: Option<String>) -> Self {
+    fn new(filename: &str, writed: bool, count: usize, context: Arc<Option<String>>) -> Self {
         Self {
             filename: filename.to_string(),
             writed,
@@ -167,7 +167,7 @@ impl OmaFetcher {
             // 因为数据的来源是确定的，所以这里能够确定肯定不崩溃，因此直接 unwrap
             let single = SingleDownloaderBuilder::default()
                 .client(&self.client)
-                .context(c.msg.clone())
+                .context(c.msg.clone().into())
                 .download_list_index(i)
                 .entry(c)
                 .progress((i + 1, self.download_list.len(), c.msg.clone()))
