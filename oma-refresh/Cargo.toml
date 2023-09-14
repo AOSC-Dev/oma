@@ -27,7 +27,7 @@ oma-utils = { version = "^0.1.6", path = "../oma-utils", features = ["dpkg"] }
 oma-console = { version = "^0.2.0", path = "../oma-console" }
 
 [features]
-aosc = ["oma-topics"]
+aosc = ["dep:oma-topics"]
 default = ["aosc"]
 
 [dev-dependencies]

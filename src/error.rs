@@ -11,9 +11,11 @@ use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseParserError;
 use oma_refresh::verify::VerifyError;
-use oma_topics::OmaTopicsError;
 use oma_utils::dbus::zError;
 use oma_utils::dpkg::DpkgError;
+
+#[cfg(feature = "aosc")]
+use oma_topics::OmaTopicsError;
 
 use crate::fl;
 use crate::table::handle_unmet_dep;
@@ -119,7 +121,10 @@ impl From<RefreshError> for OutputError {
             ),
             RefreshError::FetcherError(e) => oma_download_error(e),
             RefreshError::ReqwestError(e) => (e.to_string(), Some(fl!("check-network-settings"))),
+            #[cfg(feature = "aosc")]
             RefreshError::TopicsError(e) => oma_topics_error(e),
+            #[cfg(not(feature = "aosc"))]
+            RefreshError::TopicsError(_) => unreachable!(),
             RefreshError::NoInReleaseFile(s) => (
                 fl!("not-found", url = s),
                 Some(fl!("check-network-settings")),
@@ -194,12 +199,14 @@ impl From<RefreshError> for OutputError {
     }
 }
 
+#[cfg(feature = "aosc")]
 impl From<OmaTopicsError> for OutputError {
     fn from(value: OmaTopicsError) -> Self {
         Self(oma_topics_error(value))
     }
 }
 
+#[cfg(feature = "aosc")]
 fn oma_topics_error(e: OmaTopicsError) -> (String, Option<String>) {
     match e {
         OmaTopicsError::SerdeError(e) => (e.to_string(), Some(fl!("bug"))),
