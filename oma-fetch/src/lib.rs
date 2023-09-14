@@ -25,7 +25,7 @@ pub enum DownloadError {
     #[error(transparent)]
     ChecksumError(#[from] crate::checksum::ChecksumError),
     #[error("Failed to open local source file {0}: {1}")]
-    FailedOpenLocalSourceFile(String, String),
+    FailedOpenLocalSourceFile(Arc<String>, String),
     #[error("Download all file failed: {0}: {1}")]
     DownloadAllFailed(String, String),
     #[error(transparent)]
@@ -40,7 +40,7 @@ pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 #[builder(default)]
 pub struct DownloadEntry {
     source: Vec<DownloadSource>,
-    filename: String,
+    filename: Arc<String>,
     dir: PathBuf,
     #[builder(setter(into, strip_option))]
     hash: Option<String>,
@@ -99,7 +99,7 @@ pub struct OmaFetcher {
 
 #[derive(Debug)]
 pub struct Summary {
-    pub filename: String,
+    pub filename: Arc<String>,
     pub writed: bool,
     pub count: usize,
     pub context: Arc<Option<String>>,
@@ -121,9 +121,9 @@ pub enum DownloadEvent {
 
 /// Summary struct to save download result
 impl Summary {
-    fn new(filename: &str, writed: bool, count: usize, context: Arc<Option<String>>) -> Self {
+    fn new(filename: Arc<String>, writed: bool, count: usize, context: Arc<Option<String>>) -> Self {
         Self {
-            filename: filename.to_string(),
+            filename,
             writed,
             count,
             context,
@@ -170,7 +170,7 @@ impl OmaFetcher {
                 .context(c.msg.clone().into())
                 .download_list_index(i)
                 .entry(c)
-                .progress((i + 1, self.download_list.len(), c.msg.clone()))
+                .progress((i + 1, self.download_list.len(), c.msg.clone().into()))
                 .retry_times(self.retry_times)
                 .build()
                 .unwrap();

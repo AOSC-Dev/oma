@@ -285,12 +285,12 @@ impl OmaRefresh {
 }
 
 #[derive(Debug)]
-pub enum RefreshEvent<'a> {
-    DownloadEvent(DownloadEvent<'a>),
+pub enum RefreshEvent {
+    DownloadEvent(DownloadEvent),
     ClosingTopic(String),
 }
 
-impl From<DownloadEvent<'_>> for RefreshEvent {
+impl From<DownloadEvent> for RefreshEvent {
     fn from(value: DownloadEvent) -> Self {
         RefreshEvent::DownloadEvent(value)
     }
@@ -321,7 +321,7 @@ where
 
                 let task = DownloadEntryBuilder::default()
                     .source(sources)
-                    .filename(database_filename(&source_entry.inrelease_path))
+                    .filename(database_filename(&source_entry.inrelease_path).into())
                     .dir(download_dir.clone())
                     .allow_resume(false)
                     .msg(format!("{msg} InRelease"))
@@ -338,7 +338,7 @@ where
 
                 let task = DownloadEntryBuilder::default()
                     .source(sources)
-                    .filename(database_filename(&source_entry.inrelease_path))
+                    .filename(database_filename(&source_entry.inrelease_path).into())
                     .dir(download_dir.clone())
                     .allow_resume(false)
                     .msg(format!("{msg} InRelease"))
@@ -415,7 +415,7 @@ where
         debug!("Getted Oma source entry: {:?}", ose);
 
         let download_dir = download_dir.clone();
-        let inrelease_path = download_dir.join(&inrelease_summary.filename);
+        let inrelease_path = download_dir.join(&*inrelease_summary.filename);
 
         let s = tokio::fs::read_to_string(&inrelease_path).await?;
 
@@ -543,7 +543,7 @@ where
 
                     let mut task = DownloadEntryBuilder::default();
                     task.source(sources);
-                    task.filename(database_filename(&file_path));
+                    task.filename(database_filename(&file_path).into());
                     task.dir(download_dir.clone());
                     task.allow_resume(false);
                     task.msg(format!("{msg} {typ}"));
@@ -589,7 +589,7 @@ where
 
                     let mut task = DownloadEntryBuilder::default();
                     task.source(sources);
-                    task.filename(database_filename(&file_path));
+                    task.filename(database_filename(&file_path).into());
                     task.dir(download_dir.clone());
                     task.allow_resume(false);
                     task.msg(format!("{msg} {typ}"));

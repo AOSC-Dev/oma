@@ -26,7 +26,7 @@ use crate::{
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
     entry: &'a DownloadEntry,
-    progress: (usize, usize, Option<String>),
+    progress: (usize, usize, Arc<Option<String>>),
     retry_times: usize,
     context: Arc<Option<String>>,
     download_list_index: usize,
@@ -51,8 +51,8 @@ impl SingleDownloader<'_> {
         let msg = self
             .progress
             .2
-            .as_ref()
-            .unwrap_or(&self.entry.filename);
+            .as_deref()
+            .unwrap_or(&*self.entry.filename);
 
         for (i, c) in sources.iter().enumerate() {
             let download_res = match c.source_type {
@@ -132,7 +132,7 @@ impl SingleDownloader<'_> {
     where
         F: Fn(usize, DownloadEvent) + Clone,
     {
-        let file = self.entry.dir.join(&self.entry.filename);
+        let file = self.entry.dir.join(&*self.entry.filename);
         let file_exist = file.exists();
         let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
@@ -196,7 +196,7 @@ impl SingleDownloader<'_> {
                     callback(self.download_list_index, DownloadEvent::ProgressDone);
 
                     return Ok(Summary::new(
-                        &self.entry.filename,
+                        self.entry.filename.clone(),
                         false,
                         self.download_list_index,
                         self.context.clone(),
@@ -443,7 +443,7 @@ impl SingleDownloader<'_> {
         callback(self.download_list_index, DownloadEvent::ProgressDone);
 
         Ok(Summary::new(
-            &self.entry.filename,
+            self.entry.filename.clone(),
             true,
             self.download_list_index,
             self.context.clone(),
@@ -483,7 +483,7 @@ impl SingleDownloader<'_> {
 
         debug!("Success open file: {url_path}");
 
-        let mut to = tokio::fs::File::create(self.entry.dir.join(&self.entry.filename))
+        let mut to = tokio::fs::File::create(self.entry.dir.join(&*self.entry.filename))
             .await
             .map_err(|e| {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.clone(), e.to_string())
@@ -491,7 +491,7 @@ impl SingleDownloader<'_> {
 
         debug!(
             "Success create file: {}",
-            self.entry.dir.join(&self.entry.filename).display()
+            self.entry.dir.join(&*self.entry.filename).display()
         );
 
         let size = tokio::io::copy(&mut from, &mut to).await.map_err(|e| {
@@ -500,7 +500,7 @@ impl SingleDownloader<'_> {
 
         debug!(
             "Success copy file from {url_path} to {}",
-            self.entry.dir.join(&self.entry.filename).display()
+            self.entry.dir.join(&*self.entry.filename).display()
         );
 
         callback(self.download_list_index, DownloadEvent::ProgressDone);
@@ -511,7 +511,7 @@ impl SingleDownloader<'_> {
         global_progress.fetch_add(size, Ordering::SeqCst);
 
         Ok(Summary::new(
-            &self.entry.filename,
+            self.entry.filename.clone(),
             true,
             *c,
             self.context.clone(),
