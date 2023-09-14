@@ -36,7 +36,7 @@ impl SingleDownloader<'_> {
     pub(crate) async fn try_download<F>(
         self,
         global_progress: Arc<AtomicU64>,
-        callback: F,
+        callback: Arc<F>,
     ) -> DownloadResult<Summary>
     where
         F: Fn(usize, DownloadEvent) + Clone,
@@ -88,7 +88,7 @@ impl SingleDownloader<'_> {
     async fn try_http_download<F>(
         &self,
         position: usize,
-        callback: F,
+        callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
     ) -> DownloadResult<Summary>
     where
@@ -126,7 +126,7 @@ impl SingleDownloader<'_> {
     async fn http_download<F>(
         &self,
         position: usize,
-        callback: F,
+        callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
     ) -> DownloadResult<Summary>
     where
@@ -452,7 +452,7 @@ impl SingleDownloader<'_> {
     async fn download_local<F>(
         &self,
         position: usize,
-        callback: F,
+        callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
     ) -> DownloadResult<Summary>
     where
