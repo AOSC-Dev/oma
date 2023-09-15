@@ -1,7 +1,7 @@
 use std::{
     io::{BufRead, BufReader},
     path::Path,
-    process::{Command, Stdio},
+    process::{Command, Stdio}, sync::{Arc, Mutex},
 };
 
 use chrono::{DateTime, Utc};
@@ -95,8 +95,9 @@ pub fn find<F>(
     search_zip: bool,
 ) -> Result<Vec<(String, String)>>
 where
-    F: Fn(ContentsEvent) + Send + Clone + 'static,
+    F: Fn(ContentsEvent) + Send + Sync + Clone + 'static,
 {
+    let callback = Arc::new(callback);
     let kw = if Path::new(keyword).is_absolute() {
         // 当确定 keyword 是一个绝对路径时，则 strip / 肯定有值，所以直接 unwrap
         // 这在 Windows 上可能会崩溃，后面 oma 要跑在 Windows 上面再说吧……
@@ -115,7 +116,7 @@ where
     };
 
     let dir = std::fs::read_dir(dist_dir)?;
-    let mut paths = Vec::new();
+    let paths = Arc::new(Mutex::new(Vec::new()));
     for i in dir.flatten() {
         #[cfg(feature = "aosc")]
         if query_mode != QueryMode::CommandNotFound
@@ -131,7 +132,7 @@ where
                     .map(|x| x.contains("_Contents-all"))
                     .unwrap_or(false)
             {
-                paths.push(i.path());
+                paths.lock().unwrap().push(i.path());
             }
         } else if i
             .file_name()
@@ -143,7 +144,7 @@ where
                 .map(|x| x.ends_with("_BinContents-all"))
                 .unwrap_or(false)
         {
-            paths.push(i.path());
+            paths.lock().unwrap().push(i.path());
         }
         #[cfg(not(feature = "aosc"))]
         if i.file_name()
@@ -161,14 +162,16 @@ where
 
     let pc = paths.clone();
 
-    if paths.is_empty() {
-        return Err(OmaContentsError::ContentsNotExist);
+    {
+        if paths.lock().unwrap().is_empty() {
+            return Err(OmaContentsError::ContentsNotExist);
+        }
     }
 
     let cc = callback.clone();
 
     std::thread::spawn(move || -> Result<()> {
-        for i in pc {
+        for i in &*pc.lock().unwrap() {
             let m = DateTime::from(i.metadata()?.modified()?);
             let now = Utc::now();
             let delta = now - m;
@@ -190,7 +193,7 @@ where
         cmd.arg("--json");
         cmd.arg("-e");
         cmd.arg(pattern);
-        cmd.args(&paths);
+        cmd.args(&*paths.lock().unwrap());
 
         if search_zip {
             cmd.arg("--search-zip");
@@ -316,7 +319,7 @@ where
         let mut searcher = Searcher::new();
         let mut res = Vec::new();
 
-        for i in &paths {
+        for i in &*paths.lock().unwrap() {
             searcher.search_path(
                 matcher.clone(),
                 i,
