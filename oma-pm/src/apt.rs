@@ -284,10 +284,14 @@ impl OmaApt {
     /// Get upgradable and removable packages
     pub fn available_action(&self) -> OmaAptResult<(usize, usize)> {
         let sort = PackageSort::default().upgradable();
-        let upgradable = self.cache.packages(&sort)?.collect::<Vec<_>>().len();
+        let upgradable = self
+            .cache
+            .packages(&sort)?
+            .filter(|x| !x.marked_keep())
+            .count();
 
         let sort = PackageSort::default().auto_removable();
-        let removable = self.cache.packages(&sort)?.collect::<Vec<_>>().len();
+        let removable = self.cache.packages(&sort)?.count();
 
         Ok((upgradable, removable))
     }
@@ -646,10 +650,7 @@ impl OmaApt {
 
             let download_entry = DownloadEntryBuilder::default()
                 .source(sources)
-                .filename(apt_style_filename(
-                    filename,
-                    entry.new_version().to_string(),
-                )?.into())
+                .filename(apt_style_filename(filename, entry.new_version().to_string())?.into())
                 .dir(download_dir.to_path_buf())
                 .hash(entry.checksum().to_string())
                 .allow_resume(true)
