@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::path::Path;
 
 use oma_console::{due_to, error};
@@ -37,8 +38,8 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
                 let desc = pkg
                     .unwrap()
                     .candidate()
-                    .and_then(|x| x.description())
-                    .unwrap_or_else(|| "no description.".to_string());
+                    .and_then(|x| x.description().map(|x| Cow::Owned(x)))
+                    .unwrap_or_else(|| Cow::Borrowed("no description."));
 
                 println!("{k} ({bin_path}): {desc}");
             }
