@@ -22,7 +22,7 @@ pub fn execute(op: &str, pkgs: Vec<String>, dry_run: bool) -> Result<i32, Output
             .collect::<Vec<_>>(),
         "auto" | "manual" => {
             let (pkgs, no_result) =
-                apt.select_pkg(pkgs.iter().map(|x| x.as_str()).collect(), false, true)?;
+                apt.select_pkg(&pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(), false, true)?;
             handle_no_result(no_result);
 
             apt.mark_install_status(pkgs, op == "auto", dry_run)?

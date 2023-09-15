@@ -50,7 +50,7 @@ pub fn execute(network_thread: usize, no_progress: bool) -> Result<i32, OutputEr
         }
     }
 
-    let (delete, no_result) = apt.select_pkg(delete, false, true)?;
+    let (delete, no_result) = apt.select_pkg(&delete, false, true)?;
     handle_no_result(no_result);
 
     apt.remove(&delete, false, true, true, true)?;

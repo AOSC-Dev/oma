@@ -62,7 +62,7 @@ pub fn execute(
         let mut apt = OmaApt::new(local_debs.clone(), oma_apt_args, dry_run)?;
         apt.upgrade()?;
 
-        let (pkgs, no_result) = apt.select_pkg(pkgs_unparse.clone(), false, true)?;
+        let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, true)?;
         handle_no_result(no_result);
 
         apt.install(&pkgs, false)?;

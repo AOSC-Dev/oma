@@ -9,7 +9,7 @@ use crate::fl;
 pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
-    let (pkgs, no_result) = apt.select_pkg(pkgs_unparse, false, false)?;
+    let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, false)?;
     handle_no_result(no_result);
 
     if !all {
