@@ -121,7 +121,12 @@ pub enum DownloadEvent {
 
 /// Summary struct to save download result
 impl Summary {
-    fn new(filename: Arc<String>, writed: bool, count: usize, context: Arc<Option<String>>) -> Self {
+    fn new(
+        filename: Arc<String>,
+        writed: bool,
+        count: usize,
+        context: Arc<Option<String>>,
+    ) -> Self {
         Self {
             filename,
             writed,
@@ -164,13 +169,14 @@ impl OmaFetcher {
         let mut tasks = Vec::new();
         let mut list = vec![];
         for (i, c) in self.download_list.iter().enumerate() {
+            let msg = Arc::new(c.msg.clone());
             // 因为数据的来源是确定的，所以这里能够确定肯定不崩溃，因此直接 unwrap
             let single = SingleDownloaderBuilder::default()
                 .client(&self.client)
-                .context(c.msg.clone().into())
+                .context(msg.clone())
                 .download_list_index(i)
                 .entry(c)
-                .progress((i + 1, self.download_list.len(), c.msg.clone().into()))
+                .progress((i + 1, self.download_list.len(), msg))
                 .retry_times(self.retry_times)
                 .build()
                 .unwrap();

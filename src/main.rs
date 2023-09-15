@@ -217,7 +217,7 @@ fn try_main() -> Result<i32, OutputError> {
                 .general
                 .as_ref()
                 .map(|x| x.protect_essentials)
-                .unwrap_or_else(|| GeneralConfig::default_protect_essentials());
+                .unwrap_or_else(GeneralConfig::default_protect_essentials);
 
             remove::execute(
                 pkgs_unparse,

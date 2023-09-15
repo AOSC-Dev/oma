@@ -58,13 +58,13 @@ impl Config {
         self.network
             .as_ref()
             .map(|x| x.network_threads)
-            .unwrap_or_else(|| NetworkConfig::default_network_thread())
+            .unwrap_or_else(NetworkConfig::default_network_thread)
     }
 
     pub fn pure_db(&self) -> bool {
         self.general
             .as_ref()
             .map(|x| x.refresh_pure_database)
-            .unwrap_or_else(|| GeneralConfig::default_refresh_pure_database())
+            .unwrap_or_else(GeneralConfig::default_refresh_pure_database)
     }
 }
