@@ -51,8 +51,8 @@ pub fn execute(
                 let other_version = pkg
                     .versions()
                     .filter(|x| {
-                        pkg.candidate().map(|x| x.version().to_string())
-                            != Some(x.version().to_string())
+                        pkg.candidate().map(|x| Cow::Owned(x.version().to_string()))
+                            != Some(Cow::Borrowed(x.version()))
                     })
                     .collect::<Vec<_>>()
                     .len();
@@ -75,8 +75,12 @@ pub fn execute(
             let mut installed = false;
 
             for pkg_file in pkg_files {
-                let branch = pkg_file.archive().unwrap_or("unknown").to_string();
-                branches.push(Cow::Owned(branch.clone()));
+                let branch = pkg_file.archive();
+
+                let branch = match branch {
+                    Ok(branch) => Cow::Owned(branch.to_string()),
+                    Err(_) => Cow::Borrowed("unknown"),
+                };
 
                 if let Some(inst) = pkg.installed() {
                     let mut inst_pkg_files = inst.package_files();
