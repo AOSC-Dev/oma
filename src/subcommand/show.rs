@@ -17,7 +17,7 @@ pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
             println!("{pkg}");
         }
 
-        let other_version = pkgs.iter().collect::<Vec<_>>().len() - 1;
+        let other_version = pkgs.iter().count() - 1;
 
         if other_version > 0 {
             info!("{}", fl!("additional-version", len = other_version));

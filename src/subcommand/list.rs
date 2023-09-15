@@ -54,8 +54,7 @@ pub fn execute(
                         pkg.candidate().map(|x| Cow::Owned(x.version().to_string()))
                             != Some(Cow::Borrowed(x.version()))
                     })
-                    .collect::<Vec<_>>()
-                    .len();
+                    .count();
 
                 if other_version > 0 {
                     display_tips = (true, other_version);
