@@ -15,7 +15,7 @@ pub fn execute(pkgs: Vec<String>) -> Result<i32, OutputError> {
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let (pkgs, no_result) = apt.select_pkg(
-        pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
+        &pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
         false,
         true,
     )?;

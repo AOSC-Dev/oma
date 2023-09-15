@@ -687,7 +687,7 @@ impl OmaApt {
     /// Select packages from give some strings
     pub fn select_pkg(
         &mut self,
-        keywords: Vec<&str>,
+        keywords: &[&str],
         select_dbg: bool,
         filter_candidate: bool,
     ) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
@@ -1064,7 +1064,7 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
 
 /// Select pkg from give strings (inber)
 fn select_pkg(
-    keywords: Vec<&str>,
+    keywords: &[&str],
     cache: &Cache,
     select_dbg: bool,
     filter_candidate: bool,
