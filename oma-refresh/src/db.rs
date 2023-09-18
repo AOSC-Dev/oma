@@ -6,20 +6,20 @@ use std::{
 use oma_apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use oma_console::debug;
 use oma_fetch::{
-    checksum::ChecksumError, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError,
-    DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
+    checksum::ChecksumError, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError,
+    DownloadError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
 };
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use url::Url;
 
 use crate::{
-    inrelease::{DistFileType, InReleaseParser, InReleaseParserError},
+    inrelease::{ChecksumItem, DistFileType, InReleaseParser, InReleaseParserError},
     util::database_filename,
 };
 
 #[derive(Deserialize)]
-struct MirrorMapItem {
+pub struct MirrorMapItem {
     url: String,
 }
 
@@ -68,10 +68,12 @@ pub enum RefreshError {
     IOError(#[from] std::io::Error),
 }
 
-
 type Result<T> = std::result::Result<T, RefreshError>;
 
-pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
+pub(crate) fn get_url_short_and_branch(
+    url: &str,
+    mirror_map: &Option<HashMap<String, MirrorMapItem>>,
+) -> Result<String> {
     let url = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
 
     let host = if url.scheme() == "file" {
@@ -91,12 +93,7 @@ pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
     let url = format!("{schema}://{host}/");
 
     // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
-    if let Ok(mirror_map_f) = tokio::fs::read(&*MIRROR).await {
-        let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(&mirror_map_f)
-            .map_err(|e| {
-                RefreshError::ParseDistroRepoDataError(MIRROR.display().to_string(), e.to_string())
-            })?;
-
+    if let Some(mirror_map) = mirror_map {
         for (k, v) in mirror_map.iter() {
             let mirror_url =
                 Url::parse(&v.url).map_err(|_| RefreshError::InvaildUrl(v.url.to_string()))?;
@@ -114,6 +111,14 @@ pub(crate) async fn get_url_short_and_branch(url: &str) -> Result<String> {
     }
 
     Ok(format!("{host}:{branch}"))
+}
+
+fn mirror_map(buf: &[u8]) -> Result<HashMap<String, MirrorMapItem>> {
+    let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(buf).map_err(|e| {
+        RefreshError::ParseDistroRepoDataError(MIRROR.display().to_string(), e.to_string())
+    })?;
+
+    Ok(mirror_map)
 }
 
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
@@ -310,8 +315,14 @@ where
 {
     let mut tasks = vec![];
 
+    let m = tokio::fs::read(&*MIRROR).await;
+    let m = match m {
+        Ok(m) => mirror_map(&m).ok(),
+        Err(_) => None,
+    };
+
     for source_entry in &sourceslist {
-        let msg = get_url_short_and_branch(&source_entry.inrelease_path).await?;
+        let msg = get_url_short_and_branch(&source_entry.inrelease_path, &m)?;
         match source_entry.from {
             OmaSourceEntryFrom::Http => {
                 let sources = vec![DownloadSource::new(
@@ -384,7 +395,8 @@ where
         }
     }
 
-    #[cfg(feature = "aosc")] {
+    #[cfg(feature = "aosc")]
+    {
         if !not_found.is_empty() {
             let removed_suites = oma_topics::scan_closed_topic().await?;
             for url in not_found {
@@ -393,11 +405,11 @@ where
                     .nth_back(1)
                     .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
                     .to_string();
-    
+
                 if !removed_suites.contains(&suite) {
                     return Err(RefreshError::NoInReleaseFile(url.to_string()));
                 }
-    
+
                 callback(0, RefreshEvent::ClosingTopic(suite), None);
             }
         }
@@ -505,105 +517,15 @@ where
         };
 
         for c in handle {
-            let source_index = sourceslist.get(inrelease_summary.count).unwrap();
-
-            let (typ, not_compress_filename_before) = match &c.file_type {
-                DistFileType::CompressContents(s) => ("Contents", s),
-                DistFileType::Contents => ("Contents", &c.name),
-                DistFileType::CompressPackageList(s) => ("Package List", s),
-                DistFileType::PackageList => ("Package List", &c.name),
-                DistFileType::BinaryContents => ("BinContents", &c.name),
-                _ => unreachable!(),
-            };
-
-            let msg = get_url_short_and_branch(&source_index.inrelease_path).await?;
-
-            match source_index.from {
-                OmaSourceEntryFrom::Http => {
-                    let dist_url = source_index.dist_path.clone();
-
-                    let file_path = if matches!(c.file_type, DistFileType::CompressContents(_)) {
-                        format!("{}/{}", dist_url, c.name)
-                    } else {
-                        format!("{}/{}", dist_url, not_compress_filename_before)
-                    };
-
-                    let sources = vec![DownloadSource::new(
-                        file_path.clone(),
-                        DownloadSourceType::Http,
-                    )];
-
-                    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
-                        Some(&c.checksum)
-                    } else {
-                        checksums
-                            .iter()
-                            .find(|x| &x.name == not_compress_filename_before).as_ref().map(|c| &c.checksum)
-                    };
-
-                    let mut task = DownloadEntryBuilder::default();
-                    task.source(sources);
-                    task.filename(database_filename(&file_path).into());
-                    task.dir(download_dir.clone());
-                    task.allow_resume(false);
-                    task.msg(format!("{msg} {typ}"));
-
-                    task.extract(!matches!(c.file_type, DistFileType::CompressContents(_)));
-
-                    if let Some(checksum) = checksum {
-                        task.hash(checksum);
-                    }
-
-                    let task = task.build()?;
-
-                    debug!("oma will download http source database: {file_path}");
-
-                    tasks.push(task);
-                }
-                OmaSourceEntryFrom::Local => {
-                    let dist_url = source_index.dist_path.clone();
-
-                    debug!(
-                        "oma will download local source database: {dist_url} {}",
-                        c.name
-                    );
-
-                    let file_path = if matches!(c.file_type, DistFileType::CompressContents(_)) {
-                        format!("{dist_url}/{}", c.name)
-                    } else {
-                        format!("{dist_url}/{}", not_compress_filename_before)
-                    };
-
-                    let sources = vec![DownloadSource::new(
-                        file_path.clone(),
-                        DownloadSourceType::Local,
-                    )];
-
-                    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
-                        Some(&c.checksum)
-                    } else {
-                        checksums
-                            .iter()
-                            .find(|x| &x.name == not_compress_filename_before).as_ref().map(|c| &c.checksum)
-                    };
-
-                    let mut task = DownloadEntryBuilder::default();
-                    task.source(sources);
-                    task.filename(database_filename(&file_path).into());
-                    task.dir(download_dir.clone());
-                    task.allow_resume(false);
-                    task.msg(format!("{msg} {typ}"));
-                    task.extract(!matches!(c.file_type, DistFileType::CompressContents(_)));
-
-                    if let Some(checksum) = checksum {
-                        task.hash(checksum);
-                    }
-
-                    let task = task.build()?;
-
-                    tasks.push(task);
-                }
-            }
+            download_task(
+                c,
+                sourceslist.get(inrelease_summary.count).unwrap(),
+                &checksums,
+                &download_dir,
+                &mut tasks,
+                &m
+            )
+            .await?;
         }
     }
 
@@ -612,6 +534,68 @@ where
         .await;
 
     res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
+
+    Ok(())
+}
+
+async fn download_task(
+    c: &ChecksumItem,
+    source_index: &OmaSourceEntry,
+    checksums: &[ChecksumItem],
+    download_dir: &PathBuf,
+    tasks: &mut Vec<DownloadEntry>,
+    m: &Option<HashMap<String, MirrorMapItem>>
+) -> Result<()> {
+    let (typ, not_compress_filename_before) = match &c.file_type {
+        DistFileType::CompressContents(s) => ("Contents", s),
+        DistFileType::Contents => ("Contents", &c.name),
+        DistFileType::CompressPackageList(s) => ("Package List", s),
+        DistFileType::PackageList => ("Package List", &c.name),
+        DistFileType::BinaryContents => ("BinContents", &c.name),
+        _ => unreachable!(),
+    };
+
+    let msg = get_url_short_and_branch(&source_index.inrelease_path, m)?;
+
+    let dist_url = source_index.dist_path.clone();
+    let file_path = if matches!(c.file_type, DistFileType::CompressContents(_)) {
+        format!("{}/{}", dist_url, c.name)
+    } else {
+        format!("{}/{}", dist_url, not_compress_filename_before)
+    };
+
+    let from = match source_index.from {
+        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local,
+    };
+
+    let sources = vec![DownloadSource::new(file_path.clone(), from)];
+
+    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
+        Some(&c.checksum)
+    } else {
+        checksums
+            .iter()
+            .find(|x| &x.name == not_compress_filename_before)
+            .as_ref()
+            .map(|c| &c.checksum)
+    };
+
+    let mut task = DownloadEntryBuilder::default();
+    task.source(sources);
+    task.filename(database_filename(&file_path).into());
+    task.dir(download_dir.clone());
+    task.allow_resume(false);
+    task.msg(format!("{msg} {typ}"));
+    task.extract(!matches!(c.file_type, DistFileType::CompressContents(_)));
+
+    if let Some(checksum) = checksum {
+        task.hash(checksum);
+    }
+
+    let task = task.build()?;
+    debug!("oma will download source database: {file_path}");
+    tasks.push(task);
 
     Ok(())
 }
