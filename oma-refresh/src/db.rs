@@ -517,15 +517,14 @@ where
         };
 
         for c in handle {
-            download_task(
+            collect_download_task(
                 c,
                 sourceslist.get(inrelease_summary.count).unwrap(),
                 &checksums,
                 &download_dir,
                 &mut tasks,
                 &m
-            )
-            .await?;
+            )?;
         }
     }
 
@@ -538,7 +537,7 @@ where
     Ok(())
 }
 
-async fn download_task(
+fn collect_download_task(
     c: &ChecksumItem,
     source_index: &OmaSourceEntry,
     checksums: &[ChecksumItem],
