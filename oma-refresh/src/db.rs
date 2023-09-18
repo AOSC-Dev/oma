@@ -323,42 +323,25 @@ where
 
     for source_entry in &sourceslist {
         let msg = get_url_short_and_branch(&source_entry.inrelease_path, &m)?;
-        match source_entry.from {
-            OmaSourceEntryFrom::Http => {
-                let sources = vec![DownloadSource::new(
-                    source_entry.inrelease_path.clone(),
-                    DownloadSourceType::Http,
-                )];
 
-                let task = DownloadEntryBuilder::default()
-                    .source(sources)
-                    .filename(database_filename(&source_entry.inrelease_path).into())
-                    .dir(download_dir.clone())
-                    .allow_resume(false)
-                    .msg(format!("{msg} InRelease"))
-                    .build()?;
+        let sources = vec![DownloadSource::new(
+            source_entry.inrelease_path.clone(),
+            match source_entry.from {
+                OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+                OmaSourceEntryFrom::Local => DownloadSourceType::Local,
+            },
+        )];
 
-                debug!("oma will fetch {} InRelease", source_entry.url);
-                tasks.push(task);
-            }
-            OmaSourceEntryFrom::Local => {
-                let sources = vec![DownloadSource::new(
-                    source_entry.inrelease_path.clone(),
-                    DownloadSourceType::Local,
-                )];
+        let task = DownloadEntryBuilder::default()
+            .source(sources)
+            .filename(database_filename(&source_entry.inrelease_path).into())
+            .dir(download_dir.clone())
+            .allow_resume(false)
+            .msg(format!("{msg} InRelease"))
+            .build()?;
 
-                let task = DownloadEntryBuilder::default()
-                    .source(sources)
-                    .filename(database_filename(&source_entry.inrelease_path).into())
-                    .dir(download_dir.clone())
-                    .allow_resume(false)
-                    .msg(format!("{msg} InRelease"))
-                    .build()?;
-
-                debug!("oma will fetch {} InRelease", source_entry.url);
-                tasks.push(task);
-            }
-        }
+        debug!("oma will fetch {} InRelease", source_entry.url);
+        tasks.push(task);
     }
 
     let res = OmaFetcher::new(None, tasks, limit)?
@@ -523,7 +506,7 @@ where
                 &checksums,
                 &download_dir,
                 &mut tasks,
-                &m
+                &m,
             )?;
         }
     }
@@ -543,7 +526,7 @@ fn collect_download_task(
     checksums: &[ChecksumItem],
     download_dir: &PathBuf,
     tasks: &mut Vec<DownloadEntry>,
-    m: &Option<HashMap<String, MirrorMapItem>>
+    m: &Option<HashMap<String, MirrorMapItem>>,
 ) -> Result<()> {
     let (typ, not_compress_filename_before) = match &c.file_type {
         DistFileType::CompressContents(s) => ("Contents", s),
