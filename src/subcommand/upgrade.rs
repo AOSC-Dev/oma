@@ -27,7 +27,7 @@ pub fn execute(
     args: UpgradeArgs,
     dry_run: bool,
     no_progress: bool,
-    download_pure_db: bool
+    download_pure_db: bool,
 ) -> Result<i32, OutputError> {
     root()?;
 

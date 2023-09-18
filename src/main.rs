@@ -177,7 +177,14 @@ fn try_main() -> Result<i32, OutputError> {
 
             let network_thread = config.network_thread();
 
-            install::execute(pkgs_unparse, args, dry_run, network_thread, no_progress, config.pure_db())?
+            install::execute(
+                pkgs_unparse,
+                args,
+                dry_run,
+                network_thread,
+                no_progress,
+                config.pure_db(),
+            )?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -265,7 +272,7 @@ fn try_main() -> Result<i32, OutputError> {
                 dry_run,
                 network_thread,
                 no_progress,
-                config.pure_db()
+                config.pure_db(),
             )?
         }
         Some(("mark", args)) => {
@@ -317,7 +324,14 @@ fn try_main() -> Result<i32, OutputError> {
 
             let network_thread = config.network_thread();
 
-            topics::execute(opt_in, opt_out, dry_run, network_thread, no_progress, config.pure_db())?
+            topics::execute(
+                opt_in,
+                opt_out,
+                dry_run,
+                network_thread,
+                no_progress,
+                config.pure_db(),
+            )?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());

@@ -48,11 +48,7 @@ impl SingleDownloader<'_> {
 
         let cc = callback.clone();
         let gpc = global_progress.clone();
-        let msg = self
-            .progress
-            .2
-            .as_deref()
-            .unwrap_or(&*self.entry.filename);
+        let msg = self.progress.2.as_deref().unwrap_or(&*self.entry.filename);
 
         for (i, c) in sources.iter().enumerate() {
             let download_res = match c.source_type {
@@ -65,7 +61,10 @@ impl SingleDownloader<'_> {
             match download_res {
                 Ok(download_res) => {
                     res = Some(download_res);
-                    callback(self.download_list_index, DownloadEvent::Done(msg.to_string()));
+                    callback(
+                        self.download_list_index,
+                        DownloadEvent::Done(msg.to_string()),
+                    );
                     break;
                 }
                 Err(e) => {
@@ -329,7 +328,7 @@ impl SingleDownloader<'_> {
             );
             Some(v)
         } else if let Some(hash) = hash {
-            Some(Checksum::from_sha256_str(&hash)?.get_validator())
+            Some(Checksum::from_sha256_str(hash)?.get_validator())
         } else {
             None
         };

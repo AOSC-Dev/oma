@@ -524,7 +524,7 @@ fn collect_download_task(
     c: &ChecksumItem,
     source_index: &OmaSourceEntry,
     checksums: &[ChecksumItem],
-    download_dir: &PathBuf,
+    download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     m: &Option<HashMap<String, MirrorMapItem>>,
 ) -> Result<()> {
@@ -566,7 +566,7 @@ fn collect_download_task(
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);
     task.filename(database_filename(&file_path).into());
-    task.dir(download_dir.clone());
+    task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(format!("{msg} {typ}"));
     task.extract(!matches!(c.file_type, DistFileType::CompressContents(_)));

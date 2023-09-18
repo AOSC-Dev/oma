@@ -38,8 +38,8 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
                 let desc = pkg
                     .unwrap()
                     .candidate()
-                    .and_then(|x| x.description().map(|x| Cow::Owned(x)))
-                    .unwrap_or_else(|| Cow::Borrowed("no description."));
+                    .and_then(|x| x.description().map(Cow::Owned))
+                    .unwrap_or(Cow::Borrowed("no description."));
 
                 println!("{k} ({bin_path}): {desc}");
             }
