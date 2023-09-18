@@ -1,7 +1,8 @@
 use std::{
     io::{BufRead, BufReader},
     path::Path,
-    process::{Command, Stdio}, sync::{Arc, Mutex},
+    process::{Command, Stdio},
+    sync::{Arc, Mutex},
 };
 
 use chrono::{DateTime, Utc};

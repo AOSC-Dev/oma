@@ -20,7 +20,7 @@ pub fn execute(
     dry_run: bool,
     network_thread: usize,
     no_progress: bool,
-    download_pure_db: bool
+    download_pure_db: bool,
 ) -> Result<i32, OutputError> {
     root()?;
 
