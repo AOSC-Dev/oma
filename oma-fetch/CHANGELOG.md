@@ -5,7 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.2 (2023-09-19)
+
+### Chore
+
+ - <csr-id-0270767e885e10dc5f81c82daa60d6acb5bbe27b/> Bump all dep oma-console version
+
+### Documentation
+
+ - <csr-id-2da19a790dc2bb43aafa7d2c28971e2e56635c93/> Add some comment
+
+### Bug Fixes
+
+ - <csr-id-8b9f6e9e4596bef76e5b82c6b40e819456b140d6/> Request head failed clear progress bar
+
+### Refactor
+
+ - <csr-id-106191aee434077f178150f06ccb36889c482317/> Refactor clone (2)
+ - <csr-id-a8c2b4a48b64dd106322200cd920c62c30d558b0/> Refactor clone (1)
+ - <csr-id-1487c4af4f4e7d7d5f8c51b571d90848cacec465/> Some var no need to clone
+ - <csr-id-b205d6813b4366b4f3475538127be099845ac2e5/> Use Arc to clone callback
+ - <csr-id-c8721caeb9b5314599b56be4fc6c482d8e65e191/> Oma_spinner and oma_style_pb function inner unwrap
+   Because the template is fixed, the template should not return any errors
+
+### Style
+
+ - <csr-id-24dd59fba6f2056d1f7dd4ee9b094b557d29abe4/> Run cargo clippy and cargo fmt to lint code
+ - <csr-id-c3f7ae354f99479bdd487d98e8872d53f0e33a59/> Fix clippy
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 10 commits contributed to the release over the course of 7 calendar days.
+ - 12 days passed between releases.
+ - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Run cargo clippy and cargo fmt to lint code ([`24dd59f`](https://github.com/AOSC-Dev/oma/commit/24dd59fba6f2056d1f7dd4ee9b094b557d29abe4))
+    - Fix clippy ([`c3f7ae3`](https://github.com/AOSC-Dev/oma/commit/c3f7ae354f99479bdd487d98e8872d53f0e33a59))
+    - Refactor clone (2) ([`106191a`](https://github.com/AOSC-Dev/oma/commit/106191aee434077f178150f06ccb36889c482317))
+    - Refactor clone (1) ([`a8c2b4a`](https://github.com/AOSC-Dev/oma/commit/a8c2b4a48b64dd106322200cd920c62c30d558b0))
+    - Some var no need to clone ([`1487c4a`](https://github.com/AOSC-Dev/oma/commit/1487c4af4f4e7d7d5f8c51b571d90848cacec465))
+    - Use Arc to clone callback ([`b205d68`](https://github.com/AOSC-Dev/oma/commit/b205d6813b4366b4f3475538127be099845ac2e5))
+    - Request head failed clear progress bar ([`8b9f6e9`](https://github.com/AOSC-Dev/oma/commit/8b9f6e9e4596bef76e5b82c6b40e819456b140d6))
+    - Bump all dep oma-console version ([`0270767`](https://github.com/AOSC-Dev/oma/commit/0270767e885e10dc5f81c82daa60d6acb5bbe27b))
+    - Oma_spinner and oma_style_pb function inner unwrap ([`c8721ca`](https://github.com/AOSC-Dev/oma/commit/c8721caeb9b5314599b56be4fc6c482d8e65e191))
+    - Add some comment ([`2da19a7`](https://github.com/AOSC-Dev/oma/commit/2da19a790dc2bb43aafa7d2c28971e2e56635c93))
+</details>
+
 ## v0.3.1 (2023-09-06)
+
+<csr-id-6436e59e5891fb21ccc512f884003af415209aa4/>
 
 ### Refactor
 
@@ -15,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release oma-fetch v0.3.1 ([`1e65ad3`](https://github.com/AOSC-Dev/oma/commit/1e65ad3641b396cb5c6e8675b431d4b176f9e314))
     - Refactor try_donwload function to SingleDownloader impl to fix clippy ([`6436e59`](https://github.com/AOSC-Dev/oma/commit/6436e59e5891fb21ccc512f884003af415209aa4))
 </details>
 

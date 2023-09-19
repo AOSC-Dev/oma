@@ -5,6 +5,131 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.1 (2023-09-19)
+
+### Chore
+
+ - <csr-id-f175e31746c812b52f8a466a681c857b6962abf2/> Release 0.5.1
+ - <csr-id-6397a1a763a0ddca9f6eac29e3f7ae953427ce99/> Set oma-console version to fix cargo publish oma-refresh
+ - <csr-id-e58806fa64c1955ea4ffb97eb43d379020de878a/> Release 0.5.0
+ - <csr-id-70caf3957ff4b437b8d275eb6f89d934f9eab39a/> Release 0.4.2
+
+### New Features
+
+ - <csr-id-ca7d0ad949d6b8a1c19bbdc34b37e230bc74ce8f/> Add download_compress argument to allow user download prue database; do not cipunited in oma-refresh
+
+### Bug Fixes
+
+ - <csr-id-043850a04cddee615ca1e2f58e8f65cc26411de1/> Fix build without aosc feature
+ - <csr-id-1a2dcb358efeaf592249d6c3304e47e3a1d7b1dd/> Fix wrong contents download size
+ - <csr-id-5b3ab6b11c37ede5e7010d71234fe0cfa73fe3f2/> Fix panic if InRelease has Compress file type and have no decompress file type
+ - <csr-id-81585390c30a873835d8d377ca0f9359acb08e21/> Calc decompress download total size
+
+### Other
+
+ - <csr-id-b07792e7531885f10ae8de9330083f6bd7eb927c/> `collect_download_task` function no need `async`
+
+### Refactor
+
+ - <csr-id-1d44f76e6cc3d9de11a1d104954313239e807c8b/> Remove `update_db` function unnecessary steps
+ - <csr-id-cd869c6166fac7598d294cce22f2e8fe5f63dec5/> Improve read repo data performance
+ - <csr-id-106191aee434077f178150f06ccb36889c482317/> Refactor clone (2)
+ - <csr-id-a8c2b4a48b64dd106322200cd920c62c30d558b0/> Refactor clone (1)
+
+### Style
+
+ - <csr-id-24dd59fba6f2056d1f7dd4ee9b094b557d29abe4/> Run cargo clippy and cargo fmt to lint code
+ - <csr-id-3f9c2d3828a5b14dbff918d329c017c4949e09ad/> Fix clippy
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 16 commits contributed to the release over the course of 5 calendar days.
+ - 7 days passed between releases.
+ - 16 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Run cargo clippy and cargo fmt to lint code ([`24dd59f`](https://github.com/AOSC-Dev/oma/commit/24dd59fba6f2056d1f7dd4ee9b094b557d29abe4))
+    - Remove `update_db` function unnecessary steps ([`1d44f76`](https://github.com/AOSC-Dev/oma/commit/1d44f76e6cc3d9de11a1d104954313239e807c8b))
+    - `collect_download_task` function no need `async` ([`b07792e`](https://github.com/AOSC-Dev/oma/commit/b07792e7531885f10ae8de9330083f6bd7eb927c))
+    - Improve read repo data performance ([`cd869c6`](https://github.com/AOSC-Dev/oma/commit/cd869c6166fac7598d294cce22f2e8fe5f63dec5))
+    - Refactor clone (2) ([`106191a`](https://github.com/AOSC-Dev/oma/commit/106191aee434077f178150f06ccb36889c482317))
+    - Refactor clone (1) ([`a8c2b4a`](https://github.com/AOSC-Dev/oma/commit/a8c2b4a48b64dd106322200cd920c62c30d558b0))
+    - Fix build without aosc feature ([`043850a`](https://github.com/AOSC-Dev/oma/commit/043850a04cddee615ca1e2f58e8f65cc26411de1))
+    - Fix clippy ([`3f9c2d3`](https://github.com/AOSC-Dev/oma/commit/3f9c2d3828a5b14dbff918d329c017c4949e09ad))
+    - Release 0.5.1 ([`f175e31`](https://github.com/AOSC-Dev/oma/commit/f175e31746c812b52f8a466a681c857b6962abf2))
+    - Fix wrong contents download size ([`1a2dcb3`](https://github.com/AOSC-Dev/oma/commit/1a2dcb358efeaf592249d6c3304e47e3a1d7b1dd))
+    - Set oma-console version to fix cargo publish oma-refresh ([`6397a1a`](https://github.com/AOSC-Dev/oma/commit/6397a1a763a0ddca9f6eac29e3f7ae953427ce99))
+    - Release 0.5.0 ([`e58806f`](https://github.com/AOSC-Dev/oma/commit/e58806fa64c1955ea4ffb97eb43d379020de878a))
+    - Add download_compress argument to allow user download prue database; do not cipunited in oma-refresh ([`ca7d0ad`](https://github.com/AOSC-Dev/oma/commit/ca7d0ad949d6b8a1c19bbdc34b37e230bc74ce8f))
+    - Release 0.4.2 ([`70caf39`](https://github.com/AOSC-Dev/oma/commit/70caf3957ff4b437b8d275eb6f89d934f9eab39a))
+    - Fix panic if InRelease has Compress file type and have no decompress file type ([`5b3ab6b`](https://github.com/AOSC-Dev/oma/commit/5b3ab6b11c37ede5e7010d71234fe0cfa73fe3f2))
+    - Calc decompress download total size ([`8158539`](https://github.com/AOSC-Dev/oma/commit/81585390c30a873835d8d377ca0f9359acb08e21))
+</details>
+
+## v0.4.1 (2023-09-11)
+
+### Chore
+
+ - <csr-id-0270767e885e10dc5f81c82daa60d6acb5bbe27b/> Bump all dep oma-console version
+
+### Documentation
+
+ - <csr-id-2da19a790dc2bb43aafa7d2c28971e2e56635c93/> Add some comment
+
+### Bug Fixes
+
+ - <csr-id-fb3dd2b1467abf0fec0ea12b74e68e9ec1cf0066/> Do not displat topic closeing message in non-topic mirror
+ - <csr-id-ec64e2968fd94c494cd87bbfcf188f53b75cf8b7/> Do not display no need remove topic message
+
+### Refactor
+
+ - <csr-id-c8721caeb9b5314599b56be4fc6c482d8e65e191/> Oma_spinner and oma_style_pb function inner unwrap
+   Because the template is fixed, the template should not return any errors
+ - <csr-id-310412b1096cf7b0b7c3fa9cd60bd04cf515f3a3/> Refactor InRelease::new to no need use spawn_blocking
+ - <csr-id-96efe8ab268e3566a39761962ec756e58a5bc2a3/> Improve closed topic logic again
+ - <csr-id-c77c826c1c585ae6dd6dd364e6b447c02741d488/> Improve closed topic logic
+
+### Style
+
+ - <csr-id-2e67a9e277f744acae5d0769883c625ab11b2eb9/> Use cargo-fmt and cargo-clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 10 commits contributed to the release over the course of 4 calendar days.
+ - 4 days passed between releases.
+ - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Bump all dep oma-console version ([`0270767`](https://github.com/AOSC-Dev/oma/commit/0270767e885e10dc5f81c82daa60d6acb5bbe27b))
+    - Oma_spinner and oma_style_pb function inner unwrap ([`c8721ca`](https://github.com/AOSC-Dev/oma/commit/c8721caeb9b5314599b56be4fc6c482d8e65e191))
+    - Add some comment ([`2da19a7`](https://github.com/AOSC-Dev/oma/commit/2da19a790dc2bb43aafa7d2c28971e2e56635c93))
+    - Use cargo-fmt and cargo-clippy to lint code ([`2e67a9e`](https://github.com/AOSC-Dev/oma/commit/2e67a9e277f744acae5d0769883c625ab11b2eb9))
+    - Refactor InRelease::new to no need use spawn_blocking ([`310412b`](https://github.com/AOSC-Dev/oma/commit/310412b1096cf7b0b7c3fa9cd60bd04cf515f3a3))
+    - Improve closed topic logic again ([`96efe8a`](https://github.com/AOSC-Dev/oma/commit/96efe8ab268e3566a39761962ec756e58a5bc2a3))
+    - Improve closed topic logic ([`c77c826`](https://github.com/AOSC-Dev/oma/commit/c77c826c1c585ae6dd6dd364e6b447c02741d488))
+    - Do not displat topic closeing message in non-topic mirror ([`fb3dd2b`](https://github.com/AOSC-Dev/oma/commit/fb3dd2b1467abf0fec0ea12b74e68e9ec1cf0066))
+    - Do not display no need remove topic message ([`ec64e29`](https://github.com/AOSC-Dev/oma/commit/ec64e2968fd94c494cd87bbfcf188f53b75cf8b7))
+    - Release oma-fetch v0.3.1 ([`1e65ad3`](https://github.com/AOSC-Dev/oma/commit/1e65ad3641b396cb5c6e8675b431d4b176f9e314))
+</details>
+
 ## v0.4.0 (2023-09-06)
 
 ### New Features
@@ -16,7 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -27,6 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release oma-refresh v0.4.0 ([`ca83473`](https://github.com/AOSC-Dev/oma/commit/ca834737ae0df483277269d5581c12f3d0d2867c))
     - Release oma-topics v0.1.2, oma-refresh v0.4.0 ([`14edf42`](https://github.com/AOSC-Dev/oma/commit/14edf42022306405c9e4583b3445d3fd573a100e))
     - Release oma-fetch v0.3.0, safety bump 2 crates ([`0959dfb`](https://github.com/AOSC-Dev/oma/commit/0959dfb5414f46c96d7b7aa39c485bdc1d3862de))
     - Add DownloadEvent::AllDone to allow control global progress bar finish and clear ([`a075050`](https://github.com/AOSC-Dev/oma/commit/a0750502605cabb6d7385f1cbc96edf639324cb5))

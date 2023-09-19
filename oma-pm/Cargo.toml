@@ -13,12 +13,12 @@ thiserror = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 glob-match = "0.2"
 indicium = "0.5"
-oma-utils = { version = "^0.1.5", path = "../oma-utils", features = [
+oma-utils = { version = "^0.1.6", path = "../oma-utils", features = [
     "human-bytes",
     "dpkg",
     "url-no-escape"
 ] }
-oma-fetch = { version = "^0.3.1", path = "../oma-fetch" }
+oma-fetch = { version = "^0.3.2", path = "../oma-fetch" }
 tokio = { version = "1.15", default_features = false, features = ["fs", "rt-multi-thread"] }
 oma-console = { version = "^0.2.0", path = "../oma-console" }
 derive_builder = "0.12"

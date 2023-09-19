@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.2.0 (2023-09-19)
+
+### Chore
+
+ - <csr-id-5412425ee488cbe92438e5990e7aafc6fef09a06/> Release 0.2.0
+
+### Refactor
+
+ - <csr-id-4404d27d52eabb7939ef297082fa943972f07fe9/> Gloal progress bar use prefix to display 'Progress'
+ - <csr-id-c8721caeb9b5314599b56be4fc6c482d8e65e191/> Oma_spinner and oma_style_pb function inner unwrap
+   Because the template is fixed, the template should not return any errors
+
+### Style
+
+ - <csr-id-74eab6709e2f0a934d29f754d5269e3c325b62f9/> Use cargo clippy to lint code
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 7 calendar days.
+ - 13 days passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Release 0.2.0 ([`5412425`](https://github.com/AOSC-Dev/oma/commit/5412425ee488cbe92438e5990e7aafc6fef09a06))
+    - Use cargo clippy to lint code ([`74eab67`](https://github.com/AOSC-Dev/oma/commit/74eab6709e2f0a934d29f754d5269e3c325b62f9))
+    - Gloal progress bar use prefix to display 'Progress' ([`4404d27`](https://github.com/AOSC-Dev/oma/commit/4404d27d52eabb7939ef297082fa943972f07fe9))
+    - Oma_spinner and oma_style_pb function inner unwrap ([`c8721ca`](https://github.com/AOSC-Dev/oma/commit/c8721caeb9b5314599b56be4fc6c482d8e65e191))
+</details>
+
 ## v0.1.2 (2023-09-05)
 
 ### Bug Fixes
@@ -15,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 9 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release oma-console v0.1.2, oma-topics v0.1.1, oma-refresh v0.3.0 ([`5f4e6d8`](https://github.com/AOSC-Dev/oma/commit/5f4e6d8262f42724c8f796fc0b6c560a39d3fd5f))
     - I18n message in progress bar display ([`5b3e701`](https://github.com/AOSC-Dev/oma/commit/5b3e7018d238a50e9ac1e203cdfdfb76aec051b0))
 </details>
 

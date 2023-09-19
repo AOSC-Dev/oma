@@ -5,7 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.6 (2023-09-19)
+
+### Chore
+
+ - <csr-id-0270767e885e10dc5f81c82daa60d6acb5bbe27b/> Bump all dep oma-console version
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release over the course of 7 calendar days.
+ - 15 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Bump all dep oma-console version ([`0270767`](https://github.com/AOSC-Dev/oma/commit/0270767e885e10dc5f81c82daa60d6acb5bbe27b))
+</details>
+
 ## v0.1.5 (2023-09-02)
+
+<csr-id-25554c2835d2b2ce50815ce2aa3e8b3cd40071b3/>
+<csr-id-177be7637ea9e6dce7a988d1b20553cb072ac33d/>
 
 ### New Features
 
@@ -23,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release over the course of 4 calendar days.
+ - 4 commits contributed to the release over the course of 4 calendar days.
  - 7 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -35,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump oma-utils v0.1.5 ([`f671881`](https://github.com/AOSC-Dev/oma/commit/f67188176dfaa546bcfec4512c00509a60c86f98))
     - Use cargo-fmt to format code ([`177be76`](https://github.com/AOSC-Dev/oma/commit/177be7637ea9e6dce7a988d1b20553cb072ac33d))
     - Move oma-pm url_no_escape function to oma-utils ([`25554c2`](https://github.com/AOSC-Dev/oma/commit/25554c2835d2b2ce50815ce2aa3e8b3cd40071b3))
     - Do not ring if not is_terminal ([`232b982`](https://github.com/AOSC-Dev/oma/commit/232b98246297a42b6294f2c39dc6d06b58ebbb32))
