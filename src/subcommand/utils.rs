@@ -194,7 +194,7 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<
             match &log.typ {
                 SummaryType::Install(v) if v.len() > 3 => format!(
                     "Installed {} ... (and {} more) [{}]",
-                    format_args!("{}", v[..3].join(" ")),
+                    v[..3].join(" "),
                     v.len() - 3,
                     date
                 ),
@@ -202,7 +202,7 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<
                 SummaryType::Upgrade(v) if v.is_empty() => format!("Upgraded system [{date}]"),
                 SummaryType::Upgrade(v) if v.len() > 3 => format!(
                     "Upgraded system and installed {}... (and {} more) [{date}]",
-                    format_args!("{}", v[..3].join(" ")),
+                    v[..3].join(" "),
                     v.len() - 3
                 ),
                 SummaryType::Upgrade(v) => {
@@ -210,7 +210,7 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<
                 }
                 SummaryType::Remove(v) if v.len() > 3 => format!(
                     "Removed {} ... (and {} more)",
-                    format_args!("{}", v[..3].join(" ")),
+                    v[..3].join(" "),
                     v.len() - 3
                 ),
                 SummaryType::Remove(v) => format!("Removed {} [{date}]", v.join(" ")),
@@ -221,7 +221,7 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<
                         if add.len() <= 3 {
                             add.join(" ")
                         } else {
-                            format!("{}", add[..3].join(" "))
+                            add[..3].join(" ")
                         },
                         if add.len() <= 3 {
                             Cow::Borrowed("")
@@ -236,7 +236,7 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<
                         if remove.len() <= 3 {
                             add.join(" ")
                         } else {
-                            format!("{}", remove[..3].join(" "))
+                            remove[..3].join(" ")
                         },
                         if remove.len() <= 3 {
                             Cow::Borrowed("")
@@ -251,7 +251,7 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<
                         if add.len() <= 3 {
                             add.join(" ")
                         } else {
-                            format!("{}", add[..3].join(" "))
+                            add[..3].join(" ")
                         },
                         if add.len() <= 3 {
                             Cow::Borrowed("")
@@ -261,7 +261,7 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<
                         if remove.len() <= 3 {
                             remove.join(" ")
                         } else {
-                            format!("{}", remove[..3].join(" "))
+                            remove[..3].join(" ")
                         },
                         if remove.len() <= 3 {
                             Cow::Borrowed("")
