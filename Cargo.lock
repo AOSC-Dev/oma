@@ -2169,7 +2169,7 @@ dependencies = [
 
 [[package]]
 name = "oma"
-version = "1.0.7"
+version = "1.0.9999"
 dependencies = [
  "anyhow",
  "chrono",
