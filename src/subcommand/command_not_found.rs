@@ -49,9 +49,9 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
                 let (err, dueto) = OutputError::from(e).inner();
                 if !err.is_empty() {
                     error!("{err}");
-                }
-                if let Some(dueto) = dueto {
-                    due_to!("{dueto}");
+                    if let Some(dueto) = dueto {
+                        due_to!("{dueto}");
+                    }
                 }
             }
             error!("{}", fl!("command-not-found", kw = pkg));

@@ -76,9 +76,10 @@ fn main() {
             let (err, dueto) = e.inner();
             if !err.is_empty() {
                 error!("{err}");
+                let dueto = dueto.unwrap_or(fl!("debug"));
+                due_to!("{dueto}");
             }
-            let dueto = dueto.unwrap_or(fl!("debug"));
-            due_to!("{dueto}");
+
             1
         }
     };
