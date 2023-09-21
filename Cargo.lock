@@ -2261,6 +2261,7 @@ dependencies = [
  "strsim",
  "thiserror",
  "which",
+ "winnow",
 ]
 
 [[package]]

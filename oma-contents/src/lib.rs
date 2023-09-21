@@ -12,6 +12,12 @@ use grep::{
 };
 
 use serde::Deserialize;
+use winnow::{
+    combinator::{separated0, separated_pair},
+    error::ParserError,
+    token::{tag, take_till0, take_until1},
+    PResult, Parser,
+};
 
 #[derive(Deserialize)]
 struct RgJson {
@@ -351,30 +357,25 @@ where
 }
 
 /// Parse contents line
-fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
-    let contents_white = " ".repeat(3);
-    let (file, pkg_group) = line.split_once(&contents_white)?;
-    let split_group = pkg_group.split(',').collect::<Vec<_>>();
+fn parse_line(mut line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
+    let (file, pkgs) = single_line::<()>(&mut line).ok()?;
 
-    // 比如 / admin/apt-file,admin/apt,...
-    if split_group.len() != 1 {
-        for i in split_group {
-            if is_list && i.split('/').nth(1) == Some(kw) {
+    if pkgs.len() != 1 {
+        for (_, pkg) in pkgs {
+            if is_list {
                 let file = prefix(file);
-                let pkg = kw;
                 let s = format!("{kw}: {file}");
 
                 return Some((pkg.to_string(), s));
-            } else if !is_list && i.contains(kw) && i.split('/').nth_back(0).is_some() {
+            } else if !is_list && pkg.contains(kw) {
                 let file = prefix(file);
-                let pkg = i.split('/').nth_back(0)?;
                 let s = format!("{pkg}: {file}");
                 return Some((pkg.to_string(), s));
             }
         }
     } else {
         // 比如 /usr/bin/apt admin/apt
-        let pkg = pkg_group.split('/').nth_back(0)?;
+        let (_, pkg) = pkgs[0];
         let file = prefix(file);
         let s = format!("{pkg}: {file}");
         return Some((pkg.to_string(), s));
@@ -384,6 +385,87 @@ fn parse_line(line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
 }
 
 #[inline]
+fn pkg_split<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(&'a str, &'a str), E> {
+    separated_pair(take_till0('/'), pkg_name_sep, second_single).parse_next(input)
+}
+
+#[inline]
+fn pkg_name_sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(), E> {
+    tag("/").void().parse_next(input)
+}
+
+#[inline]
+fn second_single<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<&'a str, E> {
+    take_till0(',').parse_next(input)
+}
+
+#[inline]
+fn second<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<Vec<(&'a str, &'a str)>, E> {
+    separated0(pkg_split, ',').parse_next(input)
+}
+
+#[inline]
+fn first<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<&'a str, E> {
+    take_until1("   ").parse_next(input)
+}
+
+#[inline]
+fn sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(), E> {
+    tag("   ").void().parse_next(input)
+}
+
+#[inline]
+fn single_line<'a, E: ParserError<&'a str>>(
+    input: &mut &'a str,
+) -> PResult<(&'a str, Vec<(&'a str, &'a str)>), E> {
+    separated_pair(first, sep, second).parse_next(input)
+}
+
+#[inline]
 fn prefix(s: &str) -> String {
     "/".to_owned() + s
+}
+
+#[test]
+fn test_pkg_name() {
+    let a = &mut "admin/apt-file";
+    let res = pkg_split::<()>(a);
+
+    assert_eq!(res, Ok(("admin", "apt-file")))
+}
+
+#[test]
+fn test_second_single() {
+    let a = &mut "admin/apt-file,admin/apt";
+    let res = second_single::<()>(a);
+    assert_eq!(res, Ok("admin/apt-file"));
+
+    let b = &mut "admin/apt-file";
+    let res = second_single::<()>(b);
+    assert_eq!(res, Ok("admin/apt-file"));
+}
+
+#[test]
+fn test_second() {
+    let a = &mut "admin/apt-file,admin/apt";
+    let res = second::<()>(a);
+    assert_eq!(res, Ok(vec![("admin", "apt-file"), ("admin", "apt")]));
+
+    let b = &mut "admin/apt-file";
+    let res = second::<()>(b);
+    assert_eq!(res, Ok(vec![("admin", "apt-file")]));
+}
+
+#[test]
+fn test_single_line() {
+    let a = &mut "/   admin/apt-file,admin/apt";
+    let res = single_line::<()>(a);
+    assert_eq!(
+        res,
+        Ok(("/", vec![("admin", "apt-file"), ("admin", "apt")]))
+    );
+
+    let b = &mut "/   admin/apt-file";
+    let res = single_line::<()>(b);
+    assert_eq!(res, Ok(("/", vec![("admin", "apt-file")])));
 }
