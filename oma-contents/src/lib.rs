@@ -194,12 +194,6 @@ where
 
             let mut count = 0;
 
-            let search_bin_name = if query_mode == QueryMode::CommandNotFound {
-                kw.split('/').last()
-            } else {
-                None
-            };
-
             let mut has_res = false;
 
             for i in stdout_lines.flatten() {
@@ -209,25 +203,18 @@ where
                     count += 1;
                     callback(ContentsEvent::Progress(count));
                     if query_mode == QueryMode::CommandNotFound {
-                        let last = line.1.split_whitespace().last();
                         if !cfg!(feature = "aosc")
-                            && last
-                                .map(|x| !x.contains("/usr/bin") && !x.contains("/usr/sbin"))
-                                .unwrap_or(true)
+                            && !line.1.contains("/bin")
+                            && !line.1.contains("/sbin")
                         {
                             continue;
                         }
-                        let bin_name = last.and_then(|x| x.split('/').last()).ok_or_else(|| {
+
+                        let path_filename = line.1.split('/').last().ok_or_else(|| {
                             OmaContentsError::ContentsEntryMissingPathList(line.1.to_string())
                         })?;
 
-                        if strsim::jaro_winkler(
-                            search_bin_name.ok_or_else(|| OmaContentsError::CnfWrongArgument)?,
-                            bin_name,
-                        )
-                        .abs()
-                            < 0.9
-                        {
+                        if strsim::jaro_winkler(kw, path_filename).abs() < 0.9 {
                             continue;
                         }
                     }
