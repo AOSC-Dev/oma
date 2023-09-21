@@ -257,7 +257,7 @@ async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>
         json.extend(f);
     }
 
-    json.sort_by(|a, b| a.name.cmp(&b.name));
+    json.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
     Ok(json)
 }
