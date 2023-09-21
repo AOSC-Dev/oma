@@ -291,7 +291,7 @@ where
         res
     };
 
-    res.sort();
+    res.sort_unstable();
 
     Ok(res)
 }
