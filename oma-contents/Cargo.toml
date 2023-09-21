@@ -9,11 +9,9 @@ license = "MIT"
 
 [dependencies]
 grep = "0.2"
-serde = "1.0"
 regex = "1.8"
 chrono = "0.4"
 which ="4.4"
-serde_json = "1.0"
 strsim = "0.10"
 thiserror = "1.0"
 winnow = "0.5"

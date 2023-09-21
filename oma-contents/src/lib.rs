@@ -11,42 +11,12 @@ use grep::{
     searcher::{sinks::UTF8, Searcher},
 };
 
-use serde::Deserialize;
 use winnow::{
-    combinator::{separated0, separated_pair},
+    combinator::{opt, separated0, separated_pair},
     error::ParserError,
     token::{tag, take_till0, take_until1},
     PResult, Parser,
 };
-
-#[derive(Deserialize)]
-struct RgJson {
-    #[serde(rename = "type")]
-    t: Option<String>,
-    data: Data,
-}
-
-#[derive(Deserialize)]
-struct Stats {
-    matched_lines: u64,
-}
-
-#[derive(Deserialize)]
-struct Data {
-    stats: Option<Stats>,
-    submatches: Option<Vec<Submatches>>,
-}
-
-#[derive(Deserialize)]
-struct Submatches {
-    #[serde(rename = "match")]
-    m: MatchValue,
-}
-
-#[derive(Deserialize)]
-struct MatchValue {
-    text: String,
-}
 
 type Result<T> = std::result::Result<T, OmaContentsError>;
 
@@ -197,7 +167,7 @@ where
         let mut res = vec![];
 
         let mut cmd = Command::new("rg");
-        cmd.arg("--json");
+        cmd.arg("-N");
         cmd.arg("-e");
         cmd.arg(pattern);
         cmd.args(&*paths.lock().unwrap());
@@ -223,86 +193,48 @@ where
 
             let mut count = 0;
 
-            for i in stdout_lines.flatten() {
-                if !i.is_empty() {
-                    let line: RgJson =
-                        serde_json::from_str(&i).map_err(|e| OmaContentsError::RgParseFailed {
-                            input: i,
-                            err: e.to_string(),
-                        })?;
-                    let data = line.data;
-                    if line.t == Some("summary".to_owned()) {
-                        let stats = data.stats;
-                        if let Some(stats) = stats {
-                            if stats.matched_lines == 0 {
-                                return Err(OmaContentsError::NoResult);
-                            }
+            let search_bin_name = if query_mode == QueryMode::CommandNotFound {
+                kw.split('/').last()
+            } else {
+                None
+            };
 
-                            callback(ContentsEvent::Done);
+            for i in stdout_lines.flatten() {
+                if let Some(line) =
+                    parse_line(&i, matches!(query_mode, QueryMode::ListFiles(_)), kw)
+                {
+                    count += 1;
+                    callback(ContentsEvent::Progress(count));
+                    if query_mode == QueryMode::CommandNotFound {
+                        let last = line.1.split_whitespace().last();
+                        if !cfg!(feature = "aosc")
+                            && last
+                                .map(|x| !x.contains("/usr/bin") && !x.contains("/usr/sbin"))
+                                .unwrap_or(true)
+                        {
+                            continue;
+                        }
+                        let bin_name = last.and_then(|x| x.split('/').last()).ok_or_else(|| {
+                            OmaContentsError::ContentsEntryMissingPathList(line.1.to_string())
+                        })?;
+
+                        if strsim::jaro_winkler(
+                            search_bin_name.ok_or_else(|| OmaContentsError::CnfWrongArgument)?,
+                            bin_name,
+                        )
+                        .abs()
+                            < 0.9
+                        {
+                            continue;
                         }
                     }
-
-                    if line.t == Some("match".to_owned()) {
-                        let submatches = data.submatches;
-                        if let Some(submatches) = submatches {
-                            count += 1;
-
-                            callback(ContentsEvent::Progress(count));
-
-                            let search_bin_name = if query_mode == QueryMode::CommandNotFound {
-                                kw.split('/').last()
-                            } else {
-                                None
-                            };
-
-                            for j in submatches {
-                                let m = j.m.text;
-                                if let Some(l) = parse_line(
-                                    &m,
-                                    matches!(query_mode, QueryMode::ListFiles(_)),
-                                    kw,
-                                ) {
-                                    if query_mode == QueryMode::CommandNotFound {
-                                        let last = l.1.split_whitespace().last();
-                                        if !cfg!(feature = "aosc")
-                                            && last
-                                                .map(|x| {
-                                                    !x.contains("/usr/bin")
-                                                        && !x.contains("/usr/sbin")
-                                                })
-                                                .unwrap_or(true)
-                                        {
-                                            continue;
-                                        }
-                                        let bin_name = last
-                                            .and_then(|x| x.split('/').last())
-                                            .ok_or_else(|| {
-                                                OmaContentsError::ContentsEntryMissingPathList(
-                                                    l.1.to_string(),
-                                                )
-                                            })?;
-
-                                        if strsim::jaro_winkler(
-                                            search_bin_name.ok_or_else(|| {
-                                                OmaContentsError::CnfWrongArgument
-                                            })?,
-                                            bin_name,
-                                        )
-                                        .abs()
-                                            < 0.9
-                                        {
-                                            continue;
-                                        }
-                                    }
-                                    if !res.contains(&l) {
-                                        res.push(l);
-                                    }
-                                }
-                            }
-                        }
+                    if !res.contains(&line) {
+                        res.push(line);
                     }
                 }
             }
+
+            callback(ContentsEvent::Done);
         }
 
         if !cmd.wait()?.success() {
@@ -396,7 +328,9 @@ fn pkg_name_sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(),
 
 #[inline]
 fn second_single<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<&'a str, E> {
-    take_till0(',').parse_next(input)
+    let (res, _) = (take_till0(','), opt('\n')).parse_next(input)?;
+
+    Ok(res)
 }
 
 #[inline]
@@ -428,7 +362,7 @@ fn prefix(s: &str) -> String {
 
 #[test]
 fn test_pkg_name() {
-    let a = &mut "admin/apt-file";
+    let a = &mut "admin/apt-file\n";
     let res = pkg_split::<()>(a);
 
     assert_eq!(res, Ok(("admin", "apt-file")))
@@ -436,7 +370,7 @@ fn test_pkg_name() {
 
 #[test]
 fn test_second_single() {
-    let a = &mut "admin/apt-file,admin/apt";
+    let a = &mut "admin/apt-file,admin/apt\n";
     let res = second_single::<()>(a);
     assert_eq!(res, Ok("admin/apt-file"));
 
@@ -447,7 +381,7 @@ fn test_second_single() {
 
 #[test]
 fn test_second() {
-    let a = &mut "admin/apt-file,admin/apt";
+    let a = &mut "admin/apt-file,admin/apt\n";
     let res = second::<()>(a);
     assert_eq!(res, Ok(vec![("admin", "apt-file"), ("admin", "apt")]));
 
@@ -458,7 +392,7 @@ fn test_second() {
 
 #[test]
 fn test_single_line() {
-    let a = &mut "/   admin/apt-file,admin/apt";
+    let a = &mut "/   admin/apt-file,admin/apt\n";
     let res = single_line::<()>(a);
     assert_eq!(
         res,

@@ -2273,8 +2273,6 @@ dependencies = [
  "indicatif",
  "oma-utils 0.1.6",
  "regex",
- "serde",
- "serde_json",
  "strsim",
  "thiserror",
  "which",
