@@ -72,8 +72,8 @@ pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool) -> Result<i3
     let mut pager = oma_display(false, res.len())?;
     let mut out = pager.get_writer()?;
 
-    for (_, v) in res {
-        writeln!(out, "{v}").ok();
+    for (pkg, file) in res {
+        writeln!(out, "{pkg}: {file}").ok();
     }
 
     drop(out);

@@ -167,7 +167,8 @@ where
         let mut res = vec![];
 
         let mut cmd = Command::new("rg");
-        cmd.arg("-N");
+        cmd.arg("-N"); // 不要输出行号
+        cmd.arg("-I"); // 不要输出文件名
         cmd.arg("-e");
         cmd.arg(pattern);
         cmd.args(&*paths.lock().unwrap());
@@ -198,6 +199,8 @@ where
             } else {
                 None
             };
+
+            let mut has_res = false;
 
             for i in stdout_lines.flatten() {
                 if let Some(line) =
@@ -231,7 +234,12 @@ where
                     if !res.contains(&line) {
                         res.push(line);
                     }
+                    has_res = true;
                 }
+            }
+
+            if !has_res {
+                return Err(OmaContentsError::NoResult);
             }
 
             callback(ContentsEvent::Done);
@@ -294,23 +302,16 @@ fn parse_line(mut line: &str, is_list: bool, kw: &str) -> Option<(String, String
 
     if pkgs.len() != 1 {
         for (_, pkg) in pkgs {
-            if is_list {
+            if is_list || (!is_list && pkg.contains(kw)) {
                 let file = prefix(file);
-                let s = format!("{kw}: {file}");
-
-                return Some((pkg.to_string(), s));
-            } else if !is_list && pkg.contains(kw) {
-                let file = prefix(file);
-                let s = format!("{pkg}: {file}");
-                return Some((pkg.to_string(), s));
+                return Some((pkg.to_string(), file));
             }
         }
     } else {
         // 比如 /usr/bin/apt admin/apt
         let (_, pkg) = pkgs[0];
         let file = prefix(file);
-        let s = format!("{pkg}: {file}");
-        return Some((pkg.to_string(), s));
+        return Some((pkg.to_string(), file));
     }
 
     None

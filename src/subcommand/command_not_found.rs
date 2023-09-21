@@ -30,18 +30,14 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
             let oma_apt_args = OmaAptArgsBuilder::default().build()?;
             let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-            for (k, v) in res {
-                let (pkg, bin_path) = v.split_once(':').unwrap();
-                let bin_path = bin_path.trim();
-                let pkg = apt.cache.get(pkg);
-
+            for (pkg, file) in res {
+                let pkg = apt.cache.get(&pkg).unwrap();
                 let desc = pkg
-                    .unwrap()
                     .candidate()
                     .and_then(|x| x.description().map(Cow::Owned))
                     .unwrap_or(Cow::Borrowed("no description."));
 
-                println!("{k} ({bin_path}): {desc}");
+                println!("{} ({file}): {desc}", pkg.name());
             }
         }
         Err(e) => {
