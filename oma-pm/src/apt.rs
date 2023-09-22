@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::Display,
     io::Write,
     path::{Path, PathBuf},
@@ -19,7 +20,7 @@ use oma_apt::{
     util::{apt_lock, DiskSpace},
 };
 use oma_console::{
-    console::style,
+    console::{style, self},
     debug,
     dialoguer::{theme::ColorfulTheme, Confirm, Input},
     error,
@@ -648,18 +649,22 @@ impl OmaApt {
                 .take()
                 .ok_or_else(|| OmaAptError::InvalidFileName(entry.name().to_string()))?;
 
+            let new_version = if console::measure_text_width(entry.new_version()) > 25
+            {
+                console::truncate_str(entry.new_version(), 25, "...")
+            } else {
+                Cow::Borrowed(entry.new_version())
+            };
+
+            let msg = format!("{} {new_version} ({})", entry.name(), entry.arch());
+
             let download_entry = DownloadEntryBuilder::default()
                 .source(sources)
                 .filename(apt_style_filename(filename, entry.new_version().to_string())?.into())
                 .dir(download_dir.to_path_buf())
                 .hash(entry.checksum().to_string())
                 .allow_resume(true)
-                .msg(format!(
-                    "{} {} ({})",
-                    entry.name(),
-                    entry.new_version(),
-                    entry.arch()
-                ))
+                .msg(msg)
                 .build()?;
 
             total_size += entry.download_size();
