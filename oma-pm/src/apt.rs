@@ -20,7 +20,7 @@ use oma_apt::{
     util::{apt_lock, DiskSpace},
 };
 use oma_console::{
-    console::{style, self},
+    console::{self, style},
     debug,
     dialoguer::{theme::ColorfulTheme, Confirm, Input},
     error,
@@ -649,8 +649,7 @@ impl OmaApt {
                 .take()
                 .ok_or_else(|| OmaAptError::InvalidFileName(entry.name().to_string()))?;
 
-            let new_version = if console::measure_text_width(entry.new_version()) > 25
-            {
+            let new_version = if console::measure_text_width(entry.new_version()) > 25 {
                 console::truncate_str(entry.new_version(), 25, "...")
             } else {
                 Cow::Borrowed(entry.new_version())
