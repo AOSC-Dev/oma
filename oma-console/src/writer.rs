@@ -133,7 +133,7 @@ impl Writer {
                 break;
             }
 
-            // 把本次已经处理的字符串切片剔除
+            // 移动已经处理的切片的指针
             ref_s = &ref_s[line_msg.len() - 1..];
             i += 1;
         }

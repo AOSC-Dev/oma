@@ -210,13 +210,17 @@ fn try_main() -> Result<i32, OutputError> {
 
             download::execute(keyword, path, dry_run, no_progress)?
         }
-        Some(("remove", args)) => {
+        Some((x, args)) if x == "remove" || x == "purge" => {
             let pkgs_unparse = pkgs_getter(args).unwrap();
             let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
             let args = RemoveArgs {
                 yes: args.get_flag("yes"),
-                remove_config: args.get_flag("remove_config"),
+                remove_config: match args.try_get_one::<bool>("remove_config") {
+                    Ok(Some(b)) => *b,
+                    Ok(None) if x == "purge" => true,
+                    Ok(None) | Err(_) => false,
+                },
                 no_autoremove: args.get_flag("no_autoremove"),
                 force_yes: args.get_flag("force_yes"),
             };
