@@ -171,15 +171,25 @@ pub fn command_builder() -> Command {
                 .alias("delete")
                 .about("Remove the specified package(s)")
                 .arg(pkgs.clone().required(true).help("Package(s) to remove"))
-                .arg(yes.requires("packages"))
-                .arg(force_yes.requires("packages"))
-                .arg(no_autoremove.requires("packages"))
+                .arg(yes.clone().requires("packages"))
+                .arg(force_yes.clone().requires("packages"))
+                .arg(no_autoremove.clone().requires("packages"))
                 .arg(
                     Arg::new("remove_config")
                         .long("remove-config")
                         .help("Remove package(s) also remove configuration file(s), like apt purge")
                         .action(ArgAction::SetTrue),
                 )
+                .arg(&dry_run),
+        )
+        .subcommand(
+            Command::new("purge")
+                .about("purge (like apt purge) the specified package(s)")
+                .hide(true)
+                .arg(pkgs.clone().required(true).help("Package(s) to purge"))
+                .arg(yes.requires("packages"))
+                .arg(force_yes.requires("packages"))
+                .arg(no_autoremove.requires("packages"))
                 .arg(&dry_run),
         )
         .subcommand(Command::new("refresh")
