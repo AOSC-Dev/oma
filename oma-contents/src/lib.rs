@@ -289,7 +289,7 @@ fn parse_line(mut line: &str, is_list: bool, kw: &str) -> Option<(String, String
 
     if pkgs.len() != 1 {
         for (_, pkg) in pkgs {
-            if is_list || (!is_list && pkg.contains(kw)) {
+            if is_list || pkg.contains(kw) {
                 let file = prefix(file);
                 return Some((pkg.to_string(), file));
             }
@@ -336,10 +336,10 @@ fn sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(), E> {
     tag("   ").void().parse_next(input)
 }
 
+type ContentsLine<'a> = (&'a str, Vec<(&'a str, &'a str)>);
+
 #[inline]
-fn single_line<'a, E: ParserError<&'a str>>(
-    input: &mut &'a str,
-) -> PResult<(&'a str, Vec<(&'a str, &'a str)>), E> {
+fn single_line<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<ContentsLine<'a>, E> {
     separated_pair(first, sep, second).parse_next(input)
 }
 
