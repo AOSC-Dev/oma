@@ -243,6 +243,14 @@ impl From<DpkgError> for OutputError {
     }
 }
 
+impl From<DownloadError> for OutputError {
+    fn from(value: DownloadError) -> Self {
+        let s = oma_download_error(value);
+
+        Self(s)
+    }
+}
+
 impl From<OmaContentsError> for OutputError {
     fn from(value: OmaContentsError) -> Self {
         let s = match value {

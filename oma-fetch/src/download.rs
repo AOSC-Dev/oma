@@ -340,13 +340,20 @@ impl SingleDownloader<'_> {
                 "oma will open file: {} as truncate, create, write and read mode.",
                 self.entry.filename
             );
-            let f = tokio::fs::OpenOptions::new()
+            let f = match tokio::fs::OpenOptions::new()
                 .truncate(true)
                 .create(true)
                 .write(true)
                 .read(true)
                 .open(&file)
-                .await?;
+                .await
+            {
+                Ok(f) => f,
+                Err(e) => {
+                    callback(self.download_list_index, DownloadEvent::ProgressDone);
+                    return Err(e.into());
+                }
+            };
 
             debug!("Setting file length as 0");
             f.set_len(0).await?;
@@ -365,17 +372,27 @@ impl SingleDownloader<'_> {
                 self.entry.filename
             );
 
-            tokio::fs::OpenOptions::new()
+            match tokio::fs::OpenOptions::new()
                 .create(true)
                 .write(true)
                 .read(true)
                 .open(&file)
-                .await?
+                .await
+            {
+                Ok(f) => f,
+                Err(e) => {
+                    callback(self.download_list_index, DownloadEvent::ProgressDone);
+                    return Err(e.into());
+                }
+            }
         };
 
         // 把文件指针移动到末尾
         debug!("oma will seek file: {} to end", self.entry.filename);
-        dest.seek(SeekFrom::End(0)).await?;
+        if let Err(e) = dest.seek(SeekFrom::End(0)).await {
+            callback(self.download_list_index, DownloadEvent::ProgressDone);
+            return Err(e.into());
+        }
 
         let mut writer: Box<dyn AsyncWrite + Unpin + Send> =
             match Path::new(&self.entry.source[position].url)
@@ -391,11 +408,16 @@ impl SingleDownloader<'_> {
         debug!("Start download!");
         let mut self_progress = 0;
         while let Some(chunk) = source.chunk().await? {
-            writer.write_all(&chunk).await?;
+            if let Err(e) = writer.write_all(&chunk).await {
+                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                return Err(e.into());
+            }
+
             callback(
                 self.download_list_index,
                 DownloadEvent::ProgressInc(chunk.len() as u64),
             );
+
             self_progress += chunk.len() as u64;
 
             callback(
@@ -411,7 +433,10 @@ impl SingleDownloader<'_> {
 
         // 下载完成，告诉内核不再写这个文件了
         debug!("Download complete! shutting down dest file stream ...");
-        writer.shutdown().await?;
+        if let Err(e) = writer.shutdown().await {
+            callback(self.download_list_index, DownloadEvent::ProgressDone);
+            return Err(e.into());
+        }
 
         // 最后看看 chekcsum 验证是否通过
         if let Some(v) = validator {
