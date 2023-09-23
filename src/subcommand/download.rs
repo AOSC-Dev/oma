@@ -7,6 +7,8 @@ use crate::fl;
 use crate::subcommand::utils::handle_event_without_progressbar;
 use crate::{error::OutputError, pb, subcommand::utils::handle_no_result, utils::multibar};
 
+use oma_console::error;
+
 pub fn execute(
     keyword: Vec<&str>,
     path: Option<PathBuf>,
@@ -58,9 +60,15 @@ pub fn execute(
 
     if !failed.is_empty() {
         let len = failed.len();
+        for f in failed {
+            let e = OutputError::from(f);
+            let (err, _) = e.inner();
+            error!("{err}");
+        }
+
         return Err(OutputError::new(
             fl!("download-failed-with-len", len = len),
-            Some(fl!("check-network-settings")),
+            None,
         ));
     }
 
