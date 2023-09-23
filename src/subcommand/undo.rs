@@ -46,7 +46,9 @@ pub fn execute(network_thread: usize, no_progress: bool) -> Result<i32, OutputEr
 
     if !op.remove.is_empty() {
         for i in &op.remove {
-            install.push((i.name(), i.version()))
+            if let Some(ver) = i.version() {
+                install.push((i.name(), ver));
+            }
         }
     }
 

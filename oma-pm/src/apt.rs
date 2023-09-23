@@ -196,9 +196,17 @@ impl Display for OmaOperation {
             let version = rm.version();
             let arch = rm.arch();
             if tags.contains(&RemoveTag::Purge) {
-                purge.push(format!("{name}:{arch} ({version})"));
+                if let Some(ver) = version {
+                    purge.push(format!("{name}:{arch} ({ver})"));
+                } else {
+                    purge.push(format!("{name}:{arch}"));
+                }
             } else {
-                remove.push(format!("{name}:{arch} ({version})"))
+                if let Some(ver) = version {
+                    remove.push(format!("{name}:{arch} ({ver})"));
+                } else {
+                    remove.push(format!("{name}:{arch}"));
+                }
             }
         }
 
@@ -845,18 +853,18 @@ impl OmaApt {
                     tags.push(RemoveTag::AutoRemove);
                 }
 
-                // 如果一个包被标记为删除，则肯定已经安装
-                // 所以请求已安装版本应该直接 unwrap
-                let installed = pkg.installed().unwrap();
-                let version = installed.version();
-                let size = installed.installed_size();
+                let installed = pkg.installed();
+                let version = installed.as_ref().map(|x| x.version().to_string());
+                let size = installed.as_ref().map(|x| x.installed_size());
 
                 let remove_entry = RemoveEntry::new(
                     name.to_string(),
-                    version.to_owned(),
-                    size,
+                    version,
+                    size.unwrap_or(0),
                     tags,
-                    installed.arch().to_owned(),
+                    installed
+                        .map(|x| x.arch().to_string())
+                        .unwrap_or("unknown".to_string()),
                 );
 
                 remove.push(remove_entry);
@@ -978,7 +986,8 @@ fn mark_delete(
     purge: bool,
 ) -> OmaAptResult<bool> {
     let pkg = Package::new(cache, pkg.raw_pkg.unique());
-    if !pkg.is_installed() {
+    let removed_but_has_config = pkg.current_state() == 5;
+    if !pkg.is_installed() && !removed_but_has_config {
         debug!(
             "Package {} is not installed. No need to remove.",
             pkg.name()
@@ -998,7 +1007,7 @@ fn mark_delete(
         }
     }
 
-    pkg.mark_delete(purge);
+    pkg.mark_delete(purge || removed_but_has_config);
     pkg.protect();
 
     Ok(true)

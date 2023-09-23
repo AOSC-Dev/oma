@@ -22,7 +22,8 @@ pub struct InstallEntry {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RemoveEntry {
     name: String,
-    version: String,
+    // FIXME: 删除软件包再删除配置文件会没有版本号
+    version: Option<String>,
     size: u64,
     details: Vec<RemoveTag>,
     arch: String,
@@ -94,7 +95,7 @@ impl InstallEntry {
 impl RemoveEntry {
     pub fn new(
         name: String,
-        version: String,
+        version: Option<String>,
         size: u64,
         details: Vec<RemoveTag>,
         arch: String,
@@ -112,8 +113,8 @@ impl RemoveEntry {
         &self.name
     }
 
-    pub fn version(&self) -> &str {
-        &self.version
+    pub fn version(&self) -> Option<&str> {
+        self.version.as_deref()
     }
 
     pub fn size(&self) -> u64 {
