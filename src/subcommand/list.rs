@@ -75,7 +75,6 @@ pub fn execute(
 
             for pkg_file in pkg_files {
                 let branch = pkg_file.archive();
-
                 let branch = match branch {
                     Ok(branch) => Cow::Owned(branch.to_string()),
                     Err(_) => Cow::Borrowed("unknown"),
@@ -87,6 +86,8 @@ pub fn execute(
                         .any(|x| x.archive().map(|x| x == branch).unwrap_or(false))
                         && inst.version() == version.version();
                 }
+
+                branches.push(branch);
             }
 
             if branches.is_empty() {
