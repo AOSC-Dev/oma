@@ -292,7 +292,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::OmaDatabaseError(e) => oma_database_error(e),
         OmaAptError::MarkReinstallError(pkg, version) => (
             fl!("can-not-mark-reinstall", name = pkg, version = version),
-            Some(fl!("reinstall-failed-due-to")),
+            Some(fl!("reinstall-failed-info")),
         ),
         OmaAptError::DependencyIssue(ref v) => match v {
             v if v.is_empty() || handle_unmet_dep(v).is_err() => {
