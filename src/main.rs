@@ -17,7 +17,7 @@ use clap::ArgMatches;
 use error::OutputError;
 use nix::sys::signal;
 use oma_console::{console::style, info};
-use oma_console::{debug, due_to, error, DEBUG, WRITER};
+use oma_console::{debug, error, DEBUG, WRITER};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
 
@@ -73,11 +73,11 @@ fn main() {
     let code = match try_main() {
         Ok(exit_code) => exit_code,
         Err(e) => {
-            let (err, dueto) = e.inner();
+            let (err, info) = e.inner();
             if !err.is_empty() {
                 error!("{err}");
-                let dueto = dueto.unwrap_or(fl!("debug"));
-                due_to!("{dueto}");
+                let info = info.unwrap_or(fl!("debug"));
+                info!("{info}");
             }
 
             1

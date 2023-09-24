@@ -42,11 +42,11 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
         }
         Err(e) => {
             if !matches!(e, OmaContentsError::NoResult) {
-                let (err, dueto) = OutputError::from(e).inner();
+                let (err, info) = OutputError::from(e).inner();
                 if !err.is_empty() {
                     error!("{err}");
-                    if let Some(dueto) = dueto {
-                        due_to!("{dueto}");
+                    if let Some(info) = info {
+                        due_to!("{info}");
                     }
                 }
             }
