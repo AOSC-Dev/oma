@@ -195,18 +195,16 @@ impl Display for OmaOperation {
             let name = rm.name();
             let version = rm.version();
             let arch = rm.arch();
+
+            let mut s = format!("{name}:{arch}");
+            if let Some(ver) = version {
+                s.push_str(&format!(" ({ver})"));
+            }
+
             if tags.contains(&RemoveTag::Purge) {
-                if let Some(ver) = version {
-                    purge.push(format!("{name}:{arch} ({ver})"));
-                } else {
-                    purge.push(format!("{name}:{arch}"));
-                }
+                purge.push(s);
             } else {
-                if let Some(ver) = version {
-                    remove.push(format!("{name}:{arch} ({ver})"));
-                } else {
-                    remove.push(format!("{name}:{arch}"));
-                }
+                remove.push(s);
             }
         }
 
