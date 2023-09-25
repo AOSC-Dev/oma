@@ -36,8 +36,6 @@ pub enum OmaContentsError {
     CnfWrongArgument,
     #[error("Ripgrep exited with error")]
     RgWithError,
-    #[error(transparent)]
-    GrepBuilderError(#[from] grep::regex::Error),
     #[error("")]
     NoResult,
 }
