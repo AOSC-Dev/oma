@@ -15,15 +15,36 @@ use winnow::{
 
 type Result<T> = std::result::Result<T, OmaContentsError>;
 
+#[cfg(feature = "no-rg-binary")]
 #[derive(Debug, thiserror::Error)]
 pub enum OmaContentsError {
     #[error("Contents does not exist")]
     ContentsNotExist,
     #[error(transparent)]
     WhichError(#[from] which::Error),
-    #[cfg(feature = "no-rg-binary")]
     #[error(transparent)]
     LzzzErr(#[from] lzzzz::lz4f::Error),
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
+    #[error("rg parse failed: input: {}, err: {}", input, err)]
+    RgParseFailed { input: String, err: String },
+    #[error("Contents entry missing path list: {0}")]
+    ContentsEntryMissingPathList(String),
+    #[error("Command not found wrong argument")]
+    CnfWrongArgument,
+    #[error("Ripgrep exited with error")]
+    RgWithError,
+    #[error("")]
+    NoResult,
+}
+
+#[cfg(not(feature = "no-rg-binary"))]
+#[derive(Debug, thiserror::Error)]
+pub enum OmaContentsError {
+    #[error("Contents does not exist")]
+    ContentsNotExist,
+    #[error(transparent)]
+    WhichError(#[from] which::Error),
     #[error("Execute ripgrep failed: {0}")]
     ExecuteRgFailed(String),
     #[error(transparent)]
