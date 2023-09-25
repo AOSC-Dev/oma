@@ -46,6 +46,7 @@ anyhow = "1.0.75"
 
 [features]
 aosc = ["dep:oma-topics", "oma-refresh/aosc"]
+contents-without-rg = ["oma-contents/no-rg-binary"]
 default  = ["aosc"]
 
 [workspace]

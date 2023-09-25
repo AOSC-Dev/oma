@@ -505,6 +505,7 @@ version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1174fb0b6ec23863f8b971027804a42614e347eafb0a95bf0b12cdae21fc4d0"
 dependencies = [
+ "jobserver",
  "libc",
 ]
 
@@ -666,6 +667,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "crossbeam-deque"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce6fd6f855243022dcecf8702fef0c297d4338e226845fe067f6341ad9fa0cef"
+dependencies = [
+ "cfg-if",
+ "crossbeam-epoch",
+ "crossbeam-utils",
+]
+
+[[package]]
+name = "crossbeam-epoch"
+version = "0.9.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae211234986c545741a7dc064309f67ee1e5ad243d0e48335adc0484d960bcc7"
+dependencies = [
+ "autocfg",
+ "cfg-if",
+ "crossbeam-utils",
+ "memoffset 0.9.0",
+ "scopeguard",
 ]
 
 [[package]]
@@ -1093,6 +1118,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6c98ee8095e9d1dcbf2fcc6d95acccb90d1c81db1e44725c6a984b1dbdfb010"
 dependencies = [
  "crc32fast",
+ "libz-sys",
  "miniz_oxide",
 ]
 
@@ -1812,6 +1838,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 
 [[package]]
+name = "jobserver"
+version = "0.1.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "936cfd212a0155903bcbc060e316fb6cc7cbf2e1907329391ebadc1fe0ce77c2"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1897,6 +1932,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "libz-sys"
+version = "1.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d97137b25e321a73eef1418d1d5d2eda4d77e12813f8e6dead84bc52c5870a7b"
+dependencies = [
+ "cc",
+ "pkg-config",
+ "vcpkg",
+]
+
+[[package]]
 name = "link-cplusplus"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1958,6 +2004,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lzzzz"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8014d1362004776e6a91e4c15a3aa7830d1b6650a075b51a9969ebb6d6af13bc"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1986,6 +2041,15 @@ name = "memoffset"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5de893c32cde5f383baa4c04c5d6dbdd735cfd4a794b0debdb2bb1b421da5ff4"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
+name = "memoffset"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
 dependencies = [
  "autocfg",
 ]
@@ -2098,7 +2162,7 @@ dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
  "libc",
- "memoffset",
+ "memoffset 0.7.1",
 ]
 
 [[package]]
@@ -2269,9 +2333,12 @@ name = "oma-contents"
 version = "0.2.0"
 dependencies = [
  "chrono",
+ "flate2",
  "grep",
  "indicatif",
+ "lzzzz",
  "oma-utils 0.1.6",
+ "rayon",
  "regex",
  "strsim",
  "thiserror",
@@ -2744,6 +2811,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core 0.5.1",
+]
+
+[[package]]
+name = "rayon"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c27db03db7734835b3f53954b534c91069375ce6ccaa2e065441e07d9b6cdb1"
+dependencies = [
+ "either",
+ "rayon-core",
+]
+
+[[package]]
+name = "rayon-core"
+version = "1.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ce3fb6ad83f861aac485e76e1985cd109d9a3713802152be56c3b1f0e0658ed"
+dependencies = [
+ "crossbeam-deque",
+ "crossbeam-utils",
 ]
 
 [[package]]
