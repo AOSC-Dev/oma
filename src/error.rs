@@ -274,6 +274,11 @@ impl From<OmaContentsError> for OutputError {
             OmaContentsError::RgWithError => (fl!("rg-non-zero"), None),
             OmaContentsError::GrepBuilderError(e) => (e.to_string(), None),
             OmaContentsError::NoResult => ("".to_string(), None),
+            OmaContentsError::WhichError(e) => (e.to_string(), None),
+            #[cfg(feature = "no-rg-binary")]
+            OmaContentsError::LzzzErr(e) => (e.to_string(), None),
+            #[cfg(not(feature = "no-rg-binary"))]
+            OmaContentsError::LzzzErr(_) => unreachable!(),
         };
 
         Self(s)
