@@ -253,6 +253,28 @@ impl From<DownloadError> for OutputError {
 
 impl From<OmaContentsError> for OutputError {
     fn from(value: OmaContentsError) -> Self {
+        #[cfg(feature = "contents-without-rg")]
+        let s = match value {
+            OmaContentsError::ContentsNotExist => (
+                fl!("contents-does-not-exist"),
+                Some(fl!("contents-does-not-exist-dueto")),
+            ),
+            OmaContentsError::IOError(e) => (OutputError::from(e).to_string(), None),
+            OmaContentsError::RgParseFailed { input, err } => (
+                fl!("parse-rg-result-failed", i = input, e = err),
+                Some(fl!("bug")),
+            ),
+            OmaContentsError::ContentsEntryMissingPathList(e) => {
+                (fl!("contents-entry-missing-path-list", entry = e), None)
+            }
+            OmaContentsError::CnfWrongArgument => (value.to_string(), Some(fl!("bug"))),
+            OmaContentsError::RgWithError => (fl!("rg-non-zero"), None),
+            OmaContentsError::NoResult => ("".to_string(), None),
+            OmaContentsError::WhichError(e) => (e.to_string(), None),
+            OmaContentsError::LzzzErr(e) => (e.to_string(), None),
+        };
+
+        #[cfg(not(feature = "contents-without-rg"))]
         let s = match value {
             OmaContentsError::ContentsNotExist => (
                 fl!("contents-does-not-exist"),
@@ -272,13 +294,8 @@ impl From<OmaContentsError> for OutputError {
             }
             OmaContentsError::CnfWrongArgument => (value.to_string(), Some(fl!("bug"))),
             OmaContentsError::RgWithError => (fl!("rg-non-zero"), None),
-            OmaContentsError::GrepBuilderError(e) => (e.to_string(), None),
             OmaContentsError::NoResult => ("".to_string(), None),
             OmaContentsError::WhichError(e) => (e.to_string(), None),
-            #[cfg(feature = "no-rg-binary")]
-            OmaContentsError::LzzzErr(e) => (e.to_string(), None),
-            #[cfg(not(feature = "no-rg-binary"))]
-            OmaContentsError::LzzzErr(_) => unreachable!(),
         };
 
         Self(s)
