@@ -6,6 +6,9 @@ use std::{
     sync::Arc,
 };
 
+#[cfg(feature = "no-rg-binary")]
+use std::sync::{atomic::AtomicUsize, Mutex};
+
 use chrono::{DateTime, Utc};
 
 use winnow::{
@@ -288,32 +291,78 @@ where
 {
     use rayon::prelude::*;
 
-    let callback = Arc::new(callback);
-
-    let contents = paths
-        .par_iter()
-        .filter_map(move |path| read_contents(path, search_zip).ok())
-        .collect::<Vec<_>>();
-
     let is_list = matches!(query_mode, QueryMode::ListFiles(_));
-    let mut res = vec![];
-    let mut count = 0;
 
-    for i in contents {
+    let res = Arc::new(Mutex::new(Vec::new()));
+    let rc = res.clone();
+
+    let count = Arc::new(AtomicUsize::new(0));
+
+    let cc = callback.clone();
+
+    paths.par_iter().for_each(move |path| {
+        search_inner(
+            path,
+            search_zip,
+            rc.clone(),
+            is_list,
+            kw,
+            cc.clone(),
+            count.clone(),
+        )
+        .ok();
+    });
+
+    let res = res.lock().unwrap().clone();
+    callback(ContentsEvent::Done);
+
+    Ok(res)
+}
+
+#[cfg(feature = "no-rg-binary")]
+fn search_inner<F>(
+    path: &Path,
+    search_zip: bool,
+    res: Arc<Mutex<Vec<(String, String)>>>,
+    is_list: bool,
+    kw: &str,
+    callback: Arc<F>,
+    count: Arc<AtomicUsize>,
+) -> Result<()>
+where
+    F: Fn(ContentsEvent) + Send + Sync + Clone + 'static,
+{
+    use flate2::bufread::GzDecoder;
+    use lzzzz::lz4f::BufReadDecompressor;
+    use std::{
+        io::{BufRead, Read},
+        sync::atomic::Ordering,
+    };
+    let f = std::fs::File::open(path)?;
+    let contents_entry: Box<dyn Read> = match path.extension().and_then(|x| x.to_str()) {
+        Some("gz") if search_zip => Box::new(GzDecoder::new(BufReader::new(f))),
+        Some("lz4") if search_zip => Box::new(BufReadDecompressor::new(BufReader::new(f))?),
+        Some(_) | None => Box::new(BufReader::new(f)),
+    };
+
+    let reader = BufReader::new(contents_entry);
+
+    for i in reader.lines() {
         Some(()).and_then(|_| {
-            let contents_entry = multi_line::<()>(&mut i.as_str()).ok()?;
-
-            for i in contents_entry {
-                for (_, pkg) in i.1 {
-                    if (is_list && pkg == kw) || (!is_list && i.0.contains(kw)) {
-                        count += 1;
-                        callback(ContentsEvent::Progress(count));
-                        let file = prefix(i.0);
-                        let r = (pkg.to_string(), file);
+            let i = i.ok()?;
+            let (file, pkgs) = single_line::<()>(&mut i.as_str()).ok()?;
+            for (_, pkg) in pkgs {
+                if (is_list && pkg == kw) || (!is_list && file.contains(kw)) {
+                    count.fetch_add(1, Ordering::SeqCst);
+                    callback(ContentsEvent::Progress(count.load(Ordering::SeqCst)));
+                    let file = prefix(file);
+                    let r = (pkg.to_string(), file);
+                    {
+                        let mut res = res.lock().unwrap();
                         if !res.contains(&r) {
                             res.push(r);
                         }
-                    }
+                    };
                 }
             }
 
@@ -321,27 +370,7 @@ where
         });
     }
 
-    callback(ContentsEvent::Done);
-
-    Ok(res)
-}
-
-#[cfg(feature = "no-rg-binary")]
-fn read_contents(path: &Path, search_zip: bool) -> Result<String> {
-    use flate2::bufread::GzDecoder;
-    use lzzzz::lz4f::BufReadDecompressor;
-    use std::io::Read;
-    let f = std::fs::File::open(path)?;
-    let mut contents_entry: Box<dyn Read> = match path.extension().and_then(|x| x.to_str()) {
-        Some("gz") if search_zip => Box::new(GzDecoder::new(BufReader::new(f))),
-        Some("lz4") if search_zip => Box::new(BufReadDecompressor::new(BufReader::new(f))?),
-        Some(_) | None => Box::new(BufReader::new(f)),
-    };
-
-    let mut s = String::new();
-    contents_entry.read_to_string(&mut s)?;
-
-    Ok(s)
+    Ok(())
 }
 
 /// Parse contents line
@@ -397,20 +426,20 @@ fn sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(), E> {
 }
 
 type ContentsLine<'a> = (&'a str, Vec<(&'a str, &'a str)>);
-#[cfg(feature = "no-rg-binary")]
-type ContentsLines<'a> = Vec<(&'a str, Vec<(&'a str, &'a str)>)>;
+// #[cfg(feature = "no-rg-binary")]
+// type ContentsLines<'a> = Vec<(&'a str, Vec<(&'a str, &'a str)>)>;
 
 #[inline]
 fn single_line<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<ContentsLine<'a>, E> {
     separated_pair(first, sep, second).parse_next(input)
 }
 
-#[cfg(feature = "no-rg-binary")]
-#[inline]
-fn multi_line<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<ContentsLines<'a>, E> {
-    use winnow::combinator::{repeat, terminated};
-    repeat(1.., terminated(single_line, tag("\n"))).parse_next(input)
-}
+// #[cfg(feature = "no-rg-binary")]
+// #[inline]
+// fn multi_line<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<ContentsLines<'a>, E> {
+//     use winnow::combinator::{repeat, terminated};
+//     repeat(1.., terminated(single_line, tag("\n"))).parse_next(input)
+// }
 
 #[inline]
 fn prefix(s: &str) -> String {
@@ -469,27 +498,27 @@ fn test_single_line() {
     assert_eq!(res, Ok(("/", vec![("admin", "apt-file")])));
 }
 
-#[cfg(feature = "no-rg-binary")]
-#[test]
-fn test_multiple_lines() {
-    let a = &mut "opt/32/libexec   devel/gcc+32,devel/llvm+32,gnome/gconf+32\nopt/32/share   devel/llvm+32,libs/alsa-plugins+32\n";
-    let res = multi_line::<()>(a);
+// #[cfg(feature = "no-rg-binary")]
+// #[test]
+// fn test_multiple_lines() {
+//     let a = &mut "opt/32/libexec   devel/gcc+32,devel/llvm+32,gnome/gconf+32\nopt/32/share   devel/llvm+32,libs/alsa-plugins+32\n";
+//     let res = multi_line::<()>(a);
 
-    assert_eq!(
-        res,
-        Ok(vec![
-            (
-                "opt/32/libexec",
-                vec![
-                    ("devel", "gcc+32"),
-                    ("devel", "llvm+32"),
-                    ("gnome", "gconf+32"),
-                ]
-            ),
-            (
-                "opt/32/share",
-                vec![("devel", "llvm+32"), ("libs", "alsa-plugins+32")]
-            )
-        ])
-    )
-}
+//     assert_eq!(
+//         res,
+//         Ok(vec![
+//             (
+//                 "opt/32/libexec",
+//                 vec![
+//                     ("devel", "gcc+32"),
+//                     ("devel", "llvm+32"),
+//                     ("gnome", "gconf+32"),
+//                 ]
+//             ),
+//             (
+//                 "opt/32/share",
+//                 vec![("devel", "llvm+32"), ("libs", "alsa-plugins+32")]
+//             )
+//         ])
+//     )
+// }
