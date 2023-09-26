@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fs::DirEntry,
     io::BufReader,
     path::{Path, PathBuf},
@@ -98,25 +99,39 @@ where
     let dir = std::fs::read_dir(dist_dir)?;
     let mut paths = Vec::new();
 
+    let contain_contents_names = &[
+        Cow::Owned(format!("_Contents-{arch}")),
+        Cow::Borrowed("_Contents-all"),
+    ];
+
+    #[cfg(feature = "aosc")]
+    let contain_bincontents_names = &[
+        Cow::Owned(format!("_BinContents-{arch}")),
+        Cow::Borrowed("_BinContents-all"),
+    ];
+
     for i in dir.flatten() {
         #[cfg(feature = "aosc")]
         if query_mode != QueryMode::CommandNotFound
             && query_mode != QueryMode::ListFiles(true)
             && query_mode != QueryMode::Provides(true)
         {
-            if dir_entry_contains_name(&i, &format!("_Contents-{arch}"))
-                || dir_entry_contains_name(&i, "_Contents-all")
+            if contain_contents_names
+                .iter()
+                .any(|x| dir_entry_contains_name(&i, x))
             {
                 paths.push(i.path());
             }
-        } else if dir_entry_contains_name(&i, &format!("_BinContents-{arch}"))
-            || dir_entry_contains_name(&i, "_BinContents-all")
+        } else if contain_bincontents_names
+            .iter()
+            .any(|x| dir_entry_contains_name(&i, x))
         {
             paths.push(i.path());
         }
         #[cfg(not(feature = "aosc"))]
-        if dir_entry_contains_name(&i, &format!("Contents-{arch}"))
-            || dir_entry_contains_name(&i, "_Contents-all")
+        if contain_contents_names
+            .iter()
+            .any(|x| dir_entry_contains_name(&i, x))
         {
             paths.push(i.path());
         }
