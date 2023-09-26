@@ -145,8 +145,8 @@ where
 
     let paths_ref = &paths;
 
-    let _ = std::thread::scope(|x| {
-        x.spawn(move || -> Result<()> {
+    std::thread::scope(|s| {
+        s.spawn(move || -> Result<()> {
             for i in paths_ref {
                 let m = DateTime::from(i.metadata()?.created()?);
                 let now = Utc::now();
@@ -262,12 +262,13 @@ where
             }
         }
 
+        callback(ContentsEvent::Done);
+
         if !has_res {
             return Err(OmaContentsError::NoResult);
         }
-
-        callback(ContentsEvent::Done);
     }
+
     if !cmd.wait()?.success() {
         return Err(OmaContentsError::RgWithError);
     }
