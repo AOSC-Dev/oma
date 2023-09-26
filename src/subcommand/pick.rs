@@ -67,9 +67,9 @@ pub fn execute(
     }
 
     let theme = ColorfulTheme::default();
-    let mut dialoguer = Select::with_theme(&theme);
-    dialoguer.items(&versions_str);
-    dialoguer.with_prompt(fl!("pick-tips", pkgname = pkg.name()));
+    let mut dialoguer = Select::with_theme(&theme)
+        .items(&versions_str)
+        .with_prompt(fl!("pick-tips", pkgname = pkg.name()));
 
     let pos = if let Some(installed) = pkg.installed() {
         versions_str
@@ -80,8 +80,8 @@ pub fn execute(
         0
     };
 
-    dialoguer.default(pos);
-    let sel = dialoguer.interact()?;
+    dialoguer = dialoguer.default(pos);
+    let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
     let version = pkg.get_version(&versions_str[sel]).ok_or_else(|| {
         anyhow!(fl!(
             "can-not-get-pkg-version-from-database",

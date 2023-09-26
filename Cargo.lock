@@ -874,6 +874,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "dialoguer"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "658bce805d770f407bc62102fca7c2c64ceef2fbcb2b8bd19d2765ce093980de"
+dependencies = [
+ "console",
+ "shell-words",
+ "tempfile",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2121,7 +2134,7 @@ dependencies = [
  "ctrlc",
  "dashmap",
  "derive_builder",
- "dialoguer",
+ "dialoguer 0.11.0",
  "i18n-embed",
  "i18n-embed-fl",
  "nix 0.27.1",
@@ -2170,7 +2183,7 @@ name = "oma-console"
 version = "0.2.0"
 dependencies = [
  "console",
- "dialoguer",
+ "dialoguer 0.10.4",
  "indicatif",
  "once_cell",
  "thiserror",

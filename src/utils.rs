@@ -173,7 +173,8 @@ pub async fn check_battery(conn: &Connection) -> Result<()> {
         let cont = Confirm::with_theme(&theme)
             .with_prompt(fl!("continue"))
             .default(false)
-            .interact()?;
+            .interact()
+            .map_err(|_| anyhow!(""))?;
 
         if !cont {
             exit(0);

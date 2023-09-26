@@ -8,7 +8,7 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-regex = "1.8"
+regex = { version = "1.8", optional = true }
 chrono = "0.4"
 which ="4.4"
 strsim = "0.10"
@@ -24,5 +24,5 @@ oma-utils = { path = "../oma-utils", features = ["dpkg"]}
 
 [features]
 aosc = []
-default = ["aosc"]
+default = ["aosc", "dep:regex"]
 no-rg-binary = ["dep:flate2", "dep:rayon", "dep:lzzzz"]
