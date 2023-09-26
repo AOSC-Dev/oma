@@ -1,7 +1,8 @@
 use std::{
+    fs::DirEntry,
     io::BufReader,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use chrono::{DateTime, Utc};
@@ -93,89 +94,80 @@ pub fn find<F>(
 where
     F: Fn(ContentsEvent) + Send + Sync + Clone + 'static,
 {
+    let callback = Arc::new(callback);
     let dir = std::fs::read_dir(dist_dir)?;
-    let paths = Arc::new(Mutex::new(Vec::new()));
+    let mut paths = Vec::new();
+
     for i in dir.flatten() {
         #[cfg(feature = "aosc")]
         if query_mode != QueryMode::CommandNotFound
             && query_mode != QueryMode::ListFiles(true)
             && query_mode != QueryMode::Provides(true)
         {
-            if i.file_name()
-                .to_str()
-                .map(|x| x.contains(&format!("Contents-{arch}")))
-                .unwrap_or(false)
-                || i.file_name()
-                    .to_str()
-                    .map(|x| x.contains("_Contents-all"))
-                    .unwrap_or(false)
+            if dir_entry_contains_name(&i, &format!("_Contents-{arch}"))
+                || dir_entry_contains_name(&i, "_Contents-all")
             {
-                paths.lock().unwrap().push(i.path());
+                paths.push(i.path());
             }
-        } else if i
-            .file_name()
-            .to_str()
-            .map(|x| x.ends_with(&format!("_BinContents-{arch}")))
-            .unwrap_or(false)
-            || i.file_name()
-                .to_str()
-                .map(|x| x.ends_with("_BinContents-all"))
-                .unwrap_or(false)
+        } else if dir_entry_contains_name(&i, &format!("_BinContents-{arch}"))
+            || dir_entry_contains_name(&i, "_BinContents-all")
         {
-            paths.lock().unwrap().push(i.path());
+            paths.push(i.path());
         }
         #[cfg(not(feature = "aosc"))]
-        if i.file_name()
-            .to_str()
-            .map(|x| x.contains(&format!("Contents-{arch}")))
-            .unwrap_or(false)
-            || i.file_name()
-                .to_str()
-                .map(|x| x.contains("_Contents-all"))
-                .unwrap_or(false)
+        if dir_entry_contains_name(&i, &format!("Contents-{arch}"))
+            || dir_entry_contains_name(&i, "_Contents-all")
         {
-            paths.lock().unwrap().push(i.path());
+            paths.push(i.path());
         }
     }
 
-    let pc = paths.clone();
-
-    {
-        if paths.lock().unwrap().is_empty() {
-            return Err(OmaContentsError::ContentsNotExist);
-        }
+    if paths.is_empty() {
+        return Err(OmaContentsError::ContentsNotExist);
     }
 
     let cc = callback.clone();
 
-    std::thread::spawn(move || -> Result<()> {
-        for i in &*pc.lock().unwrap() {
-            let m = DateTime::from(i.metadata()?.created()?);
-            let now = Utc::now();
-            let delta = now - m;
-            let delta = delta.num_seconds() / 60 / 60 / 24;
-            if delta > 7 {
-                cc(ContentsEvent::ContentsMayNotBeAccurate);
-                break;
-            }
-        }
+    let paths_ref = &paths;
 
-        Ok(())
+    let _ = std::thread::scope(|x| {
+        x.spawn(move || -> Result<()> {
+            for i in paths_ref {
+                let m = DateTime::from(i.metadata()?.created()?);
+                let now = Utc::now();
+                let delta = now - m;
+                let delta = delta.num_seconds() / 60 / 60 / 24;
+                if delta > 7 {
+                    cc(ContentsEvent::ContentsMayNotBeAccurate);
+                    break;
+                }
+            }
+
+            Ok(())
+        });
     });
 
-    let mut res = search(paths, search_zip, query_mode, keyword, callback)?;
+    let mut res = search(&paths, search_zip, query_mode, keyword, callback)?;
     res.sort_unstable();
 
     Ok(res)
 }
 
+fn dir_entry_contains_name(entry: &DirEntry, name: &str) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|x| x.contains(name))
+        .unwrap_or(false)
+}
+
 #[cfg(not(feature = "no-rg-binary"))]
 fn search<F>(
-    paths: Arc<Mutex<Vec<PathBuf>>>,
+    paths: &[PathBuf],
     search_zip: bool,
     query_mode: QueryMode,
     kw: &str,
-    callback: F,
+    callback: Arc<F>,
 ) -> Result<Vec<(String, String)>>
 where
     F: Fn(ContentsEvent) + Send + Sync + Clone + 'static,
@@ -206,7 +198,7 @@ where
     cmd.arg("-I");
     cmd.arg("-e");
     cmd.arg(pattern);
-    cmd.args(&*paths.lock().unwrap());
+    cmd.args(paths);
     if search_zip {
         cmd.arg("--search-zip");
     }
@@ -269,17 +261,16 @@ where
 
 #[cfg(feature = "no-rg-binary")]
 fn search<F>(
-    paths: Arc<Mutex<Vec<PathBuf>>>,
+    paths: &[PathBuf],
     search_zip: bool,
     query_mode: QueryMode,
     kw: &str,
-    callback: F,
+    callback: Arc<F>,
 ) -> Result<Vec<(String, String)>>
 where
     F: Fn(ContentsEvent) + Send + Sync + Clone + 'static,
 {
     use rayon::prelude::*;
-    let paths = &*paths.lock().unwrap();
 
     let callback = Arc::new(callback);
 
