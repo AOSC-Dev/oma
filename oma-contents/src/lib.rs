@@ -150,7 +150,7 @@ where
 
     std::thread::spawn(move || -> Result<()> {
         for i in &*pc.lock().unwrap() {
-            let m = DateTime::from(i.metadata()?.modified()?);
+            let m = DateTime::from(i.metadata()?.created()?);
             let now = Utc::now();
             let delta = now - m;
             let delta = delta.num_seconds() / 60 / 60 / 24;
