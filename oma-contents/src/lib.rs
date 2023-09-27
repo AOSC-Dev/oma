@@ -7,7 +7,7 @@ use std::{
 };
 
 #[cfg(feature = "no-rg-binary")]
-use std::sync::{atomic::AtomicUsize, Mutex};
+use std::sync::atomic::AtomicUsize;
 
 use chrono::{DateTime, Utc};
 
@@ -291,27 +291,27 @@ where
 {
     use rayon::prelude::*;
 
-    let res = Arc::new(Mutex::new(Vec::new()));
-    let rc = res.clone();
-
     let count = Arc::new(AtomicUsize::new(0));
-
     let cc = callback.clone();
 
-    paths.par_iter().for_each(move |path| {
-        search_inner(
-            path,
-            search_zip,
-            rc.clone(),
-            query_mode.clone(),
-            kw,
-            cc.clone(),
-            count.clone(),
-        )
-        .ok();
-    });
+    let query_mode = Arc::new(query_mode);
 
-    let res = res.lock().unwrap().clone();
+    let res = paths
+        .par_iter()
+        .filter_map(move |path| {
+            search_inner(
+                path,
+                search_zip,
+                query_mode.clone(),
+                kw,
+                cc.clone(),
+                count.clone(),
+            )
+            .ok()
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+
     callback(ContentsEvent::Done);
 
     Ok(res)
@@ -321,12 +321,11 @@ where
 fn search_inner<F>(
     path: &Path,
     search_zip: bool,
-    res: Arc<Mutex<Vec<(String, String)>>>,
-    query_mode: QueryMode,
+    query_mode: Arc<QueryMode>,
     kw: &str,
     callback: Arc<F>,
     count: Arc<AtomicUsize>,
-) -> Result<()>
+) -> Result<Vec<(String, String)>>
 where
     F: Fn(ContentsEvent) + Send + Sync + Clone + 'static,
 {
@@ -343,11 +342,13 @@ where
         Some(_) | None => Box::new(BufReader::new(f)),
     };
 
+    let mut res = vec![];
+
     let reader = BufReader::new(contents_entry);
 
-    let is_list = matches!(query_mode, QueryMode::ListFiles(_));
-    let is_cnf = matches!(query_mode, QueryMode::CommandNotFound);
-    let bin_only = match query_mode {
+    let is_list = matches!(*query_mode, QueryMode::ListFiles(_));
+    let is_cnf = matches!(*query_mode, QueryMode::CommandNotFound);
+    let bin_only = match *query_mode {
         QueryMode::Provides(b) => b,
         QueryMode::ListFiles(b) => b,
         QueryMode::CommandNotFound => true,
@@ -398,12 +399,9 @@ where
 
                     let file = prefix(file);
                     let r = (pkg.to_string(), file);
-                    {
-                        let mut res = res.lock().unwrap();
-                        if !res.contains(&r) {
-                            res.push(r);
-                        }
-                    };
+                    if !res.contains(&r) {
+                        res.push(r);
+                    }
                 }
             }
 
@@ -411,7 +409,7 @@ where
         });
     }
 
-    Ok(())
+    Ok(res)
 }
 
 /// Parse contents line
