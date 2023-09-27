@@ -5,7 +5,7 @@ use inquire::{
 };
 
 use oma_topics::Result;
-use oma_topics::{list, TopicManager};
+use oma_topics::TopicManager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -13,11 +13,13 @@ async fn main() -> Result<()> {
     let mut opt_in = vec![];
     let mut opt_out = vec![];
 
-    let display = list(&mut tm).await?;
-    let all = tm.all.clone();
+    let enabled_names = tm
+        .enabled_topics()
+        .iter()
+        .map(|x| &x.name)
+        .collect::<Vec<_>>();
 
-    let enabled_names = tm.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
-    let all_names = all.iter().map(|x| &x.name).collect::<Vec<_>>();
+    let all_names = tm.all_topics().iter().map(|x| &x.name).collect::<Vec<_>>();
 
     let mut default = vec![];
 
@@ -42,7 +44,7 @@ async fn main() -> Result<()> {
 
     let ans = MultiSelect::new(
         "Select topics",
-        display.iter().map(|x| x.as_str()).collect(),
+        all_names.iter().map(|x| x.as_str()).collect(),
     )
     .with_help_message(
         "Press [Space]/[Enter] to toggle selection, [Esc] to apply changes, [Ctrl-c] to abort.",
@@ -55,14 +57,14 @@ async fn main() -> Result<()> {
     .unwrap();
 
     for i in &ans {
-        let index = display.iter().position(|x| x == i).unwrap();
+        let index = all_names.iter().position(|x| x == i).unwrap();
         if !enabled_names.contains(&all_names[index]) {
             opt_in.push(all_names[index].clone());
         }
     }
 
     for (i, c) in all_names.iter().enumerate() {
-        if enabled_names.contains(c) && !ans.contains(&display[i].as_str()) {
+        if enabled_names.contains(c) && !ans.contains(&all_names[i].as_str()) {
             opt_out.push(c.to_string());
         }
     }
@@ -75,7 +77,7 @@ async fn main() -> Result<()> {
         tm.remove(&i, false)?;
     }
 
-    tm.write_enabled(false).await?;
+    tm.write_enabled(false, || "a".to_owned()).await?;
 
     Ok(())
 }

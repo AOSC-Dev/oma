@@ -273,9 +273,10 @@ impl OmaRefresh {
         self
     }
 
-    pub async fn start<F>(self, callback: F) -> Result<()>
+    pub async fn start<F, F2>(self, callback: F, handle_topic_msg: F2) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
+        F2: Fn() -> String + Copy
     {
         update_db(
             self.sources,
@@ -284,6 +285,7 @@ impl OmaRefresh {
             self.download_dir,
             self.download_compress,
             callback,
+            handle_topic_msg
         )
         .await
     }
@@ -302,16 +304,18 @@ impl From<DownloadEvent> for RefreshEvent {
 }
 
 // Update database
-async fn update_db<F>(
+async fn update_db<F, F2>(
     sourceslist: Vec<OmaSourceEntry>,
     limit: Option<usize>,
     arch: String,
     download_dir: PathBuf,
     download_compress: bool,
     callback: F,
+    handle_topic_msg: F2
 ) -> Result<()>
 where
     F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
+    F2: Fn() -> String + Copy
 {
     let mut tasks = vec![];
 
@@ -381,7 +385,7 @@ where
     #[cfg(feature = "aosc")]
     {
         if !not_found.is_empty() {
-            let removed_suites = oma_topics::scan_closed_topic().await?;
+            let removed_suites = oma_topics::scan_closed_topic(handle_topic_msg).await?;
             for url in not_found {
                 let suite = url
                     .split('/')

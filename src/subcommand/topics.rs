@@ -41,7 +41,9 @@ pub fn execute(
     dbus_check(&rt)?;
 
     let topics_changed =
-        rt.block_on(async move { topics_inner(opt_in, opt_out, dry_run, no_progress).await })?;
+        rt.block_on(async move { topics_inner(opt_in, opt_out, dry_run, no_progress, || {
+            fl!("do-not-edit-topic-sources-list")
+        }).await })?;
 
     let enabled_pkgs = topics_changed.enabled_pkgs;
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
@@ -92,12 +94,16 @@ pub fn execute(
     Ok(0)
 }
 
-async fn topics_inner(
+async fn topics_inner<F>(
     mut opt_in: Vec<String>,
     mut opt_out: Vec<String>,
     dry_run: bool,
     no_progress: bool,
-) -> Result<TopicChanged, OutputError> {
+    callback: F,
+) -> Result<TopicChanged, OutputError>
+where
+    F: Fn() -> String,
+{
     let mut tm = TopicManager::new().await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
@@ -110,15 +116,16 @@ async fn topics_inner(
 
     let mut downgrade_pkgs = vec![];
     for i in &opt_out {
-        downgrade_pkgs.extend(tm.remove(i, false)?);
+        let removed_topic = tm.remove(i, false)?;
+        downgrade_pkgs.extend(removed_topic.packages);
     }
 
-    tm.write_enabled(dry_run).await?;
+    tm.write_enabled(dry_run, callback).await?;
 
     let enabled_pkgs = tm
-        .enabled
+        .enabled_topics()
         .into_iter()
-        .flat_map(|x| x.packages)
+        .flat_map(|x| x.packages.clone())
         .collect::<Vec<_>>();
 
     Ok(TopicChanged {
@@ -147,15 +154,29 @@ async fn inquire(
         None
     };
 
-    let display = oma_topics::list(tm).await?;
+    let all_names = tm.all_topics();
+
+    let display = all_names
+        .iter()
+        .map(|x| {
+            let mut s = x.name.clone();
+            if let Some(d) = &x.description {
+                s += &format!(" ({d})");
+            }
+            s
+        })
+        .collect::<Vec<_>>();
 
     if let Some(pb) = pb {
         pb.finish_and_clear();
     }
 
-    let all = tm.all.clone();
-    let enabled_names = tm.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
-    let all_names = all.iter().map(|x| &x.name).collect::<Vec<_>>();
+    let enabled_names = tm
+        .enabled_topics()
+        .iter()
+        .map(|x| &x.name)
+        .collect::<Vec<_>>();
+    let all_names = all_names.iter().map(|x| &x.name).collect::<Vec<_>>();
     let mut default = vec![];
 
     for (i, c) in all_names.iter().enumerate() {
