@@ -21,11 +21,9 @@ use oma_apt::{
 };
 use oma_console::{
     console::{self, style},
-    debug,
-    dialoguer::{theme::ColorfulTheme, Confirm, Input},
-    error,
+    debug, error,
     indicatif::HumanBytes,
-    info, warn,
+    warn,
 };
 use oma_fetch::{
     DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
@@ -431,17 +429,19 @@ impl OmaApt {
     }
 
     /// Set apt manager status as remove
-    pub fn remove(
+    pub fn remove<F>(
         &mut self,
         pkgs: &[PkgInfo],
         purge: bool,
-        protect: bool,
-        cli_output: bool,
         no_autoremove: bool,
-    ) -> OmaAptResult<Vec<String>> {
+        callback: F,
+    ) -> OmaAptResult<Vec<String>>
+    where
+        F: Fn(&str) -> bool + Copy,
+    {
         let mut no_marked_remove = vec![];
         for pkg in pkgs {
-            let is_marked_delete = mark_delete(&self.cache, pkg, protect, cli_output, purge)?;
+            let is_marked_delete = mark_delete(&self.cache, pkg, purge, callback)?;
             if !is_marked_delete {
                 no_marked_remove.push(pkg.raw_pkg.name().to_string());
             } else if !self.select_pkgs.contains(&pkg.raw_pkg.name().to_string()) {
@@ -976,13 +976,10 @@ impl OmaApt {
 }
 
 /// Mark package as delete.
-fn mark_delete(
-    cache: &Cache,
-    pkg: &PkgInfo,
-    protect: bool,
-    cli_output: bool,
-    purge: bool,
-) -> OmaAptResult<bool> {
+fn mark_delete<F>(cache: &Cache, pkg: &PkgInfo, purge: bool, callback: F) -> OmaAptResult<bool>
+where
+    F: Fn(&str) -> bool + Copy,
+{
     let pkg = Package::new(cache, pkg.raw_pkg.unique());
     let removed_but_has_config = pkg.current_state() == 5;
     if !pkg.is_installed() && !removed_but_has_config {
@@ -994,50 +991,14 @@ fn mark_delete(
     }
 
     if pkg.is_essential() {
-        if protect {
-            return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
-        } else if cli_output {
-            if !ask_user_do_as_i_say(&pkg).unwrap_or(true) {
-                return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
-            }
-        } else {
+        let remove_essential = callback(pkg.name());
+        if !remove_essential {
             return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
         }
     }
 
     pkg.mark_delete(purge || removed_but_has_config);
     pkg.protect();
-
-    Ok(true)
-}
-
-/// "Yes Do as I say" steps
-fn ask_user_do_as_i_say(pkg: &Package<'_>) -> OmaAptResult<bool> {
-    let theme = ColorfulTheme::default();
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(format!(
-            "DELETE THIS PACKAGE? PACKAGE {} IS ESSENTIAL!",
-            pkg.name()
-        ))
-        .default(false)
-        .interact()?;
-    if !delete {
-        info!("Not confirmed.");
-        return Ok(false);
-    }
-    info!(
-        "If you are absolutely sure, please type the following: {}",
-        style("Do as I say!").bold()
-    );
-
-    if Input::<String>::with_theme(&theme)
-        .with_prompt("Your turn")
-        .interact()?
-        != "Do as I say!"
-    {
-        info!("Prompt answered incorrectly. Not confirmed.");
-        return Ok(false);
-    }
 
     Ok(true)
 }
