@@ -976,7 +976,7 @@ impl OmaApt {
 }
 
 /// Mark package as delete.
-fn mark_delete<F>(cache: &Cache, pkg: &PkgInfo, purge: bool, callback: F) -> OmaAptResult<bool>
+fn mark_delete<F>(cache: &Cache, pkg: &PkgInfo, purge: bool, how_handle_essential: F) -> OmaAptResult<bool>
 where
     F: Fn(&str) -> bool + Copy,
 {
@@ -991,7 +991,7 @@ where
     }
 
     if pkg.is_essential() {
-        let remove_essential = callback(pkg.name());
+        let remove_essential = how_handle_essential(pkg.name());
         if !remove_essential {
             return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
         }
