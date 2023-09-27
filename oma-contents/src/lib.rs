@@ -26,8 +26,6 @@ pub enum OmaContentsError {
     #[error("Contents does not exist")]
     ContentsNotExist,
     #[error(transparent)]
-    WhichError(#[from] which::Error),
-    #[error(transparent)]
     LzzzErr(#[from] lzzzz::lz4f::Error),
     #[error(transparent)]
     IOError(#[from] std::io::Error),
