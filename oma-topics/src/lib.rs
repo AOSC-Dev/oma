@@ -81,7 +81,7 @@ const TOPICS_JSON: &str = "manifest/topics.json";
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Topic {
     pub name: String,
-    description: Option<String>,
+    pub description: Option<String>,
     date: u64,
     #[serde(skip_serializing)]
     arch: Option<Vec<String>>,
@@ -90,8 +90,8 @@ pub struct Topic {
 
 #[derive(Debug)]
 pub struct TopicManager {
-    pub enabled: Vec<Topic>,
-    pub all: Vec<Topic>,
+    enabled: Vec<Topic>,
+    all: Vec<Topic>,
     client: Client,
 }
 
@@ -106,8 +106,16 @@ impl TopicManager {
         })
     }
 
+    pub fn all_topics(&self) -> &[Topic] {
+        &self.all
+    }
+
+    pub fn enabled_topics(&self) -> &[Topic] {
+        &self.enabled
+    }
+
     /// Get all new topics
-    async fn refresh(&mut self) -> Result<Vec<Topic>> {
+    async fn refresh(&mut self) -> Result<()> {
         let urls = enabled_mirror()
             .await?
             .iter()
@@ -120,11 +128,9 @@ impl TopicManager {
             })
             .collect::<Vec<_>>();
 
-        let all = refresh_innter(&self.client, urls).await?;
+        self.all = refresh_innter(&self.client, urls).await?;
 
-        self.all = all.clone();
-
-        Ok(all)
+        Ok(())
     }
 
     /// Enable select topic
@@ -135,11 +141,7 @@ impl TopicManager {
             return Ok(());
         }
 
-        let all = if self.all.is_empty() {
-            self.refresh().await?
-        } else {
-            self.all.clone()
-        };
+        let all = &self.all;
 
         debug!("all topic: {all:?}");
 
@@ -148,7 +150,7 @@ impl TopicManager {
                 && x.arch
                     .as_ref()
                     .map(|x| x.contains(&arch.to_string()) || x.contains(&"all".to_string()))
-                    == Some(true)
+                    .unwrap_or(false)
         });
 
         let enabled_names = self.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
@@ -169,7 +171,7 @@ impl TopicManager {
     }
 
     /// Disable select topic
-    pub fn remove(&mut self, topic: &str, dry_run: bool) -> Result<Vec<String>> {
+    pub fn remove(&mut self, topic: &str, dry_run: bool) -> Result<Topic> {
         let index = self
             .enabled
             .iter()
@@ -177,20 +179,22 @@ impl TopicManager {
 
         if dry_run {
             debug!("oma will opt_out: {}", topic);
-            return Ok(self.enabled[index.unwrap()].packages.clone());
+            return Ok(self.enabled[index.unwrap()].to_owned());
         }
 
         if let Some(index) = index {
             let d = self.enabled.remove(index);
-            let pkgs = d.packages;
-            return Ok(pkgs);
+            return Ok(d);
         }
 
         Err(OmaTopicsError::FailedToDisableTopic(topic.to_string()))
     }
 
     /// Write topic changes to mirror list
-    pub async fn write_enabled(&self, dry_run: bool) -> Result<()> {
+    pub async fn write_enabled<F>(&self, dry_run: bool, callback: F) -> Result<()>
+    where
+        F: Fn() -> String,
+    {
         if dry_run {
             return Ok(());
         }
@@ -198,7 +202,7 @@ impl TopicManager {
         let mut f = tokio::fs::File::create("/etc/apt/sources.list.d/atm.list").await?;
         let mirrors = enabled_mirror().await?;
 
-        // f.write_all(format!("{}\n", fl!("do-not-edit-topic-sources-list")).as_bytes())?;
+        f.write_all(callback().as_bytes()).await?;
 
         for i in &self.enabled {
             f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())
@@ -230,7 +234,6 @@ impl TopicManager {
 
 async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>> {
     let mut json = vec![];
-
     let mut tasks = vec![];
 
     for url in urls {
@@ -262,26 +265,11 @@ async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>
     Ok(json)
 }
 
-/// Get topic list
-pub async fn list(tm: &mut TopicManager) -> Result<Vec<String>> {
-    let all = tm.refresh().await?;
-
-    let ft = all
-        .iter()
-        .map(|x| {
-            let mut s = x.name.clone();
-            if let Some(d) = &x.description {
-                s += &format!(" ({d})");
-            }
-            s
-        })
-        .collect::<Vec<_>>();
-
-    Ok(ft)
-}
-
 /// Scan all close topics from upstream and disable it
-pub async fn scan_closed_topic() -> Result<Vec<String>> {
+pub async fn scan_closed_topic<F>(callback: F) -> Result<Vec<String>>
+where
+    F: Fn() -> String + Copy,
+{
     let mut atm_sources = vec![];
     let s = SourcesLists::new_from_paths(["/etc/apt/sources.list.d/atm.list"].iter())?;
 
@@ -294,8 +282,8 @@ pub async fn scan_closed_topic() -> Result<Vec<String>> {
     }
 
     let mut tm = TopicManager::new().await?;
-
-    let all = tm.refresh().await?;
+    tm.refresh().await?;
+    let all = tm.all_topics().to_owned();
 
     let mut res = vec![];
 
@@ -309,7 +297,7 @@ pub async fn scan_closed_topic() -> Result<Vec<String>> {
         }
     }
 
-    tm.write_enabled(false).await?;
+    tm.write_enabled(false, callback).await?;
 
     Ok(res)
 }

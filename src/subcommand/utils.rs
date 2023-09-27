@@ -58,33 +58,36 @@ pub(crate) fn refresh(dry_run: bool, no_progress: bool, download_pure_db: bool) 
 
     tokio.block_on(async move {
         refresh
-            .start(|count, event, total| {
-                if !no_progress {
-                    match event {
-                        RefreshEvent::ClosingTopic(topic_name) => {
-                            WRITER
-                                .writeln_with_mb(
-                                    &mb,
-                                    &style("INFO").blue().bold().to_string(),
-                                    &fl!("scan-topic-is-removed", name = topic_name),
-                                )
-                                .ok();
+            .start(
+                |count, event, total| {
+                    if !no_progress {
+                        match event {
+                            RefreshEvent::ClosingTopic(topic_name) => {
+                                WRITER
+                                    .writeln_with_mb(
+                                        &mb,
+                                        &style("INFO").blue().bold().to_string(),
+                                        &fl!("scan-topic-is-removed", name = topic_name),
+                                    )
+                                    .ok();
+                            }
+                            RefreshEvent::DownloadEvent(event) => {
+                                pb!(event, mb, pb_map, count, total, global_is_set)
+                            }
                         }
-                        RefreshEvent::DownloadEvent(event) => {
-                            pb!(event, mb, pb_map, count, total, global_is_set)
+                    } else {
+                        match event {
+                            RefreshEvent::DownloadEvent(d) => {
+                                handle_event_without_progressbar(d);
+                            }
+                            RefreshEvent::ClosingTopic(topic_name) => {
+                                info!("{}", fl!("scan-topic-is-removed", name = topic_name));
+                            }
                         }
                     }
-                } else {
-                    match event {
-                        RefreshEvent::DownloadEvent(d) => {
-                            handle_event_without_progressbar(d);
-                        }
-                        RefreshEvent::ClosingTopic(topic_name) => {
-                            info!("{}", fl!("scan-topic-is-removed", name = topic_name));
-                        }
-                    }
-                }
-            })
+                },
+                || fl!("do-not-edit-topic-sources-list"),
+            )
             .await
     })?;
 
