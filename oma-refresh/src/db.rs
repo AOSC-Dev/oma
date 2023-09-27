@@ -403,13 +403,10 @@ where
 
     for inrelease_summary in all_inrelease {
         // 源数据确保是存在的，所以直接 unwrap
-        let ose = sourceslist.get(inrelease_summary.count).unwrap().to_owned();
-        let urlc = ose.url.clone();
-        let archc = arch.to_owned();
+        let ose = sourceslist.get(inrelease_summary.count).unwrap();
+        let urlc = &ose.url;
 
         debug!("Getted Oma source entry: {:?}", ose);
-
-        let download_dir = download_dir.clone();
         let inrelease_path = download_dir.join(&*inrelease_summary.filename);
 
         let s = tokio::fs::read_to_string(&inrelease_path).await?;
@@ -418,7 +415,7 @@ where
             &s,
             ose.signed_by.as_deref(),
             &urlc,
-            &archc,
+            &arch,
             ose.is_flat,
             &inrelease_path,
         )?;
@@ -428,7 +425,8 @@ where
             .iter()
             .filter(|x| {
                 ose.components
-                    .contains(&x.name.split('/').next().unwrap_or(&x.name).to_owned())
+                    .iter()
+                    .any(|y| y.contains(&x.name.split('/').next().unwrap_or(&x.name)))
             })
             .map(|x| x.to_owned())
             .collect::<Vec<_>>();
