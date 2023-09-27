@@ -51,7 +51,7 @@ pub enum OmaTopicsError {
     #[error("Can not find topic: {0}")]
     CanNotFindTopic(String),
     #[error("Failed to enable topic: {0}")]
-    FailedToEnableTopic(String),
+    FailedToDisableTopic(String),
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
     #[error(transparent)]
@@ -186,7 +186,7 @@ impl TopicManager {
             return Ok(pkgs);
         }
 
-        Err(OmaTopicsError::FailedToEnableTopic(topic.to_string()))
+        Err(OmaTopicsError::FailedToDisableTopic(topic.to_string()))
     }
 
     /// Write topic changes to mirror list
