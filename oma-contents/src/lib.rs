@@ -66,7 +66,7 @@ pub enum OmaContentsError {
     NoResult,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueryMode {
     /// apt-file search (bool is only search binary)
     Provides(bool),
@@ -291,8 +291,6 @@ where
 {
     use rayon::prelude::*;
 
-    let is_list = matches!(query_mode, QueryMode::ListFiles(_));
-
     let res = Arc::new(Mutex::new(Vec::new()));
     let rc = res.clone();
 
@@ -305,7 +303,7 @@ where
             path,
             search_zip,
             rc.clone(),
-            is_list,
+            query_mode.clone(),
             kw,
             cc.clone(),
             count.clone(),
@@ -324,7 +322,7 @@ fn search_inner<F>(
     path: &Path,
     search_zip: bool,
     res: Arc<Mutex<Vec<(String, String)>>>,
-    is_list: bool,
+    query_mode: QueryMode,
     kw: &str,
     callback: Arc<F>,
     count: Arc<AtomicUsize>,
@@ -347,12 +345,43 @@ where
 
     let reader = BufReader::new(contents_entry);
 
+    let is_list = matches!(query_mode, QueryMode::ListFiles(_));
+    let bin_only = match query_mode {
+        QueryMode::Provides(b) => b,
+        QueryMode::ListFiles(b) => b,
+        QueryMode::CommandNotFound => true,
+    };
+
+    let files_not_only_bin = |pkg: &str| is_list && pkg == kw;
+    let provides_not_only_bin = |file: &str| !is_list && file.contains(kw);
+    let files_bin_only = |file: &str| {
+        bin_only
+            && is_list
+            && file.split('/').last().map(|x| x == kw).unwrap_or(false)
+            && (file.contains("bin/") || file.contains("sbin/"))
+    };
+
+    let provides_bin_only = |file: &str| {
+        bin_only
+            && !is_list
+            && file
+                .split('/')
+                .last()
+                .map(|x| x.contains(kw))
+                .unwrap_or(false)
+            && (file.contains("bin/") || file.contains("sbin/"))
+    };
+
     for i in reader.lines() {
         Some(()).and_then(|_| {
             let i = i.ok()?;
             let (file, pkgs) = single_line::<()>(&mut i.as_str()).ok()?;
             for (_, pkg) in pkgs {
-                if (is_list && pkg == kw) || (!is_list && file.contains(kw)) {
+                if files_not_only_bin(pkg)
+                    || provides_not_only_bin(file)
+                    || files_bin_only(file)
+                    || provides_bin_only(file)
+                {
                     count.fetch_add(1, Ordering::SeqCst);
                     callback(ContentsEvent::Progress(count.load(Ordering::SeqCst)));
                     let file = prefix(file);
