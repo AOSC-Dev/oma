@@ -18,7 +18,6 @@ tokio = { version = "1.28", default_features = false, features = ["fs"] }
 thiserror = "1.0"
 futures = "0.3"
 oma-console = { version = "^0.2", path = "../oma-console" }
-derive_builder = "0.12"
 
 [dev-dependencies]
 oma-inquire = "0.1"
