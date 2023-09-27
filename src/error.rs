@@ -270,7 +270,6 @@ impl From<OmaContentsError> for OutputError {
             OmaContentsError::CnfWrongArgument => (value.to_string(), Some(fl!("bug"))),
             OmaContentsError::RgWithError => (fl!("rg-non-zero"), None),
             OmaContentsError::NoResult => ("".to_string(), None),
-            OmaContentsError::WhichError(e) => (e.to_string(), None),
             OmaContentsError::LzzzErr(e) => (e.to_string(), None),
         };
 
