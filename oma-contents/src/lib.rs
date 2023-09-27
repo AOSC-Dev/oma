@@ -346,6 +346,7 @@ where
     let reader = BufReader::new(contents_entry);
 
     let is_list = matches!(query_mode, QueryMode::ListFiles(_));
+    let is_cnf = matches!(query_mode, QueryMode::CommandNotFound);
     let bin_only = match query_mode {
         QueryMode::Provides(b) => b,
         QueryMode::ListFiles(b) => b,
@@ -384,6 +385,17 @@ where
                 {
                     count.fetch_add(1, Ordering::SeqCst);
                     callback(ContentsEvent::Progress(count.load(Ordering::SeqCst)));
+
+                    if is_cnf
+                        && file
+                            .split('/')
+                            .last()
+                            .map(|x| strsim::jaro_winkler(kw, x).abs() < 0.9)
+                            .unwrap_or(true)
+                    {
+                        continue;
+                    }
+
                     let file = prefix(file);
                     let r = (pkg.to_string(), file);
                     {
