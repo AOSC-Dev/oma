@@ -276,7 +276,7 @@ impl OmaRefresh {
     pub async fn start<F, F2>(self, callback: F, handle_topic_msg: F2) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
-        F2: Fn() -> String + Copy
+        F2: Fn() -> String + Copy,
     {
         update_db(
             self.sources,
@@ -285,7 +285,7 @@ impl OmaRefresh {
             self.download_dir,
             self.download_compress,
             callback,
-            handle_topic_msg
+            handle_topic_msg,
         )
         .await
     }
@@ -311,11 +311,11 @@ async fn update_db<F, F2>(
     download_dir: PathBuf,
     download_compress: bool,
     callback: F,
-    handle_topic_msg: F2
+    handle_topic_msg: F2,
 ) -> Result<()>
 where
     F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
-    F2: Fn() -> String + Copy
+    F2: Fn() -> String + Copy,
 {
     let mut tasks = vec![];
 
@@ -418,7 +418,7 @@ where
         let inrelease = InReleaseParser::new(
             &s,
             ose.signed_by.as_deref(),
-            &urlc,
+            urlc,
             &arch,
             ose.is_flat,
             &inrelease_path,
@@ -430,7 +430,7 @@ where
             .filter(|x| {
                 ose.components
                     .iter()
-                    .any(|y| y.contains(&x.name.split('/').next().unwrap_or(&x.name)))
+                    .any(|y| y.contains(x.name.split('/').next().unwrap_or(&x.name)))
             })
             .map(|x| x.to_owned())
             .collect::<Vec<_>>();

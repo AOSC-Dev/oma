@@ -215,10 +215,9 @@ fn oma_topics_error(e: OmaTopicsError) -> (String, Option<String>) {
             fl!("can-not-find-specified-topic", topic = topic),
             Some(fl!("maybe-mirror-syncing")),
         ),
-        OmaTopicsError::FailedToDisableTopic(topic) => (
-            fl!("can-not-find-specified-topic", topic = topic),
-            None,
-        ),
+        OmaTopicsError::FailedToDisableTopic(topic) => {
+            (fl!("can-not-find-specified-topic", topic = topic), None)
+        }
         OmaTopicsError::ReqwestError(e) => (e.to_string(), Some(fl!("check-network-settings"))),
         OmaTopicsError::SoutceListError(e) => (e.to_string(), Some(fl!("check-sources-list"))),
     }

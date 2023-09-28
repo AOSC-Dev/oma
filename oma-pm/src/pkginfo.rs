@@ -2,7 +2,6 @@ use std::{collections::HashMap, fmt::Display};
 
 use oma_apt::{
     cache::Cache,
-    // records::RecordField,
     package::{BaseDep, DepType, Dependency, Package, Version},
     raw::package::{RawPackage, RawVersion},
     records::RecordField,
@@ -133,24 +132,10 @@ impl From<&DepType> for OmaDepType {
 }
 
 pub struct PkgInfo {
-    // pub section: Option<String>,
-    // pub maintainer: String,
-    // pub installed_size: u64,
-    // pub download_size: u64,
-    // pub apt_manual_installed: Option<String>,
-    // pub apt_sources: Vec<String>,
-    // pub description: Option<String>,
-    // pub has_dbg: bool,
-    // pub provides: Vec<String>,
     pub deps: HashMap<OmaDepType, OmaDependencyGroup>,
     pub version_raw: RawVersion,
     pub rdeps: HashMap<OmaDepType, OmaDependencyGroup>,
     pub raw_pkg: RawPackage,
-    // pub recommend: OmaDependencyGroup,
-    // pub suggest: OmaDependencyGroup,
-    // pub is_candidate: bool,
-    // pub arch: String,
-    // pub checksum: Option<String>,
 }
 
 impl PkgInfo {
@@ -202,7 +187,7 @@ impl PkgInfo {
         println!("APT-Source:");
 
         let uris = ver.uris().collect::<Vec<_>>();
-        
+
         if uris.is_empty() {
             println!("  unknown");
         } else {
@@ -214,7 +199,10 @@ impl PkgInfo {
             }
         }
 
-        println!("Description: {}", ver.description().unwrap_or("No description".to_string()));
+        println!(
+            "Description: {}",
+            ver.description().unwrap_or("No description".to_string())
+        );
     }
 }
 
