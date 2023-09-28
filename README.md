@@ -1,14 +1,34 @@
-# Oma
+# oma
 
-Oma (Omakase) ~~(Oh My Ailurus, 小熊猫包管理)~~ is a AOSC OS Package manager.
+Oma (Omakase) ~~(Oh My Ailurus, 小熊猫包管理)~~ is a AOSC OS Package manager. A package manager implementation with `libapt-pkg` as a backend.
 
 > Omakase お任せ (adj.): According to the chef's choice. — Marriam-Webster.
+
+Although it is based on apt, we did quite a bit of extra work, the goal of this project is to make apt with better user interaction (especially for AOSC OS users), you can get a feel for the differences between oma and apt with the following examples:
+
+### Pending Operations
+
+![](image.png)
+
+### Multi-thread download
+
+[![asciicast](https://asciinema.org/a/596691.jpg)][https://asciinema.org/a/596691]
+
+### Smart Search
+
+[![asciicast](https://asciinema.org/a/610838.jpg)][https://asciinema.org/a/610838]
+
+### Undo
+
+[![asciicast](https://asciinema.org/a/610839.jpg)][https://asciinema.org/a/610839]
+
+...and more.
 
 ## Dependencies
 
 - libapt-pkg 2.5.4
 - Glibc
-- Ripgrep binary (optional)
+- Ripgrep binary (optional, `--no-default-features --features contents-without-rg` to disable)
 - C Compiler
 - OpenSSL
 - Rustc with Cargo
@@ -56,12 +76,3 @@ Options:
 
 ```
 
-## TODO
-- [x] PolicyKit Support
-- [ ] Flatpak and Snap Support
-- [x] Improve provides (needs `p-vector-rs` support, see https://github.com/AOSC-Dev/p-vector-rs/pull/2)
-- [ ] CDROM Support for AOSC OS/Retro
-- [x] Improve `fix-broken` (wait for https://gitlab.com/volian/oma-apt/-/merge_requests/31)
-- [x] apt depends/rdepends (wait for https://gitlab.com/volian/oma-apt/-/issues/19)
-- [x] Improve pkg depends issue error output display
-- [ ] Compatible `apt-key`
