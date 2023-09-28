@@ -132,35 +132,17 @@ impl From<&DepType> for OmaDepType {
 }
 
 pub struct PkgInfo {
-    pub deps: HashMap<OmaDepType, OmaDependencyGroup>,
     pub version_raw: RawVersion,
-    pub rdeps: HashMap<OmaDepType, OmaDependencyGroup>,
     pub raw_pkg: RawPackage,
 }
 
 impl PkgInfo {
-    pub fn new(cache: &Cache, version_raw: RawVersion, pkg: &Package) -> Self {
+    pub fn new(version: &Version, pkg: &Package) -> Self {
         // 直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
         let raw_pkg = pkg.unique();
-        let version = Version::new(version_raw, cache);
-
-        let deps = version
-            .depends_map()
-            .iter()
-            .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-            .collect::<HashMap<_, _>>();
-
-        let rdeps = pkg
-            .rdepends_map()
-            .iter()
-            .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-            .collect::<HashMap<_, _>>();
-
         Self {
             version_raw: version.unique(),
             raw_pkg,
-            deps,
-            rdeps,
         }
     }
 
@@ -179,7 +161,7 @@ impl PkgInfo {
         );
         println!("Installed-Size: {}", HumanBytes(ver.installed_size()));
 
-        for (t, deps) in &self.deps {
+        for (t, deps) in &self.get_deps(cache) {
             println!("{t}: {deps}");
         }
 
@@ -203,6 +185,22 @@ impl PkgInfo {
             "Description: {}",
             ver.description().unwrap_or("No description".to_string())
         );
+    }
+
+    pub fn get_deps(&self, cache: &Cache) -> HashMap<OmaDepType, OmaDependencyGroup> {
+        Version::new(self.version_raw.unique(), cache)
+            .depends_map()
+            .iter()
+            .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
+            .collect::<HashMap<_, _>>()
+    }
+
+    pub fn get_rdeps(&self, cache: &Cache) -> HashMap<OmaDepType, OmaDependencyGroup> {
+        Package::new(cache, self.raw_pkg.unique())
+            .rdepends_map()
+            .iter()
+            .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
+            .collect::<HashMap<_, _>>()
     }
 }
 
@@ -232,7 +230,7 @@ fn test_pkginfo_display() {
     use oma_apt::new_cache;
     let cache = new_cache!().unwrap();
     let pkg = cache.get("apt").unwrap();
-    let version = pkg.candidate().unwrap().unique();
-    let info = PkgInfo::new(&cache, version, &pkg);
+    let version = pkg.candidate().unwrap();
+    let info = PkgInfo::new(&version, &pkg);
     info.print_info(&cache);
 }

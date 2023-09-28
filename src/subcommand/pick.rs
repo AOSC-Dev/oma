@@ -90,7 +90,7 @@ pub fn execute(
         ))
     })?;
 
-    let pkgs = vec![PkgInfo::new(&apt.cache, version.unique(), &pkg)];
+    let pkgs = vec![PkgInfo::new(&version, &pkg)];
     apt.install(&pkgs, false)?;
 
     normal_commit(
