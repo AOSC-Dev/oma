@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Display};
 
 use oma_apt::{
     cache::Cache,
+    // records::RecordField,
     package::{BaseDep, DepType, Dependency, Package, Version},
     raw::package::{RawPackage, RawVersion},
     records::RecordField,
@@ -132,61 +133,31 @@ impl From<&DepType> for OmaDepType {
 }
 
 pub struct PkgInfo {
-    pub section: Option<String>,
-    pub maintainer: String,
-    pub installed_size: u64,
-    pub download_size: u64,
-    pub apt_manual_installed: Option<String>,
-    pub apt_sources: Vec<String>,
-    pub description: Option<String>,
-    pub has_dbg: bool,
-    pub provides: Vec<String>,
+    // pub section: Option<String>,
+    // pub maintainer: String,
+    // pub installed_size: u64,
+    // pub download_size: u64,
+    // pub apt_manual_installed: Option<String>,
+    // pub apt_sources: Vec<String>,
+    // pub description: Option<String>,
+    // pub has_dbg: bool,
+    // pub provides: Vec<String>,
     pub deps: HashMap<OmaDepType, OmaDependencyGroup>,
     pub version_raw: RawVersion,
     pub rdeps: HashMap<OmaDepType, OmaDependencyGroup>,
     pub raw_pkg: RawPackage,
-    pub recommend: OmaDependencyGroup,
-    pub suggest: OmaDependencyGroup,
-    pub is_candidate: bool,
-    pub arch: String,
-    pub checksum: Option<String>,
+    // pub recommend: OmaDependencyGroup,
+    // pub suggest: OmaDependencyGroup,
+    // pub is_candidate: bool,
+    // pub arch: String,
+    // pub checksum: Option<String>,
 }
 
 impl PkgInfo {
     pub fn new(cache: &Cache, version_raw: RawVersion, pkg: &Package) -> Self {
         // 直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
+        let raw_pkg = pkg.unique();
         let version = Version::new(version_raw, cache);
-        let version_raw = version.unique();
-
-        let section = version.section().ok().map(|x| x.to_owned());
-
-        let maintainer = version
-            .get_record(RecordField::Maintainer)
-            .unwrap_or("Null <null>".to_owned());
-
-        let checksum = version.get_record(RecordField::SHA256);
-
-        let installed_size = version.installed_size();
-        let download_size = version.size();
-
-        let is_cand = pkg.candidate().map(|x| x.unique()) == Some(version.unique());
-
-        let apt_sources = version.uris().collect::<Vec<_>>();
-        let description = version.description();
-
-        let has_dbg = if let Some(pkg) = cache.get(&format!("{}-dbg", pkg.name())) {
-            pkg.get_version(version.version()).is_some()
-        } else {
-            false
-        };
-
-        let recommend = OmaDependency::map_deps(version.recommends().unwrap_or(&vec![]));
-        let suggest = OmaDependency::map_deps(version.suggests().unwrap_or(&vec![]));
-
-        let provides = pkg
-            .provides()
-            .map(|x| x.name().to_string())
-            .collect::<Vec<_>>();
 
         let deps = version
             .depends_map()
@@ -200,82 +171,50 @@ impl PkgInfo {
             .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
             .collect::<HashMap<_, _>>();
 
-        let raw_pkg = pkg.unique();
-
-        let arch = version.arch();
-
         Self {
-            section,
-            maintainer,
-            installed_size,
-            download_size,
-            apt_manual_installed: None, // TODO
-            apt_sources,
-            description,
-            has_dbg,
-            provides,
-            deps,
-            version_raw,
-            rdeps,
+            version_raw: version.unique(),
             raw_pkg,
-            recommend,
-            suggest,
-            is_candidate: is_cand,
-            arch: arch.to_string(),
-            checksum,
+            deps,
+            rdeps,
         }
     }
 
-    pub fn set_candidate(&mut self, cache: &Cache) {
-        let version = Version::new(self.version_raw.unique(), cache);
-        version.set_candidate();
-        self.is_candidate = true;
-    }
-}
-
-impl Display for PkgInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("Package: {}\n", self.raw_pkg.name()))?;
-        f.write_str(&format!("Version: {}\n", self.version_raw.version()))?;
-        f.write_str(&format!(
+    pub fn print_info(&self, cache: &Cache) {
+        println!("Package: {}", self.raw_pkg.name());
+        println!("Version: {}", self.version_raw.version());
+        let ver = Version::new(self.version_raw.unique(), cache);
+        println!(
             "Section: {}\n",
-            self.section.as_deref().unwrap_or("unknow")
-        ))?;
-
-        f.write_str(&format!("Maintainer: {}\n", self.maintainer))?;
-        f.write_str(&format!(
-            "Installed-Size: {}\n",
-            HumanBytes(self.installed_size)
-        ))?;
+            ver.section().as_deref().unwrap_or("unknown")
+        );
+        println!(
+            "Maintainer: {}",
+            ver.get_record(RecordField::Maintainer)
+                .unwrap_or("unknown".to_string())
+        );
+        println!("Installed-Size: {}", HumanBytes(ver.installed_size()));
 
         for (t, deps) in &self.deps {
-            f.write_str(&format!("{t}: {deps}\n"))?;
+            println!("{t}: {deps}");
         }
 
-        f.write_str(&format!(
-            "Download-Size: {}\n",
-            HumanBytes(self.download_size)
-        ))?;
+        println!("Download-Size: {}", HumanBytes(ver.size()));
+        println!("APT-Source:");
 
-        f.write_str("APT-Source:\n")?;
-
-        if self.apt_sources.is_empty() {
-            f.write_str("  unknown\n")?;
+        let uris = ver.uris().collect::<Vec<_>>();
+        
+        if uris.is_empty() {
+            println!("  unknown");
         } else {
-            for i in &self.apt_sources {
-                f.write_str(&format!(
+            for i in uris {
+                println!(
                     "  {}\n",
-                    source_url_to_apt_style(i).unwrap_or(i.to_string())
-                ))?;
+                    source_url_to_apt_style(&i).unwrap_or(i.to_string())
+                );
             }
         }
 
-        f.write_str(&format!(
-            "Description: {}",
-            self.description.as_deref().unwrap_or("No description")
-        ))?;
-
-        Ok(())
+        println!("Description: {}", ver.description().unwrap_or("No description".to_string()));
     }
 }
 
@@ -307,5 +246,5 @@ fn test_pkginfo_display() {
     let pkg = cache.get("apt").unwrap();
     let version = pkg.candidate().unwrap().unique();
     let info = PkgInfo::new(&cache, version, &pkg);
-    println!("{info}")
+    info.print_info(&cache);
 }

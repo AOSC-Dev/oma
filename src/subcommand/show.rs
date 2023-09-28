@@ -14,7 +14,7 @@ pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
 
     if !all {
         if let Some(pkg) = pkgs.get(0) {
-            println!("{pkg}");
+            pkg.print_info(&apt.cache);
         }
 
         let other_version = pkgs.len() - 1;
@@ -25,9 +25,10 @@ pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
     } else {
         for (i, c) in pkgs.iter().enumerate() {
             if i != pkgs.len() - 1 {
-                println!("{c}\n");
+                c.print_info(&apt.cache);
+                println!();
             } else {
-                println!("{c}");
+                c.print_info(&apt.cache);
             }
         }
     }

@@ -67,13 +67,12 @@ impl<'a> OmaDatabase<'a> {
             ))
             .to_string();
 
-            for ver in pkg.versions() {
+            let versions = pkg.versions().collect::<Vec<_>>();
+
+            for ver in &versions {
                 let info = PkgInfo::new(self.cache, ver.unique(), &pkg);
 
-                let has = info
-                    .apt_sources
-                    .iter()
-                    .any(|x| url_no_escape(x) == path.as_str());
+                let has = ver.uris().any(|x| url_no_escape(&x) == path.as_str());
                 if has {
                     res.push(info);
                 }
@@ -111,9 +110,10 @@ impl<'a> OmaDatabase<'a> {
             let versions = pkg.versions().collect::<Vec<_>>();
             for ver in versions {
                 let pkginfo = PkgInfo::new(self.cache, ver.unique(), &pkg);
-                let has_dbg = pkginfo.has_dbg;
-                let is_cand = pkginfo.is_candidate;
-                if pkginfo.is_candidate || !filter_candidate {
+                let has_dbg = has_dbg(self.cache, &pkg, &ver);
+
+                let is_cand = pkg.candidate().map(|x| x == ver).unwrap_or(false);
+                if is_cand || !filter_candidate {
                     res.push(pkginfo);
                 }
 
@@ -125,7 +125,12 @@ impl<'a> OmaDatabase<'a> {
 
         // 确保数组第一个是 candidate version
         if !filter_candidate {
-            let candidate = res.iter().position(|x| x.is_candidate);
+            let candidate = res.iter().position(|x| {
+                Package::new(self.cache, x.raw_pkg.unique())
+                    .candidate()
+                    .map(|y| y == Version::new(x.version_raw.unique(), self.cache))
+                    .unwrap_or(false)
+            });
 
             if let Some(index) = candidate {
                 let pkg = res.remove(index);
@@ -154,7 +159,7 @@ impl<'a> OmaDatabase<'a> {
         let mut res = vec![];
 
         let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
-        let has_dbg = pkginfo.has_dbg;
+        let has_dbg = has_dbg(self.cache, &pkg, &version);
 
         res.push(pkginfo);
 
@@ -200,8 +205,9 @@ impl<'a> OmaDatabase<'a> {
             let version = sort.last();
             if let Some(version) = version {
                 let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
+                let has_dbg = has_dbg(self.cache, &pkg, &version);
 
-                if pkginfo.has_dbg && select_dbg {
+                if has_dbg && select_dbg {
                     self.select_dbg(&pkg, version, &mut res);
                 }
 
@@ -210,8 +216,9 @@ impl<'a> OmaDatabase<'a> {
         } else {
             for i in sort {
                 let pkginfo = PkgInfo::new(self.cache, i.unique(), &pkg);
+                let has_dbg = has_dbg(self.cache, &pkg, &i);
 
-                if pkginfo.has_dbg && select_dbg {
+                if has_dbg && select_dbg {
                     self.select_dbg(&pkg, &i, &mut res);
                 }
 
@@ -277,6 +284,18 @@ fn real_pkg(pkg: &Package) -> RawPackage {
     pkg.unique()
 }
 
+pub fn has_dbg(cache: &Cache, pkg: &Package<'_>, ver: &Version) -> bool {
+    let dbg_pkg = cache.get(&format!("{}-dbg", pkg.name()));
+
+    let has_dbg = if let Some(dbg_pkg) = dbg_pkg {
+        dbg_pkg.versions().any(|x| x.version() == ver.version())
+    } else {
+        false
+    };
+
+    has_dbg
+}
+
 #[cfg(test)]
 mod test {
     use super::OmaDatabase;
@@ -290,13 +309,13 @@ mod test {
         let res = db.query_from_glob("apt*", false, false).unwrap();
 
         for i in res_filter {
-            println!("{}", i);
+            i.print_info(&cache);
         }
 
         println!("---\n");
 
         for i in res {
-            println!("{}", i);
+            i.print_info(&cache);
         }
     }
 
@@ -307,7 +326,7 @@ mod test {
         let res_filter = db.query_from_glob("telegram", true, false).unwrap();
 
         for i in res_filter {
-            println!("{}", i);
+            i.print_info(&cache);
         }
     }
 
@@ -318,7 +337,7 @@ mod test {
         let res_filter = db.query_from_branch("apt/stable", true, false).unwrap();
 
         for i in res_filter {
-            println!("{}", i);
+            i.print_info(&cache);
         }
     }
 }
