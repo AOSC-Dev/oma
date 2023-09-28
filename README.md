@@ -8,19 +8,19 @@ Although it is based on apt, we did quite a bit of extra work, the goal of this 
 
 ### Pending Operations
 
-![](image.png)
+![](screenshot/image.png)
 
 ### Multi-thread download
 
-[![asciicast](https://asciinema.org/a/596691.jpg)](https://asciinema.org/a/596691)
+[![asciicast](https://asciinema.org/a/596691.svg)](https://asciinema.org/a/596691)
 
 ### Smart Search
 
-[![asciicast](https://asciinema.org/a/610838.jpg)](https://asciinema.org/a/610838)
+[![asciicast](https://asciinema.org/a/610838.svg)](https://asciinema.org/a/610838)
 
 ### Undo
 
-[![asciicast](https://asciinema.org/a/610839.jpg)](https://asciinema.org/a/610839)
+[![asciicast](https://asciinema.org/a/610839.svg)](https://asciinema.org/a/610839)
 
 ...and more.
 
