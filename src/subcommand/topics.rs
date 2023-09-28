@@ -40,10 +40,12 @@ pub fn execute(
     let rt = create_async_runtime()?;
     dbus_check(&rt)?;
 
-    let topics_changed =
-        rt.block_on(async move { topics_inner(opt_in, opt_out, dry_run, no_progress, || {
+    let topics_changed = rt.block_on(async move {
+        topics_inner(opt_in, opt_out, dry_run, no_progress, || {
             fl!("do-not-edit-topic-sources-list")
-        }).await })?;
+        })
+        .await
+    })?;
 
     let enabled_pkgs = topics_changed.enabled_pkgs;
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
@@ -124,7 +126,7 @@ where
 
     let enabled_pkgs = tm
         .enabled_topics()
-        .into_iter()
+        .iter()
         .flat_map(|x| x.packages.clone())
         .collect::<Vec<_>>();
 

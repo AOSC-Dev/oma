@@ -205,7 +205,7 @@ impl<'a> OmaDatabase<'a> {
             let version = sort.last();
             if let Some(version) = version {
                 let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
-                let has_dbg = has_dbg(self.cache, &pkg, &version);
+                let has_dbg = has_dbg(self.cache, &pkg, version);
 
                 if has_dbg && select_dbg {
                     self.select_dbg(&pkg, version, &mut res);
