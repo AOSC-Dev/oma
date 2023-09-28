@@ -384,17 +384,18 @@ impl OmaApt {
         for pkg in pkgs {
             let name = pkg.raw_pkg.name().to_string();
             let ver = Version::new(pkg.version_raw, &self.cache);
+            let install_size = ver.installed_size();
             let entry = InstallEntryBuilder::default()
                 .name(pkg.raw_pkg.name().to_string())
                 .new_version(ver.version().to_string())
-                .new_size(pkg.installed_size)
-                .pkg_urls(pkg.apt_sources)
+                .new_size(install_size)
+                .pkg_urls(ver.uris().collect::<Vec<_>>())
                 .checksum(
-                    pkg.checksum
+                    ver.get_record(RecordField::SHA256)
                         .ok_or_else(|| OmaAptError::PkgNoChecksum(name))?,
                 )
                 .arch(ver.arch().to_string())
-                .download_size(pkg.download_size)
+                .download_size(ver.size())
                 .op(InstallOperation::Download)
                 .build()?;
 
@@ -976,7 +977,12 @@ impl OmaApt {
 }
 
 /// Mark package as delete.
-fn mark_delete<F>(cache: &Cache, pkg: &PkgInfo, purge: bool, how_handle_essential: F) -> OmaAptResult<bool>
+fn mark_delete<F>(
+    cache: &Cache,
+    pkg: &PkgInfo,
+    purge: bool,
+    how_handle_essential: F,
+) -> OmaAptResult<bool>
 where
     F: Fn(&str) -> bool + Copy,
 {
@@ -1056,7 +1062,7 @@ fn select_pkg(
         };
 
         for i in &res {
-            debug!("{i}\n");
+            debug!("{} {}\n", i.raw_pkg.name(), i.version_raw.version());
         }
 
         if res.is_empty() {

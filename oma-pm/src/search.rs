@@ -2,10 +2,11 @@ use indicium::simple::{Indexable, SearchIndex};
 use oma_apt::{
     cache::{Cache, PackageSort},
     package::Package,
+    raw::package::RawPackage,
 };
 use std::collections::HashMap;
 
-use crate::pkginfo::PkgInfo;
+use crate::query::has_dbg;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum PackageStatus {
@@ -44,17 +45,17 @@ impl Ord for PackageStatus {
 
 struct SearchEntry {
     pkgname: String,
-    pkginfo: PkgInfo,
+    description: String,
     status: PackageStatus,
     provide: Option<String>,
+    has_dbg: bool,
+    raw_pkg: RawPackage,
+    section: String,
 }
 
 impl Indexable for SearchEntry {
     fn strings(&self) -> Vec<String> {
-        vec![
-            self.pkgname.clone(),
-            self.pkginfo.description.clone().unwrap_or("".to_string()),
-        ]
+        vec![self.pkgname.clone(), self.description.clone()]
     }
 }
 
@@ -108,9 +109,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
                 pkg.name().to_string(),
                 SearchEntry {
                     pkgname: pkg.name().to_string(),
-                    pkginfo: PkgInfo::new(cache, cand.unique(), &pkg),
+                    description: cand.description().unwrap_or("".to_string()),
                     status,
                     provide: None,
+                    has_dbg: has_dbg(cache, &pkg, &cand),
+                    raw_pkg: pkg.unique(),
+                    section: cand.section().ok().unwrap_or("").to_string(),
                 },
             );
             continue;
@@ -136,9 +140,12 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
                     i.name().to_string(),
                     SearchEntry {
                         pkgname: pkg.name().to_string(),
-                        pkginfo: PkgInfo::new(cache, cand.unique(), &pkg),
+                        description: cand.description().unwrap_or("".to_string()),
                         status,
                         provide: Some(provide.to_string()),
+                        has_dbg: has_dbg(cache, &pkg, &cand),
+                        raw_pkg: pkg.unique(),
+                        section: cand.section()?.to_string(),
                     },
                 );
             }
@@ -163,16 +170,11 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
         let entry = pkg_map.get(i).unwrap();
 
         let name = entry.pkgname.clone();
-        let desc = entry
-            .pkginfo
-            .description
-            .as_deref()
-            .unwrap_or_default()
-            .to_string();
+        let desc = entry.description.clone();
 
         let status = entry.status.clone();
-        let has_dbg = entry.pkginfo.has_dbg;
-        let pkg = entry.pkginfo.raw_pkg.unique();
+        let has_dbg = entry.has_dbg;
+        let pkg = entry.raw_pkg.unique();
         let pkg = Package::new(cache, pkg);
         let full_match = name == input || entry.provide == Some(input.to_string());
 
@@ -187,7 +189,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
             .map(|x| x.version().to_string())
             .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
 
-        let is_base = entry.pkginfo.section.as_deref() == Some("Bases");
+        let is_base = entry.section == "Bases";
 
         search_res.push(SearchResult {
             name,
