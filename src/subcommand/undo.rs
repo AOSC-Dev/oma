@@ -70,7 +70,7 @@ pub fn execute(network_thread: usize, no_progress: bool) -> Result<i32, OutputEr
                 None
             }
         })
-        .map(|(x, y)| PkgInfo::new(&apt.cache, y.unique(), x))
+        .map(|(x, y)| PkgInfo::new(&y, x))
         .collect::<Vec<_>>();
 
     apt.install(&install, false)?;

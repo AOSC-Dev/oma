@@ -70,7 +70,7 @@ impl<'a> OmaDatabase<'a> {
             let versions = pkg.versions().collect::<Vec<_>>();
 
             for ver in &versions {
-                let info = PkgInfo::new(self.cache, ver.unique(), &pkg);
+                let info = PkgInfo::new(ver, &pkg);
 
                 let has = ver.uris().any(|x| url_no_escape(&x) == path.as_str());
                 if has {
@@ -109,7 +109,7 @@ impl<'a> OmaDatabase<'a> {
             debug!("Select pkg: {}", pkg.name());
             let versions = pkg.versions().collect::<Vec<_>>();
             for ver in versions {
-                let pkginfo = PkgInfo::new(self.cache, ver.unique(), &pkg);
+                let pkginfo = PkgInfo::new(&ver, &pkg);
                 let has_dbg = has_dbg(self.cache, &pkg, &ver);
 
                 let is_cand = pkg.candidate().map(|x| x == ver).unwrap_or(false);
@@ -158,7 +158,7 @@ impl<'a> OmaDatabase<'a> {
 
         let mut res = vec![];
 
-        let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
+        let pkginfo = PkgInfo::new(&version, &pkg);
         let has_dbg = has_dbg(self.cache, &pkg, &version);
 
         res.push(pkginfo);
@@ -204,7 +204,7 @@ impl<'a> OmaDatabase<'a> {
         if filter_candidate {
             let version = sort.last();
             if let Some(version) = version {
-                let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
+                let pkginfo = PkgInfo::new(version, &pkg);
                 let has_dbg = has_dbg(self.cache, &pkg, version);
 
                 if has_dbg && select_dbg {
@@ -215,7 +215,7 @@ impl<'a> OmaDatabase<'a> {
             }
         } else {
             for i in sort {
-                let pkginfo = PkgInfo::new(self.cache, i.unique(), &pkg);
+                let pkginfo = PkgInfo::new(&i, &pkg);
                 let has_dbg = has_dbg(self.cache, &pkg, &i);
 
                 if has_dbg && select_dbg {
@@ -245,7 +245,7 @@ impl<'a> OmaDatabase<'a> {
         if let Some(dbg_pkg) = dbg_pkg {
             let dbg_ver = dbg_pkg.get_version(version_str);
             if let Some(dbg_ver) = dbg_ver {
-                let pkginfo_dbg = PkgInfo::new(self.cache, dbg_ver.unique(), &dbg_pkg);
+                let pkginfo_dbg = PkgInfo::new(&dbg_ver, &dbg_pkg);
                 res.push(pkginfo_dbg);
             }
         }
@@ -258,7 +258,7 @@ impl<'a> OmaDatabase<'a> {
             // 所以要一个个版本遍历直到找到能下载的版本中最高的版本
             for version in pkg.versions() {
                 if version.is_downloadable() {
-                    let pkginfo = PkgInfo::new(self.cache, version.unique(), &pkg);
+                    let pkginfo = PkgInfo::new(&version, &pkg);
                     debug!(
                         "Pkg: {} selected version: {}",
                         pkg.name(),

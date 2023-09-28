@@ -24,7 +24,7 @@ pub fn execute(pkgs: Vec<String>) -> Result<i32, OutputError> {
     for pkg in pkgs {
         println!("{}:", pkg.raw_pkg.name());
         println!("  Reverse dependencies:");
-        let all_deps = pkg.rdeps;
+        let all_deps = pkg.get_rdeps(&apt.cache);
 
         for (k, v) in all_deps {
             for dep in v.inner() {
