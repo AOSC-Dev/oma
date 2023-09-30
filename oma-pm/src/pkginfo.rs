@@ -176,7 +176,7 @@ impl PkgInfo {
             for (i, c) in uris.iter().enumerate() {
                 println!(
                     "  {}",
-                    source_url_to_apt_style(&c).unwrap_or(c.to_string())
+                    source_url_to_apt_style(c).unwrap_or(c.to_string())
                 );
                 if i != uris.len() - 1 {
                     println!()
