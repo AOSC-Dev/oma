@@ -115,7 +115,7 @@ impl TopicManager {
     }
 
     /// Get all new topics
-    async fn refresh(&mut self) -> Result<()> {
+    pub async fn refresh(&mut self) -> Result<()> {
         let urls = enabled_mirror()
             .await?
             .iter()
