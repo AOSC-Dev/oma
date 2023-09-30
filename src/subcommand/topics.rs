@@ -3,7 +3,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::{indicatif::ProgressBar, pb::oma_spinner};
+use oma_console::{indicatif::ProgressBar, pb::oma_spinner, WRITER};
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
     query::OmaDatabase,
@@ -201,6 +201,13 @@ async fn inquire(
         ..Default::default()
     };
 
+    let page_size = match WRITER.get_height() {
+        0 => panic!("Terminal height must be greater than 0"),
+        x @ 1..=4 => x,
+        x @ 5..=23 => x - 4,
+        24.. => 20,
+    };
+
     let ans = MultiSelect::new(
         &fl!("select-topics-dialog"),
         display.iter().map(|x| x.as_str()).collect(),
@@ -208,7 +215,7 @@ async fn inquire(
     .with_help_message(&fl!("tips"))
     .with_formatter(formatter)
     .with_default(&default)
-    .with_page_size(8)
+    .with_page_size(page_size as usize)
     .with_render_config(render_config)
     .prompt()
     .map_err(|_| anyhow!(""))?;
