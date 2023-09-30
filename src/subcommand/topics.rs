@@ -8,6 +8,7 @@ use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
     query::OmaDatabase,
 };
+use oma_utils::dpkg::dpkg_arch;
 
 use crate::{
     error::OutputError,
@@ -113,7 +114,7 @@ where
     }
 
     for i in &opt_in {
-        tm.add(i, dry_run, "amd64").await?;
+        tm.add(i, dry_run, &dpkg_arch()?).await?;
     }
 
     let mut downgrade_pkgs = vec![];
@@ -156,6 +157,7 @@ async fn inquire(
         None
     };
 
+    tm.refresh().await?;
     let all_names = tm.all_topics();
 
     let display = all_names
