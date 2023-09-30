@@ -125,6 +125,10 @@ impl TopicManager {
             })
             .collect::<Vec<_>>();
 
+        // FIXME: 暂时没有办法知道所有源 topic 写入之后的网址是什么（之前 atm 没有这个设计）
+        // 所以暂时与 atm 保持一致
+        let urls = vec![urls[0].clone()];
+
         self.all = refresh_innter(&self.client, urls).await?;
 
         Ok(())
@@ -255,7 +259,7 @@ async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>
     for i in res {
         let f = i
             .into_iter()
-            .filter(|x| !json.contains(x))
+            .filter(|x| json.iter().all(|y: &Topic| y.name != x.name))
             .collect::<Vec<_>>();
 
         json.extend(f);
@@ -280,8 +284,8 @@ where
 
     for i in enabled {
         if all.iter().all(|x| x.name != i.name) {
-            res.push(i.name.clone());
-            tm.remove(&i.name, false)?;
+            let d = tm.remove(&i.name, false)?;
+            res.push(d.name);
         }
     }
 
