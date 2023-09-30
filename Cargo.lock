@@ -2327,7 +2327,6 @@ version = "0.2.0"
 dependencies = [
  "futures",
  "indexmap 2.0.2",
- "oma-apt-sources-lists",
  "oma-console 0.2.0",
  "oma-inquire",
  "once_cell",

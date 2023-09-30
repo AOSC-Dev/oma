@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use indexmap::IndexMap;
-use oma_apt_sources_lists::{SourceLine, SourcesLists};
 use oma_console::debug;
 use once_cell::sync::Lazy;
 use reqwest::Client;
@@ -54,8 +53,6 @@ pub enum OmaTopicsError {
     FailedToDisableTopic(String),
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
-    #[error(transparent)]
-    SoutceListError(#[from] oma_apt_sources_lists::SourceError),
 }
 
 #[derive(Deserialize)]
@@ -274,30 +271,17 @@ pub async fn scan_closed_topic<F>(callback: F) -> Result<Vec<String>>
 where
     F: Fn() -> String + Copy,
 {
-    let mut atm_sources = vec![];
-    let s = SourcesLists::new_from_paths(["/etc/apt/sources.list.d/atm.list"].iter())?;
-
-    for file in s.iter() {
-        for i in &file.lines {
-            if let SourceLine::Entry(entry) = i {
-                atm_sources.push(entry.to_owned());
-            }
-        }
-    }
-
     let mut tm = TopicManager::new().await?;
     tm.refresh().await?;
     let all = tm.all_topics().to_owned();
+    let enabled = tm.enabled_topics().to_owned();
 
     let mut res = vec![];
 
-    for i in atm_sources {
-        let suite = i.suite;
-        let suite_clone = suite.clone();
-
-        if all.iter().all(|x| x.name != suite) {
-            res.push(suite_clone);
-            tm.remove(&suite, false)?;
+    for i in enabled {
+        if all.iter().all(|x| x.name != i.name) {
+            res.push(i.name.clone());
+            tm.remove(&i.name, false)?;
         }
     }
 
