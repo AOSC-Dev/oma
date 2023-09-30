@@ -203,7 +203,7 @@ async fn inquire(
 
     let page_size = match WRITER.get_height() {
         0 => panic!("Terminal height must be greater than 0"),
-        x @ 1..=4 => x,
+        1..=4 => 1,
         x @ 5..=23 => x - 4,
         24.. => 20,
     };
