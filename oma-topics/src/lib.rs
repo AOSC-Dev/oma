@@ -177,8 +177,12 @@ impl TopicManager {
             .iter()
             .position(|x| x.name.to_ascii_lowercase() == topic.to_ascii_lowercase());
 
+        debug!("oma will opt_out: {}", topic);
+        debug!("index is: {index:?}");
+        debug!("topic is: {topic}");
+        debug!("enabled topics: {:?}", self.enabled);
+
         if dry_run {
-            debug!("oma will opt_out: {}", topic);
             return Ok(self.enabled[index.unwrap()].to_owned());
         }
 
