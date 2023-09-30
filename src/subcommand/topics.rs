@@ -208,7 +208,7 @@ async fn inquire(
     .with_help_message(&fl!("tips"))
     .with_formatter(formatter)
     .with_default(&default)
-    .with_page_size(20)
+    .with_page_size(8)
     .with_render_config(render_config)
     .prompt()
     .map_err(|_| anyhow!(""))?;
