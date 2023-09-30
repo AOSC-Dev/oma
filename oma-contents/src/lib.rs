@@ -212,6 +212,7 @@ where
     let mut cmd = Command::new("rg");
     cmd.arg("-N");
     cmd.arg("-I");
+    cmd.arg("--pcre2");
     cmd.arg("-e");
     cmd.arg(pattern);
     cmd.args(paths);
