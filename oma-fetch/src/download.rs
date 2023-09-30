@@ -537,7 +537,7 @@ impl SingleDownloader<'_> {
         Ok(Summary::new(
             self.entry.filename.clone(),
             true,
-            *c,
+            position,
             self.context.clone(),
         ))
     }
