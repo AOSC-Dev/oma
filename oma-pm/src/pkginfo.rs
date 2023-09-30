@@ -150,10 +150,7 @@ impl PkgInfo {
         println!("Package: {}", self.raw_pkg.name());
         println!("Version: {}", self.version_raw.version());
         let ver = Version::new(self.version_raw.unique(), cache);
-        println!(
-            "Section: {}",
-            ver.section().as_deref().unwrap_or("unknown")
-        );
+        println!("Section: {}", ver.section().as_deref().unwrap_or("unknown"));
         println!(
             "Maintainer: {}",
             ver.get_record(RecordField::Maintainer)
@@ -174,10 +171,7 @@ impl PkgInfo {
             println!("  unknown");
         } else {
             for (i, c) in uris.iter().enumerate() {
-                println!(
-                    "  {}",
-                    source_url_to_apt_style(c).unwrap_or(c.to_string())
-                );
+                println!("  {}", source_url_to_apt_style(c).unwrap_or(c.to_string()));
                 if i != uris.len() - 1 {
                     println!()
                 }
