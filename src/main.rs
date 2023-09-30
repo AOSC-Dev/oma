@@ -127,7 +127,7 @@ fn try_main() -> Result<i32, OutputError> {
     }
 
     // Init debug flag
-    if matches.get_flag("debug")
+    let debug = if matches.get_flag("debug")
         || matches!(
             matches.subcommand().map(|(_, x)| x.try_get_one("debug")),
             Some(Ok(Some(true)))
@@ -135,7 +135,10 @@ fn try_main() -> Result<i32, OutputError> {
         || dry_run
     {
         DEBUG.store(true, Ordering::Relaxed);
-    }
+        true
+    } else {
+        false
+    };
 
     // --no-progress
     let no_progress = matches.get_flag("no_progress")
@@ -144,7 +147,8 @@ fn try_main() -> Result<i32, OutputError> {
                 .subcommand()
                 .map(|(_, x)| x.try_get_one("no_progress")),
             Some(Ok(Some(true)))
-        );
+        )
+        || debug;
 
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());

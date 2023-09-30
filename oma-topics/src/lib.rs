@@ -125,10 +125,6 @@ impl TopicManager {
             })
             .collect::<Vec<_>>();
 
-        // // FIXME: 暂时没有办法知道所有源 topic 写入之后的网址是什么（之前 atm 没有这个设计）
-        // // 所以暂时与 atm 保持一致
-        // let urls = vec![urls[0].clone()];
-
         self.all = refresh_innter(&self.client, urls).await?;
 
         Ok(())
