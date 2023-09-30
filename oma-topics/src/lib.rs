@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use indexmap::IndexMap;
-use oma_console::debug;
+use oma_console::{debug, warn};
 use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -125,9 +125,9 @@ impl TopicManager {
             })
             .collect::<Vec<_>>();
 
-        // FIXME: 暂时没有办法知道所有源 topic 写入之后的网址是什么（之前 atm 没有这个设计）
-        // 所以暂时与 atm 保持一致
-        let urls = vec![urls[0].clone()];
+        // // FIXME: 暂时没有办法知道所有源 topic 写入之后的网址是什么（之前 atm 没有这个设计）
+        // // 所以暂时与 atm 保持一致
+        // let urls = vec![urls[0].clone()];
 
         self.all = refresh_innter(&self.client, urls).await?;
 
@@ -196,7 +196,12 @@ impl TopicManager {
     }
 
     /// Write topic changes to mirror list
-    pub async fn write_enabled<F>(&self, dry_run: bool, callback: F) -> Result<()>
+    pub async fn write_enabled<F>(
+        &self,
+        dry_run: bool,
+        callback: F,
+        check_available: bool,
+    ) -> Result<()>
     where
         F: Fn() -> String,
     {
@@ -213,19 +218,24 @@ impl TopicManager {
             f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())
                 .await?;
             for j in &mirrors {
-                f.write_all(
-                    format!(
-                        "deb {}debs {} main\n",
-                        if j.ends_with('/') {
-                            j.to_owned()
-                        } else {
-                            format!("{j}/")
-                        },
-                        i.name
-                    )
-                    .as_bytes(),
-                )
-                .await?;
+                let url = if j.ends_with('/') {
+                    j.to_owned()
+                } else {
+                    format!("{j}/")
+                };
+                if check_available
+                    && !self
+                        .check_available_fn(format!("{url}debs/dists/{}", i.name))
+                        .await
+                        .unwrap_or(false)
+                {
+                    warn!("{} topic is inaccessible in mirror {j}.", i.name);
+                    warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
+                    continue;
+                }
+
+                f.write_all(format!("deb {}debs {} main\n", url, i.name).as_bytes())
+                    .await?;
             }
         }
 
@@ -234,6 +244,16 @@ impl TopicManager {
         tokio::fs::write(&*ATM_STATE, s).await?;
 
         Ok(())
+    }
+
+    async fn check_available_fn(&self, url: String) -> Result<bool> {
+        Ok(self
+            .client
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()
+            .is_ok())
     }
 }
 
@@ -289,7 +309,7 @@ where
         }
     }
 
-    tm.write_enabled(false, callback).await?;
+    tm.write_enabled(false, callback, false).await?;
 
     Ok(res)
 }

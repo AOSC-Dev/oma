@@ -77,7 +77,7 @@ async fn main() -> Result<()> {
         tm.remove(&i, false)?;
     }
 
-    tm.write_enabled(false, || "a".to_owned()).await?;
+    tm.write_enabled(false, || "a".to_owned(), true).await?;
 
     Ok(())
 }
