@@ -11,7 +11,7 @@ mod subcommand;
 mod table;
 mod utils;
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 
 use clap::ArgMatches;
 use error::OutputError;

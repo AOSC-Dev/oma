@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use crate::error::OutputError;
 use crate::fl;
 use crate::history::connect_db;
 use crate::history::write_history_entry;
@@ -9,7 +10,6 @@ use crate::pb;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::multibar;
-use crate::Result;
 use chrono::Local;
 use chrono::LocalResult;
 use chrono::TimeZone;
@@ -36,7 +36,11 @@ pub(crate) fn handle_no_result(no_result: Vec<String>) {
     }
 }
 
-pub(crate) fn refresh(dry_run: bool, no_progress: bool, download_pure_db: bool) -> Result<()> {
+pub(crate) fn refresh(
+    dry_run: bool,
+    no_progress: bool,
+    download_pure_db: bool,
+) -> Result<(), OutputError> {
     if dry_run {
         return Ok(());
     }
@@ -106,7 +110,7 @@ pub(crate) fn normal_commit(
     no_fixbroken: bool,
     network_thread: usize,
     no_progress: bool,
-) -> Result<()> {
+) -> Result<(), OutputError> {
     let op = apt.summary()?;
     let op_after = op.clone();
     let install = op.install;
@@ -173,11 +177,12 @@ pub(crate) fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -
 pub(crate) fn dialoguer_select_history(
     display_list: &[String],
     old_selected: usize,
-) -> Result<usize> {
+) -> Result<usize, OutputError> {
     let selected = Select::with_theme(&ColorfulTheme::default())
         .items(display_list)
         .default(old_selected)
-        .interact()?;
+        .interact()
+        .unwrap();
 
     Ok(selected)
 }
