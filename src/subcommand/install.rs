@@ -4,13 +4,13 @@ use oma_pm::apt::AptArgsBuilder;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
 
+use crate::error::OutputError;
 use crate::fl;
 use crate::history::SummaryType;
 use crate::utils::create_async_runtime;
 use crate::utils::dbus_check;
 use crate::utils::root;
 use crate::InstallArgs;
-use crate::Result;
 
 use super::utils::handle_no_result;
 use super::utils::normal_commit;
@@ -23,7 +23,7 @@ pub fn execute(
     network_thread: usize,
     no_progress: bool,
     download_pure_db: bool,
-) -> Result<i32> {
+) -> Result<i32, OutputError> {
     root()?;
 
     let rt = create_async_runtime()?;

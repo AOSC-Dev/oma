@@ -18,7 +18,7 @@ use oma_utils::dpkg::DpkgError;
 use oma_topics::OmaTopicsError;
 
 use crate::fl;
-use crate::table::handle_unmet_dep;
+use crate::table::print_unmet_dep;
 
 #[derive(Debug)]
 pub struct OutputError((String, Option<String>));
@@ -314,7 +314,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             Some(fl!("reinstall-failed-info")),
         ),
         OmaAptError::DependencyIssue(ref v) => match v {
-            v if v.is_empty() || handle_unmet_dep(v).is_err() => {
+            v if v.is_empty() || print_unmet_dep(v).is_err() => {
                 (err.to_string(), Some(fl!("bug")))
             }
             _ => ("".to_string(), None),

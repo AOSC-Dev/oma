@@ -2,7 +2,7 @@ use std::{
     env::var,
     io::Write,
     process::Child,
-    sync::atomic::{AtomicI32, Ordering},
+    sync::atomic::{AtomicI32, Ordering}, fmt::Display, ffi::OsStr,
 };
 
 use crate::{writer::Writer, OmaConsoleError, OmaConsoleResult};
@@ -15,20 +15,11 @@ pub enum Pager {
 }
 
 impl Pager {
-    /// Create a new Pager (less or less-like Pager)
-    /// no_pager: if false, not use less-like to see file
-    /// tips: less tips
-    pub fn new(no_pager: bool, tips: &str) -> OmaConsoleResult<Self> {
-        if no_pager {
-            return Ok(Pager::Plain);
-        }
+    pub fn plain() -> Self {
+        Self::Plain
+    }
 
-        // Use plain mode for dumb terminals
-        let term = var("TERM").unwrap_or_default();
-        if term == "dumb" || term == "dialup" {
-            return Ok(Pager::Plain);
-        }
-
+    pub fn external<D: Display + AsRef<OsStr>>(tips: D) -> OmaConsoleResult<Self> {
         let pager_cmd = var("PAGER").unwrap_or_else(|_| "less".to_owned());
         let pager_cmd_segments: Vec<&str> = pager_cmd.split_ascii_whitespace().collect();
         let pager_name = pager_cmd_segments.first().unwrap_or(&"less");
@@ -46,6 +37,7 @@ impl Pager {
             p.args(&pager_cmd_segments[1..]);
         }
         let pager_process = p.stdin(std::process::Stdio::piped()).spawn()?;
+
         // Record PID
         SUBPROCESS.store(pager_process.id() as i32, Ordering::SeqCst);
 

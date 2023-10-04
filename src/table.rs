@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::Write;
 use std::sync::atomic::Ordering;
 
@@ -163,43 +164,79 @@ pub fn oma_display(is_question: bool, len: usize) -> Result<Pager, OutputError> 
         fl!("normal-tips")
     };
 
-    let pager = Pager::new(len < WRITER.get_height().into(), &tips)?;
+    let pager = if len < WRITER.get_height().into() {
+        Pager::plain()
+    } else {
+        Pager::external(tips)?
+    };
 
     Ok(pager)
 }
 
-pub fn handle_unmet_dep(u: &[UnmetDep]) -> Result<(), OutputError> {
-    let mut pager = oma_display(false, u.len())?;
-    let mut out = pager.get_writer().unwrap();
+pub struct PagerPrinter<W> {
+    writer: W,
+}
 
-    writeln!(out, "{:<80}\n", style(fl!("dep-error")).on_red().bold()).ok();
-    writeln!(out, "{}\n", fl!("dep-error-desc"),).ok();
-    writeln!(out, "{}\n", fl!("contact-admin-tips")).ok();
-    writeln!(out, "    {}", style(fl!("how-to-abort")).bold()).ok();
-    writeln!(out, "    {}\n\n", style(fl!("how-to-op-with-x")).bold()).ok();
+impl<W: Write> PagerPrinter<W> {
+    pub fn new(writer: W) -> PagerPrinter<W> {
+        PagerPrinter { writer }
+    }
+
+    pub fn print<D: Display>(&mut self, d: D) -> std::io::Result<()> {
+        writeln!(self.writer, "{d}")
+    }
+
+    pub fn print_table<T, I>(&mut self, table: I) -> std::io::Result<()>
+    where
+        I: IntoIterator<Item = T>,
+        T: Tabled,
+    {
+        let mut table = Table::new(table);
+
+        table
+            .with(Modify::new(Segment::all()).with(Alignment::left()))
+            .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
+            .with(Style::psql())
+            .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
+
+        writeln!(self.writer, "{table}")
+    }
+}
+
+pub fn print_unmet_dep(u: &[UnmetDep]) -> Result<(), OutputError> {
+    let mut pager = oma_display(false, u.len())?;
+    let out = pager.get_writer().unwrap();
+    let mut printer = PagerPrinter::new(out);
+
+    printer
+        .print(format!("{:<80}\n", style(fl!("dep-error")).on_red().bold()))
+        .ok();
+    printer.print(format!("{}\n", fl!("dep-error-desc"))).ok();
+    printer
+        .print(format!("{}\n", fl!("contact-admin-tips")))
+        .ok();
+    printer
+        .print(format!("    {}", style(fl!("how-to-abort")).bold()))
+        .ok();
+    printer
+        .print(format!("    {}\n\n", style(fl!("how-to-op-with-x")).bold()))
+        .ok();
 
     let v = u.iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
 
-    writeln!(
-        out,
-        "{} {}{}\n",
-        fl!("unmet-dep-before", count = v.len()),
-        style(fl!("unmet-dep")).red().bold(),
-        fl!("colon")
-    )
-    .ok();
+    printer
+        .print(format!(
+            "{} {}{}\n",
+            fl!("unmet-dep-before", count = v.len()),
+            style(fl!("unmet-dep")).red().bold(),
+            fl!("colon")
+        ))
+        .ok();
 
-    let mut table = Table::new(v);
+    printer.print_table(v).ok();
+    printer.print("\n").ok();
 
-    table
-        .with(Modify::new(Segment::all()).with(Alignment::left()))
-        .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
-        .with(Style::psql())
-        .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
-
-    writeln!(out, "{table}\n").ok();
-
-    drop(out);
+    drop(printer);
     pager.wait_for_exit()?;
 
     Ok(())
@@ -247,7 +284,12 @@ pub fn table_pending_inner(
     disk_size: &(String, u64),
     question: bool,
 ) -> Result<(), OutputError> {
-    let mut pager = Pager::new(!is_pager, &tips)?;
+    let mut pager = if is_pager {
+        Pager::external(&tips)?
+    } else {
+        Pager::plain()
+    };
+
     let pager_name = pager.pager_name().to_owned();
     let mut out = pager.get_writer()?;
 
