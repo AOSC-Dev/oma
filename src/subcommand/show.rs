@@ -13,7 +13,7 @@ pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
     handle_no_result(no_result);
 
     if !all {
-        if let Some(pkg) = pkgs.get(0) {
+        if let Some(pkg) = pkgs.first() {
             pkg.print_info(&apt.cache);
         }
 
