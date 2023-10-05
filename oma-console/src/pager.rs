@@ -21,6 +21,12 @@ impl Pager {
 
     pub fn external<D: Display + AsRef<OsStr>>(tips: D) -> OmaConsoleResult<Self> {
         let pager_cmd = var("PAGER").unwrap_or_else(|_| "less".to_owned());
+
+        let term = var("TERM").unwrap_or_default();
+        if term == "dumb" || term == "dialup" {
+            return Ok(Pager::Plain);
+        }
+
         let pager_cmd_segments: Vec<&str> = pager_cmd.split_ascii_whitespace().collect();
         let pager_name = pager_cmd_segments.first().unwrap_or(&"less");
         let mut p = std::process::Command::new(pager_name);
