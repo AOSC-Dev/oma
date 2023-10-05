@@ -894,7 +894,7 @@ impl OmaApt {
                 entry.pkg_urls(uri);
                 entry.arch(version.arch().to_string());
                 entry.download_size(version.size());
-                entry.op(InstallOperation::Install);
+                entry.op(InstallOperation::ReInstall);
                 entry.automatic(!self.select_pkgs.contains(&pkg.name().to_string()));
 
                 if not_local_source {
@@ -1117,7 +1117,7 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
             })
         {
             return Ok(false);
-        } else if installed.version() == ver.version() {
+        } else if installed.version() == ver.version() && reinstall {
             if !ver.is_downloadable() {
                 return Err(OmaAptError::MarkReinstallError(
                     pkg.name().to_string(),
