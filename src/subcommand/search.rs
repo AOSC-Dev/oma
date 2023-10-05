@@ -39,7 +39,7 @@ pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
         pb.finish_and_clear();
     }
 
-    let mut pager = oma_display(false, res.len())?;
+    let mut pager = oma_display(false, res.len() * 2)?;
 
     let mut writer = pager.get_writer()?;
 
