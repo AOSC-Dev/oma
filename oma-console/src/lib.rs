@@ -4,7 +4,6 @@ pub mod writer;
 use std::sync::atomic::AtomicBool;
 
 pub use console;
-pub use dialoguer;
 pub use indicatif;
 use once_cell::sync::Lazy;
 use writer::Writer;
