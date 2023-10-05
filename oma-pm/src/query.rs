@@ -72,7 +72,7 @@ impl<'a> OmaDatabase<'a> {
             for ver in &versions {
                 let info = PkgInfo::new(ver, &pkg);
 
-                let has = ver.uris().any(|x| url_no_escape(&x) == path.as_str());
+                let has = ver.uris().any(|x| url_no_escape(&x) == path);
                 if has {
                     res.push(info);
                 }
