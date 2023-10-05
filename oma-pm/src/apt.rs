@@ -81,6 +81,8 @@ pub enum OmaAptError {
     PkgNoCandidate(String),
     #[error("Package: {0} has no SHA256 checksum.")]
     PkgNoChecksum(String),
+    #[error("Package: {0}: {1} has no mirror available.")]
+    PkgUnavailable(String, String),
     #[error("Ivaild file name: {0}")]
     InvalidFileName(String),
     #[error(transparent)]
@@ -385,6 +387,9 @@ impl OmaApt {
             let name = pkg.raw_pkg.name().to_string();
             let ver = Version::new(pkg.version_raw, &self.cache);
             let install_size = ver.installed_size();
+            if !ver.is_downloadable() {
+                return Err(OmaAptError::PkgUnavailable(name, ver.version().to_string()));
+            }
             let entry = InstallEntryBuilder::default()
                 .name(pkg.raw_pkg.name().to_string())
                 .new_version(ver.version().to_string())

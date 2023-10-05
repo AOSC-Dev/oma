@@ -314,9 +314,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             Some(fl!("reinstall-failed-info")),
         ),
         OmaAptError::DependencyIssue(ref v) => match v {
-            v if v.is_empty() || print_unmet_dep(v).is_err() => {
-                (err.to_string(), Some(fl!("bug")))
-            }
+            v if v.is_empty() || print_unmet_dep(v).is_err() => (err.to_string(), Some(fl!("bug"))),
             _ => ("".to_string(), None),
         },
         OmaAptError::PkgIsEssential(s) => (fl!("pkg-is-essential", name = s), None),
@@ -339,6 +337,9 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::Anyhow(e) => (e.to_string(), None),
         OmaAptError::MarkPkgNotInstalled(pkg) => (fl!("pkg-is-not-installed", pkg = pkg), None),
         OmaAptError::DpkgError(e) => (OutputError::from(e).to_string(), None),
+        OmaAptError::PkgUnavailable(pkg, ver) => {
+            (fl!("pkg-unavailable", pkg = pkg, ver = ver), None)
+        }
     };
 
     OutputError(err)

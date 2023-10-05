@@ -55,6 +55,7 @@ pkg-search-avail = AVAIL
 pkg-search-installed = INSTALLED
 pkg-search-upgrade = UPGRADE
 pkg-no-checksum = Package {$name} no checksum.
+pkg-unavailable = No source to download the {$ver} version of the {$pkg} package.
 
 # pager
 question-tips-with-x11 = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
