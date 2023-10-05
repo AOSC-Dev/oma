@@ -258,16 +258,15 @@ pub fn table_for_install_pending(
     let pager_name = pager.pager_name().to_owned();
     let out = pager.get_writer()?;
     let mut printer = PagerPrinter::new(out);
-    let is_pager = matches!(pager, Pager::External(_));
 
     if is_pager {
         review_msg(&mut printer, pager_name);
     }
 
     print_pending_inner(printer, remove, install, disk_size);
-    pager.wait_for_exit()?;
+    let success = pager.wait_for_exit()?;
 
-    if is_pager {
+    if is_pager && success {
         let pager = Pager::plain();
         let out = pager.get_writer()?;
         let printer = PagerPrinter::new(out);

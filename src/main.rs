@@ -376,14 +376,10 @@ fn single_handler() {
     // Kill subprocess
     let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
     let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
+
     if subprocess_pid > 0 {
         let pid = nix::unistd::Pid::from_raw(subprocess_pid);
         signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
-        if !allow_ctrlc {
-            info!("{}", fl!("user-aborted-op"));
-        } else {
-            std::process::exit(0);
-        }
     }
 
     // Dealing with lock
@@ -394,6 +390,12 @@ fn single_handler() {
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
     let _ = WRITER.show_cursor();
+
+    if !allow_ctrlc {
+        info!("{}", fl!("user-aborted-op"));
+    } else {
+        std::process::exit(0);
+    }
 
     std::process::exit(2);
 }
