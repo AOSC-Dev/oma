@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::error::OutputError;
 use crate::fl;
-use crate::history::connect_db;
+use crate::history::connect_or_create_db;
 use crate::history::write_history_entry;
 use crate::history::SummaryLog;
 use crate::history::SummaryType;
@@ -135,7 +135,7 @@ pub(crate) fn normal_commit(
         }
     })?;
 
-    write_history_entry(op_after, typ, connect_db(true)?, dry_run, start_time)?;
+    write_history_entry(op_after, typ, connect_or_create_db(true)?, dry_run, start_time)?;
 
     Ok(())
 }

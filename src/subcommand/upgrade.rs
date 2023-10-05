@@ -6,7 +6,7 @@ use oma_pm::apt::OmaAptError;
 
 use crate::error::OutputError;
 use crate::fl;
-use crate::history::connect_db;
+use crate::history::connect_or_create_db;
 use crate::history::write_history_entry;
 use crate::history::SummaryType;
 use crate::pb;
@@ -101,7 +101,7 @@ pub fn execute(
                             .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                             .collect::<Vec<_>>(),
                     ),
-                    connect_db(true)?,
+                    connect_or_create_db(true)?,
                     dry_run,
                     start_time,
                 )?;

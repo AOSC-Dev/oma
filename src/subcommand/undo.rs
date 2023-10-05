@@ -6,7 +6,7 @@ use oma_pm::{
 
 use crate::{
     error::OutputError,
-    history::{connect_db, list_history, SummaryType},
+    history::{connect_or_create_db, list_history, SummaryType},
     utils::{create_async_runtime, dbus_check, root},
 };
 
@@ -18,7 +18,7 @@ pub fn execute(network_thread: usize, no_progress: bool) -> Result<i32, OutputEr
     let rt = create_async_runtime()?;
     dbus_check(&rt)?;
 
-    let conn = connect_db(false)?;
+    let conn = connect_or_create_db(false)?;
     let list = list_history(conn)?;
     let display_list = format_summary_log(&list, true);
     let selected = dialoguer_select_history(&display_list, 0)?;
