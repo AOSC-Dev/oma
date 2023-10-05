@@ -3,14 +3,14 @@ use std::sync::atomic::Ordering;
 
 use crate::{
     error::OutputError,
-    history::{connect_db, list_history},
+    history::{connect_or_create_db, list_history},
     ALLOWCTRLC, table::table_for_history_pending,
 };
 
 use super::utils::{dialoguer_select_history, format_summary_log};
 
 pub fn execute() -> Result<i32, OutputError> {
-    let conn = connect_db(false)?;
+    let conn = connect_or_create_db(false)?;
     let list = list_history(conn)?;
     let display_list = format_summary_log(&list, false);
 

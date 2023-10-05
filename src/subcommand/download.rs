@@ -35,9 +35,7 @@ pub fn execute(
         },
     )?;
 
-    let pbc = pb_map.clone();
-
-    if let Some(gpb) = pbc.clone().get(&0) {
+    if let Some(gpb) = pb_map.get(&0) {
         gpb.finish_and_clear();
     }
 

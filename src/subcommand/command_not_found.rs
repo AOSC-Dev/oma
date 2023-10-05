@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::path::Path;
 
-use oma_console::{due_to, error};
+use oma_console::{info, error};
 use oma_contents::{OmaContentsError, QueryMode};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use oma_utils::dpkg::dpkg_arch;
@@ -46,7 +46,7 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
                 if !err.is_empty() {
                     error!("{err}");
                     if let Some(info) = info {
-                        due_to!("{info}");
+                        info!("{info}");
                     }
                 }
             }
