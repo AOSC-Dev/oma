@@ -1,8 +1,10 @@
 use std::{
     env::var,
+    ffi::OsStr,
+    fmt::Display,
     io::Write,
     process::Child,
-    sync::atomic::{AtomicI32, Ordering}, fmt::Display, ffi::OsStr,
+    sync::atomic::{AtomicI32, Ordering},
 };
 
 use crate::{writer::Writer, OmaConsoleError, OmaConsoleResult};

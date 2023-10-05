@@ -396,14 +396,9 @@ fn oma_database_error(e: OmaDatabaseError) -> (String, Option<String>) {
             (fl!("invaild-pattern", p = s), Some(fl!("right-pattern")))
         }
         OmaDatabaseError::NoPackage(s) => (fl!("can-not-get-pkg-from-database", name = s), None),
-        OmaDatabaseError::NoVersion(pkg, ver) => (
-            fl!(
-                "pkg-unavailable",
-                pkg = pkg,
-                ver = ver
-            ),
-            None,
-        ),
+        OmaDatabaseError::NoVersion(pkg, ver) => {
+            (fl!("pkg-unavailable", pkg = pkg, ver = ver), None)
+        }
         OmaDatabaseError::NoPath(s) => (fl!("invaild-path", p = s), None),
         OmaDatabaseError::OmaSearchError(e) => match e {
             OmaSearchError::RustApt(e) => (fl!("apt-error", e = e.to_string()), None),
