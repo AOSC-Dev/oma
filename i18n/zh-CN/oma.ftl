@@ -55,7 +55,7 @@ pkg-search-avail = AVAIL
 pkg-search-installed = INSTALLED
 pkg-search-upgrade = UPGRADE
 pkg-no-checksum = 软件包 {$name} 没有校验码。
-pkg-unavailable = 没有源可以用来下载 {$ver} 版本的 {$pkg} 软件包。
+pkg-unavailable = 软件源中找不到 {$ver} 版本的软件包 {$pkg}。
 
 # pager
 question-tips-with-x11 = 按 [q] 结束审阅并应用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。
