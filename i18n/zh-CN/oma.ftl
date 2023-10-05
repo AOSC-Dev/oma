@@ -42,7 +42,6 @@ refreshing-topic-metadata = 正在刷新测试源数据 ...
 
 # pkg
 can-not-get-pkg-from-database = 无法从本机数据库中获取软件包 {$name} 的元数据。
-can-not-get-pkg-version-from-database = 无法从本机获取软件包 {$name} ({$version}) 的元数据。
 can-not-get-package-with-branch = 无法获取 {$branch} 分支上的软件包 {$name}。
 invaild-path = 非法路径：{$p}
 debug-symbol-available = （调试符号可用）
