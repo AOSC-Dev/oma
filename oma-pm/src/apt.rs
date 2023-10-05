@@ -320,9 +320,11 @@ impl OmaApt {
         for pkg in pkgs {
             let marked_install = mark_install(&self.cache, pkg, reinstall)?;
             debug!(
-                "Pkg {} marked_install: {marked_install}",
-                pkg.raw_pkg.name()
+                "Pkg {} {} marked install: {marked_install}",
+                pkg.raw_pkg.name(),
+                pkg.version_raw.version()
             );
+
             if !marked_install {
                 no_marked_install.push((
                     pkg.raw_pkg.name().to_string(),
@@ -395,10 +397,6 @@ impl OmaApt {
                 .new_version(ver.version().to_string())
                 .new_size(install_size)
                 .pkg_urls(ver.uris().collect::<Vec<_>>())
-                .checksum(
-                    ver.get_record(RecordField::SHA256)
-                        .ok_or_else(|| OmaAptError::PkgNoChecksum(name))?,
-                )
                 .arch(ver.arch().to_string())
                 .download_size(ver.size())
                 .op(InstallOperation::Download)
@@ -811,24 +809,30 @@ impl OmaApt {
                     .ok_or_else(|| OmaAptError::PkgNoCandidate(pkg.name().to_string()))?;
 
                 let uri = cand.uris().collect::<Vec<_>>();
+                let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
                 let version = cand.version();
-                let checksum = cand
-                    .get_record(RecordField::SHA256)
-                    .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?;
+                let checksum = cand.get_record(RecordField::SHA256);
 
                 let size = cand.installed_size();
 
-                let entry = InstallEntryBuilder::default()
-                    .name(pkg.name().to_string())
-                    .new_version(version.to_string())
-                    .new_size(size)
-                    .pkg_urls(uri)
-                    .checksum(checksum)
-                    .arch(cand.arch().to_string())
-                    .download_size(cand.size())
-                    .op(InstallOperation::Install)
-                    .automatic(!self.select_pkgs.contains(&pkg.name().to_string()))
-                    .build()?;
+                let mut entry = InstallEntryBuilder::default();
+                entry.name(pkg.name().to_string());
+                entry.new_version(version.to_string());
+                entry.new_size(size);
+                entry.pkg_urls(uri);
+                entry.arch(cand.arch().to_string());
+                entry.download_size(cand.size());
+                entry.op(InstallOperation::Install);
+                entry.automatic(!self.select_pkgs.contains(&pkg.name().to_string()));
+
+                if not_local_source {
+                    entry.checksum(
+                        checksum
+                            .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?,
+                    );
+                }
+
+                let entry = entry.build()?;
 
                 install.push(entry);
 
@@ -878,24 +882,31 @@ impl OmaApt {
                 // 如果一个包被标记为重装，则肯定已经安装
                 // 所以请求已安装版本应该直接 unwrap
                 let version = pkg.installed().unwrap();
+                let checksum = version.get_record(RecordField::SHA256);
+                let uri = version.uris().collect::<Vec<_>>();
+                let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
 
-                let checksum = version
-                    .get_record(RecordField::SHA256)
-                    .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?;
+                let mut entry = InstallEntryBuilder::default();
+                entry.name(pkg.name().to_string());
+                entry.new_version(version.version().to_string());
+                entry.old_size(version.installed_size());
+                entry.new_size(version.installed_size());
+                entry.pkg_urls(uri);
+                entry.arch(version.arch().to_string());
+                entry.download_size(version.size());
+                entry.op(InstallOperation::Install);
+                entry.automatic(!self.select_pkgs.contains(&pkg.name().to_string()));
 
-                let install_entry = InstallEntryBuilder::default()
-                    .name(pkg.name().to_string())
-                    .new_version(version.version().to_string())
-                    .old_size(version.installed_size())
-                    .new_size(version.installed_size())
-                    .pkg_urls(version.uris().collect())
-                    .checksum(checksum)
-                    .arch(version.arch().to_string())
-                    .download_size(0)
-                    .op(InstallOperation::ReInstall)
-                    .build()?;
+                if not_local_source {
+                    entry.checksum(
+                        checksum
+                            .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?,
+                    );
+                }
 
-                install.push(install_entry);
+                let entry = entry.build()?;
+
+                install.push(entry);
             }
 
             if pkg.marked_downgrade() {
@@ -1020,28 +1031,36 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
         .take()
         .ok_or_else(|| OmaAptError::PkgNoCandidate(new_pkg.name().to_string()))?;
 
+    let uri = cand.uris().collect::<Vec<_>>();
+    let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
+
     let new_version = cand.version();
     // 如果一个包有版本修改，则肯定之前已经安装
     // 所以请求已安装版本应该直接 unwrap
     let installed = new_pkg.installed().unwrap();
     let old_version = installed.version();
 
-    let checksum = cand
-        .get_record(RecordField::SHA256)
-        .ok_or_else(|| OmaAptError::PkgNoChecksum(new_pkg.name().to_string()))?;
+    let checksum = cand.get_record(RecordField::SHA256);
 
-    let install_entry = InstallEntryBuilder::default()
-        .name(new_pkg.name().to_string())
-        .old_version(old_version.to_string())
-        .new_version(new_version.to_owned())
-        .old_size(installed.installed_size())
-        .new_size(cand.installed_size())
-        .pkg_urls(cand.uris().collect::<Vec<_>>())
-        .checksum(checksum)
-        .arch(cand.arch().to_string())
-        .download_size(cand.size())
-        .op(op)
-        .build()?;
+    let mut install_entry = InstallEntryBuilder::default();
+    install_entry.name(new_pkg.name().to_string());
+    install_entry.old_version(old_version.to_string());
+    install_entry.new_version(new_version.to_owned());
+    install_entry.old_size(installed.installed_size());
+    install_entry.new_size(cand.installed_size());
+    install_entry.pkg_urls(cand.uris().collect::<Vec<_>>());
+
+    install_entry.arch(cand.arch().to_string());
+    install_entry.download_size(cand.size());
+    install_entry.op(op);
+
+    if not_local_source {
+        install_entry.checksum(
+            checksum.ok_or_else(|| OmaAptError::PkgNoChecksum(new_pkg.name().to_string()))?,
+        );
+    }
+
+    let install_entry = install_entry.build()?;
 
     Ok(install_entry)
 }
@@ -1067,7 +1086,7 @@ fn select_pkg(
         };
 
         for i in &res {
-            debug!("{} {}\n", i.raw_pkg.name(), i.version_raw.version());
+            debug!("{} {}", i.raw_pkg.name(), i.version_raw.version());
         }
 
         if res.is_empty() {
