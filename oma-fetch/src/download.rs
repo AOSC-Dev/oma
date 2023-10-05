@@ -93,7 +93,7 @@ impl SingleDownloader<'_> {
     where
         F: Fn(usize, DownloadEvent) + Clone,
     {
-        let mut times = 0;
+        let mut times = 1;
         loop {
             match self
                 .http_download(position, callback.clone(), global_progress.clone())
