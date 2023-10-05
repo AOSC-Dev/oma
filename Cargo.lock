@@ -2183,7 +2183,6 @@ name = "oma-console"
 version = "0.2.0"
 dependencies = [
  "console",
- "dialoguer 0.10.4",
  "indicatif",
  "once_cell",
  "thiserror",
