@@ -398,9 +398,9 @@ fn oma_database_error(e: OmaDatabaseError) -> (String, Option<String>) {
         OmaDatabaseError::NoPackage(s) => (fl!("can-not-get-pkg-from-database", name = s), None),
         OmaDatabaseError::NoVersion(pkg, ver) => (
             fl!(
-                "can-not-get-pkg-version-from-database",
-                name = pkg,
-                version = ver
+                "pkg-unavailable",
+                pkg = pkg,
+                ver = ver
             ),
             None,
         ),

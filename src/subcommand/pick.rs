@@ -82,13 +82,7 @@ pub fn execute(
 
     dialoguer = dialoguer.default(pos);
     let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
-    let version = pkg.get_version(&versions_str[sel]).ok_or_else(|| {
-        anyhow!(fl!(
-            "can-not-get-pkg-version-from-database",
-            name = pkg_str,
-            version = versions_str[sel].clone()
-        ))
-    })?;
+    let version = pkg.get_version(&versions_str[sel]).unwrap();
 
     let pkgs = vec![PkgInfo::new(&version, &pkg)];
     apt.install(&pkgs, false)?;
