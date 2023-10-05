@@ -14,25 +14,6 @@ use tabled::settings::object::{Columns, Segment};
 use tabled::settings::{Alignment, Format, Modify, Style};
 use tabled::{Table, Tabled};
 
-macro_rules! terminal_write {
-    ($dst:expr, $stderr:expr $(,)?) => {
-        {
-            writeln!($dst).ok();
-            if $stderr {
-                writeln!(std::io::stderr()).ok();
-            }
-        }
-    };
-    ($dst:expr, $stderr:expr, $($arg:tt)*) => {
-        {
-            writeln!($dst, "{}", format!($($arg)*)).ok();
-            if $stderr {
-                writeln!(std::io::stderr(), "{}", format!($($arg)*)).ok();
-            }
-        }
-    };
-}
-
 #[derive(Debug, Tabled)]
 struct InstallEntryDisplay {
     name: String,
@@ -186,12 +167,19 @@ impl<W: Write> PagerPrinter<W> {
         writeln!(self.writer, "{d}")
     }
 
-    pub fn print_table<T, I>(&mut self, table: I) -> std::io::Result<()>
+    pub fn print_table<T, I>(&mut self, table: I, header: Option<Vec<&str>>) -> std::io::Result<()>
     where
         I: IntoIterator<Item = T>,
         T: Tabled,
     {
-        let mut table = Table::new(table);
+        let mut table = match header {
+            Some(h) => {
+                let mut t = Table::builder(table);
+                t.set_header(h);
+                t.build()
+            }
+            None => Table::new(table),
+        };
 
         table
             .with(Modify::new(Segment::all()).with(Alignment::left()))
@@ -233,7 +221,7 @@ pub fn print_unmet_dep(u: &[UnmetDep]) -> Result<(), OutputError> {
         ))
         .ok();
 
-    printer.print_table(v).ok();
+    printer.print_table(v, None).ok();
     printer.print("\n").ok();
 
     drop(printer);
@@ -248,7 +236,6 @@ pub fn table_for_install_pending(
     disk_size: &(String, u64),
     is_pager: bool,
     dry_run: bool,
-    stderr_output: bool,
 ) -> Result<(), OutputError> {
     if dry_run {
         return Ok(());
@@ -262,28 +249,6 @@ pub fn table_for_install_pending(
         fl!("question-tips")
     };
 
-    table_pending_inner(
-        is_pager,
-        tips,
-        stderr_output,
-        remove,
-        install,
-        disk_size,
-        true,
-    )?;
-
-    Ok(())
-}
-
-pub fn table_pending_inner(
-    is_pager: bool,
-    tips: String,
-    stderr_output: bool,
-    remove: &[RemoveEntry],
-    install: &[InstallEntry],
-    disk_size: &(String, u64),
-    question: bool,
-) -> Result<(), OutputError> {
     let mut pager = if is_pager {
         Pager::external(&tips)?
     } else {
@@ -291,81 +256,76 @@ pub fn table_pending_inner(
     };
 
     let pager_name = pager.pager_name().to_owned();
-    let mut out = pager.get_writer()?;
+    let out = pager.get_writer()?;
+    let mut printer = PagerPrinter::new(out);
+    let is_pager = matches!(pager, Pager::External(_));
 
-    if pager_name == Some("less") && question && is_pager {
-        let _ = writeln!(
-            out,
-            "{:<80}",
-            style(fl!("pending-op")).bold().bg(Color::Color256(25))
-        );
+    if is_pager {
+        review_msg(&mut printer, pager_name);
     }
 
-    if question && is_pager {
-        let _ = writeln!(out);
-        let _ = writeln!(out, "{}\n", fl!("review-msg"));
-        let _ = writeln!(
-            out,
-            "{}\n",
-            fl!(
-                "oma-may",
-                a = style(fl!("install")).green().to_string(),
-                b = style(fl!("remove")).red().to_string(),
-                c = style(fl!("upgrade")).color256(87).to_string(),
-                d = style(fl!("downgrade")).yellow().to_string(),
-                e = style(fl!("reinstall")).blue().to_string()
-            ),
-        );
+    print_pending_inner(printer, remove, install, disk_size);
+    pager.wait_for_exit()?;
+
+    if is_pager {
+        let pager = Pager::plain();
+        let out = pager.get_writer()?;
+        let printer = PagerPrinter::new(out);
+        print_pending_inner(printer, remove, install, disk_size);
     }
 
-    terminal_write!(out, stderr_output);
+    Ok(())
+}
 
-    if pager_name == Some("less") && question && is_pager {
-        let has_x11 = std::env::var("DISPLAY");
+pub fn table_for_history_pending(
+    install: &[InstallEntry],
+    remove: &[RemoveEntry],
+    disk_size: &(String, u64),
+) -> Result<(), OutputError> {
+    let has_x11 = std::env::var("DISPLAY");
 
-        let line1 = format!("    {}", fl!("end-review"));
-        let line2 = format!("    {}", fl!("cc-to-abort"));
+    let tips = if has_x11.is_ok() {
+        fl!("normal-tips-with-x11")
+    } else {
+        fl!("normal-tips")
+    };
 
-        if has_x11.is_ok() {
-            let line3 = format!("    {}\n\n", fl!("how-to-op-with-x"));
+    let mut pager = Pager::external(&tips)?;
 
-            writeln!(out, "{}", style(line1).bold()).ok();
-            writeln!(out, "{}", style(line2).bold()).ok();
-            writeln!(out, "{}", style(line3).bold()).ok();
-        } else {
-            let line3 = format!("    {}\n\n", fl!("how-to-op"));
+    let out = pager.get_writer()?;
+    let printer = PagerPrinter::new(out);
 
-            writeln!(out, "{}", style(line1).bold()).ok();
-            writeln!(out, "{}", style(line2).bold()).ok();
-            writeln!(out, "{}", style(line3).bold()).ok();
-        }
-    }
+    print_pending_inner(printer, remove, install, disk_size);
+    pager.wait_for_exit()?;
 
+    Ok(())
+}
+
+fn print_pending_inner<W: Write>(
+    mut printer: PagerPrinter<W>,
+    remove: &[RemoveEntry],
+    install: &[InstallEntry],
+    disk_size: &(String, u64),
+) {
     if !remove.is_empty() {
-        terminal_write!(
-            out,
-            stderr_output,
-            "{} {}{}\n",
-            fl!("count-pkg-has-desc", count = remove.len()),
-            style(fl!("removed")).red().bold(),
-            fl!("colon")
-        );
+        printer
+            .print(format!(
+                "{} {}{}\n",
+                fl!("count-pkg-has-desc", count = remove.len()),
+                style(fl!("removed")).red().bold(),
+                fl!("colon")
+            ))
+            .ok();
 
         let remove_display = remove
             .iter()
             .map(RemoveEntryDisplay::from)
             .collect::<Vec<_>>();
 
-        let mut table = Table::builder(remove_display);
-        table.set_header(["Name", "Size", "Detail"]);
-        let mut table = table.build();
-
-        table
-            .with(Modify::new(Segment::all()).with(Alignment::left()))
-            .with(Style::psql())
-            .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
-
-        terminal_write!(out, stderr_output, "{table}\n\n");
+        printer
+            .print_table(remove_display, Some(vec!["Name", "Size", "Detail"]))
+            .ok();
+        printer.print("\n").ok();
     }
 
     let total_download_size: u64 = install
@@ -382,25 +342,22 @@ pub fn table_pending_inner(
         let install_e_display = install_e.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !install_e_display.is_empty() {
-            terminal_write!(
-                out,
-                stderr_output,
-                "{} {}{}\n",
-                fl!("count-pkg-has-desc", count = install_e_display.len()),
-                style(fl!("installed")).green().bold(),
-                fl!("colon")
-            );
+            printer
+                .print(format!(
+                    "{} {}{}\n",
+                    fl!("count-pkg-has-desc", count = install_e_display.len()),
+                    style(fl!("installed")).green().bold(),
+                    fl!("colon")
+                ))
+                .ok();
 
-            let mut table = install_table(install_e_display);
-
-            table
-                .with(Modify::new(Segment::all()).with(Alignment::left()))
-                // Install Size column should align right
-                .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
-                .with(Style::psql())
-                .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
-
-            terminal_write!(out, stderr_output, "{table}\n\n");
+            printer
+                .print_table(
+                    install_e_display,
+                    Some(vec!["Name", "Version", "Installed size"]),
+                )
+                .ok();
+            printer.print("\n").ok();
         }
 
         let update = install
@@ -410,25 +367,22 @@ pub fn table_pending_inner(
         let update_display = update.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !update_display.is_empty() {
-            terminal_write!(
-                out,
-                stderr_output,
-                "{} {}{}\n",
-                fl!("count-pkg-has-desc", count = update_display.len()),
-                style(fl!("upgrade")).color256(87),
-                fl!("colon")
-            );
+            printer
+                .print(format!(
+                    "{} {}{}\n",
+                    fl!("count-pkg-has-desc", count = update_display.len()),
+                    style(fl!("upgrade")).color256(87),
+                    fl!("colon")
+                ))
+                .ok();
 
-            let mut table = install_table(update_display);
-
-            table
-                .with(Modify::new(Segment::all()).with(Alignment::left()))
-                // Install Size column should align right
-                .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
-                .with(Style::psql())
-                .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
-
-            terminal_write!(out, stderr_output, "{table}\n\n");
+            printer
+                .print_table(
+                    update_display,
+                    Some(vec!["Name", "Version", "Installed size"]),
+                )
+                .ok();
+            printer.print("\n").ok();
         }
 
         let downgrade = install
@@ -438,25 +392,22 @@ pub fn table_pending_inner(
         let downgrade_display = downgrade.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !downgrade_display.is_empty() {
-            terminal_write!(
-                out,
-                stderr_output,
-                "{} {}{}\n",
-                fl!("count-pkg-has-desc", count = downgrade_display.len()),
-                style(fl!("downgraded")).yellow().bold(),
-                fl!("colon")
-            );
+            printer
+                .print(format!(
+                    "{} {}{}\n",
+                    fl!("count-pkg-has-desc", count = downgrade_display.len()),
+                    style(fl!("downgraded")).yellow().bold(),
+                    fl!("colon")
+                ))
+                .ok();
 
-            let mut table = install_table(downgrade_display);
-
-            table
-                .with(Modify::new(Segment::all()).with(Alignment::left()))
-                // Install Size column should align right
-                .with(Modify::new(Columns::new(1..2)).with(Alignment::right()))
-                .with(Style::psql())
-                .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
-
-            terminal_write!(out, stderr_output, "{table}\n\n");
+            printer
+                .print_table(
+                    downgrade_display,
+                    Some(vec!["Name", "Version", "Installed size"]),
+                )
+                .ok();
+            printer.print("\n").ok();
         }
 
         let reinstall = install
@@ -466,61 +417,89 @@ pub fn table_pending_inner(
         let reinstall_display = reinstall.map(InstallEntryDisplay::from).collect::<Vec<_>>();
 
         if !reinstall_display.is_empty() {
-            terminal_write!(
-                out,
-                stderr_output,
-                "{} {}{}\n",
-                fl!("count-pkg-has-desc", count = reinstall_display.len()),
-                style(fl!("reinstall")).blue().bold(),
-                fl!("colon")
-            );
+            printer
+                .print(format!(
+                    "{} {}{}\n",
+                    fl!("count-pkg-has-desc", count = reinstall_display.len()),
+                    style(fl!("reinstall")).blue().bold(),
+                    fl!("colon"),
+                ))
+                .ok();
 
-            let mut table = install_table(reinstall_display);
-
-            table
-                .with(Modify::new(Segment::all()).with(Alignment::left()))
-                // Install Size column should align right
-                .with(Modify::new(Columns::new(2..3)).with(Alignment::right()))
-                .with(Style::psql())
-                .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
-
-            terminal_write!(out, stderr_output, "{table}\n\n");
+            printer
+                .print_table(
+                    reinstall_display,
+                    Some(vec!["Name", "Version", "Installed size"]),
+                )
+                .ok();
+            printer.print("\n").ok();
         }
     }
 
-    terminal_write!(
-        out,
-        stderr_output,
-        "{}{}",
-        style(fl!("total-download-size")).bold(),
-        HumanBytes(total_download_size)
-    );
+    printer
+        .print(format!(
+            "{}{}",
+            style(fl!("total-download-size")).bold(),
+            HumanBytes(total_download_size)
+        ))
+        .ok();
 
     let (symbol, abs_install_size_change) = disk_size;
-    terminal_write!(
-        out,
-        stderr_output,
-        "{}{}{}",
-        style(fl!("change-storage-usage")).bold(),
-        symbol,
-        HumanBytes(*abs_install_size_change)
-    );
 
-    terminal_write!(out, stderr_output);
-
-    drop(out);
-    pager.wait_for_exit()?;
-
-    Ok(())
+    printer
+        .print(format!(
+            "{}{}{}",
+            style(fl!("change-storage-usage")).bold(),
+            symbol,
+            HumanBytes(*abs_install_size_change)
+        ))
+        .ok();
+    printer.print("").ok();
 }
 
-fn install_table<I, T>(iter: I) -> Table
-where
-    T: Tabled,
-    I: IntoIterator<Item = T>,
-{
-    let mut table = Table::builder(iter);
-    table.set_header(["Name", "Version", "Installed size"]);
+fn review_msg<W: Write>(printer: &mut PagerPrinter<W>, pager_name: Option<&str>) {
+    if pager_name == Some("less") {
+        printer
+            .print(format!(
+                "{:<80}",
+                style(fl!("pending-op")).bold().bg(Color::Color256(25))
+            ))
+            .ok();
+    }
 
-    table.build()
+    printer.print("").ok();
+    printer.print(format!("{}\n", fl!("review-msg"))).ok();
+    // let _ = writeln!(out, "{}\n", fl!("review-msg"));
+    printer.print(format!(
+        "{}\n",
+        fl!(
+            "oma-may",
+            a = style(fl!("install")).green().to_string(),
+            b = style(fl!("remove")).red().to_string(),
+            c = style(fl!("upgrade")).color256(87).to_string(),
+            d = style(fl!("downgrade")).yellow().to_string(),
+            e = style(fl!("reinstall")).blue().to_string()
+        )
+    )).ok();
+
+    if pager_name == Some("less") {
+        let has_x11 = std::env::var("DISPLAY");
+
+        let line1 = format!("    {}", fl!("end-review"));
+        let line2 = format!("    {}", fl!("cc-to-abort"));
+
+        if has_x11.is_ok() {
+            let line3 = format!("    {}\n\n", fl!("how-to-op-with-x"));
+
+            printer.print(format!("{}", style(line1).bold())).ok();
+            printer.print(format!("{}", style(line2).bold())).ok();
+            printer.print(format!("{}", style(line3).bold())).ok();
+        } else {
+            let line3 = format!("    {}\n\n", fl!("how-to-op"));
+
+            printer.print(format!("{}", style(line1).bold())).ok();
+            printer.print(format!("{}", style(line2).bold())).ok();
+            printer.print(format!("{}", style(line3).bold())).ok();
+        }
+    }
 }
