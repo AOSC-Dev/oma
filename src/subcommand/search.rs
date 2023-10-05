@@ -7,7 +7,7 @@ use oma_pm::{
 };
 
 use crate::fl;
-use crate::{error::OutputError, table::oma_display};
+use crate::{error::OutputError, table::oma_display_with_normal_output};
 
 use super::utils::check_unsupport_stmt;
 
@@ -39,7 +39,7 @@ pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
         pb.finish_and_clear();
     }
 
-    let mut pager = oma_display(false, res.len() * 2)?;
+    let mut pager = oma_display_with_normal_output(false, res.len() * 2)?;
 
     let mut writer = pager.get_writer()?;
 

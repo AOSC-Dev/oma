@@ -8,7 +8,7 @@ use oma_utils::dpkg::dpkg_arch;
 
 use crate::error::OutputError;
 use crate::fl;
-use crate::table::oma_display;
+use crate::table::oma_display_with_normal_output;
 
 pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool) -> Result<i32, OutputError> {
     let pb = if !no_progress {
@@ -69,7 +69,7 @@ pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool) -> Result<i3
         arch != "mips64r6el",
     )?;
 
-    let mut pager = oma_display(false, res.len())?;
+    let mut pager = oma_display_with_normal_output(false, res.len())?;
     let mut out = pager.get_writer()?;
 
     for (pkg, file) in res {
