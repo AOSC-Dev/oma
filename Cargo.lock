@@ -2229,7 +2229,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "async-compression",
  "dashmap",
