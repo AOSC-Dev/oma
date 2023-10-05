@@ -2124,7 +2124,7 @@ dependencies = [
 
 [[package]]
 name = "oma"
-version = "1.1.0-beta.3"
+version = "1.1.0-beta.4"
 dependencies = [
  "anyhow",
  "chrono",
