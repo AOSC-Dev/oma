@@ -269,7 +269,8 @@ pub fn table_for_install_pending(
     if is_pager && success {
         let pager = Pager::plain();
         let out = pager.get_writer()?;
-        let printer = PagerPrinter::new(out);
+        let mut printer = PagerPrinter::new(out);
+        printer.print("").ok();
         print_pending_inner(printer, remove, install, disk_size);
     }
 
@@ -469,17 +470,19 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>, pager_name: Option<&str>)
     printer.print("").ok();
     printer.print(format!("{}\n", fl!("review-msg"))).ok();
     // let _ = writeln!(out, "{}\n", fl!("review-msg"));
-    printer.print(format!(
-        "{}\n",
-        fl!(
-            "oma-may",
-            a = style(fl!("install")).green().to_string(),
-            b = style(fl!("remove")).red().to_string(),
-            c = style(fl!("upgrade")).color256(87).to_string(),
-            d = style(fl!("downgrade")).yellow().to_string(),
-            e = style(fl!("reinstall")).blue().to_string()
-        )
-    )).ok();
+    printer
+        .print(format!(
+            "{}\n",
+            fl!(
+                "oma-may",
+                a = style(fl!("install")).green().to_string(),
+                b = style(fl!("remove")).red().to_string(),
+                c = style(fl!("upgrade")).color256(87).to_string(),
+                d = style(fl!("downgrade")).yellow().to_string(),
+                e = style(fl!("reinstall")).blue().to_string()
+            )
+        ))
+        .ok();
 
     if pager_name == Some("less") {
         let has_x11 = std::env::var("DISPLAY");
