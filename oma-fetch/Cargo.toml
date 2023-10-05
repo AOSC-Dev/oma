@@ -15,7 +15,7 @@ serde = { version = "1.0", features = ["derive"] }
 hex = "0.4"
 sha2 = "0.10"
 futures = "0.3"
-oma-console = { version = "^0.2", path = "../oma-console" }
+oma-console = { version = "^0.3", path = "../oma-console" }
 derive_builder = "0.12"
 async-compression = { version = "0.4", features = ["tokio", "gzip", "xz"] }
 oma-utils = { version = "^0.1", features = ["url-no-escape"] }

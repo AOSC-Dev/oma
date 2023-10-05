@@ -863,18 +863,6 @@ dependencies = [
 
 [[package]]
 name = "dialoguer"
-version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59c6f2989294b9a498d3ad5491a79c6deb604617378e1cdc4bfc1c1361fe2f87"
-dependencies = [
- "console",
- "shell-words",
- "tempfile",
- "zeroize",
-]
-
-[[package]]
-name = "dialoguer"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "658bce805d770f407bc62102fca7c2c64ceef2fbcb2b8bd19d2765ce093980de"
@@ -1176,9 +1164,9 @@ dependencies = [
 
 [[package]]
 name = "fs4"
-version = "0.6.6"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eeb4ed9e12f43b7fa0baae3f9cdda28352770132ef2e09a23760c29cae8bd47"
+checksum = "29f9df8a11882c4e3335eb2d18a0137c505d9ca927470b0cac9c6f0ae07d28f7"
 dependencies = [
  "rustix 0.38.18",
  "windows-sys 0.48.0",
@@ -2134,18 +2122,18 @@ dependencies = [
  "ctrlc",
  "dashmap",
  "derive_builder",
- "dialoguer 0.11.0",
+ "dialoguer",
  "i18n-embed",
  "i18n-embed-fl",
  "nix 0.27.1",
- "oma-console 0.2.0",
+ "oma-console 0.3.0",
  "oma-contents",
  "oma-fetch",
  "oma-inquire",
  "oma-pm",
  "oma-refresh",
  "oma-topics",
- "oma-utils 0.1.6",
+ "oma-utils 0.1.7",
  "once_cell",
  "rusqlite",
  "rust-embed",
@@ -2180,7 +2168,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "console",
  "indicatif",
@@ -2208,7 +2196,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.1.6",
+ "oma-utils 0.1.7",
  "rayon",
  "regex",
  "strsim",
@@ -2236,8 +2224,8 @@ dependencies = [
  "futures",
  "hex",
  "indicatif",
- "oma-console 0.2.0",
- "oma-utils 0.1.7",
+ "oma-console 0.3.0",
+ "oma-utils 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
  "sha2",
@@ -2263,7 +2251,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2274,9 +2262,9 @@ dependencies = [
  "indicatif",
  "indicium",
  "oma-apt",
- "oma-console 0.2.0",
+ "oma-console 0.3.0",
  "oma-fetch",
- "oma-utils 0.1.6",
+ "oma-utils 0.1.7",
  "serde",
  "thiserror",
  "tokio",
@@ -2284,7 +2272,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2292,11 +2280,11 @@ dependencies = [
  "futures",
  "indicatif",
  "oma-apt-sources-lists",
- "oma-console 0.2.0",
+ "oma-console 0.3.0",
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
- "oma-utils 0.1.6",
+ "oma-utils 0.1.7",
  "once_cell",
  "reqwest",
  "sequoia-openpgp",
@@ -2309,11 +2297,11 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "futures",
  "indexmap 2.0.2",
- "oma-console 0.2.0",
+ "oma-console 0.3.0",
  "oma-inquire",
  "once_cell",
  "reqwest",
@@ -2325,10 +2313,10 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "number_prefix",
- "oma-console 0.2.0",
+ "oma-console 0.3.0",
  "once_cell",
  "os-release",
  "thiserror",
@@ -2342,7 +2330,7 @@ version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9cd484dcf016b4f2441ee2a5fd478cd899ec88d6016bfe55686c43545db78a8e"
 dependencies = [
- "oma-console 0.3.0",
+ "oma-console 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell",
  "os-release",
  "thiserror",
