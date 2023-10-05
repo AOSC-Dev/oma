@@ -123,14 +123,7 @@ pub(crate) fn normal_commit(
     apt.resolve(no_fixbroken)?;
     apt.check_disk_size()?;
 
-    table_for_install_pending(
-        &install,
-        &remove,
-        &disk_size,
-        !apt_args.yes(),
-        dry_run,
-        !apt_args.yes(),
-    )?;
+    table_for_install_pending(&install, &remove, &disk_size, !apt_args.yes(), dry_run)?;
 
     let (mb, pb_map, global_is_set) = multibar();
 

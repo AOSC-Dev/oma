@@ -82,9 +82,7 @@ pub fn execute(
         apt.check_disk_size()?;
 
         if retry_times == 1 {
-            table_for_install_pending(
-                &install, &remove, &disk_size, !args.yes, dry_run, !args.yes,
-            )?;
+            table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run)?;
         }
 
         let (mb, pb_map, global_is_set) = multibar();
