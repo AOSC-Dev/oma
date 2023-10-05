@@ -10,6 +10,7 @@ use crate::pb;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::multibar;
+use anyhow::anyhow;
 use chrono::Local;
 use chrono::LocalResult;
 use chrono::TimeZone;
@@ -29,7 +30,6 @@ use oma_pm::operation::RemoveEntry;
 use oma_refresh::db::OmaRefresh;
 use oma_refresh::db::RefreshEvent;
 use oma_utils::dpkg::dpkg_arch;
-use anyhow::anyhow;
 
 pub(crate) fn handle_no_result(no_result: Vec<String>) {
     for word in no_result {
@@ -136,7 +136,13 @@ pub(crate) fn normal_commit(
         }
     })?;
 
-    write_history_entry(op_after, typ, connect_or_create_db(true)?, dry_run, start_time)?;
+    write_history_entry(
+        op_after,
+        typ,
+        connect_or_create_db(true)?,
+        dry_run,
+        start_time,
+    )?;
 
     Ok(())
 }
@@ -175,7 +181,8 @@ pub(crate) fn dialoguer_select_history(
     let selected = Select::with_theme(&ColorfulTheme::default())
         .items(display_list)
         .default(old_selected)
-        .interact().map_err(|_| anyhow!(""))?;
+        .interact()
+        .map_err(|_| anyhow!(""))?;
 
     Ok(selected)
 }

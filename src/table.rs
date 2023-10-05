@@ -145,7 +145,7 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
 fn less_tips(is_question: bool) -> String {
     let has_x11 = std::env::var("DISPLAY");
 
-    let tips = if is_question {
+    if is_question {
         if has_x11.is_ok() {
             fl!("question-tips-with-x11")
         } else {
@@ -155,9 +155,7 @@ fn less_tips(is_question: bool) -> String {
         fl!("normal-tips-with-x11")
     } else {
         fl!("normal-tips")
-    };
-
-    tips
+    }
 }
 
 pub struct PagerPrinter<W> {
@@ -251,7 +249,7 @@ pub fn table_for_install_pending(
     let tips = less_tips(true);
 
     let mut pager = if is_pager {
-        Pager::external(&tips)?
+        Pager::external(tips)?
     } else {
         Pager::plain()
     };
@@ -283,10 +281,9 @@ pub fn table_for_history_pending(
     remove: &[RemoveEntry],
     disk_size: &(String, u64),
 ) -> Result<(), OutputError> {
-
     let tips = less_tips(false);
 
-    let mut pager = Pager::external(&tips)?;
+    let mut pager = Pager::external(tips)?;
 
     let out = pager.get_writer()?;
     let printer = PagerPrinter::new(out);

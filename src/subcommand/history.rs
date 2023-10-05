@@ -4,7 +4,8 @@ use std::sync::atomic::Ordering;
 use crate::{
     error::OutputError,
     history::{connect_or_create_db, list_history},
-    ALLOWCTRLC, table::table_for_history_pending,
+    table::table_for_history_pending,
+    ALLOWCTRLC,
 };
 
 use super::utils::{dialoguer_select_history, format_summary_log};
