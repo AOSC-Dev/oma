@@ -6,6 +6,7 @@ use oma_pm::apt::{FilterMode, OmaApt, OmaAptArgsBuilder};
 
 use crate::error::OutputError;
 use crate::fl;
+use anyhow::anyhow;
 
 use super::utils::check_unsupport_stmt;
 
@@ -60,7 +61,10 @@ pub fn execute(
                 }
             }
 
-            vec![pkg.candidate().or_else(|| pkg.versions().next()).unwrap()]
+            vec![pkg
+                .candidate()
+                .or_else(|| pkg.versions().next())
+                .ok_or_else(|| anyhow!("Has Package {} but no version?", pkg.name()))?]
         };
 
         for version in &versions {
