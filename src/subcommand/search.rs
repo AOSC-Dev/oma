@@ -62,17 +62,21 @@ pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
             pkg_info_line.push_str(&style(&i.new_version).color256(114).to_string());
         }
 
+        let mut pkg_tags = vec![];
+
         if i.dbg_package {
-            pkg_info_line.push(' ');
-            pkg_info_line.push_str(&style(fl!("debug-symbol-available")).dim().to_string());
+            pkg_tags.push(fl!("debug-symbol-available"));
         }
 
         if i.full_match {
+            pkg_tags.push(fl!("full-match"))
+        }
+
+        if !pkg_tags.is_empty() {
             pkg_info_line.push(' ');
             pkg_info_line.push_str(
-                &style(format!("[{}]", fl!("full-match")))
-                    .yellow()
-                    .bold()
+                &style(format!("[{}]", pkg_tags.join(",")))
+                    .color256(178)
                     .to_string(),
             );
         }
