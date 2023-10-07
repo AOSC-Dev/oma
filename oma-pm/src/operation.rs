@@ -12,7 +12,8 @@ pub struct InstallEntry {
     old_size: Option<u64>,
     new_size: u64,
     pkg_urls: Vec<String>,
-    checksum: String,
+    #[builder(setter(into, strip_option))]
+    checksum: Option<String>,
     arch: String,
     download_size: u64,
     op: InstallOperation,
@@ -71,8 +72,8 @@ impl InstallEntry {
         &self.pkg_urls
     }
 
-    pub fn checksum(&self) -> &str {
-        &self.checksum
+    pub fn checksum(&self) -> Option<&str> {
+        self.checksum.as_deref()
     }
 
     pub fn arch(&self) -> &str {

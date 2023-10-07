@@ -305,7 +305,10 @@ impl SingleDownloader<'_> {
                     let url = self.entry.source[position].url.clone();
                     return Err(DownloadError::NotFound(url));
                 }
-                _ => return Err(e.into()),
+                _ => {
+                    debug!("{e}");
+                    return Err(e.into())
+                },
             }
         } else {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
@@ -443,15 +446,11 @@ impl SingleDownloader<'_> {
             if !v.finish() {
                 debug!("checksum fail: {}", self.entry.filename);
 
+                let global_progress = global_progress.fetch_sub(self_progress, Ordering::SeqCst);
+
                 callback(
                     self.download_list_index,
-                    DownloadEvent::GlobalProgressSet(
-                        global_progress.load(Ordering::SeqCst) - self_progress,
-                    ),
-                );
-                global_progress.store(
-                    global_progress.load(Ordering::SeqCst) - self_progress,
-                    Ordering::SeqCst,
+                    DownloadEvent::GlobalProgressSet(global_progress),
                 );
 
                 let url = self.entry.source[position].url.clone();
