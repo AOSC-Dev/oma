@@ -43,7 +43,7 @@ refreshing-topic-metadata = Refreshing topics metadata ...
 # pkg
 can-not-get-pkg-from-database = Failed to get metadata for package {$name} from the local database.
 can-not-get-package-with-branch = Failed to get package {$name} from the {$branch} branch.
-debug-symbol-available = (debug symbols available)
+debug-symbol-available = debug symbols available
 full-match = exact match
 invaild-path = Invaild path: {$p}
 already-installed = {$name} ({$version}) is already installed
