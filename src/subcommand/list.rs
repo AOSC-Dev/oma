@@ -20,9 +20,11 @@ pub fn execute(
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let mut filter_mode = vec![];
+
     if installed {
         filter_mode.push(FilterMode::Installed);
     }
+
     if upgradable {
         filter_mode.push(FilterMode::Upgradable)
     }
@@ -61,10 +63,14 @@ pub fn execute(
                 }
             }
 
-            vec![pkg
-                .candidate()
-                .or_else(|| pkg.versions().next())
-                .ok_or_else(|| anyhow!("Has Package {} but no version?", pkg.name()))?]
+            if let Some(version) = pkg.installed() {
+                vec![version]
+            } else {
+                vec![pkg
+                    .candidate()
+                    .or_else(|| pkg.versions().next())
+                    .ok_or_else(|| anyhow!("Has Package {} but no version?", pkg.name()))?]
+            }
         };
 
         for version in &versions {
@@ -96,7 +102,7 @@ pub fn execute(
             }
 
             let branches = branches.join(",");
-            let version_str = version.version();
+            let mut version_str = Cow::Borrowed(version.version());
             let arch = version.arch();
 
             let upgradable = pkg.is_upgradable();
@@ -110,10 +116,19 @@ pub fn execute(
 
             if upgradable && installed {
                 s.push("upgradable");
+                version_str = Cow::Owned(format!(
+                    "{} -> {}",
+                    version_str,
+                    pkg.candidate().map(|x| x.version().to_string()).unwrap()
+                ));
             }
 
             if automatic {
                 s.push("automatc");
+            }
+
+            if pkg.current_state() == 5 {
+                s.push("residual-config")
             }
 
             let s = if s.is_empty() {
@@ -123,8 +138,14 @@ pub fn execute(
             };
 
             println!(
-                "{}/{branches} {version_str} {arch} {s}",
-                style(name).green().bold()
+                "{}/{} {} {arch} {s}",
+                style(name).color256(148).bold(),
+                style(branches).color256(182),
+                if upgradable {
+                    style(version_str).color256(214)
+                } else {
+                    style(version_str).color256(114)
+                }
             );
         }
     }
