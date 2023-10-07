@@ -14,6 +14,7 @@ use oma_console::{
     warn,
 };
 use oma_utils::dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection};
+use rustix::process;
 use tokio::runtime::Runtime;
 
 type Result<T> = std::result::Result<T, OutputError>;
@@ -117,7 +118,7 @@ macro_rules! pb {
 }
 
 pub fn root() -> Result<()> {
-    if nix::unistd::geteuid().is_root() {
+    if process::geteuid().is_root() {
         return Ok(());
     }
 
