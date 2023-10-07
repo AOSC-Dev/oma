@@ -392,15 +392,22 @@ impl OmaApt {
             if !ver.is_downloadable() {
                 return Err(OmaAptError::PkgUnavailable(name, ver.version().to_string()));
             }
-            let entry = InstallEntryBuilder::default()
-                .name(pkg.raw_pkg.name().to_string())
-                .new_version(ver.version().to_string())
-                .new_size(install_size)
-                .pkg_urls(ver.uris().collect::<Vec<_>>())
-                .arch(ver.arch().to_string())
-                .download_size(ver.size())
-                .op(InstallOperation::Download)
-                .build()?;
+            let mut entry = InstallEntryBuilder::default();
+            entry.name(pkg.raw_pkg.name().to_string());
+            entry.new_version(ver.version().to_string());
+            entry.new_size(install_size);
+            entry.pkg_urls(ver.uris().collect::<Vec<_>>());
+            entry.arch(ver.arch().to_string());
+            entry.download_size(ver.size());
+            entry.op(InstallOperation::Download);
+
+            if ver.uris().all(|x| !x.starts_with("file")) {
+                entry.checksum(
+                    ver.get_record(RecordField::SHA256)
+                        .ok_or_else(|| OmaAptError::PkgNoChecksum(name))?,
+                );
+            }
+            let entry = entry.build()?;
 
             download_list.push(entry);
         }
@@ -667,14 +674,19 @@ impl OmaApt {
 
             let msg = format!("{} {new_version} ({})", entry.name(), entry.arch());
 
-            let download_entry = DownloadEntryBuilder::default()
-                .source(sources)
-                .filename(apt_style_filename(filename, entry.new_version().to_string())?.into())
-                .dir(download_dir.to_path_buf())
-                .hash(entry.checksum().to_string())
-                .allow_resume(true)
-                .msg(msg)
-                .build()?;
+            let mut download_entry = DownloadEntryBuilder::default();
+            download_entry.source(sources);
+            download_entry
+                .filename(apt_style_filename(filename, entry.new_version().to_string())?.into());
+            download_entry.dir(download_dir.to_path_buf());
+            download_entry.allow_resume(true);
+            download_entry.msg(msg);
+
+            if let Some(checksum) = entry.checksum() {
+                download_entry.hash(checksum);
+            }
+
+            let download_entry = download_entry.build()?;
 
             total_size += entry.download_size();
 
