@@ -15,11 +15,11 @@ use anyhow::anyhow;
 
 use clap::ArgMatches;
 use error::OutputError;
-use nix::sys::signal;
 use oma_console::{console::style, info};
 use oma_console::{debug, error, DEBUG, WRITER};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
+use rustix::process::{kill_process, Pid, Signal};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -378,8 +378,8 @@ fn single_handler() {
     let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
 
     if subprocess_pid > 0 {
-        let pid = nix::unistd::Pid::from_raw(subprocess_pid);
-        signal::kill(pid, signal::SIGTERM).expect("Failed to kill child process.");
+        let pid = Pid::from_raw(subprocess_pid).expect("Pid is empty?");
+        kill_process(pid, Signal::Term).expect("Failed to kill child process.");
     }
 
     // Dealing with lock
