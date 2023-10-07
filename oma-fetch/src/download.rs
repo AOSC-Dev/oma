@@ -94,9 +94,10 @@ impl SingleDownloader<'_> {
         F: Fn(usize, DownloadEvent) + Clone,
     {
         let mut times = 1;
+        let mut allow_resume = self.entry.allow_resume;
         loop {
             match self
-                .http_download(position, callback.clone(), global_progress.clone())
+                .http_download(position, callback.clone(), global_progress.clone(), allow_resume)
                 .await
             {
                 Ok(s) => {
@@ -115,6 +116,7 @@ impl SingleDownloader<'_> {
                             },
                         );
                         times += 1;
+                        allow_resume = false;
                     }
                     _ => return Err(e),
                 },
@@ -127,6 +129,7 @@ impl SingleDownloader<'_> {
         position: usize,
         callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
+        allow_resume: bool,
     ) -> DownloadResult<Summary>
     where
         F: Fn(usize, DownloadEvent) + Clone,
@@ -207,13 +210,11 @@ impl SingleDownloader<'_> {
                     self.entry.filename
                 );
 
-                if !self.entry.allow_resume {
+                if !self.entry.allow_resume || !allow_resume {
                     global_progress.fetch_sub(readed, Ordering::SeqCst);
                     callback(
                         self.download_list_index,
-                        DownloadEvent::GlobalProgressSet(
-                            global_progress.fetch_sub(readed, Ordering::SeqCst),
-                        ),
+                        DownloadEvent::GlobalProgressSet(global_progress.load(Ordering::SeqCst)),
                     );
                 } else {
                     dest = Some(f);
@@ -274,7 +275,7 @@ impl SingleDownloader<'_> {
 
         let mut req = self.client.get(&self.entry.source[position].url);
 
-        if can_resume && self.entry.allow_resume {
+        if can_resume && self.entry.allow_resume && allow_resume {
             // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
             // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
             if total_size <= file_size {
@@ -307,8 +308,8 @@ impl SingleDownloader<'_> {
                 }
                 _ => {
                     debug!("{e}");
-                    return Err(e.into())
-                },
+                    return Err(e.into());
+                }
             }
         } else {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
@@ -336,7 +337,7 @@ impl SingleDownloader<'_> {
             None
         };
 
-        let mut dest = if !self.entry.allow_resume || !can_resume {
+        let mut dest = if !self.entry.allow_resume || !can_resume || !allow_resume {
             // 如果不能 resume，则加入 truncate 这个 flag，告诉内核截断文件
             // 并把文件长度设置为 0
             debug!(
@@ -445,12 +446,17 @@ impl SingleDownloader<'_> {
         if let Some(v) = validator {
             if !v.finish() {
                 debug!("checksum fail: {}", self.entry.filename);
+                debug!("{global_progress:?}");
+                debug!("{self_progress}");
 
-                let global_progress = global_progress.fetch_sub(self_progress, Ordering::SeqCst);
+                global_progress.fetch_sub(self_progress, Ordering::SeqCst);
+                let now_gp = global_progress.load(Ordering::SeqCst);
+
+                debug!("Reset to: {now_gp}");
 
                 callback(
                     self.download_list_index,
-                    DownloadEvent::GlobalProgressSet(global_progress),
+                    DownloadEvent::GlobalProgressSet(now_gp),
                 );
 
                 let url = self.entry.source[position].url.clone();
