@@ -2136,7 +2136,7 @@ dependencies = [
  "once_cell",
  "rusqlite",
  "rust-embed",
- "rustix 0.38.17",
+ "rustix 0.38.18",
  "serde",
  "serde_json",
  "tabled",
