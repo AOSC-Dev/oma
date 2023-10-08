@@ -97,7 +97,12 @@ impl SingleDownloader<'_> {
         let mut allow_resume = self.entry.allow_resume;
         loop {
             match self
-                .http_download(position, callback.clone(), global_progress.clone(), allow_resume)
+                .http_download(
+                    position,
+                    callback.clone(),
+                    global_progress.clone(),
+                    allow_resume,
+                )
                 .await
             {
                 Ok(s) => {
@@ -275,7 +280,7 @@ impl SingleDownloader<'_> {
 
         let mut req = self.client.get(&self.entry.source[position].url);
 
-        if can_resume  && allow_resume {
+        if can_resume && allow_resume {
             // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
             // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
             if total_size <= file_size {
