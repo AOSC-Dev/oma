@@ -1,3 +1,4 @@
+use dialoguer::console;
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
@@ -167,7 +168,12 @@ async fn inquire(
             if let Some(d) = &x.description {
                 s += &format!(" ({d})");
             }
-            s
+
+            if console::measure_text_width(&s) + 4 > WRITER.get_length() as usize {
+                console::truncate_str(&s, WRITER.get_length() as usize - 4 - 3, "...").to_string()
+            } else {
+                s
+            }
         })
         .collect::<Vec<_>>();
 
@@ -203,14 +209,14 @@ async fn inquire(
 
     let page_size = match WRITER.get_height() {
         0 => panic!("Terminal height must be greater than 0"),
-        1..=4 => 1,
-        x @ 5..=23 => x - 4,
-        24.. => 20,
+        1..=6 => 1,
+        x @ 7..=25 => x - 6,
+        26.. => 20,
     };
 
     let ans = MultiSelect::new(
         &fl!("select-topics-dialog"),
-        display.iter().map(|x| x.as_str()).collect(),
+        display.iter().map(|x| x.as_ref()).collect(),
     )
     .with_help_message(&fl!("tips"))
     .with_formatter(formatter)

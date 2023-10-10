@@ -67,6 +67,11 @@ impl Writer {
         self.term.size_checked().unwrap_or((25, 80)).0
     }
 
+    /// Get terminal height
+    pub fn get_length(&self) -> u16 {
+        self.term.size_checked().unwrap_or((25, 80)).1
+    }
+
     /// Get writer to write something to terminal
     pub fn get_writer(&self) -> Box<dyn Write> {
         Box::new(self.term.clone())
