@@ -24,6 +24,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c99f64d1e06488f620f932677e24bc6e2897582980441ae90a671415bd7ec2f"
 dependencies = [
  "cfg-if",
+ "getrandom 0.2.10",
  "once_cell",
  "version_check",
 ]
@@ -1627,10 +1628,11 @@ dependencies = [
 
 [[package]]
 name = "indicium"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "734c7ab14634ab2b2c83d6f5a92c2c6e17a34b0a2c2b22bee785165cae234beb"
+checksum = "3aa1ee358d9da90cb875419cbae41ac9160a46621ebb659d65a151b3d75544ae"
 dependencies = [
+ "ahash",
  "kstring",
  "strsim",
  "tracing",
