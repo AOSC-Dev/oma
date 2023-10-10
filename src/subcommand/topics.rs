@@ -169,8 +169,9 @@ async fn inquire(
                 s += &format!(" ({d})");
             }
 
-            if console::measure_text_width(&s) + 4 > WRITER.get_length() as usize {
-                console::truncate_str(&s, WRITER.get_length() as usize - 4 - 3, "...").to_string()
+            let term_width = WRITER.get_length() as usize;
+            if console::measure_text_width(&s) + 4 > term_width {
+                console::truncate_str(&s, term_width - 4 - 3, "...").to_string()
             } else {
                 s
             }
