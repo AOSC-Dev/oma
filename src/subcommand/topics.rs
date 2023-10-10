@@ -170,6 +170,8 @@ async fn inquire(
             }
 
             let term_width = WRITER.get_length() as usize;
+            // 4 是 inquire 前面有四个空格缩进
+            // 3 是 ... 的长度
             if console::measure_text_width(&s) + 4 > term_width {
                 console::truncate_str(&s, term_width - 4 - 3, "...").to_string()
             } else {
@@ -208,6 +210,7 @@ async fn inquire(
         ..Default::default()
     };
 
+    // 空行（最多两行）+ tips (最多两行) + prompt（最多两行）
     let page_size = match WRITER.get_height() {
         0 => panic!("Terminal height must be greater than 0"),
         1..=6 => 1,
