@@ -115,11 +115,9 @@ impl<'a> OmaDatabase<'a> {
 
                 let is_cand = pkg.candidate().map(|x| x == ver).unwrap_or(false);
                 if filter_candidate && is_cand {
-                    if ver.is_downloadable() && avail_candidate {
+                    if !avail_candidate || ver.is_downloadable() {
                         res.push(pkginfo);
-                    } else if !avail_candidate {
-                        res.push(pkginfo);
-                    } else if avail_candidate && !ver.is_downloadable() {
+                    } else {
                         let ver = pkg.versions().find(|x| x.is_downloadable());
 
                         if let Some(ver) = ver {

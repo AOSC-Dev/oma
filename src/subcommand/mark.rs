@@ -25,7 +25,7 @@ pub fn execute(op: &str, pkgs: Vec<String>, dry_run: bool) -> Result<i32, Output
                 &pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
                 false,
                 true,
-                false
+                false,
             )?;
             handle_no_result(no_result);
 
