@@ -1,8 +1,7 @@
 use std::io::Write;
 
-use crate::OmaConsoleResult;
+use crate::{OmaConsoleResult, WRITER};
 use console::Term;
-use indicatif::{MultiProgress, ProgressBar};
 
 /// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
@@ -78,103 +77,26 @@ impl Writer {
     }
 
     /// Write oma-style message prefix to terminal
-    fn write_prefix(&self, prefix: &str) -> OmaConsoleResult<()> {
+    fn write_prefix(&self, prefix: &str) -> std::io::Result<()> {
         self.term.write_str(&gen_prefix(prefix, self.prefix_len))?;
 
         Ok(())
     }
 
     /// Write oma-style string to terminal
-    pub fn writeln(
-        &self,
-        prefix: &str,
-        msg: &str,
-        no_print: bool,
-    ) -> OmaConsoleResult<(Vec<String>, Vec<String>)> {
+    pub fn writeln(&self, prefix: &str, msg: &str) -> std::io::Result<()> {
         let max_len = self.get_max_len();
-        let mut first_run = true;
 
-        let mut ref_s = msg;
-        let mut i = 1;
+        let mut res = Ok(());
 
-        let mut added_count = 0;
-
-        let (mut prefix_res, mut msg_res) = (vec![], vec![]);
-
-        // Print msg with left padding
-        loop {
-            let line_msg = if console::measure_text_width(ref_s) <= max_len.into() {
-                format!("{}\n", ref_s).into()
-            } else {
-                console::truncate_str(ref_s, max_len.into(), "\n")
+        writeln_inner(msg, prefix, max_len as usize, |t, s| {
+            match t {
+                MessageType::Msg => res = self.term.write_str(s),
+                MessageType::Prefix => res = self.write_prefix(s),
             };
+        });
 
-            if first_run {
-                if !no_print {
-                    self.write_prefix(prefix)?;
-                } else {
-                    prefix_res.push(gen_prefix(prefix, self.prefix_len));
-                }
-                first_run = false;
-            } else if !no_print {
-                self.write_prefix("")?;
-            } else {
-                prefix_res.push(gen_prefix("", self.prefix_len));
-            }
-
-            if !no_print {
-                self.term.write_str(&line_msg)?;
-            } else {
-                msg_res.push(line_msg.to_string());
-            }
-
-            // added_count 是已经处理过字符串的长度
-            added_count += line_msg.len();
-
-            // i 代表了有多少个换行符
-            // 因此，当预处理的消息长度等于已经处理的消息长度，减去加入的换行符
-            // 则处理结束
-            if msg.len() == added_count - i {
-                break;
-            }
-
-            // 移动已经处理的切片的指针
-            ref_s = &ref_s[line_msg.len() - 1..];
-            i += 1;
-        }
-
-        Ok((prefix_res, msg_res))
-    }
-
-    /// Write oma-style string to terminal with progress bar
-    pub fn writeln_with_pb(
-        &self,
-        pb: &ProgressBar,
-        prefix: &str,
-        msg: &str,
-    ) -> OmaConsoleResult<()> {
-        let (prefix, line_msgs) = self.writeln(prefix, msg, true)?;
-
-        for (i, c) in prefix.iter().enumerate() {
-            pb.println(format!("{c}{}", line_msgs[i]));
-        }
-
-        Ok(())
-    }
-
-    pub fn writeln_with_mb(
-        &self,
-        mb: &MultiProgress,
-        prefix: &str,
-        msg: &str,
-    ) -> OmaConsoleResult<()> {
-        let (prefix, line_msgs) = self.writeln(prefix, msg, true)?;
-
-        for (i, c) in prefix.iter().enumerate() {
-            mb.println(format!("{c}{}", line_msgs[i]))?;
-        }
-
-        Ok(())
+        res
     }
 
     pub fn write_chunks<S: AsRef<str>>(
@@ -210,4 +132,62 @@ impl Writer {
 
         Ok(())
     }
+}
+
+pub enum MessageType {
+    Msg,
+    Prefix,
+}
+
+pub fn writeln_inner<F>(msg: &str, prefix: &str, max_len: usize, mut callback: F)
+where
+    F: FnMut(MessageType, &str),
+{
+    let mut ref_s = msg;
+    let mut i = 1;
+    let mut added_count = 0;
+    let mut first_run = true;
+
+    loop {
+        let line_msg = if console::measure_text_width(ref_s) <= max_len.into() {
+            format!("{}\n", ref_s).into()
+        } else {
+            console::truncate_str(ref_s, max_len.into(), "\n")
+        };
+
+        if first_run {
+            callback(MessageType::Prefix, prefix);
+            first_run = false;
+        } else {
+            callback(MessageType::Prefix, "");
+        }
+
+        callback(MessageType::Msg, &line_msg);
+
+        // added_count 是已经处理过字符串的长度
+        added_count += line_msg.len();
+
+        // i 代表了有多少个换行符
+        // 因此，当预处理的消息长度等于已经处理的消息长度，减去加入的换行符
+        // 则处理结束
+        if msg.len() == added_count - i {
+            break;
+        }
+
+        // 移动已经处理的切片的指针
+        ref_s = &ref_s[line_msg.len() - 1..];
+        i += 1;
+    }
+}
+
+pub fn bar_writeln<P: Fn(&str)>(pb: P, prefix: &str, msg: &str) {
+    let max_len = WRITER.get_max_len();
+    writeln_inner(msg, prefix, max_len as usize, |t, s| {
+        let mut msg = String::new();
+        match t {
+            MessageType::Msg => msg.push_str(s),
+            MessageType::Prefix => msg.push_str(&gen_prefix(s, 10)),
+        }
+        pb(&msg);
+    });
 }

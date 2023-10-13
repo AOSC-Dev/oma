@@ -21,6 +21,7 @@ use oma_console::error;
 use oma_console::info;
 use oma_console::success;
 use oma_console::warn;
+use oma_console::writer::bar_writeln;
 use oma_console::WRITER;
 use oma_fetch::DownloadEvent;
 use oma_pm::apt::AptArgs;
@@ -67,15 +68,13 @@ pub(crate) fn refresh(
                 |count, event, total| {
                     if !no_progress {
                         match event {
-                            RefreshEvent::ClosingTopic(topic_name) => {
-                                WRITER
-                                    .writeln_with_mb(
-                                        &mb,
-                                        &style("INFO").blue().bold().to_string(),
-                                        &fl!("scan-topic-is-removed", name = topic_name),
-                                    )
-                                    .ok();
-                            }
+                            RefreshEvent::ClosingTopic(topic_name) => bar_writeln(
+                                |s| {
+                                    mb.println(s).ok();
+                                },
+                                &style("INFO").blue().bold().to_string(),
+                                &fl!("scan-topic-is-removed", name = topic_name),
+                            ),
                             RefreshEvent::DownloadEvent(event) => {
                                 pb!(event, mb, pb_map, count, total, global_is_set)
                             }
@@ -159,7 +158,7 @@ pub(crate) fn handle_event_without_progressbar(event: DownloadEvent) {
             error!("{}", fl!("can-not-get-source-next-url", e = e.to_string()));
         }
         DownloadEvent::Done(msg) => {
-            WRITER.writeln("DONE", &msg, false).ok();
+            WRITER.writeln("DONE", &msg).ok();
         }
         _ => {}
     }

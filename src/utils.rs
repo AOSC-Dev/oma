@@ -29,16 +29,12 @@ macro_rules! pb {
                 // println 返回的错误是无法控制终端的 I/O 错误，这种处理应该直接 panic 返回
                 // 所以这里直接 unwrap
                 // （下同）
-                oma_console::WRITER
-                    .writeln_with_mb(
-                        &*$mb,
-                        &oma_console::console::style("ERROR")
-                            .red()
-                            .bold()
-                            .to_string(),
-                        &fl!("checksum-mismatch-retry", c = filename, retry = times),
-                    )
-                    .unwrap();
+                oma_console::writer::bar_writeln(|s| { $mb.println(s).ok(); },
+                    &oma_console::console::style("ERROR")
+                        .red()
+                        .bold()
+                        .to_string(),
+                    &fl!("checksum-mismatch-retry", c = filename, retry = times))
             }
             oma_fetch::DownloadEvent::GlobalProgressSet(size) => {
                 if let Some(pb) = $pb_map.get(&0) {
@@ -80,16 +76,12 @@ macro_rules! pb {
                 pb.inc(size);
             }
             oma_fetch::DownloadEvent::CanNotGetSourceNextUrl(e) => {
-                oma_console::WRITER
-                    .writeln_with_mb(
-                        &*$mb,
-                        &oma_console::console::style("ERROR")
-                            .red()
-                            .bold()
-                            .to_string(),
-                        &fl!("can-not-get-source-next-url", e = e.to_string()),
-                    )
-                    .unwrap();
+                oma_console::writer::bar_writeln(|s| { $mb.println(s).ok(); },
+                &oma_console::console::style("ERROR")
+                .red()
+                .bold()
+                .to_string(),
+            &fl!("can-not-get-source-next-url", e = e.to_string()), )
             }
             oma_fetch::DownloadEvent::Done(filename) => {
                 oma_console::debug!("Downloaded {filename}");

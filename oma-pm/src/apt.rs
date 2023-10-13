@@ -1061,7 +1061,6 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     install_entry.old_size(installed.installed_size());
     install_entry.new_size(cand.installed_size());
     install_entry.pkg_urls(cand.uris().collect::<Vec<_>>());
-
     install_entry.arch(cand.arch().to_string());
     install_entry.download_size(cand.size());
     install_entry.op(op);

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use dialoguer::console;
-use oma_console::WRITER;
+use oma_console::writer::bar_writeln;
 use oma_console::{indicatif::ProgressBar, pb::oma_spinner};
 use oma_contents::{ContentsEvent, QueryMode};
 use oma_utils::dpkg::dpkg_arch;
@@ -44,20 +44,16 @@ pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool) -> Result<i3
             }
             ContentsEvent::ContentsMayNotBeAccurate => {
                 if let Some(pb) = &pb {
-                    WRITER
-                        .writeln_with_pb(
-                            pb,
-                            &console::style("WARNING").yellow().bold().to_string(),
-                            &fl!("contents-may-not-be-accurate-1"),
-                        )
-                        .unwrap();
-                    WRITER
-                        .writeln_with_pb(
-                            pb,
-                            &console::style("INFO").blue().bold().to_string(),
-                            &fl!("contents-may-not-be-accurate-2"),
-                        )
-                        .unwrap();
+                    bar_writeln(
+                        |s| pb.println(s),
+                        &console::style("WARNING").yellow().bold().to_string(),
+                        &fl!("contents-may-not-be-accurate-1"),
+                    );
+                    bar_writeln(
+                        |s| pb.println(s),
+                        &console::style("WARNING").yellow().bold().to_string(),
+                        &fl!("contents-may-not-be-accurate-2"),
+                    );
                 }
             }
             ContentsEvent::Done => {
