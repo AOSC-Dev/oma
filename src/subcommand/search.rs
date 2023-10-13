@@ -97,8 +97,8 @@ pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
 
         writeln_inner(&i.desc, "", WRITER.get_max_len().into(), |t, s| {
             match t {
-                MessageType::Msg => writeln!(writer, "{}", style(s).color256(182)),
-                MessageType::Prefix => write!(writer, "{}", s),
+                MessageType::Msg => writeln!(writer, "{}", style(s.trim()).color256(182)),
+                MessageType::Prefix => write!(writer, "{}", gen_prefix(s, 10)),
             }
             .ok();
         });

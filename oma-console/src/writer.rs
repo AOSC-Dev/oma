@@ -149,7 +149,7 @@ where
     let mut first_run = true;
 
     loop {
-        let line_msg = if console::measure_text_width(ref_s) <= max_len.into() {
+        let line_msg = if console::measure_text_width(ref_s) <= max_len {
             format!("{}\n", ref_s).into()
         } else {
             console::truncate_str(ref_s, max_len.into(), "\n")
