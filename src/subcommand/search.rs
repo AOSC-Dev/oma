@@ -93,7 +93,7 @@ pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
 
         for (i, c) in res.iter().enumerate() {
             write!(writer, "{}", &prefix[i]).ok();
-            writeln!(writer, "{}", style(c.trim()).color256(182).to_string()).ok();
+            writeln!(writer, "{}", style(c.trim()).color256(182)).ok();
         }
     }
 
