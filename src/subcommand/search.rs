@@ -1,5 +1,5 @@
 use dialoguer::console::style;
-use oma_console::{indicatif::ProgressBar, pb::oma_spinner, writer::gen_prefix};
+use oma_console::{indicatif::ProgressBar, pb::oma_spinner, writer::gen_prefix, WRITER};
 use oma_pm::{
     apt::{OmaApt, OmaAptArgsBuilder},
     query::OmaDatabase,
@@ -89,13 +89,12 @@ pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
         .to_string();
 
         writeln!(writer, "{}{}", gen_prefix(&prefix, 10), pkg_info_line).ok();
-        writeln!(
-            writer,
-            "{}{}",
-            gen_prefix("", 10),
-            style(i.desc).color256(182)
-        )
-        .ok();
+        let (prefix, res) = WRITER.writeln("", &i.desc, true)?;
+
+        for (i, c) in res.iter().enumerate() {
+            write!(writer, "{}", &prefix[i]).ok();
+            writeln!(writer, "{}", style(c.trim()).color256(182).to_string()).ok();
+        }
     }
 
     drop(writer);

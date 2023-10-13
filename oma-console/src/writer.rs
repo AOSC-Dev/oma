@@ -89,7 +89,7 @@ impl Writer {
         &self,
         prefix: &str,
         msg: &str,
-        is_pb: bool,
+        no_print: bool,
     ) -> OmaConsoleResult<(Vec<String>, Vec<String>)> {
         let max_len = self.get_max_len();
         let mut first_run = true;
@@ -110,19 +110,19 @@ impl Writer {
             };
 
             if first_run {
-                if !is_pb {
+                if !no_print {
                     self.write_prefix(prefix)?;
                 } else {
                     prefix_res.push(gen_prefix(prefix, self.prefix_len));
                 }
                 first_run = false;
-            } else if !is_pb {
+            } else if !no_print {
                 self.write_prefix("")?;
             } else {
                 prefix_res.push(gen_prefix("", self.prefix_len));
             }
 
-            if !is_pb {
+            if !no_print {
                 self.term.write_str(&line_msg)?;
             } else {
                 msg_res.push(line_msg.to_string());
