@@ -145,7 +145,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
                         provide: Some(provide.to_string()),
                         has_dbg: has_dbg(cache, &pkg, &cand),
                         raw_pkg: pkg.unique(),
-                        section: cand.section()?.to_string(),
+                        section: cand.section().unwrap_or("").to_string(),
                     },
                 );
             }
