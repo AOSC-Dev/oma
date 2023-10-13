@@ -19,7 +19,7 @@ fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgsBuilder::default().build().unwrap();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-    let pkgs = apt.select_pkg(&vec!["vscodium", "go"], false, true)?;
+    let pkgs = apt.select_pkg(&vec!["vscodium", "go"], false, true, true)?;
     std::fs::create_dir_all("./test").unwrap();
 
     let mb = Arc::new(MultiProgress::new());

@@ -88,6 +88,7 @@ impl<'a> OmaDatabase<'a> {
         glob: &str,
         filter_candidate: bool,
         select_dbg: bool,
+        avail_candidate: bool,
     ) -> OmaDatabaseResult<Vec<PkgInfo>> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
@@ -113,7 +114,19 @@ impl<'a> OmaDatabase<'a> {
                 let has_dbg = has_dbg(self.cache, &pkg, &ver);
 
                 let is_cand = pkg.candidate().map(|x| x == ver).unwrap_or(false);
-                if is_cand || !filter_candidate {
+                if filter_candidate && is_cand {
+                    if ver.is_downloadable() && avail_candidate {
+                        res.push(pkginfo);
+                    } else if !avail_candidate {
+                        res.push(pkginfo);
+                    } else if avail_candidate && !ver.is_downloadable() {
+                        let ver = pkg.versions().find(|x| x.is_downloadable());
+
+                        if let Some(ver) = ver {
+                            res.push(PkgInfo::new(&ver, &pkg));
+                        }
+                    }
+                } else if !filter_candidate {
                     res.push(pkginfo);
                 }
 
@@ -305,8 +318,8 @@ mod test {
     fn test_glob_search() {
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db.query_from_glob("apt*", true, false).unwrap();
-        let res = db.query_from_glob("apt*", false, false).unwrap();
+        let res_filter = db.query_from_glob("apt*", true, false, false).unwrap();
+        let res = db.query_from_glob("apt*", false, false, false).unwrap();
 
         for i in res_filter {
             i.print_info(&cache);
@@ -323,7 +336,7 @@ mod test {
     fn test_virtual_pkg_search() {
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db.query_from_glob("telegram", true, false).unwrap();
+        let res_filter = db.query_from_glob("telegram", true, false, false).unwrap();
 
         for i in res_filter {
             i.print_info(&cache);

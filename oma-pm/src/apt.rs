@@ -717,8 +717,9 @@ impl OmaApt {
         keywords: &[&str],
         select_dbg: bool,
         filter_candidate: bool,
+        available_candidate: bool
     ) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
-        select_pkg(keywords, &self.cache, select_dbg, filter_candidate)
+        select_pkg(keywords, &self.cache, select_dbg, filter_candidate, available_candidate)
     }
 
     /// Get apt archive dir
@@ -1082,6 +1083,7 @@ fn select_pkg(
     cache: &Cache,
     select_dbg: bool,
     filter_candidate: bool,
+    available_candidate: bool
 ) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
@@ -1093,7 +1095,7 @@ fn select_pkg(
                 db.query_from_branch(x, filter_candidate, select_dbg)?
             }
             x if x.split_once('=').is_some() => db.query_from_version(x, select_dbg)?,
-            x => db.query_from_glob(x, filter_candidate, select_dbg)?,
+            x => db.query_from_glob(x, filter_candidate, select_dbg, available_candidate)?,
         };
 
         for i in &res {

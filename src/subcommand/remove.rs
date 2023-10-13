@@ -34,7 +34,7 @@ pub fn execute(
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
-    let (pkgs, no_result) = apt.select_pkg(&pkgs, false, true)?;
+    let (pkgs, no_result) = apt.select_pkg(&pkgs, false, true, false)?;
     handle_no_result(no_result);
 
     let context = apt.remove(&pkgs, args.remove_config, args.no_autoremove, |pkg| {

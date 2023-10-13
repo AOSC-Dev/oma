@@ -18,6 +18,7 @@ pub fn execute(pkgs: Vec<String>) -> Result<i32, OutputError> {
         &pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
         false,
         true,
+        false
     )?;
     handle_no_result(no_result);
 
