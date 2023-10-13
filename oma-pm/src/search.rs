@@ -50,7 +50,7 @@ struct SearchEntry {
     provide: Option<String>,
     has_dbg: bool,
     raw_pkg: RawPackage,
-    section: String,
+    section_is_base: bool,
 }
 
 impl Indexable for SearchEntry {
@@ -114,7 +114,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
                     provide: None,
                     has_dbg: has_dbg(cache, &pkg, &cand),
                     raw_pkg: pkg.unique(),
-                    section: cand.section().ok().unwrap_or("").to_string(),
+                    section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
                 },
             );
             continue;
@@ -145,7 +145,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
                         provide: Some(provide.to_string()),
                         has_dbg: has_dbg(cache, &pkg, &cand),
                         raw_pkg: pkg.unique(),
-                        section: cand.section().unwrap_or("").to_string(),
+                        section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
                     },
                 );
             }
@@ -189,7 +189,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
             .map(|x| x.version().to_string())
             .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
 
-        let is_base = entry.section == "Bases";
+        let is_base = entry.section_is_base;
 
         search_res.push(SearchResult {
             name,
