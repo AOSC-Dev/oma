@@ -15,12 +15,12 @@ pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
     if !all {
         if let Some(pkg) = pkgs.first() {
             pkg.print_info(&apt.cache);
-        }
 
         let other_version = pkgs.len() - 1;
 
         if other_version > 0 {
             info!("{}", fl!("additional-version", len = other_version));
+        }
         }
     } else {
         for (i, c) in pkgs.iter().enumerate() {
