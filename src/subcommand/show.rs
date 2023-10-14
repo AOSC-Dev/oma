@@ -16,11 +16,13 @@ pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
         if let Some(pkg) = pkgs.first() {
             pkg.print_info(&apt.cache);
 
-        let other_version = pkgs.len() - 1;
+            let other_version = pkgs.len() - 1;
 
-        if other_version > 0 {
-            info!("{}", fl!("additional-version", len = other_version));
-        }
+            if other_version > 0 {
+                info!("{}", fl!("additional-version", len = other_version));
+            }
+        } else {
+            return Ok(1);
         }
     } else {
         for (i, c) in pkgs.iter().enumerate() {
