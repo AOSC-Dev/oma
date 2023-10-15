@@ -286,9 +286,8 @@ pub(crate) fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<
 }
 
 pub(crate) fn check_unsupport_stmt(s: &str) {
-    let unsupport = vec!['=', '/'];
-    for i in unsupport {
-        if s.contains(i) {
+    for i in s.chars() {
+        if !i.is_ascii_alphabetic() && !i.is_ascii_alphanumeric() && i != '-' && i != '.' {
             warn!("Unexpected pattern: {s}");
         }
     }
