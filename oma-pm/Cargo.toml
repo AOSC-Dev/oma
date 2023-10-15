@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 description = "A crate to help oma handle package manager operation"
 license = "GPL-3.0-or-later"
@@ -18,7 +18,7 @@ oma-utils = { version = "^0.1.5", path = "../oma-utils", features = [
     "dpkg",
     "url-no-escape"
 ] }
-oma-fetch = { version = "^0.3.1", path = "../oma-fetch" }
+oma-fetch = { version = "^0.4.0", path = "../oma-fetch" }
 tokio = { version = "1.15", default_features = false, features = ["fs", "rt-multi-thread"] }
 oma-console = { version = "^0.4.0", path = "../oma-console" }
 derive_builder = "0.12"
