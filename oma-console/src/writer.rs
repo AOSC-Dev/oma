@@ -182,12 +182,17 @@ where
 
 pub fn bar_writeln<P: Fn(&str)>(pb: P, prefix: &str, msg: &str) {
     let max_len = WRITER.get_max_len();
+    let mut res = (None, None);
     writeln_inner(msg, prefix, max_len as usize, |t, s| {
-        let mut msg = String::new();
         match t {
-            MessageType::Msg => msg.push_str(s),
-            MessageType::Prefix => msg.push_str(&gen_prefix(s, 10)),
+            MessageType::Msg => res.1 = Some(s.to_string()),
+            MessageType::Prefix => res.0 = Some(gen_prefix(s, 10).to_string()),
         }
-        pb(&msg);
+
+        if let (Some(prefix), Some(msg)) = &res {
+            pb(&format!("{prefix}{msg}"));
+            res = (None, None);
+        }
     });
+
 }
