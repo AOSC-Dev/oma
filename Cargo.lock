@@ -2127,7 +2127,7 @@ dependencies = [
  "dialoguer",
  "i18n-embed",
  "i18n-embed-fl",
- "oma-console 0.4.0",
+ "oma-console 0.4.1",
  "oma-contents",
  "oma-fetch",
  "oma-inquire",
@@ -2171,6 +2171,8 @@ dependencies = [
 [[package]]
 name = "oma-console"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e312a4db70de834c126575c0855b404b2cb915e9212a80aa144bfb18014ec201"
 dependencies = [
  "console",
  "indicatif",
@@ -2180,9 +2182,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e312a4db70de834c126575c0855b404b2cb915e9212a80aa144bfb18014ec201"
+version = "0.4.1"
 dependencies = [
  "console",
  "indicatif",
@@ -2226,7 +2226,7 @@ dependencies = [
  "futures",
  "hex",
  "indicatif",
- "oma-console 0.4.0",
+ "oma-console 0.4.1",
  "oma-utils 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
@@ -2264,7 +2264,7 @@ dependencies = [
  "indicatif",
  "indicium",
  "oma-apt",
- "oma-console 0.4.0",
+ "oma-console 0.4.1",
  "oma-fetch",
  "oma-utils 0.1.8",
  "serde",
@@ -2282,7 +2282,7 @@ dependencies = [
  "futures",
  "indicatif",
  "oma-apt-sources-lists",
- "oma-console 0.4.0",
+ "oma-console 0.4.1",
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
@@ -2303,7 +2303,7 @@ version = "0.3.2"
 dependencies = [
  "futures",
  "indexmap 2.0.2",
- "oma-console 0.4.0",
+ "oma-console 0.4.1",
  "oma-inquire",
  "once_cell",
  "reqwest",
@@ -2318,7 +2318,7 @@ name = "oma-utils"
 version = "0.1.8"
 dependencies = [
  "number_prefix",
- "oma-console 0.4.0",
+ "oma-console 0.4.1",
  "once_cell",
  "os-release",
  "thiserror",
@@ -2332,7 +2332,7 @@ version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77566da4b2bf28265acd50e686499438e211dd4aeedafcc4c0f1956513c75f7f"
 dependencies = [
- "oma-console 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "oma-console 0.4.0",
  "once_cell",
  "os-release",
  "thiserror",
