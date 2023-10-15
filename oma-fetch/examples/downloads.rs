@@ -97,6 +97,10 @@ async fn main() -> DownloadResult<()> {
                 let pb = pb_map.get(&(count + 1)).unwrap();
                 pb.inc(size);
             }
+            DownloadEvent::ProgressSet(size) => {
+                let pb = pb_map.get(&(count + 1)).unwrap();
+                pb.set_position(size);
+            }
             DownloadEvent::CanNotGetSourceNextUrl(e) => {
                 mb.println(format!("Error: {e}")).unwrap();
             }

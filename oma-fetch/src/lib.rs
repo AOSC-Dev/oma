@@ -114,6 +114,7 @@ pub enum DownloadEvent {
     NewProgressSpinner(String),
     NewProgress(u64, String),
     ProgressInc(u64),
+    ProgressSet(u64),
     CanNotGetSourceNextUrl(String),
     Done(String),
     AllDone,

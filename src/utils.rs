@@ -75,6 +75,10 @@ macro_rules! pb {
                 let pb = $pb_map.get(&($count + 1)).unwrap();
                 pb.inc(size);
             }
+            oma_fetch::DownloadEvent::ProgressSet(size) => {
+                let pb = $pb_map.get(&($count + 1)).unwrap();
+                pb.set_position(size);
+            }
             oma_fetch::DownloadEvent::CanNotGetSourceNextUrl(e) => {
                 oma_console::writer::bar_writeln(|s| { $mb.println(s).ok(); },
                 &oma_console::console::style("ERROR")
