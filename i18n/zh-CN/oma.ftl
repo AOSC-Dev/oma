@@ -253,5 +253,5 @@ bug = 请于 https://github.com/AOSC-Dev/oma 报告问题。
 clean-storage = 请腾出所需存储空间后再继续操作。
 ripgrep-right-installed = 请确认 Ripgrep 已正确安装。
 support-protocol = Omakase 目前仅支持 http://、https:// 和 file:/ 协议。请检查你的 sources.list 文件条目。
-debug = 若这是未预期行为，请使用 debug 模式（添加 `--debug' 参数）查看详细程序输出，并于 https://github.com/AOSC-Dev/oma 报告问题时附上相关输出。
+debug = 请使用调试模式（添加 `--debug' 参数）查看详细程序输出，并于 https://github.com/AOSC-Dev/oma 报告问题时附上相关输出。
 download-failed-with-len = {$len} 个软件包下载失败。

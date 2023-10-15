@@ -261,5 +261,5 @@ bug = Please report this issue at https://github.com/AOSC-Dev/oma.
 clean-storage = Please free up some storage space before proceeding.
 ripgrep-right-installed = Please make sure that Ripgrep is installed correctly.
 support-protocol = Omakase only supports http://, https://, and file:/ protocols. Please check your sources.list entries.
-debug = If this is not an expected behavior, please enable debug mode (by adding the `--debug' flag) to record detailed program output, and submit it along with your bug report at https://github.com/AOSC-Dev/oma.
+debug = Please enable debug mode by appending the `--debug' flag to record detailed program output, and submit it along with your bug report at https://github.com/AOSC-Dev/oma.
 download-failed-with-len = {$len} package(s) failed to download.
