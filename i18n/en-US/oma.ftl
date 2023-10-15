@@ -54,7 +54,7 @@ pkg-search-avail = AVAIL
 pkg-search-installed = INSTALLED
 pkg-search-upgrade = UPGRADE
 pkg-no-checksum = Package {$name} no checksum.
-pkg-unavailable = Version {$ver} of package {$pkg} is not available from any available repository.
+pkg-unavailable = Version {$ver} of {$pkg} is not available from any available repository.
 
 # pager
 question-tips-with-x11 = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
@@ -97,7 +97,7 @@ run-oma-upgrade-tips = Upgrade system packages with `oma upgrade'.
 comma = {", "}
 successfully-refresh-with-tips = Successfully refreshed the package database. {$s}
 successfully-refresh = Successfully refreshed the package database. System is up to date.
-no-candidate-ver = Current version for package {$pkg} is not available from the repository.
+no-candidate-ver = Current version for {$pkg} is not available from the repository.
 pkg-is-not-installed = Unable to mark package {$pkg}, as it is not yet installed.
 dpkg-data-is-broken = Omakase failed to parse the dpkg database. The dpkg database may be corrupted.
 already-hold = Package {$name} is already marked for version hold.
@@ -108,7 +108,7 @@ already-manual = Package {$name} is already marked as manually installed.
 setting-manual = Marked package {$name} as manually installed.
 already-auto = Package {$name} is already marked as automatically installed.
 setting-auto = Marked package {$name} as automatically installed.
-command-not-found-with-result = {$kw}: command not found. This command may be found from the following package(s):
+command-not-found-with-result = {$kw}: command not found. The following package(s) may provide this command:
 command-not-found = {$kw}: command not found.
 clean-successfully = Successfully cleaned Omakase database and cache.
 dpkg-get-selections-non-zero = `dpkg --get-selections' returned an error. The dpkg database may be corrupted.
@@ -122,10 +122,10 @@ pkg-no-version = Failed to get version of package {$name}.
 removed-as-unneed-dep = removed as unneeded dependency
 purge-file = purge configuration files
 semicolon = {"; "}
-should-installed = BUG: Package {$name} marked for pending operation but it is not installed. This is a program exception. Please report this issue at https://github.com/AOSC-Dev/oma.
+should-installed = BUG: Package {$name} was marked for pending operation but it is not installed. This is a program exception. Please report this issue at https://github.com/AOSC-Dev/oma.
 pick-tips = Please select {$pkgname} version to install:
 full-comma = .
-battery = You seem to be on battery power. oma may deplete the battery rather quickly during the transaction. It is recommended to plug in the power supply to prevent sudden power failure.
+battery = You seem to be on battery power. Omakase may deplete the battery rather quickly during the transaction. It is recommended to plug in your power supply to prevent sudden power failure.
 continue = Do you still wish to continue?
 changing-system = oma is modifying your system.
 
@@ -134,9 +134,9 @@ user-aborted-op = User aborted the operation.
 
 # formatter
 download-not-done = Omakase has finished downloading packages, but the APT backend returned an inconsistent state. Please run Omakase in debug mode (using the `--debug' switch) and submit the log in a bug report at https://github.com/AOSC-Dev/oma.
-force-auto-mode = Running Omakase in unattended mode with FORCED operations. If this is not  intended, press Ctrl + C now to stop the operation!
+force-auto-mode = Running Omakase in unattended mode with FORCED operations. If this is not intended, press Ctrl + C now to stop the operation!
 dpkg-force-all-mode = Running Omakase with DPKG FORCE ALL mode (ignores issues such as unsatisfied dependencies). If this is not intended, press Ctrl + C now to stop the operation!
-dep-does-not-exist = Dependency package {$name} is not available from any available repository.
+dep-does-not-exist = Dependency {$name} is not available from any of the repositories.
 count-pkg-has-desc = {$count} package(s) will be
 dep-error = Dependency Error
 dep-error-desc = Omakase has detected dependency errors(s) in your system and cannot proceed with
@@ -169,12 +169,12 @@ colon = :
 unmet-dep-before = {$count} package(s) has
 
 # download
-invalid-url = BUG: URL is not valid. Please report this issue at https://github.com/AOSC-Dev/oma.
+invalid-url = BUG: Invalid URL. Please report this issue at https://github.com/AOSC-Dev/oma.
 invaild-filename = Invalid file name: {$name}.
 invaild-ver = Invalid version: {$ver}.
-checksum-mismatch-try-next-url = Checksum verification failed for file {$c}. Retrying using the next available mirror ...
-checksum-mismatch-retry = Checksum verification failed for file {$c}. Retrying {$retry} times ...
-can-not-get-source-next-url = Failed to download File: {$e}. Retrying using the next available mirror ...
+checksum-mismatch-try-next-url = Checksum verification failed for {$c}. Retrying using the next available mirror ...
+checksum-mismatch-retry = Checksum verification failed for {$c}. Retrying {$retry} times ...
+can-not-get-source-next-url = Failed to download {$e}. Retrying using the next available mirror ...
 checksum-mismatch = Checksum verification failed for package file {$filename} at {$dir}.
 maybe-mirror-syncing = This could be caused by an incomplete or in progress mirror sync.
 can-not-download-file = Failed to download package {$filename}: {$e}.
@@ -185,8 +185,7 @@ progress = Progress:
 success-download-pkg = Downloaded {$download_len} package.
 no-need-to-fetch-anything = No need to fetch anything.
 can-not-get-filename = BUG: Cannot read file {$name}. Please report this issue at https://github.com/AOSC-Dev/oma.
-not-found-other = Failed to download File from URL {$url}: Remote file not found (HTTP 404).
-
+not-found-other = Failed to download file from {$url}: Remote file not found (404).
 
 # db
 setting-path-does-not-exist = Specified package cache directory {$path} does not exist. Falling back to /var/cache/apt/archives.
@@ -198,9 +197,9 @@ can-nnot-read-inrelease-file = Failed to parse InRelease at {$path}: {$e}.
 inrelease-date-empty = InRelease file is invalid: The Date field is empty.
 inrelease-valid-until-empty = InRelease file is invalid: The Valid-Until entry is empty.
 can-not-parse-date = BUG: Failed to parse the Date field {$date} to the RFC2822 format. Please report this issue at https://github.com/AOSC-Dev/oma.
-can-not-parse-valid-until = BUG: Failed to parse the Valid-Until field {$valid_until} to the RFC2822 format. Please report this issue at https://github.com/AOSC-Dev/oma.
+can-not-parse-valid-until = BUG: Failed to parse the Valid-Until field {$valid_until} in the RFC2822 format. Please report this issue at https://github.com/AOSC-Dev/oma.
 earlier-signature = InRelease file {$filename} is invalid: System time is earlier than the enclosed signature timestamp.
-expired-signature = InRelease file {$filename} is invalid: The enclosed signature has expired.
+expired-signature = InRelease file {$filename} is invalid: The enclosed signature has already expired.
 inrelease-sha256-empty = InRelease file is invalid: The SHA256 field is empty.
 inrelease-checksum-can-not-parse = InRelease file is invalid: Failed to parse checksum entry {$i}.
 inrelease-parse-unsupport-file-type = BUG: InRelease parser has encountered an unsupport file format. Please report this issue at https://github.com/AOSC-Dev/oma.
@@ -210,12 +209,12 @@ unsupport-some-mirror = Omakase has detected unsupported entries in sources.list
 unsupport-sourceentry = Unsupported sources.list entry(ies):
 refreshing-repo-metadata = Refreshing local database ...
 can-not-get-suite = Failed to detect suite from sources.list entry: {$url}.
-not-found = Failed to download InRelease from URL {$url}: Remote file not found (HTTP 404).
+not-found = Failed to download InRelease from {$url}: Remote file not found (404).
 contents = `Contents'
 pkg_list = `Packages'
 bincontents = `BinContents'
 decompressing = Decompressing the
-unsupport-decompress-file = BUG: Omakase has encountered an unsupported compression method in {$name}. Please report this issue at https://github.com/AOSC-Dev/oma.
+unsupport-decompress-file = BUG: Omakase found an unsupported compression method in {$name}. Please report this issue at https://github.com/AOSC-Dev/oma.
 can-not-get-file = Failed to open file {$name}: {$e}
 downloading-database = {$file} {$source}
 flushing-data = Flushing data to hard disk …
@@ -231,9 +230,9 @@ execute-ripgrep-failed = Failed to execute `rg': {$e}.
 searching = Searching ...
 parse-rg-result-failed = BUG: Failed to parse `rg' result {$i}: {$e}. Please report this issue at https://github.com/AOSC-Dev/oma.
 search-with-result-count = Searching, found {$count} results so far ...
-contents-entry-missing-path-list = BUG: Omakase failed to parse an entry {$entry} in the local contents database. Please report this issue at https://github.com/AOSC-Dev/oma.
+contents-entry-missing-path-list = BUG: Omakase failed to parse the entry {$entry} in the local package contents database. Please report this issue at https://github.com/AOSC-Dev/oma.
 rg-non-zero = `rg' returned an error.
-cnf-wrong-argument = BUG: The command-not-found method was not passed with the correct parameters, please report upstream: https://github.com/AOSC-dev/oma.
+cnf-wrong-argument = BUG: An incorrect parameter was passed into the command-not-found. Please report this issue at https://github.com/AOSC-dev/oma.
 
 # checksum
 sha256-bad-length = Malformed SHA256 checksum: bad length.
