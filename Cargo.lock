@@ -345,7 +345,7 @@ version = "0.68.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "726e4313eb6ec35d2730258ad4e15b547ee75d6afaa1361a922e78e59b7d8078"
 dependencies = [
- "bitflags 2.4.0",
+ "bitflags 2.4.1",
  "cexpr",
  "clang-sys",
  "lazy_static",
@@ -382,9 +382,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.4.0"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4682ae6287fcf752ecaabbfcc7b6f9b72aa33933dc23a554d853aea8eea8635"
+checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
 
 [[package]]
 name = "block"
@@ -2129,7 +2129,7 @@ version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
 dependencies = [
- "bitflags 2.4.0",
+ "bitflags 2.4.1",
  "cfg-if",
  "libc",
 ]
@@ -2265,11 +2265,10 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9eb633b27931d1277b0ca17e79be153b80f9b7ead25100becbd0520534fcb742"
+version = "0.5.0"
 dependencies = [
  "console",
+ "icu_segmenter",
  "indicatif",
  "once_cell",
  "thiserror",
@@ -2278,6 +2277,8 @@ dependencies = [
 [[package]]
 name = "oma-console"
 version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8db0b5a1fc6814045f0e3b9164e4e2b542ea9631513b638eae9b5dcf30cd0164"
 dependencies = [
  "console",
  "icu_segmenter",
@@ -2323,7 +2324,7 @@ dependencies = [
  "hex",
  "indicatif",
  "oma-console 0.5.0",
- "oma-utils 0.1.8",
+ "oma-utils 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
  "sha2",
@@ -2337,7 +2338,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0202f85dc9e44d074580a86d619c8d39a9b43b1645faef2de73e203cc046199"
 dependencies = [
- "bitflags 2.4.0",
+ "bitflags 2.4.1",
  "crossterm",
  "dyn-clone",
  "lazy_static",
@@ -2411,19 +2412,6 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77566da4b2bf28265acd50e686499438e211dd4aeedafcc4c0f1956513c75f7f"
-dependencies = [
- "oma-console 0.4.1",
- "once_cell",
- "os-release",
- "thiserror",
- "url-escape",
-]
-
-[[package]]
-name = "oma-utils"
 version = "0.1.9"
 dependencies = [
  "number_prefix",
@@ -2433,6 +2421,19 @@ dependencies = [
  "thiserror",
  "url-escape",
  "zbus",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "384756b0e14c6b083b6ad04618e56d1e000627a943f267a685ffc178c1997580"
+dependencies = [
+ "oma-console 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "once_cell",
+ "os-release",
+ "thiserror",
+ "url-escape",
 ]
 
 [[package]]
@@ -2447,7 +2448,7 @@ version = "0.10.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bac25ee399abb46215765b1cb35bc0212377e58a061560d8b29b024fd0430e7c"
 dependencies = [
- "bitflags 2.4.0",
+ "bitflags 2.4.1",
  "cfg-if",
  "foreign-types",
  "libc",
@@ -2903,7 +2904,7 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "549b9d036d571d42e6e85d1c1425e2ac83491075078ca9a15be021c56b1641f2"
 dependencies = [
- "bitflags 2.4.0",
+ "bitflags 2.4.1",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
@@ -2977,7 +2978,7 @@ version = "0.38.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "745ecfa778e66b2b63c88a61cb36e0eea109e803b0b86bf9879fbc77c70e86ed"
 dependencies = [
- "bitflags 2.4.0",
+ "bitflags 2.4.1",
  "errno",
  "libc",
  "linux-raw-sys 0.4.10",
