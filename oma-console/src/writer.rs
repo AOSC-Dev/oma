@@ -2,6 +2,7 @@ use std::io::Write;
 
 use crate::{OmaConsoleResult, WRITER};
 use console::Term;
+use icu_segmenter::LineSegmenter;
 
 /// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
@@ -152,7 +153,11 @@ where
         let line_msg = if console::measure_text_width(ref_s) <= max_len {
             format!("{}\n", ref_s).into()
         } else {
-            console::truncate_str(ref_s, max_len, "\n")
+            let segmenter = LineSegmenter::new_auto();
+            let breakpoint = segmenter.segment_str(ref_s).filter(|x| x <= &max_len).max();
+            let breakpoint = breakpoint.unwrap_or(max_len);
+
+            console::truncate_str(ref_s, breakpoint, "\n")
         };
 
         if first_run {
@@ -186,7 +191,7 @@ pub fn bar_writeln<P: Fn(&str)>(pb: P, prefix: &str, msg: &str) {
     writeln_inner(msg, prefix, max_len as usize, |t, s| {
         match t {
             MessageType::Msg => res.1 = Some(s.to_string()),
-            MessageType::Prefix => res.0 = Some(gen_prefix(s, 10).to_string()),
+            MessageType::Prefix => res.0 = Some(gen_prefix(s, 10)),
         }
 
         if let (Some(prefix), Some(msg)) = &res {
@@ -194,5 +199,4 @@ pub fn bar_writeln<P: Fn(&str)>(pb: P, prefix: &str, msg: &str) {
             res = (None, None);
         }
     });
-
 }
