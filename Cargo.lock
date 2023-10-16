@@ -2222,14 +2222,14 @@ dependencies = [
  "dialoguer",
  "i18n-embed",
  "i18n-embed-fl",
- "oma-console 0.4.1",
+ "oma-console 0.5.0",
  "oma-contents",
  "oma-fetch",
  "oma-inquire",
  "oma-pm",
  "oma-refresh",
  "oma-topics",
- "oma-utils 0.1.8",
+ "oma-utils 0.1.9",
  "once_cell",
  "rusqlite",
  "rust-embed",
@@ -2266,9 +2266,10 @@ dependencies = [
 [[package]]
 name = "oma-console"
 version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9eb633b27931d1277b0ca17e79be153b80f9b7ead25100becbd0520534fcb742"
 dependencies = [
  "console",
- "icu_segmenter",
  "indicatif",
  "once_cell",
  "thiserror",
@@ -2276,11 +2277,10 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9eb633b27931d1277b0ca17e79be153b80f9b7ead25100becbd0520534fcb742"
+version = "0.5.0"
 dependencies = [
  "console",
+ "icu_segmenter",
  "indicatif",
  "once_cell",
  "thiserror",
@@ -2294,7 +2294,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.1.8",
+ "oma-utils 0.1.9",
  "rayon",
  "regex",
  "strsim",
@@ -2314,7 +2314,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "async-compression",
  "dashmap",
@@ -2322,8 +2322,8 @@ dependencies = [
  "futures",
  "hex",
  "indicatif",
- "oma-console 0.4.1",
- "oma-utils 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "oma-console 0.5.0",
+ "oma-utils 0.1.8",
  "reqwest",
  "serde",
  "sha2",
@@ -2349,7 +2349,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2360,9 +2360,9 @@ dependencies = [
  "indicatif",
  "indicium",
  "oma-apt",
- "oma-console 0.4.1",
+ "oma-console 0.5.0",
  "oma-fetch",
- "oma-utils 0.1.8",
+ "oma-utils 0.1.9",
  "serde",
  "thiserror",
  "tokio",
@@ -2370,7 +2370,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.6.5"
+version = "0.6.6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2378,11 +2378,11 @@ dependencies = [
  "futures",
  "indicatif",
  "oma-apt-sources-lists",
- "oma-console 0.4.1",
+ "oma-console 0.5.0",
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
- "oma-utils 0.1.8",
+ "oma-utils 0.1.9",
  "once_cell",
  "reqwest",
  "sequoia-openpgp",
@@ -2395,11 +2395,11 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "futures",
  "indexmap 2.0.2",
- "oma-console 0.4.1",
+ "oma-console 0.5.0",
  "oma-inquire",
  "once_cell",
  "reqwest",
@@ -2412,27 +2412,27 @@ dependencies = [
 [[package]]
 name = "oma-utils"
 version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77566da4b2bf28265acd50e686499438e211dd4aeedafcc4c0f1956513c75f7f"
 dependencies = [
- "number_prefix",
  "oma-console 0.4.1",
  "once_cell",
  "os-release",
  "thiserror",
  "url-escape",
- "zbus",
 ]
 
 [[package]]
 name = "oma-utils"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77566da4b2bf28265acd50e686499438e211dd4aeedafcc4c0f1956513c75f7f"
+version = "0.1.9"
 dependencies = [
- "oma-console 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "number_prefix",
+ "oma-console 0.5.0",
  "once_cell",
  "os-release",
  "thiserror",
  "url-escape",
+ "zbus",
 ]
 
 [[package]]

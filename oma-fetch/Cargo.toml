@@ -1,6 +1,6 @@
 [package]
 name = "oma-fetch"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "A downloader to help oma download something"
 license = "MIT"
@@ -15,7 +15,7 @@ serde = { version = "1.0", features = ["derive"] }
 hex = "0.4"
 sha2 = "0.10"
 futures = "0.3"
-oma-console = { version = "^0.4", path = "../oma-console" }
+oma-console = { version = "^0.5", path = "../oma-console" }
 derive_builder = "0.12"
 async-compression = { version = "0.4", features = ["tokio", "gzip", "xz"] }
 oma-utils = { version = "^0.1", features = ["url-no-escape"] }
