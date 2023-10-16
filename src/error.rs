@@ -347,33 +347,29 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
 
 fn oma_download_error(e: DownloadError) -> (String, Option<String>) {
     match e {
-        DownloadError::ChecksumMisMatch(url, dir) => (
-            fl!("checksum-mismatch", filename = url, dir = dir),
+        DownloadError::ChecksumMisMatch(filename) => (
+            fl!("checksum-mismatch", filename = filename),
             Some(fl!("check-network-settings")),
-        ),
-        DownloadError::NotFound(s) => (
-            fl!("not-found-other", url = s),
-            Some(fl!("maybe-mirror-syncing")),
         ),
         DownloadError::IOError(e) => (fl!("io-error", e = e.to_string()), None),
-        DownloadError::ReqwestError(e) => (
-            format!("Reqwest Error: {e}"),
-            Some(fl!("check-network-settings")),
-        ),
+        DownloadError::ReqwestError(filename, e) => {
+            let e = e.without_url().to_string();
+            (
+                fl!("download-failed", filename = filename, e = e),
+                Some(fl!("check-network-settings")),
+            )
+        }
         DownloadError::ChecksumError(e) => oma_checksum_error(e),
         DownloadError::FailedOpenLocalSourceFile(path, e) => (
             fl!("can-not-parse-sources-list", path = path.to_string(), e = e),
             Some(fl!("check-sources-list")),
-        ),
-        DownloadError::DownloadAllFailed(s, e) => (
-            fl!("can-not-get-file", name = s, e = e),
-            Some(fl!("check-network-settings")),
         ),
         DownloadError::DownloadSourceBuilderError(e) => (e.to_string(), None),
         DownloadError::InvaildURL(s) => (
             fl!("invaild-url", url = s),
             Some(fl!("mirror-data-maybe-broken")),
         ),
+        DownloadError::ReqwestFaiedToCreateClient(e) => (e.to_string(), None),
     }
 }
 

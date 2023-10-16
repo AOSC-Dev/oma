@@ -10,6 +10,7 @@ use oma_fetch::{
     DownloadError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
 };
 use once_cell::sync::Lazy;
+use reqwest::StatusCode;
 use serde::Deserialize;
 use url::Url;
 
@@ -133,21 +134,6 @@ pub fn get_sources() -> Result<Vec<SourceEntry>> {
             }
         }
     }
-
-    // AOSC OS/Retro 以后也许会支持使用光盘源安装软件包，但目前因为没有实例，所以无法测试
-    // 因此 Omakase 暂不支持 cdrom:// 源的安装
-    // let cdrom = res
-    //     .iter()
-    //     .filter(|x| x.url().starts_with("cdrom://"))
-    //     .collect::<Vec<_>>();
-
-    // for i in &cdrom {
-    //     error!("{}", fl!("unsupport-cdrom", url = i.url()));
-    // }
-
-    // if !cdrom.is_empty() {
-    //     bail!(fl!("unsupport-some-mirror"));
-    // }
 
     Ok(res)
 }
@@ -366,8 +352,13 @@ where
                 Err(e) => {
                     #[cfg(feature = "aosc")]
                     match e {
-                        DownloadError::NotFound(url) => {
-                            not_found.push(url);
+                        DownloadError::ReqwestError(_, e)
+                            if e.status()
+                                .map(|x| x == StatusCode::NOT_FOUND)
+                                .unwrap_or(false) =>
+                        {
+                            let url = e.url().map(|x| x.to_owned());
+                            not_found.push(url.unwrap());
                         }
                         _ => return Err(e.into()),
                     }
@@ -388,10 +379,9 @@ where
             let removed_suites = oma_topics::scan_closed_topic(handle_topic_msg).await?;
             for url in not_found {
                 let suite = url
-                    .split('/')
-                    .nth_back(1)
-                    .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
-                    .to_string();
+                    .path_segments()
+                    .and_then(|x| x.last().map(|x| x.to_string()))
+                    .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
 
                 if !removed_suites.contains(&suite) {
                     return Err(RefreshError::NoInReleaseFile(url.to_string()));

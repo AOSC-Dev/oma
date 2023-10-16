@@ -14,7 +14,7 @@ use oma_console::debug;
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
-    Client, StatusCode,
+    Client,
 };
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 
@@ -109,7 +109,7 @@ impl SingleDownloader<'_> {
                     return Ok(s);
                 }
                 Err(e) => match e {
-                    DownloadError::ChecksumMisMatch(ref filename, _) => {
+                    DownloadError::ChecksumMisMatch(ref filename) => {
                         if self.retry_times == times {
                             return Err(e);
                         }
@@ -245,7 +245,10 @@ impl SingleDownloader<'_> {
             Ok(resp) => resp,
             Err(e) => {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
-                return Err(DownloadError::ReqwestError(e));
+                return Err(DownloadError::ReqwestError(
+                    self.entry.filename.to_string(),
+                    e,
+                ));
             }
         };
 
@@ -302,20 +305,17 @@ impl SingleDownloader<'_> {
 
         debug!("Can resume? {can_resume}");
 
-        let resp = req.send().await?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| DownloadError::ReqwestError(self.entry.filename.to_string(), e))?;
 
         if let Err(e) = resp.error_for_status_ref() {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
-            match e.status() {
-                Some(StatusCode::NOT_FOUND) => {
-                    let url = self.entry.source[position].url.clone();
-                    return Err(DownloadError::NotFound(url));
-                }
-                _ => {
-                    debug!("{e}");
-                    return Err(e.into());
-                }
-            }
+            return Err(DownloadError::ReqwestError(
+                self.entry.filename.to_string(),
+                e,
+            ));
         } else {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
         }
@@ -416,7 +416,11 @@ impl SingleDownloader<'_> {
         // 下载！
         debug!("Start download!");
         let mut self_progress = 0;
-        while let Some(chunk) = source.chunk().await? {
+        while let Some(chunk) = source
+            .chunk()
+            .await
+            .map_err(|e| DownloadError::ReqwestError(self.entry.filename.to_string(), e))?
+        {
             if let Err(e) = writer.write_all(&chunk).await {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
                 return Err(e.into());
@@ -465,10 +469,8 @@ impl SingleDownloader<'_> {
                 );
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
 
-                let url = self.entry.source[position].url.clone();
                 return Err(DownloadError::ChecksumMisMatch(
-                    url,
-                    self.entry.dir.display().to_string(),
+                    self.entry.filename.to_string(),
                 ));
             }
 

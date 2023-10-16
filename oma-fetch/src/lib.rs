@@ -14,20 +14,18 @@ mod download;
 
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
-    #[error("checksum mismatch {0} at dir {1}")]
-    ChecksumMisMatch(String, String),
-    #[error("404 not found: {0}")]
-    NotFound(String),
+    #[error("checksum mismatch {0}")]
+    ChecksumMisMatch(String),
     #[error(transparent)]
     IOError(#[from] tokio::io::Error),
-    #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
+    #[error("reqwest error to download file: {0}, kind: {1:?}")]
+    ReqwestError(String, reqwest::Error),
+    #[error("reqwest error to create client, kind: {0:?}")]
+    ReqwestFaiedToCreateClient(reqwest::Error),
     #[error(transparent)]
     ChecksumError(#[from] crate::checksum::ChecksumError),
     #[error("Failed to open local source file {0}: {1}")]
     FailedOpenLocalSourceFile(Arc<String>, String),
-    #[error("Download all file failed: {0}: {1}")]
-    DownloadAllFailed(String, String),
     #[error(transparent)]
     DownloadSourceBuilderError(#[from] DownloadEntryBuilderError),
     #[error("Invaild URL: {0}")]
@@ -144,7 +142,12 @@ impl OmaFetcher {
         download_list: Vec<DownloadEntry>,
         limit_thread: Option<usize>,
     ) -> DownloadResult<Self> {
-        let client = client.unwrap_or(ClientBuilder::new().user_agent("oma").build()?);
+        let client = client.unwrap_or(
+            ClientBuilder::new()
+                .user_agent("oma")
+                .build()
+                .map_err(|e| DownloadError::ReqwestFaiedToCreateClient(e))?,
+        );
 
         Ok(Self {
             client,
