@@ -146,7 +146,7 @@ impl OmaFetcher {
             ClientBuilder::new()
                 .user_agent("oma")
                 .build()
-                .map_err(|e| DownloadError::ReqwestFaiedToCreateClient(e))?,
+                .map_err(DownloadError::ReqwestFaiedToCreateClient)?,
         );
 
         Ok(Self {
