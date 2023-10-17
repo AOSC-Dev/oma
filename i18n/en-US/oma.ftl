@@ -154,16 +154,18 @@ change-storage-usage = {"Estimated change in storage usage: "}
 pending-op = Pending Operations
 review-msg = Shown below is an overview of the pending changes Omakase will apply to your
     system, please review them carefully.
-removed = REMOVED
+install = install
 installed = installed
+remove = remove
+removed = REMOVED
 upgrade = upgrade
+upgraded = upgraded
+downgrade = downgrade
 downgraded = downgraded
 reinstall = reinstall
+reinstalled = reinstalled
 oma-may = Omakase may {$a}, {$b}, {$c}, {$d}, or {$e} packages in order
     to fulfill your requested changes.
-install = install
-remove = remove
-downgrade = downgrade
 unmet-dep = unmet dependency(ies)
 colon = : 
 unmet-dep-before = {$count} package(s) has
