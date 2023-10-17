@@ -149,7 +149,7 @@ impl SingleDownloader<'_> {
 
         // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
         // 如果不存在，则继续往下走
-        if file_exist && allow_resume {
+        if file_exist {
             debug!(
                 "File: {} exists, oma will checksum this file.",
                 self.entry.filename
