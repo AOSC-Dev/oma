@@ -18,7 +18,7 @@ once_cell = "1.18"
 futures = "0.3"
 oma-apt-sources-lists = "0.1"
 oma-debcontrol = "0.3"
-sequoia-openpgp = "1.13"
+sequoia-openpgp = { version = "1.13", default_features = false }
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.3.0", path = "../oma-topics", optional = true }
@@ -28,7 +28,9 @@ oma-console = { version = "^0.5.0", path = "../oma-console" }
 
 [features]
 aosc = ["dep:oma-topics"]
-default = ["aosc"]
+sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]
+sequoia-nettle-backend = ["sequoia-openpgp/crypto-nettle"]
+default = ["aosc", "sequoia-nettle-backend"]
 
 [dev-dependencies]
 tokio = { version = "1.28", default_features = false, features = ["macros", "rt-multi-thread"] }
