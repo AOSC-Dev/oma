@@ -30,35 +30,25 @@ pub fn dpkg_arch() -> Result<String, DpkgError> {
     Ok(output)
 }
 
+pub fn is_hold(pkg: &str) -> Result<bool, DpkgError> {
+    let list = get_selections()?;
+
+    let status = list
+        .iter()
+        .find(|(x, _)| x == pkg)
+        .map(|x| x.1 == "hold")
+        .unwrap_or(false);
+
+    Ok(status)
+}
+
 /// Mark hold/unhold status use dpkg --set-selections
 pub fn mark_version_status(
     pkgs: &[String],
     hold: bool,
     dry_run: bool,
 ) -> Result<Vec<(&str, bool)>, DpkgError> {
-    let dpkg = Command::new("dpkg").arg("--get-selections").output()?;
-
-    if !dpkg.status.success() {
-        return Err(DpkgError::DpkgRunError(dpkg.status.code().unwrap_or(1)));
-    }
-
-    let mut selections = std::str::from_utf8(&dpkg.stdout)?.split('\n');
-    selections.nth_back(0);
-
-    let list = Some(())
-        .and_then(|_| {
-            let mut list = vec![];
-            for i in selections {
-                let mut split = i.split_whitespace();
-                let name = split.next()?;
-                let status = split.next()?;
-
-                list.push((name, status));
-            }
-
-            Some(list)
-        })
-        .ok_or_else(|| DpkgError::FailedToQueryDpkgDatabase)?;
+    let list = get_selections()?;
 
     let mut res = vec![];
 
@@ -102,4 +92,31 @@ pub fn mark_version_status(
     }
 
     Ok(res)
+}
+
+fn get_selections() -> Result<Vec<(String, String)>, DpkgError> {
+    let dpkg = Command::new("dpkg").arg("--get-selections").output()?;
+    if !dpkg.status.success() {
+        return Err(DpkgError::DpkgRunError(dpkg.status.code().unwrap_or(1)));
+    }
+
+    let mut selections = std::str::from_utf8(&dpkg.stdout)?.split('\n');
+    selections.nth_back(0);
+
+    let list = Some(())
+        .and_then(|_| {
+            let mut list = vec![];
+            for i in selections {
+                let mut split = i.split_whitespace();
+                let name = split.next()?;
+                let status = split.next()?;
+
+                list.push((name.to_string(), status.to_string()));
+            }
+
+            Some(list)
+        })
+        .ok_or_else(|| DpkgError::FailedToQueryDpkgDatabase)?;
+
+    Ok(list)
 }

@@ -29,7 +29,7 @@ use oma_fetch::{
     DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
     DownloadSourceType, OmaFetcher, Summary,
 };
-use oma_utils::dpkg::DpkgError;
+use oma_utils::dpkg::{is_hold, DpkgError};
 
 pub use oma_apt::config::Config as AptConfig;
 
@@ -294,7 +294,7 @@ impl OmaApt {
         let upgradable = self
             .cache
             .packages(&sort)?
-            .filter(|x| !x.marked_keep())
+            .filter(|x| !is_hold(x.name()).unwrap_or(false))
             .count();
 
         let sort = PackageSort::default().auto_removable();
