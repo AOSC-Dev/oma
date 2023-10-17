@@ -56,8 +56,8 @@ pub fn mark_version_status(
         if list.iter().any(|(x, status)| {
             x == pkg
                 && match hold {
-                    true => status == &"hold",
-                    false => status == &"install",
+                    true => status == "hold",
+                    false => status == "install",
                 }
         }) {
             debug!("pkg {pkg} set to hold = {hold} is set = false");
