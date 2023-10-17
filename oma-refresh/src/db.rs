@@ -380,7 +380,7 @@ where
             for url in not_found {
                 let suite = url
                     .path_segments()
-                    .and_then(|x| x.last().map(|x| x.to_string()))
+                    .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
                     .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
 
                 if !removed_suites.contains(&suite) {
