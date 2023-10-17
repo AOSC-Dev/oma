@@ -2348,7 +2348,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.6.9"
+version = "0.6.10"
 dependencies = [
  "anyhow",
  "chrono",
