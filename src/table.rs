@@ -364,7 +364,7 @@ fn print_pending_inner<W: Write>(
                 .print(format!(
                     "{} {}{}\n",
                     fl!("count-pkg-has-desc", count = update_display.len()),
-                    style(fl!("upgrade")).color256(87),
+                    style(fl!("upgraded")).color256(87),
                     fl!("colon")
                 ))
                 .ok();
@@ -414,7 +414,7 @@ fn print_pending_inner<W: Write>(
                 .print(format!(
                     "{} {}{}\n",
                     fl!("count-pkg-has-desc", count = reinstall_display.len()),
-                    style(fl!("reinstall")).blue().bold(),
+                    style(fl!("reinstalled")).blue().bold(),
                     fl!("colon"),
                 ))
                 .ok();
