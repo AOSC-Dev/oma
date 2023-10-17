@@ -29,7 +29,7 @@ rustix = { version = "0.38", features = ["process"] }
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
 oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
-oma-refresh = { path = "./oma-refresh" }
+oma-refresh = { path = "./oma-refresh", default_features = false }
 oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch" }
 oma-topics = { path = "./oma-topics", optional = true }
@@ -49,7 +49,9 @@ anyhow = "1.0.75"
 [features]
 aosc = ["dep:oma-topics", "oma-refresh/aosc"]
 contents-without-rg = ["oma-contents/no-rg-binary"]
-default  = ["aosc"]
+sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
+sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
+default = ["aosc","sequoia-nettle-backend"]
 
 [workspace]
 members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm"]
