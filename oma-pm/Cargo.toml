@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.8.3"
+version = "0.8.4"
 edition = "2021"
 description = "A crate to help oma handle package manager operation"
 license = "GPL-3.0-or-later"
@@ -13,7 +13,7 @@ thiserror = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 glob-match = "0.2"
 indicium = "0.5"
-oma-utils = { version = "^0.1.5", path = "../oma-utils", features = [
+oma-utils = { version = "^0.2.0", path = "../oma-utils", features = [
     "human-bytes",
     "dpkg",
     "url-no-escape"

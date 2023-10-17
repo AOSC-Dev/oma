@@ -2229,7 +2229,7 @@ dependencies = [
  "oma-pm",
  "oma-refresh",
  "oma-topics",
- "oma-utils 0.1.9",
+ "oma-utils 0.2.0",
  "once_cell",
  "rusqlite",
  "rust-embed",
@@ -2295,7 +2295,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.1.9",
+ "oma-utils 0.2.0",
  "rayon",
  "regex",
  "strsim",
@@ -2324,7 +2324,7 @@ dependencies = [
  "hex",
  "indicatif",
  "oma-console 0.5.0",
- "oma-utils 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "oma-utils 0.1.9",
  "reqwest",
  "serde",
  "sha2",
@@ -2350,7 +2350,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.8.3"
+version = "0.8.4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2363,7 +2363,7 @@ dependencies = [
  "oma-apt",
  "oma-console 0.5.0",
  "oma-fetch",
- "oma-utils 0.1.9",
+ "oma-utils 0.2.0",
  "serde",
  "thiserror",
  "tokio",
@@ -2371,7 +2371,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.6.8"
+version = "0.6.9"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2383,7 +2383,7 @@ dependencies = [
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
- "oma-utils 0.1.9",
+ "oma-utils 0.2.0",
  "once_cell",
  "reqwest",
  "sequoia-openpgp",
@@ -2413,19 +2413,6 @@ dependencies = [
 [[package]]
 name = "oma-utils"
 version = "0.1.9"
-dependencies = [
- "number_prefix",
- "oma-console 0.5.0",
- "once_cell",
- "os-release",
- "thiserror",
- "url-escape",
- "zbus",
-]
-
-[[package]]
-name = "oma-utils"
-version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384756b0e14c6b083b6ad04618e56d1e000627a943f267a685ffc178c1997580"
 dependencies = [
@@ -2434,6 +2421,19 @@ dependencies = [
  "os-release",
  "thiserror",
  "url-escape",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.2.0"
+dependencies = [
+ "number_prefix",
+ "oma-console 0.5.0",
+ "once_cell",
+ "os-release",
+ "thiserror",
+ "url-escape",
+ "zbus",
 ]
 
 [[package]]

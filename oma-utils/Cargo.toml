@@ -1,6 +1,6 @@
 [package]
 name = "oma-utils"
-version = "0.1.9"
+version = "0.2.0"
 edition = "2021"
 description = "Some small-tools to help oma handle something"
 license = "MIT"
