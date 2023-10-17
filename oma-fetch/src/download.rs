@@ -149,7 +149,7 @@ impl SingleDownloader<'_> {
 
         // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
         // 如果不存在，则继续往下走
-        if file_exist && allow_resume {
+        if file_exist {
             debug!(
                 "File: {} exists, oma will checksum this file.",
                 self.entry.filename
@@ -217,9 +217,10 @@ impl SingleDownloader<'_> {
 
                 if !allow_resume {
                     global_progress.fetch_sub(readed, Ordering::SeqCst);
+                    let progress = global_progress.load(Ordering::SeqCst);
                     callback(
                         self.download_list_index,
-                        DownloadEvent::GlobalProgressSet(global_progress.load(Ordering::SeqCst)),
+                        DownloadEvent::GlobalProgressSet(progress),
                     );
                 } else {
                     dest = Some(f);
@@ -342,6 +343,7 @@ impl SingleDownloader<'_> {
             None
         };
 
+        let mut self_progress = 0;
         let mut dest = if !can_resume || !allow_resume {
             // 如果不能 resume，则加入 truncate 这个 flag，告诉内核截断文件
             // 并把文件长度设置为 0
@@ -373,6 +375,7 @@ impl SingleDownloader<'_> {
                 "oma will re use opened dest file for {}",
                 self.entry.filename
             );
+            self_progress += file_size;
 
             dest
         } else {
@@ -415,7 +418,6 @@ impl SingleDownloader<'_> {
 
         // 下载！
         debug!("Start download!");
-        let mut self_progress = 0;
         while let Some(chunk) = source
             .chunk()
             .await
