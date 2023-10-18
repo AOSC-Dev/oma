@@ -1,5 +1,5 @@
-use std::{ffi::OsStr, path::PathBuf};
 use clap::{builder::PossibleValue, command, Arg, ArgAction, Command};
+use std::{ffi::OsStr, path::PathBuf};
 
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
