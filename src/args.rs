@@ -1,7 +1,5 @@
-use std::{ffi::OsStr, path::PathBuf};
-
-use anyhow::anyhow;
 use clap::{builder::PossibleValue, command, Arg, ArgAction, Command};
+use std::{ffi::OsStr, path::PathBuf};
 
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
@@ -383,7 +381,6 @@ pub fn command_builder() -> Command {
 /// List all the available plugins/helper scripts
 fn list_plugin() -> anyhow::Result<Vec<String>> {
     let exe_dir = PathBuf::from("/usr/libexec");
-    let exe_dir = exe_dir.parent().ok_or_else(|| anyhow!("Where am I?"))?;
     let plugins_dir = exe_dir.read_dir()?;
     let plugins = plugins_dir
         .filter_map(|x| {
