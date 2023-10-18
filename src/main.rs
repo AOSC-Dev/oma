@@ -348,8 +348,7 @@ fn try_main() -> Result<i32, OutputError> {
             pkgnames::execute(keyword)?
         }
         Some((cmd, args)) => {
-            let exe_dir = std::env::current_exe()?;
-            let exe_dir = exe_dir.parent().expect("Where am I?");
+            let exe_dir = PathBuf::from("/usr/libexec");
             let plugin = exe_dir.join(format!("oma-{}", cmd));
             if !plugin.is_file() {
                 return Err(OutputError::from(anyhow!("Unknown command: `{cmd}'.")));
