@@ -1,7 +1,0 @@
-fallback_language = "en-US"
-
-# Use the fluent localization system.
-[fluent]
-# The paths inside the assets directory should be structured like so:
-# `assets_dir/{language}/{domain}.ftl`
-assets_dir = "../i18n"
