@@ -524,7 +524,7 @@ impl OmaApt {
         })?;
 
         if !failed.is_empty() {
-            return Err(OmaAptError::FailedTODownload(failed.len(), failed))
+            return Err(OmaAptError::FailedTODownload(failed.len(), failed));
         }
 
         debug!("Success: {success:?}");

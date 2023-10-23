@@ -1,6 +1,7 @@
 use std::{
+    fmt::Display,
     path::PathBuf,
-    sync::{atomic::AtomicU64, Arc}, fmt::Display,
+    sync::{atomic::AtomicU64, Arc},
 };
 
 use derive_builder::Builder;
