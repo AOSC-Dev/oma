@@ -428,6 +428,8 @@ impl SingleDownloader<'_> {
                 return Err(e.into());
             }
 
+            debug!("{self_progress}");
+
             callback(
                 self.download_list_index,
                 DownloadEvent::ProgressInc(chunk.len() as u64),
@@ -439,6 +441,7 @@ impl SingleDownloader<'_> {
                 self.download_list_index,
                 DownloadEvent::GlobalProgressInc(chunk.len() as u64),
             );
+
             global_progress.fetch_add(chunk.len() as u64, Ordering::SeqCst);
 
             if let Some(ref mut v) = validator {

@@ -16,8 +16,10 @@ async fn main() -> Result<()> {
     let enabled_names = tm
         .enabled_topics()
         .iter()
-        .map(|x| &x.name)
+        .map(|x| x.name.to_string())
         .collect::<Vec<_>>();
+
+    tm.refresh().await?;
 
     let all_names = tm.all_topics().iter().map(|x| &x.name).collect::<Vec<_>>();
 

@@ -103,6 +103,8 @@ pub enum OmaAptError {
     MarkPkgNotInstalled(String),
     #[error(transparent)]
     DpkgError(#[from] DpkgError),
+    #[error("Has {0} package failed to download.")]
+    FailedTODownload(usize, Vec<DownloadError>),
 }
 
 #[derive(Default, Builder)]
@@ -521,8 +523,11 @@ impl OmaApt {
             Self::download_pkgs(download_pkg_list, network_thread, &path, callback).await
         })?;
 
+        if !failed.is_empty() {
+            return Err(OmaAptError::FailedTODownload(failed.len(), failed))
+        }
+
         debug!("Success: {success:?}");
-        debug!("Failed: {failed:?}");
 
         let mut no_progress = NoProgress::new_box();
 

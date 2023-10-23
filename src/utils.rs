@@ -24,6 +24,7 @@ type Result<T> = std::result::Result<T, OutputError>;
 #[macro_export]
 macro_rules! pb {
     ($event:expr, $mb:expr, $pb_map:expr, $count:expr, $total:expr, $global_is_set:expr) => {{
+        oma_console::debug!("{}", $event);
         match $event {
             oma_fetch::DownloadEvent::ChecksumMismatchRetry { filename, times } => {
                 // println 返回的错误是无法控制终端的 I/O 错误，这种处理应该直接 panic 返回
