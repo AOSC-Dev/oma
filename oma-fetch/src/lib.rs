@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     path::PathBuf,
     sync::{atomic::AtomicU64, Arc},
 };
@@ -116,6 +117,12 @@ pub enum DownloadEvent {
     CanNotGetSourceNextUrl(String),
     Done(String),
     AllDone,
+}
+
+impl Display for DownloadEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{self:?}"))
+    }
 }
 
 /// Summary struct to save download result
