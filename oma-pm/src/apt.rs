@@ -1000,7 +1000,8 @@ impl OmaApt {
             _ => unreachable!(),
         };
 
-        let available_disk_size = fs4::available_space("/")? as i64;
+        let available_disk_size =
+            fs4::available_space(self.config.get("Dir").unwrap_or("/".to_string()))? as i64;
 
         if available_disk_size < need_space {
             return Err(OmaAptError::DiskSpaceInsufficient(
