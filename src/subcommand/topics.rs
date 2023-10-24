@@ -67,7 +67,7 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
 
     refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot.clone()).build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let mut pkgs = vec![];

@@ -32,7 +32,7 @@ pub fn execute(
     let selected = &list[selected].0;
     let op = &selected.op;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot.clone()).build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let mut delete = vec![];
