@@ -47,6 +47,7 @@ pub fn execute(
     let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
     let oma_apt_args = OmaAptArgsBuilder::default()
+        .sysroot(args.sysroot.clone())
         .install_recommends(args.install_recommends)
         .install_suggests(args.install_suggests)
         .no_install_recommends(args.no_install_recommends)
