@@ -2,8 +2,8 @@ use oma_pm::apt::{FilterMode, OmaApt, OmaAptArgsBuilder};
 
 use crate::error::OutputError;
 
-pub fn execute(keyword: Option<&str>) -> Result<i32, OutputError> {
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+pub fn execute(keyword: Option<&str>, sysroot: String) -> Result<i32, OutputError> {
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let mut pkgs: Box<dyn Iterator<Item = _>> = Box::new(apt.filter_pkgs(&[FilterMode::Names])?);
 

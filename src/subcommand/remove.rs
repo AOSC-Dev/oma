@@ -13,7 +13,7 @@ use crate::{
     RemoveArgs,
 };
 
-use super::utils::{handle_no_result, normal_commit};
+use super::utils::{handle_no_result, normal_commit, NormalCommitArgs};
 
 pub fn execute(
     pkgs: Vec<&str>,
@@ -51,23 +51,26 @@ pub fn execute(
         }
     }
 
-    normal_commit(
+    let args = NormalCommitArgs {
         apt,
         dry_run,
-        SummaryType::Remove(
+        typ: SummaryType::Remove(
             pkgs.iter()
                 .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
-        AptArgsBuilder::default()
+        apt_args: AptArgsBuilder::default()
             .yes(args.yes)
             .force_yes(args.force_yes)
             .no_progress(no_progress)
             .build()?,
-        false,
+        no_fixbroken: false,
         network_thread,
         no_progress,
-    )?;
+        sysroot: args.sysroot,
+    };
+
+    normal_commit(args)?;
 
     Ok(0)
 }

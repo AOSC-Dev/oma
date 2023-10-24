@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::path::PathBuf;
 
 use crate::error::OutputError;
 use crate::fl;
@@ -28,7 +29,7 @@ use oma_pm::apt::AptArgs;
 use oma_pm::apt::OmaApt;
 use oma_pm::operation::InstallEntry;
 use oma_pm::operation::RemoveEntry;
-use oma_refresh::db::OmaRefresh;
+use oma_refresh::db::OmaRefreshBuilder;
 use oma_refresh::db::RefreshEvent;
 use oma_utils::dpkg::dpkg_arch;
 
@@ -42,6 +43,7 @@ pub(crate) fn refresh(
     dry_run: bool,
     no_progress: bool,
     download_pure_db: bool,
+    sysroot: &str,
 ) -> Result<(), OutputError> {
     if dry_run {
         return Ok(());
@@ -55,7 +57,15 @@ pub(crate) fn refresh(
         download_pure_db
     };
 
-    let refresh = OmaRefresh::scan(None, !download_pure_db)?;
+    let sysroot = PathBuf::from(sysroot);
+
+    let refresh = OmaRefreshBuilder::default()
+        .source(sysroot.clone())
+        .download_dir(sysroot.join("var/lib/apt/lists"))
+        .download_compress(!download_pure_db)
+        .build()
+        .unwrap();
+
     let tokio = create_async_runtime()?;
 
     let (mb, pb_map, global_is_set) = multibar();
@@ -102,15 +112,29 @@ pub(crate) fn refresh(
     Ok(())
 }
 
-pub(crate) fn normal_commit(
-    apt: OmaApt,
-    dry_run: bool,
-    typ: SummaryType,
-    apt_args: AptArgs,
-    no_fixbroken: bool,
-    network_thread: usize,
-    no_progress: bool,
-) -> Result<(), OutputError> {
+pub struct NormalCommitArgs {
+    pub apt: OmaApt,
+    pub dry_run: bool,
+    pub typ: SummaryType,
+    pub apt_args: AptArgs,
+    pub no_fixbroken: bool,
+    pub network_thread: usize,
+    pub no_progress: bool,
+    pub sysroot: String,
+}
+
+pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
+    let NormalCommitArgs {
+        apt,
+        dry_run,
+        typ,
+        apt_args,
+        no_fixbroken,
+        network_thread,
+        no_progress,
+        sysroot,
+    } = args;
+
     let op = apt.summary()?;
     let op_after = op.clone();
     let install = op.install;
@@ -138,7 +162,7 @@ pub(crate) fn normal_commit(
     write_history_entry(
         op_after,
         typ,
-        connect_or_create_db(true)?,
+        connect_or_create_db(true, sysroot)?,
         dry_run,
         start_time,
     )?;

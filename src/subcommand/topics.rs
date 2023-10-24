@@ -17,7 +17,7 @@ use crate::{
     utils::{create_async_runtime, dbus_check, root},
 };
 
-use super::utils::{normal_commit, refresh};
+use super::utils::{normal_commit, refresh, NormalCommitArgs};
 use crate::fl;
 use anyhow::anyhow;
 use oma_topics::TopicManager;
@@ -29,15 +29,28 @@ struct TopicChanged {
     downgrade_pkgs: Vec<String>,
 }
 
-pub fn execute(
-    opt_in: Vec<String>,
-    opt_out: Vec<String>,
-    dry_run: bool,
-    network_thread: usize,
-    no_progress: bool,
-    download_pure_db: bool,
-) -> Result<i32, OutputError> {
+pub struct TopicArgs {
+    pub opt_in: Vec<String>,
+    pub opt_out: Vec<String>,
+    pub dry_run: bool,
+    pub network_thread: usize,
+    pub no_progress: bool,
+    pub download_pure_db: bool,
+    pub sysroot: String,
+}
+
+pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
     root()?;
+
+    let TopicArgs {
+        opt_in,
+        opt_out,
+        dry_run,
+        network_thread,
+        no_progress,
+        download_pure_db,
+        sysroot,
+    } = args;
 
     let rt = create_async_runtime()?;
     dbus_check(&rt)?;
@@ -52,7 +65,7 @@ pub fn execute(
     let enabled_pkgs = topics_changed.enabled_pkgs;
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
-    refresh(dry_run, no_progress, download_pure_db)?;
+    refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
@@ -82,18 +95,21 @@ pub fn execute(
     apt.install(&pkgs, false)?;
     apt.upgrade()?;
 
-    normal_commit(
+    let args = NormalCommitArgs {
         apt,
         dry_run,
-        SummaryType::TopicsChanged {
+        typ: SummaryType::TopicsChanged {
             add: topics_changed.opt_in,
             remove: topics_changed.opt_out,
         },
-        AptArgsBuilder::default().no_progress(no_progress).build()?,
-        false,
+        apt_args: AptArgsBuilder::default().no_progress(no_progress).build()?,
+        no_fixbroken: false,
         network_thread,
         no_progress,
-    )?;
+        sysroot,
+    };
+
+    normal_commit(args)?;
 
     Ok(0)
 }

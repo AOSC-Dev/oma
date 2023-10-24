@@ -6,8 +6,8 @@ use crate::error::OutputError;
 use super::utils::handle_no_result;
 use crate::fl;
 
-pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+pub fn execute(all: bool, pkgs_unparse: Vec<&str>, sysroot: String) -> Result<i32, OutputError> {
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, false, false)?;
     handle_no_result(no_result);

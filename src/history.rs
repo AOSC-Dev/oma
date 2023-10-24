@@ -26,8 +26,8 @@ pub struct SummaryLog {
     pub op: OmaOperation,
 }
 
-pub fn connect_or_create_db(write: bool) -> Result<Connection> {
-    let dir = Path::new("/var/log/oma");
+pub fn connect_or_create_db(write: bool, sysroot: String) -> Result<Connection> {
+    let dir = Path::new(&sysroot).join("var/log/oma");
     let db_path = dir.join("history.db");
     if !dir.exists() {
         create_dir_all(dir)?;

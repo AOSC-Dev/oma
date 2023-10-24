@@ -34,7 +34,7 @@ pub fn execute(
     let rt = create_async_runtime()?;
     dbus_check(&rt)?;
 
-    refresh(dry_run, no_progress, download_pure_db)?;
+    refresh(dry_run, no_progress, download_pure_db, &args.sysroot)?;
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));
@@ -57,9 +57,9 @@ pub fn execute(
         .no_progress(no_progress)
         .build()?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(args.sysroot.clone()).build()?;
     loop {
-        let mut apt = OmaApt::new(local_debs.clone(), oma_apt_args, dry_run)?;
+        let mut apt = OmaApt::new(local_debs.clone(), oma_apt_args.clone(), dry_run)?;
         apt.upgrade()?;
 
         let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, true, false)?;
@@ -101,7 +101,7 @@ pub fn execute(
                             .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                             .collect::<Vec<_>>(),
                     ),
-                    connect_or_create_db(true)?,
+                    connect_or_create_db(true, args.sysroot)?,
                     dry_run,
                     start_time,
                 )?;

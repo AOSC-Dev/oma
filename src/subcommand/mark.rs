@@ -8,10 +8,15 @@ use crate::{error::OutputError, utils::root};
 use super::utils::handle_no_result;
 use crate::fl;
 
-pub fn execute(op: &str, pkgs: Vec<String>, dry_run: bool) -> Result<i32, OutputError> {
+pub fn execute(
+    op: &str,
+    pkgs: Vec<String>,
+    dry_run: bool,
+    sysroot: String,
+) -> Result<i32, OutputError> {
     root()?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let set = match op {
