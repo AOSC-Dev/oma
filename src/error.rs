@@ -342,7 +342,8 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         }
         OmaAptError::FailedTODownload(size, errs) => {
             for i in errs {
-                error!("{i}");
+                let err = oma_download_error(i);
+                error!("{}", err.0);
             }
             (
                 fl!("download-failed-with-len", len = size),
