@@ -209,7 +209,7 @@ impl From<OmaTopicsError> for OutputError {
 #[cfg(feature = "aosc")]
 fn oma_topics_error(e: OmaTopicsError) -> (String, Option<String>) {
     match e {
-        OmaTopicsError::SerdeError(e) => (e.to_string(), Some(fl!("bug"))),
+        OmaTopicsError::SerdeError(_) => (fl!("failed-to-read"), Some(fl!("bug"))),
         OmaTopicsError::IOError(e) => (OutputError::from(e).0 .0.to_string(), None),
         OmaTopicsError::CanNotFindTopic(topic) => (
             fl!("can-not-find-specified-topic", topic = topic),
@@ -340,7 +340,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::PkgUnavailable(pkg, ver) => {
             (fl!("pkg-unavailable", pkg = pkg, ver = ver), None)
         }
-        OmaAptError::FailedTODownload(size, errs) => {
+        OmaAptError::FailedToDownload(size, errs) => {
             for i in errs {
                 let err = oma_download_error(i);
                 error!("{}", err.0);
