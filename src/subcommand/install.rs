@@ -15,6 +15,7 @@ use crate::InstallArgs;
 use super::utils::handle_no_result;
 use super::utils::normal_commit;
 use super::utils::refresh;
+use super::utils::NormalCommitArgs;
 
 pub fn execute(
     pkgs_unparse: Vec<String>,
@@ -30,7 +31,7 @@ pub fn execute(
     dbus_check(&rt)?;
 
     if !args.no_refresh {
-        refresh(dry_run, no_progress, download_pure_db)?;
+        refresh(dry_run, no_progress, download_pure_db, &args.sysroot)?;
     }
 
     if args.yes {
@@ -75,19 +76,22 @@ pub fn execute(
         .no_progress(no_progress)
         .build()?;
 
-    normal_commit(
+    let args = NormalCommitArgs {
         apt,
         dry_run,
-        SummaryType::Install(
+        typ: SummaryType::Install(
             pkgs.iter()
                 .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
         apt_args,
-        args.no_fixbroken,
+        no_fixbroken: args.no_fixbroken,
         network_thread,
         no_progress,
-    )?;
+        sysroot: args.sysroot,
+    };
+
+    normal_commit(args)?;
 
     Ok(0)
 }

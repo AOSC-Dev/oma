@@ -4,10 +4,10 @@ use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 
 use crate::{error::OutputError, utils::root};
 
-pub fn execute(no_progress: bool) -> Result<i32, OutputError> {
+pub fn execute(no_progress: bool, sysroot: String) -> Result<i32, OutputError> {
     root()?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let download_dir = apt.get_archive_dir();
     let dir = std::fs::read_dir(&download_dir)?;

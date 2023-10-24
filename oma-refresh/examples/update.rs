@@ -14,14 +14,16 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::DownloadEvent;
-use oma_refresh::db::{OmaRefresh, RefreshError, RefreshEvent};
+use oma_refresh::db::{OmaRefreshBuilder, RefreshError, RefreshEvent};
 
 #[tokio::main]
 async fn main() -> Result<(), RefreshError> {
-    let mut refresher = OmaRefresh::scan(None, true)?;
     let p = Path::new("./oma-fetcher-test");
     tokio::fs::create_dir_all(p).await.unwrap();
-    refresher.download_dir(p);
+    let refresher = OmaRefreshBuilder::default()
+        .download_dir(p.to_path_buf())
+        .build()
+        .unwrap();
 
     let mb = Arc::new(MultiProgress::new());
     let pb_map: DashMap<usize, ProgressBar> = DashMap::new();

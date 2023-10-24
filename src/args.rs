@@ -88,6 +88,15 @@ pub fn command_builder() -> Command {
                 .action(ArgAction::Version)
                 .help("Print version")
         )
+        .arg(
+            Arg::new("sysroot")
+            .long("sysroot")
+            .help("Set sysroot target directory")
+            .action(ArgAction::Set)
+            .global(true)
+            .num_args(1)
+            .default_value("/")
+        )
         .subcommand(
             Command::new("install")
                 .about("Install package(s) from the repository")

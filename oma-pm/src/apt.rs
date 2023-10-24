@@ -8,6 +8,7 @@ use std::{
 
 use chrono::Local;
 use derive_builder::Builder;
+use oma_apt::raw::util::raw::apt_lock;
 use oma_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
@@ -17,7 +18,7 @@ use oma_apt::{
         util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
     },
     records::RecordField,
-    util::{apt_lock, DiskSpace},
+    util::DiskSpace,
 };
 use oma_console::{
     console::{self, style},
@@ -48,13 +49,14 @@ use crate::{
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
-#[derive(Builder, Default, Clone, Copy)]
+#[derive(Builder, Default, Clone)]
 #[builder(default)]
 pub struct OmaAptArgs {
     install_recommends: bool,
     install_suggests: bool,
     no_install_recommends: bool,
     no_install_suggests: bool,
+    sysroot: String,
 }
 
 pub struct OmaApt {
@@ -258,6 +260,15 @@ impl OmaApt {
     /// Init apt config (before create new apt manager)
     fn init_config(args: OmaAptArgs) -> OmaAptResult<AptConfig> {
         let config = AptConfig::new();
+        config.set("Dir", &args.sysroot);
+        config.set(
+            "Dir::State::status",
+            &Path::new(&args.sysroot)
+                .join("var/lib/dpkg/status")
+                .canonicalize()?
+                .display()
+                .to_string(),
+        );
 
         let install_recommend = if args.install_recommends {
             true
@@ -734,17 +745,30 @@ impl OmaApt {
 
     /// Get apt archive dir
     pub fn get_archive_dir(&self) -> PathBuf {
-        let archives_dir = self.config.get("Dir::Cache::Archives");
+        let archives_dir = self
+            .config
+            .get("Dir::Cache::Archives")
+            .unwrap_or("archives/".to_string());
+        let cache = self
+            .config
+            .get("Dir::Cache")
+            .unwrap_or("var/cache/apt".to_string());
 
-        if let Some(archives_dir) = archives_dir {
-            if !Path::new(&archives_dir).is_absolute() {
-                PathBuf::from(format!("/var/cache/apt/{archives_dir}"))
-            } else {
-                PathBuf::from(archives_dir)
-            }
-        } else {
-            PathBuf::from("/var/cache/apt/archives/")
+        let dir = self.config.get("Dir").unwrap_or("/".to_string());
+
+        let archive_dir_p = PathBuf::from(archives_dir);
+        if archive_dir_p.is_absolute() {
+            return archive_dir_p;
         }
+
+        let cache_dir_p = PathBuf::from(cache);
+        if cache_dir_p.is_absolute() {
+            return cache_dir_p.join(archive_dir_p);
+        }
+
+        let dir_p = PathBuf::from(dir);
+
+        return dir_p.join(cache_dir_p).join(archive_dir_p);
     }
 
     /// Mark version status (hold/unhold)
