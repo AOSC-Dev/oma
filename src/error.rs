@@ -340,7 +340,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::PkgUnavailable(pkg, ver) => {
             (fl!("pkg-unavailable", pkg = pkg, ver = ver), None)
         }
-        OmaAptError::FailedTODownload(size, errs) => {
+        OmaAptError::FailedToDownload(size, errs) => {
             for i in errs {
                 let err = oma_download_error(i);
                 error!("{}", err.0);

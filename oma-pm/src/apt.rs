@@ -104,7 +104,7 @@ pub enum OmaAptError {
     #[error(transparent)]
     DpkgError(#[from] DpkgError),
     #[error("Has {0} package failed to download.")]
-    FailedTODownload(usize, Vec<DownloadError>),
+    FailedToDownload(usize, Vec<DownloadError>),
 }
 
 #[derive(Default, Builder)]
@@ -524,7 +524,7 @@ impl OmaApt {
         })?;
 
         if !failed.is_empty() {
-            return Err(OmaAptError::FailedTODownload(failed.len(), failed));
+            return Err(OmaAptError::FailedToDownload(failed.len(), failed));
         }
 
         debug!("Success: {success:?}");
