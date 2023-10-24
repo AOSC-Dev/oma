@@ -10,7 +10,13 @@ use crate::error::OutputError;
 use crate::fl;
 use crate::table::oma_display_with_normal_output;
 
-pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool, sysroot: String) -> Result<i32, OutputError> {
+pub fn execute(
+    x: &str,
+    is_bin: bool,
+    pkg: &str,
+    no_progress: bool,
+    sysroot: String,
+) -> Result<i32, OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
         let (style, inv) = oma_spinner(false);

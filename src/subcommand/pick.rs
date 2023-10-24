@@ -32,7 +32,9 @@ pub fn execute(
         refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
     }
 
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot.clone()).build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default()
+        .sysroot(sysroot.clone())
+        .build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkg = apt
         .cache
@@ -100,7 +102,7 @@ pub fn execute(
         no_fixbroken: false,
         network_thread,
         no_progress,
-        sysroot: sysroot
+        sysroot,
     };
 
     normal_commit(args)?;

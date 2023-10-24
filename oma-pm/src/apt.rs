@@ -769,7 +769,7 @@ impl OmaApt {
 
         let dir_p = PathBuf::from(dir);
 
-        return dir_p.join(cache_dir_p).join(archive_dir_p);
+        dir_p.join(cache_dir_p).join(archive_dir_p)
     }
 
     /// Mark version status (hold/unhold)

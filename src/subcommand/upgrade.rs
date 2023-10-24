@@ -57,7 +57,9 @@ pub fn execute(
         .no_progress(no_progress)
         .build()?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(args.sysroot.clone()).build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default()
+        .sysroot(args.sysroot.clone())
+        .build()?;
     loop {
         let mut apt = OmaApt::new(local_debs.clone(), oma_apt_args.clone(), dry_run)?;
         apt.upgrade()?;
