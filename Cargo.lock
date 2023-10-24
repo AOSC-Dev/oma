@@ -2279,9 +2279,9 @@ dependencies = [
 
 [[package]]
 name = "oma-apt-sources-lists"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2fe7826fa9653da0e22df5a1062d9c7f5d47471bd5c39cf27b8e3c4af099a72"
+checksum = "38017b20b26d96eaa3389ca4834fd63ae3d54dfc1fb95b1bd571ebccd052ffd7"
 dependencies = [
  "err-derive",
 ]
@@ -2399,6 +2399,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "dashmap",
+ "derive_builder",
  "futures",
  "indicatif",
  "oma-apt-sources-lists",

@@ -27,6 +27,7 @@ use oma_console::console;
 use oma_console::pager::SUBPROCESS;
 
 use crate::config::{Config, GeneralConfig};
+use crate::subcommand::topics::TopicArgs;
 use crate::subcommand::*;
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
@@ -47,6 +48,7 @@ pub struct InstallArgs {
     install_suggests: bool,
     no_install_recommends: bool,
     no_install_suggests: bool,
+    sysroot: String,
 }
 
 #[derive(Debug, Default)]
@@ -55,6 +57,7 @@ pub struct UpgradeArgs {
     force_yes: bool,
     force_confnew: bool,
     dpkg_force_all: bool,
+    sysroot: String,
 }
 
 #[derive(Debug, Default)]
@@ -63,6 +66,7 @@ pub struct RemoveArgs {
     remove_config: bool,
     no_autoremove: bool,
     force_yes: bool,
+    sysroot: String,
 }
 
 fn main() {
@@ -150,6 +154,11 @@ fn try_main() -> Result<i32, OutputError> {
         )
         || debug;
 
+    let sysroot = matches
+        .get_one::<String>("sysroot")
+        .unwrap_or(&"/".to_string())
+        .to_owned();
+
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
 
@@ -178,6 +187,7 @@ fn try_main() -> Result<i32, OutputError> {
                 install_suggests: args.get_flag("install_suggests"),
                 no_install_recommends: args.get_flag("no_install_recommends"),
                 no_install_suggests: args.get_flag("no_install_recommends"),
+                sysroot,
             };
 
             let network_thread = config.network_thread();
@@ -199,6 +209,7 @@ fn try_main() -> Result<i32, OutputError> {
                 force_yes: args.get_flag("force_yes"),
                 force_confnew: args.get_flag("force_confnew"),
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
+                sysroot,
             };
 
             upgrade::execute(pkgs_unparse, args, dry_run, no_progress, config.pure_db())?
@@ -227,6 +238,7 @@ fn try_main() -> Result<i32, OutputError> {
                 },
                 no_autoremove: args.get_flag("no_autoremove"),
                 force_yes: args.get_flag("force_yes"),
+                sysroot,
             };
 
             let protect_essentials = config
@@ -244,13 +256,13 @@ fn try_main() -> Result<i32, OutputError> {
                 no_progress,
             )?
         }
-        Some(("refresh", _)) => refresh::execute(no_progress, config.pure_db())?,
+        Some(("refresh", _)) => refresh::execute(no_progress, config.pure_db(), sysroot)?,
         Some(("show", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
             let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
             let all = args.get_flag("all");
 
-            show::execute(all, pkgs_unparse)?
+            show::execute(all, pkgs_unparse, sysroot)?
         }
         Some(("search", args)) => {
             let args = args
@@ -258,18 +270,18 @@ fn try_main() -> Result<i32, OutputError> {
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap();
 
-            search::execute(&args, no_progress)?
+            search::execute(&args, no_progress, sysroot)?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
             let pkg = args.get_one::<String>(arg).unwrap();
             let is_bin = args.get_flag("bin");
 
-            contents_find::execute(x, is_bin, pkg, no_progress)?
+            contents_find::execute(x, is_bin, pkg, no_progress, sysroot)?
         }
         Some(("fix-broken", _)) => {
             let network_thread = config.network_thread();
-            fix_broken::execute(dry_run, network_thread, no_progress)?
+            fix_broken::execute(dry_run, network_thread, no_progress, sysroot)?
         }
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
@@ -282,6 +294,7 @@ fn try_main() -> Result<i32, OutputError> {
                 network_thread,
                 no_progress,
                 config.pure_db(),
+                sysroot,
             )?
         }
         Some(("mark", args)) => {
@@ -290,7 +303,7 @@ fn try_main() -> Result<i32, OutputError> {
             let pkgs = pkgs_getter(args).unwrap();
             let dry_run = args.get_flag("dry_run");
 
-            mark::execute(op, pkgs, dry_run)?
+            mark::execute(op, pkgs, dry_run, sysroot)?
         }
         Some(("command-not-found", args)) => {
             command_not_found::execute(args.get_one::<String>("package").unwrap())?
@@ -301,23 +314,23 @@ fn try_main() -> Result<i32, OutputError> {
             let installed = args.get_flag("installed");
             let upgradable = args.get_flag("upgradable");
 
-            list::execute(all, installed, upgradable, pkgs)?
+            list::execute(all, installed, upgradable, pkgs, sysroot)?
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
 
-            depends::execute(pkgs)?
+            depends::execute(pkgs, sysroot)?
         }
         Some(("rdepends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
 
-            rdepends::execute(pkgs)?
+            rdepends::execute(pkgs, sysroot)?
         }
-        Some(("clean", _)) => clean::execute(no_progress)?,
-        Some(("history", _)) => subcommand::history::execute()?,
+        Some(("clean", _)) => clean::execute(no_progress, sysroot)?,
+        Some(("history", _)) => subcommand::history::execute(sysroot)?,
         Some(("undo", _)) => {
             let network_thread = config.network_thread();
-            undo::execute(network_thread, no_progress)?
+            undo::execute(network_thread, no_progress, sysroot)?
         }
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
@@ -333,19 +346,22 @@ fn try_main() -> Result<i32, OutputError> {
 
             let network_thread = config.network_thread();
 
-            topics::execute(
+            let args = TopicArgs {
                 opt_in,
                 opt_out,
                 dry_run,
                 network_thread,
                 no_progress,
-                config.pure_db(),
-            )?
+                download_pure_db: config.pure_db(),
+                sysroot,
+            };
+
+            topics::execute(args)?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());
 
-            pkgnames::execute(keyword)?
+            pkgnames::execute(keyword, sysroot)?
         }
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");

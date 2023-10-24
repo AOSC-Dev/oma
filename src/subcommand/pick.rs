@@ -12,7 +12,7 @@ use crate::{
 };
 use anyhow::anyhow;
 
-use super::utils::{normal_commit, refresh};
+use super::utils::{normal_commit, refresh, NormalCommitArgs};
 
 pub fn execute(
     pkg_str: &str,
@@ -21,6 +21,7 @@ pub fn execute(
     network_thread: usize,
     no_progress: bool,
     download_pure_db: bool,
+    sysroot: String,
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -28,10 +29,10 @@ pub fn execute(
     dbus_check(&rt)?;
 
     if !no_refresh {
-        refresh(dry_run, no_progress, download_pure_db)?;
+        refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
     }
 
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot.clone()).build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let pkg = apt
         .cache
@@ -87,19 +88,22 @@ pub fn execute(
     let pkgs = vec![PkgInfo::new(&version, &pkg)];
     apt.install(&pkgs, false)?;
 
-    normal_commit(
+    let args = NormalCommitArgs {
         apt,
         dry_run,
-        SummaryType::Install(
+        typ: SummaryType::Install(
             pkgs.iter()
                 .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
-                .collect(),
+                .collect::<Vec<_>>(),
         ),
-        AptArgsBuilder::default().no_progress(no_progress).build()?,
-        false,
+        apt_args: AptArgsBuilder::default().no_progress(no_progress).build()?,
+        no_fixbroken: false,
         network_thread,
         no_progress,
-    )?;
+        sysroot: sysroot
+    };
+
+    normal_commit(args)?;
 
     Ok(0)
 }

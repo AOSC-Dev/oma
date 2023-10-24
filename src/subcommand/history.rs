@@ -10,8 +10,8 @@ use crate::{
 
 use super::utils::{dialoguer_select_history, format_summary_log};
 
-pub fn execute() -> Result<i32, OutputError> {
-    let conn = connect_or_create_db(false)?;
+pub fn execute(sysroot: String) -> Result<i32, OutputError> {
+    let conn = connect_or_create_db(false, sysroot)?;
     let list = list_history(conn)?;
     let display_list = format_summary_log(&list, false);
 
