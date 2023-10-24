@@ -16,12 +16,12 @@ use crate::{error::OutputError, table::oma_display_with_normal_output};
 
 use super::utils::check_unsupport_stmt;
 
-pub fn execute(args: &[String], no_progress: bool) -> Result<i32, OutputError> {
+pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i32, OutputError> {
     for arg in args {
         check_unsupport_stmt(arg);
     }
 
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.join(" ");

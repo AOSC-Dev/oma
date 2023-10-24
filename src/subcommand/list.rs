@@ -15,8 +15,9 @@ pub fn execute(
     installed: bool,
     upgradable: bool,
     pkgs: Vec<String>,
+    sysroot: String,
 ) -> Result<i32, OutputError> {
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let mut filter_mode = vec![];
