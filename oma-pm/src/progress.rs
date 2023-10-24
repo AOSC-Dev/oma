@@ -142,6 +142,10 @@ impl OmaAptInstallProgress {
             config.set("Dpkg::Use-Pty", "false");
         }
 
+        let dir = config.get("Dir").unwrap_or("/".to_owned());
+
+        config.set("Dpkg::Options::", &format!("--root={dir}"));
+
         Self {
             config,
             no_progress,

@@ -16,7 +16,7 @@ tokio = { version = "1.28", default_features = false, features = ["fs"] }
 serde_yaml = "0.9"
 once_cell = "1.18"
 futures = "0.3"
-oma-apt-sources-lists = "0.1"
+oma-apt-sources-lists = "0.2"
 oma-debcontrol = "0.3"
 sequoia-openpgp = { version = "1.13", default_features = false }
 anyhow = "1.0"
@@ -25,6 +25,7 @@ oma-topics = { version = "^0.3.0", path = "../oma-topics", optional = true }
 reqwest = "0.11"
 oma-utils = { version = "^0.2.0", path = "../oma-utils", features = ["dpkg"] }
 oma-console = { version = "^0.5.0", path = "../oma-console" }
+derive_builder = "0.12"
 
 [features]
 aosc = ["dep:oma-topics"]

@@ -6,12 +6,12 @@ use crate::error::OutputError;
 
 use super::utils::{check_unsupport_stmt, handle_no_result};
 
-pub fn execute(pkgs: Vec<String>) -> Result<i32, OutputError> {
+pub fn execute(pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
     for pkg in &pkgs {
         check_unsupport_stmt(pkg);
     }
 
-    let oma_apt_args = OmaAptArgsBuilder::default().build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let (pkgs, no_result) = apt.select_pkg(

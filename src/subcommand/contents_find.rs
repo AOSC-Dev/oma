@@ -10,7 +10,7 @@ use crate::error::OutputError;
 use crate::fl;
 use crate::table::oma_display_with_normal_output;
 
-pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool) -> Result<i32, OutputError> {
+pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool, sysroot: String) -> Result<i32, OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
         let (style, inv) = oma_spinner(false);
@@ -34,7 +34,7 @@ pub fn execute(x: &str, is_bin: bool, pkg: &str, no_progress: bool) -> Result<i3
     let res = oma_contents::find(
         pkg,
         query_mode,
-        Path::new("/var/lib/apt/lists"),
+        &Path::new(&sysroot).join("var/lib/apt/lists"),
         &arch,
         move |c| match c {
             ContentsEvent::Progress(c) => {

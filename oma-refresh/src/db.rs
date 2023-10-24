@@ -3,12 +3,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use derive_builder::Builder;
 use oma_apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
 use oma_console::debug;
 use oma_fetch::{
     checksum::ChecksumError, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError,
     DownloadError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
 };
+use oma_utils::dpkg::dpkg_arch;
 use once_cell::sync::Lazy;
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -123,14 +125,15 @@ fn mirror_map(buf: &[u8]) -> Result<HashMap<String, MirrorMapItem>> {
 }
 
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
-pub fn get_sources() -> Result<Vec<SourceEntry>> {
+pub fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>> {
     let mut res = Vec::new();
-    let list = SourcesLists::scan().map_err(|e| RefreshError::ScanSourceError(e.to_string()))?;
+    let list = SourcesLists::scan_from_root(sysroot)
+        .map_err(|e| RefreshError::ScanSourceError(e.to_string()))?;
 
     for file in list.iter() {
         for i in &file.lines {
             if let SourceLine::Entry(entry) = i {
-                res.push(entry.to_owned());
+                res.push(OmaSourceEntry::new(entry)?);
             }
         }
     }
@@ -211,61 +214,46 @@ impl OmaSourceEntry {
     }
 }
 
-fn hr_sources(sources: &[SourceEntry]) -> Result<Vec<OmaSourceEntry>> {
-    let mut res = vec![];
-    for i in sources {
-        res.push(OmaSourceEntry::new(i)?);
+impl OmaRefreshBuilder {
+    fn default_sources(&self) -> PathBuf {
+        PathBuf::from("/")
     }
 
-    Ok(res)
+    fn default_download_dir(&self) -> PathBuf {
+        PathBuf::from("/var/lib/apt/lists")
+    }
+
+    fn default_arch(&self) -> std::result::Result<String, String> {
+        match dpkg_arch() {
+            Ok(a) => Ok(a),
+            Err(e) => return Err(e.to_string()),
+        }
+    }
 }
 
+#[derive(Builder, Default)]
 pub struct OmaRefresh {
-    sources: Vec<OmaSourceEntry>,
-    limit: Option<usize>,
+    #[builder(default = "self.default_sources()")]
+    source: PathBuf,
+    #[builder(default = "4")]
+    limit: usize,
+    #[builder(default = "self.default_arch()?")]
     arch: String,
+    #[builder(default = "self.default_download_dir()")]
     download_dir: PathBuf,
+    #[builder(default = "true")]
     download_compress: bool,
-    bar: bool,
 }
 
 impl OmaRefresh {
-    pub fn scan(limit: Option<usize>, download_compress: bool) -> Result<Self> {
-        let sources = get_sources()?;
-        let sources = hr_sources(&sources)?;
-        let arch = oma_utils::dpkg::dpkg_arch()?;
-
-        let download_dir = APT_LIST_DISTS.clone();
-
-        Ok(Self {
-            sources,
-            limit,
-            arch,
-            download_dir,
-            download_compress,
-            bar: true,
-        })
-    }
-
-    pub fn download_dir(&mut self, download_dir: &Path) -> &mut Self {
-        self.download_dir = download_dir.to_path_buf();
-
-        self
-    }
-
-    pub fn bar(&mut self, bar: bool) -> &mut Self {
-        self.bar = bar;
-
-        self
-    }
-
     pub async fn start<F, F2>(self, callback: F, handle_topic_msg: F2) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
+        let source = get_sources(self.source)?;
         update_db(
-            self.sources,
+            source,
             self.limit,
             self.arch,
             self.download_dir,
@@ -292,7 +280,7 @@ impl From<DownloadEvent> for RefreshEvent {
 // Update database
 async fn update_db<F, F2>(
     sourceslist: Vec<OmaSourceEntry>,
-    limit: Option<usize>,
+    limit: usize,
     arch: String,
     download_dir: PathBuf,
     download_compress: bool,
@@ -334,7 +322,7 @@ where
         tasks.push(task);
     }
 
-    let res = OmaFetcher::new(None, tasks, limit)?
+    let res = OmaFetcher::new(None, tasks, Some(limit))?
         .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
         .await;
 
@@ -503,7 +491,7 @@ where
         }
     }
 
-    let res = OmaFetcher::new(None, tasks, limit)?
+    let res = OmaFetcher::new(None, tasks, Some(limit))?
         .start_download(|count, event| callback(count, RefreshEvent::from(event), Some(total)))
         .await;
 

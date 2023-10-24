@@ -10,15 +10,21 @@ use crate::{
     utils::{create_async_runtime, dbus_check, root},
 };
 
-use super::utils::{dialoguer_select_history, format_summary_log, handle_no_result, normal_commit};
+use super::utils::{
+    dialoguer_select_history, format_summary_log, handle_no_result, normal_commit, NormalCommitArgs,
+};
 
-pub fn execute(network_thread: usize, no_progress: bool) -> Result<i32, OutputError> {
+pub fn execute(
+    network_thread: usize,
+    no_progress: bool,
+    sysroot: String,
+) -> Result<i32, OutputError> {
     root()?;
 
     let rt = create_async_runtime()?;
     dbus_check(&rt)?;
 
-    let conn = connect_or_create_db(false)?;
+    let conn = connect_or_create_db(false, sysroot.clone())?;
     let list = list_history(conn)?;
     let display_list = format_summary_log(&list, true);
     let selected = dialoguer_select_history(&display_list, 0)?;
@@ -75,15 +81,18 @@ pub fn execute(network_thread: usize, no_progress: bool) -> Result<i32, OutputEr
 
     apt.install(&install, false)?;
 
-    normal_commit(
+    let args = NormalCommitArgs {
         apt,
-        false,
-        SummaryType::Undo,
-        AptArgsBuilder::default().no_progress(no_progress).build()?,
-        false,
+        dry_run: false,
+        typ: SummaryType::Undo,
+        apt_args: AptArgsBuilder::default().no_progress(no_progress).build()?,
+        no_fixbroken: false,
         network_thread,
         no_progress,
-    )?;
+        sysroot,
+    };
+
+    normal_commit(args)?;
 
     Ok(0)
 }
