@@ -6,7 +6,11 @@ use crate::{error::OutputError, utils::root};
 
 use super::utils::refresh;
 
-pub fn execute(no_progress: bool, download_pure_db: bool, sysroot: String) -> Result<i32, OutputError> {
+pub fn execute(
+    no_progress: bool,
+    download_pure_db: bool,
+    sysroot: String,
+) -> Result<i32, OutputError> {
     root()?;
     refresh(false, no_progress, download_pure_db, &sysroot)?;
 

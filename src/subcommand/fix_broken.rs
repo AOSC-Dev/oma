@@ -12,14 +12,16 @@ pub fn execute(
     dry_run: bool,
     network_thread: usize,
     no_progress: bool,
-    sysroot: String
+    sysroot: String,
 ) -> Result<i32, OutputError> {
     root()?;
 
     let rt = create_async_runtime()?;
     dbus_check(&rt)?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot.clone()).build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default()
+        .sysroot(sysroot.clone())
+        .build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     apt.resolve(false)?;
 
