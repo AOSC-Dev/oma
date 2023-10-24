@@ -209,7 +209,7 @@ impl From<OmaTopicsError> for OutputError {
 #[cfg(feature = "aosc")]
 fn oma_topics_error(e: OmaTopicsError) -> (String, Option<String>) {
     match e {
-        OmaTopicsError::SerdeError(e) => (e.to_string(), Some(fl!("bug"))),
+        OmaTopicsError::SerdeError(_) => (fl!("failed-to-read"), Some(fl!("bug"))),
         OmaTopicsError::IOError(e) => (OutputError::from(e).0 .0.to_string(), None),
         OmaTopicsError::CanNotFindTopic(topic) => (
             fl!("can-not-find-specified-topic", topic = topic),
