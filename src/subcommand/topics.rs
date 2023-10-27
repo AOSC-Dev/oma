@@ -1,5 +1,3 @@
-use std::sync::atomic::Ordering;
-
 use dialoguer::console;
 use inquire::{
     formatter::MultiOptionFormatter,
@@ -16,7 +14,7 @@ use oma_utils::dpkg::dpkg_arch;
 use crate::{
     error::OutputError,
     history::SummaryType,
-    utils::{create_async_runtime, dbus_check, root}, AILURUS,
+    utils::{create_async_runtime, dbus_check, root},
 };
 
 use super::utils::{normal_commit, refresh, NormalCommitArgs};
@@ -166,7 +164,7 @@ async fn inquire(
 ) -> Result<(), OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
-        let (style, inv) = oma_spinner(AILURUS.load(Ordering::Relaxed));
+        let (style, inv) = oma_spinner(false);
         pb.set_style(style);
         pb.enable_steady_tick(inv);
         pb.set_message(fl!("refreshing-topic-metadata"));
