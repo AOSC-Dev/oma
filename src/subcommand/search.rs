@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use dialoguer::console::style;
 use oma_console::{
     indicatif::ProgressBar,
@@ -11,7 +13,7 @@ use oma_pm::{
     PackageStatus,
 };
 
-use crate::fl;
+use crate::{fl, AILURUS};
 use crate::{error::OutputError, table::oma_display_with_normal_output};
 
 use super::utils::check_unsupport_stmt;
@@ -26,7 +28,7 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.join(" ");
 
-    let (sty, inv) = oma_spinner(false);
+    let (sty, inv) = oma_spinner(AILURUS.load(Ordering::Relaxed));
 
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner().with_style(sty);
