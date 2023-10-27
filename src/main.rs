@@ -105,13 +105,10 @@ fn try_main() -> Result<i32, OutputError> {
     // Egg
     #[cfg(feature = "egg")]
     {
-        let a = matches.get_count("ailurus");
-        if a != 0 {
-            ailurus()?;
-            if a == 3 {
-                AILURUS.store(true, Ordering::Relaxed);
-            }
-
+        ailurus()?;
+        if matches.get_count("ailurus") == 3 {
+            AILURUS.store(true, Ordering::Relaxed);
+        } else if matches.get_count("ailurus") != 0 {
             return Ok(3);
         }
     }
