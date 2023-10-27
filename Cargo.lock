@@ -2337,7 +2337,6 @@ dependencies = [
  "oma-topics",
  "oma-utils 0.2.0",
  "once_cell",
- "reqwest",
  "rusqlite",
  "rust-embed",
  "rustix 0.38.21",
