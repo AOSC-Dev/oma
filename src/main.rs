@@ -11,14 +11,11 @@ mod subcommand;
 mod table;
 mod utils;
 
-#[cfg(feature = "egg")]
-mod egg;
-
 use anyhow::anyhow;
 
 use clap::ArgMatches;
 use error::OutputError;
-use oma_console::info;
+use oma_console::{console::style, info};
 use oma_console::{debug, error, DEBUG, WRITER};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
@@ -30,7 +27,6 @@ use oma_console::console;
 use oma_console::pager::SUBPROCESS;
 
 use crate::config::{Config, GeneralConfig};
-use crate::egg::ailurus;
 use crate::subcommand::topics::TopicArgs;
 use crate::subcommand::*;
 
@@ -99,18 +95,22 @@ fn main() {
 }
 
 fn try_main() -> Result<i32, OutputError> {
-    let mut cmd = args::command_builder();
-    let matches = cmd.get_matches_mut();
+    let cmd = args::command_builder();
+    let matches = cmd.get_matches();
 
     // Egg
-    #[cfg(feature = "egg")]
-    {
-        ailurus()?;
-        if matches.get_count("ailurus") == 3 {
-            AILURUS.store(true, Ordering::Relaxed);
-        } else if matches.get_count("ailurus") != 0 {
-            return Ok(3);
-        }
+    if matches.get_count("ailurus") == 3 {
+        AILURUS.store(true, Ordering::Relaxed);
+    } else if matches.get_count("ailurus") != 0 {
+        println!(
+            "{} unexpected argument '{}' found\n",
+            style("error:").red().bold(),
+            style("\x1b[33m--ailurus\x1b[0m").bold()
+        );
+        println!("{}: oma <COMMAND>\n", style("Usage").bold().underlined());
+        println!("For more information, try '{}'.", style("--help").bold());
+
+        return Ok(3);
     }
 
     let dry_run = matches!(
@@ -381,15 +381,7 @@ fn try_main() -> Result<i32, OutputError> {
 
             return Ok(status);
         }
-        None => {
-            let exit_code = if AILURUS.load(Ordering::Relaxed) {
-                0
-            } else {
-                cmd.print_help()?;
-                1
-            };
-            return Ok(exit_code);
-        }
+        None => unreachable!(),
     };
 
     Ok(exit_code)
