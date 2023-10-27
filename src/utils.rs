@@ -53,7 +53,7 @@ macro_rules! pb {
                 }
             }
             oma_fetch::DownloadEvent::NewProgressSpinner(msg) => {
-                let (sty, inv) = oma_console::pb::oma_spinner(crate::AILURUS.load(std::sync::atomic::Ordering::Relaxed));
+                let (sty, inv) = oma_console::pb::oma_spinner(false);
                 let pb = $mb.insert(
                     $count + 1,
                     oma_console::indicatif::ProgressBar::new_spinner().with_style(sty),

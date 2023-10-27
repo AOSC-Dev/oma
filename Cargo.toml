@@ -24,9 +24,6 @@ rusqlite = { version = "0.29", features = ["bundled"] }
 dashmap = "5.5"
 chrono = "0.4"
 rustix = { version = "0.38", features = ["process"] }
-colored = { version = "2.0.4", optional = true }
-image = { version = "0.24.7", optional = true }
-reqwest = { version = "0.11", features = ["blocking"], optional = true}
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
@@ -54,8 +51,7 @@ aosc = ["dep:oma-topics", "oma-refresh/aosc"]
 contents-without-rg = ["oma-contents/no-rg-binary"]
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
-egg = ["dep:colored", "dep:image", "dep:reqwest"]
-default = ["aosc","sequoia-nettle-backend", "egg"]
+default = ["aosc","sequoia-nettle-backend"]
 
 [workspace]
 members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm"]
