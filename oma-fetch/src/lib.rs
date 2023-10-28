@@ -19,9 +19,9 @@ pub enum DownloadError {
     ChecksumMisMatch(String),
     #[error(transparent)]
     IOError(#[from] tokio::io::Error),
-    #[error("reqwest error to download file: {0}, kind: {1:?}")]
+    #[error("Failed to download file: {0}, kind: {1:?}")]
     ReqwestError(String, reqwest::Error),
-    #[error("reqwest error to create client, kind: {0:?}")]
+    #[error("Failed to create http client, kind: {0:?}")]
     ReqwestFaiedToCreateClient(reqwest::Error),
     #[error(transparent)]
     ChecksumError(#[from] crate::checksum::ChecksumError),
