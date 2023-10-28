@@ -1,6 +1,7 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use colored::{ColoredString, Colorize};
 use image::{DynamicImage, GenericImageView};
+use oma_console::WRITER;
 use std::io::{self, BufWriter, Write};
 
 // The illustration, presented in ASCII form in this Easter Egg,
@@ -8676,10 +8677,11 @@ fn generate_ascii<W: Write>(
     image: DynamicImage,
     background: Option<String>,
     mut buffer: BufWriter<W>,
+    render_width: u32,
 ) -> io::Result<()> {
     let characters = " .,-~!;:=*&%$@#".chars().collect();
     let (width, height) = image.dimensions();
-    let actual_scale = width / 150;
+    let actual_scale = width / render_width;
 
     for y in 0..height {
         for x in 0..width {
@@ -8720,15 +8722,19 @@ fn get_character(
     }
 }
 
-fn output() -> io::Result<BufWriter<Box<dyn Write>>> {
-    let output_wrap = Box::new(std::io::stdout().lock());
-
-    Ok(BufWriter::with_capacity(1024, output_wrap))
-}
-
 pub fn ailurus() -> Result<()> {
     let img = image::load_from_memory(AIL)?;
-    generate_ascii(img, None, output()?)?;
+    let term_width = match WRITER.get_length() {
+        0..=80 => bail!("你的画面太小了容不下艾露露"),
+        x @ 81..=175 => x - 25,
+        176.. => 150,
+    };
+    generate_ascii(
+        img,
+        None,
+        BufWriter::with_capacity(1024, std::io::stdout().lock()),
+        term_width.into(),
+    )?;
 
     Ok(())
 }
