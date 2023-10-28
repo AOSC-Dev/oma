@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ffi::OsStr, path::PathBuf};
 
 use indexmap::IndexMap;
 use oma_console::{debug, warn};
@@ -44,8 +44,6 @@ pub type Result<T> = std::result::Result<T, OmaTopicsError>;
 #[derive(Debug, thiserror::Error)]
 pub enum OmaTopicsError {
     #[error(transparent)]
-    SerdeError(#[from] serde_json::error::Error),
-    #[error(transparent)]
     IOError(#[from] std::io::Error),
     #[error("Can not find topic: {0}")]
     CanNotFindTopic(String),
@@ -53,6 +51,10 @@ pub enum OmaTopicsError {
     FailedToDisableTopic(String),
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
+    #[error("File {0} Contains broken data.")]
+    BrokenFile(String),
+    #[error("Failed to serialize data")]
+    FailedSer,
 }
 
 #[derive(Deserialize)]
@@ -62,7 +64,15 @@ struct GenList {
 
 async fn enabled_mirror() -> Result<Vec<String>> {
     let s = tokio::fs::read_to_string(&*APT_GEN_LIST).await?;
-    let gen_list: GenList = serde_json::from_str(&s)?;
+    let gen_list: GenList = serde_json::from_str(&s).map_err(|_| {
+        OmaTopicsError::BrokenFile(
+            APT_GEN_LIST
+                .file_name()
+                .unwrap_or(OsStr::new(""))
+                .to_string_lossy()
+                .to_string(),
+        )
+    })?;
 
     let urls = gen_list
         .mirror
@@ -235,7 +245,7 @@ impl TopicManager {
             }
         }
 
-        let s = serde_json::to_vec(&self.enabled)?;
+        let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
 
         tokio::fs::write(&*ATM_STATE, s).await?;
 
