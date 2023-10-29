@@ -98,10 +98,10 @@ impl From<RefreshError> for OutputError {
         let s = match value {
             RefreshError::InvaildUrl(s) => (fl!("invaild-url", url = s), Some(fl!("bug"))),
             RefreshError::ParseDistroRepoDataError(path, e) => (
-                fl!("can-not-parse-sources-list", path = path, e = e),
+                fl!("can-not-parse-sources-list", path = path, e = e.to_string()),
                 Some(fl!("check-sources-list")),
             ),
-            RefreshError::ScanSourceError(e) => (e, None),
+            RefreshError::ScanSourceError(e) => (e.to_string(), None),
             RefreshError::UnsupportedProtocol(s) => (
                 fl!("unsupport-protocol", url = s),
                 Some(fl!("support-protocol")),
@@ -117,16 +117,12 @@ impl From<RefreshError> for OutputError {
                 Some(fl!("check-network-settings")),
             ),
             RefreshError::InReleaseParserError(e) => match e {
-                InReleaseParserError::FailedToOpenInRelease(p, e) => (
-                    fl!("can-nnot-read-inrelease-file", path = p, e = e),
-                    Some(fl!("mirror-data-maybe-broken")),
-                ),
                 InReleaseParserError::VerifyError(e) => match e {
-                    VerifyError::CertParseFileError(p) => (
+                    VerifyError::CertParseFileError(p, _) => (
                         fl!("fail-load-certs-from-file", path = p),
                         Some(fl!("mirror-data-maybe-broken")),
                     ),
-                    VerifyError::BadCertFile(p) => (
+                    VerifyError::BadCertFile(p, _) => (
                         fl!("cert-file-is-bad", path = p),
                         Some(fl!("mirror-data-maybe-broken")),
                     ),
@@ -167,7 +163,7 @@ impl From<RefreshError> for OutputError {
                 InReleaseParserError::UnsupportFileType => {
                     (fl!("inrelease-parse-unsupport-file-type"), Some(fl!("bug")))
                 }
-                InReleaseParserError::SizeShouldIsNumber(e) => (e.to_string(), Some(fl!("bug"))),
+                InReleaseParserError::ParseIntError(e) => (e.to_string(), Some(fl!("bug"))),
             },
             RefreshError::DpkgArchError(e) => {
                 let (err, dueto) = OutputError::from(e).0;
