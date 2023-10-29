@@ -10,7 +10,6 @@ license = "MIT"
 [dependencies]
 regex = { version = "1.8", optional = true }
 chrono = "0.4"
-which = { version = "4.4", optional = true }
 strsim = "0.10"
 thiserror = "1.0"
 winnow = "0.5"
@@ -24,5 +23,5 @@ oma-utils = { path = "../oma-utils", features = ["dpkg"]}
 
 [features]
 aosc = []
-default = ["aosc", "dep:regex", "dep:which"]
+default = ["aosc", "dep:regex"]
 no-rg-binary = ["dep:flate2", "dep:rayon", "dep:lzzzz"]
