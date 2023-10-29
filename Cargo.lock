@@ -2328,6 +2328,7 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "image",
+ "libc",
  "oma-console 0.5.0",
  "oma-contents",
  "oma-fetch",
