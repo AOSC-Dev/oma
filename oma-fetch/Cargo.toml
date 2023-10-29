@@ -18,7 +18,7 @@ futures = "0.3"
 oma-console = { version = "^0.5", path = "../oma-console" }
 derive_builder = "0.12"
 async-compression = { version = "0.4", features = ["tokio", "gzip", "xz"] }
-oma-utils = { version = "^0.1", features = ["url-no-escape"] }
+oma-utils = { version = "^0.2", features = ["url-no-escape"] }
 
 [dev-dependencies]
 tokio = { version = "1.28", default-features = false, features = ["macros", "rt-multi-thread"] }
