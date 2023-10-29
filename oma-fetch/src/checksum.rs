@@ -35,7 +35,7 @@ pub enum ChecksumError {
     #[error("Failed to open {0} for checking checksum")]
     FailedToOpenFile(String),
     #[error("Can not checksum: {0}")]
-    ChecksumIOError(String),
+    ChecksumIOError(std::io::Error),
     #[error("Sha256 bad length")]
     BadLength,
     #[error(transparent)]
@@ -51,7 +51,7 @@ impl Checksum {
 
         let mut hasher = Sha256::new();
         io::copy(&mut file, &mut hasher)
-            .map_err(|e| ChecksumError::ChecksumIOError(e.to_string()))?;
+            .map_err(|e| ChecksumError::ChecksumIOError(e))?;
         let hash = hasher.finalize().to_vec();
 
         Ok(Self::Sha256(hash))
@@ -77,14 +77,14 @@ impl Checksum {
             Checksum::Sha256(hex) => {
                 let mut hasher = Sha256::new();
                 io::copy(&mut r, &mut hasher)
-                    .map_err(|e| ChecksumError::ChecksumIOError(e.to_string()))?;
+                    .map_err(|e| ChecksumError::ChecksumIOError(e))?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Sha512(hex) => {
                 let mut hasher = Sha512::new();
                 io::copy(&mut r, &mut hasher)
-                    .map_err(|e| ChecksumError::ChecksumIOError(e.to_string()))?;
+                    .map_err(|e| ChecksumError::ChecksumIOError(e))?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
