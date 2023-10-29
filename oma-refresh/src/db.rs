@@ -4,7 +4,7 @@ use std::{
 };
 
 use derive_builder::Builder;
-use oma_apt_sources_lists::{SourceEntry, SourceLine, SourcesLists};
+use oma_apt_sources_lists::{SourceEntry, SourceLine, SourcesLists, SourceError};
 use oma_console::debug;
 use oma_fetch::{
     checksum::ChecksumError, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError,
@@ -44,9 +44,9 @@ pub enum RefreshError {
     #[error("Invalid URL: {0}")]
     InvaildUrl(String),
     #[error("Can not parse distro repo data {0}: {1}")]
-    ParseDistroRepoDataError(String, String),
+    ParseDistroRepoDataError(String, serde_yaml::Error),
     #[error("Scan sources.list failed: {0}")]
-    ScanSourceError(String),
+    ScanSourceError(SourceError),
     #[error("Unsupport Protocol: {0}")]
     UnsupportedProtocol(String),
     #[error(transparent)]
@@ -117,9 +117,8 @@ pub(crate) fn get_url_short_and_branch(
 }
 
 fn mirror_map(buf: &[u8]) -> Result<HashMap<String, MirrorMapItem>> {
-    let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(buf).map_err(|e| {
-        RefreshError::ParseDistroRepoDataError(MIRROR.display().to_string(), e.to_string())
-    })?;
+    let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(buf)
+        .map_err(|e| RefreshError::ParseDistroRepoDataError(MIRROR.display().to_string(), e))?;
 
     Ok(mirror_map)
 }
@@ -128,7 +127,7 @@ fn mirror_map(buf: &[u8]) -> Result<HashMap<String, MirrorMapItem>> {
 pub fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>> {
     let mut res = Vec::new();
     let list = SourcesLists::scan_from_root(sysroot)
-        .map_err(|e| RefreshError::ScanSourceError(e.to_string()))?;
+        .map_err(|e| RefreshError::ScanSourceError(e))?;
 
     for file in list.iter() {
         for i in &file.lines {

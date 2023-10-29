@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, path::Path};
+use std::{borrow::Cow, collections::HashMap, num::ParseIntError, path::Path};
 
 // use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
@@ -32,8 +32,6 @@ pub enum DistFileType {
 
 #[derive(Debug, thiserror::Error)]
 pub enum InReleaseParserError {
-    #[error("Failed to open InRelease {0}: {1}")]
-    FailedToOpenInRelease(String, String),
     #[error(transparent)]
     VerifyError(#[from] crate::verify::VerifyError),
     #[error("Bad InRelease Data")]
@@ -52,8 +50,8 @@ pub enum InReleaseParserError {
     InReleaseSyntaxError(String, String),
     #[error("Unsupport file type in path")]
     UnsupportFileType,
-    #[error("Size should is number: {0}")]
-    SizeShouldIsNumber(String),
+    #[error(transparent)]
+    ParseIntError(ParseIntError),
 }
 
 pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
@@ -168,7 +166,7 @@ impl InReleaseParser {
                 size: i
                     .1
                     .parse::<u64>()
-                    .map_err(|_| InReleaseParserError::SizeShouldIsNumber(i.1.to_string()))?,
+                    .map_err(|e| InReleaseParserError::ParseIntError(e))?,
                 checksum: i.2.to_owned(),
                 file_type: t,
             })
