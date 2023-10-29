@@ -229,9 +229,7 @@ impl SingleDownloader<'_> {
             }
         }
 
-        let (count, len, msg) = &self.progress;
-        let msg = msg.as_deref().unwrap_or(&self.entry.filename);
-        let msg = format!("({count}/{len}) {msg}");
+        let msg = self.set_progress_msg();
         callback(
             self.download_list_index,
             DownloadEvent::NewProgressSpinner(msg.clone()),
@@ -492,6 +490,14 @@ impl SingleDownloader<'_> {
         ))
     }
 
+    fn set_progress_msg(&self) -> String {
+        let (count, len, msg) = &self.progress;
+        let msg = msg.as_deref().unwrap_or(&self.entry.filename);
+        let msg = format!("({count}/{len}) {msg}");
+
+        msg
+    }
+
     /// Download local source file
     async fn download_local<F>(
         &self,
@@ -503,9 +509,7 @@ impl SingleDownloader<'_> {
         F: Fn(usize, DownloadEvent) + Clone,
     {
         debug!("{:?}", self.entry);
-        let (c, len, msg) = &self.progress;
-        let msg = msg.as_deref().unwrap_or(&self.entry.filename);
-        let msg = format!("({c}/{len}) {msg}");
+        let msg = self.set_progress_msg();
         callback(
             self.download_list_index,
             DownloadEvent::NewProgressSpinner(msg.clone()),
