@@ -371,12 +371,28 @@ fn oma_download_error(e: DownloadError) -> (String, Option<String>) {
             Some(fl!("check-network-settings")),
         ),
         DownloadError::IOError(e) => OutputError::from(e).0,
-        DownloadError::ReqwestError(filename, e) => {
-            let e = e.without_url().to_string();
-            (
-                fl!("download-failed", filename = filename, e = e),
-                Some(fl!("check-network-settings")),
-            )
+        DownloadError::ReqwestError(e) => {
+            let filename = e
+                .url()
+                .and_then(|x| x.path_segments())
+                .and_then(|x| x.last());
+
+            if e.is_builder() {
+                return (format!("Failed to create http client, kind: {e}"), None);
+            }
+
+            if let Some(filename) = filename {
+                return (
+                    fl!(
+                        "download-failed",
+                        filename = filename.to_string(),
+                        e = e.to_string()
+                    ),
+                    Some(fl!("check-network-settings")),
+                );
+            } else {
+                return (fl!("download-failed"), Some(fl!("check-network-settings")));
+            }
         }
         DownloadError::ChecksumError(e) => oma_checksum_error(e),
         DownloadError::FailedOpenLocalSourceFile(path, e) => (
@@ -388,7 +404,6 @@ fn oma_download_error(e: DownloadError) -> (String, Option<String>) {
             fl!("invaild-url", url = s),
             Some(fl!("mirror-data-maybe-broken")),
         ),
-        DownloadError::ReqwestFaiedToCreateClient(e) => (e.to_string(), None),
     }
 }
 
