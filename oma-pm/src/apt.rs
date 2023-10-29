@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     fmt::Display,
-    io::Write,
+    io::{self, ErrorKind, Write},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -101,13 +101,13 @@ pub enum OmaAptError {
     #[error(transparent)]
     InstallEntryBuilderError(#[from] InstallEntryBuilderError),
     #[error("Failed to run dpkg --configure -a: {0}")]
-    DpkgFailedConfigure(String),
+    DpkgFailedConfigure(std::io::Error),
     #[error("Insufficient disk space: need: {0}, available: {1}")]
     DiskSpaceInsufficient(HumanBytes, HumanBytes),
     #[error(transparent)]
     DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
-    #[error(transparent)]
-    Anyhow(#[from] anyhow::Error),
+    #[error("Can not commit: {0}")]
+    CommitErr(String),
     #[error("Failed to mark pkg status: {0} is not installed")]
     MarkPkgNotInstalled(String),
     #[error(transparent)]
@@ -559,12 +559,12 @@ impl OmaApt {
                     .arg("--configure")
                     .arg("-a")
                     .output()
-                    .map_err(|e| OmaAptError::DpkgFailedConfigure(e.to_string()))?;
+                    .map_err(|e| OmaAptError::DpkgFailedConfigure(e))?;
 
                 if !cmd.status.success() {
-                    return Err(OmaAptError::DpkgFailedConfigure(format!(
-                        "code: {:?}",
-                        cmd.status.code()
+                    return Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
+                        ErrorKind::Other,
+                        format!("dpkg return non-zero code: {:?}", cmd.status.code()),
                     )));
                 }
 
@@ -844,7 +844,7 @@ impl OmaApt {
                 &mut NoProgress::new_box(),
                 &mut AptInstallProgress::new_box(),
             )
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
+            .map_err(|e| OmaAptError::CommitErr(e.to_string()))?;
 
         Ok(res)
     }
