@@ -2,7 +2,7 @@ use std::error::Error;
 use std::ffi::CString;
 use std::fmt::Display;
 
-use oma_console::{error, OmaConsoleError};
+use oma_console::error;
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
@@ -84,20 +84,6 @@ impl From<zError> for OutputError {
 impl From<AptArgsBuilderError> for OutputError {
     fn from(value: AptArgsBuilderError) -> Self {
         OutputError((value.to_string(), None))
-    }
-}
-
-impl From<OmaConsoleError> for OutputError {
-    fn from(value: OmaConsoleError) -> Self {
-        let s = match value {
-            OmaConsoleError::IoError(e) => OutputError::from(e).0,
-            OmaConsoleError::StdinDoesNotExist => (
-                fl!("io-error", e = "stdin does not exist".to_string()),
-                None,
-            ),
-        };
-
-        Self(s)
     }
 }
 
