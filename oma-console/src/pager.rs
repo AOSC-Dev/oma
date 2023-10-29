@@ -2,12 +2,12 @@ use std::{
     env::var,
     ffi::OsStr,
     fmt::Display,
-    io::Write,
+    io::{self, Write, ErrorKind},
     process::Child,
     sync::atomic::{AtomicI32, Ordering},
 };
 
-use crate::{writer::Writer, OmaConsoleError, OmaConsoleResult};
+use crate::writer::Writer;
 
 pub static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 
@@ -21,7 +21,7 @@ impl Pager {
         Self::Plain
     }
 
-    pub fn external<D: Display + AsRef<OsStr>>(tips: D) -> OmaConsoleResult<Self> {
+    pub fn external<D: Display + AsRef<OsStr>>(tips: D) -> io::Result<Self> {
         let pager_cmd = var("PAGER").unwrap_or_else(|_| "less".to_owned());
 
         let term = var("TERM").unwrap_or_default();
@@ -63,14 +63,13 @@ impl Pager {
     }
 
     /// Get writer to writer something to pager
-    pub fn get_writer(&self) -> OmaConsoleResult<Box<dyn Write + '_>> {
+    pub fn get_writer(&self) -> io::Result<Box<dyn Write + '_>> {
         let res = match self {
             Pager::Plain => Writer::default().get_writer(),
             Pager::External((_, child)) => {
-                let stdin = child
-                    .stdin
-                    .as_ref()
-                    .ok_or_else(|| OmaConsoleError::StdinDoesNotExist)?;
+                let stdin = child.stdin.as_ref().ok_or_else(|| {
+                    io::Error::new(ErrorKind::BrokenPipe, "stdin does not exist")
+                })?;
                 let res: Box<dyn Write> = Box::new(stdin);
                 res
             }
@@ -80,7 +79,7 @@ impl Pager {
     }
 
     /// Wait pager to exit
-    pub fn wait_for_exit(&mut self) -> OmaConsoleResult<bool> {
+    pub fn wait_for_exit(&mut self) -> io::Result<bool> {
         let success = if let Pager::External((_, child)) = self {
             child.wait()?.success()
         } else {

@@ -8,17 +8,8 @@ pub use indicatif;
 use once_cell::sync::Lazy;
 use writer::Writer;
 
-pub type OmaConsoleResult<T> = std::result::Result<T, OmaConsoleError>;
 pub static WRITER: Lazy<Writer> = Lazy::new(writer::Writer::default);
 pub static DEBUG: AtomicBool = AtomicBool::new(false);
-
-#[derive(Debug, thiserror::Error)]
-pub enum OmaConsoleError {
-    #[error(transparent)]
-    IoError(#[from] std::io::Error),
-    #[error("No stdin")]
-    StdinDoesNotExist,
-}
 
 pub fn is_terminal() -> bool {
     WRITER.is_terminal()

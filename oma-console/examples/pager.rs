@@ -1,6 +1,7 @@
-use oma_console::{pager::Pager, OmaConsoleError};
+use std::io;
+use oma_console::pager::Pager;
 
-fn main() -> Result<(), OmaConsoleError> {
+fn main() -> io::Result<()> {
     let mut p = Pager::plain();
     let mut w = p.get_writer()?;
     w.write_all(b"QAQ\n").ok();
