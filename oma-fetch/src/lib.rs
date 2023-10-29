@@ -19,10 +19,8 @@ pub enum DownloadError {
     ChecksumMisMatch(String),
     #[error(transparent)]
     IOError(#[from] tokio::io::Error),
-    #[error("Failed to download file: {0}, kind: {1:?}")]
-    ReqwestError(String, reqwest::Error),
-    #[error("Failed to create http client, kind: {0:?}")]
-    ReqwestFaiedToCreateClient(reqwest::Error),
+    #[error(transparent)]
+    ReqwestError(reqwest::Error),
     #[error(transparent)]
     ChecksumError(#[from] crate::checksum::ChecksumError),
     #[error("Failed to open local source file {0}: {1}")]
@@ -153,7 +151,7 @@ impl OmaFetcher {
             ClientBuilder::new()
                 .user_agent("oma")
                 .build()
-                .map_err(DownloadError::ReqwestFaiedToCreateClient)?,
+                .map_err(|e| DownloadError::ReqwestError(e))?,
         );
 
         Ok(Self {
