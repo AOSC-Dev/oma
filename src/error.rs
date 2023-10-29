@@ -321,7 +321,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::DownlaodError(e) => oma_download_error(e),
         OmaAptError::IOError(e) => OutputError::from(e).0,
         OmaAptError::InstallEntryBuilderError(e) => (e.to_string(), None),
-        OmaAptError::DpkgFailedConfigure(e) => (fl!("dpkg-configure-a-non-zero", e = e), None),
+        OmaAptError::DpkgFailedConfigure(e) => {
+            let ioe = OutputError::from(e);
+            (fl!("dpkg-configure-a-non-zero", e = ioe.0 .0), None)
+        }
         OmaAptError::DiskSpaceInsufficient(need, avail) => (
             fl!(
                 "need-more-size",
@@ -331,7 +334,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             Some(fl!("clean-storage")),
         ),
         OmaAptError::DownloadEntryBuilderError(e) => (e.to_string(), None),
-        OmaAptError::Anyhow(e) => (e.to_string(), None),
+        OmaAptError::CommitErr(e) => (e, None),
         OmaAptError::MarkPkgNotInstalled(pkg) => (fl!("pkg-is-not-installed", pkg = pkg), None),
         OmaAptError::DpkgError(e) => (OutputError::from(e).to_string(), None),
         OmaAptError::PkgUnavailable(pkg, ver) => {
