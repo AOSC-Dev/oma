@@ -46,8 +46,8 @@ pub enum OmaContentsError {
 pub enum OmaContentsError {
     #[error("Contents does not exist")]
     ContentsNotExist,
-    #[error("Execute ripgrep failed: {0}")]
-    ExecuteRgFailed(String),
+    #[error("Execute ripgrep failed: {0:?}")]
+    ExecuteRgFailed(std::io::Error),
     #[error(transparent)]
     IOError(#[from] std::io::Error),
     #[error("rg parse failed: input: {}, err: {}", input, err)]
@@ -219,7 +219,7 @@ where
 
     let mut cmd = cmd
         .spawn()
-        .map_err(|e| OmaContentsError::ExecuteRgFailed(e.to_string()))?;
+        .map_err(|e| OmaContentsError::ExecuteRgFailed(e))?;
     {
         let stdout = cmd
             .stdout

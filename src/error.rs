@@ -272,10 +272,13 @@ impl From<OmaContentsError> for OutputError {
                 fl!("contents-does-not-exist"),
                 Some(fl!("contents-does-not-exist-dueto")),
             ),
-            OmaContentsError::ExecuteRgFailed(e) => (
-                fl!("execute-ripgrep-failed", e = e),
-                Some(fl!("ripgrep-right-installed")),
-            ),
+            OmaContentsError::ExecuteRgFailed(e) => {
+                let ioe = OutputError::from(e);
+                (
+                    fl!("execute-ripgrep-failed", e = ioe.0.0),
+                    Some(fl!("ripgrep-right-installed")),
+                )
+            }
             OmaContentsError::IOError(e) => OutputError::from(e).0,
             OmaContentsError::RgParseFailed { input, err } => (
                 fl!("parse-rg-result-failed", i = input, e = err),
@@ -287,7 +290,6 @@ impl From<OmaContentsError> for OutputError {
             OmaContentsError::CnfWrongArgument => (value.to_string(), Some(fl!("bug"))),
             OmaContentsError::RgWithError => (fl!("rg-non-zero"), None),
             OmaContentsError::NoResult => ("".to_string(), None),
-            OmaContentsError::WhichError(e) => (e.to_string(), None),
         };
 
         Self(s)
