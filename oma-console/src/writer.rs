@@ -1,6 +1,6 @@
-use std::io::Write;
+use std::io::{Write, self};
 
-use crate::{OmaConsoleResult, WRITER};
+use crate::WRITER;
 use console::Term;
 use icu_segmenter::LineSegmenter;
 
@@ -46,7 +46,7 @@ impl Writer {
     }
 
     /// Show terminal cursor
-    pub fn show_cursor(&self) -> OmaConsoleResult<()> {
+    pub fn show_cursor(&self) -> io::Result<()> {
         self.term.show_cursor()?;
         Ok(())
     }
@@ -105,7 +105,7 @@ impl Writer {
         prefix: &str,
         chunks: &[S],
         prefix_len: u16,
-    ) -> OmaConsoleResult<()> {
+    ) -> io::Result<()> {
         if chunks.is_empty() {
             return Ok(());
         }
