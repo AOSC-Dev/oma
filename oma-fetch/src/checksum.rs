@@ -32,9 +32,9 @@ impl ChecksumValidator {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ChecksumError {
-    #[error("Failed to open {0} for checking checksum")]
-    FailedToOpenFile(String),
-    #[error("Can not checksum: {0}")]
+    #[error("Failed to open file {0} for checking checksum, kind: {1}")]
+    FailedToOpenFile(String, std::io::Error),
+    #[error("Can not checksum file: {0}")]
     ChecksumIOError(std::io::Error),
     #[error("Sha256 bad length")]
     BadLength,
@@ -47,11 +47,10 @@ pub type Result<T> = std::result::Result<T, ChecksumError>;
 impl Checksum {
     pub fn from_file_sha256(path: &Path) -> Result<Self> {
         let mut file = File::open(path)
-            .map_err(|_| ChecksumError::FailedToOpenFile(path.display().to_string()))?;
+            .map_err(|e| ChecksumError::FailedToOpenFile(path.display().to_string(), e))?;
 
         let mut hasher = Sha256::new();
-        io::copy(&mut file, &mut hasher)
-            .map_err(|e| ChecksumError::ChecksumIOError(e))?;
+        io::copy(&mut file, &mut hasher).map_err(|e| ChecksumError::ChecksumIOError(e))?;
         let hash = hasher.finalize().to_vec();
 
         Ok(Self::Sha256(hash))
@@ -76,15 +75,13 @@ impl Checksum {
         match self {
             Checksum::Sha256(hex) => {
                 let mut hasher = Sha256::new();
-                io::copy(&mut r, &mut hasher)
-                    .map_err(|e| ChecksumError::ChecksumIOError(e))?;
+                io::copy(&mut r, &mut hasher).map_err(|e| ChecksumError::ChecksumIOError(e))?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Sha512(hex) => {
                 let mut hasher = Sha512::new();
-                io::copy(&mut r, &mut hasher)
-                    .map_err(|e| ChecksumError::ChecksumIOError(e))?;
+                io::copy(&mut r, &mut hasher).map_err(|e| ChecksumError::ChecksumIOError(e))?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
@@ -93,7 +90,7 @@ impl Checksum {
 
     pub fn cmp_file(&self, path: &Path) -> Result<bool> {
         let file = File::open(path)
-            .map_err(|_| ChecksumError::FailedToOpenFile(path.display().to_string()))?;
+            .map_err(|e| ChecksumError::FailedToOpenFile(path.display().to_string(), e))?;
 
         self.cmp_read(Box::new(file) as Box<dyn std::io::Read>)
     }
