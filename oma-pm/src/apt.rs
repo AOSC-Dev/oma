@@ -56,7 +56,14 @@ pub struct OmaAptArgs {
     install_suggests: bool,
     no_install_recommends: bool,
     no_install_suggests: bool,
+    #[builder(default = "self.default_sysroot()")]
     sysroot: String,
+}
+
+impl OmaAptArgsBuilder {
+    fn default_sysroot(&self) -> String {
+        String::from("/")
+    }
 }
 
 pub struct OmaApt {
