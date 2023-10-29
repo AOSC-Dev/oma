@@ -265,7 +265,6 @@ impl OmaApt {
             "Dir::State::status",
             &Path::new(&args.sysroot)
                 .join("var/lib/dpkg/status")
-                .canonicalize()?
                 .display()
                 .to_string(),
         );
