@@ -46,8 +46,6 @@ pub enum OmaContentsError {
 pub enum OmaContentsError {
     #[error("Contents does not exist")]
     ContentsNotExist,
-    #[error(transparent)]
-    WhichError(#[from] which::Error),
     #[error("Execute ripgrep failed: {0}")]
     ExecuteRgFailed(String),
     #[error(transparent)]
@@ -208,7 +206,6 @@ where
     };
 
     let mut res = vec![];
-    which::which("rg")?;
     let mut cmd = Command::new("rg");
     cmd.arg("-N");
     cmd.arg("-I");
