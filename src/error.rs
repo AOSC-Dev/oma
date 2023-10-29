@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::ffi::CString;
 use std::fmt::Display;
 
 use oma_console::{error, OmaConsoleError};
@@ -89,7 +90,7 @@ impl From<AptArgsBuilderError> for OutputError {
 impl From<OmaConsoleError> for OutputError {
     fn from(value: OmaConsoleError) -> Self {
         let s = match value {
-            OmaConsoleError::IoError(e) => (fl!("io-error", e = e.to_string()), None),
+            OmaConsoleError::IoError(e) => OutputError::from(e).0,
             OmaConsoleError::StdinDoesNotExist => (
                 fl!("io-error", e = "stdin does not exist".to_string()),
                 None,
@@ -146,7 +147,7 @@ impl From<RefreshError> for OutputError {
                     VerifyError::TrustedDirNotExist => {
                         (e.to_string(), Some(fl!("mirror-data-maybe-broken")))
                     }
-                    VerifyError::IOError(e) => (fl!("io-error", e = e.to_string()), None),
+                    VerifyError::IOError(e) => OutputError::from(e).0,
                     VerifyError::Anyhow(e) => (e.to_string(), None),
                 },
                 InReleaseParserError::BadInReleaseData => (
@@ -189,10 +190,7 @@ impl From<RefreshError> for OutputError {
             RefreshError::JoinError(e) => (e.to_string(), None),
             RefreshError::DownloadEntryBuilderError(e) => (e.to_string(), None),
             RefreshError::ChecksumError(e) => oma_checksum_error(e),
-            RefreshError::IOError(e) => {
-                let (err, dueto) = OutputError::from(e).0;
-                (err, dueto)
-            }
+            RefreshError::IOError(e) => OutputError::from(e).0,
         };
 
         Self(s)
@@ -210,7 +208,7 @@ impl From<OmaTopicsError> for OutputError {
 fn oma_topics_error(e: OmaTopicsError) -> (String, Option<String>) {
     match e {
         OmaTopicsError::BrokenFile(_) => (fl!("failed-to-read"), None),
-        OmaTopicsError::IOError(e) => (OutputError::from(e).0 .0.to_string(), None),
+        OmaTopicsError::IOError(e) => OutputError::from(e).0,
         OmaTopicsError::CanNotFindTopic(topic) => (
             fl!("can-not-find-specified-topic", topic = topic),
             Some(fl!("maybe-mirror-syncing")),
@@ -219,13 +217,23 @@ fn oma_topics_error(e: OmaTopicsError) -> (String, Option<String>) {
             (fl!("can-not-find-specified-topic", topic = topic), None)
         }
         OmaTopicsError::ReqwestError(e) => (e.to_string(), Some(fl!("check-network-settings"))),
-        OmaTopicsError::FailedSer => (e.to_string(), None)
+        OmaTopicsError::FailedSer => (e.to_string(), None),
     }
 }
 
 impl From<std::io::Error> for OutputError {
     fn from(e: std::io::Error) -> Self {
-        let s = (fl!("io-error", e = e.to_string()), None);
+        let err_code = e.raw_os_error();
+        let mut msg = None;
+
+        if let Some(e) = err_code {
+            let strerror = unsafe { CString::from_raw(libc::strerror(e)) };
+            let cause = strerror.to_str().map(|x| x.to_string());
+            msg = cause.ok();
+        }
+
+        let msg = msg.unwrap_or(e.to_string());
+        let s = (fl!("io-error", e = msg), None);
 
         Self(s)
     }
@@ -258,7 +266,7 @@ impl From<OmaContentsError> for OutputError {
                 fl!("contents-does-not-exist"),
                 Some(fl!("contents-does-not-exist-dueto")),
             ),
-            OmaContentsError::IOError(e) => (OutputError::from(e).to_string(), None),
+            OmaContentsError::IOError(e) => OutputError::from(e).0,
             OmaContentsError::RgParseFailed { input, err } => (
                 fl!("parse-rg-result-failed", i = input, e = err),
                 Some(fl!("bug")),
@@ -282,7 +290,7 @@ impl From<OmaContentsError> for OutputError {
                 fl!("execute-ripgrep-failed", e = e),
                 Some(fl!("ripgrep-right-installed")),
             ),
-            OmaContentsError::IOError(e) => (OutputError::from(e).to_string(), None),
+            OmaContentsError::IOError(e) => OutputError::from(e).0,
             OmaContentsError::RgParseFailed { input, err } => (
                 fl!("parse-rg-result-failed", i = input, e = err),
                 Some(fl!("bug")),
@@ -323,7 +331,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::PkgNoChecksum(s) => (fl!("pkg-no-checksum", name = s), None),
         OmaAptError::InvalidFileName(s) => (fl!("invaild-filename", name = s), None),
         OmaAptError::DownlaodError(e) => oma_download_error(e),
-        OmaAptError::IOError(e) => (fl!("io-error", e = e.to_string()), None),
+        OmaAptError::IOError(e) => OutputError::from(e).0,
         OmaAptError::InstallEntryBuilderError(e) => (e.to_string(), None),
         OmaAptError::DpkgFailedConfigure(e) => (fl!("dpkg-configure-a-non-zero", e = e), None),
         OmaAptError::DiskSpaceInsufficient(need, avail) => (
@@ -362,7 +370,7 @@ fn oma_download_error(e: DownloadError) -> (String, Option<String>) {
             fl!("checksum-mismatch", filename = filename),
             Some(fl!("check-network-settings")),
         ),
-        DownloadError::IOError(e) => (fl!("io-error", e = e.to_string()), None),
+        DownloadError::IOError(e) => OutputError::from(e).0,
         DownloadError::ReqwestError(filename, e) => {
             let e = e.without_url().to_string();
             (
@@ -387,7 +395,7 @@ fn oma_download_error(e: DownloadError) -> (String, Option<String>) {
 fn oma_checksum_error(e: ChecksumError) -> (String, Option<String>) {
     match e {
         ChecksumError::FailedToOpenFile(s) => (fl!("failed-to-open-to-checksum", path = s), None),
-        ChecksumError::ChecksumIOError(e) => (fl!("can-not-checksum", e = e), None),
+        ChecksumError::ChecksumIOError(e) => OutputError::from(e).0,
         ChecksumError::BadLength => (
             fl!("sha256-bad-length"),
             Some(fl!("check-network-settings")),
