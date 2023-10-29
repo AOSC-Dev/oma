@@ -9,7 +9,6 @@ license = "MIT"
 
 [dependencies]
 console = "0.15"
-thiserror = "1.0"
 indicatif = "0.17"
 once_cell = "1.18"
 icu_segmenter = "1.3"
