@@ -19,9 +19,9 @@ pub struct InReleaseVerifier {
 #[derive(Debug, thiserror::Error)]
 pub enum VerifyError {
     #[error("Can't parse certificate {0}")]
-    CertParseFileError(String),
+    CertParseFileError(String, anyhow::Error),
     #[error("Cert file is bad: {0}")]
-    BadCertFile(String),
+    BadCertFile(String, anyhow::Error),
     #[error("Does not exist: /etc/apt/trusted.gpg.d")]
     TrustedDirNotExist,
     #[error(transparent)]
@@ -37,11 +37,12 @@ impl InReleaseVerifier {
         let mut certs: Vec<Cert> = Vec::new();
         for f in cert_paths {
             for maybe_cert in CertParser::from_file(f)
-                .map_err(|_| VerifyError::CertParseFileError(f.as_ref().display().to_string()))?
+                .map_err(|e| VerifyError::CertParseFileError(f.as_ref().display().to_string(), e))?
             {
                 certs.push(
-                    maybe_cert
-                        .map_err(|_| VerifyError::BadCertFile(f.as_ref().display().to_string()))?,
+                    maybe_cert.map_err(|e| {
+                        VerifyError::BadCertFile(f.as_ref().display().to_string(), e)
+                    })?,
                 );
             }
         }
