@@ -24,7 +24,7 @@ pub enum DownloadError {
     #[error(transparent)]
     ChecksumError(#[from] crate::checksum::ChecksumError),
     #[error("Failed to open local source file {0}: {1}")]
-    FailedOpenLocalSourceFile(Arc<String>, String),
+    FailedOpenLocalSourceFile(String, tokio::io::Error),
     #[error(transparent)]
     DownloadSourceBuilderError(#[from] DownloadEntryBuilderError),
     #[error("Invaild URL: {0}")]
