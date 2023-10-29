@@ -26,6 +26,7 @@ chrono = "0.4"
 rustix = { version = "0.38", features = ["process"] }
 colored = { version = "2.0.4", optional = true }
 image = { version = "0.24.7", optional = true }
+libc = "0.2"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
