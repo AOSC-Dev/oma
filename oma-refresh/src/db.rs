@@ -340,7 +340,7 @@ where
                 Err(e) => {
                     #[cfg(feature = "aosc")]
                     match e {
-                        DownloadError::ReqwestError(_, e)
+                        DownloadError::ReqwestError(e)
                             if e.status()
                                 .map(|x| x == StatusCode::NOT_FOUND)
                                 .unwrap_or(false) =>

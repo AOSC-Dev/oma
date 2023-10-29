@@ -2479,7 +2479,7 @@ dependencies = [
  "hex",
  "indicatif",
  "oma-console 0.5.0",
- "oma-utils 0.1.9",
+ "oma-utils 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
  "sha2",
@@ -2568,19 +2568,6 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "384756b0e14c6b083b6ad04618e56d1e000627a943f267a685ffc178c1997580"
-dependencies = [
- "oma-console 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "once_cell",
- "os-release",
- "thiserror",
- "url-escape",
-]
-
-[[package]]
-name = "oma-utils"
 version = "0.2.0"
 dependencies = [
  "number_prefix",
@@ -2590,6 +2577,19 @@ dependencies = [
  "thiserror",
  "url-escape",
  "zbus",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b20e9a2e8003d5c94c479280968d2630bc9b69335e00c590fb044cb95e9e1fba"
+dependencies = [
+ "oma-console 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "once_cell",
+ "os-release",
+ "thiserror",
+ "url-escape",
 ]
 
 [[package]]

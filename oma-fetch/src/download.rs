@@ -244,10 +244,7 @@ impl SingleDownloader<'_> {
             Ok(resp) => resp,
             Err(e) => {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
-                return Err(DownloadError::ReqwestError(
-                    self.entry.filename.to_string(),
-                    e,
-                ));
+                return Err(DownloadError::ReqwestError(e));
             }
         };
 
@@ -307,14 +304,11 @@ impl SingleDownloader<'_> {
         let resp = req
             .send()
             .await
-            .map_err(|e| DownloadError::ReqwestError(self.entry.filename.to_string(), e))?;
+            .map_err(|e| DownloadError::ReqwestError(e))?;
 
         if let Err(e) = resp.error_for_status_ref() {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
-            return Err(DownloadError::ReqwestError(
-                self.entry.filename.to_string(),
-                e,
-            ));
+            return Err(DownloadError::ReqwestError(e));
         } else {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
         }
@@ -419,7 +413,7 @@ impl SingleDownloader<'_> {
         while let Some(chunk) = source
             .chunk()
             .await
-            .map_err(|e| DownloadError::ReqwestError(self.entry.filename.to_string(), e))?
+            .map_err(|e| DownloadError::ReqwestError(e))?
         {
             if let Err(e) = writer.write_all(&chunk).await {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
