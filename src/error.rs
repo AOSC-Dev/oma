@@ -275,7 +275,7 @@ impl From<OmaContentsError> for OutputError {
             OmaContentsError::ExecuteRgFailed(e) => {
                 let ioe = OutputError::from(e);
                 (
-                    fl!("execute-ripgrep-failed", e = ioe.0.0),
+                    fl!("execute-ripgrep-failed", e = ioe.0 .0),
                     Some(fl!("ripgrep-right-installed")),
                 )
             }
@@ -383,10 +383,17 @@ fn oma_download_error(e: DownloadError) -> (String, Option<String>) {
             }
         }
         DownloadError::ChecksumError(e) => oma_checksum_error(e),
-        DownloadError::FailedOpenLocalSourceFile(path, e) => (
-            fl!("can-not-parse-sources-list", path = path.to_string(), e = e),
-            Some(fl!("check-sources-list")),
-        ),
+        DownloadError::FailedOpenLocalSourceFile(path, e) => {
+            let ioe = OutputError::from(e);
+            (
+                fl!(
+                    "can-not-parse-sources-list",
+                    path = path.to_string(),
+                    e = ioe.0 .0
+                ),
+                Some(fl!("check-sources-list")),
+            )
+        }
         DownloadError::DownloadSourceBuilderError(e) => (e.to_string(), None),
         DownloadError::InvaildURL(s) => (
             fl!("invaild-url", url = s),
@@ -397,7 +404,9 @@ fn oma_download_error(e: DownloadError) -> (String, Option<String>) {
 
 fn oma_checksum_error(e: ChecksumError) -> (String, Option<String>) {
     match e {
-        ChecksumError::FailedToOpenFile(s) => (fl!("failed-to-open-to-checksum", path = s), None),
+        ChecksumError::FailedToOpenFile(s, _) => {
+            (fl!("failed-to-open-to-checksum", path = s), None)
+        }
         ChecksumError::ChecksumIOError(e) => OutputError::from(e).0,
         ChecksumError::BadLength => (
             fl!("sha256-bad-length"),
