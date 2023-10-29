@@ -2435,7 +2435,6 @@ dependencies = [
  "icu_segmenter",
  "indicatif",
  "once_cell",
- "thiserror",
 ]
 
 [[package]]
