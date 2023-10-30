@@ -79,8 +79,8 @@ impl From<AptArgsBuilderError> for OutputError {
 
 impl From<OmaDatabaseError> for OutputError {
     fn from(value: OmaDatabaseError) -> Self {
-        let e = oma_database_error(value);
-        e
+        
+        oma_database_error(value)
     }
 }
 
@@ -247,9 +247,9 @@ impl From<DpkgError> for OutputError {
 
 impl From<DownloadError> for OutputError {
     fn from(value: DownloadError) -> Self {
-        let s = oma_download_error(value);
+        
 
-        s
+        oma_download_error(value)
     }
 }
 
@@ -326,7 +326,9 @@ impl From<anyhow::Error> for OutputError {
 }
 
 pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
-    let err = match err {
+    
+
+    match err {
         OmaAptError::RustApt(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(e)),
@@ -410,9 +412,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 source: None,
             }
         }
-    };
-
-    err
+    }
 }
 
 impl From<reqwest::Error> for OutputError {
@@ -424,7 +424,7 @@ impl From<reqwest::Error> for OutputError {
 
         if e.is_builder() {
             return Self {
-                description: format!("Failed to create http client."),
+                description: "Failed to create http client.".to_string(),
                 source: Some(Box::new(e)),
             };
         }
