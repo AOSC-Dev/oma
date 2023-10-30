@@ -217,7 +217,7 @@ where
 
     let mut cmd = cmd
         .spawn()
-        .map_err(|e| OmaContentsError::ExecuteRgFailed(e))?;
+        .map_err(OmaContentsError::ExecuteRgFailed)?;
     {
         let stdout = cmd
             .stdout
