@@ -24,8 +24,8 @@ pub enum VerifyError {
     BadCertFile(String, anyhow::Error),
     #[error("Does not exist: /etc/apt/trusted.gpg.d")]
     TrustedDirNotExist,
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
+    #[error("Failed to read decoded InRelease file: {0}")]
+    FailedToReadInRelease(std::io::Error),
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
 }
@@ -116,7 +116,8 @@ pub fn verify(s: &str, trust_files: Option<&str>, mirror: &str) -> VerifyResult<
     )?;
 
     let mut res = String::new();
-    v.read_to_string(&mut res)?;
+    v.read_to_string(&mut res)
+        .map_err(VerifyError::FailedToReadInRelease)?;
 
     Ok(res)
 }
