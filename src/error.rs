@@ -79,7 +79,6 @@ impl From<AptArgsBuilderError> for OutputError {
 
 impl From<OmaDatabaseError> for OutputError {
     fn from(value: OmaDatabaseError) -> Self {
-        
         oma_database_error(value)
     }
 }
@@ -247,8 +246,6 @@ impl From<DpkgError> for OutputError {
 
 impl From<DownloadError> for OutputError {
     fn from(value: DownloadError) -> Self {
-        
-
         oma_download_error(value)
     }
 }
@@ -326,8 +323,6 @@ impl From<anyhow::Error> for OutputError {
 }
 
 pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
-    
-
     match err {
         OmaAptError::RustApt(e) => OutputError {
             description: fl!("apt-error"),

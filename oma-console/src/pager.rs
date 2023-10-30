@@ -2,7 +2,7 @@ use std::{
     env::var,
     ffi::OsStr,
     fmt::Display,
-    io::{self, Write, ErrorKind},
+    io::{self, ErrorKind, Write},
     process::Child,
     sync::atomic::{AtomicI32, Ordering},
 };
@@ -67,9 +67,10 @@ impl Pager {
         let res = match self {
             Pager::Plain => Writer::default().get_writer(),
             Pager::External((_, child)) => {
-                let stdin = child.stdin.as_ref().ok_or_else(|| {
-                    io::Error::new(ErrorKind::BrokenPipe, "stdin does not exist")
-                })?;
+                let stdin = child
+                    .stdin
+                    .as_ref()
+                    .ok_or_else(|| io::Error::new(ErrorKind::BrokenPipe, "stdin does not exist"))?;
                 let res: Box<dyn Write> = Box::new(stdin);
                 res
             }

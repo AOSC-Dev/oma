@@ -13,8 +13,8 @@ use oma_pm::{
     PackageStatus,
 };
 
-use crate::{fl, AILURUS};
 use crate::{error::OutputError, table::oma_display_with_normal_output};
+use crate::{fl, AILURUS};
 
 use super::utils::check_unsupport_stmt;
 

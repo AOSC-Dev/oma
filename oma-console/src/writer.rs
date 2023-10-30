@@ -1,4 +1,4 @@
-use std::io::{Write, self};
+use std::io::{self, Write};
 
 use crate::WRITER;
 use console::Term;

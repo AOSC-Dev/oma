@@ -301,10 +301,7 @@ impl SingleDownloader<'_> {
 
         debug!("Can resume? {can_resume}");
 
-        let resp = req
-            .send()
-            .await
-            .map_err(DownloadError::ReqwestError)?;
+        let resp = req.send().await.map_err(DownloadError::ReqwestError)?;
 
         if let Err(e) = resp.error_for_status_ref() {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
@@ -410,11 +407,7 @@ impl SingleDownloader<'_> {
 
         // 下载！
         debug!("Start download!");
-        while let Some(chunk) = source
-            .chunk()
-            .await
-            .map_err(DownloadError::ReqwestError)?
-        {
+        while let Some(chunk) = source.chunk().await.map_err(DownloadError::ReqwestError)? {
             if let Err(e) = writer.write_all(&chunk).await {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
                 return Err(e.into());
