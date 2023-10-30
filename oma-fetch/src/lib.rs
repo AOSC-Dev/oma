@@ -17,8 +17,10 @@ mod download;
 pub enum DownloadError {
     #[error("checksum mismatch {0}")]
     ChecksumMisMatch(String),
-    #[error(transparent)]
-    IOError(#[from] tokio::io::Error),
+    // #[error(transparent)]
+    // IOError(#[from] tokio::io::Error),
+    #[error("Failed to download file: {0}, kind: {1}")]
+    IOError(String, std::io::Error),
     #[error(transparent)]
     ReqwestError(reqwest::Error),
     #[error(transparent)]
