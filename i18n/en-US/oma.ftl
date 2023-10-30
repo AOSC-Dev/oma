@@ -1,5 +1,5 @@
 # utils
-can-not-run-dpkg-print-arch = Could not run `dpkg --print-architecture': {$e}.
+can-not-run-dpkg-print-arch = Could not run `dpkg --print-architecture'.
 dpkg-return-non-zero = `dpkg' returned an error: {$e}.
 need-more-size = Insufficient storage space: {$a} is availble, but {$n} is needed.
 old-pid-still-running = Another Omakase instance (PID: {$pid}) is still running, aborting.
@@ -66,7 +66,7 @@ normal-tips = Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll.
 # oma
 no-need-to-do-anything = No need to do anything.
 retry-apt = `apt' returned an error, retrying: attempt {$count} ...
-apt-error = `apt' returned an error: {$e}
+apt-error = `apt' returned an error.
 invaild-pattern = Invalid pattern: {$p}
 system-has-broken-dep = Omakase has detected broken dependencies on your system.
 system-has-broken-dep-due-to = Omakase can help fix dependency issues. Please use the `{$cmd}' command. If this still fails, please inform us of your issue at https://github.com/AOSC-Dev/aosc-os-abbs.
@@ -115,7 +115,7 @@ clean-successfully = Successfully cleaned Omakase database and cache.
 dpkg-get-selections-non-zero = `dpkg --get-selections' returned an error. The dpkg database may be corrupted.
 can-not-parse-line = Failed to parse line {$i} in the `dpkg --get-selections' output. The dpkg database may be corrupted.
 dpkg-was-interrupted = A previous `dpkg' operation was interrupted, Omakase will now resume that operation ...
-dpkg-configure-a-non-zero = `dpkg --configure -a' returned an error: {$e}
+dpkg-configure-a-non-zero = `dpkg --configure -a' returned an error.
 verifying-the-interity-of-pkgs = Verifying the integrity of downloaded packages ...
 automatic-mode-warn = Running Omakase in unattended mode. If this is not intended, press Ctrl + C now to abort the operation!
 has-no-symbol-pkg = Package {$name} has no debug symbol available.
@@ -206,7 +206,7 @@ expired-signature = InRelease file {$filename} is invalid: The enclosed signatur
 inrelease-sha256-empty = InRelease file is invalid: The SHA256 field is empty.
 inrelease-checksum-can-not-parse = InRelease file is invalid: Failed to parse checksum entry {$i}.
 inrelease-parse-unsupport-file-type = BUG: InRelease parser has encountered an unsupport file format. Please report this issue at https://github.com/AOSC-Dev/oma.
-can-not-parse-sources-list = Failed parse the sources.list file {$path}: {$e}.
+can-not-parse-sources-list = Failed parse the sources.list file {$path}.
 unsupport-protocol = Omakase does not support the protocol: {$url}.
 unsupport-some-mirror = Omakase has detected unsupported entries in sources.list.
 unsupport-sourceentry = Unsupported sources.list entry(ies):
@@ -222,16 +222,16 @@ can-not-get-file = Failed to open file {$name}: {$e}
 downloading-database = {$file} {$source}
 flushing-data = Flushing data to hard disk …
 io-error = I/O Error: {$e},
-inrelease-syntax-error = "InRelease file {$path} is invalid: {$e}"
+inrelease-syntax-error = InRelease file {$path} is invalid
 
 # contents
 contents-does-not-exist = Package contents database (Contents) does not exist.
 contents-does-not-exist-dueto = Use the `oma refresh' command to refresh the contents database.
 contents-may-not-be-accurate-1 = The local package contents database has not been updated for over a week, search results may not be accurate.
 contents-may-not-be-accurate-2 = Use the `oma refresh' command to refresh the contents database.
-execute-ripgrep-failed = Failed to execute `rg': {$e}.
+execute-ripgrep-failed = Failed to execute `rg'.
 searching = Searching ...
-parse-rg-result-failed = BUG: Failed to parse `rg' result {$i}: {$e}. Please report this issue at https://github.com/AOSC-Dev/oma.
+parse-rg-result-failed = BUG: Failed to parse `rg' result {$i}.
 search-with-result-count = Searching, found {$count} results so far ...
 contents-entry-missing-path-list = BUG: Omakase failed to parse the entry {$entry} in the local package contents database. Please report this issue at https://github.com/AOSC-Dev/oma.
 rg-non-zero = `rg' returned an error.
@@ -239,7 +239,7 @@ cnf-wrong-argument = BUG: An incorrect parameter was passed into the command-not
 
 # checksum
 sha256-bad-length = Malformed SHA256 checksum: bad length.
-can-not-checksum = BUG: Failed to parse SHA256 checksum {$e}. Please report this issue at https://github.com/AOSC-Dev/oma.
+can-not-checksum = Failed to parse SHA256 checksum.
 failed-to-open-to-checksum = BUG: Failed to open {$path} for checksum verification. Please report this issue at https://github.com/AOSC-Dev/oma.
 
 # config
@@ -265,4 +265,4 @@ ripgrep-right-installed = Please make sure that Ripgrep is installed correctly.
 support-protocol = Omakase only supports http://, https://, and file:/ protocols. Please check your sources.list entries.
 debug = Please enable debug mode by appending the `--debug' flag to record detailed program output, and submit it along with your bug report at https://github.com/AOSC-Dev/oma.
 download-failed-with-len = {$len} package(s) failed to download.
-download-failed = Download file: {$filename} failed! Cause: {$e}
+download-failed = Download file: {$filename} failed!

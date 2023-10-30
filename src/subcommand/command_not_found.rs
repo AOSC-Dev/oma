@@ -1,7 +1,8 @@
 use std::borrow::Cow;
+use std::error::Error;
 use std::path::Path;
 
-use oma_console::{error, info};
+use oma_console::{error, due_to};
 use oma_contents::{OmaContentsError, QueryMode};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use oma_utils::dpkg::dpkg_arch;
@@ -42,11 +43,11 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
         }
         Err(e) => {
             if !matches!(e, OmaContentsError::NoResult) {
-                let (err, info) = OutputError::from(e).inner();
-                if !err.is_empty() {
+                let err = OutputError::from(e);
+                if !err.to_string().is_empty() {
                     error!("{err}");
-                    if let Some(info) = info {
-                        info!("{info}");
+                    if let Some(source) = err.source() {
+                        due_to!("{source}");
                     }
                 }
             }
