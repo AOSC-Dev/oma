@@ -60,14 +60,13 @@ pub fn execute(
         let len = failed.len();
         for f in failed {
             let e = OutputError::from(f);
-            let (err, _) = e.inner();
-            error!("{err}");
+            error!("{e}");
         }
 
-        return Err(OutputError::new(
-            fl!("download-failed-with-len", len = len),
-            None,
-        ));
+        return Err(OutputError {
+            description: fl!("download-failed-with-len", len = len),
+            source: None,
+        });
     }
 
     Ok(0)

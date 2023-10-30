@@ -50,8 +50,6 @@ pub enum OmaContentsError {
     ExecuteRgFailed(std::io::Error),
     #[error(transparent)]
     IOError(#[from] std::io::Error),
-    #[error("rg parse failed: input: {}, err: {}", input, err)]
-    RgParseFailed { input: String, err: String },
     #[error("Contents entry missing path list: {0}")]
     ContentsEntryMissingPathList(String),
     #[error("Command not found wrong argument")]

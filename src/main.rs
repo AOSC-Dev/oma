@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
@@ -18,8 +19,8 @@ use anyhow::anyhow;
 
 use clap::ArgMatches;
 use error::OutputError;
-use oma_console::info;
 use oma_console::{debug, error, DEBUG, WRITER};
+use oma_console::{due_to, info};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
 use rustix::process::{kill_process, Pid, Signal};
@@ -81,11 +82,11 @@ fn main() {
     let code = match try_main() {
         Ok(exit_code) => exit_code,
         Err(e) => {
-            let (err, info) = e.inner();
-            if !err.is_empty() {
-                error!("{err}");
-                let info = info.unwrap_or(fl!("debug"));
-                info!("{info}");
+            if !e.to_string().is_empty() {
+                error!("{e}");
+                if let Some(cause) = e.source() {
+                    due_to!("{cause}");
+                }
             }
 
             1
