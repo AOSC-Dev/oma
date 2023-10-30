@@ -96,8 +96,14 @@ pub enum OmaAptError {
     InvalidFileName(String),
     #[error(transparent)]
     DownlaodError(#[from] DownloadError),
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
+    #[error("Failed to create async runtime: {0}")]
+    FailedCreateAsyncRuntime(std::io::Error),
+    #[error("Failed to create dir or file: {0}: {1}")]
+    FailedCreateDirOrFile(String, std::io::Error),
+    #[error("Failed to get available space: {0}")]
+    FailedGetAvailableSpace(std::io::Error),
+    // #[error(transparent)]
+    // IOError(#[from] std::io::Error),
     #[error(transparent)]
     InstallEntryBuilderError(#[from] InstallEntryBuilderError),
     #[error("Failed to run dpkg --configure -a: {0}")]
@@ -443,7 +449,8 @@ impl OmaApt {
         let tokio = tokio::runtime::Builder::new_multi_thread()
             .enable_io()
             .enable_time()
-            .build()?;
+            .build()
+            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
 
         let res = tokio.block_on(async move {
             Self::download_pkgs(
@@ -531,7 +538,8 @@ impl OmaApt {
         let tokio = tokio::runtime::Builder::new_multi_thread()
             .enable_time()
             .enable_io()
-            .build()?;
+            .build()
+            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
 
         let path = self.get_archive_dir();
 
@@ -599,13 +607,17 @@ impl OmaApt {
 
         let end_time = Local::now().format(TIME_FORMAT).to_string();
 
-        std::fs::create_dir_all("/var/log/oma/")?;
+        std::fs::create_dir_all("/var/log/oma/")
+            .map_err(|e| OmaAptError::FailedCreateDirOrFile("/var/log/oma/".to_string(), e))?;
 
         let mut log = std::fs::OpenOptions::new()
             .append(true)
             .create(true)
             .write(true)
-            .open("/var/log/oma/history")?;
+            .open("/var/log/oma/history")
+            .map_err(|e| {
+                OmaAptError::FailedCreateDirOrFile("/var/log/oma/history".to_string(), e)
+            })?;
 
         writeln!(log, "Start-Date: {start_time}").ok();
 
@@ -1007,7 +1019,8 @@ impl OmaApt {
         };
 
         let available_disk_size =
-            fs4::available_space(self.config.get("Dir").unwrap_or("/".to_string()))? as i64;
+            fs4::available_space(self.config.get("Dir").unwrap_or("/".to_string()))
+                .map_err(OmaAptError::FailedGetAvailableSpace)? as i64;
 
         if available_disk_size < need_space {
             return Err(OmaAptError::DiskSpaceInsufficient(
