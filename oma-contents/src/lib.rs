@@ -49,7 +49,7 @@ pub enum OmaContentsError {
     #[error("Execute ripgrep failed: {0:?}")]
     ExecuteRgFailed(std::io::Error),
     #[error("Failed to read dir or file: {0}, kind: {1}")]
-    FailedToCreateDirOrFile(String, std::io::Error),
+    FailedToReadDirOrFile(String, std::io::Error),
     #[error("Failed to get file {0} metadata: {1}")]
     FailedToGetFileMetadata(String, std::io::Error),
     #[error("Failed to wait ripgrep to exit: {0}")]
@@ -98,7 +98,7 @@ where
 {
     let callback = Arc::new(callback);
     let dir = std::fs::read_dir(dist_dir).map_err(|e| {
-        OmaContentsError::FailedToCreateDirOrFile(dist_dir.display().to_string(), e)
+        OmaContentsError::FailedToReadDirOrFile(dist_dir.display().to_string(), e)
     })?;
 
     let mut paths = Vec::new();
