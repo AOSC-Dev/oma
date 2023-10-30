@@ -389,7 +389,11 @@ fn try_main() -> Result<i32, OutputError> {
             let exit_code = if AILURUS.load(Ordering::Relaxed) {
                 0
             } else {
-                cmd.print_help()?;
+                cmd.print_help().map_err(|e| OutputError {
+                    description: "Failed to print help".to_string(),
+                    source: Some(Box::new(e)),
+                })?;
+
                 1
             };
             return Ok(exit_code);

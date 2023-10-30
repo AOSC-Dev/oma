@@ -136,7 +136,10 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
     let pager = if len < WRITER.get_height().into() {
         Pager::plain()
     } else {
-        Pager::external(tips)?
+        Pager::external(tips).map_err(|e| OutputError {
+            description: "Failed to get pager".to_string(),
+            source: Some(Box::new(e)),
+        })?
     };
 
     Ok(pager)
@@ -197,7 +200,10 @@ impl<W: Write> PagerPrinter<W> {
 
 pub fn print_unmet_dep(u: &[UnmetDep]) -> Result<(), OutputError> {
     let tips = less_tips(false);
-    let mut pager = Pager::external(tips)?;
+    let mut pager = Pager::external(tips).map_err(|e| OutputError {
+        description: "Failed to get pager".to_string(),
+        source: Some(Box::new(e)),
+    })?;
     let out = pager.get_writer().unwrap();
     let mut printer = PagerPrinter::new(out);
 
@@ -230,7 +236,10 @@ pub fn print_unmet_dep(u: &[UnmetDep]) -> Result<(), OutputError> {
     printer.print("\n").ok();
 
     drop(printer);
-    pager.wait_for_exit()?;
+    pager.wait_for_exit().map_err(|e| OutputError {
+        description: "Failed to wait exit".to_string(),
+        source: Some(Box::new(e)),
+    })?;
 
     Ok(())
 }
@@ -249,13 +258,19 @@ pub fn table_for_install_pending(
     let tips = less_tips(true);
 
     let mut pager = if is_pager {
-        Pager::external(tips)?
+        Pager::external(tips).map_err(|e| OutputError {
+            description: "Failed to get pager".to_string(),
+            source: Some(Box::new(e)),
+        })?
     } else {
         Pager::plain()
     };
 
     let pager_name = pager.pager_name().to_owned();
-    let out = pager.get_writer()?;
+    let out = pager.get_writer().map_err(|e| OutputError {
+        description: "Failed to get writer".to_string(),
+        source: Some(Box::new(e)),
+    })?;
     let mut printer = PagerPrinter::new(out);
 
     if is_pager {
@@ -263,11 +278,17 @@ pub fn table_for_install_pending(
     }
 
     print_pending_inner(printer, remove, install, disk_size);
-    let success = pager.wait_for_exit()?;
+    let success = pager.wait_for_exit().map_err(|e| OutputError {
+        description: "Failed to wait exit".to_string(),
+        source: Some(Box::new(e)),
+    })?;
 
     if is_pager && success {
         let pager = Pager::plain();
-        let out = pager.get_writer()?;
+        let out = pager.get_writer().map_err(|e| OutputError {
+            description: "Failed to wait exit".to_string(),
+            source: Some(Box::new(e)),
+        })?;
         let mut printer = PagerPrinter::new(out);
         printer.print("").ok();
         print_pending_inner(printer, remove, install, disk_size);
@@ -283,13 +304,22 @@ pub fn table_for_history_pending(
 ) -> Result<(), OutputError> {
     let tips = less_tips(false);
 
-    let mut pager = Pager::external(tips)?;
+    let mut pager = Pager::external(tips).map_err(|e| OutputError {
+        description: "Failed to get pager".to_string(),
+        source: Some(Box::new(e)),
+    })?;
 
-    let out = pager.get_writer()?;
+    let out = pager.get_writer().map_err(|e| OutputError {
+        description: "Failed to get writer".to_string(),
+        source: Some(Box::new(e)),
+    })?;
     let printer = PagerPrinter::new(out);
 
     print_pending_inner(printer, remove, install, disk_size);
-    pager.wait_for_exit()?;
+    pager.wait_for_exit().map_err(|e| OutputError {
+        description: "Failed to wait exit".to_string(),
+        source: Some(Box::new(e)),
+    })?;
 
     Ok(())
 }

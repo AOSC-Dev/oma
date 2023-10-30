@@ -144,7 +144,11 @@ pub fn root() -> Result<()> {
 pub fn create_async_runtime() -> Result<Runtime> {
     let tokio = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .build()?;
+        .build()
+        .map_err(|e| OutputError {
+            description: "Failed to create async runtime".to_string(),
+            source: Some(Box::new(e)),
+        })?;
 
     Ok(tokio)
 }
