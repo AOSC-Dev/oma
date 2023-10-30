@@ -181,8 +181,8 @@ impl From<RefreshError> for OutputError {
                 source: None,
             },
             RefreshError::ChecksumError(e) => oma_checksum_error(e),
-            RefreshError::IOError(e) => OutputError {
-                description: "Failed to refresh".to_string(),
+            RefreshError::FailedToOperateDirOrFile(path, e) => Self {
+                description: format!("Failed to operate path: {path}"),
                 source: Some(Box::new(e)),
             },
         }
