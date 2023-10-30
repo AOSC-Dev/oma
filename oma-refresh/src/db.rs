@@ -127,7 +127,7 @@ fn mirror_map(buf: &[u8]) -> Result<HashMap<String, MirrorMapItem>> {
 pub fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>> {
     let mut res = Vec::new();
     let list = SourcesLists::scan_from_root(sysroot)
-        .map_err(|e| RefreshError::ScanSourceError(e))?;
+        .map_err(RefreshError::ScanSourceError)?;
 
     for file in list.iter() {
         for i in &file.lines {
