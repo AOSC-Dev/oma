@@ -99,7 +99,7 @@ pub enum OmaAptError {
     #[error("Failed to create async runtime: {0}")]
     FailedCreateAsyncRuntime(std::io::Error),
     #[error("Failed to create dir or file: {0}: {1}")]
-    FailedCreateDirOrFile(String, std::io::Error),
+    FailedOperateDirOrFile(String, std::io::Error),
     #[error("Failed to get available space: {0}")]
     FailedGetAvailableSpace(std::io::Error),
     // #[error(transparent)]
@@ -609,7 +609,7 @@ impl OmaApt {
         let end_time = Local::now().format(TIME_FORMAT).to_string();
 
         std::fs::create_dir_all("/var/log/oma/")
-            .map_err(|e| OmaAptError::FailedCreateDirOrFile("/var/log/oma/".to_string(), e))?;
+            .map_err(|e| OmaAptError::FailedOperateDirOrFile("/var/log/oma/".to_string(), e))?;
 
         let mut log = std::fs::OpenOptions::new()
             .append(true)
@@ -617,7 +617,7 @@ impl OmaApt {
             .write(true)
             .open("/var/log/oma/history")
             .map_err(|e| {
-                OmaAptError::FailedCreateDirOrFile("/var/log/oma/history".to_string(), e)
+                OmaAptError::FailedOperateDirOrFile("/var/log/oma/history".to_string(), e)
             })?;
 
         writeln!(log, "Start-Date: {start_time}").ok();
