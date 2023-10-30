@@ -39,8 +39,9 @@ async fn main() -> DownloadResult<()> {
         .allow_resume(false)
         .build()?;
 
-    let mut test_local_file = tokio::fs::File::create("test").await?;
-    test_local_file.write_all(b"test").await?;
+    let mut test_local_file = tokio::fs::File::create("test").await.unwrap();
+    test_local_file.write_all(b"test").await.unwrap();
+
 
     // let source_3 = DownloadSource::new("./test".to_string(), DownloadSourceType::Local);
 
@@ -52,7 +53,7 @@ async fn main() -> DownloadResult<()> {
 
     let fetcher = OmaFetcher::new(None, vec![file_1, file_2], None)?;
 
-    tokio::fs::create_dir_all("./oma-fetcher-test").await?;
+    tokio::fs::create_dir_all("./oma-fetcher-test").await.unwrap();
 
     let mb = Arc::new(MultiProgress::new());
     let pb_map: DashMap<usize, ProgressBar> = DashMap::new();
