@@ -50,7 +50,7 @@ impl Checksum {
             .map_err(|e| ChecksumError::FailedToOpenFile(path.display().to_string(), e))?;
 
         let mut hasher = Sha256::new();
-        io::copy(&mut file, &mut hasher).map_err(|e| ChecksumError::ChecksumIOError(e))?;
+        io::copy(&mut file, &mut hasher).map_err(ChecksumError::ChecksumIOError)?;
         let hash = hasher.finalize().to_vec();
 
         Ok(Self::Sha256(hash))
@@ -75,13 +75,13 @@ impl Checksum {
         match self {
             Checksum::Sha256(hex) => {
                 let mut hasher = Sha256::new();
-                io::copy(&mut r, &mut hasher).map_err(|e| ChecksumError::ChecksumIOError(e))?;
+                io::copy(&mut r, &mut hasher).map_err(ChecksumError::ChecksumIOError)?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Sha512(hex) => {
                 let mut hasher = Sha512::new();
-                io::copy(&mut r, &mut hasher).map_err(|e| ChecksumError::ChecksumIOError(e))?;
+                io::copy(&mut r, &mut hasher).map_err(ChecksumError::ChecksumIOError)?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
