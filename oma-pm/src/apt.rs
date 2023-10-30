@@ -558,7 +558,7 @@ impl OmaApt {
                     .arg("--configure")
                     .arg("-a")
                     .output()
-                    .map_err(|e| OmaAptError::DpkgFailedConfigure(e))?;
+                    .map_err(OmaAptError::DpkgFailedConfigure)?;
 
                 if !cmd.status.success() {
                     return Err(OmaAptError::DpkgFailedConfigure(io::Error::new(

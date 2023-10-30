@@ -151,7 +151,7 @@ impl OmaFetcher {
             ClientBuilder::new()
                 .user_agent("oma")
                 .build()
-                .map_err(|e| DownloadError::ReqwestError(e))?,
+                .map_err(DownloadError::ReqwestError)?,
         );
 
         Ok(Self {
