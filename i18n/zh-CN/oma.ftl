@@ -1,5 +1,5 @@
 # utils
-can-not-run-dpkg-print-arch = 无法执行 `dpkg --print-architecture'：{$e}。
+can-not-run-dpkg-print-arch = 无法执行 `dpkg --print-architecture'。
 dpkg-return-non-zero = `dpkg' 返回错误：{$e}.
 need-more-size = 存储空间不足：{$a} 可用，但需要 {$n}。
 old-pid-still-running = 目前有另外一个正在运行 Omakase 的实例 (PID: {$pid})，现中止操作。
@@ -66,7 +66,7 @@ normal-tips = 按 [q] 或 [Ctrl-c] 退出，按 [PgUp/Dn] 或方向键翻页。
 # oma
 no-need-to-do-anything = 无需进行任何操作。
 retry-apt = `apt' 返回错误，重试第 {$count} 次 ...
-apt-error = `apt' 返回了错误：{$e}
+apt-error = `apt' 返回了错误。
 invaild-pattern = 非法的表达式：{$p}
 system-has-broken-dep = Omakase 探测到系统中存在依赖问题。
 system-has-broken-dep-due-to = Omakase 可自动解决依赖问题，请使用 `{$cmd}' 命令。如果此命令无法解决问题，请移步 https://github.com/aosc-dev/aosc-os-abbs 报告问题。
@@ -116,7 +116,7 @@ clean-successfully = 成功清理 Omakase 本机数据库和缓存。
 dpkg-get-selections-non-zero = `dpkg --get-selections' 返回错误。dpkg 数据库可能已损坏。
 can-not-parse-line = 无法解析 `dpkg --get-selections' 命令输出的第 {$i} 行。dpkg 数据库可能已损坏。
 dpkg-was-interrupted = 先前 `dpkg' 操作被打断，Omakase 现将继续操作 ...
-dpkg-configure-a-non-zero = `dpkg --configure -a' 返回错误：{$e}
+dpkg-configure-a-non-zero = `dpkg --configure -a' 返回错误。
 verifying-the-interity-of-pkgs = 正在验证本机软件包的完整性 ...
 automatic-mode-warn = 正以无人值守模式运行 Omakase。如非本人所为，请立即按 Ctrl + C 中止操作！
 has-no-symbol-pkg = 软件包 {$name} 没有可用调试符号。
@@ -204,7 +204,7 @@ expired-signature = InRelease 文件 {$filename} 无效：内联签名已过期�
 inrelease-sha256-empty = InRelease 文件无效：SHA256 值为空。
 inrelease-checksum-can-not-parse = InRelease 文件无效：无法解析校验和条目 {$i}。
 inrelease-parse-unsupport-file-type = BUG：解析器不支持该 InRelease 文件的格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
-can-not-parse-sources-list = 无法解析 sources.list 文件 {path}：{$e}。
+can-not-parse-sources-list = 无法解析 sources.list 文件 {path}。
 unsupport-protocol = Omakase 不支持协议：{$url}。
 unsupport-some-mirror = Omakase 在 sources.list 文件中探测到无效条目。
 unsupport-sourceentry = 探测到不受支持的 sources.list 文件条目：
@@ -217,23 +217,23 @@ bincontents = `BinContents'
 decompressing = 正在解压
 unsupport-decompress-file = BUG：Omakase 不支持文件 {$name} 所使用的压缩方式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 downloading-database = {$source} {$file}
-inrelease-syntax-error = 位于 {$path} 的 InRelease 文件解析失败：{$e}
+inrelease-syntax-error = 位于 {$path} 的 InRelease 文件解析失败
 
 # contents
 contents-does-not-exist = 找不到软件包内容数据库文件 (Contents)。
 contents-does-not-exist-dueto = 请使用 `oma refresh' 命令刷新该数据库。
 contents-may-not-be-accurate-1 = 本机软件包内容数据库文件已超过一周未有更新，因此搜索结果可能不准确。
 contents-may-not-be-accurate-2 = 请使用 `oma refresh' 命令刷新该数据库。
-execute-ripgrep-failed = 无法执行 `rg' 命令：{$e}。
+execute-ripgrep-failed = 无法执行 `rg' 命令。
 searching = 正在搜索 ...
-parse-rg-result-failed = BUG：无法解析 `rg' 命令输出 {$i}：{$e}。请于 https://github.com/AOSC-Dev/oma 报告问题。
+parse-rg-result-failed = BUG：无法解析 `rg' 命令输出 {$i}。
 search-with-result-count = 正在搜索，已找到 {$count} 个结果 ...
 contents-entry-missing-path-list = BUG：Omakase 无法解析本机软件包内容数据库中的条目 {$entry}，请于 https://github.com/AOSC-Dev/oma 报告问题。
 rg-non-zero = `rg' 报错退出。
 
 # checksum
 sha256-bad-length = SHA256 校验和无效：长度不正确。
-can-not-checksum = BUG：无碍发解析 SHA256 校验和 {$e}，请于 https://github.com/AOSC-Dev/oma 报告问题。
+can-not-checksum = 无法解析 SHA256 校验和。
 failed-to-open-to-checksum = BUG：无法打开用于验证校验和的路径 {$path}，请于 https://github.com/AOSC-Dev/oma 报告问题。
 
 # config
@@ -258,4 +258,4 @@ ripgrep-right-installed = 请确认 Ripgrep 已正确安装。
 support-protocol = Omakase 目前仅支持 http://、https:// 和 file:/ 协议。请检查你的 sources.list 文件条目。
 debug = 请使用调试模式（添加 `--debug' 参数）查看详细程序输出，并于 https://github.com/AOSC-Dev/oma 报告问题时附上相关输出。
 download-failed-with-len = {$len} 个软件包下载失败。
-download-failed = 下载 {$filename} 文件失败！原因：{$e}
+download-failed = 下载 {$filename} 文件失败！
