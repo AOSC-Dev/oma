@@ -123,7 +123,9 @@ impl SingleDownloader<'_> {
                         times += 1;
                         allow_resume = false;
                     }
-                    _ => return Err(e),
+                    e => {
+                        return Err(e);
+                    }
                 },
             }
         }
@@ -162,7 +164,8 @@ impl SingleDownloader<'_> {
                     .write(true)
                     .read(true)
                     .open(&file)
-                    .await?;
+                    .await
+                    .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
 
                 debug!(
                     "oma opened file: {} with create, write and read mode",
@@ -181,7 +184,11 @@ impl SingleDownloader<'_> {
                         break;
                     }
 
-                    let readed_count = f.read(&mut buf[..]).await?;
+                    let readed_count = f
+                        .read(&mut buf[..])
+                        .await
+                        .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
+
                     v.update(&buf[..readed_count]);
 
                     global_progress.fetch_add(readed_count as u64, Ordering::SeqCst);
@@ -351,12 +358,14 @@ impl SingleDownloader<'_> {
                 Ok(f) => f,
                 Err(e) => {
                     callback(self.download_list_index, DownloadEvent::ProgressDone);
-                    return Err(e.into());
+                    return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
                 }
             };
 
             debug!("Setting file length as 0");
-            f.set_len(0).await?;
+            f.set_len(0)
+                .await
+                .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
 
             f
         } else if let Some(dest) = dest {
@@ -383,7 +392,7 @@ impl SingleDownloader<'_> {
                 Ok(f) => f,
                 Err(e) => {
                     callback(self.download_list_index, DownloadEvent::ProgressDone);
-                    return Err(e.into());
+                    return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
                 }
             }
         };
@@ -392,7 +401,7 @@ impl SingleDownloader<'_> {
         debug!("oma will seek file: {} to end", self.entry.filename);
         if let Err(e) = dest.seek(SeekFrom::End(0)).await {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
-            return Err(e.into());
+            return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
         }
 
         let mut writer: Box<dyn AsyncWrite + Unpin + Send> =
@@ -410,7 +419,7 @@ impl SingleDownloader<'_> {
         while let Some(chunk) = source.chunk().await.map_err(DownloadError::ReqwestError)? {
             if let Err(e) = writer.write_all(&chunk).await {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
-                return Err(e.into());
+                return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
 
             debug!("{self_progress}");
@@ -438,7 +447,7 @@ impl SingleDownloader<'_> {
         debug!("Download complete! shutting down dest file stream ...");
         if let Err(e) = writer.shutdown().await {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
-            return Err(e.into());
+            return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
         }
 
         // 最后看看 chekcsum 验证是否通过

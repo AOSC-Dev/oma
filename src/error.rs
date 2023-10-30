@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::ffi::CString;
 use std::fmt::Display;
 use std::io::{self, ErrorKind};
 
@@ -126,7 +125,10 @@ impl From<RefreshError> for OutputError {
                         description: e.to_string(),
                         source: None,
                     },
-                    VerifyError::IOError(e) => OutputError::from(e),
+                    VerifyError::IOError(e) => Self {
+                        description: "Failed to verify".to_string(),
+                        source: Some(Box::new(e)),
+                    },
                     VerifyError::Anyhow(e) => Self {
                         description: e.to_string(),
                         source: None,
@@ -179,7 +181,10 @@ impl From<RefreshError> for OutputError {
                 source: None,
             },
             RefreshError::ChecksumError(e) => oma_checksum_error(e),
-            RefreshError::IOError(e) => OutputError::from(e),
+            RefreshError::IOError(e) => OutputError {
+                description: "Failed to refresh".to_string(),
+                source: Some(Box::new(e)),
+            },
         }
     }
 }
@@ -198,7 +203,10 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             description: fl!("failed-to-read"),
             source: None,
         },
-        OmaTopicsError::IOError(e) => OutputError::from(e),
+        OmaTopicsError::IOError(e) => OutputError {
+            description: "Failed to change topic".to_string(),
+            source: Some(Box::new(e)),
+        },
         OmaTopicsError::CanNotFindTopic(topic) => OutputError {
             description: fl!("can-not-find-specified-topic", topic = topic),
             source: None,
@@ -215,25 +223,25 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
     }
 }
 
-impl From<std::io::Error> for OutputError {
-    fn from(e: std::io::Error) -> Self {
-        let err_code = e.raw_os_error();
-        let mut msg = None;
+// impl From<std::io::Error> for OutputError {
+//     fn from(e: std::io::Error) -> Self {
+//         let err_code = e.raw_os_error();
+//         let mut msg = None;
 
-        if let Some(e) = err_code {
-            let strerror = unsafe { CString::from_raw(libc::strerror(e)) };
-            let cause = strerror.to_str().map(|x| x.to_string());
-            msg = cause.ok();
-        }
+//         if let Some(e) = err_code {
+//             let strerror = unsafe { CStr::from_ptr(libc::strerror(e)) };
+//             let cause = strerror.to_str().map(|x| x.to_string());
+//             msg = cause.ok();
+//         }
 
-        let msg = msg.unwrap_or(e.to_string());
+//         let msg = msg.unwrap_or(e.to_string());
 
-        Self {
-            description: msg,
-            source: Some(Box::new(e)),
-        }
-    }
-}
+//         Self {
+//             description: msg,
+//             source: Some(Box::new(e)),
+//         }
+//     }
+// }
 
 impl From<DpkgError> for OutputError {
     fn from(value: DpkgError) -> Self {
@@ -283,14 +291,14 @@ impl From<OmaContentsError> for OutputError {
                 description: fl!("contents-does-not-exist"),
                 source: None,
             },
-            OmaContentsError::ExecuteRgFailed(e) => {
-                let ioe = OutputError::from(e);
-                Self {
-                    description: fl!("execute-ripgrep-failed"),
-                    source: ioe.source,
-                }
-            }
-            OmaContentsError::IOError(e) => OutputError::from(e),
+            OmaContentsError::ExecuteRgFailed(e) => Self {
+                description: fl!("execute-ripgrep-failed"),
+                source: Some(Box::new(e)),
+            },
+            OmaContentsError::IOError(e) => OutputError {
+                description: "Failed to find contents".to_string(),
+                source: Some(Box::new(e)),
+            },
             OmaContentsError::ContentsEntryMissingPathList(s) => Self {
                 description: fl!("contents-entry-missing-path-list", entry = s),
                 source: None,
@@ -360,18 +368,18 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: None,
         },
         OmaAptError::DownlaodError(e) => oma_download_error(e),
-        OmaAptError::IOError(e) => OutputError::from(e),
+        OmaAptError::IOError(e) => OutputError {
+            description: "Failed to apt".to_string(),
+            source: Some(Box::new(e)),
+        },
         OmaAptError::InstallEntryBuilderError(e) => OutputError {
             description: e.to_string(),
             source: None,
         },
-        OmaAptError::DpkgFailedConfigure(e) => {
-            let ioe = OutputError::from(e);
-            OutputError {
-                description: fl!("dpkg-configure-a-non-zero"),
-                source: ioe.source,
-            }
-        }
+        OmaAptError::DpkgFailedConfigure(e) => OutputError {
+            description: fl!("dpkg-configure-a-non-zero"),
+            source: Some(Box::new(e)),
+        },
         OmaAptError::DiskSpaceInsufficient(need, avail) => OutputError {
             description: fl!(
                 "need-more-size",
@@ -444,16 +452,18 @@ fn oma_download_error(e: DownloadError) -> OutputError {
             description: fl!("checksum-mismatch", filename = filename),
             source: None,
         },
-        DownloadError::IOError(e) => OutputError::from(e),
-        DownloadError::ReqwestError(e) => OutputError::from(e),
-        DownloadError::ChecksumError(e) => oma_checksum_error(e),
-        DownloadError::FailedOpenLocalSourceFile(path, e) => {
-            let ioe = OutputError::from(e);
+        DownloadError::IOError(s, e) => {
             OutputError {
-                description: fl!("can-not-parse-sources-list", path = path.to_string()),
-                source: ioe.source,
+                description: fl!("download-failed", filename = s),
+                source: Some(Box::new(e)),
             }
         }
+        DownloadError::ReqwestError(e) => OutputError::from(e),
+        DownloadError::ChecksumError(e) => oma_checksum_error(e),
+        DownloadError::FailedOpenLocalSourceFile(path, e) => OutputError {
+            description: fl!("can-not-parse-sources-list", path = path.to_string()),
+            source: Some(Box::new(e)),
+        },
         DownloadError::DownloadSourceBuilderError(e) => OutputError {
             description: e.to_string(),
             source: None,
@@ -471,13 +481,10 @@ fn oma_checksum_error(e: ChecksumError) -> OutputError {
             description: fl!("failed-to-open-to-checksum", path = s),
             source: Some(Box::new(e)),
         },
-        ChecksumError::ChecksumIOError(e) => {
-            let ioe = OutputError::from(e);
-            OutputError {
-                description: fl!("can-not-checksum"),
-                source: ioe.source,
-            }
-        }
+        ChecksumError::ChecksumIOError(e) => OutputError {
+            description: fl!("can-not-checksum"),
+            source: Some(Box::new(e)),
+        },
         ChecksumError::BadLength => OutputError {
             description: fl!("sha256-bad-length"),
             source: None,
