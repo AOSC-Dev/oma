@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::path::Path;
 
-use oma_console::{error, due_to};
+use oma_console::{due_to, error};
 use oma_contents::{OmaContentsError, QueryMode};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use oma_utils::dpkg::dpkg_arch;

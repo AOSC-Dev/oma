@@ -215,9 +215,7 @@ where
     }
     cmd.stdout(Stdio::piped());
 
-    let mut cmd = cmd
-        .spawn()
-        .map_err(OmaContentsError::ExecuteRgFailed)?;
+    let mut cmd = cmd.spawn().map_err(OmaContentsError::ExecuteRgFailed)?;
     {
         let stdout = cmd
             .stdout
