@@ -1,5 +1,5 @@
-use std::io;
 use oma_console::pager::Pager;
+use std::io;
 
 fn main() -> io::Result<()> {
     let mut p = Pager::plain();

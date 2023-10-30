@@ -32,7 +32,9 @@ pub fn execute(
         warn!("{}", fl!("automatic-mode-warn"));
     }
 
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(args.sysroot.clone()).build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default()
+        .sysroot(args.sysroot.clone())
+        .build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let (pkgs, no_result) = apt.select_pkg(&pkgs, false, true, false)?;
     handle_no_result(no_result);

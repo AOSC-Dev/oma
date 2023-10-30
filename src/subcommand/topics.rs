@@ -16,7 +16,8 @@ use oma_utils::dpkg::dpkg_arch;
 use crate::{
     error::OutputError,
     history::SummaryType,
-    utils::{create_async_runtime, dbus_check, root}, AILURUS,
+    utils::{create_async_runtime, dbus_check, root},
+    AILURUS,
 };
 
 use super::utils::{normal_commit, refresh, NormalCommitArgs};
@@ -69,7 +70,9 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
 
     refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot.clone()).build()?;
+    let oma_apt_args = OmaAptArgsBuilder::default()
+        .sysroot(sysroot.clone())
+        .build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let mut pkgs = vec![];
