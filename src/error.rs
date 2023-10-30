@@ -369,16 +369,16 @@ fn oma_download_error(e: DownloadError) -> (String, Option<String>) {
             }
 
             if let Some(filename) = filename {
-                return (
+                (
                     fl!(
                         "download-failed",
                         filename = filename.to_string(),
                         e = e.to_string()
                     ),
                     Some(fl!("check-network-settings")),
-                );
+                )
             } else {
-                return (fl!("download-failed"), Some(fl!("check-network-settings")));
+                (fl!("download-failed"), Some(fl!("check-network-settings")))
             }
         }
         DownloadError::ChecksumError(e) => oma_checksum_error(e),
