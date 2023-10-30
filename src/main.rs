@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::ffi::CString;
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
@@ -100,6 +101,11 @@ fn main() {
 }
 
 fn try_main() -> Result<i32, OutputError> {
+    // 使系统错误使用系统 locale 语言输出
+    unsafe {
+        let s = CString::new("").unwrap();
+        libc::setlocale(libc::LC_ALL, s.as_ptr());
+    }
     let mut cmd = args::command_builder();
     let matches = cmd.get_matches_mut();
 
