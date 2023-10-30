@@ -48,8 +48,12 @@ pub enum OmaContentsError {
     ContentsNotExist,
     #[error("Execute ripgrep failed: {0:?}")]
     ExecuteRgFailed(std::io::Error),
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
+    #[error("Failed to read dir or file: {0}, kind: {1}")]
+    FailedToCreateDirOrFile(String, std::io::Error),
+    #[error("Failed to get file {0} metadata: {1}")]
+    FailedToGetFileMetadata(String, std::io::Error),
+    #[error("Failed to wait ripgrep to exit: {0}")]
+    FailedToWaitExit(std::io::Error),
     #[error("Contents entry missing path list: {0}")]
     ContentsEntryMissingPathList(String),
     #[error("Command not found wrong argument")]
@@ -93,7 +97,10 @@ where
     F: Fn(ContentsEvent) + Send + Sync + Clone + 'static,
 {
     let callback = Arc::new(callback);
-    let dir = std::fs::read_dir(dist_dir)?;
+    let dir = std::fs::read_dir(dist_dir).map_err(|e| {
+        OmaContentsError::FailedToCreateDirOrFile(dist_dir.display().to_string(), e)
+    })?;
+
     let mut paths = Vec::new();
 
     let contain_contents_names = &[
@@ -145,7 +152,9 @@ where
     std::thread::scope(|s| {
         s.spawn(move || -> Result<()> {
             for i in paths_ref {
-                let m = DateTime::from(i.metadata()?.created()?);
+                let m = DateTime::from(i.metadata().and_then(|x| x.created()).map_err(|e| {
+                    OmaContentsError::FailedToGetFileMetadata(i.display().to_string(), e)
+                })?);
                 let now = Utc::now();
                 let delta = now - m;
                 let delta = delta.num_seconds() / 60 / 60 / 24;
@@ -263,7 +272,11 @@ where
         }
     }
 
-    if !cmd.wait()?.success() {
+    if !cmd
+        .wait()
+        .map_err(OmaContentsError::FailedToWaitExit)?
+        .success()
+    {
         return Err(OmaContentsError::RgWithError);
     }
     Ok(res)
