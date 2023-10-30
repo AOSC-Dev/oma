@@ -125,13 +125,13 @@ impl From<RefreshError> for OutputError {
                         description: e.to_string(),
                         source: None,
                     },
-                    VerifyError::IOError(e) => Self {
-                        description: "Failed to verify".to_string(),
-                        source: Some(Box::new(e)),
-                    },
                     VerifyError::Anyhow(e) => Self {
                         description: e.to_string(),
                         source: None,
+                    },
+                    VerifyError::FailedToReadInRelease(e) => Self {
+                        description: "Failed to read decoded InRelease file.".to_string(),
+                        source: Some(Box::new(e)),
                     },
                 },
                 InReleaseParserError::BadInReleaseData => Self {
