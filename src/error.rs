@@ -311,8 +311,8 @@ impl From<OmaContentsError> for OutputError {
                 description: "".to_string(),
                 source: None,
             },
-            OmaContentsError::FailedToReadDirOrFile(path, e) => Self {
-                description: format!("Failed to create dir: {path}"),
+            OmaContentsError::FailedToOperateDirOrFile(path, e) => Self {
+                description: format!("Failed to operate dir or file: {path}"),
                 source: Some(Box::new(e)),
             },
             OmaContentsError::FailedToGetFileMetadata(path, e) => Self {
@@ -423,8 +423,8 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: "Failed to create async runtime".to_string(),
             source: Some(Box::new(e)),
         },
-        OmaAptError::FailedCreateDirOrFile(path, e) => OutputError {
-            description: format!("Failed to create dir or file: {path}"),
+        OmaAptError::FailedOperateDirOrFile(path, e) => OutputError {
+            description: format!("Failed to operate dir or file: {path}"),
             source: Some(Box::new(e)),
         },
         OmaAptError::FailedGetAvailableSpace(e) => OutputError {
