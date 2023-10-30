@@ -67,8 +67,10 @@ pub enum RefreshError {
     DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
     #[error(transparent)]
     ChecksumError(#[from] ChecksumError),
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
+    // #[error(transparent)]
+    // IOError(#[from] std::io::Error),
+    #[error("Failed to operate dir or file {0}: {1}")]
+    FailedToOperateDirOrFile(String, tokio::io::Error),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -389,7 +391,11 @@ where
         debug!("Getted Oma source entry: {:?}", ose);
         let inrelease_path = download_dir.join(&*inrelease_summary.filename);
 
-        let s = tokio::fs::read_to_string(&inrelease_path).await?;
+        let s = tokio::fs::read_to_string(&inrelease_path)
+            .await
+            .map_err(|e| {
+                RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
+            })?;
 
         let inrelease = InReleaseParser::new(
             &s,
