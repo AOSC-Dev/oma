@@ -72,14 +72,20 @@ pub fn execute(
     )?;
 
     let mut pager = oma_display_with_normal_output(false, res.len())?;
-    let mut out = pager.get_writer()?;
+    let mut out = pager.get_writer().map_err(|e| OutputError {
+        description: "Failed to create writer".to_string(),
+        source: Some(Box::new(e)),
+    })?;
 
     for (pkg, file) in res {
         writeln!(out, "{pkg}: {file}").ok();
     }
 
     drop(out);
-    pager.wait_for_exit()?;
+    pager.wait_for_exit().map_err(|e| OutputError {
+        description: "Failed to wait exit".to_string(),
+        source: Some(Box::new(e)),
+    })?;
 
     Ok(0)
 }
