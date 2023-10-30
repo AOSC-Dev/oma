@@ -4,7 +4,7 @@ use std::{
 };
 
 use derive_builder::Builder;
-use oma_apt_sources_lists::{SourceEntry, SourceLine, SourcesLists, SourceError};
+use oma_apt_sources_lists::{SourceEntry, SourceError, SourceLine, SourcesLists};
 use oma_console::debug;
 use oma_fetch::{
     checksum::ChecksumError, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError,
@@ -126,8 +126,7 @@ fn mirror_map(buf: &[u8]) -> Result<HashMap<String, MirrorMapItem>> {
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
 pub fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>> {
     let mut res = Vec::new();
-    let list = SourcesLists::scan_from_root(sysroot)
-        .map_err(RefreshError::ScanSourceError)?;
+    let list = SourcesLists::scan_from_root(sysroot).map_err(RefreshError::ScanSourceError)?;
 
     for file in list.iter() {
         for i in &file.lines {
