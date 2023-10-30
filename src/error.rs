@@ -295,10 +295,6 @@ impl From<OmaContentsError> for OutputError {
                 description: fl!("execute-ripgrep-failed"),
                 source: Some(Box::new(e)),
             },
-            OmaContentsError::IOError(e) => OutputError {
-                description: "Failed to find contents".to_string(),
-                source: Some(Box::new(e)),
-            },
             OmaContentsError::ContentsEntryMissingPathList(s) => Self {
                 description: fl!("contents-entry-missing-path-list", entry = s),
                 source: None,
@@ -314,6 +310,18 @@ impl From<OmaContentsError> for OutputError {
             OmaContentsError::NoResult => Self {
                 description: "".to_string(),
                 source: None,
+            },
+            OmaContentsError::FailedToCreateDirOrFile(path, e) => Self {
+                description: format!("Failed to create dir: {path}"),
+                source: Some(Box::new(e)),
+            },
+            OmaContentsError::FailedToGetFileMetadata(path, e) => Self {
+                description: format!("Failed to get file metadata: {path}"),
+                source: Some(Box::new(e)),
+            },
+            OmaContentsError::FailedToWaitExit(e) => Self {
+                description: "Failed to wait `rg' to exit.".to_string(),
+                source: Some(Box::new(e)),
             },
         };
 
