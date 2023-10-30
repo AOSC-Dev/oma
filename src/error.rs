@@ -223,26 +223,6 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
     }
 }
 
-// impl From<std::io::Error> for OutputError {
-//     fn from(e: std::io::Error) -> Self {
-//         let err_code = e.raw_os_error();
-//         let mut msg = None;
-
-//         if let Some(e) = err_code {
-//             let strerror = unsafe { CStr::from_ptr(libc::strerror(e)) };
-//             let cause = strerror.to_str().map(|x| x.to_string());
-//             msg = cause.ok();
-//         }
-
-//         let msg = msg.unwrap_or(e.to_string());
-
-//         Self {
-//             description: msg,
-//             source: Some(Box::new(e)),
-//         }
-//     }
-// }
-
 impl From<DpkgError> for OutputError {
     fn from(value: DpkgError) -> Self {
         Self {
