@@ -311,7 +311,7 @@ impl From<OmaContentsError> for OutputError {
                 description: "".to_string(),
                 source: None,
             },
-            OmaContentsError::FailedToCreateDirOrFile(path, e) => Self {
+            OmaContentsError::FailedToReadDirOrFile(path, e) => Self {
                 description: format!("Failed to create dir: {path}"),
                 source: Some(Box::new(e)),
             },
