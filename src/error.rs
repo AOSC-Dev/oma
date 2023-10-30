@@ -368,10 +368,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: None,
         },
         OmaAptError::DownlaodError(e) => oma_download_error(e),
-        OmaAptError::IOError(e) => OutputError {
-            description: "Failed to apt".to_string(),
-            source: Some(Box::new(e)),
-        },
         OmaAptError::InstallEntryBuilderError(e) => OutputError {
             description: e.to_string(),
             source: None,
@@ -415,6 +411,18 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 source: None,
             }
         }
+        OmaAptError::FailedCreateAsyncRuntime(e) => OutputError {
+            description: "Failed to create async runtime".to_string(),
+            source: Some(Box::new(e)),
+        },
+        OmaAptError::FailedCreateDirOrFile(path, e) => OutputError {
+            description: format!("Failed to create dir or file: {path}"),
+            source: Some(Box::new(e)),
+        },
+        OmaAptError::FailedGetAvailableSpace(e) => OutputError {
+            description: "Failed to get available space".to_string(),
+            source: Some(Box::new(e)),
+        },
     }
 }
 
@@ -452,12 +460,10 @@ fn oma_download_error(e: DownloadError) -> OutputError {
             description: fl!("checksum-mismatch", filename = filename),
             source: None,
         },
-        DownloadError::IOError(s, e) => {
-            OutputError {
-                description: fl!("download-failed", filename = s),
-                source: Some(Box::new(e)),
-            }
-        }
+        DownloadError::IOError(s, e) => OutputError {
+            description: fl!("download-failed", filename = s),
+            source: Some(Box::new(e)),
+        },
         DownloadError::ReqwestError(e) => OutputError::from(e),
         DownloadError::ChecksumError(e) => oma_checksum_error(e),
         DownloadError::FailedOpenLocalSourceFile(path, e) => OutputError {
