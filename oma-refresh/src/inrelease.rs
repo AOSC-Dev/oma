@@ -57,16 +57,18 @@ pub enum InReleaseParserError {
 pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
 
 impl InReleaseParser {
-    pub fn new(
+    pub fn new<P: AsRef<Path>>(
         s: &str,
         trust_files: Option<&str>,
         mirror: &str,
         arch: &str,
         is_flat: bool,
-        p: &Path,
+        p: P,
+        rootfs: P
     ) -> InReleaseParserResult<Self> {
+        let p = p.as_ref();
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-            Cow::Owned(verify::verify(s, trust_files, mirror)?)
+            Cow::Owned(verify::verify(s, trust_files, mirror, rootfs)?)
         } else {
             Cow::Borrowed(s)
         };
