@@ -1,6 +1,6 @@
 [package]
 name = "oma-topics"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 description = "A crate to handle AOSC OS topics."
 license = "MIT"
@@ -16,7 +16,7 @@ serde_json = "1.0"
 tokio = { version = "1.28", default_features = false, features = ["fs"] }
 thiserror = "1.0"
 futures = "0.3"
-oma-console = { version = "^0.6", path = "../oma-console" }
+oma-console = { version = "^0.7", path = "../oma-console" }
 
 [dev-dependencies]
 oma-inquire = "0.1"
