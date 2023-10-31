@@ -203,8 +203,8 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             description: fl!("failed-to-read"),
             source: None,
         },
-        OmaTopicsError::IOError(e) => OutputError {
-            description: "Failed to change topic".to_string(),
+        OmaTopicsError::FailedToOperateDirOrFile(path, e) => OutputError {
+            description: format!("Failed to operate path: {path}"),
             source: Some(Box::new(e)),
         },
         OmaTopicsError::CanNotFindTopic(topic) => OutputError {
