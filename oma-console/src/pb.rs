@@ -8,7 +8,7 @@ use crate::writer::Writer;
 /// oma style progress bar
 pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
     let bar_template = {
-        let max_len = writer.get_max_len();
+        let max_len = writer.get_length();
         if is_global {
             if max_len < 90 {
                 " {prefix:.blue.bold}".to_owned()
