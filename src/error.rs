@@ -246,7 +246,6 @@ impl From<OmaContentsError> for OutputError {
                 description: fl!("contents-does-not-exist"),
                 source: None,
             },
-            OmaContentsError::IOError(e) => OutputError::from(e),
             OmaContentsError::ContentsEntryMissingPathList(s) => Self {
                 description: fl!("contents-entry-missing-path-list", entry = s),
                 source: None,
@@ -262,6 +261,14 @@ impl From<OmaContentsError> for OutputError {
             OmaContentsError::LzzzErr(e) => Self {
                 description: e.to_string(),
                 source: None,
+            },
+            OmaContentsError::FailedToOperateDirOrFile(path, e) => Self {
+                description: format!("Failed to operate dir or file: {path}"),
+                source: Some(Box::new(e)),
+            },
+            OmaContentsError::FailedToGetFileMetadata(path, e) => Self {
+                description: format!("Failed to get file metadata: {path}"),
+                source: Some(Box::new(e)),
             },
         };
 
