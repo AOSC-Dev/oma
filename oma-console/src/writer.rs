@@ -53,7 +53,13 @@ impl Writer {
 
     /// Get terminal max len to writer message to terminal
     pub fn get_max_len(&self) -> u16 {
-        80
+        let l = self.get_length();
+
+        if l < 80 {
+            l
+        } else {
+            80
+        }
     }
 
     /// Get terminal height
