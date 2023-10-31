@@ -53,13 +53,7 @@ impl Writer {
 
     /// Get terminal max len to writer message to terminal
     pub fn get_max_len(&self) -> u16 {
-        let len = self.term.size_checked().unwrap_or((25, 80)).1 - self.prefix_len;
-
-        if len > 150 {
-            150
-        } else {
-            len
-        }
+        80
     }
 
     /// Get terminal height
@@ -78,14 +72,14 @@ impl Writer {
     }
 
     /// Write oma-style message prefix to terminal
-    fn write_prefix(&self, prefix: &str) -> std::io::Result<()> {
+    pub fn write_prefix(&self, prefix: &str) -> io::Result<()> {
         self.term.write_str(&gen_prefix(prefix, self.prefix_len))?;
 
         Ok(())
     }
 
     /// Write oma-style string to terminal
-    pub fn writeln(&self, prefix: &str, msg: &str) -> std::io::Result<()> {
+    pub fn writeln(&self, prefix: &str, msg: &str) -> io::Result<()> {
         let max_len = self.get_max_len();
 
         let mut res = Ok(());
