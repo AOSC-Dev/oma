@@ -245,23 +245,31 @@ pub struct OmaRefresh {
     download_compress: bool,
 }
 
+struct OmaRefreshRequest {
+    sourceslist: Vec<OmaSourceEntry>,
+    limit: usize,
+    arch: String,
+    download_dir: PathBuf,
+    download_compress: bool,
+    rootfs: PathBuf,
+}
+
 impl OmaRefresh {
     pub async fn start<F, F2>(self, callback: F, handle_topic_msg: F2) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
-        let source = get_sources(self.source)?;
-        update_db(
-            source,
-            self.limit,
-            self.arch,
-            self.download_dir,
-            self.download_compress,
-            callback,
-            handle_topic_msg,
-        )
-        .await
+        let source = get_sources(&self.source)?;
+        let req = OmaRefreshRequest {
+            sourceslist: source,
+            limit: self.limit,
+            arch: self.arch,
+            download_dir: self.download_dir,
+            download_compress: self.download_compress,
+            rootfs: self.source,
+        };
+        update_db(req, callback, handle_topic_msg).await
     }
 }
 
@@ -278,19 +286,20 @@ impl From<DownloadEvent> for RefreshEvent {
 }
 
 // Update database
-async fn update_db<F, F2>(
-    sourceslist: Vec<OmaSourceEntry>,
-    limit: usize,
-    arch: String,
-    download_dir: PathBuf,
-    download_compress: bool,
-    callback: F,
-    handle_topic_msg: F2,
-) -> Result<()>
+async fn update_db<F, F2>(req: OmaRefreshRequest, callback: F, handle_topic_msg: F2) -> Result<()>
 where
     F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
     F2: Fn() -> String + Copy,
 {
+    let OmaRefreshRequest {
+        sourceslist,
+        limit,
+        arch,
+        download_dir,
+        download_compress,
+        rootfs,
+    } = req;
+
     let mut tasks = vec![];
 
     let m = tokio::fs::read(&*MIRROR).await;
@@ -404,6 +413,7 @@ where
             &arch,
             ose.is_flat,
             &inrelease_path,
+            &rootfs,
         )?;
 
         let checksums = inrelease

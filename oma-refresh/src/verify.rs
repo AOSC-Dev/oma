@@ -77,9 +77,15 @@ impl VerificationHelper for InReleaseVerifier {
 }
 
 /// Verify InRelease PGP signature
-pub fn verify(s: &str, trust_files: Option<&str>, mirror: &str) -> VerifyResult<String> {
-    let dir =
-        std::fs::read_dir("/etc/apt/trusted.gpg.d").map_err(|_| VerifyError::TrustedDirNotExist)?;
+pub fn verify<P: AsRef<Path>>(
+    s: &str,
+    trust_files: Option<&str>,
+    mirror: &str,
+    rootfs: P,
+) -> VerifyResult<String> {
+    let rootfs = rootfs.as_ref();
+    let dir = std::fs::read_dir(rootfs.join("etc/apt/trusted.gpg.d"))
+        .map_err(|_| VerifyError::TrustedDirNotExist)?;
     let mut cert_files = vec![];
 
     if let Some(trust_files) = trust_files {
@@ -89,7 +95,7 @@ pub fn verify(s: &str, trust_files: Option<&str>, mirror: &str) -> VerifyResult<
             if p.is_absolute() {
                 cert_files.push(p.to_path_buf());
             } else {
-                cert_files.push(Path::new("/etc/apt/trusted.gpg.d").join(file))
+                cert_files.push(rootfs.join("etc/apt/trusted.gpg.d").join(file))
             }
         }
     } else {
@@ -101,7 +107,7 @@ pub fn verify(s: &str, trust_files: Option<&str>, mirror: &str) -> VerifyResult<
             }
         }
 
-        let trust_main = Path::new("/etc/apt/trusted.gpg").to_path_buf();
+        let trust_main = rootfs.join("etc/apt/trusted.gpg").to_path_buf();
 
         if trust_main.is_file() {
             cert_files.push(trust_main);
