@@ -85,9 +85,21 @@ fn main() {
         Err(e) => {
             if !e.to_string().is_empty() {
                 error!("{e}");
-                let cause = Chain::new(&e).skip(1);
-                for c in cause {
-                    due_to!("{c}");
+
+                let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
+                let last_cause = cause.last();
+
+                if let Some(ref last) = last_cause {
+                    due_to!("{last}");
+                    if cause.len() > 1 {
+                        for (i, c) in cause.iter().enumerate() {
+                            if i == 0 {
+                                WRITER.writeln("TRACE", &format!("{i}.{c}")).ok();
+                            } else {
+                                WRITER.writeln("", &format!("{i}.{c}")).ok();
+                            }
+                        }
+                    }
                 }
             }
 
