@@ -23,20 +23,18 @@ type Result<T> = std::result::Result<T, OmaContentsError>;
 #[cfg(feature = "no-rg-binary")]
 #[derive(Debug, thiserror::Error)]
 pub enum OmaContentsError {
+    #[error("Failed to read dir or file: {0}, kind: {1}")]
+    FailedToOperateDirOrFile(String, std::io::Error),
+    #[error("Failed to get file {0} metadata: {1}")]
+    FailedToGetFileMetadata(String, std::io::Error),
     #[error("Contents does not exist")]
     ContentsNotExist,
     #[error(transparent)]
     LzzzErr(#[from] lzzzz::lz4f::Error),
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
-    #[error("rg parse failed: input: {}, err: {}", input, err)]
-    RgParseFailed { input: String, err: String },
     #[error("Contents entry missing path list: {0}")]
     ContentsEntryMissingPathList(String),
     #[error("Command not found wrong argument")]
     CnfWrongArgument,
-    #[error("Ripgrep exited with error")]
-    RgWithError,
     #[error("")]
     NoResult,
 }
@@ -339,7 +337,8 @@ where
         io::{BufRead, Read},
         sync::atomic::Ordering,
     };
-    let f = std::fs::File::open(path)?;
+    let f = std::fs::File::open(path)
+        .map_err(|e| OmaContentsError::FailedToOperateDirOrFile(path.display().to_string(), e))?;
     let contents_entry: Box<dyn Read> = match path.extension().and_then(|x| x.to_str()) {
         Some("gz") if search_zip => Box::new(GzDecoder::new(BufReader::new(f))),
         Some("lz4") if search_zip => Box::new(BufReadDecompressor::new(BufReader::new(f))?),
