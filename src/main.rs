@@ -19,6 +19,7 @@ use anyhow::anyhow;
 
 use clap::ArgMatches;
 use error::OutputError;
+use oma_console::writer::{Writer, writeln_inner, MessageType};
 use oma_console::{debug, error, DEBUG, WRITER};
 use oma_console::{due_to, info};
 use oma_utils::oma::{terminal_ring, unlock_oma};
@@ -91,12 +92,30 @@ fn main() {
 
                 if let Some(ref last) = last_cause {
                     due_to!("{last}");
+                    let cause_writer = Writer::new(3);
                     if cause.len() > 1 {
                         for (i, c) in cause.iter().enumerate() {
                             if i == 0 {
-                                WRITER.writeln("TRACE", &format!("{i}.{c}")).ok();
+                                WRITER.write_prefix("TRACE").ok();
                             } else {
-                                WRITER.writeln("", &format!("{i}.{c}")).ok();
+                                WRITER.write_prefix("").ok();
+                            }
+
+                            let mut res = vec![];
+                            writeln_inner(&c.to_string(), "", cause_writer.get_max_len().into(), |t, s| {
+                                match t {
+                                    MessageType::Msg => res.push(s.to_owned()),
+                                    MessageType::Prefix => (),
+                                }
+                            });
+                            for (k, j) in res.iter().enumerate() {
+                                if k == 0 {
+                                    cause_writer.write_prefix(&format!("{i}.")).ok();
+                                } else {
+                                    WRITER.write_prefix("").ok();
+                                    cause_writer.write_prefix("").ok();
+                                }
+                                print!("{j}");
                             }
                         }
                     }
