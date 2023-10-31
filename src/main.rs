@@ -1,4 +1,5 @@
 use std::ffi::CString;
+use std::io;
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
@@ -19,7 +20,7 @@ use anyhow::anyhow;
 
 use clap::ArgMatches;
 use error::OutputError;
-use oma_console::writer::{Writer, writeln_inner, MessageType};
+use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::{debug, error, DEBUG, WRITER};
 use oma_console::{due_to, info};
 use oma_utils::oma::{terminal_ring, unlock_oma};
@@ -84,42 +85,8 @@ fn main() {
     let code = match try_main() {
         Ok(exit_code) => exit_code,
         Err(e) => {
-            if !e.to_string().is_empty() {
-                error!("{e}");
-
-                let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
-                let last_cause = cause.last();
-
-                if let Some(ref last) = last_cause {
-                    due_to!("{last}");
-                    let cause_writer = Writer::new(3);
-                    if cause.len() > 1 {
-                        for (i, c) in cause.iter().enumerate() {
-                            if i == 0 {
-                                WRITER.write_prefix("TRACE").ok();
-                            } else {
-                                WRITER.write_prefix("").ok();
-                            }
-
-                            let mut res = vec![];
-                            writeln_inner(&c.to_string(), "", cause_writer.get_max_len().into(), |t, s| {
-                                match t {
-                                    MessageType::Msg => res.push(s.to_owned()),
-                                    MessageType::Prefix => (),
-                                }
-                            });
-                            for (k, j) in res.iter().enumerate() {
-                                if k == 0 {
-                                    cause_writer.write_prefix(&format!("{i}.")).ok();
-                                } else {
-                                    WRITER.write_prefix("").ok();
-                                    cause_writer.write_prefix("").ok();
-                                }
-                                print!("{j}");
-                            }
-                        }
-                    }
-                }
+            if let Err(e) = display_error(e) {
+                eprintln!("Failed to display error, kind: {e}");
             }
 
             1
@@ -130,6 +97,51 @@ fn main() {
     unlock_oma().ok();
 
     exit(code);
+}
+
+fn display_error(e: OutputError) -> io::Result<()> {
+    if !e.to_string().is_empty() {
+        error!("{e}");
+
+        let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
+        let last_cause = cause.last();
+
+        if let Some(ref last) = last_cause {
+            due_to!("{last}");
+            let cause_writer = Writer::new(3);
+            if cause.len() > 1 {
+                for (i, c) in cause.iter().enumerate() {
+                    if i == 0 {
+                        WRITER.write_prefix("TRACE")?;
+                    } else {
+                        WRITER.write_prefix("")?;
+                    }
+
+                    let mut res = vec![];
+                    writeln_inner(
+                        &c.to_string(),
+                        "",
+                        cause_writer.get_max_len().into(),
+                        |t, s| match t {
+                            MessageType::Msg => res.push(s.to_owned()),
+                            MessageType::Prefix => (),
+                        },
+                    );
+                    for (k, j) in res.iter().enumerate() {
+                        if k == 0 {
+                            cause_writer.write_prefix(&format!("{i}."))?;
+                        } else {
+                            WRITER.write_prefix("")?;
+                            cause_writer.write_prefix("")?;
+                        }
+                        print!("{j}");
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn try_main() -> Result<i32, OutputError> {
