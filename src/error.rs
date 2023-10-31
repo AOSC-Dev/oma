@@ -21,6 +21,117 @@ use oma_topics::OmaTopicsError;
 use crate::fl;
 use crate::table::print_unmet_dep;
 
+use self::ChainState::*;
+
+use std::vec;
+
+#[derive(Clone)]
+pub(crate) enum ChainState<'a> {
+    Linked {
+        next: Option<&'a (dyn Error + 'static)>,
+    },
+    Buffered {
+        rest: vec::IntoIter<&'a (dyn Error + 'static)>,
+    },
+}
+
+pub struct Chain<'a> {
+    state: ChainState<'a>,
+}
+
+impl<'a> Chain<'a> {
+    /// Construct an iterator over a chain of errors via the `source` method
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::error::Error;
+    /// use std::fmt::{self, Write};
+    /// use eyre::Chain;
+    /// use indenter::indented;
+    ///
+    /// fn report(error: &(dyn Error + 'static), f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    ///     let mut errors = Chain::new(error).enumerate();
+    ///     for (i, error) in errors {
+    ///         writeln!(f)?;
+    ///         write!(indented(f).ind(i), "{}", error)?;
+    ///     }
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn new(head: &'a (dyn Error + 'static)) -> Self {
+        Chain {
+            state: ChainState::Linked { next: Some(head) },
+        }
+    }
+}
+
+impl<'a> Iterator for Chain<'a> {
+    type Item = &'a (dyn Error + 'static);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.state {
+            Linked { next } => {
+                let error = (*next)?;
+                *next = error.source();
+                Some(error)
+            }
+            Buffered { rest } => rest.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.len();
+        (len, Some(len))
+    }
+}
+
+impl DoubleEndedIterator for Chain<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match &mut self.state {
+            Linked { mut next } => {
+                let mut rest = Vec::new();
+                while let Some(cause) = next {
+                    next = cause.source();
+                    rest.push(cause);
+                }
+                let mut rest = rest.into_iter();
+                let last = rest.next_back();
+                self.state = Buffered { rest };
+                last
+            }
+            Buffered { rest } => rest.next_back(),
+        }
+    }
+}
+
+impl ExactSizeIterator for Chain<'_> {
+    fn len(&self) -> usize {
+        match &self.state {
+            Linked { mut next } => {
+                let mut len = 0;
+                while let Some(cause) = next {
+                    next = cause.source();
+                    len += 1;
+                }
+                len
+            }
+            Buffered { rest } => rest.len(),
+        }
+    }
+}
+
+impl Default for Chain<'_> {
+    fn default() -> Self {
+        Chain {
+            state: ChainState::Buffered {
+                rest: Vec::new().into_iter(),
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct OutputError {
     pub description: String,
@@ -423,7 +534,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
 
 impl From<reqwest::Error> for OutputError {
     fn from(e: reqwest::Error) -> Self {
-        let filename = e
+        let filename = &e
             .url()
             .and_then(|x| x.path_segments())
             .and_then(|x| x.last());
@@ -437,7 +548,7 @@ impl From<reqwest::Error> for OutputError {
 
         if let Some(filename) = filename {
             Self {
-                description: fl!("download-failed", filename = filename),
+                description: fl!("download-failed", filename = filename.to_string()),
                 source: Some(Box::new(e)),
             }
         } else {

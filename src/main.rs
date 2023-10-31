@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::ffi::CString;
 use std::path::PathBuf;
 
@@ -33,6 +32,7 @@ use oma_console::pager::SUBPROCESS;
 
 use crate::config::{Config, GeneralConfig};
 use crate::egg::ailurus;
+use crate::error::Chain;
 use crate::subcommand::topics::TopicArgs;
 use crate::subcommand::*;
 
@@ -85,8 +85,9 @@ fn main() {
         Err(e) => {
             if !e.to_string().is_empty() {
                 error!("{e}");
-                if let Some(cause) = e.source() {
-                    due_to!("{cause}");
+                let cause = Chain::new(&e).skip(1);
+                for c in cause {
+                    due_to!("{c}");
                 }
             }
 
