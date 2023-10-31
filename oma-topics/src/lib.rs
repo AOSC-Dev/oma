@@ -43,8 +43,8 @@ pub type Result<T> = std::result::Result<T, OmaTopicsError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum OmaTopicsError {
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
+    #[error("Failed to operate dir or flle {0}: {1}")]
+    FailedToOperateDirOrFile(String, std::io::Error),
     #[error("Can not find topic: {0}")]
     CanNotFindTopic(String),
     #[error("Failed to enable topic: {0}")]
@@ -63,7 +63,12 @@ struct GenList {
 }
 
 async fn enabled_mirror() -> Result<Vec<String>> {
-    let s = tokio::fs::read_to_string(&*APT_GEN_LIST).await?;
+    let s = tokio::fs::read_to_string(&*APT_GEN_LIST)
+        .await
+        .map_err(|e| {
+            OmaTopicsError::FailedToOperateDirOrFile(APT_GEN_LIST.display().to_string(), e)
+        })?;
+
     let gen_list: GenList = serde_json::from_str(&s).map_err(|_| {
         OmaTopicsError::BrokenFile(
             APT_GEN_LIST
@@ -104,7 +109,9 @@ pub struct TopicManager {
 
 impl TopicManager {
     pub async fn new() -> Result<Self> {
-        let f = tokio::fs::read_to_string(&*ATM_STATE).await?;
+        let f = tokio::fs::read_to_string(&*ATM_STATE).await.map_err(|e| {
+            OmaTopicsError::FailedToOperateDirOrFile(ATM_STATE.display().to_string(), e)
+        })?;
 
         Ok(Self {
             enabled: serde_json::from_str(&f).unwrap_or(vec![]),
@@ -215,14 +222,34 @@ impl TopicManager {
             return Ok(());
         }
 
-        let mut f = tokio::fs::File::create("/etc/apt/sources.list.d/atm.list").await?;
+        let mut f = tokio::fs::File::create("/etc/apt/sources.list.d/atm.list")
+            .await
+            .map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(
+                    "/etc/apt/sources.list.d/atm.list".to_string(),
+                    e,
+                )
+            })?;
+
         let mirrors = enabled_mirror().await?;
 
-        f.write_all(callback().as_bytes()).await?;
+        f.write_all(callback().as_bytes()).await.map_err(|e| {
+            OmaTopicsError::FailedToOperateDirOrFile(
+                "/etc/apt/sources.list.d/atm.list".to_string(),
+                e,
+            )
+        })?;
 
         for i in &self.enabled {
             f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())
-                .await?;
+                .await
+                .map_err(|e| {
+                    OmaTopicsError::FailedToOperateDirOrFile(
+                        "/etc/apt/sources.list.d/atm.list".to_string(),
+                        e,
+                    )
+                })?;
+
             for j in &mirrors {
                 let url = if j.ends_with('/') {
                     j.to_owned()
@@ -241,13 +268,21 @@ impl TopicManager {
                 }
 
                 f.write_all(format!("deb {}debs {} main\n", url, i.name).as_bytes())
-                    .await?;
+                    .await
+                    .map_err(|e| {
+                        OmaTopicsError::FailedToOperateDirOrFile(
+                            "/etc/apt/sources.list.d/atm.list".to_string(),
+                            e,
+                        )
+                    })?;
             }
         }
 
         let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
 
-        tokio::fs::write(&*ATM_STATE, s).await?;
+        tokio::fs::write(&*ATM_STATE, s).await.map_err(|e| {
+            OmaTopicsError::FailedToOperateDirOrFile(ATM_STATE.display().to_string(), e)
+        })?;
 
         Ok(())
     }
