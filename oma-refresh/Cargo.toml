@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 description = "A crate to help oma refresh apt repo database"
 license = "MIT"
@@ -24,7 +24,7 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.5.0", path = "../oma-topics", optional = true }
 reqwest = "0.11"
 oma-utils = { version = "^0.2.0", path = "../oma-utils", features = ["dpkg"] }
-oma-console = { version = "^0.6.0", path = "../oma-console" }
+oma-console = { version = "^0.7.0", path = "../oma-console" }
 derive_builder = "0.12"
 
 [features]
