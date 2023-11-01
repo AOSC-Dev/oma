@@ -1,7 +1,8 @@
 use std::borrow::Cow;
 
-use oma_console::{info, success};
+use oma_console::success;
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use tracing::info;
 
 use crate::{error::OutputError, utils::root};
 
@@ -44,14 +45,30 @@ pub fn execute(
 
     for (pkg, is_set) in set {
         match op {
-            "hold" if is_set => success!("{}", fl!("set-to-hold", name = pkg.to_string())),
-            "hold" => info!("{}", fl!("already-hold", name = pkg.to_string())),
-            "unhold" if is_set => success!("{}", fl!("set-to-unhold", name = pkg.to_string())),
-            "unhold" => info!("{}", fl!("already-unhold", name = pkg.to_string())),
-            "auto" if is_set => success!("{}", fl!("setting-auto", name = pkg.to_string())),
-            "auto" => info!("{}", fl!("already-auto", name = pkg.to_string())),
-            "manual" if is_set => success!("{}", fl!("setting-manual", name = pkg.to_string())),
-            "manual" => info!("{}", fl!("already-manual", name = pkg.to_string())),
+            "hold" if is_set => {
+                success!("{}", fl!("set-to-hold", name = pkg.to_string()));
+            }
+            "hold" => {
+                info!("{}", fl!("already-hold", name = pkg.to_string()));
+            }
+            "unhold" if is_set => {
+                success!("{}", fl!("set-to-unhold", name = pkg.to_string()));
+            }
+            "unhold" => {
+                info!("{}", fl!("already-unhold", name = pkg.to_string()));
+            }
+            "auto" if is_set => {
+                success!("{}", fl!("setting-auto", name = pkg.to_string()));
+            }
+            "auto" => {
+                info!("{}", fl!("already-auto", name = pkg.to_string()));
+            }
+            "manual" if is_set => {
+                success!("{}", fl!("setting-manual", name = pkg.to_string()));
+            }
+            "manual" => {
+                info!("{}", fl!("already-manual", name = pkg.to_string()));
+            }
             _ => unreachable!(),
         };
     }

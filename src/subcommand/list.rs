@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
 use dialoguer::console::style;
-use oma_console::info;
 use oma_pm::apt::{FilterMode, OmaApt, OmaAptArgsBuilder};
+use tracing::info;
 
 use crate::error::OutputError;
 use crate::fl;

@@ -6,8 +6,8 @@ use oma_apt::{
     raw::package::RawPackage,
     records::RecordField,
 };
-use oma_console::debug;
 use oma_utils::url_no_escape::url_no_escape;
+use tracing::debug;
 
 use crate::{
     pkginfo::PkgInfo,

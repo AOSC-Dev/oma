@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fmt::Display;
 use std::io::{self, ErrorKind};
 
-use oma_console::error;
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
@@ -17,6 +16,7 @@ use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
+use tracing::error;
 
 use crate::fl;
 use crate::table::print_unmet_dep;

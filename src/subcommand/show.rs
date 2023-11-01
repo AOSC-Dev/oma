@@ -1,8 +1,9 @@
-use oma_console::info;
+
 use oma_pm::{
     apt::{OmaApt, OmaAptArgsBuilder},
     pkginfo::PkgInfo,
 };
+use tracing::info;
 
 use crate::error::OutputError;
 
