@@ -28,6 +28,9 @@ colored = { version = "2.0.4", optional = true }
 image = { version = "0.24.7", optional = true }
 libc = "0.2"
 reqwest = "0.11"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# tracing-subscriber = { version = "0.3", fea }
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }

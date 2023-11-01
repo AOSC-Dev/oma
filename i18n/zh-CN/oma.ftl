@@ -238,8 +238,6 @@ failed-to-open-to-checksum = BUG：无法打开用于验证校验和的路径 {$
 
 # config
 config-invaild = Omakase 配置文件 (/etc/oma.toml) 似乎已损坏！将使用默认配置。
-
-searching = 正在搜索软件包 ...
 cleaning = 正在清理本地软件包缓存 ...
 right-pattern = oma 支持以下特殊表达式：
     

@@ -2,12 +2,11 @@ use std::path::PathBuf;
 
 use oma_console::success;
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use tracing::error;
 
 use crate::fl;
 use crate::subcommand::utils::handle_event_without_progressbar;
 use crate::{error::OutputError, pb, subcommand::utils::handle_no_result, utils::multibar};
-
-use oma_console::error;
 
 pub fn execute(
     keyword: Vec<&str>,

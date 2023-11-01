@@ -1,12 +1,11 @@
-use oma_console::{debug, due_to, error, info, msg, success, warn};
+use oma_console::{OmaLayer, due_to, success, DEBUG};
 
 fn main() {
-    oma_console::DEBUG.store(true, std::sync::atomic::Ordering::Relaxed);
-    msg!("Welcome");
-    debug!("Hello");
-    info!("I'am fine");
-    warn!("Thank you");
-    error!("and you?");
+    tracing::info!("Welcome");
+    tracing::debug!("Hello");
+    tracing::info!("I'am fine");
+    tracing::warn!("Thank you");
+    tracing::error!("and you?");
     due_to!("QAQ");
     success!("PAP");
 }
