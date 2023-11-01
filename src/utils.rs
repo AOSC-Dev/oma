@@ -9,13 +9,11 @@ use crate::fl;
 use anyhow::anyhow;
 use dashmap::DashMap;
 use dialoguer::{theme::ColorfulTheme, Confirm};
-use oma_console::{
-    indicatif::{MultiProgress, ProgressBar},
-    warn,
-};
+use oma_console::indicatif::{MultiProgress, ProgressBar};
 use oma_utils::dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection};
 use rustix::process;
 use tokio::runtime::Runtime;
+use tracing::warn;
 
 type Result<T> = std::result::Result<T, OutputError>;
 
@@ -24,7 +22,7 @@ type Result<T> = std::result::Result<T, OutputError>;
 #[macro_export]
 macro_rules! pb {
     ($event:expr, $mb:expr, $pb_map:expr, $count:expr, $total:expr, $global_is_set:expr) => {{
-        oma_console::debug!("{}", $event);
+        tracing::debug!("{}", $event);
         match $event {
             oma_fetch::DownloadEvent::ChecksumMismatchRetry { filename, times } => {
                 // println 返回的错误是无法控制终端的 I/O 错误，这种处理应该直接 panic 返回
@@ -89,7 +87,7 @@ macro_rules! pb {
             &fl!("can-not-get-source-next-url", e = e.to_string()), )
             }
             oma_fetch::DownloadEvent::Done(filename) => {
-                oma_console::debug!("Downloaded {filename}");
+                tracing::debug!("Downloaded {filename}");
             }
             oma_fetch::DownloadEvent::AllDone => {
                 if let Some(gpb) = $pb_map.get(&0) {

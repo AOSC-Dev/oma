@@ -10,13 +10,13 @@ use std::{
 
 use async_compression::tokio::write::{GzipDecoder as WGzipDecoder, XzDecoder as WXzDecoder};
 use derive_builder::Builder;
-use oma_console::debug;
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client,
 };
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
+use tracing::debug;
 
 use crate::{
     checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Summary,

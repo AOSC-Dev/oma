@@ -3,7 +3,8 @@ use std::{
     process::{Command, Stdio},
 };
 
-use oma_console::debug;
+use tracing::debug;
+
 
 #[derive(Debug, thiserror::Error)]
 pub enum DpkgError {

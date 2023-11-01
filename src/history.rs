@@ -2,10 +2,11 @@ use std::{fs::create_dir_all, path::Path};
 
 use crate::fl;
 use anyhow::Result;
-use oma_console::{debug, info, success};
+use oma_console::success;
 use oma_pm::apt::OmaOperation;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SummaryType {

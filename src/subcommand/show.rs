@@ -1,5 +1,5 @@
-use oma_console::info;
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use tracing::info;
 
 use crate::error::OutputError;
 

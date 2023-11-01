@@ -18,10 +18,7 @@ use chrono::TimeZone;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
-use oma_console::error;
-use oma_console::info;
 use oma_console::success;
-use oma_console::warn;
 use oma_console::writer::bar_writeln;
 use oma_console::WRITER;
 use oma_fetch::DownloadEvent;
@@ -32,6 +29,9 @@ use oma_pm::operation::RemoveEntry;
 use oma_refresh::db::OmaRefreshBuilder;
 use oma_refresh::db::RefreshEvent;
 use oma_utils::dpkg::dpkg_arch;
+use tracing::error;
+use tracing::info;
+use tracing::warn;
 
 pub(crate) fn handle_no_result(no_result: Vec<String>) {
     for word in no_result {
