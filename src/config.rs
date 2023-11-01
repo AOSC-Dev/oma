@@ -1,7 +1,7 @@
 use crate::fl;
 use anyhow::Result;
-use oma_console::warn;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 const DEFAULT_CONFIG: &str = include_str!("../data/config/oma.toml");
 

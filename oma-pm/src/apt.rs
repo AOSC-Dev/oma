@@ -22,9 +22,7 @@ use oma_apt::{
 };
 use oma_console::{
     console::{self, style},
-    debug, error,
     indicatif::HumanBytes,
-    warn,
 };
 use oma_fetch::{
     DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
@@ -35,6 +33,7 @@ use oma_utils::dpkg::{is_hold, DpkgError};
 pub use oma_apt::config::Config as AptConfig;
 
 use serde::{Deserialize, Serialize};
+use tracing::{debug, warn};
 
 use crate::{
     operation::{

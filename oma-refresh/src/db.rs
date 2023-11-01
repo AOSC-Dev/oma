@@ -5,7 +5,6 @@ use std::{
 
 use derive_builder::Builder;
 use oma_apt_sources_lists::{SourceEntry, SourceError, SourceLine, SourcesLists};
-use oma_console::debug;
 use oma_fetch::{
     checksum::ChecksumError, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError,
     DownloadError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
@@ -14,6 +13,7 @@ use oma_utils::dpkg::dpkg_arch;
 use once_cell::sync::Lazy;
 use reqwest::StatusCode;
 use serde::Deserialize;
+use tracing::debug;
 use url::Url;
 
 use crate::{

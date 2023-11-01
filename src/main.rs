@@ -21,11 +21,17 @@ use anyhow::anyhow;
 use clap::ArgMatches;
 use error::OutputError;
 use oma_console::writer::{writeln_inner, MessageType, Writer};
-use oma_console::{debug, error, DEBUG, WRITER};
-use oma_console::{due_to, info};
+use oma_console::{due_to, OmaLayer};
+use oma_console::{DEBUG, WRITER};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
 use rustix::process::{kill_process, Pid, Signal};
+use tracing::{debug, error, info};
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::layer::Filter;
+use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Layer};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -197,6 +203,17 @@ fn try_main() -> Result<i32, OutputError> {
     } else {
         false
     };
+
+    let is_debug_filter = if debug {
+        LevelFilter::DEBUG
+    } else {
+        LevelFilter::INFO
+    };
+
+    std::env::set_var("RUST_LOG", "i18n_embed=ERROR");
+    tracing_subscriber::registry()
+        .with(OmaLayer.with_filter(is_debug_filter))
+        .init();
 
     // --no-progress
     let no_progress = matches.get_flag("no_progress")
