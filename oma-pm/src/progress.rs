@@ -5,7 +5,8 @@ use oma_apt::{
     raw::progress::{AcquireProgress, InstallProgress},
     util::{get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys},
 };
-use oma_console::{debug, is_terminal};
+use oma_console::is_terminal;
+use tracing::debug;
 
 #[derive(Default, Debug)]
 pub struct NoProgress {

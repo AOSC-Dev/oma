@@ -1,9 +1,8 @@
-use chrono::Local;
-use oma_console::warn;
 use oma_pm::apt::AptArgsBuilder;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
 use oma_pm::apt::OmaAptError;
+use tracing::warn;
 
 use crate::error::OutputError;
 use crate::fl;

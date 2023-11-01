@@ -245,7 +245,6 @@ failed-to-open-to-checksum = BUG: Failed to open {$path} for checksum verificati
 # config
 config-invaild = Omakase configuration file appears to be broken (/etc/oma.toml)! Falling back to default configuration.
 
-searching = Searching ...
 cleaning = Clearing packages cache ...
 
 right-pattern = Omakase supports the following special expressions:

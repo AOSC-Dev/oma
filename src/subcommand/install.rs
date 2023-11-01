@@ -1,8 +1,8 @@
-use oma_console::info;
-use oma_console::warn;
 use oma_pm::apt::AptArgsBuilder;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
+use tracing::info;
+use tracing::warn;
 
 use crate::error::OutputError;
 use crate::fl;

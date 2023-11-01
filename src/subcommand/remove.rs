@@ -2,8 +2,8 @@ use anyhow::anyhow;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
-use oma_console::{info, warn};
 use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
+use tracing::{warn, info};
 
 use crate::fl;
 use crate::{
