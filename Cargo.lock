@@ -2339,7 +2339,7 @@ dependencies = [
  "i18n-embed-fl",
  "image",
  "libc",
- "oma-console 0.8.1",
+ "oma-console 0.8.2",
  "oma-contents",
  "oma-fetch",
  "oma-inquire",
@@ -2397,13 +2397,12 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "console",
  "icu_segmenter",
  "indicatif",
  "once_cell",
- "serde_json",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2443,7 +2442,7 @@ dependencies = [
  "futures",
  "hex",
  "indicatif",
- "oma-console 0.8.1",
+ "oma-console 0.8.2",
  "oma-utils 0.2.2",
  "reqwest",
  "serde",
@@ -2482,7 +2481,7 @@ dependencies = [
  "indicatif",
  "indicium",
  "oma-apt",
- "oma-console 0.8.1",
+ "oma-console 0.8.2",
  "oma-fetch",
  "oma-utils 0.3.0",
  "serde",
@@ -2502,7 +2501,7 @@ dependencies = [
  "futures",
  "indicatif",
  "oma-apt-sources-lists",
- "oma-console 0.8.1",
+ "oma-console 0.8.2",
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
@@ -2524,7 +2523,7 @@ version = "0.6.0"
 dependencies = [
  "futures",
  "indexmap 2.1.0",
- "oma-console 0.8.1",
+ "oma-console 0.8.2",
  "oma-inquire",
  "once_cell",
  "reqwest",
@@ -2553,7 +2552,7 @@ name = "oma-utils"
 version = "0.3.0"
 dependencies = [
  "number_prefix",
- "oma-console 0.8.1",
+ "oma-console 0.8.2",
  "once_cell",
  "os-release",
  "thiserror",
