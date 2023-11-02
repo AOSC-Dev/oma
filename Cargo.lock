@@ -2403,7 +2403,7 @@ dependencies = [
  "oma-pm",
  "oma-refresh",
  "oma-topics",
- "oma-utils 0.5.0",
+ "oma-utils 0.5.1",
  "once_cell",
  "reqwest",
  "rusqlite",
@@ -2472,7 +2472,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.5.0",
+ "oma-utils 0.5.1",
  "rayon",
  "regex",
  "strsim",
@@ -2540,7 +2540,7 @@ dependencies = [
  "oma-apt",
  "oma-console 0.8.2",
  "oma-fetch",
- "oma-utils 0.5.0",
+ "oma-utils 0.5.1",
  "serde",
  "thiserror",
  "tokio",
@@ -2562,7 +2562,7 @@ dependencies = [
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
- "oma-utils 0.5.0",
+ "oma-utils 0.5.1",
  "once_cell",
  "reqwest",
  "sequoia-openpgp",
@@ -2605,7 +2605,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "number_prefix",
  "oma-console 0.8.2",
