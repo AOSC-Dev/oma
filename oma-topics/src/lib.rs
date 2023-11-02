@@ -1,43 +1,13 @@
-use std::{ffi::OsStr, path::PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use indexmap::IndexMap;
-use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, warn};
-
-static ATM_STATE: Lazy<PathBuf> = Lazy::new(|| {
-    let p = PathBuf::from("/var/lib/atm/state");
-
-    let top = p.parent().unwrap();
-
-    if !top.exists() {
-        let _ = std::fs::create_dir_all(top);
-    }
-
-    if !p.exists() {
-        let _ = std::fs::File::create(&p);
-    }
-
-    p
-});
-
-static APT_GEN_LIST: Lazy<PathBuf> = Lazy::new(|| {
-    let p = PathBuf::from("/var/lib/apt/gen/status.json");
-
-    let top = p.parent().unwrap();
-
-    if !top.exists() {
-        let _ = std::fs::create_dir_all(top);
-    }
-
-    if !p.exists() {
-        let _ = std::fs::File::create(&p);
-    }
-
-    p
-});
 
 pub type Result<T> = std::result::Result<T, OmaTopicsError>;
 
@@ -55,6 +25,8 @@ pub enum OmaTopicsError {
     BrokenFile(String),
     #[error("Failed to serialize data")]
     FailedSer,
+    #[error("Failed to get path parent: {0:?}")]
+    FailedGetParentPath(PathBuf),
 }
 
 #[derive(Deserialize)]
@@ -62,16 +34,17 @@ struct GenList {
     mirror: IndexMap<String, String>,
 }
 
-async fn enabled_mirror() -> Result<Vec<String>> {
-    let s = tokio::fs::read_to_string(&*APT_GEN_LIST)
+async fn enabled_mirror<P: AsRef<Path>>(rootfs: P) -> Result<Vec<String>> {
+    let apt_gen_list = rootfs.as_ref().join("var/lib/apt/gen/status.json");
+    let s = tokio::fs::read_to_string(&apt_gen_list)
         .await
         .map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(APT_GEN_LIST.display().to_string(), e)
+            OmaTopicsError::FailedToOperateDirOrFile(apt_gen_list.display().to_string(), e)
         })?;
 
     let gen_list: GenList = serde_json::from_str(&s).map_err(|_| {
         OmaTopicsError::BrokenFile(
-            APT_GEN_LIST
+            apt_gen_list
                 .file_name()
                 .unwrap_or(OsStr::new(""))
                 .to_string_lossy()
@@ -105,19 +78,38 @@ pub struct TopicManager {
     enabled: Vec<Topic>,
     all: Vec<Topic>,
     client: Client,
+    sysroot: PathBuf,
 }
 
 impl TopicManager {
-    pub async fn new() -> Result<Self> {
-        let f = tokio::fs::read_to_string(&*ATM_STATE).await.map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(ATM_STATE.display().to_string(), e)
+    pub async fn new<P: AsRef<Path>>(sysroot: P) -> Result<Self> {
+        let atm_state = Self::atm_state_path(&sysroot).await?;
+        let f = tokio::fs::read_to_string(&atm_state).await.map_err(|e| {
+            OmaTopicsError::FailedToOperateDirOrFile(atm_state.display().to_string(), e)
         })?;
 
         Ok(Self {
             enabled: serde_json::from_str(&f).unwrap_or(vec![]),
             all: vec![],
             client: reqwest::ClientBuilder::new().user_agent("oma").build()?,
+            sysroot: sysroot.as_ref().to_path_buf(),
         })
+    }
+
+    async fn atm_state_path<P: AsRef<Path>>(rootfs: P) -> Result<PathBuf> {
+        let p = rootfs.as_ref().join("var/lib/atm/state");
+
+        let parent = p
+            .parent()
+            .ok_or_else(|| OmaTopicsError::FailedGetParentPath(p.to_path_buf()))?;
+
+        if !parent.is_dir() {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(parent.display().to_string(), e)
+            })?;
+        }
+
+        Ok(p)
     }
 
     pub fn all_topics(&self) -> &[Topic] {
@@ -130,7 +122,7 @@ impl TopicManager {
 
     /// Get all new topics
     pub async fn refresh(&mut self) -> Result<()> {
-        let urls = enabled_mirror()
+        let urls = enabled_mirror(self.sysroot.as_path())
             .await?
             .iter()
             .map(|x| {
@@ -231,7 +223,7 @@ impl TopicManager {
                 )
             })?;
 
-        let mirrors = enabled_mirror().await?;
+        let mirrors = enabled_mirror(self.sysroot.as_path()).await?;
 
         f.write_all(callback().as_bytes()).await.map_err(|e| {
             OmaTopicsError::FailedToOperateDirOrFile(
@@ -280,8 +272,9 @@ impl TopicManager {
 
         let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
 
-        tokio::fs::write(&*ATM_STATE, s).await.map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(ATM_STATE.display().to_string(), e)
+        let atm_state = Self::atm_state_path(&self.sysroot).await?;
+        tokio::fs::write(&atm_state, s).await.map_err(|e| {
+            OmaTopicsError::FailedToOperateDirOrFile(atm_state.display().to_string(), e)
         })?;
 
         Ok(())
@@ -332,11 +325,12 @@ async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>
 }
 
 /// Scan all close topics from upstream and disable it
-pub async fn scan_closed_topic<F>(callback: F) -> Result<Vec<String>>
+pub async fn scan_closed_topic<F, P>(callback: F, rootfs: P) -> Result<Vec<String>>
 where
     F: Fn() -> String + Copy,
+    P: AsRef<Path>,
 {
-    let mut tm = TopicManager::new().await?;
+    let mut tm = TopicManager::new(rootfs).await?;
     tm.refresh().await?;
     let all = tm.all_topics().to_owned();
     let enabled = tm.enabled_topics().to_owned();

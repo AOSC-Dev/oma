@@ -9,7 +9,7 @@ use oma_topics::TopicManager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut tm = TopicManager::new().await?;
+    let mut tm = TopicManager::new("/").await?;
     let mut opt_in = vec![];
     let mut opt_out = vec![];
 

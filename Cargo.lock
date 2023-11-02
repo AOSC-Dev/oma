@@ -2540,7 +2540,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.11.1"
+version = "0.11.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2567,13 +2567,12 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "futures",
  "indexmap",
  "oma-console 0.8.2",
  "oma-inquire",
- "once_cell",
  "reqwest",
  "serde",
  "serde_json",
