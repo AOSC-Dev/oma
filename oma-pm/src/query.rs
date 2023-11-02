@@ -30,7 +30,7 @@ pub enum OmaDatabaseError {
     NoPath(String),
     #[error(transparent)]
     OmaSearchError(#[from] OmaSearchError),
-    #[error("装不了一点艾露露")]
+    #[error("吃我一拳！！！")]
     NoAilururs,
 }
 
