@@ -2448,6 +2448,7 @@ dependencies = [
  "icu_segmenter",
  "indicatif",
  "once_cell",
+ "serde_json",
  "tracing",
  "tracing-subscriber",
 ]
