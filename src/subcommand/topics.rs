@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+use std::{path::Path, sync::atomic::Ordering};
 
 use dialoguer::console;
 use inquire::{
@@ -58,10 +58,17 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
     let rt = create_async_runtime()?;
     dbus_check(&rt)?;
 
+    let sysroot_ref = &sysroot;
+
     let topics_changed = rt.block_on(async move {
-        topics_inner(opt_in, opt_out, dry_run, no_progress, || {
-            fl!("do-not-edit-topic-sources-list")
-        })
+        topics_inner(
+            opt_in,
+            opt_out,
+            dry_run,
+            no_progress,
+            || fl!("do-not-edit-topic-sources-list"),
+            sysroot_ref,
+        )
         .await
     })?;
 
@@ -119,17 +126,19 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
     Ok(0)
 }
 
-async fn topics_inner<F>(
+async fn topics_inner<F, P>(
     mut opt_in: Vec<String>,
     mut opt_out: Vec<String>,
     dry_run: bool,
     no_progress: bool,
     callback: F,
+    sysroot: P,
 ) -> Result<TopicChanged, OutputError>
 where
     F: Fn() -> String,
+    P: AsRef<Path>,
 {
-    let mut tm = TopicManager::new().await?;
+    let mut tm = TopicManager::new(sysroot).await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
         inquire(&mut tm, &mut opt_in, &mut opt_out, no_progress).await?;
