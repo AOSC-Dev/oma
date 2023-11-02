@@ -30,7 +30,7 @@ use tracing::{debug, error, info};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, Layer};
+use tracing_subscriber::{fmt, EnvFilter, Layer};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -209,17 +209,29 @@ fn try_main() -> Result<i32, OutputError> {
         LevelFilter::INFO
     };
 
-    let debug_str_i18n = if debug { "trace" } else { "error" };
-    let debug_str = if debug { "trace" } else { "info" };
-
-    let no_embd: EnvFilter =
-        format!("i18n_embed={debug_str_i18n},{debug_str}")
+    if !debug {
+        let no_i18n_embd_info: EnvFilter = format!("i18n_embed=error,info")
             .parse()
             .map_err(|e| anyhow!("{e}"))?;
 
-    tracing_subscriber::registry()
-        .with(OmaLayer.with_filter(no_embd).and_then(is_debug_filter))
-        .init();
+        tracing_subscriber::registry()
+            .with(
+                OmaLayer
+                    .with_filter(no_i18n_embd_info)
+                    .and_then(is_debug_filter),
+            )
+            .init();
+    } else {
+        let env_log = EnvFilter::try_from_default_env();
+
+        if let Ok(filter) = env_log {
+            tracing_subscriber::registry()
+                .with(fmt::layer().with_filter(filter))
+                .init();
+        } else {
+            tracing_subscriber::registry().with(fmt::layer()).init();
+        }
+    }
 
     // --no-progress
     let no_progress = matches.get_flag("no_progress")
