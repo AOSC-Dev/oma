@@ -29,16 +29,6 @@ pub struct MirrorMapItem {
 static MIRROR: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
 
-pub static APT_LIST_DISTS: Lazy<PathBuf> = Lazy::new(|| {
-    let p = PathBuf::from("/var/lib/apt/lists");
-
-    if !p.is_dir() {
-        let _ = std::fs::create_dir_all(&p);
-    }
-
-    p
-});
-
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
     #[error("Invalid URL: {0}")]
@@ -67,8 +57,6 @@ pub enum RefreshError {
     DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
     #[error(transparent)]
     ChecksumError(#[from] ChecksumError),
-    // #[error(transparent)]
-    // IOError(#[from] std::io::Error),
     #[error("Failed to operate dir or file {0}: {1}")]
     FailedToOperateDirOrFile(String, tokio::io::Error),
 }
@@ -307,6 +295,14 @@ where
         Ok(m) => mirror_map(&m).ok(),
         Err(_) => None,
     };
+
+    if !download_dir.is_dir() {
+        tokio::fs::create_dir_all(&download_dir)
+            .await
+            .map_err(|e| {
+                RefreshError::FailedToOperateDirOrFile(download_dir.display().to_string(), e)
+            })?;
+    }
 
     for source_entry in &sourceslist {
         let msg = get_url_short_and_branch(&source_entry.inrelease_path, &m)?;
