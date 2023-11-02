@@ -1,10 +1,7 @@
 pub mod pager;
 pub mod pb;
 pub mod writer;
-use std::{
-    collections::BTreeMap,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::{collections::BTreeMap, sync::atomic::AtomicBool};
 use tracing::{field::Field, Level};
 use tracing_subscriber::Layer;
 
@@ -27,23 +24,11 @@ where
     S: tracing::Subscriber,
     S: for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>,
 {
-    fn on_event(&self, event: &tracing::Event<'_>, ctx: tracing_subscriber::layer::Context<'_, S>) {
-        let scope = ctx.event_scope(event);
-        let mut spans = vec![];
-        if let Some(scope) = scope {
-            for span in scope.from_root() {
-                let extensions = span.extensions();
-                let storage = extensions.get::<CustomFieldStorage>().unwrap();
-                let field_data: &BTreeMap<String, String> = &storage.0;
-                spans.push(serde_json::json!({
-                    "target": span.metadata().target(),
-                    "name": span.name(),
-                    "level": format!("{:?}", span.metadata().level()),
-                    "fields": field_data,
-                }));
-            }
-        }
-
+    fn on_event(
+        &self,
+        event: &tracing::Event<'_>,
+        _ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
         let level = event.metadata().level().to_owned();
         let prefix = match level {
             Level::DEBUG => console::style("DEBUG").dim().to_string(),
@@ -56,70 +41,15 @@ where
         let mut visitor = OmaRecorder(BTreeMap::new());
         event.record(&mut visitor);
 
-        if !DEBUG.load(Ordering::Relaxed) {
-            for (k, v) in visitor.0 {
-                if k == "message" {
-                    WRITER.writeln(&prefix, &v).ok();
-                }
+        for (k, v) in visitor.0 {
+            if k == "message" {
+                WRITER.writeln(&prefix, &v).ok();
             }
-        } else {
-            let json = serde_json::json!({
-                "Level": level.to_string(),
-                "data": visitor.0,
-                "spans": spans,
-            });
-
-            let output = serde_json::to_string_pretty(&json).unwrap();
-            println!("{output}");
         }
-    }
-
-    fn on_new_span(
-        &self,
-        attrs: &tracing::span::Attributes<'_>,
-        id: &tracing::span::Id,
-        ctx: tracing_subscriber::layer::Context<'_, S>,
-    ) {
-        // 基于 field 值来构建我们自己的 JSON 对象
-        let fields = BTreeMap::new();
-        let mut visitor = OmaRecorder(fields.clone());
-        attrs.record(&mut visitor);
-
-        // 使用之前创建的 newtype 包裹下
-        let storage = CustomFieldStorage(fields);
-
-        // 获取内部 span 数据的引用
-        let span = ctx.span(id).unwrap();
-        // 获取扩展，用于存储我们的 span 数据
-        let mut extensions = span.extensions_mut();
-        // 存储！
-        extensions.insert::<CustomFieldStorage>(storage);
-    }
-
-    fn on_record(
-        &self,
-        id: &tracing::span::Id,
-        values: &tracing::span::Record<'_>,
-        ctx: tracing_subscriber::layer::Context<'_, S>,
-    ) {
-        // 获取正在记录数据的 span
-        let span = ctx.span(id).unwrap();
-
-        // 获取数据的可变引用，该数据是在 on_new_span 中创建的
-        let mut extensions_mut = span.extensions_mut();
-        let custom_field_storage: &mut CustomFieldStorage =
-            extensions_mut.get_mut::<CustomFieldStorage>().unwrap();
-        let json_data: &BTreeMap<String, String> = &custom_field_storage.0;
-
-        // 使用我们的访问器老朋友
-        let mut visitor = OmaRecorder(json_data.clone());
-        values.record(&mut visitor);
     }
 }
 
 struct OmaRecorder(BTreeMap<String, String>);
-#[derive(Debug)]
-struct CustomFieldStorage(BTreeMap<String, String>);
 
 impl tracing::field::Visit for OmaRecorder {
     fn record_f64(&mut self, field: &Field, value: f64) {
