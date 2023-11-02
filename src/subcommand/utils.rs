@@ -35,6 +35,9 @@ use tracing::warn;
 
 pub(crate) fn handle_no_result(no_result: Vec<String>) {
     for word in no_result {
+        if word == "266" {
+            error!("吃我一拳！！！")
+        }
         error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
     }
 }
