@@ -331,6 +331,10 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             description: e.to_string(),
             source: None,
         },
+        OmaTopicsError::FailedGetParentPath(_) => OutputError {
+            description: e.to_string(),
+            source: None,
+        },
     }
 }
 
