@@ -13,7 +13,7 @@ fn main() {
         "apt",
         QueryMode::ListFiles(false),
         Path::new("/var/lib/apt/lists"),
-        &dpkg_arch().unwrap(),
+        &dpkg_arch("/").unwrap(),
         move |c| match c {
             ContentsEvent::Progress(c) => {
                 pb.set_message(format!("Searching, found {c} results so far ..."))

@@ -12,7 +12,7 @@ use crate::error::OutputError;
 use crate::fl;
 
 pub fn execute(pkg: &str) -> Result<i32, OutputError> {
-    let arch = dpkg_arch()?;
+    let arch = dpkg_arch("/")?;
     let res = oma_contents::find(
         pkg,
         QueryMode::CommandNotFound,
