@@ -1,5 +1,6 @@
 use std::{
     io::Write,
+    path::Path,
     process::{Command, Stdio},
 };
 
@@ -18,8 +19,12 @@ pub enum DpkgError {
 }
 
 /// Get architecture from dpkg
-pub fn dpkg_arch() -> Result<String, DpkgError> {
-    let dpkg = Command::new("dpkg").arg("--print-architecture").output()?;
+pub fn dpkg_arch<P: AsRef<Path>>(sysroot: P) -> Result<String, DpkgError> {
+    let dpkg = Command::new("dpkg")
+        .arg("--root")
+        .arg(sysroot.as_ref().display().to_string())
+        .arg("--print-architecture")
+        .output()?;
 
     if !dpkg.status.success() {
         return Err(DpkgError::DpkgRunError(dpkg.status.code().unwrap_or(1)));
@@ -43,10 +48,11 @@ pub fn is_hold(pkg: &str) -> Result<bool, DpkgError> {
 }
 
 /// Mark hold/unhold status use dpkg --set-selections
-pub fn mark_version_status(
+pub fn mark_version_status<P: AsRef<Path>>(
     pkgs: &[String],
     hold: bool,
     dry_run: bool,
+    sysroot: P,
 ) -> Result<Vec<(&str, bool)>, DpkgError> {
     let list = get_selections()?;
 
@@ -72,6 +78,7 @@ pub fn mark_version_status(
         }
 
         let mut dpkg = Command::new("dpkg")
+            .arg(sysroot.as_ref().display().to_string())
             .arg("--set-selections")
             .stdin(Stdio::piped())
             .spawn()?;

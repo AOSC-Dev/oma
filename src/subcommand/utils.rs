@@ -55,7 +55,10 @@ pub(crate) fn refresh(
 
     info!("{}", fl!("refreshing-repo-metadata"));
 
-    let download_pure_db = if dpkg_arch().map(|x| x == "mips64r6el").unwrap_or(false) {
+    let download_pure_db = if dpkg_arch(sysroot)
+        .map(|x| x == "mips64r6el")
+        .unwrap_or(false)
+    {
         false
     } else {
         download_pure_db
@@ -67,6 +70,7 @@ pub(crate) fn refresh(
         .source(sysroot.clone())
         .download_dir(sysroot.join("var/lib/apt/lists"))
         .download_compress(!download_pure_db)
+        .arch(dpkg_arch(&sysroot)?)
         .build()
         .unwrap();
 

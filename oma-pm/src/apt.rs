@@ -807,7 +807,12 @@ impl OmaApt {
             }
         }
 
-        let res = oma_utils::dpkg::mark_version_status(pkgs, hold, dry_run)?;
+        let res = oma_utils::dpkg::mark_version_status(
+            pkgs,
+            hold,
+            dry_run,
+            self.config.get("Dir").unwrap_or("/".to_string()),
+        )?;
 
         Ok(res)
     }

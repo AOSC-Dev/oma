@@ -138,14 +138,14 @@ where
     F: Fn() -> String,
     P: AsRef<Path>,
 {
-    let mut tm = TopicManager::new(sysroot).await?;
+    let mut tm = TopicManager::new(&sysroot).await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
         inquire(&mut tm, &mut opt_in, &mut opt_out, no_progress).await?;
     }
 
     for i in &opt_in {
-        tm.add(i, dry_run, &dpkg_arch()?).await?;
+        tm.add(i, dry_run, &dpkg_arch(&sysroot)?).await?;
     }
 
     let mut downgrade_pkgs = vec![];
