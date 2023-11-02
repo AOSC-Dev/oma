@@ -64,7 +64,7 @@ impl InReleaseParser {
         arch: &str,
         is_flat: bool,
         p: P,
-        rootfs: P
+        rootfs: P,
     ) -> InReleaseParserResult<Self> {
         let p = p.as_ref();
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
