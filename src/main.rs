@@ -117,7 +117,7 @@ fn display_error(e: OutputError) -> io::Result<()> {
             if cause.len() > 1 {
                 for (i, c) in cause.iter().enumerate() {
                     if i == 0 {
-                        WRITER.write_prefix("TRACE")?;
+                        WRITER.write_prefix(&console::style("TRACE").magenta().to_string())?;
                     } else {
                         WRITER.write_prefix("")?;
                     }
