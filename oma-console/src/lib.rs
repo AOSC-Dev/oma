@@ -28,6 +28,22 @@ where
     S: for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>,
 {
     fn on_event(&self, event: &tracing::Event<'_>, ctx: tracing_subscriber::layer::Context<'_, S>) {
+        let scope = ctx.event_scope(event);
+        let mut spans = vec![];
+        if let Some(scope) = scope {
+            for span in scope.from_root() {
+                let extensions = span.extensions();
+                let storage = extensions.get::<CustomFieldStorage>().unwrap();
+                let field_data: &BTreeMap<String, String> = &storage.0;
+                spans.push(serde_json::json!({
+                    "target": span.metadata().target(),
+                    "name": span.name(),
+                    "level": format!("{:?}", span.metadata().level()),
+                    "fields": field_data,
+                }));
+            }
+        }
+
         let level = event.metadata().level().to_owned();
         let prefix = match level {
             Level::DEBUG => console::style("DEBUG").dim().to_string(),
@@ -41,17 +57,20 @@ where
         event.record(&mut visitor);
 
         if !DEBUG.load(Ordering::Relaxed) {
-            for (_, v) in visitor.0 {
-                WRITER.writeln(&prefix, &v).ok();
+            for (k, v) in visitor.0 {
+                if k == "message" {
+                    WRITER.writeln(&prefix, &v).ok();
+                }
             }
         } else {
-            WRITER.write_prefix(&prefix).ok();
-            let mut w = WRITER.get_writer();
-            for (k, v) in visitor.0 {
-                w.write_all(b"\n").ok();
-                w.write_all(format!("  field: {k}\n").as_bytes()).ok();
-                w.write_all(format!("  value: {v}\n").as_bytes()).ok();
-            }
+            let json = serde_json::json!({
+                "Level": level.to_string(),
+                "data": visitor.0,
+                "spans": spans,
+            });
+
+            let output = serde_json::to_string_pretty(&json).unwrap();
+            println!("{output}");
         }
     }
 
@@ -75,6 +94,26 @@ where
         let mut extensions = span.extensions_mut();
         // 存储！
         extensions.insert::<CustomFieldStorage>(storage);
+    }
+
+    fn on_record(
+        &self,
+        id: &tracing::span::Id,
+        values: &tracing::span::Record<'_>,
+        ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
+        // 获取正在记录数据的 span
+        let span = ctx.span(id).unwrap();
+
+        // 获取数据的可变引用，该数据是在 on_new_span 中创建的
+        let mut extensions_mut = span.extensions_mut();
+        let custom_field_storage: &mut CustomFieldStorage =
+            extensions_mut.get_mut::<CustomFieldStorage>().unwrap();
+        let json_data: &BTreeMap<String, String> = &custom_field_storage.0;
+
+        // 使用我们的访问器老朋友
+        let mut visitor = OmaRecorder(json_data.clone());
+        values.record(&mut visitor);
     }
 }
 

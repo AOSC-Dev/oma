@@ -28,7 +28,6 @@ use oma_utils::OsRelease;
 use rustix::process::{kill_process, Pid, Signal};
 use tracing::{debug, error, info};
 use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::layer::Filter;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
@@ -210,9 +209,16 @@ fn try_main() -> Result<i32, OutputError> {
         LevelFilter::INFO
     };
 
-    std::env::set_var("RUST_LOG", "i18n_embed=ERROR");
+    let debug_str_i18n = if debug { "trace" } else { "error" };
+    let debug_str = if debug { "trace" } else { "info" };
+
+    let no_embd: EnvFilter =
+        format!("i18n_embed={debug_str_i18n},{debug_str}")
+            .parse()
+            .map_err(|e| anyhow!("{e}"))?;
+
     tracing_subscriber::registry()
-        .with(OmaLayer.with_filter(is_debug_filter))
+        .with(OmaLayer.with_filter(no_embd).and_then(is_debug_filter))
         .init();
 
     // --no-progress
