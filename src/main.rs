@@ -212,7 +212,7 @@ fn try_main() -> Result<i32, OutputError> {
             .with(
                 OmaLayer
                     .with_filter(no_i18n_embd_info)
-                    .and_then( LevelFilter::INFO),
+                    .and_then(LevelFilter::INFO),
             )
             .init();
     } else {

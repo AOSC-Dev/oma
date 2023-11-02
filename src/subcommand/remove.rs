@@ -3,7 +3,7 @@ use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
-use tracing::{warn, info};
+use tracing::{info, warn};
 
 use crate::fl;
 use crate::{

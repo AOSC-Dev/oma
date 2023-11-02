@@ -5,7 +5,6 @@ use std::{
 
 use tracing::debug;
 
-
 #[derive(Debug, thiserror::Error)]
 pub enum DpkgError {
     #[error(transparent)]
