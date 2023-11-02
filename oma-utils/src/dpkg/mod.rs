@@ -35,8 +35,8 @@ pub fn dpkg_arch<P: AsRef<Path>>(sysroot: P) -> Result<String, DpkgError> {
     Ok(output)
 }
 
-pub fn is_hold(pkg: &str) -> Result<bool, DpkgError> {
-    let list = get_selections()?;
+pub fn is_hold<P: AsRef<Path>>(pkg: &str, sysroot: P) -> Result<bool, DpkgError> {
+    let list = get_selections(sysroot)?;
 
     let status = list
         .iter()
@@ -54,7 +54,7 @@ pub fn mark_version_status<P: AsRef<Path>>(
     dry_run: bool,
     sysroot: P,
 ) -> Result<Vec<(&str, bool)>, DpkgError> {
-    let list = get_selections()?;
+    let list = get_selections(&sysroot)?;
 
     let mut res = vec![];
 
@@ -101,8 +101,11 @@ pub fn mark_version_status<P: AsRef<Path>>(
     Ok(res)
 }
 
-fn get_selections() -> Result<Vec<(String, String)>, DpkgError> {
-    let dpkg = Command::new("dpkg").arg("--get-selections").output()?;
+fn get_selections<P: AsRef<Path>>(sysroot: P) -> Result<Vec<(String, String)>, DpkgError> {
+    let dpkg = Command::new("dpkg")
+        .arg(sysroot.as_ref().display().to_string())
+        .arg("--get-selections")
+        .output()?;
     if !dpkg.status.success() {
         return Err(DpkgError::DpkgRunError(dpkg.status.code().unwrap_or(1)));
     }
