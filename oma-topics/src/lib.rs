@@ -1,7 +1,6 @@
 use std::{ffi::OsStr, path::PathBuf};
 
 use indexmap::IndexMap;
-// use oma_console::{debug, warn};
 use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
