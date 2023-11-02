@@ -78,6 +78,7 @@ pub fn mark_version_status<P: AsRef<Path>>(
         }
 
         let mut dpkg = Command::new("dpkg")
+            .arg("--root")
             .arg(sysroot.as_ref().display().to_string())
             .arg("--set-selections")
             .stdin(Stdio::piped())
@@ -103,6 +104,7 @@ pub fn mark_version_status<P: AsRef<Path>>(
 
 fn get_selections<P: AsRef<Path>>(sysroot: P) -> Result<Vec<(String, String)>, DpkgError> {
     let dpkg = Command::new("dpkg")
+        .arg("--root")
         .arg(sysroot.as_ref().display().to_string())
         .arg("--get-selections")
         .output()?;
