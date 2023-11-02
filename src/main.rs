@@ -203,14 +203,8 @@ fn try_main() -> Result<i32, OutputError> {
         false
     };
 
-    let is_debug_filter = if debug {
-        LevelFilter::DEBUG
-    } else {
-        LevelFilter::INFO
-    };
-
     if !debug {
-        let no_i18n_embd_info: EnvFilter = format!("i18n_embed=error,info")
+        let no_i18n_embd_info: EnvFilter = "i18n_embed=error,info"
             .parse()
             .map_err(|e| anyhow!("{e}"))?;
 
@@ -218,7 +212,7 @@ fn try_main() -> Result<i32, OutputError> {
             .with(
                 OmaLayer
                     .with_filter(no_i18n_embd_info)
-                    .and_then(is_debug_filter),
+                    .and_then( LevelFilter::INFO),
             )
             .init();
     } else {
