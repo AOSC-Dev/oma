@@ -1,6 +1,8 @@
-use oma_console::{OmaLayer, due_to, success, DEBUG};
+use oma_console::{due_to, success, OmaLayer};
+use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
 
 fn main() {
+    tracing_subscriber::registry().with(OmaLayer).init();
     tracing::info!("Welcome");
     tracing::debug!("Hello");
     tracing::info!("I'am fine");
