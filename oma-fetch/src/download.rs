@@ -71,6 +71,7 @@ impl SingleDownloader<'_> {
                     if i == sources.len() - 1 {
                         return Err(e);
                     }
+                    debug!("{c:?} download failed {e}, trying next url.");
                     callback(
                         self.download_list_index,
                         DownloadEvent::CanNotGetSourceNextUrl(e.to_string()),
