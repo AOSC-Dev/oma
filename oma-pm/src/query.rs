@@ -30,8 +30,6 @@ pub enum OmaDatabaseError {
     NoPath(String),
     #[error(transparent)]
     OmaSearchError(#[from] OmaSearchError),
-    #[error("吃我一拳！！！")]
-    NoAilururs,
 }
 
 pub struct OmaDatabase<'a> {
@@ -94,10 +92,6 @@ impl<'a> OmaDatabase<'a> {
     ) -> OmaDatabaseResult<Vec<PkgInfo>> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
-
-        if glob == "266" {
-            return Err(OmaDatabaseError::NoAilururs);
-        }
 
         let pkgs = self.cache.packages(&sort)?.filter(|x| {
             if glob_match::glob_match_with_captures(glob, x.name()).is_some() {

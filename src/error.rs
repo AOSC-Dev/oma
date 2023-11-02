@@ -648,9 +648,5 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
             description: fl!("no-candidate-ver", pkg = s),
             source: None,
         },
-        OmaDatabaseError::NoAilururs => OutputError {
-            description: e.to_string(),
-            source: None,
-        },
     }
 }
