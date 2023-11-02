@@ -20,7 +20,7 @@ pub fn execute(
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-    let mut filter_mode = vec![];
+    let mut filter_mode = vec![FilterMode::Names];
 
     if installed {
         filter_mode.push(FilterMode::Installed);
