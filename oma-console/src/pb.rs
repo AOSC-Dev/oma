@@ -10,7 +10,7 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
     let bar_template = {
         let max_len = writer.get_length();
         if is_global {
-            if max_len < 90 {
+            if max_len < 100 {
                 " {prefix:.blue.bold}".to_owned()
                     + " {bytes:>10.green.bold} "
                     + &style("/").green().bold().to_string()
@@ -23,14 +23,14 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
                     + &style("/").green().bold().to_string()
                     + " {total_bytes:.green.bold} "
                     + &style("@").green().bold().to_string()
-                    + "{binary_bytes_per_sec:<48.green.bold}"
+                    + " {binary_bytes_per_sec:<16.green.bold}"
                     + "{eta_precise:<10.blue.bold}  [{wide_bar:.blue.bold}] {percent:>3.blue.bold}"
                     + &style("%").blue().bold().to_string()
             }
-        } else if max_len < 90 {
+        } else if max_len < 100 {
             " {msg} {percent:>3}%".to_owned()
         } else {
-            " {msg:<80}{total_bytes:<10}  [{wide_bar:.white/black}] {percent:>3}%".to_owned()
+            " {msg:<48} {total_bytes:<10}  [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
     };
 
