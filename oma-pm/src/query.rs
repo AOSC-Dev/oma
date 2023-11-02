@@ -7,7 +7,7 @@ use oma_apt::{
     records::RecordField,
 };
 use oma_utils::url_no_escape::url_no_escape;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{
     pkginfo::PkgInfo,
@@ -93,14 +93,14 @@ impl<'a> OmaDatabase<'a> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
 
-        let pkgs = self.cache.packages(&sort)?.filter(|x| {
-            if glob_match::glob_match_with_captures(glob, x.name()).is_some() {
-                debug!("{glob} {}", x.name());
-                true
-            } else {
-                false
-            }
-        });
+        if glob == "266" {
+            info!("吃我一拳！！！");
+        }
+
+        let pkgs = self
+            .cache
+            .packages(&sort)?
+            .filter(|x| glob_match::glob_match_with_captures(glob, x.name()).is_some());
 
         let pkgs = pkgs
             .map(|x| real_pkg(&x))
