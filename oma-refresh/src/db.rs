@@ -212,7 +212,7 @@ impl OmaRefreshBuilder {
     }
 
     fn default_arch(&self) -> std::result::Result<String, String> {
-        match dpkg_arch() {
+        match dpkg_arch("/") {
             Ok(a) => Ok(a),
             Err(e) => Err(e.to_string()),
         }
