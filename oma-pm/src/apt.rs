@@ -318,7 +318,10 @@ impl OmaApt {
         let upgradable = self
             .cache
             .packages(&sort)?
-            .filter(|x| !is_hold(x.name()).unwrap_or(false))
+            .filter(|x| {
+                !is_hold(x.name(), self.config.get("Dir").unwrap_or("/".to_string()))
+                    .unwrap_or(false)
+            })
             .count();
 
         let sort = PackageSort::default().auto_removable();
