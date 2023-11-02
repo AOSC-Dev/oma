@@ -35,7 +35,7 @@ pub fn execute(
         _ => unreachable!(),
     };
 
-    let arch = dpkg_arch()?;
+    let arch = dpkg_arch(&sysroot)?;
 
     let res = oma_contents::find(
         pkg,
