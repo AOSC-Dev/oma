@@ -145,10 +145,10 @@ pub(crate) fn normal_commit(
         start_time,
     )?;
 
+    info!("{}", fl!("history-tips-2"));
     if res.is_ok() {
         success!("{}", fl!("history-tips-1"));
     } else {
-        info!("{}", fl!("history-tips-2"));
         res?;
     }
 
