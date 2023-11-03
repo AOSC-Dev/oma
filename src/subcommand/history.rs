@@ -1,9 +1,9 @@
 use anyhow::anyhow;
+use oma_history::{connect_or_create_db, list_history};
 use std::sync::atomic::Ordering;
 
 use crate::{
     error::OutputError,
-    history::{connect_or_create_db, list_history},
     table::table_for_history_pending,
     ALLOWCTRLC,
 };

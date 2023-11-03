@@ -3,10 +3,6 @@ use std::path::PathBuf;
 
 use crate::error::OutputError;
 use crate::fl;
-use crate::history::connect_or_create_db;
-use crate::history::write_history_entry;
-use crate::history::SummaryLog;
-use crate::history::SummaryType;
 use crate::pb;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
@@ -22,6 +18,10 @@ use oma_console::success;
 use oma_console::writer::bar_writeln;
 use oma_console::WRITER;
 use oma_fetch::DownloadEvent;
+use oma_history::SummaryLog;
+use oma_history::SummaryType;
+use oma_history::connect_or_create_db;
+use oma_history::write_history_entry;
 use oma_pm::apt::AptArgs;
 use oma_pm::apt::OmaApt;
 use oma_pm::operation::InstallEntry;
@@ -174,6 +174,9 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
         dry_run,
         start_time,
     )?;
+
+    success!("{}", fl!("history-tips-1"));
+    info!("{}", fl!("history-tips-2"));
 
     Ok(())
 }

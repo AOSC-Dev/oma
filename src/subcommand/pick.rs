@@ -1,4 +1,5 @@
 use dialoguer::{theme::ColorfulTheme, Select};
+use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
     pkginfo::PkgInfo,
@@ -7,7 +8,6 @@ use oma_pm::{
 use crate::fl;
 use crate::{
     error::OutputError,
-    history::SummaryType,
     utils::{create_async_runtime, dbus_check, root},
 };
 use anyhow::anyhow;
