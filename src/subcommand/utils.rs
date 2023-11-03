@@ -18,10 +18,10 @@ use oma_console::success;
 use oma_console::writer::bar_writeln;
 use oma_console::WRITER;
 use oma_fetch::DownloadEvent;
-use oma_history::SummaryLog;
-use oma_history::SummaryType;
 use oma_history::connect_or_create_db;
 use oma_history::write_history_entry;
+use oma_history::SummaryLog;
+use oma_history::SummaryType;
 use oma_pm::apt::AptArgs;
 use oma_pm::apt::OmaApt;
 use oma_pm::operation::InstallEntry;
@@ -159,13 +159,15 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
 
     let (mb, pb_map, global_is_set) = multibar();
 
-    let start_time = apt.commit(Some(network_thread), &apt_args, |count, event, total| {
+    let start_time = Local::now().timestamp();
+
+    let res = apt.commit(Some(network_thread), &apt_args, |count, event, total| {
         if !no_progress {
             pb!(event, mb, pb_map, count, total, global_is_set)
         } else {
             handle_event_without_progressbar(event);
         }
-    })?;
+    });
 
     write_history_entry(
         op_after,
@@ -175,7 +177,10 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
         start_time,
     )?;
 
-    success!("{}", fl!("history-tips-1"));
+    if res.is_ok() {
+        success!("{}", fl!("history-tips-1"));
+    }
+
     info!("{}", fl!("history-tips-2"));
 
     Ok(())
