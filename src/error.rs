@@ -534,6 +534,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: "Failed to get available space".to_string(),
             source: Some(Box::new(e)),
         },
+        OmaAptError::FailedGetParentPath(_) => OutputError {
+            description: err.to_string(),
+            source: None,
+        },
     }
 }
 
