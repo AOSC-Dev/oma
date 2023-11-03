@@ -2,13 +2,13 @@ use anyhow::anyhow;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
+use oma_history::SummaryType;
 use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
 use tracing::{info, warn};
 
 use crate::fl;
 use crate::{
     error::OutputError,
-    history::SummaryType,
     utils::{create_async_runtime, dbus_check, root},
     RemoveArgs,
 };
