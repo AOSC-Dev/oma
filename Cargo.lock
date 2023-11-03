@@ -2455,7 +2455,7 @@ dependencies = [
 
 [[package]]
 name = "oma-history"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "oma-pm",
  "rusqlite",
@@ -2483,7 +2483,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.13.2"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "chrono",

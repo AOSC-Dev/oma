@@ -52,7 +52,7 @@ pub fn connect_or_create_db(write: bool, sysroot: String) -> HistoryResult<Conne
             .map_err(|e| HistoryError::FailedOperateDirOrFile(db_path.display().to_string(), e))?;
     }
 
-    let conn = Connection::open(db_path).map_err(|e| HistoryError::ConnectError(e))?;
+    let conn = Connection::open(db_path).map_err(HistoryError::ConnectError)?;
 
     if write {
         conn.execute(
@@ -63,7 +63,7 @@ pub fn connect_or_create_db(write: bool, sysroot: String) -> HistoryResult<Conne
             )",
             (), // empty list of parameters.
         )
-        .map_err(|e| HistoryError::ExecuteError(e))?;
+        .map_err(HistoryError::ExecuteError)?;
     }
 
     Ok(conn)
@@ -82,16 +82,13 @@ pub fn write_history_entry(
     }
 
     let entry = SummaryLog { op: summary, typ };
-    let buf = serde_json::to_vec(&entry).map_err(|e| HistoryError::ParseError(e))?;
+    let buf = serde_json::to_vec(&entry).map_err(HistoryError::ParseError)?;
 
     conn.execute(
         "INSERT INTO history (data, time) VALUES (?1, ?2)",
         (buf, start_time),
     )
-    .map_err(|e| HistoryError::ExecuteError(e))?;
-
-    // success!("{}", fl!("history-tips-1"));
-    // info!("{}", fl!("history-tips-2"));
+    .map_err(HistoryError::ExecuteError)?;
 
     Ok(())
 }
@@ -100,19 +97,19 @@ pub fn list_history(conn: Connection) -> HistoryResult<Vec<(SummaryLog, i64)>> {
     let mut res = vec![];
     let mut stmt = conn
         .prepare("SELECT data, time FROM history ORDER BY id DESC")
-        .map_err(|e| HistoryError::ExecuteError(e))?;
+        .map_err(HistoryError::ExecuteError)?;
     let res_iter = stmt
         .query_map([], |row| {
             let data: Vec<u8> = row.get(0)?;
             let time: i64 = row.get(1)?;
             Ok((data, time))
         })
-        .map_err(|e| HistoryError::ExecuteError(e))?;
+        .map_err(HistoryError::ExecuteError)?;
 
     for i in res_iter {
-        let (data, time) = i.map_err(|e| HistoryError::ExecuteError(e))?;
+        let (data, time) = i.map_err(HistoryError::ExecuteError)?;
         res.push((
-            serde_json::from_slice(&data).map_err(|e| HistoryError::ParseError(e))?,
+            serde_json::from_slice(&data).map_err(HistoryError::ParseError)?,
             time,
         ));
     }
