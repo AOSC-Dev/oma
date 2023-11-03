@@ -495,7 +495,7 @@ impl OmaApt {
         network_thread: Option<usize>,
         args_config: &AptArgs,
         callback: F,
-    ) -> OmaAptResult<i64>
+    ) -> OmaAptResult<()>
     where
         F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
     {
@@ -503,11 +503,10 @@ impl OmaApt {
         let v_str = v.to_string();
 
         let start_time = Local::now();
-        let ts = start_time.timestamp();
 
         if self.dry_run {
             debug!("op: {v:?}");
-            return Ok(ts);
+            return Ok(());
         }
 
         let download_pkg_list = v.install;
@@ -609,7 +608,7 @@ impl OmaApt {
         write!(log, "{v_str}").ok();
         writeln!(log, "End-Date: {end_time}\n").ok();
 
-        Ok(ts)
+        Ok(())
     }
 
     /// Resolve apt dependencies

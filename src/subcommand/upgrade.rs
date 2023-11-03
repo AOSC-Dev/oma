@@ -1,3 +1,4 @@
+use chrono::Local;
 use oma_console::warn;
 use oma_pm::apt::AptArgsBuilder;
 use oma_pm::apt::OmaApt;
@@ -85,6 +86,8 @@ pub fn execute(
             table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run)?;
         }
 
+        let start_time = Local::now().timestamp();
+
         let (mb, pb_map, global_is_set) = multibar();
         match apt.commit(None, &apt_args, |count, event, total| {
             if !no_progress {
@@ -93,7 +96,7 @@ pub fn execute(
                 handle_event_without_progressbar(event);
             }
         }) {
-            Ok(start_time) => {
+            Ok(()) => {
                 write_history_entry(
                     op_after,
                     SummaryType::Upgrade(
@@ -110,6 +113,19 @@ pub fn execute(
             Err(e) => match e {
                 OmaAptError::RustApt(_) => {
                     if retry_times == 3 {
+                        write_history_entry(
+                            op_after,
+                            SummaryType::Upgrade(
+                                pkgs.iter()
+                                    .map(|x| {
+                                        format!("{} {}", x.raw_pkg.name(), x.version_raw.version())
+                                    })
+                                    .collect::<Vec<_>>(),
+                            ),
+                            connect_or_create_db(true)?,
+                            dry_run,
+                            start_time,
+                        )?;
                         return Err(OutputError::from(e));
                     }
                     warn!("{e}, retrying ...");

@@ -1,8 +1,7 @@
 use std::{fs::create_dir_all, path::Path};
 
-use crate::fl;
 use anyhow::Result;
-use oma_console::{debug, info, success};
+use oma_console::debug;
 use oma_pm::apt::OmaOperation;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -72,9 +71,6 @@ pub fn write_history_entry(
         "INSERT INTO history (data, time) VALUES (?1, ?2)",
         (buf, start_time),
     )?;
-
-    success!("{}", fl!("history-tips-1"));
-    info!("{}", fl!("history-tips-2"));
 
     Ok(())
 }
