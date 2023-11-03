@@ -1,3 +1,4 @@
+use oma_history::{connect_or_create_db, list_history, SummaryType};
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
     operation::InstallOperation,
@@ -6,7 +7,6 @@ use oma_pm::{
 
 use crate::{
     error::OutputError,
-    history::{connect_or_create_db, list_history, SummaryType},
     utils::{create_async_runtime, dbus_check, root},
 };
 

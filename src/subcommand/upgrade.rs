@@ -1,14 +1,16 @@
+use oma_console::success;
+use oma_history::connect_or_create_db;
+use oma_history::write_history_entry;
+use oma_history::SummaryType;
 use oma_pm::apt::AptArgsBuilder;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
 use oma_pm::apt::OmaAptError;
+use tracing::info;
 use tracing::warn;
 
 use crate::error::OutputError;
 use crate::fl;
-use crate::history::connect_or_create_db;
-use crate::history::write_history_entry;
-use crate::history::SummaryType;
 use crate::pb;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
@@ -60,6 +62,7 @@ pub fn execute(
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(args.sysroot.clone())
         .build()?;
+
     loop {
         let mut apt = OmaApt::new(local_debs.clone(), oma_apt_args.clone(), dry_run)?;
         apt.upgrade()?;
@@ -136,4 +139,7 @@ pub fn execute(
             },
         }
     }
+
+    success!("{}", fl!("history-tips-1"));
+    info!("{}", fl!("history-tips-2"));
 }

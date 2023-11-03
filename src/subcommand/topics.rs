@@ -7,6 +7,7 @@ use inquire::{
     MultiSelect,
 };
 use oma_console::{indicatif::ProgressBar, pb::oma_spinner, WRITER};
+use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
     query::OmaDatabase,
@@ -15,7 +16,6 @@ use oma_utils::dpkg::dpkg_arch;
 
 use crate::{
     error::OutputError,
-    history::SummaryType,
     utils::{create_async_runtime, dbus_check, root},
     AILURUS,
 };
