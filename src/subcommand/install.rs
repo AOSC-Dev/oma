@@ -1,3 +1,4 @@
+use oma_history::SummaryType;
 use oma_pm::apt::AptArgsBuilder;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
@@ -6,7 +7,6 @@ use tracing::warn;
 
 use crate::error::OutputError;
 use crate::fl;
-use crate::history::SummaryType;
 use crate::utils::create_async_runtime;
 use crate::utils::dbus_check;
 use crate::utils::root;

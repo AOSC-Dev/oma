@@ -7,7 +7,6 @@ use std::process::{exit, Command};
 mod args;
 mod config;
 mod error;
-mod history;
 mod lang;
 mod subcommand;
 mod table;

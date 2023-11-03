@@ -39,6 +39,7 @@ oma-refresh = { path = "./oma-refresh", default_features = false }
 oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch" }
 oma-topics = { path = "./oma-topics", optional = true }
+oma-history = { path = "./oma-history" }
 
 # i18n
 i18n-embed = { version = "0.14", features = ["fluent-system", "desktop-requester"]}
@@ -61,4 +62,4 @@ egg = ["dep:colored", "dep:image"]
 default = ["aosc","sequoia-nettle-backend", "egg"]
 
 [workspace]
-members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm"]
+members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history"]

@@ -5,6 +5,7 @@ use std::io::{self, ErrorKind};
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
+use oma_history::HistoryError;
 use oma_pm::apt::{AptArgsBuilderError, OmaAptArgsBuilderError};
 use oma_pm::search::OmaSearchError;
 use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
@@ -652,5 +653,28 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
             description: fl!("no-candidate-ver", pkg = s),
             source: None,
         },
+    }
+}
+
+impl From<HistoryError> for OutputError {
+    fn from(value: HistoryError) -> Self {
+        match value {
+            HistoryError::FailedOperateDirOrFile(s, e) => Self {
+                description: format!("Failed to operate dir or file: {s}"),
+                source: Some(Box::new(e)),
+            },
+            HistoryError::ConnectError(e) => Self {
+                description: e.to_string(),
+                source: Some(Box::new(e)),
+            },
+            HistoryError::ExecuteError(e) => Self {
+                description: e.to_string(),
+                source: Some(Box::new(e)),
+            },
+            HistoryError::ParseError(e) => Self {
+                description: e.to_string(),
+                source: None,
+            },
+        }
     }
 }
