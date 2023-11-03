@@ -1,8 +1,8 @@
+use oma_history::SummaryType;
 use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
 
 use crate::{
     error::OutputError,
-    history::SummaryType,
     utils::{create_async_runtime, dbus_check, root},
 };
 

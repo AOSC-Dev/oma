@@ -2342,6 +2342,7 @@ dependencies = [
  "oma-console 0.8.2",
  "oma-contents",
  "oma-fetch",
+ "oma-history",
  "oma-inquire",
  "oma-pm",
  "oma-refresh",
@@ -2449,6 +2450,18 @@ dependencies = [
  "sha2",
  "thiserror",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "oma-history"
+version = "0.1.0"
+dependencies = [
+ "oma-pm",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
  "tracing",
 ]
 
