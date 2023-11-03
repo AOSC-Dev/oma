@@ -1,3 +1,4 @@
+use chrono::Local;
 use oma_console::success;
 use oma_history::connect_or_create_db;
 use oma_history::write_history_entry;
@@ -128,10 +129,11 @@ pub fn execute(
                                     })
                                     .collect::<Vec<_>>(),
                             ),
-                            connect_or_create_db(true)?,
+                            connect_or_create_db(true, args.sysroot)?,
                             dry_run,
                             start_time,
                         )?;
+                        info!("{}", fl!("history-tips-2"));
                         return Err(OutputError::from(e));
                     }
                     warn!("{e}, retrying ...");
