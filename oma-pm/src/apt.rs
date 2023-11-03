@@ -119,6 +119,8 @@ pub enum OmaAptError {
     DpkgError(#[from] DpkgError),
     #[error("Has {0} package failed to download.")]
     FailedToDownload(usize, Vec<DownloadError>),
+    #[error("Failed to get path parent: {0:?}")]
+    FailedGetParentPath(PathBuf),
 }
 
 #[derive(Default, Builder)]
@@ -528,7 +530,7 @@ impl OmaApt {
         let v = self.summary()?;
         let v_str = v.to_string();
 
-        let start_time = Local::now();
+        let sysroot = self.config.get("Dir").unwrap_or("/".to_string());
 
         if self.dry_run {
             debug!("op: {v:?}");
@@ -609,18 +611,23 @@ impl OmaApt {
 
         let end_time = Local::now().format(TIME_FORMAT).to_string();
 
-        std::fs::create_dir_all("/var/log/oma/")
-            .map_err(|e| OmaAptError::FailedOperateDirOrFile("/var/log/oma/".to_string(), e))?;
+        let sysroot = Path::new(&sysroot);
+        let history = sysroot.join("var/log/oma/history");
+        let parent = history
+            .parent()
+            .ok_or_else(|| OmaAptError::FailedGetParentPath(history.clone()))?;
+
+        std::fs::create_dir_all(parent)
+            .map_err(|e| OmaAptError::FailedOperateDirOrFile(parent.display().to_string(), e))?;
 
         let mut log = std::fs::OpenOptions::new()
             .append(true)
             .create(true)
             .write(true)
-            .open("/var/log/oma/history")
-            .map_err(|e| {
-                OmaAptError::FailedOperateDirOrFile("/var/log/oma/history".to_string(), e)
-            })?;
+            .open(&history)
+            .map_err(|e| OmaAptError::FailedOperateDirOrFile(history.display().to_string(), e))?;
 
+        let start_time = Local::now();
         writeln!(log, "Start-Date: {start_time}").ok();
 
         let args = std::env::args().collect::<Vec<_>>().join(" ");
