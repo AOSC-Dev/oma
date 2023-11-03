@@ -2,11 +2,7 @@ use anyhow::anyhow;
 use oma_history::{connect_or_create_db, list_history};
 use std::sync::atomic::Ordering;
 
-use crate::{
-    error::OutputError,
-    table::table_for_history_pending,
-    ALLOWCTRLC,
-};
+use crate::{error::OutputError, table::table_for_history_pending, ALLOWCTRLC};
 
 use super::utils::{dialoguer_select_history, format_summary_log};
 
