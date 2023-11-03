@@ -110,6 +110,8 @@ pub fn execute(
                     dry_run,
                     start_time,
                 )?;
+                success!("{}", fl!("history-tips-1"));
+                info!("{}", fl!("history-tips-2"));
                 return Ok(0);
             }
             Err(e) => match e {
@@ -124,7 +126,4 @@ pub fn execute(
             },
         }
     }
-
-    success!("{}", fl!("history-tips-1"));
-    info!("{}", fl!("history-tips-2"));
 }
