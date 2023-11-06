@@ -7,13 +7,11 @@ import json
 import subprocess
 import toml
 
-LANG = ''
 with open('../i18n.toml', 'r', encoding="utf-8") as f:
     d = f.read()
     d = toml.loads(d)
     lang = d['fallback_language']
 
-CRATE_NAME = ''
 with open('../Cargo.toml', 'r', encoding="utf-8") as f:
     d = f.read()
     d = toml.loads(d)
