@@ -47,6 +47,26 @@ with open(f'../i18n/{lang}/{crate_name}.ftl', 'r', encoding="utf-8") as f:
                         if d['data']['stats']['matches'] == 0:
                             no_res.append(k)
 
+        output = subprocess.Popen(
+            [
+                "rg",
+                "-U",
+                "-e",
+                f'fl!\\(\\n\\s*"{k}"',
+                "--json",
+                "../src"
+            ],
+            stdout=subprocess.PIPE,
+        ).stdout.readlines()
+
+        for i in output:
+            d = json.loads(i)
+            if d.get('data'):
+                if d['data'].get('stats'):
+                    if d['data']['stats'].get('matches') is not None:
+                        if d['data']['stats']['matches'] != 0 and k in no_res:
+                            no_res.remove(k)
+
 
 for i in os.walk("../i18n"):
     (path, d, f) = i
