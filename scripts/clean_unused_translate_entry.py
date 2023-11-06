@@ -38,9 +38,9 @@ with open(f'../i18n/{lang}/{crate_name}.ftl', 'r', encoding="utf-8") as f:
                 f'fl!\\("{k}"',
                 "--json",
                 "../src"
-            ], 
+            ],
             stdout=subprocess.PIPE
-            ).stdout.readlines()
+        ).stdout.readlines()
         for i in output:
             d = json.loads(i)
             if d.get('data'):
