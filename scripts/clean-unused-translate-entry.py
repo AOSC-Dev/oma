@@ -25,9 +25,10 @@ with open(f'../i18n/{lang}/{crate_name}.ftl', 'r') as f:
             name = i_split[0].strip()
             s = i_split[1].strip()
             table[name] = s
-    
+
     for k in table.keys():
-        output = subprocess.Popen(["rg", "-e", f'fl!\("{k}"', "--json", "../src"], stdout=subprocess.PIPE).stdout.readlines()
+        output = subprocess.Popen(
+            ["rg", "-e", f'fl!\("{k}"', "--json", "../src"], stdout=subprocess.PIPE).stdout.readlines()
         for i in output:
             d = json.loads(i)
             if d.get('data'):
