@@ -4,21 +4,24 @@ Clean unused translate entries
 
 import os
 import json
+import sys
 import subprocess
 import toml
 
-with open('../i18n.toml', 'r', encoding="utf-8") as f:
+my_path = os.path.dirname(sys.argv[0])
+
+with open(f'{my_path}/../i18n.toml', 'r', encoding="utf-8") as f:
     d = f.read()
     d = toml.loads(d)
     lang = d['fallback_language']
 
-with open('../Cargo.toml', 'r', encoding="utf-8") as f:
+with open(f'{my_path}/../Cargo.toml', 'r', encoding="utf-8") as f:
     d = f.read()
     d = toml.loads(d)
     crate_name = d['package']['name']
 
 no_res = []
-with open(f'../i18n/{lang}/{crate_name}.ftl', 'r', encoding="utf-8") as f:
+with open(f'{my_path}/../i18n/{lang}/{crate_name}.ftl', 'r', encoding="utf-8") as f:
     d = f.readlines()
     table = {}
     for i in d:
@@ -35,7 +38,7 @@ with open(f'../i18n/{lang}/{crate_name}.ftl', 'r', encoding="utf-8") as f:
                 "-e",
                 f'fl!\\("{k}"',
                 "--json",
-                "../src"
+                f'{my_path}/../src'
             ],
             stdout=subprocess.PIPE
         ).stdout.readlines()
@@ -54,7 +57,7 @@ with open(f'../i18n/{lang}/{crate_name}.ftl', 'r', encoding="utf-8") as f:
                 "-e",
                 f'fl!\\(\\n\\s*"{k}"',
                 "--json",
-                "../src"
+                f'{my_path}/../src'
             ],
             stdout=subprocess.PIPE,
         ).stdout.readlines()
@@ -68,7 +71,7 @@ with open(f'../i18n/{lang}/{crate_name}.ftl', 'r', encoding="utf-8") as f:
                             no_res.remove(k)
 
 
-for i in os.walk("../i18n"):
+for i in os.walk(f'{my_path}/../i18n'):
     (path, d, f) = i
     for j in f:
         if j.endswith(".ftl"):
@@ -87,3 +90,6 @@ for i in os.walk("../i18n"):
                 lines = [i for i in lines if i != '']
             with open(f'{path}/{j}', 'w', encoding="utf-8") as f:
                 f.writelines(lines)
+
+for i in no_res:
+    print(i)
