@@ -242,7 +242,7 @@ impl From<RefreshError> for OutputError {
                         source: None,
                     },
                     VerifyError::FailedToReadInRelease(e) => Self {
-                        description: "Failed to read decoded InRelease file.".to_string(),
+                        description: fl!("failed-to-read-decode-inrelease"),
                         source: Some(Box::new(e)),
                     },
                 },
@@ -294,7 +294,7 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::ChecksumError(e) => oma_checksum_error(e),
             RefreshError::FailedToOperateDirOrFile(path, e) => Self {
-                description: format!("Failed to operate path: {path}"),
+                description: fl!("failed-to-operate-path", p = path),
                 source: Some(Box::new(e)),
             },
         }
@@ -316,7 +316,7 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             source: None,
         },
         OmaTopicsError::FailedToOperateDirOrFile(path, e) => OutputError {
-            description: format!("Failed to operate path: {path}"),
+            description: fl!("failed-to-operate-path", p = path),
             source: Some(Box::new(e)),
         },
         OmaTopicsError::CanNotFindTopic(topic) => OutputError {
@@ -332,8 +332,8 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             description: e.to_string(),
             source: None,
         },
-        OmaTopicsError::FailedGetParentPath(_) => OutputError {
-            description: e.to_string(),
+        OmaTopicsError::FailedGetParentPath(p) => OutputError {
+            description: fl!("failed-to-get-parent-path", p = p.display().to_string()),
             source: None,
         },
     }
@@ -375,15 +375,15 @@ impl From<OmaContentsError> for OutputError {
                 source: None,
             },
             OmaContentsError::LzzzErr(e) => Self {
-                description: e.to_string(),
-                source: None,
+                description: fl!("failed-to-decompress-contains"),
+                source: Some(Box::new(e)),
             },
             OmaContentsError::FailedToOperateDirOrFile(path, e) => Self {
-                description: format!("Failed to operate dir or file: {path}"),
+                description: fl!("failed-to-operate-path", p = path),
                 source: Some(Box::new(e)),
             },
             OmaContentsError::FailedToGetFileMetadata(path, e) => Self {
-                description: format!("Failed to get file metadata: {path}"),
+                description: fl!("failed-to-operate-path", p = path),
                 source: Some(Box::new(e)),
             },
         };
@@ -415,15 +415,15 @@ impl From<OmaContentsError> for OutputError {
                 source: None,
             },
             OmaContentsError::FailedToOperateDirOrFile(path, e) => Self {
-                description: format!("Failed to operate dir or file: {path}"),
+                description: fl!("failed-to-operate-path", p = path),
                 source: Some(Box::new(e)),
             },
             OmaContentsError::FailedToGetFileMetadata(path, e) => Self {
-                description: format!("Failed to get file metadata: {path}"),
+                description: fl!("failed-to-get-file-metadata", p = path),
                 source: Some(Box::new(e)),
             },
             OmaContentsError::FailedToWaitExit(e) => Self {
-                description: "Failed to wait `rg' to exit.".to_string(),
+                description: fl!("failed-to-wait-rg-to-exit"),
                 source: Some(Box::new(e)),
             },
         };
@@ -527,15 +527,15 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: Some(Box::new(e)),
         },
         OmaAptError::FailedOperateDirOrFile(path, e) => OutputError {
-            description: format!("Failed to operate dir or file: {path}"),
+            description: fl!("failed-to-operate-path", p = path),
             source: Some(Box::new(e)),
         },
         OmaAptError::FailedGetAvailableSpace(e) => OutputError {
-            description: "Failed to get available space".to_string(),
+            description: fl!("failed-to-get-available-space"),
             source: Some(Box::new(e)),
         },
-        OmaAptError::FailedGetParentPath(_) => OutputError {
-            description: err.to_string(),
+        OmaAptError::FailedGetParentPath(p) => OutputError {
+            description: fl!("failed-to-get-parent-path", p = p.display().to_string()),
             source: None,
         },
     }
@@ -550,7 +550,7 @@ impl From<reqwest::Error> for OutputError {
 
         if e.is_builder() {
             return Self {
-                description: "Failed to create http client.".to_string(),
+                description: fl!("failed-to-create-http-client"),
                 source: Some(Box::new(e)),
             };
         }
@@ -664,20 +664,20 @@ impl From<HistoryError> for OutputError {
     fn from(value: HistoryError) -> Self {
         match value {
             HistoryError::FailedOperateDirOrFile(s, e) => Self {
-                description: format!("Failed to operate dir or file: {s}"),
+                description: fl!("failed-to-operate-path", p = s),
                 source: Some(Box::new(e)),
             },
             HistoryError::ConnectError(e) => Self {
-                description: e.to_string(),
+                description: fl!("failed-to-connect-history-database"),
                 source: Some(Box::new(e)),
             },
             HistoryError::ExecuteError(e) => Self {
-                description: e.to_string(),
+                description: fl!("failed-to-execute-query-stmt"),
                 source: Some(Box::new(e)),
             },
             HistoryError::ParseError(e) => Self {
-                description: e.to_string(),
-                source: None,
+                description: fl!("failed-to-parse-history-object"),
+                source: Some(Box::new(e)),
             },
         }
     }

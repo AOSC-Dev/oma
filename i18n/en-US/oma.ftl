@@ -157,3 +157,14 @@ need-more-size = Insufficient storage space: {$a} is availble, but {$n} is neede
 successfully-download-to-path = Successfully downloaded {$len} package(s) to path: {$path}.
 oma-may = Omakase may {$a}, {$b}, {$c}, {$d}, or {$e} packages in order
     to fulfill your requested changes.
+
+failed-to-read-decode-inrelease = Failed to read decoded InRelease file.
+failed-to-operate-path = Failed to operate path: {$p}.
+failed-to-get-parent-path = Failed to get parent path: {$p}.
+failed-to-get-file-metadata = Failed to get file metadata: {$p}.
+failed-to-wait-rg-to-exit = Failed to wait `rg' to exit.
+failed-to-get-available-space = "Failed to get available space.
+failed-to-create-http-client = Failed to create http client.
+failed-to-connect-history-database = Failed to connect history database.
+failed-to-execute-query-stmt = Failed to execute history database query statement.
+failed-to-parse-history-object = Failed to parser history database object.
