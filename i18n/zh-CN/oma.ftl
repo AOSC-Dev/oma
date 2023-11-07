@@ -151,3 +151,14 @@ download-failed = 下载 {$filename} 文件失败！
 need-more-size = 存储空间不足：{$a} 可用，但需要 {$n}。
 successfully-download-to-path = 已下载 {$len} 个软件包到该路径：{$path}
 oma-may = 为应用您指定的更改，Omakase 可能 {$a}、{$b}、{$c}、{$d} 或 {$e} 软件包。
+
+failed-to-read-decode-inrelease = Failed to read decoded InRelease file.
+failed-to-operate-path = Failed to operate path: {$p}.
+failed-to-get-parent-path = Failed to get parent path: {$p}.
+failed-to-decompress-contains = Failed to decompress contains: {$p}.
+failed-to-wait-rg-to-exit = Failed to wait `rg' to exit.
+failed-to-get-available-space = Failed to get available space.
+failed-to-create-http-client = Failed to create http client.
+failed-to-connect-history-database = Failed to connect history database.
+failed-to-execute-query-stmt = Failed to execute history database query statement.
+failed-to-parse-history-object = Failed to parser history database object.
