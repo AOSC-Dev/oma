@@ -111,7 +111,7 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
 
     drop(writer);
     pager.wait_for_exit().map_err(|e| OutputError {
-        description: "Failed to wait exit".to_string(),
+        description: "Failed to wait pager exit".to_string(),
         source: Some(Box::new(e)),
     })?;
 
