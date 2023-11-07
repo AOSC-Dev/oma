@@ -7,6 +7,7 @@ use tracing::info;
 use crate::error::OutputError;
 use crate::fl;
 use anyhow::anyhow;
+use smallvec::{smallvec, SmallVec};
 
 use super::utils::check_unsupport_stmt;
 
@@ -20,7 +21,7 @@ pub fn execute(
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-    let mut filter_mode = vec![FilterMode::Names];
+    let mut filter_mode: SmallVec<[_; 4]> = smallvec![FilterMode::Names];
 
     if installed {
         filter_mode.push(FilterMode::Installed);
