@@ -1,15 +1,13 @@
-use std::{borrow::Cow, collections::HashMap, num::ParseIntError, path::Path};
-
-// use time::{format_description::well_known::Rfc2822, OffsetDateTime};
-
 use chrono::{DateTime, Utc};
+use small_map::SmallMap;
+use smallvec::{smallvec, SmallVec};
+use std::{borrow::Cow, num::ParseIntError, path::Path};
 
 use crate::verify;
 
-#[derive(Debug)]
 pub struct InReleaseParser {
-    _source: Vec<HashMap<String, String>>,
-    pub checksums: Vec<ChecksumItem>,
+    _source: Vec<SmallMap<16, String, String>>,
+    pub checksums: SmallVec<[ChecksumItem; 32]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,7 +133,7 @@ impl InReleaseParser {
             checksums_res.push((name, size, checksum));
         }
 
-        let mut res = vec![];
+        let mut res: SmallVec<[_; 32]> = smallvec![];
 
         let c_res_clone = checksums_res.clone();
 
@@ -181,14 +179,14 @@ impl InReleaseParser {
     }
 }
 
-fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<HashMap<String, String>>> {
+fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String, String>>> {
     let mut res = vec![];
 
     let debcontrol = oma_debcontrol::parse_str(s)
         .map_err(|e| InReleaseParserError::InReleaseSyntaxError(s.to_string(), e.to_string()))?;
 
     for i in debcontrol {
-        let mut item = HashMap::new();
+        let mut item = SmallMap::<16, _, _>::new();
         let field = i.fields;
 
         for j in field {
