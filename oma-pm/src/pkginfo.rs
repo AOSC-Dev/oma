@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
 use oma_apt::{
     cache::Cache,
@@ -7,6 +7,7 @@ use oma_apt::{
     records::RecordField,
 };
 use oma_utils::human_bytes::HumanBytes;
+use small_map::SmallMap;
 
 #[derive(Debug)]
 pub struct OmaDependency {
@@ -184,20 +185,30 @@ impl PkgInfo {
         );
     }
 
-    pub fn get_deps(&self, cache: &Cache) -> HashMap<OmaDepType, OmaDependencyGroup> {
+    pub fn get_deps(&self, cache: &Cache) -> SmallMap<9, OmaDepType, OmaDependencyGroup> {
+        let mut map = SmallMap::new();
         Version::new(self.version_raw.unique(), cache)
             .depends_map()
             .iter()
             .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-            .collect::<HashMap<_, _>>()
+            .for_each(|(x, y)| {
+                map.insert(x, y);
+            });
+
+        map
     }
 
-    pub fn get_rdeps(&self, cache: &Cache) -> HashMap<OmaDepType, OmaDependencyGroup> {
+    pub fn get_rdeps(&self, cache: &Cache) -> SmallMap<9, OmaDepType, OmaDependencyGroup> {
+        let mut map = SmallMap::new();
         Package::new(cache, self.raw_pkg.unique())
             .rdepends_map()
             .iter()
             .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-            .collect::<HashMap<_, _>>()
+            .for_each(|(x, y)| {
+                map.insert(x, y);
+            });
+
+        map
     }
 }
 

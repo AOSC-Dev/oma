@@ -2546,6 +2546,7 @@ dependencies = [
  "oma-fetch",
  "oma-utils 0.5.1",
  "serde",
+ "small-map",
  "thiserror",
  "tokio",
  "tracing",
@@ -3465,6 +3466,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "small-map"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f6bc8704b966e50b4fc057788d91533d3296594d4f68701da95f2c2289c808e"
+dependencies = [
+ "ahash",
+ "hashbrown 0.14.2",
+ "rustc-hash",
 ]
 
 [[package]]
