@@ -135,15 +135,10 @@ pub fn root() -> Result<()> {
 
     let out = Command::new("pkexec")
         .args(handled_args)
-        .spawn()
-        .and_then(|x| x.wait_with_output())
-        .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
+        .spawn()?
+        .wait_with_output()?;
 
-    exit(
-        out.status
-            .code()
-            .expect("Can not get pkexec oma exit status"),
-    );
+    exit(out.status.code().unwrap_or(1));
 }
 
 pub fn create_async_runtime() -> Result<Runtime> {
