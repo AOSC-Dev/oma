@@ -878,7 +878,7 @@ impl OmaApt {
     pub fn summary(&self) -> OmaAptResult<OmaOperation> {
         let mut install = vec![];
         let mut remove = vec![];
-        let changes = self.cache.get_changes(false)?;
+        let changes = self.cache.get_changes(true)?;
 
         for pkg in changes {
             if pkg.marked_install() {
