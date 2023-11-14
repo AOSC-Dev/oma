@@ -140,7 +140,7 @@ pub fn root() -> Result<()> {
     exit(
         out.status
             .code()
-            .expect("Can not get pkexec oma exit status"),
+            .unwrap_or(1)
     );
 }
 
