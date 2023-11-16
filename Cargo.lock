@@ -1110,9 +1110,9 @@ dependencies = [
 
 [[package]]
 name = "fallible-iterator"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
+checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
 
 [[package]]
 name = "fallible-streaming-iterator"
@@ -2004,9 +2004,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.26.0"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afc22eff61b133b115c6e8c74e818c628d6d5e7a502afea6f64dee076dd94326"
+checksum = "cf4e226dcd58b4be396f7bd3c20da8fdee2911400705297ba7d2d7cc2c30f716"
 dependencies = [
  "cc",
  "pkg-config",
@@ -2387,7 +2387,7 @@ dependencies = [
  "i18n-embed-fl",
  "image",
  "libc",
- "oma-console 0.8.2",
+ "oma-console",
  "oma-contents",
  "oma-fetch",
  "oma-history",
@@ -2398,7 +2398,6 @@ dependencies = [
  "oma-utils 0.5.1",
  "once_cell",
  "reqwest",
- "rusqlite",
  "rust-embed",
  "rustix 0.38.25",
  "serde",
@@ -2431,18 +2430,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38017b20b26d96eaa3389ca4834fd63ae3d54dfc1fb95b1bd571ebccd052ffd7"
 dependencies = [
  "err-derive",
-]
-
-[[package]]
-name = "oma-console"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbf682e69e0bafa7a6b567cc591c1cefe9e40ae829d399c2a5470ec6e9590c87"
-dependencies = [
- "console",
- "icu_segmenter",
- "indicatif",
- "once_cell",
 ]
 
 [[package]]
@@ -2492,8 +2479,8 @@ dependencies = [
  "futures",
  "hex",
  "indicatif",
- "oma-console 0.8.2",
- "oma-utils 0.2.2",
+ "oma-console",
+ "oma-utils 0.5.2",
  "reqwest",
  "serde",
  "sha2",
@@ -2543,7 +2530,7 @@ dependencies = [
  "indicatif",
  "indicium",
  "oma-apt",
- "oma-console 0.8.2",
+ "oma-console",
  "oma-fetch",
  "oma-utils 0.5.1",
  "serde",
@@ -2564,7 +2551,7 @@ dependencies = [
  "futures",
  "indicatif",
  "oma-apt-sources-lists",
- "oma-console 0.8.2",
+ "oma-console",
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
@@ -2588,7 +2575,7 @@ version = "0.7.0"
 dependencies = [
  "futures",
  "indexmap",
- "oma-console 0.8.2",
+ "oma-console",
  "oma-inquire",
  "reqwest",
  "serde",
@@ -2600,29 +2587,29 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a920e84d16cfca74212782a3d5012b1a314f7c4e673715506a2a69522dd78d7"
-dependencies = [
- "oma-console 0.7.2",
- "once_cell",
- "os-release",
- "thiserror",
- "url-escape",
-]
-
-[[package]]
-name = "oma-utils"
 version = "0.5.1"
 dependencies = [
  "number_prefix",
- "oma-console 0.8.2",
+ "oma-console",
  "once_cell",
  "os-release",
  "thiserror",
  "tracing",
  "url-escape",
  "zbus",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91d8490c0a82c12766266403a8233db7ffa91adb3c9fd3e416dfac8e44b018bf"
+dependencies = [
+ "once_cell",
+ "os-release",
+ "thiserror",
+ "tracing",
+ "url-escape",
 ]
 
 [[package]]
@@ -3096,9 +3083,9 @@ checksum = "b833d8d034ea094b1ea68aa6d5c740e0d04bad9d16568d08ba6f76823a114316"
 
 [[package]]
 name = "rusqlite"
-version = "0.29.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "549b9d036d571d42e6e85d1c1425e2ac83491075078ca9a15be021c56b1641f2"
+checksum = "a78046161564f5e7cd9008aff3b2990b3850dc8e0349119b98e8f251e099f24d"
 dependencies = [
  "bitflags 2.4.1",
  "fallible-iterator",
@@ -3478,7 +3465,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f6bc8704b966e50b4fc057788d91533d3296594d4f68701da95f2c2289c808e"
 dependencies = [
  "ahash",
- "hashbrown 0.14.2",
+ "hashbrown",
  "rustc-hash",
 ]
 
