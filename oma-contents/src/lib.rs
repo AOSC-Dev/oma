@@ -12,7 +12,7 @@ use std::sync::atomic::AtomicUsize;
 use chrono::{DateTime, Utc};
 
 use winnow::{
-    combinator::{separated0, separated_pair},
+    combinator::{separated, separated_pair},
     error::ParserError,
     token::{tag, take_till0, take_until1},
     PResult, Parser,
@@ -454,7 +454,7 @@ fn second_single<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<&'
 
 #[inline]
 fn second<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<Vec<(&'a str, &'a str)>, E> {
-    separated0(pkg_split, ',').parse_next(input)
+    separated(0.., pkg_split, ',').parse_next(input)
 }
 
 #[inline]
