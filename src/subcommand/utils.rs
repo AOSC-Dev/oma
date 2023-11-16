@@ -113,11 +113,6 @@ pub(crate) fn refresh(
             .await
     })?;
 
-    // 不知道这里放弃运行时的上下文是否是一个正确的决定？
-    // 不放弃上下文会导致 tokio 运行环境关闭需要等待
-    // drop(tokio);
-    tokio.shutdown_background();
-
     if let Some(gpb) = pbc.get(&0) {
         gpb.finish_and_clear();
     }
