@@ -427,7 +427,7 @@ fn search_line(mut line: &str, is_list: bool, kw: &str) -> Option<(String, Strin
 
     if pkgs.len() != 1 {
         for (_, pkg) in pkgs {
-            if is_list && pkg == kw || !is_list {
+            if pkg == kw || !is_list {
                 let file = prefix(file);
                 return Some((pkg.to_string(), file));
             }
@@ -490,7 +490,7 @@ fn single_line<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<Cont
 
 #[inline]
 fn prefix(s: &str) -> String {
-    if s.starts_with("/") {
+    if s.starts_with('/') {
         s.to_string()
     } else {
         "/".to_owned() + s
