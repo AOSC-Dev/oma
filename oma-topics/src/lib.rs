@@ -140,7 +140,7 @@ impl TopicManager {
     }
 
     /// Enable select topic
-    pub async fn add(&mut self, topic: &str, dry_run: bool, arch: &str) -> Result<()> {
+    pub fn add(&mut self, topic: &str, dry_run: bool, arch: &str) -> Result<()> {
         debug!("oma will opt_in: {}", topic);
 
         if dry_run {
@@ -250,7 +250,7 @@ impl TopicManager {
                 };
                 if check_available
                     && !self
-                        .check_available_fn(format!("{url}debs/dists/{}", i.name))
+                        .mirror_topic_is_exist(format!("{url}debs/dists/{}", i.name))
                         .await
                         .unwrap_or(false)
                 {
@@ -280,7 +280,7 @@ impl TopicManager {
         Ok(())
     }
 
-    async fn check_available_fn(&self, url: String) -> Result<bool> {
+    async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
         Ok(self
             .client
             .get(url)
