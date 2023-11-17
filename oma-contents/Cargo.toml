@@ -16,6 +16,7 @@ winnow = "0.5"
 flate2 = { version = "1.0", default-features = false, features = ["zlib"], optional = true }
 rayon = { version = "1.8", optional = true }
 lzzzz = { version = "1.0", optional = true }
+tracing = "0.1"
 
 [dev-dependencies]
 indicatif = "0.17"
