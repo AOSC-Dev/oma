@@ -2367,7 +2367,7 @@ dependencies = [
  "i18n-embed-fl",
  "image",
  "libc",
- "oma-console 0.8.2",
+ "oma-console 0.8.3",
  "oma-contents",
  "oma-fetch",
  "oma-history",
@@ -2415,6 +2415,8 @@ dependencies = [
 [[package]]
 name = "oma-console"
 version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2346c45bba84878771eea7a25e8a80e847616110f6ebb74d95364bf43ea22964"
 dependencies = [
  "console",
  "icu_segmenter",
@@ -2426,9 +2428,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2346c45bba84878771eea7a25e8a80e847616110f6ebb74d95364bf43ea22964"
+version = "0.8.3"
 dependencies = [
  "console",
  "icu_segmenter",
@@ -2474,7 +2474,7 @@ dependencies = [
  "futures",
  "hex",
  "indicatif",
- "oma-console 0.8.2",
+ "oma-console 0.8.3",
  "oma-utils 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
@@ -2525,7 +2525,7 @@ dependencies = [
  "indicatif",
  "indicium",
  "oma-apt",
- "oma-console 0.8.2",
+ "oma-console 0.8.3",
  "oma-fetch",
  "oma-utils 0.5.1",
  "serde",
@@ -2546,7 +2546,7 @@ dependencies = [
  "futures",
  "indicatif",
  "oma-apt-sources-lists",
- "oma-console 0.8.2",
+ "oma-console 0.8.3",
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
@@ -2570,7 +2570,7 @@ version = "0.7.0"
 dependencies = [
  "futures",
  "indexmap",
- "oma-console 0.8.2",
+ "oma-console 0.8.3",
  "oma-inquire",
  "reqwest",
  "serde",
@@ -2585,7 +2585,7 @@ name = "oma-utils"
 version = "0.5.1"
 dependencies = [
  "number_prefix",
- "oma-console 0.8.2",
+ "oma-console 0.8.3",
  "once_cell",
  "os-release",
  "thiserror",
@@ -2600,7 +2600,7 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b054897d98c4a674693e1c3c4e97b67643e9bd9ea1d048525b9ab91e195cdde"
 dependencies = [
- "oma-console 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "oma-console 0.8.2",
  "once_cell",
  "os-release",
  "thiserror",
