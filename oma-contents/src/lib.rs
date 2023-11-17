@@ -193,6 +193,7 @@ where
 {
     use std::io::BufRead;
     use std::process::{Command, Stdio};
+
     let kw = if Path::new(kw).is_absolute() {
         // 当确定 keyword 是一个绝对路径时，则 strip / 肯定有值，所以直接 unwrap
         // 这在 Windows 上可能会崩溃，后面 oma 要跑在 Windows 上面再说吧……
@@ -418,11 +419,15 @@ where
 /// Parse contents line
 #[cfg(not(feature = "no-rg-binary"))]
 fn search_line(mut line: &str, is_list: bool, kw: &str) -> Option<(String, String)> {
+    use tracing::debug;
+
     let (file, pkgs) = single_line::<()>(&mut line).ok()?;
+
+    debug!("file: {file}, pkgs: {pkgs:?}");
 
     if pkgs.len() != 1 {
         for (_, pkg) in pkgs {
-            if is_list || pkg.contains(kw) {
+            if is_list && pkg == kw || !is_list {
                 let file = prefix(file);
                 return Some((pkg.to_string(), file));
             }
@@ -485,7 +490,11 @@ fn single_line<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<Cont
 
 #[inline]
 fn prefix(s: &str) -> String {
-    "/".to_owned() + s
+    if s.starts_with("/") {
+        s.to_string()
+    } else {
+        "/".to_owned() + s
+    }
 }
 
 #[test]

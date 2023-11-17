@@ -2451,6 +2451,7 @@ dependencies = [
  "regex",
  "strsim",
  "thiserror",
+ "tracing",
  "winnow",
 ]
 
