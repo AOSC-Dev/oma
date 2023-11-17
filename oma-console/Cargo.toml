@@ -1,6 +1,6 @@
 [package]
 name = "oma-console"
-version = "0.8.2"
+version = "0.8.3"
 edition = "2021"
 description = "Omakase (oma) console tools to help oma handle console"
 license = "MIT"
