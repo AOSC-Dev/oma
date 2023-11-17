@@ -2443,7 +2443,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.8.2"
+version = "0.8.3"
 dependencies = [
  "console",
  "icu_segmenter",
