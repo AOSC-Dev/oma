@@ -144,8 +144,10 @@ where
         inquire(&mut tm, &mut opt_in, &mut opt_out, no_progress).await?;
     }
 
+    let dpkg_arch = dpkg_arch(sysroot)?;
+
     for i in &opt_in {
-        tm.add(i, dry_run, &dpkg_arch(&sysroot)?).await?;
+        tm.add(i, dry_run, &dpkg_arch)?;
     }
 
     let mut downgrade_pkgs = vec![];
