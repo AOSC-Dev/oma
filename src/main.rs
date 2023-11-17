@@ -202,6 +202,10 @@ fn try_main() -> Result<i32, OutputError> {
         false
     };
 
+    #[cfg(feature = "tokio-console")]
+    console_subscriber::init();
+
+    #[cfg(not(feature = "tokio-console"))]
     if !debug {
         let no_i18n_embd_info: EnvFilter = "i18n_embed=error,info"
             .parse()
