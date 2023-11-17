@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
     }
 
     for i in opt_in {
-        tm.add(&i, false, "amd64").await?;
+        tm.add(&i, false, "amd64")?;
     }
 
     for i in opt_out {
