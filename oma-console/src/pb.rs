@@ -16,7 +16,7 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
                     + &style("/").green().bold().to_string()
                     + " {total_bytes:.green.bold} "
                     + &style("@").green().bold().to_string()
-                    + " {binary_bytes_per_sec:<13.green.bold}"
+                    + " {binary_bytes_per_sec:<10.green.bold}"
             } else {
                 " {prefix:.blue.bold}".to_owned()
                     + " {bytes:>10.green.bold} "
@@ -30,7 +30,7 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
         } else if max_len < 100 {
             " {msg} {percent:>3}%".to_owned()
         } else {
-            " {msg:<60} {total_bytes:<10}  [{wide_bar:.white/black}] {percent:>3}%".to_owned()
+            " {msg:<62} {total_bytes:<10}  [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
     };
 
