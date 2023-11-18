@@ -101,8 +101,6 @@ pub enum OmaAptError {
     FailedOperateDirOrFile(String, std::io::Error),
     #[error("Failed to get available space: {0}")]
     FailedGetAvailableSpace(std::io::Error),
-    // #[error(transparent)]
-    // IOError(#[from] std::io::Error),
     #[error(transparent)]
     InstallEntryBuilderError(#[from] InstallEntryBuilderError),
     #[error("Failed to run dpkg --configure -a: {0}")]

@@ -4,7 +4,7 @@ use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 
 use crate::error::OutputError;
 
-use super::utils::{check_unsupport_stmt, handle_no_result};
+use super::utils::{handle_no_result, check_unsupport_stmt};
 
 pub fn execute(pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
     for pkg in &pkgs {

@@ -17,6 +17,5 @@ pub mod search;
 pub mod show;
 #[cfg(feature = "aosc")]
 pub mod topics;
-pub mod undo;
 pub mod upgrade;
 mod utils;

@@ -1,12 +1,15 @@
 use anyhow::anyhow;
-use oma_history::{connect_or_create_db, list_history};
-use std::sync::atomic::Ordering;
+use chrono::{Local, LocalResult, TimeZone};
+use dialoguer::{theme::ColorfulTheme, Select};
+use oma_history::{connect_or_create_db, list_history, SummaryType, SummaryLog};
+use oma_pm::{apt::{OmaAptArgsBuilder, OmaApt, FilterMode, AptArgsBuilder}, operation::InstallOperation, pkginfo::PkgInfo};
+use std::{sync::atomic::Ordering, borrow::Cow};
 
-use crate::{error::OutputError, table::table_for_history_pending, ALLOWCTRLC};
+use crate::{error::OutputError, table::table_for_history_pending, ALLOWCTRLC, utils::{root, create_async_runtime, dbus_check}};
 
-use super::utils::{dialoguer_select_history, format_summary_log};
+use super::utils::{handle_no_result, NormalCommitArgs, normal_commit};
 
-pub fn execute(sysroot: String) -> Result<i32, OutputError> {
+pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     let conn = connect_or_create_db(false, sysroot)?;
     let list = list_history(conn)?;
     let display_list = format_summary_log(&list, false);
@@ -28,4 +31,212 @@ pub fn execute(sysroot: String) -> Result<i32, OutputError> {
 
         table_for_history_pending(install, remove, disk_size)?;
     }
+}
+
+pub fn execute_undo(
+    network_thread: usize,
+    no_progress: bool,
+    sysroot: String,
+) -> Result<i32, OutputError> {
+    root()?;
+
+    let rt = create_async_runtime()?;
+    dbus_check(&rt)?;
+
+    let conn = connect_or_create_db(false, sysroot.clone())?;
+    let list = list_history(conn)?;
+    let display_list = format_summary_log(&list, true);
+    let selected = dialoguer_select_history(&display_list, 0)?;
+
+    let selected = &list[selected].0;
+    let op = &selected.op;
+
+    let oma_apt_args = OmaAptArgsBuilder::default()
+        .sysroot(sysroot.clone())
+        .build()?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
+
+    let mut delete = vec![];
+    let mut install = vec![];
+
+    if !op.install.is_empty() {
+        for i in &op.install {
+            match i.op() {
+                InstallOperation::Default | InstallOperation::Download => unreachable!(),
+                InstallOperation::Install => delete.push(i.name()),
+                InstallOperation::ReInstall => continue,
+                InstallOperation::Upgrade => install.push((i.name(), i.old_version().unwrap())),
+                InstallOperation::Downgrade => install.push((i.name(), i.old_version().unwrap())),
+            }
+        }
+    }
+
+    if !op.remove.is_empty() {
+        for i in &op.remove {
+            if let Some(ver) = i.version() {
+                install.push((i.name(), ver));
+            }
+        }
+    }
+
+    let (delete, no_result) = apt.select_pkg(&delete, false, true, false)?;
+    handle_no_result(no_result);
+
+    apt.remove(&delete, false, true, |_| true)?;
+
+    let pkgs = apt.filter_pkgs(&[FilterMode::Default])?.collect::<Vec<_>>();
+
+    let install = install
+        .iter()
+        .filter_map(|(pkg, ver)| {
+            let pkg = pkgs.iter().find(move |y| &y.name() == pkg);
+
+            if let Some(pkg) = pkg {
+                Some((pkg, pkg.get_version(ver)?))
+            } else {
+                None
+            }
+        })
+        .map(|(x, y)| PkgInfo::new(&y, x))
+        .collect::<Vec<_>>();
+
+    apt.install(&install, false)?;
+
+    let args = NormalCommitArgs {
+        apt,
+        dry_run: false,
+        typ: SummaryType::Undo,
+        apt_args: AptArgsBuilder::default().no_progress(no_progress).build()?,
+        no_fixbroken: false,
+        network_thread,
+        no_progress,
+        sysroot,
+    };
+
+    normal_commit(args)?;
+
+    Ok(0)
+}
+
+fn dialoguer_select_history(
+    display_list: &[String],
+    old_selected: usize,
+) -> Result<usize, OutputError> {
+    let selected = Select::with_theme(&ColorfulTheme::default())
+        .items(display_list)
+        .default(old_selected)
+        .interact()
+        .map_err(|_| anyhow!(""))?;
+
+    Ok(selected)
+}
+
+fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<String> {
+    let display_list = list
+        .iter()
+        .filter(|(log, _)| {
+            if undo {
+                log.typ != SummaryType::FixBroken
+            } else {
+                true
+            }
+        })
+        .map(|(log, date)| {
+            let date = format_date(*date);
+            match &log.typ {
+                SummaryType::Install(v) if v.len() > 3 => format!(
+                    "Installed {} ... (and {} more) [{}]",
+                    v[..3].join(" "),
+                    v.len() - 3,
+                    date
+                ),
+                SummaryType::Install(v) => format!("Installed {} [{date}]", v.join(" ")),
+                SummaryType::Upgrade(v) if v.is_empty() => format!("Upgraded system [{date}]"),
+                SummaryType::Upgrade(v) if v.len() > 3 => format!(
+                    "Upgraded system and installed {}... (and {} more) [{date}]",
+                    v[..3].join(" "),
+                    v.len() - 3
+                ),
+                SummaryType::Upgrade(v) => {
+                    format!("Upgraded system and install {} [{date}]", v.join(" "))
+                }
+                SummaryType::Remove(v) if v.len() > 3 => format!(
+                    "Removed {} ... (and {} more)",
+                    v[..3].join(" "),
+                    v.len() - 3
+                ),
+                SummaryType::Remove(v) => format!("Removed {} [{date}]", v.join(" ")),
+                SummaryType::FixBroken => format!("Attempted to fix broken dependencies [{date}]"),
+                SummaryType::TopicsChanged { add, remove } if remove.is_empty() => {
+                    format!(
+                        "Topics changed: enabled {}{} [{date}]",
+                        if add.len() <= 3 {
+                            add.join(" ")
+                        } else {
+                            add[..3].join(" ")
+                        },
+                        if add.len() <= 3 {
+                            Cow::Borrowed("")
+                        } else {
+                            Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
+                        }
+                    )
+                }
+                SummaryType::TopicsChanged { add, remove } if add.is_empty() => {
+                    format!(
+                        "Topics changed: disabled {}{} [{date}]",
+                        if remove.len() <= 3 {
+                            add.join(" ")
+                        } else {
+                            remove[..3].join(" ")
+                        },
+                        if remove.len() <= 3 {
+                            Cow::Borrowed("")
+                        } else {
+                            Cow::Owned(format!(" ... (and {} more)", remove.len() - 3))
+                        }
+                    )
+                }
+                SummaryType::TopicsChanged { add, remove } => {
+                    format!(
+                        "Topics changed: enabled {}{}, disabled {}{} [{date}]",
+                        if add.len() <= 3 {
+                            add.join(" ")
+                        } else {
+                            add[..3].join(" ")
+                        },
+                        if add.len() <= 3 {
+                            Cow::Borrowed("")
+                        } else {
+                            Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
+                        },
+                        if remove.len() <= 3 {
+                            remove.join(" ")
+                        } else {
+                            remove[..3].join(" ")
+                        },
+                        if remove.len() <= 3 {
+                            Cow::Borrowed("")
+                        } else {
+                            Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
+                        },
+                    )
+                }
+                SummaryType::Undo => format!("Undone [{date}]"),
+            }
+        })
+        .collect::<Vec<_>>();
+
+    display_list
+}
+
+fn format_date(date: i64) -> String {
+    let dt = match Local.timestamp_opt(date, 0) {
+        LocalResult::None => Local.timestamp_opt(0, 0).unwrap(),
+        x => x.unwrap(),
+    };
+
+    let s = dt.format("%H:%M:%S on %Y-%m-%d").to_string();
+
+    s
 }
