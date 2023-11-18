@@ -413,10 +413,10 @@ fn try_main() -> Result<i32, OutputError> {
             rdepends::execute(pkgs, sysroot)?
         }
         Some(("clean", _)) => clean::execute(no_progress, sysroot)?,
-        Some(("history", _)) => subcommand::history::execute(sysroot)?,
+        Some(("history", _)) => subcommand::history::execute_history(sysroot)?,
         Some(("undo", _)) => {
             let network_thread = config.network_thread();
-            undo::execute(network_thread, no_progress, sysroot)?
+            history::execute_undo(network_thread, no_progress, sysroot)?
         }
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
