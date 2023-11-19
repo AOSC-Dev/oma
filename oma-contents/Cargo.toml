@@ -20,7 +20,7 @@ tracing = "0.1"
 
 [dev-dependencies]
 indicatif = "0.17"
-oma-utils = { path = "../oma-utils", features = ["dpkg"]}
+oma-utils = { path = "../oma-utils", features = ["dpkg"] }
 
 [features]
 aosc = []

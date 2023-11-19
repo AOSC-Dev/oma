@@ -19,15 +19,12 @@ use oma_apt::{
     records::RecordField,
     util::DiskSpace,
 };
-use oma_console::{
-    console::{self, style},
-    indicatif::HumanBytes,
-};
+use oma_console::console::{self, style};
 use oma_fetch::{
     DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
     DownloadSourceType, OmaFetcher, Summary,
 };
-use oma_utils::dpkg::{is_hold, DpkgError};
+use oma_utils::{dpkg::{is_hold, DpkgError}, human_bytes::HumanBytes};
 
 pub use oma_apt::config::Config as AptConfig;
 
@@ -188,7 +185,10 @@ impl OmaApt {
         );
 
         debug!("Dir is: {:?}", config.get("Dir"));
-        debug!("Dir::State::status is: {:?}", config.get("Dir::State::status"));
+        debug!(
+            "Dir::State::status is: {:?}",
+            config.get("Dir::State::status")
+        );
 
         let install_recommend = if args.install_recommends {
             true
