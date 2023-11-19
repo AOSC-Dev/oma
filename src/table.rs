@@ -313,7 +313,9 @@ pub fn table_for_history_pending(
         description: "Failed to get writer".to_string(),
         source: Some(Box::new(e)),
     })?;
-    let printer = PagerPrinter::new(out);
+    let mut printer = PagerPrinter::new(out);
+
+    printer.print("\n\n").ok();
 
     print_pending_inner(printer, remove, install, disk_size);
     pager.wait_for_exit().map_err(|e| OutputError {
