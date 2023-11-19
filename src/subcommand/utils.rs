@@ -162,23 +162,33 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
         }
     });
 
-    write_history_entry(
-        op_after,
-        typ,
-        connect_or_create_db(true, sysroot)?,
-        dry_run,
-        start_time,
-    )?;
-
-    info!("{}", fl!("history-tips-2"));
-
-    if res.is_ok() {
-        success!("{}", fl!("history-tips-1"));
-    } else {
-        res?;
+    match res {
+        Ok(_) => {
+            success!("{}", fl!("history-tips-1"));
+            info!("{}", fl!("history-tips-2"));
+            write_history_entry(
+                op_after,
+                typ,
+                connect_or_create_db(true, sysroot)?,
+                dry_run,
+                start_time,
+                true,
+            )?;
+            return Ok(());
+        }
+        Err(e) => {
+            info!("{}", fl!("history-tips-2"));
+            write_history_entry(
+                op_after,
+                typ,
+                connect_or_create_db(true, sysroot)?,
+                dry_run,
+                start_time,
+                false,
+            )?;
+            return Err(e.into());
+        }
     }
-
-    Ok(())
 }
 
 pub(crate) fn handle_event_without_progressbar(event: DownloadEvent) {
