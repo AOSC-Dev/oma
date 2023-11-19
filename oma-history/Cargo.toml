@@ -1,6 +1,6 @@
 [package]
 name = "oma-history"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "A crate to help oma operate history database"
 license = "MIT"
