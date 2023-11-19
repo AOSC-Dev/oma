@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    fmt::Display,
     io::{self, ErrorKind, Write},
     path::{Path, PathBuf},
     process::Command,
@@ -32,14 +31,14 @@ use oma_utils::dpkg::{is_hold, DpkgError};
 
 pub use oma_apt::config::Config as AptConfig;
 
-use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
+use oma_pm_operation_type::{
+    InstallEntry, InstallEntryBuilder, InstallEntryBuilderError, InstallOperation, RemoveEntry,
+    RemoveTag, OmaOperation,
+};
+
 use crate::{
-    operation::{
-        InstallEntry, InstallEntryBuilder, InstallEntryBuilderError, InstallOperation, RemoveEntry,
-        RemoveTag,
-    },
     pkginfo::PkgInfo,
     progress::{NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
@@ -160,101 +159,6 @@ pub enum FilterMode {
     Upgradable,
     Automatic,
     Names,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OmaOperation {
-    pub install: Vec<InstallEntry>,
-    pub remove: Vec<RemoveEntry>,
-    pub disk_size: (String, u64),
-    pub total_download_size: u64,
-}
-
-impl Display for OmaOperation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut install = vec![];
-        let mut upgrade = vec![];
-        let mut reinstall = vec![];
-        let mut downgrade = vec![];
-        let mut remove = vec![];
-        let mut purge = vec![];
-
-        for ins in &self.install {
-            let name = ins.name();
-            let arch = ins.arch();
-            let version = ins.new_version();
-            match ins.op() {
-                InstallOperation::Default | InstallOperation::Download => unreachable!(),
-                InstallOperation::Install => {
-                    if !ins.automatic() {
-                        install.push(format!("{name}:{arch} ({version})"));
-                    } else {
-                        install.push(format!("{name}:{arch} ({version}, automatic)"));
-                    }
-                }
-                InstallOperation::ReInstall => {
-                    reinstall.push(format!("{name}:{arch} ({version})"));
-                }
-                InstallOperation::Upgrade => {
-                    // Upgrade 的情况下 old_version 的值肯定存在，因此直接 unwreap
-                    upgrade.push(format!(
-                        "{name}:{arch} ({}, {version})",
-                        ins.old_version().unwrap()
-                    ));
-                }
-                InstallOperation::Downgrade => {
-                    downgrade.push(format!("{name}:{arch} ({version})"));
-                }
-            }
-        }
-
-        for rm in &self.remove {
-            let tags = rm.details();
-            let name = rm.name();
-            let version = rm.version();
-            let arch = rm.arch();
-
-            let mut s = format!("{name}:{arch}");
-            if let Some(ver) = version {
-                s.push_str(&format!(" ({ver})"));
-            }
-
-            if tags.contains(&RemoveTag::Purge) {
-                purge.push(s);
-            } else {
-                remove.push(s);
-            }
-        }
-
-        if !install.is_empty() {
-            writeln!(f, "Install: {}", install.join(", "))?;
-        }
-
-        if !upgrade.is_empty() {
-            writeln!(f, "Upgrade: {}", upgrade.join(", "))?;
-        }
-
-        if !reinstall.is_empty() {
-            writeln!(f, "ReInstall: {}", reinstall.join(", "))?;
-        }
-
-        if !downgrade.is_empty() {
-            writeln!(f, "Downgrade: {}", downgrade.join(", "))?;
-        }
-
-        if !remove.is_empty() {
-            writeln!(f, "Remove: {}", remove.join(", "))?;
-        }
-
-        if !purge.is_empty() {
-            writeln!(f, "Purge: {}", purge.join(", "))?;
-        }
-
-        let (symbol, n) = &self.disk_size;
-        writeln!(f, "Size-delta: {symbol}{}", HumanBytes(n.to_owned()))?;
-
-        Ok(())
-    }
 }
 
 impl OmaApt {
