@@ -86,90 +86,8 @@ fn main() {
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
 
-    let code = match try_main() {
-        Ok(exit_code) => exit_code,
-        Err(e) => {
-            if let Err(e) = display_error(e) {
-                eprintln!("Failed to display error, kind: {e}");
-            }
-
-            1
-        }
-    };
-
-    terminal_ring();
-    unlock_oma().ok();
-
-    exit(code);
-}
-
-fn display_error(e: OutputError) -> io::Result<()> {
-    if !e.to_string().is_empty() {
-        error!("{e}");
-
-        let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
-        let last_cause = cause.last();
-
-        if let Some(ref last) = last_cause {
-            due_to!("{last}");
-            let cause_writer = Writer::new(3);
-            if cause.len() > 1 {
-                for (i, c) in cause.iter().enumerate() {
-                    if i == 0 {
-                        WRITER.write_prefix(&console::style("TRACE").magenta().to_string())?;
-                    } else {
-                        WRITER.write_prefix("")?;
-                    }
-
-                    let mut res = vec![];
-                    writeln_inner(
-                        &c.to_string(),
-                        "",
-                        cause_writer.get_max_len().into(),
-                        |t, s| match t {
-                            MessageType::Msg => res.push(s.to_owned()),
-                            MessageType::Prefix => (),
-                        },
-                    );
-                    for (k, j) in res.iter().enumerate() {
-                        if k == 0 {
-                            cause_writer.write_prefix(&format!("{i}."))?;
-                        } else {
-                            WRITER.write_prefix("")?;
-                            cause_writer.write_prefix("")?;
-                        }
-                        print!("{j}");
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn try_main() -> Result<i32, OutputError> {
-    // 使系统错误使用系统 locale 语言输出
-    unsafe {
-        let s = CString::new("").unwrap();
-        libc::setlocale(libc::LC_ALL, s.as_ptr());
-    }
     let mut cmd = args::command_builder();
     let matches = cmd.get_matches_mut();
-
-    // Egg
-    #[cfg(feature = "egg")]
-    {
-        let a = matches.get_count("ailurus");
-        if a != 0 {
-            ailurus()?;
-            if a == 3 {
-                AILURUS.store(true, Ordering::Relaxed);
-            } else {
-                return Ok(1);
-            }
-        }
-    }
 
     let dry_run = matches!(
         matches
@@ -177,16 +95,6 @@ fn try_main() -> Result<i32, OutputError> {
             .map(|(_, x)| x.try_get_one::<bool>("dry_run")),
         Some(Ok(Some(true)))
     );
-
-    // --no-color option
-    if matches.get_flag("no_color")
-        || matches!(
-            matches.subcommand().map(|(_, x)| x.try_get_one("no_color")),
-            Some(Ok(Some(true)))
-        )
-    {
-        std::env::set_var("NO_COLOR", "");
-    }
 
     // Init debug flag
     let debug = if matches.get_flag("debug")
@@ -202,14 +110,32 @@ fn try_main() -> Result<i32, OutputError> {
         false
     };
 
+    // --no-color option
+    if matches.get_flag("no_color")
+        || matches!(
+            matches.subcommand().map(|(_, x)| x.try_get_one("no_color")),
+            Some(Ok(Some(true)))
+        )
+    {
+        std::env::set_var("NO_COLOR", "");
+    }
+
+    // --no-progress
+    let no_progress = matches.get_flag("no_progress")
+        || matches!(
+            matches
+                .subcommand()
+                .map(|(_, x)| x.try_get_one("no_progress")),
+            Some(Ok(Some(true)))
+        )
+        || debug;
+
     #[cfg(feature = "tokio-console")]
     console_subscriber::init();
 
     #[cfg(not(feature = "tokio-console"))]
     if !debug {
-        let no_i18n_embd_info: EnvFilter = "i18n_embed=error,info"
-            .parse()
-            .map_err(|e| anyhow!("{e}"))?;
+        let no_i18n_embd_info: EnvFilter = "i18n_embed=error,info".parse().unwrap();
 
         tracing_subscriber::registry()
             .with(
@@ -230,15 +156,48 @@ fn try_main() -> Result<i32, OutputError> {
         }
     }
 
-    // --no-progress
-    let no_progress = matches.get_flag("no_progress")
-        || matches!(
-            matches
-                .subcommand()
-                .map(|(_, x)| x.try_get_one("no_progress")),
-            Some(Ok(Some(true)))
-        )
-        || debug;
+    let code = match run_subcmd(matches, &mut cmd, dry_run, no_progress) {
+        Ok(exit_code) => exit_code,
+        Err(e) => {
+            if let Err(e) = display_error(e) {
+                eprintln!("Failed to display error, kind: {e}");
+            }
+
+            1
+        }
+    };
+
+    terminal_ring();
+    unlock_oma().ok();
+
+    exit(code);
+}
+
+fn run_subcmd(
+    matches: ArgMatches,
+    cmd: &mut clap::Command,
+    dry_run: bool,
+    no_progress: bool,
+) -> Result<i32, OutputError> {
+    // Egg
+    #[cfg(feature = "egg")]
+    {
+        let a = matches.get_count("ailurus");
+        if a != 0 {
+            ailurus()?;
+            if a == 3 {
+                AILURUS.store(true, Ordering::Relaxed);
+            } else {
+                return Ok(1);
+            }
+        }
+    }
+
+    // 使系统错误使用系统 locale 语言输出
+    unsafe {
+        let s = CString::new("").unwrap();
+        libc::setlocale(libc::LC_ALL, s.as_ptr());
+    }
 
     let sysroot = matches
         .get_one::<String>("sysroot")
@@ -483,6 +442,51 @@ fn try_main() -> Result<i32, OutputError> {
     };
 
     Ok(exit_code)
+}
+
+fn display_error(e: OutputError) -> io::Result<()> {
+    if !e.description.is_empty() {
+        error!("{e}");
+
+        let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
+        let last_cause = cause.last();
+
+        if let Some(ref last) = last_cause {
+            due_to!("{last}");
+            let cause_writer = Writer::new(3);
+            if cause.len() > 1 {
+                for (i, c) in cause.iter().enumerate() {
+                    if i == 0 {
+                        WRITER.write_prefix(&console::style("TRACE").magenta().to_string())?;
+                    } else {
+                        WRITER.write_prefix("")?;
+                    }
+
+                    let mut res = vec![];
+                    writeln_inner(
+                        &c.to_string(),
+                        "",
+                        cause_writer.get_max_len().into(),
+                        |t, s| match t {
+                            MessageType::Msg => res.push(s.to_owned()),
+                            MessageType::Prefix => (),
+                        },
+                    );
+                    for (k, j) in res.iter().enumerate() {
+                        if k == 0 {
+                            cause_writer.write_prefix(&format!("{i}."))?;
+                        } else {
+                            WRITER.write_prefix("")?;
+                            cause_writer.write_prefix("")?;
+                        }
+                        print!("{j}");
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn single_handler() {
