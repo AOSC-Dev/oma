@@ -33,10 +33,7 @@ pub use oma_apt::config::Config as AptConfig;
 
 use tracing::{debug, warn};
 
-use oma_pm_operation_type::{
-    InstallEntry, InstallEntryBuilder, InstallEntryBuilderError, InstallOperation, RemoveEntry,
-    RemoveTag, OmaOperation,
-};
+pub use oma_pm_operation_type::*;
 
 use crate::{
     pkginfo::PkgInfo,

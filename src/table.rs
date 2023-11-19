@@ -8,7 +8,7 @@ use crate::{fl, ALLOWCTRLC};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
 use oma_console::WRITER;
-use oma_pm_operation_type::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
+use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 use oma_pm::unmet::{UnmetDep, WhyUnmet};
 use tabled::settings::object::{Columns, Segment};
 use tabled::settings::{Alignment, Format, Modify, Style};

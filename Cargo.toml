@@ -36,7 +36,7 @@ console-subscriber = { version = "0.2", optional = true }
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
 oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
-oma-pm-operation-type = { path = "./oma-pm-operation-type" }
+# oma-pm-operation-type = { path = "./oma-pm-operation-type" }
 oma-refresh = { path = "./oma-refresh", default_features = false }
 oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch" }
