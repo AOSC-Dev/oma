@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::io::{self, ErrorKind};
 
+use oma_console::due_to;
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
@@ -516,6 +517,9 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             for i in errs {
                 let err = oma_download_error(i);
                 error!("{}", err.description);
+                if let Some(s) = err.source {
+                    due_to!("{s}");
+                }
             }
             OutputError {
                 description: fl!("download-failed-with-len", len = size),

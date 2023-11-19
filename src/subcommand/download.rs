@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use oma_console::success;
+use oma_console::{due_to, success};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use tracing::error;
 
@@ -56,6 +56,9 @@ pub fn execute(
         for f in failed {
             let e = OutputError::from(f);
             error!("{e}");
+            if let Some(s) = e.source {
+                due_to!("{s}");
+            }
         }
 
         return Err(OutputError {
