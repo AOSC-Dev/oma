@@ -119,6 +119,8 @@ pub enum OmaAptError {
     FailedToDownload(usize, Vec<DownloadError>),
     #[error("Failed to get path parent: {0:?}")]
     FailedGetParentPath(PathBuf),
+    #[error("Failed to get canonicalize path: {0}")]
+    FailedGetCanonicalize(String, std::io::Error),
 }
 
 #[derive(Default, Builder)]
@@ -272,14 +274,20 @@ impl OmaApt {
     /// Init apt config (before create new apt manager)
     fn init_config(args: OmaAptArgs) -> OmaAptResult<AptConfig> {
         let config = AptConfig::new();
-        config.set("Dir", &args.sysroot);
+
+        let sysroot = Path::new(&args.sysroot);
+        let sysroot = sysroot
+            .canonicalize()
+            .map_err(|e| OmaAptError::FailedGetCanonicalize(sysroot.display().to_string(), e))?;
+
+        config.set("Dir", &sysroot.display().to_string());
         config.set(
             "Dir::State::status",
-            &Path::new(&args.sysroot)
-                .join("var/lib/dpkg/status")
-                .display()
-                .to_string(),
+            &sysroot.join("var/lib/dpkg/status").display().to_string(),
         );
+
+        debug!("Dir is: {:?}", config.get("Dir"));
+        debug!("Dir::State::status is: {:?}", config.get("Dir::State::status"));
 
         let install_recommend = if args.install_recommends {
             true
@@ -565,6 +573,8 @@ impl OmaApt {
                     style("dpkg --configure -a").green().bold()
                 );
                 let cmd = Command::new("dpkg")
+                    .arg("--root")
+                    .arg(&sysroot)
                     .arg("--configure")
                     .arg("-a")
                     .output()
