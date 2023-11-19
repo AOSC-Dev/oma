@@ -560,15 +560,17 @@ impl From<reqwest::Error> for OutputError {
         }
 
         if let Some(filename) = filename {
-            Self {
-                description: fl!("download-failed", filename = filename.to_string()),
-                source: Some(Box::new(e)),
+            if filename.len() <= 256 {
+                return Self {
+                    description: fl!("download-failed", filename = filename.to_string()),
+                    source: Some(Box::new(e)),
+                };
             }
-        } else {
-            Self {
-                description: fl!("download-failed"),
-                source: None,
-            }
+        }
+
+        Self {
+            description: fl!("download-failed"),
+            source: None,
         }
     }
 }
