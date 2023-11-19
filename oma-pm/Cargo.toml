@@ -12,7 +12,7 @@ oma-apt = "0.1"
 thiserror = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 glob-match = "0.2"
-indicium = "0.5"
+indicium = "0.6"
 oma-utils = { version = "^0.5.0", path = "../oma-utils", features = [
     "human-bytes",
     "dpkg",
