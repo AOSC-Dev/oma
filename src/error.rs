@@ -538,6 +538,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("failed-to-get-parent-path", p = p.display().to_string()),
             source: None,
         },
+        OmaAptError::FailedGetCanonicalize(p, e) => OutputError {
+            description: format!("Failed canonicalize path: {p}"),
+            source: Some(Box::new(e)),
+        },
     }
 }
 
