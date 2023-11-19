@@ -36,6 +36,7 @@ console-subscriber = { version = "0.2", optional = true }
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
 oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
+oma-pm-operation-type = { path = "./oma-pm-operation-type" }
 oma-refresh = { path = "./oma-refresh", default_features = false }
 oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch" }
@@ -64,4 +65,4 @@ tokio-console = ["dep:console-subscriber"]
 default = ["aosc","sequoia-nettle-backend", "egg"]
 
 [workspace]
-members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history"]
+members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type"]

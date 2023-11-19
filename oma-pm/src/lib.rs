@@ -1,5 +1,4 @@
 pub mod apt;
-pub mod operation;
 pub mod pkginfo;
 mod progress;
 pub mod query;

@@ -2,7 +2,8 @@ use anyhow::anyhow;
 use chrono::{Local, LocalResult, TimeZone};
 use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::{connect_or_create_db, list_history, SummaryType, SummaryLog};
-use oma_pm::{apt::{OmaAptArgsBuilder, OmaApt, FilterMode, AptArgsBuilder}, operation::InstallOperation, pkginfo::PkgInfo};
+use oma_pm::{apt::{OmaAptArgsBuilder, OmaApt, FilterMode, AptArgsBuilder}, pkginfo::PkgInfo};
+use oma_pm_operation_type::InstallOperation;
 use std::{sync::atomic::Ordering, borrow::Cow};
 
 use crate::{error::OutputError, table::table_for_history_pending, ALLOWCTRLC, utils::{root, create_async_runtime, dbus_check}};

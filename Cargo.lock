@@ -2570,6 +2570,7 @@ dependencies = [
  "oma-history",
  "oma-inquire",
  "oma-pm",
+ "oma-pm-operation-type",
  "oma-refresh",
  "oma-topics",
  "oma-utils 0.5.1",
@@ -2671,7 +2672,7 @@ dependencies = [
 name = "oma-history"
 version = "0.1.2"
 dependencies = [
- "oma-pm",
+ "oma-pm-operation-type",
  "rusqlite",
  "serde",
  "serde_json",
@@ -2710,12 +2711,21 @@ dependencies = [
  "oma-apt",
  "oma-console",
  "oma-fetch",
+ "oma-pm-operation-type",
  "oma-utils 0.5.1",
- "serde",
  "small-map",
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "oma-pm-operation-type"
+version = "0.1.0"
+dependencies = [
+ "derive_builder",
+ "oma-utils 0.5.1",
+ "serde",
 ]
 
 [[package]]
