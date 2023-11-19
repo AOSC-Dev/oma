@@ -23,6 +23,7 @@ pub enum SummaryType {
 pub struct SummaryLog {
     pub typ: SummaryType,
     pub op: OmaOperation,
+    pub is_success: bool,
 }
 
 type HistoryResult<T> = Result<T, HistoryError>;
@@ -75,13 +76,19 @@ pub fn write_history_entry(
     conn: Connection,
     dry_run: bool,
     start_time: i64,
+    success: bool,
 ) -> HistoryResult<()> {
     if dry_run {
         debug!("In dry-run mode, oma will not write history entries");
         return Ok(());
     }
 
-    let entry = SummaryLog { op: summary, typ };
+    let entry = SummaryLog {
+        op: summary,
+        typ,
+        is_success: success,
+    };
+
     let buf = serde_json::to_vec(&entry).map_err(HistoryError::ParseError)?;
 
     conn.execute(
