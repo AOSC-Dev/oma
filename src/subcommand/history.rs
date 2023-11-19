@@ -1,14 +1,22 @@
 use anyhow::anyhow;
 use chrono::{Local, LocalResult, TimeZone};
 use dialoguer::{theme::ColorfulTheme, Select};
-use oma_history::{connect_or_create_db, list_history, SummaryType, SummaryLog};
-use oma_pm::{apt::{OmaAptArgsBuilder, OmaApt, FilterMode, AptArgsBuilder}, pkginfo::PkgInfo};
+use oma_history::{connect_or_create_db, list_history, SummaryLog, SummaryType};
 use oma_pm::apt::InstallOperation;
-use std::{sync::atomic::Ordering, borrow::Cow};
+use oma_pm::{
+    apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
+    pkginfo::PkgInfo,
+};
+use std::{borrow::Cow, sync::atomic::Ordering};
 
-use crate::{error::OutputError, table::table_for_history_pending, ALLOWCTRLC, utils::{root, create_async_runtime, dbus_check}};
+use crate::{
+    error::OutputError,
+    table::table_for_history_pending,
+    utils::{create_async_runtime, dbus_check, root},
+    ALLOWCTRLC,
+};
 
-use super::utils::{handle_no_result, NormalCommitArgs, normal_commit};
+use super::utils::{handle_no_result, normal_commit, NormalCommitArgs};
 
 pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     let conn = connect_or_create_db(false, sysroot)?;
@@ -145,24 +153,37 @@ fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<String> {
         .map(|(log, date)| {
             let date = format_date(*date);
             match &log.typ {
-                SummaryType::Install(v) if v.len() > 3 => format!(
-                    "Installed {} ... (and {} more) [{}]",
-                    v[..3].join(" "),
-                    v.len() - 3,
-                    date
+                SummaryType::Install(v) if v.len() > 3 => {
+                    format!(
+                        "{}Installed {} ... (and {} more) [{}]",
+                        format_success(log.is_success),
+                        v[..3].join(" "),
+                        v.len() - 3,
+                        date
+                    )
+                }
+                SummaryType::Install(v) => format!(
+                    "{}Installed {} [{date}]",
+                    format_success(log.is_success),
+                    v.join(" "),
                 ),
-                SummaryType::Install(v) => format!("Installed {} [{date}]", v.join(" ")),
                 SummaryType::Upgrade(v) if v.is_empty() => format!("Upgraded system [{date}]"),
                 SummaryType::Upgrade(v) if v.len() > 3 => format!(
-                    "Upgraded system and installed {}... (and {} more) [{date}]",
+                    "{}Upgraded system and installed {}... (and {} more) [{date}]",
+                    format_success(log.is_success),
                     v[..3].join(" "),
                     v.len() - 3
                 ),
                 SummaryType::Upgrade(v) => {
-                    format!("Upgraded system and install {} [{date}]", v.join(" "))
+                    format!(
+                        "{}Upgraded system and install {} [{date}]",
+                        format_success(log.is_success),
+                        v.join(" "),
+                    )
                 }
                 SummaryType::Remove(v) if v.len() > 3 => format!(
-                    "Removed {} ... (and {} more)",
+                    "{}Removed {} ... (and {} more)",
+                    format_success(log.is_success),
                     v[..3].join(" "),
                     v.len() - 3
                 ),
@@ -170,7 +191,8 @@ fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<String> {
                 SummaryType::FixBroken => format!("Attempted to fix broken dependencies [{date}]"),
                 SummaryType::TopicsChanged { add, remove } if remove.is_empty() => {
                     format!(
-                        "Topics changed: enabled {}{} [{date}]",
+                        "{}Topics changed: enabled {}{} [{date}]",
+                        format_success(log.is_success),
                         if add.len() <= 3 {
                             add.join(" ")
                         } else {
@@ -185,7 +207,8 @@ fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<String> {
                 }
                 SummaryType::TopicsChanged { add, remove } if add.is_empty() => {
                     format!(
-                        "Topics changed: disabled {}{} [{date}]",
+                        "{}Topics changed: disabled {}{} [{date}]",
+                        format_success(log.is_success),
                         if remove.len() <= 3 {
                             add.join(" ")
                         } else {
@@ -200,7 +223,8 @@ fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<String> {
                 }
                 SummaryType::TopicsChanged { add, remove } => {
                     format!(
-                        "Topics changed: enabled {}{}, disabled {}{} [{date}]",
+                        "{}Topics changed: enabled {}{}, disabled {}{} [{date}]",
+                        format_success(log.is_success),
                         if add.len() <= 3 {
                             add.join(" ")
                         } else {
@@ -240,4 +264,12 @@ fn format_date(date: i64) -> String {
     let s = dt.format("%H:%M:%S on %Y-%m-%d").to_string();
 
     s
+}
+
+fn format_success(is_success: bool) -> &'static str {
+    if is_success {
+        ""
+    } else {
+        "[FAIL] "
+    }
 }
