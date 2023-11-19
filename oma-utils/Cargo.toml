@@ -12,7 +12,9 @@ thiserror = "1.0"
 number_prefix = { version = "0.4", optional = true }
 once_cell = "1.18"
 os-release = "0.1"
-oma-console = { version = "^0.8", path = "../oma-console" }
+oma-console = { version = "^0.8", path = "../oma-console", optional = true, default-features = false, features = [
+    "print",
+] }
 zbus = { version = "3.14", optional = true }
 url-escape = { version = "0.1", optional = true }
 tracing = "0.1"
@@ -21,5 +23,5 @@ tracing = "0.1"
 dpkg = []
 human-bytes = ["number_prefix"]
 dbus = ["zbus"]
-oma = []
+oma = ["dep:oma-console"]
 url-no-escape = ["url-escape"]

@@ -20,8 +20,8 @@ use anyhow::anyhow;
 use clap::ArgMatches;
 use error::OutputError;
 use oma_console::writer::{writeln_inner, MessageType, Writer};
+use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
-use oma_console::{DEBUG, WRITER};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
 use rustix::process::{kill_process, Pid, Signal};
@@ -45,6 +45,7 @@ use crate::subcommand::*;
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
+static DEBUG: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Default)]
 pub struct InstallArgs {
