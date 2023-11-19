@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use oma_pm::apt::OmaOperation;
+use oma_pm_operation_type::OmaOperation;
 use rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
