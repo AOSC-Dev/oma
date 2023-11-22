@@ -2572,7 +2572,7 @@ dependencies = [
  "oma-pm",
  "oma-refresh",
  "oma-topics",
- "oma-utils 0.5.1",
+ "oma-utils 0.5.2",
  "once_cell",
  "reqwest",
  "rust-embed",
@@ -2611,7 +2611,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.8.3"
+version = "0.9.0"
 dependencies = [
  "console",
  "icu_segmenter",
@@ -2629,7 +2629,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.5.1",
+ "oma-utils 0.5.2",
  "rayon",
  "regex",
  "strsim",
@@ -2658,7 +2658,7 @@ dependencies = [
  "hex",
  "indicatif",
  "oma-console",
- "oma-utils 0.5.2",
+ "oma-utils 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
  "sha2",
@@ -2697,7 +2697,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "chrono",
  "dashmap",
@@ -2710,7 +2710,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.5.1",
+ "oma-utils 0.5.2",
  "small-map",
  "thiserror",
  "tokio",
@@ -2722,7 +2722,7 @@ name = "oma-pm-operation-type"
 version = "0.1.0"
 dependencies = [
  "derive_builder",
- "oma-utils 0.5.1",
+ "oma-utils 0.5.2",
  "serde",
 ]
 
@@ -2741,7 +2741,7 @@ dependencies = [
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
- "oma-utils 0.5.1",
+ "oma-utils 0.5.2",
  "once_cell",
  "reqwest",
  "sequoia-openpgp",
@@ -2773,7 +2773,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "number_prefix",
  "oma-console",
