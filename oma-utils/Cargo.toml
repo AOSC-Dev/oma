@@ -1,6 +1,6 @@
 [package]
 name = "oma-utils"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
 description = "Some small-tools to help oma handle something"
 license = "MIT"
@@ -12,7 +12,7 @@ thiserror = "1.0"
 number_prefix = { version = "0.4", optional = true }
 once_cell = "1.18"
 os-release = "0.1"
-oma-console = { version = "^0.8", path = "../oma-console", optional = true, default-features = false, features = [
+oma-console = { version = "^0.9", path = "../oma-console", optional = true, default-features = false, features = [
     "print",
 ] }
 zbus = { version = "3.14", optional = true }
