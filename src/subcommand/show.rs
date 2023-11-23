@@ -28,6 +28,10 @@ pub fn execute(all: bool, pkgs_unparse: Vec<&str>) -> Result<i32, OutputError> {
             }
         }
 
+        if filter_pkgs.is_empty() {
+            return Ok(1);
+        }
+
         for (i, pkg) in filter_pkgs.iter().enumerate() {
             pkg.print_info(&apt.cache);
             if i != filter_pkgs.len() - 1 {
