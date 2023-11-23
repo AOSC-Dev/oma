@@ -20,10 +20,9 @@ pub fn execute(all: bool, pkgs_unparse: Vec<&str>, sysroot: String) -> Result<i3
         let mut filter_pkgs: Vec<PkgInfo> = vec![];
         let pkgs_len = pkgs.len();
         for pkg in pkgs {
-            if filter_pkgs
+            if !filter_pkgs
                 .iter()
-                .find(|x| pkg.raw_pkg.name() == x.raw_pkg.name())
-                .is_none()
+                .any(|x| pkg.raw_pkg.name() == x.raw_pkg.name())
             {
                 filter_pkgs.push(pkg);
             }
