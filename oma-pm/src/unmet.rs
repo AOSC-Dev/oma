@@ -41,7 +41,12 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
         for b_dep in dep.inner() {
             for d in b_dep {
                 if let Some(pkg) = cache.get(&d.name) {
-                    if let Some(cand) = pkg.candidate() {
+                    if let Some(ver) = d.ver {
+                        if let Some(ver) = pkg.get_version(&ver) {
+                            find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
+                            continue;
+                        }
+                    } else if let Some(cand) = pkg.candidate() {
                         find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
                         continue;
                     }
@@ -61,7 +66,12 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
         for b_dep in pdep.inner() {
             for d in b_dep {
                 if let Some(pkg) = cache.get(&d.name) {
-                    if let Some(cand) = pkg.candidate() {
+                    if let Some(ver) = d.ver {
+                        if let Some(ver) = pkg.get_version(&ver) {
+                            find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
+                            continue;
+                        }
+                    } else if let Some(cand) = pkg.candidate() {
                         find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
                         continue;
                     }
