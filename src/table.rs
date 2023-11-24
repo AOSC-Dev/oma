@@ -43,7 +43,16 @@ impl From<&UnmetDep> for UnmetDepDisplay {
         Self {
             package: style(&value.package).red().bold().to_string(),
             unmet_dependency: match &value.unmet_dependency {
-                WhyUnmet::DepNotExist(s) => format!("{s} does not exist"),
+                WhyUnmet::DepNotExist {
+                    pacakge_name,
+                    version_comp,
+                } => {
+                    if let Some(version) = version_comp {
+                        format!("{pacakge_name} {version} does not exist")
+                    } else {
+                        format!("{pacakge_name} does not exist")
+                    }
+                }
                 WhyUnmet::Unmet {
                     dep_name,
                     need_ver,
