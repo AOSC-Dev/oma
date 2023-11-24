@@ -17,7 +17,10 @@ pub struct UnmetDep {
 
 #[derive(Debug)]
 pub enum WhyUnmet {
-    DepNotExist(String),
+    DepNotExist {
+        pacakge_name: String,
+        version_comp: Option<String>,
+    },
     Unmet {
         dep_name: String,
         need_ver: String,
@@ -41,7 +44,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
         for b_dep in dep.inner() {
             for d in b_dep {
                 if let Some(pkg) = cache.get(&d.name) {
-                    if let Some(ver) = d.ver {
+                    if let Some(ver) = &d.ver {
                         if let Some(ver) = pkg.get_version(&ver) {
                             find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
                             continue;
@@ -54,7 +57,10 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
 
                 v.push(UnmetDep {
                     package: d.name.to_string(),
-                    unmet_dependency: WhyUnmet::DepNotExist(d.name.to_string()),
+                    unmet_dependency: WhyUnmet::DepNotExist {
+                        pacakge_name: d.name.to_string(),
+                        version_comp: d.comp_ver,
+                    },
                     specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
                 });
             }
@@ -66,7 +72,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
         for b_dep in pdep.inner() {
             for d in b_dep {
                 if let Some(pkg) = cache.get(&d.name) {
-                    if let Some(ver) = d.ver {
+                    if let Some(ver) = &d.ver {
                         if let Some(ver) = pkg.get_version(&ver) {
                             find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
                             continue;
@@ -79,7 +85,10 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
 
                 v.push(UnmetDep {
                     package: d.name.to_string(),
-                    unmet_dependency: WhyUnmet::DepNotExist(d.name.to_string()),
+                    unmet_dependency: WhyUnmet::DepNotExist {
+                        pacakge_name: d.name.to_string(),
+                        version_comp: d.comp_ver,
+                    },
                     specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
                 });
             }
