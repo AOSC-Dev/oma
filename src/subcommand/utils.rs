@@ -173,7 +173,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
                 start_time,
                 true,
             )?;
-            return Ok(());
+            Ok(())
         }
         Err(e) => {
             info!("{}", fl!("history-tips-2"));
@@ -185,7 +185,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
                 start_time,
                 false,
             )?;
-            return Err(e.into());
+            Err(e.into())
         }
     }
 }

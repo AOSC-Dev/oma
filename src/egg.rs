@@ -8727,7 +8727,7 @@ pub fn ailurus() -> Result<()> {
     let term_width = match WRITER.get_length() {
         0..=80 => {
             bail!("你的画面太小了容不下艾露露")
-        },
+        }
         x @ 81..=175 => x - 25,
         176.. => 150,
     };
