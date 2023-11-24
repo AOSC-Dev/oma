@@ -1,4 +1,3 @@
-
 use oma_pm::{
     apt::{OmaApt, OmaAptArgsBuilder},
     pkginfo::PkgInfo,

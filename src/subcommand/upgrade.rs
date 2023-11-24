@@ -112,7 +112,7 @@ pub fn execute(
                     connect_or_create_db(true, args.sysroot)?,
                     dry_run,
                     start_time,
-                    true
+                    true,
                 )?;
                 success!("{}", fl!("history-tips-1"));
                 info!("{}", fl!("history-tips-2"));
@@ -133,7 +133,7 @@ pub fn execute(
                             connect_or_create_db(true, args.sysroot)?,
                             dry_run,
                             start_time,
-                            false
+                            false,
                         )?;
                         info!("{}", fl!("history-tips-2"));
                         return Err(OutputError::from(e));

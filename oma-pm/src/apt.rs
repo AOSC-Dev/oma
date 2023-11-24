@@ -24,7 +24,10 @@ use oma_fetch::{
     DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
     DownloadSourceType, OmaFetcher, Summary,
 };
-use oma_utils::{dpkg::{is_hold, DpkgError}, human_bytes::HumanBytes};
+use oma_utils::{
+    dpkg::{is_hold, DpkgError},
+    human_bytes::HumanBytes,
+};
 
 pub use oma_apt::config::Config as AptConfig;
 

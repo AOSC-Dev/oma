@@ -45,7 +45,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
             for d in b_dep {
                 if let Some(pkg) = cache.get(&d.name) {
                     if let Some(ver) = &d.ver {
-                        if let Some(ver) = pkg.get_version(&ver) {
+                        if let Some(ver) = pkg.get_version(ver) {
                             find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
                             continue;
                         }
@@ -73,7 +73,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
             for d in b_dep {
                 if let Some(pkg) = cache.get(&d.name) {
                     if let Some(ver) = &d.ver {
-                        if let Some(ver) = pkg.get_version(&ver) {
+                        if let Some(ver) = pkg.get_version(ver) {
                             find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
                             continue;
                         }
