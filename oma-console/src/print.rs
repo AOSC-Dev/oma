@@ -5,7 +5,6 @@ use tracing_subscriber::Layer;
 
 use crate::WRITER;
 
-
 pub struct OmaLayer;
 
 impl<S> Layer<S> for OmaLayer

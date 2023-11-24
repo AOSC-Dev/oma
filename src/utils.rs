@@ -137,11 +137,7 @@ pub fn root() -> Result<()> {
         .and_then(|x| x.wait_with_output())
         .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
 
-    exit(
-        out.status
-            .code()
-            .unwrap_or(1)
-    );
+    exit(out.status.code().unwrap_or(1));
 }
 
 pub fn create_async_runtime() -> Result<Runtime> {
