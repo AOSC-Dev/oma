@@ -37,6 +37,7 @@ use oma_console::console;
 use oma_console::pager::SUBPROCESS;
 
 use crate::config::{Config, GeneralConfig};
+#[cfg(feature = "egg")]
 use crate::egg::ailurus;
 use crate::error::Chain;
 use crate::subcommand::topics::TopicArgs;
@@ -189,7 +190,7 @@ fn run_subcmd(
             if a == 3 {
                 AILURUS.store(true, Ordering::Relaxed);
             } else {
-                return Ok(1);
+                return Ok(3);
             }
         }
     }
@@ -428,17 +429,28 @@ fn run_subcmd(
             return Ok(status);
         }
         None => {
-            let exit_code = if AILURUS.load(Ordering::Relaxed) {
-                0
-            } else {
+            #[cfg(feature = "egg")]
+            {
+                let exit_code = if AILURUS.load(Ordering::Relaxed) {
+                    0
+                } else {
+                    cmd.print_help().map_err(|e| OutputError {
+                        description: "Failed to print help".to_string(),
+                        source: Some(Box::new(e)),
+                    })?;
+
+                    1
+                };
+                return Ok(exit_code);
+            }
+            #[cfg(not(feature = "egg"))]
+            {
                 cmd.print_help().map_err(|e| OutputError {
                     description: "Failed to print help".to_string(),
                     source: Some(Box::new(e)),
                 })?;
-
-                1
-            };
-            return Ok(exit_code);
+                return Ok(1);
+            }
         }
     };
 
