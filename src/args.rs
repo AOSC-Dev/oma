@@ -301,12 +301,14 @@ pub fn command_builder() -> Command {
                 .arg(
                     Arg::new("installed")
                         .short('i')
+                        .long("installed")
                         .help("List only package(s) currently installed on the system")
                         .action(ArgAction::SetTrue),
                 )
                 .arg(
                     Arg::new("upgradable")
                         .short('u')
+                        .long("upgradable")
                         .help("List only package(s) with update(s) available")
                         .action(ArgAction::SetTrue),
                 )
