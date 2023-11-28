@@ -1,6 +1,9 @@
 [general]
 # Set to false to allow removal of "Essential" packages.
 protect_essentials = true
+# Set to true to force refresh uncompress package database file.
+refresh_pure_database = false
+
 
 [network]
 # Number of network threads to use when downloading metadata and packages.
