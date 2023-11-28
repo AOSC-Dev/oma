@@ -158,18 +158,18 @@ successfully-download-to-path = Successfully downloaded {$len} package(s) to pat
 oma-may = Omakase may {$a}, {$b}, {$c}, {$d}, or {$e} packages in order
     to fulfill your requested changes.
 
-failed-to-read-decode-inrelease = Failed to read decoded InRelease file.
-failed-to-operate-path = Failed to operate path: {$p}.
-failed-to-get-parent-path = Failed to get parent path: {$p}.
-failed-to-get-file-metadata = Failed to get file metadata: {$p}.
-failed-to-wait-rg-to-exit = Failed to wait `rg' to exit.
-failed-to-get-available-space = "Failed to get available space.
-failed-to-create-http-client = Failed to create http client.
-failed-to-connect-history-database = Failed to connect history database.
-failed-to-execute-query-stmt = Failed to execute history database query statement.
-failed-to-parse-history-object = Failed to parser history database object.
+failed-to-read-decode-inrelease = Failed to read the decoded InRelease file.
+failed-to-operate-path = Failed to perform file operations in {$p}.
+failed-to-get-parent-path = Failed to get parent path of {$p}.
+failed-to-read-file-metadata = Failed to read file metadata for {$p}.
+failed-to-get-rg-process-info = Failed to get process status for `rg'.
+failed-to-calculate-available-space = Failed to calculate available storage space.
+failed-to-create-http-client = Failed to create an HTTP client.
+failed-to-connect-history-database = Failed to connect to the history database.
+failed-to-execute-query-stmt = Failed to execute a query statement for the history database.
+failed-to-parse-history-object = Failed to parse an object in the history database.
 
-failed-to-connect-dbus = Failed connect to system dbus.
-failed-to-take-wake-lock = Failed to take wake lock.
-failed-to-create-proxy = Failed to create dbus proxy: {$proxy}.
-failed-to-get-battery-status = Failed to get battery status.
+failed-to-connect-dbus = Failed connect to the system message bus (D-Bus).
+failed-to-set-lockscreen = Failed to set system lockscreen status.
+failed-to-create-proxy = Failed to create a system message bus (D-Bus) proxy: {$proxy}.
+failed-to-get-power-status = Failed to get device power supply status.
