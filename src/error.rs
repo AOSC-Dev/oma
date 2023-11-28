@@ -182,10 +182,13 @@ impl From<OmaDbusError> for OutputError {
                 description: fl!("failed-to-take-wake-lock"),
                 source: Some(Box::new(e)),
             },
-            OmaDbusError::FailedCreateProxy(proxy, e) => Self {
-                description: fl!("failed-to-create-proxy", proxy = proxy.to_string()),
-                source: Some(Box::new(e)),
-            },
+            OmaDbusError::FailedCreateProxy(proxy, e) => {
+                let proxy = proxy.to_string();
+                Self {
+                    description: fl!("failed-to-create-proxy", proxy = proxy),
+                    source: Some(Box::new(e)),
+                }
+            }
             OmaDbusError::FailedGetBatteryStatus(e) => Self {
                 description: fl!("failed-to-get-battery-status"),
                 source: Some(Box::new(e)),
