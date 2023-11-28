@@ -162,3 +162,8 @@ failed-to-create-http-client = Failed to create http client.
 failed-to-connect-history-database = Failed to connect history database.
 failed-to-execute-query-stmt = Failed to execute history database query statement.
 failed-to-parse-history-object = Failed to parser history database object.
+
+failed-to-connect-dbus = Failed connect to system dbus.
+failed-to-take-wake-lock = Failed to take wake lock.
+failed-to-create-proxy = Failed to create dbus proxy: {$proxy}.
+failed-to-get-battery-status = Failed to get battery status.

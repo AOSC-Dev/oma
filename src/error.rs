@@ -13,7 +13,7 @@ use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseParserError;
 use oma_refresh::verify::VerifyError;
-use oma_utils::dbus::zError;
+use oma_utils::dbus::OmaDbusError;
 use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
@@ -171,11 +171,25 @@ impl From<OmaAptArgsBuilderError> for OutputError {
     }
 }
 
-impl From<zError> for OutputError {
-    fn from(value: zError) -> Self {
-        Self {
-            description: value.to_string(),
-            source: None,
+impl From<OmaDbusError> for OutputError {
+    fn from(value: OmaDbusError) -> Self {
+        match value {
+            OmaDbusError::FailedConnectDbus(e) => Self {
+                description: fl!("failed-to-connect-dbus"),
+                source: Some(Box::new(e)),
+            },
+            OmaDbusError::FailedTakeWakeLock(e) => Self {
+                description: fl!("failed-to-take-wake-lock"),
+                source: Some(Box::new(e)),
+            },
+            OmaDbusError::FailedCreateProxy(proxy, e) => Self {
+                description: fl!("failed-to-create-proxy", proxy = proxy.to_string()),
+                source: Some(Box::new(e)),
+            },
+            OmaDbusError::FailedGetBatteryStatus(e) => Self {
+                description: fl!("failed-to-get-battery-status"),
+                source: Some(Box::new(e)),
+            },
         }
     }
 }
