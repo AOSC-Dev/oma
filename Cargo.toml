@@ -61,7 +61,7 @@ sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
 egg = ["dep:colored", "dep:image"]
 tokio-console = ["dep:console-subscriber"]
-default = ["aosc","sequoia-nettle-backend", "egg"]
+default = ["aosc","sequoia-nettle-backend"]
 
 [workspace]
 members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type"]
