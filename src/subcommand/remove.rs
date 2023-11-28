@@ -6,27 +6,31 @@ use oma_history::SummaryType;
 use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
 use tracing::{info, warn};
 
-use crate::fl;
 use crate::{
     error::OutputError,
     utils::{create_async_runtime, dbus_check, root},
     RemoveArgs,
 };
+use crate::{fl, OmaArgs};
 
 use super::utils::{handle_no_result, normal_commit, NormalCommitArgs};
 
-pub fn execute(
-    pkgs: Vec<&str>,
-    args: RemoveArgs,
-    dry_run: bool,
-    protect: bool,
-    network_thread: usize,
-    no_progress: bool,
-) -> Result<i32, OutputError> {
+pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i32, OutputError> {
     root()?;
 
-    let rt = create_async_runtime()?;
-    dbus_check(&rt)?;
+    let OmaArgs {
+        dry_run,
+        network_thread,
+        no_progress,
+        download_pure_db: _,
+        no_check_dbus,
+        protect_essentials: protect,
+    } = oma_args;
+
+    if !no_check_dbus {
+        let rt = create_async_runtime()?;
+        dbus_check(&rt)?;
+    }
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));

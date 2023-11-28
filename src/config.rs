@@ -17,6 +17,8 @@ pub struct GeneralConfig {
     pub protect_essentials: bool,
     #[serde(default = "GeneralConfig::default_refresh_pure_database")]
     pub refresh_pure_database: bool,
+    #[serde(default = "GeneralConfig::default_no_check_dbus")]
+    pub no_check_dbus: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -37,6 +39,10 @@ impl GeneralConfig {
     }
 
     pub fn default_refresh_pure_database() -> bool {
+        false
+    }
+
+    pub fn default_no_check_dbus() -> bool {
         false
     }
 }
@@ -66,5 +72,12 @@ impl Config {
             .as_ref()
             .map(|x| x.refresh_pure_database)
             .unwrap_or_else(GeneralConfig::default_refresh_pure_database)
+    }
+
+    pub fn check_dbus(&self) -> bool {
+        self.general
+            .as_ref()
+            .map(|x| x.no_check_dbus)
+            .unwrap_or_else(GeneralConfig::default_no_check_dbus)
     }
 }
