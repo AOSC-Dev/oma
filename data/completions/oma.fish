@@ -3,7 +3,6 @@ function _oma_packages
 end
 
 complete -c oma -n "__fish_use_subcommand" -l debug -d 'Run oma with debug mode'
-complete -c oma -n "__fish_use_subcommand" -l ailurus
 complete -c oma -n "__fish_use_subcommand" -s v -l version -d 'Print version'
 complete -c oma -n "__fish_use_subcommand" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_use_subcommand" -f -a "install" -d 'Install package(s) from the repository'
