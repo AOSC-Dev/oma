@@ -143,7 +143,7 @@ _oma() {
 
     case "${cmd}" in
         oma)
-            opts="-v -h --debug --ailurus --version --help install upgrade download remove refresh show search files provides fix-broken pick mark list depends rdepends clean history topics help"
+            opts="-v -h --debug --version --help install upgrade download remove refresh show search files provides fix-broken pick mark list depends rdepends clean history topics help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
