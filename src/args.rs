@@ -80,6 +80,7 @@ pub fn command_builder() -> Command {
                 .action(ArgAction::Count)
                 .hide(true)
         )
+        .arg(Arg::new("no_check_dbus").long("no-check-dbus").action(ArgAction::SetTrue).global(true))
         .arg(
             Arg::new("version")
                 .long("version")

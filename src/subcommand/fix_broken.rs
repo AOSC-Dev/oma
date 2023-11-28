@@ -4,20 +4,27 @@ use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
 use crate::{
     error::OutputError,
     utils::{create_async_runtime, dbus_check, root},
+    OmaArgs,
 };
 
 use super::utils::{normal_commit, NormalCommitArgs};
 
-pub fn execute(
-    dry_run: bool,
-    network_thread: usize,
-    no_progress: bool,
-    sysroot: String,
-) -> Result<i32, OutputError> {
+pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
 
-    let rt = create_async_runtime()?;
-    dbus_check(&rt)?;
+    let OmaArgs {
+        dry_run,
+        network_thread,
+        no_progress,
+        download_pure_db: _,
+        no_check_dbus,
+        ..
+    } = oma_args;
+
+    if !no_check_dbus {
+        let rt = create_async_runtime()?;
+        dbus_check(&rt)?;
+    }
 
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())

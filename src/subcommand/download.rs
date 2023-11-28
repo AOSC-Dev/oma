@@ -4,16 +4,22 @@ use oma_console::{due_to, success};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use tracing::error;
 
-use crate::fl;
 use crate::subcommand::utils::handle_event_without_progressbar;
 use crate::{error::OutputError, pb, subcommand::utils::handle_no_result, utils::multibar};
+use crate::{fl, OmaArgs};
 
 pub fn execute(
     keyword: Vec<&str>,
     path: Option<PathBuf>,
-    dry_run: bool,
-    no_progress: bool,
+    oma_args: OmaArgs,
 ) -> Result<i32, OutputError> {
+    let OmaArgs {
+        dry_run,
+        network_thread,
+        no_progress,
+        ..
+    } = oma_args;
+
     let path = path.unwrap_or_else(|| PathBuf::from("."));
 
     let path = path.canonicalize().map_err(|e| OutputError {
@@ -28,7 +34,7 @@ pub fn execute(
 
     let (mb, pb_map, global_is_set) = multibar();
     let (success, failed) =
-        apt.download(pkgs, None, Some(&path), dry_run, |count, event, total| {
+        apt.download(pkgs, Some(network_thread), Some(&path), dry_run, |count, event, total| {
             if !no_progress {
                 pb!(event, mb, pb_map, count, total, global_is_set)
             } else {
