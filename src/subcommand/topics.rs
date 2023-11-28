@@ -39,6 +39,7 @@ pub struct TopicArgs {
     pub network_thread: usize,
     pub no_progress: bool,
     pub download_pure_db: bool,
+    pub no_check_dbus: bool,
     pub sysroot: String,
 }
 
@@ -53,10 +54,14 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
         no_progress,
         download_pure_db,
         sysroot,
+        no_check_dbus
     } = args;
 
     let rt = create_async_runtime()?;
-    dbus_check(&rt)?;
+
+    if !no_check_dbus {
+        dbus_check(&rt)?;
+    }
 
     let sysroot_ref = &sysroot;
 

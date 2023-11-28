@@ -11,6 +11,7 @@ use crate::utils::create_async_runtime;
 use crate::utils::dbus_check;
 use crate::utils::root;
 use crate::InstallArgs;
+use crate::OmaArgs;
 
 use super::utils::handle_no_result;
 use super::utils::normal_commit;
@@ -18,17 +19,25 @@ use super::utils::refresh;
 use super::utils::NormalCommitArgs;
 
 pub fn execute(
-    pkgs_unparse: Vec<String>,
+    input: Vec<String>,
     args: InstallArgs,
-    dry_run: bool,
-    network_thread: usize,
-    no_progress: bool,
-    download_pure_db: bool,
+    oma_args: OmaArgs,
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let rt = create_async_runtime()?;
-    dbus_check(&rt)?;
+    let OmaArgs {
+        dry_run,
+        network_thread,
+        no_progress,
+        download_pure_db,
+        no_check_dbus,
+        ..
+    } = oma_args;
+
+    if !no_check_dbus {
+        let rt = create_async_runtime()?;
+        dbus_check(&rt)?;
+    }
 
     if !args.no_refresh {
         refresh(dry_run, no_progress, download_pure_db, &args.sysroot)?;
@@ -38,13 +47,13 @@ pub fn execute(
         warn!("{}", fl!("automatic-mode-warn"));
     }
 
-    let local_debs = pkgs_unparse
+    let local_debs = input
         .iter()
         .filter(|x| x.ends_with(".deb"))
         .map(|x| x.to_owned())
         .collect::<Vec<_>>();
 
-    let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+    let pkgs_unparse = input.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(args.sysroot.clone())

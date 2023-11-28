@@ -3,7 +3,8 @@
 protect_essentials = true
 # Set to true to force refresh uncompress package database file.
 refresh_pure_database = false
-
+# Set to true to no check dbus with install pacakge
+no_check_dbus = false
 
 [network]
 # Number of network threads to use when downloading metadata and packages.

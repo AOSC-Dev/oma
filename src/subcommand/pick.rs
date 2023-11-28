@@ -5,11 +5,11 @@ use oma_pm::{
     pkginfo::PkgInfo,
 };
 
-use crate::fl;
 use crate::{
     error::OutputError,
     utils::{create_async_runtime, dbus_check, root},
 };
+use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
 use super::utils::{normal_commit, refresh, NormalCommitArgs};
@@ -17,16 +17,24 @@ use super::utils::{normal_commit, refresh, NormalCommitArgs};
 pub fn execute(
     pkg_str: &str,
     no_refresh: bool,
-    dry_run: bool,
-    network_thread: usize,
-    no_progress: bool,
-    download_pure_db: bool,
+    oma_args: OmaArgs,
     sysroot: String,
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let rt = create_async_runtime()?;
-    dbus_check(&rt)?;
+    let OmaArgs {
+        dry_run,
+        network_thread,
+        no_progress,
+        download_pure_db,
+        no_check_dbus,
+        ..
+    } = oma_args;
+
+    if !no_check_dbus {
+        let rt = create_async_runtime()?;
+        dbus_check(&rt)?;
+    }
 
     if !no_refresh {
         refresh(dry_run, no_progress, download_pure_db, &sysroot)?;

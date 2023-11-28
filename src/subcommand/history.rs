@@ -9,6 +9,7 @@ use oma_pm::{
 };
 use std::{borrow::Cow, sync::atomic::Ordering};
 
+use crate::OmaArgs;
 use crate::{
     error::OutputError,
     table::table_for_history_pending,
@@ -42,15 +43,22 @@ pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     }
 }
 
-pub fn execute_undo(
-    network_thread: usize,
-    no_progress: bool,
-    sysroot: String,
-) -> Result<i32, OutputError> {
+pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
 
-    let rt = create_async_runtime()?;
-    dbus_check(&rt)?;
+    let OmaArgs {
+        dry_run: _,
+        network_thread,
+        no_progress,
+        download_pure_db: _,
+        no_check_dbus,
+        ..
+    } = oma_args;
+
+    if !no_check_dbus {
+        let rt = create_async_runtime()?;
+        dbus_check(&rt)?;
+    }
 
     let conn = connect_or_create_db(false, sysroot.clone())?;
     let list = list_history(conn)?;

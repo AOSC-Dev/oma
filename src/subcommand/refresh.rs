@@ -1,17 +1,22 @@
 use oma_console::success;
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 
-use crate::fl;
 use crate::{error::OutputError, utils::root};
+use crate::{fl, OmaArgs};
 
 use super::utils::refresh;
 
-pub fn execute(
-    no_progress: bool,
-    download_pure_db: bool,
-    sysroot: String,
-) -> Result<i32, OutputError> {
+pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
+
+    let OmaArgs {
+        dry_run: _,
+        network_thread: _,
+        no_progress,
+        download_pure_db,
+        ..
+    } = oma_args;
+
     refresh(false, no_progress, download_pure_db, &sysroot)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;

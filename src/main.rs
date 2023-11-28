@@ -83,6 +83,15 @@ pub struct RemoveArgs {
     sysroot: String,
 }
 
+struct OmaArgs {
+    dry_run: bool,
+    network_thread: usize,
+    no_progress: bool,
+    download_pure_db: bool,
+    no_check_dbus: bool,
+    protect_essentials: bool,
+}
+
 fn main() {
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
@@ -217,11 +226,30 @@ fn run_subcmd(
             .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
     };
 
+    let no_check_dbus = if matches.get_flag("no_check_dbus") {
+        true
+    } else {
+        !config.check_dbus()
+    };
+
+    let oma_args = OmaArgs {
+        dry_run,
+        network_thread: config.network_thread(),
+        no_progress,
+        download_pure_db: config.pure_db(),
+        no_check_dbus,
+        protect_essentials: config
+            .general
+            .as_ref()
+            .map(|x| x.protect_essentials)
+            .unwrap_or_else(GeneralConfig::default_protect_essentials),
+    };
+
     let exit_code = match matches.subcommand() {
         Some(("install", args)) => {
-            let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
+            let input = pkgs_getter(args).unwrap_or_default();
 
-            let args = InstallArgs {
+            let install_args = InstallArgs {
                 no_refresh: args.get_flag("no_refresh"),
                 install_dbg: args.get_flag("install_dbg"),
                 reinstall: args.get_flag("reinstall"),
@@ -237,16 +265,7 @@ fn run_subcmd(
                 sysroot,
             };
 
-            let network_thread = config.network_thread();
-
-            install::execute(
-                pkgs_unparse,
-                args,
-                dry_run,
-                network_thread,
-                no_progress,
-                config.pure_db(),
-            )?
+            install::execute(input, install_args, oma_args)?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -259,7 +278,7 @@ fn run_subcmd(
                 sysroot,
             };
 
-            upgrade::execute(pkgs_unparse, args, dry_run, no_progress, config.pure_db())?
+            upgrade::execute(pkgs_unparse, args, oma_args)?
         }
         Some(("download", args)) => {
             let keyword = pkgs_getter(args).unwrap_or_default();
@@ -270,11 +289,11 @@ fn run_subcmd(
                 .cloned()
                 .map(|x| PathBuf::from(&x));
 
-            download::execute(keyword, path, dry_run, no_progress)?
+            download::execute(keyword, path, oma_args)?
         }
         Some((x, args)) if x == "remove" || x == "purge" => {
-            let pkgs_unparse = pkgs_getter(args).unwrap();
-            let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+            let input = pkgs_getter(args).unwrap();
+            let input = input.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
             let args = RemoveArgs {
                 yes: args.get_flag("yes"),
@@ -288,28 +307,15 @@ fn run_subcmd(
                 sysroot,
             };
 
-            let protect_essentials = config
-                .general
-                .as_ref()
-                .map(|x| x.protect_essentials)
-                .unwrap_or_else(GeneralConfig::default_protect_essentials);
-
-            remove::execute(
-                pkgs_unparse,
-                args,
-                dry_run,
-                protect_essentials,
-                config.network_thread(),
-                no_progress,
-            )?
+            remove::execute(input, args, oma_args)?
         }
-        Some(("refresh", _)) => refresh::execute(no_progress, config.pure_db(), sysroot)?,
+        Some(("refresh", _)) => refresh::execute(oma_args, sysroot)?,
         Some(("show", args)) => {
-            let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
-            let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+            let input = pkgs_getter(args).unwrap_or_default();
+            let input = input.iter().map(|x| x.as_str()).collect::<Vec<_>>();
             let all = args.get_flag("all");
 
-            show::execute(all, pkgs_unparse, sysroot)?
+            show::execute(all, input, sysroot)?
         }
         Some(("search", args)) => {
             let args = args
@@ -326,23 +332,11 @@ fn run_subcmd(
 
             contents_find::execute(x, is_bin, pkg, no_progress, sysroot)?
         }
-        Some(("fix-broken", _)) => {
-            let network_thread = config.network_thread();
-            fix_broken::execute(dry_run, network_thread, no_progress, sysroot)?
-        }
+        Some(("fix-broken", _)) => fix_broken::execute(oma_args, sysroot)?,
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
-            let network_thread = config.network_thread();
 
-            pick::execute(
-                pkg_str,
-                args.get_flag("no_refresh"),
-                dry_run,
-                network_thread,
-                no_progress,
-                config.pure_db(),
-                sysroot,
-            )?
+            pick::execute(pkg_str, args.get_flag("no_refresh"), oma_args, sysroot)?
         }
         Some(("mark", args)) => {
             let op = args.get_one::<String>("action").unwrap();
@@ -375,10 +369,7 @@ fn run_subcmd(
         }
         Some(("clean", _)) => clean::execute(no_progress, sysroot)?,
         Some(("history", _)) => subcommand::history::execute_history(sysroot)?,
-        Some(("undo", _)) => {
-            let network_thread = config.network_thread();
-            history::execute_undo(network_thread, no_progress, sysroot)?
-        }
+        Some(("undo", _)) => history::execute_undo(oma_args, sysroot)?,
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
             let opt_in = args
@@ -400,6 +391,7 @@ fn run_subcmd(
                 network_thread,
                 no_progress,
                 download_pure_db: config.pure_db(),
+                no_check_dbus,
                 sysroot,
             };
 

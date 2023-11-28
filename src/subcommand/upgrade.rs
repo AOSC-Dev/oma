@@ -18,6 +18,7 @@ use crate::utils::create_async_runtime;
 use crate::utils::dbus_check;
 use crate::utils::multibar;
 use crate::utils::root;
+use crate::OmaArgs;
 use crate::UpgradeArgs;
 
 use super::utils::check_empty_op;
@@ -28,14 +29,23 @@ use super::utils::refresh;
 pub fn execute(
     pkgs_unparse: Vec<String>,
     args: UpgradeArgs,
-    dry_run: bool,
-    no_progress: bool,
-    download_pure_db: bool,
+    oma_args: OmaArgs,
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let rt = create_async_runtime()?;
-    dbus_check(&rt)?;
+    let OmaArgs {
+        dry_run,
+        network_thread: _,
+        no_progress,
+        download_pure_db,
+        no_check_dbus,
+        ..
+    } = oma_args;
+
+    if !no_check_dbus {
+        let rt = create_async_runtime()?;
+        dbus_check(&rt)?;
+    }
 
     refresh(dry_run, no_progress, download_pure_db, &args.sysroot)?;
 
