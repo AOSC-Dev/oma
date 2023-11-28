@@ -179,7 +179,7 @@ impl From<OmaDbusError> for OutputError {
                 source: Some(Box::new(e)),
             },
             OmaDbusError::FailedTakeWakeLock(e) => Self {
-                description: fl!("failed-to-take-wake-lock"),
+                description: fl!("failed-to-set-lockscreen"),
                 source: Some(Box::new(e)),
             },
             OmaDbusError::FailedCreateProxy(proxy, e) => {
@@ -190,7 +190,7 @@ impl From<OmaDbusError> for OutputError {
                 }
             }
             OmaDbusError::FailedGetBatteryStatus(e) => Self {
-                description: fl!("failed-to-get-battery-status"),
+                description: fl!("failed-to-set-lockscreen"),
                 source: Some(Box::new(e)),
             },
         }
@@ -437,11 +437,11 @@ impl From<OmaContentsError> for OutputError {
                 source: Some(Box::new(e)),
             },
             OmaContentsError::FailedToGetFileMetadata(path, e) => Self {
-                description: fl!("failed-to-get-file-metadata", p = path),
+                description: fl!("failed-to-read-file-metadata", p = path),
                 source: Some(Box::new(e)),
             },
             OmaContentsError::FailedToWaitExit(e) => Self {
-                description: fl!("failed-to-wait-rg-to-exit"),
+                description: fl!("failed-to-get-rg-process-info"),
                 source: Some(Box::new(e)),
             },
         };
@@ -552,7 +552,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: Some(Box::new(e)),
         },
         OmaAptError::FailedGetAvailableSpace(e) => OutputError {
-            description: fl!("failed-to-get-available-space"),
+            description: fl!("failed-to-calculate-available-space"),
             source: Some(Box::new(e)),
         },
         OmaAptError::FailedGetParentPath(p) => OutputError {
