@@ -152,6 +152,7 @@ cleaning = Clearing packages cache ...
 
 download-failed-with-len = {$len} package(s) failed to download.
 download-failed = Download file: {$filename} failed!
+download-failed-no-name = Download file failed!
 
 need-more-size = Insufficient storage space: {$a} is availble, but {$n} is needed.
 successfully-download-to-path = Successfully downloaded {$len} package(s) to path: {$path}.

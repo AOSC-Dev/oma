@@ -590,7 +590,7 @@ impl From<reqwest::Error> for OutputError {
         }
 
         Self {
-            description: fl!("download-failed"),
+            description: fl!("download-failed-no-name"),
             source: None,
         }
     }
