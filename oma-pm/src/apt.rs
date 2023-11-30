@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
-    io::{self, ErrorKind, Write},
+    io::{self, BufRead, BufReader, ErrorKind, Read, Write},
+    os::fd::{AsRawFd, FromRawFd},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -12,10 +13,7 @@ use oma_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
     package::{Package, Version},
-    raw::{
-        progress::AptInstallProgress,
-        util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
-    },
+    raw::util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
     records::RecordField,
     util::DiskSpace,
 };
@@ -37,7 +35,7 @@ pub use oma_pm_operation_type::*;
 
 use crate::{
     pkginfo::PkgInfo,
-    progress::{NoProgress, OmaAptInstallProgress},
+    progress::NoProgress,
     query::{OmaDatabase, OmaDatabaseError},
     unmet::{find_unmet_deps, find_unmet_deps_with_markinstall, UnmetDep},
 };
@@ -442,6 +440,8 @@ impl OmaApt {
 
         let sysroot = self.config.get("Dir").unwrap_or("/".to_string());
 
+        self.init_apt_args(args_config);
+
         if self.dry_run {
             debug!("op: {v:?}");
             return Ok(());
@@ -502,18 +502,32 @@ impl OmaApt {
             e
         })?;
 
-        let mut progress = OmaAptInstallProgress::new_box(
-            self.config,
-            args_config.yes,
-            args_config.force_yes,
-            args_config.dpkg_force_confnew,
-            args_config.dpkg_force_all,
-            args_config.no_progress,
-        );
+        // let mut progress = OmaAptInstallProgress::new_box(
+        //     self.config,
+        //     args_config.yes,
+        //     args_config.force_yes,
+        //     args_config.dpkg_force_confnew,
+        //     args_config.dpkg_force_all,
+        //     args_config.no_progress,
+        // );
+
+        let (reader, writer) = os_pipe::pipe().unwrap();
+
+        let fd = writer.as_raw_fd();
+
+        dbg!(fd);
+
+        std::thread::spawn(move || {
+            let buf = BufReader::new(reader);
+
+            for i in buf.lines() {
+                dbg!(i);
+            }
+        });
 
         apt_unlock_inner();
 
-        self.cache.do_install(&mut progress).map_err(|e| {
+        self.cache.do_install(fd.into()).map_err(|e| {
             apt_lock_inner().ok();
             apt_unlock();
             e
@@ -559,6 +573,53 @@ impl OmaApt {
         writeln!(log, "End-Date: {end_time}\n").ok();
 
         Ok(())
+    }
+
+    fn init_apt_args(&self, args_config: &AptArgs) {
+        if args_config.yes {
+            oma_apt::raw::config::raw::config_set(
+                "APT::Get::Assume-Yes".to_owned(),
+                "true".to_owned(),
+            );
+            debug!("APT::Get::Assume-Yes is set to true");
+        }
+        if args_config.dpkg_force_confnew {
+            let opts = self.config.get("Dpkg::Options::");
+            if let Some(opts) = opts {
+                self.config
+                    .set("Dpkg::Options::", &format!("{opts} --force-confnew"))
+            } else {
+                self.config.set("Dpkg::Options::", "--force-confnew")
+            }
+
+            debug!("Dpkg::Options:: is set to --force-confnew");
+        } else if args_config.yes {
+            let opts = self.config.get("Dpkg::Options::");
+            if let Some(opts) = opts {
+                self.config
+                    .set("Dpkg::Options::", &format!("{opts} --force-confold"))
+            } else {
+                self.config.set("Dpkg::Options::", "--force-confold")
+            }
+
+            debug!("Dpkg::Options:: is set to --force-confold");
+        }
+        if args_config.force_yes {
+            // warn!("{}", fl!("force-auto-mode"));
+            self.config.set("APT::Get::force-yes", "true");
+            debug!("APT::Get::force-Yes is set to true");
+        }
+        if args_config.dpkg_force_all {
+            // warn!("{}", fl!("dpkg-force-all-mode"));
+            let opts = self.config.get("Dpkg::Options::");
+            if let Some(opts) = opts {
+                self.config
+                    .set("Dpkg::Options::", &format!("{opts} --force-all"))
+            } else {
+                self.config.set("Dpkg::Options::", "--force-all")
+            }
+            debug!("Dpkg::Options:: is set to --force-all");
+        }
     }
 
     /// Resolve apt dependencies
@@ -777,10 +838,7 @@ impl OmaApt {
         }
 
         self.cache
-            .commit(
-                &mut NoProgress::new_box(),
-                &mut AptInstallProgress::new_box(),
-            )
+            .commit(&mut NoProgress::new_box(), 2)
             .map_err(|e| OmaAptError::CommitErr(e.to_string()))?;
 
         Ok(res)

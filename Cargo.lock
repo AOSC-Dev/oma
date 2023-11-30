@@ -2591,8 +2591,6 @@ dependencies = [
 [[package]]
 name = "oma-apt"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6194fabd786defa560e4098b15fdf9cb6ca6c8521f929402347bb929bf5467fa"
 dependencies = [
  "cxx",
  "cxx-build",
@@ -2711,6 +2709,7 @@ dependencies = [
  "oma-fetch",
  "oma-pm-operation-type",
  "oma-utils 0.6.0",
+ "os_pipe",
  "small-map",
  "thiserror",
  "tokio",
@@ -2865,6 +2864,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82f29ae2f71b53ec19cc23385f8e4f3d90975195aa3d09171ba3bef7159bec27"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "os_pipe"
+version = "1.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ae859aa07428ca9a929b936690f8b12dc5f11dd8c6992a18ca93919f28bc177"
+dependencies = [
+ "libc",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
