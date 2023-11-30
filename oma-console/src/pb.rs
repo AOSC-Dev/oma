@@ -21,16 +21,16 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
                 " {prefix:.blue.bold}".to_owned()
                     + " {bytes:>10.green.bold} "
                     + &style("/").green().bold().to_string()
-                    + " {total_bytes:.green.bold} "
+                    + " {total_bytes:>8.green.bold} "
                     + &style("@").green().bold().to_string()
-                    + " {binary_bytes_per_sec:<28.green.bold}"
-                    + "{eta_precise:<10.blue.bold}  [{wide_bar:.blue.bold}] {percent:>3.blue.bold}"
+                    + " {binary_bytes_per_sec:<26.green.bold}"
+                    + " {eta_precise:<10.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue.bold}"
                     + &style("%").blue().bold().to_string()
             }
         } else if max_len < 100 {
             " {msg} {percent:>3}%".to_owned()
         } else {
-            " {msg:<62} {total_bytes:<10}  [{wide_bar:.white/black}] {percent:>3}%".to_owned()
+            " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
         }
     };
 
