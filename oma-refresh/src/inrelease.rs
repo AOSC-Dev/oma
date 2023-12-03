@@ -44,8 +44,8 @@ pub enum InReleaseParserError {
     BadSha256Value(String),
     #[error("Bad checksum entry: {0}")]
     BadChecksumEntry(String),
-    #[error("Bad InRelease {0}: {1}")]
-    InReleaseSyntaxError(String, String),
+    #[error("Bad InRelease: {0}")]
+    InReleaseSyntaxError(String),
     #[error("Unsupport file type in path")]
     UnsupportFileType,
     #[error(transparent)]
@@ -183,7 +183,7 @@ fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String
     let mut res = vec![];
 
     let debcontrol = oma_debcontrol::parse_str(s)
-        .map_err(|e| InReleaseParserError::InReleaseSyntaxError(s.to_string(), e.to_string()))?;
+        .map_err(|e| InReleaseParserError::InReleaseSyntaxError(e.to_string()))?;
 
     for i in debcontrol {
         let mut item = SmallMap::<16, _, _>::new();
