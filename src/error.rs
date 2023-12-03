@@ -18,7 +18,7 @@ use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
-use tracing::error;
+use tracing::{error, debug};
 
 use crate::fl;
 use crate::table::print_unmet_dep;
@@ -689,6 +689,7 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
 
 impl From<HistoryError> for OutputError {
     fn from(value: HistoryError) -> Self {
+        debug!("{:?}", value);
         match value {
             HistoryError::FailedOperateDirOrFile(s, e) => Self {
                 description: fl!("failed-to-operate-path", p = s),
@@ -703,6 +704,10 @@ impl From<HistoryError> for OutputError {
                 source: Some(Box::new(e)),
             },
             HistoryError::ParseError(e) => Self {
+                description: fl!("failed-to-parse-history-object"),
+                source: Some(Box::new(e)),
+            },
+            HistoryError::ParseDbError(e) => Self {
                 description: fl!("failed-to-parse-history-object"),
                 source: Some(Box::new(e)),
             },
