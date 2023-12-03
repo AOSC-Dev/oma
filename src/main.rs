@@ -83,7 +83,7 @@ pub struct RemoveArgs {
     sysroot: String,
 }
 
-struct OmaArgs {
+pub struct OmaArgs {
     dry_run: bool,
     network_thread: usize,
     no_progress: bool,
