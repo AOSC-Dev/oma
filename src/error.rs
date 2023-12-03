@@ -288,9 +288,9 @@ impl From<RefreshError> for OutputError {
                     description: fl!("inrelease-checksum-can-not-parse", i = line),
                     source: None,
                 },
-                InReleaseParserError::InReleaseSyntaxError(e) => Self {
+                InReleaseParserError::InReleaseSyntaxError => Self {
                     description: fl!("inrelease-syntax-error"),
-                    source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
+                    source: None,
                 },
                 InReleaseParserError::UnsupportFileType => Self {
                     description: fl!("inrelease-parse-unsupport-file-type"),
