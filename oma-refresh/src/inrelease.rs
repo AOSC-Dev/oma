@@ -183,7 +183,7 @@ fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String
     let mut res = vec![];
 
     let debcontrol = oma_debcontrol::parse_str(s)
-        .map_err(|e| InReleaseParserError::InReleaseSyntaxError(e.to_string()))?;
+        .map_err(|e| InReleaseParserError::InReleaseSyntaxError(e.underlying.to_string()))?;
 
     for i in debcontrol {
         let mut item = SmallMap::<16, _, _>::new();
