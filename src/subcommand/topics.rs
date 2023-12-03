@@ -54,7 +54,7 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
         no_progress,
         download_pure_db,
         sysroot,
-        no_check_dbus
+        no_check_dbus,
     } = args;
 
     let rt = create_async_runtime()?;
