@@ -182,8 +182,8 @@ impl InReleaseParser {
 fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String, String>>> {
     let mut res = vec![];
 
-    let debcontrol = oma_debcontrol::parse_str(s)
-        .map_err(|_| InReleaseParserError::InReleaseSyntaxError)?;
+    let debcontrol =
+        oma_debcontrol::parse_str(s).map_err(|_| InReleaseParserError::InReleaseSyntaxError)?;
 
     for i in debcontrol {
         let mut item = SmallMap::<16, _, _>::new();
