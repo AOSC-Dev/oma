@@ -33,14 +33,19 @@ pub fn execute(
     handle_no_result(no_result);
 
     let (mb, pb_map, global_is_set) = multibar();
-    let (success, failed) =
-        apt.download(pkgs, Some(network_thread), Some(&path), dry_run, |count, event, total| {
+    let (success, failed) = apt.download(
+        pkgs,
+        Some(network_thread),
+        Some(&path),
+        dry_run,
+        |count, event, total| {
             if !no_progress {
                 pb!(event, mb, pb_map, count, total, global_is_set)
             } else {
                 handle_event_without_progressbar(event);
             }
-        })?;
+        },
+    )?;
 
     if let Some(gpb) = pb_map.get(&0) {
         gpb.finish_and_clear();
