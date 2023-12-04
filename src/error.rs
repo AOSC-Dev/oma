@@ -173,6 +173,7 @@ impl From<OmaAptArgsBuilderError> for OutputError {
 
 impl From<OmaDbusError> for OutputError {
     fn from(value: OmaDbusError) -> Self {
+        debug!("{:?}", value);
         match value {
             OmaDbusError::FailedConnectDbus(e) => Self {
                 description: fl!("failed-to-connect-dbus"),
@@ -214,6 +215,7 @@ impl From<OmaDatabaseError> for OutputError {
 
 impl From<RefreshError> for OutputError {
     fn from(value: RefreshError) -> Self {
+        debug!("{:?}", value);
         match value {
             RefreshError::InvaildUrl(_) => Self {
                 description: fl!("invaild-url"),
@@ -328,6 +330,7 @@ impl From<OmaTopicsError> for OutputError {
 
 #[cfg(feature = "aosc")]
 fn oma_topics_error(e: OmaTopicsError) -> OutputError {
+    debug!("{:?}", e);
     match e {
         OmaTopicsError::BrokenFile(_) => OutputError {
             description: fl!("failed-to-read"),
@@ -359,6 +362,7 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
 
 impl From<DpkgError> for OutputError {
     fn from(value: DpkgError) -> Self {
+        debug!("{:?}", value);
         Self {
             description: fl!("can-not-run-dpkg-print-arch"),
             source: Some(Box::new(value)),
@@ -460,6 +464,7 @@ impl From<anyhow::Error> for OutputError {
 }
 
 pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
+    debug!("{:?}", err);
     match err {
         OmaAptError::RustApt(e) => OutputError {
             description: fl!("apt-error"),
@@ -568,6 +573,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
 
 impl From<reqwest::Error> for OutputError {
     fn from(e: reqwest::Error) -> Self {
+        debug!("{:?}", e);
         let filename = &e
             .url()
             .and_then(|x| x.path_segments())
@@ -597,6 +603,7 @@ impl From<reqwest::Error> for OutputError {
 }
 
 fn oma_download_error(e: DownloadError) -> OutputError {
+    debug!("{:?}", e);
     match e {
         DownloadError::ChecksumMisMatch(filename) => OutputError {
             description: fl!("checksum-mismatch", filename = filename),
@@ -624,6 +631,7 @@ fn oma_download_error(e: DownloadError) -> OutputError {
 }
 
 fn oma_checksum_error(e: ChecksumError) -> OutputError {
+    debug!("{:?}", e);
     match e {
         ChecksumError::FailedToOpenFile(s, e) => OutputError {
             description: fl!("failed-to-open-to-checksum", path = s),
@@ -645,6 +653,7 @@ fn oma_checksum_error(e: ChecksumError) -> OutputError {
 }
 
 fn oma_database_error(e: OmaDatabaseError) -> OutputError {
+    debug!("{:?}", e);
     match e {
         OmaDatabaseError::RustApt(e) => OutputError {
             description: fl!("apt-error"),
