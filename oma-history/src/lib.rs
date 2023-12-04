@@ -155,7 +155,7 @@ pub fn list_history(conn: Connection) -> HistoryResult<Vec<(SummaryLog, i64)>> {
 
     let res_iter = stmt
         .query_map([], |row| {
-            let t: String = row.get(0).unwrap();
+            let t: String = row.get(0)?;
             let time: i64 = row.get(1)?;
             let is_success: i64 = row.get(2)?;
             let install_packages: String = row.get(3)?;
