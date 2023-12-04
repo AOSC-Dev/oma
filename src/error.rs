@@ -720,6 +720,10 @@ impl From<HistoryError> for OutputError {
                 description: fl!("failed-to-parse-history-object"),
                 source: Some(Box::new(e)),
             },
+            HistoryError::NoResult(id) => Self {
+                description: format!("No result by id: {id}"),
+                source: None,
+            }
         }
     }
 }

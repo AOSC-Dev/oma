@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use chrono::{Local, LocalResult, TimeZone};
 use dialoguer::{theme::ColorfulTheme, Select};
-use oma_history::{connect_or_create_db, list_history, SummaryLog, SummaryType};
+use oma_history::{connect_or_create_db, list_history, SummaryType, HistoryListEntry, find_history_by_id};
 use oma_pm::apt::InstallOperation;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
@@ -21,7 +21,7 @@ use super::utils::{handle_no_result, normal_commit, NormalCommitArgs};
 
 pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     let conn = connect_or_create_db(false, sysroot)?;
-    let list = list_history(conn)?;
+    let list = list_history(&conn)?;
     let display_list = format_summary_log(&list, false);
 
     ALLOWCTRLC.store(true, Ordering::Relaxed);
@@ -33,8 +33,9 @@ pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
             dialoguer_select_history(&display_list, old_selected).map_err(|_| anyhow!(""))?;
         old_selected = selected;
 
-        let selected = &list[selected].0;
-        let op = &selected.op;
+        let selected = &list[selected];
+        let id = selected.id;
+        let op = find_history_by_id(&conn, id)?;
         let install = &op.install;
         let remove = &op.remove;
         let disk_size = &op.disk_size;
@@ -61,12 +62,13 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
     }
 
     let conn = connect_or_create_db(false, sysroot.clone())?;
-    let list = list_history(conn)?;
+    let list = list_history(&conn)?;
     let display_list = format_summary_log(&list, true);
     let selected = dialoguer_select_history(&display_list, 0)?;
 
-    let selected = &list[selected].0;
-    let op = &selected.op;
+    let selected = &list[selected];
+    let id = selected.id;
+    let op = find_history_by_id(&conn, id)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
@@ -148,19 +150,19 @@ fn dialoguer_select_history(
     Ok(selected)
 }
 
-fn format_summary_log(list: &[(SummaryLog, i64)], undo: bool) -> Vec<String> {
+fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<String> {
     let display_list = list
         .iter()
-        .filter(|(log, _)| {
+        .filter(|log| {
             if undo {
-                log.typ != SummaryType::FixBroken
+                log.t != SummaryType::FixBroken
             } else {
                 true
             }
         })
-        .map(|(log, date)| {
-            let date = format_date(*date);
-            match &log.typ {
+        .map(|log| {
+            let date = format_date(log.time);
+            match &log.t {
                 SummaryType::Install(v) if v.len() > 3 => {
                     format!(
                         "{}Installed {} ... (and {} more) [{}]",

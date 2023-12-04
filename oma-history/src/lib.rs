@@ -40,6 +40,8 @@ pub enum HistoryError {
     ParseError(serde_json::Error),
     #[error("Failed to parser object: {0}")]
     ParseDbError(rusqlite::Error),
+    #[error("Database no result by id: {0}")]
+    NoResult(i64),
 }
 
 pub fn connect_or_create_db(write: bool, sysroot: String) -> HistoryResult<Connection> {
@@ -109,76 +111,89 @@ pub fn write_history_entry(
     Ok(())
 }
 
-struct UnparseDbEntry {
-    t: String,
-    time: i64,
-    is_success: bool,
-    install_packages: String,
-    remove_packages: String,
-    disk_size: i64,
-    total_download_size: u64,
+pub struct HistoryListEntry {
+    pub id: i64,
+    pub t: SummaryType,
+    pub time: i64,
+    pub is_success: bool,
 }
 
-impl TryFrom<&UnparseDbEntry> for SummaryLog {
-    type Error = HistoryError;
-
-    fn try_from(value: &UnparseDbEntry) -> std::prelude::v1::Result<Self, Self::Error> {
-        let install_package: Vec<InstallEntry> =
-            serde_json::from_str(&value.install_packages).map_err(HistoryError::ParseError)?;
-        let remove_package: Vec<RemoveEntry> =
-            serde_json::from_str(&value.remove_packages).map_err(HistoryError::ParseError)?;
-        let disk_size = if value.disk_size >= 0 {
-            ("+".to_string(), value.disk_size as u64)
-        } else {
-            ("-".to_string(), 0 - value.disk_size as u64)
-        };
-        let typ = serde_json::from_str(&value.t).map_err(HistoryError::ParseError)?;
-
-        Ok(SummaryLog {
-            typ,
-            op: OmaOperation {
-                install: install_package,
-                remove: remove_package,
-                disk_size,
-                total_download_size: value.total_download_size,
-            },
-            is_success: value.is_success,
-        })
-    }
-}
-
-pub fn list_history(conn: Connection) -> HistoryResult<Vec<(SummaryLog, i64)>> {
+pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
     let mut res = vec![];
     let mut stmt = conn
-        .prepare("SELECT typ, time, is_success, install_packages, remove_packages, disk_size, total_download_size FROM \"history_oma_1.2\" ORDER BY id DESC")
+        .prepare("SELECT id, typ, time, is_success FROM \"history_oma_1.2\" ORDER BY id DESC")
         .map_err(HistoryError::ExecuteError)?;
 
     let res_iter = stmt
         .query_map([], |row| {
-            let t: String = row.get(0)?;
-            let time: i64 = row.get(1)?;
-            let is_success: i64 = row.get(2)?;
-            let install_packages: String = row.get(3)?;
-            let remove_packages: String = row.get(4)?;
-            let disk_size: i64 = row.get(5)?;
-            let total_download_size: u64 = row.get(6)?;
+            let id: i64 = row.get(0)?;
+            let t: String = row.get(1)?;
+            let time: i64 = row.get(2)?;
+            let is_success: i64 = row.get(3)?;
 
-            Ok(UnparseDbEntry {
-                t,
-                time,
-                is_success: if is_success == 0 { false } else { true },
-                install_packages,
-                remove_packages,
-                disk_size,
-                total_download_size,
-            })
+            Ok((id, t, time, is_success))
         })
         .map_err(HistoryError::ExecuteError)?;
 
     for i in res_iter {
-        let i = i.map_err(HistoryError::ParseDbError)?;
-        res.push((SummaryLog::try_from(&i)?, i.time));
+        let (id, t, time, is_success) = i.map_err(HistoryError::ParseDbError)?;
+        res.push(HistoryListEntry {
+            id,
+            t: serde_json::from_str(&t).map_err(HistoryError::ParseError)?,
+            time,
+            is_success: if is_success == 1 { true } else { false },
+        });
     }
 
     Ok(res)
+}
+
+pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperation> {
+    let mut res = vec![];
+    let mut stmt = conn
+        .prepare("SELECT install_packages, remove_packages, disk_size, total_download_size FROM \"history_oma_1.2\" WHERE id = (?1)")
+        .map_err(HistoryError::ExecuteError)?;
+
+    let res_iter = stmt
+        .query_map([id], |row| {
+            let install_packages: String = row.get(0)?;
+            let remove_packages: String = row.get(1)?;
+            let disk_size: i64 = row.get(2)?;
+            let total_download_size: u64 = row.get(3)?;
+
+            Ok((
+                install_packages,
+                remove_packages,
+                disk_size,
+                total_download_size,
+            ))
+        })
+        .map_err(HistoryError::ExecuteError)?;
+
+    for i in res_iter {
+        let (install_packages, remove_packages, disk_size, total_download_size) =
+            i.map_err(HistoryError::ParseDbError)?;
+
+        let install_package: Vec<InstallEntry> =
+            serde_json::from_str(&install_packages).map_err(HistoryError::ParseError)?;
+        let remove_package: Vec<RemoveEntry> =
+            serde_json::from_str(&remove_packages).map_err(HistoryError::ParseError)?;
+        let disk_size = if disk_size >= 0 {
+            ("+".to_string(), disk_size as u64)
+        } else {
+            ("-".to_string(), 0 - disk_size as u64)
+        };
+
+        res.push(OmaOperation {
+            install: install_package,
+            remove: remove_package,
+            disk_size,
+            total_download_size,
+        });
+    }
+
+    Ok(res
+        .first()
+        .ok_or_else(|| HistoryError::NoResult(id))?
+        .clone())
 }
