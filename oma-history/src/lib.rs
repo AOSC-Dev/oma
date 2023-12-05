@@ -149,7 +149,6 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
 }
 
 pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperation> {
-    let mut res = vec![];
     let mut stmt = conn
         .prepare("SELECT install_packages, remove_packages, disk_size, total_download_size FROM \"history_oma_1.2\" WHERE id = (?1)")
         .map_err(HistoryError::ExecuteError)?;
@@ -170,6 +169,8 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
         })
         .map_err(HistoryError::ExecuteError)?;
 
+    let mut res = None;
+
     for i in res_iter {
         let (install_packages, remove_packages, disk_size, total_download_size) =
             i.map_err(HistoryError::ParseDbError)?;
@@ -184,16 +185,14 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
             ("-".to_string(), 0 - disk_size as u64)
         };
 
-        res.push(OmaOperation {
+        res = Some(OmaOperation {
             install: install_package,
             remove: remove_package,
             disk_size,
             total_download_size,
         });
+        break;
     }
 
-    Ok(res
-        .first()
-        .ok_or_else(|| HistoryError::NoResult(id))?
-        .clone())
+    Ok(res.ok_or_else(|| HistoryError::NoResult(id))?.clone())
 }
