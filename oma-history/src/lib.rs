@@ -194,5 +194,5 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
         break;
     }
 
-    Ok(res.ok_or_else(|| HistoryError::NoResult(id))?.clone())
+    res.ok_or_else(|| HistoryError::NoResult(id))
 }
