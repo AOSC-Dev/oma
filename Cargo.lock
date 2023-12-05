@@ -2632,7 +2632,7 @@ dependencies = [
 
 [[package]]
 name = "oma-contents"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "chrono",
  "flate2",
