@@ -171,11 +171,8 @@ impl PkgInfo {
         if uris.is_empty() {
             println!("  unknown");
         } else {
-            for (i, c) in uris.iter().enumerate() {
-                println!("  {}", source_url_to_apt_style(c).unwrap_or(c.to_string()));
-                if i != uris.len() - 1 {
-                    println!()
-                }
+            for c in uris {
+                println!("  {}", source_url_to_apt_style(&c).unwrap_or(c.to_string()));
             }
         }
 
