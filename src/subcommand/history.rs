@@ -1,7 +1,9 @@
 use anyhow::anyhow;
 use chrono::{Local, LocalResult, TimeZone};
 use dialoguer::{theme::ColorfulTheme, Select};
-use oma_history::{connect_or_create_db, list_history, SummaryType, HistoryListEntry, find_history_by_id};
+use oma_history::{
+    connect_or_create_db, find_history_by_id, list_history, HistoryListEntry, SummaryType,
+};
 use oma_pm::apt::InstallOperation;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
