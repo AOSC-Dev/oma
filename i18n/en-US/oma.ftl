@@ -128,7 +128,7 @@ can-not-parse-sources-list = Failed parse the sources.list file {$path}.
 unsupport-protocol = Omakase does not support the protocol: {$url}.
 refreshing-repo-metadata = Refreshing local database ...
 not-found = Failed to download InRelease from {$url}: Remote file not found (404).
-inrelease-syntax-error = InRelease file is invalid
+inrelease-syntax-error = InRelease file {$path} is invalid.
 
 # contents
 contents-does-not-exist = Package contents database (Contents) does not exist.
