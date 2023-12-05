@@ -125,7 +125,7 @@ can-not-parse-sources-list = 无法解析 sources.list 文件 {path}。
 unsupport-protocol = Omakase 不支持协议：{$url}。
 refreshing-repo-metadata = 正在刷新本机软件包数据库 ...
 not-found = 无法从 {$url} 下载 InRelease 文件：找不到远端文件 (HTTP 404)。
-inrelease-syntax-error = InRelease 文件解析失败。
+inrelease-syntax-error = 位于 {$path} 的 InRelease 文件解析失败。
 
 # contents
 contents-does-not-exist = 找不到软件包内容数据库文件 (Contents)。

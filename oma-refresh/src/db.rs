@@ -48,8 +48,6 @@ pub enum RefreshError {
     #[error("Failed to download InRelease from URL {0}: Remote file not found (HTTP 404).")]
     NoInReleaseFile(String),
     #[error(transparent)]
-    InReleaseParserError(#[from] InReleaseParserError),
-    #[error(transparent)]
     DpkgArchError(#[from] oma_utils::dpkg::DpkgError),
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
@@ -59,6 +57,8 @@ pub enum RefreshError {
     ChecksumError(#[from] ChecksumError),
     #[error("Failed to operate dir or file {0}: {1}")]
     FailedToOperateDirOrFile(String, tokio::io::Error),
+    #[error("Failed to parse InRelease file: {0}")]
+    InReleaseParseError(String, InReleaseParserError),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -410,7 +410,10 @@ where
             ose.is_flat,
             &inrelease_path,
             &rootfs,
-        )?;
+        )
+        .map_err(|err| {
+            RefreshError::InReleaseParseError(inrelease_path.display().to_string(), err)
+        })?;
 
         let checksums = inrelease
             .checksums

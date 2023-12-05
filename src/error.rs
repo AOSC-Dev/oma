@@ -243,7 +243,7 @@ impl From<RefreshError> for OutputError {
                 description: fl!("not-found", url = s),
                 source: None,
             },
-            RefreshError::InReleaseParserError(e) => match e {
+            RefreshError::InReleaseParseError(s, e) => match e {
                 InReleaseParserError::VerifyError(e) => match e {
                     VerifyError::CertParseFileError(p, e) => Self {
                         description: fl!("fail-load-certs-from-file", path = p),
@@ -291,7 +291,7 @@ impl From<RefreshError> for OutputError {
                     source: None,
                 },
                 InReleaseParserError::InReleaseSyntaxError => Self {
-                    description: fl!("inrelease-syntax-error"),
+                    description: fl!("inrelease-syntax-error", path = s),
                     source: None,
                 },
                 InReleaseParserError::UnsupportFileType => Self {
