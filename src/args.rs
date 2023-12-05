@@ -384,12 +384,6 @@ pub fn command_builder() -> Command {
                         .num_args(1..),
                 )
                 .arg(&dry_run)
-                .arg(
-                    Arg::new("refresh_mirror")
-                    .long("refresh-mirror")
-                    .action(ArgAction::SetTrue)
-                    .help("Only refresh the mirror in /etc/apt/sources.list.d/atm.list")
-                )
         );
     }
 
