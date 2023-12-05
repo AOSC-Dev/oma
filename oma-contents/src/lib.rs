@@ -473,20 +473,19 @@ fn sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(), E> {
 }
 
 type ContentsLine<'a> = (&'a str, Vec<(&'a str, &'a str)>);
-// #[cfg(feature = "no-rg-binary")]
-// type ContentsLines<'a> = Vec<(&'a str, Vec<(&'a str, &'a str)>)>;
 
 #[inline]
 fn single_line<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<ContentsLine<'a>, E> {
     separated_pair(first, sep, second).parse_next(input)
 }
 
-// #[cfg(feature = "no-rg-binary")]
-// #[inline]
-// fn multi_line<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<ContentsLines<'a>, E> {
-//     use winnow::combinator::{repeat, terminated};
-//     repeat(1.., terminated(single_line, tag("\n"))).parse_next(input)
-// }
+pub type ContentsLines<'a> = Vec<(&'a str, Vec<(&'a str, &'a str)>)>;
+
+#[inline]
+pub fn parse_contents<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<ContentsLines<'a>, E> {
+    use winnow::combinator::{repeat, terminated};
+    repeat(1.., terminated(single_line, tag("\n"))).parse_next(input)
+}
 
 #[inline]
 fn prefix(s: &str) -> String {
@@ -549,27 +548,26 @@ fn test_single_line() {
     assert_eq!(res, Ok(("/", vec![("admin", "apt-file")])));
 }
 
-// #[cfg(feature = "no-rg-binary")]
-// #[test]
-// fn test_multiple_lines() {
-//     let a = &mut "opt/32/libexec   devel/gcc+32,devel/llvm+32,gnome/gconf+32\nopt/32/share   devel/llvm+32,libs/alsa-plugins+32\n";
-//     let res = multi_line::<()>(a);
+#[test]
+fn test_multiple_lines() {
+    let a = &mut "opt/32/libexec   devel/gcc+32,devel/llvm+32,gnome/gconf+32\nopt/32/share   devel/llvm+32,libs/alsa-plugins+32\n";
+    let res = parse_contents::<()>(a);
 
-//     assert_eq!(
-//         res,
-//         Ok(vec![
-//             (
-//                 "opt/32/libexec",
-//                 vec![
-//                     ("devel", "gcc+32"),
-//                     ("devel", "llvm+32"),
-//                     ("gnome", "gconf+32"),
-//                 ]
-//             ),
-//             (
-//                 "opt/32/share",
-//                 vec![("devel", "llvm+32"), ("libs", "alsa-plugins+32")]
-//             )
-//         ])
-//     )
-// }
+    assert_eq!(
+        res,
+        Ok(vec![
+            (
+                "opt/32/libexec",
+                vec![
+                    ("devel", "gcc+32"),
+                    ("devel", "llvm+32"),
+                    ("gnome", "gconf+32"),
+                ]
+            ),
+            (
+                "opt/32/share",
+                vec![("devel", "llvm+32"), ("libs", "alsa-plugins+32")]
+            )
+        ])
+    )
+}
