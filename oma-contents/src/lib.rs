@@ -482,7 +482,9 @@ fn single_line<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<Cont
 pub type ContentsLines<'a> = Vec<(&'a str, Vec<(&'a str, &'a str)>)>;
 
 #[inline]
-pub fn parse_contents<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<ContentsLines<'a>, E> {
+pub fn parse_contents<'a, E: ParserError<&'a str>>(
+    input: &mut &'a str,
+) -> PResult<ContentsLines<'a>, E> {
     use winnow::combinator::{repeat, terminated};
     repeat(1.., terminated(single_line, tag("\n"))).parse_next(input)
 }
