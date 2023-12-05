@@ -41,7 +41,6 @@ pub struct TopicArgs {
     pub download_pure_db: bool,
     pub no_check_dbus: bool,
     pub sysroot: String,
-    pub refresh_mirror: bool,
 }
 
 pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
@@ -56,33 +55,9 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
         download_pure_db,
         sysroot,
         no_check_dbus,
-        refresh_mirror,
     } = args;
 
     let rt = create_async_runtime()?;
-
-    if refresh_mirror {
-        let pb = if !no_progress {
-            let pb = ProgressBar::new_spinner();
-            let (style, inv) = oma_spinner(AILURUS.load(Ordering::Relaxed));
-            pb.set_style(style);
-            pb.enable_steady_tick(inv);
-            pb.set_message(fl!("refreshing-topic-metadata"));
-
-            Some(pb)
-        } else {
-            None
-        };
-
-        let mut tm = rt.block_on(TopicManager::new(&sysroot))?;
-        rt.block_on(tm.refresh())?;
-        rt.block_on(tm.write_enabled(dry_run, || fl!("do-not-edit-topic-sources-list"), true))?;
-        if let Some(pb) = pb {
-            pb.finish_and_clear();
-        }
-
-        return Ok(0);
-    }
 
     if !no_check_dbus {
         dbus_check(&rt)?;
