@@ -28,21 +28,21 @@ pub struct NetworkConfig {
 }
 
 impl NetworkConfig {
-    pub fn default_network_thread() -> usize {
+    pub const fn default_network_thread() -> usize {
         4
     }
 }
 
 impl GeneralConfig {
-    pub fn default_protect_essentials() -> bool {
+    pub const fn default_protect_essentials() -> bool {
         true
     }
 
-    pub fn default_refresh_pure_database() -> bool {
+    pub const fn default_refresh_pure_database() -> bool {
         false
     }
 
-    pub fn default_no_check_dbus() -> bool {
+    pub const fn default_no_check_dbus() -> bool {
         false
     }
 }
