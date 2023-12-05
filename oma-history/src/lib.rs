@@ -141,7 +141,7 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
             id,
             t: serde_json::from_str(&t).map_err(HistoryError::ParseError)?,
             time,
-            is_success: if is_success == 1 { true } else { false },
+            is_success: is_success == 1,
         });
     }
 
@@ -153,7 +153,7 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
         .prepare("SELECT install_packages, remove_packages, disk_size, total_download_size FROM \"history_oma_1.2\" WHERE id = (?1)")
         .map_err(HistoryError::ExecuteError)?;
 
-    let res_iter = stmt
+    let mut res_iter = stmt
         .query_map([id], |row| {
             let install_packages: String = row.get(0)?;
             let remove_packages: String = row.get(1)?;
@@ -171,7 +171,7 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
 
     let mut res = None;
 
-    for i in res_iter {
+    if let Some(i) = res_iter.next() {
         let (install_packages, remove_packages, disk_size, total_download_size) =
             i.map_err(HistoryError::ParseDbError)?;
 
@@ -191,7 +191,6 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
             disk_size,
             total_download_size,
         });
-        break;
     }
 
     res.ok_or_else(|| HistoryError::NoResult(id))
