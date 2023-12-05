@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use winnow::{
     combinator::{separated, separated_pair},
     error::ParserError,
-    token::{tag, take_till0, take_until1},
+    token::{tag, take_till, take_until1},
     PResult, Parser,
 };
 
@@ -444,7 +444,7 @@ fn search_line(mut line: &str, is_list: bool, kw: &str) -> Option<(String, Strin
 
 #[inline]
 fn pkg_split<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(&'a str, &'a str), E> {
-    separated_pair(take_till0('/'), pkg_name_sep, second_single).parse_next(input)
+    separated_pair(take_till(0.., '/'), pkg_name_sep, second_single).parse_next(input)
 }
 
 #[inline]
@@ -454,7 +454,7 @@ fn pkg_name_sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(),
 
 #[inline]
 fn second_single<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<&'a str, E> {
-    take_till0(|c| c == ',' || c == '\n').parse_next(input)
+    take_till(0.., |c| c == ',' || c == '\n').parse_next(input)
 }
 
 #[inline]
