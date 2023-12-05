@@ -126,7 +126,7 @@ pub fn execute(
             }
 
             if automatic {
-                s.push("automatc");
+                s.push("automatic");
             }
 
             if pkg.current_state() == 5 {
