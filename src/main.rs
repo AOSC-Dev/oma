@@ -393,7 +393,6 @@ fn run_subcmd(
                 download_pure_db: config.pure_db(),
                 no_check_dbus,
                 sysroot,
-                refresh_mirror: args.get_flag("refresh_mirror"),
             };
 
             topics::execute(args)?
