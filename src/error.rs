@@ -18,7 +18,7 @@ use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
-use tracing::{error, debug};
+use tracing::{debug, error};
 
 use crate::fl;
 use crate::table::print_unmet_dep;
@@ -723,7 +723,7 @@ impl From<HistoryError> for OutputError {
             HistoryError::NoResult(id) => Self {
                 description: format!("No result by id: {id}"),
                 source: None,
-            }
+            },
         }
     }
 }
