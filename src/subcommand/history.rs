@@ -1,7 +1,9 @@
 use anyhow::anyhow;
 use chrono::{Local, LocalResult, TimeZone};
 use dialoguer::{theme::ColorfulTheme, Select};
-use oma_history::{connect_db, find_history_by_id, list_history, HistoryListEntry, SummaryType};
+use oma_history::{
+    connect_db, find_history_by_id, list_history, HistoryListEntry, SummaryType, DATABASE_PATH,
+};
 use oma_pm::apt::InstallOperation;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
@@ -10,27 +12,18 @@ use oma_pm::{
 use std::path::Path;
 use std::{borrow::Cow, sync::atomic::Ordering};
 
+use crate::OmaArgs;
 use crate::{
     error::OutputError,
     table::table_for_history_pending,
     utils::{create_async_runtime, dbus_check, root},
     ALLOWCTRLC,
 };
-use crate::{fl, OmaArgs};
 
 use super::utils::{handle_no_result, normal_commit, NormalCommitArgs};
 
 pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
-    let conn = connect_db(
-        Path::new(&sysroot)
-            .canonicalize()
-            .map_err(|e| OutputError {
-                description: fl!("failed-to-operate-path"),
-                source: Some(Box::new(e)),
-            })?
-            .join("var/log/oma/history.db"),
-        false,
-    )?;
+    let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
 
     let list = list_history(&conn)?;
     let display_list = format_summary_log(&list, false);
@@ -72,16 +65,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         dbus_check(&rt)?;
     }
 
-    let conn = connect_db(
-        Path::new(&sysroot)
-            .canonicalize()
-            .map_err(|e| OutputError {
-                description: fl!("failed-to-operate-path"),
-                source: Some(Box::new(e)),
-            })?
-            .join("var/log/oma/history.db"),
-        false,
-    )?;
+    let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
 
     let list = list_history(&conn)?;
     let display_list = format_summary_log(&list, true);

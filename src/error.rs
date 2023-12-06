@@ -728,6 +728,10 @@ impl From<HistoryError> for OutputError {
                 description: fl!("oma-history-is-empty"),
                 source: None,
             },
+            HistoryError::FailedParentPath(p) => Self {
+                description: fl!("failed-to-get-parent-path", p = p),
+                source: None,
+            },
         }
     }
 }

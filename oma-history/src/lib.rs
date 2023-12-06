@@ -47,7 +47,11 @@ pub enum HistoryError {
     HistoryEmpty,
     #[error("Database no result by id: {0}")]
     NoResult(i64),
+    #[error("Failed to get parent path: {0}")]
+    FailedParentPath(String),
 }
+
+pub const DATABASE_PATH: &str = "var/lib/oma/history.db";
 
 pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Connection> {
     let conn = Connection::open(db_path);
@@ -83,8 +87,10 @@ pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Conn
 }
 
 pub fn create_db_file<P: AsRef<Path>>(sysroot: P) -> HistoryResult<PathBuf> {
-    let dir = sysroot.as_ref().join("var/log/oma");
-    let db_path = dir.join("history.db");
+    let db_path = sysroot.as_ref().join(DATABASE_PATH);
+    let dir = db_path
+        .parent()
+        .ok_or_else(|| HistoryError::FailedParentPath(db_path.display().to_string()))?;
 
     if !dir.exists() {
         fs::create_dir_all(&dir)
