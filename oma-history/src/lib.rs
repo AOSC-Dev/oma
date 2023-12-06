@@ -93,7 +93,7 @@ pub fn create_db_file<P: AsRef<Path>>(sysroot: P) -> HistoryResult<PathBuf> {
         .ok_or_else(|| HistoryError::FailedParentPath(db_path.display().to_string()))?;
 
     if !dir.exists() {
-        fs::create_dir_all(&dir)
+        fs::create_dir_all(dir)
             .map_err(|e| HistoryError::FailedOperateDirOrFile(dir.display().to_string(), e))?;
     }
 
