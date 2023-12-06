@@ -160,7 +160,7 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<String> {
         .iter()
         .filter(|log| {
             if undo {
-                log.t != SummaryType::FixBroken
+                log.t != SummaryType::FixBroken && log.t != SummaryType::Undo
             } else {
                 true
             }
