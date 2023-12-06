@@ -31,12 +31,8 @@ pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
             .join("var/log/oma/history.db"),
         false,
     )?;
+
     let list = list_history(&conn)?;
-
-    if list.is_empty() {
-
-    }
-
     let display_list = format_summary_log(&list, false);
 
     ALLOWCTRLC.store(true, Ordering::Relaxed);

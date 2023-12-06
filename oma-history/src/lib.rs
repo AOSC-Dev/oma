@@ -165,14 +165,13 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
         .map_err(HistoryError::ExecuteError)?;
 
     for i in res_iter {
-        if let Ok((id, t, time, is_success)) = i {
-            res.push(HistoryListEntry {
-                id,
-                t: serde_json::from_str(&t).map_err(HistoryError::ParseError)?,
-                time,
-                is_success: is_success == 1,
-            });
-        }
+        let (id, t, time, is_success) = i.map_err(HistoryError::ParseDbError)?;
+        res.push(HistoryListEntry {
+            id,
+            t: serde_json::from_str(&t).map_err(HistoryError::ParseError)?,
+            time,
+            is_success: is_success == 1,
+        });
     }
 
     if res.is_empty() {
