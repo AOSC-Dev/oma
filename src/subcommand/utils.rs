@@ -12,7 +12,8 @@ use oma_console::success;
 use oma_console::writer::bar_writeln;
 use oma_console::WRITER;
 use oma_fetch::DownloadEvent;
-use oma_history::connect_or_create_db;
+use oma_history::connect_db;
+use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgs;
@@ -168,7 +169,10 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
             write_history_entry(
                 op_after,
                 typ,
-                connect_or_create_db(true, sysroot)?,
+                {
+                    let db = create_db_file(sysroot)?;
+                    connect_db(db, true)?
+                },
                 dry_run,
                 start_time,
                 true,
@@ -180,7 +184,10 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
             write_history_entry(
                 op_after,
                 typ,
-                connect_or_create_db(true, sysroot)?,
+                {
+                    let db = create_db_file(sysroot)?;
+                    connect_db(db, true)?
+                },
                 dry_run,
                 start_time,
                 false,

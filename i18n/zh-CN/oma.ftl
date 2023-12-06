@@ -168,3 +168,5 @@ failed-to-connect-dbus = 无法连接到系统消息总线 (D-Bus) 。
 failed-to-set-lockscreen = 无法设置系统锁屏状态。
 failed-to-create-proxy = 无法创建系统消息总线 (D-Bus) 代理：{$proxy}。
 failed-to-get-power-status = 无法获取设备供电状态。
+
+oma-history-is-empty = oma 历史记录为空。

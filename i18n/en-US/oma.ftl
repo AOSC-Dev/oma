@@ -174,3 +174,5 @@ failed-to-connect-dbus = Failed connect to the system message bus (D-Bus).
 failed-to-set-lockscreen = Failed to set system lockscreen status.
 failed-to-create-proxy = Failed to create a system message bus (D-Bus) proxy: {$proxy}.
 failed-to-get-power-status = Failed to get device power supply status.
+
+oma-history-is-empty = oma history is empty.

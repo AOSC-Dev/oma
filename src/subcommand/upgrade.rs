@@ -1,6 +1,7 @@
 use chrono::Local;
 use oma_console::success;
-use oma_history::connect_or_create_db;
+use oma_history::connect_db;
+use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgsBuilder;
@@ -119,7 +120,10 @@ pub fn execute(
                             .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                             .collect::<Vec<_>>(),
                     ),
-                    connect_or_create_db(true, args.sysroot)?,
+                    {
+                        let db = create_db_file(args.sysroot)?;
+                        connect_db(db, true)?
+                    },
                     dry_run,
                     start_time,
                     true,
@@ -140,7 +144,10 @@ pub fn execute(
                                     })
                                     .collect::<Vec<_>>(),
                             ),
-                            connect_or_create_db(true, args.sysroot)?,
+                            {
+                                let db = create_db_file(args.sysroot)?;
+                                connect_db(db, true)?
+                            },
                             dry_run,
                             start_time,
                             false,

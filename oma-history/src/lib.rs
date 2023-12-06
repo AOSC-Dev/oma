@@ -1,7 +1,10 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use oma_pm_operation_type::{InstallEntry, OmaOperation, RemoveEntry};
-use rusqlite::{Connection, Result};
+use rusqlite::{Connection, Error, Result};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::debug;
@@ -33,31 +36,31 @@ pub enum HistoryError {
     #[error("Failed to create dir or file: {0}: {1}")]
     FailedOperateDirOrFile(String, std::io::Error),
     #[error("Failed to connect database: {0}")]
-    ConnectError(rusqlite::Error),
+    ConnectError(Error),
     #[error("Failed to execute sqlte stmt, kind: {0}")]
-    ExecuteError(rusqlite::Error),
+    ExecuteError(Error),
     #[error("Failed to parser object: {0}")]
     ParseError(serde_json::Error),
     #[error("Failed to parser object: {0}")]
-    ParseDbError(rusqlite::Error),
+    ParseDbError(Error),
+    #[error("History database is empty")]
+    HistoryEmpty,
     #[error("Database no result by id: {0}")]
     NoResult(i64),
 }
 
-pub fn connect_or_create_db(write: bool, sysroot: String) -> HistoryResult<Connection> {
-    let dir = Path::new(&sysroot).join("var/log/oma");
-    let db_path = dir.join("history.db");
-    if !dir.exists() {
-        fs::create_dir_all(&dir)
-            .map_err(|e| HistoryError::FailedOperateDirOrFile(dir.display().to_string(), e))?;
-    }
+pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Connection> {
+    let conn = Connection::open(db_path);
 
-    if !db_path.exists() {
-        fs::File::create(&db_path)
-            .map_err(|e| HistoryError::FailedOperateDirOrFile(db_path.display().to_string(), e))?;
-    }
-
-    let conn = Connection::open(db_path).map_err(HistoryError::ConnectError)?;
+    let conn = match conn {
+        Ok(conn) => conn,
+        Err(e) => match e {
+            Error::SqliteFailure(err, _) if [1, 14].contains(&err.extended_code) => {
+                return Err(HistoryError::HistoryEmpty)
+            }
+            e => return Err(HistoryError::ConnectError(e)),
+        },
+    };
 
     if write {
         conn.execute(
@@ -77,6 +80,23 @@ pub fn connect_or_create_db(write: bool, sysroot: String) -> HistoryResult<Conne
     }
 
     Ok(conn)
+}
+
+pub fn create_db_file<P: AsRef<Path>>(sysroot: P) -> HistoryResult<PathBuf> {
+    let dir = sysroot.as_ref().join("var/log/oma");
+    let db_path = dir.join("history.db");
+
+    if !dir.exists() {
+        fs::create_dir_all(&dir)
+            .map_err(|e| HistoryError::FailedOperateDirOrFile(dir.display().to_string(), e))?;
+    }
+
+    if !db_path.exists() {
+        fs::File::create(&db_path)
+            .map_err(|e| HistoryError::FailedOperateDirOrFile(db_path.display().to_string(), e))?;
+    }
+
+    Ok(db_path)
 }
 
 pub fn write_history_entry(
@@ -120,9 +140,18 @@ pub struct HistoryListEntry {
 
 pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
     let mut res = vec![];
-    let mut stmt = conn
-        .prepare("SELECT id, typ, time, is_success FROM \"history_oma_1.2\" ORDER BY id DESC")
-        .map_err(HistoryError::ExecuteError)?;
+    let stmt =
+        conn.prepare("SELECT id, typ, time, is_success FROM \"history_oma_1.2\" ORDER BY id DESC");
+
+    let mut stmt = match stmt {
+        Ok(stmt) => stmt,
+        Err(e) => match e {
+            Error::SqliteFailure(err, _) if [1, 14].contains(&err.extended_code) => {
+                return Err(HistoryError::HistoryEmpty)
+            }
+            e => return Err(HistoryError::ConnectError(e)),
+        },
+    };
 
     let res_iter = stmt
         .query_map([], |row| {
@@ -136,13 +165,18 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
         .map_err(HistoryError::ExecuteError)?;
 
     for i in res_iter {
-        let (id, t, time, is_success) = i.map_err(HistoryError::ParseDbError)?;
-        res.push(HistoryListEntry {
-            id,
-            t: serde_json::from_str(&t).map_err(HistoryError::ParseError)?,
-            time,
-            is_success: is_success == 1,
-        });
+        if let Ok((id, t, time, is_success)) = i {
+            res.push(HistoryListEntry {
+                id,
+                t: serde_json::from_str(&t).map_err(HistoryError::ParseError)?,
+                time,
+                is_success: is_success == 1,
+            });
+        }
+    }
+
+    if res.is_empty() {
+        return Err(HistoryError::HistoryEmpty);
     }
 
     Ok(res)

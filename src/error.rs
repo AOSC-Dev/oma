@@ -724,6 +724,10 @@ impl From<HistoryError> for OutputError {
                 description: format!("No result by id: {id}"),
                 source: None,
             },
+            HistoryError::HistoryEmpty => Self {
+                description: fl!("oma-history-is-empty"),
+                source: None,
+            },
         }
     }
 }
