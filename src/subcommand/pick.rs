@@ -33,7 +33,7 @@ pub fn execute(
 
     if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt)?;
+        dbus_check(&rt, false)?;
     }
 
     if !no_refresh {

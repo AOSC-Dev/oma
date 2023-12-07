@@ -36,7 +36,7 @@ pub fn execute(
 
     if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt)?;
+        dbus_check(&rt, args.yes)?;
     }
 
     if !args.no_refresh {

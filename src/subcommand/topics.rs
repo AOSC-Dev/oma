@@ -60,7 +60,7 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
     let rt = create_async_runtime()?;
 
     if !no_check_dbus {
-        dbus_check(&rt)?;
+        dbus_check(&rt, false)?;
     }
 
     let sysroot_ref = &sysroot;

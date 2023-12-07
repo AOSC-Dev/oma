@@ -45,7 +45,7 @@ pub fn execute(
 
     if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt)?;
+        dbus_check(&rt, args.yes)?;
     }
 
     refresh(dry_run, no_progress, download_pure_db, &args.sysroot)?;

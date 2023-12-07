@@ -152,18 +152,22 @@ pub fn create_async_runtime() -> Result<Runtime> {
     Ok(tokio)
 }
 
-pub fn dbus_check(rt: &Runtime) -> Result<()> {
+pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<()> {
     let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn))?;
+    rt.block_on(check_battery(&conn, yes))?;
     rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
 
     Ok(())
 }
 
-pub async fn check_battery(conn: &Connection) -> Result<()> {
+pub async fn check_battery(conn: &Connection, yes: bool) -> Result<()> {
     let is_battery = is_using_battery(conn).await.unwrap_or(false);
 
     if is_battery {
+        warn!("{}", fl!("battery"));
+        if yes {
+            return Ok(());
+        }
         let theme = ColorfulTheme::default();
         warn!("{}", fl!("battery"));
         let cont = Confirm::with_theme(&theme)
