@@ -174,4 +174,6 @@ failed-check-dbus-tips-1 = 在此状态下，oma 无法检查电源及用户会�
 failed-check-dbus-tips-2 = 如果您正尝试用 chroot 等方式修复系统，请在 oma 命令后加 --no-check-dbus 参数
 failed-check-dbus-tips-3 = 如果您的系统是长期在容器或 chroot 环境下运行的，请修改 /etc/oma.toml 下的 no_check_dbus 参数为 true
 
+no-check-dbus-tips = 目前 oma 将不探测系统运行状态，这将不检测电源及用户会话等关键系统状态，如继续操作可能会导致系统故障
+
 oma-history-is-empty = oma 历史记录为空。

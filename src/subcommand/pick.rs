@@ -12,7 +12,7 @@ use crate::{
 use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
-use super::utils::{normal_commit, refresh, NormalCommitArgs};
+use super::utils::{normal_commit, refresh, NormalCommitArgs, no_check_dbus_warn};
 
 pub fn execute(
     pkg_str: &str,
@@ -34,6 +34,8 @@ pub fn execute(
     if !no_check_dbus {
         let rt = create_async_runtime()?;
         dbus_check(&rt, false)?;
+    } else {
+        no_check_dbus_warn();
     }
 
     if !no_refresh {

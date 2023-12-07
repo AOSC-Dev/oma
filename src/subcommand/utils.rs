@@ -231,3 +231,7 @@ pub(crate) fn check_unsupport_stmt(s: &str) {
         }
     }
 }
+
+pub(crate) fn no_check_dbus_warn() {
+    warn!("{}", fl!("no-check-dbus-tips"));
+}

@@ -180,5 +180,6 @@ failed-check-dbus-tips-1 = In this state, oma is unable to check the status of c
 failed-check-dbus-tips-2 = If you are trying to repair the system using, for example, chroot, add the --no-check-dbus parameter after the oma command
 failed-check-dbus-tips-3 = If your system is permanently running in a container or chroot environment, modify the no_check_dbus parameter under /etc/oma.toml to true
 
+no-check-dbus-tips = Currently oma will not detect system operational status, which will not detect critical system states such as power and user sessions, and may result in system failure if operation continues
 
 oma-history-is-empty = oma history is empty.

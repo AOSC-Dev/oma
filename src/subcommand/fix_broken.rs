@@ -7,7 +7,7 @@ use crate::{
     OmaArgs,
 };
 
-use super::utils::{normal_commit, NormalCommitArgs};
+use super::utils::{normal_commit, NormalCommitArgs, no_check_dbus_warn};
 
 pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
@@ -24,6 +24,8 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     if !no_check_dbus {
         let rt = create_async_runtime()?;
         dbus_check(&rt, false)?;
+    } else {
+        no_check_dbus_warn();
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default()
