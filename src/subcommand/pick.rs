@@ -12,7 +12,7 @@ use crate::{
 use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
-use super::utils::{normal_commit, refresh, NormalCommitArgs, no_check_dbus_warn};
+use super::utils::{no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
 
 pub fn execute(
     pkg_str: &str,

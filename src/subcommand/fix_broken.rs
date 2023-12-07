@@ -7,7 +7,7 @@ use crate::{
     OmaArgs,
 };
 
-use super::utils::{normal_commit, NormalCommitArgs, no_check_dbus_warn};
+use super::utils::{no_check_dbus_warn, normal_commit, NormalCommitArgs};
 
 pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;

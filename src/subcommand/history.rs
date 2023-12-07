@@ -20,7 +20,7 @@ use crate::{
     ALLOWCTRLC,
 };
 
-use super::utils::{handle_no_result, normal_commit, NormalCommitArgs, no_check_dbus_warn};
+use super::utils::{handle_no_result, no_check_dbus_warn, normal_commit, NormalCommitArgs};
 
 pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
