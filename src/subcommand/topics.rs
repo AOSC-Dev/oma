@@ -20,7 +20,7 @@ use crate::{
     AILURUS,
 };
 
-use super::utils::{normal_commit, refresh, NormalCommitArgs};
+use super::utils::{no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
 use crate::fl;
 use anyhow::anyhow;
 use oma_topics::TopicManager;
@@ -61,6 +61,8 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
 
     if !no_check_dbus {
         dbus_check(&rt, false)?;
+    } else {
+        no_check_dbus_warn();
     }
 
     let sysroot_ref = &sysroot;

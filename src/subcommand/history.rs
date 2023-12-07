@@ -20,7 +20,7 @@ use crate::{
     ALLOWCTRLC,
 };
 
-use super::utils::{handle_no_result, normal_commit, NormalCommitArgs};
+use super::utils::{handle_no_result, no_check_dbus_warn, normal_commit, NormalCommitArgs};
 
 pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
@@ -63,6 +63,8 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
     if !no_check_dbus {
         let rt = create_async_runtime()?;
         dbus_check(&rt, false)?;
+    } else {
+        no_check_dbus_warn();
     }
 
     let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;

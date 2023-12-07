@@ -13,7 +13,7 @@ use crate::{
 };
 use crate::{fl, OmaArgs};
 
-use super::utils::{handle_no_result, normal_commit, NormalCommitArgs};
+use super::utils::{handle_no_result, no_check_dbus_warn, normal_commit, NormalCommitArgs};
 
 pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i32, OutputError> {
     root()?;
@@ -30,6 +30,8 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
     if !no_check_dbus {
         let rt = create_async_runtime()?;
         dbus_check(&rt, args.yes)?;
+    } else {
+        no_check_dbus_warn();
     }
 
     if args.yes {

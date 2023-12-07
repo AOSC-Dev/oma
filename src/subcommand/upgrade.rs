@@ -25,6 +25,7 @@ use crate::UpgradeArgs;
 use super::utils::check_empty_op;
 use super::utils::handle_event_without_progressbar;
 use super::utils::handle_no_result;
+use super::utils::no_check_dbus_warn;
 use super::utils::refresh;
 
 pub fn execute(
@@ -46,6 +47,8 @@ pub fn execute(
     if !no_check_dbus {
         let rt = create_async_runtime()?;
         dbus_check(&rt, args.yes)?;
+    } else {
+        no_check_dbus_warn();
     }
 
     refresh(dry_run, no_progress, download_pure_db, &args.sysroot)?;

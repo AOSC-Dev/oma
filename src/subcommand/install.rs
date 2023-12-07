@@ -14,6 +14,7 @@ use crate::InstallArgs;
 use crate::OmaArgs;
 
 use super::utils::handle_no_result;
+use super::utils::no_check_dbus_warn;
 use super::utils::normal_commit;
 use super::utils::refresh;
 use super::utils::NormalCommitArgs;
@@ -37,6 +38,8 @@ pub fn execute(
     if !no_check_dbus {
         let rt = create_async_runtime()?;
         dbus_check(&rt, args.yes)?;
+    } else {
+        no_check_dbus_warn();
     }
 
     if !args.no_refresh {
