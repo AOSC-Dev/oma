@@ -62,7 +62,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
 
     if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt)?;
+        dbus_check(&rt, false)?;
     }
 
     let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;

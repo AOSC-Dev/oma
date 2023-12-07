@@ -169,4 +169,9 @@ failed-to-set-lockscreen = 无法设置系统锁屏状态。
 failed-to-create-proxy = 无法创建系统消息总线 (D-Bus) 代理：{$proxy}。
 failed-to-get-power-status = 无法获取设备供电状态。
 
+failed-check-dbus = 由于当前管理的系统尚未启动，oma 无法探测系统运行状态。
+failed-check-dbus-tips-1 = 在此状态下，oma 无法检查电源及用户会话等关键系统状态，如继续操作可能会导致系统故障！
+failed-check-dbus-tips-2 = 如果您正尝试用 chroot 等方式修复系统，请在 oma 命令后加 --no-check-dbus 参数
+failed-check-dbus-tips-3 = 如果您的系统是长期在容器或 chroot 环境下运行的，请修改 /etc/oma.toml 下的 no_check_dbus 参数为 true
+
 oma-history-is-empty = oma 历史记录为空。

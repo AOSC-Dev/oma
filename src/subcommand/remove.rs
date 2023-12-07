@@ -29,7 +29,7 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
 
     if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt)?;
+        dbus_check(&rt, args.yes)?;
     }
 
     if args.yes {

@@ -23,7 +23,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
 
     if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt)?;
+        dbus_check(&rt, false)?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default()
