@@ -13,7 +13,7 @@ use oma_console::indicatif::{MultiProgress, ProgressBar};
 use oma_utils::dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection};
 use rustix::process;
 use tokio::runtime::Runtime;
-use tracing::warn;
+use tracing::{error, info, warn};
 
 type Result<T> = std::result::Result<T, OutputError>;
 
@@ -152,10 +152,22 @@ pub fn create_async_runtime() -> Result<Runtime> {
     Ok(tokio)
 }
 
-pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<()> {
+fn dbus_check_inner(rt: &Runtime, yes: bool) -> Result<()> {
     let conn = rt.block_on(create_dbus_connection())?;
     rt.block_on(check_battery(&conn, yes))?;
     rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+
+    Ok(())
+}
+
+pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<()> {
+    if let Err(e) = dbus_check_inner(rt, yes) {
+        error!("{}", fl!("failed-check-dbus"));
+        warn!("{}", fl!("failed-check-dbus-tips-1"));
+        info!("{}", fl!("failed-check-dbus-tips-2"));
+        info!("{}", fl!("failed-check-dbus-tips-3"));
+        return Err(e);
+    }
 
     Ok(())
 }
