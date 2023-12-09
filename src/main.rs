@@ -229,7 +229,7 @@ fn run_subcmd(
     let no_check_dbus = if matches.get_flag("no_check_dbus") {
         true
     } else {
-        !config.check_dbus()
+        config.no_check_dbus()
     };
 
     let oma_args = OmaArgs {

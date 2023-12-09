@@ -74,7 +74,7 @@ impl Config {
             .unwrap_or_else(GeneralConfig::default_refresh_pure_database)
     }
 
-    pub fn check_dbus(&self) -> bool {
+    pub fn no_check_dbus(&self) -> bool {
         self.general
             .as_ref()
             .map(|x| x.no_check_dbus)
