@@ -132,6 +132,7 @@ impl From<&DepType> for OmaDepType {
     }
 }
 
+#[derive(Eq, PartialEq, Hash)]
 pub struct PkgInfo {
     pub version_raw: RawVersion,
     pub raw_pkg: RawPackage,
