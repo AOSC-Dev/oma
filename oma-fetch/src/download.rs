@@ -498,7 +498,7 @@ impl SingleDownloader<'_> {
     /// Download local source file
     async fn download_local<F>(
         &self,
-        position: usize,
+        download_source_position: usize,
         callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
     ) -> DownloadResult<Summary>
@@ -512,7 +512,7 @@ impl SingleDownloader<'_> {
             DownloadEvent::NewProgressSpinner(msg.clone()),
         );
 
-        let url = &self.entry.source[position].url;
+        let url = &self.entry.source[download_source_position].url;
         let url_path = url_no_escape(
             url.strip_prefix("file:")
                 .ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?,
@@ -556,7 +556,7 @@ impl SingleDownloader<'_> {
         Ok(Summary::new(
             self.entry.filename.clone(),
             true,
-            position,
+            self.download_list_index,
             self.context.clone(),
         ))
     }
