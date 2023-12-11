@@ -146,7 +146,7 @@ fn main() {
 
     #[cfg(not(feature = "tokio-console"))]
     if !debug {
-        let no_i18n_embd_info: EnvFilter = "i18n_embed=error,info".parse().unwrap();
+        let no_i18n_embd_info: EnvFilter = "i18n_embed=off,info".parse().unwrap();
 
         tracing_subscriber::registry()
             .with(
