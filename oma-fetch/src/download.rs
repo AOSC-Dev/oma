@@ -1,4 +1,4 @@
-use crate::DownloadEvent;
+use crate::{DownloadEvent, DownloadSource};
 use std::{
     io::SeekFrom,
     path::Path,
@@ -53,9 +53,13 @@ impl SingleDownloader<'_> {
         for (i, c) in sources.iter().enumerate() {
             let download_res = match c.source_type {
                 DownloadSourceType::Http => {
-                    self.try_http_download(i, cc.clone(), gpc.clone()).await
+                    self.try_http_download(i, cc.clone(), gpc.clone(), &sources)
+                        .await
                 }
-                DownloadSourceType::Local => self.download_local(i, cc.clone(), gpc.clone()).await,
+                DownloadSourceType::Local => {
+                    self.download_local(i, cc.clone(), gpc.clone(), &sources)
+                        .await
+                }
             };
 
             match download_res {
@@ -90,6 +94,7 @@ impl SingleDownloader<'_> {
         position: usize,
         callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
+        sources: &[DownloadSource],
     ) -> DownloadResult<Summary>
     where
         F: Fn(usize, DownloadEvent) + Clone,
@@ -103,6 +108,7 @@ impl SingleDownloader<'_> {
                     callback.clone(),
                     global_progress.clone(),
                     allow_resume,
+                    sources,
                 )
                 .await
             {
@@ -138,6 +144,7 @@ impl SingleDownloader<'_> {
         callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
         allow_resume: bool,
+        sources: &[DownloadSource],
     ) -> DownloadResult<Summary>
     where
         F: Fn(usize, DownloadEvent) + Clone,
@@ -243,12 +250,7 @@ impl SingleDownloader<'_> {
             DownloadEvent::NewProgressSpinner(msg.clone()),
         );
 
-        let resp_head = match self
-            .client
-            .head(&self.entry.source[position].url)
-            .send()
-            .await
-        {
+        let resp_head = match self.client.head(&sources[position].url).send().await {
             Ok(resp) => resp,
             Err(e) => {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
@@ -285,7 +287,7 @@ impl SingleDownloader<'_> {
 
         debug!("File total size is: {total_size}");
 
-        let mut req = self.client.get(&self.entry.source[position].url);
+        let mut req = self.client.get(&sources[position].url);
 
         if can_resume && allow_resume {
             // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
@@ -405,15 +407,14 @@ impl SingleDownloader<'_> {
             return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
         }
 
-        let mut writer: Box<dyn AsyncWrite + Unpin + Send> =
-            match Path::new(&self.entry.source[position].url)
-                .extension()
-                .and_then(|x| x.to_str())
-            {
-                Some("xz") if self.entry.extract => Box::new(WXzDecoder::new(&mut dest)),
-                Some("gz") if self.entry.extract => Box::new(WGzipDecoder::new(&mut dest)),
-                _ => Box::new(&mut dest),
-            };
+        let mut writer: Box<dyn AsyncWrite + Unpin + Send> = match Path::new(&sources[position].url)
+            .extension()
+            .and_then(|x| x.to_str())
+        {
+            Some("xz") if self.entry.extract => Box::new(WXzDecoder::new(&mut dest)),
+            Some("gz") if self.entry.extract => Box::new(WGzipDecoder::new(&mut dest)),
+            _ => Box::new(&mut dest),
+        };
 
         // 下载！
         debug!("Start download!");
@@ -501,6 +502,7 @@ impl SingleDownloader<'_> {
         download_source_position: usize,
         callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
+        sources: &[DownloadSource],
     ) -> DownloadResult<Summary>
     where
         F: Fn(usize, DownloadEvent) + Clone,
@@ -512,7 +514,7 @@ impl SingleDownloader<'_> {
             DownloadEvent::NewProgressSpinner(msg.clone()),
         );
 
-        let url = &self.entry.source[download_source_position].url;
+        let url = &sources[download_source_position].url;
         let url_path = url_no_escape(
             url.strip_prefix("file:")
                 .ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?,
