@@ -31,7 +31,7 @@ use oma_utils::{
 
 pub use oma_apt::config::Config as AptConfig;
 
-use tracing::{debug, warn};
+use tracing::{debug, warn, info};
 
 pub use oma_pm_operation_type::*;
 
@@ -472,24 +472,7 @@ impl OmaApt {
         if let Err(e) = apt_lock() {
             let e_str = e.to_string();
             if e_str.contains("dpkg --configure -a") {
-                debug!(
-                    "dpkg-was-interrupted, running {} ...",
-                    style("dpkg --configure -a").green().bold()
-                );
-                let cmd = Command::new("dpkg")
-                    .arg("--root")
-                    .arg(&sysroot)
-                    .arg("--configure")
-                    .arg("-a")
-                    .output()
-                    .map_err(OmaAptError::DpkgFailedConfigure)?;
-
-                if !cmd.status.success() {
-                    return Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
-                        ErrorKind::Other,
-                        format!("dpkg return non-zero code: {:?}", cmd.status.code()),
-                    )));
-                }
+                self.run_dpkg_configure()?;
 
                 apt_lock()?;
             } else {
@@ -569,6 +552,10 @@ impl OmaApt {
             warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
         }
 
+        if need_fix {
+            self.run_dpkg_configure()?;
+        }
+
         if !no_fixbroken {
             self.cache.fix_broken();
         }
@@ -576,6 +563,30 @@ impl OmaApt {
         if self.cache.resolve(!no_fixbroken).is_err() {
             let unmet = find_unmet_deps(&self.cache)?;
             return Err(OmaAptError::DependencyIssue(unmet));
+        }
+
+        Ok(())
+    }
+
+    fn run_dpkg_configure(&self) -> OmaAptResult<()> {
+        info!(
+            "Running {} ...",
+            style("dpkg --configure -a").green().bold()
+        );
+
+        let cmd = Command::new("dpkg")
+            .arg("--root")
+            .arg(&self.config.get("Dir").unwrap_or("/".to_owned()))
+            .arg("--configure")
+            .arg("-a")
+            .spawn()
+            .map_err(OmaAptError::DpkgFailedConfigure)?;
+
+        if let Err(e) = cmd.wait_with_output() {
+            return Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
+                ErrorKind::Other,
+                format!("dpkg return non-zero code: {:?}", e),
+            )));
         }
 
         Ok(())

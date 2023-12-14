@@ -94,11 +94,12 @@ pub fn execute(
         let remove = op.remove;
         let disk_size = op.disk_size;
 
+        apt.resolve(false)?;
+
         if check_empty_op(&install, &remove) {
             return Ok(0);
         }
 
-        apt.resolve(false)?;
         apt.check_disk_size()?;
 
         if retry_times == 1 {

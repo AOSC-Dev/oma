@@ -141,11 +141,13 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
     let install = op.install;
     let remove = op.remove;
     let disk_size = op.disk_size;
+
+    apt.resolve(no_fixbroken)?;
+
     if check_empty_op(&install, &remove) {
         return Ok(());
     }
 
-    apt.resolve(no_fixbroken)?;
     apt.check_disk_size()?;
 
     table_for_install_pending(&install, &remove, &disk_size, !apt_args.yes(), dry_run)?;
