@@ -31,7 +31,7 @@ use oma_utils::{
 
 pub use oma_apt::config::Config as AptConfig;
 
-use tracing::{debug, warn, info};
+use tracing::{debug, info, warn};
 
 pub use oma_pm_operation_type::*;
 
