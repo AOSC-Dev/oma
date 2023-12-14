@@ -3,7 +3,7 @@ can-not-run-dpkg-print-arch = 无法执行 `dpkg --print-architecture'。
 execute-pkexec-fail = 无法执行 `pkexec' 命令：{$e}。
 
 # history
-history-tips-1 = Omakase 已成功应用对系统的更改。
+history-tips-1 = oma 已成功应用对系统的更改。
 history-tips-2 = 如需撤销本次操作，请使用 `oma undo' 命令。
 
 # verify
@@ -12,7 +12,7 @@ cert-file-is-bad = 位于 {$path} 的软件源签名无效。
 
 # topics
 can-not-find-specified-topic = 找不到测试源：{$topic}
-do-not-edit-topic-sources-list = # 本文件使用 Omakase 生成，请勿编辑！
+do-not-edit-topic-sources-list = # 本文件使用 oma 生成，请勿编辑！
 select-topics-dialog = 打开测试源以获取实验性更新，关闭测试源以回滚到稳定版本：
 tips = 按 [Space]/[Enter] 开关测试源，按 [Esc] 应用更改，按 [Ctrl-c] 退出。
 scan-topic-is-removed = 测试源 {$name} 已从软件源中被删除，现将关闭 ...
@@ -63,9 +63,9 @@ already-auto = 软件包 {$name} 已被标记为自动安装。
 setting-auto = 成功标记软件包 {$name} 属性：自动安装。
 command-not-found-with-result = {$kw}：找不到命令。该命令由如下软件包提供：
 command-not-found = {$kw}：找不到命令。
-clean-successfully = 成功清理 Omakase 本机数据库和缓存。
+clean-successfully = 成功清理 oma 本机数据库和缓存。
 dpkg-configure-a-non-zero = `dpkg --configure -a' 返回错误。
-automatic-mode-warn = 正以无人值守模式运行 Omakase。如非本人所为，请立即按 Ctrl + C 中止操作！
+automatic-mode-warn = 正以无人值守模式运行 oma。如非本人所为，请立即按 Ctrl + C 中止操作！
 removed-as-unneed-dep = 清理未使用的依赖
 purge-file = 清理配置文件
 semicolon = ；
@@ -80,7 +80,7 @@ user-aborted-op = 用户已中止操作。
 # formatter
 count-pkg-has-desc = {$count} 个软件包将被
 dep-error = 依赖关系错误
-dep-error-desc = Omakase 探测到依赖关系问题，因此无法继续进行指定操作。该问题可能是
+dep-error-desc = oma 探测到依赖关系问题，因此无法继续进行指定操作。该问题可能是
     软件包缺失或来源不统一，抑或是指定的软件包版本与当前系统不兼容导致的。
 contact-admin-tips = 请联系您的系统管理员或开发者。
 how-to-abort = 按 [q] 或 [Ctrl-c] 中止操作
@@ -91,7 +91,7 @@ how-to-op = 按 [PgUp/Dn] 或方向键翻页
 total-download-size = {"总下载大小： "}
 change-storage-usage = {"预计磁盘占用变化： "}
 pending-op = 待操作清单
-review-msg = Omakase 将执行如下操作，请仔细验证。
+review-msg = oma 将执行如下操作，请仔细验证。
 install = 安装
 installed = 安装
 remove = 卸载
@@ -122,7 +122,7 @@ inrelease-sha256-empty = InRelease 文件无效：SHA256 值为空。
 inrelease-checksum-can-not-parse = InRelease 文件无效：无法解析校验和条目 {$i}。
 inrelease-parse-unsupport-file-type = BUG：解析器不支持该 InRelease 文件的格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 can-not-parse-sources-list = 无法解析 sources.list 文件 {path}。
-unsupport-protocol = Omakase 不支持协议：{$url}。
+unsupport-protocol = oma 不支持协议：{$url}。
 refreshing-repo-metadata = 正在刷新本机软件包数据库 ...
 not-found = 无法从 {$url} 下载 InRelease 文件：找不到远端文件 (HTTP 404)。
 inrelease-syntax-error = 位于 {$path} 的 InRelease 文件解析失败。
@@ -134,7 +134,7 @@ contents-may-not-be-accurate-2 = 请使用 `oma refresh' 命令刷新该数据�
 execute-ripgrep-failed = 无法执行 `rg' 命令。
 searching = 正在搜索 ...
 search-with-result-count = 正在搜索，已找到 {$count} 个结果 ...
-contents-entry-missing-path-list = BUG：Omakase 无法解析本机软件包内容数据库中的条目 {$entry}，请于 https://github.com/AOSC-Dev/oma 报告问题。
+contents-entry-missing-path-list = BUG：oma 无法解析本机软件包内容数据库中的条目 {$entry}，请于 https://github.com/AOSC-Dev/oma 报告问题。
 rg-non-zero = `rg' 报错退出。
 
 # checksum
@@ -143,7 +143,7 @@ can-not-checksum = 无法解析 SHA256 校验和。
 failed-to-open-to-checksum = BUG：无法打开用于验证校验和的路径 {$path}，请于 https://github.com/AOSC-Dev/oma 报告问题。
 
 # config
-config-invaild = Omakase 配置文件 (/etc/oma.toml) 似乎已损坏！将使用默认配置。
+config-invaild = oma 配置文件 (/etc/oma.toml) 似乎已损坏！将使用默认配置。
 cleaning = 正在清理本地软件包缓存 ...
 download-failed-with-len = {$len} 个软件包下载失败。
 download-failed = 下载 {$filename} 文件失败！
@@ -151,7 +151,7 @@ download-failed-no-name = 下载文件失败！
 
 need-more-size = 存储空间不足：{$a} 可用，但需要 {$n}。
 successfully-download-to-path = 已下载 {$len} 个软件包到该路径：{$path}
-oma-may = 为应用您指定的更改，Omakase 可能 {$a}、{$b}、{$c}、{$d} 或 {$e} 软件包。
+oma-may = 为应用您指定的更改，oma 可能 {$a}、{$b}、{$c}、{$d} 或 {$e} 软件包。
 
 failed-to-read-decode-inrelease = 无法读取解密后的 InRelease 文件。
 failed-to-operate-path = 无法在路径 {$p} 中执行文件操作。
