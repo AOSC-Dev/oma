@@ -26,17 +26,18 @@ jobs:
       - run: cargo fmt --check
   clippy:
     runs-on: ubuntu-latest
+    container: aosc/aosc-os-buildkit
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-            toolchain: stable
-            components: clippy
-            override: true
-      - uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - run: cargo clippy -- -D warnings
+    - name: Install Dependency
+      run: |
+        curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
+        apt update
+        apt-get install -y nettle apt openssl llvm
+    - uses: actions/checkout@v2
+    - name: clippy
+      run: |
+        export PATH=$HOME/.cargo/bin:$PATH
+        cargo clippy -- -D warnings
   build:
     runs-on: ubuntu-latest
     container: aosc/aosc-os-buildkit
