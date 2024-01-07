@@ -23,7 +23,8 @@ jobs:
           override: true
           components: rustfmt
 
-      - run: cargo fmt --check
+      - name: Check format
+        run: cargo fmt --check
   clippy:
     runs-on: ubuntu-latest
     steps:
@@ -33,26 +34,24 @@ jobs:
             toolchain: stable
             components: clippy
             override: true
-      - run: sudo apt-get -y update && sudo apt-get -y install libapt-pkg-dev nettle-dev libssl-dev libclang-dev clang llvm
+      - name: Install Dependency
+        run: sudo apt-get -y update && sudo apt-get -y install libapt-pkg-dev nettle-dev libssl-dev libclang-dev clang llvm
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - run: cargo clippy -- -D warnings
+      - name: Check clippy
+        run: cargo clippy -- -D warnings
   build:
     runs-on: ubuntu-latest
-    container: aosc/aosc-os-buildkit
     steps:
-    - name: Install Dependency
-      run: |
-        curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
-        apt update
-        apt-get install -y nettle apt openssl llvm
-    - uses: actions/checkout@v3
-    - name: Build
-      run: |
-        export PATH=$HOME/.cargo/bin:$PATH
-        cargo build
-    - name: Test
-      run: |
-        export PATH=$HOME/.cargo/bin:$PATH
-        cargo test
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            override: true
+      - name: Install Dependency
+        run: sudo apt-get -y update && sudo apt-get -y install libapt-pkg-dev nettle-dev libssl-dev libclang-dev clang llvm
+      - name: Build
+        run: cargo build
+      - name: Test
+        run: cargo test
