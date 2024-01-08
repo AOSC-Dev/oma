@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "*" ]
   pull_request:
     branches: [ "master" ]
 
@@ -10,21 +10,48 @@ env:
   CARGO_TERM_COLOR: always
   
 jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain with rustfmt available
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt
+
+      - name: Check format
+        run: cargo fmt --check
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            components: clippy
+            override: true
+      - name: Install Dependency
+        run: sudo apt-get -y update && sudo apt-get -y install libapt-pkg-dev nettle-dev libssl-dev libclang-dev clang llvm
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check clippy
+        run: cargo clippy -- -D warnings
   build:
     runs-on: ubuntu-latest
-    container: aosc/aosc-os-buildkit
     steps:
-    - name: Install Dependency
-      run: |
-        curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
-        apt update
-        apt-get install -y nettle apt openssl llvm
-    - uses: actions/checkout@v2
-    - name: Build
-      run: |
-        export PATH=$HOME/.cargo/bin:$PATH
-        cargo build
-    - name: Test
-      run: |
-        export PATH=$HOME/.cargo/bin:$PATH
-        cargo test
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            override: true
+      - name: Install Dependency
+        run: sudo apt-get -y update && sudo apt-get -y install libapt-pkg-dev nettle-dev libssl-dev libclang-dev clang llvm
+      - name: Build
+        run: cargo build
+      - name: Test
+        run: cargo test

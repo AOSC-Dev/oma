@@ -176,7 +176,6 @@ pub async fn check_battery(conn: &Connection, yes: bool) -> Result<()> {
     let is_battery = is_using_battery(conn).await.unwrap_or(false);
 
     if is_battery {
-        warn!("{}", fl!("battery"));
         if yes {
             return Ok(());
         }

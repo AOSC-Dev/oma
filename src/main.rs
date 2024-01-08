@@ -146,7 +146,7 @@ fn main() {
 
     #[cfg(not(feature = "tokio-console"))]
     if !debug {
-        let no_i18n_embd_info: EnvFilter = "i18n_embed=error,info".parse().unwrap();
+        let no_i18n_embd_info: EnvFilter = "i18n_embed=off,info".parse().unwrap();
 
         tracing_subscriber::registry()
             .with(
@@ -229,7 +229,7 @@ fn run_subcmd(
     let no_check_dbus = if matches.get_flag("no_check_dbus") {
         true
     } else {
-        !config.check_dbus()
+        config.no_check_dbus()
     };
 
     let oma_args = OmaArgs {

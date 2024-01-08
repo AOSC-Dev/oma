@@ -109,6 +109,7 @@ impl<'a> OmaDatabase<'a> {
         for pkg in pkgs {
             debug!("Select pkg: {}", pkg.name());
             let versions = pkg.versions().collect::<Vec<_>>();
+            let mut candidated = false;
             for ver in versions {
                 let pkginfo = PkgInfo::new(&ver, &pkg);
                 let has_dbg = has_dbg(self.cache, &pkg, &ver);
@@ -116,7 +117,12 @@ impl<'a> OmaDatabase<'a> {
                 let is_cand = pkg.candidate().map(|x| x == ver).unwrap_or(false);
                 if filter_candidate && is_cand {
                     if !avail_candidate || ver.is_downloadable() {
-                        res.push(pkginfo);
+                        // 存在 Packages 文件中版本相同、路径相同、内容不同的情况，因此一个包可能有两个 candidate 对象
+                        // 这里只上传其中一个
+                        if !candidated {
+                            res.push(pkginfo);
+                        }
+                        candidated = true;
                     } else {
                         let ver = pkg.versions().find(|x| x.is_downloadable());
 
