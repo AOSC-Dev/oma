@@ -191,7 +191,8 @@ impl<W: Write> PagerPrinter<W> {
         let mut table = match header {
             Some(h) => {
                 let mut t = Table::builder(table);
-                t.set_header(h);
+                t.remove_record(0);
+                t.insert_record(0, h);
                 t.build()
             }
             None => Table::new(table),
