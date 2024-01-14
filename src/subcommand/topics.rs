@@ -146,9 +146,10 @@ where
     P: AsRef<Path>,
 {
     let mut tm = TopicManager::new(&sysroot).await?;
+    refresh_topics(no_progress, &mut tm).await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
-        inquire(&mut tm, &mut opt_in, &mut opt_out, no_progress).await?;
+        inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
     }
 
     let dpkg_arch = dpkg_arch(sysroot)?;
@@ -183,9 +184,7 @@ async fn inquire(
     tm: &mut TopicManager,
     opt_in: &mut Vec<String>,
     opt_out: &mut Vec<String>,
-    no_progress: bool,
 ) -> Result<(), OutputError> {
-    refresh_topics(no_progress, tm).await?;
     let all_names = tm.all_topics();
 
     let display = all_names
