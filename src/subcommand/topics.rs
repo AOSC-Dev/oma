@@ -185,19 +185,7 @@ async fn inquire(
     opt_out: &mut Vec<String>,
     no_progress: bool,
 ) -> Result<(), OutputError> {
-    let pb = if !no_progress {
-        let pb = ProgressBar::new_spinner();
-        let (style, inv) = oma_spinner(AILURUS.load(Ordering::Relaxed));
-        pb.set_style(style);
-        pb.enable_steady_tick(inv);
-        pb.set_message(fl!("refreshing-topic-metadata"));
-
-        Some(pb)
-    } else {
-        None
-    };
-
-    tm.refresh().await?;
+    refresh_topics(no_progress, tm).await?;
     let all_names = tm.all_topics();
 
     let display = all_names
@@ -218,10 +206,6 @@ async fn inquire(
             }
         })
         .collect::<Vec<_>>();
-
-    if let Some(pb) = pb {
-        pb.finish_and_clear();
-    }
 
     let enabled_names = tm
         .enabled_topics()
@@ -280,6 +264,28 @@ async fn inquire(
         if enabled_names.contains(c) && !ans.contains(&display[i].as_str()) {
             opt_out.push(c.to_string());
         }
+    }
+
+    Ok(())
+}
+
+async fn refresh_topics(no_progress: bool, tm: &mut TopicManager) -> Result<(), OutputError> {
+    let pb = if !no_progress {
+        let pb = ProgressBar::new_spinner();
+        let (style, inv) = oma_spinner(AILURUS.load(Ordering::Relaxed));
+        pb.set_style(style);
+        pb.enable_steady_tick(inv);
+        pb.set_message(fl!("refreshing-topic-metadata"));
+
+        Some(pb)
+    } else {
+        None
+    };
+
+    tm.refresh().await?;
+
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
     }
 
     Ok(())
