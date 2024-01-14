@@ -87,6 +87,7 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
         .build()?;
+
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let mut pkgs = vec![];
@@ -211,6 +212,7 @@ async fn inquire(
         .iter()
         .map(|x| &x.name)
         .collect::<Vec<_>>();
+
     let all_names = all_names.iter().map(|x| &x.name).collect::<Vec<_>>();
     let mut default = vec![];
 

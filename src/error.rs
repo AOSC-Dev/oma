@@ -175,9 +175,9 @@ impl From<OmaDbusError> for OutputError {
     fn from(value: OmaDbusError) -> Self {
         debug!("{:?}", value);
         match value {
-            OmaDbusError::FailedConnectDbus(e) => Self {
-                description: fl!("failed-to-connect-dbus"),
-                source: Some(Box::new(e)),
+            OmaDbusError::FailedConnectDbus(_) => Self {
+                description: "".to_string(),
+                source: Some(Box::new(value)),
             },
             OmaDbusError::FailedTakeWakeLock(e) => Self {
                 description: fl!("failed-to-set-lockscreen"),
