@@ -503,7 +503,7 @@ fn display_error(e: OutputError) -> io::Result<()> {
                         info!("{}", fl!("failed-check-dbus-tips-2"));
                         info!("{}", fl!("failed-check-dbus-tips-3"));
                     }
-                    _ => unreachable!(),
+                    _ => return Ok(()),
                 }
             }
         }
