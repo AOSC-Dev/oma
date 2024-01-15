@@ -20,7 +20,7 @@ use crate::{
     AILURUS,
 };
 
-use super::utils::{no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
+use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
 use crate::fl;
 use anyhow::anyhow;
 use oma_topics::TopicManager;
@@ -45,6 +45,7 @@ pub struct TopicArgs {
 
 pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
     root()?;
+    lock_oma()?;
 
     let TopicArgs {
         opt_in,

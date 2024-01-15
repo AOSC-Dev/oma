@@ -21,6 +21,7 @@ use oma_topics::OmaTopicsError;
 use tracing::{debug, error};
 
 use crate::fl;
+use crate::subcommand::utils::LockError;
 use crate::table::print_unmet_dep;
 
 use self::ChainState::*;
@@ -171,6 +172,15 @@ impl From<OmaAptArgsBuilderError> for OutputError {
     }
 }
 
+impl From<LockError> for OutputError {
+    fn from(value: LockError) -> Self {
+        Self {
+            description: "".to_string(),
+            source: Some(Box::new(value)),
+        }
+    }
+}
+
 impl From<OmaDbusError> for OutputError {
     fn from(value: OmaDbusError) -> Self {
         debug!("{:?}", value);
@@ -192,6 +202,10 @@ impl From<OmaDbusError> for OutputError {
             }
             OmaDbusError::FailedGetBatteryStatus(e) => Self {
                 description: fl!("failed-to-set-lockscreen"),
+                source: Some(Box::new(e)),
+            },
+            OmaDbusError::FailedGetOmaStatus(e) => Self {
+                description: "Failed to get oma status".to_string(),
                 source: Some(Box::new(e)),
             },
         }

@@ -13,10 +13,13 @@ use crate::{
 };
 use crate::{fl, OmaArgs};
 
-use super::utils::{handle_no_result, no_check_dbus_warn, normal_commit, NormalCommitArgs};
+use super::utils::{
+    handle_no_result, lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs,
+};
 
 pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i32, OutputError> {
     root()?;
+    lock_oma()?;
 
     let OmaArgs {
         dry_run,

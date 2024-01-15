@@ -31,13 +31,16 @@ use oma_utils::{
 
 pub use oma_apt::config::Config as AptConfig;
 
+use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
 pub use oma_pm_operation_type::*;
+use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
+    dbus::{change_status, OmaBus, Status},
     pkginfo::PkgInfo,
-    progress::{NoProgress, OmaAptInstallProgress},
+    progress::{InstallProgressArgs, NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
     unmet::{find_unmet_deps, find_unmet_deps_with_markinstall, UnmetDep},
 };
@@ -67,6 +70,8 @@ pub struct OmaApt {
     autoremove: Vec<String>,
     dry_run: bool,
     select_pkgs: Vec<String>,
+    tokio: Runtime,
+    connection: Option<Connection>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -163,13 +168,39 @@ impl OmaApt {
     pub fn new(local_debs: Vec<String>, args: OmaAptArgs, dry_run: bool) -> OmaAptResult<Self> {
         let config = Self::init_config(args)?;
 
+        let bus = OmaBus {
+            status: Status::Configing,
+        };
+
+        let tokio = tokio::runtime::Builder::new_multi_thread()
+            .enable_time()
+            .enable_io()
+            .build()
+            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
+
+        let conn = tokio.block_on(async { Self::create_session(bus).await.ok() });
+
         Ok(Self {
             cache: new_cache!(&local_debs)?,
             config,
             autoremove: vec![],
             dry_run,
             select_pkgs: vec![],
+            tokio,
+            connection: conn,
         })
+    }
+
+    async fn create_session(bus: OmaBus) -> Result<Connection, zbus::Error> {
+        let conn = ConnectionBuilder::system()?
+            .name("io.aosc.Oma")?
+            .serve_at("/io/aosc/Oma", bus)?
+            .build()
+            .await?;
+
+        debug!("zbus session created");
+
+        Ok(conn)
     }
 
     /// Init apt config (before create new apt manager)
@@ -301,7 +332,6 @@ impl OmaApt {
                 match pkg.current_state() {
                     4 => {
                         pkg.mark_reinstall(true);
-                        // reinstall.push(pkg.name().to_string());
                     }
                     _ => continue,
                 }
@@ -449,15 +479,14 @@ impl OmaApt {
 
         let download_pkg_list = v.install;
 
-        let tokio = tokio::runtime::Builder::new_multi_thread()
-            .enable_time()
-            .enable_io()
-            .build()
-            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
-
         let path = self.get_archive_dir();
 
-        let (success, failed) = tokio.block_on(async move {
+        let conn = self.connection.clone();
+        let (success, failed) = self.tokio.block_on(async move {
+            if let Some(conn) = conn {
+                change_status(&conn, "Downloading").await.ok();
+            }
+
             Self::download_pkgs(download_pkg_list, network_thread, &path, callback).await
         })?;
 
@@ -485,14 +514,18 @@ impl OmaApt {
             e
         })?;
 
-        let mut progress = OmaAptInstallProgress::new_box(
-            self.config,
-            args_config.yes,
-            args_config.force_yes,
-            args_config.dpkg_force_confnew,
-            args_config.dpkg_force_all,
-            args_config.no_progress,
-        );
+        let args = InstallProgressArgs {
+            config: self.config,
+            yes: args_config.yes,
+            force_yes: args_config.force_yes,
+            dpkg_force_confnew: args_config.dpkg_force_confnew,
+            dpkg_force_all: args_config.dpkg_force_all,
+            no_progress: args_config.no_progress,
+            tokio: self.tokio,
+            connection: self.connection,
+        };
+
+        let mut progress = OmaAptInstallProgress::new_box(args);
 
         apt_unlock_inner();
 

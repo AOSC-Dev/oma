@@ -10,7 +10,10 @@ use anyhow::anyhow;
 use dashmap::DashMap;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use oma_console::indicatif::{MultiProgress, ProgressBar};
-use oma_utils::dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection};
+use oma_utils::{
+    dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
+    oma::unlock_oma,
+};
 use rustix::process;
 use tokio::runtime::Runtime;
 use tracing::warn;
@@ -137,6 +140,7 @@ pub fn root() -> Result<()> {
         .and_then(|x| x.wait_with_output())
         .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
 
+    unlock_oma().ok();
     exit(out.status.code().unwrap_or(1));
 }
 
@@ -175,6 +179,7 @@ pub async fn check_battery(conn: &Connection, yes: bool) {
             .interact();
 
         if !cont.unwrap_or(false) {
+            unlock_oma().ok();
             exit(0);
         }
     }

@@ -1,12 +1,14 @@
 use std::io::Write;
 
-use crate::apt::AptConfig;
+use crate::{apt::AptConfig, dbus::change_status};
 use oma_apt::{
     raw::progress::{AcquireProgress, InstallProgress},
     util::{get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys},
 };
 use oma_console::is_terminal;
+use tokio::runtime::Runtime;
 use tracing::debug;
+use zbus::Connection;
 
 #[derive(Default, Debug)]
 pub struct NoProgress {
@@ -78,21 +80,38 @@ impl AcquireProgress for NoProgress {
     }
 }
 
+pub struct InstallProgressArgs {
+    pub config: AptConfig,
+    pub yes: bool,
+    pub force_yes: bool,
+    pub dpkg_force_confnew: bool,
+    pub dpkg_force_all: bool,
+    pub no_progress: bool,
+    pub tokio: Runtime,
+    pub connection: Option<Connection>,
+}
+
 pub struct OmaAptInstallProgress {
     config: AptConfig,
     no_progress: bool,
+    tokio: Runtime,
+    connection: Option<Connection>,
 }
 
 impl OmaAptInstallProgress {
     #[allow(dead_code)]
-    pub fn new(
-        config: AptConfig,
-        yes: bool,
-        force_yes: bool,
-        dpkg_force_confnew: bool,
-        dpkg_force_all: bool,
-        no_progress: bool,
-    ) -> Self {
+    pub fn new(args: InstallProgressArgs) -> Self {
+        let InstallProgressArgs {
+            config,
+            yes,
+            force_yes,
+            dpkg_force_confnew,
+            dpkg_force_all,
+            no_progress,
+            tokio,
+            connection,
+        } = args;
+
         if yes {
             oma_apt::raw::config::raw::config_set(
                 "APT::Get::Assume-Yes".to_owned(),
@@ -150,38 +169,35 @@ impl OmaAptInstallProgress {
         Self {
             config,
             no_progress,
+            tokio,
+            connection,
         }
     }
 
     /// Return the AptInstallProgress in a box
     /// To easily pass through to do_install
-    pub fn new_box(
-        config: AptConfig,
-        yes: bool,
-        force_yes: bool,
-        dpkg_force_confnew: bool,
-        dpkg_force_all: bool,
-        no_progress: bool,
-    ) -> Box<dyn InstallProgress> {
-        Box::new(Self::new(
-            config,
-            yes,
-            force_yes,
-            dpkg_force_confnew,
-            dpkg_force_all,
-            no_progress,
-        ))
+    pub fn new_box(args: InstallProgressArgs) -> Box<dyn InstallProgress> {
+        Box::new(Self::new(args))
     }
 }
 
 impl InstallProgress for OmaAptInstallProgress {
     fn status_changed(
         &mut self,
-        _pkgname: String,
+        pkgname: String,
         steps_done: u64,
         total_steps: u64,
         _action: String,
     ) {
+        let conn = &self.connection;
+        self.tokio.block_on(async move {
+            if let Some(conn) = conn {
+                change_status(conn, &format!("Changing package {pkgname}"))
+                    .await
+                    .ok();
+            }
+        });
+
         if !is_terminal() || self.no_progress {
             return;
         }

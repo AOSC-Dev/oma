@@ -7,10 +7,11 @@ use crate::{
     OmaArgs,
 };
 
-use super::utils::{no_check_dbus_warn, normal_commit, NormalCommitArgs};
+use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs};
 
 pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
+    lock_oma()?;
 
     let OmaArgs {
         dry_run,

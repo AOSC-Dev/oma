@@ -9,6 +9,7 @@ use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
     pkginfo::PkgInfo,
 };
+
 use std::path::Path;
 use std::{borrow::Cow, sync::atomic::Ordering};
 
@@ -20,7 +21,9 @@ use crate::{
     ALLOWCTRLC,
 };
 
-use super::utils::{handle_no_result, no_check_dbus_warn, normal_commit, NormalCommitArgs};
+use super::utils::{
+    handle_no_result, lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs,
+};
 
 pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
@@ -50,6 +53,7 @@ pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
 
 pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
+    lock_oma()?;
 
     let OmaArgs {
         dry_run: _,
