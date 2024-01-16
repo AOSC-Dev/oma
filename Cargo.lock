@@ -2549,7 +2549,7 @@ dependencies = [
  "oma-pm",
  "oma-refresh",
  "oma-topics",
- "oma-utils 0.6.0",
+ "oma-utils 0.7.0",
  "once_cell",
  "reqwest",
  "rust-embed",
@@ -2606,7 +2606,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.6.0",
+ "oma-utils 0.7.0",
  "rayon",
  "regex",
  "strsim 0.11.0",
@@ -2635,7 +2635,7 @@ dependencies = [
  "hex",
  "indicatif",
  "oma-console",
- "oma-utils 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "oma-utils 0.6.0",
  "reqwest",
  "serde",
  "sha2",
@@ -2674,7 +2674,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "chrono",
  "dashmap",
@@ -2687,7 +2687,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.6.0",
+ "oma-utils 0.7.0",
  "small-map",
  "thiserror",
  "tokio",
@@ -2697,16 +2697,16 @@ dependencies = [
 
 [[package]]
 name = "oma-pm-operation-type"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "derive_builder",
- "oma-utils 0.6.0",
+ "oma-utils 0.7.0",
  "serde",
 ]
 
 [[package]]
 name = "oma-refresh"
-version = "0.12.1"
+version = "0.12.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2719,7 +2719,7 @@ dependencies = [
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
- "oma-utils 0.6.0",
+ "oma-utils 0.7.0",
  "once_cell",
  "reqwest",
  "sequoia-openpgp",
@@ -2752,6 +2752,19 @@ dependencies = [
 [[package]]
 name = "oma-utils"
 version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "900c3605b76e3ddfbbed3d79f0e279686b40cb0ddc1856aa55ca98caa97dac96"
+dependencies = [
+ "once_cell",
+ "os-release",
+ "thiserror",
+ "tracing",
+ "url-escape",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.7.0"
 dependencies = [
  "number_prefix",
  "oma-console",
@@ -2761,19 +2774,6 @@ dependencies = [
  "tracing",
  "url-escape",
  "zbus",
-]
-
-[[package]]
-name = "oma-utils"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "900c3605b76e3ddfbbed3d79f0e279686b40cb0ddc1856aa55ca98caa97dac96"
-dependencies = [
- "once_cell",
- "os-release",
- "thiserror",
- "tracing",
- "url-escape",
 ]
 
 [[package]]
