@@ -205,11 +205,11 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
 
     search_res.sort_by(|a, b| b.status.cmp(&a.status));
 
-    let index = search_res.iter().position(|x| x.full_match);
-
-    if let Some(index) = index {
-        let i = search_res.remove(index);
-        search_res.insert(0, i);
+    for i in 0..search_res.len() {
+        if search_res[i].full_match {
+            let i = search_res.remove(i);
+            search_res.insert(0, i);
+        }
     }
 
     Ok(search_res)
