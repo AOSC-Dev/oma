@@ -4,7 +4,7 @@ use oma_apt::{
     package::Package,
     raw::package::RawPackage,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::query::has_dbg;
 
@@ -51,6 +51,20 @@ struct SearchEntry {
     has_dbg: bool,
     raw_pkg: RawPackage,
     section_is_base: bool,
+}
+
+impl Debug for SearchEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SearchEntry")
+            .field("pkgname", &self.pkgname)
+            .field("description", &self.description)
+            .field("status", &self.status)
+            .field("provide", &self.provide)
+            .field("has_dbg", &self.has_dbg)
+            .field("raw_pkg", &self.raw_pkg.name())
+            .field("section_is_base", &self.section_is_base)
+            .finish()
+    }
 }
 
 impl Indexable for SearchEntry {
@@ -105,19 +119,21 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
         };
 
         if let Some(cand) = pkg.candidate() {
-            pkg_map.insert(
-                pkg.name().to_string(),
-                SearchEntry {
-                    pkgname: pkg.name().to_string(),
-                    description: cand.description().unwrap_or("".to_string()),
-                    status,
-                    provide: None,
-                    has_dbg: has_dbg(cache, &pkg, &cand),
-                    raw_pkg: pkg.unique(),
-                    section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
-                },
-            );
-            continue;
+            if pkg_map.get(pkg.name()).is_none() {
+                pkg_map.insert(
+                    pkg.name().to_string(),
+                    SearchEntry {
+                        pkgname: pkg.name().to_string(),
+                        description: cand.description().unwrap_or("".to_string()),
+                        status,
+                        provide: pkg.provides().next().map(|x| x.name().to_string()),
+                        has_dbg: has_dbg(cache, &pkg, &cand),
+                        raw_pkg: pkg.unique(),
+                        section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
+                    },
+                );
+                continue;
+            }
         }
 
         let real_pkgs = pkg
@@ -176,6 +192,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
         let has_dbg = entry.has_dbg;
         let pkg = entry.raw_pkg.unique();
         let pkg = Package::new(cache, pkg);
+
         let full_match = name == input || entry.provide == Some(input.to_string());
 
         let old_version = if status != PackageStatus::Upgrade {

@@ -109,6 +109,12 @@ impl TopicManager {
             })?;
         }
 
+        if !p.is_file() {
+            tokio::fs::File::create(&p).await.map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(p.display().to_string(), e)
+            })?;
+        }
+
         Ok(p)
     }
 
