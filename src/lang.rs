@@ -21,6 +21,10 @@ pub static LANGUAGE_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
     language_loader
         .load_languages(&Localizations, &languages)
         .expect("Unable to local i18n languager");
+    // Windows Terminal doesn't support bidirectional (BiDi) text, and renders the isolate characters incorrectly.
+    // This is a temporary workaround for https://github.com/microsoft/terminal/issues/16574
+    // TODO: this might break BiDi text, though we don't support any writing system depends on that.
+    language_loader.set_use_isolating(false);
     language_loader
 });
 
