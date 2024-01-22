@@ -368,6 +368,7 @@ pub fn command_builder() -> Command {
     if cfg!(feature = "aosc") {
         cmd = cmd.subcommand(
             Command::new("topics")
+                .alias("topic")
                 .about("Manage testing topics enrollment")
                 .arg(
                     Arg::new("opt_in")
