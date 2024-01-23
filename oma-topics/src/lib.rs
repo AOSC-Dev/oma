@@ -339,6 +339,7 @@ where
     let mut tm = TopicManager::new(rootfs).await?;
     tm.refresh().await?;
     let all = tm.all_topics().to_owned();
+
     let enabled = tm.enabled_topics().to_owned();
 
     let mut res = vec![];

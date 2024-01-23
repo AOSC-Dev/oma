@@ -23,7 +23,7 @@ use crate::{
 use super::utils::{no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
 use crate::fl;
 use anyhow::anyhow;
-use oma_topics::TopicManager;
+use oma_topics::{scan_closed_topic, TopicManager};
 
 struct TopicChanged {
     opt_in: Vec<String>,
@@ -147,7 +147,7 @@ where
     P: AsRef<Path>,
 {
     let mut tm = TopicManager::new(&sysroot).await?;
-    refresh_topics(no_progress, &mut tm).await?;
+    refresh_topics(no_progress, &mut tm, &sysroot).await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
         inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
@@ -270,7 +270,11 @@ async fn inquire(
     Ok(())
 }
 
-async fn refresh_topics(no_progress: bool, tm: &mut TopicManager) -> Result<(), OutputError> {
+async fn refresh_topics<P: AsRef<Path>>(
+    no_progress: bool,
+    tm: &mut TopicManager,
+    sysroot: P,
+) -> Result<(), OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
         let (style, inv) = oma_spinner(AILURUS.load(Ordering::Relaxed));
@@ -284,6 +288,7 @@ async fn refresh_topics(no_progress: bool, tm: &mut TopicManager) -> Result<(), 
     };
 
     tm.refresh().await?;
+    scan_closed_topic(|| fl!("do-not-edit-topic-sources-list"), sysroot).await?;
 
     if let Some(pb) = pb {
         pb.finish_and_clear();
