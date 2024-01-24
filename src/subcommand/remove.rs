@@ -87,7 +87,7 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
 }
 
 /// "Yes Do as I say" steps
-fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
+pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
     let theme = ColorfulTheme::default();
     let delete = Confirm::with_theme(&theme)
         .with_prompt(format!("DELETE THIS PACKAGE? PACKAGE {pkg} IS ESSENTIAL!",))

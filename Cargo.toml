@@ -35,6 +35,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 smallvec = "1.11"
 console-subscriber = { version = "0.2", optional = true }
+ratatui = "0.25"
+crossterm = "0.27"
+ansi-to-tui = "3.1"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }

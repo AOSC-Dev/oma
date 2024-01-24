@@ -171,7 +171,7 @@ fn main() {
         }
     }
 
-    let code = match run_subcmd(matches, &mut cmd, dry_run, no_progress) {
+    let code = match run_subcmd(matches, dry_run, no_progress) {
         Ok(exit_code) => {
             unlock_oma().ok();
             exit_code
@@ -196,12 +196,7 @@ fn main() {
     exit(code);
 }
 
-fn run_subcmd(
-    matches: ArgMatches,
-    cmd: &mut clap::Command,
-    dry_run: bool,
-    no_progress: bool,
-) -> Result<i32, OutputError> {
+fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i32, OutputError> {
     // Egg
     #[cfg(feature = "egg")]
     {
@@ -414,6 +409,13 @@ fn run_subcmd(
 
             pkgnames::execute(keyword, sysroot)?
         }
+        Some(("tui", _)) | None => tui::execute(
+            sysroot,
+            no_progress,
+            oma_args.download_pure_db,
+            dry_run,
+            oma_args.network_thread,
+        )?,
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");
             let plugin = exe_dir.join(format!("oma-{}", cmd));
@@ -431,30 +433,6 @@ fn run_subcmd(
             }
 
             return Ok(status);
-        }
-        None => {
-            #[cfg(feature = "egg")]
-            {
-                let exit_code = if AILURUS.load(Ordering::Relaxed) {
-                    0
-                } else {
-                    cmd.print_help().map_err(|e| OutputError {
-                        description: "Failed to print help".to_string(),
-                        source: Some(Box::new(e)),
-                    })?;
-
-                    1
-                };
-                return Ok(exit_code);
-            }
-            #[cfg(not(feature = "egg"))]
-            {
-                cmd.print_help().map_err(|e| OutputError {
-                    description: "Failed to print help".to_string(),
-                    source: Some(Box::new(e)),
-                })?;
-                return Ok(1);
-            }
         }
     };
 

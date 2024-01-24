@@ -6,7 +6,9 @@ use std::{
 use derive_builder::Builder;
 use oma_apt_sources_lists::{SourceEntry, SourceError, SourceLine, SourcesLists};
 use oma_fetch::{
-    checksum::ChecksumError, reqwest, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher
+    checksum::ChecksumError, reqwest, DownloadEntry, DownloadEntryBuilder,
+    DownloadEntryBuilderError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType,
+    OmaFetcher,
 };
 
 #[cfg(feature = "aosc")]

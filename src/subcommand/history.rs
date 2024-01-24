@@ -269,6 +269,7 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<String> {
                     )
                 }
                 SummaryType::Undo => format!("Undone [{date}]"),
+                SummaryType::Changes => "Change packages".to_string(),
             }
         })
         .collect::<Vec<_>>();

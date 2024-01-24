@@ -43,7 +43,7 @@ impl Ord for PackageStatus {
     }
 }
 
-struct SearchEntry {
+pub struct SearchEntry {
     pkgname: String,
     description: String,
     status: PackageStatus,
@@ -85,7 +85,7 @@ pub enum OmaSearchError {
 
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SearchResult {
     pub name: String,
     pub desc: String,
@@ -99,7 +99,7 @@ pub struct SearchResult {
 
 pub struct OmaSearch<'a> {
     cache: &'a Cache,
-    pkg_map: HashMap<String, SearchEntry>,
+    pub pkg_map: HashMap<String, SearchEntry>,
     index: SearchIndex<String>,
 }
 
@@ -196,43 +196,8 @@ impl<'a> OmaSearch<'a> {
         }
 
         for i in res {
-            // res 的源确保是存在的，所以直接 unwrap
-            let entry = self.pkg_map.get(i).unwrap();
-
-            let name = entry.pkgname.clone();
-            let desc = entry.description.clone();
-
-            let status = entry.status.clone();
-            let has_dbg = entry.has_dbg;
-            let pkg = entry.raw_pkg.unique();
-            let pkg = Package::new(self.cache, pkg);
-
-            let full_match =
-                name == query || entry.provide.as_ref().map(|x| x == &query).unwrap_or(false);
-
-            let old_version = if status != PackageStatus::Upgrade {
-                None
-            } else {
-                pkg.installed().map(|x| x.version().to_string())
-            };
-
-            let new_version = pkg
-                .candidate()
-                .map(|x| x.version().to_string())
-                .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
-
-            let is_base = entry.section_is_base;
-
-            search_res.push(SearchResult {
-                name,
-                desc,
-                old_version,
-                new_version,
-                full_match,
-                dbg_package: has_dbg,
-                status,
-                is_base,
-            });
+            let entry = self.search_result(i, Some(&query))?;
+            search_res.push(entry);
         }
 
         search_res.sort_by(|a, b| b.status.cmp(&a.status));
@@ -245,5 +210,49 @@ impl<'a> OmaSearch<'a> {
         }
 
         Ok(search_res)
+    }
+
+    pub fn search_result(
+        &self,
+        i: &str,
+        query: Option<&str>,
+    ) -> Result<SearchResult, OmaSearchError> {
+        let entry = self.pkg_map.get(i).unwrap();
+        let name = entry.pkgname.clone();
+        let desc = entry.description.clone();
+        let status = entry.status.clone();
+        let has_dbg = entry.has_dbg;
+        let pkg = entry.raw_pkg.unique();
+        let pkg = Package::new(self.cache, pkg);
+
+        let full_match = if let Some(query) = query {
+            query == name || entry.provide.as_ref().map(|x| x == query).unwrap_or(false)
+        } else {
+            false
+        };
+
+        let old_version = if status != PackageStatus::Upgrade {
+            None
+        } else {
+            pkg.installed().map(|x| x.version().to_string())
+        };
+
+        let new_version = pkg
+            .candidate()
+            .map(|x| x.version().to_string())
+            .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
+
+        let is_base = entry.section_is_base;
+
+        Ok(SearchResult {
+            name,
+            desc,
+            old_version,
+            new_version,
+            full_match,
+            dbg_package: has_dbg,
+            status,
+            is_base,
+        })
     }
 }

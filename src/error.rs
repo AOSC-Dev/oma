@@ -212,6 +212,25 @@ impl From<OmaDbusError> for OutputError {
     }
 }
 
+impl From<OmaSearchError> for OutputError {
+    fn from(value: OmaSearchError) -> Self {
+        match value {
+            OmaSearchError::RustApt(e) => OutputError {
+                description: fl!("apt-error"),
+                source: Some(Box::new(e)),
+            },
+            OmaSearchError::NoResult(e) => OutputError {
+                description: fl!("could-not-find-pkg-from-keyword", c = e),
+                source: None,
+            },
+            OmaSearchError::FailedGetCandidate(s) => OutputError {
+                description: fl!("no-candidate-ver", pkg = s),
+                source: None,
+            },
+        }
+    }
+}
+
 impl From<AptArgsBuilderError> for OutputError {
     fn from(value: AptArgsBuilderError) -> Self {
         Self {
