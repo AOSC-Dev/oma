@@ -208,7 +208,7 @@ impl<'a> OmaSearch<'a> {
             let pkg = Package::new(self.cache, pkg);
 
             let full_match =
-                &name == &query || entry.provide.as_ref().map(|x| x == &query).unwrap_or(false);
+                name == query || entry.provide.as_ref().map(|x| x == &query).unwrap_or(false);
 
             let old_version = if status != PackageStatus::Upgrade {
                 None
