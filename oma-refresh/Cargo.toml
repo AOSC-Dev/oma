@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.12.3"
+version = "0.12.4-oma1.3"
 edition = "2021"
 description = "A crate to help oma refresh apt repo database"
 license = "MIT"
@@ -8,7 +8,7 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-oma-fetch = { version = "^0.8.0", path = "../oma-fetch" }
+oma-fetch = { version = "^0.8.0", path = "../oma-fetch", default_features = false }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 url = "2.3"
@@ -21,11 +21,10 @@ oma-debcontrol = "0.3"
 sequoia-openpgp = { version = "1.13", default_features = false }
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
-oma-topics = { version = "^0.7.0", path = "../oma-topics", optional = true }
-reqwest = "0.11"
+oma-topics = { version = "^0.7.0", path = "../oma-topics", optional = true, default-features = false }
 oma-utils = { version = "^0.7.0", path = "../oma-utils", features = ["dpkg"] }
 derive_builder = "0.13"
-tracing ="0.1"
+tracing = "0.1"
 smallvec = "1.1"
 small-map = "0.1"
 
@@ -33,7 +32,9 @@ small-map = "0.1"
 aosc = ["dep:oma-topics"]
 sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]
 sequoia-nettle-backend = ["sequoia-openpgp/crypto-nettle"]
-default = ["aosc", "sequoia-nettle-backend"]
+rustls = ["oma-fetch/rustls", "oma-topics/rustls"]
+native-tls = ["oma-fetch/native-tls", "oma-topics/native-tls"]
+default = ["aosc", "sequoia-nettle-backend", "rustls"]
 
 [dev-dependencies]
 tokio = { version = "1.28", default_features = false, features = ["macros", "rt-multi-thread"] }

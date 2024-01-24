@@ -13,6 +13,8 @@ use reqwest::{Client, ClientBuilder};
 pub mod checksum;
 mod download;
 
+pub use reqwest;
+
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
     #[error("checksum mismatch {0}")]

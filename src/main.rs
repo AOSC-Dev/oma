@@ -43,6 +43,7 @@ use crate::config::{Config, GeneralConfig};
 #[cfg(feature = "egg")]
 use crate::egg::ailurus;
 use crate::error::Chain;
+#[cfg(feature = "aosc")]
 use crate::subcommand::topics::TopicArgs;
 use crate::subcommand::*;
 

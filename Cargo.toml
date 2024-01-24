@@ -30,7 +30,7 @@ rustix = { version = "=0.38.28", features = ["process"] }
 colored = { version = "2.0.4", optional = true }
 image = { version = "0.24.7", optional = true }
 libc = "0.2"
-reqwest = "0.11"
+reqwest = { version = "0.11", default_features = false }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 smallvec = "1.11"
@@ -42,8 +42,8 @@ oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
 oma-refresh = { path = "./oma-refresh", default_features = false }
 oma-contents = { path = "./oma-contents" }
-oma-fetch = { path = "./oma-fetch" }
-oma-topics = { path = "./oma-topics", optional = true }
+oma-fetch = { path = "./oma-fetch", default_features = false }
+oma-topics = { path = "./oma-topics", optional = true, default_features = false }
 oma-history = { path = "./oma-history" }
 
 # i18n
@@ -65,7 +65,9 @@ sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
 egg = ["dep:colored", "dep:image"]
 tokio-console = ["dep:console-subscriber"]
-default = ["aosc","sequoia-nettle-backend"]
+rustls = ["reqwest/rustls-tls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-topics/rustls"]
+openssl = ["reqwest/native-tls", "oma-fetch/native-tls", "oma-refresh/native-tls", "oma-topics/native-tls"]
+default = ["aosc","sequoia-nettle-backend", "rustls"]
 
 [workspace]
 members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type"]

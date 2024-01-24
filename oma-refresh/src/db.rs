@@ -6,12 +6,18 @@ use std::{
 use derive_builder::Builder;
 use oma_apt_sources_lists::{SourceEntry, SourceError, SourceLine, SourcesLists};
 use oma_fetch::{
-    checksum::ChecksumError, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError,
-    DownloadError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher,
+    checksum::ChecksumError, reqwest, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher
 };
+
+#[cfg(feature = "aosc")]
+use oma_fetch::DownloadError;
+
 use oma_utils::dpkg::dpkg_arch;
 use once_cell::sync::Lazy;
+
+#[cfg(feature = "aosc")]
 use reqwest::StatusCode;
+
 use serde::Deserialize;
 use tracing::debug;
 use url::Url;
@@ -333,6 +339,7 @@ where
 
     let mut all_inrelease = vec![];
 
+    #[cfg(feature = "aosc")]
     let mut not_found = vec![];
 
     for inrelease in res {

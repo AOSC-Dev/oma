@@ -1,6 +1,6 @@
 [package]
 name = "oma-fetch"
-version = "0.8.2"
+version = "0.8.3"
 edition = "2021"
 description = "A downloader to help oma download something"
 license = "MIT"
@@ -9,7 +9,7 @@ license = "MIT"
 
 [dependencies]
 thiserror = "1.0"
-reqwest = "0.11"
+reqwest = { version = "0.11", default_features = false }
 tokio = { version = "1.28", default_features = false, features = ["fs"] }
 serde = { version = "1.0", features = ["derive"] }
 hex = "0.4"
@@ -25,3 +25,8 @@ tokio = { version = "1.28", default-features = false, features = ["macros", "rt-
 indicatif = "0.17"
 dashmap = "5.5"
 oma-console = { path = "../oma-console" }
+
+[features]
+rustls = ["reqwest/rustls-tls"]
+native-tls = ["reqwest/native-tls"]
+default = ["rustls"]
