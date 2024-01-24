@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm-operation-type"
-version = "0.1.1"
+version = "0.1.3-oma1.2"
 edition = "2021"
 license = "MIT"
 description = "some type abstract from oma-pm crate"
@@ -8,7 +8,7 @@ description = "some type abstract from oma-pm crate"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-derive_builder = "0.12"
+derive_builder = "0.13"
 serde = { version = "1.0", features = ["derive"] }
 oma-utils = { version = "^0.6.0", path = "../oma-utils", features = [
     "human-bytes",
