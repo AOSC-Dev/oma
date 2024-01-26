@@ -273,6 +273,12 @@ impl OmaApt {
         Ok((upgradable, removable))
     }
 
+    pub fn installed_packages(&self) -> OmaAptResult<usize> {
+        let sort = PackageSort::default().installed();
+
+        Ok(self.cache.packages(&sort)?.count())
+    }
+
     /// Set apt manager status as upgrade
     pub fn upgrade(&self) -> OmaAptResult<()> {
         self.cache.upgrade(&Upgrade::FullUpgrade)?;

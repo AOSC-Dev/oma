@@ -35,6 +35,8 @@ use std::fmt::Display;
 
 use super::utils::{normal_commit, refresh, NormalCommitArgs};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Clone)]
 pub struct FormatSearchResult(String);
 
@@ -194,9 +196,10 @@ pub fn execute(
         .build()?;
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
-    let searcher = OmaSearch::new(&apt.cache)?;
 
-    let version = env!("CARGO_PKG_VERSION");
+    let a = apt.available_action()?;
+    let installed = apt.installed_packages()?;
+    let searcher = OmaSearch::new(&apt.cache)?;
 
     let result_rc = Rc::new(RefCell::new(vec![]));
     let result_display = result_rc
@@ -237,7 +240,7 @@ pub fn execute(
 
                 frame.render_widget(
                     Paragraph::new(Text::from(Span::styled(
-                        format!("oma v{version}"),
+                        format!("oma v{VERSION}"),
                         Style::default().add_modifier(Modifier::BOLD),
                     ))),
                     main_layout[0],
@@ -249,7 +252,7 @@ pub fn execute(
                     .split(main_layout[2]);
 
                 if display_pending_detail {
-                    show_packages(&result_rc, frame, &mut display_list, &mode, chunks[0]);
+                    show_packages(&result_rc, frame, &mut display_list, &mode, chunks[0], a, installed);
 
                     frame.render_stateful_widget(
                         List::new(pending_display_list.items.clone())
@@ -265,7 +268,7 @@ pub fn execute(
                         &mut pending_display_list.state,
                     );
                 } else {
-                    show_packages(&result_rc, frame, &mut display_list, &mode, main_layout[2]);
+                    show_packages(&result_rc, frame, &mut display_list, &mode, main_layout[2], a, installed);
                 }
 
                 frame.render_widget(
@@ -553,6 +556,8 @@ fn show_packages(
     display_list: &mut StatefulList<Text<'_>>,
     mode: &Mode,
     area: Rect,
+    action: (usize, usize),
+    installed: usize,
 ) {
     if !result_rc.borrow().is_empty() {
         frame.render_stateful_widget(
@@ -560,7 +565,10 @@ fn show_packages(
                 .block(
                     Block::default()
                         .borders(Borders::ALL)
-                        .title("Packages")
+                        .title(format!(
+                            "Packages (has {} upgradable, has {} removable, {} is installed)",
+                            action.0, action.1, installed
+                        ))
                         .style(hightlight_window(mode, &Mode::Packages)),
                 )
                 .highlight_style(Style::default().fg(Color::LightBlue))
