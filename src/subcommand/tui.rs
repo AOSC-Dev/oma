@@ -295,7 +295,7 @@ pub fn execute(
 
                 frame.render_widget(
                     Paragraph::new(Text::from(Span::styled(
-                        "[TAB] Switch window [F1] Hide/Show pending detail [Esc] Done for operation [Space] Add/Remove item [/] Search [Ctrl-C] Exit",
+                        "[TAB] Switch window   [F1] Hide/Show pending detail   [Esc] Done for operation   [Space] Add/Remove item   [/] Search   [Ctrl-C] Exit",
                         Style::default().add_modifier(Modifier::BOLD),
                     ))),
                     main_layout[3],
@@ -528,6 +528,7 @@ pub fn execute(
     })?;
 
     if execute_apt {
+        apt.upgrade()?;
         apt.install(&install, false)?;
         apt.remove(&remove, false, false, |pkg| {
             ask_user_do_as_i_say(pkg).unwrap_or(false)
