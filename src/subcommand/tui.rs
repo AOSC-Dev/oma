@@ -234,7 +234,7 @@ pub fn execute(
                         Constraint::Length(1), // header
                         Constraint::Length(3), // search
                         Constraint::Min(0),    // packages
-                        Constraint::Length(1)  // tips
+                        Constraint::Length(1), // tips
                     ])
                     .split(frame.size());
 
@@ -252,14 +252,22 @@ pub fn execute(
                     .split(main_layout[2]);
 
                 if display_pending_detail {
-                    show_packages(&result_rc, frame, &mut display_list, &mode, chunks[0], a, installed);
+                    show_packages(
+                        &result_rc,
+                        frame,
+                        &mut display_list,
+                        &mode,
+                        chunks[0],
+                        a,
+                        installed,
+                    );
 
                     frame.render_stateful_widget(
                         List::new(pending_display_list.items.clone())
                             .block(
                                 Block::default()
                                     .borders(Borders::ALL)
-                                    .title("Pending")
+                                    .title(fl!("tui-pending"))
                                     .style(hightlight_window(&mode, &Mode::Pending)),
                             )
                             .highlight_style(Style::default().fg(Color::LightBlue))
@@ -268,7 +276,15 @@ pub fn execute(
                         &mut pending_display_list.state,
                     );
                 } else {
-                    show_packages(&result_rc, frame, &mut display_list, &mode, main_layout[2], a, installed);
+                    show_packages(
+                        &result_rc,
+                        frame,
+                        &mut display_list,
+                        &mode,
+                        main_layout[2],
+                        a,
+                        installed,
+                    );
                 }
 
                 frame.render_widget(
@@ -277,7 +293,7 @@ pub fn execute(
                         .block(
                             Block::default()
                                 .borders(Borders::ALL)
-                                .title("Search")
+                                .title(fl!("tui-search"))
                                 .style(hightlight_window(&mode, &Mode::Search)),
                         ),
                     main_layout[1],
@@ -295,7 +311,7 @@ pub fn execute(
 
                 frame.render_widget(
                     Paragraph::new(Text::from(Span::styled(
-                        "[TAB] Switch window   [F1] Hide/Show pending detail   [Esc] Done for operation   [Space] Add/Remove item   [/] Search   [Ctrl-C] Exit",
+                        fl!("tui-tips"),
                         Style::default().add_modifier(Modifier::BOLD),
                     ))),
                     main_layout[3],
@@ -566,9 +582,11 @@ fn show_packages(
                 .block(
                     Block::default()
                         .borders(Borders::ALL)
-                        .title(format!(
-                            "Packages (has {} upgradable, has {} removable, {} is installed)",
-                            action.0, action.1, installed
+                        .title(fl!(
+                            "tui-packages",
+                            u = action.0,
+                            r = action.1,
+                            i = installed
                         ))
                         .style(hightlight_window(mode, &Mode::Packages)),
                 )
@@ -580,22 +598,24 @@ fn show_packages(
     } else {
         frame.render_widget(
             Paragraph::new(vec![
-                Line::from("Welcome to oma terminal interface!"),
-                Line::from("[TAB] Switch window"),
-                Line::from("[F1] Hide/Show pending detail"),
-                Line::from("[Esc] Done for operation"),
-                Line::from("[Space] Add/Remove item"),
-                Line::from("[/] Search"),
-                Line::from("[Ctrl-C] Exit"),
-                Line::from(format!(
-                    "Packages (has {} upgradable, has {} removable, {} is installed)",
-                    action.0, action.1, installed
+                Line::from(fl!("tui-start-1")),
+                Line::from(fl!("tui-start-2")),
+                Line::from(fl!("tui-start-3")),
+                Line::from(fl!("tui-start-4")),
+                Line::from(fl!("tui-start-5")),
+                Line::from(fl!("tui-start-6")),
+                Line::from(fl!("tui-start-7")),
+                Line::from(fl!(
+                    "tui-packages",
+                    u = action.0,
+                    r = action.1,
+                    i = installed
                 )),
             ])
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title("Start")
+                    .title(fl!("tui-start"))
                     .style(hightlight_window(mode, &Mode::Packages))
                     .padding(Padding::new(0, 0, area.height / 2 - 7, 0)),
             )

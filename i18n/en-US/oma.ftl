@@ -184,3 +184,16 @@ failed-check-dbus-tips-3 = If your system is permanently running in a container 
 no-check-dbus-tips = Currently oma will not detect system operational status, which will not detect critical system states such as power and user sessions, and may result in system failure if operation continues
 
 oma-history-is-empty = oma history is empty.
+
+tui-tips = [TAB] Switch window   [F1] Hide/Show pending detail   [Esc] Done for operation   [Space] Add/Remove item   [/] Search   [Ctrl-C] Exit
+tui-pending = Pending
+tui-search = Search
+tui-packages = Packages (has {$u} upgradable, has {$r} removable, {$i} is installed)
+tui-start-1 = Welcome to oma terminal interface!
+tui-start-2 = [TAB] Switch window
+tui-start-3 = [F1] Hide/Show pending detail
+tui-start-4 = [Esc] Done for operation
+tui-start-5 = [Space] Add/Remove item
+tui-start-6 = [/] Search
+tui-start-7 = [Ctrl-C] Exit
+tui-start = Start
