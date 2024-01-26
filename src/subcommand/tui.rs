@@ -528,11 +528,11 @@ pub fn execute(
     })?;
 
     if execute_apt {
-        apt.upgrade()?;
         apt.install(&install, false)?;
         apt.remove(&remove, false, false, |pkg| {
             ask_user_do_as_i_say(pkg).unwrap_or(false)
         })?;
+        apt.upgrade()?;
 
         let apt_args = AptArgsBuilder::default().no_progress(no_progress).build()?;
 
@@ -587,6 +587,7 @@ fn show_packages(
                 Line::from("[Space] Add/Remove item"),
                 Line::from("[/] Search"),
                 Line::from("[Ctrl-C] Exit"),
+                Line::from(format!("Packages (has {} upgradable, has {} removable, {} is installed)", action.0, action.1, installed)),
             ])
             .block(
                 Block::default()
