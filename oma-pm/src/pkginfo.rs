@@ -32,6 +32,7 @@ impl From<&BaseDep<'_>> for OmaDependency {
     }
 }
 
+#[derive(Debug)]
 pub struct OmaDependencyGroup(Vec<Vec<OmaDependency>>);
 
 impl OmaDependencyGroup {

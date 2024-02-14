@@ -5,6 +5,7 @@ use oma_apt::{
     package::{DepType, Dependency, Package, Version},
     util::cmp_versions,
 };
+use tracing::debug;
 
 use crate::{apt::OmaAptResult, pkginfo::OmaDependency};
 
@@ -149,6 +150,7 @@ fn format_deps(
     c: &Package,
 ) {
     let rdep = OmaDependency::map_deps(rdep);
+    debug!("{:?}", rdep);
     for b_rdep in rdep.inner() {
         for dep in b_rdep {
             let pkg = cache.get(&dep.name);
@@ -156,6 +158,7 @@ fn format_deps(
                 if pkg.is_installed() {
                     let comp = dep.comp_symbol;
                     let ver = dep.target_ver;
+                    debug!("{} {comp:?} {ver:?}", pkg.name());
                     if let (Some(comp), Some(need_ver)) = (comp, ver) {
                         match comp.as_str() {
                             ">=" => {
@@ -306,6 +309,7 @@ fn format_breaks(
     typ: &str,
 ) {
     let rdep = OmaDependency::map_deps(rdep_breaks);
+    debug!("{:?}", rdep);
     for b_rdep in rdep.inner() {
         for dep in b_rdep {
             let dep_pkg = cache.get(&dep.name);
@@ -323,6 +327,7 @@ fn format_breaks(
                         })
                     }
                 } else if dep_pkg.is_installed() {
+                    debug!("{} {:?} {:?}", dep_pkg.name(), dep.comp_symbol, dep.target_ver);
                     if let (Some(comp), Some(break_ver)) = (dep.comp_symbol, dep.target_ver) {
                         match comp.as_str() {
                             ">=" => {
