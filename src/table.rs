@@ -119,18 +119,15 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
 }
 
 fn less_tips(is_question: bool) -> String {
+    // Mouse wheels are enabled if oma is running inside a graphical terminal emulator
     let has_x11 = std::env::var("DISPLAY");
+    let has_wayland = std::env::var("WAYLAND_DISPLAY");
+    let has_gui = has_x11.is_ok() || has_wayland.is_ok();
 
     if is_question {
-        if has_x11.is_ok() {
-            fl!("question-tips-with-x11")
-        } else {
-            fl!("question-tips")
-        }
-    } else if has_x11.is_ok() {
-        fl!("normal-tips-with-x11")
+        if has_gui { fl!("question-tips-with-gui") } else { fl!("question-tips") }
     } else {
-        fl!("normal-tips")
+        if has_gui { fl!("normal-tips-with-gui") } else { fl!("normal-tips") }
     }
 }
 
