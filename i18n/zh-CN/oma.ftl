@@ -34,8 +34,8 @@ pkg-no-checksum = 软件包 {$name} 没有校验码。
 pkg-unavailable = 软件源中找不到 {$ver} 版本的软件包 {$pkg}。
 
 # pager
-question-tips-with-x11 = 按 [q] 结束审阅并应用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。
-normal-tips-with-x11 = 按 [q] 或 [Ctrl-c] 退出，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。
+question-tips-with-gui = 按 [q] 结束审阅并应用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。
+normal-tips-with-gui = 按 [q] 或 [Ctrl-c] 退出，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。
 question-tips = 按 [q] 结束审阅并应用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn] 或方向键翻页。
 normal-tips = 按 [q] 或 [Ctrl-c] 退出，按 [PgUp/Dn] 或方向键翻页。
 
