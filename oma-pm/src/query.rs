@@ -291,7 +291,7 @@ impl<'a> OmaDatabase<'a> {
 }
 
 /// Get real pkg from real pkg or virtual package
-fn real_pkg(pkg: &Package) -> RawPackage {
+pub fn real_pkg(pkg: &Package) -> RawPackage {
     if !pkg.has_versions() {
         if let Some(provide) = pkg.provides().next() {
             return provide.target_pkg();

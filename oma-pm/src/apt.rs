@@ -1141,7 +1141,7 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
     if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
         // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-        let v = find_unmet_deps_with_markinstall(cache, &ver);
+        let v = find_unmet_deps_with_markinstall(cache, &ver)?;
         return Err(OmaAptError::DependencyIssue(v));
     }
 

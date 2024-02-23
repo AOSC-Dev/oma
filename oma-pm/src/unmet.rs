@@ -1,13 +1,13 @@
 use std::cmp::Ordering;
 
 use oma_apt::{
-    cache::Cache,
+    cache::{Cache, PackageSort},
     package::{DepType, Dependency, Package, Version},
     util::cmp_versions,
 };
 use tracing::debug;
 
-use crate::{apt::OmaAptResult, pkginfo::OmaDependency};
+use crate::{apt::OmaAptResult, pkginfo::OmaDependency, query::real_pkg};
 
 #[derive(Debug)]
 pub struct UnmetDep {
@@ -34,9 +34,14 @@ pub enum WhyUnmet {
     },
 }
 
-pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> Vec<UnmetDep> {
+pub(crate) fn find_unmet_deps_with_markinstall(
+    cache: &Cache,
+    ver: &Version,
+) -> OmaAptResult<Vec<UnmetDep>> {
     let dep = ver.get_depends(&DepType::Depends);
     let pdep = ver.get_depends(&DepType::PreDepends);
+
+    let mut all_pkgs = cache.packages(&PackageSort::default().include_virtual())?;
 
     let mut v = vec![];
 
@@ -44,7 +49,9 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
         let dep = OmaDependency::map_deps(dep);
         for b_dep in dep.inner() {
             for d in b_dep {
-                if let Some(pkg) = cache.get(&d.name) {
+                if let Some(pkg) = all_pkgs.find(|x| x.name() == d.name) {
+                    let pkg = real_pkg(&pkg);
+                    let pkg = Package::new(cache, pkg);
                     if let Some(ver) = &d.ver {
                         if let Some(ver) = pkg.get_version(ver) {
                             find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
@@ -72,7 +79,9 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
         let pdep = OmaDependency::map_deps(pdep);
         for b_dep in pdep.inner() {
             for d in b_dep {
-                if let Some(pkg) = cache.get(&d.name) {
+                if let Some(pkg) = all_pkgs.find(|x| x.name() == d.name) {
+                    let pkg = real_pkg(&pkg);
+                    let pkg = Package::new(cache, pkg);
                     if let Some(ver) = &d.ver {
                         if let Some(ver) = pkg.get_version(ver) {
                             find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
@@ -96,7 +105,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
         }
     }
 
-    v
+    Ok(v)
 }
 
 fn find_unmet_dep_inner(pkg: &Package, cache: &Cache, cand: &Version, v: &mut Vec<UnmetDep>) {
@@ -327,7 +336,12 @@ fn format_breaks(
                         })
                     }
                 } else if dep_pkg.is_installed() {
-                    debug!("{} {:?} {:?}", dep_pkg.name(), dep.comp_symbol, dep.target_ver);
+                    debug!(
+                        "{} {:?} {:?}",
+                        dep_pkg.name(),
+                        dep.comp_symbol,
+                        dep.target_ver
+                    );
                     if let (Some(comp), Some(break_ver)) = (dep.comp_symbol, dep.target_ver) {
                         match comp.as_str() {
                             ">=" => {
