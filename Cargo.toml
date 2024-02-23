@@ -51,6 +51,7 @@ i18n-embed = { version = "0.14", features = ["fluent-system", "desktop-requester
 i18n-embed-fl = "0.7"
 rust-embed = "^8"
 unic-langid = "0.9"
+console = "0.15.8"
 
 [build-dependencies]
 clap_mangen = "0.2.10"

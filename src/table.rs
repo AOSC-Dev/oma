@@ -1,10 +1,13 @@
 use std::fmt::Display;
 use std::io::Write;
+use std::process;
 use std::sync::atomic::Ordering;
 
+use crate::config::ReviewStyle;
 use crate::console::{style, Color};
 use crate::error::OutputError;
-use crate::{fl, ALLOWCTRLC};
+use crate::prompt::PromptAction;
+use crate::{fl, info, prompt, ALLOWCTRLC};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
 use oma_console::WRITER;
@@ -140,7 +143,7 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
         ALLOWCTRLC.store(true, Ordering::Relaxed);
     }
 
-    let tips = less_tips(is_question);
+    let tips = less_tips(is_question, ReviewStyle::Pager);
 
     let pager = if len < WRITER.get_height().into() {
         Pager::plain()
@@ -154,16 +157,34 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
     Ok(pager)
 }
 
-fn less_tips(is_question: bool) -> String {
+fn less_tips(is_question: bool, review_style: ReviewStyle) -> String {
     // Mouse wheels are enabled if oma is running inside a graphical terminal emulator
     let has_x11 = std::env::var("DISPLAY");
     let has_wayland = std::env::var("WAYLAND_DISPLAY");
     let has_gui = has_x11.is_ok() || has_wayland.is_ok();
-
     if is_question {
-        if has_gui { fl!("question-tips-with-gui") } else { fl!("question-tips") }
+        match review_style {
+            ReviewStyle::Pager => {
+                if has_gui {
+                    fl!("question-tips-with-gui")
+                } else {
+                    fl!("question-tips")
+                }
+            }
+            ReviewStyle::Prompt => {
+		if has_gui {
+			fl!("question-tips-prompt-style-with-gui")
+		} else {
+			fl!("question-tips-prompt-style")
+		}
+	    }
+        }
     } else {
-        if has_gui { fl!("normal-tips-with-gui") } else { fl!("normal-tips") }
+        if has_gui {
+            fl!("normal-tips-with-gui")
+        } else {
+            fl!("normal-tips")
+        }
     }
 }
 
@@ -206,7 +227,7 @@ impl<W: Write> PagerPrinter<W> {
 }
 
 pub fn print_unmet_dep(u: &[UnmetDep]) -> Result<(), OutputError> {
-    let tips = less_tips(false);
+    let tips = less_tips(false, ReviewStyle::Pager);
     let mut pager = Pager::external(tips).map_err(|e| OutputError {
         description: "Failed to get pager".to_string(),
         source: Some(Box::new(e)),
@@ -255,53 +276,79 @@ pub fn table_for_install_pending(
     install: &[InstallEntry],
     remove: &[RemoveEntry],
     disk_size: &(String, u64),
-    is_pager: bool,
+    // Whether to use a pager (interactivity)
+    use_pager: bool,
     dry_run: bool,
+    review_style: ReviewStyle,
 ) -> Result<(), OutputError> {
     if dry_run {
         return Ok(());
     }
-
-    let tips = less_tips(true);
-
-    let mut pager = if is_pager {
-        Pager::external(tips).map_err(|e| OutputError {
-            description: "Failed to get pager".to_string(),
-            source: Some(Box::new(e)),
-        })?
-    } else {
-        Pager::plain()
-    };
-
-    let pager_name = pager.pager_name().to_owned();
-    let out = pager.get_writer().map_err(|e| OutputError {
-        description: "Failed to get writer".to_string(),
-        source: Some(Box::new(e)),
-    })?;
-    let mut printer = PagerPrinter::new(out);
-
-    if is_pager {
-        review_msg(&mut printer, pager_name);
-    }
-
-    print_pending_inner(printer, remove, install, disk_size);
-    let success = pager.wait_for_exit().map_err(|e| OutputError {
-        description: "Failed to wait exit".to_string(),
-        source: Some(Box::new(e)),
-    })?;
-
-    if is_pager && success {
+    // If a pager is not used (e.g. oma install -y), just print the UI once
+    // return.
+    if !use_pager {
         let pager = Pager::plain();
+        let pager_name = pager.pager_name().to_owned();
         let out = pager.get_writer().map_err(|e| OutputError {
             description: "Failed to wait exit".to_string(),
             source: Some(Box::new(e)),
         })?;
         let mut printer = PagerPrinter::new(out);
         printer.print("").ok();
+        review_msg(&mut printer, pager_name);
         print_pending_inner(printer, remove, install, disk_size);
+        return Ok(());
     }
-
-    Ok(())
+    loop {
+        // Show the review UI in pager
+        let tips = less_tips(true, review_style);
+        let mut pager = Pager::external(tips).map_err(|e| OutputError {
+            description: "Failed to get pager".to_string(),
+            source: Some(Box::new(e)),
+        })?;
+        let pager_name = pager.pager_name().to_owned();
+        let out = pager.get_writer().map_err(|e| OutputError {
+            description: "Failed to get writer".to_string(),
+            source: Some(Box::new(e)),
+        })?;
+        let mut printer = PagerPrinter::new(out);
+        review_msg(&mut printer, pager_name);
+        print_pending_inner(printer, remove, install, disk_size);
+        // Error should be handled here
+        let success = pager.wait_for_exit().map_err(|e| OutputError {
+            description: "Failed to wait exit".to_string(),
+            source: Some(Box::new(e)),
+        })?;
+        match review_style {
+            ReviewStyle::Pager => {
+                // Ctrl-C should terminate the program.
+                return Ok(());
+            }
+            ReviewStyle::Prompt => {
+		// Return immidiately if Ctrl-C is caught during the pager.
+		if !success {
+			return Ok(());
+		}
+                // After that we ask the user to perform an action
+                let prompt_str = fl!("review-prompt");
+                let action = prompt::ask_prompt(prompt_str.as_str(), PromptAction::Abort)?;
+                match action {
+                    PromptAction::Abort => {
+                        info!("{}", fl!("user-aborted-op"));
+                        process::exit(0);
+                    }
+                    PromptAction::Continue => {
+                        return Ok(());
+                    }
+                    PromptAction::Review => {
+                        continue;
+                    }
+                }
+		// We don't have to print the UI again
+		// since users have a chance to review the list again.
+            }
+        }
+    }
 }
 
 pub fn table_for_history_pending(
@@ -309,7 +356,7 @@ pub fn table_for_history_pending(
     remove: &[RemoveEntry],
     disk_size: &(String, u64),
 ) -> Result<(), OutputError> {
-    let tips = less_tips(false);
+    let tips = less_tips(false, ReviewStyle::Pager);
 
     let mut pager = Pager::external(tips).map_err(|e| OutputError {
         description: "Failed to get pager".to_string(),

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::config::ReviewStyle;
 use crate::error::OutputError;
 use crate::fl;
 use crate::pb;
@@ -122,6 +123,7 @@ pub struct NormalCommitArgs {
     pub network_thread: usize,
     pub no_progress: bool,
     pub sysroot: String,
+    pub review_style: ReviewStyle,
 }
 
 pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
@@ -134,6 +136,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
         network_thread,
         no_progress,
         sysroot,
+	review_style,
     } = args;
 
     let op = apt.summary()?;
@@ -150,7 +153,14 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
 
     apt.check_disk_size()?;
 
-    table_for_install_pending(&install, &remove, &disk_size, !apt_args.yes(), dry_run)?;
+    table_for_install_pending(
+        &install,
+        &remove,
+        &disk_size,
+        !apt_args.yes(),
+        dry_run,
+        review_style,
+    )?;
 
     let (mb, pb_map, global_is_set) = multibar();
 

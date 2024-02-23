@@ -8,6 +8,7 @@ mod args;
 mod config;
 mod error;
 mod lang;
+mod prompt;
 mod subcommand;
 mod table;
 mod utils;
@@ -18,6 +19,7 @@ mod egg;
 use anyhow::anyhow;
 
 use clap::ArgMatches;
+use config::ReviewStyle;
 use error::OutputError;
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
@@ -92,6 +94,7 @@ pub struct OmaArgs {
     download_pure_db: bool,
     no_check_dbus: bool,
     protect_essentials: bool,
+    review_style: ReviewStyle,
 }
 
 fn main() {
@@ -240,6 +243,7 @@ fn run_subcmd(
         no_progress,
         download_pure_db: config.pure_db(),
         no_check_dbus,
+        review_style: config.review_style(),
         protect_essentials: config
             .general
             .as_ref()
@@ -386,6 +390,8 @@ fn run_subcmd(
 
             let network_thread = config.network_thread();
 
+	    let review_style = config.review_style();
+
             let args = TopicArgs {
                 opt_in,
                 opt_out,
@@ -395,6 +401,7 @@ fn run_subcmd(
                 download_pure_db: config.pure_db(),
                 no_check_dbus,
                 sysroot,
+		review_style,
             };
 
             topics::execute(args)?

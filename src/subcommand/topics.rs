@@ -15,9 +15,7 @@ use oma_pm::{
 use oma_utils::dpkg::dpkg_arch;
 
 use crate::{
-    error::OutputError,
-    utils::{create_async_runtime, dbus_check, root},
-    AILURUS,
+    config::ReviewStyle, error::OutputError, utils::{create_async_runtime, dbus_check, root}, AILURUS
 };
 
 use super::utils::{no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
@@ -41,6 +39,7 @@ pub struct TopicArgs {
     pub download_pure_db: bool,
     pub no_check_dbus: bool,
     pub sysroot: String,
+    pub review_style: ReviewStyle,
 }
 
 pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
@@ -55,6 +54,7 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
         download_pure_db,
         sysroot,
         no_check_dbus,
+	review_style,
     } = args;
 
     let rt = create_async_runtime()?;
@@ -127,6 +127,7 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
         network_thread,
         no_progress,
         sysroot,
+	review_style,
     };
 
     normal_commit(args)?;

@@ -57,6 +57,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         no_progress,
         download_pure_db: _,
         no_check_dbus,
+	review_style,
         ..
     } = oma_args;
 
@@ -137,6 +138,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         network_thread,
         no_progress,
         sysroot,
+	review_style,
     };
 
     normal_commit(args)?;

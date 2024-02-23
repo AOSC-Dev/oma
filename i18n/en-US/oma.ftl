@@ -38,6 +38,8 @@ question-tips-with-gui = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], 
 normal-tips-with-gui = Press [q] or [Ctrl-c] to exit, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
 question-tips = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn] or arrow keys to scroll.
 normal-tips = Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll.
+question-tips-prompt-style = Press [q] to end the review, [PgUp/Dn], arrow keys to scroll.
+question-tips-prompt-style-with-gui = Press [q] to end the review, [PgUp/Dn], arrow keys or mouse wheels to scroll.
 
 # oma
 no-need-to-do-anything = No need to do anything.
@@ -183,3 +185,7 @@ failed-check-dbus-tips-3 = If your system is permanently running in a container 
 no-check-dbus-tips = Currently oma will not detect system operational status, which will not detect critical system states such as power and user sessions, and may result in system failure if operation continues
 
 oma-history-is-empty = oma history is empty.
+
+review-prompt = Do you accept the result?
+                Hit Y to continue, hit N to abort, or hit R to review it again:
+failed-to-read-answer-for-prompt = Failed to read answer from the terminal

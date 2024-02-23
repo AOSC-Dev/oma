@@ -327,7 +327,12 @@ fn format_breaks(
                         })
                     }
                 } else if dep_pkg.is_installed() {
-                    debug!("{} {:?} {:?}", dep_pkg.name(), dep.comp_symbol, dep.target_ver);
+                    debug!(
+                        "{} {:?} {:?}",
+                        dep_pkg.name(),
+                        dep.comp_symbol,
+                        dep.target_ver
+                    );
                     if let (Some(comp), Some(break_ver)) = (dep.comp_symbol, dep.target_ver) {
                         match comp.as_str() {
                             ">=" => {

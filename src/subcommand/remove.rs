@@ -25,6 +25,8 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         download_pure_db: _,
         no_check_dbus,
         protect_essentials: protect,
+	review_style,
+        ..
     } = oma_args;
 
     if !no_check_dbus {
@@ -76,6 +78,7 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         network_thread,
         no_progress,
         sysroot: args.sysroot,
+	review_style,
     };
 
     normal_commit(args)?;

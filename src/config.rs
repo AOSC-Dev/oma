@@ -1,3 +1,4 @@
+
 use crate::fl;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,23 @@ pub struct Config {
     pub network: Option<NetworkConfig>,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum ReviewStyle {
+    // The old behaviour (Ctrl-C to abort, q to continue within the pager)
+    Pager,
+    // The new behaviour (ask after leaving the pager)
+    Prompt,
+    // UI similar to APT.
+//     Apt,
+}
+
+impl Default for ReviewStyle {
+	fn default() -> Self {
+	    ReviewStyle::Pager
+	}
+}
+
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GeneralConfig {
     #[serde(default = "GeneralConfig::default_protect_essentials")]
@@ -19,6 +37,7 @@ pub struct GeneralConfig {
     pub refresh_pure_database: bool,
     #[serde(default = "GeneralConfig::default_no_check_dbus")]
     pub no_check_dbus: bool,
+    pub review_style: ReviewStyle,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -79,5 +98,12 @@ impl Config {
             .as_ref()
             .map(|x| x.no_check_dbus)
             .unwrap_or_else(GeneralConfig::default_no_check_dbus)
+    }
+
+    pub fn review_style(&self) -> ReviewStyle {
+        self.general
+            .as_ref()
+            .map(|x| x.review_style)
+            .unwrap_or_default()
     }
 }

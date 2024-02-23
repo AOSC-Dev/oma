@@ -93,7 +93,7 @@ pub fn execute(
         let install = op.install;
         let remove = op.remove;
         let disk_size = op.disk_size;
-
+        let review_style = oma_args.review_style;
         apt.resolve(false)?;
 
         if check_empty_op(&install, &remove) {
@@ -103,7 +103,14 @@ pub fn execute(
         apt.check_disk_size()?;
 
         if retry_times == 1 {
-            table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run)?;
+            table_for_install_pending(
+                &install,
+                &remove,
+                &disk_size,
+                !args.yes,
+                dry_run,
+                review_style,
+            )?;
         }
 
         let start_time = Local::now().timestamp();

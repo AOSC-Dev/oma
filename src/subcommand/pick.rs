@@ -28,6 +28,7 @@ pub fn execute(
         no_progress,
         download_pure_db,
         no_check_dbus,
+	review_style,
         ..
     } = oma_args;
 
@@ -113,6 +114,7 @@ pub fn execute(
         network_thread,
         no_progress,
         sysroot,
+	review_style,
     };
 
     normal_commit(args)?;

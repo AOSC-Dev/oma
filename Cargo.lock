@@ -2555,6 +2555,7 @@ dependencies = [
  "clap_complete",
  "clap_mangen",
  "colored",
+ "console",
  "console-subscriber",
  "ctrlc",
  "dashmap",
