@@ -56,16 +56,16 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                             continue;
                         }
                     }
-
-                    v.push(UnmetDep {
-                        package: d.name.to_string(),
-                        unmet_dependency: WhyUnmet::DepNotExist {
-                            pacakge_name: d.name.to_string(),
-                            version_comp: d.comp_ver,
-                        },
-                        specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
-                    });
                 }
+
+                v.push(UnmetDep {
+                    package: d.name.to_string(),
+                    unmet_dependency: WhyUnmet::DepNotExist {
+                        pacakge_name: d.name.to_string(),
+                        version_comp: d.comp_ver,
+                    },
+                    specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                });
             }
         }
     }
