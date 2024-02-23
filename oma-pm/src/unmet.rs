@@ -142,16 +142,11 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
             } else {
                 for d in b_dep {
                     if let Some(pkg) = cache.get(&d.name) {
-                        if let Some(dep_ver) = &d.ver {
-                            find_unmet_dep_inner(&pkg, cache, dep_ver, &mut v);
+                        let pkg = real_pkg(&pkg);
+                        let pkg = Package::new(cache, pkg);
+                        if let Some(cand) = pkg.candidate() {
+                            find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
                             continue;
-                        } else {
-                            let pkg = real_pkg(&pkg);
-                            let pkg = Package::new(cache, pkg);
-                            if let Some(cand) = pkg.candidate() {
-                                find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
-                                continue;
-                            }
                         }
                     }
     
