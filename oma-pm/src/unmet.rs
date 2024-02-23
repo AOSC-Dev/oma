@@ -9,14 +9,14 @@ use tracing::debug;
 
 use crate::{apt::OmaAptResult, pkginfo::OmaDependency, query::real_pkg};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnmetDep {
     pub package: String,
     pub unmet_dependency: WhyUnmet,
     pub specified_dependency: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WhyUnmet {
     DepNotExist {
         pacakge_name: String,
@@ -43,29 +43,64 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
     if let Some(dep) = dep {
         let dep = OmaDependency::map_deps(dep);
         for b_dep in dep.inner() {
-            for d in b_dep {
-                if let Some(pkg) = cache.get(&d.name) {
-                    if let Some(dep_ver) = &d.ver {
-                        find_unmet_dep_inner(&pkg, cache, dep_ver, &mut v);
-                        continue;
-                    } else {
-                        let pkg = real_pkg(&pkg);
-                        let pkg = Package::new(cache, pkg);
-                        if let Some(cand) = pkg.candidate() {
-                            find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
+            if b_dep.len() > 1 {
+                let mut temp_unmet = vec![];
+                for d in b_dep {
+                    if let Some(pkg) = cache.get(&d.name) {
+                        if let Some(dep_ver) = &d.ver {
+                            let temp_unmet_len = temp_unmet.len();
+                            find_unmet_dep_inner(&pkg, cache, dep_ver, &mut temp_unmet);
+                            let temp_unmet_len_2 = temp_unmet.len();
+                            if temp_unmet_len == temp_unmet_len_2 {
+                                break;
+                            }
+
                             continue;
+                        } else {
+                            let pkg = real_pkg(&pkg);
+                            let pkg = Package::new(cache, pkg);
+                            if let Some(cand) = pkg.candidate() {
+                                let temp_unmet_len = temp_unmet.len();
+                                find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
+                                let temp_unmet_len_2 = temp_unmet.len();
+
+                                if temp_unmet_len == temp_unmet_len_2 {
+                                    break;
+                                }
+                                continue;
+                            }
                         }
                     }
                 }
-
-                v.push(UnmetDep {
-                    package: d.name.to_string(),
-                    unmet_dependency: WhyUnmet::DepNotExist {
-                        pacakge_name: d.name.to_string(),
-                        version_comp: d.comp_ver,
-                    },
-                    specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
-                });
+                for i in temp_unmet {
+                    v.push(i);
+                }
+            } else {
+                for d in b_dep {
+                    if let Some(pkg) = cache.get(&d.name) {
+                        if let Some(dep_ver) = &d.ver {
+                            find_unmet_dep_inner(&pkg, cache, dep_ver, &mut v);
+    
+                            continue;
+                        } else {
+                            let pkg = real_pkg(&pkg);
+                            let pkg = Package::new(cache, pkg);
+                            if let Some(cand) = pkg.candidate() {
+                                find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
+                                continue;
+                            }
+                        }
+                    }
+    
+                    v.push(UnmetDep {
+                        package: d.name.to_string(),
+                        unmet_dependency: WhyUnmet::DepNotExist {
+                            pacakge_name: d.name.to_string(),
+                            version_comp: d.comp_ver,
+                        },
+                        specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                    });
+                }
             }
         }
     }
