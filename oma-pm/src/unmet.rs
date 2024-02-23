@@ -7,7 +7,7 @@ use oma_apt::{
 };
 use tracing::debug;
 
-use crate::{apt::OmaAptResult, pkginfo::OmaDependency};
+use crate::{apt::OmaAptResult, pkginfo::OmaDependency, query::real_pkg};
 
 #[derive(Debug)]
 pub struct UnmetDep {
@@ -48,9 +48,13 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                     if let Some(dep_ver) = &d.ver {
                         find_unmet_dep_inner(&pkg, cache, dep_ver, &mut v);
                         continue;
-                    } else if let Some(cand) = pkg.candidate() {
-                        find_unmet_dep_inner(&pkg, cache, &cand.version(), &mut v);
-                        continue;
+                    } else {
+                        let pkg = real_pkg(&pkg);
+                        let pkg = Package::new(cache, pkg);
+                        if let Some(cand) = pkg.candidate() {
+                            find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
+                            continue;
+                        }
                     }
 
                     v.push(UnmetDep {
