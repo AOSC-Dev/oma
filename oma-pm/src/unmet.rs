@@ -42,7 +42,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
 
     if let Some(dep) = dep {
         let dep = OmaDependency::map_deps(dep);
-        'a: for b_dep in dep.inner() {
+        for b_dep in dep.inner() {
             if b_dep.len() > 1 {
                 let mut temp_unmet = vec![];
                 for d in b_dep {
@@ -52,7 +52,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                             find_unmet_dep_inner(&pkg, cache, dep_ver, &mut temp_unmet);
                             let temp_unmet_len_2 = temp_unmet.len();
                             if temp_unmet_len == temp_unmet_len_2 {
-                                break 'a;
+                                break;
                             }
 
                             continue;
@@ -65,7 +65,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                                 let temp_unmet_len_2 = temp_unmet.len();
 
                                 if temp_unmet_len == temp_unmet_len_2 {
-                                    break 'a;
+                                    break;
                                 }
                                 continue;
                             }
@@ -80,7 +80,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                     if let Some(pkg) = cache.get(&d.name) {
                         if let Some(dep_ver) = &d.ver {
                             find_unmet_dep_inner(&pkg, cache, dep_ver, &mut v);
-
+    
                             continue;
                         } else {
                             let pkg = real_pkg(&pkg);
@@ -91,7 +91,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                             }
                         }
                     }
-
+    
                     v.push(UnmetDep {
                         package: d.name.to_string(),
                         unmet_dependency: WhyUnmet::DepNotExist {
