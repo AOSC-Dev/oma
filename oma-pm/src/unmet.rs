@@ -85,7 +85,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                             continue;
                         }
                     }
-    
+
                     v.push(UnmetDep {
                         package: d.name.to_string(),
                         unmet_dependency: WhyUnmet::DepNotExist {
@@ -144,7 +144,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                             continue;
                         }
                     }
-    
+
                     v.push(UnmetDep {
                         package: d.name.to_string(),
                         unmet_dependency: WhyUnmet::DepNotExist {

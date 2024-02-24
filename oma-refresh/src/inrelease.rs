@@ -86,7 +86,7 @@ impl InReleaseParser {
             let date = &date.replace("UTC", "+0000");
             let date = DateTime::parse_from_rfc2822(date)
                 .map_err(|_| InReleaseParserError::BadInReleaseData)?;
-	
+
             let now = Utc::now();
 
             // Make `Valid-Until` field optional.
