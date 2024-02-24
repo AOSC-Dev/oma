@@ -80,15 +80,18 @@ impl InReleaseParser {
                 .and_then(|x| x.get("Date"))
                 .take()
                 .ok_or_else(|| InReleaseParserError::BadInReleaseData)?;
+            // HACK: some third party repositories encodes the date with the following format:
+            // Fri, 23 Feb 2024 23:48:14 UTC
+            // chrono::DateTime::parse_from_rfc2822 can not handle this format, resulting an error.
+            let date = &date.replace("UTC", "+0000");
+            let date = DateTime::parse_from_rfc2822(date)
+                .map_err(|_| InReleaseParserError::BadInReleaseData)?;
+	
+            let now = Utc::now();
 
             // Make `Valid-Until` field optional.
             // Some third-party repos do not have such field in their InRelease files.
             let valid_until = source_first.and_then(|x| x.get("Valid-Until")).take();
-            let date = DateTime::parse_from_rfc2822(date)
-                .map_err(|_| InReleaseParserError::BadInReleaseData)?;
-
-            let now = Utc::now();
-
             if now < date {
                 return Err(InReleaseParserError::EarlierSignature(
                     p.display().to_string(),
