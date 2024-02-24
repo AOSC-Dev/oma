@@ -518,7 +518,6 @@ impl OmaApt {
         let mut log = std::fs::OpenOptions::new()
             .append(true)
             .create(true)
-            .write(true)
             .open(&history)
             .map_err(|e| OmaAptError::FailedOperateDirOrFile(history.display().to_string(), e))?;
 

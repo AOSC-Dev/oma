@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     fs::DirEntry,
-    io::BufReader,
+    io,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -230,14 +230,14 @@ where
             .as_mut()
             .expect("Unexpected error: can not get stdout, maybe you environment is broken?");
 
-        let stdout_reader = BufReader::new(stdout);
+        let stdout_reader = io::BufReader::new(stdout);
         let stdout_lines = stdout_reader.lines();
 
         let mut count = 0;
 
         let mut has_res = false;
 
-        for i in stdout_lines.flatten() {
+        for i in stdout_lines.map_while(io::Result::ok) {
             if let Some(line) = search_line(&i, matches!(query_mode, QueryMode::ListFiles(_)), kw) {
                 count += 1;
                 callback(ContentsEvent::Progress(count));
@@ -341,14 +341,14 @@ where
     let f = std::fs::File::open(path)
         .map_err(|e| OmaContentsError::FailedToOperateDirOrFile(path.display().to_string(), e))?;
     let contents_entry: Box<dyn Read> = match path.extension().and_then(|x| x.to_str()) {
-        Some("gz") if search_zip => Box::new(GzDecoder::new(BufReader::new(f))),
-        Some("lz4") if search_zip => Box::new(BufReadDecompressor::new(BufReader::new(f))?),
-        Some(_) | None => Box::new(BufReader::new(f)),
+        Some("gz") if search_zip => Box::new(GzDecoder::new(io::BufReader::new(f))),
+        Some("lz4") if search_zip => Box::new(BufReadDecompressor::new(io::BufReader::new(f))?),
+        Some(_) | None => Box::new(io::BufReader::new(f)),
     };
 
     let mut res = vec![];
 
-    let reader = BufReader::new(contents_entry);
+    let reader = io::BufReader::new(contents_entry);
 
     let is_list = matches!(*query_mode, QueryMode::ListFiles(_));
     let is_cnf = matches!(*query_mode, QueryMode::CommandNotFound);
