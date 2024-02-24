@@ -81,15 +81,10 @@ impl InReleaseParser {
                 .take()
                 .ok_or_else(|| InReleaseParserError::BadInReleaseData)?;
 
-            let valid_until = source_first
-                .and_then(|x| x.get("Valid-Until"))
-                .take()
-                .ok_or_else(|| InReleaseParserError::BadInReleaseVaildUntil)?;
-
+            // Make `Valid-Until` field optional.
+            // Some third-party repos do not have such field in their InRelease files.
+            let valid_until = source_first.and_then(|x| x.get("Valid-Until")).take();
             let date = DateTime::parse_from_rfc2822(date)
-                .map_err(|_| InReleaseParserError::BadInReleaseData)?;
-
-            let valid_until = DateTime::parse_from_rfc2822(valid_until)
                 .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
             let now = Utc::now();
@@ -100,10 +95,15 @@ impl InReleaseParser {
                 ));
             }
 
-            if now > valid_until {
-                return Err(InReleaseParserError::ExpiredSignature(
-                    p.display().to_string(),
-                ));
+            // Check if the `Valid-Until` field is valid only when it is defined.
+            if let Some(valid_until_data) = valid_until {
+                let valid_until = DateTime::parse_from_rfc2822(valid_until_data)
+                    .map_err(|_| InReleaseParserError::BadInReleaseData)?;
+                if now > valid_until {
+                    return Err(InReleaseParserError::ExpiredSignature(
+                        p.display().to_string(),
+                    ));
+                }
             }
         }
 
