@@ -8,6 +8,7 @@ use sequoia_openpgp::{
         Parse,
     },
     policy::StandardPolicy,
+    types::HashAlgorithm,
     Cert, KeyHandle,
 };
 
@@ -114,12 +115,19 @@ pub fn verify<P: AsRef<Path>>(
         }
     }
 
-    let p = StandardPolicy::new();
-    let mut v = VerifierBuilder::from_bytes(s.as_bytes())?.with_policy(
-        &p,
-        None,
-        InReleaseVerifier::new(&cert_files, mirror)?,
-    )?;
+    // Derive p to allow configuring sequoia_openpgp's StandardPolicy.
+    let mut p: StandardPolicy<'_> = StandardPolicy::new();
+    // Allow SHA-1 (considering it safe, whereas sequoia_openpgp's standard
+    // policy forbids it), as many third party APT repositories still uses
+    // SHA-1 to sign their repository metadata (such as InRelease).
+    p.accept_hash(HashAlgorithm::SHA1);
+
+    let mut v: sequoia_openpgp::parse::stream::Verifier<'_, InReleaseVerifier> =
+        VerifierBuilder::from_bytes(s.as_bytes())?.with_policy(
+            &p,
+            None,
+            InReleaseVerifier::new(&cert_files, mirror)?,
+        )?;
 
     let mut res = String::new();
     v.read_to_string(&mut res)
