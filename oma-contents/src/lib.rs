@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     fs::DirEntry,
-    io,
+    io::{self,BufReader},
     path::{Path, PathBuf},
     sync::Arc,
 };
