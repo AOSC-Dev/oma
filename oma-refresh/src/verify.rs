@@ -116,7 +116,7 @@ pub fn verify<P: AsRef<Path>>(
     }
 
     // Derive p to allow configuring sequoia_openpgp's StandardPolicy.
-    let mut p: StandardPolicy<'_> = StandardPolicy::new();
+    let mut p = StandardPolicy::new();
     // Allow SHA-1 (considering it safe, whereas sequoia_openpgp's standard
     // policy forbids it), as many third party APT repositories still uses
     // SHA-1 to sign their repository metadata (such as InRelease).
