@@ -79,12 +79,9 @@ impl InReleaseParser {
             let date = source_first
                 .and_then(|x| x.get("Date"))
                 .take()
-                .ok_or_else(|| InReleaseParserError::BadInReleaseData)?;
-            // HACK: some third party repositories encodes the date with the following format:
-            // Fri, 23 Feb 2024 23:48:14 UTC
-            // chrono::DateTime::parse_from_rfc2822 can not handle this format, resulting an error.
-            let date = &date.replace("UTC", "+0000");
-            let date = DateTime::parse_from_rfc2822(date)
+                .ok_or_else(|| InReleaseParserError::BadInReleaseData)?
+                .clone();
+            let date = DateTime::parse_from_rfc2822(&utc_tzname_quirk(&date))
                 .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
             let now = Utc::now();
@@ -180,6 +177,24 @@ impl InReleaseParser {
             checksums: res,
         })
     }
+}
+
+/// Replace RFC 1123/822/2822 non-compliant "UTC" marker with RFC 2822-compliant "+0000" whilst parsing InRelease.
+///
+/// - Some third-party repositories (such as those generated with Aptly) uses "UTC" to denote the Coordinated Universal
+/// Time, which is not allowed in RFC 1123 or 822/2822 (all calls for "GMT" or "UT", 822 allows "Z", and 2822 allows
+/// "+0000").
+/// - This is used by many commercial software vendors, such as Google, Microsoft, and Spotify.
+/// - This is allowed in APT's RFC 1123 parser. However, as chrono requires full compliance with the
+/// aforementioned RFC documents, "UTC" is considered illegal.
+///
+/// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
+fn utc_tzname_quirk(date: &String) -> String {
+    if date.ends_with("UTC") {
+        return date.replace("UTC", "+0000");
+    }
+
+    date.to_string()
 }
 
 fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String, String>>> {
