@@ -122,12 +122,11 @@ pub fn verify<P: AsRef<Path>>(
     // SHA-1 to sign their repository metadata (such as InRelease).
     p.accept_hash(HashAlgorithm::SHA1);
 
-    let mut v: sequoia_openpgp::parse::stream::Verifier<'_, InReleaseVerifier> =
-        VerifierBuilder::from_bytes(s.as_bytes())?.with_policy(
-            &p,
-            None,
-            InReleaseVerifier::new(&cert_files, mirror)?,
-        )?;
+    let mut v = VerifierBuilder::from_bytes(s.as_bytes())?.with_policy(
+        &p,
+        None,
+        InReleaseVerifier::new(&cert_files, mirror)?,
+    )?;
 
     let mut res = String::new();
     v.read_to_string(&mut res)
