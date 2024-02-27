@@ -485,6 +485,7 @@ impl OmaApt {
         debug!("Try to get apt archives");
 
         self.cache.get_archives(&mut no_progress).map_err(|e| {
+            debug!("Get exception! Try to unlock apt lock");
             apt_unlock();
             e
         })?;
