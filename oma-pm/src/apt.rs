@@ -31,7 +31,7 @@ use oma_utils::{
 
 pub use oma_apt::config::Config as AptConfig;
 
-use tracing::{debug, info, warn};
+use tracing::{debug, field::debug, info, warn};
 
 pub use oma_pm_operation_type::*;
 
@@ -469,6 +469,8 @@ impl OmaApt {
 
         let mut no_progress = NoProgress::new_box();
 
+        debug!("Try to lock apt");
+
         if let Err(e) = apt_lock() {
             let e_str = e.to_string();
             if e_str.contains("dpkg --configure -a") {
@@ -479,6 +481,8 @@ impl OmaApt {
                 return Err(e.into());
             }
         }
+
+        debug!("Try to get apt archives");
 
         self.cache.get_archives(&mut no_progress).map_err(|e| {
             apt_unlock();
@@ -494,13 +498,19 @@ impl OmaApt {
             args_config.no_progress,
         );
 
+        debug!("Try to unlock apt lock inner");
+
         apt_unlock_inner();
+
+        debug("Do install");
 
         self.cache.do_install(&mut progress).map_err(|e| {
             apt_lock_inner().ok();
             apt_unlock();
             e
         })?;
+
+        debug!("Try to unlock apt lock");
 
         apt_unlock();
 
