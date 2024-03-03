@@ -1171,7 +1171,6 @@ fn apt_style_filename(entry: &InstallEntry) -> String {
     let arch = entry.arch();
 
     let version = version.replace(':', "%3a");
-    let filename = format!("{package}_{version}_{arch}.deb").replace("%2b", "+");
 
-    filename
+    format!("{package}_{version}_{arch}.deb").replace("%2b", "+")
 }

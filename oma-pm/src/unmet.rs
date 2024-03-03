@@ -49,7 +49,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                     if let Some(pkg) = cache.get(&d.name) {
                         if let Some(dep_ver) = &d.ver {
                             let temp_unmet_len = temp_unmet.len();
-                            find_unmet_dep_inner(&pkg, cache, &dep_ver, &mut temp_unmet);
+                            find_unmet_dep_inner(&pkg, cache, dep_ver, &mut temp_unmet);
                             let temp_unmet_len_2 = temp_unmet.len();
                             if temp_unmet_len == temp_unmet_len_2 {
                                 break;
@@ -80,7 +80,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                     if let Some(pkg) = cache.get(&d.name) {
                         if let Some(dep_ver) = &d.ver {
                             find_unmet_dep_inner(&pkg, cache, dep_ver, &mut v);
-    
+
                             continue;
                         } else {
                             let pkg = real_pkg(&pkg);
@@ -145,7 +145,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
                     if let Some(pkg) = cache.get(&d.name) {
                         if let Some(dep_ver) = &d.ver {
                             find_unmet_dep_inner(&pkg, cache, dep_ver, &mut v);
-    
+
                             continue;
                         } else {
                             let pkg = real_pkg(&pkg);
