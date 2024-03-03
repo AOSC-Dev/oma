@@ -635,11 +635,15 @@ impl OmaApt {
                 })
                 .collect::<Vec<_>>();
 
+            debug!("Sources is: {:?}", sources);
+
             let filename = uris
                 .first()
                 .and_then(|x| x.split('/').last())
                 .take()
                 .ok_or_else(|| OmaAptError::InvalidFileName(entry.name().to_string()))?;
+
+            debug!("filename is: {}", filename);
 
             let new_version = if console::measure_text_width(entry.new_version()) > 25 {
                 console::truncate_str(entry.new_version(), 25, "...")
