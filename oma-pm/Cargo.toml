@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.17.0"
+version = "0.17.1"
 edition = "2021"
 description = "A crate to help oma handle package manager operation"
 license = "GPL-3.0-or-later"
@@ -26,12 +26,12 @@ tokio = { version = "1.15", default_features = false, features = [
 oma-console = { version = "^0.9.0", path = "../oma-console", default-features = false, features = [
     "print",
 ] }
-derive_builder = "0.13"
-fs4 = "0.7"
+derive_builder = "0.20"
+fs4 = "0.8"
 tracing = "0.1"
 small-map = "0.1"
 oma-pm-operation-type = { version = "0.1", path = "../oma-pm-operation-type" }
-zbus = { version = "3.14", features = ["tokio"] }
+zbus = { version = "4.1", features = ["tokio"] }
 
 [dev-dependencies]
 dashmap = "5.5"

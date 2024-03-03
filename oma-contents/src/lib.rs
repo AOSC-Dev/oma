@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     fs::DirEntry,
-    io::BufReader,
+    io::{self, BufReader},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use winnow::{
     combinator::{separated, separated_pair},
     error::ParserError,
-    token::{tag, take_till, take_until1},
+    token::{take_till, take_until},
     PResult, Parser,
 };
 
@@ -237,7 +237,7 @@ where
 
         let mut has_res = false;
 
-        for i in stdout_lines.flatten() {
+        for i in stdout_lines.map_while(io::Result::ok) {
             if let Some(line) = search_line(&i, matches!(query_mode, QueryMode::ListFiles(_)), kw) {
                 count += 1;
                 callback(ContentsEvent::Progress(count));
@@ -449,7 +449,7 @@ fn pkg_split<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(&'a s
 
 #[inline]
 fn pkg_name_sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(), E> {
-    tag("/").void().parse_next(input)
+    "/".void().parse_next(input)
 }
 
 #[inline]
@@ -464,12 +464,12 @@ fn second<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<Vec<(&'a 
 
 #[inline]
 fn first<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<&'a str, E> {
-    take_until1("   ").parse_next(input)
+    take_until(1.., "   ").parse_next(input)
 }
 
 #[inline]
 fn sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(), E> {
-    tag("   ").void().parse_next(input)
+    "   ".void().parse_next(input)
 }
 
 type ContentsLine<'a> = (&'a str, Vec<(&'a str, &'a str)>);
@@ -486,7 +486,7 @@ pub fn parse_contents<'a, E: ParserError<&'a str>>(
     input: &mut &'a str,
 ) -> PResult<ContentsLines<'a>, E> {
     use winnow::combinator::{repeat, terminated};
-    repeat(1.., terminated(single_line, tag("\n"))).parse_next(input)
+    repeat(1.., terminated(single_line, "\n")).parse_next(input)
 }
 
 #[inline]

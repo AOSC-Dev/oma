@@ -79,31 +79,31 @@ impl InReleaseParser {
             let date = source_first
                 .and_then(|x| x.get("Date"))
                 .take()
-                .ok_or_else(|| InReleaseParserError::BadInReleaseData)?;
-
-            let valid_until = source_first
-                .and_then(|x| x.get("Valid-Until"))
-                .take()
-                .ok_or_else(|| InReleaseParserError::BadInReleaseVaildUntil)?;
-
-            let date = DateTime::parse_from_rfc2822(date)
-                .map_err(|_| InReleaseParserError::BadInReleaseData)?;
-
-            let valid_until = DateTime::parse_from_rfc2822(valid_until)
+                .ok_or_else(|| InReleaseParserError::BadInReleaseData)?
+                .clone();
+            let date = DateTime::parse_from_rfc2822(&utc_tzname_quirk(&date))
                 .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
             let now = Utc::now();
 
+            // Make `Valid-Until` field optional.
+            // Some third-party repos do not have such field in their InRelease files.
+            let valid_until = source_first.and_then(|x| x.get("Valid-Until")).take();
             if now < date {
                 return Err(InReleaseParserError::EarlierSignature(
                     p.display().to_string(),
                 ));
             }
 
-            if now > valid_until {
-                return Err(InReleaseParserError::ExpiredSignature(
-                    p.display().to_string(),
-                ));
+            // Check if the `Valid-Until` field is valid only when it is defined.
+            if let Some(valid_until_data) = valid_until {
+                let valid_until = DateTime::parse_from_rfc2822(&utc_tzname_quirk(valid_until_data))
+                    .map_err(|_| InReleaseParserError::BadInReleaseData)?;
+                if now > valid_until {
+                    return Err(InReleaseParserError::ExpiredSignature(
+                        p.display().to_string(),
+                    ));
+                }
             }
         }
 
@@ -177,6 +177,24 @@ impl InReleaseParser {
             checksums: res,
         })
     }
+}
+
+/// Replace RFC 1123/822/2822 non-compliant "UTC" marker with RFC 2822-compliant "+0000" whilst parsing InRelease.
+///
+/// - Some third-party repositories (such as those generated with Aptly) uses "UTC" to denote the Coordinated Universal
+/// Time, which is not allowed in RFC 1123 or 822/2822 (all calls for "GMT" or "UT", 822 allows "Z", and 2822 allows
+/// "+0000").
+/// - This is used by many commercial software vendors, such as Google, Microsoft, and Spotify.
+/// - This is allowed in APT's RFC 1123 parser. However, as chrono requires full compliance with the
+/// aforementioned RFC documents, "UTC" is considered illegal.
+///
+/// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
+fn utc_tzname_quirk(date: &String) -> String {
+    if date.ends_with("UTC") {
+        return date.replace("UTC", "+0000");
+    }
+
+    date.to_string()
 }
 
 fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String, String>>> {

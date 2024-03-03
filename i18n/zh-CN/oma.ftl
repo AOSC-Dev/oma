@@ -122,7 +122,7 @@ expired-signature = InRelease 文件 {$filename} 无效：内联签名已过期�
 inrelease-sha256-empty = InRelease 文件无效：SHA256 值为空。
 inrelease-checksum-can-not-parse = InRelease 文件无效：无法解析校验和条目 {$i}。
 inrelease-parse-unsupport-file-type = BUG：解析器不支持该 InRelease 文件的格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
-can-not-parse-sources-list = 无法解析 sources.list 文件 {path}。
+can-not-parse-sources-list = 无法解析 sources.list 文件 {$path}。
 unsupport-protocol = oma 不支持协议：{$url}。
 refreshing-repo-metadata = 正在刷新本机软件包数据库 ...
 not-found = 无法从 {$url} 下载 InRelease 文件：找不到远端文件 (HTTP 404)。
@@ -178,6 +178,7 @@ failed-check-dbus-tips-3 = 如果您的系统是长期在容器或 chroot 环境
 no-check-dbus-tips = 目前 oma 将不探测系统运行状态，这将不检测电源及用户会话等关键系统状态，如继续操作可能会导致系统故障
 
 oma-history-is-empty = oma 历史记录为空。
+<<<<<<< HEAD
 
 tui-tips = [TAB] Switch window   [F1] Hide/Show pending detail   [Esc] Done for operation   [Space] Add/Remove item   [/] Search   [Ctrl-C] Exit
 tui-pending = Pending
@@ -191,3 +192,5 @@ tui-start-5 = [Space] Add/Remove item
 tui-start-6 = [/] Search
 tui-start-7 = [Ctrl-C] Exit
 tui-start = Start
+=======
+>>>>>>> master

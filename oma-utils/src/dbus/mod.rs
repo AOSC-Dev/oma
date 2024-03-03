@@ -1,4 +1,4 @@
-use zbus::{dbus_proxy, zvariant::OwnedFd, Result as zResult};
+use zbus::{proxy, zvariant::OwnedFd, Result as zResult};
 
 pub use zbus::Connection;
 
@@ -18,18 +18,18 @@ pub enum OmaDbusError {
 
 pub type OmaDbusResult<T> = Result<T, OmaDbusError>;
 
-#[dbus_proxy(
+#[proxy(
     interface = "org.freedesktop.UPower",
     default_service = "org.freedesktop.UPower",
     default_path = "/org/freedesktop/UPower"
 )]
 trait UPower {
     /// OnBattery property
-    #[dbus_proxy(property)]
+    #[zbus(property)]
     fn on_battery(&self) -> zResult<bool>;
 }
 
-#[dbus_proxy(
+#[proxy(
     interface = "org.freedesktop.login1.Manager",
     default_service = "org.freedesktop.login1",
     default_path = "/org/freedesktop/login1"

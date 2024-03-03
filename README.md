@@ -1,8 +1,6 @@
 # oma
 
-Oma (Omakase) ~~(Oh My Ailurus, 小熊猫包管理)~~ is a AOSC OS Package manager. A package manager implementation with `libapt-pkg` as a backend.
-
-> Omakase お任せ (adj.): According to the chef's choice. — Marriam-Webster.
+oma（Oh My Ailurus, 小熊猫包管理）is a package manager frontend for `libapt-pkg`. oma is the default package manager interface for AOSC OS.
 
 Although it is based on apt, we did quite a bit of extra work, the goal of this project is to make apt with better user interaction (especially for AOSC OS users), you can get a feel for the differences between oma and apt with the following examples:
 

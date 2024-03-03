@@ -5,17 +5,18 @@ use oma_apt::{
     package::{DepType, Dependency, Package, Version},
     util::cmp_versions,
 };
+use tracing::debug;
 
-use crate::{apt::OmaAptResult, pkginfo::OmaDependency};
+use crate::{apt::OmaAptResult, pkginfo::OmaDependency, query::real_pkg};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnmetDep {
     pub package: String,
     pub unmet_dependency: WhyUnmet,
     pub specified_dependency: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WhyUnmet {
     DepNotExist {
         pacakge_name: String,
@@ -39,58 +40,132 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
 
     let mut v = vec![];
 
-    if let Some(dep) = dep {
+    if let Some(dep) = dep {    
         let dep = OmaDependency::map_deps(dep);
         for b_dep in dep.inner() {
-            for d in b_dep {
-                if let Some(pkg) = cache.get(&d.name) {
-                    if let Some(ver) = &d.ver {
-                        if let Some(ver) = pkg.get_version(ver) {
-                            find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
+            if b_dep.len() > 1 {
+                let mut temp_unmet = vec![];
+                for d in b_dep {
+                    if let Some(pkg) = cache.get(&d.name) {
+                        if let Some(dep_ver) = &d.ver {
+                            let temp_unmet_len = temp_unmet.len();
+                            find_unmet_dep_inner(&pkg, cache, dep_ver, &mut temp_unmet);
+                            let temp_unmet_len_2 = temp_unmet.len();
+                            if temp_unmet_len == temp_unmet_len_2 {
+                                break;
+                            }
+
                             continue;
+                        } else {
+                            let pkg = real_pkg(&pkg);
+                            let pkg = Package::new(cache, pkg);
+                            if let Some(cand) = pkg.candidate() {
+                                let temp_unmet_len = temp_unmet.len();
+                                find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
+                                let temp_unmet_len_2 = temp_unmet.len();
+
+                                if temp_unmet_len == temp_unmet_len_2 {
+                                    break;
+                                }
+                                continue;
+                            }
                         }
-                    } else if let Some(cand) = pkg.candidate() {
-                        find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
-                        continue;
                     }
                 }
+                for i in temp_unmet {
+                    v.push(i);
+                }
+            } else {
+                for d in b_dep {
+                    if let Some(pkg) = cache.get(&d.name) {
+                        if let Some(dep_ver) = &d.ver {
+                            find_unmet_dep_inner(&pkg, cache, dep_ver, &mut v);
 
-                v.push(UnmetDep {
-                    package: d.name.to_string(),
-                    unmet_dependency: WhyUnmet::DepNotExist {
-                        pacakge_name: d.name.to_string(),
-                        version_comp: d.comp_ver,
-                    },
-                    specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
-                });
+                            continue;
+                        } else {
+                            let pkg = real_pkg(&pkg);
+                            let pkg = Package::new(cache, pkg);
+                            if let Some(cand) = pkg.candidate() {
+                                find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
+                                continue;
+                            }
+                        }
+                    }
+
+                    v.push(UnmetDep {
+                        package: d.name.to_string(),
+                        unmet_dependency: WhyUnmet::DepNotExist {
+                            pacakge_name: d.name.to_string(),
+                            version_comp: d.comp_ver,
+                        },
+                        specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                    });
+                }
             }
         }
     }
 
-    if let Some(pdep) = pdep {
-        let pdep = OmaDependency::map_deps(pdep);
-        for b_dep in pdep.inner() {
-            for d in b_dep {
-                if let Some(pkg) = cache.get(&d.name) {
-                    if let Some(ver) = &d.ver {
-                        if let Some(ver) = pkg.get_version(ver) {
-                            find_unmet_dep_inner(&pkg, cache, &ver, &mut v);
+    if let Some(dep) = pdep {
+        let dep = OmaDependency::map_deps(dep);
+        for b_dep in dep.inner() {
+            if b_dep.len() > 1 {
+                let mut temp_unmet = vec![];
+                for d in b_dep {
+                    if let Some(pkg) = cache.get(&d.name) {
+                        if let Some(dep_ver) = &d.ver {
+                            let temp_unmet_len = temp_unmet.len();
+                            find_unmet_dep_inner(&pkg, cache, dep_ver, &mut temp_unmet);
+                            let temp_unmet_len_2 = temp_unmet.len();
+                            if temp_unmet_len == temp_unmet_len_2 {
+                                break;
+                            }
+
                             continue;
+                        } else {
+                            let pkg = real_pkg(&pkg);
+                            let pkg = Package::new(cache, pkg);
+                            if let Some(cand) = pkg.candidate() {
+                                let temp_unmet_len = temp_unmet.len();
+                                find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
+                                let temp_unmet_len_2 = temp_unmet.len();
+
+                                if temp_unmet_len == temp_unmet_len_2 {
+                                    break;
+                                }
+                                continue;
+                            }
                         }
-                    } else if let Some(cand) = pkg.candidate() {
-                        find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
-                        continue;
                     }
                 }
+                for i in temp_unmet {
+                    v.push(i);
+                }
+            } else {
+                for d in b_dep {
+                    if let Some(pkg) = cache.get(&d.name) {
+                        if let Some(dep_ver) = &d.ver {
+                            find_unmet_dep_inner(&pkg, cache, dep_ver, &mut v);
 
-                v.push(UnmetDep {
-                    package: d.name.to_string(),
-                    unmet_dependency: WhyUnmet::DepNotExist {
-                        pacakge_name: d.name.to_string(),
-                        version_comp: d.comp_ver,
-                    },
-                    specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
-                });
+                            continue;
+                        } else {
+                            let pkg = real_pkg(&pkg);
+                            let pkg = Package::new(cache, pkg);
+                            if let Some(cand) = pkg.candidate() {
+                                find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
+                                continue;
+                            }
+                        }
+                    }
+
+                    v.push(UnmetDep {
+                        package: d.name.to_string(),
+                        unmet_dependency: WhyUnmet::DepNotExist {
+                            pacakge_name: d.name.to_string(),
+                            version_comp: d.comp_ver,
+                        },
+                        specified_dependency: format!("{} {}", ver.parent().name(), ver.version()),
+                    });
+                }
             }
         }
     }
@@ -98,7 +173,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
     v
 }
 
-fn find_unmet_dep_inner(pkg: &Package, cache: &Cache, cand: &Version, v: &mut Vec<UnmetDep>) {
+fn find_unmet_dep_inner(pkg: &Package, cache: &Cache, cand: &str, v: &mut Vec<UnmetDep>) {
     let dep = pkg.rdepends_map();
     let rdep_dep = dep.get(&DepType::Depends);
     let rdep_predep = dep.get(&DepType::PreDepends);
@@ -133,7 +208,7 @@ pub(crate) fn find_unmet_deps(cache: &Cache) -> OmaAptResult<Vec<UnmetDep>> {
     for pkg in changes {
         if let Some(cand) = pkg.candidate() {
             if !pkg.marked_delete() && !pkg.marked_purge() {
-                find_unmet_dep_inner(&pkg, cache, &cand, &mut v);
+                find_unmet_dep_inner(&pkg, cache, cand.version(), &mut v);
             }
         }
     }
@@ -144,11 +219,12 @@ pub(crate) fn find_unmet_deps(cache: &Cache) -> OmaAptResult<Vec<UnmetDep>> {
 fn format_deps(
     rdep: &[Dependency],
     cache: &Cache,
-    cand: &Version,
+    cand_str: &str,
     v: &mut Vec<UnmetDep>,
     c: &Package,
 ) {
     let rdep = OmaDependency::map_deps(rdep);
+    debug!("{:?}", rdep);
     for b_rdep in rdep.inner() {
         for dep in b_rdep {
             let pkg = cache.get(&dep.name);
@@ -156,11 +232,12 @@ fn format_deps(
                 if pkg.is_installed() {
                     let comp = dep.comp_symbol;
                     let ver = dep.target_ver;
+                    debug!("{} {comp:?} {ver:?}", pkg.name());
                     if let (Some(comp), Some(need_ver)) = (comp, ver) {
                         match comp.as_str() {
                             ">=" => {
                                 // 1: 2.36-4   2: 2.36-2
-                                let cmp = cmp_versions(&need_ver, cand.version()); // 要求 >= 2.36-4，但用户在安装 2.36-2
+                                let cmp = cmp_versions(&need_ver, cand_str); // 要求 >= 2.36-4，但用户在安装 2.36-2
                                 if cmp == Ordering::Greater {
                                     v.push(UnmetDep {
                                         package: dep.name.to_string(),
@@ -169,16 +246,12 @@ fn format_deps(
                                             need_ver,
                                             symbol: ">=".to_owned(),
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand_str),
                                     })
                                 }
                             }
                             ">>" => {
-                                let cmp = cmp_versions(&need_ver, cand.version()); // 要求 >> 2.36-4，但用户在安装 2.36-2
+                                let cmp = cmp_versions(&need_ver, cand_str); // 要求 >> 2.36-4，但用户在安装 2.36-2
                                 if cmp != Ordering::Less {
                                     v.push(UnmetDep {
                                         package: dep.name.to_string(),
@@ -187,16 +260,12 @@ fn format_deps(
                                             need_ver,
                                             symbol: ">>".to_string(),
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand_str),
                                     })
                                 }
                             }
                             ">" => {
-                                let cmp = cmp_versions(&need_ver, cand.version()); // 要求 > 2.36-4，但用户在安装 2.36-2
+                                let cmp = cmp_versions(&need_ver, cand_str); // 要求 > 2.36-4，但用户在安装 2.36-2
                                 if cmp != Ordering::Less {
                                     v.push(UnmetDep {
                                         package: dep.name.to_string(),
@@ -205,16 +274,12 @@ fn format_deps(
                                             need_ver,
                                             symbol: ">".to_string(),
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand_str),
                                     })
                                 }
                             }
                             "=" => {
-                                let cmp = cmp_versions(&need_ver, cand.version()); // 要求 = 2.36-4，但用户在安装 2.36-2
+                                let cmp = cmp_versions(&need_ver, cand_str); // 要求 = 2.36-4，但用户在安装 2.36-2
                                 if cmp != Ordering::Equal {
                                     v.push(UnmetDep {
                                         package: dep.name.to_string(),
@@ -223,17 +288,13 @@ fn format_deps(
                                             need_ver,
                                             symbol: "=".to_string(),
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand_str),
                                     })
                                 }
                             }
                             "<=" => {
                                 // 1: 2.36-4 2: 2.36-6
-                                let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
+                                let cmp = cmp_versions(&need_ver, cand_str); // 要求 <= 2.36-4，但用户在安装 2.36-6
                                 if cmp == Ordering::Less {
                                     v.push(UnmetDep {
                                         package: dep.name.to_string(),
@@ -242,17 +303,13 @@ fn format_deps(
                                             need_ver,
                                             symbol: "<=".to_string(),
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand_str),
                                     })
                                 }
                             }
                             "<<" => {
                                 // 1: 2.36-4 2: 2.36-6
-                                let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
+                                let cmp = cmp_versions(&need_ver, cand_str); // 要求 <= 2.36-4，但用户在安装 2.36-6
                                 if cmp != Ordering::Greater {
                                     v.push(UnmetDep {
                                         package: dep.name.to_string(),
@@ -261,17 +318,13 @@ fn format_deps(
                                             need_ver,
                                             symbol: "<<".to_string(),
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand_str),
                                     })
                                 }
                             }
                             "<" => {
                                 // 1: 2.36-4 2: 2.36-6
-                                let cmp = cmp_versions(&need_ver, cand.version()); // 要求 <= 2.36-4，但用户在安装 2.36-6
+                                let cmp = cmp_versions(&need_ver, cand_str); // 要求 <= 2.36-4，但用户在安装 2.36-6
                                 if cmp != Ordering::Greater {
                                     v.push(UnmetDep {
                                         package: dep.name.to_string(),
@@ -280,11 +333,7 @@ fn format_deps(
                                             need_ver,
                                             symbol: "<".to_string(),
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand_str),
                                     })
                                 }
                             }
@@ -302,10 +351,11 @@ fn format_breaks(
     cache: &Cache,
     v: &mut Vec<UnmetDep>,
     c: &Package,
-    cand: &Version,
+    cand: &str,
     typ: &str,
 ) {
     let rdep = OmaDependency::map_deps(rdep_breaks);
+    debug!("{:?}", rdep);
     for b_rdep in rdep.inner() {
         for dep in b_rdep {
             let dep_pkg = cache.get(&dep.name);
@@ -319,15 +369,21 @@ fn format_breaks(
                                 dep_name: dep_pkg.name().to_string(),
                                 comp_ver: None,
                             },
-                            specified_dependency: format!("{} {}", c.name(), cand.version()),
+                            specified_dependency: format!("{} {}", c.name(), cand),
                         })
                     }
                 } else if dep_pkg.is_installed() {
+                    debug!(
+                        "{} {:?} {:?}",
+                        dep_pkg.name(),
+                        dep.comp_symbol,
+                        dep.target_ver
+                    );
                     if let (Some(comp), Some(break_ver)) = (dep.comp_symbol, dep.target_ver) {
                         match comp.as_str() {
                             ">=" => {
                                 // a: breaks b >= 1.0，满足要求的条件是 break_ver > cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&break_ver, cand);
                                 if cmp != Ordering::Greater {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -336,17 +392,13 @@ fn format_breaks(
                                             dep_name: dep_pkg.name().to_string(),
                                             comp_ver: dep.comp_ver,
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand),
                                     })
                                 }
                             }
                             ">>" => {
                                 // a: breaks b >> 1.0，满足要求的条件是 break_ver >>= cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&break_ver, cand);
                                 if cmp == Ordering::Less {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -355,17 +407,13 @@ fn format_breaks(
                                             dep_name: dep_pkg.name().to_string(),
                                             comp_ver: dep.comp_ver,
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand),
                                     })
                                 }
                             }
                             ">" => {
                                 // a: breaks b > 1.0，满足要求的条件是 break_ver >= cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&break_ver, cand);
                                 if cmp == Ordering::Less {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -374,17 +422,13 @@ fn format_breaks(
                                             dep_name: dep_pkg.name().to_string(),
                                             comp_ver: dep.comp_ver,
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand),
                                     })
                                 }
                             }
                             "<=" => {
                                 // a: breaks b <= 1.0，满足要求的条件是 break_ver < cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&break_ver, cand);
                                 if cmp != Ordering::Less {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -393,17 +437,13 @@ fn format_breaks(
                                             dep_name: dep_pkg.name().to_string(),
                                             comp_ver: dep.comp_ver,
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand),
                                     })
                                 }
                             }
                             "<<" => {
                                 // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&break_ver, cand);
                                 if cmp == Ordering::Greater {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -412,17 +452,13 @@ fn format_breaks(
                                             dep_name: dep_pkg.name().to_string(),
                                             comp_ver: dep.comp_ver,
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand),
                                     })
                                 }
                             }
                             "<" => {
                                 // a: breaks b << 1.0，满足要求的条件是 break_ver <= cand.version
-                                let cmp = cmp_versions(&break_ver, cand.version());
+                                let cmp = cmp_versions(&break_ver, cand);
                                 if cmp == Ordering::Greater {
                                     v.push(UnmetDep {
                                         package: dep.name,
@@ -431,11 +467,7 @@ fn format_breaks(
                                             dep_name: dep_pkg.name().to_string(),
                                             comp_ver: dep.comp_ver,
                                         },
-                                        specified_dependency: format!(
-                                            "{} {}",
-                                            c.name(),
-                                            cand.version()
-                                        ),
+                                        specified_dependency: format!("{} {}", c.name(), cand),
                                     })
                                 }
                             }

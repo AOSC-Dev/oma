@@ -30,7 +30,6 @@ use oma_utils::{
 };
 
 pub use oma_apt::config::Config as AptConfig;
-
 use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
@@ -504,6 +503,8 @@ impl OmaApt {
 
         let mut no_progress = NoProgress::new_box();
 
+        debug!("Try to lock apt");
+
         if let Err(e) = apt_lock() {
             let e_str = e.to_string();
             if e_str.contains("dpkg --configure -a") {
@@ -515,7 +516,10 @@ impl OmaApt {
             }
         }
 
+        debug!("Try to get apt archives");
+
         self.cache.get_archives(&mut no_progress).map_err(|e| {
+            debug!("Get exception! Try to unlock apt lock");
             apt_unlock();
             e
         })?;
@@ -533,13 +537,19 @@ impl OmaApt {
 
         let mut progress = OmaAptInstallProgress::new_box(args);
 
+        debug!("Try to unlock apt lock inner");
+
         apt_unlock_inner();
+
+        debug("Do install");
 
         self.cache.do_install(&mut progress).map_err(|e| {
             apt_lock_inner().ok();
             apt_unlock();
             e
         })?;
+
+        debug!("Try to unlock apt lock");
 
         apt_unlock();
 
@@ -557,7 +567,6 @@ impl OmaApt {
         let mut log = std::fs::OpenOptions::new()
             .append(true)
             .create(true)
-            .write(true)
             .open(&history)
             .map_err(|e| OmaAptError::FailedOperateDirOrFile(history.display().to_string(), e))?;
 
@@ -664,11 +673,15 @@ impl OmaApt {
                 })
                 .collect::<Vec<_>>();
 
+            debug!("Sources is: {:?}", sources);
+
             let filename = uris
                 .first()
                 .and_then(|x| x.split('/').last())
                 .take()
                 .ok_or_else(|| OmaAptError::InvalidFileName(entry.name().to_string()))?;
+
+            debug!("filename is: {}", filename);
 
             let new_version = if console::measure_text_width(entry.new_version()) > 25 {
                 console::truncate_str(entry.new_version(), 25, "...")
@@ -680,8 +693,7 @@ impl OmaApt {
 
             let mut download_entry = DownloadEntryBuilder::default();
             download_entry.source(sources);
-            download_entry
-                .filename(apt_style_filename(filename, entry.new_version().to_string())?.into());
+            download_entry.filename(apt_style_filename(&entry).into());
             download_entry.dir(download_dir.to_path_buf());
             download_entry.allow_resume(true);
             download_entry.msg(msg);
@@ -1191,27 +1203,12 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
 }
 
 /// trans filename to apt style file name
-fn apt_style_filename(filename: &str, version: String) -> OmaAptResult<String> {
-    let mut filename_split = filename.split('_');
-
-    let package = filename_split
-        .next()
-        .take()
-        .ok_or_else(|| OmaAptError::InvalidFileName(filename.to_owned()))?;
-
-    let arch_deb = filename_split
-        .nth(1)
-        .take()
-        .ok_or_else(|| OmaAptError::InvalidFileName(filename.to_owned()))?;
-
-    let arch_deb = if arch_deb == "noarch.deb" {
-        "all.deb"
-    } else {
-        arch_deb
-    };
+fn apt_style_filename(entry: &InstallEntry) -> String {
+    let package = entry.name();
+    let version = entry.new_version();
+    let arch = entry.arch();
 
     let version = version.replace(':', "%3a");
-    let filename = format!("{package}_{version}_{arch_deb}").replace("%2b", "+");
 
-    Ok(filename)
+    format!("{package}_{version}_{arch}.deb").replace("%2b", "+")
 }
