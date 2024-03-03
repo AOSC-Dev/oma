@@ -541,7 +541,7 @@ impl OmaApt {
 
         apt_unlock_inner();
 
-        debug("Do install");
+        debug!("Do install");
 
         self.cache.do_install(&mut progress).map_err(|e| {
             apt_lock_inner().ok();

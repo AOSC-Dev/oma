@@ -1,4 +1,4 @@
-use zbus::{dbus_interface, dbus_proxy, Connection, Result};
+use zbus::{interface, proxy, Connection, Result};
 
 pub struct OmaBus {
     pub status: Status,
@@ -10,7 +10,7 @@ pub enum Status {
     Working(String),
 }
 
-#[dbus_interface(name = "io.aosc.Oma1")]
+#[interface(name = "io.aosc.Oma1")]
 impl OmaBus {
     fn get_status(&self) -> String {
         match &self.status {
@@ -33,7 +33,7 @@ impl OmaBus {
     }
 }
 
-#[dbus_proxy(
+#[proxy(
     interface = "io.aosc.Oma1",
     default_service = "io.aosc.Oma",
     default_path = "/io/aosc/Oma"
