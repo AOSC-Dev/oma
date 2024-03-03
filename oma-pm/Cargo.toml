@@ -32,6 +32,7 @@ tracing = "0.1"
 small-map = "0.1"
 oma-pm-operation-type = { version = "0.1", path = "../oma-pm-operation-type" }
 zbus = { version = "4.1", features = ["tokio"] }
+resolvo-deb = { version = "0.5.0", default-features = false, features = ["local"] }
 
 [dev-dependencies]
 dashmap = "5.5"

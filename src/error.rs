@@ -22,7 +22,6 @@ use tracing::{debug, error};
 
 use crate::fl;
 use crate::subcommand::utils::LockError;
-use crate::table::print_unmet_dep;
 
 use self::ChainState::*;
 
@@ -509,12 +508,15 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: None,
         },
         OmaAptError::DependencyIssue(ref v) => match v {
-            v if v.is_empty() || print_unmet_dep(v).is_err() => OutputError {
-                description: err.to_string(),
-                source: None,
-            },
+            v if !v.is_empty() || v == "No Problem" => {
+                eprintln!("{}", v);
+                OutputError {
+                    description: "apt return error.".to_string(),
+                    source: None,
+                }
+            }
             _ => OutputError {
-                description: "".to_string(),
+                description: "apt return error.".to_string(),
                 source: None,
             },
         },

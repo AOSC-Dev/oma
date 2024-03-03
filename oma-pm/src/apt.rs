@@ -41,7 +41,7 @@ use crate::{
     pkginfo::PkgInfo,
     progress::{InstallProgressArgs, NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
-    unmet::{find_unmet_deps, find_unmet_deps_with_markinstall, UnmetDep},
+    unmet::find_unmet_deps,
 };
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
@@ -81,8 +81,8 @@ pub enum OmaAptError {
     OmaDatabaseError(#[from] OmaDatabaseError),
     #[error("Failed to mark reinstall pkg: {0}")]
     MarkReinstallError(String, String),
-    #[error("Dep issue: {0:?}")]
-    DependencyIssue(Vec<UnmetDep>),
+    #[error("Find Dependency problem: {0}")]
+    DependencyIssue(String),
     #[error("Package: {0} is essential.")]
     PkgIsEssential(String),
     #[error("Package: {0} is no candidate.")]
@@ -609,7 +609,18 @@ impl OmaApt {
         }
 
         if self.cache.resolve(!no_fixbroken).is_err() {
-            let unmet = find_unmet_deps(&self.cache)?;
+            let changes = self.cache.get_changes(true)?;
+            let mut install = vec![];
+            for pkg in changes {
+                if pkg.marked_install() {
+                    install.push(
+                        pkg.candidate()
+                            .ok_or_else(|| OmaAptError::PkgNoCandidate(pkg.name().to_string()))?
+                            .unique(),
+                    );
+                }
+            }
+            let unmet = find_unmet_deps(install);
             return Err(OmaAptError::DependencyIssue(unmet));
         }
 
@@ -1192,8 +1203,8 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
     if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
         // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-        let v = find_unmet_deps_with_markinstall(cache, &ver);
-        return Err(OmaAptError::DependencyIssue(v));
+        // let v = find_unmet_deps_with_markinstall(cache, &ver);
+        return Err(OmaAptError::DependencyIssue("".to_string()));
     }
 
     debug!("{} will marked install", pkg.name());
