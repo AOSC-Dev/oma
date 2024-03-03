@@ -39,7 +39,7 @@ trait Login1 {
     fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zResult<OwnedFd>;
 }
 
-#[dbus_proxy(
+#[proxy(
     interface = "io.aosc.Oma1",
     default_service = "io.aosc.Oma",
     default_path = "/io/aosc/Oma"
