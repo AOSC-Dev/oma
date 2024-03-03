@@ -1,6 +1,6 @@
 [package]
 name = "oma-utils"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 description = "Some small-tools to help oma handle something"
 license = "MIT"
@@ -15,7 +15,7 @@ os-release = "0.1"
 oma-console = { version = "^0.9", path = "../oma-console", optional = true, default-features = false, features = [
     "print",
 ] }
-zbus = { version = "3.14", optional = true }
+zbus = { version = "4.1", optional = true }
 url-escape = { version = "0.1", optional = true }
 tracing = "0.1"
 
