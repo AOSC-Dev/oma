@@ -655,8 +655,7 @@ impl OmaApt {
 
             let mut download_entry = DownloadEntryBuilder::default();
             download_entry.source(sources);
-            download_entry
-                .filename(apt_style_filename(filename, entry.new_version().to_string())?.into());
+            download_entry.filename(apt_style_filename(&entry).into());
             download_entry.dir(download_dir.to_path_buf());
             download_entry.allow_resume(true);
             download_entry.msg(msg);
@@ -1166,27 +1165,13 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
 }
 
 /// trans filename to apt style file name
-fn apt_style_filename(filename: &str, version: String) -> OmaAptResult<String> {
-    let mut filename_split = filename.split('_');
-
-    let package = filename_split
-        .next()
-        .take()
-        .ok_or_else(|| OmaAptError::InvalidFileName(filename.to_owned()))?;
-
-    let arch_deb = filename_split
-        .nth(1)
-        .take()
-        .ok_or_else(|| OmaAptError::InvalidFileName(filename.to_owned()))?;
-
-    let arch_deb = if arch_deb == "noarch.deb" {
-        "all.deb"
-    } else {
-        arch_deb
-    };
+fn apt_style_filename(entry: &InstallEntry) -> String {
+    let package = entry.name();
+    let version = entry.new_version();
+    let arch = entry.arch();
 
     let version = version.replace(':', "%3a");
-    let filename = format!("{package}_{version}_{arch_deb}").replace("%2b", "+");
+    let filename = format!("{package}_{version}_{arch}.deb").replace("%2b", "+");
 
-    Ok(filename)
+    filename
 }
