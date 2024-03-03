@@ -40,7 +40,7 @@ pub(crate) fn find_unmet_deps_with_markinstall(cache: &Cache, ver: &Version) -> 
 
     let mut v = vec![];
 
-    if let Some(dep) = dep {
+    if let Some(dep) = dep {    
         let dep = OmaDependency::map_deps(dep);
         for b_dep in dep.inner() {
             if b_dep.len() > 1 {
