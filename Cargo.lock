@@ -2650,7 +2650,7 @@ dependencies = [
  "oma-pm",
  "oma-refresh",
  "oma-topics",
- "oma-utils 0.7.1",
+ "oma-utils 0.7.2",
  "once_cell",
  "ratatui",
  "reqwest",
@@ -2690,7 +2690,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.9.2"
+version = "0.10.0"
 dependencies = [
  "console",
  "icu_segmenter",
@@ -2708,7 +2708,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.7.1",
+ "oma-utils 0.7.2",
  "rayon",
  "regex",
  "strsim 0.11.0",
@@ -2776,7 +2776,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.17.2"
+version = "0.17.3"
 dependencies = [
  "chrono",
  "dashmap",
@@ -2789,7 +2789,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.7.1",
+ "oma-utils 0.7.2",
  "resolvo-deb",
  "small-map",
  "thiserror",
@@ -2803,7 +2803,7 @@ name = "oma-pm-operation-type"
 version = "0.1.4"
 dependencies = [
  "derive_builder",
- "oma-utils 0.7.1",
+ "oma-utils 0.7.2",
  "serde",
 ]
 
@@ -2822,7 +2822,7 @@ dependencies = [
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
- "oma-utils 0.7.1",
+ "oma-utils 0.7.2",
  "once_cell",
  "sequoia-openpgp",
  "serde",
@@ -2866,7 +2866,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "number_prefix",
  "oma-console",

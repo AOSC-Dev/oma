@@ -100,13 +100,19 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
 
         writeln!(writer, "{}{}", gen_prefix(&prefix, 10), pkg_info_line).ok();
 
-        writeln_inner(&i.desc, "", WRITER.get_max_len().into(), WRITER.get_prefix_len(), |t, s| {
-            match t {
-                MessageType::Msg => writeln!(writer, "{}", style(s.trim()).color256(182)),
-                MessageType::Prefix => write!(writer, "{}", gen_prefix(s, 10)),
-            }
-            .ok();
-        });
+        writeln_inner(
+            &i.desc,
+            "",
+            WRITER.get_max_len().into(),
+            WRITER.get_prefix_len(),
+            |t, s| {
+                match t {
+                    MessageType::Msg => writeln!(writer, "{}", style(s.trim()).color256(182)),
+                    MessageType::Prefix => write!(writer, "{}", gen_prefix(s, 10)),
+                }
+                .ok();
+            },
+        );
     }
 
     drop(writer);
