@@ -39,7 +39,7 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
                     .candidate()
                     .and_then(|x| {
                         x.description()
-                            .map(|x| Cow::Owned(format_description(&x).0))
+                            .map(|x| Cow::Owned(format_description(&x).0.to_string()))
                     })
                     .unwrap_or(Cow::Borrowed("no description."));
 

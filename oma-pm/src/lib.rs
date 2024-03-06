@@ -6,10 +6,10 @@ pub mod search;
 pub use search::PackageStatus;
 pub mod unmet;
 
-pub fn format_description(desc: &str) -> (String, Option<String>) {
+pub fn format_description(desc: &str) -> (&str, Option<&str>) {
     if let Some((short, long)) = desc.split_once('\n') {
-        (short.to_string(), Some(long.to_string()))
+        (short, Some(long))
     } else {
-        (desc.to_string(), None)
+        (desc, None)
     }
 }

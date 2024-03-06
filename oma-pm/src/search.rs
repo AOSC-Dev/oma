@@ -127,7 +127,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
                         description: format_description(
                             &cand.description().unwrap_or("".to_string()),
                         )
-                        .0,
+                        .0
+                        .to_string(),
                         status,
                         provide: pkg.provides().next().map(|x| x.name().to_string()),
                         has_dbg: has_dbg(cache, &pkg, &cand),
@@ -162,7 +163,8 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
                         description: format_description(
                             &cand.description().unwrap_or("".to_string()),
                         )
-                        .0,
+                        .0
+                        .to_string(),
                         status,
                         provide: Some(provide.to_string()),
                         has_dbg: has_dbg(cache, &pkg, &cand),
