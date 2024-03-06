@@ -5,6 +5,7 @@ use std::path::Path;
 use oma_console::due_to;
 use oma_contents::{OmaContentsError, QueryMode};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use oma_pm::format_description;
 use oma_utils::dpkg::dpkg_arch;
 use tracing::error;
 
@@ -36,7 +37,10 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
                 let pkg = apt.cache.get(&pkg).unwrap();
                 let desc = pkg
                     .candidate()
-                    .and_then(|x| x.description().map(Cow::Owned))
+                    .and_then(|x| {
+                        x.description()
+                            .map(|x| Cow::Owned(format_description(&x).0))
+                    })
                     .unwrap_or(Cow::Borrowed("no description."));
 
                 println!("{} ({file}): {desc}", pkg.name());

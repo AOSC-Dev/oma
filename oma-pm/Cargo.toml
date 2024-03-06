@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.15.10"
+version = "0.15.11"
 edition = "2021"
 description = "A crate to help oma handle package manager operation"
 license = "GPL-3.0-or-later"
