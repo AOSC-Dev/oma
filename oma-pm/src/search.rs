@@ -6,7 +6,7 @@ use oma_apt::{
 };
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::query::has_dbg;
+use crate::{format_description, query::has_dbg};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum PackageStatus {
@@ -129,7 +129,11 @@ impl<'a> OmaSearch<'a> {
                         pkg.name().to_string(),
                         SearchEntry {
                             pkgname: pkg.name().to_string(),
-                            description: cand.description().unwrap_or("".to_string()),
+                            description: format_description(
+                                &cand.description().unwrap_or("".to_string()),
+                            )
+                            .0
+                            .to_string(),
                             status,
                             provide: pkg.provides().next().map(|x| x.name().to_string()),
                             has_dbg: has_dbg(cache, &pkg, &cand),
@@ -161,7 +165,11 @@ impl<'a> OmaSearch<'a> {
                         i.name().to_string(),
                         SearchEntry {
                             pkgname: pkg.name().to_string(),
-                            description: cand.description().unwrap_or("".to_string()),
+                            description: format_description(
+                                &cand.description().unwrap_or("".to_string()),
+                            )
+                            .0
+                            .to_string(),
                             status,
                             provide: Some(provide.to_string()),
                             has_dbg: has_dbg(cache, &pkg, &cand),

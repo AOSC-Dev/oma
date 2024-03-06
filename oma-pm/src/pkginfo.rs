@@ -9,6 +9,8 @@ use oma_apt::{
 use oma_utils::human_bytes::HumanBytes;
 use small_map::SmallMap;
 
+use crate::format_description;
+
 #[derive(Debug)]
 pub struct OmaDependency {
     pub name: String,
@@ -180,7 +182,7 @@ impl PkgInfo {
 
         println!(
             "Description: {}",
-            ver.description().unwrap_or("No description".to_string())
+            format_description(&ver.description().unwrap_or("No description".to_string())).0
         );
     }
 

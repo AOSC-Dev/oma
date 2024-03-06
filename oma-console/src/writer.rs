@@ -56,9 +56,9 @@ impl Writer {
         let l = self.get_length();
 
         if l < 80 {
-            l
+            l - 10
         } else {
-            80
+            70
         }
     }
 
