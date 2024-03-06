@@ -56,9 +56,9 @@ impl Writer {
         let l = self.get_length();
 
         if l < 80 {
-            l - 10
+            l
         } else {
-            70
+            80
         }
     }
 
@@ -149,13 +149,15 @@ where
     let mut added_count = 0;
     let mut first_run = true;
 
+    let len = max_len - prefix.len();
+
     loop {
-        let line_msg = if console::measure_text_width(ref_s) <= max_len {
+        let line_msg = if console::measure_text_width(ref_s) <= len {
             format!("{}\n", ref_s).into()
         } else {
             let segmenter = LineSegmenter::new_auto();
-            let breakpoint = segmenter.segment_str(ref_s).filter(|x| x <= &max_len).max();
-            let breakpoint = breakpoint.unwrap_or(max_len);
+            let breakpoint = segmenter.segment_str(ref_s).filter(|x| x <= &len).max();
+            let breakpoint = breakpoint.unwrap_or(len);
 
             console::truncate_str(ref_s, breakpoint, "\n")
         };
