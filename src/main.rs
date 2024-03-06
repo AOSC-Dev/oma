@@ -474,7 +474,7 @@ fn display_error(e: OutputError) -> io::Result<()> {
                         &c.to_string(),
                         "",
                         cause_writer.get_max_len().into(),
-                        WRITER.get_prefix_len(),
+                        cause_writer.get_prefix_len(),
                         |t, s| match t {
                             MessageType::Msg => res.push(s.to_owned()),
                             MessageType::Prefix => (),
