@@ -90,10 +90,16 @@ impl From<&SearchResult> for FormatSearchResult {
 
         let mut desc = "".to_string();
 
-        writeln_inner(&i.desc, "", WRITER.get_max_len().into(), |t, s| match t {
-            MessageType::Msg => desc.push_str(&format!("{}\n", style(s.trim()).color256(182))),
-            MessageType::Prefix => desc.push_str(&gen_prefix(s, 10)),
-        });
+        writeln_inner(
+            &i.desc,
+            "",
+            WRITER.get_max_len().into(),
+            WRITER.get_prefix_len(),
+            |t, s| match t {
+                MessageType::Msg => desc.push_str(&format!("{}\n", style(s.trim()).color256(182))),
+                MessageType::Prefix => desc.push_str(&gen_prefix(s, 10)),
+            },
+        );
 
         Self(format!("{s}{pkg_info_line}\n{}", desc))
     }
