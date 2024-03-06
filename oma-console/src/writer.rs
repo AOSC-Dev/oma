@@ -84,13 +84,17 @@ impl Writer {
         Ok(())
     }
 
+    pub fn get_prefix_len(&self) -> u16 {
+        self.prefix_len
+    }
+
     /// Write oma-style string to terminal
     pub fn writeln(&self, prefix: &str, msg: &str) -> io::Result<()> {
         let max_len = self.get_max_len();
 
         let mut res = Ok(());
 
-        writeln_inner(msg, prefix, max_len as usize, |t, s| {
+        writeln_inner(msg, prefix, max_len as usize, WRITER.prefix_len, |t, s| {
             match t {
                 MessageType::Msg => res = self.term.write_str(s),
                 MessageType::Prefix => res = self.write_prefix(s),
@@ -140,7 +144,7 @@ pub enum MessageType {
     Prefix,
 }
 
-pub fn writeln_inner<F>(msg: &str, prefix: &str, max_len: usize, mut callback: F)
+pub fn writeln_inner<F>(msg: &str, prefix: &str, max_len: usize, prefix_len: u16, mut callback: F)
 where
     F: FnMut(MessageType, &str),
 {
@@ -149,7 +153,7 @@ where
     let mut added_count = 0;
     let mut first_run = true;
 
-    let len = max_len - prefix.len();
+    let len = max_len - prefix_len as usize;
 
     loop {
         let line_msg = if console::measure_text_width(ref_s) <= len {
@@ -190,7 +194,7 @@ where
 pub fn bar_writeln<P: Fn(&str)>(pb: P, prefix: &str, msg: &str) {
     let max_len = WRITER.get_max_len();
     let mut res = (None, None);
-    writeln_inner(msg, prefix, max_len as usize, |t, s| {
+    writeln_inner(msg, prefix, max_len as usize, WRITER.prefix_len, |t, s| {
         match t {
             MessageType::Msg => res.1 = Some(s.to_string()),
             MessageType::Prefix => res.0 = Some(gen_prefix(s, 10)),
