@@ -9,16 +9,17 @@ Although it is based on apt, we did quite a bit of extra work, the goal of this 
 ![](screenshot/image.png)
 
 ### Multi-thread download
+[multi-thread-download.webm](https://github.com/AOSC-Dev/oma/assets/19554922/e857a946-b6c5-4c22-8d56-398b2ce0a624)
 
-![Multi-thread download](./gif/multi-thread-download.gif)
+
 
 ### Smart Search
+[oma-search.webm](https://github.com/AOSC-Dev/oma/assets/19554922/eed6d992-6464-48eb-8b4f-075ea378bd0c)
 
-![Smart Search](./gif/oma-search.gif)
 
 ### Undo
+[undo.webm](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
 
-![Undo](./gif/undo.gif)
 
 ...and more.
 
