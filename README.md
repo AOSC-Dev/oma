@@ -10,15 +10,15 @@ Although it is based on apt, we did quite a bit of extra work, the goal of this 
 
 ### Multi-thread download
 
-[![asciicast](https://asciinema.org/a/596691.svg)](https://asciinema.org/a/596691)
+![Multi-thread download](./gif/multi-thread-download.gif)
 
 ### Smart Search
 
-[![asciicast](https://asciinema.org/a/610838.svg)](https://asciinema.org/a/610838)
+![Smart Search](./gif/oma-search.gif)
 
 ### Undo
 
-[![asciicast](https://asciinema.org/a/610839.svg)](https://asciinema.org/a/610839)
+![Undo](./gif/undo.gif)
 
 ...and more.
 
