@@ -507,18 +507,9 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("can-not-mark-reinstall", name = pkg, version = version),
             source: None,
         },
-        OmaAptError::DependencyIssue(ref v) => match v {
-            v if !v.is_empty() || v == "No Problem" => {
-                eprintln!("{}", v);
-                OutputError {
-                    description: "apt return error.".to_string(),
-                    source: None,
-                }
-            }
-            _ => OutputError {
-                description: "apt return error.".to_string(),
-                source: None,
-            },
+        OmaAptError::DependencyIssue => OutputError {
+            description: err.to_string(),
+            source: None,
         },
         OmaAptError::PkgIsEssential(s) => OutputError {
             description: fl!("pkg-is-essential", name = s),
