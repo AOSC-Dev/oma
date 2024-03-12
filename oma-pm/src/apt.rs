@@ -608,7 +608,6 @@ impl OmaApt {
         }
 
         if self.cache.resolve(!no_fixbroken).is_err() {
-            let _ = self.cache.depcache();
             self.cache.show_broken(false);
             return Err(OmaAptError::DependencyIssue);
         }
@@ -1186,19 +1185,17 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
         }
     }
 
-    pkg.mark_install(true, true);
+    pkg.protect();
+    pkg.mark_install(false, true);
     debug!("marked_install: {}", pkg.marked_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
-    if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
-        // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-        // let v = find_unmet_deps_with_markinstall(cache, &ver);
+
+    if cache.depcache().broken_count() != 0 {
         cache.show_broken(false);
-        return Err(OmaAptError::DependencyIssue);
     }
 
     debug!("{} will marked install", pkg.name());
-    pkg.protect();
 
     Ok(true)
 }
