@@ -514,6 +514,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             for i in v {
                 msg!("{}", i);
             }
+            println!();
             OutputError {
                 description: "".to_string(),
                 source: None,
