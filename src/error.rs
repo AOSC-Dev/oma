@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::io::{self, ErrorKind};
 
-use oma_console::due_to;
+use oma_console::{due_to, msg};
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
@@ -18,7 +18,7 @@ use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 use crate::fl;
 use crate::subcommand::utils::LockError;
@@ -507,10 +507,18 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("can-not-mark-reinstall", name = pkg, version = version),
             source: None,
         },
-        OmaAptError::DependencyIssue => OutputError {
-            description: err.to_string(),
-            source: None,
-        },
+        OmaAptError::DependencyIssue(ref v) => {
+            error!("{}", fl!("dep-issue-1"));
+            info!("{}", fl!("dep-issue-2"));
+            println!();
+            for i in v {
+                msg!("{}", i);
+            }
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
         OmaAptError::PkgIsEssential(s) => OutputError {
             description: fl!("pkg-is-essential", name = s),
             source: None,

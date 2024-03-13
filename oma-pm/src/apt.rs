@@ -70,6 +70,7 @@ pub struct OmaApt {
     select_pkgs: Vec<String>,
     tokio: Runtime,
     connection: Option<Connection>,
+    unmet: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -81,7 +82,7 @@ pub enum OmaAptError {
     #[error("Failed to mark reinstall pkg: {0}")]
     MarkReinstallError(String, String),
     #[error("Find Dependency problem")]
-    DependencyIssue,
+    DependencyIssue(Vec<String>),
     #[error("Package: {0} is essential.")]
     PkgIsEssential(String),
     #[error("Package: {0} is no candidate.")]
@@ -186,6 +187,7 @@ impl OmaApt {
             select_pkgs: vec![],
             tokio,
             connection: conn,
+            unmet: vec![],
         })
     }
 
@@ -292,7 +294,7 @@ impl OmaApt {
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
         for pkg in pkgs {
-            let marked_install = mark_install(&self.cache, pkg, reinstall)?;
+            let marked_install = mark_install(&self.cache, pkg, reinstall, &mut self.unmet)?;
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
                 pkg.raw_pkg.name(),
@@ -426,7 +428,7 @@ impl OmaApt {
     {
         let mut no_marked_remove = vec![];
         for pkg in pkgs {
-            let is_marked_delete = mark_delete(&self.cache, pkg, purge, callback)?;
+            let is_marked_delete = mark_delete(&self.cache, pkg, purge, callback, &mut self.unmet)?;
             if !is_marked_delete {
                 no_marked_remove.push(pkg.raw_pkg.name().to_string());
             } else if !self.select_pkgs.contains(&pkg.raw_pkg.name().to_string()) {
@@ -609,7 +611,7 @@ impl OmaApt {
 
         if self.cache.resolve(!no_fixbroken).is_err() {
             self.cache.show_broken(false);
-            return Err(OmaAptError::DependencyIssue);
+            return Err(OmaAptError::DependencyIssue(self.unmet.to_vec()));
         }
 
         Ok(())
@@ -1052,6 +1054,7 @@ fn mark_delete<F>(
     pkg: &PkgInfo,
     purge: bool,
     how_handle_essential: F,
+    unmet: &mut Vec<String>,
 ) -> OmaAptResult<bool>
 where
     F: Fn(&str) -> bool + Copy,
@@ -1073,8 +1076,11 @@ where
         }
     }
 
-    pkg.mark_delete(purge || removed_but_has_config);
     pkg.protect();
+    pkg.mark_delete(purge || removed_but_has_config);
+    if cache.depcache().broken_count() != 0 {
+        unmet.extend(cache.show_broken(false));
+    }
 
     Ok(true)
 }
@@ -1155,7 +1161,7 @@ fn select_pkg(
 }
 
 /// Mark package as install.
-fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResult<bool> {
+fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool, unmet: &mut Vec<String>) -> OmaAptResult<bool> {
     let pkg = pkginfo.raw_pkg.unique();
     let version = pkginfo.version_raw.unique();
     let ver = Version::new(version, cache);
@@ -1191,8 +1197,10 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
 
+
+
     if cache.depcache().broken_count() != 0 {
-        cache.show_broken(false);
+        unmet.extend(cache.show_broken(false));
     }
 
     debug!("{} will marked install", pkg.name());

@@ -80,9 +80,8 @@ user-aborted-op = 用户已中止操作。
 
 # formatter
 count-pkg-has-desc = {$count} 个软件包将被
-dep-error = 依赖关系错误
-dep-error-desc = oma 探测到依赖关系问题，因此无法继续进行指定操作。该问题可能是
-    软件包缺失或来源不统一，抑或是指定的软件包版本与当前系统不兼容导致的。
+dep-issue-1 = oma 发现指定软件包存在依赖问题，故无法安装。
+dep-issue-2 = 如下是该依赖问题的完整分析报告，请复制或截图如下信息并联系 AOSC OS 维护者。
 contact-admin-tips = 请联系您的系统管理员或开发者。
 how-to-abort = 按 [q] 或 [Ctrl-c] 中止操作
 how-to-op-with-x = 按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页
