@@ -1202,8 +1202,6 @@ fn mark_install(
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
 
-    // ver.depends_map().get(&DepType::Recommends)
-
     if cache.depcache().broken_count() != 0 {
         unmet.extend(cache.show_broken(false));
     }
