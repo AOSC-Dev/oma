@@ -198,10 +198,7 @@ impl OmaApt {
         } else if args.no_install_recommends {
             false
         } else {
-            config
-                .get("APT::Install-Recommends")
-                .map(|x| x == "true")
-                .unwrap_or(true)
+            config.bool("APT::Install-Recommends", true)
         };
 
         let install_suggests = if args.install_suggests {
@@ -209,10 +206,7 @@ impl OmaApt {
         } else if args.no_install_suggests {
             false
         } else {
-            config
-                .get("APT::Install-Suggests")
-                .map(|x| x == "true")
-                .unwrap_or(false)
+            config.bool("APT::Install-Suggests", false)
         };
 
         config.set("APT::Install-Recommends", &install_recommend.to_string());
