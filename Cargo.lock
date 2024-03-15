@@ -2692,7 +2692,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "chrono",
  "dashmap",
