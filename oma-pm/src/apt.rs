@@ -27,6 +27,7 @@ use oma_fetch::{
 use oma_utils::{
     dpkg::{is_hold, DpkgError},
     human_bytes::HumanBytes,
+    url_no_escape::url_no_escape,
 };
 
 pub use oma_apt::config::Config as AptConfig;
@@ -71,6 +72,7 @@ pub struct OmaApt {
     tokio: Runtime,
     connection: Option<Connection>,
     unmet: Vec<String>,
+    local_debs: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -188,6 +190,11 @@ impl OmaApt {
             tokio,
             connection: conn,
             unmet: vec![],
+            local_debs: local_debs
+                .iter()
+                .flat_map(|x| Path::new(x).canonicalize())
+                .map(|x| x.display().to_string())
+                .collect::<Vec<_>>(),
         })
     }
 
@@ -293,7 +300,9 @@ impl OmaApt {
                 pkg,
                 reinstall,
                 &mut self.unmet,
+                &self.local_debs,
             )?;
+
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
                 pkg.raw_pkg.name(),
@@ -1165,6 +1174,7 @@ fn mark_install(
     pkginfo: &PkgInfo,
     reinstall: bool,
     unmet: &mut Vec<String>,
+    local_debs: &[String],
 ) -> OmaAptResult<bool> {
     let pkg = pkginfo.raw_pkg.unique();
     let version = pkginfo.version_raw.unique();
@@ -1197,7 +1207,12 @@ fn mark_install(
 
     pkg.protect();
 
-    pkg.mark_install(false, true);
+    // 需要把第三方来源的包的 auto_inst 设为 false，否则无法检查依赖问题
+    let auto_inst = !ver
+        .uris()
+        .any(|x| local_debs.contains(&x.strip_prefix("file:").map(url_no_escape).unwrap_or(x)));
+
+    pkg.mark_install(auto_inst, true);
     debug!("marked_install: {}", pkg.marked_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
