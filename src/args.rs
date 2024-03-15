@@ -51,6 +51,7 @@ pub fn command_builder() -> Command {
     let mut cmd = command!()
         .max_term_width(100)
         .disable_version_flag(true)
+        .after_help("本 oma 具有超级小熊猫力")
         .arg(
             Arg::new("debug")
                 .long("debug")
