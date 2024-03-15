@@ -31,7 +31,6 @@ fs4 = "0.8"
 tracing = "0.1"
 small-map = "0.1"
 oma-pm-operation-type = { version = "0.1", path = "../oma-pm-operation-type" }
-zbus = { version = "4.1", features = ["tokio"] }
 
 
 [dev-dependencies]
