@@ -2710,6 +2710,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "url",
  "zbus",
 ]
 

@@ -229,10 +229,7 @@ impl OmaApt {
         } else if args.no_install_recommends {
             false
         } else {
-            config
-                .get("APT::Install-Recommends")
-                .map(|x| x == "true")
-                .unwrap_or(true)
+            config.bool("APT::Install-Recommends", true)
         };
 
         let install_suggests = if args.install_suggests {
@@ -240,10 +237,7 @@ impl OmaApt {
         } else if args.no_install_suggests {
             false
         } else {
-            config
-                .get("APT::Install-Suggests")
-                .map(|x| x == "true")
-                .unwrap_or(false)
+            config.bool("APT::Install-Suggests", false)
         };
 
         config.set("APT::Install-Recommends", &install_recommend.to_string());
@@ -294,7 +288,12 @@ impl OmaApt {
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
         for pkg in pkgs {
-            let marked_install = mark_install(&self.cache, pkg, reinstall, &mut self.unmet)?;
+            let marked_install = mark_install(
+                &self.cache,
+                pkg,
+                reinstall,
+                &mut self.unmet,
+            )?;
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
                 pkg.raw_pkg.name(),
@@ -1161,7 +1160,12 @@ fn select_pkg(
 }
 
 /// Mark package as install.
-fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool, unmet: &mut Vec<String>) -> OmaAptResult<bool> {
+fn mark_install(
+    cache: &Cache,
+    pkginfo: &PkgInfo,
+    reinstall: bool,
+    unmet: &mut Vec<String>,
+) -> OmaAptResult<bool> {
     let pkg = pkginfo.raw_pkg.unique();
     let version = pkginfo.version_raw.unique();
     let ver = Version::new(version, cache);
@@ -1192,12 +1196,13 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool, unmet: &mut V
     }
 
     pkg.protect();
+
     pkg.mark_install(false, true);
     debug!("marked_install: {}", pkg.marked_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
 
-
+    // ver.depends_map().get(&DepType::Recommends)
 
     if cache.depcache().broken_count() != 0 {
         unmet.extend(cache.show_broken(false));
