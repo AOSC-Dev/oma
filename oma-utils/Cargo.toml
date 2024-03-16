@@ -18,6 +18,7 @@ oma-console = { version = "^0.10", path = "../oma-console", optional = true, def
 
 # For rustc 1.74.0 (AOSC OS)
 zbus = { version = "=3.15", optional = true }
+zvariant_utils = "=1.0.1"
 
 url-escape = { version = "0.1", optional = true }
 tracing = "0.1"
