@@ -2567,7 +2567,7 @@ dependencies = [
  "oma-pm",
  "oma-refresh",
  "oma-topics",
- "oma-utils 0.6.3",
+ "oma-utils 0.6.4",
  "once_cell",
  "reqwest",
  "rust-embed",
@@ -2624,7 +2624,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.6.3",
+ "oma-utils 0.6.4",
  "rayon",
  "regex",
  "strsim 0.11.0",
@@ -2705,7 +2705,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.6.3",
+ "oma-utils 0.6.4",
  "small-map",
  "thiserror",
  "tokio",
@@ -2717,7 +2717,7 @@ name = "oma-pm-operation-type"
 version = "0.1.4"
 dependencies = [
  "derive_builder",
- "oma-utils 0.6.3",
+ "oma-utils 0.6.4",
  "serde",
 ]
 
@@ -2736,7 +2736,7 @@ dependencies = [
  "oma-debcontrol",
  "oma-fetch",
  "oma-topics",
- "oma-utils 0.6.3",
+ "oma-utils 0.6.4",
  "once_cell",
  "sequoia-openpgp",
  "serde",
@@ -2767,7 +2767,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "number_prefix",
  "oma-console",
