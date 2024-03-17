@@ -13,6 +13,7 @@ use oma_apt::{
     new_cache,
     package::{Package, Version},
     raw::{
+        package::DepFlags,
         progress::AptInstallProgress,
         util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
     },
@@ -295,13 +296,7 @@ impl OmaApt {
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
         for pkg in pkgs {
-            let marked_install = mark_install(
-                &self.cache,
-                pkg,
-                reinstall,
-                &mut self.unmet,
-                &self.local_debs,
-            )?;
+            let marked_install = mark_install(&self.cache, pkg, reinstall, &self.local_debs)?;
 
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
@@ -436,7 +431,7 @@ impl OmaApt {
     {
         let mut no_marked_remove = vec![];
         for pkg in pkgs {
-            let is_marked_delete = mark_delete(&self.cache, pkg, purge, callback, &mut self.unmet)?;
+            let is_marked_delete = mark_delete(&self.cache, pkg, purge, callback)?;
             if !is_marked_delete {
                 no_marked_remove.push(pkg.raw_pkg.name().to_string());
             } else if !self.select_pkgs.contains(&pkg.raw_pkg.name().to_string()) {
@@ -602,7 +597,7 @@ impl OmaApt {
     }
 
     /// Resolve apt dependencies
-    pub fn resolve(&self, no_fixbroken: bool) -> OmaAptResult<()> {
+    pub fn resolve(&mut self, no_fixbroken: bool) -> OmaAptResult<()> {
         let need_fix = self.check_broken()?;
 
         if no_fixbroken && need_fix {
@@ -618,11 +613,100 @@ impl OmaApt {
         }
 
         if self.cache.resolve(!no_fixbroken).is_err() {
-            self.cache.show_broken(false);
+            for pkg in &self.cache {
+                let res = self.show_broken_pkg(&pkg, false);
+                if !res.is_empty() {
+                    self.unmet.extend(res);
+                }
+            }
             return Err(OmaAptError::DependencyIssue(self.unmet.to_vec()));
         }
 
         Ok(())
+    }
+
+    fn show_broken_pkg(&self, pkg: &Package, now: bool) -> Vec<String> {
+        let mut result = vec![];
+        let cache = &self.cache;
+        // If the package isn't broken for the state Return None
+        if (now && !pkg.is_now_broken()) || (!now && !pkg.is_inst_broken()) {
+            return result;
+        };
+
+        let mut line = String::new();
+
+        line += &format!("{pkg} :");
+
+        // Pick the proper version based on now status.
+        // else Return with just the package name like Apt does.
+        let Some(ver) = (match now {
+            true => pkg.installed(),
+            false => cache.depcache().install_version(pkg),
+        }) else {
+            result.push(line);
+            return result;
+        };
+
+        let indent = pkg.name().len() + 3;
+        let mut first = true;
+
+        // ShowBrokenDeps
+        for dep in ver.depends_map().values().flatten() {
+            for (i, base_dep) in dep.base_deps.iter().enumerate() {
+                if !cache.depcache().is_important_dep(base_dep) {
+                    continue;
+                }
+
+                let dep_flag = if now {
+                    DepFlags::DepGnow
+                } else {
+                    DepFlags::DepInstall
+                };
+
+                if cache.depcache().dep_state(base_dep) & dep_flag == dep_flag {
+                    continue;
+                }
+
+                if !first {
+                    line += &" ".repeat(indent);
+                }
+                first = false;
+
+                // If it's the first or Dep
+                if i > 0 {
+                    line += &" ".repeat(base_dep.dep_type().as_ref().len() + 3);
+                } else {
+                    line += &format!(" {}: ", base_dep.dep_type())
+                }
+
+                line += base_dep.target_package().name();
+
+                if let (Ok(ver_str), Some(comp)) = (base_dep.target_ver(), base_dep.comp()) {
+                    line += &format!(" ({comp} {ver_str})");
+                }
+
+                let target = base_dep.target_package();
+                if !target.has_provides() {
+                    if let Some(target_ver) = cache.depcache().install_version(target) {
+                        line += &format!(" but {target_ver} is to be installed")
+                    } else if target.candidate().is_some() {
+                        line += " but it is not going to be installed";
+                    } else if target.has_provides() {
+                        line += " but it is a virtual package";
+                    } else {
+                        line += " but it is not installable";
+                    }
+                }
+
+                if i + 1 != dep.base_deps.len() {
+                    line += " or"
+                }
+                result.push(line.clone());
+                line.clear();
+            }
+        }
+
+        result
     }
 
     fn run_dpkg_configure(&self) -> OmaAptResult<()> {
@@ -1062,7 +1146,6 @@ fn mark_delete<F>(
     pkg: &PkgInfo,
     purge: bool,
     how_handle_essential: F,
-    unmet: &mut Vec<String>,
 ) -> OmaAptResult<bool>
 where
     F: Fn(&str) -> bool + Copy,
@@ -1086,9 +1169,6 @@ where
 
     pkg.protect();
     pkg.mark_delete(purge || removed_but_has_config);
-    if cache.depcache().broken_count() != 0 {
-        unmet.extend(cache.show_broken(false));
-    }
 
     Ok(true)
 }
@@ -1173,7 +1253,6 @@ fn mark_install(
     cache: &Cache,
     pkginfo: &PkgInfo,
     reinstall: bool,
-    unmet: &mut Vec<String>,
     local_debs: &[String],
 ) -> OmaAptResult<bool> {
     let pkg = pkginfo.raw_pkg.unique();
@@ -1217,9 +1296,6 @@ fn mark_install(
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
 
-    if cache.depcache().broken_count() != 0 {
-        unmet.extend(cache.show_broken(false));
-    }
 
     debug!("{} will marked install", pkg.name());
 

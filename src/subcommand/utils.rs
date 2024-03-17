@@ -157,7 +157,7 @@ pub struct NormalCommitArgs {
 
 pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
     let NormalCommitArgs {
-        apt,
+        mut apt,
         dry_run,
         typ,
         apt_args,
