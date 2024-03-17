@@ -1296,7 +1296,6 @@ fn mark_install(
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
 
-
     debug!("{} will marked install", pkg.name());
 
     Ok(true)
