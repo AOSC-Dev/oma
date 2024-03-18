@@ -15,10 +15,7 @@ os-release = "0.1"
 oma-console = { version = "^0.10", path = "../oma-console", optional = true, default-features = false, features = [
     "print",
 ] }
-
-# For rustc 1.74.0 (AOSC OS)
 zbus = { version = "4.1", optional = true }
-
 url-escape = { version = "0.1", optional = true }
 tracing = "0.1"
 
