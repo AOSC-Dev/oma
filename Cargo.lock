@@ -639,7 +639,7 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim 0.11.0",
- "terminal_size 0.3.0",
+ "terminal_size",
 ]
 
 [[package]]
@@ -2585,14 +2585,14 @@ dependencies = [
 
 [[package]]
 name = "oma-apt"
-version = "0.1.2"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6194fabd786defa560e4098b15fdf9cb6ca6c8521f929402347bb929bf5467fa"
+checksum = "b817e2c0ae73226b9f9d61a83fe1354e1c9e2acfb1156116571330465256e771"
 dependencies = [
  "cxx",
  "cxx-build",
  "once_cell",
- "terminal_size 0.2.6",
+ "terminal_size",
 ]
 
 [[package]]
@@ -2692,7 +2692,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.15.13"
+version = "0.15.14"
 dependencies = [
  "chrono",
  "dashmap",
@@ -3957,16 +3957,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "terminal_size"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e6bf6f19e9f8ed8d4048dc22981458ebcf406d67e94cd422e5ecd73d63b3237"
-dependencies = [
- "rustix 0.37.27",
- "windows-sys 0.48.0",
 ]
 
 [[package]]
