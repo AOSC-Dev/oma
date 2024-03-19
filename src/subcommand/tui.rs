@@ -151,6 +151,11 @@ impl<T> StatefulList<T> {
         };
         self.state.select(Some(i));
     }
+
+    pub fn remove(&mut self, i: usize) {
+        self.items.remove(i);
+        self.state.select(None);
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -247,7 +252,7 @@ pub fn execute(
                 frame.render_widget(
                     Paragraph::new(Text::from(Span::styled(
                         format!("oma v{VERSION}"),
-                        Style::default().add_modifier(Modifier::BOLD),
+                        Style::default().bg(Color::White).fg(Color::Black)
                     ))),
                     main_layout[0],
                 );
@@ -423,7 +428,7 @@ pub fn execute(
                         Mode::Pending => {
                             let selected = pending_display_list.state.selected();
                             if let Some(i) = selected {
-                                pending_display_list.items.remove(i);
+                                pending_display_list.remove(i);
                                 let removed = pending.remove(i);
                                 if removed.is_install {
                                     let inst_pos = install
