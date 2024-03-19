@@ -154,7 +154,10 @@ impl<T> StatefulList<T> {
 
     pub fn remove(&mut self, i: usize) {
         self.items.remove(i);
-        self.state.select(None);
+
+        if self.items.is_empty() {
+            self.state.select(None);
+        }
     }
 }
 
