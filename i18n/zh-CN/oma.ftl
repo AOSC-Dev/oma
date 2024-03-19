@@ -177,7 +177,7 @@ failed-check-dbus-tips-3 = 如果您的系统是长期在容器或 chroot 环境
 no-check-dbus-tips = 目前 oma 将不探测系统运行状态，这将不检测电源及用户会话等关键系统状态，如继续操作可能会导致系统故障
 
 oma-history-is-empty = oma 历史记录为空。
-tui-tips = [TAB] Switch window   [F1] Hide/Show pending detail   [Esc] Done for operation   [Space] Add/Remove item   [/] Search   [Ctrl-C] Exit
+tui-tips = Press TAB Switch window, F1 to Hide/Show pending detail, ESC to apply operation, SPACE to Add/Remove item, / to Search, ^C to Exit
 tui-pending = Pending
 tui-search = Search
 tui-packages = Packages (has {$u} upgradable, has {$r} removable, {$i} is installed)

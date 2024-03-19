@@ -24,8 +24,8 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout},
     prelude::{Frame, Rect},
-    style::{Color, Modifier, Style, Stylize},
-    text::{Line, Span, Text},
+    style::{Color, Style, Stylize},
+    text::{Line, Text},
     widgets::{Block, Borders, List, ListState, Padding, Paragraph},
     Terminal,
 };
@@ -255,10 +255,9 @@ pub fn execute(
                     .split(frame.size());
 
                 frame.render_widget(
-                    Paragraph::new(Text::from(Span::styled(
-                        format!("oma v{VERSION}"),
-                        Style::default().bg(Color::White).fg(Color::Black)
-                    ))),
+                    Block::default()
+                        .title(format!(" oma v{VERSION}"))
+                        .style(Style::default().bg(Color::White).fg(Color::Black)),
                     main_layout[0],
                 );
 
@@ -326,10 +325,7 @@ pub fn execute(
                 }
 
                 frame.render_widget(
-                    Paragraph::new(Text::from(Span::styled(
-                        fl!("tui-tips"),
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ))),
+                    Paragraph::new(fl!("tui-tips")),
                     main_layout[3],
                 );
             })
