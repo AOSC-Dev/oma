@@ -177,7 +177,7 @@ fn main() {
             exit_code
         }
         Err(e) => {
-            match display_errorand_can_unlock(e) {
+            match display_error_and_can_unlock(e) {
                 Ok(true) => {
                     unlock_oma().ok();
                 }
@@ -439,7 +439,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
     Ok(exit_code)
 }
 
-fn display_errorand_can_unlock(e: OutputError) -> io::Result<bool> {
+fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
     let mut unlock = true;
     if !e.description.is_empty() {
         error!("{e}");

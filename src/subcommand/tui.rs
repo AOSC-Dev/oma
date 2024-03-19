@@ -33,7 +33,7 @@ use ratatui::{
 use crate::{error::OutputError, utils::root};
 use std::fmt::Display;
 
-use super::utils::{normal_commit, refresh, NormalCommitArgs};
+use super::utils::{lock_oma, normal_commit, refresh, NormalCommitArgs};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -181,6 +181,8 @@ pub fn execute(
     network_thread: usize,
 ) -> Result<i32, OutputError> {
     root()?;
+    lock_oma()?;
+
     refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
 
     stdout()
