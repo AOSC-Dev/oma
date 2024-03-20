@@ -25,7 +25,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     prelude::{Frame, Rect},
     style::{Color, Style, Stylize},
-    text::{Line, Text},
+    text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListState, Padding, Paragraph},
     Terminal,
 };
@@ -324,10 +324,49 @@ pub fn execute(
                     );
                 }
 
-                frame.render_widget(
-                    Paragraph::new(fl!("tui-tips")),
-                    main_layout[3],
-                );
+                let length = WRITER.get_length();
+
+                match length {
+                    0..=44 => {}
+                    45..=130 => {
+                        frame.render_widget(
+                            Paragraph::new(Line::from(vec![
+                                Span::raw("Quicknav: "),
+                                Span::styled("TAB", Style::new().blue()),
+                                Span::raw(" / "),
+                                Span::styled("F1", Style::new().blue()),
+                                Span::raw(" / "),
+                                Span::styled("ESC", Style::new().blue()),
+                                Span::raw(" / "),
+                                Span::styled("Space", Style::new().blue()),
+                                Span::raw(" / "),
+                                Span::styled("/", Style::new().blue()),
+                                Span::raw(" / "),
+                                Span::styled("Ctrl+C", Style::new().blue()),
+                            ])),
+                            main_layout[3],
+                        );
+                    }
+                    131.. => {
+                        frame.render_widget(
+                            Paragraph::new(Line::from(vec![
+                                Span::styled("TAB", Style::new().blue()),
+                                Span::raw(format!(" => {}, ", fl!("tui-start-2"))),
+                                Span::styled("F1", Style::new().blue()),
+                                Span::raw(format!(" => {}, ", fl!("tui-start-3"))),
+                                Span::styled("ESC", Style::new().blue()),
+                                Span::raw(format!(" => {}, ", fl!("tui-start-4"))),
+                                Span::styled("Space", Style::new().blue()),
+                                Span::raw(format!(" => {}, ", fl!("tui-start-5"))),
+                                Span::styled("/", Style::new().blue()),
+                                Span::raw(format!(" => {}, ", fl!("tui-start-6"))),
+                                Span::styled("Ctrl+C", Style::new().blue()),
+                                Span::raw(format!(" => {}", fl!("tui-start-7"))),
+                            ])),
+                            main_layout[3],
+                        );
+                    }
+                }
             })
             .map_err(|e| OutputError {
                 description: "Failed to draw terminal".to_string(),
@@ -611,12 +650,30 @@ fn show_packages(
         frame.render_widget(
             Paragraph::new(vec![
                 Line::from(fl!("tui-start-1")),
-                Line::from(fl!("tui-start-2")),
-                Line::from(fl!("tui-start-3")),
-                Line::from(fl!("tui-start-4")),
-                Line::from(fl!("tui-start-5")),
-                Line::from(fl!("tui-start-6")),
-                Line::from(fl!("tui-start-7")),
+                Line::from(vec![
+                    Span::styled("TAB", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-start-2"))),
+                ]),
+                Line::from(vec![
+                    Span::styled("F1", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-start-3"))),
+                ]),
+                Line::from(vec![
+                    Span::styled("ESC", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-start-4"))),
+                ]),
+                Line::from(vec![
+                    Span::styled("Space", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-start-5"))),
+                ]),
+                Line::from(vec![
+                    Span::styled("/", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-start-6"))),
+                ]),
+                Line::from(vec![
+                    Span::styled("Ctrl+C", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-start-7"))),
+                ]),
                 Line::from(fl!(
                     "tui-packages",
                     u = action.0,

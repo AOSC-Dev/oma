@@ -182,11 +182,11 @@ tui-pending = Pending
 tui-search = Search
 tui-packages = Packages (has {$u} upgradable, has {$r} removable, {$i} is installed)
 tui-start-1 = Welcome to oma terminal interface!
-tui-start-2 = [TAB] Switch window
-tui-start-3 = [F1] Hide/Show pending detail
-tui-start-4 = [Esc] Done for operation
-tui-start-5 = [Space] Add/Remove item
-tui-start-6 = [/] Search
-tui-start-7 = [Ctrl-C] Exit
+tui-start-2 = Switch window
+tui-start-3 = Hide/Show pending detail
+tui-start-4 = Apply operation
+tui-start-5 = Add/Remove item
+tui-start-6 = Search
+tui-start-7 = Exit
 tui-start = Start
 
