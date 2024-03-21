@@ -182,7 +182,6 @@ no-check-dbus-tips = Currently oma will not detect system operational status, wh
 
 oma-history-is-empty = oma history is empty.
 
-tui-tips = [TAB] Switch window   [F1] Hide/Show pending detail   [Esc] Done for operation   [Space] Add/Remove item   [/] Search   [Ctrl-C] Exit
 tui-pending = Pending
 tui-search = Search
 tui-packages = Packages (has {$u} upgradable, has {$r} removable, {$i} is installed)
