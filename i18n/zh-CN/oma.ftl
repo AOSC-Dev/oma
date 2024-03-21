@@ -190,3 +190,4 @@ tui-start-6 = Search
 tui-start-7 = Exit
 tui-start = Start
 
+oma = 小熊猫包管理

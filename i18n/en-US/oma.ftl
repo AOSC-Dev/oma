@@ -195,3 +195,4 @@ tui-start-6 = [/] Search
 tui-start-7 = [Ctrl-C] Exit
 tui-start = Start
 
+oma = oma

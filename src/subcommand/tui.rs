@@ -256,7 +256,7 @@ pub fn execute(
 
                 frame.render_widget(
                     Block::default()
-                        .title(format!(" oma v{VERSION}"))
+                        .title(format!(" {} v{VERSION}", fl!("oma")))
                         .style(Style::default().bg(Color::White).fg(Color::Black)),
                     main_layout[0],
                 );
@@ -650,6 +650,7 @@ fn show_packages(
         frame.render_widget(
             Paragraph::new(vec![
                 Line::from(fl!("tui-start-1")),
+                Line::from(""),
                 Line::from(vec![
                     Span::styled("TAB", Style::new().blue()),
                     Span::raw(format!(" => {}", fl!("tui-start-2"))),
@@ -674,6 +675,7 @@ fn show_packages(
                     Span::styled("Ctrl+C", Style::new().blue()),
                     Span::raw(format!(" => {}", fl!("tui-start-7"))),
                 ]),
+                Line::from(""),
                 Line::from(fl!(
                     "tui-packages",
                     u = action.0,
@@ -686,7 +688,7 @@ fn show_packages(
                     .borders(Borders::ALL)
                     .title(fl!("tui-start"))
                     .style(hightlight_window(mode, &Mode::Packages))
-                    .padding(Padding::new(0, 0, area.height / 2 - 7, 0)),
+                    .padding(Padding::new(0, 0, area.height / 2 - 8, 0)),
             )
             .alignment(Alignment::Center),
             area,
