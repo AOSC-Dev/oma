@@ -191,3 +191,4 @@ tui-start-7 = Exit
 tui-start = Start
 
 oma = 小熊猫包管理
+another-oma-is-running = Another oma is running: {$s}

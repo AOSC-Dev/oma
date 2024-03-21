@@ -196,3 +196,4 @@ tui-start-7 = [Ctrl-C] Exit
 tui-start = Start
 
 oma = oma
+another-oma-is-running = Another oma is running: {$s}
