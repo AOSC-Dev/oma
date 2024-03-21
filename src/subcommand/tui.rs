@@ -285,8 +285,8 @@ pub fn execute(
                                     .title(fl!("tui-pending"))
                                     .style(hightlight_window(&mode, &Mode::Pending)),
                             )
-                            .highlight_style(Style::default().fg(Color::LightBlue))
-                            .highlight_symbol("> "),
+                            .highlight_style(Style::default().bg(Color::DarkGray)),
+                            // .highlight_symbol("> "),
                         chunks[1],
                         &mut pending_display_list.state,
                     );
@@ -641,8 +641,7 @@ fn show_packages(
                         ))
                         .style(hightlight_window(mode, &Mode::Packages)),
                 )
-                .highlight_style(Style::default().fg(Color::LightBlue))
-                .highlight_symbol("> "),
+                .highlight_style(Style::default().bg(Color::Rgb(59, 64, 70))),
             area,
             &mut display_list.state,
         );
