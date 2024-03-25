@@ -285,8 +285,7 @@ pub fn execute(
                                     .title(fl!("tui-pending"))
                                     .style(hightlight_window(&mode, &Mode::Pending)),
                             )
-                            .highlight_style(Style::default().bg(Color::DarkGray)),
-                            // .highlight_symbol("> "),
+                            .highlight_style(Style::default().bg(Color::Rgb(59, 64, 70))),
                         chunks[1],
                         &mut pending_display_list.state,
                     );
