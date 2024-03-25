@@ -168,7 +168,6 @@ impl SingleDownloader<'_> {
                 debug!("Hash exist! It is: {hash}");
 
                 let mut f = tokio::fs::OpenOptions::new()
-                    .create(true)
                     .write(true)
                     .read(true)
                     .open(&file)
@@ -176,7 +175,7 @@ impl SingleDownloader<'_> {
                     .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
 
                 debug!(
-                    "oma opened file: {} with create, write and read mode",
+                    "oma opened file: {} with write and read mode",
                     self.entry.filename
                 );
 
@@ -381,17 +380,11 @@ impl SingleDownloader<'_> {
             dest
         } else {
             debug!(
-                "oma will open file: {} as create, write and read mode.",
+                "oma will open file: {} as create mode.",
                 self.entry.filename
             );
 
-            match tokio::fs::OpenOptions::new()
-                .create(true)
-                .write(true)
-                .read(true)
-                .open(&file)
-                .await
-            {
+            match tokio::fs::File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
                     callback(self.download_list_index, DownloadEvent::ProgressDone);
