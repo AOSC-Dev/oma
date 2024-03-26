@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.12.6"
+version = "0.12.7"
 edition = "2021"
 description = "A crate to help oma refresh apt repo database"
 license = "MIT"
@@ -21,7 +21,7 @@ oma-debcontrol = "0.3"
 sequoia-openpgp = { version = "1.13", default_features = false }
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
-oma-topics = { version = "^0.7.0", path = "../oma-topics", optional = true, default-features = false }
+oma-topics = { version = "^0.8.0", path = "../oma-topics", optional = true, default-features = false }
 oma-utils = { version = "^0.7.0", path = "../oma-utils", features = ["dpkg"] }
 derive_builder = "0.20"
 tracing ="0.1"

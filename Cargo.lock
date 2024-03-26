@@ -2982,7 +2982,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.12.6"
+version = "0.12.7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3010,7 +3010,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.7.2"
+version = "0.8.0"
 dependencies = [
  "futures",
  "indexmap 2.2.6",
