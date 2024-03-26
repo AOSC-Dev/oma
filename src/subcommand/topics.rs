@@ -147,17 +147,17 @@ where
     F: Fn() -> String,
     P: AsRef<Path>,
 {
-    let mut tm = TopicManager::new(&sysroot).await?;
-    refresh_topics(no_progress, &mut tm, &sysroot).await?;
+    let dpkg_arch = dpkg_arch(&sysroot)?;
+    let mut tm = TopicManager::new(&sysroot, &dpkg_arch).await?;
+
+    refresh_topics(no_progress, &mut tm, sysroot).await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
         inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
     }
 
-    let dpkg_arch = dpkg_arch(sysroot)?;
-
     for i in &opt_in {
-        tm.add(i, dry_run, &dpkg_arch)?;
+        tm.add(i, dry_run)?;
     }
 
     let mut downgrade_pkgs = vec![];
@@ -187,9 +187,34 @@ async fn inquire(
     opt_in: &mut Vec<String>,
     opt_out: &mut Vec<String>,
 ) -> Result<(), OutputError> {
-    let all_names = tm.all_topics();
+    let all_topics = tm.all_topics();
 
-    let display = all_names
+    let enabled_names = tm
+        .enabled_topics()
+        .iter()
+        .map(|x| &x.name)
+        .collect::<Vec<_>>();
+
+    let mut swap_count = 0;
+
+    let mut all_topics = all_topics.to_vec();
+
+    // 把所有已启用的源排到最前面
+    for i in &enabled_names {
+        let pos = all_topics.iter().position(|x| x.name == **i);
+
+        if let Some(pos) = pos {
+            let entry = all_topics.remove(pos);
+            all_topics.insert(0, entry);
+            swap_count += 1;
+        }
+    }
+
+    let all_names = all_topics.iter().map(|x| &x.name).collect::<Vec<_>>();
+
+    let default = (0..swap_count).collect::<Vec<_>>();
+
+    let display = all_topics
         .iter()
         .map(|x| {
             let mut s = x.name.clone();
@@ -207,21 +232,6 @@ async fn inquire(
             }
         })
         .collect::<Vec<_>>();
-
-    let enabled_names = tm
-        .enabled_topics()
-        .iter()
-        .map(|x| &x.name)
-        .collect::<Vec<_>>();
-
-    let all_names = all_names.iter().map(|x| &x.name).collect::<Vec<_>>();
-    let mut default = vec![];
-
-    for (i, c) in all_names.iter().enumerate() {
-        if enabled_names.contains(c) {
-            default.push(i);
-        }
-    }
 
     let formatter: MultiOptionFormatter<&str> = &|a| format!("Activating {} topics", a.len());
     let render_config = RenderConfig {
@@ -289,7 +299,7 @@ async fn refresh_topics<P: AsRef<Path>>(
     };
 
     tm.refresh().await?;
-    scan_closed_topic(|| fl!("do-not-edit-topic-sources-list"), sysroot).await?;
+    scan_closed_topic(|| fl!("do-not-edit-topic-sources-list"), sysroot, &tm.arch).await?;
 
     if let Some(pb) = pb {
         pb.finish_and_clear();

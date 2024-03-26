@@ -378,7 +378,8 @@ where
     #[cfg(feature = "aosc")]
     {
         if !not_found.is_empty() {
-            let removed_suites = oma_topics::scan_closed_topic(handle_topic_msg, &rootfs).await?;
+            let removed_suites =
+                oma_topics::scan_closed_topic(handle_topic_msg, &rootfs, &arch).await?;
             for url in not_found {
                 let suite = url
                     .path_segments()
