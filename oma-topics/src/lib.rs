@@ -159,13 +159,9 @@ impl TopicManager {
 
         debug!("all topic: {all:?}");
 
-        let index = all.iter().find(|x| {
-            x.name.to_ascii_lowercase() == topic.to_ascii_lowercase()
-                && x.arch
-                    .as_ref()
-                    .map(|x| x.contains(&self.arch.to_string()) || x.contains(&"all".to_string()))
-                    .unwrap_or(false)
-        });
+        let index = all
+            .iter()
+            .find(|x| x.name.to_ascii_lowercase() == topic.to_ascii_lowercase());
 
         let enabled_names = self.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
 
