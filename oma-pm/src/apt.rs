@@ -28,7 +28,6 @@ use oma_fetch::{
 use oma_utils::{
     dpkg::{is_hold, DpkgError},
     human_bytes::HumanBytes,
-    url_no_escape::url_no_escape,
 };
 
 pub use oma_apt::config::Config as AptConfig;
@@ -73,7 +72,6 @@ pub struct OmaApt {
     tokio: Runtime,
     connection: Option<Connection>,
     unmet: Vec<String>,
-    local_debs: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -191,11 +189,6 @@ impl OmaApt {
             tokio,
             connection: conn,
             unmet: vec![],
-            local_debs: local_debs
-                .iter()
-                .flat_map(|x| Path::new(x).canonicalize())
-                .map(|x| x.display().to_string())
-                .collect::<Vec<_>>(),
         })
     }
 
@@ -296,7 +289,7 @@ impl OmaApt {
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
         for pkg in pkgs {
-            let marked_install = mark_install(&self.cache, pkg, reinstall, &self.local_debs)?;
+            let marked_install = mark_install(&self.cache, pkg, reinstall)?;
 
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
@@ -1253,7 +1246,6 @@ fn mark_install(
     cache: &Cache,
     pkginfo: &PkgInfo,
     reinstall: bool,
-    local_debs: &[String],
 ) -> OmaAptResult<bool> {
     let pkg = pkginfo.raw_pkg.unique();
     let version = pkginfo.version_raw.unique();
@@ -1286,16 +1278,14 @@ fn mark_install(
 
     pkg.protect();
 
-    // 需要把第三方来源的包的 auto_inst 设为 false，否则无法检查依赖问题
-    let auto_inst = !ver
-        .uris()
-        .any(|x| local_debs.contains(&x.strip_prefix("file:").map(url_no_escape).unwrap_or(x)));
+    // FIXME: 不确定这里是一个什么样的逻辑，auto_inst 会标记为 true
+    // 暂时这里的 workaround 是若这个包已经安装，则 auto_inst 标记为 true (这是猜测，需要详细去读 apt 的源码才知道是一个什么样的逻辑)
+    pkg.mark_install(pkg.is_installed(), true);
 
-    pkg.mark_install(auto_inst, true);
     debug!("marked_install: {}", pkg.marked_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
-
+    debug!("marked_keep: {}", pkg.marked_keep());
     debug!("{} will marked install", pkg.name());
 
     Ok(true)
