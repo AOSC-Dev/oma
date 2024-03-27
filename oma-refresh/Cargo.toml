@@ -18,7 +18,7 @@ once_cell = "1.18"
 futures = "0.3"
 oma-apt-sources-lists = "0.2"
 oma-debcontrol = "0.3"
-sequoia-openpgp = { version = "1.13", default_features = false }
+sequoia-openpgp = { git = "https://gitlab.com/sequoia-pgp/sequoia", rev = "f21016f51ca9f71d519bce5215394d5dadd63df7" }
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.7.0", path = "../oma-topics", optional = true, default-features = false }
