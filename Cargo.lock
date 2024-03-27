@@ -526,8 +526,7 @@ dependencies = [
 [[package]]
 name = "buffered-reader"
 version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b9b0a25eb06e83579bc985d836e1e3b957a7201301b48538764d2b2e78090d4"
+source = "git+https://gitlab.com/sequoia-pgp/sequoia?rev=f21016f51ca9f71d519bce5215394d5dadd63df7#f21016f51ca9f71d519bce5215394d5dadd63df7"
 dependencies = [
  "lazy_static",
  "libc",
@@ -2723,7 +2722,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.12.6"
+version = "0.12.6+sequoia-header-fix"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3540,8 +3539,7 @@ checksum = "58bf37232d3bb9a2c4e641ca2a11d83b5062066f88df7fed36c28772046d65ba"
 [[package]]
 name = "sequoia-openpgp"
 version = "1.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebf154ce4af3d7983de8fded403f98ff9eb3ee38dffccea0472ac38aa4276df4"
+source = "git+https://gitlab.com/sequoia-pgp/sequoia?rev=f21016f51ca9f71d519bce5215394d5dadd63df7#f21016f51ca9f71d519bce5215394d5dadd63df7"
 dependencies = [
  "anyhow",
  "base64",
