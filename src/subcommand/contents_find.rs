@@ -11,9 +11,9 @@ use crate::fl;
 use crate::table::oma_display_with_normal_output;
 
 pub fn execute(
-    x: &str,
+    mode: &str,
     is_bin: bool,
-    pkg: &str,
+    input: &str,
     no_progress: bool,
     sysroot: String,
 ) -> Result<i32, OutputError> {
@@ -29,7 +29,7 @@ pub fn execute(
         None
     };
 
-    let query_mode = match x {
+    let query_mode = match mode {
         "files" => QueryMode::ListFiles(is_bin),
         "provides" => QueryMode::Provides(is_bin),
         _ => unreachable!(),
@@ -38,7 +38,7 @@ pub fn execute(
     let arch = dpkg_arch(&sysroot)?;
 
     let res = oma_contents::find(
-        pkg,
+        input,
         query_mode,
         &Path::new(&sysroot).join("var/lib/apt/lists"),
         &arch,

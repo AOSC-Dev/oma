@@ -12,7 +12,7 @@ use crate::{
 use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
-use super::utils::{no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
+use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
 
 pub fn execute(
     pkg_str: &str,
@@ -21,6 +21,7 @@ pub fn execute(
     sysroot: String,
 ) -> Result<i32, OutputError> {
     root()?;
+    lock_oma()?;
 
     let OmaArgs {
         dry_run,

@@ -10,6 +10,6 @@ description = "some type abstract from oma-pm crate"
 [dependencies]
 derive_builder = "0.20"
 serde = { version = "1.0", features = ["derive"] }
-oma-utils = { version = "^0.6.0", path = "../oma-utils", features = [
+oma-utils = { version = "^0.7.0", path = "../oma-utils", features = [
     "human-bytes",
 ] }

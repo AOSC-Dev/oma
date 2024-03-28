@@ -43,7 +43,7 @@ impl Ord for PackageStatus {
     }
 }
 
-struct SearchEntry {
+pub struct SearchEntry {
     pkgname: String,
     description: String,
     status: PackageStatus,
@@ -85,7 +85,7 @@ pub enum OmaSearchError {
 
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SearchResult {
     pub name: String,
     pub desc: String,
@@ -97,55 +97,23 @@ pub struct SearchResult {
     pub is_base: bool,
 }
 
-pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResult>> {
-    let mut search_res = vec![];
-    let input = input.to_lowercase();
-    let sort = PackageSort::default().include_virtual();
-    let packages = cache.packages(&sort)?;
+pub struct OmaSearch<'a> {
+    cache: &'a Cache,
+    pub pkg_map: HashMap<String, SearchEntry>,
+    index: SearchIndex<String>,
+}
 
-    let mut pkg_map = HashMap::new();
+impl<'a> OmaSearch<'a> {
+    pub fn new(cache: &'a Cache) -> OmaSearchResult<Self> {
+        let sort = PackageSort::default().include_virtual();
+        let packages = cache.packages(&sort)?;
 
-    for pkg in packages {
-        if pkg.name().contains("-dbg") {
-            continue;
-        }
+        let mut pkg_map = HashMap::new();
 
-        let status = if pkg.is_upgradable() {
-            PackageStatus::Upgrade
-        } else if pkg.is_installed() {
-            PackageStatus::Installed
-        } else {
-            PackageStatus::Avail
-        };
-
-        if let Some(cand) = pkg.candidate() {
-            if pkg_map.get(pkg.name()).is_none() {
-                pkg_map.insert(
-                    pkg.name().to_string(),
-                    SearchEntry {
-                        pkgname: pkg.name().to_string(),
-                        description: format_description(
-                            &cand.description().unwrap_or("".to_string()),
-                        )
-                        .0
-                        .to_string(),
-                        status,
-                        provide: pkg.provides().next().map(|x| x.name().to_string()),
-                        has_dbg: has_dbg(cache, &pkg, &cand),
-                        raw_pkg: pkg.unique(),
-                        section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
-                    },
-                );
+        for pkg in packages {
+            if pkg.name().contains("-dbg") {
                 continue;
             }
-        }
-
-        let real_pkgs = pkg
-            .provides()
-            .map(|x| (x.name().to_string(), x.target_pkg()));
-
-        for (provide, i) in real_pkgs {
-            let pkg = Package::new(cache, i.unique());
 
             let status = if pkg.is_upgradable() {
                 PackageStatus::Upgrade
@@ -156,52 +124,120 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
             };
 
             if let Some(cand) = pkg.candidate() {
-                pkg_map.insert(
-                    i.name().to_string(),
-                    SearchEntry {
-                        pkgname: pkg.name().to_string(),
-                        description: format_description(
-                            &cand.description().unwrap_or("".to_string()),
-                        )
-                        .0
-                        .to_string(),
-                        status,
-                        provide: Some(provide.to_string()),
-                        has_dbg: has_dbg(cache, &pkg, &cand),
-                        raw_pkg: pkg.unique(),
-                        section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
-                    },
-                );
+                if pkg_map.get(pkg.name()).is_none() {
+                    pkg_map.insert(
+                        pkg.name().to_string(),
+                        SearchEntry {
+                            pkgname: pkg.name().to_string(),
+                            description: format_description(
+                                &cand.description().unwrap_or("".to_string()),
+                            )
+                            .0
+                            .to_string(),
+                            status,
+                            provide: pkg.provides().next().map(|x| x.name().to_string()),
+                            has_dbg: has_dbg(cache, &pkg, &cand),
+                            raw_pkg: pkg.unique(),
+                            section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
+                        },
+                    );
+                    continue;
+                }
+            }
+
+            let real_pkgs = pkg
+                .provides()
+                .map(|x| (x.name().to_string(), x.target_pkg()));
+
+            for (provide, i) in real_pkgs {
+                let pkg = Package::new(cache, i.unique());
+
+                let status = if pkg.is_upgradable() {
+                    PackageStatus::Upgrade
+                } else if pkg.is_installed() {
+                    PackageStatus::Installed
+                } else {
+                    PackageStatus::Avail
+                };
+
+                if let Some(cand) = pkg.candidate() {
+                    pkg_map.insert(
+                        i.name().to_string(),
+                        SearchEntry {
+                            pkgname: pkg.name().to_string(),
+                            description: format_description(
+                                &cand.description().unwrap_or("".to_string()),
+                            )
+                            .0
+                            .to_string(),
+                            status,
+                            provide: Some(provide.to_string()),
+                            has_dbg: has_dbg(cache, &pkg, &cand),
+                            raw_pkg: pkg.unique(),
+                            section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
+                        },
+                    );
+                }
             }
         }
+
+        let mut search_index: SearchIndex<String> = SearchIndex::default();
+
+        pkg_map
+            .iter()
+            .for_each(|(key, value)| search_index.insert(key, value));
+
+        Ok(Self {
+            cache,
+            pkg_map,
+            index: search_index,
+        })
     }
 
-    let mut search_index: SearchIndex<String> = SearchIndex::default();
+    pub fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
+        let mut search_res = vec![];
+        let query = query.to_lowercase();
+        let res = self.index.search(&query);
 
-    pkg_map
-        .iter()
-        .for_each(|(key, value)| search_index.insert(key, value));
+        if res.is_empty() {
+            return Err(OmaSearchError::NoResult(query));
+        }
 
-    let res = search_index.search(&input);
+        for i in res {
+            let entry = self.search_result(i, Some(&query))?;
+            search_res.push(entry);
+        }
 
-    if res.is_empty() {
-        let input = input.to_string();
-        return Err(OmaSearchError::NoResult(input));
+        search_res.sort_by(|a, b| b.status.cmp(&a.status));
+
+        for i in 0..search_res.len() {
+            if search_res[i].full_match {
+                let i = search_res.remove(i);
+                search_res.insert(0, i);
+            }
+        }
+
+        Ok(search_res)
     }
 
-    for i in res {
-        // res 的源确保是存在的，所以直接 unwrap
-        let entry = pkg_map.get(i).unwrap();
-
+    pub fn search_result(
+        &self,
+        i: &str,
+        query: Option<&str>,
+    ) -> Result<SearchResult, OmaSearchError> {
+        let entry = self.pkg_map.get(i).unwrap();
         let name = entry.pkgname.clone();
         let desc = entry.description.clone();
-
         let status = entry.status.clone();
         let has_dbg = entry.has_dbg;
         let pkg = entry.raw_pkg.unique();
-        let pkg = Package::new(cache, pkg);
+        let pkg = Package::new(self.cache, pkg);
 
-        let full_match = name == input || entry.provide == Some(input.to_string());
+        let full_match = if let Some(query) = query {
+            query == name || entry.provide.as_ref().map(|x| x == query).unwrap_or(false)
+        } else {
+            false
+        };
 
         let old_version = if status != PackageStatus::Upgrade {
             None
@@ -216,7 +252,7 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
 
         let is_base = entry.section_is_base;
 
-        search_res.push(SearchResult {
+        Ok(SearchResult {
             name,
             desc,
             old_version,
@@ -225,17 +261,6 @@ pub fn search_pkgs(cache: &Cache, input: &str) -> OmaSearchResult<Vec<SearchResu
             dbg_package: has_dbg,
             status,
             is_base,
-        });
+        })
     }
-
-    search_res.sort_by(|a, b| b.status.cmp(&a.status));
-
-    for i in 0..search_res.len() {
-        if search_res[i].full_match {
-            let i = search_res.remove(i);
-            search_res.insert(0, i);
-        }
-    }
-
-    Ok(search_res)
 }

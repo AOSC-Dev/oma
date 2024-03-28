@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::io::{self, ErrorKind};
 
-use oma_console::due_to;
+use oma_console::{due_to, msg};
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
@@ -18,10 +18,10 @@ use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 use crate::fl;
-use crate::table::print_unmet_dep;
+use crate::subcommand::utils::LockError;
 
 use self::ChainState::*;
 
@@ -171,6 +171,15 @@ impl From<OmaAptArgsBuilderError> for OutputError {
     }
 }
 
+impl From<LockError> for OutputError {
+    fn from(value: LockError) -> Self {
+        Self {
+            description: "".to_string(),
+            source: Some(Box::new(value)),
+        }
+    }
+}
+
 impl From<OmaDbusError> for OutputError {
     fn from(value: OmaDbusError) -> Self {
         debug!("{:?}", value);
@@ -193,6 +202,29 @@ impl From<OmaDbusError> for OutputError {
             OmaDbusError::FailedGetBatteryStatus(e) => Self {
                 description: fl!("failed-to-set-lockscreen"),
                 source: Some(Box::new(e)),
+            },
+            OmaDbusError::FailedGetOmaStatus(e) => Self {
+                description: "Failed to get oma status".to_string(),
+                source: Some(Box::new(e)),
+            },
+        }
+    }
+}
+
+impl From<OmaSearchError> for OutputError {
+    fn from(value: OmaSearchError) -> Self {
+        match value {
+            OmaSearchError::RustApt(e) => OutputError {
+                description: fl!("apt-error"),
+                source: Some(Box::new(e)),
+            },
+            OmaSearchError::NoResult(e) => OutputError {
+                description: fl!("could-not-find-pkg-from-keyword", c = e),
+                source: None,
+            },
+            OmaSearchError::FailedGetCandidate(s) => OutputError {
+                description: fl!("no-candidate-ver", pkg = s),
+                source: None,
             },
         }
     }
@@ -475,16 +507,19 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("can-not-mark-reinstall", name = pkg, version = version),
             source: None,
         },
-        OmaAptError::DependencyIssue(ref v) => match v {
-            v if v.is_empty() || print_unmet_dep(v).is_err() => OutputError {
-                description: err.to_string(),
-                source: None,
-            },
-            _ => OutputError {
+        OmaAptError::DependencyIssue(ref v) => {
+            error!("{}", fl!("dep-issue-1"));
+            info!("{}", fl!("dep-issue-2"));
+            println!();
+            for i in v {
+                msg!("{}", i);
+            }
+            println!();
+            OutputError {
                 description: "".to_string(),
                 source: None,
-            },
-        },
+            }
+        }
         OmaAptError::PkgIsEssential(s) => OutputError {
             description: fl!("pkg-is-essential", name = s),
             source: None,

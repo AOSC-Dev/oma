@@ -7,10 +7,11 @@ use crate::{
     OmaArgs,
 };
 
-use super::utils::{no_check_dbus_warn, normal_commit, NormalCommitArgs};
+use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs};
 
 pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
+    lock_oma()?;
 
     let OmaArgs {
         dry_run,
@@ -31,7 +32,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
         .build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     apt.resolve(false)?;
 
     let args = NormalCommitArgs {

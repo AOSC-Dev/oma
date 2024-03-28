@@ -25,6 +25,7 @@ use crate::UpgradeArgs;
 use super::utils::check_empty_op;
 use super::utils::handle_event_without_progressbar;
 use super::utils::handle_no_result;
+use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
 use super::utils::refresh;
 
@@ -34,6 +35,7 @@ pub fn execute(
     oma_args: OmaArgs,
 ) -> Result<i32, OutputError> {
     root()?;
+    lock_oma()?;
 
     let OmaArgs {
         dry_run,

@@ -11,7 +11,7 @@ use tracing::{debug, info};
 
 use crate::{
     pkginfo::PkgInfo,
-    search::{search_pkgs, OmaSearchError, SearchResult},
+    search::{OmaSearch, OmaSearchError, SearchResult},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -248,7 +248,8 @@ impl<'a> OmaDatabase<'a> {
 
     /// Smart search pkgs
     pub fn search(&self, keyword: &str) -> OmaDatabaseResult<Vec<SearchResult>> {
-        let res = search_pkgs(self.cache, keyword)?;
+        let searcher = OmaSearch::new(self.cache)?;
+        let res = searcher.search(keyword)?;
 
         Ok(res)
     }

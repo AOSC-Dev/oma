@@ -1,4 +1,4 @@
-use zbus::{dbus_proxy, zvariant::OwnedFd, Result as zResult};
+use zbus::{proxy, zvariant::OwnedFd, Result as zResult};
 
 pub use zbus::Connection;
 
@@ -12,22 +12,24 @@ pub enum OmaDbusError {
     FailedCreateProxy(&'static str, zbus::Error),
     #[error("Failed to get battery status")]
     FailedGetBatteryStatus(zbus::Error),
+    #[error("Failed to get another oma status")]
+    FailedGetOmaStatus(zbus::Error),
 }
 
 pub type OmaDbusResult<T> = Result<T, OmaDbusError>;
 
-#[dbus_proxy(
+#[proxy(
     interface = "org.freedesktop.UPower",
     default_service = "org.freedesktop.UPower",
     default_path = "/org/freedesktop/UPower"
 )]
 trait UPower {
     /// OnBattery property
-    #[dbus_proxy(property)]
+    #[zbus(property)]
     fn on_battery(&self) -> zResult<bool>;
 }
 
-#[dbus_proxy(
+#[proxy(
     interface = "org.freedesktop.login1.Manager",
     default_service = "org.freedesktop.login1",
     default_path = "/org/freedesktop/login1"
@@ -37,10 +39,32 @@ trait Login1 {
     fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zResult<OwnedFd>;
 }
 
+#[proxy(
+    interface = "io.aosc.Oma1",
+    default_service = "io.aosc.Oma",
+    default_path = "/io/aosc/Oma"
+)]
+trait OmaDbus {
+    async fn get_status(&self) -> zResult<String>;
+}
+
 pub async fn create_dbus_connection() -> OmaDbusResult<Connection> {
     Connection::system()
         .await
         .map_err(OmaDbusError::FailedConnectDbus)
+}
+
+pub async fn get_another_oma_status(conn: &Connection) -> OmaDbusResult<String> {
+    let proxy = OmaDbusProxy::new(conn)
+        .await
+        .map_err(|e| OmaDbusError::FailedCreateProxy("oma1", e))?;
+
+    let s = proxy
+        .get_status()
+        .await
+        .map_err(OmaDbusError::FailedGetOmaStatus)?;
+
+    Ok(s)
 }
 
 /// Take the wake lock and prevent the system from sleeping. Drop the returned file handle to release the lock.

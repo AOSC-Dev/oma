@@ -65,7 +65,7 @@ impl Pager {
     /// Get writer to writer something to pager
     pub fn get_writer(&self) -> io::Result<Box<dyn Write + '_>> {
         let res = match self {
-            Pager::Plain => Writer::default().get_writer(),
+            Pager::Plain => Writer::new_stdout().get_writer(),
             Pager::External((_, child)) => {
                 let stdin = child
                     .stdin

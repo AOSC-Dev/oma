@@ -79,10 +79,11 @@ pub struct TopicManager {
     all: Vec<Topic>,
     client: Client,
     sysroot: PathBuf,
+    pub arch: String,
 }
 
 impl TopicManager {
-    pub async fn new<P: AsRef<Path>>(sysroot: P) -> Result<Self> {
+    pub async fn new<P: AsRef<Path>>(sysroot: P, arch: &str) -> Result<Self> {
         let atm_state = Self::atm_state_path(&sysroot).await?;
         let f = tokio::fs::read_to_string(&atm_state).await.map_err(|e| {
             OmaTopicsError::FailedToOperateDirOrFile(atm_state.display().to_string(), e)
@@ -93,6 +94,7 @@ impl TopicManager {
             all: vec![],
             client: reqwest::ClientBuilder::new().user_agent("oma").build()?,
             sysroot: sysroot.as_ref().to_path_buf(),
+            arch: arch.to_string(),
         })
     }
 
@@ -140,13 +142,13 @@ impl TopicManager {
             })
             .collect::<Vec<_>>();
 
-        self.all = refresh_innter(&self.client, urls).await?;
+        self.all = refresh_innter(&self.client, urls, &self.arch).await?;
 
         Ok(())
     }
 
     /// Enable select topic
-    pub fn add(&mut self, topic: &str, dry_run: bool, arch: &str) -> Result<()> {
+    pub fn add(&mut self, topic: &str, dry_run: bool) -> Result<()> {
         debug!("oma will opt_in: {}", topic);
 
         if dry_run {
@@ -157,13 +159,9 @@ impl TopicManager {
 
         debug!("all topic: {all:?}");
 
-        let index = all.iter().find(|x| {
-            x.name.to_ascii_lowercase() == topic.to_ascii_lowercase()
-                && x.arch
-                    .as_ref()
-                    .map(|x| x.contains(&arch.to_string()) || x.contains(&"all".to_string()))
-                    .unwrap_or(false)
-        });
+        let index = all
+            .iter()
+            .find(|x| x.name.to_ascii_lowercase() == topic.to_ascii_lowercase());
 
         let enabled_names = self.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
 
@@ -297,7 +295,7 @@ impl TopicManager {
     }
 }
 
-async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>> {
+async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Result<Vec<Topic>> {
     let mut json = vec![];
     let mut tasks = vec![];
 
@@ -327,16 +325,26 @@ async fn refresh_innter(client: &Client, urls: Vec<String>) -> Result<Vec<Topic>
 
     json.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
+    let json = json
+        .into_iter()
+        .filter(|x| {
+            x.arch
+                .as_ref()
+                .map(|x| x.contains(&arch.to_string()) || x.contains(&"all".to_string()))
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
+
     Ok(json)
 }
 
 /// Scan all close topics from upstream and disable it
-pub async fn scan_closed_topic<F, P>(callback: F, rootfs: P) -> Result<Vec<String>>
+pub async fn scan_closed_topic<F, P>(callback: F, rootfs: P, arch: &str) -> Result<Vec<String>>
 where
     F: Fn() -> String + Copy,
     P: AsRef<Path>,
 {
-    let mut tm = TopicManager::new(rootfs).await?;
+    let mut tm = TopicManager::new(rootfs, arch).await?;
     tm.refresh().await?;
     let all = tm.all_topics().to_owned();
 

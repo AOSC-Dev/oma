@@ -1,6 +1,6 @@
 [package]
 name = "oma-utils"
-version = "0.6.4"
+version = "0.7.3"
 edition = "2021"
 description = "Some small-tools to help oma handle something"
 license = "MIT"
@@ -12,14 +12,10 @@ thiserror = "1.0"
 number_prefix = { version = "0.4", optional = true }
 once_cell = "1.18"
 os-release = "0.1"
-oma-console = { version = "^0.10", path = "../oma-console", optional = true, default-features = false, features = [
+oma-console = { version = "^0.11", path = "../oma-console", optional = true, default-features = false, features = [
     "print",
 ] }
-
-# For rustc 1.74.0 (AOSC OS)
-zbus = { version = "=3.15", optional = true }
-zvariant_utils = "=1.0.1"
-
+zbus = { version = "4.1", optional = true }
 url-escape = { version = "0.1", optional = true }
 tracing = "0.1"
 

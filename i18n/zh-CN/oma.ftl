@@ -69,19 +69,19 @@ automatic-mode-warn = 正以无人值守模式运行 oma。如非本人所为，
 removed-as-unneed-dep = 清理未使用的依赖
 purge-file = 清理配置文件
 semicolon = ；
-pick-tips = 请指定软件包 {$pkgname} 的版本：
+pick-tips = 请指定要安装的 {$pkgname} 的版本：
 battery = 您的电脑目前似乎正在使用电池供电。oma 在执行任务时可能会消耗大量电量，推荐您接入交流电源以防断电导致数据损坏。
 continue = 您确定要继续吗？
 changing-system = oma 正在修改你的系统
+failed-to-lock-oma = 无法解锁 oma 进程。
 
 # main
 user-aborted-op = 用户已中止操作。
 
 # formatter
 count-pkg-has-desc = {$count} 个软件包将被
-dep-error = 依赖关系错误
-dep-error-desc = oma 探测到依赖关系问题，因此无法继续进行指定操作。该问题可能是
-    软件包缺失或来源不统一，抑或是指定的软件包版本与当前系统不兼容导致的。
+dep-issue-1 = oma 发现指定软件包存在依赖问题，故无法安装。
+dep-issue-2 = 如下是该依赖问题的完整分析报告，请复制或截图如下信息并联系 AOSC OS 维护者：
 contact-admin-tips = 请联系您的系统管理员或开发者。
 how-to-abort = 按 [q] 或 [Ctrl-c] 中止操作
 how-to-op-with-x = 按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页
@@ -171,9 +171,23 @@ failed-to-get-power-status = 无法获取设备供电状态。
 
 failed-check-dbus = 由于当前管理的系统尚未启动，oma 无法探测系统运行状态。
 failed-check-dbus-tips-1 = 在此状态下，oma 无法检查电源及用户会话等关键系统状态，如继续操作可能会导致系统故障！
-failed-check-dbus-tips-2 = 如果您正尝试用 chroot 等方式修复系统，请在 oma 命令后加 --no-check-dbus 参数
-failed-check-dbus-tips-3 = 如果您的系统是长期在容器或 chroot 环境下运行的，请修改 /etc/oma.toml 下的 no_check_dbus 参数为 true
+failed-check-dbus-tips-2 = 如果您正尝试用 chroot 等方式修复系统，请在 oma 命令后加 --no-check-dbus 参数。
+failed-check-dbus-tips-3 = 如果您的系统是长期在容器或 chroot 环境下运行的，请修改 oma 配置文件 (/etc/oma.toml) 下的 `no_check_dbus' 选项为 `true' 。
 
-no-check-dbus-tips = 目前 oma 将不探测系统运行状态，这将不检测电源及用户会话等关键系统状态，如继续操作可能会导致系统故障
+no-check-dbus-tips = 目前 oma 已被配置为不探测系统运行状态，将忽略电源及用户会话等关键系统状态；如继续操作可能会导致系统故障。
 
 oma-history-is-empty = oma 历史记录为空。
+tui-pending = 待办事项
+tui-search = 搜索软件包
+tui-packages = 软件包列表（{$u} 可更新，{$r} 可删除，{$i} 可安装）
+tui-start-1 = 欢迎使用小熊猫包管理！
+tui-start-2 = 切换面板
+tui-start-3 = 显示/隐藏待办事项
+tui-start-4 = 应用修改
+tui-start-5 = 添加/删除操作条目
+tui-start-6 = 搜索
+tui-start-7 = 退出
+tui-start = 开始使用
+
+oma = 小熊猫包管理
+another-oma-is-running = 有另一个 oma 实例正在运行中：{$s}。
