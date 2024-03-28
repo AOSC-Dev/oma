@@ -120,13 +120,17 @@ impl SingleDownloader<'_> {
                         if self.retry_times == times {
                             return Err(e);
                         }
-                        callback(
-                            self.download_list_index,
-                            DownloadEvent::ChecksumMismatchRetry {
-                                filename: filename.clone(),
-                                times,
-                            },
-                        );
+
+                        if times > 1 {
+                            callback(
+                                self.download_list_index,
+                                DownloadEvent::ChecksumMismatchRetry {
+                                    filename: filename.clone(),
+                                    times,
+                                },
+                            );
+                        }
+
                         times += 1;
                         allow_resume = false;
                     }
