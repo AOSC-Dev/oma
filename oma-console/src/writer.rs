@@ -161,7 +161,11 @@ where
         } else {
             let segmenter = LineSegmenter::new_auto();
             let breakpoint = segmenter.segment_str(ref_s).filter(|x| x <= &len).max();
-            let breakpoint = breakpoint.unwrap_or(len);
+            let mut breakpoint = breakpoint.unwrap_or(len);
+
+            if breakpoint == 0 {
+                breakpoint = len;
+            }
 
             console::truncate_str(ref_s, breakpoint, "\n")
         };
