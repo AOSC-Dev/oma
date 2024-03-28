@@ -40,6 +40,13 @@ impl Writer {
         }
     }
 
+    pub fn new_stdout() -> Self {
+        Self {
+            term: Term::stdout(),
+            ..Default::default()
+        }
+    }
+
     /// See environment is terminal
     pub fn is_terminal(&self) -> bool {
         self.term.is_term()
