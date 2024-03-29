@@ -181,8 +181,6 @@ pub fn execute(
     network_thread: usize,
 ) -> Result<i32, OutputError> {
     root()?;
-    lock_oma()?;
-
     refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
 
     stdout()
@@ -594,6 +592,7 @@ pub fn execute(
     })?;
 
     if execute_apt {
+        lock_oma()?;
         apt.upgrade()?;
         apt.install(&install, false)?;
         apt.remove(&remove, false, false, |pkg| {
