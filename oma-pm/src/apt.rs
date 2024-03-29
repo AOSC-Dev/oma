@@ -1194,22 +1194,12 @@ fn mark_install(
 
     pkg.protect();
 
-    // 先设置 auto_inst 为 false 检查一遍依赖问题
-    pkg.mark_install(false, true);
-
-    let mut unmet = vec![];
-
-    if cache.depcache().broken_count() != 0 && cache.resolve(false).is_err() {
-        for pkg in cache {
-            let res = show_broken_pkg(&cache, &pkg, false);
-            if !res.is_empty() {
-                unmet.extend(res);
-            }
-        }
-        return Err(OmaAptError::DependencyIssue(unmet.to_vec()));
-    }
-
+    // 根据 Packagekit 的源码
+    // https://github.com/PackageKit/PackageKit/blob/a0a52ce90adb75a5df7ad1f0b1c9888f2eaf1a7b/backends/apt/apt-job.cpp#L388
+    // 先标记 auto_inst 为 true 把所有该包的依赖标记为自动安装
+    // 再把本包的 auto_inst 标记为 false，检查依赖问题
     pkg.mark_install(true, true);
+    pkg.mark_install(false, true);
 
     debug!("marked_install: {}", pkg.marked_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
