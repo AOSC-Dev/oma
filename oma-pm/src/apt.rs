@@ -1158,11 +1158,7 @@ fn select_pkg(
 }
 
 /// Mark package as install.
-fn mark_install(
-    cache: &Cache,
-    pkginfo: &PkgInfo,
-    reinstall: bool,
-) -> OmaAptResult<bool> {
+fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResult<bool> {
     let pkg = pkginfo.raw_pkg.unique();
     let version = pkginfo.version_raw.unique();
     let ver = Version::new(version, cache);
