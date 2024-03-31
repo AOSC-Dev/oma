@@ -68,6 +68,7 @@ pub struct Topic {
     pub name: String,
     pub description: Option<String>,
     date: u64,
+    update_date: u64,
     #[serde(skip_serializing)]
     arch: Option<Vec<String>>,
     pub packages: Vec<String>,
@@ -296,7 +297,7 @@ impl TopicManager {
 }
 
 async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Result<Vec<Topic>> {
-    let mut json = vec![];
+    let mut json: Vec<Topic> = vec![];
     let mut tasks = vec![];
 
     for url in urls {
@@ -315,12 +316,18 @@ async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Resul
     let res = futures::future::try_join_all(tasks).await?;
 
     for i in res {
-        let f = i
-            .into_iter()
-            .filter(|x| json.iter().all(|y: &Topic| y.name != x.name))
-            .collect::<Vec<_>>();
-
-        json.extend(f);
+        for j in i {
+            match json.iter().position(|x| x.name == j.name) {
+                Some(index) => {
+                    if j.update_date > json[index].update_date {
+                        json[index] = j.clone();
+                    }
+                }
+                None => {
+                    json.push(j);
+                }
+            }
+        }
     }
 
     json.sort_unstable_by(|a, b| a.name.cmp(&b.name));
