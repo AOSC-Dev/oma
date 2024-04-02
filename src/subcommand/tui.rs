@@ -408,7 +408,9 @@ pub fn execute(
                         }
                     },
                     KeyCode::Down => match mode {
-                        Mode::Search => mode = Mode::Packages,
+                        Mode::Search => {
+                            change_to_packages_window(&mut mode, &mut display_list);
+                        }
                         Mode::Packages => {
                             display_list.next();
                         }
@@ -522,6 +524,20 @@ pub fn execute(
                                 Mode::Pending => Mode::Search,
                             };
                         }
+
+                        match mode {
+                            Mode::Search => {}
+                            Mode::Packages => {
+                                if display_list.state.selected().is_none() {
+                                    display_list.state.select(Some(0));
+                                }
+                            }
+                            Mode::Pending => {
+                                if pending_display_list.state.selected().is_none() {
+                                    pending_display_list.state.select(Some(0));
+                                }
+                            }
+                        }
                     }
                     KeyCode::Backspace => {
                         if mode != Mode::Search {
@@ -558,8 +574,12 @@ pub fn execute(
                                 cursor_position = 0;
                             }
                         }
-                        Mode::Packages => mode = Mode::Pending,
-                        Mode::Pending => mode = Mode::Packages,
+                        Mode::Packages => {
+                            change_to_pending_window(&mut mode, &mut pending_display_list);
+                        }
+                        Mode::Pending => {
+                            change_to_packages_window(&mut mode, &mut display_list);
+                        }
                     },
                     KeyCode::Right => match mode {
                         Mode::Search => {
@@ -567,8 +587,12 @@ pub fn execute(
                                 cursor_position += 1;
                             }
                         }
-                        Mode::Packages => mode = Mode::Pending,
-                        Mode::Pending => mode = Mode::Packages,
+                        Mode::Packages => {
+                            change_to_pending_window(&mut mode, &mut pending_display_list);
+                        }
+                        Mode::Pending => {
+                            change_to_packages_window(&mut mode, &mut display_list);
+                        }
                     },
                     KeyCode::F(1) => {
                         display_pending_detail = !display_pending_detail;
@@ -614,6 +638,23 @@ pub fn execute(
     }
 
     Ok(0)
+}
+
+fn change_to_packages_window(mode: &mut Mode, display_list: &mut StatefulList<Text<'static>>) {
+    *mode = Mode::Packages;
+    if display_list.state.selected().is_none() {
+        display_list.state.select(Some(0));
+    }
+}
+
+fn change_to_pending_window(
+    mode: &mut Mode,
+    pending_display_list: &mut StatefulList<Text<'static>>,
+) {
+    *mode = Mode::Pending;
+    if pending_display_list.state.selected().is_none() {
+        pending_display_list.state.select(Some(0));
+    }
 }
 
 fn show_packages(
