@@ -162,6 +162,10 @@ impl OmaAptInstallProgress {
             config.set("Dpkg::Use-Pty", "false");
         }
 
+        if yes || force_yes || dpkg_force_all {
+            std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
+        }
+
         let dir = config.get("Dir").unwrap_or("/".to_owned());
 
         config.set("Dpkg::Options::", &format!("--root={dir}"));
