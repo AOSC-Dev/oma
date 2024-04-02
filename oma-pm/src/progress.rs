@@ -130,11 +130,13 @@ impl OmaAptInstallProgress {
 
             debug!("Dpkg::Options:: is set to --force-confnew");
         } else if yes {
+            // --force-confdef reason:
+            // https://unix.stackexchange.com/questions/641099/any-possible-conflict-between-using-both-force-confold-and-force-confnew-wit/642541#642541
             let opts = config.get("Dpkg::Options::");
             if let Some(opts) = opts {
-                config.set("Dpkg::Options::", &format!("{opts} --force-confold"))
+                config.set("Dpkg::Options::", &format!("{opts} --force-confold --force-confdef"))
             } else {
-                config.set("Dpkg::Options::", "--force-confold")
+                config.set("Dpkg::Options::", "--force-confold --force-confdef")
             }
 
             debug!("Dpkg::Options:: is set to --force-confold");
