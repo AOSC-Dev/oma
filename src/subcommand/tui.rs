@@ -443,6 +443,10 @@ pub fn execute(
                                             .unwrap();
 
                                         pending_display_list.items.remove(pos);
+                                        pending_display_list.state.select(None);
+                                        
+                                        let pending_pos = pending.iter().position(|x: &Operation| x.name == *name).unwrap();
+                                        pending.remove(pending_pos);
                                         install.remove(pkg_index);
                                         continue;
                                     }
@@ -463,7 +467,10 @@ pub fn execute(
                                             .unwrap();
 
                                         pending_display_list.items.remove(pos);
+                                        pending_display_list.state.select(None);
                                         remove.remove(pkg_index);
+                                        let pending_pos = pending.iter().position(|x: &Operation| x.name == *name).unwrap();
+                                        pending.remove(pending_pos);
                                         continue;
                                     }
 
@@ -516,9 +523,14 @@ pub fn execute(
                                         .unwrap();
                                     remove.remove(remove_pos);
                                 }
+                                if pending_display_list.items.is_empty() {
+                                    pending_display_list.state.select(None);
+                                } else {
+                                    pending_display_list.previous();
+                                }
                             }
                         }
-                    }, // TODO
+                    },
                     KeyCode::Char('/') => {
                         mode = Mode::Search;
                     }
@@ -562,14 +574,10 @@ pub fn execute(
                         match mode {
                             Mode::Search => {}
                             Mode::Packages => {
-                                if display_list.state.selected().is_none() {
-                                    display_list.state.select(Some(0));
-                                }
+                                change_to_packages_window(&mut mode, &mut display_list);
                             }
                             Mode::Pending => {
-                                if pending_display_list.state.selected().is_none() {
-                                    pending_display_list.state.select(Some(0));
-                                }
+                                change_to_pending_window(&mut mode, &mut pending_display_list);
                             }
                         }
                     }
@@ -676,7 +684,7 @@ pub fn execute(
 
 fn change_to_packages_window(mode: &mut Mode, display_list: &mut StatefulList<Text<'static>>) {
     *mode = Mode::Packages;
-    if display_list.state.selected().is_none() {
+    if display_list.state.selected().is_none() && !display_list.items.is_empty() {
         display_list.state.select(Some(0));
     }
 }
@@ -686,7 +694,7 @@ fn change_to_pending_window(
     pending_display_list: &mut StatefulList<Text<'static>>,
 ) {
     *mode = Mode::Pending;
-    if pending_display_list.state.selected().is_none() {
+    if pending_display_list.state.selected().is_none() && !pending_display_list.items.is_empty() {
         pending_display_list.state.select(Some(0));
     }
 }
