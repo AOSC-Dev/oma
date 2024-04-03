@@ -427,9 +427,43 @@ pub fn execute(
                                 display_pending_detail = true;
                                 let name = &result_rc.borrow()[i].name;
                                 if let Some(pkg) = apt.cache.get(name) {
-                                    if install.iter().any(|x: &PkgInfo| x.raw_pkg.name() == name)
-                                        || remove.iter().any(|x: &PkgInfo| x.raw_pkg.name() == name)
+                                    if let Some(pkg_index) = install
+                                        .iter()
+                                        .position(|x: &PkgInfo| x.raw_pkg.name() == name)
                                     {
+                                        let pos = pending_display_list
+                                            .items
+                                            .iter()
+                                            .position(|x| {
+                                                x.to_string().starts_with(&format!(
+                                                    "+ {}",
+                                                    install[pkg_index].raw_pkg.name()
+                                                ))
+                                            })
+                                            .unwrap();
+
+                                        pending_display_list.items.remove(pos);
+                                        install.remove(pkg_index);
+                                        continue;
+                                    }
+
+                                    if let Some(pkg_index) = remove
+                                        .iter()
+                                        .position(|x: &PkgInfo| x.raw_pkg.name() == name)
+                                    {
+                                        let pos = pending_display_list
+                                            .items
+                                            .iter()
+                                            .position(|x| {
+                                                x.to_string().starts_with(&format!(
+                                                    "- {}",
+                                                    remove[pkg_index].raw_pkg.name()
+                                                ))
+                                            })
+                                            .unwrap();
+
+                                        pending_display_list.items.remove(pos);
+                                        remove.remove(pkg_index);
                                         continue;
                                     }
 
