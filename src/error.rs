@@ -249,6 +249,7 @@ impl From<OmaDatabaseError> for OutputError {
 impl From<RefreshError> for OutputError {
     fn from(value: RefreshError) -> Self {
         debug!("{:?}", value);
+        #[cfg(feature = "aosc")]
         match value {
             RefreshError::InvaildUrl(_) => Self {
                 description: fl!("invaild-url"),
@@ -268,10 +269,106 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::FetcherError(e) => oma_download_error(e),
             RefreshError::ReqwestError(e) => OutputError::from(e),
-            #[cfg(feature = "aosc")]
             RefreshError::TopicsError(e) => oma_topics_error(e),
-            #[cfg(not(feature = "aosc"))]
-            RefreshError::TopicsError(_) => unreachable!(),
+            RefreshError::NoInReleaseFile(s) => Self {
+                description: fl!("not-found", url = s),
+                source: None,
+            },
+            RefreshError::InReleaseParseError(s, e) => match e {
+                InReleaseParserError::VerifyError(e) => match e {
+                    VerifyError::CertParseFileError(p, e) => Self {
+                        description: fl!("fail-load-certs-from-file", path = p),
+                        source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
+                    },
+                    VerifyError::BadCertFile(p, e) => Self {
+                        description: fl!("cert-file-is-bad", path = p),
+                        source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
+                    },
+                    VerifyError::TrustedDirNotExist => Self {
+                        description: e.to_string(),
+                        source: None,
+                    },
+                    VerifyError::Anyhow(e) => Self {
+                        description: e.to_string(),
+                        source: None,
+                    },
+                    VerifyError::FailedToReadInRelease(e) => Self {
+                        description: fl!("failed-to-read-decode-inrelease"),
+                        source: Some(Box::new(e)),
+                    },
+                },
+                InReleaseParserError::BadInReleaseData => Self {
+                    description: fl!("can-not-parse-date"),
+                    source: None,
+                },
+                InReleaseParserError::BadInReleaseVaildUntil => Self {
+                    description: fl!("can-not-parse-valid-until"),
+                    source: None,
+                },
+                InReleaseParserError::EarlierSignature(p) => Self {
+                    description: fl!("earlier-signature", filename = p),
+                    source: None,
+                },
+                InReleaseParserError::ExpiredSignature(p) => Self {
+                    description: fl!("expired-signature", filename = p),
+                    source: None,
+                },
+                InReleaseParserError::BadSha256Value(_) => Self {
+                    description: fl!("inrelease-sha256-empty"),
+                    source: None,
+                },
+                InReleaseParserError::BadChecksumEntry(line) => Self {
+                    description: fl!("inrelease-checksum-can-not-parse", i = line),
+                    source: None,
+                },
+                InReleaseParserError::InReleaseSyntaxError => Self {
+                    description: fl!("inrelease-syntax-error", path = s),
+                    source: None,
+                },
+                InReleaseParserError::UnsupportFileType => Self {
+                    description: fl!("inrelease-parse-unsupport-file-type"),
+                    source: None,
+                },
+                InReleaseParserError::ParseIntError(e) => Self {
+                    description: e.to_string(),
+                    source: None,
+                },
+            },
+            RefreshError::DpkgArchError(e) => OutputError::from(e),
+            RefreshError::JoinError(e) => Self {
+                description: e.to_string(),
+                source: None,
+            },
+            RefreshError::DownloadEntryBuilderError(e) => Self {
+                description: e.to_string(),
+                source: None,
+            },
+            RefreshError::ChecksumError(e) => oma_checksum_error(e),
+            RefreshError::FailedToOperateDirOrFile(path, e) => Self {
+                description: fl!("failed-to-operate-path", p = path),
+                source: Some(Box::new(e)),
+            },
+        }
+        #[cfg(not(feature = "aosc"))]
+        match value {
+            RefreshError::InvaildUrl(_) => Self {
+                description: fl!("invaild-url"),
+                source: None,
+            },
+            RefreshError::ParseDistroRepoDataError(path, e) => Self {
+                description: fl!("can-not-parse-sources-list", path = path),
+                source: Some(Box::new(e)),
+            },
+            RefreshError::ScanSourceError(e) => Self {
+                description: e.to_string(),
+                source: None,
+            },
+            RefreshError::UnsupportedProtocol(s) => Self {
+                description: fl!("unsupport-protocol", url = s),
+                source: None,
+            },
+            RefreshError::FetcherError(e) => oma_download_error(e),
+            RefreshError::ReqwestError(e) => OutputError::from(e),
             RefreshError::NoInReleaseFile(s) => Self {
                 description: fl!("not-found", url = s),
                 source: None,
