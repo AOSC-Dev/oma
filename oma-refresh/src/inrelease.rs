@@ -150,16 +150,16 @@ impl InReleaseParser {
                 x if x.contains("/Contents-") && x.contains('.') => {
                     let path = Path::new(x);
                     let ext = path.extension().and_then(|x| x.to_str()).unwrap();
-                    let without_filename = x.strip_suffix(&format!(".{ext}")).unwrap();
-                    DistFileType::CompressContents(without_filename.to_owned())
+                    let without_ext_filename = x.strip_suffix(&format!(".{ext}")).unwrap();
+                    DistFileType::CompressContents(without_ext_filename.to_owned())
                 }
                 x if x.contains("/Contents-") && !x.contains('.') => DistFileType::Contents,
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
                 x if x.contains("Packages") && x.contains('.') => {
                     let path = Path::new(x);
                     let ext = path.extension().and_then(|x| x.to_str()).unwrap();
-                    let without_filename = x.strip_suffix(&format!(".{ext}")).unwrap();
-                    DistFileType::CompressContents(without_filename.to_owned())
+                    let without_ext_filename = x.strip_suffix(&format!(".{ext}")).unwrap();
+                    DistFileType::CompressContents(without_ext_filename.to_owned())
                 }
                 x if x.contains("Release") => DistFileType::Release,
                 _ => {
