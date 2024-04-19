@@ -444,8 +444,11 @@ pub fn execute(
 
                                         pending_display_list.items.remove(pos);
                                         pending_display_list.state.select(None);
-                                        
-                                        let pending_pos = pending.iter().position(|x: &Operation| x.name == *name).unwrap();
+
+                                        let pending_pos = pending
+                                            .iter()
+                                            .position(|x: &Operation| x.name == *name)
+                                            .unwrap();
                                         pending.remove(pending_pos);
                                         install.remove(pkg_index);
                                         continue;
@@ -469,7 +472,10 @@ pub fn execute(
                                         pending_display_list.items.remove(pos);
                                         pending_display_list.state.select(None);
                                         remove.remove(pkg_index);
-                                        let pending_pos = pending.iter().position(|x: &Operation| x.name == *name).unwrap();
+                                        let pending_pos = pending
+                                            .iter()
+                                            .position(|x: &Operation| x.name == *name)
+                                            .unwrap();
                                         pending.remove(pending_pos);
                                         continue;
                                     }
