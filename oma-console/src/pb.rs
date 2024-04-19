@@ -1,7 +1,6 @@
-use std::time::Duration;
+use std::{fmt::Write, time::Duration};
 
-use console::style;
-use indicatif::ProgressStyle;
+use indicatif::{BinaryBytes, HumanBytes, ProgressState, ProgressStyle};
 
 use crate::writer::Writer;
 
@@ -11,26 +10,14 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
         let max_len = writer.get_length();
         if is_global {
             if max_len < 100 {
-                " {prefix:.blue.bold}".to_owned()
-                    + " {bytes:>10.green.bold} "
-                    + &style("/").green().bold().to_string()
-                    + " {total_bytes:.green.bold} "
-                    + &style("@").green().bold().to_string()
-                    + " {binary_bytes_per_sec:<10.green.bold}"
+                " {prefix:.blue.bold} {bytes:>12.green.bold} {total_bytes:.green.bold} {binary_bytes_per_sec:<10.green.bold}".to_owned()
             } else {
-                " {prefix:.blue.bold}".to_owned()
-                    + " {bytes:>10.green.bold} "
-                    + &style("/").green().bold().to_string()
-                    + " {total_bytes:>8.green.bold} "
-                    + &style("@").green().bold().to_string()
-                    + " {binary_bytes_per_sec:<26.green.bold}"
-                    + " {eta_precise:<10.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue.bold}"
-                    + &style("%").blue().bold().to_string()
+                " {prefix:.blue.bold} {bytes:>12.green.bold} {total_bytes:>8.green.bold} {binary_bytes_per_sec:<27.green.bold} {eta_precise:<10.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue.bold}".to_owned()
             }
         } else if max_len < 100 {
-            " {msg} {percent:>3}%".to_owned()
+            " {msg} {percent:>3}".to_owned()
         } else {
-            " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>3}%".to_owned()
+            " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>3}".to_owned()
         }
     };
 
@@ -38,6 +25,18 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
         .template(&bar_template)
         .unwrap()
         .progress_chars("=>-")
+        .with_key("bytes", |state: &ProgressState, w: &mut dyn Write| {
+            write!(w, "{} /", HumanBytes(state.pos())).unwrap()
+        })
+        .with_key(
+            "binary_bytes_per_sec",
+            |state: &ProgressState, w: &mut dyn Write| {
+                write!(w, "@ {}/s", BinaryBytes(state.per_sec() as u64)).unwrap()
+            },
+        )
+        .with_key("percent", |state: &ProgressState, w: &mut dyn Write| {
+            write!(w, "{:.*}%", 0, state.fraction() * 100f32).unwrap()
+        })
 }
 
 /// oma style spinner
