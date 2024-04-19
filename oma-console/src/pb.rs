@@ -10,9 +10,9 @@ pub fn oma_style_pb(writer: Writer, is_global: bool) -> ProgressStyle {
         let max_len = writer.get_length();
         if is_global {
             if max_len < 100 {
-                " {prefix:.blue.bold} {bytes:>12.green.bold} {total_bytes:.green.bold} {binary_bytes_per_sec:<10.green.bold}".to_owned()
+                " {prefix:.blue.bold} {bytes:>14.green.bold} {total_bytes:.green.bold} {binary_bytes_per_sec:<10.green.bold}".to_owned()
             } else {
-                " {prefix:.blue.bold} {bytes:>12.green.bold} {total_bytes:>8.green.bold} {binary_bytes_per_sec:<27.green.bold} {eta_precise:<10.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue.bold}".to_owned()
+                " {prefix:.blue.bold} {bytes:>14.green.bold} {total_bytes:>8.green.bold} {binary_bytes_per_sec:<25.green.bold} {eta_precise:<10.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue.bold}".to_owned()
             }
         } else if max_len < 100 {
             " {msg} {percent:>3}".to_owned()
