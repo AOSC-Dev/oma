@@ -1196,6 +1196,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 
 [[package]]
+name = "eddie"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12ad36183b190ad1632999a8735b9842f3fda7a5afa433d9132e80860ef7051a"
+
+[[package]]
 name = "either"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2176,13 +2182,13 @@ dependencies = [
 
 [[package]]
 name = "indicium"
-version = "0.6.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c0f2a3d3eba060399b1999386085923f4133ddc53d1aa80dabeb2c61e1b7127"
+checksum = "d0c8e0829bc7bb361e0418535075a519519361022d691077e0dd4d0dc8c2afc5"
 dependencies = [
  "ahash",
+ "eddie",
  "kstring",
- "strsim 0.11.1",
  "tracing",
 ]
 
