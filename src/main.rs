@@ -11,6 +11,7 @@ mod lang;
 mod subcommand;
 mod table;
 mod utils;
+mod tui;
 
 #[cfg(feature = "egg")]
 mod egg;
@@ -432,7 +433,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             pkgnames::execute(keyword, sysroot)?
         }
-        Some(("tui", _)) | None => tui::execute(
+        Some(("tui", _)) | None => tui_deprecated::execute(
             sysroot,
             no_progress,
             oma_args.download_pure_db,
