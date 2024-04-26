@@ -13,6 +13,7 @@ use oma_apt::{
     new_cache,
     package::{Package, Version},
     raw::{
+        package::DepFlags,
         progress::AptInstallProgress,
         util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
     },
@@ -30,16 +31,17 @@ use oma_utils::{
 };
 
 pub use oma_apt::config::Config as AptConfig;
-
-use tracing::{debug, field::debug, info, warn};
+use tokio::runtime::Runtime;
+use tracing::{debug, info, warn};
 
 pub use oma_pm_operation_type::*;
+use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
+    dbus::{change_status, OmaBus, Status},
     pkginfo::PkgInfo,
-    progress::{NoProgress, OmaAptInstallProgress},
+    progress::{InstallProgressArgs, NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
-    unmet::{find_unmet_deps, find_unmet_deps_with_markinstall, UnmetDep},
 };
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
@@ -67,6 +69,9 @@ pub struct OmaApt {
     autoremove: Vec<String>,
     dry_run: bool,
     select_pkgs: Vec<String>,
+    tokio: Runtime,
+    connection: Option<Connection>,
+    unmet: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -77,8 +82,8 @@ pub enum OmaAptError {
     OmaDatabaseError(#[from] OmaDatabaseError),
     #[error("Failed to mark reinstall pkg: {0}")]
     MarkReinstallError(String, String),
-    #[error("Dep issue: {0:?}")]
-    DependencyIssue(Vec<UnmetDep>),
+    #[error("Find Dependency problem")]
+    DependencyIssue(Vec<String>),
     #[error("Package: {0} is essential.")]
     PkgIsEssential(String),
     #[error("Package: {0} is no candidate.")]
@@ -163,13 +168,40 @@ impl OmaApt {
     pub fn new(local_debs: Vec<String>, args: OmaAptArgs, dry_run: bool) -> OmaAptResult<Self> {
         let config = Self::init_config(args)?;
 
+        let bus = OmaBus {
+            status: Status::Configing,
+        };
+
+        let tokio = tokio::runtime::Builder::new_multi_thread()
+            .enable_time()
+            .enable_io()
+            .build()
+            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
+
+        let conn = tokio.block_on(async { Self::create_session(bus).await.ok() });
+
         Ok(Self {
             cache: new_cache!(&local_debs)?,
             config,
             autoremove: vec![],
             dry_run,
             select_pkgs: vec![],
+            tokio,
+            connection: conn,
+            unmet: vec![],
         })
+    }
+
+    async fn create_session(bus: OmaBus) -> Result<Connection, zbus::Error> {
+        let conn = ConnectionBuilder::system()?
+            .name("io.aosc.Oma")?
+            .serve_at("/io/aosc/Oma", bus)?
+            .build()
+            .await?;
+
+        debug!("zbus session created");
+
+        Ok(conn)
     }
 
     /// Init apt config (before create new apt manager)
@@ -236,6 +268,12 @@ impl OmaApt {
         Ok((upgradable, removable))
     }
 
+    pub fn installed_packages(&self) -> OmaAptResult<usize> {
+        let sort = PackageSort::default().installed();
+
+        Ok(self.cache.packages(&sort)?.count())
+    }
+
     /// Set apt manager status as upgrade
     pub fn upgrade(&self) -> OmaAptResult<()> {
         self.cache.upgrade(&Upgrade::FullUpgrade)?;
@@ -252,6 +290,7 @@ impl OmaApt {
         let mut no_marked_install = vec![];
         for pkg in pkgs {
             let marked_install = mark_install(&self.cache, pkg, reinstall)?;
+
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
                 pkg.raw_pkg.name(),
@@ -295,7 +334,6 @@ impl OmaApt {
                 match pkg.current_state() {
                     4 => {
                         pkg.mark_reinstall(true);
-                        // reinstall.push(pkg.name().to_string());
                     }
                     _ => continue,
                 }
@@ -443,15 +481,14 @@ impl OmaApt {
 
         let download_pkg_list = v.install;
 
-        let tokio = tokio::runtime::Builder::new_multi_thread()
-            .enable_time()
-            .enable_io()
-            .build()
-            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
-
         let path = self.get_archive_dir();
 
-        let (success, failed) = tokio.block_on(async move {
+        let conn = self.connection.clone();
+        let (success, failed) = self.tokio.block_on(async move {
+            if let Some(conn) = conn {
+                change_status(&conn, "Downloading").await.ok();
+            }
+
             Self::download_pkgs(download_pkg_list, network_thread, &path, callback).await
         })?;
 
@@ -484,20 +521,24 @@ impl OmaApt {
             e
         })?;
 
-        let mut progress = OmaAptInstallProgress::new_box(
-            self.config,
-            args_config.yes,
-            args_config.force_yes,
-            args_config.dpkg_force_confnew,
-            args_config.dpkg_force_all,
-            args_config.no_progress,
-        );
+        let args = InstallProgressArgs {
+            config: self.config,
+            yes: args_config.yes,
+            force_yes: args_config.force_yes,
+            dpkg_force_confnew: args_config.dpkg_force_confnew,
+            dpkg_force_all: args_config.dpkg_force_all,
+            no_progress: args_config.no_progress,
+            tokio: self.tokio,
+            connection: self.connection,
+        };
+
+        let mut progress = OmaAptInstallProgress::new_box(args);
 
         debug!("Try to unlock apt lock inner");
 
         apt_unlock_inner();
 
-        debug("Do install");
+        debug!("Do install");
 
         self.cache.do_install(&mut progress).map_err(|e| {
             apt_lock_inner().ok();
@@ -549,7 +590,7 @@ impl OmaApt {
     }
 
     /// Resolve apt dependencies
-    pub fn resolve(&self, no_fixbroken: bool) -> OmaAptResult<()> {
+    pub fn resolve(&mut self, no_fixbroken: bool) -> OmaAptResult<()> {
         let need_fix = self.check_broken()?;
 
         if no_fixbroken && need_fix {
@@ -565,8 +606,13 @@ impl OmaApt {
         }
 
         if self.cache.resolve(!no_fixbroken).is_err() {
-            let unmet = find_unmet_deps(&self.cache)?;
-            return Err(OmaAptError::DependencyIssue(unmet));
+            for pkg in &self.cache {
+                let res = show_broken_pkg(&self.cache, &pkg, false);
+                if !res.is_empty() {
+                    self.unmet.extend(res);
+                }
+            }
+            return Err(OmaAptError::DependencyIssue(self.unmet.to_vec()));
         }
 
         Ok(())
@@ -1030,8 +1076,8 @@ where
         }
     }
 
-    pkg.mark_delete(purge || removed_but_has_config);
     pkg.protect();
+    pkg.mark_delete(purge || removed_but_has_config);
 
     Ok(true)
 }
@@ -1142,20 +1188,105 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
         }
     }
 
+    pkg.protect();
+
+    // 根据 Packagekit 的源码
+    // https://github.com/PackageKit/PackageKit/blob/a0a52ce90adb75a5df7ad1f0b1c9888f2eaf1a7b/backends/apt/apt-job.cpp#L388
+    // 先标记 auto_inst 为 true 把所有该包的依赖标记为自动安装
+    // 再把本包的 auto_inst 标记为 false，检查依赖问题
     pkg.mark_install(true, true);
+    pkg.mark_install(false, true);
+
     debug!("marked_install: {}", pkg.marked_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
-    if !pkg.marked_install() && !pkg.marked_downgrade() && !pkg.marked_upgrade() {
-        // apt 会先就地检查这个包的表面依赖是否满足要求，如果不满足则直接返回错误，而不是先交给 resolver
-        let v = find_unmet_deps_with_markinstall(cache, &ver);
-        return Err(OmaAptError::DependencyIssue(v));
-    }
-
+    debug!("marked_keep: {}", pkg.marked_keep());
     debug!("{} will marked install", pkg.name());
-    pkg.protect();
 
     Ok(true)
+}
+
+fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
+    let mut result = vec![];
+    // If the package isn't broken for the state Return None
+    if (now && !pkg.is_now_broken()) || (!now && !pkg.is_inst_broken()) {
+        return result;
+    };
+
+    let mut line = String::new();
+
+    line += &format!("{pkg} :");
+
+    // Pick the proper version based on now status.
+    // else Return with just the package name like Apt does.
+    let Some(ver) = (match now {
+        true => pkg.installed(),
+        false => cache.depcache().install_version(pkg),
+    }) else {
+        result.push(line);
+        return result;
+    };
+
+    let indent = pkg.name().len() + 3;
+    let mut first = true;
+
+    // ShowBrokenDeps
+    for dep in ver.depends_map().values().flatten() {
+        for (i, base_dep) in dep.base_deps.iter().enumerate() {
+            if !cache.depcache().is_important_dep(base_dep) {
+                continue;
+            }
+
+            let dep_flag = if now {
+                DepFlags::DepGnow
+            } else {
+                DepFlags::DepInstall
+            };
+
+            if cache.depcache().dep_state(base_dep) & dep_flag == dep_flag {
+                continue;
+            }
+
+            if !first {
+                line += &" ".repeat(indent);
+            }
+            first = false;
+
+            // If it's the first or Dep
+            if i > 0 {
+                line += &" ".repeat(base_dep.dep_type().as_ref().len() + 3);
+            } else {
+                line += &format!(" {}: ", base_dep.dep_type())
+            }
+
+            line += base_dep.target_package().name();
+
+            if let (Ok(ver_str), Some(comp)) = (base_dep.target_ver(), base_dep.comp()) {
+                line += &format!(" ({comp} {ver_str})");
+            }
+
+            let target = base_dep.target_package();
+            if !target.has_provides() {
+                if let Some(target_ver) = cache.depcache().install_version(target) {
+                    line += &format!(" but {target_ver} is to be installed")
+                } else if target.candidate().is_some() {
+                    line += " but it is not going to be installed";
+                } else if target.has_provides() {
+                    line += " but it is a virtual package";
+                } else {
+                    line += " but it is not installable";
+                }
+            }
+
+            if i + 1 != dep.base_deps.len() {
+                line += " or"
+            }
+            result.push(line.clone());
+            line.clear();
+        }
+    }
+
+    result
 }
 
 /// trans filename to apt style file name

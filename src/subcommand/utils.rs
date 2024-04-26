@@ -1,4 +1,8 @@
+use std::error::Error;
+use std::fmt::Debug;
+use std::io;
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 
 use crate::error::OutputError;
 use crate::fl;
@@ -6,6 +10,7 @@ use crate::pb;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::multibar;
+use crate::LOCKED;
 use chrono::Local;
 use dialoguer::console::style;
 use oma_console::success;
@@ -22,6 +27,8 @@ use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_refresh::db::OmaRefreshBuilder;
 use oma_refresh::db::RefreshEvent;
 use oma_utils::dpkg::dpkg_arch;
+use oma_utils::oma::lock_oma_inner;
+use std::fmt::Display;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
@@ -34,6 +41,30 @@ pub(crate) fn handle_no_result(no_result: Vec<String>) {
             error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
         }
     }
+}
+
+#[derive(Debug)]
+pub struct LockError {
+    source: io::Error,
+}
+
+impl Display for LockError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Failed to lock oma")
+    }
+}
+
+impl Error for LockError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.source)
+    }
+}
+
+pub(crate) fn lock_oma() -> Result<(), LockError> {
+    lock_oma_inner().map_err(|e| LockError { source: e })?;
+    LOCKED.store(true, Ordering::Relaxed);
+
+    Ok(())
 }
 
 pub(crate) fn refresh(
@@ -126,7 +157,7 @@ pub struct NormalCommitArgs {
 
 pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
     let NormalCommitArgs {
-        apt,
+        mut apt,
         dry_run,
         typ,
         apt_args,

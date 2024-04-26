@@ -9,7 +9,7 @@ use oma_topics::TopicManager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut tm = TopicManager::new("/").await?;
+    let mut tm = TopicManager::new("/", "amd64").await?;
     let mut opt_in = vec![];
     let mut opt_out = vec![];
 
@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
     }
 
     for i in opt_in {
-        tm.add(&i, false, "amd64")?;
+        tm.add(&i, false)?;
     }
 
     for i in opt_out {

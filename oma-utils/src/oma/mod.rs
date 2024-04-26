@@ -1,18 +1,22 @@
 use oma_console::is_terminal;
 use once_cell::sync::Lazy;
-use std::path::PathBuf;
+use std::{
+    io::{Error, ErrorKind},
+    path::PathBuf,
+};
 
 type IOResult<T> = std::io::Result<T>;
 static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
 
 /// lock oma
-pub fn lock_oma() -> IOResult<()> {
+pub fn lock_oma_inner() -> IOResult<()> {
     if !LOCK.is_file() {
         std::fs::create_dir_all("/run/lock")?;
         std::fs::File::create(&*LOCK)?;
+        return Ok(());
     }
 
-    Ok(())
+    Err(Error::new(ErrorKind::Other, ""))
 }
 
 /// Unlock oma

@@ -22,15 +22,17 @@ use error::OutputError;
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
-use oma_utils::dbus::OmaDbusError;
+use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusError};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
 use rustix::process::{kill_process, Pid, Signal};
+use subcommand::utils::LockError;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter, Layer};
+use utils::create_async_runtime;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -169,11 +171,20 @@ fn main() {
         }
     }
 
-    let code = match run_subcmd(matches, &mut cmd, dry_run, no_progress) {
-        Ok(exit_code) => exit_code,
+    let code = match run_subcmd(matches, dry_run, no_progress) {
+        Ok(exit_code) => {
+            unlock_oma().ok();
+            exit_code
+        }
         Err(e) => {
-            if let Err(e) = display_error(e) {
-                eprintln!("Failed to display error, kind: {e}");
+            match display_error_and_can_unlock(e) {
+                Ok(true) => {
+                    unlock_oma().ok();
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    eprintln!("Failed to display error, kind: {e}");
+                }
             }
 
             1
@@ -181,17 +192,11 @@ fn main() {
     };
 
     terminal_ring();
-    unlock_oma().ok();
 
     exit(code);
 }
 
-fn run_subcmd(
-    matches: ArgMatches,
-    cmd: &mut clap::Command,
-    dry_run: bool,
-    no_progress: bool,
-) -> Result<i32, OutputError> {
+fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i32, OutputError> {
     // Egg
     #[cfg(feature = "egg")]
     {
@@ -404,6 +409,13 @@ fn run_subcmd(
 
             pkgnames::execute(keyword, sysroot)?
         }
+        Some(("tui", _)) | None => tui::execute(
+            sysroot,
+            no_progress,
+            oma_args.download_pure_db,
+            dry_run,
+            oma_args.network_thread,
+        )?,
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");
             let plugin = exe_dir.join(format!("oma-{}", cmd));
@@ -422,36 +434,13 @@ fn run_subcmd(
 
             return Ok(status);
         }
-        None => {
-            #[cfg(feature = "egg")]
-            {
-                let exit_code = if AILURUS.load(Ordering::Relaxed) {
-                    0
-                } else {
-                    cmd.print_help().map_err(|e| OutputError {
-                        description: "Failed to print help".to_string(),
-                        source: Some(Box::new(e)),
-                    })?;
-
-                    1
-                };
-                return Ok(exit_code);
-            }
-            #[cfg(not(feature = "egg"))]
-            {
-                cmd.print_help().map_err(|e| OutputError {
-                    description: "Failed to print help".to_string(),
-                    source: Some(Box::new(e)),
-                })?;
-                return Ok(1);
-            }
-        }
     };
 
     Ok(exit_code)
 }
 
-fn display_error(e: OutputError) -> io::Result<()> {
+fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
+    let mut unlock = true;
     if !e.description.is_empty() {
         error!("{e}");
 
@@ -505,11 +494,33 @@ fn display_error(e: OutputError) -> io::Result<()> {
                         info!("{}", fl!("failed-check-dbus-tips-2"));
                         info!("{}", fl!("failed-check-dbus-tips-3"));
                     }
-                    _ => return Ok(()),
+                    _ => return Ok(true),
+                }
+            }
+
+            if e.downcast_ref::<LockError>().is_some() {
+                unlock = false;
+                if find_another_oma().is_err() {
+                    error!("{}", fl!("failed-to-lock-oma"));
                 }
             }
         }
     }
+
+    Ok(unlock)
+}
+
+fn find_another_oma() -> Result<(), OutputError> {
+    let tokio = create_async_runtime()?;
+    tokio.block_on(async { find_another_oma_inner().await })?;
+
+    Ok(())
+}
+
+async fn find_another_oma_inner() -> Result<(), OutputError> {
+    let conn = create_dbus_connection().await?;
+    let status = get_another_oma_status(&conn).await?;
+    error!("{}", fl!("another-oma-is-running", s = status));
 
     Ok(())
 }

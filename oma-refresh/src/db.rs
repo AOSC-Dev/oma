@@ -37,6 +37,7 @@ pub struct MirrorMapItem {
 static MIRROR: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
 
+#[cfg(feature = "aosc")]
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
     #[error("Invalid URL: {0}")]
@@ -53,6 +54,37 @@ pub enum RefreshError {
     ReqwestError(#[from] reqwest::Error),
     #[error(transparent)]
     TopicsError(#[from] oma_topics::OmaTopicsError),
+    #[error("Failed to download InRelease from URL {0}: Remote file not found (HTTP 404).")]
+    NoInReleaseFile(String),
+    #[error(transparent)]
+    DpkgArchError(#[from] oma_utils::dpkg::DpkgError),
+    #[error(transparent)]
+    JoinError(#[from] tokio::task::JoinError),
+    #[error(transparent)]
+    DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
+    #[error(transparent)]
+    ChecksumError(#[from] ChecksumError),
+    #[error("Failed to operate dir or file {0}: {1}")]
+    FailedToOperateDirOrFile(String, tokio::io::Error),
+    #[error("Failed to parse InRelease file: {0}")]
+    InReleaseParseError(String, InReleaseParserError),
+}
+
+#[cfg(not(feature = "aosc"))]
+#[derive(Debug, thiserror::Error)]
+pub enum RefreshError {
+    #[error("Invalid URL: {0}")]
+    InvaildUrl(String),
+    #[error("Can not parse distro repo data {0}: {1}")]
+    ParseDistroRepoDataError(String, serde_yaml::Error),
+    #[error("Scan sources.list failed: {0}")]
+    ScanSourceError(SourceError),
+    #[error("Unsupport Protocol: {0}")]
+    UnsupportedProtocol(String),
+    #[error(transparent)]
+    FetcherError(#[from] oma_fetch::DownloadError),
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
     #[error("Failed to download InRelease from URL {0}: Remote file not found (HTTP 404).")]
     NoInReleaseFile(String),
     #[error(transparent)]
@@ -378,7 +410,8 @@ where
     #[cfg(feature = "aosc")]
     {
         if !not_found.is_empty() {
-            let removed_suites = oma_topics::scan_closed_topic(handle_topic_msg, &rootfs).await?;
+            let removed_suites =
+                oma_topics::scan_closed_topic(handle_topic_msg, &rootfs, &arch).await?;
             for url in not_found {
                 let suite = url
                     .path_segments()

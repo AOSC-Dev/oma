@@ -14,6 +14,7 @@ pub enum SummaryType {
     Install(Vec<String>),
     Upgrade(Vec<String>),
     Remove(Vec<String>),
+    Changes,
     FixBroken,
     TopicsChanged {
         add: Vec<String>,

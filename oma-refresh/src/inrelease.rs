@@ -189,12 +189,12 @@ impl InReleaseParser {
 /// aforementioned RFC documents, "UTC" is considered illegal.
 ///
 /// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
-fn utc_tzname_quirk(date: &String) -> String {
+fn utc_tzname_quirk(date: &str) -> Cow<'_, str> {
     if date.ends_with("UTC") {
-        return date.replace("UTC", "+0000");
+        return Cow::Owned(date.replace("UTC", "+0000"));
     }
 
-    date.to_string()
+    Cow::Borrowed(date)
 }
 
 fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String, String>>> {

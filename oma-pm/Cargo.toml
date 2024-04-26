@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.15.14"
+version = "0.18.8"
 edition = "2021"
 description = "A crate to help oma handle package manager operation"
 license = "GPL-3.0-or-later"
@@ -13,7 +13,7 @@ thiserror = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 glob-match = "0.2"
 indicium = "0.6"
-oma-utils = { version = "^0.6.0", path = "../oma-utils", features = [
+oma-utils = { version = "^0.7.0", path = "../oma-utils", features = [
     "dpkg",
     "url-no-escape",
     "human-bytes",
@@ -23,7 +23,7 @@ tokio = { version = "1.15", default_features = false, features = [
     "fs",
     "rt-multi-thread",
 ] }
-oma-console = { version = "^0.10.0", path = "../oma-console", default-features = false, features = [
+oma-console = { version = "^0.11.0", path = "../oma-console", default-features = false, features = [
     "print",
 ] }
 derive_builder = "0.20"
@@ -31,7 +31,7 @@ fs4 = "0.8"
 tracing = "0.1"
 small-map = "0.1"
 oma-pm-operation-type = { version = "0.1", path = "../oma-pm-operation-type" }
-
+zbus = { version = "4.1", features = ["tokio"] }
 
 [dev-dependencies]
 dashmap = "5.5"

@@ -120,13 +120,17 @@ impl SingleDownloader<'_> {
                         if self.retry_times == times {
                             return Err(e);
                         }
-                        callback(
-                            self.download_list_index,
-                            DownloadEvent::ChecksumMismatchRetry {
-                                filename: filename.clone(),
-                                times,
-                            },
-                        );
+
+                        if times > 1 {
+                            callback(
+                                self.download_list_index,
+                                DownloadEvent::ChecksumMismatchRetry {
+                                    filename: filename.clone(),
+                                    times,
+                                },
+                            );
+                        }
+
                         times += 1;
                         allow_resume = false;
                     }
@@ -160,10 +164,8 @@ impl SingleDownloader<'_> {
         // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
         // 如果不存在，则继续往下走
         if file_exist {
-            debug!(
-                "File: {} exists, oma will checksum this file.",
-                self.entry.filename
-            );
+            debug!("File: {} exists", self.entry.filename);
+
             if let Some(hash) = &self.entry.hash {
                 debug!("Hash exist! It is: {hash}");
 
@@ -343,33 +345,19 @@ impl SingleDownloader<'_> {
 
         let mut self_progress = 0;
         let mut dest = if !can_resume || !allow_resume {
-            // 如果不能 resume，则加入 truncate 这个 flag，告诉内核截断文件
-            // 并把文件长度设置为 0
+            // 如果不能 resume，则使用创建模式
             debug!(
-                "oma will open file: {} as truncate, create, write and read mode.",
+                "oma will open file: {} as create mode.",
                 self.entry.filename
             );
-            let f = match tokio::fs::OpenOptions::new()
-                .truncate(true)
-                .create(true)
-                .write(true)
-                .read(true)
-                .open(&file)
-                .await
-            {
+
+            match tokio::fs::File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
                     callback(self.download_list_index, DownloadEvent::ProgressDone);
                     return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
                 }
-            };
-
-            debug!("Setting file length as 0");
-            f.set_len(0)
-                .await
-                .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
-
-            f
+            }
         } else if let Some(dest) = dest {
             debug!(
                 "oma will re use opened dest file for {}",

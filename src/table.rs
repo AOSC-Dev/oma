@@ -9,7 +9,6 @@ use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
 use oma_console::WRITER;
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
-use oma_pm::unmet::{UnmetDep, WhyUnmet};
 use tabled::settings::object::{Columns, Segment};
 use tabled::settings::{Alignment, Format, Modify, Style};
 use tabled::{Table, Tabled};
@@ -36,41 +35,6 @@ pub struct UnmetDepDisplay {
     unmet_dependency: String,
     #[tabled(rename = "Specified Dependency")]
     specified_dependency: String,
-}
-
-impl From<&UnmetDep> for UnmetDepDisplay {
-    fn from(value: &UnmetDep) -> Self {
-        Self {
-            package: style(&value.package).red().bold().to_string(),
-            unmet_dependency: match &value.unmet_dependency {
-                WhyUnmet::DepNotExist {
-                    pacakge_name,
-                    version_comp,
-                } => {
-                    if let Some(version) = version_comp {
-                        format!("{pacakge_name} {version} does not exist")
-                    } else {
-                        format!("{pacakge_name} does not exist")
-                    }
-                }
-                WhyUnmet::Unmet {
-                    dep_name,
-                    need_ver,
-                    symbol,
-                } => format!("{dep_name} {symbol} {need_ver}"),
-                WhyUnmet::Breaks {
-                    break_type,
-                    dep_name,
-                    comp_ver,
-                } => {
-                    let comp_ver = comp_ver.as_deref().unwrap_or("");
-
-                    format!("{break_type} {dep_name} {comp_ver}")
-                }
-            },
-            specified_dependency: value.specified_dependency.clone(),
-        }
-    }
 }
 
 impl From<&RemoveEntry> for RemoveEntryDisplay {
@@ -206,52 +170,6 @@ impl<W: Write> PagerPrinter<W> {
 
         writeln!(self.writer, "{table}")
     }
-}
-
-pub fn print_unmet_dep(u: &[UnmetDep]) -> Result<(), OutputError> {
-    let tips = less_tips(false);
-    let mut pager = Pager::external(tips).map_err(|e| OutputError {
-        description: "Failed to get pager".to_string(),
-        source: Some(Box::new(e)),
-    })?;
-    let out = pager.get_writer().unwrap();
-    let mut printer = PagerPrinter::new(out);
-
-    printer
-        .print(format!("{:<80}\n", style(fl!("dep-error")).on_red().bold()))
-        .ok();
-    printer.print(format!("{}\n", fl!("dep-error-desc"))).ok();
-    printer
-        .print(format!("{}\n", fl!("contact-admin-tips")))
-        .ok();
-    printer
-        .print(format!("    {}", style(fl!("how-to-abort")).bold()))
-        .ok();
-    printer
-        .print(format!("    {}\n\n", style(fl!("how-to-op-with-x")).bold()))
-        .ok();
-
-    let v = u.iter().map(UnmetDepDisplay::from).collect::<Vec<_>>();
-
-    printer
-        .print(format!(
-            "{} {}{}\n",
-            fl!("unmet-dep-before", count = v.len()),
-            style(fl!("unmet-dep")).red().bold(),
-            fl!("colon")
-        ))
-        .ok();
-
-    printer.print_table(v, None).ok();
-    printer.print("\n").ok();
-
-    drop(printer);
-    pager.wait_for_exit().map_err(|e| OutputError {
-        description: "Failed to wait exit".to_string(),
-        source: Some(Box::new(e)),
-    })?;
-
-    Ok(())
 }
 
 pub fn table_for_install_pending(
