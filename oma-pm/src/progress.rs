@@ -122,27 +122,26 @@ impl OmaAptInstallProgress {
 
         if dpkg_force_confnew {
             let opts = config.get("Dpkg::Options::");
-            if let Some(opts) = opts {
-                config.set("Dpkg::Options::", &format!("{opts} --force-confnew"))
-            } else {
-                config.set("Dpkg::Options::", "--force-confnew")
+            let mut args = vec!["--force-confnew"];
+            if let Some(ref opts) = opts {
+                args.push(opts);
             }
+
+            config.set_vector("Dpkg::Options::", &args);
 
             debug!("Dpkg::Options:: is set to --force-confnew");
         } else if yes {
             // --force-confdef reason:
             // https://unix.stackexchange.com/questions/641099/any-possible-conflict-between-using-both-force-confold-and-force-confnew-wit/642541#642541
             let opts = config.get("Dpkg::Options::");
-            if let Some(opts) = opts {
-                config.set(
-                    "Dpkg::Options::",
-                    &format!("{opts} --force-confold --force-confdef"),
-                )
-            } else {
-                config.set("Dpkg::Options::", "--force-confold --force-confdef")
+            let mut args = vec!["--force-confold", "--force-confdef"];
+            if let Some(ref opts) = opts {
+                args.push(opts);
             }
 
-            debug!("Dpkg::Options:: is set to --force-confold");
+            config.set_vector("Dpkg::Options::", &args);
+
+            debug!("Dpkg::Options:: added --force-confold --force-confdef");
         }
 
         if force_yes {
@@ -154,11 +153,12 @@ impl OmaAptInstallProgress {
         if dpkg_force_all {
             // warn!("{}", fl!("dpkg-force-all-mode"));
             let opts = config.get("Dpkg::Options::");
-            if let Some(opts) = opts {
-                config.set("Dpkg::Options::", &format!("{opts} --force-all"))
-            } else {
-                config.set("Dpkg::Options::", "--force-all")
+            let mut args = vec!["--force-all"];
+            if let Some(ref opts) = opts {
+                args.push(opts);
             }
+
+            config.set_vector("Dpkg::Options::", &args);
             debug!("Dpkg::Options:: is set to --force-all");
         }
 
@@ -172,8 +172,16 @@ impl OmaAptInstallProgress {
         }
 
         let dir = config.get("Dir").unwrap_or("/".to_owned());
+        let root_arg = format!("--root={dir}");
+        let mut args = vec![root_arg.as_str()];
 
-        config.set("Dpkg::Options::", &format!("--root={dir}"));
+        let opts = config.get("Dpkg::Options::");
+
+        if let Some(ref opts) = opts {
+            args.push(opts);
+        }
+
+        config.set_vector("Dpkg::Options::", &args);
 
         Self {
             config,
