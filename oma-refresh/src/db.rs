@@ -25,7 +25,7 @@ use tracing::debug;
 use url::Url;
 
 use crate::{
-    inrelease::{ChecksumItem, DistFileType, InReleaseParser, InReleaseParserError},
+    inrelease::{ChecksumItem, DistFileType, InRelease, InReleaseParser, InReleaseParserError},
     util::database_filename,
 };
 
@@ -444,16 +444,17 @@ where
                 RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
             })?;
 
-        let inrelease = InReleaseParser::new(
-            &s,
-            ose.signed_by.as_deref(),
-            urlc,
-            &arch,
-            ose.is_flat,
-            &inrelease_path,
-            &rootfs,
-        )
-        .map_err(|err| {
+        let inrelease = InRelease {
+            inrelease: &s,
+            trust_files: ose.signed_by.as_deref(),
+            mirror: &urlc,
+            arch: &arch,
+            is_flat: ose.is_flat,
+            p: &inrelease_path,
+            rootfs: &rootfs,
+        };
+
+        let inrelease = InReleaseParser::new(inrelease).map_err(|err| {
             RefreshError::InReleaseParseError(inrelease_path.display().to_string(), err)
         })?;
 

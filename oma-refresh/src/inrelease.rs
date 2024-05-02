@@ -55,17 +55,28 @@ pub enum InReleaseParserError {
 
 pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
 
+pub struct InRelease<'a> {
+    pub inrelease: &'a str,
+    pub trust_files: Option<&'a str>,
+    pub mirror: &'a str,
+    pub arch: &'a str,
+    pub is_flat: bool,
+    pub p: &'a Path,
+    pub rootfs: &'a Path,
+}
+
 impl InReleaseParser {
-    pub fn new<P: AsRef<Path>>(
-        s: &str,
-        trust_files: Option<&str>,
-        mirror: &str,
-        arch: &str,
-        is_flat: bool,
-        p: P,
-        rootfs: P,
-    ) -> InReleaseParserResult<Self> {
-        let p = p.as_ref();
+    pub fn new<'a>(in_release: InRelease<'a>) -> InReleaseParserResult<Self> {
+        let InRelease {
+            inrelease: s,
+            trust_files,
+            mirror,
+            arch,
+            is_flat,
+            p,
+            rootfs,
+        } = in_release;
+    
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
             Cow::Owned(verify::verify(s, trust_files, mirror, rootfs)?)
         } else {
@@ -148,6 +159,7 @@ impl InReleaseParser {
         let c = if c.is_empty() { c_res_clone } else { c };
 
         for i in c {
+            dbg!(i);
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
                 x if x.contains("Contents-") && x.contains('.') => {
