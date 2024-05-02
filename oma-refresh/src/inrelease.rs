@@ -166,7 +166,7 @@ impl InReleaseParser {
                 if let Some(c) = component {
                     if c != *name {
                         components.contains(&c.to_string())
-                            && (name.contains("all") || name.contains(arch) && !is_debian_installer)
+                            && ((name.contains("all") || name.contains(arch)) && !is_debian_installer)
                     } else {
                         name.contains("all") || name.contains(arch)
                     }
