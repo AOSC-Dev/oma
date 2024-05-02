@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use small_map::SmallMap;
 use smallvec::{smallvec, SmallVec};
+use tracing::debug;
 use std::{borrow::Cow, num::ParseIntError, path::Path};
 
 use crate::verify;
@@ -74,6 +75,8 @@ impl InReleaseParser {
         let source = debcontrol_from_str(&s)?;
 
         let source_first = source.first();
+
+        debug!("InRelease is: {source:?}");
 
         if !is_flat {
             let date = source_first
