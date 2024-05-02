@@ -101,7 +101,7 @@ impl InReleaseParser {
             // Check if the `Valid-Until` field is valid only when it is defined.
             if let Some(valid_until_data) = valid_until {
                 let valid_until = DateTime::parse_from_rfc2822(&utc_tzname_quirk(valid_until_data))
-                    .map_err(|_| InReleaseParserError::BadInReleaseData)?;
+                    .map_err(|_| InReleaseParserError::BadInReleaseVaildUntil)?;
                 if now > valid_until {
                     return Err(InReleaseParserError::ExpiredSignature(
                         p.display().to_string(),
