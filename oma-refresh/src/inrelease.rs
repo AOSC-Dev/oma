@@ -97,7 +97,7 @@ impl InReleaseParser {
                 .take()
                 .ok_or_else(|| InReleaseParserError::BadInReleaseData)?
                 .clone();
-            let date = DateTime::parse_from_rfc2822(&date_heck(&date))
+            let date = DateTime::parse_from_rfc2822(&date_hack(&date))
                 .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
             let now = Utc::now();
@@ -113,7 +113,7 @@ impl InReleaseParser {
 
             // Check if the `Valid-Until` field is valid only when it is defined.
             if let Some(valid_until_data) = valid_until {
-                let valid_until = DateTime::parse_from_rfc2822(&date_heck(valid_until_data))
+                let valid_until = DateTime::parse_from_rfc2822(&date_hack(valid_until_data))
                     .map_err(|_| InReleaseParserError::BadInReleaseVaildUntil)?;
                 if now > valid_until {
                     return Err(InReleaseParserError::ExpiredSignature(
@@ -225,7 +225,7 @@ impl InReleaseParser {
 /// aforementioned RFC documents, "UTC" is considered illegal.
 ///
 /// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
-fn date_heck(date: &str) -> String {
+fn date_hack(date: &str) -> String {
     let mut split_time = date
         .split_ascii_whitespace()
         .map(|x| x.to_string())
@@ -283,12 +283,12 @@ fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String
 #[test]
 fn test_date_hack() {
     let a = "Thu, 02 May 2024  9:58:03 UTC";
-    let b = DateTime::parse_from_rfc2822(&date_heck(&a));
+    let b = DateTime::parse_from_rfc2822(&date_hack(&a));
 
     assert!(b.is_ok());
 
     let a = "Thu, 02 May 2024 09:58:03 +0000";
-    let b = DateTime::parse_from_rfc2822(&date_heck(&a));
+    let b = DateTime::parse_from_rfc2822(&date_hack(&a));
 
     assert!(b.is_ok());
 }
