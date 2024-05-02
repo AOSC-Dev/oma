@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use small_map::SmallMap;
 use smallvec::{smallvec, SmallVec};
-use tracing::debug;
 use std::{borrow::Cow, num::ParseIntError, path::Path};
+use tracing::{debug, warn};
 
 use crate::verify;
 
@@ -159,8 +159,9 @@ impl InReleaseParser {
                     DistFileType::CompressPackageList(x.split_once('.').unwrap().0.to_string())
                 }
                 x if x.contains("Release") => DistFileType::Release,
-                _ => {
-                    return Err(InReleaseParserError::UnsupportFileType);
+                x => {
+                    warn!("Unknown file type: {x:?}");
+                    continue;
                 }
             };
 
