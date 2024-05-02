@@ -63,6 +63,7 @@ pub struct InRelease<'a> {
     pub is_flat: bool,
     pub p: &'a Path,
     pub rootfs: &'a Path,
+    pub components: &'a [String],
 }
 
 impl InReleaseParser {
@@ -75,8 +76,9 @@ impl InReleaseParser {
             is_flat,
             p,
             rootfs,
+            components,
         } = in_release;
-    
+
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
             Cow::Owned(verify::verify(s, trust_files, mirror, rootfs)?)
         } else {
@@ -153,13 +155,31 @@ impl InReleaseParser {
 
         let c = checksums_res
             .into_iter()
-            .filter(|(name, _, _)| name.contains("all") || name.contains(arch))
+            .filter(|(name, _, _)| {
+                let mut name_split = name.split('/');
+                let component = name_split.next();
+                let component_type = name_split.next();
+                let is_debian_installer = component_type
+                    .map(|x| x == "debian-installer")
+                    .unwrap_or(false);
+
+                if let Some(c) = component {
+                    if c != *name {
+                        components.contains(&c.to_string())
+                            && (name.contains("all") || name.contains(arch) && !is_debian_installer)
+                    } else {
+                        name.contains("all") || name.contains(arch)
+                    }
+                } else {
+                    name.contains("all") || name.contains(arch)
+                }
+            })
             .collect::<Vec<_>>();
 
         let c = if c.is_empty() { c_res_clone } else { c };
 
         for i in c {
-            dbg!(i);
+            dbg!(&i);
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
                 x if x.contains("Contents-") && x.contains('.') => {

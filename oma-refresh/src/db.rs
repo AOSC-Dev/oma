@@ -452,6 +452,7 @@ where
             is_flat: ose.is_flat,
             p: &inrelease_path,
             rootfs: &rootfs,
+            components: &ose.components,
         };
 
         let inrelease = InReleaseParser::new(inrelease).map_err(|err| {
