@@ -150,10 +150,10 @@ impl InReleaseParser {
         for i in c {
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
-                x if x.contains("/Contents-") && x.contains('.') => {
+                x if x.contains("Contents-") && x.contains('.') => {
                     DistFileType::CompressContents(x.split_once('.').unwrap().0.to_string())
                 }
-                x if x.contains("/Contents-") && !x.contains('.') => DistFileType::Contents,
+                x if x.contains("Contents-") && !x.contains('.') => DistFileType::Contents,
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
                 x if x.contains("Packages") && x.contains('.') => {
                     DistFileType::CompressPackageList(x.split_once('.').unwrap().0.to_string())
