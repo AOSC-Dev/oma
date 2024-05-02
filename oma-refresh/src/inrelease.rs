@@ -179,7 +179,6 @@ impl InReleaseParser {
         let c = if c.is_empty() { c_res_clone } else { c };
 
         for i in c {
-            dbg!(&i);
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
                 x if x.contains("Contents-") && x.contains('.') => {

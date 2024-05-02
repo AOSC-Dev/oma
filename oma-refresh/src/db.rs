@@ -577,8 +577,10 @@ fn collect_download_task(
     let msg = get_url_short_and_branch(&source_index.inrelease_path, m)?;
 
     let dist_url = source_index.dist_path.clone();
-    let file_path = if matches!(c.file_type, DistFileType::CompressContents(_)) {
-        format!("{}/{}", dist_url, c.name)
+    let download_url = format!("{}/{}", dist_url, c.name);
+
+    let file_path = if let DistFileType::CompressContents(_) = c.file_type {
+        download_url.clone()
     } else {
         format!("{}/{}", dist_url, not_compress_filename_before)
     };
@@ -588,7 +590,7 @@ fn collect_download_task(
         OmaSourceEntryFrom::Local => DownloadSourceType::Local,
     };
 
-    let sources = vec![DownloadSource::new(file_path.clone(), from)];
+    let sources = vec![DownloadSource::new(download_url.clone(), from)];
 
     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
         Some(&c.checksum)
@@ -613,7 +615,7 @@ fn collect_download_task(
     }
 
     let task = task.build()?;
-    debug!("oma will download source database: {file_path}");
+    debug!("oma will download source database: {download_url}");
     tasks.push(task);
 
     Ok(())
