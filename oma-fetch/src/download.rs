@@ -27,7 +27,7 @@ use crate::{
 #[derive(Debug, Builder)]
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
-    entry: &'a DownloadEntry,
+    pub entry: &'a DownloadEntry,
     progress: (usize, usize, Arc<Option<String>>),
     retry_times: usize,
     context: Arc<Option<String>>,
