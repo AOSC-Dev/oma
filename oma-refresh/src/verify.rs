@@ -85,8 +85,21 @@ pub fn verify<P: AsRef<Path>>(
     rootfs: P,
 ) -> VerifyResult<String> {
     let rootfs = rootfs.as_ref();
-    let dir = std::fs::read_dir(rootfs.join("etc/apt/trusted.gpg.d"))
-        .map_err(|_| VerifyError::TrustedDirNotExist)?;
+    let mut dir = std::fs::read_dir(rootfs.join("etc/apt/trusted.gpg.d"))
+        .map_err(|_| VerifyError::TrustedDirNotExist)?
+        .collect::<Vec<_>>();
+
+    let keyring = std::fs::read_dir(rootfs.join("usr/share/keyrings"));
+    let etc_keyring = std::fs::read_dir(rootfs.join("etc/apt/keyrings"));
+
+    if let Ok(keyring) = keyring {
+        dir.extend(keyring);
+    }
+
+    if let Ok(keyring) = etc_keyring {
+        dir.extend(keyring);
+    }
+
     let mut cert_files = vec![];
 
     if let Some(trust_files) = trust_files {
@@ -100,7 +113,7 @@ pub fn verify<P: AsRef<Path>>(
             }
         }
     } else {
-        for i in dir.flatten() {
+        for i in dir.iter().flatten() {
             let path = i.path();
             let ext = path.extension().and_then(|x| x.to_str());
             if ext == Some("gpg") || ext == Some("asc") {
