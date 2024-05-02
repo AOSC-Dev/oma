@@ -502,27 +502,16 @@ impl SingleDownloader<'_> {
         );
 
         debug!("File path is: {url_path}");
+        let to = self.entry.dir.join(&*self.entry.filename);
 
-        let mut from = tokio::fs::File::open(&url_path).await.map_err(|e| {
-            DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-        })?;
-
-        debug!("Success open file: {url_path}");
-
-        let mut to = tokio::fs::File::create(self.entry.dir.join(&*self.entry.filename))
+        tokio::fs::copy(&url_path, to)
             .await
-            .map_err(|e| {
-                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-            })?;
+            .map_err(|e| DownloadError::IOError(url_path.clone(), e))?;
 
-        debug!(
-            "Success create file: {}",
-            self.entry.dir.join(&*self.entry.filename).display()
-        );
-
-        let size = tokio::io::copy(&mut from, &mut to).await.map_err(|e| {
-            DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-        })?;
+        let size = tokio::fs::metadata(&url_path)
+            .await
+            .map_err(|e| DownloadError::IOError(url_path.clone(), e))?
+            .len();
 
         debug!(
             "Success copy file from {url_path} to {}",
