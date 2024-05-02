@@ -241,10 +241,8 @@ fn date_hack(date: &str) -> String {
         for k in time_split.iter_mut() {
             match k.parse::<u64>() {
                 Ok(n) => match n {
-                    0..=9 => {
-                        if !k.starts_with('0') {
-                            *k = "0".to_string() + &k;
-                        }
+                    0..=9 if k.len() == 1 => {
+                        *k = "0".to_string() + &k;
                     }
                     _ => continue,
                 },
@@ -288,6 +286,11 @@ fn test_date_hack() {
     assert!(b.is_ok());
 
     let a = "Thu, 02 May 2024 09:58:03 +0000";
+    let b = DateTime::parse_from_rfc2822(&date_hack(&a));
+
+    assert!(b.is_ok());
+
+    let a = "Thu, 02 May 2024  0:58:03 +0000";
     let b = DateTime::parse_from_rfc2822(&date_hack(&a));
 
     assert!(b.is_ok());
