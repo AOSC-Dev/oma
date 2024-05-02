@@ -15,7 +15,7 @@ use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client,
 };
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tracing::debug;
 
 use crate::{
@@ -392,8 +392,12 @@ impl SingleDownloader<'_> {
             .extension()
             .and_then(|x| x.to_str())
         {
-            Some("xz") if self.entry.extract => Box::new(WXzDecoder::new(&mut dest)),
-            Some("gz") if self.entry.extract => Box::new(WGzipDecoder::new(&mut dest)),
+            Some("xz") if self.entry.extract => {
+                Box::new(WXzDecoder::new(BufReader::new(&mut dest)))
+            }
+            Some("gz") if self.entry.extract => {
+                Box::new(WGzipDecoder::new(BufReader::new(&mut dest)))
+            }
             _ => Box::new(&mut dest),
         };
 
