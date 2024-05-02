@@ -97,7 +97,7 @@ impl InReleaseParser {
                 .take()
                 .ok_or_else(|| InReleaseParserError::BadInReleaseData)?
                 .clone();
-            let date = DateTime::parse_from_rfc2822(&utc_tzname_quirk(&date))
+            let date = DateTime::parse_from_rfc2822(&date_heck(&date))
                 .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
             let now = Utc::now();
@@ -113,7 +113,7 @@ impl InReleaseParser {
 
             // Check if the `Valid-Until` field is valid only when it is defined.
             if let Some(valid_until_data) = valid_until {
-                let valid_until = DateTime::parse_from_rfc2822(&utc_tzname_quirk(valid_until_data))
+                let valid_until = DateTime::parse_from_rfc2822(&date_heck(valid_until_data))
                     .map_err(|_| InReleaseParserError::BadInReleaseVaildUntil)?;
                 if now > valid_until {
                     return Err(InReleaseParserError::ExpiredSignature(
@@ -166,7 +166,8 @@ impl InReleaseParser {
                 if let Some(c) = component {
                     if c != *name {
                         components.contains(&c.to_string())
-                            && ((name.contains("all") || name.contains(arch)) && !is_debian_installer)
+                            && ((name.contains("all") || name.contains(arch))
+                                && !is_debian_installer)
                     } else {
                         name.contains("all") || name.contains(arch)
                     }
@@ -224,12 +225,39 @@ impl InReleaseParser {
 /// aforementioned RFC documents, "UTC" is considered illegal.
 ///
 /// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
-fn utc_tzname_quirk(date: &str) -> Cow<'_, str> {
-    if date.ends_with("UTC") {
-        return Cow::Owned(date.replace("UTC", "+0000"));
+fn date_heck(date: &str) -> String {
+    let mut split_time = date
+        .split_ascii_whitespace()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>();
+
+    for c in split_time.iter_mut() {
+        if c.is_empty() || !c.contains(':') {
+            continue;
+        }
+
+        let mut time_split = c.splitn(2, ':').map(|x| x.to_string()).collect::<Vec<_>>();
+
+        for k in time_split.iter_mut() {
+            match k.parse::<u64>() {
+                Ok(n) => match n {
+                    0..=9 => {
+                        if !k.starts_with('0') {
+                            *k = "0".to_string() + &k;
+                        }
+                    }
+                    _ => continue,
+                },
+                Err(_) => break,
+            }
+        }
+
+        *c = time_split.join(":");
     }
 
-    Cow::Borrowed(date)
+    let date = split_time.join(" ");
+
+    date.replace("UTC", "+0000")
 }
 
 fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String, String>>> {
@@ -250,4 +278,17 @@ fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String
     }
 
     Ok(res)
+}
+
+#[test]
+fn test_date_hack() {
+    let a = "Thu, 02 May 2024  9:58:03 UTC";
+    let b = DateTime::parse_from_rfc2822(&date_heck(&a));
+
+    assert!(b.is_ok());
+
+    let a = "Thu, 02 May 2024 09:58:03 +0000";
+    let b = DateTime::parse_from_rfc2822(&date_heck(&a));
+
+    assert!(b.is_ok());
 }
