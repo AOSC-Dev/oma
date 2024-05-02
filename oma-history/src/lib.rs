@@ -222,7 +222,7 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
         let disk_size = if disk_size >= 0 {
             ("+".to_string(), disk_size as u64)
         } else {
-            ("-".to_string(), 0 - disk_size as u64)
+            ("-".to_string(), (0 - disk_size) as u64)
         };
 
         res = Some(OmaOperation {
