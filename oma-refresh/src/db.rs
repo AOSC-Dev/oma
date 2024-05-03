@@ -447,7 +447,7 @@ where
         let inrelease = InRelease {
             inrelease: &s,
             trust_files: ose.signed_by.as_deref(),
-            mirror: &urlc,
+            mirror: urlc,
             arch: &arch,
             is_flat: ose.is_flat,
             p: &inrelease_path,

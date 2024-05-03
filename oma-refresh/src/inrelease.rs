@@ -67,7 +67,7 @@ pub struct InRelease<'a> {
 }
 
 impl InReleaseParser {
-    pub fn new<'a>(in_release: InRelease<'a>) -> InReleaseParserResult<Self> {
+    pub fn new(in_release: InRelease<'_>) -> InReleaseParserResult<Self> {
         let InRelease {
             inrelease: s,
             trust_files,
