@@ -569,7 +569,16 @@ impl SingleDownloader<'_> {
                 Some("gz") if self.entry.extract => {
                     Box::new(async_compression::tokio::write::GzipDecoder::new(&mut to))
                 }
-                _ => Box::new(&mut to),
+                Some("bz2") if self.entry.extract => {
+                    Box::new(async_compression::tokio::write::BzDecoder::new(&mut to))
+                }
+                x => {
+                    if self.entry.extract {
+                        debug!("Unsupport compress file extension: {x:?}");
+                    }
+
+                    Box::new(&mut to)
+                }
             };
 
         debug!(
