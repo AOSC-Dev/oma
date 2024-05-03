@@ -9,17 +9,17 @@ license = "MIT"
 
 [dependencies]
 thiserror = "1.0"
-reqwest = { version = "0.12", default_features = false, features = ["stream"]}
+reqwest = { version = "0.12", default_features = false, features = ["stream"] }
 tokio = { version = "1.28", default_features = false, features = ["fs"] }
 serde = { version = "1.0", features = ["derive"] }
 hex = "0.4"
 sha2 = "0.10"
 futures = "0.3"
 derive_builder = "0.20"
-async-compression = { version = "0.4", features = ["tokio", "gzip", "xz", "futures-io"] }
+async-compression = { version = "0.4", features = ["gzip", "xz", "futures-io"] }
 oma-utils = { version = "^0.7", features = ["url-no-escape"] }
 tracing = "0.1"
-tokio-util = { version = "0.7", features = ["io", "compat"] }
+tokio-util = { version = "0.7", features = ["compat"] }
 
 [dev-dependencies]
 tokio = { version = "1.28", default-features = false, features = ["macros", "rt-multi-thread"] }

@@ -232,7 +232,6 @@ dependencies = [
  "futures-io",
  "memchr",
  "pin-project-lite",
- "tokio",
  "xz2",
 ]
 

@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-// use async_compression::tokio::write::{GzipDecoder as WGzipDecoder, XzDecoder as WXzDecoder};
+use async_compression::futures::bufread::{GzipDecoder, XzDecoder};
 use derive_builder::Builder;
 use futures::{io::BufReader, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
@@ -409,7 +409,7 @@ impl SingleDownloader<'_> {
         // 下载！
         debug!("Start download!");
 
-        let bs = source
+        let bytes_stream = source
             .bytes_stream()
             .map_err(|e| io::Error::new(ErrorKind::Other, e))
             .into_async_read();
@@ -418,13 +418,13 @@ impl SingleDownloader<'_> {
             .extension()
             .and_then(|x| x.to_str())
         {
-            Some("xz") if self.entry.extract => Box::new(
-                async_compression::futures::bufread::XzDecoder::new(BufReader::new(bs)),
-            ),
-            Some("gz") if self.entry.extract => Box::new(
-                async_compression::futures::bufread::GzipDecoder::new(BufReader::new(bs)),
-            ),
-            _ => Box::new(BufReader::new(bs)),
+            Some("xz") if self.entry.extract => {
+                Box::new(XzDecoder::new(BufReader::new(bytes_stream)))
+            }
+            Some("gz") if self.entry.extract => {
+                Box::new(GzipDecoder::new(BufReader::new(bytes_stream)))
+            }
+            _ => Box::new(BufReader::new(bytes_stream)),
         };
 
         let mut reader = reader.compat();
