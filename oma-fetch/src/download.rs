@@ -1,6 +1,6 @@
 use crate::{DownloadEvent, DownloadSource};
 use std::{
-    io::SeekFrom,
+    io::{self, ErrorKind, SeekFrom},
     path::Path,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -8,14 +8,17 @@ use std::{
     },
 };
 
-use async_compression::tokio::write::{GzipDecoder as WGzipDecoder, XzDecoder as WXzDecoder};
+// use async_compression::tokio::write::{GzipDecoder as WGzipDecoder, XzDecoder as WXzDecoder};
 use derive_builder::Builder;
+use futures::{io::BufReader, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client,
 };
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio_util::compat::FuturesAsyncReadCompatExt;
+// use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 use tracing::debug;
 
 use crate::{
@@ -326,7 +329,7 @@ impl SingleDownloader<'_> {
             DownloadEvent::NewProgress(total_size, msg.clone()),
         );
 
-        let mut source = resp;
+        let source = resp;
 
         // 初始化 checksum 验证器
         // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
@@ -351,13 +354,20 @@ impl SingleDownloader<'_> {
                 self.entry.filename
             );
 
-            match tokio::fs::File::create(&file).await {
+            let f = match tokio::fs::File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
                     callback(self.download_list_index, DownloadEvent::ProgressDone);
                     return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
                 }
+            };
+
+            if let Err(e) = f.set_len(0).await {
+                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
+
+            f
         } else if let Some(dest) = dest {
             debug!(
                 "oma will re use opened dest file for {}",
@@ -372,67 +382,90 @@ impl SingleDownloader<'_> {
                 self.entry.filename
             );
 
-            match tokio::fs::File::create(&file).await {
+            let f = match tokio::fs::File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
                     callback(self.download_list_index, DownloadEvent::ProgressDone);
                     return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
                 }
-            }
-        };
+            };
 
-        // 把文件指针移动到末尾
-        debug!("oma will seek file: {} to end", self.entry.filename);
-        if let Err(e) = dest.seek(SeekFrom::End(0)).await {
-            callback(self.download_list_index, DownloadEvent::ProgressDone);
-            return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
-        }
-
-        let mut writer: Box<dyn AsyncWrite + Unpin + Send> = match Path::new(&sources[position].url)
-            .extension()
-            .and_then(|x| x.to_str())
-        {
-            Some("xz") if self.entry.extract => {
-                Box::new(WXzDecoder::new(BufReader::new(&mut dest)))
-            }
-            Some("gz") if self.entry.extract => {
-                Box::new(WGzipDecoder::new(BufReader::new(&mut dest)))
-            }
-            _ => Box::new(&mut dest),
-        };
-
-        // 下载！
-        debug!("Start download!");
-        while let Some(chunk) = source.chunk().await.map_err(DownloadError::ReqwestError)? {
-            if let Err(e) = writer.write_all(&chunk).await {
+            if let Err(e) = f.set_len(0).await {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
 
-            debug!("{self_progress}");
+            f
+        };
+
+        if can_resume && allow_resume {
+            // 把文件指针移动到末尾
+            debug!("oma will seek file: {} to end", self.entry.filename);
+            if let Err(e) = dest.seek(SeekFrom::End(0)).await {
+                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
+            }
+        }
+        // 下载！
+        debug!("Start download!");
+
+        let bs = source
+            .bytes_stream()
+            .map_err(|e| io::Error::new(ErrorKind::Other, e))
+            .into_async_read();
+
+        let reader: Box<dyn AsyncRead + Unpin + Send> = match Path::new(&sources[position].url)
+            .extension()
+            .and_then(|x| x.to_str())
+        {
+            Some("xz") if self.entry.extract => Box::new(
+                async_compression::futures::bufread::XzDecoder::new(BufReader::new(bs)),
+            ),
+            Some("gz") if self.entry.extract => Box::new(
+                async_compression::futures::bufread::GzipDecoder::new(BufReader::new(bs)),
+            ),
+            _ => Box::new(BufReader::new(bs)),
+        };
+
+        let mut reader = reader.compat();
+
+        let mut buf = vec![0u8; 8 * 1024];
+
+        loop {
+            let size = reader.read(&mut buf[..]).await.map_err(|e| {
+                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                DownloadError::IOError(self.entry.filename.to_string(), e)
+            })?;
+
+            if size == 0 {
+                break;
+            }
+
+            dest.write_all(&buf[..size]).await.map_err(|e| {
+                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                DownloadError::IOError(self.entry.filename.to_string(), e)
+            })?;
 
             callback(
                 self.download_list_index,
-                DownloadEvent::ProgressInc(chunk.len() as u64),
+                DownloadEvent::ProgressInc(size as u64),
             );
 
-            self_progress += chunk.len() as u64;
+            self_progress += size as u64;
 
             callback(
                 self.download_list_index,
-                DownloadEvent::GlobalProgressInc(chunk.len() as u64),
+                DownloadEvent::GlobalProgressInc(size as u64),
             );
-
-            global_progress.fetch_add(chunk.len() as u64, Ordering::SeqCst);
 
             if let Some(ref mut v) = validator {
-                v.update(&chunk);
+                v.update(&buf[..size]);
             }
         }
 
         // 下载完成，告诉内核不再写这个文件了
         debug!("Download complete! shutting down dest file stream ...");
-        if let Err(e) = writer.shutdown().await {
+        if let Err(e) = dest.shutdown().await {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
             return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
         }
