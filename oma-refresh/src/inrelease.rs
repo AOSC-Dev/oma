@@ -281,17 +281,20 @@ fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String
 #[test]
 fn test_date_hack() {
     let a = "Thu, 02 May 2024  9:58:03 UTC";
-    let b = DateTime::parse_from_rfc2822(&date_hack(&a));
-
+    let hack = date_hack(&a);
+    assert_eq!(hack, "Thu, 02 May 2024 09:58:03 +0000");
+    let b = DateTime::parse_from_rfc2822(&hack);
     assert!(b.is_ok());
 
     let a = "Thu, 02 May 2024 09:58:03 +0000";
-    let b = DateTime::parse_from_rfc2822(&date_hack(&a));
-
+    let hack = date_hack(&a);
+    assert_eq!(hack, "Thu, 02 May 2024 09:58:03 +0000");
+    let b = DateTime::parse_from_rfc2822(&hack);
     assert!(b.is_ok());
 
     let a = "Thu, 02 May 2024  0:58:03 +0000";
-    let b = DateTime::parse_from_rfc2822(&date_hack(&a));
-
+    let hack = date_hack(&a);
+    assert_eq!(hack, "Thu, 02 May 2024 00:58:03 +0000");
+    let b = DateTime::parse_from_rfc2822(&hack);
     assert!(b.is_ok());
 }
