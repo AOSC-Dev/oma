@@ -124,7 +124,7 @@ impl<'a> OmaSearch<'a> {
             };
 
             if let Some(cand) = pkg.candidate() {
-                if pkg_map.get(pkg.name()).is_none() {
+                if !pkg_map.contains_key(pkg.name()) {
                     pkg_map.insert(
                         pkg.name().to_string(),
                         SearchEntry {

@@ -242,7 +242,7 @@ fn date_hack(date: &str) -> String {
             match k.parse::<u64>() {
                 Ok(n) => match n {
                     0..=9 if k.len() == 1 => {
-                        *k = "0".to_string() + &k;
+                        *k = "0".to_string() + k;
                     }
                     _ => continue,
                 },
