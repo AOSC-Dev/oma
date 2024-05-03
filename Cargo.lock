@@ -2894,7 +2894,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "async-compression",
  "dashmap",
@@ -2975,7 +2975,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.12.9+sequoia-header-fix"
+version = "0.12.10+sequoia-header-fix"
 dependencies = [
  "anyhow",
  "chrono",
