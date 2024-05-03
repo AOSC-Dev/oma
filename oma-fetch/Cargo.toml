@@ -16,7 +16,7 @@ hex = "0.4"
 sha2 = "0.10"
 futures = "0.3"
 derive_builder = "0.20"
-async-compression = { version = "0.4", features = ["gzip", "xz", "futures-io", "tokio"] }
+async-compression = { version = "0.4", features = ["gzip", "xz", "futures-io", "tokio", "bzip2"] }
 oma-utils = { version = "^0.7", features = ["url-no-escape"] }
 tracing = "0.1"
 tokio-util = { version = "0.7", features = ["compat"] }

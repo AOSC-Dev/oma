@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use async_compression::futures::bufread::{GzipDecoder, XzDecoder};
+use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder};
 use derive_builder::Builder;
 use futures::{io::BufReader, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
@@ -18,7 +18,6 @@ use reqwest::{
 };
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
-// use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 use tracing::debug;
 
 use crate::{
@@ -424,7 +423,15 @@ impl SingleDownloader<'_> {
             Some("gz") if self.entry.extract => {
                 Box::new(GzipDecoder::new(BufReader::new(bytes_stream)))
             }
-            _ => Box::new(BufReader::new(bytes_stream)),
+            Some("bz2") if self.entry.extract => {
+                Box::new(BzDecoder::new(BufReader::new(bytes_stream)))
+            }
+            x => {
+                if self.entry.extract {
+                    debug!("Unsupport compress file extension: {x:?}");
+                }
+                Box::new(BufReader::new(bytes_stream))
+            }
         };
 
         let mut reader = reader.compat();
@@ -436,6 +443,8 @@ impl SingleDownloader<'_> {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
                 DownloadError::IOError(self.entry.filename.to_string(), e)
             })?;
+
+            debug!("chenk: {}", size);
 
             if size == 0 {
                 break;
