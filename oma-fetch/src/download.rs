@@ -16,7 +16,7 @@ use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client,
 };
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 // use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 use tracing::debug;
@@ -552,12 +552,23 @@ impl SingleDownloader<'_> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
+        let mut writer: Box<dyn AsyncWrite + Unpin + Send> =
+            match Path::new(url).extension().and_then(|x| x.to_str()) {
+                Some("xz") if self.entry.extract => {
+                    Box::new(async_compression::tokio::write::XzDecoder::new(&mut to))
+                }
+                Some("gz") if self.entry.extract => {
+                    Box::new(async_compression::tokio::write::GzipDecoder::new(&mut to))
+                }
+                _ => Box::new(&mut to),
+            };
+
         debug!(
             "Success create file: {}",
             self.entry.dir.join(&*self.entry.filename).display()
         );
 
-        let size = tokio::io::copy(&mut from, &mut to).await.map_err(|e| {
+        let size = tokio::io::copy(&mut from, &mut writer).await.map_err(|e| {
             DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
         })?;
 
