@@ -45,7 +45,7 @@ impl SingleDownloader<'_> {
         F: Fn(usize, DownloadEvent) + Clone,
     {
         let mut sources = self.entry.source.clone();
-        sources.sort_unstable_by(|a, b| a.source_type.cmp(&b.source_type));
+        sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
 
         let mut res = None;
 
