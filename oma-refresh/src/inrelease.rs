@@ -164,6 +164,8 @@ impl InReleaseParser {
                 let mut name_split = name.split('/');
                 let component = name_split.next();
                 let component_type = name_split.next();
+
+                // debian-installer 是为 Debian 安装器专门准备的源，应该没有人把 oma 用在这种场景上面
                 let is_debian_installer = component_type
                     .map(|x| x == "debian-installer")
                     .unwrap_or(false);
@@ -223,8 +225,8 @@ impl InReleaseParser {
 fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {
     match DateTime::parse_from_rfc2822(date) {
         Ok(res) => Ok(res),
-        Err(_) => {
-            debug!("Parse {} failed. try to use date hack.", date);
+        Err(e) => {
+            debug!("Parse {} failed: {e}, try to use date hack.", date);
             let hack_date = date_hack(date);
             DateTime::parse_from_rfc2822(&hack_date)
         }
