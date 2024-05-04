@@ -31,6 +31,8 @@ pub enum DownloadError {
     DownloadSourceBuilderError(#[from] DownloadEntryBuilderError),
     #[error("Invaild URL: {0}")]
     InvaildURL(String),
+    #[error("download source list is empty")]
+    EmptySources,
 }
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;

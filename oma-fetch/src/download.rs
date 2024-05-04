@@ -47,8 +47,6 @@ impl SingleDownloader<'_> {
         let mut sources = self.entry.source.clone();
         sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
 
-        let mut res = None;
-
         let cc = callback.clone();
         let gpc = global_progress.clone();
         let msg = self.progress.2.as_deref().unwrap_or(&*self.entry.filename);
@@ -67,12 +65,11 @@ impl SingleDownloader<'_> {
 
             match download_res {
                 Ok(download_res) => {
-                    res = Some(download_res);
                     callback(
                         self.download_list_index,
                         DownloadEvent::Done(msg.to_string()),
                     );
-                    break;
+                    return Ok(download_res);
                 }
                 Err(e) => {
                     if i == sources.len() - 1 {
@@ -87,8 +84,7 @@ impl SingleDownloader<'_> {
             }
         }
 
-        // 如果能够推出循环，则说明 res 肯定有值
-        Ok(res.unwrap())
+        Err(DownloadError::EmptySources)
     }
 
     /// Downlaod file with retry (http)

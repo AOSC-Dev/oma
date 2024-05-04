@@ -760,6 +760,10 @@ fn oma_download_error(e: DownloadError) -> OutputError {
             description: fl!("invaild-url", url = s),
             source: None,
         },
+        DownloadError::EmptySources => OutputError {
+            description: e.to_string(),
+            source: None,
+        },
     }
 }
 
