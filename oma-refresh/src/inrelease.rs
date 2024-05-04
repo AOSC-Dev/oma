@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, ParseResult, Utc};
 use small_map::SmallMap;
 use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, num::ParseIntError, path::Path};
@@ -97,8 +97,10 @@ impl InReleaseParser {
                 .take()
                 .ok_or_else(|| InReleaseParserError::BadInReleaseData)?;
 
-            let date = DateTime::parse_from_rfc2822(&date_hack(&date))
-                .map_err(|_| InReleaseParserError::BadInReleaseData)?;
+            let date = parse_date(date).map_err(|e| {
+                debug!("Parse data failed: {}", e);
+                InReleaseParserError::BadInReleaseData
+            })?;
 
             let now = Utc::now();
 
@@ -112,9 +114,12 @@ impl InReleaseParser {
             }
 
             // Check if the `Valid-Until` field is valid only when it is defined.
-            if let Some(valid_until_data) = valid_until {
-                let valid_until = DateTime::parse_from_rfc2822(&date_hack(valid_until_data))
-                    .map_err(|_| InReleaseParserError::BadInReleaseVaildUntil)?;
+            if let Some(valid_until_date) = valid_until {
+                let valid_until = parse_date(&valid_until_date).map_err(|e| {
+                    debug!("Parse valid_until failed: {}", e);
+                    InReleaseParserError::BadInReleaseVaildUntil
+                })?;
+
                 if now > valid_until {
                     return Err(InReleaseParserError::ExpiredSignature(
                         p.display().to_string(),
@@ -212,6 +217,17 @@ impl InReleaseParser {
             _source: source,
             checksums: res,
         })
+    }
+}
+
+fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {
+    match DateTime::parse_from_rfc2822(date) {
+        Ok(res) => Ok(res),
+        Err(_) => {
+            debug!("Parse {} failed. try to use date hack.", date);
+            let hack_date = date_hack(date);
+            DateTime::parse_from_rfc2822(&hack_date)
+        }
     }
 }
 
