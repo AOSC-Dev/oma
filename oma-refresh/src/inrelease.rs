@@ -115,7 +115,7 @@ impl InReleaseParser {
 
             // Check if the `Valid-Until` field is valid only when it is defined.
             if let Some(valid_until_date) = valid_until {
-                let valid_until = parse_date(&valid_until_date).map_err(|e| {
+                let valid_until = parse_date(valid_until_date).map_err(|e| {
                     debug!("Parse valid_until failed: {}", e);
                     InReleaseParserError::BadInReleaseVaildUntil
                 })?;
