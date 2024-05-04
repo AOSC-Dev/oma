@@ -444,8 +444,6 @@ impl SingleDownloader<'_> {
                 DownloadError::IOError(self.entry.filename.to_string(), e)
             })?;
 
-            debug!("chenk: {}", size);
-
             if size == 0 {
                 break;
             }
