@@ -95,8 +95,8 @@ impl InReleaseParser {
             let date = source_first
                 .and_then(|x| x.get("Date"))
                 .take()
-                .ok_or_else(|| InReleaseParserError::BadInReleaseData)?
-                .clone();
+                .ok_or_else(|| InReleaseParserError::BadInReleaseData)?;
+
             let date = DateTime::parse_from_rfc2822(&date_hack(&date))
                 .map_err(|_| InReleaseParserError::BadInReleaseData)?;
 
