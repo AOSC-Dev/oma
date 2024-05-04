@@ -435,7 +435,7 @@ where
         let ose = sourceslist.get(inrelease_summary.count).unwrap();
         let urlc = &ose.url;
 
-        debug!("Getted Oma source entry: {:?}", ose);
+        debug!("Getted oma source entry: {:#?}", ose);
         let inrelease_path = download_dir.join(&*inrelease_summary.filename);
 
         let s = tokio::fs::read_to_string(&inrelease_path)

@@ -89,7 +89,7 @@ impl InReleaseParser {
 
         let source_first = source.first();
 
-        debug!("InRelease is: {source:?}");
+        debug!("InRelease is: {source:#?}");
 
         if !is_flat {
             let date = source_first
