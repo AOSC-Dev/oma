@@ -16,8 +16,9 @@ use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client,
 };
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
-use tokio_util::compat::FuturesAsyncReadCompatExt;
+use tokio::io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt};
+
+use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use tracing::debug;
 
 use crate::{
@@ -560,7 +561,7 @@ impl SingleDownloader<'_> {
         let from = tokio::fs::File::open(&url_path).await.map_err(|e| {
             DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
         })?;
-        let mut from = tokio::io::BufReader::new(from);
+        let from = tokio::io::BufReader::new(from).compat();
 
         debug!("Success open file: {}", url_path.display());
 
@@ -570,25 +571,27 @@ impl SingleDownloader<'_> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
-        let mut writer: Box<dyn AsyncWrite + Unpin + Send> =
+        let reader: Box<dyn AsyncRead + Unpin + Send> =
             match Path::new(url).extension().and_then(|x| x.to_str()) {
                 Some("xz") if self.entry.extract => {
-                    Box::new(async_compression::tokio::write::XzDecoder::new(&mut to))
+                    Box::new(async_compression::futures::bufread::XzDecoder::new(from))
                 }
                 Some("gz") if self.entry.extract => {
-                    Box::new(async_compression::tokio::write::GzipDecoder::new(&mut to))
+                    Box::new(async_compression::futures::bufread::GzipDecoder::new(from))
                 }
                 Some("bz2") if self.entry.extract => {
-                    Box::new(async_compression::tokio::write::BzDecoder::new(&mut to))
+                    Box::new(async_compression::futures::bufread::BzDecoder::new(from))
                 }
                 x => {
                     if self.entry.extract {
                         debug!("Unsupport compress file extension: {x:?}");
                     }
 
-                    Box::new(&mut to)
+                    Box::new(from)
                 }
             };
+
+        let mut reader = reader.compat();
 
         debug!(
             "Success create file: {}",
@@ -598,7 +601,7 @@ impl SingleDownloader<'_> {
         let mut buf = vec![0u8; 8 * 1024];
 
         loop {
-            let size = from.read(&mut buf[..]).await.map_err(|e| {
+            let size = reader.read(&mut buf[..]).await.map_err(|e| {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
@@ -606,7 +609,7 @@ impl SingleDownloader<'_> {
                 break;
             }
 
-            writer.write_all(&buf[..size]).await.map_err(|e| {
+            to.write_all(&buf[..size]).await.map_err(|e| {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
