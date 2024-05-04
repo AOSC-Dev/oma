@@ -534,10 +534,6 @@ impl SingleDownloader<'_> {
     {
         debug!("{:?}", self.entry);
         let msg = self.set_progress_msg();
-        callback(
-            self.download_list_index,
-            DownloadEvent::NewProgressSpinner(msg.clone()),
-        );
 
         let url = &sources[download_source_position].url;
         let url_path = url_no_escape(
@@ -545,13 +541,28 @@ impl SingleDownloader<'_> {
                 .ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?,
         );
 
-        debug!("File path is: {url_path}");
+        let url_path = Path::new(&url_path);
 
-        let mut from = tokio::fs::File::open(&url_path).await.map_err(|e| {
+        let total_size = tokio::fs::metadata(url_path)
+            .await
+            .map_err(|e| {
+                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
+            })?
+            .len();
+
+        callback(
+            self.download_list_index,
+            DownloadEvent::NewProgress(total_size, msg.clone()),
+        );
+
+        debug!("File path is: {}", url_path.display());
+
+        let from = tokio::fs::File::open(&url_path).await.map_err(|e| {
             DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
         })?;
+        let mut from = tokio::io::BufReader::new(from);
 
-        debug!("Success open file: {url_path}");
+        debug!("Success open file: {}", url_path.display());
 
         let mut to = tokio::fs::File::create(self.entry.dir.join(&*self.entry.filename))
             .await
@@ -584,21 +595,35 @@ impl SingleDownloader<'_> {
             self.entry.dir.join(&*self.entry.filename).display()
         );
 
-        let size = tokio::io::copy(&mut from, &mut writer).await.map_err(|e| {
-            DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-        })?;
+        let mut buf = vec![0u8; 8 * 1024];
 
-        debug!(
-            "Success copy file from {url_path} to {}",
-            self.entry.dir.join(&*self.entry.filename).display()
-        );
+        loop {
+            let size = from.read(&mut buf[..]).await.map_err(|e| {
+                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
+            })?;
+
+            if size == 0 {
+                break;
+            }
+
+            writer.write_all(&buf[..size]).await.map_err(|e| {
+                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
+            })?;
+
+            callback(
+                self.download_list_index,
+                DownloadEvent::ProgressInc(size as u64),
+            );
+
+            callback(
+                self.download_list_index,
+                DownloadEvent::GlobalProgressInc(size as u64),
+            );
+
+            global_progress.fetch_add(size as u64, Ordering::SeqCst);
+        }
 
         callback(self.download_list_index, DownloadEvent::ProgressDone);
-        callback(
-            self.download_list_index,
-            DownloadEvent::GlobalProgressInc(size),
-        );
-        global_progress.fetch_add(size, Ordering::SeqCst);
 
         Ok(Summary::new(
             self.entry.filename.clone(),
