@@ -167,7 +167,10 @@ fn main() {
                 .with(fmt::layer().with_filter(filter))
                 .init();
         } else {
-            tracing_subscriber::registry().with(fmt::layer()).init();
+            let debug_filter: EnvFilter = "hyper=off,rustls=off,debug".parse().unwrap();
+            tracing_subscriber::registry()
+                .with(fmt::layer().with_filter(debug_filter))
+                .init();
         }
     }
 
