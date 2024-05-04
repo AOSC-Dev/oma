@@ -573,15 +573,9 @@ impl SingleDownloader<'_> {
 
         let reader: Box<dyn AsyncRead + Unpin + Send> =
             match Path::new(url).extension().and_then(|x| x.to_str()) {
-                Some("xz") if self.entry.extract => {
-                    Box::new(async_compression::futures::bufread::XzDecoder::new(from))
-                }
-                Some("gz") if self.entry.extract => {
-                    Box::new(async_compression::futures::bufread::GzipDecoder::new(from))
-                }
-                Some("bz2") if self.entry.extract => {
-                    Box::new(async_compression::futures::bufread::BzDecoder::new(from))
-                }
+                Some("xz") if self.entry.extract => Box::new(XzDecoder::new(from)),
+                Some("gz") if self.entry.extract => Box::new(GzipDecoder::new(from)),
+                Some("bz2") if self.entry.extract => Box::new(BzDecoder::new(from)),
                 x => {
                     if self.entry.extract {
                         debug!("Unsupport compress file extension: {x:?}");

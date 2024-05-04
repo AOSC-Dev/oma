@@ -232,6 +232,7 @@ fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {
 }
 
 /// Replace RFC 1123/822/2822 non-compliant "UTC" marker with RFC 2822-compliant "+0000" whilst parsing InRelease.
+/// and for non-standard X:YY:ZZ conversion to XX::YY::ZZ.
 ///
 /// - Some third-party repositories (such as those generated with Aptly) uses "UTC" to denote the Coordinated Universal
 /// Time, which is not allowed in RFC 1123 or 822/2822 (all calls for "GMT" or "UT", 822 allows "Z", and 2822 allows
@@ -241,6 +242,8 @@ fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {
 /// aforementioned RFC documents, "UTC" is considered illegal.
 ///
 /// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
+///
+/// and for non-standard X:YY:ZZ conversion to XX::YY::ZZ to make it palatable to chronos.
 fn date_hack(date: &str) -> String {
     let mut split_time = date
         .split_ascii_whitespace()
