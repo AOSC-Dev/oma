@@ -258,7 +258,8 @@ fn date_hack(date: &str) -> String {
         }
 
         let mut time_split = c.splitn(2, ':').map(|x| x.to_string()).collect::<Vec<_>>();
-
+        
+        // X:YY:ZZ conversion to XX:YY:ZZ to make it palatable to chronos
         for k in time_split.iter_mut() {
             match k.parse::<u64>() {
                 Ok(n) => match n {
