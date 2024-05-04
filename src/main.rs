@@ -164,12 +164,28 @@ fn main() {
 
         if let Ok(filter) = env_log {
             tracing_subscriber::registry()
-                .with(fmt::layer().with_filter(filter))
+                .with(
+                    fmt::layer()
+                        .event_format(
+                            tracing_subscriber::fmt::format()
+                                .with_file(true)
+                                .with_line_number(true),
+                        )
+                        .with_filter(filter),
+                )
                 .init();
         } else {
             let debug_filter: EnvFilter = "hyper=off,rustls=off,debug".parse().unwrap();
             tracing_subscriber::registry()
-                .with(fmt::layer().with_filter(debug_filter))
+                .with(
+                    fmt::layer()
+                        .event_format(
+                            tracing_subscriber::fmt::format()
+                                .with_file(true)
+                                .with_line_number(true),
+                        )
+                        .with_filter(debug_filter),
+                )
                 .init();
         }
     }
