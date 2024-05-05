@@ -410,28 +410,7 @@ impl SingleDownloader<'_> {
             .map_err(|e| io::Error::new(ErrorKind::Other, e))
             .into_async_read();
 
-        let reader: Box<dyn AsyncRead + Unpin + Send> = match Path::new(&sources[position].url)
-            .extension()
-            .and_then(|x| x.to_str())
-        {
-            Some("xz") if self.entry.extract => {
-                Box::new(XzDecoder::new(BufReader::new(bytes_stream)))
-            }
-            Some("gz") if self.entry.extract => {
-                Box::new(GzipDecoder::new(BufReader::new(bytes_stream)))
-            }
-            Some("bz2") if self.entry.extract => {
-                Box::new(BzDecoder::new(BufReader::new(bytes_stream)))
-            }
-            x => {
-                if self.entry.extract {
-                    debug!("Unsupport compress file extension: {x:?}");
-                }
-                Box::new(BufReader::new(bytes_stream))
-            }
-        };
-
-        let mut reader = reader.compat();
+        let mut reader = self.file_reader(&sources[position].url, bytes_stream);
 
         let mut buf = vec![0u8; 8 * 1024];
 
@@ -567,21 +546,7 @@ impl SingleDownloader<'_> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
-        let reader: Box<dyn AsyncRead + Unpin + Send> =
-            match Path::new(url).extension().and_then(|x| x.to_str()) {
-                Some("xz") if self.entry.extract => Box::new(XzDecoder::new(from)),
-                Some("gz") if self.entry.extract => Box::new(GzipDecoder::new(from)),
-                Some("bz2") if self.entry.extract => Box::new(BzDecoder::new(from)),
-                x => {
-                    if self.entry.extract {
-                        debug!("Unsupport compress file extension: {x:?}");
-                    }
-
-                    Box::new(from)
-                }
-            };
-
-        let mut reader = reader.compat();
+        let mut reader = self.file_reader(url, from);
 
         debug!(
             "Success create file: {}",
@@ -624,5 +589,32 @@ impl SingleDownloader<'_> {
             self.download_list_index,
             self.context.clone(),
         ))
+    }
+
+    fn file_reader<F>(
+        &self,
+        url: &str,
+        from: F,
+    ) -> tokio_util::compat::Compat<Box<dyn AsyncRead + Unpin + Send>>
+    where
+        F: AsyncRead + Send + Unpin + 'static,
+    {
+        let reader: Box<dyn AsyncRead + Unpin + Send> = match Path::new(url)
+            .extension()
+            .and_then(|x| x.to_str())
+        {
+            Some("xz") if self.entry.extract => Box::new(XzDecoder::new(BufReader::new(from))),
+            Some("gz") if self.entry.extract => Box::new(GzipDecoder::new(BufReader::new(from))),
+            Some("bz2") if self.entry.extract => Box::new(BzDecoder::new(BufReader::new(from))),
+            x => {
+                if self.entry.extract {
+                    debug!("Unsupport compress file extension: {x:?}");
+                }
+
+                Box::new(from)
+            }
+        };
+        
+        reader.compat()
     }
 }
