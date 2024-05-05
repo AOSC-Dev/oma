@@ -163,13 +163,13 @@ pub fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>> {
             SourceListType::SourceLine(ref lines) => {
                 for i in lines {
                     if let SourceLine::Entry(entry) = i {
-                        res.push(OmaSourceEntry::new(entry)?);
+                        res.push(OmaSourceEntry::try_from(entry)?);
                     }
                 }
             }
             SourceListType::Deb822(ref e) => {
                 for i in &e.entries {
-                    res.push(OmaSourceEntry::new(i)?);
+                    res.push(OmaSourceEntry::try_from(i)?);
                 }
             }
         }
@@ -200,8 +200,10 @@ pub enum Event {
     Info(String),
 }
 
-impl OmaSourceEntry {
-    fn new(v: &SourceEntry) -> Result<Self> {
+impl TryFrom<&SourceEntry> for OmaSourceEntry {
+    type Error = RefreshError;
+
+    fn try_from(v: &SourceEntry) -> std::prelude::v1::Result<Self, Self::Error> {
         let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
             OmaSourceEntryFrom::Http
         } else if v.url().starts_with("file://") {
