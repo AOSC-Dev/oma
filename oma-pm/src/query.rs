@@ -4,7 +4,10 @@ use cxx::UniquePtr;
 use oma_apt::{
     cache::{Cache, PackageSort},
     package::{Package, Version},
-    raw::{cache::raw::PkgIterator, error::{raw::AptError, AptErrors}},
+    raw::{
+        cache::raw::PkgIterator,
+        error::{raw::AptError, AptErrors},
+    },
     records::RecordField,
 };
 use oma_utils::url_no_escape::url_no_escape;

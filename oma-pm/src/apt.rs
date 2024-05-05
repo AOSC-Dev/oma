@@ -7,7 +7,10 @@ use std::{
 
 use chrono::Local;
 use derive_builder::Builder;
-use oma_apt::raw::{error::{raw::AptError, AptErrors}, util::raw::apt_lock};
+use oma_apt::raw::{
+    error::{raw::AptError, AptErrors},
+    util::raw::apt_lock,
+};
 use oma_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
