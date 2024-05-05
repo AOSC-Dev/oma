@@ -235,8 +235,7 @@ impl OmaSourceEntry {
 
         let signed_by = options
             .iter()
-            .find(|x| x.strip_prefix("signed-by=").is_some())
-            .map(|x| x.strip_prefix("signed-by=").unwrap().to_string());
+            .find_map(|x| x.strip_prefix("signed-by=").map(|x| x.to_string()));
 
         Ok(Self {
             from,
