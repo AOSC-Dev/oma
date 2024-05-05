@@ -159,9 +159,18 @@ pub fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>> {
     let list = SourcesLists::scan_from_root(sysroot).map_err(RefreshError::ScanSourceError)?;
 
     for file in list.iter() {
-        for i in &file.lines {
-            if let SourceLine::Entry(entry) = i {
-                res.push(OmaSourceEntry::new(entry)?);
+        match file.entries {
+            oma_apt_sources_lists::SourceListType::SourceLine(ref lines) => {
+                for i in lines {
+                    if let SourceLine::Entry(entry) = i {
+                        res.push(OmaSourceEntry::new(&entry)?);
+                    }
+                }
+            }
+            oma_apt_sources_lists::SourceListType::Deb822(ref e) => {
+                for i in &e.entries {
+                    res.push(OmaSourceEntry::new(&i)?);
+                }
             }
         }
     }
