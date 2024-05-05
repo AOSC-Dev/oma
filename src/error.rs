@@ -215,7 +215,7 @@ impl From<OmaDbusError> for OutputError {
 impl From<OmaSearchError> for OutputError {
     fn from(value: OmaSearchError) -> Self {
         match value {
-            OmaSearchError::RustApt(e) => OutputError {
+            OmaSearchError::AptError(e) => OutputError {
                 description: fl!("apt-error"),
                 source: Some(Box::new(e)),
             },
@@ -226,6 +226,14 @@ impl From<OmaSearchError> for OutputError {
             OmaSearchError::FailedGetCandidate(s) => OutputError {
                 description: fl!("no-candidate-ver", pkg = s),
                 source: None,
+            },
+            OmaSearchError::AptErrors(e) => OutputError {
+                description: fl!("apt-error"),
+                source: Some(Box::new(e)),
+            },
+            OmaSearchError::AptCxxException(e) => OutputError {
+                description: fl!("apt-error"),
+                source: Some(Box::new(e)),
             },
         }
     }
@@ -596,7 +604,7 @@ impl From<anyhow::Error> for OutputError {
 pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
     debug!("{:?}", err);
     match err {
-        OmaAptError::RustApt(e) => OutputError {
+        OmaAptError::AptErrors(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(e)),
         },
@@ -701,6 +709,8 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: format!("Failed canonicalize path: {p}"),
             source: Some(Box::new(e)),
         },
+        OmaAptError::AptError(_) => todo!(),
+        OmaAptError::AptCxxException(_) => todo!(),
     }
 }
 
@@ -792,7 +802,15 @@ fn oma_checksum_error(e: ChecksumError) -> OutputError {
 fn oma_database_error(e: OmaDatabaseError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        OmaDatabaseError::RustApt(e) => OutputError {
+        OmaDatabaseError::AptError(e) => OutputError {
+            description: fl!("apt-error"),
+            source: Some(Box::new(e)),
+        },
+        OmaDatabaseError::AptErrors(e) => OutputError {
+            description: fl!("apt-error"),
+            source: Some(Box::new(e)),
+        },
+        OmaDatabaseError::AptCxxException(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(e)),
         },
@@ -813,7 +831,15 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
             source: None,
         },
         OmaDatabaseError::OmaSearchError(e) => match e {
-            OmaSearchError::RustApt(e) => OutputError {
+            OmaSearchError::AptError(e) => OutputError {
+                description: fl!("apt-error"),
+                source: Some(Box::new(e)),
+            },
+            OmaSearchError::AptErrors(e) => OutputError {
+                description: fl!("apt-error"),
+                source: Some(Box::new(e)),
+            },
+            OmaSearchError::AptCxxException(e) => OutputError {
                 description: fl!("apt-error"),
                 source: Some(Box::new(e)),
             },

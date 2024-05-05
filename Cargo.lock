@@ -2851,13 +2851,13 @@ dependencies = [
 
 [[package]]
 name = "oma-apt"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b817e2c0ae73226b9f9d61a83fe1354e1c9e2acfb1156116571330465256e771"
+checksum = "18d241ff426a8d58312f902617564cd65bf674854dc3e88db5dee00c55e8d264"
 dependencies = [
  "cxx",
  "cxx-build",
- "once_cell",
+ "paste",
  "terminal_size",
 ]
 
@@ -2962,6 +2962,7 @@ name = "oma-pm"
 version = "0.18.10"
 dependencies = [
  "chrono",
+ "cxx",
  "dashmap",
  "derive_builder",
  "fs4",

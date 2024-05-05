@@ -1,9 +1,10 @@
 use std::fmt::Display;
 
+use cxx::UniquePtr;
 use oma_apt::{
     cache::Cache,
     package::{BaseDep, DepType, Dependency, Package, Version},
-    raw::package::{RawPackage, RawVersion},
+    raw::cache::raw::{PkgIterator, VerIterator},
     records::RecordField,
 };
 use oma_utils::human_bytes::HumanBytes;
@@ -135,10 +136,9 @@ impl From<&DepType> for OmaDepType {
     }
 }
 
-#[derive(Eq, PartialEq, Hash)]
 pub struct PkgInfo {
-    pub version_raw: RawVersion,
-    pub raw_pkg: RawPackage,
+    pub version_raw: UniquePtr<VerIterator>,
+    pub raw_pkg: UniquePtr<PkgIterator>,
 }
 
 impl PkgInfo {
@@ -147,7 +147,7 @@ impl PkgInfo {
         let raw_pkg = pkg.unique();
         Self {
             version_raw: version.unique(),
-            raw_pkg,
+            raw_pkg: raw_pkg.unique(),
         }
     }
 

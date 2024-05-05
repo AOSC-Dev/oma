@@ -7,7 +7,7 @@ use std::{
 
 use chrono::Local;
 use derive_builder::Builder;
-use oma_apt::raw::util::raw::apt_lock;
+use oma_apt::raw::{error::{raw::AptError, AptErrors}, util::raw::apt_lock};
 use oma_apt::{
     cache::{Cache, PackageSort, Upgrade},
     new_cache,
@@ -77,7 +77,11 @@ pub struct OmaApt {
 #[derive(Debug, thiserror::Error)]
 pub enum OmaAptError {
     #[error(transparent)]
-    RustApt(#[from] oma_apt::util::Exception),
+    AptErrors(#[from] AptErrors),
+    #[error(transparent)]
+    AptError(#[from] AptError),
+    #[error(transparent)]
+    AptCxxException(#[from] cxx::Exception),
     #[error(transparent)]
     OmaDatabaseError(#[from] OmaDatabaseError),
     #[error("Failed to mark reinstall pkg: {0}")]
@@ -358,7 +362,7 @@ impl OmaApt {
         let mut download_list = vec![];
         for pkg in pkgs {
             let name = pkg.raw_pkg.name().to_string();
-            let ver = Version::new(pkg.version_raw, &self.cache);
+            let ver = Version::new(pkg.version_raw.unique(), &self.cache);
             let install_size = ver.installed_size();
             if !ver.is_downloadable() {
                 return Err(OmaAptError::PkgUnavailable(name, ver.version().to_string()));
@@ -811,7 +815,7 @@ impl OmaApt {
     ) -> OmaAptResult<Vec<(String, bool)>> {
         let mut res = vec![];
         for pkg in pkgs {
-            let pkg = Package::new(&self.cache, pkg.raw_pkg);
+            let pkg = Package::new(&self.cache, pkg.raw_pkg.unique());
 
             if !pkg.is_installed() {
                 return Err(OmaAptError::MarkPkgNotInstalled(pkg.name().to_string()));

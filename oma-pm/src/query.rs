@@ -1,9 +1,10 @@
 use std::path::Path;
 
+use cxx::UniquePtr;
 use oma_apt::{
     cache::{Cache, PackageSort},
     package::{Package, Version},
-    raw::package::RawPackage,
+    raw::{cache::raw::PkgIterator, error::{raw::AptError, AptErrors}},
     records::RecordField,
 };
 use oma_utils::url_no_escape::url_no_escape;
@@ -17,7 +18,11 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum OmaDatabaseError {
     #[error(transparent)]
-    RustApt(#[from] oma_apt::util::Exception),
+    AptErrors(#[from] AptErrors),
+    #[error(transparent)]
+    AptError(#[from] AptError),
+    #[error(transparent)]
+    AptCxxException(#[from] cxx::Exception),
     #[error("Invaild pattern: {0}")]
     InvaildPattern(String),
     #[error("Can not find package {0} from database")]
@@ -56,7 +61,7 @@ impl<'a> OmaDatabase<'a> {
 
         for i in glob {
             let real_pkg = real_pkg(&i);
-            let pkg = Package::new(self.cache, real_pkg);
+            let pkg = Package::new(self.cache, real_pkg.unique());
             let path = url_no_escape(&format!(
                 "file:{}",
                 Path::new(i.name())
@@ -104,7 +109,7 @@ impl<'a> OmaDatabase<'a> {
 
         let pkgs = pkgs
             .map(|x| real_pkg(&x))
-            .map(|x| Package::new(self.cache, x));
+            .map(|x| Package::new(self.cache, x.unique()));
 
         for pkg in pkgs {
             debug!("Select pkg: {}", pkg.name());
@@ -292,7 +297,7 @@ impl<'a> OmaDatabase<'a> {
 }
 
 /// Get real pkg from real pkg or virtual package
-pub fn real_pkg(pkg: &Package) -> RawPackage {
+pub fn real_pkg(pkg: &Package) -> UniquePtr<PkgIterator> {
     if !pkg.has_versions() {
         if let Some(provide) = pkg.provides().next() {
             return provide.target_pkg();

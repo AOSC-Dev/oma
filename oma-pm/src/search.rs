@@ -1,8 +1,12 @@
+use cxx::UniquePtr;
 use indicium::simple::{Indexable, SearchIndex};
 use oma_apt::{
     cache::{Cache, PackageSort},
     package::Package,
-    raw::package::RawPackage,
+    raw::{
+        cache::raw::PkgIterator,
+        error::{raw::AptError, AptErrors},
+    },
 };
 use std::{collections::HashMap, fmt::Debug};
 
@@ -49,7 +53,7 @@ pub struct SearchEntry {
     status: PackageStatus,
     provide: Option<String>,
     has_dbg: bool,
-    raw_pkg: RawPackage,
+    raw_pkg: UniquePtr<PkgIterator>,
     section_is_base: bool,
 }
 
@@ -76,7 +80,11 @@ impl Indexable for SearchEntry {
 #[derive(Debug, thiserror::Error)]
 pub enum OmaSearchError {
     #[error(transparent)]
-    RustApt(#[from] oma_apt::util::Exception),
+    AptErrors(#[from] AptErrors),
+    #[error(transparent)]
+    AptError(#[from] AptError),
+    #[error(transparent)]
+    AptCxxException(#[from] cxx::Exception),
     #[error("No result found: {0}")]
     NoResult(String),
     #[error("Failed to get candidate version: {0}")]
