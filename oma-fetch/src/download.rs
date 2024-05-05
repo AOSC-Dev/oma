@@ -18,7 +18,7 @@ use reqwest::{
 };
 use tokio::io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt};
 
-use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use tracing::debug;
 
 use crate::{
@@ -591,11 +591,7 @@ impl SingleDownloader<'_> {
         ))
     }
 
-    fn file_reader<F>(
-        &self,
-        url: &str,
-        from: F,
-    ) -> tokio_util::compat::Compat<Box<dyn AsyncRead + Unpin + Send>>
+    fn file_reader<F>(&self, url: &str, from: F) -> Compat<Box<dyn AsyncRead + Unpin + Send>>
     where
         F: AsyncRead + Send + Unpin + 'static,
     {
@@ -611,10 +607,10 @@ impl SingleDownloader<'_> {
                     debug!("Unsupport compress file extension: {x:?}");
                 }
 
-                Box::new(from)
+                Box::new(BufReader::new(from))
             }
         };
-        
+
         reader.compat()
     }
 }
