@@ -10,6 +10,7 @@ use oma_fetch::DownloadError;
 use oma_history::HistoryError;
 use oma_pm::apt::{AptArgsBuilderError, OmaAptArgsBuilderError};
 use oma_pm::search::OmaSearchError;
+use oma_pm::AptErrors;
 use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseParserError;
@@ -227,14 +228,29 @@ impl From<OmaSearchError> for OutputError {
                 description: fl!("no-candidate-ver", pkg = s),
                 source: None,
             },
-            OmaSearchError::AptErrors(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(e)),
-            },
+            OmaSearchError::AptErrors(e) => OutputError::from(e),
             OmaSearchError::AptCxxException(e) => OutputError {
                 description: fl!("apt-error"),
                 source: Some(Box::new(e)),
             },
+        }
+    }
+}
+
+impl From<AptErrors> for OutputError {
+    fn from(e: AptErrors) -> Self {
+        for c in e.errors() {
+            if c.is_error {
+                error!("{}", c.msg);
+                continue;
+            }
+
+            info!("{}", c.msg);
+        }
+
+        OutputError {
+            description: fl!("apt-error"),
+            source: None,
         }
     }
 }
@@ -604,10 +620,7 @@ impl From<anyhow::Error> for OutputError {
 pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
     debug!("{:?}", err);
     match err {
-        OmaAptError::AptErrors(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(e)),
-        },
+        OmaAptError::AptErrors(e) => OutputError::from(e),
         OmaAptError::OmaDatabaseError(e) => oma_database_error(e),
         OmaAptError::MarkReinstallError(pkg, version) => OutputError {
             description: fl!("can-not-mark-reinstall", name = pkg, version = version),
@@ -806,10 +819,7 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(e)),
         },
-        OmaDatabaseError::AptErrors(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(e)),
-        },
+        OmaDatabaseError::AptErrors(e) => OutputError::from(e),
         OmaDatabaseError::AptCxxException(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(e)),
@@ -835,10 +845,7 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
                 description: fl!("apt-error"),
                 source: Some(Box::new(e)),
             },
-            OmaSearchError::AptErrors(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(e)),
-            },
+            OmaSearchError::AptErrors(e) => OutputError::from(e),
             OmaSearchError::AptCxxException(e) => OutputError {
                 description: fl!("apt-error"),
                 source: Some(Box::new(e)),

@@ -3,6 +3,7 @@ pub mod pkginfo;
 mod progress;
 pub mod query;
 pub mod search;
+pub use oma_apt::raw::error::AptErrors;
 pub use search::PackageStatus;
 mod dbus;
 
