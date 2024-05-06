@@ -53,6 +53,19 @@ impl InReleaseVerifier {
             _mirror: mirror.to_string(),
         })
     }
+
+    pub fn str(mirror: &str, gpg: &str) -> VerifyResult<Self> {
+        let mut certs: Vec<Cert> = Vec::new();
+        let cert = CertParser::from_bytes(gpg.as_bytes())?;
+        for maybe_cert in cert {
+            certs.push(maybe_cert?);
+        }
+
+        Ok(InReleaseVerifier {
+            certs,
+            _mirror: mirror.to_string(),
+        })
+    }
 }
 
 impl VerificationHelper for InReleaseVerifier {
@@ -101,6 +114,7 @@ pub fn verify<P: AsRef<Path>>(
     }
 
     let mut cert_files = vec![];
+    let mut trust = None;
 
     if let Some(trust_files) = trust_files {
         let trust_files = trust_files.split(',');
@@ -109,7 +123,12 @@ pub fn verify<P: AsRef<Path>>(
             if p.is_absolute() {
                 cert_files.push(p.to_path_buf());
             } else {
-                cert_files.push(rootfs.join("etc/apt/trusted.gpg.d").join(file))
+                let p = rootfs.join("etc/apt/trusted.gpg.d").join(file);
+                if p.exists() {
+                    cert_files.push(p.to_path_buf());
+                } else {
+                    trust = Some(file)
+                }
             }
         }
     } else {
@@ -138,7 +157,11 @@ pub fn verify<P: AsRef<Path>>(
     let mut v = VerifierBuilder::from_bytes(s.as_bytes())?.with_policy(
         &p,
         None,
-        InReleaseVerifier::new(&cert_files, mirror)?,
+        if let Some(t) = trust {
+            InReleaseVerifier::str(mirror, t)?
+        } else {
+            InReleaseVerifier::new(&cert_files, mirror)?
+        },
     )?;
 
     let mut res = String::new();
