@@ -9,8 +9,6 @@ use crate::fl;
 use anyhow::anyhow;
 use smallvec::{smallvec, SmallVec};
 
-use super::utils::check_unsupport_stmt;
-
 pub fn execute(
     all: bool,
     installed: bool,
@@ -31,23 +29,28 @@ pub fn execute(
         filter_mode.push(FilterMode::Upgradable)
     }
 
-    if !pkgs.is_empty() {
-        for pkg in &pkgs {
-            check_unsupport_stmt(pkg);
-        }
-    }
-
     let filter_pkgs = apt.filter_pkgs(&filter_mode)?;
     let filter_pkgs: Box<dyn Iterator<Item = _>> = if pkgs.is_empty() {
         Box::new(filter_pkgs)
     } else {
-        Box::new(filter_pkgs.filter(|x| pkgs.contains(&x.name().to_string())))
+        Box::new(filter_pkgs.filter(|x| {
+            for i in &pkgs {
+                if glob_match::glob_match_with_captures(i, x.name()).is_some() {
+                    return true;
+                }
+            }
+
+            false
+        }))
     };
 
     let mut display_tips = (false, 0);
 
+    let mut pkg_count = 0;
+
     for pkg in filter_pkgs {
         let name = pkg.name();
+        pkg_count += 1;
         let versions = if all {
             pkg.versions().collect()
         } else {
@@ -152,7 +155,7 @@ pub fn execute(
         }
     }
 
-    if display_tips.0 && pkgs.len() == 1 {
+    if display_tips.0 && pkg_count == 1 {
         info!("{}", fl!("additional-version", len = display_tips.1));
     }
 
