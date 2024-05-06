@@ -235,9 +235,15 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
 
         let options = options.split_whitespace().collect::<Vec<_>>();
 
-        let signed_by = options
-            .iter()
-            .find_map(|x| x.strip_prefix("signed-by=").map(|x| x.to_string()));
+        let signed_by = options.iter().find_map(|x| {
+            x.split_once("=").and_then(|x| {
+                if x.0.to_lowercase() == "signed-by" {
+                    Some(x.1.to_string())
+                } else {
+                    None
+                }
+            })
+        });
 
         Ok(Self {
             from,
