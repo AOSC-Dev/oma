@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use std::io::{self, stdout, Write};
+use std::io::{self, stdout};
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
@@ -47,6 +47,9 @@ use crate::error::Chain;
 #[cfg(feature = "aosc")]
 use crate::subcommand::topics::TopicArgs;
 use crate::subcommand::*;
+
+use crossterm::{Command as CrossTermCmd, ExecutableCommand};
+use std::fmt::Write as FmtWrite;
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -568,9 +571,7 @@ fn single_handler() {
 
     // 该终端安全退出方法来自 ratatui `restore_terminal`
     disable_raw_mode().ok();
-    let mut f = stdout();
-    f.write_all(csi!("?1049l").as_bytes()).ok();
-    f.flush().ok();
+    stdout().execute(LeaveAlternateScreen).ok();
 
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
@@ -583,4 +584,35 @@ fn single_handler() {
     }
 
     std::process::exit(2);
+}
+
+/// A command that switches back to the main screen.
+///
+/// # Notes
+///
+/// * Commands must be executed/queued for execution otherwise they do nothing.
+/// * Use [EnterAlternateScreen](./struct.EnterAlternateScreen.html) to enter the alternate screen.
+///
+/// # Examples
+///
+/// ```no_run
+/// use std::io::{self, Write};
+/// use crossterm::{execute, terminal::{EnterAlternateScreen, LeaveAlternateScreen}};
+///
+/// fn main() -> io::Result<()> {
+///     execute!(io::stdout(), EnterAlternateScreen)?;
+///
+///     // Do anything on the alternate screen
+///
+///     execute!(io::stdout(), LeaveAlternateScreen)
+/// }
+/// ```
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LeaveAlternateScreen;
+
+impl CrossTermCmd for LeaveAlternateScreen {
+    fn write_ansi(&self, f: &mut impl FmtWrite) -> std::fmt::Result {
+        f.write_str(csi!("?1049l"))
+    }
 }
