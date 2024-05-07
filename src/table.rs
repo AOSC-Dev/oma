@@ -422,7 +422,6 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>, pager_name: Option<&str>)
 
     printer.print("").ok();
     printer.print(format!("{}\n", fl!("review-msg"))).ok();
-    // let _ = writeln!(out, "{}\n", fl!("review-msg"));
     printer
         .print(format!(
             "{}\n",

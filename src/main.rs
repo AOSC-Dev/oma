@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use std::io;
+use std::io::{self, stdout, Write};
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
@@ -18,6 +18,7 @@ mod egg;
 use anyhow::anyhow;
 
 use clap::ArgMatches;
+use crossterm::terminal::disable_raw_mode;
 use error::OutputError;
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
@@ -544,6 +545,12 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
     Ok(())
 }
 
+#[macro_export]
+#[doc(hidden)]
+macro_rules! csi {
+    ($( $l:expr ),*) => { concat!("\x1B[", $( $l ),*) };
+}
+
 fn single_handler() {
     // Kill subprocess
     let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
@@ -558,6 +565,12 @@ fn single_handler() {
     if LOCKED.load(Ordering::Relaxed) {
         unlock_oma().expect("Failed to unlock instance.");
     }
+
+    // 该终端安全退出方法来自 ratatui `restore_terminal`
+    disable_raw_mode().ok();
+    let mut f = stdout();
+    f.write_all(csi!("?1049l").as_bytes()).ok();
+    f.flush().ok();
 
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
