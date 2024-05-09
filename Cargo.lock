@@ -2617,6 +2617,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ncurses"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4e8f88d2767a7c13193ede671f25733e32e4116d4c17778cf9af3beddba7881"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
+]
+
+[[package]]
 name = "nettle"
 version = "7.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2824,6 +2835,7 @@ dependencies = [
  "i18n-embed-fl",
  "image",
  "libc",
+ "ncurses",
  "oma-console",
  "oma-contents",
  "oma-fetch",

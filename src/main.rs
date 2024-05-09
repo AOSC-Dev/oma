@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use std::io::{self, stdout};
+use std::io;
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
@@ -18,7 +18,6 @@ mod egg;
 use anyhow::anyhow;
 
 use clap::ArgMatches;
-use crossterm::terminal::disable_raw_mode;
 use error::OutputError;
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
@@ -48,7 +47,8 @@ use crate::error::Chain;
 use crate::subcommand::topics::TopicArgs;
 use crate::subcommand::*;
 
-use crossterm::{Command as CrossTermCmd, ExecutableCommand};
+use crossterm::Command as CrossTermCmd;
+use ncurses::reset_shell_mode;
 use std::fmt::Write as FmtWrite;
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
@@ -569,13 +569,12 @@ fn single_handler() {
         unlock_oma().expect("Failed to unlock instance.");
     }
 
-    // 该终端安全退出方法来自 ratatui `restore_terminal`
-    disable_raw_mode().ok();
-    stdout().execute(LeaveAlternateScreen).ok();
-
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
     let _ = WRITER.show_cursor();
+
+    // reset_shell_mode() in curs_kernel(3X)
+    let _ = reset_shell_mode();
 
     if !allow_ctrlc {
         info!("{}", fl!("user-aborted-op"));
