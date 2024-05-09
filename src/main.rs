@@ -47,9 +47,7 @@ use crate::error::Chain;
 use crate::subcommand::topics::TopicArgs;
 use crate::subcommand::*;
 
-use crossterm::Command as CrossTermCmd;
 use ncurses::reset_shell_mode;
-use std::fmt::Write as FmtWrite;
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -583,35 +581,4 @@ fn single_handler() {
     }
 
     std::process::exit(2);
-}
-
-/// A command that switches back to the main screen.
-///
-/// # Notes
-///
-/// * Commands must be executed/queued for execution otherwise they do nothing.
-/// * Use [EnterAlternateScreen](./struct.EnterAlternateScreen.html) to enter the alternate screen.
-///
-/// # Examples
-///
-/// ```no_run
-/// use std::io::{self, Write};
-/// use crossterm::{execute, terminal::{EnterAlternateScreen, LeaveAlternateScreen}};
-///
-/// fn main() -> io::Result<()> {
-///     execute!(io::stdout(), EnterAlternateScreen)?;
-///
-///     // Do anything on the alternate screen
-///
-///     execute!(io::stdout(), LeaveAlternateScreen)
-/// }
-/// ```
-///
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LeaveAlternateScreen;
-
-impl CrossTermCmd for LeaveAlternateScreen {
-    fn write_ansi(&self, f: &mut impl FmtWrite) -> std::fmt::Result {
-        f.write_str(csi!("?1049l"))
-    }
 }
