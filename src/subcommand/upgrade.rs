@@ -139,7 +139,9 @@ pub fn execute(
                 return Ok(0);
             }
             Err(e) => match e {
-                OmaAptError::AptErrors(_) => {
+                OmaAptError::AptErrors(_)
+                | OmaAptError::AptError(_)
+                | OmaAptError::AptCxxException(_) => {
                     if retry_times == 3 {
                         write_history_entry(
                             op_after,
