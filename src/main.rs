@@ -571,9 +571,6 @@ fn single_handler() {
     // This is not a big deal so we won't panic on this.
     let _ = WRITER.show_cursor();
 
-    // reset_shell_mode() in curs_kernel(3X)
-    let _ = reset_shell_mode();
-
     if !allow_ctrlc {
         info!("{}", fl!("user-aborted-op"));
     } else {
