@@ -47,8 +47,6 @@ use crate::error::Chain;
 use crate::subcommand::topics::TopicArgs;
 use crate::subcommand::*;
 
-use ncurses::reset_shell_mode;
-
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
