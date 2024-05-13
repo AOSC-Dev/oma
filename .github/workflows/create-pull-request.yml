@@ -6,7 +6,7 @@ on:
       - "v*.*.*"
 
 jobs:
-  pdate:
+  create-abbs-pr:
     runs-on: ubuntu-latest
 
     permissions:
@@ -35,7 +35,7 @@ jobs:
         run: |
           cd ./aosc-os-abbs/app-admin/oma
           source ./spec
-          export DPKG_VER=echo ${RELEASE_VERSION} | sed -e "s|v||g"
+          export DPKG_VER=$(echo ${RELEASE_VERSION} | sed -e "s|v||g")
           sed -e "s|VER=$VER|VER=${DPKG_VER}|g" -i spec
           git config user.name "eatradish"
           git config user.email "sakiiily@aosc.io"
