@@ -722,8 +722,14 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: format!("Failed canonicalize path: {p}"),
             source: Some(Box::new(e)),
         },
-        OmaAptError::AptError(_) => todo!(),
-        OmaAptError::AptCxxException(_) => todo!(),
+        OmaAptError::AptError(e) => OutputError {
+            description: fl!("apt-error"),
+            source: Some(Box::new(e)),
+        },
+        OmaAptError::AptCxxException(e) => OutputError {
+            description: fl!("apt-error"),
+            source: Some(Box::new(e)),
+        },
     }
 }
 
