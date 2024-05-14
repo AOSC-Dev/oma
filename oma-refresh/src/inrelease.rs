@@ -2,7 +2,7 @@ use chrono::{DateTime, FixedOffset, ParseResult, Utc};
 use small_map::SmallMap;
 use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, num::ParseIntError, path::Path};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::verify;
 
@@ -201,7 +201,7 @@ impl InReleaseParser {
                 }
                 x if x.contains("Release") => DistFileType::Release,
                 x => {
-                    warn!("Unknown file type: {x:?}");
+                    debug!("Unknown file type: {x:?}");
                     continue;
                 }
             };
