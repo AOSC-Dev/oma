@@ -192,7 +192,9 @@ impl InReleaseParser {
                 x if x.contains("Contents-") && file_is_compress(x) && !x.contains("udeb") => {
                     DistFileType::CompressContents(x.split_once('.').unwrap().0.to_string())
                 }
-                x if x.contains("Contents-") && !x.contains('.') && !x.contains("udeb") => DistFileType::Contents,
+                x if x.contains("Contents-") && !x.contains('.') && !x.contains("udeb") => {
+                    DistFileType::Contents
+                }
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
                 x if x.contains("Packages") && file_is_compress(x) => {
                     DistFileType::CompressPackageList(x.split_once('.').unwrap().0.to_string())
