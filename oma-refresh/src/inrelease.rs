@@ -189,12 +189,12 @@ impl InReleaseParser {
         for i in c {
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
-                x if x.contains("Contents-") && x.contains('.') => {
+                x if x.contains("Contents-") && file_is_compress(x) => {
                     DistFileType::CompressContents(x.split_once('.').unwrap().0.to_string())
                 }
                 x if x.contains("Contents-") && !x.contains('.') => DistFileType::Contents,
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
-                x if x.contains("Packages") && x.contains('.') => {
+                x if x.contains("Packages") && file_is_compress(x) => {
                     DistFileType::CompressPackageList(x.split_once('.').unwrap().0.to_string())
                 }
                 x if x.contains("Release") => DistFileType::Release,
@@ -220,6 +220,10 @@ impl InReleaseParser {
             checksums: res,
         })
     }
+}
+
+fn file_is_compress(name: &str) -> bool {
+    name.ends_with(".gz") || name.ends_with(".bz2") || name.ends_with(".xz")
 }
 
 fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {

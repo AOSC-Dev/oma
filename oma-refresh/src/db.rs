@@ -501,6 +501,7 @@ where
             handle
         } else {
             let mut handle = vec![];
+            let mut handle_file_types = vec![];
             for i in &checksums {
                 match &i.file_type {
                     DistFileType::BinaryContents => {
@@ -520,8 +521,9 @@ where
                                 i.name
                             );
 
-                            if !handle.contains(&i) {
+                            if !handle.contains(&i) && !handle_file_types.contains(&&i.file_type) {
                                 handle.push(i);
+                                handle_file_types.push(&i.file_type);
                                 total += i.size;
                             }
                         }
@@ -533,7 +535,8 @@ where
                                 i.name
                             );
 
-                            if !handle.contains(&i) {
+                            if !handle.contains(&i) && !handle_file_types.contains(&&i.file_type) {
+                                handle_file_types.push(&i.file_type);
                                 handle.push(i);
                                 let size = checksums
                                     .iter()
