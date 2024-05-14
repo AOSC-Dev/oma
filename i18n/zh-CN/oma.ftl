@@ -73,7 +73,7 @@ pick-tips = 请指定要安装的 {$pkgname} 的版本：
 battery = 您的电脑目前似乎正在使用电池供电。oma 在执行任务时可能会消耗大量电量，推荐您接入交流电源以防断电导致数据损坏。
 continue = 您确定要继续吗？
 changing-system = oma 正在修改你的系统
-failed-to-lock-oma = 无法解锁 oma 进程。
+failed-to-lock-oma = 无法解锁 oma 进程锁文件 (/run/lock/oma.lock)
 
 # main
 user-aborted-op = 用户已中止操作。
