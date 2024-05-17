@@ -108,6 +108,12 @@ pub fn execute(
             table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run)?;
         }
 
+        let typ = SummaryType::Upgrade(
+            pkgs.iter()
+                .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
+                .collect::<Vec<_>>(),
+        );
+
         let start_time = Local::now().timestamp();
 
         let (mb, pb_map, global_is_set) = multibar();
@@ -121,11 +127,7 @@ pub fn execute(
             Ok(()) => {
                 write_history_entry(
                     op_after,
-                    SummaryType::Upgrade(
-                        pkgs.iter()
-                            .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
-                            .collect::<Vec<_>>(),
-                    ),
+                    typ,
                     {
                         let db = create_db_file(args.sysroot)?;
                         connect_db(db, true)?
