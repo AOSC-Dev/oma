@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file.
 
 - *(oma-pm)* Rename `PkgInfo` to `UnsafePkgInfo` ...
 
+### 🐛 Bug Fixes
+
+- Fix `tui.rs` build
+
+### 📚 Documentation
+
+- Update changelog use git-cliff
+
 ### 🎨 Styling
 
 - Apply `cargo fmt`
