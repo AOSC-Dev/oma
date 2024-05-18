@@ -16,7 +16,7 @@ use oma_history::SummaryType;
 use crate::{fl, remove::ask_user_do_as_i_say};
 use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
-    pkginfo::PkgInfo,
+    pkginfo::UnsafePkgInfo,
     search::{OmaSearch, SearchResult},
     PackageStatus,
 };
@@ -429,7 +429,7 @@ pub fn execute(
                                 if let Some(pkg) = apt.cache.get(name) {
                                     if let Some(pkg_index) = install
                                         .iter()
-                                        .position(|x: &PkgInfo| x.raw_pkg.name() == name)
+                                        .position(|x: &UnsafePkgInfo| x.raw_pkg.name() == name)
                                     {
                                         let pos = pending_display_list
                                             .items
@@ -456,7 +456,7 @@ pub fn execute(
 
                                     if let Some(pkg_index) = remove
                                         .iter()
-                                        .position(|x: &PkgInfo| x.raw_pkg.name() == name)
+                                        .position(|x: &UnsafePkgInfo| x.raw_pkg.name() == name)
                                     {
                                         let pos = pending_display_list
                                             .items
@@ -483,7 +483,7 @@ pub fn execute(
                                     let cand = pkg.candidate().or(pkg.versions().next());
 
                                     if let Some(cand) = cand {
-                                        let pkginfo = PkgInfo::new(&cand, &pkg);
+                                        let pkginfo = UnsafePkgInfo::new(&cand, &pkg);
                                         if !cand.is_installed() {
                                             install.push(pkginfo);
                                             pending_display_list.items.push(Text::raw(format!(
