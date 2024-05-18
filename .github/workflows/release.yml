@@ -11,7 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Generate a release body
-        uses: orhun/git-cliff-action@v3
+        uses: orhun/git-cliff-action@main
         id: git-cliff
         with:
           config: cliff.toml
