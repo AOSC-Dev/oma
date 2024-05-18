@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Generate a changelog
+      - name: Generate a release body
         uses: orhun/git-cliff-action@v3
         id: git-cliff
         with:
