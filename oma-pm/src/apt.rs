@@ -42,7 +42,7 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
-    pkginfo::PkgInfo,
+    pkginfo::UnsafePkgInfo,
     progress::{InstallProgressArgs, NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
 };
@@ -291,7 +291,7 @@ impl OmaApt {
     /// Set apt manager status as install
     pub fn install(
         &mut self,
-        pkgs: &[PkgInfo],
+        pkgs: &[UnsafePkgInfo],
         reinstall: bool,
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
@@ -353,7 +353,7 @@ impl OmaApt {
     /// Download packages
     pub fn download<F>(
         &self,
-        pkgs: Vec<PkgInfo>,
+        pkgs: Vec<UnsafePkgInfo>,
         network_thread: Option<usize>,
         download_dir: Option<&Path>,
         dry_run: bool,
@@ -421,7 +421,7 @@ impl OmaApt {
     /// Set apt manager status as remove
     pub fn remove<F>(
         &mut self,
-        pkgs: &[PkgInfo],
+        pkgs: &[UnsafePkgInfo],
         purge: bool,
         no_autoremove: bool,
         callback: F,
@@ -743,7 +743,7 @@ impl OmaApt {
         select_dbg: bool,
         filter_candidate: bool,
         available_candidate: bool,
-    ) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
+    ) -> OmaAptResult<(Vec<UnsafePkgInfo>, Vec<String>)> {
         select_pkg(
             keywords,
             &self.cache,
@@ -812,7 +812,7 @@ impl OmaApt {
     /// Mark version status (auto/manual)
     pub fn mark_install_status(
         self,
-        pkgs: Vec<PkgInfo>,
+        pkgs: Vec<UnsafePkgInfo>,
         auto: bool,
         dry_run: bool,
     ) -> OmaAptResult<Vec<(String, bool)>> {
@@ -1059,7 +1059,7 @@ impl OmaApt {
 /// Mark package as delete.
 fn mark_delete<F>(
     cache: &Cache,
-    pkg: &PkgInfo,
+    pkg: &UnsafePkgInfo,
     purge: bool,
     how_handle_essential: F,
 ) -> OmaAptResult<bool>
@@ -1135,7 +1135,7 @@ fn select_pkg(
     select_dbg: bool,
     filter_candidate: bool,
     available_candidate: bool,
-) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
+) -> OmaAptResult<(Vec<UnsafePkgInfo>, Vec<String>)> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
     let mut no_result = vec![];
@@ -1165,7 +1165,7 @@ fn select_pkg(
 }
 
 /// Mark package as install.
-fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResult<bool> {
+fn mark_install(cache: &Cache, pkginfo: &UnsafePkgInfo, reinstall: bool) -> OmaAptResult<bool> {
     let pkg = pkginfo.raw_pkg.unique();
     let version = pkginfo.version_raw.unique();
     let ver = Version::new(version, cache);
