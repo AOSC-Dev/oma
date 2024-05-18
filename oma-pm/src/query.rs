@@ -167,7 +167,11 @@ impl<'a> OmaDatabase<'a> {
     }
 
     /// Query package from give package and version (like: apt=2.5.4)
-    pub fn query_from_version(&self, pat: &str, dbg: bool) -> OmaDatabaseResult<Vec<UnsafePkgInfo>> {
+    pub fn query_from_version(
+        &self,
+        pat: &str,
+        dbg: bool,
+    ) -> OmaDatabaseResult<Vec<UnsafePkgInfo>> {
         let (pkgname, version_str) = pat
             .split_once('=')
             .ok_or_else(|| OmaDatabaseError::InvaildPattern(pat.to_string()))?;
