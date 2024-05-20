@@ -372,10 +372,6 @@ impl From<RefreshError> for OutputError {
                 description: fl!("failed-to-operate-path", p = path),
                 source: Some(Box::new(e)),
             },
-            RefreshError::NoReleaseFile(_) => Self {
-                description: value.to_string(),
-                source: None,
-            },
         }
         #[cfg(not(feature = "aosc"))]
         match value {
@@ -474,10 +470,6 @@ impl From<RefreshError> for OutputError {
             RefreshError::FailedToOperateDirOrFile(path, e) => Self {
                 description: fl!("failed-to-operate-path", p = path),
                 source: Some(Box::new(e)),
-            },
-            RefreshError::NoReleaseFile(_) => Self {
-                description: value.to_string(),
-                source: None,
             },
         }
     }
