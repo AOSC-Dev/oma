@@ -6,9 +6,10 @@ use std::{
 use derive_builder::Builder;
 use oma_apt_sources_lists::{SourceEntry, SourceError, SourceLine, SourceListType, SourcesLists};
 use oma_fetch::{
-    checksum::ChecksumError, reqwest, DownloadEntry, DownloadEntryBuilder,
-    DownloadEntryBuilderError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType,
-    OmaFetcher,
+    checksum::ChecksumError,
+    reqwest::{self, ClientBuilder},
+    DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent, DownloadResult,
+    DownloadSource, DownloadSourceType, OmaFetcher,
 };
 
 #[cfg(feature = "aosc")]
@@ -68,6 +69,8 @@ pub enum RefreshError {
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
     InReleaseParseError(String, InReleaseParserError),
+    #[error("Source has no contains any InRelease/Release file: {0}")]
+    NoReleaseFile(String),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -120,7 +123,7 @@ pub(crate) fn get_url_short_and_branch(
     let branch = url
         .path()
         .split('/')
-        .nth_back(1)
+        .next_back()
         .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
 
     let url = format!("{schema}://{host}/");
@@ -154,22 +157,27 @@ fn mirror_map(buf: &[u8]) -> Result<HashMap<String, MirrorMapItem>> {
 }
 
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
-pub fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>> {
+pub async fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>> {
     let mut res = Vec::new();
-    let list = SourcesLists::scan_from_root(sysroot).map_err(RefreshError::ScanSourceError)?;
+    let sysroot = sysroot.as_ref().to_path_buf();
+
+    let list = tokio::task::spawn_blocking(move || {
+        SourcesLists::scan_from_root(sysroot).map_err(RefreshError::ScanSourceError)
+    })
+    .await??;
 
     for file in list.iter() {
         match file.entries {
             SourceListType::SourceLine(ref lines) => {
                 for i in lines {
                     if let SourceLine::Entry(entry) = i {
-                        res.push(OmaSourceEntry::try_from(entry)?);
+                        res.push(OmaSourceEntry::new(entry).await?);
                     }
                 }
             }
             SourceListType::Deb822(ref e) => {
                 for i in &e.entries {
-                    res.push(OmaSourceEntry::try_from(i)?);
+                    res.push(OmaSourceEntry::new(i).await?);
                 }
             }
         }
@@ -184,10 +192,10 @@ pub struct OmaSourceEntry {
     components: Vec<String>,
     url: String,
     _suite: String,
-    inrelease_path: String,
     dist_path: String,
     is_flat: bool,
     signed_by: Option<String>,
+    is_inrelease: bool,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -200,10 +208,52 @@ pub enum Event {
     Info(String),
 }
 
-impl TryFrom<&SourceEntry> for OmaSourceEntry {
-    type Error = RefreshError;
+async fn is_inrelease(url: &str) -> Result<bool> {
+    let client = ClientBuilder::new().user_agent("oma").build()?;
 
-    fn try_from(v: &SourceEntry) -> std::prelude::v1::Result<Self, Self::Error> {
+    let resp = client
+        .head(format!("{}/InRelease", url))
+        .send()
+        .await
+        .and_then(|r| r.error_for_status());
+
+    match resp {
+        Ok(_) => return Ok(true),
+        Err(e) => {
+            if !e
+                .status()
+                .map(|x| x == StatusCode::NOT_FOUND)
+                .unwrap_or(false)
+            {
+                return Err(RefreshError::FetcherError(DownloadError::ReqwestError(e)));
+            }
+        }
+    }
+
+    let resp = client
+        .head(format!("{}/Release", url))
+        .send()
+        .await
+        .and_then(|r| r.error_for_status());
+
+    match resp {
+        Ok(_) => return Ok(false),
+        Err(e) => {
+            if !e
+                .status()
+                .map(|x| x == StatusCode::NOT_FOUND)
+                .unwrap_or(false)
+            {
+                return Err(RefreshError::FetcherError(DownloadError::ReqwestError(e)));
+            }
+        }
+    }
+
+    Err(RefreshError::NoReleaseFile(url.to_string()))
+}
+
+impl OmaSourceEntry {
+    async fn new(v: &SourceEntry) -> Result<Self> {
         let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
             OmaSourceEntryFrom::Http
         } else if v.url().starts_with("file://") {
@@ -221,16 +271,6 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             (v.dist_path(), false)
         };
 
-        let inrelease_path = if is_flat {
-            // flat Repo
-            format!("{url}/Release")
-        } else if !components.is_empty() {
-            // Normal Repo
-            format!("{dist_path}/InRelease")
-        } else {
-            return Err(RefreshError::UnsupportedProtocol(format!("{v:?}")));
-        };
-
         let options = v.options.as_deref().unwrap_or_default();
 
         let options = options.split_whitespace().collect::<Vec<_>>();
@@ -245,15 +285,21 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             })
         });
 
+        let is_inrelease = if is_flat {
+            false
+        } else {
+            is_inrelease(&dist_path).await?
+        };
+
         Ok(Self {
             from,
             components,
             url,
             _suite: suite,
             is_flat,
-            inrelease_path,
-            dist_path,
+            dist_path: dist_path.clone(),
             signed_by,
+            is_inrelease,
         })
     }
 }
@@ -304,7 +350,7 @@ impl OmaRefresh {
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
-        let source = get_sources(&self.source)?;
+        let source = get_sources(&self.source).await?;
         let req = OmaRefreshRequest {
             sourceslist: source,
             limit: self.limit,
@@ -361,10 +407,16 @@ where
     }
 
     for source_entry in &sourceslist {
-        let msg = get_url_short_and_branch(&source_entry.inrelease_path, &m)?;
+        let uri = if source_entry.is_inrelease {
+            format!("{}/InRelease", source_entry.dist_path)
+        } else {
+            format!("{}/Release", source_entry.dist_path)
+        };
+
+        let msg = get_url_short_and_branch(&source_entry.dist_path, &m)?;
 
         let sources = vec![DownloadSource::new(
-            source_entry.inrelease_path.clone(),
+            uri.clone(),
             match source_entry.from {
                 OmaSourceEntryFrom::Http => DownloadSourceType::Http,
                 OmaSourceEntryFrom::Local => DownloadSourceType::Local,
@@ -373,7 +425,7 @@ where
 
         let task = DownloadEntryBuilder::default()
             .source(sources)
-            .filename(database_filename(&source_entry.inrelease_path).into())
+            .filename(database_filename(&uri).into())
             .dir(download_dir.clone())
             .allow_resume(false)
             .msg(format!("{msg} InRelease"))
@@ -407,8 +459,7 @@ where
                                 .map(|x| x == StatusCode::NOT_FOUND)
                                 .unwrap_or(false) =>
                         {
-                            let url = e.url().map(|x| x.to_owned());
-                            not_found.push(url.unwrap());
+                            handle_not_found(e, &mut not_found);
                         }
                         _ => return Err(e.into()),
                     }
@@ -576,6 +627,12 @@ where
     Ok(())
 }
 
+fn handle_not_found(e: reqwest::Error, not_found: &mut Vec<Url>) {
+    let url = e.url().map(|x| x.to_owned());
+
+    not_found.push(url.unwrap());
+}
+
 fn collect_download_task(
     c: &ChecksumItem,
     source_index: &OmaSourceEntry,
@@ -593,7 +650,7 @@ fn collect_download_task(
         _ => unreachable!(),
     };
 
-    let msg = get_url_short_and_branch(&source_index.inrelease_path, m)?;
+    let msg = get_url_short_and_branch(&source_index.dist_path, m)?;
 
     let dist_url = source_index.dist_path.clone();
     let download_url = format!("{}/{}", dist_url, c.name);
