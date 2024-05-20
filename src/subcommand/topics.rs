@@ -74,7 +74,7 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
             opt_out,
             dry_run,
             no_progress,
-            || fl!("do-not-edit-topic-sources-list"),
+            || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
             sysroot_ref,
         )
         .await
