@@ -152,7 +152,7 @@ impl<'a> OmaFetcher<'a> {
         limit_thread: Option<usize>,
     ) -> DownloadResult<OmaFetcher<'a>> {
         Ok(Self {
-            client: &client,
+            client,
             download_list,
             limit_thread: limit_thread.unwrap_or(4),
             retry_times: 3,
@@ -178,7 +178,7 @@ impl<'a> OmaFetcher<'a> {
             let msg = Arc::new(c.msg.clone());
             // 因为数据的来源是确定的，所以这里能够确定肯定不崩溃，因此直接 unwrap
             let single = SingleDownloaderBuilder::default()
-                .client(&self.client)
+                .client(self.client)
                 .context(msg.clone())
                 .download_list_index(i)
                 .entry(c)
