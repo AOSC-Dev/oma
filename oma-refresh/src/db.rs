@@ -4,11 +4,13 @@ use std::{
 };
 
 use derive_builder::Builder;
+use futures::{future::join, FutureExt, StreamExt};
 use oma_apt_sources_lists::{SourceEntry, SourceError};
 use oma_fetch::{
-    checksum::ChecksumError, reqwest, DownloadEntry, DownloadEntryBuilder,
-    DownloadEntryBuilderError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType,
-    OmaFetcher, Summary,
+    checksum::ChecksumError,
+    reqwest::{self, ClientBuilder},
+    DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent, DownloadResult,
+    DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 
 #[cfg(feature = "aosc")]
@@ -248,7 +250,13 @@ impl OmaRefresh {
                 })?;
         }
 
-        let tasks = self.collect_download_release_tasks(&sourcelist, &m)?;
+        let client = ClientBuilder::new().user_agent("oma").build()?;
+
+        let is_inrelease_map = self
+            .is_inrelease_map(&sourcelist, client, &m, &callback)
+            .await?;
+
+        let tasks = self.collect_download_release_tasks(&sourcelist, &m, is_inrelease_map)?;
 
         let release_results = OmaFetcher::new(None, tasks, Some(self.limit))?
             .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
@@ -271,14 +279,92 @@ impl OmaRefresh {
         Ok(())
     }
 
+    async fn is_inrelease_map<F>(
+        &self,
+        sourcelist: &Vec<OmaSourceEntry>,
+        client: reqwest::Client,
+        m: &Option<HashMap<String, MirrorMapItem>>,
+        callback: &F,
+    ) -> Result<HashMap<usize, bool>>
+    where
+        F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
+    {
+        let mut tasks = vec![];
+
+        for (i, c) in sourcelist.iter().enumerate() {
+            let resp1 = client
+                .head(format!("{}/InRelease", c.dist_path))
+                .send()
+                .map(move |x| (x.and_then(|x| x.error_for_status()), i));
+
+            let resp2 = client
+                .head(format!("{}/Release", c.dist_path))
+                .send()
+                .map(move |x| (x.and_then(|x| x.error_for_status()), i));
+
+            let event = RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
+                "({}/{}) {}",
+                i,
+                sourcelist.len(),
+                human_download_url(&c.dist_path, m)?
+            )));
+
+            let cc = callback.clone();
+
+            let task = async move {
+                cc(i, event, None);
+                let res = join(resp1, resp2).await;
+                cc(
+                    i,
+                    RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
+                    None,
+                );
+                res
+            };
+
+            tasks.push(task);
+        }
+
+        let stream = futures::stream::iter(tasks).buffer_unordered(self.limit);
+        let res = stream.collect::<Vec<_>>().await;
+        let mut mirrors_inrelease = HashMap::new();
+
+        for i in res {
+            if let (Ok(_), j) = i.0 {
+                mirrors_inrelease.insert(j, true);
+                continue;
+            }
+
+            if let (Ok(_), j) = i.1 {
+                mirrors_inrelease.insert(j, false);
+                continue;
+            }
+
+            return Err(RefreshError::NoInReleaseFile(
+                sourcelist[i.0 .1].dist_path.clone(),
+            ));
+        }
+
+        Ok(mirrors_inrelease)
+    }
+
     fn collect_download_release_tasks(
         &self,
         sourcelist: &[OmaSourceEntry],
         m: &Option<HashMap<String, MirrorMapItem>>,
+        is_inrelease_map: HashMap<usize, bool>,
     ) -> Result<Vec<DownloadEntry>> {
         let mut tasks = Vec::new();
-        for source_entry in sourcelist {
-            let msg = human_download_url(&source_entry.inrelease_path, m)?;
+        for (i, source_entry) in sourcelist.iter().enumerate() {
+            let is_inrelease = *is_inrelease_map.get(&i).unwrap();
+
+            let uri = if is_inrelease {
+                format!("{}/InRelease", source_entry.dist_path)
+            } else {
+                format!("{}/Release", source_entry.dist_path)
+            };
+
+            let msg = human_download_url(&uri, m)?;
 
             let sources = vec![DownloadSource::new(
                 source_entry.inrelease_path.clone(),
@@ -293,7 +379,10 @@ impl OmaRefresh {
                 .filename(database_filename(&source_entry.inrelease_path).into())
                 .dir(self.download_dir.clone())
                 .allow_resume(false)
-                .msg(format!("{msg} InRelease"))
+                .msg(format!(
+                    "{msg} {}",
+                    if is_inrelease { "InRelease" } else { "Release" }
+                ))
                 .build()?;
 
             debug!("oma will fetch {} InRelease", source_entry.url);
