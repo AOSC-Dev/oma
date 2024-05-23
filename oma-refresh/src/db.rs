@@ -4,7 +4,7 @@ use std::{
 };
 
 use derive_builder::Builder;
-use oma_apt_sources_lists::{SourceEntry, SourceError, SourceLine, SourceListType, SourcesLists};
+use oma_apt_sources_lists::{SourceEntry, SourceError};
 use oma_fetch::{
     checksum::ChecksumError, reqwest, DownloadEntry, DownloadEntryBuilder,
     DownloadEntryBuilderError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType,
@@ -15,27 +15,18 @@ use oma_fetch::{
 use oma_fetch::DownloadError;
 
 use oma_utils::dpkg::dpkg_arch;
-use once_cell::sync::Lazy;
 
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
-use serde::Deserialize;
 use tracing::debug;
-use url::Url;
 
 use crate::{
     inrelease::{ChecksumItem, DistFileType, InRelease, InReleaseParser, InReleaseParserError},
-    util::database_filename,
+    util::{database_filename, get_sources, human_download_url, MirrorMapItem},
 };
 
-#[derive(Deserialize)]
-pub struct MirrorMapItem {
-    url: String,
-}
-
-static MIRROR: Lazy<PathBuf> =
-    Lazy::new(|| PathBuf::from("/usr/share/distro-repository-data/mirrors.yml"));
+const AOSC_MIRROR_FILE: &'static str = "/usr/share/distro-repository-data/mirrors.yml";
 
 #[cfg(feature = "aosc")]
 #[derive(Debug, thiserror::Error)]
@@ -43,7 +34,7 @@ pub enum RefreshError {
     #[error("Invalid URL: {0}")]
     InvaildUrl(String),
     #[error("Can not parse distro repo data {0}: {1}")]
-    ParseDistroRepoDataError(String, serde_yaml::Error),
+    ParseDistroRepoDataError(&'static str, serde_yaml::Error),
     #[error("Scan sources.list failed: {0}")]
     ScanSourceError(SourceError),
     #[error("Unsupport Protocol: {0}")]
@@ -103,79 +94,11 @@ pub enum RefreshError {
 
 type Result<T> = std::result::Result<T, RefreshError>;
 
-pub(crate) fn get_url_short_and_branch(
-    url: &str,
-    mirror_map: &Option<HashMap<String, MirrorMapItem>>,
-) -> Result<String> {
-    let url = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
-
-    let host = if url.scheme() == "file" {
-        "Local Mirror"
-    } else {
-        url.host_str()
-            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
-    };
-
-    let schema = url.scheme();
-    let branch = url
-        .path()
-        .split('/')
-        .nth_back(1)
-        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
-
-    let url = format!("{schema}://{host}/");
-
-    // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
-    if let Some(mirror_map) = mirror_map {
-        for (k, v) in mirror_map.iter() {
-            let mirror_url =
-                Url::parse(&v.url).map_err(|_| RefreshError::InvaildUrl(v.url.to_string()))?;
-            let mirror_url_host = mirror_url
-                .host_str()
-                .ok_or_else(|| RefreshError::InvaildUrl(v.url.to_string()))?;
-
-            let schema = mirror_url.scheme();
-            let mirror_url = format!("{schema}://{mirror_url_host}/");
-
-            if mirror_url == url {
-                return Ok(format!("{k}:{branch}"));
-            }
-        }
-    }
-
-    Ok(format!("{host}:{branch}"))
-}
-
 fn mirror_map(buf: &[u8]) -> Result<HashMap<String, MirrorMapItem>> {
     let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(buf)
-        .map_err(|e| RefreshError::ParseDistroRepoDataError(MIRROR.display().to_string(), e))?;
+        .map_err(|e| RefreshError::ParseDistroRepoDataError(AOSC_MIRROR_FILE, e))?;
 
     Ok(mirror_map)
-}
-
-/// Get /etc/apt/sources.list and /etc/apt/sources.list.d
-pub fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>> {
-    let mut res = Vec::new();
-    let list = SourcesLists::scan_from_root(sysroot).map_err(RefreshError::ScanSourceError)?;
-
-    for file in list.iter() {
-        match file.entries {
-            SourceListType::SourceLine(ref lines) => {
-                for i in lines {
-                    if let SourceLine::Entry(entry) = i {
-                        res.push(OmaSourceEntry::try_from(entry)?);
-                    }
-                }
-            }
-            SourceListType::Deb822(ref e) => {
-                for i in &e.entries {
-                    res.push(OmaSourceEntry::try_from(i)?);
-                }
-            }
-        }
-    }
-
-    Ok(res)
 }
 
 #[derive(Debug, Clone)]
@@ -309,7 +232,7 @@ impl OmaRefresh {
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
-        let m = tokio::fs::read(&*MIRROR)
+        let m = tokio::fs::read("/usr/share/distro-repository-data/mirrors.yml")
             .await
             .ok()
             .and_then(|m| mirror_map(&m).ok());
@@ -355,7 +278,7 @@ impl OmaRefresh {
     ) -> Result<Vec<DownloadEntry>> {
         let mut tasks = Vec::new();
         for source_entry in sourcelist {
-            let msg = get_url_short_and_branch(&source_entry.inrelease_path, m)?;
+            let msg = human_download_url(&source_entry.inrelease_path, m)?;
 
             let sources = vec![DownloadSource::new(
                 source_entry.inrelease_path.clone(),
@@ -618,7 +541,7 @@ fn collect_download_task(
         _ => unreachable!(),
     };
 
-    let msg = get_url_short_and_branch(&source_index.inrelease_path, m)?;
+    let msg = human_download_url(&source_index.inrelease_path, m)?;
 
     let dist_url = source_index.dist_path.clone();
     let download_url = format!("{}/{}", dist_url, c.name);

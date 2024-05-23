@@ -3006,7 +3006,6 @@ dependencies = [
  "oma-fetch",
  "oma-topics",
  "oma-utils 0.7.3",
- "once_cell",
  "sequoia-openpgp",
  "serde",
  "serde_yaml",
