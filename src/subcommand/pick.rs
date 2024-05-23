@@ -4,6 +4,7 @@ use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
     pkginfo::UnsafePkgInfo,
 };
+use reqwest::Client;
 
 use crate::{
     error::OutputError,
@@ -19,6 +20,7 @@ pub fn execute(
     no_refresh: bool,
     oma_args: OmaArgs,
     sysroot: String,
+    client: Client,
 ) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
@@ -40,7 +42,7 @@ pub fn execute(
     }
 
     if !no_refresh {
-        refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
+        refresh(&client, dry_run, no_progress, download_pure_db, network_thread, &sysroot)?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default()
@@ -116,7 +118,7 @@ pub fn execute(
         sysroot,
     };
 
-    normal_commit(args)?;
+    normal_commit(args, &client)?;
 
     Ok(0)
 }

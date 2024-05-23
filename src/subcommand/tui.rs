@@ -12,6 +12,7 @@ use oma_console::{
     WRITER,
 };
 use oma_history::SummaryType;
+use reqwest::Client;
 
 use crate::{fl, remove::ask_user_do_as_i_say};
 use oma_pm::{
@@ -179,9 +180,10 @@ pub fn execute(
     download_pure_db: bool,
     dry_run: bool,
     network_thread: usize,
+    client: Client,
 ) -> Result<i32, OutputError> {
     root()?;
-    refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
+    refresh(&client, dry_run, no_progress, download_pure_db, network_thread, &sysroot)?;
 
     stdout()
         .execute(EnterAlternateScreen)
@@ -673,16 +675,19 @@ pub fn execute(
 
         let apt_args = AptArgsBuilder::default().no_progress(no_progress).build()?;
 
-        normal_commit(NormalCommitArgs {
-            apt,
-            dry_run,
-            typ: SummaryType::Changes,
-            apt_args,
-            no_fixbroken: false,
-            network_thread,
-            no_progress,
-            sysroot,
-        })?;
+        normal_commit(
+            NormalCommitArgs {
+                apt,
+                dry_run,
+                typ: SummaryType::Changes,
+                apt_args,
+                no_fixbroken: false,
+                network_thread,
+                no_progress,
+                sysroot,
+            },
+            &client,
+        )?;
     }
 
     Ok(0)

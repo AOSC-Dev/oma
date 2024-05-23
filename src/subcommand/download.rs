@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use oma_console::{due_to, success};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use reqwest::Client;
 use tracing::error;
 
 use crate::subcommand::utils::handle_event_without_progressbar;
@@ -12,6 +13,7 @@ pub fn execute(
     keyword: Vec<&str>,
     path: Option<PathBuf>,
     oma_args: OmaArgs,
+    client: &Client
 ) -> Result<i32, OutputError> {
     let OmaArgs {
         dry_run,
@@ -34,6 +36,7 @@ pub fn execute(
 
     let (mb, pb_map, global_is_set) = multibar();
     let (success, failed) = apt.download(
+        client,
         pkgs,
         Some(network_thread),
         Some(&path),

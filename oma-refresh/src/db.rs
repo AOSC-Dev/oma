@@ -8,14 +8,12 @@ use futures::{future::join, FutureExt, StreamExt};
 use oma_apt_sources_lists::{SourceEntry, SourceError};
 use oma_fetch::{
     checksum::ChecksumError,
-    reqwest::{self, Client, ClientBuilder},
+    reqwest::{self, Client},
     DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent, DownloadResult,
     DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 
 use oma_fetch::DownloadError;
-
-use oma_utils::dpkg::dpkg_arch;
 
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
@@ -170,38 +168,17 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
     }
 }
 
-impl OmaRefreshBuilder {
-    fn default_sources(&self) -> PathBuf {
-        PathBuf::from("/")
-    }
-
-    fn default_download_dir(&self) -> PathBuf {
-        PathBuf::from("/var/lib/apt/lists")
-    }
-
-    fn default_arch(&self) -> std::result::Result<String, String> {
-        match dpkg_arch("/") {
-            Ok(a) => Ok(a),
-            Err(e) => Err(e.to_string()),
-        }
-    }
-}
-
-#[derive(Builder, Default)]
-pub struct OmaRefresh {
-    #[builder(default = "self.default_sources()")]
+#[derive(Builder)]
+pub struct OmaRefresh<'a> {
     source: PathBuf,
-    #[builder(default = "4")]
-    limit: usize,
-    #[builder(default = "self.default_arch()?")]
+    limit: Option<usize>,
     arch: String,
-    #[builder(default = "self.default_download_dir()")]
     download_dir: PathBuf,
-    #[builder(default = "true")]
     download_compress: bool,
+    client: &'a Client,
 }
 
-impl OmaRefresh {
+impl<'a> OmaRefresh<'a> {
     pub async fn start<F, F2>(self, callback: F, handle_topic_msg: F2) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
@@ -237,15 +214,13 @@ impl OmaRefresh {
                 })?;
         }
 
-        let client = ClientBuilder::new().user_agent("oma").build()?;
-
         let is_inrelease_map = self
-            .get_is_inrelease_map(&sourcelist, &client, &m, &callback)
+            .get_is_inrelease_map(&sourcelist, self.client, &m, &callback)
             .await?;
 
         let tasks = self.collect_download_release_tasks(&sourcelist, &m, is_inrelease_map)?;
 
-        let release_results = OmaFetcher::new(&client, tasks, Some(self.limit))?
+        let release_results = OmaFetcher::new(self.client, tasks, self.limit)?
             .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
             .await;
 
@@ -257,7 +232,7 @@ impl OmaRefresh {
             .collect_all_release_entry(all_inrelease, &sourcelist, &m)
             .await?;
 
-        let res = OmaFetcher::new(&client, tasks, Some(self.limit))?
+        let res = OmaFetcher::new(self.client, tasks, self.limit)?
             .start_download(|count, event| callback(count, RefreshEvent::from(event), Some(total)))
             .await;
 
@@ -312,7 +287,7 @@ impl OmaRefresh {
             tasks.push(task);
         }
 
-        let stream = futures::stream::iter(tasks).buffer_unordered(self.limit);
+        let stream = futures::stream::iter(tasks).buffer_unordered(self.limit.unwrap_or(4));
         let res = stream.collect::<Vec<_>>().await;
         let mut mirrors_inrelease = HashMap::new();
 

@@ -4,6 +4,7 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_history::SummaryType;
 use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
+use reqwest::Client;
 use tracing::{info, warn};
 
 use crate::{
@@ -17,7 +18,7 @@ use super::utils::{
     handle_no_result, lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs,
 };
 
-pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i32, OutputError> {
+pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs, client: Client) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
@@ -81,7 +82,7 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         sysroot: args.sysroot,
     };
 
-    normal_commit(args)?;
+    normal_commit(args, &client)?;
 
     Ok(0)
 }

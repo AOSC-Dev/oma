@@ -9,6 +9,7 @@ use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
     pkginfo::UnsafePkgInfo,
 };
+use reqwest::Client;
 
 use std::path::Path;
 use std::{borrow::Cow, sync::atomic::Ordering};
@@ -51,7 +52,7 @@ pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     }
 }
 
-pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
+pub fn execute_undo(oma_args: OmaArgs, sysroot: String, client: &Client) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
@@ -143,7 +144,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         sysroot,
     };
 
-    normal_commit(args)?;
+    normal_commit(args, client)?;
 
     Ok(0)
 }

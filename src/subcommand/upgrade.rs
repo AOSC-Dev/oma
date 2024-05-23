@@ -8,6 +8,7 @@ use oma_pm::apt::AptArgsBuilder;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
 use oma_pm::apt::OmaAptError;
+use reqwest::Client;
 use tracing::info;
 use tracing::warn;
 
@@ -33,13 +34,14 @@ pub fn execute(
     pkgs_unparse: Vec<String>,
     args: UpgradeArgs,
     oma_args: OmaArgs,
+    client: Client,
 ) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
     let OmaArgs {
         dry_run,
-        network_thread: _,
+        network_thread,
         no_progress,
         download_pure_db,
         no_check_dbus,
@@ -53,7 +55,14 @@ pub fn execute(
         no_check_dbus_warn();
     }
 
-    refresh(dry_run, no_progress, download_pure_db, &args.sysroot)?;
+    refresh(
+        &client,
+        dry_run,
+        no_progress,
+        download_pure_db,
+        network_thread,
+        &args.sysroot,
+    )?;
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));
@@ -117,7 +126,7 @@ pub fn execute(
         let start_time = Local::now().timestamp();
 
         let (mb, pb_map, global_is_set) = multibar();
-        match apt.commit(None, &apt_args, |count, event, total| {
+        match apt.commit(&client, None, &apt_args, |count, event, total| {
             if !no_progress {
                 pb!(event, mb, pb_map, count, total, global_is_set)
             } else {

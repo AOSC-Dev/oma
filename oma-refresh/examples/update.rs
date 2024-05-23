@@ -1,5 +1,5 @@
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     result::Result,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -13,15 +13,22 @@ use oma_console::{
     pb::{oma_spinner, oma_style_pb},
     writer::Writer,
 };
-use oma_fetch::DownloadEvent;
+use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
 use oma_refresh::db::{OmaRefreshBuilder, RefreshError, RefreshEvent};
+use oma_utils::dpkg::dpkg_arch;
 
 #[tokio::main]
 async fn main() -> Result<(), RefreshError> {
     let p = Path::new("./oma-fetcher-test");
     tokio::fs::create_dir_all(p).await.unwrap();
+    let client = ClientBuilder::new().user_agent("oma").build().unwrap();
+
     let refresher = OmaRefreshBuilder::default()
+        .client(&client)
         .download_dir(p.to_path_buf())
+        .arch(dpkg_arch("/").unwrap())
+        .limit(Some(4))
+        .source(PathBuf::from("/"))
         .build()
         .unwrap();
 

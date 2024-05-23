@@ -25,6 +25,7 @@ use oma_console::{due_to, OmaLayer};
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusError};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
+use reqwest::Client;
 use rustix::process::{kill_process, Pid, Signal};
 use subcommand::utils::LockError;
 use tracing::{debug, error, info, warn};
@@ -291,7 +292,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            install::execute(input, install_args, oma_args)?
+            let client = Client::builder().user_agent("oma").build().unwrap();
+
+            install::execute(input, install_args, oma_args, client)?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -304,18 +307,21 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            upgrade::execute(pkgs_unparse, args, oma_args)?
+            let client = Client::builder().user_agent("oma").build().unwrap();
+
+            upgrade::execute(pkgs_unparse, args, oma_args, client)?
         }
         Some(("download", args)) => {
             let keyword = pkgs_getter(args).unwrap_or_default();
             let keyword = keyword.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+            let client = Client::builder().user_agent("oma").build().unwrap();
 
             let path = args
                 .get_one::<String>("path")
                 .cloned()
                 .map(|x| PathBuf::from(&x));
 
-            download::execute(keyword, path, oma_args)?
+            download::execute(keyword, path, oma_args, &client)?
         }
         Some((x, args)) if x == "remove" || x == "purge" => {
             let input = pkgs_getter(args).unwrap();
@@ -333,9 +339,14 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            remove::execute(input, args, oma_args)?
+            let client = Client::builder().user_agent("oma").build().unwrap();
+
+            remove::execute(input, args, oma_args, client)?
         }
-        Some(("refresh", _)) => refresh::execute(oma_args, sysroot)?,
+        Some(("refresh", _)) => {
+            let client = Client::builder().user_agent("oma").build().unwrap();
+            refresh::execute(oma_args, sysroot, client)?
+        }
         Some(("show", args)) => {
             let input = pkgs_getter(args).unwrap_or_default();
             let input = input.iter().map(|x| x.as_str()).collect::<Vec<_>>();
@@ -358,11 +369,21 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             contents_find::execute(x, is_bin, pkg, no_progress, sysroot)?
         }
-        Some(("fix-broken", _)) => fix_broken::execute(oma_args, sysroot)?,
+        Some(("fix-broken", _)) => {
+            let client = Client::builder().user_agent("oma").build().unwrap();
+            fix_broken::execute(oma_args, sysroot, client)?
+        },
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
+            let client = Client::builder().user_agent("oma").build().unwrap();
 
-            pick::execute(pkg_str, args.get_flag("no_refresh"), oma_args, sysroot)?
+            pick::execute(
+                pkg_str,
+                args.get_flag("no_refresh"),
+                oma_args,
+                sysroot,
+                client,
+            )?
         }
         Some(("mark", args)) => {
             let op = args.get_one::<String>("action").unwrap();
@@ -395,7 +416,10 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         }
         Some(("clean", _)) => clean::execute(no_progress, sysroot)?,
         Some(("history", _)) => subcommand::history::execute_history(sysroot)?,
-        Some(("undo", _)) => history::execute_undo(oma_args, sysroot)?,
+        Some(("undo", _)) => {
+            let client = Client::builder().user_agent("oma").build().unwrap();
+            history::execute_undo(oma_args, sysroot, &client)?
+        },
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
             let opt_in = args
@@ -421,20 +445,26 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            topics::execute(args)?
+            let client = Client::builder().user_agent("oma").build().unwrap();
+
+            topics::execute(args, client)?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());
 
             pkgnames::execute(keyword, sysroot)?
         }
-        Some(("tui", _)) | None => tui::execute(
-            sysroot,
-            no_progress,
-            oma_args.download_pure_db,
-            dry_run,
-            oma_args.network_thread,
-        )?,
+        Some(("tui", _)) | None => {
+            let client = Client::builder().user_agent("oma").build().unwrap();
+            tui::execute(
+                sysroot,
+                no_progress,
+                oma_args.download_pure_db,
+                dry_run,
+                oma_args.network_thread,
+                client,
+            )?
+        }
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");
             let plugin = exe_dir.join(format!("oma-{}", cmd));

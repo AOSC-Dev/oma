@@ -25,8 +25,8 @@ use oma_apt::{
 };
 use oma_console::console::{self, style};
 use oma_fetch::{
-    reqwest::ClientBuilder, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError,
-    DownloadEvent, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
+    reqwest::Client, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent,
+    DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 use oma_utils::{
     dpkg::{is_hold, DpkgError},
@@ -353,6 +353,7 @@ impl OmaApt {
     /// Download packages
     pub fn download<F>(
         &self,
+        client: &Client,
         pkgs: Vec<UnsafePkgInfo>,
         network_thread: Option<usize>,
         download_dir: Option<&Path>,
@@ -407,6 +408,7 @@ impl OmaApt {
 
         let res = tokio.block_on(async move {
             Self::download_pkgs(
+                client,
                 download_list,
                 network_thread,
                 download_dir.unwrap_or(Path::new(".")),
@@ -469,6 +471,7 @@ impl OmaApt {
     /// Commit changes
     pub fn commit<F>(
         self,
+        client: &Client,
         network_thread: Option<usize>,
         args_config: &AptArgs,
         callback: F,
@@ -496,7 +499,7 @@ impl OmaApt {
                 change_status(&conn, "Downloading").await.ok();
             }
 
-            Self::download_pkgs(download_pkg_list, network_thread, &path, callback).await
+            Self::download_pkgs(client, download_pkg_list, network_thread, &path, callback).await
         })?;
 
         if !failed.is_empty() {
@@ -651,6 +654,7 @@ impl OmaApt {
 
     /// Download packages (inner)
     async fn download_pkgs<F>(
+        client: &Client,
         download_pkg_list: Vec<InstallEntry>,
         network_thread: Option<usize>,
         download_dir: &Path,
@@ -717,8 +721,6 @@ impl OmaApt {
 
             download_list.push(download_entry);
         }
-
-        let client = ClientBuilder::new().user_agent("oma").build().unwrap();
 
         let downloader = OmaFetcher::new(&client, download_list, network_thread)?;
 

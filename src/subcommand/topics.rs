@@ -13,6 +13,7 @@ use oma_pm::{
     query::OmaDatabase,
 };
 use oma_utils::dpkg::dpkg_arch;
+use reqwest::Client;
 
 use crate::{
     error::OutputError,
@@ -43,7 +44,7 @@ pub struct TopicArgs {
     pub sysroot: String,
 }
 
-pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
+pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
@@ -83,7 +84,14 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
     let enabled_pkgs = topics_changed.enabled_pkgs;
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
-    refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
+    refresh(
+        &client,
+        dry_run,
+        no_progress,
+        download_pure_db,
+        network_thread,
+        &sysroot,
+    )?;
 
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
@@ -130,7 +138,7 @@ pub fn execute(args: TopicArgs) -> Result<i32, OutputError> {
         sysroot,
     };
 
-    normal_commit(args)?;
+    normal_commit(args, &client)?;
 
     Ok(0)
 }

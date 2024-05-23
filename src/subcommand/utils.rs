@@ -28,6 +28,7 @@ use oma_refresh::db::OmaRefreshBuilder;
 use oma_refresh::db::RefreshEvent;
 use oma_utils::dpkg::dpkg_arch;
 use oma_utils::oma::lock_oma_inner;
+use reqwest::Client;
 use std::fmt::Display;
 use tracing::error;
 use tracing::info;
@@ -68,9 +69,11 @@ pub(crate) fn lock_oma() -> Result<(), LockError> {
 }
 
 pub(crate) fn refresh(
+    client: &Client,
     dry_run: bool,
     no_progress: bool,
     download_pure_db: bool,
+    limit: usize,
     sysroot: &str,
 ) -> Result<(), OutputError> {
     if dry_run {
@@ -91,7 +94,9 @@ pub(crate) fn refresh(
     let sysroot = PathBuf::from(sysroot);
 
     let refresh = OmaRefreshBuilder::default()
+        .client(client)
         .source(sysroot.clone())
+        .limit(Some(limit))
         .download_dir(sysroot.join("var/lib/apt/lists"))
         .download_compress(!download_pure_db)
         .arch(dpkg_arch(&sysroot)?)
@@ -155,7 +160,7 @@ pub struct NormalCommitArgs {
     pub sysroot: String,
 }
 
-pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
+pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(), OutputError> {
     let NormalCommitArgs {
         mut apt,
         dry_run,
@@ -187,7 +192,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs) -> Result<(), OutputError> {
 
     let start_time = Local::now().timestamp();
 
-    let res = apt.commit(Some(network_thread), &apt_args, |count, event, total| {
+    let res = apt.commit(client, Some(network_thread), &apt_args, |count, event, total| {
         if !no_progress {
             pb!(event, mb, pb_map, count, total, global_is_set)
         } else {
