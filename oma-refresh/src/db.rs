@@ -13,7 +13,6 @@ use oma_fetch::{
     DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 
-#[cfg(feature = "aosc")]
 use oma_fetch::DownloadError;
 
 use oma_utils::dpkg::dpkg_arch;
@@ -69,7 +68,7 @@ pub enum RefreshError {
     #[error("Invalid URL: {0}")]
     InvaildUrl(String),
     #[error("Can not parse distro repo data {0}: {1}")]
-    ParseDistroRepoDataError(String, serde_yaml::Error),
+    ParseDistroRepoDataError(&'static str, serde_yaml::Error),
     #[error("Scan sources.list failed: {0}")]
     ScanSourceError(SourceError),
     #[error("Unsupport Protocol: {0}")]
