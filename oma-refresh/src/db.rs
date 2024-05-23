@@ -309,11 +309,10 @@ impl OmaRefresh {
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
-        let m = tokio::fs::read(&*MIRROR).await;
-        let m = match m {
-            Ok(m) => mirror_map(&m).ok(),
-            Err(_) => None,
-        };
+        let m = tokio::fs::read(&*MIRROR)
+            .await
+            .ok()
+            .and_then(|m| mirror_map(&m).ok());
 
         if !self.download_dir.is_dir() {
             tokio::fs::create_dir_all(&self.download_dir)
