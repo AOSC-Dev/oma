@@ -8,7 +8,7 @@ use oma_apt_sources_lists::{SourceEntry, SourceError, SourceLine, SourceListType
 use oma_fetch::{
     checksum::ChecksumError, reqwest, DownloadEntry, DownloadEntryBuilder,
     DownloadEntryBuilderError, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType,
-    OmaFetcher,
+    OmaFetcher, Summary,
 };
 
 #[cfg(feature = "aosc")]
@@ -289,31 +289,304 @@ pub struct OmaRefresh {
     download_compress: bool,
 }
 
-struct OmaRefreshRequest {
-    sourceslist: Vec<OmaSourceEntry>,
-    limit: usize,
-    arch: String,
-    download_dir: PathBuf,
-    download_compress: bool,
-    rootfs: PathBuf,
-}
-
 impl OmaRefresh {
     pub async fn start<F, F2>(self, callback: F, handle_topic_msg: F2) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
-        let source = get_sources(&self.source)?;
-        let req = OmaRefreshRequest {
-            sourceslist: source,
-            limit: self.limit,
-            arch: self.arch,
-            download_dir: self.download_dir,
-            download_compress: self.download_compress,
-            rootfs: self.source,
+        self.update_db(get_sources(&self.source)?, callback, handle_topic_msg)
+            .await
+    }
+
+    async fn update_db<F, F2>(
+        &self,
+        sourcelist: Vec<OmaSourceEntry>,
+        callback: F,
+        handle_topic_msg: F2,
+    ) -> Result<()>
+    where
+        F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
+        F2: Fn() -> String + Copy,
+    {
+        let m = tokio::fs::read(&*MIRROR).await;
+        let m = match m {
+            Ok(m) => mirror_map(&m).ok(),
+            Err(_) => None,
         };
-        update_db(req, callback, handle_topic_msg).await
+
+        if !self.download_dir.is_dir() {
+            tokio::fs::create_dir_all(&self.download_dir)
+                .await
+                .map_err(|e| {
+                    RefreshError::FailedToOperateDirOrFile(
+                        self.download_dir.display().to_string(),
+                        e,
+                    )
+                })?;
+        }
+
+        let tasks = self.collect_download_release_tasks(&sourcelist, &m)?;
+
+        let release_results = OmaFetcher::new(None, tasks, Some(self.limit))?
+            .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
+            .await;
+
+        let all_inrelease = self
+            .handle_downloaded_release_result(release_results, callback.clone(), handle_topic_msg)
+            .await?;
+
+        let (tasks, total) = self
+            .collect_all_release_entry(all_inrelease, &sourcelist, &m)
+            .await?;
+
+        let res = OmaFetcher::new(None, tasks, Some(self.limit))?
+            .start_download(|count, event| callback(count, RefreshEvent::from(event), Some(total)))
+            .await;
+
+        res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
+
+        Ok(())
+    }
+
+    fn collect_download_release_tasks(
+        &self,
+        sourcelist: &[OmaSourceEntry],
+        m: &Option<HashMap<String, MirrorMapItem>>,
+    ) -> Result<Vec<DownloadEntry>> {
+        let mut tasks = Vec::new();
+        for source_entry in sourcelist {
+            let msg = get_url_short_and_branch(&source_entry.inrelease_path, m)?;
+
+            let sources = vec![DownloadSource::new(
+                source_entry.inrelease_path.clone(),
+                match source_entry.from {
+                    OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+                    OmaSourceEntryFrom::Local => DownloadSourceType::Local,
+                },
+            )];
+
+            let task = DownloadEntryBuilder::default()
+                .source(sources)
+                .filename(database_filename(&source_entry.inrelease_path).into())
+                .dir(self.download_dir.clone())
+                .allow_resume(false)
+                .msg(format!("{msg} InRelease"))
+                .build()?;
+
+            debug!("oma will fetch {} InRelease", source_entry.url);
+            tasks.push(task);
+        }
+
+        Ok(tasks)
+    }
+
+    async fn handle_downloaded_release_result<F, F2>(
+        &self,
+        res: Vec<std::result::Result<Summary, DownloadError>>,
+        callback: F,
+        handle_topic_msg: F2,
+    ) -> Result<Vec<Summary>>
+    where
+        F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
+        F2: Fn() -> String + Copy,
+    {
+        let mut all_inrelease = vec![];
+
+        #[cfg(feature = "aosc")]
+        let mut not_found = vec![];
+
+        for inrelease in res {
+            if cfg!(feature = "aosc") {
+                match inrelease {
+                    Ok(i) => {
+                        debug!("{} fetched", &i.filename);
+                        all_inrelease.push(i)
+                    }
+                    Err(e) => {
+                        #[cfg(feature = "aosc")]
+                        match e {
+                            DownloadError::ReqwestError(e)
+                                if e.status()
+                                    .map(|x| x == StatusCode::NOT_FOUND)
+                                    .unwrap_or(false) =>
+                            {
+                                let url = e.url().map(|x| x.to_owned());
+                                not_found.push(url.unwrap());
+                            }
+                            _ => return Err(e.into()),
+                        }
+                        #[cfg(not(feature = "aosc"))]
+                        return Err(e.into());
+                    }
+                }
+            } else {
+                let i = inrelease?;
+                debug!("{} fetched", &i.filename);
+                all_inrelease.push(i);
+            }
+        }
+
+        #[cfg(feature = "aosc")]
+        {
+            if !not_found.is_empty() {
+                let removed_suites =
+                    oma_topics::scan_closed_topic(handle_topic_msg, &self.source, &self.arch)
+                        .await?;
+                for url in not_found {
+                    let suite = url
+                        .path_segments()
+                        .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
+                        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+
+                    if !removed_suites.contains(&suite) {
+                        return Err(RefreshError::NoInReleaseFile(url.to_string()));
+                    }
+
+                    callback(0, RefreshEvent::ClosingTopic(suite), None);
+                }
+            }
+        }
+
+        Ok(all_inrelease)
+    }
+
+    async fn collect_all_release_entry(
+        &self,
+        all_inrelease: Vec<Summary>,
+        sourcelist: &[OmaSourceEntry],
+        m: &Option<HashMap<String, MirrorMapItem>>,
+    ) -> Result<(Vec<DownloadEntry>, u64)> {
+        let mut total = 0;
+        let mut tasks = vec![];
+        for inrelease_summary in all_inrelease {
+            // 源数据确保是存在的，所以直接 unwrap
+            let ose = sourcelist.get(inrelease_summary.count).unwrap();
+            let urlc = &ose.url;
+
+            debug!("Getted oma source entry: {:#?}", ose);
+            let inrelease_path = self.download_dir.join(&*inrelease_summary.filename);
+
+            let s = tokio::fs::read_to_string(&inrelease_path)
+                .await
+                .map_err(|e| {
+                    RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
+                })?;
+
+            let inrelease = InRelease {
+                inrelease: &s,
+                trust_files: ose.signed_by.as_deref(),
+                mirror: urlc,
+                arch: &self.arch,
+                is_flat: ose.is_flat,
+                p: &inrelease_path,
+                rootfs: &self.source,
+                components: &ose.components,
+            };
+
+            let inrelease = InReleaseParser::new(inrelease).map_err(|err| {
+                RefreshError::InReleaseParseError(inrelease_path.display().to_string(), err)
+            })?;
+
+            let checksums = inrelease
+                .checksums
+                .iter()
+                .filter(|x| {
+                    ose.components
+                        .iter()
+                        .any(|y| y.contains(x.name.split('/').next().unwrap_or(&x.name)))
+                })
+                .map(|x| x.to_owned())
+                .collect::<Vec<_>>();
+
+            let handle = if ose.is_flat {
+                debug!("{} is flat repo", ose.url);
+                // Flat repo
+                let mut handle = vec![];
+                for i in &inrelease.checksums {
+                    if i.file_type == DistFileType::PackageList {
+                        debug!("oma will download package list: {}", i.name);
+                        handle.push(i);
+                        total += i.size;
+                    }
+                }
+
+                handle
+            } else {
+                let mut handle = vec![];
+                let mut handle_file_types = vec![];
+                for i in &checksums {
+                    match &i.file_type {
+                        DistFileType::BinaryContents => {
+                            debug!("oma will download Binary Contents: {}", i.name);
+                            handle.push(i);
+                            total += i.size;
+                        }
+                        DistFileType::Contents | DistFileType::PackageList
+                            if !self.download_compress =>
+                        {
+                            debug!("oma will download Package List/Contetns: {}", i.name);
+                            handle.push(i);
+                            total += i.size;
+                        }
+                        DistFileType::CompressContents(_) => {
+                            if self.download_compress {
+                                debug!(
+                                    "oma will download compress Package List/compress Contetns: {}",
+                                    i.name
+                                );
+
+                                if !handle.contains(&i)
+                                    && !handle_file_types.contains(&&i.file_type)
+                                {
+                                    handle.push(i);
+                                    handle_file_types.push(&i.file_type);
+                                    total += i.size;
+                                }
+                            }
+                        }
+                        DistFileType::CompressPackageList(s) => {
+                            if self.download_compress {
+                                debug!(
+                                    "oma will download compress Package List/compress Contetns: {}",
+                                    i.name
+                                );
+
+                                if !handle.contains(&i)
+                                    && !handle_file_types.contains(&&i.file_type)
+                                {
+                                    handle_file_types.push(&i.file_type);
+                                    handle.push(i);
+                                    let size = checksums
+                                        .iter()
+                                        .find(|x| &x.name == s)
+                                        .map(|x| x.size)
+                                        .unwrap_or(i.size);
+
+                                    total += size;
+                                }
+                            }
+                        }
+                        _ => continue,
+                    }
+                }
+
+                handle
+            };
+
+            for c in handle {
+                collect_download_task(
+                    c,
+                    sourcelist.get(inrelease_summary.count).unwrap(),
+                    &checksums,
+                    &self.download_dir,
+                    &mut tasks,
+                    &m,
+                )?;
+            }
+        }
+
+        Ok((tasks, total))
     }
 }
 
@@ -327,253 +600,6 @@ impl From<DownloadEvent> for RefreshEvent {
     fn from(value: DownloadEvent) -> Self {
         RefreshEvent::DownloadEvent(value)
     }
-}
-
-// Update database
-async fn update_db<F, F2>(req: OmaRefreshRequest, callback: F, handle_topic_msg: F2) -> Result<()>
-where
-    F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
-    F2: Fn() -> String + Copy,
-{
-    let OmaRefreshRequest {
-        sourceslist,
-        limit,
-        arch,
-        download_dir,
-        download_compress,
-        rootfs,
-    } = req;
-
-    let mut tasks = vec![];
-
-    let m = tokio::fs::read(&*MIRROR).await;
-    let m = match m {
-        Ok(m) => mirror_map(&m).ok(),
-        Err(_) => None,
-    };
-
-    if !download_dir.is_dir() {
-        tokio::fs::create_dir_all(&download_dir)
-            .await
-            .map_err(|e| {
-                RefreshError::FailedToOperateDirOrFile(download_dir.display().to_string(), e)
-            })?;
-    }
-
-    for source_entry in &sourceslist {
-        let msg = get_url_short_and_branch(&source_entry.inrelease_path, &m)?;
-
-        let sources = vec![DownloadSource::new(
-            source_entry.inrelease_path.clone(),
-            match source_entry.from {
-                OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-                OmaSourceEntryFrom::Local => DownloadSourceType::Local,
-            },
-        )];
-
-        let task = DownloadEntryBuilder::default()
-            .source(sources)
-            .filename(database_filename(&source_entry.inrelease_path).into())
-            .dir(download_dir.clone())
-            .allow_resume(false)
-            .msg(format!("{msg} InRelease"))
-            .build()?;
-
-        debug!("oma will fetch {} InRelease", source_entry.url);
-        tasks.push(task);
-    }
-
-    let res = OmaFetcher::new(None, tasks, Some(limit))?
-        .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
-        .await;
-
-    let mut all_inrelease = vec![];
-
-    #[cfg(feature = "aosc")]
-    let mut not_found = vec![];
-
-    for inrelease in res {
-        if cfg!(feature = "aosc") {
-            match inrelease {
-                Ok(i) => {
-                    debug!("{} fetched", &i.filename);
-                    all_inrelease.push(i)
-                }
-                Err(e) => {
-                    #[cfg(feature = "aosc")]
-                    match e {
-                        DownloadError::ReqwestError(e)
-                            if e.status()
-                                .map(|x| x == StatusCode::NOT_FOUND)
-                                .unwrap_or(false) =>
-                        {
-                            let url = e.url().map(|x| x.to_owned());
-                            not_found.push(url.unwrap());
-                        }
-                        _ => return Err(e.into()),
-                    }
-                    #[cfg(not(feature = "aosc"))]
-                    return Err(e.into());
-                }
-            }
-        } else {
-            let i = inrelease?;
-            debug!("{} fetched", &i.filename);
-            all_inrelease.push(i);
-        }
-    }
-
-    #[cfg(feature = "aosc")]
-    {
-        if !not_found.is_empty() {
-            let removed_suites =
-                oma_topics::scan_closed_topic(handle_topic_msg, &rootfs, &arch).await?;
-            for url in not_found {
-                let suite = url
-                    .path_segments()
-                    .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
-                    .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
-
-                if !removed_suites.contains(&suite) {
-                    return Err(RefreshError::NoInReleaseFile(url.to_string()));
-                }
-
-                callback(0, RefreshEvent::ClosingTopic(suite), None);
-            }
-        }
-    }
-
-    let mut total = 0;
-    let mut tasks = vec![];
-
-    for inrelease_summary in all_inrelease {
-        // 源数据确保是存在的，所以直接 unwrap
-        let ose = sourceslist.get(inrelease_summary.count).unwrap();
-        let urlc = &ose.url;
-
-        debug!("Getted oma source entry: {:#?}", ose);
-        let inrelease_path = download_dir.join(&*inrelease_summary.filename);
-
-        let s = tokio::fs::read_to_string(&inrelease_path)
-            .await
-            .map_err(|e| {
-                RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
-            })?;
-
-        let inrelease = InRelease {
-            inrelease: &s,
-            trust_files: ose.signed_by.as_deref(),
-            mirror: urlc,
-            arch: &arch,
-            is_flat: ose.is_flat,
-            p: &inrelease_path,
-            rootfs: &rootfs,
-            components: &ose.components,
-        };
-
-        let inrelease = InReleaseParser::new(inrelease).map_err(|err| {
-            RefreshError::InReleaseParseError(inrelease_path.display().to_string(), err)
-        })?;
-
-        let checksums = inrelease
-            .checksums
-            .iter()
-            .filter(|x| {
-                ose.components
-                    .iter()
-                    .any(|y| y.contains(x.name.split('/').next().unwrap_or(&x.name)))
-            })
-            .map(|x| x.to_owned())
-            .collect::<Vec<_>>();
-
-        let handle = if ose.is_flat {
-            debug!("{} is flat repo", ose.url);
-            // Flat repo
-            let mut handle = vec![];
-            for i in &inrelease.checksums {
-                if i.file_type == DistFileType::PackageList {
-                    debug!("oma will download package list: {}", i.name);
-                    handle.push(i);
-                    total += i.size;
-                }
-            }
-
-            handle
-        } else {
-            let mut handle = vec![];
-            let mut handle_file_types = vec![];
-            for i in &checksums {
-                match &i.file_type {
-                    DistFileType::BinaryContents => {
-                        debug!("oma will download Binary Contents: {}", i.name);
-                        handle.push(i);
-                        total += i.size;
-                    }
-                    DistFileType::Contents | DistFileType::PackageList if !download_compress => {
-                        debug!("oma will download Package List/Contetns: {}", i.name);
-                        handle.push(i);
-                        total += i.size;
-                    }
-                    DistFileType::CompressContents(_) => {
-                        if download_compress {
-                            debug!(
-                                "oma will download compress Package List/compress Contetns: {}",
-                                i.name
-                            );
-
-                            if !handle.contains(&i) && !handle_file_types.contains(&&i.file_type) {
-                                handle.push(i);
-                                handle_file_types.push(&i.file_type);
-                                total += i.size;
-                            }
-                        }
-                    }
-                    DistFileType::CompressPackageList(s) => {
-                        if download_compress {
-                            debug!(
-                                "oma will download compress Package List/compress Contetns: {}",
-                                i.name
-                            );
-
-                            if !handle.contains(&i) && !handle_file_types.contains(&&i.file_type) {
-                                handle_file_types.push(&i.file_type);
-                                handle.push(i);
-                                let size = checksums
-                                    .iter()
-                                    .find(|x| &x.name == s)
-                                    .map(|x| x.size)
-                                    .unwrap_or(i.size);
-
-                                total += size;
-                            }
-                        }
-                    }
-                    _ => continue,
-                }
-            }
-
-            handle
-        };
-
-        for c in handle {
-            collect_download_task(
-                c,
-                sourceslist.get(inrelease_summary.count).unwrap(),
-                &checksums,
-                &download_dir,
-                &mut tasks,
-                &m,
-            )?;
-        }
-    }
-
-    let res = OmaFetcher::new(None, tasks, Some(limit))?
-        .start_download(|count, event| callback(count, RefreshEvent::from(event), Some(total)))
-        .await;
-
-    res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
-
-    Ok(())
 }
 
 fn collect_download_task(
