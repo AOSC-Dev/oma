@@ -10,6 +10,7 @@ use oma_fetch::{
     DownloadEntryBuilder, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType,
     OmaFetcher,
 };
+use reqwest::ClientBuilder;
 use tokio::io::AsyncWriteExt;
 
 #[tokio::main]
@@ -50,7 +51,9 @@ async fn main() -> DownloadResult<()> {
     //     .dir(PathBuf::from("./oma-fetcher-test"))
     //     .build()?;
 
-    let fetcher = OmaFetcher::new(None, vec![file_1, file_2], None)?;
+    let client = ClientBuilder::new().user_agent("oma").build().unwrap();
+
+    let fetcher = OmaFetcher::new(&client, vec![file_1, file_2], None)?;
 
     tokio::fs::create_dir_all("./oma-fetcher-test")
         .await

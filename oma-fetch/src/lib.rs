@@ -8,7 +8,7 @@ use derive_builder::Builder;
 use download::SingleDownloaderBuilder;
 use futures::StreamExt;
 
-use reqwest::{Client, ClientBuilder};
+use reqwest::Client;
 
 pub mod checksum;
 mod download;
@@ -90,8 +90,8 @@ impl Ord for DownloadSourceType {
     }
 }
 
-pub struct OmaFetcher {
-    client: Client,
+pub struct OmaFetcher<'a> {
+    client: &'a Client,
     download_list: Vec<DownloadEntry>,
     limit_thread: usize,
     retry_times: usize,
@@ -145,21 +145,14 @@ impl Summary {
 }
 
 /// OmaFetcher is a Download Manager
-impl OmaFetcher {
+impl<'a> OmaFetcher<'a> {
     pub fn new(
-        client: Option<Client>,
+        client: &'a Client,
         download_list: Vec<DownloadEntry>,
         limit_thread: Option<usize>,
-    ) -> DownloadResult<Self> {
-        let client = client.unwrap_or(
-            ClientBuilder::new()
-                .user_agent("oma")
-                .build()
-                .map_err(DownloadError::ReqwestError)?,
-        );
-
+    ) -> DownloadResult<OmaFetcher<'a>> {
         Ok(Self {
-            client,
+            client: &client,
             download_list,
             limit_thread: limit_thread.unwrap_or(4),
             retry_times: 3,

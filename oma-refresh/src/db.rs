@@ -8,7 +8,7 @@ use futures::{future::join, FutureExt, StreamExt};
 use oma_apt_sources_lists::{SourceEntry, SourceError};
 use oma_fetch::{
     checksum::ChecksumError,
-    reqwest::{self, ClientBuilder},
+    reqwest::{self, Client, ClientBuilder},
     DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent, DownloadResult,
     DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
@@ -241,12 +241,12 @@ impl OmaRefresh {
         let client = ClientBuilder::new().user_agent("oma").build()?;
 
         let is_inrelease_map = self
-            .is_inrelease_map(&sourcelist, client, &m, &callback)
+            .get_is_inrelease_map(&sourcelist, &client, &m, &callback)
             .await?;
 
         let tasks = self.collect_download_release_tasks(&sourcelist, &m, is_inrelease_map)?;
 
-        let release_results = OmaFetcher::new(None, tasks, Some(self.limit))?
+        let release_results = OmaFetcher::new(&client, tasks, Some(self.limit))?
             .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
             .await;
 
@@ -258,7 +258,7 @@ impl OmaRefresh {
             .collect_all_release_entry(all_inrelease, &sourcelist, &m)
             .await?;
 
-        let res = OmaFetcher::new(None, tasks, Some(self.limit))?
+        let res = OmaFetcher::new(&client, tasks, Some(self.limit))?
             .start_download(|count, event| callback(count, RefreshEvent::from(event), Some(total)))
             .await;
 
@@ -267,10 +267,10 @@ impl OmaRefresh {
         Ok(())
     }
 
-    async fn is_inrelease_map<F>(
+    async fn get_is_inrelease_map<F>(
         &self,
         sourcelist: &[OmaSourceEntry],
-        client: reqwest::Client,
+        client: &Client,
         m: &Option<HashMap<String, MirrorMapItem>>,
         callback: &F,
     ) -> Result<HashMap<usize, bool>>

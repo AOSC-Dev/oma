@@ -25,8 +25,8 @@ use oma_apt::{
 };
 use oma_console::console::{self, style};
 use oma_fetch::{
-    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
-    DownloadSourceType, OmaFetcher, Summary,
+    reqwest::ClientBuilder, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError,
+    DownloadEvent, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 use oma_utils::{
     dpkg::{is_hold, DpkgError},
@@ -718,7 +718,9 @@ impl OmaApt {
             download_list.push(download_entry);
         }
 
-        let downloader = OmaFetcher::new(None, download_list, network_thread)?;
+        let client = ClientBuilder::new().user_agent("oma").build().unwrap();
+
+        let downloader = OmaFetcher::new(&client, download_list, network_thread)?;
 
         let res = downloader
             .start_download(|count, event| callback(count, event, Some(total_size)))
