@@ -232,7 +232,7 @@ impl OmaRefresh {
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
-        let m = tokio::fs::read("/usr/share/distro-repository-data/mirrors.yml")
+        let m = tokio::fs::read(AOSC_MIRROR_FILE)
             .await
             .ok()
             .and_then(|m| mirror_map(&m).ok());
