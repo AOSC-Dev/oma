@@ -42,7 +42,14 @@ pub fn execute(
     }
 
     if !no_refresh {
-        refresh(&client, dry_run, no_progress, download_pure_db, network_thread, &sysroot)?;
+        refresh(
+            &client,
+            dry_run,
+            no_progress,
+            download_pure_db,
+            network_thread,
+            &sysroot,
+        )?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default()

@@ -52,7 +52,11 @@ pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     }
 }
 
-pub fn execute_undo(oma_args: OmaArgs, sysroot: String, client: &Client) -> Result<i32, OutputError> {
+pub fn execute_undo(
+    oma_args: OmaArgs,
+    sysroot: String,
+    client: &Client,
+) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 

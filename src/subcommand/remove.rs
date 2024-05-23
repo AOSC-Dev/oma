@@ -18,7 +18,12 @@ use super::utils::{
     handle_no_result, lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs,
 };
 
-pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs, client: Client) -> Result<i32, OutputError> {
+pub fn execute(
+    pkgs: Vec<&str>,
+    args: RemoveArgs,
+    oma_args: OmaArgs,
+    client: Client,
+) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 

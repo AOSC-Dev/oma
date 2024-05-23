@@ -722,7 +722,7 @@ impl OmaApt {
             download_list.push(download_entry);
         }
 
-        let downloader = OmaFetcher::new(&client, download_list, network_thread)?;
+        let downloader = OmaFetcher::new(client, download_list, network_thread)?;
 
         let res = downloader
             .start_download(|count, event| callback(count, event, Some(total_size)))

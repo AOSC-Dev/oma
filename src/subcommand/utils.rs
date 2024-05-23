@@ -192,13 +192,18 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
 
     let start_time = Local::now().timestamp();
 
-    let res = apt.commit(client, Some(network_thread), &apt_args, |count, event, total| {
-        if !no_progress {
-            pb!(event, mb, pb_map, count, total, global_is_set)
-        } else {
-            handle_event_without_progressbar(event);
-        }
-    });
+    let res = apt.commit(
+        client,
+        Some(network_thread),
+        &apt_args,
+        |count, event, total| {
+            if !no_progress {
+                pb!(event, mb, pb_map, count, total, global_is_set)
+            } else {
+                handle_event_without_progressbar(event);
+            }
+        },
+    );
 
     match res {
         Ok(_) => {

@@ -372,7 +372,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         Some(("fix-broken", _)) => {
             let client = Client::builder().user_agent("oma").build().unwrap();
             fix_broken::execute(oma_args, sysroot, client)?
-        },
+        }
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
             let client = Client::builder().user_agent("oma").build().unwrap();
@@ -419,7 +419,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         Some(("undo", _)) => {
             let client = Client::builder().user_agent("oma").build().unwrap();
             history::execute_undo(oma_args, sysroot, &client)?
-        },
+        }
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
             let opt_in = args

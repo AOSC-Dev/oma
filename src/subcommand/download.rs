@@ -13,7 +13,7 @@ pub fn execute(
     keyword: Vec<&str>,
     path: Option<PathBuf>,
     oma_args: OmaArgs,
-    client: &Client
+    client: &Client,
 ) -> Result<i32, OutputError> {
     let OmaArgs {
         dry_run,
