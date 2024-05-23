@@ -109,7 +109,6 @@ pub struct OmaSourceEntry {
     components: Vec<String>,
     url: String,
     _suite: String,
-    inrelease_path: String,
     dist_path: String,
     is_flat: bool,
     signed_by: Option<String>,
@@ -146,16 +145,6 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             (v.dist_path(), false)
         };
 
-        let inrelease_path = if is_flat {
-            // flat Repo
-            format!("{url}/Release")
-        } else if !components.is_empty() {
-            // Normal Repo
-            format!("{dist_path}/InRelease")
-        } else {
-            return Err(RefreshError::UnsupportedProtocol(format!("{v:?}")));
-        };
-
         let options = v.options.as_deref().unwrap_or_default();
 
         let options = options.split_whitespace().collect::<Vec<_>>();
@@ -176,7 +165,6 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             url,
             _suite: suite,
             is_flat,
-            inrelease_path,
             dist_path,
             signed_by,
         })
@@ -367,7 +355,7 @@ impl OmaRefresh {
             let msg = human_download_url(&uri, m)?;
 
             let sources = vec![DownloadSource::new(
-                source_entry.inrelease_path.clone(),
+                uri.clone(),
                 match source_entry.from {
                     OmaSourceEntryFrom::Http => DownloadSourceType::Http,
                     OmaSourceEntryFrom::Local => DownloadSourceType::Local,
@@ -376,7 +364,7 @@ impl OmaRefresh {
 
             let task = DownloadEntryBuilder::default()
                 .source(sources)
-                .filename(database_filename(&source_entry.inrelease_path).into())
+                .filename(database_filename(&uri).into())
                 .dir(self.download_dir.clone())
                 .allow_resume(false)
                 .msg(format!(
@@ -630,7 +618,7 @@ fn collect_download_task(
         _ => unreachable!(),
     };
 
-    let msg = human_download_url(&source_index.inrelease_path, m)?;
+    let msg = human_download_url(&source_index.dist_path, m)?;
 
     let dist_url = source_index.dist_path.clone();
     let download_url = format!("{}/{}", dist_url, c.name);
