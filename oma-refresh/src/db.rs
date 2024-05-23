@@ -281,7 +281,7 @@ impl OmaRefresh {
 
     async fn is_inrelease_map<F>(
         &self,
-        sourcelist: &Vec<OmaSourceEntry>,
+        sourcelist: &[OmaSourceEntry],
         client: reqwest::Client,
         m: &Option<HashMap<String, MirrorMapItem>>,
         callback: &F,
