@@ -2997,7 +2997,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "dashmap",
- "derive_builder",
  "futures",
  "indicatif",
  "oma-apt-sources-lists",

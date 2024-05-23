@@ -14,7 +14,7 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
-use oma_refresh::db::{OmaRefreshBuilder, RefreshError, RefreshEvent};
+use oma_refresh::db::{OmaRefresh, RefreshError, RefreshEvent};
 use oma_utils::dpkg::dpkg_arch;
 
 #[tokio::main]
@@ -23,14 +23,14 @@ async fn main() -> Result<(), RefreshError> {
     tokio::fs::create_dir_all(p).await.unwrap();
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();
 
-    let refresher = OmaRefreshBuilder::default()
-        .client(&client)
-        .download_dir(p.to_path_buf())
-        .arch(dpkg_arch("/").unwrap())
-        .limit(Some(4))
-        .source(PathBuf::from("/"))
-        .build()
-        .unwrap();
+    let refresher = OmaRefresh {
+        client: &client,
+        source: PathBuf::from("/"),
+        limit: Some(4),
+        arch: dpkg_arch("/").unwrap(),
+        download_dir: p.to_path_buf(),
+        download_compress: true,
+    };
 
     let mb = Arc::new(MultiProgress::new());
     let pb_map: DashMap<usize, ProgressBar> = DashMap::new();

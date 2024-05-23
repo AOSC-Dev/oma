@@ -3,7 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use derive_builder::Builder;
 use futures::{future::join, FutureExt, StreamExt};
 use oma_apt_sources_lists::{SourceEntry, SourceError};
 use oma_fetch::{
@@ -168,14 +167,13 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
     }
 }
 
-#[derive(Builder)]
 pub struct OmaRefresh<'a> {
-    source: PathBuf,
-    limit: Option<usize>,
-    arch: String,
-    download_dir: PathBuf,
-    download_compress: bool,
-    client: &'a Client,
+    pub source: PathBuf,
+    pub limit: Option<usize>,
+    pub arch: String,
+    pub download_dir: PathBuf,
+    pub download_compress: bool,
+    pub client: &'a Client,
 }
 
 impl<'a> OmaRefresh<'a> {
