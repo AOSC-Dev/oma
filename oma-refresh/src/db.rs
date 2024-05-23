@@ -581,7 +581,7 @@ impl OmaRefresh {
                     &checksums,
                     &self.download_dir,
                     &mut tasks,
-                    &m,
+                    m,
                 )?;
             }
         }
