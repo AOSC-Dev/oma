@@ -26,7 +26,7 @@ use crate::{
     util::{database_filename, get_sources, human_download_url, MirrorMapItem},
 };
 
-const AOSC_MIRROR_FILE: &'static str = "/usr/share/distro-repository-data/mirrors.yml";
+const AOSC_MIRROR_FILE: &str = "/usr/share/distro-repository-data/mirrors.yml";
 
 #[cfg(feature = "aosc")]
 #[derive(Debug, thiserror::Error)]
