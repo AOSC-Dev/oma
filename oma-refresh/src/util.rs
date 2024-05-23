@@ -87,7 +87,6 @@ pub(crate) fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEnt
     Ok(res)
 }
 
-
 #[test]
 fn test_database_filename() {
     // Mirror name contains '+' must be url encode twice
