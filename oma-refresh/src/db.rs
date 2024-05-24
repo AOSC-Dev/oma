@@ -57,6 +57,8 @@ pub enum RefreshError {
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
     InReleaseParseError(String, InReleaseParserError),
+    #[error("No checksum")]
+    NoChecksum,
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -553,6 +555,7 @@ impl<'a> OmaRefresh<'a> {
                     &self.download_dir,
                     &mut tasks,
                     m,
+                    inrelease.acquire_by_hash,
                 )?;
             }
         }
@@ -580,6 +583,7 @@ fn collect_download_task(
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     m: &Option<HashMap<String, MirrorMapItem>>,
+    acquire_by_hash: bool,
 ) -> Result<()> {
     let (typ, not_compress_filename_before) = match &c.file_type {
         DistFileType::CompressContents(s) => ("Contents", s),
@@ -592,21 +596,12 @@ fn collect_download_task(
 
     let msg = human_download_url(&source_index.dist_path, m)?;
 
-    let dist_url = source_index.dist_path.clone();
-    let download_url = format!("{}/{}", dist_url, c.name);
-
-    let file_path = if let DistFileType::CompressContents(_) = c.file_type {
-        download_url.clone()
-    } else {
-        format!("{}/{}", dist_url, not_compress_filename_before)
-    };
+    let dist_url = &source_index.dist_path;
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
         OmaSourceEntryFrom::Local => DownloadSourceType::Local,
     };
-
-    let sources = vec![DownloadSource::new(download_url.clone(), from)];
 
     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
         Some(&c.checksum)
@@ -616,6 +611,25 @@ fn collect_download_task(
             .find(|x| &x.name == not_compress_filename_before)
             .as_ref()
             .map(|c| &c.checksum)
+    };
+
+    let download_url = if acquire_by_hash {
+        let checksum = checksum.ok_or_else(|| RefreshError::NoChecksum)?;
+        let path = Path::new(&c.name);
+        let parent = path.parent().unwrap_or(path);
+        let path = parent.join("by-hash").join("SHA256").join(checksum);
+
+        format!("{}/{}", dist_url, path.display())
+    } else {
+        format!("{}/{}", dist_url, c.name)
+    };
+
+    let sources = vec![DownloadSource::new(download_url.clone(), from)];
+
+    let file_path = if let DistFileType::CompressContents(_) = c.file_type {
+        download_url.clone()
+    } else {
+        format!("{}/{}", dist_url, not_compress_filename_before)
     };
 
     let mut task = DownloadEntryBuilder::default();

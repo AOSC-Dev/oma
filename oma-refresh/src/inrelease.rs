@@ -9,6 +9,7 @@ use crate::verify;
 pub struct InReleaseParser {
     _source: Vec<SmallMap<16, String, String>>,
     pub checksums: SmallVec<[ChecksumItem; 32]>,
+    pub acquire_by_hash: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -128,6 +129,11 @@ impl InReleaseParser {
             }
         }
 
+        let acquire_by_hash = source_first
+            .and_then(|x| x.get("Acquire-By-Hash"))
+            .map(|x| x.to_lowercase() == "yes")
+            .unwrap_or(false);
+
         let sha256 = source_first
             .and_then(|x| x.get("SHA256"))
             .take()
@@ -220,6 +226,7 @@ impl InReleaseParser {
         Ok(Self {
             _source: source,
             checksums: res,
+            acquire_by_hash,
         })
     }
 }

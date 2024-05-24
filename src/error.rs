@@ -372,6 +372,10 @@ impl From<RefreshError> for OutputError {
                 description: fl!("failed-to-operate-path", p = path),
                 source: Some(Box::new(e)),
             },
+            RefreshError::NoChecksum => Self {
+                description: value.to_string(),
+                source: None,
+            },
         }
         #[cfg(not(feature = "aosc"))]
         match value {
