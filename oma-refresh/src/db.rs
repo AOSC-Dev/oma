@@ -57,8 +57,6 @@ pub enum RefreshError {
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
     InReleaseParseError(String, InReleaseParserError),
-    #[error("Unsupport compress file type: {0}")]
-    UnsupportCompressFileType(String),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -648,7 +646,10 @@ fn collect_download_task(
                 Some("gz") => CompressFile::Gzip,
                 Some("xz2") => CompressFile::Xz,
                 Some("bz2") => CompressFile::Bz2,
-                Some(x) => return Err(RefreshError::UnsupportCompressFileType(x.to_string())),
+                Some(x) => {
+                    debug!("unsupport file type: {x}");
+                    return Ok(());
+                }
                 None => unreachable!(),
             }
         }
