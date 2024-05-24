@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use cxx::UniquePtr;
+use glob_match::glob_match;
 use oma_apt::{
     cache::{Cache, PackageSort},
     package::{Package, Version},
@@ -106,7 +107,7 @@ impl<'a> OmaDatabase<'a> {
         let pkgs = self
             .cache
             .packages(&sort)?
-            .filter(|x| glob_match::glob_match(glob, x.name()));
+            .filter(|x| glob_match(glob, x.name()) || glob_match(glob, &x.fullname(false)));
 
         let pkgs = pkgs
             .map(|x| real_pkg(&x))
