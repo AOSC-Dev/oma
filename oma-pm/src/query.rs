@@ -71,8 +71,7 @@ impl<'a> OmaDatabase<'a> {
                     .map_err(|_| OmaDatabaseError::NoPath(i.name().to_string()))?
                     .to_str()
                     .unwrap_or(pkg.name())
-            ))
-            .to_string();
+            ));
 
             let versions = pkg.versions().collect::<Vec<_>>();
 
