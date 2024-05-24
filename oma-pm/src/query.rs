@@ -59,7 +59,7 @@ impl<'a> OmaDatabase<'a> {
         let glob = self
             .cache
             .packages(&sort)?
-            .filter(|x| glob_match::glob_match_with_captures(file_glob, x.name()).is_some());
+            .filter(|x| glob_match::glob_match(file_glob, x.name()));
 
         for i in glob {
             let real_pkg = real_pkg(&i);
@@ -106,7 +106,7 @@ impl<'a> OmaDatabase<'a> {
         let pkgs = self
             .cache
             .packages(&sort)?
-            .filter(|x| glob_match::glob_match_with_captures(glob, x.name()).is_some());
+            .filter(|x| glob_match::glob_match(glob, x.name()));
 
         let pkgs = pkgs
             .map(|x| real_pkg(&x))

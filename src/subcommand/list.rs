@@ -35,7 +35,7 @@ pub fn execute(
     } else {
         Box::new(filter_pkgs.filter(|x| {
             for i in &pkgs {
-                if glob_match::glob_match_with_captures(i, x.name()).is_some() {
+                if glob_match::glob_match(i, x.name()) {
                     return true;
                 }
             }
