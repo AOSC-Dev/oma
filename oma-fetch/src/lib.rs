@@ -1,5 +1,7 @@
 use std::{
-    fmt::Display, path::PathBuf, sync::{atomic::AtomicU64, Arc}
+    fmt::Display,
+    path::PathBuf,
+    sync::{atomic::AtomicU64, Arc},
 };
 
 use derive_builder::Builder;
@@ -55,7 +57,7 @@ pub enum CompressFile {
     Gzip,
     Xz,
     #[default]
-    Nothing
+    Nothing,
 }
 
 #[derive(Debug, Clone)]
