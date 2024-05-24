@@ -59,8 +59,7 @@ impl<'a> OmaDatabase<'a> {
         let glob = self
             .cache
             .packages(&sort)?
-            .filter(|x| glob_match::glob_match_with_captures(file_glob, x.name()).is_some())
-            .collect::<Vec<_>>();
+            .filter(|x| glob_match::glob_match_with_captures(file_glob, x.name()).is_some());
 
         for i in glob {
             let real_pkg = real_pkg(&i);
