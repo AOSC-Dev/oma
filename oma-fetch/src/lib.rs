@@ -1,7 +1,5 @@
 use std::{
-    fmt::Display,
-    path::PathBuf,
-    sync::{atomic::AtomicU64, Arc},
+    fmt::Display, path::PathBuf, sync::{atomic::AtomicU64, Arc}
 };
 
 use derive_builder::Builder;
@@ -48,7 +46,16 @@ pub struct DownloadEntry {
     allow_resume: bool,
     #[builder(setter(into, strip_option))]
     msg: Option<String>,
-    extract: bool,
+    file_type: CompressFile,
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum CompressFile {
+    Bz2,
+    Gzip,
+    Xz,
+    #[default]
+    Nothing
 }
 
 #[derive(Debug, Clone)]
@@ -184,6 +191,7 @@ impl<'a> OmaFetcher<'a> {
                 .entry(c)
                 .progress((i + 1, self.download_list.len(), msg))
                 .retry_times(self.retry_times)
+                .file_type(c.file_type.clone())
                 .build()
                 .unwrap();
 

@@ -1,4 +1,4 @@
-use crate::{DownloadEvent, DownloadSource};
+use crate::{CompressFile, DownloadEvent, DownloadSource};
 use std::{
     io::{self, ErrorKind, SeekFrom},
     path::Path,
@@ -33,6 +33,7 @@ pub(crate) struct SingleDownloader<'a> {
     retry_times: usize,
     context: Arc<Option<String>>,
     download_list_index: usize,
+    file_type: CompressFile,
 }
 
 impl SingleDownloader<'_> {
@@ -410,7 +411,7 @@ impl SingleDownloader<'_> {
             .map_err(|e| io::Error::new(ErrorKind::Other, e))
             .into_async_read();
 
-        let mut reader = self.file_reader(&sources[position].url, bytes_stream);
+        let mut reader = self.file_reader(bytes_stream);
 
         let mut buf = vec![0u8; 8 * 1024];
 
@@ -546,7 +547,7 @@ impl SingleDownloader<'_> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
-        let mut reader = self.file_reader(url, from);
+        let mut reader = self.file_reader(from);
 
         debug!(
             "Success create file: {}",
@@ -591,24 +592,15 @@ impl SingleDownloader<'_> {
         ))
     }
 
-    fn file_reader<F>(&self, url: &str, from: F) -> Compat<Box<dyn AsyncRead + Unpin + Send>>
+    fn file_reader<F>(&self, from: F) -> Compat<Box<dyn AsyncRead + Unpin + Send>>
     where
         F: AsyncRead + Send + Unpin + 'static,
     {
-        let reader: Box<dyn AsyncRead + Unpin + Send> = match Path::new(url)
-            .extension()
-            .and_then(|x| x.to_str())
-        {
-            Some("xz") if self.entry.extract => Box::new(XzDecoder::new(BufReader::new(from))),
-            Some("gz") if self.entry.extract => Box::new(GzipDecoder::new(BufReader::new(from))),
-            Some("bz2") if self.entry.extract => Box::new(BzDecoder::new(BufReader::new(from))),
-            x => {
-                if self.entry.extract {
-                    debug!("Unsupport compress file extension: {x:?}");
-                }
-
-                Box::new(BufReader::new(from))
-            }
+        let reader: Box<dyn AsyncRead + Unpin + Send> = match self.file_type {
+            CompressFile::Xz => Box::new(XzDecoder::new(BufReader::new(from))),
+            CompressFile::Gzip => Box::new(GzipDecoder::new(BufReader::new(from))),
+            CompressFile::Bz2 => Box::new(BzDecoder::new(BufReader::new(from))),
+            CompressFile::Nothing => Box::new(BufReader::new(from)),
         };
 
         reader.compat()

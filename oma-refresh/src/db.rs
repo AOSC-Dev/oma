@@ -8,8 +8,8 @@ use oma_apt_sources_lists::{SourceEntry, SourceError};
 use oma_fetch::{
     checksum::ChecksumError,
     reqwest::{self, Client},
-    DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent, DownloadResult,
-    DownloadSource, DownloadSourceType, OmaFetcher, Summary,
+    CompressFile, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent,
+    DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 
 use oma_fetch::DownloadError;
@@ -57,8 +57,8 @@ pub enum RefreshError {
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
     InReleaseParseError(String, InReleaseParserError),
-    #[error("No checksum")]
-    NoChecksum,
+    #[error("Unsupport compress file type: {0}")]
+    UnsupportCompressFileType(String),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -614,10 +614,9 @@ fn collect_download_task(
     };
 
     let download_url = if acquire_by_hash {
-        let checksum = checksum.ok_or_else(|| RefreshError::NoChecksum)?;
         let path = Path::new(&c.name);
         let parent = path.parent().unwrap_or(path);
-        let path = parent.join("by-hash").join("SHA256").join(checksum);
+        let path = parent.join("by-hash").join("SHA256").join(&c.checksum);
 
         format!("{}/{}", dist_url, path.display())
     } else {
@@ -638,7 +637,23 @@ fn collect_download_task(
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(format!("{msg} {typ}"));
-    task.extract(!matches!(c.file_type, DistFileType::CompressContents(_)));
+    task.file_type(match c.file_type {
+        DistFileType::BinaryContents => CompressFile::Nothing,
+        DistFileType::Contents => CompressFile::Nothing,
+        // 不解压 Contents
+        DistFileType::CompressContents(_) => CompressFile::Nothing,
+        DistFileType::PackageList => CompressFile::Nothing,
+        DistFileType::CompressPackageList(_) => {
+            match Path::new(&c.name).extension().and_then(|x| x.to_str()) {
+                Some("gz") => CompressFile::Gzip,
+                Some("xz2") => CompressFile::Xz,
+                Some("bz2") => CompressFile::Bz2,
+                Some(x) => return Err(RefreshError::UnsupportCompressFileType(x.to_string())),
+                None => unreachable!(),
+            }
+        }
+        DistFileType::Release => CompressFile::Nothing,
+    });
 
     if let Some(checksum) = checksum {
         task.hash(checksum);
