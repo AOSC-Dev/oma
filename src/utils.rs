@@ -168,6 +168,10 @@ pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<()> {
             rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
         }
         Err(e) => {
+            if yes {
+                return Ok(());
+            }
+
             error!("{}", fl!("failed-check-dbus"));
             due_to!("{e}");
             warn!("{}", fl!("failed-check-dbus-tips-1"));
