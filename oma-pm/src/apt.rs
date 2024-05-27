@@ -25,8 +25,8 @@ use oma_apt::{
 };
 use oma_console::console::{self, style};
 use oma_fetch::{
-    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
-    DownloadSourceType, OmaFetcher, Summary,
+    reqwest::Client, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent,
+    DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 use oma_utils::{
     dpkg::{is_hold, DpkgError},
@@ -42,7 +42,7 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
-    pkginfo::PkgInfo,
+    pkginfo::UnsafePkgInfo,
     progress::{InstallProgressArgs, NoProgress, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
 };
@@ -291,7 +291,7 @@ impl OmaApt {
     /// Set apt manager status as install
     pub fn install(
         &mut self,
-        pkgs: &[PkgInfo],
+        pkgs: &[UnsafePkgInfo],
         reinstall: bool,
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
@@ -353,7 +353,8 @@ impl OmaApt {
     /// Download packages
     pub fn download<F>(
         &self,
-        pkgs: Vec<PkgInfo>,
+        client: &Client,
+        pkgs: Vec<UnsafePkgInfo>,
         network_thread: Option<usize>,
         download_dir: Option<&Path>,
         dry_run: bool,
@@ -407,6 +408,7 @@ impl OmaApt {
 
         let res = tokio.block_on(async move {
             Self::download_pkgs(
+                client,
                 download_list,
                 network_thread,
                 download_dir.unwrap_or(Path::new(".")),
@@ -421,7 +423,7 @@ impl OmaApt {
     /// Set apt manager status as remove
     pub fn remove<F>(
         &mut self,
-        pkgs: &[PkgInfo],
+        pkgs: &[UnsafePkgInfo],
         purge: bool,
         no_autoremove: bool,
         callback: F,
@@ -469,6 +471,7 @@ impl OmaApt {
     /// Commit changes
     pub fn commit<F>(
         self,
+        client: &Client,
         network_thread: Option<usize>,
         args_config: &AptArgs,
         callback: F,
@@ -496,7 +499,7 @@ impl OmaApt {
                 change_status(&conn, "Downloading").await.ok();
             }
 
-            Self::download_pkgs(download_pkg_list, network_thread, &path, callback).await
+            Self::download_pkgs(client, download_pkg_list, network_thread, &path, callback).await
         })?;
 
         if !failed.is_empty() {
@@ -651,6 +654,7 @@ impl OmaApt {
 
     /// Download packages (inner)
     async fn download_pkgs<F>(
+        client: &Client,
         download_pkg_list: Vec<InstallEntry>,
         network_thread: Option<usize>,
         download_dir: &Path,
@@ -718,7 +722,7 @@ impl OmaApt {
             download_list.push(download_entry);
         }
 
-        let downloader = OmaFetcher::new(None, download_list, network_thread)?;
+        let downloader = OmaFetcher::new(client, download_list, network_thread)?;
 
         let res = downloader
             .start_download(|count, event| callback(count, event, Some(total_size)))
@@ -743,7 +747,7 @@ impl OmaApt {
         select_dbg: bool,
         filter_candidate: bool,
         available_candidate: bool,
-    ) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
+    ) -> OmaAptResult<(Vec<UnsafePkgInfo>, Vec<String>)> {
         select_pkg(
             keywords,
             &self.cache,
@@ -812,7 +816,7 @@ impl OmaApt {
     /// Mark version status (auto/manual)
     pub fn mark_install_status(
         self,
-        pkgs: Vec<PkgInfo>,
+        pkgs: Vec<UnsafePkgInfo>,
         auto: bool,
         dry_run: bool,
     ) -> OmaAptResult<Vec<(String, bool)>> {
@@ -1059,7 +1063,7 @@ impl OmaApt {
 /// Mark package as delete.
 fn mark_delete<F>(
     cache: &Cache,
-    pkg: &PkgInfo,
+    pkg: &UnsafePkgInfo,
     purge: bool,
     how_handle_essential: F,
 ) -> OmaAptResult<bool>
@@ -1135,7 +1139,7 @@ fn select_pkg(
     select_dbg: bool,
     filter_candidate: bool,
     available_candidate: bool,
-) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
+) -> OmaAptResult<(Vec<UnsafePkgInfo>, Vec<String>)> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
     let mut no_result = vec![];
@@ -1165,7 +1169,7 @@ fn select_pkg(
 }
 
 /// Mark package as install.
-fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResult<bool> {
+fn mark_install(cache: &Cache, pkginfo: &UnsafePkgInfo, reinstall: bool) -> OmaAptResult<bool> {
     let pkg = pkginfo.raw_pkg.unique();
     let version = pkginfo.version_raw.unique();
     let ver = Version::new(version, cache);

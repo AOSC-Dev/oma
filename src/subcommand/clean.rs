@@ -34,10 +34,6 @@ pub fn execute(no_progress: bool, sysroot: String) -> Result<i32, OutputError> {
         }
     }
 
-    let p = download_dir.join("..");
-    std::fs::remove_file(p.join("pkgcache.bin")).ok();
-    std::fs::remove_file(p.join("srcpkgcache.bin")).ok();
-
     if let Some(pb) = pb {
         pb.finish_and_clear();
     }

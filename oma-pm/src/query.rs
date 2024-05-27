@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use cxx::UniquePtr;
+use glob_match::glob_match;
 use oma_apt::{
     cache::{Cache, PackageSort},
     package::{Package, Version},
@@ -14,7 +15,7 @@ use oma_utils::url_no_escape::url_no_escape;
 use tracing::{debug, info};
 
 use crate::{
-    pkginfo::PkgInfo,
+    pkginfo::UnsafePkgInfo,
     search::{OmaSearch, OmaSearchError, SearchResult},
 };
 
@@ -52,15 +53,14 @@ impl<'a> OmaDatabase<'a> {
     }
 
     /// Query package from give local file glob
-    pub fn query_local_glob(&self, file_glob: &str) -> OmaDatabaseResult<Vec<PkgInfo>> {
+    pub fn query_local_glob(&self, file_glob: &str) -> OmaDatabaseResult<Vec<UnsafePkgInfo>> {
         let mut res = vec![];
         let sort = PackageSort::default().only_virtual();
 
         let glob = self
             .cache
             .packages(&sort)?
-            .filter(|x| glob_match::glob_match_with_captures(file_glob, x.name()).is_some())
-            .collect::<Vec<_>>();
+            .filter(|x| glob_match::glob_match(file_glob, x.name()));
 
         for i in glob {
             let real_pkg = real_pkg(&i);
@@ -72,13 +72,12 @@ impl<'a> OmaDatabase<'a> {
                     .map_err(|_| OmaDatabaseError::NoPath(i.name().to_string()))?
                     .to_str()
                     .unwrap_or(pkg.name())
-            ))
-            .to_string();
+            ));
 
             let versions = pkg.versions().collect::<Vec<_>>();
 
             for ver in &versions {
-                let info = PkgInfo::new(ver, &pkg);
+                let info = UnsafePkgInfo::new(ver, &pkg);
 
                 let has = ver.uris().any(|x| url_no_escape(&x) == path);
                 if has {
@@ -97,7 +96,7 @@ impl<'a> OmaDatabase<'a> {
         filter_candidate: bool,
         select_dbg: bool,
         avail_candidate: bool,
-    ) -> OmaDatabaseResult<Vec<PkgInfo>> {
+    ) -> OmaDatabaseResult<Vec<UnsafePkgInfo>> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
 
@@ -108,7 +107,7 @@ impl<'a> OmaDatabase<'a> {
         let pkgs = self
             .cache
             .packages(&sort)?
-            .filter(|x| glob_match::glob_match_with_captures(glob, x.name()).is_some());
+            .filter(|x| glob_match(glob, x.name()) || glob_match(glob, &x.fullname(false)));
 
         let pkgs = pkgs
             .map(|x| real_pkg(&x))
@@ -119,7 +118,7 @@ impl<'a> OmaDatabase<'a> {
             let versions = pkg.versions().collect::<Vec<_>>();
             let mut candidated = false;
             for ver in versions {
-                let pkginfo = PkgInfo::new(&ver, &pkg);
+                let pkginfo = UnsafePkgInfo::new(&ver, &pkg);
                 let has_dbg = has_dbg(self.cache, &pkg, &ver);
 
                 let is_cand = pkg.candidate().map(|x| x == ver).unwrap_or(false);
@@ -135,7 +134,7 @@ impl<'a> OmaDatabase<'a> {
                         let ver = pkg.versions().find(|x| x.is_downloadable());
 
                         if let Some(ver) = ver {
-                            res.push(PkgInfo::new(&ver, &pkg));
+                            res.push(UnsafePkgInfo::new(&ver, &pkg));
                         }
                     }
                 } else if !filter_candidate {
@@ -167,7 +166,11 @@ impl<'a> OmaDatabase<'a> {
     }
 
     /// Query package from give package and version (like: apt=2.5.4)
-    pub fn query_from_version(&self, pat: &str, dbg: bool) -> OmaDatabaseResult<Vec<PkgInfo>> {
+    pub fn query_from_version(
+        &self,
+        pat: &str,
+        dbg: bool,
+    ) -> OmaDatabaseResult<Vec<UnsafePkgInfo>> {
         let (pkgname, version_str) = pat
             .split_once('=')
             .ok_or_else(|| OmaDatabaseError::InvaildPattern(pat.to_string()))?;
@@ -183,7 +186,7 @@ impl<'a> OmaDatabase<'a> {
 
         let mut res = vec![];
 
-        let pkginfo = PkgInfo::new(&version, &pkg);
+        let pkginfo = UnsafePkgInfo::new(&version, &pkg);
         let has_dbg = has_dbg(self.cache, &pkg, &version);
 
         res.push(pkginfo);
@@ -201,7 +204,7 @@ impl<'a> OmaDatabase<'a> {
         pat: &str,
         filter_candidate: bool,
         select_dbg: bool,
-    ) -> OmaDatabaseResult<Vec<PkgInfo>> {
+    ) -> OmaDatabaseResult<Vec<UnsafePkgInfo>> {
         let mut res = vec![];
         let (pkgname, branch) = pat
             .split_once('/')
@@ -229,7 +232,7 @@ impl<'a> OmaDatabase<'a> {
         if filter_candidate {
             let version = sort.last();
             if let Some(version) = version {
-                let pkginfo = PkgInfo::new(version, &pkg);
+                let pkginfo = UnsafePkgInfo::new(version, &pkg);
                 let has_dbg = has_dbg(self.cache, &pkg, version);
 
                 if has_dbg && select_dbg {
@@ -240,7 +243,7 @@ impl<'a> OmaDatabase<'a> {
             }
         } else {
             for i in sort {
-                let pkginfo = PkgInfo::new(&i, &pkg);
+                let pkginfo = UnsafePkgInfo::new(&i, &pkg);
                 let has_dbg = has_dbg(self.cache, &pkg, &i);
 
                 if has_dbg && select_dbg {
@@ -263,7 +266,7 @@ impl<'a> OmaDatabase<'a> {
     }
 
     /// Select -dpg package
-    fn select_dbg(&self, pkg: &Package, version: &Version, res: &mut Vec<PkgInfo>) {
+    fn select_dbg(&self, pkg: &Package, version: &Version, res: &mut Vec<UnsafePkgInfo>) {
         let dbg_pkg_name = format!("{}-dbg", pkg.name());
         let dbg_pkg = self.cache.get(&dbg_pkg_name);
         let version_str = version.version();
@@ -271,20 +274,20 @@ impl<'a> OmaDatabase<'a> {
         if let Some(dbg_pkg) = dbg_pkg {
             let dbg_ver = dbg_pkg.get_version(version_str);
             if let Some(dbg_ver) = dbg_ver {
-                let pkginfo_dbg = PkgInfo::new(&dbg_ver, &dbg_pkg);
+                let pkginfo_dbg = UnsafePkgInfo::new(&dbg_ver, &dbg_pkg);
                 res.push(pkginfo_dbg);
             }
         }
     }
 
     /// Find mirror candidate and downloadable package version.
-    pub fn find_candidate_by_pkgname(&self, pkg: &str) -> OmaDatabaseResult<PkgInfo> {
+    pub fn find_candidate_by_pkgname(&self, pkg: &str) -> OmaDatabaseResult<UnsafePkgInfo> {
         if let Some(pkg) = self.cache.get(pkg) {
             // FIXME: candidate 版本不一定是源中能下载的版本
             // 所以要一个个版本遍历直到找到能下载的版本中最高的版本
             for version in pkg.versions() {
                 if version.is_downloadable() {
-                    let pkginfo = PkgInfo::new(&version, &pkg);
+                    let pkginfo = UnsafePkgInfo::new(&version, &pkg);
                     debug!(
                         "Pkg: {} selected version: {}",
                         pkg.name(),

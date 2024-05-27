@@ -8,7 +8,7 @@ use derive_builder::Builder;
 use download::SingleDownloaderBuilder;
 use futures::StreamExt;
 
-use reqwest::{Client, ClientBuilder};
+use reqwest::Client;
 
 pub mod checksum;
 mod download;
@@ -48,7 +48,16 @@ pub struct DownloadEntry {
     allow_resume: bool,
     #[builder(setter(into, strip_option))]
     msg: Option<String>,
-    extract: bool,
+    file_type: CompressFile,
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum CompressFile {
+    Bz2,
+    Gzip,
+    Xz,
+    #[default]
+    Nothing,
 }
 
 #[derive(Debug, Clone)]
@@ -90,8 +99,8 @@ impl Ord for DownloadSourceType {
     }
 }
 
-pub struct OmaFetcher {
-    client: Client,
+pub struct OmaFetcher<'a> {
+    client: &'a Client,
     download_list: Vec<DownloadEntry>,
     limit_thread: usize,
     retry_times: usize,
@@ -145,19 +154,12 @@ impl Summary {
 }
 
 /// OmaFetcher is a Download Manager
-impl OmaFetcher {
+impl<'a> OmaFetcher<'a> {
     pub fn new(
-        client: Option<Client>,
+        client: &'a Client,
         download_list: Vec<DownloadEntry>,
         limit_thread: Option<usize>,
-    ) -> DownloadResult<Self> {
-        let client = client.unwrap_or(
-            ClientBuilder::new()
-                .user_agent("oma")
-                .build()
-                .map_err(DownloadError::ReqwestError)?,
-        );
-
+    ) -> DownloadResult<OmaFetcher<'a>> {
         Ok(Self {
             client,
             download_list,
@@ -185,12 +187,13 @@ impl OmaFetcher {
             let msg = Arc::new(c.msg.clone());
             // 因为数据的来源是确定的，所以这里能够确定肯定不崩溃，因此直接 unwrap
             let single = SingleDownloaderBuilder::default()
-                .client(&self.client)
+                .client(self.client)
                 .context(msg.clone())
                 .download_list_index(i)
                 .entry(c)
                 .progress((i + 1, self.download_list.len(), msg))
                 .retry_times(self.retry_times)
+                .file_type(c.file_type.clone())
                 .build()
                 .unwrap();
 

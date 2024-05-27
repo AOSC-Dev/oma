@@ -1,6 +1,6 @@
 use oma_pm::{
     apt::{OmaApt, OmaAptArgsBuilder},
-    pkginfo::PkgInfo,
+    pkginfo::UnsafePkgInfo,
 };
 use tracing::info;
 
@@ -16,7 +16,7 @@ pub fn execute(all: bool, input: Vec<&str>, sysroot: String) -> Result<i32, Outp
     handle_no_result(no_result);
 
     if !all {
-        let mut filter_pkgs: Vec<PkgInfo> = vec![];
+        let mut filter_pkgs: Vec<UnsafePkgInfo> = vec![];
         let pkgs_len = pkgs.len();
         for pkg in pkgs {
             if !filter_pkgs

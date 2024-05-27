@@ -91,7 +91,10 @@ impl TopicManager {
         })?;
 
         Ok(Self {
-            enabled: serde_json::from_str(&f).unwrap_or(vec![]),
+            enabled: serde_json::from_str(&f).unwrap_or_else(|e| {
+                debug!("Deserialize state file JSON failed: {e}");
+                vec![]
+            }),
             all: vec![],
             client: reqwest::ClientBuilder::new().user_agent("oma").build()?,
             sysroot: sysroot.as_ref().to_path_buf(),

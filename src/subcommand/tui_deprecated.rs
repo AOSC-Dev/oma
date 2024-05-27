@@ -12,11 +12,12 @@ use oma_console::{
     WRITER,
 };
 use oma_history::SummaryType;
+use reqwest::Client;
 
 use crate::{fl, remove::ask_user_do_as_i_say};
 use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
-    pkginfo::PkgInfo,
+    pkginfo::UnsafePkgInfo,
     search::{OmaSearch, SearchResult},
     PackageStatus,
 };
@@ -179,9 +180,17 @@ pub fn execute(
     download_pure_db: bool,
     dry_run: bool,
     network_thread: usize,
+    client: Client,
 ) -> Result<i32, OutputError> {
     root()?;
-    refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
+    refresh(
+        &client,
+        dry_run,
+        no_progress,
+        download_pure_db,
+        network_thread,
+        &sysroot,
+    )?;
 
     stdout()
         .execute(EnterAlternateScreen)
@@ -429,7 +438,7 @@ pub fn execute(
                                 if let Some(pkg) = apt.cache.get(name) {
                                     if let Some(pkg_index) = install
                                         .iter()
-                                        .position(|x: &PkgInfo| x.raw_pkg.name() == name)
+                                        .position(|x: &UnsafePkgInfo| x.raw_pkg.name() == name)
                                     {
                                         let pos = pending_display_list
                                             .items
@@ -456,7 +465,7 @@ pub fn execute(
 
                                     if let Some(pkg_index) = remove
                                         .iter()
-                                        .position(|x: &PkgInfo| x.raw_pkg.name() == name)
+                                        .position(|x: &UnsafePkgInfo| x.raw_pkg.name() == name)
                                     {
                                         let pos = pending_display_list
                                             .items
@@ -483,7 +492,7 @@ pub fn execute(
                                     let cand = pkg.candidate().or(pkg.versions().next());
 
                                     if let Some(cand) = cand {
-                                        let pkginfo = PkgInfo::new(&cand, &pkg);
+                                        let pkginfo = UnsafePkgInfo::new(&cand, &pkg);
                                         if !cand.is_installed() {
                                             install.push(pkginfo);
                                             pending_display_list.items.push(Text::raw(format!(
@@ -673,16 +682,19 @@ pub fn execute(
 
         let apt_args = AptArgsBuilder::default().no_progress(no_progress).build()?;
 
-        normal_commit(NormalCommitArgs {
-            apt,
-            dry_run,
-            typ: SummaryType::Changes,
-            apt_args,
-            no_fixbroken: false,
-            network_thread,
-            no_progress,
-            sysroot,
-        })?;
+        normal_commit(
+            NormalCommitArgs {
+                apt,
+                dry_run,
+                typ: SummaryType::Changes,
+                apt_args,
+                no_fixbroken: false,
+                network_thread,
+                no_progress,
+                sysroot,
+            },
+            &client,
+        )?;
     }
 
     Ok(0)

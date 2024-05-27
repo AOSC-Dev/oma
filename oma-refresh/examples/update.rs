@@ -1,5 +1,5 @@
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     result::Result,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -13,17 +13,24 @@ use oma_console::{
     pb::{oma_spinner, oma_style_pb},
     writer::Writer,
 };
-use oma_fetch::DownloadEvent;
-use oma_refresh::db::{OmaRefreshBuilder, RefreshError, RefreshEvent};
+use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
+use oma_refresh::db::{OmaRefresh, RefreshError, RefreshEvent};
+use oma_utils::dpkg::dpkg_arch;
 
 #[tokio::main]
 async fn main() -> Result<(), RefreshError> {
     let p = Path::new("./oma-fetcher-test");
     tokio::fs::create_dir_all(p).await.unwrap();
-    let refresher = OmaRefreshBuilder::default()
-        .download_dir(p.to_path_buf())
-        .build()
-        .unwrap();
+    let client = ClientBuilder::new().user_agent("oma").build().unwrap();
+
+    let refresher = OmaRefresh {
+        client: &client,
+        source: PathBuf::from("/"),
+        limit: Some(4),
+        arch: dpkg_arch("/").unwrap(),
+        download_dir: p.to_path_buf(),
+        download_compress: true,
+    };
 
     let mb = Arc::new(MultiProgress::new());
     let pb_map: DashMap<usize, ProgressBar> = DashMap::new();

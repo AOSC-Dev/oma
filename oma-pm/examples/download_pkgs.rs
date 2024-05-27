@@ -12,7 +12,7 @@ use oma_console::{
     pb::{oma_spinner, oma_style_pb},
     writer::Writer,
 };
-use oma_fetch::DownloadEvent;
+use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
@@ -27,7 +27,10 @@ fn main() -> Result<(), OmaAptError> {
 
     let global_is_set = Arc::new(AtomicBool::new(false));
 
+    let client = ClientBuilder::new().user_agent("oma").build().unwrap();
+
     let res = apt.download(
+        &client,
         pkgs.0,
         None,
         Some(Path::new("test")),

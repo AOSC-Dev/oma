@@ -2,8 +2,9 @@ use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
-    pkginfo::PkgInfo,
+    pkginfo::UnsafePkgInfo,
 };
+use reqwest::Client;
 
 use crate::{
     error::OutputError,
@@ -19,6 +20,7 @@ pub fn execute(
     no_refresh: bool,
     oma_args: OmaArgs,
     sysroot: String,
+    client: Client,
 ) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
@@ -40,7 +42,14 @@ pub fn execute(
     }
 
     if !no_refresh {
-        refresh(dry_run, no_progress, download_pure_db, &sysroot)?;
+        refresh(
+            &client,
+            dry_run,
+            no_progress,
+            download_pure_db,
+            network_thread,
+            &sysroot,
+        )?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default()
@@ -73,11 +82,13 @@ pub fn execute(
 
     let mut version_str_display = versions_str.clone();
     for (a, b) in v {
-        let uri_a = versions[a].uris().next().unwrap();
-        version_str_display[a] = format!("{} (from: {uri_a})", versions_str[a]);
+        if let Some(uri) = versions[a].uris().next() {
+            version_str_display[a] = format!("{} (from: {uri})", versions_str[a]);
+        }
 
-        let uri_b = versions[b].uris().next().unwrap();
-        version_str_display[b] = format!("{} (from: {uri_b})", versions_str[b]);
+        if let Some(uri) = versions[b].uris().next() {
+            version_str_display[b] = format!("{} (from: {uri})", versions_str[b]);
+        }
     }
 
     let theme = ColorfulTheme::default();
@@ -98,7 +109,7 @@ pub fn execute(
     let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
     let version = pkg.get_version(&versions_str[sel]).unwrap();
 
-    let pkgs = vec![PkgInfo::new(&version, &pkg)];
+    let pkgs = vec![UnsafePkgInfo::new(&version, &pkg)];
     apt.install(&pkgs, false)?;
 
     let args = NormalCommitArgs {
@@ -116,7 +127,7 @@ pub fn execute(
         sysroot,
     };
 
-    normal_commit(args)?;
+    normal_commit(args, &client)?;
 
     Ok(0)
 }

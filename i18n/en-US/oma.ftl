@@ -73,7 +73,7 @@ pick-tips = Please select a version of {$pkgname} to install:
 battery = You seem to be on battery power. oma may deplete the battery rather quickly during the transaction. It is recommended to plug in your power supply to prevent sudden power failure.
 continue = Do you still wish to continue?
 changing-system = oma is modifying your system.
-failed-to-lock-oma = Another oma process lock already exists.
+failed-to-lock-oma = Another oma process lock (/run/lock/oma.lock) already exists
 
 # main
 user-aborted-op = User aborted the operation.

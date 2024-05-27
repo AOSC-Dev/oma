@@ -2,6 +2,7 @@ use oma_history::SummaryType;
 use oma_pm::apt::AptArgsBuilder;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
+use reqwest::Client;
 use tracing::info;
 use tracing::warn;
 
@@ -24,6 +25,7 @@ pub fn execute(
     input: Vec<String>,
     args: InstallArgs,
     oma_args: OmaArgs,
+    client: Client,
 ) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
@@ -45,7 +47,14 @@ pub fn execute(
     }
 
     if !args.no_refresh {
-        refresh(dry_run, no_progress, download_pure_db, &args.sysroot)?;
+        refresh(
+            &client,
+            dry_run,
+            no_progress,
+            download_pure_db,
+            network_thread,
+            &args.sysroot,
+        )?;
     }
 
     if args.yes {
@@ -106,7 +115,7 @@ pub fn execute(
         sysroot: args.sysroot,
     };
 
-    normal_commit(args)?;
+    normal_commit(args, &client)?;
 
     Ok(0)
 }

@@ -2,13 +2,14 @@ use chrono::{DateTime, FixedOffset, ParseResult, Utc};
 use small_map::SmallMap;
 use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, num::ParseIntError, path::Path};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::verify;
 
 pub struct InReleaseParser {
     _source: Vec<SmallMap<16, String, String>>,
     pub checksums: SmallVec<[ChecksumItem; 32]>,
+    pub acquire_by_hash: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -128,6 +129,11 @@ impl InReleaseParser {
             }
         }
 
+        let acquire_by_hash = source_first
+            .and_then(|x| x.get("Acquire-By-Hash"))
+            .map(|x| x.to_lowercase() == "yes")
+            .unwrap_or(false);
+
         let sha256 = source_first
             .and_then(|x| x.get("SHA256"))
             .take()
@@ -189,17 +195,19 @@ impl InReleaseParser {
         for i in c {
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
-                x if x.contains("Contents-") && x.contains('.') => {
+                x if x.contains("Contents-") && file_is_compress(x) && !x.contains("udeb") => {
                     DistFileType::CompressContents(x.split_once('.').unwrap().0.to_string())
                 }
-                x if x.contains("Contents-") && !x.contains('.') => DistFileType::Contents,
+                x if x.contains("Contents-") && !x.contains('.') && !x.contains("udeb") => {
+                    DistFileType::Contents
+                }
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
-                x if x.contains("Packages") && x.contains('.') => {
+                x if x.contains("Packages") && file_is_compress(x) => {
                     DistFileType::CompressPackageList(x.split_once('.').unwrap().0.to_string())
                 }
                 x if x.contains("Release") => DistFileType::Release,
                 x => {
-                    warn!("Unknown file type: {x:?}");
+                    debug!("Unknown file type: {x:?}");
                     continue;
                 }
             };
@@ -218,8 +226,13 @@ impl InReleaseParser {
         Ok(Self {
             _source: source,
             checksums: res,
+            acquire_by_hash,
         })
     }
+}
+
+fn file_is_compress(name: &str) -> bool {
+    name.ends_with(".gz") || name.ends_with(".bz2") || name.ends_with(".xz")
 }
 
 fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {

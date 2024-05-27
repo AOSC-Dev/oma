@@ -136,12 +136,15 @@ impl From<&DepType> for OmaDepType {
     }
 }
 
-pub struct PkgInfo {
+/// UnsafePkgInfo - For storing package and version information
+///
+/// Note: that this should be used before the apt `cache` drop, otherwise a segfault will occur.
+pub struct UnsafePkgInfo {
     pub version_raw: UniquePtr<VerIterator>,
     pub raw_pkg: UniquePtr<PkgIterator>,
 }
 
-impl PkgInfo {
+impl UnsafePkgInfo {
     pub fn new(version: &Version, pkg: &Package) -> Self {
         // 直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
         let raw_pkg = pkg.unique();
@@ -240,6 +243,6 @@ fn test_pkginfo_display() {
     let cache = new_cache!().unwrap();
     let pkg = cache.get("apt").unwrap();
     let version = pkg.candidate().unwrap();
-    let info = PkgInfo::new(&version, &pkg);
+    let info = UnsafePkgInfo::new(&version, &pkg);
     info.print_info(&cache);
 }

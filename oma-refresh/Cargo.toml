@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.13.0"
+version = "0.14.0"
 edition = "2021"
 description = "A crate to help oma refresh apt repo database"
 license = "MIT"
@@ -8,13 +8,12 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-oma-fetch = { version = "^0.9.0", path = "../oma-fetch", default_features = false }
+oma-fetch = { version = "^0.10.0", path = "../oma-fetch", default_features = false }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 url = "2.3"
 tokio = { version = "1.28", default_features = false, features = ["fs"] }
 serde_yaml = "0.9"
-once_cell = "1.18"
 futures = "0.3"
 oma-apt-sources-lists = "0.3"
 oma-debcontrol = "0.3"
@@ -23,7 +22,6 @@ anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.8.0", path = "../oma-topics", optional = true, default-features = false }
 oma-utils = { version = "^0.7.0", path = "../oma-utils", features = ["dpkg"] }
-derive_builder = "0.20"
 tracing ="0.1"
 smallvec = "1.1"
 small-map = "0.1"

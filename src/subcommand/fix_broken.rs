@@ -1,5 +1,6 @@
 use oma_history::SummaryType;
 use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
+use reqwest::Client;
 
 use crate::{
     error::OutputError,
@@ -9,7 +10,7 @@ use crate::{
 
 use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs};
 
-pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
+pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
@@ -46,7 +47,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
         sysroot,
     };
 
-    normal_commit(args)?;
+    normal_commit(args, &client)?;
 
     Ok(0)
 }

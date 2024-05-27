@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use std::io::{self, stdout};
+use std::io;
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
@@ -10,8 +10,8 @@ mod error;
 mod lang;
 mod subcommand;
 mod table;
-mod utils;
 mod tui;
+mod utils;
 
 #[cfg(feature = "egg")]
 mod egg;
@@ -19,7 +19,6 @@ mod egg;
 use anyhow::anyhow;
 
 use clap::ArgMatches;
-use crossterm::terminal::disable_raw_mode;
 use error::OutputError;
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
@@ -27,6 +26,7 @@ use oma_console::{due_to, OmaLayer};
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusError};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
+use reqwest::Client;
 use rustix::process::{kill_process, Pid, Signal};
 use subcommand::utils::LockError;
 use tracing::{debug, error, info, warn};
@@ -48,9 +48,6 @@ use crate::error::Chain;
 #[cfg(feature = "aosc")]
 use crate::subcommand::topics::TopicArgs;
 use crate::subcommand::*;
-
-use crossterm::{Command as CrossTermCmd, ExecutableCommand};
-use std::fmt::Write as FmtWrite;
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -296,7 +293,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            install::execute(input, install_args, oma_args)?
+            let client = Client::builder().user_agent("oma").build().unwrap();
+
+            install::execute(input, install_args, oma_args, client)?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -309,18 +308,21 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            upgrade::execute(pkgs_unparse, args, oma_args)?
+            let client = Client::builder().user_agent("oma").build().unwrap();
+
+            upgrade::execute(pkgs_unparse, args, oma_args, client)?
         }
         Some(("download", args)) => {
             let keyword = pkgs_getter(args).unwrap_or_default();
             let keyword = keyword.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+            let client = Client::builder().user_agent("oma").build().unwrap();
 
             let path = args
                 .get_one::<String>("path")
                 .cloned()
                 .map(|x| PathBuf::from(&x));
 
-            download::execute(keyword, path, oma_args)?
+            download::execute(keyword, path, oma_args, &client)?
         }
         Some((x, args)) if x == "remove" || x == "purge" => {
             let input = pkgs_getter(args).unwrap();
@@ -338,9 +340,14 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            remove::execute(input, args, oma_args)?
+            let client = Client::builder().user_agent("oma").build().unwrap();
+
+            remove::execute(input, args, oma_args, client)?
         }
-        Some(("refresh", _)) => refresh::execute(oma_args, sysroot)?,
+        Some(("refresh", _)) => {
+            let client = Client::builder().user_agent("oma").build().unwrap();
+            refresh::execute(oma_args, sysroot, client)?
+        }
         Some(("show", args)) => {
             let input = pkgs_getter(args).unwrap_or_default();
             let input = input.iter().map(|x| x.as_str()).collect::<Vec<_>>();
@@ -363,11 +370,21 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             contents_find::execute(x, is_bin, pkg, no_progress, sysroot)?
         }
-        Some(("fix-broken", _)) => fix_broken::execute(oma_args, sysroot)?,
+        Some(("fix-broken", _)) => {
+            let client = Client::builder().user_agent("oma").build().unwrap();
+            fix_broken::execute(oma_args, sysroot, client)?
+        }
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
+            let client = Client::builder().user_agent("oma").build().unwrap();
 
-            pick::execute(pkg_str, args.get_flag("no_refresh"), oma_args, sysroot)?
+            pick::execute(
+                pkg_str,
+                args.get_flag("no_refresh"),
+                oma_args,
+                sysroot,
+                client,
+            )?
         }
         Some(("mark", args)) => {
             let op = args.get_one::<String>("action").unwrap();
@@ -400,7 +417,10 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         }
         Some(("clean", _)) => clean::execute(no_progress, sysroot)?,
         Some(("history", _)) => subcommand::history::execute_history(sysroot)?,
-        Some(("undo", _)) => history::execute_undo(oma_args, sysroot)?,
+        Some(("undo", _)) => {
+            let client = Client::builder().user_agent("oma").build().unwrap();
+            history::execute_undo(oma_args, sysroot, &client)?
+        }
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
             let opt_in = args
@@ -426,20 +446,27 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            topics::execute(args)?
+            let client = Client::builder().user_agent("oma").build().unwrap();
+
+            topics::execute(args, client)?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());
 
             pkgnames::execute(keyword, sysroot)?
         }
-        Some(("tui", _)) | None => tui_deprecated::execute(
-            sysroot,
-            no_progress,
-            oma_args.download_pure_db,
-            dry_run,
-            oma_args.network_thread,
-        )?,
+        Some(("tui", _)) | None => {
+            let client = Client::builder().user_agent("oma").build().unwrap();
+
+            tui_deprecated::execute(
+                sysroot,
+                no_progress,
+                oma_args.download_pure_db,
+                dry_run,
+                oma_args.network_thread,
+                client,
+            )?
+        }
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");
             let plugin = exe_dir.join(format!("oma-{}", cmd));
@@ -570,10 +597,6 @@ fn single_handler() {
         unlock_oma().expect("Failed to unlock instance.");
     }
 
-    // 该终端安全退出方法来自 ratatui `restore_terminal`
-    disable_raw_mode().ok();
-    stdout().execute(LeaveAlternateScreen).ok();
-
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
     let _ = WRITER.show_cursor();
@@ -585,35 +608,4 @@ fn single_handler() {
     }
 
     std::process::exit(2);
-}
-
-/// A command that switches back to the main screen.
-///
-/// # Notes
-///
-/// * Commands must be executed/queued for execution otherwise they do nothing.
-/// * Use [EnterAlternateScreen](./struct.EnterAlternateScreen.html) to enter the alternate screen.
-///
-/// # Examples
-///
-/// ```no_run
-/// use std::io::{self, Write};
-/// use crossterm::{execute, terminal::{EnterAlternateScreen, LeaveAlternateScreen}};
-///
-/// fn main() -> io::Result<()> {
-///     execute!(io::stdout(), EnterAlternateScreen)?;
-///
-///     // Do anything on the alternate screen
-///
-///     execute!(io::stdout(), LeaveAlternateScreen)
-/// }
-/// ```
-///
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LeaveAlternateScreen;
-
-impl CrossTermCmd for LeaveAlternateScreen {
-    fn write_ansi(&self, f: &mut impl FmtWrite) -> std::fmt::Result {
-        f.write_str(csi!("?1049l"))
-    }
 }

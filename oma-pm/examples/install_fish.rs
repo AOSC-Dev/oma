@@ -9,7 +9,7 @@ use oma_console::{
     pb::{oma_spinner, oma_style_pb},
     writer::Writer,
 };
-use oma_fetch::DownloadEvent;
+use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
 use oma_pm::apt::{AptArgs, OmaApt, OmaAptArgsBuilder, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
@@ -24,8 +24,10 @@ fn main() -> Result<(), OmaAptError> {
 
     apt.install(&pkgs.0, false)?;
 
+    let client = ClientBuilder::new().user_agent("oma").build().unwrap();
+
     apt.resolve(false)?;
-    apt.commit(None, &AptArgs::default(), |count, event, total| {
+    apt.commit(&client, None, &AptArgs::default(), |count, event, total| {
         match event {
             DownloadEvent::ChecksumMismatchRetry { filename, times } => {
                 mb.println(format!(
