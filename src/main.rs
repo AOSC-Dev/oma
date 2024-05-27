@@ -23,13 +23,13 @@ use error::OutputError;
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
-use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusError};
+use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
 use reqwest::Client;
 use rustix::process::{kill_process, Pid, Signal};
 use subcommand::utils::LockError;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -532,19 +532,6 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
         // 单独处理例外情况的错误
         let errs = Chain::new(&e);
         for e in errs {
-            if let Some(e) = e.downcast_ref::<OmaDbusError>() {
-                match e {
-                    OmaDbusError::FailedConnectDbus(e) => {
-                        error!("{}", fl!("failed-check-dbus"));
-                        due_to!("{e}");
-                        warn!("{}", fl!("failed-check-dbus-tips-1"));
-                        info!("{}", fl!("failed-check-dbus-tips-2"));
-                        info!("{}", fl!("failed-check-dbus-tips-3"));
-                    }
-                    _ => return Ok(true),
-                }
-            }
-
             if e.downcast_ref::<LockError>().is_some() {
                 unlock = false;
                 if find_another_oma().is_err() {

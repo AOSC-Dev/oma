@@ -9,14 +9,17 @@ use crate::fl;
 use anyhow::anyhow;
 use dashmap::DashMap;
 use dialoguer::{theme::ColorfulTheme, Confirm};
-use oma_console::indicatif::{MultiProgress, ProgressBar};
+use oma_console::{
+    due_to,
+    indicatif::{MultiProgress, ProgressBar},
+};
 use oma_utils::{
     dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
     oma::unlock_oma,
 };
 use rustix::process;
 use tokio::runtime::Runtime;
-use tracing::warn;
+use tracing::{error, info, warn};
 
 type Result<T> = std::result::Result<T, OutputError>;
 
@@ -157,9 +160,33 @@ pub fn create_async_runtime() -> Result<Runtime> {
 }
 
 pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<()> {
-    let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn, yes));
-    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+    let conn = rt.block_on(create_dbus_connection());
+
+    match conn {
+        Ok(conn) => {
+            rt.block_on(check_battery(&conn, yes));
+            rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+        }
+        Err(e) => {
+            error!("{}", fl!("failed-check-dbus"));
+            due_to!("{e}");
+            warn!("{}", fl!("failed-check-dbus-tips-1"));
+            info!("{}", fl!("failed-check-dbus-tips-2"));
+            info!("{}", fl!("failed-check-dbus-tips-3"));
+
+            let theme = ColorfulTheme::default();
+            warn!("{}", fl!("continue"));
+            let cont = Confirm::with_theme(&theme)
+                .with_prompt(fl!("continue"))
+                .default(false)
+                .interact();
+
+            if !cont.unwrap_or(false) {
+                unlock_oma().ok();
+                exit(0);
+            }
+        }
+    }
 
     Ok(())
 }
