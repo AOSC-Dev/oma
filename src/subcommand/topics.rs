@@ -39,7 +39,6 @@ pub struct TopicArgs {
     pub dry_run: bool,
     pub network_thread: usize,
     pub no_progress: bool,
-    pub download_pure_db: bool,
     pub no_check_dbus: bool,
     pub sysroot: String,
 }
@@ -54,7 +53,6 @@ pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
         dry_run,
         network_thread,
         no_progress,
-        download_pure_db,
         sysroot,
         no_check_dbus,
     } = args;
@@ -88,7 +86,6 @@ pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
         &client,
         dry_run,
         no_progress,
-        download_pure_db,
         network_thread,
         &sysroot,
     )?;

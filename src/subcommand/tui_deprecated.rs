@@ -177,7 +177,6 @@ struct Operation {
 pub fn execute(
     sysroot: String,
     no_progress: bool,
-    download_pure_db: bool,
     dry_run: bool,
     network_thread: usize,
     client: Client,
@@ -187,7 +186,6 @@ pub fn execute(
         &client,
         dry_run,
         no_progress,
-        download_pure_db,
         network_thread,
         &sysroot,
     )?;

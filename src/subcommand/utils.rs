@@ -72,7 +72,6 @@ pub(crate) fn refresh(
     client: &Client,
     dry_run: bool,
     no_progress: bool,
-    download_pure_db: bool,
     limit: usize,
     sysroot: &str,
 ) -> Result<(), OutputError> {
@@ -82,15 +81,6 @@ pub(crate) fn refresh(
 
     info!("{}", fl!("refreshing-repo-metadata"));
 
-    let download_pure_db = if dpkg_arch(sysroot)
-        .map(|x| x == "mips64r6el")
-        .unwrap_or(false)
-    {
-        false
-    } else {
-        download_pure_db
-    };
-
     let sysroot = PathBuf::from(sysroot);
 
     let refresh = OmaRefresh {
@@ -98,7 +88,6 @@ pub(crate) fn refresh(
         limit: Some(limit),
         arch: dpkg_arch(&sysroot)?,
         download_dir: sysroot.join("var/lib/apt/lists"),
-        download_compress: !download_pure_db,
         client,
     };
 

@@ -172,7 +172,6 @@ pub struct OmaRefresh<'a> {
     pub limit: Option<usize>,
     pub arch: String,
     pub download_dir: PathBuf,
-    pub download_compress: bool,
     pub client: &'a Client,
 }
 
@@ -493,49 +492,39 @@ impl<'a> OmaRefresh<'a> {
                             handle.push(i);
                             total += i.size;
                         }
-                        DistFileType::Contents | DistFileType::PackageList
-                            if !self.download_compress =>
-                        {
-                            debug!("oma will download Package List/Contetns: {}", i.name);
-                            handle.push(i);
-                            total += i.size;
-                        }
+                        DistFileType::Contents | DistFileType::PackageList => continue,
                         DistFileType::CompressContents(_) => {
-                            if self.download_compress {
-                                debug!(
-                                    "oma will download compress Package List/compress Contetns: {}",
-                                    i.name
-                                );
+                            debug!(
+                                "oma will download compress Package List/compress Contetns: {}",
+                                i.name
+                            );
 
-                                if !handle.contains(&i)
-                                    && !handle_file_types.contains(&&i.file_type)
-                                {
-                                    handle.push(i);
-                                    handle_file_types.push(&i.file_type);
-                                    total += i.size;
-                                }
+                            if !handle.contains(&i)
+                                && !handle_file_types.contains(&&i.file_type)
+                            {
+                                handle.push(i);
+                                handle_file_types.push(&i.file_type);
+                                total += i.size;
                             }
                         }
                         DistFileType::CompressPackageList(s) => {
-                            if self.download_compress {
-                                debug!(
-                                    "oma will download compress Package List/compress Contetns: {}",
-                                    i.name
-                                );
+                            debug!(
+                                "oma will download compress Package List/compress Contetns: {}",
+                                i.name
+                            );
 
-                                if !handle.contains(&i)
-                                    && !handle_file_types.contains(&&i.file_type)
-                                {
-                                    handle_file_types.push(&i.file_type);
-                                    handle.push(i);
-                                    let size = checksums
-                                        .iter()
-                                        .find(|x| &x.name == s)
-                                        .map(|x| x.size)
-                                        .unwrap_or(i.size);
+                            if !handle.contains(&i)
+                                && !handle_file_types.contains(&&i.file_type)
+                            {
+                                handle_file_types.push(&i.file_type);
+                                handle.push(i);
+                                let size = checksums
+                                    .iter()
+                                    .find(|x| &x.name == s)
+                                    .map(|x| x.size)
+                                    .unwrap_or(i.size);
 
-                                    total += size;
-                                }
+                                total += size;
                             }
                         }
                         _ => continue,

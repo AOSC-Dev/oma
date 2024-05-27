@@ -29,7 +29,6 @@ async fn main() -> Result<(), RefreshError> {
         limit: Some(4),
         arch: dpkg_arch("/").unwrap(),
         download_dir: p.to_path_buf(),
-        download_compress: true,
     };
 
     let mb = Arc::new(MultiProgress::new());

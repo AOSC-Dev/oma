@@ -31,7 +31,6 @@ pub fn execute(
         dry_run,
         network_thread,
         no_progress,
-        download_pure_db: _,
         no_check_dbus,
         protect_essentials: protect,
     } = oma_args;

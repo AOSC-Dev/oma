@@ -14,7 +14,6 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         dry_run: _,
         network_thread,
         no_progress,
-        download_pure_db,
         ..
     } = oma_args;
 
@@ -22,7 +21,6 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         &client,
         false,
         no_progress,
-        download_pure_db,
         network_thread,
         &sysroot,
     )?;
