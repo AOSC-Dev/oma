@@ -82,11 +82,13 @@ pub fn execute(
 
     let mut version_str_display = versions_str.clone();
     for (a, b) in v {
-        let uri_a = versions[a].uris().next().unwrap();
-        version_str_display[a] = format!("{} (from: {uri_a})", versions_str[a]);
+        if let Some(uri) = versions[a].uris().next() {
+            version_str_display[a] = format!("{} (from: {uri})", versions_str[a]);
+        }
 
-        let uri_b = versions[b].uris().next().unwrap();
-        version_str_display[b] = format!("{} (from: {uri_b})", versions_str[b]);
+        if let Some(uri) = versions[b].uris().next() {
+            version_str_display[b] = format!("{} (from: {uri})", versions_str[b]);
+        }
     }
 
     let theme = ColorfulTheme::default();
