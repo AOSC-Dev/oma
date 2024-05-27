@@ -559,12 +559,6 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
     Ok(())
 }
 
-#[macro_export]
-#[doc(hidden)]
-macro_rules! csi {
-    ($( $l:expr ),*) => { concat!("\x1B[", $( $l ),*) };
-}
-
 fn single_handler() {
     // Kill subprocess
     let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
