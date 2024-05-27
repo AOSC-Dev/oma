@@ -82,13 +82,7 @@ pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
     let enabled_pkgs = topics_changed.enabled_pkgs;
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
-    refresh(
-        &client,
-        dry_run,
-        no_progress,
-        network_thread,
-        &sysroot,
-    )?;
+    refresh(&client, dry_run, no_progress, network_thread, &sysroot)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())

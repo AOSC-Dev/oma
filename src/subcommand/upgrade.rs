@@ -54,13 +54,7 @@ pub fn execute(
         no_check_dbus_warn();
     }
 
-    refresh(
-        &client,
-        dry_run,
-        no_progress,
-        network_thread,
-        &args.sysroot,
-    )?;
+    refresh(&client, dry_run, no_progress, network_thread, &args.sysroot)?;
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));

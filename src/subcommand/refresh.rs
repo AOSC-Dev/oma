@@ -17,13 +17,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         ..
     } = oma_args;
 
-    refresh(
-        &client,
-        false,
-        no_progress,
-        network_thread,
-        &sysroot,
-    )?;
+    refresh(&client, false, no_progress, network_thread, &sysroot)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;

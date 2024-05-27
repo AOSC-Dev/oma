@@ -182,13 +182,7 @@ pub fn execute(
     client: Client,
 ) -> Result<i32, OutputError> {
     root()?;
-    refresh(
-        &client,
-        dry_run,
-        no_progress,
-        network_thread,
-        &sysroot,
-    )?;
+    refresh(&client, dry_run, no_progress, network_thread, &sysroot)?;
 
     stdout()
         .execute(EnterAlternateScreen)

@@ -499,9 +499,7 @@ impl<'a> OmaRefresh<'a> {
                                 i.name
                             );
 
-                            if !handle.contains(&i)
-                                && !handle_file_types.contains(&&i.file_type)
-                            {
+                            if !handle.contains(&i) && !handle_file_types.contains(&&i.file_type) {
                                 handle.push(i);
                                 handle_file_types.push(&i.file_type);
                                 total += i.size;
@@ -513,9 +511,7 @@ impl<'a> OmaRefresh<'a> {
                                 i.name
                             );
 
-                            if !handle.contains(&i)
-                                && !handle_file_types.contains(&&i.file_type)
-                            {
+                            if !handle.contains(&i) && !handle_file_types.contains(&&i.file_type) {
                                 handle_file_types.push(&i.file_type);
                                 handle.push(i);
                                 let size = checksums
