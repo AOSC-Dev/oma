@@ -443,7 +443,7 @@ impl OmaApt {
 
         // 寻找系统有哪些不必要的软件包
         if !no_autoremove {
-            // FIXME: 需要先计算依赖才知道后面多少软件包是不必要的
+            // 需要先计算依赖才知道后面多少软件包是不必要的
             self.resolve(false)?;
             self.autoremove(purge)?;
         }

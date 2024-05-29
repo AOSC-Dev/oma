@@ -148,7 +148,6 @@ pub fn command_builder() -> Command {
                 .alias("dist-upgrade")
                 .alias("full-upgrade")
                 .about("Upgrade packages installed on the system")
-                .arg(&no_autoremove)
                 .arg(pkgs.clone().help("Package(s) to upgrade"))
                 .arg(&yes)
                 .arg(&force_yes)
