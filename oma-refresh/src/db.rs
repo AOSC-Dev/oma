@@ -314,6 +314,10 @@ impl<'a> OmaRefresh<'a> {
                             RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
                             None,
                         );
+                        #[cfg(feature = "aosc")]
+                        // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
+                        mirrors_inrelease.insert(i, true);
+                        #[cfg(not(feature = "aosc"))]
                         return Err(RefreshError::NoInReleaseFile(c.dist_path.clone()));
                     }
 
@@ -340,9 +344,12 @@ impl<'a> OmaRefresh<'a> {
                 continue;
             }
 
-            return Err(RefreshError::NoInReleaseFile(
-                sourcelist[i.0 .1].dist_path.clone(),
-            ));
+            #[cfg(feature = "aosc")]
+            // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
+            mirrors_inrelease.insert(i.0 .1, true);
+
+            #[cfg(not(feature = "aosc"))]
+            return Err(RefreshError::NoInReleaseFile(c.dist_path.clone()));
         }
 
         Ok(mirrors_inrelease)
