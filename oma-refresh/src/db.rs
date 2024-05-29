@@ -213,7 +213,7 @@ impl<'a> OmaRefresh<'a> {
         }
 
         let is_inrelease_map = self
-            .get_is_inrelease_map(&sourcelist, self.client, &m, &callback)
+            .get_is_inrelease_map(&sourcelist, &m, &callback)
             .await?;
 
         let tasks = self.collect_download_release_tasks(&sourcelist, &m, is_inrelease_map)?;
@@ -242,7 +242,6 @@ impl<'a> OmaRefresh<'a> {
     async fn get_is_inrelease_map<F>(
         &self,
         sourcelist: &[OmaSourceEntry],
-        client: &Client,
         m: &Option<HashMap<String, MirrorMapItem>>,
         callback: &F,
     ) -> Result<HashMap<usize, bool>>
@@ -251,43 +250,84 @@ impl<'a> OmaRefresh<'a> {
     {
         let mut tasks = vec![];
 
+        let mut mirrors_inrelease = HashMap::new();
+
         for (i, c) in sourcelist.iter().enumerate() {
-            let resp1 = client
-                .head(format!("{}/InRelease", c.dist_path))
-                .send()
-                .map(move |x| (x.and_then(|x| x.error_for_status()), i));
+            match c.from {
+                OmaSourceEntryFrom::Http => {
+                    let resp1 = self
+                        .client
+                        .head(format!("{}/InRelease", c.dist_path))
+                        .send()
+                        .map(move |x| (x.and_then(|x| x.error_for_status()), i));
 
-            let resp2 = client
-                .head(format!("{}/Release", c.dist_path))
-                .send()
-                .map(move |x| (x.and_then(|x| x.error_for_status()), i));
+                    let resp2 = self
+                        .client
+                        .head(format!("{}/Release", c.dist_path))
+                        .send()
+                        .map(move |x| (x.and_then(|x| x.error_for_status()), i));
 
-            let event = RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
-                "({}/{}) {}",
-                i,
-                sourcelist.len(),
-                human_download_url(&c.dist_path, m)?
-            )));
+                    let event =
+                        RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
+                            "({}/{}) {}",
+                            i,
+                            sourcelist.len(),
+                            human_download_url(&c.dist_path, m)?
+                        )));
 
-            let cc = callback.clone();
+                    let cc = callback.clone();
 
-            let task = async move {
-                cc(i, event, None);
-                let res = join(resp1, resp2).await;
-                cc(
-                    i,
-                    RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
-                    None,
-                );
-                res
-            };
+                    let task = async move {
+                        cc(i, event, None);
+                        let res = join(resp1, resp2).await;
+                        cc(
+                            i,
+                            RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
+                            None,
+                        );
+                        res
+                    };
 
-            tasks.push(task);
+                    tasks.push(task);
+                }
+                OmaSourceEntryFrom::Local => {
+                    let event =
+                        RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
+                            "({}/{}) {}",
+                            i,
+                            sourcelist.len(),
+                            human_download_url(&c.dist_path, m)?
+                        )));
+
+                    callback(i, event, None);
+
+                    let p1 = Path::new(&c.dist_path).join("InRelease");
+                    let p2 = Path::new(&c.dist_path).join("Release");
+
+                    if p1.exists() {
+                        mirrors_inrelease.insert(i, true);
+                    } else if p2.exists() {
+                        mirrors_inrelease.insert(i, false);
+                    } else {
+                        callback(
+                            i,
+                            RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
+                            None,
+                        );
+                        return Err(RefreshError::NoInReleaseFile(c.dist_path.clone()));
+                    }
+
+                    callback(
+                        i,
+                        RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
+                        None,
+                    );
+                }
+            }
         }
 
         let stream = futures::stream::iter(tasks).buffer_unordered(self.limit.unwrap_or(4));
         let res = stream.collect::<Vec<_>>().await;
-        let mut mirrors_inrelease = HashMap::new();
 
         for i in res {
             if let (Ok(_), j) = i.0 {
