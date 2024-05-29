@@ -176,8 +176,9 @@ pub fn command_builder() -> Command {
         .subcommand(
             Command::new("remove")
                 .alias("delete")
+                .alias("autoremove")
                 .about("Remove the specified package(s)")
-                .arg(pkgs.clone().required(true).help("Package(s) to remove"))
+                .arg(pkgs.clone().help("Package(s) to remove"))
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(no_autoremove.clone().requires("packages"))

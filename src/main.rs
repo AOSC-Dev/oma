@@ -324,7 +324,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             download::execute(keyword, path, oma_args, &client)?
         }
         Some((x, args)) if x == "remove" || x == "purge" => {
-            let input = pkgs_getter(args).unwrap();
+            let input = pkgs_getter(args).unwrap_or_default();
             let input = input.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
             let args = RemoveArgs {
