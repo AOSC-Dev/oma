@@ -24,9 +24,9 @@ pub struct ChecksumItem {
 pub enum DistFileType {
     BinaryContents,
     Contents,
-    CompressContents(String),
+    CompressContents(String, String),
     PackageList,
-    CompressPackageList(String),
+    CompressPackageList(String, String),
     Release,
 }
 
@@ -196,14 +196,16 @@ impl InReleaseParser {
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
                 x if x.contains("Contents-") && file_is_compress(x) && !x.contains("udeb") => {
-                    DistFileType::CompressContents(x.split_once('.').unwrap().0.to_string())
+                    let s = x.split_once('.').unwrap();
+                    DistFileType::CompressContents(s.0.to_string(), s.1.to_string())
                 }
                 x if x.contains("Contents-") && !x.contains('.') && !x.contains("udeb") => {
                     DistFileType::Contents
                 }
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
                 x if x.contains("Packages") && file_is_compress(x) => {
-                    DistFileType::CompressPackageList(x.split_once('.').unwrap().0.to_string())
+                    let s = x.split_once('.').unwrap();
+                    DistFileType::CompressPackageList(s.0.to_string(), s.1.to_string())
                 }
                 x if x.contains("Release") => DistFileType::Release,
                 x => {
