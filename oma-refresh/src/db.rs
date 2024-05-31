@@ -349,7 +349,9 @@ impl<'a> OmaRefresh<'a> {
             mirrors_inrelease.insert(i.0 .1, true);
 
             #[cfg(not(feature = "aosc"))]
-            return Err(RefreshError::NoInReleaseFile(c.dist_path.clone()));
+            return Err(RefreshError::NoInReleaseFile(
+                sourcelist[i.0 .1].dist_path.clone(),
+            ));
         }
 
         Ok(mirrors_inrelease)
