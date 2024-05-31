@@ -56,8 +56,14 @@ impl InReleaseVerifier {
 
     pub fn from_str(s: &str, mirror: &str) -> VerifyResult<Self> {
         let mut certs: Vec<Cert> = Vec::new();
-        let cert = Cert::from_bytes(s.as_bytes())?;
-        certs.push(cert);
+        for maybe_cert in CertParser::from_bytes(s.as_bytes())
+            .map_err(|e| VerifyError::CertParseFileError(s.to_string(), e))?
+        {
+            certs.push(
+                maybe_cert
+                    .map_err(|e| VerifyError::BadCertFile(s.to_string(), e))?,
+            );
+        }
 
         Ok(InReleaseVerifier {
             certs,
