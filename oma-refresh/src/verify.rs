@@ -115,7 +115,7 @@ pub fn verify<P: AsRef<Path>>(
 
     let mut inner_signed_by = false;
     if let Some(signed_by) = signed_by {
-        if signed_by.starts_with("---BEGIN PGP PUBLIC KEY BLOCK---") {
+        if signed_by.starts_with("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
             inner_signed_by = true;
         } else {
             let trust_files = signed_by.split(',');
