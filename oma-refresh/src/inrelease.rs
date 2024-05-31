@@ -58,7 +58,7 @@ pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
 
 pub struct InRelease<'a> {
     pub inrelease: &'a str,
-    pub trust_files: Option<&'a str>,
+    pub signed_by: Option<&'a str>,
     pub mirror: &'a str,
     pub arch: &'a str,
     pub is_flat: bool,
@@ -71,7 +71,7 @@ impl InReleaseParser {
     pub fn new(in_release: InRelease<'_>) -> InReleaseParserResult<Self> {
         let InRelease {
             inrelease: s,
-            trust_files,
+            signed_by,
             mirror,
             arch,
             is_flat,
@@ -81,7 +81,7 @@ impl InReleaseParser {
         } = in_release;
 
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-            Cow::Owned(verify::verify(s, trust_files, mirror, rootfs)?)
+            Cow::Owned(verify::verify(s, signed_by, mirror, rootfs)?)
         } else {
             Cow::Borrowed(s)
         };

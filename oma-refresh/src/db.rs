@@ -493,7 +493,7 @@ impl<'a> OmaRefresh<'a> {
 
             let inrelease = InRelease {
                 inrelease: &s,
-                trust_files: ose.signed_by.as_deref(),
+                signed_by: ose.signed_by.as_deref(),
                 mirror: urlc,
                 arch: &self.arch,
                 is_flat: ose.is_flat,

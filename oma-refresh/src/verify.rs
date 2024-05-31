@@ -34,7 +34,7 @@ pub enum VerifyError {
 pub type VerifyResult<T> = Result<T, VerifyError>;
 
 impl InReleaseVerifier {
-    pub fn new<P: AsRef<Path>>(cert_paths: &[P], mirror: &str) -> VerifyResult<Self> {
+    pub fn from_paths<P: AsRef<Path>>(cert_paths: &[P], mirror: &str) -> VerifyResult<Self> {
         let mut certs: Vec<Cert> = Vec::new();
         for f in cert_paths {
             for maybe_cert in CertParser::from_file(f)
@@ -47,6 +47,17 @@ impl InReleaseVerifier {
                 );
             }
         }
+
+        Ok(InReleaseVerifier {
+            certs,
+            _mirror: mirror.to_string(),
+        })
+    }
+
+    pub fn from_str(s: &str, mirror: &str) -> VerifyResult<Self> {
+        let mut certs: Vec<Cert> = Vec::new();
+        let cert = Cert::from_bytes(s.as_bytes())?;
+        certs.push(cert);
 
         Ok(InReleaseVerifier {
             certs,
@@ -80,7 +91,7 @@ impl VerificationHelper for InReleaseVerifier {
 /// Verify InRelease PGP signature
 pub fn verify<P: AsRef<Path>>(
     s: &str,
-    trust_files: Option<&str>,
+    signed_by: Option<&str>,
     mirror: &str,
     rootfs: P,
 ) -> VerifyResult<String> {
@@ -100,16 +111,21 @@ pub fn verify<P: AsRef<Path>>(
         dir.extend(keyring);
     }
 
-    let mut cert_files = vec![];
+    let mut certs = vec![];
 
-    if let Some(trust_files) = trust_files {
-        let trust_files = trust_files.split(',');
-        for file in trust_files {
-            let p = Path::new(file);
-            if p.is_absolute() {
-                cert_files.push(p.to_path_buf());
-            } else {
-                cert_files.push(rootfs.join("etc/apt/trusted.gpg.d").join(file))
+    let mut inner_signed_by = false;
+    if let Some(signed_by) = signed_by {
+        if signed_by.starts_with("---BEGIN PGP PUBLIC KEY NLOCK---") {
+            inner_signed_by = true;
+        } else {
+            let trust_files = signed_by.split(',');
+            for file in trust_files {
+                let p = Path::new(file);
+                if p.is_absolute() {
+                    certs.push(p.to_path_buf());
+                } else {
+                    certs.push(rootfs.join("etc/apt/trusted.gpg.d").join(file))
+                }
             }
         }
     } else {
@@ -117,14 +133,14 @@ pub fn verify<P: AsRef<Path>>(
             let path = i.path();
             let ext = path.extension().and_then(|x| x.to_str());
             if ext == Some("gpg") || ext == Some("asc") {
-                cert_files.push(i.path().to_path_buf());
+                certs.push(i.path().to_path_buf());
             }
         }
 
         let trust_main = rootfs.join("etc/apt/trusted.gpg").to_path_buf();
 
         if trust_main.is_file() {
-            cert_files.push(trust_main);
+            certs.push(trust_main);
         }
     }
 
@@ -138,7 +154,11 @@ pub fn verify<P: AsRef<Path>>(
     let mut v = VerifierBuilder::from_bytes(s.as_bytes())?.with_policy(
         &p,
         None,
-        InReleaseVerifier::new(&cert_files, mirror)?,
+        if inner_signed_by {
+            InReleaseVerifier::from_str(signed_by.unwrap(), mirror)?
+        } else {
+            InReleaseVerifier::from_paths(&certs, mirror)?
+        },
     )?;
 
     let mut res = String::new();
