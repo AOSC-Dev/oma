@@ -114,10 +114,13 @@ pub fn verify<P: AsRef<Path>>(
     let mut certs = vec![];
 
     let mut inner_signed_by = false;
+
+    let mut signed_by_str = None;
     if let Some(signed_by) = signed_by {
         let signed_by = signed_by.trim();
         if signed_by.starts_with("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
             inner_signed_by = true;
+            signed_by_str = Some(signed_by);
         } else {
             let trust_files = signed_by.split(',');
             for file in trust_files {
@@ -156,7 +159,9 @@ pub fn verify<P: AsRef<Path>>(
         &p,
         None,
         if inner_signed_by {
-            InReleaseVerifier::from_str(signed_by.unwrap(), mirror)?
+            // 这个点存在只是表示换行，因此把它替换掉
+            let signed_by_str = signed_by_str.unwrap().replace('.', "");
+            InReleaseVerifier::from_str(&signed_by_str, mirror)?
         } else {
             InReleaseVerifier::from_paths(&certs, mirror)?
         },
