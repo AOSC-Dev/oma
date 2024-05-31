@@ -143,7 +143,7 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
 
         let options = v.options.as_deref().unwrap_or_default();
 
-        let options = options.split_whitespace().collect::<Vec<_>>();
+        let options = options.split(',').collect::<Vec<_>>();
 
         let signed_by = options.iter().find_map(|x| {
             x.split_once('=').and_then(|x| {
