@@ -1,4 +1,4 @@
-use std::{io::Read, path::Path};
+use std::{io::Read, path::Path, str::FromStr};
 
 use anyhow::bail;
 use sequoia_openpgp::{
@@ -32,6 +32,22 @@ pub enum VerifyError {
 
 pub type VerifyResult<T> = Result<T, VerifyError>;
 
+impl FromStr for InReleaseVerifier {
+    type Err = VerifyError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut certs: Vec<Cert> = Vec::new();
+        let ppr = PacketParserBuilder::from_bytes(s.as_bytes())?.build()?;
+        let cert = CertParser::from(ppr);
+
+        for maybe_cert in cert {
+            certs.push(maybe_cert.map_err(|e| VerifyError::BadCertFile(s.to_string(), e))?);
+        }
+
+        Ok(InReleaseVerifier { certs })
+    }
+}
+
 impl InReleaseVerifier {
     pub fn from_paths<P: AsRef<Path>>(cert_paths: &[P]) -> VerifyResult<Self> {
         let mut certs: Vec<Cert> = Vec::new();
@@ -45,18 +61,6 @@ impl InReleaseVerifier {
                     })?,
                 );
             }
-        }
-
-        Ok(InReleaseVerifier { certs })
-    }
-
-    pub fn from_str(s: &str) -> VerifyResult<Self> {
-        let mut certs: Vec<Cert> = Vec::new();
-        let ppr = PacketParserBuilder::from_bytes(s.as_bytes())?.build()?;
-        let cert = CertParser::from(ppr);
-
-        for maybe_cert in cert {
-            certs.push(maybe_cert.map_err(|e| VerifyError::BadCertFile(s.to_string(), e))?);
         }
 
         Ok(InReleaseVerifier { certs })
