@@ -72,7 +72,7 @@ impl InReleaseParser {
         let InRelease {
             inrelease: s,
             signed_by,
-            mirror,
+            mirror: _,
             arch,
             is_flat,
             p,
@@ -81,7 +81,7 @@ impl InReleaseParser {
         } = in_release;
 
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-            Cow::Owned(verify::verify(s, signed_by, mirror, rootfs)?)
+            Cow::Owned(verify::verify(s, signed_by, rootfs)?)
         } else {
             Cow::Borrowed(s)
         };

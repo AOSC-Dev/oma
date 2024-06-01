@@ -5,7 +5,7 @@ use sequoia_openpgp::{
     cert::CertParser,
     parse::{
         stream::{MessageLayer, MessageStructure, VerificationHelper, VerifierBuilder},
-        Parse,
+        PacketParserBuilder, Parse,
     },
     policy::StandardPolicy,
     types::HashAlgorithm,
@@ -14,7 +14,6 @@ use sequoia_openpgp::{
 
 pub struct InReleaseVerifier {
     certs: Vec<Cert>,
-    _mirror: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -34,7 +33,7 @@ pub enum VerifyError {
 pub type VerifyResult<T> = Result<T, VerifyError>;
 
 impl InReleaseVerifier {
-    pub fn from_paths<P: AsRef<Path>>(cert_paths: &[P], mirror: &str) -> VerifyResult<Self> {
+    pub fn from_paths<P: AsRef<Path>>(cert_paths: &[P]) -> VerifyResult<Self> {
         let mut certs: Vec<Cert> = Vec::new();
         for f in cert_paths {
             for maybe_cert in CertParser::from_file(f)
@@ -48,27 +47,19 @@ impl InReleaseVerifier {
             }
         }
 
-        Ok(InReleaseVerifier {
-            certs,
-            _mirror: mirror.to_string(),
-        })
+        Ok(InReleaseVerifier { certs })
     }
 
-    pub fn from_str(s: &str, mirror: &str) -> VerifyResult<Self> {
+    pub fn from_str(s: &str) -> VerifyResult<Self> {
         let mut certs: Vec<Cert> = Vec::new();
-        for maybe_cert in CertParser::from_bytes(s.as_bytes())
-            .map_err(|e| VerifyError::CertParseFileError(s.to_string(), e))?
-        {
-            certs.push(
-                maybe_cert
-                    .map_err(|e| VerifyError::BadCertFile(s.to_string(), e))?,
-            );
+        let ppr = PacketParserBuilder::from_bytes(s.as_bytes())?.build()?;
+        let cert = CertParser::from(ppr);
+
+        for maybe_cert in cert {
+            certs.push(maybe_cert.map_err(|e| VerifyError::BadCertFile(s.to_string(), e))?);
         }
 
-        Ok(InReleaseVerifier {
-            certs,
-            _mirror: mirror.to_string(),
-        })
+        Ok(InReleaseVerifier { certs })
     }
 }
 
@@ -95,12 +86,7 @@ impl VerificationHelper for InReleaseVerifier {
 }
 
 /// Verify InRelease PGP signature
-pub fn verify<P: AsRef<Path>>(
-    s: &str,
-    signed_by: Option<&str>,
-    mirror: &str,
-    rootfs: P,
-) -> VerifyResult<String> {
+pub fn verify<P: AsRef<Path>>(s: &str, signed_by: Option<&str>, rootfs: P) -> VerifyResult<String> {
     let rootfs = rootfs.as_ref();
     let mut dir = std::fs::read_dir(rootfs.join("etc/apt/trusted.gpg.d"))
         .map_err(|_| VerifyError::TrustedDirNotExist)?
@@ -167,9 +153,9 @@ pub fn verify<P: AsRef<Path>>(
         if inner_signed_by {
             // 这个点存在只是表示换行，因此把它替换掉
             let signed_by_str = signed_by_str.unwrap().replace('.', "");
-            InReleaseVerifier::from_str(&signed_by_str, mirror)?
+            InReleaseVerifier::from_str(&signed_by_str)?
         } else {
-            InReleaseVerifier::from_paths(&certs, mirror)?
+            InReleaseVerifier::from_paths(&certs)?
         },
     )?;
 
