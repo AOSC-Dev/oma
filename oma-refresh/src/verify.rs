@@ -1,4 +1,4 @@
-use std::{fs, io::Read, path::Path, str::FromStr};
+use std::{io::Read, path::Path, str::FromStr};
 
 use anyhow::bail;
 use sequoia_openpgp::{
@@ -7,7 +7,7 @@ use sequoia_openpgp::{
         stream::{
             MessageLayer, MessageStructure, VerificationError, VerificationHelper, VerifierBuilder,
         },
-        PacketParserBuilder, PacketParserResult, Parse,
+        PacketParserBuilder, Parse,
     },
     policy::{AsymmetricAlgorithm, StandardPolicy},
     types::HashAlgorithm,
