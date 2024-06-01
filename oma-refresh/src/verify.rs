@@ -1,16 +1,19 @@
-use std::{io::Read, path::Path, str::FromStr};
+use std::{fs, io::Read, path::Path, str::FromStr};
 
 use anyhow::bail;
 use sequoia_openpgp::{
     cert::CertParser,
     parse::{
-        stream::{MessageLayer, MessageStructure, VerificationHelper, VerifierBuilder},
-        PacketParserBuilder, Parse,
+        stream::{
+            MessageLayer, MessageStructure, VerificationError, VerificationHelper, VerifierBuilder,
+        },
+        PacketParserBuilder, PacketParserResult, Parse,
     },
     policy::{AsymmetricAlgorithm, StandardPolicy},
     types::HashAlgorithm,
     Cert, KeyHandle,
 };
+use tracing::debug;
 
 #[derive(Debug)]
 pub struct InReleaseVerifier {
@@ -74,16 +77,41 @@ impl VerificationHelper for InReleaseVerifier {
     }
 
     fn check(&mut self, structure: MessageStructure) -> anyhow::Result<()> {
+        let mut has_success = false;
+        let mut err = None;
+        let mut missing_key_err = None;
         for layer in structure {
             if let MessageLayer::SignatureGroup { results } = layer {
                 for r in results {
-                    if let Err(e) = r {
-                        bail!("InRelease contains bad signature: {e}.")
+                    match r {
+                        Ok(_) => has_success = true,
+                        Err(e) => {
+                            debug!("{e}");
+                            match e {
+                                VerificationError::MissingKey { .. } => {
+                                    missing_key_err = Some(e);
+                                }
+                                _ => {
+                                    err = Some(e);
+                                }
+                            }
+                        }
                     }
                 }
             } else {
                 bail!("Malformed PGP signature, InRelease must be signed.")
             }
+        }
+
+        if let Some(e) = err {
+            bail!("InRelease contains bad signature: {e}.");
+        }
+
+        if !has_success {
+            bail!(
+                "InRelease contains bad signature: {}.",
+                missing_key_err.unwrap()
+            );
         }
 
         Ok(())
@@ -169,4 +197,52 @@ pub fn verify<P: AsRef<Path>>(s: &str, signed_by: Option<&str>, rootfs: P) -> Ve
         .map_err(VerifyError::FailedToReadInRelease)?;
 
     Ok(res)
+}
+
+#[test]
+fn test() {
+    let s = "-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mI0ETeFr1gEEAJdikBscxbutFN3AHW2yB2JrH6/TfVahw7+QWl3C8m/ct+ePmXyO
+Ql+sHmsL0LGy1R9n8/ayIeCitvwlv5IX5MuZcM5H7Z7ZCPPJRjsVciqxjxKJyn33
+uQ1TyMO2lCY0MO/gk9gBZOj5YyDqQqA8x8e8UlbtGcWYoWQ8d0zRFl/JABEBAAG0
+IUxhdW5jaHBhZCBQUEEgZm9yIEkyUCBNYWludGFpbmVyc4i4BBMBAgAiBQJN4WvW
+AhsDBgsJCAcDAgYVCAIJCgsEFgIDAQIeAQIXgAAKCRCrlmC56yzIi1pbA/91L9fg
+1yoi7pbryadQrO+3gHHTHNT1KqtD0S39aVcNYkWY1w247cAYkLtioecTXClt27Cf
+fxTJRuV3i8TpugqBVSpLQzgZ+XZTHLxHUwPgz0oT9mH3pt78FJAZBDEl9pgcedKP
+tvuungpN6oTGuaYqtVEUz0R0JOasXAswPPaDTYkB8AQQAQIABgUCUo2QagAKCRBt
+HLsMF6fR+dkZDqCKUN99jHqNfC+C8K3xZYtJklwfhyMJruoGD9xjP1If/L0XuhLf
+7J/3RJz++C4LbkQfHkwA9VzeYAmOiObBcu6chFOsIyrz2Jm3ln3X3aCVTdbb8g7m
+a4mHcWW8BxFDiqrXy6qBrMjhk3b0UpOxd7T9cvqmjFEM3sjOds2GXoaHolkNVyYJ
+bT2JtF8WvcduPLW0um6hWjJbBlTPXQOfm54hp8EPTQJaRcYmdy4GaL928pmF2aYj
+UHlb+XjEwSHEEhu9F23CaP24q0C9k7/UWklZHddgfqu+istiCn/U10uyyrNpqTEJ
+SxjBZNeGR+CFRSOb8R0uZm08KZkQzJmT9be4jUuhRXyw1tc5ty/hJHXdOBLytzZl
+5OPJvhC9DPdt9flv3P3horjZz/3pDVXF80wmYGrL0phxTTkIdIm/LZZ1BGiBQHZu
+inlLB6OI+PYW0dws4o9aKkPJQDKYfLWdoAXymC5UbN1trKvdTlFjNRGO6OAtp8gR
+6lQsFgjX4+RRLhC/wHXZ/3aubfwgmv5KtuE2fl++Tv56b+RIc/XS0Ft/7g87AYBv
+d1lNmaiTAPNsm8UycYes+DP/dBGZHoRyBgiItmgdQ9xeTUt0lgLlzQtrI/sDdas=
+=cH4R
+-----END PGP PUBLIC KEY BLOCK-----";
+
+    let v = InReleaseVerifier::from_str(s).unwrap();
+
+    let s2 = fs::read_to_string("/home/saki/oma/test").unwrap();
+
+    // Derive p to allow configuring sequoia_openpgp's StandardPolicy.
+    let mut p = StandardPolicy::new();
+    // Allow SHA-1 (considering it safe, whereas sequoia_openpgp's standard
+    // policy forbids it), as many third party APT repositories still uses
+    // SHA-1 to sign their repository metadata (such as InRelease).
+    p.accept_hash(HashAlgorithm::SHA1);
+    p.accept_asymmetric_algo(AsymmetricAlgorithm::RSA1024);
+
+    let mut v = VerifierBuilder::from_bytes(s2.as_bytes())
+        .unwrap()
+        .with_policy(&p, None, v)
+        .unwrap();
+
+    let mut res = String::new();
+    v.read_to_string(&mut res).unwrap();
+
+    dbg!(res);
 }
