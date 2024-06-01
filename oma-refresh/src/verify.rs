@@ -7,11 +7,12 @@ use sequoia_openpgp::{
         stream::{MessageLayer, MessageStructure, VerificationHelper, VerifierBuilder},
         PacketParserBuilder, Parse,
     },
-    policy::StandardPolicy,
+    policy::{AsymmetricAlgorithm, StandardPolicy},
     types::HashAlgorithm,
     Cert, KeyHandle,
 };
 
+#[derive(Debug)]
 pub struct InReleaseVerifier {
     certs: Vec<Cert>,
 }
@@ -147,6 +148,9 @@ pub fn verify<P: AsRef<Path>>(s: &str, signed_by: Option<&str>, rootfs: P) -> Ve
     // policy forbids it), as many third party APT repositories still uses
     // SHA-1 to sign their repository metadata (such as InRelease).
     p.accept_hash(HashAlgorithm::SHA1);
+
+    // Allow RSA-1024
+    p.accept_asymmetric_algo(AsymmetricAlgorithm::RSA1024);
 
     let mut v = VerifierBuilder::from_bytes(s.as_bytes())?.with_policy(
         &p,
