@@ -12,6 +12,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Build-for-debian/ubuntu
+        run: |
+          cargo build --release --no-default-features --features generic
+          cp target/release/oma target/release/oma-for-debian-ubuntu
+      - name: Build-for-AOSCOS
+        run: cargo build --release
       - name: Generate a release body
         uses: orhun/git-cliff-action@main
         id: git-cliff
@@ -25,4 +31,9 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
+          files: |
+            target/release/oma-for-debian-ubuntu
+            target/release/oma
+            data/config/oma.toml
           body: ${{ steps.git-cliff.outputs.content }}
+
