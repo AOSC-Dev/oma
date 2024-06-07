@@ -671,7 +671,11 @@ fn collect_download_task(
     let file_path = if let DistFileType::CompressContents(_, _) = c.file_type {
         download_url.clone()
     } else {
-        format!("{}/{}", dist_url, not_compress_filename_before)
+        if dist_url.ends_with('/') {
+            format!("{}{}", dist_url, not_compress_filename_before)
+        } else {
+            format!("{}/{}", dist_url, not_compress_filename_before)
+        }
     };
 
     let mut task = DownloadEntryBuilder::default();
