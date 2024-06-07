@@ -368,9 +368,25 @@ impl<'a> OmaRefresh<'a> {
             let is_inrelease = *is_inrelease_map.get(&i).unwrap();
 
             let uri = if is_inrelease {
-                format!("{}/InRelease", source_entry.dist_path)
+                format!(
+                    "{}{}InRelease",
+                    source_entry.dist_path,
+                    if !source_entry.dist_path.ends_with('/') {
+                        "/"
+                    } else {
+                        ""
+                    }
+                )
             } else {
-                format!("{}/Release", source_entry.dist_path)
+                format!(
+                    "{}{}Release",
+                    source_entry.dist_path,
+                    if !source_entry.dist_path.ends_with('/') {
+                        "/"
+                    } else {
+                        ""
+                    }
+                )
             };
 
             let msg = human_download_url(&uri, m)?;
