@@ -12,6 +12,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Install Dependency
+        run: sudo apt-get -y update && sudo apt-get -y install libapt-pkg-dev nettle-dev libssl-dev libclang-dev clang llvm
       - name: Build-for-debian/ubuntu
         run: |
           cargo build --release --no-default-features --features generic
