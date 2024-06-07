@@ -33,13 +33,16 @@ Although it is based on apt, we did quite a bit of extra work, the goal of this 
 - Rustc with Cargo
 - nettle
 
-## Build & install
+## Build 
+
+
+- build for Debian/Ubuntu
 
 ```bash
-cargo build --release
-cp ./target/release/oma /usr/local/bin/oma
+cargo build --release --no-default-features --features generic
+sudo cp ./target/release/oma /usr/local/bin/oma
+sudo cp data/config/oma.toml /etc/oma.toml
 ```
-
 ## Usage
 
 ```bash
