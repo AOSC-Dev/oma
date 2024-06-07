@@ -136,7 +136,7 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         let url = v.url.clone();
         let suite = v.suite.clone();
         let (dist_path, is_flat) = if components.is_empty() {
-            (v.url().to_string(), true)
+            (format!("{}/{}", v.url(), suite), true)
         } else {
             (v.dist_path(), false)
         };
