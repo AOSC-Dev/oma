@@ -97,9 +97,4 @@ fn test_database_filename() {
         res,
         "repo.aosc.io_debs_dists_x264-0%252bgit20240305_InRelease"
     );
-
-    let s = "https://ci.deepin.com/repo/obs/deepin%3A/CI%3A/TestingIntegration%3A/test-integration-pr-1537/testing/Packages";
-    let res = database_filename(s);
-
-    dbg!(res);
 }
