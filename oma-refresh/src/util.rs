@@ -101,5 +101,5 @@ fn test_database_filename() {
     let s = "https://ci.deepin.com/repo/obs/deepin%3A/CI%3A/TestingIntegration%3A/test-integration-pr-1537/testing/./Packages";
     let res = database_filename(s);
 
-    dbg!(res);
+    assert_eq!(res, "ci.deepin.com_repo_obs_deepin%3A_CI%3A_TestingIntegration%3A_test-integration-pr-1537_testing_._Packages")
 }
