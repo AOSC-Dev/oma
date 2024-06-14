@@ -583,7 +583,7 @@ _oma() {
             return 0
             ;;
         oma__list)
-            opts="-a -i -u -h --all --installed --upgradable --debug --no-color --no-progress --no-check-dbus --sysroot --help [packages]..."
+            opts="-a -i -u -m -h --all --installed --upgradable --manually-installed --automatic --debug --no-color --no-progress --no-check-dbus --sysroot --help [packages]..."
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -152,6 +152,8 @@ complete -c oma -n "__fish_seen_subcommand_from list" -l sysroot -d 'Set sysroot
 complete -c oma -n "__fish_seen_subcommand_from list" -s a -l all -d 'List all available version(s) of (a) package(s) from all repository(ies)'
 complete -c oma -n "__fish_seen_subcommand_from list" -s i -l installed -d 'List only package(s) currently installed on the system'
 complete -c oma -n "__fish_seen_subcommand_from list" -s u -l upgradable -d 'List only package(s) with update(s) available'
+complete -c oma -n "__fish_seen_subcommand_from list" -s m -l manually-installed -d 'List only package(s) with manually installed'
+complete -c oma -n "__fish_seen_subcommand_from list" -l automatic -d 'List only package(s) with automatic installed'
 complete -c oma -n "__fish_seen_subcommand_from list" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from list" -l no-color -d 'No color output to result'
 complete -c oma -n "__fish_seen_subcommand_from list" -l no-progress -d 'Do not display progress bar'
