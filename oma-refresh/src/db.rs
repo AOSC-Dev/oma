@@ -465,22 +465,20 @@ impl<'a> OmaRefresh<'a> {
 
         #[cfg(feature = "aosc")]
         {
-            if !not_found.is_empty() {
-                let removed_suites =
-                    oma_topics::scan_closed_topic(handle_topic_msg, &self.source, &self.arch)
-                        .await?;
-                for url in not_found {
-                    let suite = url
-                        .path_segments()
-                        .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
-                        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+            let removed_suites =
+                oma_topics::scan_closed_topic(handle_topic_msg, &self.source, &self.arch).await?;
 
-                    if !removed_suites.contains(&suite) {
-                        return Err(RefreshError::NoInReleaseFile(url.to_string()));
-                    }
+            for url in not_found {
+                let suite = url
+                    .path_segments()
+                    .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
+                    .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
 
-                    callback(0, RefreshEvent::ClosingTopic(suite), None);
+                if !removed_suites.contains(&suite) {
+                    return Err(RefreshError::NoInReleaseFile(url.to_string()));
                 }
+
+                callback(0, RefreshEvent::ClosingTopic(suite), None);
             }
         }
 
