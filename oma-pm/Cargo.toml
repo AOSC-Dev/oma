@@ -19,7 +19,7 @@ oma-utils = { version = "^0.7.0", path = "../oma-utils", features = [
     "human-bytes",
 ] }
 oma-fetch = { version = "^0.10.0", path = "../oma-fetch" }
-tokio = { version = "1.15", default_features = false, features = [
+tokio = { version = "1.15", default-features = false, features = [
     "fs",
     "rt-multi-thread",
 ] }

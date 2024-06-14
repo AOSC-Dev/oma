@@ -597,7 +597,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - *(oma-refresh)* Fix cleartext-signed repositories
-- *(oma-refresh)* Add default_features = false for sequoia-openpgp
+- *(oma-refresh)* Add default-features = false for sequoia-openpgp
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -775,7 +775,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - *(oma-refresh)* Fix cleartext-signed repositories
-- *(oma-refresh)* Add default_features = false for sequoia-openpgp
+- *(oma-refresh)* Add default-features = false for sequoia-openpgp
 
 ### ⚙️ Miscellaneous Tasks
 
