@@ -19,6 +19,7 @@ use anyhow::anyhow;
 
 use clap::ArgMatches;
 use error::OutputError;
+use list::ListFlags;
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
@@ -401,8 +402,18 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let all = args.get_flag("all");
             let installed = args.get_flag("installed");
             let upgradable = args.get_flag("upgradable");
+            let manual = args.get_flag("manually-installed");
+            let auto = args.get_flag("automatic");
 
-            list::execute(all, installed, upgradable, pkgs, sysroot)?
+            let flags = ListFlags {
+                all,
+                installed,
+                upgradable,
+                manual,
+                auto,
+            };
+
+            list::execute(flags, pkgs, sysroot)?
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();

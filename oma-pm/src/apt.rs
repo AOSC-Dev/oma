@@ -167,6 +167,7 @@ pub enum FilterMode {
     Installed,
     Upgradable,
     Automatic,
+    Manual,
     Names,
 }
 
@@ -1050,6 +1051,7 @@ impl OmaApt {
                 FilterMode::Upgradable => sort.upgradable(),
                 FilterMode::Automatic => sort.auto_installed(),
                 FilterMode::Names => sort.names(),
+                FilterMode::Manual => sort.manually_installed(),
                 _ => sort,
             };
         }
