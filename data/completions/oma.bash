@@ -731,7 +731,6 @@ _oma() {
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
-            fi
             case "${prev}" in
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
