@@ -231,7 +231,7 @@ impl From<OmaSearchError> for OutputError {
             OmaSearchError::AptErrors(e) => OutputError::from(e),
             OmaSearchError::AptCxxException(e) => OutputError {
                 description: fl!("apt-error"),
-                source: Some(Box::new(e)),
+                source: Some(Box::new(AptErrors::from(e))),
             },
         }
     }
@@ -728,7 +728,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         },
         OmaAptError::AptCxxException(e) => OutputError {
             description: fl!("apt-error"),
-            source: Some(Box::new(e)),
+            source: Some(Box::new(AptErrors::from(e))),
         },
     }
 }
@@ -828,7 +828,7 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
         OmaDatabaseError::AptErrors(e) => OutputError::from(e),
         OmaDatabaseError::AptCxxException(e) => OutputError {
             description: fl!("apt-error"),
-            source: Some(Box::new(e)),
+            source: Some(Box::new(AptErrors::from(e))),
         },
         OmaDatabaseError::InvaildPattern(s) => OutputError {
             description: fl!("invaild-pattern", p = s),
@@ -854,7 +854,7 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
             OmaSearchError::AptErrors(e) => OutputError::from(e),
             OmaSearchError::AptCxxException(e) => OutputError {
                 description: fl!("apt-error"),
-                source: Some(Box::new(e)),
+                source: Some(Box::new(AptErrors::from(e))),
             },
             OmaSearchError::NoResult(e) => OutputError {
                 description: fl!("could-not-find-pkg-from-keyword", c = e),
