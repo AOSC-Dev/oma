@@ -501,14 +501,14 @@ impl<'a> OmaRefresh<'a> {
             debug!("Getted oma source entry: {:#?}", ose);
             let inrelease_path = self.download_dir.join(&*inrelease_summary.filename);
 
-            let s = tokio::fs::read_to_string(&inrelease_path)
+            let inrelease = tokio::fs::read_to_string(&inrelease_path)
                 .await
                 .map_err(|e| {
                     RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
                 })?;
 
             let inrelease = InRelease {
-                inrelease: &s,
+                inrelease: &inrelease,
                 signed_by: ose.signed_by.as_deref(),
                 mirror: urlc,
                 arch: &self.arch,
@@ -589,8 +589,9 @@ impl<'a> OmaRefresh<'a> {
                                     handle_file_name.push(name);
                                     let size = checksums
                                         .iter()
-                                        .find(|x| x.name == s)
-                                        .map(|x| x.size)
+                                        .find_map(
+                                            |x| if x.name == *name { Some(x.size) } else { None },
+                                        )
                                         .unwrap_or(i.size);
 
                                     total += size;
