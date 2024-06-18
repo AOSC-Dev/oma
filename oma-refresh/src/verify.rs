@@ -125,12 +125,7 @@ pub fn verify<P: AsRef<Path>>(s: &str, signed_by: Option<&str>, rootfs: P) -> Ve
         .map_err(|_| VerifyError::TrustedDirNotExist)?
         .collect::<Vec<_>>();
 
-    let keyring = std::fs::read_dir(rootfs.join("usr/share/keyrings"));
     let etc_keyring = std::fs::read_dir(rootfs.join("etc/apt/keyrings"));
-
-    if let Ok(keyring) = keyring {
-        dir.extend(keyring);
-    }
 
     if let Ok(keyring) = etc_keyring {
         dir.extend(keyring);
