@@ -17,6 +17,7 @@ use oma_fetch::DownloadError;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
+use tokio::fs::read_dir;
 use tracing::debug;
 
 use crate::{
@@ -57,6 +58,8 @@ pub enum RefreshError {
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
     InReleaseParseError(String, InReleaseParserError),
+    #[error("Failed to read download dir: {0}")]
+    ReadDownloadDir(String, std::io::Error),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -88,6 +91,8 @@ pub enum RefreshError {
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
     InReleaseParseError(String, InReleaseParserError),
+    #[error("Failed to read download dir: {0}")]
+    ReadDownloadDir(String, std::io::Error),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -229,6 +234,15 @@ impl<'a> OmaRefresh<'a> {
         let (tasks, total) = self
             .collect_all_release_entry(all_inrelease, &sourcelist, &m)
             .await?;
+
+        let mut download_list = vec![];
+
+        for i in &tasks {
+            download_list.push(i.filename.to_string());
+        }
+
+        let download_dir = self.download_dir.clone();
+        tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
 
         let res = OmaFetcher::new(self.client, tasks, self.limit)?
             .start_download(|count, event| callback(count, RefreshEvent::from(event), Some(total)))
@@ -620,6 +634,25 @@ impl<'a> OmaRefresh<'a> {
 
         Ok((tasks, total))
     }
+}
+
+async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> Result<()> {
+    let mut download_dir = read_dir(&download_dir)
+        .await
+        .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
+
+    while let Ok(Some(x)) = download_dir.next_entry().await {
+        if x.path().is_file()
+            && !download_list.contains(&x.file_name().to_string_lossy().to_string())
+        {
+            debug!("Removing {:?}", x.file_name());
+            if let Err(e) = tokio::fs::remove_file(x.path()).await {
+                debug!("Failed to remove file {:?}: {e}", x.file_name());
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[derive(Debug)]

@@ -41,7 +41,7 @@ pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 #[builder(default)]
 pub struct DownloadEntry {
     pub source: Vec<DownloadSource>,
-    filename: Arc<String>,
+    pub filename: Arc<String>,
     dir: PathBuf,
     #[builder(setter(into, strip_option))]
     hash: Option<String>,
