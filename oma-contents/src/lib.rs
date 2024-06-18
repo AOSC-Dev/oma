@@ -155,7 +155,7 @@ where
                 })?);
                 let now = Utc::now();
                 let delta = now - m;
-                let delta = delta.num_seconds() / 60 / 60 / 24;
+                let delta = delta.num_days();
                 if delta > 7 {
                     cc(ContentsEvent::ContentsMayNotBeAccurate);
                     break;
