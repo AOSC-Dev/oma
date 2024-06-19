@@ -221,7 +221,13 @@ impl<'a> OmaRefresh<'a> {
             .get_is_inrelease_map(&sourcelist, &m, &callback)
             .await?;
 
+        let mut download_list = vec![];
+
         let tasks = self.collect_download_release_tasks(&sourcelist, &m, is_inrelease_map)?;
+
+        for i in &tasks {
+            download_list.push(i.filename.to_string());
+        }
 
         let release_results = OmaFetcher::new(self.client, tasks, self.limit)?
             .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
@@ -234,8 +240,6 @@ impl<'a> OmaRefresh<'a> {
         let (tasks, total) = self
             .collect_all_release_entry(all_inrelease, &sourcelist, &m)
             .await?;
-
-        let mut download_list = vec![];
 
         for i in &tasks {
             download_list.push(i.filename.to_string());
