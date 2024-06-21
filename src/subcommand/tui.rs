@@ -17,7 +17,7 @@ use reqwest::Client;
 use crate::{fl, remove::ask_user_do_as_i_say};
 use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
-    pkginfo::UnsafePkgInfo,
+    pkginfo::PkgInfo,
     search::{OmaSearch, SearchResult},
     PackageStatus,
 };
@@ -438,7 +438,7 @@ pub fn execute(
                                 if let Some(pkg) = apt.cache.get(name) {
                                     if let Some(pkg_index) = install
                                         .iter()
-                                        .position(|x: &UnsafePkgInfo| x.raw_pkg.name() == name)
+                                        .position(|x: &PkgInfo| x.raw_pkg.name() == name)
                                     {
                                         let pos = pending_display_list
                                             .items
@@ -465,7 +465,7 @@ pub fn execute(
 
                                     if let Some(pkg_index) = remove
                                         .iter()
-                                        .position(|x: &UnsafePkgInfo| x.raw_pkg.name() == name)
+                                        .position(|x: &PkgInfo| x.raw_pkg.name() == name)
                                     {
                                         let pos = pending_display_list
                                             .items
@@ -492,9 +492,9 @@ pub fn execute(
                                     let cand = pkg.candidate().or(pkg.versions().next());
 
                                     if let Some(cand) = cand {
-                                        let pkginfo = UnsafePkgInfo::new(&cand, &pkg);
+                                        let pkginfo = PkgInfo::new(&cand, &pkg);
                                         if !cand.is_installed() {
-                                            install.push(pkginfo);
+                                            install.push(pkginfo.unwrap());
                                             pending_display_list.items.push(Text::raw(format!(
                                                 "+ {} ({})",
                                                 pkg.name(),
@@ -506,7 +506,7 @@ pub fn execute(
                                                 is_install: true,
                                             });
                                         } else {
-                                            remove.push(pkginfo);
+                                            remove.push(pkginfo.unwrap());
                                             pending_display_list
                                                 .items
                                                 .push(Text::raw(format!("- {}", pkg.name())));

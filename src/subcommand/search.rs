@@ -26,7 +26,7 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let db = OmaDatabase::new(&apt.cache)?;
-    let s = args.join(" ");
+    let s = args.concat();
 
     let (sty, inv) = oma_spinner(AILURUS.load(Ordering::Relaxed));
 

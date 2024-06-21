@@ -2,15 +2,13 @@ use cxx::UniquePtr;
 use indicium::simple::{Indexable, SearchIndex};
 use oma_apt::{
     cache::{Cache, PackageSort},
-    package::Package,
-    raw::{
-        cache::raw::PkgIterator,
-        error::{raw::AptError, AptErrors},
-    },
+    error::{AptError, AptErrors},
+    raw::{IntoRawIter, PkgIterator},
+    Package,
 };
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::{format_description, query::has_dbg};
+use crate::{format_description, pkginfo::PtrIsNone, query::has_dbg};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum PackageStatus {
@@ -89,6 +87,8 @@ pub enum OmaSearchError {
     NoResult(String),
     #[error("Failed to get candidate version: {0}")]
     FailedGetCandidate(String),
+    #[error(transparent)]
+    PtrIsNone(#[from] PtrIsNone),
 }
 
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
@@ -114,7 +114,7 @@ pub struct OmaSearch<'a> {
 impl<'a> OmaSearch<'a> {
     pub fn new(cache: &'a Cache) -> OmaSearchResult<Self> {
         let sort = PackageSort::default().include_virtual();
-        let packages = cache.packages(&sort)?;
+        let packages = cache.packages(&sort);
 
         let mut pkg_map = HashMap::new();
 
@@ -145,7 +145,9 @@ impl<'a> OmaSearch<'a> {
                             status,
                             provide: pkg.provides().next().map(|x| x.name().to_string()),
                             has_dbg: has_dbg(cache, &pkg, &cand),
-                            raw_pkg: pkg.unique(),
+                            raw_pkg: unsafe { pkg.unique() }
+                                .make_safe()
+                                .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
                             section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
                         },
                     );
@@ -153,12 +155,18 @@ impl<'a> OmaSearch<'a> {
                 }
             }
 
-            let real_pkgs = pkg
-                .provides()
-                .map(|x| (x.name().to_string(), x.target_pkg()));
+            let mut real_pkgs = vec![];
+            for i in pkg.provides() {
+                real_pkgs.push((
+                    i.name().to_string(),
+                    unsafe { i.target_pkg() }
+                        .make_safe()
+                        .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
+                    ));
+            }
 
             for (provide, i) in real_pkgs {
-                let pkg = Package::new(cache, i.unique());
+                let pkg = Package::new(cache, i);
 
                 let status = if pkg.is_upgradable() {
                     PackageStatus::Upgrade
@@ -170,7 +178,7 @@ impl<'a> OmaSearch<'a> {
 
                 if let Some(cand) = pkg.candidate() {
                     pkg_map.insert(
-                        i.name().to_string(),
+                        pkg.name().to_string(),
                         SearchEntry {
                             pkgname: pkg.name().to_string(),
                             description: format_description(
@@ -181,7 +189,9 @@ impl<'a> OmaSearch<'a> {
                             status,
                             provide: Some(provide.to_string()),
                             has_dbg: has_dbg(cache, &pkg, &cand),
-                            raw_pkg: pkg.unique(),
+                            raw_pkg: unsafe { pkg.unique() }
+                                .make_safe()
+                                .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
                             section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
                         },
                     );
@@ -238,7 +248,9 @@ impl<'a> OmaSearch<'a> {
         let desc = entry.description.clone();
         let status = entry.status.clone();
         let has_dbg = entry.has_dbg;
-        let pkg = entry.raw_pkg.unique();
+        let pkg = unsafe { entry.raw_pkg.unique() }
+            .make_safe()
+            .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?;
         let pkg = Package::new(self.cache, pkg);
 
         let full_match = if let Some(query) = query {

@@ -233,13 +233,17 @@ impl From<OmaSearchError> for OutputError {
                 description: fl!("apt-error"),
                 source: Some(Box::new(AptErrors::from(e))),
             },
+            OmaSearchError::PtrIsNone => OutputError {
+                description: value.to_string(),
+                source: None,
+            },
         }
     }
 }
 
 impl From<AptErrors> for OutputError {
     fn from(e: AptErrors) -> Self {
-        for c in e.errors() {
+        for c in e.iter() {
             if c.is_error {
                 error!("{}", c.msg);
                 continue;
@@ -734,6 +738,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(AptErrors::from(e))),
         },
+        OmaAptError::PtrIsNone(_) => OutputError {
+            description: err.to_string(),
+            source: None,
+        },
     }
 }
 
@@ -868,9 +876,17 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
                 description: fl!("no-candidate-ver", pkg = s),
                 source: None,
             },
+            OmaSearchError::PtrIsNone => OutputError {
+                description: e.to_string(),
+                source: None,
+            },
         },
         OmaDatabaseError::NoCandidate(s) => OutputError {
             description: fl!("no-candidate-ver", pkg = s),
+            source: None,
+        },
+        OmaDatabaseError::PtrIsNone(_) => OutputError {
+            description: e.to_string(),
             source: None,
         },
     }
