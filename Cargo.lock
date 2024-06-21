@@ -1335,6 +1335,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
+name = "faster-hex"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2a2b11eda1d40935b26cf18f6833c526845ae8c41e58d09af6adeb6f0269183"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2961,8 +2970,8 @@ dependencies = [
  "async-compression",
  "dashmap",
  "derive_builder",
+ "faster-hex",
  "futures",
- "hex",
  "indicatif",
  "oma-console",
  "oma-utils 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
