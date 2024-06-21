@@ -1,3 +1,4 @@
+use faster_hex::{hex_decode, hex_string};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
 use std::{fmt::Display, fs::File, io, path::Path};
@@ -39,7 +40,7 @@ pub enum ChecksumError {
     #[error("Sha256 bad length")]
     BadLength,
     #[error(transparent)]
-    HexError(#[from] hex::FromHexError),
+    HexError(#[from] faster_hex::Error),
 }
 
 pub type Result<T> = std::result::Result<T, ChecksumError>;
@@ -61,7 +62,10 @@ impl Checksum {
         if s.len() != 64 {
             return Err(ChecksumError::BadLength);
         }
-        Ok(Checksum::Sha256(hex::decode(s)?))
+        let from = s.as_bytes();
+        let mut dst = vec![];
+        hex_decode(from, &mut dst)?;
+        Ok(Checksum::Sha256(dst))
     }
 
     pub fn get_validator(&self) -> ChecksumValidator {
@@ -101,11 +105,11 @@ impl Display for Checksum {
         match self {
             Checksum::Sha256(hex) => {
                 f.write_str("sha256::")?;
-                f.write_str(&hex::encode(hex))
+                f.write_str(&hex_string(hex))
             }
             Checksum::Sha512(hex) => {
                 f.write_str("sha512::")?;
-                f.write_str(&hex::encode(hex))
+                f.write_str(&hex_string(hex))
             }
         }
     }
