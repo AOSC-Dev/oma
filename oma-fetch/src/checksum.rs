@@ -25,7 +25,9 @@ impl ChecksumValidator {
 
     pub fn finish(&self) -> bool {
         match self {
-            ChecksumValidator::Sha256((c, v)) => c == &v.clone().finalize().to_vec(),
+            ChecksumValidator::Sha256((c, v)) => {
+                c == &v.clone().finalize().to_vec()
+            },
             ChecksumValidator::Sha512((c, v)) => c == &v.clone().finalize().to_vec(),
         }
     }
@@ -62,9 +64,12 @@ impl Checksum {
         if s.len() != 64 {
             return Err(ChecksumError::BadLength);
         }
+
         let from = s.as_bytes();
-        let mut dst = vec![];
+        // dst 的长度必须是 src 的一半
+        let mut dst = vec![0; from.len() / 2];
         hex_decode(from, &mut dst)?;
+
         Ok(Checksum::Sha256(dst))
     }
 
