@@ -139,7 +139,7 @@ impl InReleaseParser {
             .take()
             .ok_or_else(|| InReleaseParserError::BadSha256Value(p.display().to_string()))?;
 
-        let mut checksums = sha256.split('\n');
+        let mut checksums = sha256.lines();
 
         // remove first item, It's empty
         checksums.next();
