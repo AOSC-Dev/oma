@@ -617,7 +617,7 @@ enum CompressStream<R: AsyncRead + Unpin + Send> {
 }
 
 impl<R: AsyncRead + Unpin + Send + AsyncBufRead> CompressStream<R> {
-    fn stream<'a>(&'a mut self) -> &'a mut (dyn AsyncRead + Unpin + Send) {
+    fn stream(&mut self) -> &mut (dyn AsyncRead + Unpin + Send) {
         match self {
             CompressStream::Xz(reader) => reader,
             CompressStream::Gzip(reader) => reader,
