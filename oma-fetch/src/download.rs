@@ -10,7 +10,7 @@ use std::{
 
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder};
 use derive_builder::Builder;
-use futures::{io::BufReader, AsyncRead, TryStreamExt};
+use futures::{io::BufReader, AsyncBufRead, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
@@ -411,12 +411,15 @@ impl SingleDownloader<'_> {
             .map_err(|e| io::Error::new(ErrorKind::Other, e))
             .into_async_read();
 
-        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
-            CompressFile::Xz => &mut XzDecoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Gzip => &mut GzipDecoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Nothing => &mut BufReader::new(bytes_stream),
+        let mut reader = match self.file_type {
+            CompressFile::Xz => CompressStream::Xz(XzDecoder::new(BufReader::new(bytes_stream))),
+            CompressFile::Gzip => {
+                CompressStream::Gzip(GzipDecoder::new(BufReader::new(bytes_stream)))
+            }
+            CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(bytes_stream))),
+            CompressFile::Nothing => CompressStream::Nothing(BufReader::new(bytes_stream)),
         };
+        let reader = reader.stream();
         let mut reader = reader.compat();
 
         let mut buf = vec![0u8; 8 * 1024];
@@ -553,12 +556,13 @@ impl SingleDownloader<'_> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
-        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
-            CompressFile::Xz => &mut XzDecoder::new(BufReader::new(from)),
-            CompressFile::Gzip => &mut GzipDecoder::new(BufReader::new(from)),
-            CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(from)),
-            CompressFile::Nothing => &mut BufReader::new(from),
+        let mut reader = match self.file_type {
+            CompressFile::Xz => CompressStream::Xz(XzDecoder::new(BufReader::new(from))),
+            CompressFile::Gzip => CompressStream::Gzip(GzipDecoder::new(BufReader::new(from))),
+            CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(from))),
+            CompressFile::Nothing => CompressStream::Nothing(BufReader::new(from)),
         };
+        let reader = reader.stream();
         let mut reader = reader.compat();
 
         debug!(
@@ -602,5 +606,23 @@ impl SingleDownloader<'_> {
             self.download_list_index,
             self.context.clone(),
         ))
+    }
+}
+
+enum CompressStream<R: AsyncRead + Unpin + Send> {
+    Xz(XzDecoder<R>),
+    Gzip(GzipDecoder<R>),
+    Bz2(BzDecoder<R>),
+    Nothing(R),
+}
+
+impl<R: AsyncRead + Unpin + Send + AsyncBufRead> CompressStream<R> {
+    fn stream<'a>(&'a mut self) -> &'a mut (dyn AsyncRead + Unpin + Send) {
+        match self {
+            CompressStream::Xz(reader) => reader,
+            CompressStream::Gzip(reader) => reader,
+            CompressStream::Bz2(reader) => reader,
+            CompressStream::Nothing(reader) => reader,
+        }
     }
 }
