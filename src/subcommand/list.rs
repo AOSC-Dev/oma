@@ -9,13 +9,23 @@ use crate::fl;
 use anyhow::anyhow;
 use smallvec::{smallvec, SmallVec};
 
-pub fn execute(
-    all: bool,
-    installed: bool,
-    upgradable: bool,
-    pkgs: Vec<String>,
-    sysroot: String,
-) -> Result<i32, OutputError> {
+pub struct ListFlags {
+    pub all: bool,
+    pub installed: bool,
+    pub upgradable: bool,
+    pub manual: bool,
+    pub auto: bool,
+}
+
+pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
+    let ListFlags {
+        all,
+        installed,
+        upgradable,
+        manual,
+        auto,
+    } = flags;
+
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
@@ -27,6 +37,14 @@ pub fn execute(
 
     if upgradable {
         filter_mode.push(FilterMode::Upgradable)
+    }
+
+    if auto {
+        filter_mode.push(FilterMode::Automatic);
+    }
+
+    if manual {
+        filter_mode.push(FilterMode::Manual);
     }
 
     let filter_pkgs = apt.filter_pkgs(&filter_mode)?;

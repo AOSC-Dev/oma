@@ -150,12 +150,12 @@ where
     std::thread::scope(|s| {
         s.spawn(move || -> Result<()> {
             for i in paths_ref {
-                let m = DateTime::from(i.metadata().and_then(|x| x.created()).map_err(|e| {
+                let m = DateTime::from(i.metadata().and_then(|x| x.modified()).map_err(|e| {
                     OmaContentsError::FailedToGetFileMetadata(i.display().to_string(), e)
                 })?);
                 let now = Utc::now();
                 let delta = now - m;
-                let delta = delta.num_seconds() / 60 / 60 / 24;
+                let delta = delta.num_days();
                 if delta > 7 {
                     cc(ContentsEvent::ContentsMayNotBeAccurate);
                     break;

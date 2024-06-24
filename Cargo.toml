@@ -26,7 +26,7 @@ rustix = { version = "0.38.31", features = ["process"] }
 colored = { version = "2.0.4", optional = true }
 image = { version = "0.25", optional = true }
 libc = "0.2"
-reqwest = { version = "0.12", default_features = false }
+reqwest = { version = "0.12", default-features = false }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 smallvec = "1.11"
@@ -40,10 +40,10 @@ glob-match = "0.2"
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
 oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
-oma-refresh = { path = "./oma-refresh", default_features = false }
+oma-refresh = { path = "./oma-refresh", default-features = false }
 oma-contents = { path = "./oma-contents" }
-oma-fetch = { path = "./oma-fetch", default_features = false }
-oma-topics = { path = "./oma-topics", optional = true, default_features = false }
+oma-fetch = { path = "./oma-fetch", default-features = false }
+oma-topics = { path = "./oma-topics", optional = true, default-features = false }
 oma-history = { path = "./oma-history" }
 
 # i18n

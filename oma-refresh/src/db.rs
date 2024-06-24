@@ -17,6 +17,7 @@ use oma_fetch::DownloadError;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
+use tokio::fs::read_dir;
 use tracing::debug;
 
 use crate::{
@@ -57,6 +58,8 @@ pub enum RefreshError {
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
     InReleaseParseError(String, InReleaseParserError),
+    #[error("Failed to read download dir: {0}")]
+    ReadDownloadDir(String, std::io::Error),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -88,6 +91,8 @@ pub enum RefreshError {
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
     InReleaseParseError(String, InReleaseParserError),
+    #[error("Failed to read download dir: {0}")]
+    ReadDownloadDir(String, std::io::Error),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -136,14 +141,14 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         let url = v.url.clone();
         let suite = v.suite.clone();
         let (dist_path, is_flat) = if components.is_empty() {
-            (v.url().to_string(), true)
+            (format!("{}/{}", v.url(), suite), true)
         } else {
             (v.dist_path(), false)
         };
 
         let options = v.options.as_deref().unwrap_or_default();
 
-        let options = options.split_whitespace().collect::<Vec<_>>();
+        let options = options.split(',').collect::<Vec<_>>();
 
         let signed_by = options.iter().find_map(|x| {
             x.split_once('=').and_then(|x| {
@@ -212,10 +217,16 @@ impl<'a> OmaRefresh<'a> {
         }
 
         let is_inrelease_map = self
-            .get_is_inrelease_map(&sourcelist, self.client, &m, &callback)
+            .get_is_inrelease_map(&sourcelist, &m, &callback)
             .await?;
 
+        let mut download_list = vec![];
+
         let tasks = self.collect_download_release_tasks(&sourcelist, &m, is_inrelease_map)?;
+
+        for i in &tasks {
+            download_list.push(i.filename.to_string());
+        }
 
         let release_results = OmaFetcher::new(self.client, tasks, self.limit)?
             .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
@@ -229,6 +240,13 @@ impl<'a> OmaRefresh<'a> {
             .collect_all_release_entry(all_inrelease, &sourcelist, &m)
             .await?;
 
+        for i in &tasks {
+            download_list.push(i.filename.to_string());
+        }
+
+        let download_dir = self.download_dir.clone();
+        tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
+
         let res = OmaFetcher::new(self.client, tasks, self.limit)?
             .start_download(|count, event| callback(count, RefreshEvent::from(event), Some(total)))
             .await;
@@ -241,7 +259,6 @@ impl<'a> OmaRefresh<'a> {
     async fn get_is_inrelease_map<F>(
         &self,
         sourcelist: &[OmaSourceEntry],
-        client: &Client,
         m: &Option<HashMap<String, MirrorMapItem>>,
         callback: &F,
     ) -> Result<HashMap<usize, bool>>
@@ -250,43 +267,88 @@ impl<'a> OmaRefresh<'a> {
     {
         let mut tasks = vec![];
 
+        let mut mirrors_inrelease = HashMap::new();
+
         for (i, c) in sourcelist.iter().enumerate() {
-            let resp1 = client
-                .head(format!("{}/InRelease", c.dist_path))
-                .send()
-                .map(move |x| (x.and_then(|x| x.error_for_status()), i));
+            match c.from {
+                OmaSourceEntryFrom::Http => {
+                    let resp1 = self
+                        .client
+                        .head(format!("{}/InRelease", c.dist_path))
+                        .send()
+                        .map(move |x| (x.and_then(|x| x.error_for_status()), i));
 
-            let resp2 = client
-                .head(format!("{}/Release", c.dist_path))
-                .send()
-                .map(move |x| (x.and_then(|x| x.error_for_status()), i));
+                    let resp2 = self
+                        .client
+                        .head(format!("{}/Release", c.dist_path))
+                        .send()
+                        .map(move |x| (x.and_then(|x| x.error_for_status()), i));
 
-            let event = RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
-                "({}/{}) {}",
-                i,
-                sourcelist.len(),
-                human_download_url(&c.dist_path, m)?
-            )));
+                    let event =
+                        RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
+                            "({}/{}) {}",
+                            i,
+                            sourcelist.len(),
+                            human_download_url(&c.dist_path, m)?
+                        )));
 
-            let cc = callback.clone();
+                    let cc = callback.clone();
 
-            let task = async move {
-                cc(i, event, None);
-                let res = join(resp1, resp2).await;
-                cc(
-                    i,
-                    RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
-                    None,
-                );
-                res
-            };
+                    let task = async move {
+                        cc(i, event, None);
+                        let res = join(resp1, resp2).await;
+                        cc(
+                            i,
+                            RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
+                            None,
+                        );
+                        res
+                    };
 
-            tasks.push(task);
+                    tasks.push(task);
+                }
+                OmaSourceEntryFrom::Local => {
+                    let event =
+                        RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
+                            "({}/{}) {}",
+                            i,
+                            sourcelist.len(),
+                            human_download_url(&c.dist_path, m)?
+                        )));
+
+                    callback(i, event, None);
+
+                    let p1 = Path::new(&c.dist_path).join("InRelease");
+                    let p2 = Path::new(&c.dist_path).join("Release");
+
+                    if p1.exists() {
+                        mirrors_inrelease.insert(i, true);
+                    } else if p2.exists() {
+                        mirrors_inrelease.insert(i, false);
+                    } else {
+                        callback(
+                            i,
+                            RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
+                            None,
+                        );
+                        #[cfg(feature = "aosc")]
+                        // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
+                        mirrors_inrelease.insert(i, true);
+                        #[cfg(not(feature = "aosc"))]
+                        return Err(RefreshError::NoInReleaseFile(c.dist_path.clone()));
+                    }
+
+                    callback(
+                        i,
+                        RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
+                        None,
+                    );
+                }
+            }
         }
 
         let stream = futures::stream::iter(tasks).buffer_unordered(self.limit.unwrap_or(4));
         let res = stream.collect::<Vec<_>>().await;
-        let mut mirrors_inrelease = HashMap::new();
 
         for i in res {
             if let (Ok(_), j) = i.0 {
@@ -299,6 +361,11 @@ impl<'a> OmaRefresh<'a> {
                 continue;
             }
 
+            #[cfg(feature = "aosc")]
+            // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
+            mirrors_inrelease.insert(i.0 .1, true);
+
+            #[cfg(not(feature = "aosc"))]
             return Err(RefreshError::NoInReleaseFile(
                 sourcelist[i.0 .1].dist_path.clone(),
             ));
@@ -318,9 +385,25 @@ impl<'a> OmaRefresh<'a> {
             let is_inrelease = *is_inrelease_map.get(&i).unwrap();
 
             let uri = if is_inrelease {
-                format!("{}/InRelease", source_entry.dist_path)
+                format!(
+                    "{}{}InRelease",
+                    source_entry.dist_path,
+                    if !source_entry.dist_path.ends_with('/') {
+                        "/"
+                    } else {
+                        ""
+                    }
+                )
             } else {
-                format!("{}/Release", source_entry.dist_path)
+                format!(
+                    "{}{}Release",
+                    source_entry.dist_path,
+                    if !source_entry.dist_path.ends_with('/') {
+                        "/"
+                    } else {
+                        ""
+                    }
+                )
             };
 
             let msg = human_download_url(&uri, m)?;
@@ -399,22 +482,20 @@ impl<'a> OmaRefresh<'a> {
 
         #[cfg(feature = "aosc")]
         {
-            if !not_found.is_empty() {
-                let removed_suites =
-                    oma_topics::scan_closed_topic(handle_topic_msg, &self.source, &self.arch)
-                        .await?;
-                for url in not_found {
-                    let suite = url
-                        .path_segments()
-                        .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
-                        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+            let removed_suites =
+                oma_topics::scan_closed_topic(handle_topic_msg, &self.source, &self.arch).await?;
 
-                    if !removed_suites.contains(&suite) {
-                        return Err(RefreshError::NoInReleaseFile(url.to_string()));
-                    }
+            for url in not_found {
+                let suite = url
+                    .path_segments()
+                    .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
+                    .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
 
-                    callback(0, RefreshEvent::ClosingTopic(suite), None);
+                if !removed_suites.contains(&suite) {
+                    return Err(RefreshError::NoInReleaseFile(url.to_string()));
                 }
+
+                callback(0, RefreshEvent::ClosingTopic(suite), None);
             }
         }
 
@@ -437,15 +518,15 @@ impl<'a> OmaRefresh<'a> {
             debug!("Getted oma source entry: {:#?}", ose);
             let inrelease_path = self.download_dir.join(&*inrelease_summary.filename);
 
-            let s = tokio::fs::read_to_string(&inrelease_path)
+            let inrelease = tokio::fs::read_to_string(&inrelease_path)
                 .await
                 .map_err(|e| {
                     RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
                 })?;
 
             let inrelease = InRelease {
-                inrelease: &s,
-                trust_files: ose.signed_by.as_deref(),
+                inrelease: &inrelease,
+                signed_by: ose.signed_by.as_deref(),
                 mirror: urlc,
                 arch: &self.arch,
                 is_flat: ose.is_flat,
@@ -484,7 +565,7 @@ impl<'a> OmaRefresh<'a> {
                 handle
             } else {
                 let mut handle = vec![];
-                let mut handle_file_types = vec![];
+                let mut handle_file_name = vec![];
                 for i in &checksums {
                     match &i.file_type {
                         DistFileType::BinaryContents => {
@@ -492,35 +573,46 @@ impl<'a> OmaRefresh<'a> {
                             handle.push(i);
                             total += i.size;
                         }
-                        DistFileType::Contents | DistFileType::PackageList => continue,
-                        DistFileType::CompressContents(_) => {
-                            debug!(
-                                "oma will download compress Package List/compress Contetns: {}",
-                                i.name
-                            );
+                        DistFileType::Contents | DistFileType::PackageList
+                            if !self.download_compress =>
+                        {
+                            debug!("oma will download Package List/Contents: {}", i.name);
+                            handle.push(i);
+                            total += i.size;
+                        }
+                        DistFileType::CompressContents(name, _) => {
+                            if self.download_compress {
+                                debug!(
+                                    "oma will download compress Package List/compress Contetns: {}",
+                                    i.name
+                                );
 
-                            if !handle.contains(&i) && !handle_file_types.contains(&&i.file_type) {
-                                handle.push(i);
-                                handle_file_types.push(&i.file_type);
-                                total += i.size;
+                                if !handle_file_name.contains(&name) {
+                                    handle.push(i);
+                                    handle_file_name.push(name);
+                                    total += i.size;
+                                }
                             }
                         }
-                        DistFileType::CompressPackageList(s) => {
-                            debug!(
-                                "oma will download compress Package List/compress Contetns: {}",
-                                i.name
-                            );
+                        DistFileType::CompressPackageList(name, _) => {
+                            if self.download_compress {
+                                debug!(
+                                    "oma will download compress Package List/compress Contetns: {}",
+                                    i.name
+                                );
 
-                            if !handle.contains(&i) && !handle_file_types.contains(&&i.file_type) {
-                                handle_file_types.push(&i.file_type);
-                                handle.push(i);
-                                let size = checksums
-                                    .iter()
-                                    .find(|x| &x.name == s)
-                                    .map(|x| x.size)
-                                    .unwrap_or(i.size);
+                                if !handle_file_name.contains(&name) {
+                                    handle.push(i);
+                                    handle_file_name.push(name);
+                                    let size = checksums
+                                        .iter()
+                                        .find_map(
+                                            |x| if x.name == *name { Some(x.size) } else { None },
+                                        )
+                                        .unwrap_or(i.size);
 
-                                total += size;
+                                    total += size;
+                                }
                             }
                         }
                         _ => continue,
@@ -547,6 +639,25 @@ impl<'a> OmaRefresh<'a> {
     }
 }
 
+async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> Result<()> {
+    let mut download_dir = read_dir(&download_dir)
+        .await
+        .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
+
+    while let Ok(Some(x)) = download_dir.next_entry().await {
+        if x.path().is_file()
+            && !download_list.contains(&x.file_name().to_string_lossy().to_string())
+        {
+            debug!("Removing {:?}", x.file_name());
+            if let Err(e) = tokio::fs::remove_file(x.path()).await {
+                debug!("Failed to remove file {:?}: {e}", x.file_name());
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[derive(Debug)]
 pub enum RefreshEvent {
     DownloadEvent(DownloadEvent),
@@ -569,9 +680,9 @@ fn collect_download_task(
     acquire_by_hash: bool,
 ) -> Result<()> {
     let (typ, not_compress_filename_before) = match &c.file_type {
-        DistFileType::CompressContents(s) => ("Contents", s),
+        DistFileType::CompressContents(s, _) => ("Contents", s),
         DistFileType::Contents => ("Contents", &c.name),
-        DistFileType::CompressPackageList(s) => ("Package List", s),
+        DistFileType::CompressPackageList(s, _) => ("Package List", s),
         DistFileType::PackageList => ("Package List", &c.name),
         DistFileType::BinaryContents => ("BinContents", &c.name),
         _ => unreachable!(),
@@ -586,7 +697,7 @@ fn collect_download_task(
         OmaSourceEntryFrom::Local => DownloadSourceType::Local,
     };
 
-    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_)) {
+    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _)) {
         Some(&c.checksum)
     } else {
         checksums
@@ -608,8 +719,10 @@ fn collect_download_task(
 
     let sources = vec![DownloadSource::new(download_url.clone(), from)];
 
-    let file_path = if let DistFileType::CompressContents(_) = c.file_type {
+    let file_path = if let DistFileType::CompressContents(_, _) = c.file_type {
         download_url.clone()
+    } else if dist_url.ends_with('/') {
+        format!("{}{}", dist_url, not_compress_filename_before)
     } else {
         format!("{}/{}", dist_url, not_compress_filename_before)
     };
@@ -624,12 +737,12 @@ fn collect_download_task(
         DistFileType::BinaryContents => CompressFile::Nothing,
         DistFileType::Contents => CompressFile::Nothing,
         // 不解压 Contents
-        DistFileType::CompressContents(_) => CompressFile::Nothing,
+        DistFileType::CompressContents(_, _) => CompressFile::Nothing,
         DistFileType::PackageList => CompressFile::Nothing,
-        DistFileType::CompressPackageList(_) => {
+        DistFileType::CompressPackageList(_, _) => {
             match Path::new(&c.name).extension().and_then(|x| x.to_str()) {
                 Some("gz") => CompressFile::Gzip,
-                Some("xz2") => CompressFile::Xz,
+                Some("xz") => CompressFile::Xz,
                 Some("bz2") => CompressFile::Bz2,
                 Some(x) => {
                     debug!("unsupport file type: {x}");

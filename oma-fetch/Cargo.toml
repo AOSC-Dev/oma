@@ -1,6 +1,6 @@
 [package]
 name = "oma-fetch"
-version = "0.10.0"
+version = "0.10.1"
 edition = "2021"
 description = "A downloader to help oma download something"
 license = "MIT"
@@ -9,10 +9,10 @@ license = "MIT"
 
 [dependencies]
 thiserror = "1.0"
-reqwest = { version = "0.12", default_features = false, features = ["stream"] }
-tokio = { version = "1.28", default_features = false, features = ["fs"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream"] }
+tokio = { version = "1.28", default-features = false, features = ["fs"] }
 serde = { version = "1.0", features = ["derive"] }
-hex = "0.4"
+faster-hex = "0.9"
 sha2 = "0.10"
 futures = "0.3"
 derive_builder = "0.20"

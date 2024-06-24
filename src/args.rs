@@ -148,7 +148,6 @@ pub fn command_builder() -> Command {
                 .alias("dist-upgrade")
                 .alias("full-upgrade")
                 .about("Upgrade packages installed on the system")
-                .arg(&no_autoremove)
                 .arg(pkgs.clone().help("Package(s) to upgrade"))
                 .arg(&yes)
                 .arg(&force_yes)
@@ -177,8 +176,9 @@ pub fn command_builder() -> Command {
         .subcommand(
             Command::new("remove")
                 .alias("delete")
+                .alias("autoremove")
                 .about("Remove the specified package(s)")
-                .arg(pkgs.clone().required(true).help("Package(s) to remove"))
+                .arg(pkgs.clone().help("Package(s) to remove"))
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(no_autoremove.clone().requires("packages"))
@@ -312,7 +312,19 @@ pub fn command_builder() -> Command {
                         .help("List only package(s) with update(s) available")
                         .action(ArgAction::SetTrue),
                 )
-                .about("List package(s) available from the repository"),
+                .arg(
+                    Arg::new("manually-installed")
+                        .short('m')
+                        .long("manually-installed")
+                        .help("List only package(s) with manually installed")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("automatic")
+                    .long("automatic")
+                    .help("List only package(s) with automatic installed")
+                    .action(ArgAction::SetTrue))
+                    .about("List package(s) available from the repository"),
         )
         .subcommand(
             Command::new("depends")

@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.13.13
+
+## [oma-refresh-v0.14.1] - 2024-05-29
+
+### 🚀 Features
+
+- Allow `oma remove` no argument to autoremove unnecessary pkg ...
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix `oma refresh` fetch file source will failed
+- `--no-autoremove` from `oma upgrade` is obsolete
+- *(oma-refresh)* Avoid `is_inrelease_map` failed with `aosc` feature
+
+### ⚙️ Miscellaneous Tasks
+
+- Update all deps
+- Add create pr pipeline step
+- Do not auto crate release log
+- *(oma-refresh)* Release oma-refresh-v0.14.1
+
+## [1.3.12] - 2024-05-27
+
+### 🚀 Features
+
+- *(oma-pm)* Support `oma install foo:bar`, like: `oma install fish:amd64`
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix build with `generic` feature
+- Fix pick will panic if pkg version uris is empty
+
+### 🚜 Refactor
+
+- *(oma-pm)* No need to `Collect` iter
+- *(oma-pm)* No need to clone String
+- Replace all `glob_match::glob_match_with_captures().is_some` to `glob_match::glob_match`
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.3.12
+
+## [oma-pm-v0.19.0] - 2024-05-24
+
+### ⚙️ Miscellaneous Tasks
+
+- Release oma-pm-v0.19.0
+
+## [oma-refresh-v0.14.0] - 2024-05-24
+
 ### 🚀 Features
 
 - *(oma-topics)* Add atm state file deserialize failed debug info
@@ -46,6 +98,7 @@ All notable changes to this project will be documented in this file.
 
 - Add create pr label
 - Add `generic` feature ...
+- Release oma-fetch-v0.10.0 oma-refresh-v0.14.0 oma-pm-v0.18.13
 
 ### I18n
 
@@ -544,7 +597,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - *(oma-refresh)* Fix cleartext-signed repositories
-- *(oma-refresh)* Add default_features = false for sequoia-openpgp
+- *(oma-refresh)* Add default-features = false for sequoia-openpgp
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -722,7 +775,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - *(oma-refresh)* Fix cleartext-signed repositories
-- *(oma-refresh)* Add default_features = false for sequoia-openpgp
+- *(oma-refresh)* Add default-features = false for sequoia-openpgp
 
 ### ⚙️ Miscellaneous Tasks
 

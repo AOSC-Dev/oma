@@ -12,6 +12,8 @@ pub(crate) fn database_filename(url: &str) -> String {
         .unwrap_or(url)
         .replace('/', "_")
         .replace('+', "%252b")
+        .replace("%3a", ":")
+        .replace("%3A", ":")
 }
 
 #[derive(Deserialize)]
@@ -96,5 +98,10 @@ fn test_database_filename() {
     assert_eq!(
         res,
         "repo.aosc.io_debs_dists_x264-0%252bgit20240305_InRelease"
-    )
+    );
+
+    let s = "https://ci.deepin.com/repo/obs/deepin%3A/CI%3A/TestingIntegration%3A/test-integration-pr-1537/testing/./Packages";
+    let res = database_filename(s);
+
+    assert_eq!(res, "ci.deepin.com_repo_obs_deepin:_CI:_TestingIntegration:_test-integration-pr-1537_testing_._Packages")
 }

@@ -24,9 +24,9 @@ pub struct ChecksumItem {
 pub enum DistFileType {
     BinaryContents,
     Contents,
-    CompressContents(String),
+    CompressContents(String, String),
     PackageList,
-    CompressPackageList(String),
+    CompressPackageList(String, String),
     Release,
 }
 
@@ -58,7 +58,7 @@ pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
 
 pub struct InRelease<'a> {
     pub inrelease: &'a str,
-    pub trust_files: Option<&'a str>,
+    pub signed_by: Option<&'a str>,
     pub mirror: &'a str,
     pub arch: &'a str,
     pub is_flat: bool,
@@ -71,8 +71,8 @@ impl InReleaseParser {
     pub fn new(in_release: InRelease<'_>) -> InReleaseParserResult<Self> {
         let InRelease {
             inrelease: s,
-            trust_files,
-            mirror,
+            signed_by,
+            mirror: _,
             arch,
             is_flat,
             p,
@@ -81,7 +81,7 @@ impl InReleaseParser {
         } = in_release;
 
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-            Cow::Owned(verify::verify(s, trust_files, mirror, rootfs)?)
+            Cow::Owned(verify::verify(s, signed_by, rootfs)?)
         } else {
             Cow::Borrowed(s)
         };
@@ -139,7 +139,7 @@ impl InReleaseParser {
             .take()
             .ok_or_else(|| InReleaseParserError::BadSha256Value(p.display().to_string()))?;
 
-        let mut checksums = sha256.split('\n');
+        let mut checksums = sha256.lines();
 
         // remove first item, It's empty
         checksums.next();
@@ -196,14 +196,16 @@ impl InReleaseParser {
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
                 x if x.contains("Contents-") && file_is_compress(x) && !x.contains("udeb") => {
-                    DistFileType::CompressContents(x.split_once('.').unwrap().0.to_string())
+                    let s = x.split_once('.').unwrap();
+                    DistFileType::CompressContents(s.0.to_string(), s.1.to_string())
                 }
                 x if x.contains("Contents-") && !x.contains('.') && !x.contains("udeb") => {
                     DistFileType::Contents
                 }
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
                 x if x.contains("Packages") && file_is_compress(x) => {
-                    DistFileType::CompressPackageList(x.split_once('.').unwrap().0.to_string())
+                    let s = x.split_once('.').unwrap();
+                    DistFileType::CompressPackageList(s.0.to_string(), s.1.to_string())
                 }
                 x if x.contains("Release") => DistFileType::Release,
                 x => {
