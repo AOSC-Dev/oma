@@ -181,20 +181,20 @@ pub struct OmaRefresh<'a> {
 }
 
 impl<'a> OmaRefresh<'a> {
-    pub async fn start<F, F2>(self, callback: F, handle_topic_msg: F2) -> Result<()>
+    pub async fn start<F, F2>(self, _callback: F, _handle_topic_msg: F2) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
-        self.update_db(get_sources(&self.source)?, callback, handle_topic_msg)
+        self.update_db(get_sources(&self.source)?, _callback, _handle_topic_msg)
             .await
     }
 
     async fn update_db<F, F2>(
         &self,
         sourcelist: Vec<OmaSourceEntry>,
-        callback: F,
-        handle_topic_msg: F2,
+        _callback: F,
+        _handle_topic_msg: F2,
     ) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
@@ -217,7 +217,7 @@ impl<'a> OmaRefresh<'a> {
         }
 
         let is_inrelease_map = self
-            .get_is_inrelease_map(&sourcelist, &m, &callback)
+            .get_is_inrelease_map(&sourcelist, &m, &_callback)
             .await?;
 
         let mut download_list = vec![];
@@ -229,11 +229,11 @@ impl<'a> OmaRefresh<'a> {
         }
 
         let release_results = OmaFetcher::new(self.client, tasks, self.limit)?
-            .start_download(|c, event| callback(c, RefreshEvent::from(event), None))
+            .start_download(|c, event| _callback(c, RefreshEvent::from(event), None))
             .await;
 
         let all_inrelease = self
-            .handle_downloaded_release_result(release_results, callback.clone(), handle_topic_msg)
+            .handle_downloaded_release_result(release_results, _callback.clone(), _handle_topic_msg)
             .await?;
 
         let (tasks, total) = self
@@ -248,7 +248,7 @@ impl<'a> OmaRefresh<'a> {
         tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
 
         let res = OmaFetcher::new(self.client, tasks, self.limit)?
-            .start_download(|count, event| callback(count, RefreshEvent::from(event), Some(total)))
+            .start_download(|count, event| _callback(count, RefreshEvent::from(event), Some(total)))
             .await;
 
         res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
@@ -437,8 +437,8 @@ impl<'a> OmaRefresh<'a> {
     async fn handle_downloaded_release_result<F, F2>(
         &self,
         res: Vec<std::result::Result<Summary, DownloadError>>,
-        callback: F,
-        handle_topic_msg: F2,
+        _callback: F,
+        _handle_topic_msg: F2,
     ) -> Result<Vec<Summary>>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
@@ -483,7 +483,7 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(feature = "aosc")]
         {
             let removed_suites =
-                oma_topics::scan_closed_topic(handle_topic_msg, &self.source, &self.arch).await?;
+                oma_topics::scan_closed_topic(_handle_topic_msg, &self.source, &self.arch).await?;
 
             for url in not_found {
                 let suite = url
@@ -495,7 +495,7 @@ impl<'a> OmaRefresh<'a> {
                     return Err(RefreshError::NoInReleaseFile(url.to_string()));
                 }
 
-                callback(0, RefreshEvent::ClosingTopic(suite), None);
+                _callback(0, RefreshEvent::ClosingTopic(suite), None);
             }
         }
 

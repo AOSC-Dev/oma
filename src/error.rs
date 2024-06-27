@@ -475,6 +475,10 @@ impl From<RefreshError> for OutputError {
                 description: fl!("failed-to-operate-path", p = path),
                 source: Some(Box::new(e)),
             },
+            RefreshError::ReadDownloadDir(_, e) => Self {
+                description: e.to_string(),
+                source: Some(Box::new(e)),
+            },
         }
     }
 }
