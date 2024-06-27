@@ -15,9 +15,9 @@ use crossterm::{
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Layout},
-    style::Stylize,
+    style::{Color, Stylize},
     text::Text,
-    widgets::{Block, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
     Frame, Terminal,
 };
 
@@ -36,7 +36,7 @@ impl Pager {
     }
 
     pub fn external<D: Display + AsRef<OsStr>>(tips: D) -> io::Result<Self> {
-        let app = OmaPager::new();
+        let app = OmaPager::new(tips);
         let res = Pager::External(app);
 
         Ok(res)
@@ -100,6 +100,7 @@ pub struct OmaPager {
     horizontal_scroll: usize,
     text: Option<Text<'static>>,
     area_heigh: u16,
+    tips: String,
 }
 
 impl Write for OmaPager {
@@ -134,7 +135,7 @@ impl ratatui::widgets::Widget for OmaPagerWidget {
 }
 
 impl OmaPager {
-    pub fn new() -> Self {
+    pub fn new(tips: impl Display + AsRef<OsStr>) -> Self {
         Self {
             inner: String::new(),
             vertical_scroll_state: ScrollbarState::new(0),
@@ -143,6 +144,7 @@ impl OmaPager {
             horizontal_scroll: 0,
             text: None,
             area_heigh: 0,
+            tips: tips.to_string(),
         }
     }
 
@@ -217,7 +219,12 @@ impl OmaPager {
 
     fn ui(&mut self, f: &mut Frame) {
         let size = f.size();
-        let chunks = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).split(size);
+        let chunks = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ])
+        .split(size);
 
         let inner = self.inner.lines().collect::<Vec<_>>();
         let weight = inner.iter().map(|x| x.len()).max().unwrap_or(1);
@@ -237,6 +244,7 @@ impl OmaPager {
             },
             chunks[1],
         );
+
         f.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some("↑"))
@@ -244,7 +252,25 @@ impl OmaPager {
             chunks[1],
             &mut self.vertical_scroll_state,
         );
+
         self.area_heigh = chunks[1].height;
+
+        f.render_widget(
+            OmaPagerWidget {
+                text: self.text.clone().unwrap(),
+                offset: self.vertical_scroll,
+            },
+            chunks[1],
+        );
+
+        f.render_widget(
+            Paragraph::new(
+                Text::from(self.tips.clone())
+                    .bg(Color::White)
+                    .fg(Color::Black),
+            ),
+            chunks[2],
+        );
     }
 }
 
@@ -263,7 +289,7 @@ fn test_oma_pager() {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
     let tick_rate = Duration::from_millis(250);
-    let mut app = OmaPager::new();
+    let mut app = OmaPager::new("123");
     app.write_all(b"Hello\noma").unwrap();
     app.run(&mut terminal, tick_rate).unwrap();
 
