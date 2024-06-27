@@ -17,7 +17,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout},
     style::Stylize,
     text::Text,
-    widgets::{Block, Paragraph, ScrollbarState},
+    widgets::{Block, Scrollbar, ScrollbarOrientation, ScrollbarState},
     Frame, Terminal,
 };
 
@@ -116,17 +116,13 @@ impl Write for OmaPager {
 
 struct OmaPagerWidget {
     text: Text<'static>,
+    offset: usize,
 }
 
 impl ratatui::widgets::Widget for OmaPagerWidget {
     fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
-        // Create a Block
-        let _block = ratatui::widgets::Block::default()
-            .title("Bat Output")
-            .borders(ratatui::widgets::Borders::ALL);
-
         // Render each line
-        for (i, line) in self.text.lines.iter().enumerate() {
+        for (i, line) in self.text.lines.iter().skip(self.offset).enumerate() {
             if i < area.height as usize {
                 buf.set_line(area.x, area.y + i as u16, line, area.width);
             } else {
@@ -221,8 +217,16 @@ impl OmaPager {
         f.render_widget(
             OmaPagerWidget {
                 text: self.text.clone().unwrap(),
+                offset: self.vertical_scroll,
             },
             chunks[1],
+        );
+        f.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(Some("↑"))
+                .end_symbol(Some("↓")),
+            chunks[1],
+            &mut self.vertical_scroll_state,
         );
     }
 }
