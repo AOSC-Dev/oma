@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::io::Write;
 use std::sync::atomic::Ordering;
 
-use crate::console::{style, Color};
+use crate::console::style;
 use crate::error::OutputError;
 use crate::{fl, ALLOWCTRLC};
 use oma_console::indicatif::HumanBytes;
@@ -109,7 +109,7 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
     let pager = if len < WRITER.get_height().into() {
         Pager::plain()
     } else {
-        Pager::external(tips).map_err(|e| OutputError {
+        Pager::external(tips, &fl!("pending-op")).map_err(|e| OutputError {
             description: "Failed to get pager".to_string(),
             source: Some(Box::new(e)),
         })?
@@ -186,7 +186,7 @@ pub fn table_for_install_pending(
     let tips = less_tips(true);
 
     let mut pager = if is_pager {
-        Pager::external(tips).map_err(|e| OutputError {
+        Pager::external(tips, &fl!("pending-op")).map_err(|e| OutputError {
             description: "Failed to get pager".to_string(),
             source: Some(Box::new(e)),
         })?
@@ -232,7 +232,7 @@ pub fn table_for_history_pending(
 ) -> Result<(), OutputError> {
     let tips = less_tips(false);
 
-    let mut pager = Pager::external(tips).map_err(|e| OutputError {
+    let mut pager = Pager::external(tips, &fl!("pending-op")).map_err(|e| OutputError {
         description: "Failed to get pager".to_string(),
         source: Some(Box::new(e)),
     })?;
@@ -411,15 +411,6 @@ fn print_pending_inner<W: Write>(
 }
 
 fn review_msg<W: Write>(printer: &mut PagerPrinter<W>, pager_name: Option<&str>) {
-    if pager_name == Some("less") {
-        printer
-            .print(format!(
-                "{:<80}",
-                style(fl!("pending-op")).bold().bg(Color::Color256(25))
-            ))
-            .ok();
-    }
-
     printer.print("").ok();
     printer.print(format!("{}\n", fl!("review-msg"))).ok();
     printer

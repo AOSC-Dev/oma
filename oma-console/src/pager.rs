@@ -35,8 +35,8 @@ impl Pager {
         Self::Plain
     }
 
-    pub fn external<D: Display + AsRef<OsStr>>(tips: D) -> io::Result<Self> {
-        let app = OmaPager::new(tips);
+    pub fn external<D: Display + AsRef<OsStr>>(tips: D, title: &str) -> io::Result<Self> {
+        let app = OmaPager::new(tips, title);
         let res = Pager::External(app);
 
         Ok(res)
@@ -101,6 +101,7 @@ pub struct OmaPager {
     text: Option<Text<'static>>,
     area_heigh: u16,
     tips: String,
+    title: String,
 }
 
 impl Write for OmaPager {
@@ -135,7 +136,7 @@ impl ratatui::widgets::Widget for OmaPagerWidget {
 }
 
 impl OmaPager {
-    pub fn new(tips: impl Display + AsRef<OsStr>) -> Self {
+    pub fn new(tips: impl Display + AsRef<OsStr>, title: &str) -> Self {
         Self {
             inner: String::new(),
             vertical_scroll_state: ScrollbarState::new(0),
@@ -145,6 +146,7 @@ impl OmaPager {
             text: None,
             area_heigh: 0,
             tips: tips.to_string(),
+            title: title.to_string(),
         }
     }
 
@@ -234,7 +236,10 @@ impl OmaPager {
 
         let title = Block::new()
             .title_alignment(Alignment::Left)
-            .title("oma".bold());
+            .title(self.title.clone())
+            .fg(Color::White)
+            .bg(Color::Indexed(25));
+
         f.render_widget(title, chunks[0]);
 
         f.render_widget(
@@ -289,7 +294,7 @@ fn test_oma_pager() {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
     let tick_rate = Duration::from_millis(250);
-    let mut app = OmaPager::new("123");
+    let mut app = OmaPager::new("123", "456");
     app.write_all(b"Hello\noma").unwrap();
     app.run(&mut terminal, tick_rate).unwrap();
 
