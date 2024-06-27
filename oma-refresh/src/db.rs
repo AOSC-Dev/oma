@@ -573,11 +573,6 @@ impl<'a> OmaRefresh<'a> {
                             handle.push(i);
                             total += i.size;
                         }
-                        DistFileType::Contents | DistFileType::PackageList => {
-                            debug!("oma will download Package List/Contents: {}", i.name);
-                            handle.push(i);
-                            total += i.size;
-                        }
                         DistFileType::CompressContents(name, _) => {
                             debug!(
                                 "oma will download compress Package List/compress Contetns: {}",
