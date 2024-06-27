@@ -573,46 +573,38 @@ impl<'a> OmaRefresh<'a> {
                             handle.push(i);
                             total += i.size;
                         }
-                        DistFileType::Contents | DistFileType::PackageList
-                            if !self.download_compress =>
-                        {
+                        DistFileType::Contents | DistFileType::PackageList => {
                             debug!("oma will download Package List/Contents: {}", i.name);
                             handle.push(i);
                             total += i.size;
                         }
                         DistFileType::CompressContents(name, _) => {
-                            if self.download_compress {
-                                debug!(
-                                    "oma will download compress Package List/compress Contetns: {}",
-                                    i.name
-                                );
+                            debug!(
+                                "oma will download compress Package List/compress Contetns: {}",
+                                i.name
+                            );
 
-                                if !handle_file_name.contains(&name) {
-                                    handle.push(i);
-                                    handle_file_name.push(name);
-                                    total += i.size;
-                                }
+                            if !handle_file_name.contains(&name) {
+                                handle.push(i);
+                                handle_file_name.push(name);
+                                total += i.size;
                             }
                         }
                         DistFileType::CompressPackageList(name, _) => {
-                            if self.download_compress {
-                                debug!(
-                                    "oma will download compress Package List/compress Contetns: {}",
-                                    i.name
-                                );
+                            debug!(
+                                "oma will download compress Package List/compress Contetns: {}",
+                                i.name
+                            );
 
-                                if !handle_file_name.contains(&name) {
-                                    handle.push(i);
-                                    handle_file_name.push(name);
-                                    let size = checksums
-                                        .iter()
-                                        .find_map(
-                                            |x| if x.name == *name { Some(x.size) } else { None },
-                                        )
-                                        .unwrap_or(i.size);
+                            if !handle_file_name.contains(&name) {
+                                handle.push(i);
+                                handle_file_name.push(name);
+                                let size = checksums
+                                    .iter()
+                                    .find_map(|x| if x.name == *name { Some(x.size) } else { None })
+                                    .unwrap_or(i.size);
 
-                                    total += size;
-                                }
+                                total += size;
                             }
                         }
                         _ => continue,
