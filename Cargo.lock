@@ -2962,6 +2962,7 @@ dependencies = [
 name = "oma-console"
 version = "0.11.0"
 dependencies = [
+ "ansi-to-tui",
  "console",
  "crossterm 0.27.0",
  "icu_segmenter",

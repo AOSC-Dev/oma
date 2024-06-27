@@ -6,6 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use ansi_to_tui::IntoText;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
@@ -15,8 +16,8 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Layout},
     style::Stylize,
-    text::Line,
-    widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    text::Text,
+    widgets::{Block, Paragraph, ScrollbarState},
     Frame, Terminal,
 };
 
@@ -97,6 +98,7 @@ pub struct OmaPager {
     horizontal_scroll_state: ScrollbarState,
     vertical_scroll: usize,
     horizontal_scroll: usize,
+    text: Option<Text<'static>>,
 }
 
 impl Write for OmaPager {
@@ -112,6 +114,28 @@ impl Write for OmaPager {
     }
 }
 
+struct OmaPagerWidget {
+    text: Text<'static>,
+}
+
+impl ratatui::widgets::Widget for OmaPagerWidget {
+    fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+        // Create a Block
+        let _block = ratatui::widgets::Block::default()
+            .title("Bat Output")
+            .borders(ratatui::widgets::Borders::ALL);
+
+        // Render each line
+        for (i, line) in self.text.lines.iter().enumerate() {
+            if i < area.height as usize {
+                buf.set_line(area.x, area.y + i as u16, line, area.width);
+            } else {
+                break; // Stop rendering if we reach the limit of visible lines
+            }
+        }
+    }
+}
+
 impl OmaPager {
     pub fn new() -> Self {
         Self {
@@ -120,6 +144,7 @@ impl OmaPager {
             horizontal_scroll_state: ScrollbarState::new(0),
             vertical_scroll: 0,
             horizontal_scroll: 0,
+            text: None,
         }
     }
 
@@ -128,6 +153,13 @@ impl OmaPager {
         terminal: &mut Terminal<B>,
         tick_rate: Duration,
     ) -> io::Result<bool> {
+        let text = self
+            .inner
+            .into_text()
+            .map_err(|e| io::Error::new(ErrorKind::InvalidInput, e))?;
+
+        self.text = Some(text);
+
         let mut last_tick = Instant::now();
         loop {
             terminal.draw(|f| self.ui(f))?;
@@ -173,18 +205,12 @@ impl OmaPager {
 
     fn ui(&mut self, f: &mut Frame) {
         let size = f.size();
-        let chunks = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Min(0),
-            Constraint::Length(1),
-        ])
-        .split(size);
+        let chunks = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).split(size);
 
         let inner = self.inner.lines().collect::<Vec<_>>();
         let weight = inner.iter().map(|x| x.len()).max().unwrap_or(1);
-        let text: Vec<Line> = inner.into_iter().map(|x| Line::from(x)).collect();
 
-        self.vertical_scroll_state = self.vertical_scroll_state.content_length(text.len());
+        self.vertical_scroll_state = self.vertical_scroll_state.content_length(inner.len());
         self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(weight);
 
         let title = Block::new()
@@ -192,17 +218,11 @@ impl OmaPager {
             .title("oma".bold());
         f.render_widget(title, chunks[0]);
 
-        let paragraph = Paragraph::new(text)
-            .gray()
-            .block(Block::bordered().gray().title("Review".bold()))
-            .scroll((self.vertical_scroll as u16, 0));
-        f.render_widget(paragraph, chunks[1]);
-        f.render_stateful_widget(
-            Scrollbar::new(ScrollbarOrientation::VerticalRight)
-                .begin_symbol(Some("↑"))
-                .end_symbol(Some("↓")),
+        f.render_widget(
+            OmaPagerWidget {
+                text: self.text.clone().unwrap(),
+            },
             chunks[1],
-            &mut self.vertical_scroll_state,
         );
     }
 }
