@@ -178,9 +178,9 @@ pub fn table_for_install_pending(
     disk_size: &(String, u64),
     is_pager: bool,
     dry_run: bool,
-) -> Result<(), OutputError> {
+) -> Result<bool, OutputError> {
     if dry_run {
-        return Ok(());
+        return Ok(false);
     }
 
     let tips = less_tips(true);
@@ -219,9 +219,10 @@ pub fn table_for_install_pending(
         let mut printer = PagerPrinter::new(out);
         printer.print("").ok();
         print_pending_inner(printer, remove, install, disk_size);
+        return Ok(true);
     }
 
-    Ok(())
+    Ok(false)
 }
 
 pub fn table_for_history_pending(

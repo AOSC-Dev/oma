@@ -174,7 +174,11 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
 
     apt.check_disk_size()?;
 
-    table_for_install_pending(&install, &remove, &disk_size, !apt_args.yes(), dry_run)?;
+    let b = table_for_install_pending(&install, &remove, &disk_size, !apt_args.yes(), dry_run)?;
+
+    if !b {
+        return Ok(());
+    }
 
     let (mb, pb_map, global_is_set) = multibar();
 

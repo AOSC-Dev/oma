@@ -7,7 +7,7 @@ use std::{
 };
 
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -15,7 +15,7 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Layout},
     style::Stylize,
-    text::{Line, ToLine},
+    text::Line,
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
     Frame, Terminal,
 };
@@ -82,7 +82,7 @@ impl Pager {
             )?;
             terminal.show_cursor()?;
 
-            res.is_ok()
+            res.unwrap_or(false)
         } else {
             true
         };
@@ -127,15 +127,18 @@ impl OmaPager {
         &mut self,
         terminal: &mut Terminal<B>,
         tick_rate: Duration,
-    ) -> io::Result<()> {
+    ) -> io::Result<bool> {
         let mut last_tick = Instant::now();
         loop {
             terminal.draw(|f| self.ui(f))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
             if crossterm::event::poll(timeout)? {
                 if let Event::Key(key) = event::read()? {
+                    if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
+                        return Ok(false);
+                    }
                     match key.code {
-                        KeyCode::Char('q') => return Ok(()),
+                        KeyCode::Char('q') => return Ok(true),
                         KeyCode::Char('j') | KeyCode::Down => {
                             self.vertical_scroll = self.vertical_scroll.saturating_add(1);
                             self.vertical_scroll_state =
@@ -178,9 +181,8 @@ impl OmaPager {
         .split(size);
 
         let inner = self.inner.lines().collect::<Vec<_>>();
-        let text: Vec<Line> = inner.iter().map(|x| x.to_line()).collect();
-
         let weight = inner.iter().map(|x| x.len()).max().unwrap_or(1);
+        let text: Vec<Line> = inner.into_iter().map(|x| Line::from(x)).collect();
 
         self.vertical_scroll_state = self.vertical_scroll_state.content_length(text.len());
         self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(weight);
@@ -190,7 +192,7 @@ impl OmaPager {
             .title("oma".bold());
         f.render_widget(title, chunks[0]);
 
-        let paragraph = Paragraph::new(text.clone())
+        let paragraph = Paragraph::new(text)
             .gray()
             .block(Block::bordered().gray().title("Review".bold()))
             .scroll((self.vertical_scroll as u16, 0));

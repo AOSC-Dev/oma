@@ -106,7 +106,9 @@ pub fn execute(
         apt.check_disk_size()?;
 
         if retry_times == 1 {
-            table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run)?;
+            if !table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run)? {
+                return Ok(0);
+            }
         }
 
         let typ = SummaryType::Upgrade(
