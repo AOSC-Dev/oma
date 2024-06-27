@@ -99,6 +99,7 @@ pub struct OmaPager {
     vertical_scroll: usize,
     horizontal_scroll: usize,
     text: Option<Text<'static>>,
+    area_heigh: u16,
 }
 
 impl Write for OmaPager {
@@ -141,6 +142,7 @@ impl OmaPager {
             vertical_scroll: 0,
             horizontal_scroll: 0,
             text: None,
+            area_heigh: 0,
         }
     }
 
@@ -189,6 +191,20 @@ impl OmaPager {
                                 .horizontal_scroll_state
                                 .position(self.horizontal_scroll);
                         }
+                        KeyCode::PageUp => {
+                            self.vertical_scroll = self
+                                .vertical_scroll
+                                .saturating_sub(self.area_heigh as usize);
+                            self.vertical_scroll_state =
+                                self.vertical_scroll_state.position(self.vertical_scroll);
+                        }
+                        KeyCode::PageDown => {
+                            self.vertical_scroll = self
+                                .vertical_scroll
+                                .saturating_add(self.area_heigh as usize);
+                            self.vertical_scroll_state =
+                                self.vertical_scroll_state.position(self.vertical_scroll);
+                        }
                         _ => {}
                     }
                 }
@@ -228,6 +244,7 @@ impl OmaPager {
             chunks[1],
             &mut self.vertical_scroll_state,
         );
+        self.area_heigh = chunks[1].height;
     }
 }
 
