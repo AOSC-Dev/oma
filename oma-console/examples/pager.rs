@@ -1,10 +1,12 @@
-use oma_console::pager::Pager;
+use crossterm::style::Stylize;
+use oma_console::pager::{OmaPager, Pager};
 use std::io;
 
 fn main() -> io::Result<()> {
-    let mut p = Pager::plain();
+    let pager = OmaPager::new("PAP", Some("QAQ"));
+    let mut p = Pager::External(pager);
     let mut w = p.get_writer()?;
-    w.write_all(b"QAQ\n").ok();
+    w.write_all("QAQ\n".cyan().to_string().as_bytes()).ok();
     w.write_all(b"PAP").ok();
 
     drop(w);

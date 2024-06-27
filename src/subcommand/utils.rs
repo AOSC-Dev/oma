@@ -165,7 +165,7 @@ pub struct NormalCommitArgs {
     pub protect_essential: bool,
 }
 
-pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(), OutputError> {
+pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<i32, OutputError> {
     let NormalCommitArgs {
         mut apt,
         dry_run,
@@ -197,10 +197,12 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
     let disk_size = &op.disk_size;
 
     if check_empty_op(install, remove) {
-        return Ok(());
+        return Ok(0);
     }
 
-    table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)?;
+    if !table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)? {
+        return Ok(1);
+    }
 
     let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
         let pb = OmaProgressBar::new();
@@ -236,7 +238,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
                 start_time,
                 true,
             )?;
-            Ok(())
+            Ok(0)
         }
         Err(e) => {
             info!("{}", fl!("history-tips-2"));

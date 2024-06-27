@@ -81,11 +81,11 @@ pub fn execute(
         protect_essential: protect,
     };
 
-    normal_commit(args, &client)?;
+    let code = normal_commit(args, &client)?;
 
     drop(fds);
 
-    Ok(0)
+    Ok(code)
 }
 
 /// "Yes Do as I say" steps

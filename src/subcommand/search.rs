@@ -146,10 +146,10 @@ pub fn execute(
     }
 
     drop(writer);
-    pager.wait_for_exit().map_err(|e| OutputError {
+    let success = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait pager exit".to_string(),
         source: Some(Box::new(e)),
     })?;
 
-    Ok(0)
+    Ok(if success { 0 } else { 1 })
 }

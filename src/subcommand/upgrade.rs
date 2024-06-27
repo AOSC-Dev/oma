@@ -136,8 +136,8 @@ pub fn execute(
             return Ok(0);
         }
 
-        if retry_times == 1 {
-            table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
+        if retry_times == 1 && !table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)? {
+            return Ok(1);
         }
 
         let typ = SummaryType::Upgrade(

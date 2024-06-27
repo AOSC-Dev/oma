@@ -47,9 +47,9 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         protect_essential,
     };
 
-    normal_commit(args, &client)?;
+    let code = normal_commit(args, &client)?;
 
     drop(fds);
 
-    Ok(0)
+    Ok(code)
 }
