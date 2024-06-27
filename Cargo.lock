@@ -2963,9 +2963,11 @@ name = "oma-console"
 version = "0.11.0"
 dependencies = [
  "console",
+ "crossterm 0.27.0",
  "icu_segmenter",
  "indicatif",
  "once_cell",
+ "ratatui",
  "tracing",
  "tracing-subscriber",
 ]

@@ -14,9 +14,11 @@ once_cell = { version = "1.18", optional = true }
 icu_segmenter = { version = "1.3", optional = true }
 tracing = { version = "0.1", optional = true }
 tracing-subscriber =  { version = "0.3", optional = true }
+ratatui = { version = "0.27", optional = true }
+crossterm = {version = "0.27", optional = true}
 
 [features]
 print = ["dep:tracing", "dep:tracing-subscriber", "dep:icu_segmenter", "dep:console", "dep:once_cell"]
-pager = []
+pager = ["dep:ratatui", "dep:crossterm"]
 progress_bar_style = ["dep:indicatif"]
 default = ["print", "pager", "progress_bar_style"]

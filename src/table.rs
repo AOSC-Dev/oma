@@ -194,7 +194,6 @@ pub fn table_for_install_pending(
         Pager::plain()
     };
 
-    let pager_name = pager.pager_name().to_owned();
     let out = pager.get_writer().map_err(|e| OutputError {
         description: "Failed to get writer".to_string(),
         source: Some(Box::new(e)),
@@ -202,7 +201,7 @@ pub fn table_for_install_pending(
     let mut printer = PagerPrinter::new(out);
 
     if is_pager {
-        review_msg(&mut printer, pager_name);
+        review_msg(&mut printer, None);
     }
 
     print_pending_inner(printer, remove, install, disk_size);
@@ -212,7 +211,7 @@ pub fn table_for_install_pending(
     })?;
 
     if is_pager && success {
-        let pager = Pager::plain();
+        let mut pager = Pager::plain();
         let out = pager.get_writer().map_err(|e| OutputError {
             description: "Failed to wait exit".to_string(),
             source: Some(Box::new(e)),
