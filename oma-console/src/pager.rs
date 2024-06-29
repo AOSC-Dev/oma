@@ -58,22 +58,9 @@ impl Pager {
     /// Wait pager to exit
     pub fn wait_for_exit(&mut self) -> io::Result<bool> {
         let success = if let Pager::External(app) = self {
-            enable_raw_mode()?;
-            let mut stdout = io::stdout();
-            execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-            let backend = CrosstermBackend::new(stdout);
-            let mut terminal = Terminal::new(backend)?;
-            let tick_rate = Duration::from_millis(250);
-
-            let res = app.run(&mut terminal, tick_rate);
-
-            disable_raw_mode()?;
-            execute!(
-                terminal.backend_mut(),
-                LeaveAlternateScreen,
-                DisableMouseCapture
-            )?;
-            terminal.show_cursor()?;
+            let mut terminal = prepare_create_tui()?;
+            let res = app.run(&mut terminal, Duration::from_millis(250));
+            exit_tui(&mut terminal)?;
 
             res.unwrap_or(false)
         } else {
@@ -82,6 +69,31 @@ impl Pager {
 
         Ok(success)
     }
+}
+
+pub fn exit_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+
+    terminal.show_cursor()?;
+
+    Ok(())
+}
+
+pub fn prepare_create_tui() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
+    enable_raw_mode()?;
+
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+
+    let backend = CrosstermBackend::new(stdout);
+    let terminal = Terminal::new(backend)?;
+
+    Ok(terminal)
 }
 
 pub struct OmaPager {
