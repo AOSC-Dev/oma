@@ -167,9 +167,6 @@ impl OmaPager {
             .map_err(|e| io::Error::new(ErrorKind::InvalidInput, e))?;
 
         self.text = Some(text);
-        self.vertical_scroll_state = self
-            .vertical_scroll_state
-            .content_length(self.inner.lines().count());
 
         let mut last_tick = Instant::now();
         loop {
@@ -183,6 +180,13 @@ impl OmaPager {
                     match key.code {
                         KeyCode::Char('q') => return Ok(true),
                         KeyCode::Char('j') | KeyCode::Down => {
+                            if self
+                                .vertical_scroll
+                                .saturating_add(self.area_heigh as usize)
+                                >= self.inner_len
+                            {
+                                continue;
+                            }
                             self.vertical_scroll = self.vertical_scroll.saturating_add(1);
                             self.vertical_scroll_state =
                                 self.vertical_scroll_state.position(self.vertical_scroll);
@@ -222,9 +226,14 @@ impl OmaPager {
                                 self.vertical_scroll_state.position(self.vertical_scroll);
                         }
                         KeyCode::PageDown => {
-                            self.vertical_scroll = self
+                            let pos = self
                                 .vertical_scroll
                                 .saturating_add(self.area_heigh as usize);
+                            if pos <= self.inner_len {
+                                self.vertical_scroll = pos;
+                            } else {
+                                continue;
+                            }
                             self.vertical_scroll_state =
                                 self.vertical_scroll_state.position(self.vertical_scroll);
                         }
@@ -251,7 +260,12 @@ impl OmaPager {
         let weight = inner.iter().map(|x| x.len()).max().unwrap_or(1);
 
         self.inner_len = inner.len();
-        self.vertical_scroll_state = self.vertical_scroll_state.content_length(self.inner_len);
+        self.vertical_scroll_state = self
+            .vertical_scroll_state
+            .content_length(self.inner_len.saturating_sub(self.area_heigh as usize));
+        self.vertical_scroll_state = self
+            .vertical_scroll_state
+            .viewport_content_length(self.inner_len.saturating_sub(self.area_heigh as usize));
         self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(weight);
 
         let title = Block::new()
