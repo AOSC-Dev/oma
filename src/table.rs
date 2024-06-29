@@ -104,7 +104,7 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
         ALLOWCTRLC.store(true, Ordering::Relaxed);
     }
 
-    let tips = less_tips(is_question);
+    let tips = tips(is_question);
 
     let pager = if len < WRITER.get_height().into() {
         Pager::plain()
@@ -118,7 +118,7 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
     Ok(pager)
 }
 
-fn less_tips(is_question: bool) -> String {
+fn tips(is_question: bool) -> String {
     let has_x11 = std::env::var("DISPLAY");
 
     if is_question {
@@ -183,7 +183,7 @@ pub fn table_for_install_pending(
         return Ok(false);
     }
 
-    let tips = less_tips(true);
+    let tips = tips(true);
 
     let mut pager = if is_pager {
         Pager::external(tips, &fl!("pending-op")).map_err(|e| OutputError {
@@ -201,7 +201,7 @@ pub fn table_for_install_pending(
     let mut printer = PagerPrinter::new(out);
 
     if is_pager {
-        review_msg(&mut printer, None);
+        review_msg(&mut printer);
     }
 
     print_pending_inner(printer, remove, install, disk_size);
@@ -230,7 +230,7 @@ pub fn table_for_history_pending(
     remove: &[RemoveEntry],
     disk_size: &(String, u64),
 ) -> Result<(), OutputError> {
-    let tips = less_tips(false);
+    let tips = tips(false);
 
     let mut pager = Pager::external(tips, &fl!("pending-op")).map_err(|e| OutputError {
         description: "Failed to get pager".to_string(),
@@ -410,7 +410,7 @@ fn print_pending_inner<W: Write>(
     printer.print("").ok();
 }
 
-fn review_msg<W: Write>(printer: &mut PagerPrinter<W>, pager_name: Option<&str>) {
+fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
     printer.print("").ok();
     printer.print(format!("{}\n", fl!("review-msg"))).ok();
     printer
@@ -427,24 +427,22 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>, pager_name: Option<&str>)
         ))
         .ok();
 
-    if pager_name == Some("less") {
-        let has_x11 = std::env::var("DISPLAY");
+    let has_x11 = std::env::var("DISPLAY");
 
-        let line1 = format!("    {}", fl!("end-review"));
-        let line2 = format!("    {}", fl!("cc-to-abort"));
+    let line1 = format!("    {}", fl!("end-review"));
+    let line2 = format!("    {}", fl!("cc-to-abort"));
 
-        if has_x11.is_ok() {
-            let line3 = format!("    {}\n\n", fl!("how-to-op-with-x"));
+    if has_x11.is_ok() {
+        let line3 = format!("    {}\n\n", fl!("how-to-op-with-x"));
 
-            printer.print(format!("{}", style(line1).bold())).ok();
-            printer.print(format!("{}", style(line2).bold())).ok();
-            printer.print(format!("{}", style(line3).bold())).ok();
-        } else {
-            let line3 = format!("    {}\n\n", fl!("how-to-op"));
+        printer.print(format!("{}", style(line1).bold())).ok();
+        printer.print(format!("{}", style(line2).bold())).ok();
+        printer.print(format!("{}", style(line3).bold())).ok();
+    } else {
+        let line3 = format!("    {}\n\n", fl!("how-to-op"));
 
-            printer.print(format!("{}", style(line1).bold())).ok();
-            printer.print(format!("{}", style(line2).bold())).ok();
-            printer.print(format!("{}", style(line3).bold())).ok();
-        }
+        printer.print(format!("{}", style(line1).bold())).ok();
+        printer.print(format!("{}", style(line2).bold())).ok();
+        printer.print(format!("{}", style(line3).bold())).ok();
     }
 }

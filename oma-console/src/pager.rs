@@ -42,14 +42,6 @@ impl Pager {
         Ok(res)
     }
 
-    /// Get pager name (like less)
-    pub fn pager_name(&mut self) -> Option<&str> {
-        match self {
-            Pager::Plain => None,
-            Pager::External(_) => Some("oma"),
-        }
-    }
-
     /// Get writer to writer something to pager
     pub fn get_writer(&mut self) -> io::Result<Box<dyn Write + '_>> {
         let res = match self {
