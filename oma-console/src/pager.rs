@@ -106,6 +106,7 @@ pub struct OmaPager {
     area_heigh: u16,
     tips: String,
     title: String,
+    inner_len: usize,
 }
 
 impl Write for OmaPager {
@@ -151,6 +152,7 @@ impl OmaPager {
             area_heigh: 0,
             tips: tips.to_string(),
             title: title.to_string(),
+            inner_len: 0,
         }
     }
 
@@ -202,6 +204,16 @@ impl OmaPager {
                                 .horizontal_scroll_state
                                 .position(self.horizontal_scroll);
                         }
+                        KeyCode::Char('g') => {
+                            self.vertical_scroll = 0;
+                            self.vertical_scroll_state =
+                                self.vertical_scroll_state.position(self.vertical_scroll);
+                        }
+                        KeyCode::Char('G') => {
+                            self.vertical_scroll = self.inner_len.saturating_sub(1);
+                            self.vertical_scroll_state =
+                                self.vertical_scroll_state.position(self.vertical_scroll);
+                        }
                         KeyCode::PageUp => {
                             self.vertical_scroll = self
                                 .vertical_scroll
@@ -238,7 +250,8 @@ impl OmaPager {
         let inner = self.inner.lines().collect::<Vec<_>>();
         let weight = inner.iter().map(|x| x.len()).max().unwrap_or(1);
 
-        self.vertical_scroll_state = self.vertical_scroll_state.content_length(inner.len());
+        self.inner_len = inner.len();
+        self.vertical_scroll_state = self.vertical_scroll_state.content_length(self.inner_len);
         self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(weight);
 
         let title = Block::new()
