@@ -17,7 +17,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout},
     style::{Color, Stylize},
     text::Text,
-    widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Widget},
     Frame, Terminal,
 };
 
@@ -122,7 +122,7 @@ struct OmaPagerWidget {
     offset: usize,
 }
 
-impl ratatui::widgets::Widget for OmaPagerWidget {
+impl Widget for OmaPagerWidget {
     fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         // Render each line
         for (i, line) in self.text.lines.iter().skip(self.offset).enumerate() {
@@ -161,6 +161,9 @@ impl OmaPager {
             .map_err(|e| io::Error::new(ErrorKind::InvalidInput, e))?;
 
         self.text = Some(text);
+        self.vertical_scroll_state = self
+            .vertical_scroll_state
+            .content_length(self.inner.lines().count());
 
         let mut last_tick = Instant::now();
         loop {
@@ -261,14 +264,6 @@ impl OmaPager {
         self.area_heigh = chunks[1].height;
 
         f.render_widget(
-            OmaPagerWidget {
-                text: self.text.clone().unwrap(),
-                offset: self.vertical_scroll,
-            },
-            chunks[1],
-        );
-
-        f.render_widget(
             Paragraph::new(
                 Text::from(self.tips.clone())
                     .bg(Color::White)
@@ -297,7 +292,6 @@ fn test_oma_pager() {
     let mut app = OmaPager::new("123", "456");
     app.write_all(b"Hello\noma").unwrap();
     app.run(&mut terminal, tick_rate).unwrap();
-
     // restore terminal
     disable_raw_mode().unwrap();
     execute!(
