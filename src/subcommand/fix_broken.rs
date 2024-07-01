@@ -23,9 +23,11 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         ..
     } = oma_args;
 
+    let mut fds = None;
+
     if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt, false)?;
+        fds = Some(dbus_check(&rt, false)?);
     } else {
         no_check_dbus_warn();
     }
@@ -48,6 +50,8 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
     };
 
     normal_commit(args, &client)?;
+
+    drop(fds);
 
     Ok(0)
 }

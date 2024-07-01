@@ -14,7 +14,7 @@ use oma_console::{
 use oma_history::SummaryType;
 use reqwest::Client;
 
-use crate::{fl, remove::ask_user_do_as_i_say};
+use crate::{fl, remove::ask_user_do_as_i_say, utils::{create_async_runtime, dbus_check}};
 use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
     pkginfo::UnsafePkgInfo,
@@ -34,7 +34,7 @@ use ratatui::{
 use crate::{error::OutputError, utils::root};
 use std::fmt::Display;
 
-use super::utils::{lock_oma, normal_commit, refresh, NormalCommitArgs};
+use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -181,8 +181,18 @@ pub fn execute(
     dry_run: bool,
     network_thread: usize,
     client: Client,
+    no_check_dbus: bool,
 ) -> Result<i32, OutputError> {
     root()?;
+
+    let fds = if !no_check_dbus {
+        let rt = create_async_runtime()?;
+        Some(dbus_check(&rt, false)?)
+    } else {
+        no_check_dbus_warn();
+        None
+    };
+
     refresh(
         &client,
         dry_run,
@@ -696,6 +706,8 @@ pub fn execute(
             &client,
         )?;
     }
+
+    drop(fds);
 
     Ok(0)
 }

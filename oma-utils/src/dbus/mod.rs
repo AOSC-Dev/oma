@@ -1,3 +1,5 @@
+use logind_zbus::manager::{InhibitType, ManagerProxy};
+use tracing::debug;
 use zbus::{proxy, zvariant::OwnedFd, Result as zResult};
 
 pub use zbus::Connection;
@@ -27,16 +29,6 @@ trait UPower {
     /// OnBattery property
     #[zbus(property)]
     fn on_battery(&self) -> zResult<bool>;
-}
-
-#[proxy(
-    interface = "org.freedesktop.login1.Manager",
-    default_service = "org.freedesktop.login1",
-    default_path = "/org/freedesktop/login1"
-)]
-trait Login1 {
-    /// Inhibit method
-    fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zResult<OwnedFd>;
 }
 
 #[proxy(
@@ -72,15 +64,33 @@ pub async fn take_wake_lock(
     conn: &Connection,
     why: &str,
     binary_name: &str,
-) -> OmaDbusResult<OwnedFd> {
-    let proxy = Login1Proxy::new(conn)
+) -> OmaDbusResult<Vec<OwnedFd>> {
+    let proxy = ManagerProxy::new(conn)
         .await
         .map_err(|e| OmaDbusError::FailedCreateProxy("login1", e))?;
 
-    proxy
-        .inhibit("shutdown:sleep", binary_name, why, "block")
-        .await
-        .map_err(OmaDbusError::FailedTakeWakeLock)
+    let mut fds = Vec::new();
+    for what in [
+        InhibitType::Shutdown,
+        InhibitType::Sleep,
+    ] {
+        let fd = proxy
+            .inhibit(what, binary_name, why, "block")
+            .await
+            .map_err(OmaDbusError::FailedTakeWakeLock)?;
+
+        // let fd = proxy
+        //     .inner()
+        //     .call("Inhibit", &(what, binary_name, why, "block"))
+        //     .await
+        //     .map_err(OmaDbusError::FailedTakeWakeLock)?;
+
+        fds.push(fd);
+    }
+
+    debug!("take wake lock: {:?}", fds);
+
+    Ok(fds)
 }
 
 /// Check computer is using battery (like laptop)

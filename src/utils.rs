@@ -13,6 +13,7 @@ use oma_console::indicatif::{MultiProgress, ProgressBar};
 use oma_utils::{
     dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
     oma::unlock_oma,
+    zbus::zvariant::OwnedFd,
 };
 use rustix::process;
 use tokio::runtime::Runtime;
@@ -156,12 +157,15 @@ pub fn create_async_runtime() -> Result<Runtime> {
     Ok(tokio)
 }
 
-pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<()> {
+pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<Vec<OwnedFd>> {
     let conn = rt.block_on(create_dbus_connection())?;
     rt.block_on(check_battery(&conn, yes));
-    rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
 
-    Ok(())
+    // 需要保留 fd
+    // login1 根据 fd 来判断是否关闭 inhibit
+    let fds = rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+
+    Ok(fds)
 }
 
 pub async fn check_battery(conn: &Connection, yes: bool) {

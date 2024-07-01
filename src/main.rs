@@ -474,6 +474,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 dry_run,
                 oma_args.network_thread,
                 client,
+                no_check_dbus
             )?
         }
         Some((cmd, args)) => {

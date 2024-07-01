@@ -39,12 +39,13 @@ pub fn execute(
         ..
     } = oma_args;
 
-    if !no_check_dbus {
+    let fds = if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt, args.yes)?;
+        Some(dbus_check(&rt, args.yes)?)
     } else {
         no_check_dbus_warn();
-    }
+        None
+    };
 
     if !args.no_refresh {
         refresh(
@@ -116,6 +117,8 @@ pub fn execute(
     };
 
     normal_commit(args, &client)?;
+
+    drop(fds);
 
     Ok(0)
 }

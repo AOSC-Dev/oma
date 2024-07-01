@@ -2561,6 +2561,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
+name = "logind-zbus"
+version = "4.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e77231dda256523272d8168cf57a9f214ccef06d385c126ce64df662ca5721e"
+dependencies = [
+ "serde",
+ "zbus",
+]
+
+[[package]]
 name = "loop9"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3124,6 +3134,7 @@ dependencies = [
 name = "oma-utils"
 version = "0.7.3"
 dependencies = [
+ "logind-zbus",
  "number_prefix",
  "oma-console",
  "once_cell",

@@ -2,6 +2,9 @@ pub use os_release::OsRelease;
 
 #[cfg(feature = "dbus")]
 pub mod dbus;
+#[cfg(feature = "dbus")]
+pub use zbus;
+
 #[cfg(feature = "dpkg")]
 pub mod dpkg;
 #[cfg(feature = "human-bytes")]
