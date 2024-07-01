@@ -196,13 +196,7 @@ pub fn execute(
         None
     };
 
-    refresh(
-        &client,
-        dry_run,
-        no_progress,
-        network_thread,
-        &sysroot,
-    )?;
+    refresh(&client, dry_run, no_progress, network_thread, &sysroot)?;
 
     stdout()
         .execute(EnterAlternateScreen)
