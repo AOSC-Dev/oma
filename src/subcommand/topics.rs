@@ -59,11 +59,12 @@ pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
 
     let rt = create_async_runtime()?;
 
-    if !no_check_dbus {
-        dbus_check(&rt, false)?;
+    let fds = if !no_check_dbus {
+        dbus_check(&rt, false)?
     } else {
         no_check_dbus_warn();
-    }
+        None
+    };
 
     let sysroot_ref = &sysroot;
 
@@ -130,6 +131,8 @@ pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
     };
 
     normal_commit(args, &client)?;
+
+    drop(fds);
 
     Ok(0)
 }

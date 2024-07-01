@@ -47,12 +47,13 @@ pub fn execute(
         ..
     } = oma_args;
 
-    if !no_check_dbus {
+    let fds = if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt, args.yes)?;
+        dbus_check(&rt, args.yes)?
     } else {
         no_check_dbus_warn();
-    }
+        None
+    };
 
     refresh(&client, dry_run, no_progress, network_thread, &args.sysroot)?;
 
@@ -141,6 +142,7 @@ pub fn execute(
                 )?;
                 success!("{}", fl!("history-tips-1"));
                 info!("{}", fl!("history-tips-2"));
+                drop(fds);
                 return Ok(0);
             }
             Err(e) => match e {
@@ -171,7 +173,10 @@ pub fn execute(
                     warn!("{e}, retrying ...");
                     retry_times += 1;
                 }
-                _ => return Err(OutputError::from(e)),
+                _ => {
+                    drop(fds);
+                    return Err(OutputError::from(e));
+                }
             },
         }
     }

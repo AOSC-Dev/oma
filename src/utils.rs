@@ -16,6 +16,7 @@ use oma_console::{
 use oma_utils::{
     dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
     oma::unlock_oma,
+    zbus::zvariant::OwnedFd,
 };
 use rustix::process;
 use tokio::runtime::Runtime;
@@ -159,17 +160,18 @@ pub fn create_async_runtime() -> Result<Runtime> {
     Ok(tokio)
 }
 
-pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<()> {
+pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<Option<Vec<OwnedFd>>> {
     let conn = rt.block_on(create_dbus_connection());
 
     match conn {
         Ok(conn) => {
             rt.block_on(check_battery(&conn, yes));
-            rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+            let fds = rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+            Ok(Some(fds))
         }
         Err(e) => {
             if yes {
-                return Ok(());
+                return Ok(None);
             }
 
             error!("{}", fl!("failed-check-dbus"));
@@ -189,10 +191,10 @@ pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<()> {
                 unlock_oma().ok();
                 exit(0);
             }
+
+            Ok(None)
         }
     }
-
-    Ok(())
 }
 
 pub async fn check_battery(conn: &Connection, yes: bool) {

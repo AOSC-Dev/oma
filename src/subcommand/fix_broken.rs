@@ -22,12 +22,13 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         ..
     } = oma_args;
 
-    if !no_check_dbus {
+    let fds = if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt, false)?;
+        dbus_check(&rt, false)?
     } else {
         no_check_dbus_warn();
-    }
+        None
+    };
 
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
@@ -47,6 +48,8 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
     };
 
     normal_commit(args, &client)?;
+
+    drop(fds);
 
     Ok(0)
 }

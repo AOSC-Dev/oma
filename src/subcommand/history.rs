@@ -68,12 +68,13 @@ pub fn execute_undo(
         ..
     } = oma_args;
 
-    if !no_check_dbus {
+    let fds = if !no_check_dbus {
         let rt = create_async_runtime()?;
-        dbus_check(&rt, false)?;
+        dbus_check(&rt, false)?
     } else {
         no_check_dbus_warn();
-    }
+        None
+    };
 
     let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
 
@@ -148,6 +149,8 @@ pub fn execute_undo(
     };
 
     normal_commit(args, client)?;
+
+    drop(fds);
 
     Ok(0)
 }
