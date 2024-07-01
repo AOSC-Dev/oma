@@ -14,7 +14,11 @@ use oma_console::{
 use oma_history::SummaryType;
 use reqwest::Client;
 
-use crate::{fl, remove::ask_user_do_as_i_say, utils::{create_async_runtime, dbus_check}};
+use crate::{
+    fl,
+    remove::ask_user_do_as_i_say,
+    utils::{create_async_runtime, dbus_check},
+};
 use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
     pkginfo::UnsafePkgInfo,

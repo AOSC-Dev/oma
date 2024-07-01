@@ -70,10 +70,7 @@ pub async fn take_wake_lock(
         .map_err(|e| OmaDbusError::FailedCreateProxy("login1", e))?;
 
     let mut fds = Vec::new();
-    for what in [
-        InhibitType::Shutdown,
-        InhibitType::Sleep,
-    ] {
+    for what in [InhibitType::Shutdown, InhibitType::Sleep] {
         let fd = proxy
             .inhibit(what, binary_name, why, "block")
             .await
