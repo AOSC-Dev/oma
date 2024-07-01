@@ -76,12 +76,6 @@ pub async fn take_wake_lock(
             .await
             .map_err(OmaDbusError::FailedTakeWakeLock)?;
 
-        // let fd = proxy
-        //     .inner()
-        //     .call("Inhibit", &(what, binary_name, why, "block"))
-        //     .await
-        //     .map_err(OmaDbusError::FailedTakeWakeLock)?;
-
         fds.push(fd);
     }
 
