@@ -298,9 +298,9 @@ impl SingleDownloader<'_> {
                 let gp = global_progress.load(Ordering::SeqCst);
                 callback(
                     self.download_list_index,
-                    DownloadEvent::GlobalProgressSet(gp - file_size),
+                    DownloadEvent::GlobalProgressSet(gp.saturating_sub(file_size)),
                 );
-                global_progress.store(gp - file_size, Ordering::SeqCst);
+                global_progress.store(gp.saturating_sub(file_size), Ordering::SeqCst);
                 file_size = 0;
                 can_resume = false;
             }
