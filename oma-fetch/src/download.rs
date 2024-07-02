@@ -451,6 +451,8 @@ impl SingleDownloader<'_> {
                 DownloadEvent::GlobalProgressInc(size as u64),
             );
 
+            global_progress.fetch_add(size as u64, Ordering::SeqCst);
+
             if let Some(ref mut v) = validator {
                 v.update(&buf[..size]);
             }
