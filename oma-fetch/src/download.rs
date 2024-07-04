@@ -419,7 +419,7 @@ impl SingleDownloader<'_> {
             CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(bytes_stream))),
             CompressFile::Nothing => CompressStream::Nothing(BufReader::new(bytes_stream)),
         };
-        let reader = reader.stream();
+        let reader = reader.as_inner();
         let mut reader = reader.compat();
 
         let mut buf = vec![0u8; 8 * 1024];
@@ -564,7 +564,7 @@ impl SingleDownloader<'_> {
             CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(from))),
             CompressFile::Nothing => CompressStream::Nothing(BufReader::new(from)),
         };
-        let reader = reader.stream();
+        let reader = reader.as_inner();
         let mut reader = reader.compat();
 
         debug!(
@@ -619,7 +619,7 @@ enum CompressStream<R: AsyncRead + Unpin + Send> {
 }
 
 impl<R: AsyncRead + Unpin + Send + AsyncBufRead> CompressStream<R> {
-    fn stream(&mut self) -> &mut (dyn AsyncRead + Unpin + Send) {
+    fn as_inner(&mut self) -> &mut (dyn AsyncRead + Unpin + Send) {
         match self {
             CompressStream::Xz(reader) => reader,
             CompressStream::Gzip(reader) => reader,
