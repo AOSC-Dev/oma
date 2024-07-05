@@ -1,4 +1,4 @@
-use crate::{CompressFile, DownloadEvent, DownloadSource};
+use crate::{checksum::ChecksumValidator, CompressFile, DownloadEvent, DownloadSource};
 use std::{
     io::{self, ErrorKind, SeekFrom},
     path::Path,
@@ -14,9 +14,12 @@ use futures::{io::BufReader, AsyncBufRead, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
-    Client,
+    Client, RequestBuilder, Response,
 };
-use tokio::io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt};
+use tokio::{
+    fs::{self, File},
+    io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
+};
 
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use tracing::debug;
@@ -34,6 +37,12 @@ pub(crate) struct SingleDownloader<'a> {
     context: Arc<Option<String>>,
     download_list_index: usize,
     file_type: CompressFile,
+}
+
+enum CheckAction {
+    Done(Summary),
+    Resume((File, ChecksumValidator)),
+    DontResume,
 }
 
 impl SingleDownloader<'_> {
@@ -164,83 +173,19 @@ impl SingleDownloader<'_> {
         // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
         // 如果不存在，则继续往下走
         if file_exist {
-            debug!("File: {} exists", self.entry.filename);
-
-            if let Some(hash) = &self.entry.hash {
-                debug!("Hash exist! It is: {hash}");
-
-                let mut f = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .read(true)
-                    .open(&file)
-                    .await
-                    .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
-
-                debug!(
-                    "oma opened file: {} with write and read mode",
-                    self.entry.filename
-                );
-
-                let mut v = Checksum::from_sha256_str(hash)?.get_validator();
-
-                debug!("Validator created.");
-
-                let mut buf = vec![0; 4096];
-                let mut readed = 0;
-
-                loop {
-                    if readed == file_size {
-                        break;
-                    }
-
-                    let readed_count = f
-                        .read(&mut buf[..])
-                        .await
-                        .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
-
-                    v.update(&buf[..readed_count]);
-
-                    global_progress.fetch_add(readed_count as u64, Ordering::SeqCst);
-
-                    callback(
-                        self.download_list_index,
-                        DownloadEvent::GlobalProgressInc(readed_count as u64),
-                    );
-
-                    readed += readed_count as u64;
+            match self
+                .check_exist_file(&file, file_size, &global_progress, &callback, allow_resume)
+                .await?
+            {
+                CheckAction::Done(summary) => {
+                    return Ok(summary);
                 }
-
-                if v.finish() {
-                    debug!(
-                        "{} checksum success, no need to download anything.",
-                        self.entry.filename
-                    );
-
-                    callback(self.download_list_index, DownloadEvent::ProgressDone);
-
-                    return Ok(Summary::new(
-                        self.entry.filename.clone(),
-                        false,
-                        self.download_list_index,
-                        self.context.clone(),
-                    ));
-                }
-
-                debug!(
-                    "checksum fail, will download this file: {}",
-                    self.entry.filename
-                );
-
-                if !allow_resume {
-                    global_progress.fetch_sub(readed, Ordering::SeqCst);
-                    let progress = global_progress.load(Ordering::SeqCst);
-                    callback(
-                        self.download_list_index,
-                        DownloadEvent::GlobalProgressSet(progress),
-                    );
-                } else {
-                    dest = Some(f);
+                CheckAction::Resume((f, v)) => {
                     validator = Some(v);
+                    dest = Some(f);
+                }
+                CheckAction::DontResume => {
+                    debug!("Not resume this file.");
                 }
             }
         }
@@ -251,42 +196,7 @@ impl SingleDownloader<'_> {
             DownloadEvent::NewProgressSpinner(msg.clone()),
         );
 
-        let resp_head = match self.client.head(&sources[position].url).send().await {
-            Ok(resp) => resp,
-            Err(e) => {
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
-                return Err(DownloadError::ReqwestError(e));
-            }
-        };
-
-        let head = resp_head.headers();
-
-        // 看看头是否有 ACCEPT_RANGES 这个变量
-        // 如果有，而且值不为 none，则可以断点续传
-        // 反之，则不能断点续传
-        let mut can_resume = match head.get(ACCEPT_RANGES) {
-            Some(x) if x == "none" => false,
-            Some(_) => true,
-            None => false,
-        };
-
-        debug!("Can resume? {can_resume}");
-
-        // 从服务器获取文件的总大小
-        let total_size = {
-            let total_size = head
-                .get(CONTENT_LENGTH)
-                .map(|x| x.to_owned())
-                .unwrap_or(HeaderValue::from(0));
-
-            total_size
-                .to_str()
-                .ok()
-                .and_then(|x| x.parse::<u64>().ok())
-                .unwrap_or_default()
-        };
-
-        debug!("File total size is: {total_size}");
+        let (mut can_resume, total_size) = self.get_head(sources, position, &callback).await?;
 
         let mut req = self.client.get(&sources[position].url);
 
@@ -298,9 +208,9 @@ impl SingleDownloader<'_> {
                 let gp = global_progress.load(Ordering::SeqCst);
                 callback(
                     self.download_list_index,
-                    DownloadEvent::GlobalProgressSet(gp - file_size),
+                    DownloadEvent::GlobalProgressSet(gp.saturating_sub(file_size)),
                 );
-                global_progress.store(gp - file_size, Ordering::SeqCst);
+                global_progress.store(gp.saturating_sub(file_size), Ordering::SeqCst);
                 file_size = 0;
                 can_resume = false;
             }
@@ -312,14 +222,7 @@ impl SingleDownloader<'_> {
 
         debug!("Can resume? {can_resume}");
 
-        let resp = req.send().await.map_err(DownloadError::ReqwestError)?;
-
-        if let Err(e) = resp.error_for_status_ref() {
-            callback(self.download_list_index, DownloadEvent::ProgressDone);
-            return Err(DownloadError::ReqwestError(e));
-        } else {
-            callback(self.download_list_index, DownloadEvent::ProgressDone);
-        }
+        let resp = self.get_response(req, &callback).await?;
 
         callback(
             self.download_list_index,
@@ -344,28 +247,7 @@ impl SingleDownloader<'_> {
         };
 
         let mut self_progress = 0;
-        let mut dest = if !can_resume || !allow_resume {
-            // 如果不能 resume，则使用创建模式
-            debug!(
-                "oma will open file: {} as create mode.",
-                self.entry.filename
-            );
-
-            let f = match tokio::fs::File::create(&file).await {
-                Ok(f) => f,
-                Err(e) => {
-                    callback(self.download_list_index, DownloadEvent::ProgressDone);
-                    return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
-                }
-            };
-
-            if let Err(e) = f.set_len(0).await {
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
-                return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
-            }
-
-            f
-        } else if let Some(dest) = dest {
+        let mut dest = if let Some(dest) = dest {
             debug!(
                 "oma will re use opened dest file for {}",
                 self.entry.filename
@@ -379,20 +261,7 @@ impl SingleDownloader<'_> {
                 self.entry.filename
             );
 
-            let f = match tokio::fs::File::create(&file).await {
-                Ok(f) => f,
-                Err(e) => {
-                    callback(self.download_list_index, DownloadEvent::ProgressDone);
-                    return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
-                }
-            };
-
-            if let Err(e) = f.set_len(0).await {
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
-                return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
-            }
-
-            f
+            self.create_file(&file, &callback).await?
         };
 
         if can_resume && allow_resume {
@@ -403,9 +272,82 @@ impl SingleDownloader<'_> {
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
         }
+
         // 下载！
         debug!("Start download!");
+        self.http_download_inner(
+            source,
+            &callback,
+            dest,
+            &mut self_progress,
+            &global_progress,
+            &mut validator,
+        )
+        .await?;
 
+        // 最后看看 chekcsum 验证是否通过
+        if let Some(v) = validator {
+            self.checksum(v, global_progress, self_progress, &callback)?;
+        }
+
+        callback(self.download_list_index, DownloadEvent::ProgressDone);
+
+        Ok(Summary::new(
+            self.entry.filename.clone(),
+            true,
+            self.download_list_index,
+            self.context.clone(),
+        ))
+    }
+
+    fn checksum<F>(
+        &self,
+        v: ChecksumValidator,
+        global_progress: Arc<AtomicU64>,
+        self_progress: u64,
+        callback: &Arc<F>,
+    ) -> Result<(), DownloadError>
+    where
+        F: Fn(usize, DownloadEvent) + Clone,
+    {
+        if !v.finish() {
+            debug!("checksum fail: {}", self.entry.filename);
+            debug!("{global_progress:?}");
+            debug!("{self_progress}");
+
+            global_progress.fetch_sub(self_progress, Ordering::SeqCst);
+            let now_gp = global_progress.load(Ordering::SeqCst);
+
+            debug!("Reset to: {now_gp}");
+
+            callback(
+                self.download_list_index,
+                DownloadEvent::GlobalProgressSet(now_gp),
+            );
+            callback(self.download_list_index, DownloadEvent::ProgressDone);
+
+            return Err(DownloadError::ChecksumMisMatch(
+                self.entry.filename.to_string(),
+            ));
+        }
+
+        debug!("checksum success: {}", self.entry.filename);
+
+        Ok(())
+    }
+
+    async fn http_download_inner<F>(
+        &self,
+        source: Response,
+        callback: &Arc<F>,
+        mut dest: File,
+        self_progress: &mut u64,
+        global_progress: &Arc<AtomicU64>,
+        validator: &mut Option<ChecksumValidator>,
+    ) -> Result<(), DownloadError>
+    where
+        F: Fn(usize, DownloadEvent) + Clone,
+    {
         let bytes_stream = source
             .bytes_stream()
             .map_err(|e| io::Error::new(ErrorKind::Other, e))
@@ -419,9 +361,9 @@ impl SingleDownloader<'_> {
             CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(bytes_stream))),
             CompressFile::Nothing => CompressStream::Nothing(BufReader::new(bytes_stream)),
         };
-        let reader = reader.stream();
-        let mut reader = reader.compat();
 
+        let reader = reader.as_inner();
+        let mut reader = reader.compat();
         let mut buf = vec![0u8; 8 * 1024];
 
         loop {
@@ -444,59 +386,203 @@ impl SingleDownloader<'_> {
                 DownloadEvent::ProgressInc(size as u64),
             );
 
-            self_progress += size as u64;
+            *self_progress += size as u64;
 
             callback(
                 self.download_list_index,
                 DownloadEvent::GlobalProgressInc(size as u64),
             );
 
+            global_progress.fetch_add(size as u64, Ordering::SeqCst);
+
             if let Some(ref mut v) = validator {
                 v.update(&buf[..size]);
             }
         }
 
-        // 下载完成，告诉内核不再写这个文件了
         debug!("Download complete! shutting down dest file stream ...");
         if let Err(e) = dest.shutdown().await {
             callback(self.download_list_index, DownloadEvent::ProgressDone);
             return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
         }
 
-        // 最后看看 chekcsum 验证是否通过
-        if let Some(v) = validator {
-            if !v.finish() {
-                debug!("checksum fail: {}", self.entry.filename);
-                debug!("{global_progress:?}");
-                debug!("{self_progress}");
+        Ok(())
+    }
 
-                global_progress.fetch_sub(self_progress, Ordering::SeqCst);
-                let now_gp = global_progress.load(Ordering::SeqCst);
+    async fn create_file<F>(&self, file: &Path, callback: &Arc<F>) -> Result<File, DownloadError>
+    where
+        F: Fn(usize, DownloadEvent) + Clone,
+    {
+        self.create_file_inner(file).await.map_err(|e| {
+            callback(self.download_list_index, DownloadEvent::ProgressDone);
+            e
+        })
+    }
 
-                debug!("Reset to: {now_gp}");
+    async fn create_file_inner(&self, file: &Path) -> Result<File, DownloadError> {
+        let f = fs::File::create(file)
+            .await
+            .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
+        f.set_len(0)
+            .await
+            .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
+
+        Ok(f)
+    }
+
+    async fn get_response<F>(
+        &self,
+        req: RequestBuilder,
+        callback: &Arc<F>,
+    ) -> Result<Response, DownloadError>
+    where
+        F: Fn(usize, DownloadEvent) + Clone,
+    {
+        let resp = req.send().await.map_err(DownloadError::ReqwestError)?;
+        let res = resp
+            .error_for_status_ref()
+            .map_err(DownloadError::ReqwestError);
+        callback(self.download_list_index, DownloadEvent::ProgressDone);
+        res?;
+
+        Ok(resp)
+    }
+
+    async fn get_head<F>(
+        &self,
+        sources: &[DownloadSource],
+        position: usize,
+        callback: &Arc<F>,
+    ) -> Result<(bool, u64), DownloadError>
+    where
+        F: Fn(usize, DownloadEvent) + Clone,
+    {
+        let resp_head = match self.client.head(&sources[position].url).send().await {
+            Ok(resp) => resp,
+            Err(e) => {
+                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                return Err(DownloadError::ReqwestError(e));
+            }
+        };
+
+        let head = resp_head.headers();
+        let can_resume = match head.get(ACCEPT_RANGES) {
+            Some(x) if x == "none" => false,
+            Some(_) => true,
+            None => false,
+        };
+
+        debug!("Can resume? {can_resume}");
+
+        let total_size = {
+            let total_size = head
+                .get(CONTENT_LENGTH)
+                .map(|x| x.to_owned())
+                .unwrap_or(HeaderValue::from(0));
+
+            total_size
+                .to_str()
+                .ok()
+                .and_then(|x| x.parse::<u64>().ok())
+                .unwrap_or_default()
+        };
+
+        debug!("File total size is: {total_size}");
+
+        Ok((can_resume, total_size))
+    }
+
+    async fn check_exist_file<F>(
+        &self,
+        file: &Path,
+        file_size: u64,
+        global_progress: &Arc<AtomicU64>,
+        callback: &Arc<F>,
+        allow_resume: bool,
+    ) -> Result<CheckAction, DownloadError>
+    where
+        F: Fn(usize, DownloadEvent) + Clone,
+    {
+        debug!("File: {} exists", self.entry.filename);
+
+        if let Some(hash) = &self.entry.hash {
+            debug!("Hash exist! It is: {hash}");
+
+            let mut f = fs::OpenOptions::new()
+                .write(true)
+                .read(true)
+                .open(file)
+                .await
+                .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
+
+            debug!(
+                "oma opened file: {} with write and read mode",
+                self.entry.filename
+            );
+
+            let mut v = Checksum::from_sha256_str(hash)?.get_validator();
+
+            debug!("Validator created.");
+
+            let mut buf = vec![0; 4096];
+            let mut readed = 0;
+
+            loop {
+                if readed == file_size {
+                    break;
+                }
+
+                let readed_count = f
+                    .read(&mut buf[..])
+                    .await
+                    .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
+
+                v.update(&buf[..readed_count]);
+
+                global_progress.fetch_add(readed_count as u64, Ordering::SeqCst);
 
                 callback(
                     self.download_list_index,
-                    DownloadEvent::GlobalProgressSet(now_gp),
+                    DownloadEvent::GlobalProgressInc(readed_count as u64),
                 );
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
 
-                return Err(DownloadError::ChecksumMisMatch(
-                    self.entry.filename.to_string(),
-                ));
+                readed += readed_count as u64;
             }
 
-            debug!("checksum success: {}", self.entry.filename);
+            if v.finish() {
+                debug!(
+                    "{} checksum success, no need to download anything.",
+                    self.entry.filename
+                );
+
+                callback(self.download_list_index, DownloadEvent::ProgressDone);
+
+                return Ok(CheckAction::Done(Summary::new(
+                    self.entry.filename.clone(),
+                    false,
+                    self.download_list_index,
+                    self.context.clone(),
+                )));
+            }
+
+            debug!(
+                "checksum fail, will download this file: {}",
+                self.entry.filename
+            );
+
+            if !allow_resume {
+                global_progress.fetch_sub(readed, Ordering::SeqCst);
+                let progress = global_progress.load(Ordering::SeqCst);
+                callback(
+                    self.download_list_index,
+                    DownloadEvent::GlobalProgressSet(progress),
+                );
+            } else {
+                return Ok(CheckAction::Resume((f, v)));
+            }
         }
 
-        callback(self.download_list_index, DownloadEvent::ProgressDone);
-
-        Ok(Summary::new(
-            self.entry.filename.clone(),
-            true,
-            self.download_list_index,
-            self.context.clone(),
-        ))
+        Ok(CheckAction::DontResume)
     }
 
     fn set_progress_msg(&self) -> String {
@@ -529,7 +615,7 @@ impl SingleDownloader<'_> {
 
         let url_path = Path::new(&url_path);
 
-        let total_size = tokio::fs::metadata(url_path)
+        let total_size = fs::metadata(url_path)
             .await
             .map_err(|e| {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
@@ -543,14 +629,14 @@ impl SingleDownloader<'_> {
 
         debug!("File path is: {}", url_path.display());
 
-        let from = tokio::fs::File::open(&url_path).await.map_err(|e| {
+        let from = fs::File::open(&url_path).await.map_err(|e| {
             DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
         })?;
         let from = tokio::io::BufReader::new(from).compat();
 
         debug!("Success open file: {}", url_path.display());
 
-        let mut to = tokio::fs::File::create(self.entry.dir.join(&*self.entry.filename))
+        let mut to = fs::File::create(self.entry.dir.join(&*self.entry.filename))
             .await
             .map_err(|e| {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
@@ -562,7 +648,7 @@ impl SingleDownloader<'_> {
             CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(from))),
             CompressFile::Nothing => CompressStream::Nothing(BufReader::new(from)),
         };
-        let reader = reader.stream();
+        let reader = reader.as_inner();
         let mut reader = reader.compat();
 
         debug!(
@@ -617,7 +703,7 @@ enum CompressStream<R: AsyncRead + Unpin + Send> {
 }
 
 impl<R: AsyncRead + Unpin + Send + AsyncBufRead> CompressStream<R> {
-    fn stream(&mut self) -> &mut (dyn AsyncRead + Unpin + Send) {
+    fn as_inner(&mut self) -> &mut (dyn AsyncRead + Unpin + Send) {
         match self {
             CompressStream::Xz(reader) => reader,
             CompressStream::Gzip(reader) => reader,
