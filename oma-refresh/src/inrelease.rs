@@ -283,7 +283,10 @@ fn date_hack(date: &str) -> String {
                     }
                     _ => continue,
                 },
-                Err(_) => break,
+                Err(e) => {
+                    debug!("Parse {k} failed: {e}");
+                    break;
+                }
             }
         }
 
