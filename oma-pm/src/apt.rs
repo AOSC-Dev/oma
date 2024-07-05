@@ -445,7 +445,7 @@ impl OmaApt {
         // 寻找系统有哪些不必要的软件包
         if !no_autoremove {
             // 需要先计算依赖才知道后面多少软件包是不必要的
-            self.resolve(false)?;
+            self.resolve(false, true)?;
             self.autoremove(purge)?;
         }
 
@@ -601,14 +601,14 @@ impl OmaApt {
     }
 
     /// Resolve apt dependencies
-    pub fn resolve(&mut self, no_fixbroken: bool) -> OmaAptResult<()> {
-        let need_fix = self.check_broken()?;
+    pub fn resolve(&mut self, no_fixbroken: bool, fix_dpkg_status: bool) -> OmaAptResult<()> {
+        let need_fix_dpkg_status = self.check_broken()?;
 
-        if no_fixbroken && need_fix {
+        if no_fixbroken && need_fix_dpkg_status {
             warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
         }
 
-        if need_fix {
+        if need_fix_dpkg_status && fix_dpkg_status {
             self.run_dpkg_configure()?;
         }
 

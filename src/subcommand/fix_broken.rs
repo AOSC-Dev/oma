@@ -35,8 +35,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
         .build()?;
-    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
-    apt.resolve(false)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
 
     let args = NormalCommitArgs {
         apt,
@@ -47,6 +46,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         network_thread,
         no_progress,
         sysroot,
+        fix_dpkg_status: false,
     };
 
     normal_commit(args, &client)?;

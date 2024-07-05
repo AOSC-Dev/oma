@@ -157,6 +157,7 @@ pub struct NormalCommitArgs {
     pub network_thread: usize,
     pub no_progress: bool,
     pub sysroot: String,
+    pub fix_dpkg_status: bool,
 }
 
 pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(), OutputError> {
@@ -169,6 +170,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
         network_thread,
         no_progress,
         sysroot,
+        fix_dpkg_status,
     } = args;
 
     let op = apt.summary()?;
@@ -177,7 +179,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
     let remove = op.remove;
     let disk_size = op.disk_size;
 
-    apt.resolve(no_fixbroken)?;
+    apt.resolve(no_fixbroken, fix_dpkg_status)?;
 
     if check_empty_op(&install, &remove) {
         return Ok(());

@@ -126,6 +126,7 @@ pub fn execute(
         network_thread,
         no_progress,
         sysroot,
+        fix_dpkg_status: true,
     };
 
     normal_commit(args, &client)?;
