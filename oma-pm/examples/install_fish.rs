@@ -26,7 +26,7 @@ fn main() -> Result<(), OmaAptError> {
 
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();
 
-    apt.resolve(false)?;
+    apt.resolve(false, true)?;
     apt.commit(&client, None, &AptArgs::default(), |count, event, total| {
         match event {
             DownloadEvent::ChecksumMismatchRetry { filename, times } => {

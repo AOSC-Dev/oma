@@ -128,6 +128,7 @@ pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
         network_thread,
         no_progress,
         sysroot,
+        fix_dpkg_status: true,
     };
 
     normal_commit(args, &client)?;
