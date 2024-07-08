@@ -122,12 +122,12 @@ impl Write for OmaPager {
     }
 }
 
-struct OmaPagerWidget {
-    text: Text<'static>,
+struct OmaPagerWidget<'a> {
+    text: &'a Text<'a>,
     offset: usize,
 }
 
-impl Widget for OmaPagerWidget {
+impl<'a> Widget for OmaPagerWidget<'a> {
     fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         // Render each line
         for (i, line) in self.text.lines.iter().skip(self.offset).enumerate() {
@@ -278,7 +278,7 @@ impl OmaPager {
 
         f.render_widget(
             OmaPagerWidget {
-                text: self.text.clone().unwrap(),
+                text: self.text.as_ref().unwrap(),
                 offset: self.vertical_scroll,
             },
             chunks[1],
