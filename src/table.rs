@@ -276,7 +276,14 @@ fn print_pending_inner<W: Write>(
             .collect::<Vec<_>>();
 
         printer
-            .print_table(remove_display, Some(vec!["Name", "Size", "Detail"]))
+            .print_table(
+                remove_display,
+                Some(vec![
+                    fl!("table-name").as_str(),
+                    fl!("table-version").as_str(),
+                    fl!("table-detail").as_str(),
+                ]),
+            )
             .ok();
         printer.print("\n").ok();
     }
@@ -307,7 +314,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     install_e_display,
-                    Some(vec!["Name", "Version", "Installed size"]),
+                    Some(vec![
+                        fl!("table-name").as_str(),
+                        fl!("table-version").as_str(),
+                        fl!("table-size").as_str(),
+                    ]),
                 )
                 .ok();
             printer.print("\n").ok();
@@ -332,7 +343,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     update_display,
-                    Some(vec!["Name", "Version", "Installed size"]),
+                    Some(vec![
+                        fl!("table-name").as_str(),
+                        fl!("table-version").as_str(),
+                        fl!("table-size").as_str(),
+                    ]),
                 )
                 .ok();
             printer.print("\n").ok();
@@ -357,7 +372,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     downgrade_display,
-                    Some(vec!["Name", "Version", "Installed size"]),
+                    Some(vec![
+                        fl!("table-name").as_str(),
+                        fl!("table-version").as_str(),
+                        fl!("table-size").as_str(),
+                    ]),
                 )
                 .ok();
             printer.print("\n").ok();
@@ -382,7 +401,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     reinstall_display,
-                    Some(vec!["Name", "Version", "Installed size"]),
+                    Some(vec![
+                        fl!("table-name").as_str(),
+                        fl!("table-version").as_str(),
+                        fl!("table-size").as_str(),
+                    ]),
                 )
                 .ok();
             printer.print("\n").ok();

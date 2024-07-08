@@ -196,3 +196,8 @@ tui-start = OK
 
 oma = oma
 another-oma-is-running = Another oma instance is running: {$s}
+
+table-name = Name
+table-version = Version
+table-size = Installed size
+table-detail = Detail

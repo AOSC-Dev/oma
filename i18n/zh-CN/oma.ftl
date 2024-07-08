@@ -191,3 +191,8 @@ tui-start = 开始使用
 
 oma = 小熊猫包管理
 another-oma-is-running = 有另一个 oma 实例正在运行中：{$s}。
+
+table-name = 软件名
+table-version = 版本
+table-size = 大小
+table-detail = 备注
