@@ -2977,9 +2977,9 @@ dependencies = [
 
 [[package]]
 name = "oma-apt-sources-lists"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8338704c6eb177d94af08192be713df97144aed0d74fb36f77c76880b696fa3"
+checksum = "fa867579a9ecfa0d67e966dc83b26d805516010c3060b809492af84cfdf2b3a7"
 dependencies = [
  "err-derive",
  "oma-debcontrol",
