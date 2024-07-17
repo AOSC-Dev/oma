@@ -17,7 +17,7 @@ use oma_fetch::DownloadError;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
-use tokio::fs::read_dir;
+use tokio::fs;
 use tracing::debug;
 
 use crate::{
@@ -421,7 +421,8 @@ impl<'a> OmaRefresh<'a> {
                 uri.clone(),
                 match source_entry.from {
                     OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-                    OmaSourceEntryFrom::Local => DownloadSourceType::Local,
+                    // 为保持与 apt 行为一致，本地源 symlink Release 文件
+                    OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: true },
                 },
             )];
 
@@ -649,7 +650,7 @@ impl<'a> OmaRefresh<'a> {
 }
 
 async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> Result<()> {
-    let mut download_dir = read_dir(&download_dir)
+    let mut download_dir = fs::read_dir(&download_dir)
         .await
         .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
 
@@ -703,7 +704,7 @@ fn collect_download_task(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local,
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: false },
     };
 
     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _)) {

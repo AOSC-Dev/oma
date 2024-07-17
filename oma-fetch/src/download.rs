@@ -58,8 +58,8 @@ impl SingleDownloader<'_> {
                     self.try_http_download(i, cc.clone(), gpc.clone(), &sources)
                         .await
                 }
-                DownloadSourceType::Local => {
-                    self.download_local(i, cc.clone(), gpc.clone(), &sources)
+                DownloadSourceType::Local { as_symlink } => {
+                    self.download_local(i, cc.clone(), gpc.clone(), &sources, as_symlink)
                         .await
                 }
             };
@@ -516,6 +516,7 @@ impl SingleDownloader<'_> {
         callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
         sources: &[DownloadSource],
+        as_symlink: bool,
     ) -> DownloadResult<Summary>
     where
         F: Fn(usize, DownloadEvent) + Clone,
@@ -542,6 +543,35 @@ impl SingleDownloader<'_> {
             self.download_list_index,
             DownloadEvent::NewProgress(total_size, msg.clone()),
         );
+
+        if as_symlink {
+            let symlink = self.entry.dir.join(&*self.entry.filename);
+            if symlink.exists() {
+                tokio::fs::remove_file(&symlink).await.map_err(|e| {
+                    DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
+                })?;
+            }
+
+            tokio::fs::symlink(url_path, symlink).await.map_err(|e| {
+                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
+            })?;
+
+            callback(
+                self.download_list_index,
+                DownloadEvent::GlobalProgressInc(total_size as u64),
+            );
+
+            global_progress.fetch_add(total_size as u64, Ordering::SeqCst);
+
+            callback(self.download_list_index, DownloadEvent::ProgressDone);
+
+            return Ok(Summary::new(
+                self.entry.filename.clone(),
+                true,
+                self.download_list_index,
+                self.context.clone(),
+            ));
+        }
 
         debug!("File path is: {}", url_path.display());
 

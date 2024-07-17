@@ -75,7 +75,7 @@ impl DownloadSource {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DownloadSourceType {
     Http,
-    Local,
+    Local { as_symlink: bool },
 }
 
 impl PartialOrd for DownloadSourceType {
@@ -89,11 +89,11 @@ impl Ord for DownloadSourceType {
         match self {
             DownloadSourceType::Http => match other {
                 DownloadSourceType::Http => std::cmp::Ordering::Equal,
-                DownloadSourceType::Local => std::cmp::Ordering::Less,
+                DownloadSourceType::Local { .. } => std::cmp::Ordering::Less,
             },
-            DownloadSourceType::Local => match other {
+            DownloadSourceType::Local { .. } => match other {
                 DownloadSourceType::Http => std::cmp::Ordering::Greater,
-                DownloadSourceType::Local => std::cmp::Ordering::Equal,
+                DownloadSourceType::Local { .. } => std::cmp::Ordering::Equal,
             },
         }
     }
@@ -206,7 +206,7 @@ impl<'a> OmaFetcher<'a> {
                 x.entry
                     .source
                     .iter()
-                    .any(|x| x.source_type == DownloadSourceType::Local)
+                    .any(|x| matches!(x.source_type, DownloadSourceType::Local { .. }))
             })
             .count();
 

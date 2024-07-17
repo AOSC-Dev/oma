@@ -678,7 +678,7 @@ impl OmaApt {
                 .iter()
                 .map(|x| {
                     let source_type = if x.starts_with("file:") {
-                        DownloadSourceType::Local
+                        DownloadSourceType::Local { as_symlink: false }
                     } else {
                         DownloadSourceType::Http
                     };
