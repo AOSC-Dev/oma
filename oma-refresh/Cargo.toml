@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.16.3"
+version = "0.16.4"
 edition = "2021"
 description = "A crate to help oma refresh apt repo database"
 license = "MIT"
