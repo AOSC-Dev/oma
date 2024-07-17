@@ -315,8 +315,10 @@ impl<'a> OmaRefresh<'a> {
 
                     callback(i, event, None);
 
-                    let p1 = Path::new(&c.dist_path).join("InRelease");
-                    let p2 = Path::new(&c.dist_path).join("Release");
+                    let dist_path = c.dist_path.strip_prefix("file:").unwrap_or(&c.dist_path);
+
+                    let p1 = Path::new(dist_path).join("InRelease");
+                    let p2 = Path::new(dist_path).join("Release");
 
                     if p1.exists() {
                         mirrors_inrelease.insert(i, true);
