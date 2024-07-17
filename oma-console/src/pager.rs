@@ -304,32 +304,3 @@ impl OmaPager {
         );
     }
 }
-
-#[test]
-fn test_oma_pager() {
-    use crossterm::{
-        event::{DisableMouseCapture, EnableMouseCapture},
-        execute,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    };
-    use ratatui::prelude::CrosstermBackend;
-
-    enable_raw_mode().unwrap();
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture).unwrap();
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend).unwrap();
-    let tick_rate = Duration::from_millis(250);
-    let mut app = OmaPager::new("123", "456");
-    app.write_all(b"Hello\noma").unwrap();
-    app.run(&mut terminal, tick_rate).unwrap();
-    // restore terminal
-    disable_raw_mode().unwrap();
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )
-    .unwrap();
-    terminal.show_cursor().unwrap();
-}
