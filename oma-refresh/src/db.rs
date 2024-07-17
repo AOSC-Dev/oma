@@ -142,7 +142,7 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         let suite = v.suite.clone();
         let (dist_path, is_flat) = if components.is_empty() {
             // flat repo 后面一定有斜线
-            if suite.starts_with("/") {
+            if suite.starts_with('/') {
                 (format!("{}{}", v.url(), suite), true)
             } else {
                 (format!("{}/{}", v.url(), suite), true)
