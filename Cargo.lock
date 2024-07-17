@@ -3025,7 +3025,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.10.3"
+version = "0.11.0"
 dependencies = [
  "async-compression",
  "dashmap 5.5.3",
@@ -3034,7 +3034,7 @@ dependencies = [
  "futures",
  "indicatif",
  "oma-console",
- "oma-utils 0.7.3",
+ "oma-utils 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
  "sha2",
@@ -3074,7 +3074,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "chrono",
  "cxx",
@@ -3107,7 +3107,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.16.5"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3149,19 +3149,6 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14ee228a93e1f28e9259bb0867554cf5946a1df9f41fc8900ffedd0e8704927c"
-dependencies = [
- "once_cell",
- "os-release",
- "thiserror",
- "tracing",
- "url-escape",
-]
-
-[[package]]
-name = "oma-utils"
 version = "0.8.0"
 dependencies = [
  "logind-zbus",
@@ -3173,6 +3160,20 @@ dependencies = [
  "tracing",
  "url-escape",
  "zbus",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "581ca144ad559eb60cae2c864927d5481d2122531a8df35bc547709ffd7c5668"
+dependencies = [
+ "logind-zbus",
+ "once_cell",
+ "os-release",
+ "thiserror",
+ "tracing",
+ "url-escape",
 ]
 
 [[package]]
