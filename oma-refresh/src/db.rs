@@ -141,7 +141,12 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         let url = v.url.clone();
         let suite = v.suite.clone();
         let (dist_path, is_flat) = if components.is_empty() {
-            (format!("{}/{}", v.url(), suite), true)
+            // flat repo 后面一定有斜线
+            if suite.starts_with("/") {
+                (format!("{}{}", v.url(), suite), true)
+            } else {
+                (format!("{}/{}", v.url(), suite), true)
+            }
         } else {
             (v.dist_path(), false)
         };
@@ -267,6 +272,11 @@ impl<'a> OmaRefresh<'a> {
         let mut mirrors_inrelease = HashMap::new();
 
         for (i, c) in sourcelist.iter().enumerate() {
+            if c.is_flat {
+                mirrors_inrelease.insert(i, false);
+                continue;
+            }
+
             match c.from {
                 OmaSourceEntryFrom::Http => {
                     let resp1 = self
