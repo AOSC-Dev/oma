@@ -109,7 +109,7 @@ impl<'a> OmaDatabase<'a> {
             if glob.contains(':') {
                 glob_match(glob, &x.fullname(false))
             } else {
-                glob_match(glob, &x.name()) && x.arch() == native_arch
+                glob_match(glob, x.name()) && x.arch() == native_arch
             }
         });
 
