@@ -29,7 +29,7 @@ use oma_fetch::{
     DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 use oma_utils::{
-    dpkg::{is_hold, DpkgError},
+    dpkg::{dpkg_arch, is_hold, DpkgError},
     human_bytes::HumanBytes,
 };
 
@@ -310,8 +310,12 @@ impl OmaApt {
                     pkg.raw_pkg.name().to_string(),
                     pkg.version_raw.version().to_string(),
                 ));
-            } else if !self.select_pkgs.contains(&pkg.raw_pkg.name().to_string()) {
-                self.select_pkgs.push(pkg.raw_pkg.name().to_string());
+            } else if !self
+                .select_pkgs
+                .contains(&pkg.raw_pkg.fullname(true).to_string())
+            {
+                self.select_pkgs
+                    .push(pkg.raw_pkg.fullname(true).to_string());
             }
         }
 
@@ -373,7 +377,7 @@ impl OmaApt {
                 return Err(OmaAptError::PkgUnavailable(name, ver.version().to_string()));
             }
             let mut entry = InstallEntryBuilder::default();
-            entry.name(pkg.raw_pkg.name().to_string());
+            entry.name(pkg.raw_pkg.fullname(true).to_string());
             entry.new_version(ver.version().to_string());
             entry.new_size(install_size);
             entry.pkg_urls(ver.uris().collect::<Vec<_>>());
@@ -678,7 +682,7 @@ impl OmaApt {
                 .iter()
                 .map(|x| {
                     let source_type = if x.starts_with("file:") {
-                        DownloadSourceType::Local
+                        DownloadSourceType::Local { as_symlink: false }
                     } else {
                         DownloadSourceType::Http
                     };
@@ -755,6 +759,7 @@ impl OmaApt {
             select_dbg,
             filter_candidate,
             available_candidate,
+            &dpkg_arch(self.config.get("Dir").unwrap_or("/".to_string()))?,
         )
     }
 
@@ -883,14 +888,14 @@ impl OmaApt {
                 let size = cand.installed_size();
 
                 let mut entry = InstallEntryBuilder::default();
-                entry.name(pkg.name().to_string());
+                entry.name(pkg.fullname(true).to_string());
                 entry.new_version(version.to_string());
                 entry.new_size(size);
                 entry.pkg_urls(uri);
                 entry.arch(cand.arch().to_string());
                 entry.download_size(cand.size());
                 entry.op(InstallOperation::Install);
-                entry.automatic(!self.select_pkgs.contains(&pkg.name().to_string()));
+                entry.automatic(!self.select_pkgs.contains(&pkg.fullname(true)));
 
                 if not_local_source {
                     entry.checksum(
@@ -916,7 +921,7 @@ impl OmaApt {
             }
 
             if pkg.marked_delete() {
-                let name = pkg.name();
+                let name = pkg.fullname(true);
                 let is_purge = pkg.marked_purge();
 
                 let mut tags = vec![];
@@ -924,7 +929,7 @@ impl OmaApt {
                     tags.push(RemoveTag::Purge);
                 }
 
-                if self.autoremove.contains(&pkg.name().to_string()) {
+                if self.autoremove.contains(&pkg.fullname(true)) {
                     tags.push(RemoveTag::AutoRemove);
                 }
 
@@ -954,7 +959,7 @@ impl OmaApt {
                 let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
 
                 let mut entry = InstallEntryBuilder::default();
-                entry.name(pkg.name().to_string());
+                entry.name(pkg.fullname(true));
                 entry.new_version(version.version().to_string());
                 entry.old_size(version.installed_size());
                 entry.new_size(version.installed_size());
@@ -962,7 +967,7 @@ impl OmaApt {
                 entry.arch(version.arch().to_string());
                 entry.download_size(version.size());
                 entry.op(InstallOperation::ReInstall);
-                entry.automatic(!self.select_pkgs.contains(&pkg.name().to_string()));
+                entry.automatic(!self.select_pkgs.contains(&pkg.fullname(true)));
 
                 if not_local_source {
                     entry.checksum(
@@ -1113,7 +1118,7 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     let checksum = cand.get_record(RecordField::SHA256);
 
     let mut install_entry = InstallEntryBuilder::default();
-    install_entry.name(new_pkg.name().to_string());
+    install_entry.name(new_pkg.fullname(true).to_string());
     install_entry.old_version(old_version.to_string());
     install_entry.new_version(new_version.to_owned());
     install_entry.old_size(installed.installed_size());
@@ -1141,6 +1146,7 @@ fn select_pkg(
     select_dbg: bool,
     filter_candidate: bool,
     available_candidate: bool,
+    native_arch: &str,
 ) -> OmaAptResult<(Vec<UnsafePkgInfo>, Vec<String>)> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
@@ -1152,7 +1158,13 @@ fn select_pkg(
                 db.query_from_branch(x, filter_candidate, select_dbg)?
             }
             x if x.split_once('=').is_some() => db.query_from_version(x, select_dbg)?,
-            x => db.query_from_glob(x, filter_candidate, select_dbg, available_candidate)?,
+            x => db.query_from_glob(
+                x,
+                filter_candidate,
+                select_dbg,
+                available_candidate,
+                native_arch,
+            )?,
         };
 
         for i in &res {

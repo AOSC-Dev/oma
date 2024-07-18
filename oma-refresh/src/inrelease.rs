@@ -60,7 +60,7 @@ pub struct InRelease<'a> {
     pub inrelease: &'a str,
     pub signed_by: Option<&'a str>,
     pub mirror: &'a str,
-    pub arch: &'a str,
+    pub archs: &'a [String],
     pub is_flat: bool,
     pub p: &'a Path,
     pub rootfs: &'a Path,
@@ -73,7 +73,7 @@ impl InReleaseParser {
             inrelease: s,
             signed_by,
             mirror: _,
-            arch,
+            archs,
             is_flat,
             p,
             rootfs,
@@ -179,13 +179,13 @@ impl InReleaseParser {
                 if let Some(c) = component {
                     if c != *name {
                         components.contains(&c.to_string())
-                            && ((name.contains("all") || name.contains(arch))
+                            && ((name.contains("all") || archs.iter().any(|x| name.contains(x)))
                                 && !is_debian_installer)
                     } else {
-                        name.contains("all") || name.contains(arch)
+                        name.contains("all") || archs.iter().any(|x| name.contains(x))
                     }
                 } else {
-                    name.contains("all") || name.contains(arch)
+                    name.contains("all") || archs.iter().any(|x| name.contains(x))
                 }
             })
             .collect::<Vec<_>>();

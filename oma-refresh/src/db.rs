@@ -3,7 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use futures::{future::join, FutureExt, StreamExt};
+use futures::{
+    future::{join_all, BoxFuture},
+    FutureExt, StreamExt,
+};
 use oma_apt_sources_lists::{SourceEntry, SourceError};
 use oma_fetch::{
     checksum::ChecksumError,
@@ -17,7 +20,7 @@ use oma_fetch::DownloadError;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
-use tokio::fs::read_dir;
+use tokio::fs;
 use tracing::debug;
 
 use crate::{
@@ -113,6 +116,7 @@ pub struct OmaSourceEntry {
     dist_path: String,
     is_flat: bool,
     signed_by: Option<String>,
+    archs: Vec<String>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -141,24 +145,31 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         let url = v.url.clone();
         let suite = v.suite.clone();
         let (dist_path, is_flat) = if components.is_empty() {
-            (format!("{}/{}", v.url(), suite), true)
+            // flat repo 后面一定有斜线
+            if suite.starts_with('/') {
+                (format!("{}{}", v.url(), suite), true)
+            } else {
+                (format!("{}/{}", v.url(), suite), true)
+            }
         } else {
             (v.dist_path(), false)
         };
 
-        let options = v.options.as_deref().unwrap_or_default();
+        let mut signed_by = None;
+        let mut archs = vec![];
 
-        let options = options.split(',').collect::<Vec<_>>();
-
-        let signed_by = options.iter().find_map(|x| {
-            x.split_once('=').and_then(|x| {
-                if x.0.to_lowercase() == "signed-by" {
-                    Some(x.1.to_string())
-                } else {
-                    None
+        for i in &v.options {
+            if i.starts_with("arch=") {
+                if let Some(v) = i.split_once('=').map(|x| x.1.to_string()) {
+                    for i in v.split(',') {
+                        archs.push(i.to_string());
+                    }
                 }
-            })
-        });
+            }
+            if i.starts_with("signed-by=") {
+                signed_by = i.split_once('=').map(|x| x.1.to_string());
+            }
+        }
 
         Ok(Self {
             from,
@@ -168,11 +179,12 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             is_flat,
             dist_path,
             signed_by,
+            archs,
         })
     }
 }
 
-pub struct OmaRefresh<'a> {
+pub struct OmaRefreshBuilder<'a> {
     pub source: PathBuf,
     pub limit: Option<usize>,
     pub arch: String,
@@ -180,8 +192,36 @@ pub struct OmaRefresh<'a> {
     pub client: &'a Client,
 }
 
+pub struct OmaRefresh<'a> {
+    source: PathBuf,
+    limit: Option<usize>,
+    arch: String,
+    download_dir: PathBuf,
+    client: &'a Client,
+    flat_repo_no_release: Vec<usize>,
+}
+
+impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
+    fn from(builder: OmaRefreshBuilder<'a>) -> Self {
+        Self {
+            source: builder.source,
+            limit: builder.limit,
+            arch: builder.arch,
+            download_dir: builder.download_dir,
+            client: builder.client,
+            flat_repo_no_release: vec![],
+        }
+    }
+}
+
+enum RepoType {
+    InRelease,
+    Release,
+    FlatNoRelease,
+}
+
 impl<'a> OmaRefresh<'a> {
-    pub async fn start<F, F2>(self, _callback: F, _handle_topic_msg: F2) -> Result<()>
+    pub async fn start<F, F2>(mut self, _callback: F, _handle_topic_msg: F2) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
@@ -191,7 +231,7 @@ impl<'a> OmaRefresh<'a> {
     }
 
     async fn update_db<F, F2>(
-        &self,
+        &mut self,
         sourcelist: Vec<OmaSourceEntry>,
         _callback: F,
         _handle_topic_msg: F2,
@@ -257,11 +297,11 @@ impl<'a> OmaRefresh<'a> {
     }
 
     async fn get_is_inrelease_map<F>(
-        &self,
+        &mut self,
         sourcelist: &[OmaSourceEntry],
         m: &Option<HashMap<String, MirrorMapItem>>,
         callback: &F,
-    ) -> Result<HashMap<usize, bool>>
+    ) -> Result<HashMap<usize, RepoType>>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
     {
@@ -270,19 +310,35 @@ impl<'a> OmaRefresh<'a> {
         let mut mirrors_inrelease = HashMap::new();
 
         for (i, c) in sourcelist.iter().enumerate() {
+            let mut tasks1 = vec![];
             match c.from {
                 OmaSourceEntryFrom::Http => {
-                    let resp1 = self
-                        .client
-                        .head(format!("{}/InRelease", c.dist_path))
-                        .send()
-                        .map(move |x| (x.and_then(|x| x.error_for_status()), i));
+                    let resp1: BoxFuture<'_, _> = Box::pin(
+                        self.client
+                            .head(format!("{}/InRelease", c.dist_path))
+                            .send()
+                            .map(move |x| (x.and_then(|x| x.error_for_status()), i)),
+                    );
 
-                    let resp2 = self
-                        .client
-                        .head(format!("{}/Release", c.dist_path))
-                        .send()
-                        .map(move |x| (x.and_then(|x| x.error_for_status()), i));
+                    let resp2 = Box::pin(
+                        self.client
+                            .head(format!("{}/Release", c.dist_path))
+                            .send()
+                            .map(move |x| (x.and_then(|x| x.error_for_status()), i)),
+                    );
+
+                    tasks1.push(resp1);
+                    tasks1.push(resp2);
+
+                    if c.is_flat {
+                        let resp3 = Box::pin(
+                            self.client
+                                .head(format!("{}/Packages", c.dist_path))
+                                .send()
+                                .map(move |x| (x.and_then(|x| x.error_for_status()), i)),
+                        );
+                        tasks1.push(resp3);
+                    }
 
                     let event =
                         RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
@@ -296,7 +352,7 @@ impl<'a> OmaRefresh<'a> {
 
                     let task = async move {
                         cc(i, event, None);
-                        let res = join(resp1, resp2).await;
+                        let res = join_all(tasks1).await;
                         cc(
                             i,
                             RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
@@ -318,13 +374,20 @@ impl<'a> OmaRefresh<'a> {
 
                     callback(i, event, None);
 
-                    let p1 = Path::new(&c.dist_path).join("InRelease");
-                    let p2 = Path::new(&c.dist_path).join("Release");
+                    let dist_path = c.dist_path.strip_prefix("file:").unwrap_or(&c.dist_path);
+
+                    let p1 = Path::new(dist_path).join("InRelease");
+                    let p2 = Path::new(dist_path).join("Release");
 
                     if p1.exists() {
-                        mirrors_inrelease.insert(i, true);
+                        mirrors_inrelease.insert(i, RepoType::InRelease);
                     } else if p2.exists() {
-                        mirrors_inrelease.insert(i, false);
+                        mirrors_inrelease.insert(i, RepoType::Release);
+                    } else if c.is_flat {
+                        // flat repo 可以没有 Release 文件
+                        mirrors_inrelease.insert(i, RepoType::FlatNoRelease);
+                        self.flat_repo_no_release.push(i);
+                        continue;
                     } else {
                         callback(
                             i,
@@ -333,7 +396,7 @@ impl<'a> OmaRefresh<'a> {
                         );
                         #[cfg(feature = "aosc")]
                         // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
-                        mirrors_inrelease.insert(i, true);
+                        mirrors_inrelease.insert(i, RepoType::InRelease);
                         #[cfg(not(feature = "aosc"))]
                         return Err(RefreshError::NoInReleaseFile(c.dist_path.clone()));
                     }
@@ -351,23 +414,29 @@ impl<'a> OmaRefresh<'a> {
         let res = stream.collect::<Vec<_>>().await;
 
         for i in res {
-            if let (Ok(_), j) = i.0 {
-                mirrors_inrelease.insert(j, true);
+            if let Some((Ok(_), j)) = i.first() {
+                mirrors_inrelease.insert(*j, RepoType::InRelease);
                 continue;
             }
 
-            if let (Ok(_), j) = i.1 {
-                mirrors_inrelease.insert(j, false);
+            if let Some((Ok(_), j)) = i.get(1) {
+                mirrors_inrelease.insert(*j, RepoType::Release);
+                continue;
+            }
+
+            if let Some((Ok(_), j)) = i.get(2) {
+                mirrors_inrelease.insert(*j, RepoType::FlatNoRelease);
+                self.flat_repo_no_release.push(*j);
                 continue;
             }
 
             #[cfg(feature = "aosc")]
             // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
-            mirrors_inrelease.insert(i.0 .1, true);
+            mirrors_inrelease.insert(i.first().unwrap().1, RepoType::InRelease);
 
             #[cfg(not(feature = "aosc"))]
             return Err(RefreshError::NoInReleaseFile(
-                sourcelist[i.0 .1].dist_path.clone(),
+                sourcelist[i.first().unwrap().1].dist_path.clone(),
             ));
         }
 
@@ -378,33 +447,28 @@ impl<'a> OmaRefresh<'a> {
         &self,
         sourcelist: &[OmaSourceEntry],
         m: &Option<HashMap<String, MirrorMapItem>>,
-        is_inrelease_map: HashMap<usize, bool>,
+        is_inrelease_map: HashMap<usize, RepoType>,
     ) -> Result<Vec<DownloadEntry>> {
         let mut tasks = Vec::new();
         for (i, source_entry) in sourcelist.iter().enumerate() {
-            let is_inrelease = *is_inrelease_map.get(&i).unwrap();
+            let repo_type = is_inrelease_map.get(&i).unwrap();
 
-            let uri = if is_inrelease {
-                format!(
-                    "{}{}InRelease",
-                    source_entry.dist_path,
-                    if !source_entry.dist_path.ends_with('/') {
-                        "/"
-                    } else {
-                        ""
-                    }
-                )
-            } else {
-                format!(
-                    "{}{}Release",
-                    source_entry.dist_path,
-                    if !source_entry.dist_path.ends_with('/') {
-                        "/"
-                    } else {
-                        ""
-                    }
-                )
+            let repo_type_str = match repo_type {
+                RepoType::InRelease => "InRelease",
+                RepoType::Release => "Release",
+                RepoType::FlatNoRelease => continue,
             };
+
+            let uri = format!(
+                "{}{}{}",
+                source_entry.dist_path,
+                if !source_entry.dist_path.ends_with('/') {
+                    "/"
+                } else {
+                    ""
+                },
+                repo_type_str
+            );
 
             let msg = human_download_url(&uri, m)?;
 
@@ -412,7 +476,8 @@ impl<'a> OmaRefresh<'a> {
                 uri.clone(),
                 match source_entry.from {
                     OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-                    OmaSourceEntryFrom::Local => DownloadSourceType::Local,
+                    // 为保持与 apt 行为一致，本地源 symlink Release 文件
+                    OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: true },
                 },
             )];
 
@@ -421,10 +486,7 @@ impl<'a> OmaRefresh<'a> {
                 .filename(database_filename(&uri).into())
                 .dir(self.download_dir.clone())
                 .allow_resume(false)
-                .msg(format!(
-                    "{msg} {}",
-                    if is_inrelease { "InRelease" } else { "Release" }
-                ))
+                .msg(format!("{msg} {}", repo_type_str))
                 .build()?;
 
             debug!("oma will fetch {} InRelease", source_entry.url);
@@ -524,11 +586,17 @@ impl<'a> OmaRefresh<'a> {
                     RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
                 })?;
 
+            let archs = if ose.archs.is_empty() {
+                vec![self.arch.clone()]
+            } else {
+                ose.archs.clone()
+            };
+
             let inrelease = InRelease {
                 inrelease: &inrelease,
                 signed_by: ose.signed_by.as_deref(),
                 mirror: urlc,
-                arch: &self.arch,
+                archs: &archs,
                 is_flat: ose.is_flat,
                 p: &inrelease_path,
                 rootfs: &self.source,
@@ -609,6 +677,14 @@ impl<'a> OmaRefresh<'a> {
                 handle
             };
 
+            for i in &self.flat_repo_no_release {
+                download_flat_repo_no_release(
+                    sourcelist.get(*i).unwrap(),
+                    &self.download_dir,
+                    &mut tasks,
+                )?;
+            }
+
             for c in handle {
                 collect_download_task(
                     c,
@@ -627,7 +703,7 @@ impl<'a> OmaRefresh<'a> {
 }
 
 async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> Result<()> {
-    let mut download_dir = read_dir(&download_dir)
+    let mut download_dir = fs::read_dir(&download_dir)
         .await
         .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
 
@@ -657,6 +733,40 @@ impl From<DownloadEvent> for RefreshEvent {
     }
 }
 
+fn download_flat_repo_no_release(
+    source_index: &OmaSourceEntry,
+    download_dir: &Path,
+    tasks: &mut Vec<DownloadEntry>,
+) -> Result<()> {
+    let msg = human_download_url(&source_index.dist_path, &None)?;
+
+    let dist_url = &source_index.dist_path;
+
+    let from = match source_index.from {
+        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: false },
+    };
+
+    let download_url = format!("{}/Packages", dist_url);
+    let file_path = format!("{}Packages", dist_url);
+
+    let sources = vec![DownloadSource::new(download_url.clone(), from)];
+
+    let mut task = DownloadEntryBuilder::default();
+    task.source(sources);
+    task.filename(database_filename(&file_path).into());
+    task.dir(download_dir.to_path_buf());
+    task.allow_resume(false);
+    task.msg(format!("{msg} Packages"));
+    task.file_type(CompressFile::Nothing);
+
+    let task = task.build()?;
+    debug!("oma will download source database: {download_url}");
+    tasks.push(task);
+
+    Ok(())
+}
+
 fn collect_download_task(
     c: &ChecksumItem,
     source_index: &OmaSourceEntry,
@@ -681,7 +791,7 @@ fn collect_download_task(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local,
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: false },
     };
 
     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _)) {
