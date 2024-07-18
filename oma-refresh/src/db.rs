@@ -328,7 +328,7 @@ impl<'a> OmaRefresh<'a> {
                     if c.is_flat {
                         let resp3 = Box::pin(
                             self.client
-                                .head(format!("{}/Package", c.dist_path))
+                                .head(format!("{}/Packages", c.dist_path))
                                 .send()
                                 .map(move |x| (x.and_then(|x| x.error_for_status()), i)),
                         );
@@ -421,6 +421,7 @@ impl<'a> OmaRefresh<'a> {
 
             if let Some((Ok(_), j)) = i.get(2) {
                 mirrors_inrelease.insert(*j, RepoType::FlatNoRelease);
+                self.flat_repo_no_release.push(*j);
                 continue;
             }
 
