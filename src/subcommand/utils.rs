@@ -25,6 +25,7 @@ use oma_pm::apt::AptArgs;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_refresh::db::OmaRefresh;
+use oma_refresh::db::OmaRefreshBuilder;
 use oma_refresh::db::RefreshEvent;
 use oma_utils::dpkg::dpkg_arch;
 use oma_utils::oma::lock_oma_inner;
@@ -93,14 +94,15 @@ pub(crate) fn refresh(
 
     let sysroot = PathBuf::from(sysroot);
 
-    let refresh = OmaRefresh {
+    let refresh: OmaRefresh = OmaRefreshBuilder {
         source: sysroot.clone(),
         limit: Some(limit),
         arch: dpkg_arch(&sysroot)?,
         download_dir: sysroot.join("var/lib/apt/lists"),
         download_compress: !download_pure_db,
         client,
-    };
+    }
+    .into();
 
     let tokio = create_async_runtime()?;
 
