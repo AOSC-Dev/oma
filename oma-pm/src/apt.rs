@@ -373,7 +373,7 @@ impl OmaApt {
                 return Err(OmaAptError::PkgUnavailable(name, ver.version().to_string()));
             }
             let mut entry = InstallEntryBuilder::default();
-            entry.name(pkg.raw_pkg.name().to_string());
+            entry.name(pkg.raw_pkg.fullname(true).to_string());
             entry.new_version(ver.version().to_string());
             entry.new_size(install_size);
             entry.pkg_urls(ver.uris().collect::<Vec<_>>());
