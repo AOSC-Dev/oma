@@ -409,7 +409,7 @@ impl<'a> OmaRefresh<'a> {
         let res = stream.collect::<Vec<_>>().await;
 
         for i in res {
-            if let Some((Ok(_), j)) = i.get(0) {
+            if let Some((Ok(_), j)) = i.first() {
                 mirrors_inrelease.insert(*j, RepoType::InRelease);
                 continue;
             }
@@ -427,7 +427,7 @@ impl<'a> OmaRefresh<'a> {
 
             #[cfg(feature = "aosc")]
             // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
-            mirrors_inrelease.insert(i.get(0).unwrap().1, RepoType::InRelease);
+            mirrors_inrelease.insert(i.first().unwrap().1, RepoType::InRelease);
 
             #[cfg(not(feature = "aosc"))]
             return Err(RefreshError::NoInReleaseFile(
