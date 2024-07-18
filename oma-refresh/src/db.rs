@@ -194,12 +194,12 @@ pub struct OmaRefreshBuilder<'a> {
 }
 
 pub struct OmaRefresh<'a> {
-    pub source: PathBuf,
-    pub limit: Option<usize>,
-    pub arch: String,
-    pub download_dir: PathBuf,
-    pub download_compress: bool,
-    pub client: &'a Client,
+    source: PathBuf,
+    limit: Option<usize>,
+    arch: String,
+    download_dir: PathBuf,
+    download_compress: bool,
+    client: &'a Client,
     flat_repo_no_release: Vec<usize>,
 }
 
