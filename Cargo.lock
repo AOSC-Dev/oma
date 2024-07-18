@@ -3074,7 +3074,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "chrono",
  "cxx",
