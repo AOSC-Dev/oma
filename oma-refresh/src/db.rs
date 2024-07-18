@@ -116,6 +116,7 @@ pub struct OmaSourceEntry {
     dist_path: String,
     is_flat: bool,
     signed_by: Option<String>,
+    archs: Vec<String>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -154,15 +155,21 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             (v.dist_path(), false)
         };
 
-        let signed_by = v.options.iter().find_map(|x| {
-            x.split_once('=').and_then(|x| {
-                if x.0.to_lowercase() == "signed-by" {
-                    Some(x.1.to_string())
-                } else {
-                    None
+        let mut signed_by = None;
+        let mut archs = vec![];
+
+        for i in &v.options {
+            if i.starts_with("arch=") {
+                if let Some(v) = i.split_once('=').map(|x| x.1.to_string()) {
+                    for i in v.split(',') {
+                        archs.push(i.to_string());
+                    }
                 }
-            })
-        });
+            }
+            if i.starts_with("signed-by=") {
+                signed_by = i.split_once('=').map(|x| x.1.to_string());
+            }
+        }
 
         Ok(Self {
             from,
@@ -172,6 +179,7 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             is_flat,
             dist_path,
             signed_by,
+            archs,
         })
     }
 }
@@ -581,11 +589,17 @@ impl<'a> OmaRefresh<'a> {
                     RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
                 })?;
 
+            let archs = if ose.archs.is_empty() {
+                vec![self.arch.clone()]
+            } else {
+                ose.archs.clone()
+            };
+
             let inrelease = InRelease {
                 inrelease: &inrelease,
                 signed_by: ose.signed_by.as_deref(),
                 mirror: urlc,
-                arch: &self.arch,
+                archs: &archs,
                 is_flat: ose.is_flat,
                 p: &inrelease_path,
                 rootfs: &self.source,
