@@ -439,7 +439,7 @@ impl<'a> OmaRefresh<'a> {
 
             #[cfg(not(feature = "aosc"))]
             return Err(RefreshError::NoInReleaseFile(
-                sourcelist[i.0 .1].dist_path.clone(),
+                sourcelist[i.first().unwrap().1].dist_path.clone(),
             ));
         }
 
