@@ -29,7 +29,7 @@ use oma_fetch::{
     DownloadSource, DownloadSourceType, OmaFetcher, Summary,
 };
 use oma_utils::{
-    dpkg::{is_hold, DpkgError},
+    dpkg::{dpkg_arch, is_hold, DpkgError},
     human_bytes::HumanBytes,
 };
 
@@ -310,8 +310,12 @@ impl OmaApt {
                     pkg.raw_pkg.name().to_string(),
                     pkg.version_raw.version().to_string(),
                 ));
-            } else if !self.select_pkgs.contains(&pkg.raw_pkg.fullname(true).to_string()) {
-                self.select_pkgs.push(pkg.raw_pkg.fullname(true).to_string());
+            } else if !self
+                .select_pkgs
+                .contains(&pkg.raw_pkg.fullname(true).to_string())
+            {
+                self.select_pkgs
+                    .push(pkg.raw_pkg.fullname(true).to_string());
             }
         }
 
@@ -755,6 +759,7 @@ impl OmaApt {
             select_dbg,
             filter_candidate,
             available_candidate,
+            &dpkg_arch(self.config.get("Dir").unwrap_or("/".to_string()))?,
         )
     }
 
@@ -1141,6 +1146,7 @@ fn select_pkg(
     select_dbg: bool,
     filter_candidate: bool,
     available_candidate: bool,
+    native_arch: &str,
 ) -> OmaAptResult<(Vec<UnsafePkgInfo>, Vec<String>)> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
@@ -1152,7 +1158,13 @@ fn select_pkg(
                 db.query_from_branch(x, filter_candidate, select_dbg)?
             }
             x if x.split_once('=').is_some() => db.query_from_version(x, select_dbg)?,
-            x => db.query_from_glob(x, filter_candidate, select_dbg, available_candidate)?,
+            x => db.query_from_glob(
+                x,
+                filter_candidate,
+                select_dbg,
+                available_candidate,
+                native_arch,
+            )?,
         };
 
         for i in &res {

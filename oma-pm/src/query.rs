@@ -96,6 +96,7 @@ impl<'a> OmaDatabase<'a> {
         filter_candidate: bool,
         select_dbg: bool,
         avail_candidate: bool,
+        native_arch: &str,
     ) -> OmaDatabaseResult<Vec<UnsafePkgInfo>> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
@@ -104,10 +105,13 @@ impl<'a> OmaDatabase<'a> {
             info!("吃我一拳！！！");
         }
 
-        let pkgs = self
-            .cache
-            .packages(&sort)?
-            .filter(|x| glob_match(glob, x.name()) || glob_match(glob, &x.fullname(false)));
+        let pkgs = self.cache.packages(&sort)?.filter(|x| {
+            if glob.contains(':') {
+                glob_match(glob, &x.fullname(false))
+            } else {
+                glob_match(glob, &x.name()) && x.arch() == native_arch
+            }
+        });
 
         let pkgs = pkgs
             .map(|x| real_pkg(&x))
@@ -329,13 +333,18 @@ pub fn has_dbg(cache: &Cache, pkg: &Package<'_>, ver: &Version) -> bool {
 mod test {
     use super::OmaDatabase;
     use oma_apt::new_cache;
+    use oma_utils::dpkg::dpkg_arch;
 
     #[test]
     fn test_glob_search() {
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db.query_from_glob("apt*", true, false, false).unwrap();
-        let res = db.query_from_glob("apt*", false, false, false).unwrap();
+        let res_filter = db
+            .query_from_glob("apt*", true, false, false, &dpkg_arch("/").unwrap())
+            .unwrap();
+        let res = db
+            .query_from_glob("apt*", false, false, false, &dpkg_arch("/").unwrap())
+            .unwrap();
 
         for i in res_filter {
             i.print_info(&cache);
@@ -352,7 +361,9 @@ mod test {
     fn test_virtual_pkg_search() {
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db.query_from_glob("telegram", true, false, false).unwrap();
+        let res_filter = db
+            .query_from_glob("telegram", true, false, false, &dpkg_arch("/").unwrap())
+            .unwrap();
 
         for i in res_filter {
             i.print_info(&cache);
