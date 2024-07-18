@@ -1,6 +1,6 @@
 [package]
 name = "oma"
-version = "1.3.25"
+version = "1.3.26"
 edition = "2021"
 description = "Package management interface for AOSC OS"
 
