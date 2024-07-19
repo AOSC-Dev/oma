@@ -133,8 +133,7 @@ pub fn execute_undo(
                 None
             }
         })
-        .map(|(x, y)| PkgInfo::new(&y, x))
-        .flatten()
+        .flat_map(|(x, y)| PkgInfo::new(&y, x))
         .collect::<Vec<_>>();
 
     apt.install(&install, false)?;

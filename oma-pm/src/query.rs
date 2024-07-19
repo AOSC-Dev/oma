@@ -116,8 +116,7 @@ impl<'a> OmaDatabase<'a> {
         });
 
         let pkgs = pkgs
-            .map(|x| real_pkg(&x))
-            .flatten()
+            .filter_map(|x| real_pkg(&x))
             .map(|x| Package::new(self.cache, x));
 
         for pkg in pkgs {

@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
 use dialoguer::console::style;
-use oma_pm::{apt::{FilterMode, OmaApt, OmaAptArgsBuilder}, PkgCurrentState};
+use oma_pm::{
+    apt::{FilterMode, OmaApt, OmaAptArgsBuilder},
+    PkgCurrentState,
+};
 use tracing::info;
 
 use crate::error::OutputError;
@@ -107,7 +110,7 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
                 let branch = pkg_file.archive();
                 let branch = match branch {
                     Some(branch) => Cow::Owned(branch.to_string()),
-                    None => "unknown".into()
+                    None => "unknown".into(),
                 };
 
                 if let Some(inst) = pkg.installed() {

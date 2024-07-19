@@ -4,8 +4,8 @@ mod progress;
 pub mod query;
 pub mod search;
 pub use oma_apt::error::AptErrors;
-pub use search::PackageStatus;
 pub use oma_apt::PkgCurrentState;
+pub use search::PackageStatus;
 mod dbus;
 
 pub fn format_description(desc: &str) -> (&str, Option<&str>) {

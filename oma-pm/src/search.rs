@@ -162,7 +162,7 @@ impl<'a> OmaSearch<'a> {
                     unsafe { i.target_pkg() }
                         .make_safe()
                         .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
-                    ));
+                ));
             }
 
             for (provide, i) in real_pkgs {
