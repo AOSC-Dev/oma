@@ -35,7 +35,7 @@ impl Pager {
         Self::Plain
     }
 
-    pub fn external<D: Display + AsRef<OsStr>>(tips: D, title: &str) -> io::Result<Self> {
+    pub fn external<D: Display + AsRef<OsStr>>(tips: D, title: Option<&str>) -> io::Result<Self> {
         let app = OmaPager::new(tips, title);
         let res = Pager::External(app);
 
@@ -105,7 +105,7 @@ pub struct OmaPager {
     text: Option<Text<'static>>,
     area_heigh: u16,
     tips: String,
-    title: String,
+    title: Option<String>,
     inner_len: usize,
 }
 
@@ -141,7 +141,7 @@ impl<'a> Widget for OmaPagerWidget<'a> {
 }
 
 impl OmaPager {
-    pub fn new(tips: impl Display + AsRef<OsStr>, title: &str) -> Self {
+    pub fn new(tips: impl Display + AsRef<OsStr>, title: Option<&str>) -> Self {
         Self {
             inner: String::new(),
             vertical_scroll_state: ScrollbarState::new(0),
@@ -151,7 +151,7 @@ impl OmaPager {
             text: None,
             area_heigh: 0,
             tips: tips.to_string(),
-            title: title.to_string(),
+            title: title.map(|x| x.to_string()),
             inner_len: 0,
         }
     }
@@ -249,12 +249,14 @@ impl OmaPager {
 
     fn ui(&mut self, f: &mut Frame) {
         let size = f.size();
-        let chunks = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Min(0),
-            Constraint::Length(1),
-        ])
-        .split(size);
+        let mut layout = vec![Constraint::Min(0), Constraint::Length(1)];
+        let mut has_title = false;
+        if self.title.is_some() {
+            layout.insert(0, Constraint::Length(1));
+            has_title = true;
+        }
+
+        let chunks = Layout::vertical(layout).split(size);
 
         let inner = self.inner.lines().collect::<Vec<_>>();
         let weight = inner.iter().map(|x| x.len()).max().unwrap_or(1);
@@ -268,20 +270,22 @@ impl OmaPager {
             .viewport_content_length(self.inner_len.saturating_sub(self.area_heigh as usize));
         self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(weight);
 
-        let title = Block::new()
-            .title_alignment(Alignment::Left)
-            .title(self.title.clone())
-            .fg(Color::White)
-            .bg(Color::Indexed(25));
+        if let Some(title) = &self.title {
+            let title = Block::new()
+                .title_alignment(Alignment::Left)
+                .title(title.to_string())
+                .fg(Color::White)
+                .bg(Color::Indexed(25));
 
-        f.render_widget(title, chunks[0]);
+            f.render_widget(title, chunks[0]);
+        }
 
         f.render_widget(
             OmaPagerWidget {
                 text: self.text.as_ref().unwrap(),
                 offset: self.vertical_scroll,
             },
-            chunks[1],
+            if has_title { chunks[1] } else { chunks[0] }
         );
 
         f.render_stateful_widget(
@@ -300,7 +304,7 @@ impl OmaPager {
                     .bg(Color::White)
                     .fg(Color::Black),
             ),
-            chunks[2],
+            if has_title { chunks[2] } else { chunks[1] }
         );
     }
 }
