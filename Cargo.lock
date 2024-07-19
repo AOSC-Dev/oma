@@ -3110,7 +3110,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.18.0"
+version = "0.18.2"
 dependencies = [
  "anyhow",
  "chrono",

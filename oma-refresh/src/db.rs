@@ -744,7 +744,7 @@ fn download_flat_repo_no_release(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: false },
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: true },
     };
 
     let download_url = format!("{}/Packages", dist_url);
@@ -791,7 +791,7 @@ fn collect_download_task(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: false },
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: true },
     };
 
     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _)) {
