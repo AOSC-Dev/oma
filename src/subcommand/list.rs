@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
 use dialoguer::console::style;
-use oma_pm::apt::{FilterMode, OmaApt, OmaAptArgsBuilder};
+use oma_pm::{
+    apt::{FilterMode, OmaApt, OmaAptArgsBuilder},
+    PkgCurrentState,
+};
 use tracing::info;
 
 use crate::error::OutputError;
@@ -106,8 +109,8 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
             for pkg_file in pkg_files {
                 let branch = pkg_file.archive();
                 let branch = match branch {
-                    Ok(branch) => Cow::Owned(branch.to_string()),
-                    Err(_) => Cow::Borrowed("unknown"),
+                    Some(branch) => Cow::Owned(branch.to_string()),
+                    None => "unknown".into(),
                 };
 
                 if let Some(inst) = pkg.installed() {
@@ -121,7 +124,7 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
             }
 
             if branches.is_empty() {
-                branches.push(Cow::Borrowed("unknown"));
+                branches.push("unknown".into());
             }
 
             let branches = branches.join(",");
@@ -150,7 +153,7 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
                 s.push("automatic");
             }
 
-            if pkg.current_state() == 5 {
+            if pkg.current_state() == PkgCurrentState::ConfigFiles {
                 s.push("residual-config")
             }
 

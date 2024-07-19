@@ -2,7 +2,7 @@ use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
-    pkginfo::UnsafePkgInfo,
+    pkginfo::PkgInfo,
 };
 use reqwest::Client;
 
@@ -102,7 +102,11 @@ pub fn execute(
     let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
     let version = pkg.get_version(&versions_str[sel]).unwrap();
 
-    let pkgs = vec![UnsafePkgInfo::new(&version, &pkg)];
+    let pkgs = vec![PkgInfo::new(&version, &pkg)]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
     apt.install(&pkgs, false)?;
 
     let args = NormalCommitArgs {

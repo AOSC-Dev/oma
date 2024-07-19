@@ -2,8 +2,8 @@ use std::io::Write;
 
 use crate::{apt::AptConfig, dbus::change_status};
 use oma_apt::{
-    raw::progress::{AcquireProgress, InstallProgress},
-    util::{get_apt_progress_string, terminal_height, terminal_width, time_str, unit_str, NumSys},
+    progress::DynInstallProgress,
+    util::{get_apt_progress_string, terminal_height, terminal_width},
 };
 use oma_console::is_terminal;
 use tokio::runtime::Runtime;
@@ -15,69 +15,6 @@ pub struct NoProgress {
     _lastline: usize,
     _pulse_interval: usize,
     _disable: bool,
-}
-
-impl NoProgress {
-    /// Returns a new default progress instance.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Return the AptAcquireProgress in a box
-    /// To easily pass through for progress
-    pub fn new_box() -> Box<dyn AcquireProgress> {
-        Box::new(Self::new())
-    }
-}
-
-/// Do not output anything apt AcquireProgress
-impl AcquireProgress for NoProgress {
-    fn pulse_interval(&self) -> usize {
-        0
-    }
-
-    fn hit(&mut self, _id: u32, description: String) {
-        debug!("{}", description);
-    }
-
-    fn fetch(&mut self, _id: u32, description: String, _file_size: u64) {
-        debug!("{}", description);
-    }
-
-    fn fail(&mut self, _id: u32, description: String, _status: u32, _error_text: String) {
-        debug!("{}", description);
-    }
-
-    fn pulse(
-        &mut self,
-        _workers: Vec<oma_apt::raw::progress::Worker>,
-        _percent: f32,
-        _total_bytes: u64,
-        _current_bytes: u64,
-        _current_cps: u64,
-    ) {
-    }
-
-    fn done(&mut self) {}
-
-    fn start(&mut self) {}
-
-    fn stop(
-        &mut self,
-        fetched_bytes: u64,
-        elapsed_time: u64,
-        current_cps: u64,
-        _pending_errors: bool,
-    ) {
-        if fetched_bytes != 0 {
-            debug!(
-                "Fetched {} in {} ({}/s)",
-                unit_str(fetched_bytes, NumSys::Decimal),
-                time_str(elapsed_time),
-                unit_str(current_cps, NumSys::Decimal)
-            );
-        }
-    }
 }
 
 pub struct InstallProgressArgs {
@@ -113,10 +50,7 @@ impl OmaAptInstallProgress {
         } = args;
 
         if yes {
-            oma_apt::raw::config::raw::config_set(
-                "APT::Get::Assume-Yes".to_owned(),
-                "true".to_owned(),
-            );
+            oma_apt::raw::config::set("APT::Get::Assume-Yes".to_owned(), "true".to_owned());
             debug!("APT::Get::Assume-Yes is set to true");
         }
 
@@ -190,15 +124,9 @@ impl OmaAptInstallProgress {
             connection,
         }
     }
-
-    /// Return the AptInstallProgress in a box
-    /// To easily pass through to do_install
-    pub fn new_box(args: InstallProgressArgs) -> Box<dyn InstallProgress> {
-        Box::new(Self::new(args))
-    }
 }
 
-impl InstallProgress for OmaAptInstallProgress {
+impl DynInstallProgress for OmaAptInstallProgress {
     fn status_changed(
         &mut self,
         pkgname: String,
