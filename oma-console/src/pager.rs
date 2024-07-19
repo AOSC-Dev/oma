@@ -285,18 +285,22 @@ impl OmaPager {
                 text: self.text.as_ref().unwrap(),
                 offset: self.vertical_scroll,
             },
-            if has_title { chunks[1] } else { chunks[0] }
+            if has_title { chunks[1] } else { chunks[0] },
         );
 
         f.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some("↑"))
                 .end_symbol(Some("↓")),
-            chunks[1],
+            if has_title { chunks[1] } else { chunks[0] },
             &mut self.vertical_scroll_state,
         );
 
-        self.area_heigh = chunks[1].height;
+        self.area_heigh = if has_title {
+            chunks[1].height
+        } else {
+            chunks[0].height
+        };
 
         f.render_widget(
             Paragraph::new(
@@ -304,7 +308,7 @@ impl OmaPager {
                     .bg(Color::White)
                     .fg(Color::Black),
             ),
-            if has_title { chunks[2] } else { chunks[1] }
+            if has_title { chunks[2] } else { chunks[1] },
         );
     }
 }
