@@ -3,14 +3,18 @@ use std::fmt::Display;
 use cxx::UniquePtr;
 use oma_apt::{
     cache::Cache,
-    package::{BaseDep, DepType, Dependency, Package, Version},
-    raw::cache::raw::{PkgIterator, VerIterator},
+    raw::{IntoRawIter, PkgIterator, VerIterator},
     records::RecordField,
+    BaseDep, DepType, Dependency, Package, Version,
 };
 use oma_utils::human_bytes::HumanBytes;
 use small_map::SmallMap;
+use thiserror::Error;
 
-use crate::format_description;
+use crate::{
+    apt::{OmaAptError, OmaAptResult},
+    format_description,
+};
 
 #[derive(Debug)]
 pub struct OmaDependency {
@@ -25,11 +29,11 @@ impl From<&BaseDep<'_>> for OmaDependency {
     fn from(dep: &BaseDep) -> Self {
         Self {
             name: dep.name().to_owned(),
-            comp_symbol: dep.comp().map(|x| x.to_string()),
+            comp_symbol: dep.comp_type().map(|x| x.to_string()),
             ver: dep.version().map(|x| x.to_string()),
             target_ver: dep.target_ver().ok().map(|x| x.to_string()),
             comp_ver: dep
-                .comp()
+                .comp_type()
                 .and_then(|x| Some(format!("{x} {}", dep.version()?))),
         }
     }
@@ -87,7 +91,7 @@ impl OmaDependency {
         for dep in deps {
             if dep.is_or() {
                 let mut v = vec![];
-                for base_dep in &dep.base_deps {
+                for base_dep in dep.iter() {
                     v.push(Self::from(base_dep));
                 }
                 res.push(v);
@@ -121,17 +125,17 @@ impl Display for OmaDepType {
 }
 
 impl From<&DepType> for OmaDepType {
-    fn from(v: &oma_apt::package::DepType) -> Self {
+    fn from(v: &oma_apt::DepType) -> Self {
         match v {
-            oma_apt::package::DepType::Depends => OmaDepType::Depends,
-            oma_apt::package::DepType::PreDepends => OmaDepType::PreDepends,
-            oma_apt::package::DepType::Suggests => OmaDepType::Suggests,
-            oma_apt::package::DepType::Recommends => OmaDepType::Recommends,
-            oma_apt::package::DepType::Conflicts => OmaDepType::Conflicts,
-            oma_apt::package::DepType::Replaces => OmaDepType::Replaces,
-            oma_apt::package::DepType::Obsoletes => OmaDepType::Obsoletes,
-            oma_apt::package::DepType::Breaks => OmaDepType::Breaks,
-            oma_apt::package::DepType::Enhances => OmaDepType::Enhances,
+            oma_apt::DepType::Depends => OmaDepType::Depends,
+            oma_apt::DepType::PreDepends => OmaDepType::PreDepends,
+            oma_apt::DepType::Suggests => OmaDepType::Suggests,
+            oma_apt::DepType::Recommends => OmaDepType::Recommends,
+            oma_apt::DepType::Conflicts => OmaDepType::Conflicts,
+            oma_apt::DepType::Replaces => OmaDepType::Replaces,
+            oma_apt::DepType::Obsoletes => OmaDepType::Obsoletes,
+            oma_apt::DepType::DpkgBreaks => OmaDepType::Breaks,
+            oma_apt::DepType::Enhances => OmaDepType::Enhances,
         }
     }
 }
@@ -139,25 +143,36 @@ impl From<&DepType> for OmaDepType {
 /// UnsafePkgInfo - For storing package and version information
 ///
 /// Note: that this should be used before the apt `cache` drop, otherwise a segfault will occur.
-pub struct UnsafePkgInfo {
+pub struct PkgInfo {
     pub version_raw: UniquePtr<VerIterator>,
     pub raw_pkg: UniquePtr<PkgIterator>,
 }
 
-impl UnsafePkgInfo {
-    pub fn new(version: &Version, pkg: &Package) -> Self {
+#[derive(Debug, Error)]
+#[error("BUG: pointer should is some")]
+pub struct PtrIsNone;
+
+impl PkgInfo {
+    pub fn new(version: &Version, pkg: &Package) -> Result<Self, PtrIsNone> {
         // 直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
-        let raw_pkg = pkg.unique();
-        Self {
-            version_raw: version.unique(),
-            raw_pkg: raw_pkg.unique(),
-        }
+        let raw_pkg = unsafe { pkg.unique() }.make_safe().ok_or(PtrIsNone)?;
+        let version_raw = unsafe { version.unique() }.make_safe().ok_or(PtrIsNone)?;
+
+        Ok(Self {
+            version_raw,
+            raw_pkg,
+        })
     }
 
-    pub fn print_info(&self, cache: &Cache) {
+    pub fn print_info(&self, cache: &Cache) -> OmaAptResult<()> {
         println!("Package: {}", self.raw_pkg.name());
         println!("Version: {}", self.version_raw.version());
-        let ver = Version::new(self.version_raw.unique(), cache);
+        let ver = Version::new(
+            unsafe { self.version_raw.unique() }
+                .make_safe()
+                .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?,
+            cache,
+        );
         println!("Section: {}", ver.section().as_deref().unwrap_or("unknown"));
         println!(
             "Maintainer: {}",
@@ -166,7 +181,7 @@ impl UnsafePkgInfo {
         );
         println!("Installed-Size: {}", HumanBytes(ver.installed_size()));
 
-        for (t, deps) in &self.get_deps(cache) {
+        for (t, deps) in &self.get_deps(cache)? {
             println!("{t}: {deps}");
         }
 
@@ -187,32 +202,50 @@ impl UnsafePkgInfo {
             "Description: {}",
             format_description(&ver.description().unwrap_or("No description".to_string())).0
         );
+
+        Ok(())
     }
 
-    pub fn get_deps(&self, cache: &Cache) -> SmallMap<9, OmaDepType, OmaDependencyGroup> {
+    pub fn get_deps(
+        &self,
+        cache: &Cache,
+    ) -> OmaAptResult<SmallMap<9, OmaDepType, OmaDependencyGroup>> {
         let mut map = SmallMap::new();
-        Version::new(self.version_raw.unique(), cache)
-            .depends_map()
-            .iter()
-            .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-            .for_each(|(x, y)| {
-                map.insert(x, y);
-            });
+        Version::new(
+            unsafe { self.version_raw.unique() }
+                .make_safe()
+                .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?,
+            cache,
+        )
+        .depends_map()
+        .iter()
+        .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
+        .for_each(|(x, y)| {
+            map.insert(x, y);
+        });
 
-        map
+        Ok(map)
     }
 
-    pub fn get_rdeps(&self, cache: &Cache) -> SmallMap<9, OmaDepType, OmaDependencyGroup> {
+    pub fn get_rdeps(
+        &self,
+        cache: &Cache,
+    ) -> OmaAptResult<SmallMap<9, OmaDepType, OmaDependencyGroup>> {
         let mut map = SmallMap::new();
-        Package::new(cache, self.raw_pkg.unique())
-            .rdepends_map()
-            .iter()
-            .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-            .for_each(|(x, y)| {
-                map.insert(x, y);
-            });
+        Package::new(
+            cache,
+            unsafe { self.raw_pkg.unique() }
+                .make_safe()
+                .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?,
+        )
+        .rdepends()
+        .iter()
+        .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
+        .for_each(|(x, y)| {
+            map.insert(x, y);
+        });
 
-        map
+        Ok(map)
     }
 }
 
@@ -243,6 +276,6 @@ fn test_pkginfo_display() {
     let cache = new_cache!().unwrap();
     let pkg = cache.get("apt").unwrap();
     let version = pkg.candidate().unwrap();
-    let info = UnsafePkgInfo::new(&version, &pkg);
-    info.print_info(&cache);
+    let info = PkgInfo::new(&version, &pkg).unwrap();
+    info.print_info(&cache).unwrap();
 }

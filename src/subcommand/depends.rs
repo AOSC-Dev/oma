@@ -24,7 +24,7 @@ pub fn execute(pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
 
     for pkg in pkgs {
         println!("{}:", pkg.raw_pkg.name());
-        let all_deps = pkg.get_deps(&apt.cache);
+        let all_deps = pkg.get_deps(&apt.cache)?;
 
         for (k, v) in all_deps {
             for dep in v.inner() {

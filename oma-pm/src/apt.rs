@@ -7,21 +7,16 @@ use std::{
 
 use chrono::Local;
 use derive_builder::Builder;
-use oma_apt::raw::{
-    error::{raw::AptError, AptErrors},
-    util::raw::apt_lock,
-};
+
 use oma_apt::{
     cache::{Cache, PackageSort, Upgrade},
+    error::{AptError, AptErrors},
     new_cache,
-    package::{Package, Version},
-    raw::{
-        package::DepFlags,
-        progress::AptInstallProgress,
-        util::raw::{apt_lock_inner, apt_unlock, apt_unlock_inner},
-    },
+    progress::{AcquireProgress, InstallProgress},
+    raw::IntoRawIter,
     records::RecordField,
-    util::DiskSpace,
+    util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner, DiskSpace},
+    DepFlags, Package, PkgCurrentState, Version,
 };
 use oma_console::console::{self, style};
 use oma_fetch::{
@@ -42,8 +37,8 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
-    pkginfo::UnsafePkgInfo,
-    progress::{InstallProgressArgs, NoProgress, OmaAptInstallProgress},
+    pkginfo::{PkgInfo, PtrIsNone},
+    progress::{InstallProgressArgs, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
 };
 
@@ -129,6 +124,8 @@ pub enum OmaAptError {
     FailedGetParentPath(PathBuf),
     #[error("Failed to get canonicalize path: {0}")]
     FailedGetCanonicalize(String, std::io::Error),
+    #[error(transparent)]
+    PtrIsNone(#[from] PtrIsNone),
 }
 
 #[derive(Default, Builder)]
@@ -263,7 +260,7 @@ impl OmaApt {
         let sort = PackageSort::default().upgradable();
         let upgradable = self
             .cache
-            .packages(&sort)?
+            .packages(&sort)
             .filter(|x| {
                 !is_hold(x.name(), self.config.get("Dir").unwrap_or("/".to_string()))
                     .unwrap_or(false)
@@ -271,7 +268,7 @@ impl OmaApt {
             .count();
 
         let sort = PackageSort::default().auto_removable();
-        let removable = self.cache.packages(&sort)?.count();
+        let removable = self.cache.packages(&sort).count();
 
         Ok((upgradable, removable))
     }
@@ -279,12 +276,12 @@ impl OmaApt {
     pub fn installed_packages(&self) -> OmaAptResult<usize> {
         let sort = PackageSort::default().installed();
 
-        Ok(self.cache.packages(&sort)?.count())
+        Ok(self.cache.packages(&sort).count())
     }
 
     /// Set apt manager status as upgrade
     pub fn upgrade(&self) -> OmaAptResult<()> {
-        self.cache.upgrade(&Upgrade::FullUpgrade)?;
+        self.cache.upgrade(Upgrade::FullUpgrade)?;
 
         Ok(())
     }
@@ -292,7 +289,7 @@ impl OmaApt {
     /// Set apt manager status as install
     pub fn install(
         &mut self,
-        pkgs: &[UnsafePkgInfo],
+        pkgs: &[PkgInfo],
         reinstall: bool,
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
@@ -325,7 +322,7 @@ impl OmaApt {
     /// Find system is broken
     pub fn check_broken(&self) -> OmaAptResult<bool> {
         let sort = PackageSort::default().installed();
-        let pkgs = self.cache.packages(&sort)?;
+        let pkgs = self.cache.packages(&sort);
 
         // let mut reinstall = vec![];
 
@@ -336,15 +333,15 @@ impl OmaApt {
             //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
             //    HalfInstalled=4,ConfigFiles=5,Installed=6,
             //    TriggersAwaited=7,TriggersPending=8};
-            if pkg.current_state() != 6 {
+            if pkg.current_state() != PkgCurrentState::Installed {
                 debug!(
-                    "pkg {} current state is {}",
+                    "pkg {} current state is {:?}",
                     pkg.name(),
                     pkg.current_state()
                 );
                 need = true;
                 match pkg.current_state() {
-                    4 => {
+                    PkgCurrentState::HalfInstalled => {
                         pkg.mark_reinstall(true);
                     }
                     _ => continue,
@@ -359,7 +356,7 @@ impl OmaApt {
     pub fn download<F>(
         &self,
         client: &Client,
-        pkgs: Vec<UnsafePkgInfo>,
+        pkgs: Vec<PkgInfo>,
         network_thread: Option<usize>,
         download_dir: Option<&Path>,
         dry_run: bool,
@@ -371,7 +368,7 @@ impl OmaApt {
         let mut download_list = vec![];
         for pkg in pkgs {
             let name = pkg.raw_pkg.name().to_string();
-            let ver = Version::new(pkg.version_raw.unique(), &self.cache);
+            let ver = Version::new(pkg.version_raw, &self.cache);
             let install_size = ver.installed_size();
             if !ver.is_downloadable() {
                 return Err(OmaAptError::PkgUnavailable(name, ver.version().to_string()));
@@ -428,7 +425,7 @@ impl OmaApt {
     /// Set apt manager status as remove
     pub fn remove<F>(
         &mut self,
-        pkgs: &[UnsafePkgInfo],
+        pkgs: &[PkgInfo],
         purge: bool,
         no_autoremove: bool,
         callback: F,
@@ -459,7 +456,7 @@ impl OmaApt {
     /// find autoremove and remove it
     fn autoremove(&mut self, purge: bool) -> OmaAptResult<()> {
         let sort = PackageSort::default().installed();
-        let pkgs = self.cache.packages(&sort)?;
+        let pkgs = self.cache.packages(&sort);
 
         for pkg in pkgs {
             if pkg.is_auto_removable() && !pkg.marked_delete() {
@@ -513,7 +510,7 @@ impl OmaApt {
 
         debug!("Success: {success:?}");
 
-        let mut no_progress = NoProgress::new_box();
+        let mut no_progress = AcquireProgress::quiet();
 
         debug!("Try to lock apt");
 
@@ -547,7 +544,7 @@ impl OmaApt {
             connection: self.connection,
         };
 
-        let mut progress = OmaAptInstallProgress::new_box(args);
+        let mut progress = InstallProgress::new(OmaAptInstallProgress::new(args));
 
         debug!("Try to unlock apt lock inner");
 
@@ -621,7 +618,7 @@ impl OmaApt {
         }
 
         if self.cache.resolve(!no_fixbroken).is_err() {
-            for pkg in &self.cache {
+            for pkg in self.cache.iter() {
                 let res = show_broken_pkg(&self.cache, &pkg, false);
                 if !res.is_empty() {
                     self.unmet.extend(res);
@@ -752,7 +749,7 @@ impl OmaApt {
         select_dbg: bool,
         filter_candidate: bool,
         available_candidate: bool,
-    ) -> OmaAptResult<(Vec<UnsafePkgInfo>, Vec<String>)> {
+    ) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
         select_pkg(
             keywords,
             &self.cache,
@@ -822,13 +819,13 @@ impl OmaApt {
     /// Mark version status (auto/manual)
     pub fn mark_install_status(
         self,
-        pkgs: Vec<UnsafePkgInfo>,
+        pkgs: Vec<PkgInfo>,
         auto: bool,
         dry_run: bool,
     ) -> OmaAptResult<Vec<(String, bool)>> {
         let mut res = vec![];
         for pkg in pkgs {
-            let pkg = Package::new(&self.cache, pkg.raw_pkg.unique());
+            let pkg = Package::new(&self.cache, pkg.raw_pkg);
 
             if !pkg.is_installed() {
                 return Err(OmaAptError::MarkPkgNotInstalled(pkg.name().to_string()));
@@ -858,10 +855,7 @@ impl OmaApt {
         }
 
         self.cache
-            .commit(
-                &mut NoProgress::new_box(),
-                &mut AptInstallProgress::new_box(),
-            )
+            .commit(&mut AcquireProgress::quiet(), &mut InstallProgress::apt())
             .map_err(|e| OmaAptError::CommitErr(e.to_string()))?;
 
         Ok(res)
@@ -871,7 +865,7 @@ impl OmaApt {
     pub fn summary(&self) -> OmaAptResult<OmaOperation> {
         let mut install = vec![];
         let mut remove = vec![];
-        let changes = self.cache.get_changes(true)?;
+        let changes = self.cache.get_changes(true);
 
         for pkg in changes {
             if pkg.marked_install() {
@@ -1045,7 +1039,7 @@ impl OmaApt {
     pub fn filter_pkgs(
         &self,
         query_mode: &[FilterMode],
-    ) -> OmaAptResult<impl Iterator<Item = oma_apt::package::Package>> {
+    ) -> OmaAptResult<impl Iterator<Item = Package>> {
         let mut sort = PackageSort::default();
 
         debug!("Filter Mode: {query_mode:?}");
@@ -1061,7 +1055,7 @@ impl OmaApt {
             };
         }
 
-        let pkgs = self.cache.packages(&sort)?;
+        let pkgs = self.cache.packages(&sort);
 
         Ok(pkgs)
     }
@@ -1070,15 +1064,15 @@ impl OmaApt {
 /// Mark package as delete.
 fn mark_delete<F>(
     cache: &Cache,
-    pkg: &UnsafePkgInfo,
+    pkg: &PkgInfo,
     purge: bool,
     how_handle_essential: F,
 ) -> OmaAptResult<bool>
 where
     F: Fn(&str) -> bool + Copy,
 {
-    let pkg = Package::new(cache, pkg.raw_pkg.unique());
-    let removed_but_has_config = pkg.current_state() == 5;
+    let pkg = Package::new(cache, unsafe { pkg.raw_pkg.unique() });
+    let removed_but_has_config = pkg.current_state() == PkgCurrentState::ConfigFiles;
     if !pkg.is_installed() && !removed_but_has_config {
         debug!(
             "Package {} is not installed. No need to remove.",
@@ -1147,7 +1141,7 @@ fn select_pkg(
     filter_candidate: bool,
     available_candidate: bool,
     native_arch: &str,
-) -> OmaAptResult<(Vec<UnsafePkgInfo>, Vec<String>)> {
+) -> OmaAptResult<(Vec<PkgInfo>, Vec<String>)> {
     let db = OmaDatabase::new(cache)?;
     let mut pkgs = vec![];
     let mut no_result = vec![];
@@ -1183,9 +1177,13 @@ fn select_pkg(
 }
 
 /// Mark package as install.
-fn mark_install(cache: &Cache, pkginfo: &UnsafePkgInfo, reinstall: bool) -> OmaAptResult<bool> {
-    let pkg = pkginfo.raw_pkg.unique();
-    let version = pkginfo.version_raw.unique();
+fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResult<bool> {
+    let pkg = unsafe { pkginfo.raw_pkg.unique() }
+        .make_safe()
+        .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?;
+    let version = unsafe { pkginfo.version_raw.unique() }
+        .make_safe()
+        .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?;
     let ver = Version::new(version, cache);
     let pkg = Package::new(cache, pkg);
     ver.set_candidate();
@@ -1195,7 +1193,7 @@ fn mark_install(cache: &Cache, pkginfo: &UnsafePkgInfo, reinstall: bool) -> OmaA
             && !reinstall
             && installed.package_files().any(|inst| {
                 ver.package_files()
-                    .any(|ver| ver.archive().ok() == inst.archive().ok())
+                    .any(|ver| ver.archive() == inst.archive())
             })
         {
             return Ok(false);
@@ -1246,7 +1244,7 @@ fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
     // else Return with just the package name like Apt does.
     let Some(ver) = (match now {
         true => pkg.installed(),
-        false => cache.depcache().install_version(pkg),
+        false => pkg.install_version(),
     }) else {
         result.push(line);
         return result;
@@ -1257,13 +1255,13 @@ fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
 
     // ShowBrokenDeps
     for dep in ver.depends_map().values().flatten() {
-        for (i, base_dep) in dep.base_deps.iter().enumerate() {
+        for (i, base_dep) in dep.iter().enumerate() {
             if !cache.depcache().is_important_dep(base_dep) {
                 continue;
             }
 
             let dep_flag = if now {
-                DepFlags::DepGnow
+                DepFlags::DepGNow
             } else {
                 DepFlags::DepInstall
             };
@@ -1286,13 +1284,13 @@ fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
 
             line += base_dep.target_package().name();
 
-            if let (Ok(ver_str), Some(comp)) = (base_dep.target_ver(), base_dep.comp()) {
+            if let (Ok(ver_str), Some(comp)) = (base_dep.target_ver(), base_dep.comp_type()) {
                 line += &format!(" ({comp} {ver_str})");
             }
 
             let target = base_dep.target_package();
             if !target.has_provides() {
-                if let Some(target_ver) = cache.depcache().install_version(target) {
+                if let Some(target_ver) = target.install_version() {
                     line += &format!(" but {target_ver} is to be installed")
                 } else if target.candidate().is_some() {
                     line += " but it is not going to be installed";
@@ -1303,7 +1301,7 @@ fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
                 }
             }
 
-            if i + 1 != dep.base_deps.len() {
+            if i + 1 != dep.len() {
                 line += " or"
             }
             result.push(line.clone());

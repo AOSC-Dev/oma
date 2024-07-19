@@ -7,7 +7,7 @@ use oma_history::{
 use oma_pm::apt::InstallOperation;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
-    pkginfo::UnsafePkgInfo,
+    pkginfo::PkgInfo,
 };
 use reqwest::Client;
 
@@ -133,7 +133,8 @@ pub fn execute_undo(
                 None
             }
         })
-        .map(|(x, y)| UnsafePkgInfo::new(&y, x))
+        .map(|(x, y)| PkgInfo::new(&y, x))
+        .flatten()
         .collect::<Vec<_>>();
 
     apt.install(&install, false)?;
