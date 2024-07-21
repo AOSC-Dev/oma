@@ -253,7 +253,7 @@ where
                         OmaContentsError::ContentsEntryMissingPathList(line.1.to_string())
                     })?;
 
-                    if strsim::jaro_winkler(kw, path_filename).abs() < 0.9 {
+                    if strsim::jaro_winkler(kw, path_filename).abs() < 0.83 {
                         continue;
                     }
                 }
