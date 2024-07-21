@@ -197,7 +197,7 @@ impl<'a> OmaDatabase<'a> {
         let pkg = self
             .cache
             .get(pkgname)
-            .ok_or_else(|| OmaDatabaseError::NoPackage(pkgname.to_string()))?;
+            .ok_or_else(|| OmaDatabaseError::NoPackage(pat.to_string()))?;
 
         let version = pkg.get_version(version_str).ok_or_else(|| {
             OmaDatabaseError::NoVersion(pkgname.to_string(), version_str.to_string())
