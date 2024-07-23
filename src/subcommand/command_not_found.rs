@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::path::Path;
 
+use dialoguer::console::style;
 use oma_console::due_to;
 use oma_contents::{OmaContentsError, QueryMode};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
@@ -43,7 +44,12 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
                     })
                     .unwrap_or(Cow::Borrowed("no description."));
 
-                println!("{} ({file}): {desc}", pkg.name());
+                println!(
+                    "{} {}: {}",
+                    style(pkg.name()).color256(148).bold(),
+                    style(format!("({})", file)).color256(182),
+                    style(desc).color256(114)
+                );
             }
         }
         Err(e) => {

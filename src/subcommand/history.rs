@@ -30,7 +30,10 @@ pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
 
     let list = list_history(&conn)?;
-    let display_list = format_summary_log(&list, false);
+    let display_list = format_summary_log(&list, false)
+        .into_iter()
+        .map(|x| x.0)
+        .collect::<Vec<_>>();
 
     ALLOWCTRLC.store(true, Ordering::Relaxed);
 
@@ -80,9 +83,16 @@ pub fn execute_undo(
 
     let list = list_history(&conn)?;
     let display_list = format_summary_log(&list, true);
-    let selected = dialoguer_select_history(&display_list, 0)?;
+    let selected = dialoguer_select_history(
+        &display_list
+            .clone()
+            .into_iter()
+            .map(|x| x.0)
+            .collect::<Vec<_>>(),
+        0,
+    )?;
 
-    let selected = &list[selected];
+    let selected = &list[display_list[selected].1];
     let id = selected.id;
     let op = find_history_by_id(&conn, id)?;
 
@@ -169,47 +179,46 @@ fn dialoguer_select_history(
     Ok(selected)
 }
 
-fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<String> {
+fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usize)> {
     let display_list = list
         .iter()
-        .filter(|log| {
+        .enumerate()
+        .filter(|(_, log)| {
             if undo {
                 log.t != SummaryType::FixBroken && log.t != SummaryType::Undo
             } else {
                 true
             }
         })
-        .map(|log| {
+        .map(|(index, log)| {
             let date = format_date(log.time);
-            match &log.t {
-                SummaryType::Install(v) if v.len() > 3 => {
-                    format!(
-                        "{}Installed {} ... (and {} more) [{}]",
-                        format_success(log.is_success),
-                        v[..3].join(" "),
-                        v.len() - 3,
-                        date
-                    )
-                }
+            let s = match &log.t {
+                SummaryType::Install(v) if v.len() > 3 => format!(
+                    "{}Installed {} ... (and {} more) [{}]",
+                    format_success(log.is_success),
+                    v[..3].join(" "),
+                    v.len() - 3,
+                    date
+                ),
                 SummaryType::Install(v) => format!(
                     "{}Installed {} [{date}]",
                     format_success(log.is_success),
                     v.join(" "),
                 ),
-                SummaryType::Upgrade(v) if v.is_empty() => format!("Upgraded system [{date}]"),
+                SummaryType::Upgrade(v) if v.is_empty() => {
+                    format!("Upgraded system [{date}]")
+                }
                 SummaryType::Upgrade(v) if v.len() > 3 => format!(
                     "{}Upgraded system and installed {}... (and {} more) [{date}]",
                     format_success(log.is_success),
                     v[..3].join(" "),
                     v.len() - 3
                 ),
-                SummaryType::Upgrade(v) => {
-                    format!(
-                        "{}Upgraded system and install {} [{date}]",
-                        format_success(log.is_success),
-                        v.join(" "),
-                    )
-                }
+                SummaryType::Upgrade(v) => format!(
+                    "{}Upgraded system and install {} [{date}]",
+                    format_success(log.is_success),
+                    v.join(" "),
+                ),
                 SummaryType::Remove(v) if v.len() > 3 => format!(
                     "{}Removed {} ... (and {} more)",
                     format_success(log.is_success),
@@ -278,7 +287,8 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<String> {
                 }
                 SummaryType::Undo => format!("Undone [{date}]"),
                 SummaryType::Changes => "Change packages".to_string(),
-            }
+            };
+            (s, index)
         })
         .collect::<Vec<_>>();
 
