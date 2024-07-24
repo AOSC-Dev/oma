@@ -37,7 +37,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
     let pb = ProgressBar::new_spinner().with_style(style);
     pb.enable_steady_tick(inv);
     pb.set_message(fl!("reading-database"));
-    
+
     let (upgradable, removable) = apt.available_action()?;
     pb.finish_and_clear();
 
