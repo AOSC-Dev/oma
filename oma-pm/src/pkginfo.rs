@@ -251,6 +251,10 @@ impl PkgInfo {
 }
 
 fn print_pkg_files(pkg_files: Vec<PackageFile>) {
+    if pkg_files.len() > 1 {
+        println!();
+    }
+
     for i in &pkg_files {
         let index = i.index_file();
 
@@ -286,9 +290,9 @@ fn print_pkg_files(pkg_files: Vec<PackageFile>) {
             };
             print!("{}", f);
         }
-    }
 
-    println!();
+        println!();
+    }
 }
 
 #[test]
