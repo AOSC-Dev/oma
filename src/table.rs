@@ -125,9 +125,15 @@ fn less_tips(is_question: bool) -> String {
     let has_gui = has_x11.is_ok() || has_wayland.is_ok();
 
     if is_question {
-        if has_gui { fl!("question-tips-with-gui") } else { fl!("question-tips") }
+        if has_gui {
+            fl!("question-tips-with-gui")
+        } else {
+            fl!("question-tips")
+        }
+    } else if has_gui {
+        fl!("normal-tips-with-gui")
     } else {
-        if has_gui { fl!("normal-tips-with-gui") } else { fl!("normal-tips") }
+        fl!("normal-tips")
     }
 }
 
