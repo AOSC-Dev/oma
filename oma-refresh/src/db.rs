@@ -480,7 +480,9 @@ impl<'a> OmaRefresh<'a> {
                 match source_entry.from {
                     OmaSourceEntryFrom::Http => DownloadSourceType::Http,
                     // 为保持与 apt 行为一致，本地源 symlink Release 文件
-                    OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: source_entry.is_flat },
+                    OmaSourceEntryFrom::Local => DownloadSourceType::Local {
+                        as_symlink: source_entry.is_flat,
+                    },
                 },
             )];
 
@@ -760,7 +762,9 @@ fn download_flat_repo_no_release(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: source_index.is_flat },
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local {
+            as_symlink: source_index.is_flat,
+        },
     };
 
     let download_url = format!("{}/Packages", dist_url);
@@ -807,7 +811,9 @@ fn collect_download_task(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: source_index.is_flat },
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local {
+            as_symlink: source_index.is_flat,
+        },
     };
 
     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _)) {
