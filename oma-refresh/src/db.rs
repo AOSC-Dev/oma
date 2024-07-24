@@ -137,6 +137,8 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             OmaSourceEntryFrom::Http
         } else if v.url().starts_with("file://") {
             OmaSourceEntryFrom::Local
+        } else if v.url().starts_with("file:") {
+            OmaSourceEntryFrom::Local
         } else {
             return Err(RefreshError::UnsupportedProtocol(format!("{v:?}")));
         };
@@ -486,7 +488,7 @@ impl<'a> OmaRefresh<'a> {
 
             let task = DownloadEntryBuilder::default()
                 .source(sources)
-                .filename(database_filename(&uri).into())
+                .filename(database_filename(&uri)?.into())
                 .dir(self.download_dir.clone())
                 .allow_resume(false)
                 .msg(format!("{msg} {}", repo_type_str))
@@ -770,7 +772,7 @@ fn download_flat_repo_no_release(
 
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);
-    task.filename(database_filename(&file_path).into());
+    task.filename(database_filename(&file_path)?.into());
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(format!("{msg} Packages"));
@@ -842,7 +844,7 @@ fn collect_download_task(
 
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);
-    task.filename(database_filename(&file_path).into());
+    task.filename(database_filename(&file_path)?.into());
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(format!("{msg} {typ}"));

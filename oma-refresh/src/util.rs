@@ -6,14 +6,27 @@ use url::Url;
 
 use crate::db::{OmaSourceEntry, RefreshError};
 
-pub(crate) fn database_filename(url: &str) -> String {
-    url.split("://")
-        .nth(1)
-        .unwrap_or(url)
+pub(crate) fn database_filename(url: &str) -> Result<String, RefreshError> {
+    let url_parsed = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
+
+    let host = url_parsed
+        .host_str()
+        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+
+    // 不能使用 url_parsed.path()
+    // 原因是 "/./" 会被解析器解析为 "/"，而 apt 则不会这样
+    let path = url
+        .split_once(host)
+        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+        .1;
+
+    let url = format!("{}{}", host, path)
         .replace('/', "_")
         .replace('+', "%252b")
         .replace("%3a", ":")
-        .replace("%3A", ":")
+        .replace("%3A", ":");
+
+    Ok(url)
 }
 
 #[derive(Deserialize)]
@@ -93,7 +106,7 @@ pub(crate) fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEnt
 fn test_database_filename() {
     // Mirror name contains '+' must be url encode twice
     let s = "https://repo.aosc.io/debs/dists/x264-0+git20240305/InRelease";
-    let res = database_filename(s);
+    let res = database_filename(s).unwrap();
 
     assert_eq!(
         res,
@@ -101,7 +114,7 @@ fn test_database_filename() {
     );
 
     let s = "https://ci.deepin.com/repo/obs/deepin%3A/CI%3A/TestingIntegration%3A/test-integration-pr-1537/testing/./Packages";
-    let res = database_filename(s);
+    let res = database_filename(s).unwrap();
 
     assert_eq!(res, "ci.deepin.com_repo_obs_deepin:_CI:_TestingIntegration:_test-integration-pr-1537_testing_._Packages")
 }
