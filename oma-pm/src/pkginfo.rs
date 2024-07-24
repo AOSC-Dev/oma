@@ -197,14 +197,7 @@ impl PkgInfo {
             })
             .collect::<Vec<_>>();
 
-        if pkg_files.len() == 1 {
-            print!(" ");
-            format_pkg_files(pkg_files);
-        } else {
-            println!();
-            print!("  ");
-            format_pkg_files(pkg_files);
-        }
+        print_pkg_files(pkg_files);
 
         println!(
             "Description: {}",
@@ -257,9 +250,15 @@ impl PkgInfo {
     }
 }
 
-fn format_pkg_files(pkg_files: Vec<PackageFile>) {
-    for i in pkg_files {
+fn print_pkg_files(pkg_files: Vec<PackageFile>) {
+    for i in &pkg_files {
         let index = i.index_file();
+
+        if pkg_files.len() == 1 {
+            print!(" ");
+        } else {
+            print!("  ");
+        }
 
         print!("{}", index.archive_uri(""));
 
