@@ -15,10 +15,9 @@ pub(crate) fn database_filename(url: &str) -> Result<String, RefreshError> {
 
     // 不能使用 url_parsed.path()
     // 原因是 "/./" 会被解析器解析为 "/"，而 apt 则不会这样
-    let path = url
+    let (_, path) = url
         .split_once(host)
-        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
-        .1;
+        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
 
     let url = format!("{}{}", host, path)
         .replace('/', "_")

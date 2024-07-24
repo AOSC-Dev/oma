@@ -135,8 +135,6 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
     fn try_from(v: &SourceEntry) -> std::prelude::v1::Result<Self, Self::Error> {
         let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
             OmaSourceEntryFrom::Http
-        } else if v.url().starts_with("file://") {
-            OmaSourceEntryFrom::Local
         } else if v.url().starts_with("file:") {
             OmaSourceEntryFrom::Local
         } else {
