@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{borrow::Cow, collections::HashMap, path::Path};
 
 use oma_apt_sources_lists::{SourceLine, SourceListType, SourcesLists};
 use serde::Deserialize;
@@ -9,17 +9,26 @@ use crate::db::{OmaSourceEntry, RefreshError};
 pub(crate) fn database_filename(url: &str) -> Result<String, RefreshError> {
     let url_parsed = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
 
-    let host = url_parsed
-        .host_str()
-        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+    let host = url_parsed.host_str();
 
-    // 不能使用 url_parsed.path()
-    // 原因是 "/./" 会被解析器解析为 "/"，而 apt 则不会这样
-    let (_, path) = url
-        .split_once(host)
-        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+    let path = if let Some(host) = host {
+        // 不能使用 url_parsed.path()
+        // 原因是 "/./" 会被解析器解析为 "/"，而 apt 则不会这样
+        url.split_once(host)
+            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+            .1
+    } else {
+        // file 协议下不会有 host
+        url_parsed.path()
+    };
 
-    let url = format!("{}{}", host, path)
+    let url = if let Some(host) = host {
+        Cow::Owned(format!("{}{}", host, path))
+    } else {
+        Cow::Borrowed(path)
+    };
+
+    let url = url
         .replace('/', "_")
         .replace('+', "%252b")
         .replace("%3a", ":")
@@ -115,5 +124,12 @@ fn test_database_filename() {
     let s = "https://ci.deepin.com/repo/obs/deepin%3A/CI%3A/TestingIntegration%3A/test-integration-pr-1537/testing/./Packages";
     let res = database_filename(s).unwrap();
 
-    assert_eq!(res, "ci.deepin.com_repo_obs_deepin:_CI:_TestingIntegration:_test-integration-pr-1537_testing_._Packages")
+    assert_eq!(res, "ci.deepin.com_repo_obs_deepin:_CI:_TestingIntegration:_test-integration-pr-1537_testing_._Packages");
+
+    let s1 = "file:/debs";
+    let s2 = "file:///debs";
+    let res1 = database_filename(s1).unwrap();
+    let res2 = database_filename(s2).unwrap();
+    assert_eq!(res1, "_debs");
+    assert_eq!(res1, res2);
 }
