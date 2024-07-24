@@ -6,7 +6,10 @@ use oma_apt::{
     raw::{IntoRawIter, PkgIterator},
     Package,
 };
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    fmt::Debug,
+};
 
 use crate::{format_description, pkginfo::PtrIsNone, query::has_dbg};
 
@@ -132,25 +135,22 @@ impl<'a> OmaSearch<'a> {
             };
 
             if let Some(cand) = pkg.candidate() {
-                if !pkg_map.contains_key(&pkg.fullname(true)) {
-                    pkg_map.insert(
-                        pkg.fullname(true),
-                        SearchEntry {
-                            pkgname: pkg.fullname(true),
-                            description: format_description(
-                                &cand.description().unwrap_or("".to_string()),
-                            )
-                            .0
-                            .to_string(),
-                            status,
-                            provide: pkg.provides().next().map(|x| x.name().to_string()),
-                            has_dbg: has_dbg(cache, &pkg, &cand),
-                            raw_pkg: unsafe { pkg.unique() }
-                                .make_safe()
-                                .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
-                            section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
-                        },
-                    );
+                if let Entry::Vacant(e) = pkg_map.entry(pkg.fullname(true)) {
+                    e.insert(SearchEntry {
+                        pkgname: pkg.fullname(true),
+                        description: format_description(
+                            &cand.description().unwrap_or("".to_string()),
+                        )
+                        .0
+                        .to_string(),
+                        status,
+                        provide: pkg.provides().next().map(|x| x.name().to_string()),
+                        has_dbg: has_dbg(cache, &pkg, &cand),
+                        raw_pkg: unsafe { pkg.unique() }
+                            .make_safe()
+                            .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
+                        section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
+                    });
                     continue;
                 }
             }

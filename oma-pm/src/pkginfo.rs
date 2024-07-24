@@ -5,7 +5,7 @@ use oma_apt::{
     cache::Cache,
     raw::{IntoRawIter, PkgIterator, VerIterator},
     records::RecordField,
-    BaseDep, DepType, Dependency, Package, Version,
+    BaseDep, DepType, Dependency, Package, PackageFile, Version,
 };
 use oma_utils::human_bytes::HumanBytes;
 use small_map::SmallMap;
@@ -257,7 +257,7 @@ impl PkgInfo {
     }
 }
 
-fn format_pkg_files(pkg_files: Vec<oma_apt::PackageFile>) {
+fn format_pkg_files(pkg_files: Vec<PackageFile>) {
     for i in pkg_files {
         let index = i.index_file();
 
