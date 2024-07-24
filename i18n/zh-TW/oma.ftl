@@ -196,3 +196,5 @@ table-name = Name
 table-version = Version
 table-size = Installed size
 table-detail = Detail
+
+reading-database = Reading packages database

@@ -196,3 +196,5 @@ table-name = 软件名
 table-version = 版本
 table-size = 大小
 table-detail = 备注
+
+reading-database = 正在读取软件包数据库

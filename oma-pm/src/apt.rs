@@ -258,13 +258,11 @@ impl OmaApt {
     /// Get upgradable and removable packages
     pub fn available_action(&self) -> OmaAptResult<(usize, usize)> {
         let sort = PackageSort::default().upgradable();
+        let dir = self.config.get("Dir").unwrap_or_else(|| "/".to_string());
         let upgradable = self
             .cache
             .packages(&sort)
-            .filter(|x| {
-                !is_hold(x.name(), self.config.get("Dir").unwrap_or("/".to_string()))
-                    .unwrap_or(false)
-            })
+            .filter(|x| !is_hold(x.name(), &dir).unwrap_or(false))
             .count();
 
         let sort = PackageSort::default().auto_removable();
