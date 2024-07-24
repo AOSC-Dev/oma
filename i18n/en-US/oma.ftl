@@ -115,7 +115,7 @@ checksum-mismatch = Checksum verification failed for file {$filename}.
 
 # db
 invaild-url = Invalid URL {$url}.
-can-not-parse-date = BUG: Failed to parse the Date field {$date} to the RFC2822 format. Please report this issue at https://github.com/AOSC-Dev/oma.
+can-not-parse-date = BUG: Failed to parse the Date field to the RFC2822 format. Please report this issue at https://github.com/AOSC-Dev/oma.
 can-not-parse-valid-until = BUG: Failed to parse the Valid-Until field in the RFC2822 format. Please report this issue at https://github.com/AOSC-Dev/oma.
 earlier-signature = InRelease file {$filename} is invalid: System time is earlier than the enclosed signature timestamp.
 expired-signature = InRelease file {$filename} is invalid: The enclosed signature has already expired.
