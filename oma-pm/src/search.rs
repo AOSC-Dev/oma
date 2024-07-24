@@ -119,7 +119,7 @@ impl<'a> OmaSearch<'a> {
         let mut pkg_map = HashMap::new();
 
         for pkg in packages {
-            if pkg.name().contains("-dbg") {
+            if pkg.fullname(true).contains("-dbg") {
                 continue;
             }
 
@@ -132,11 +132,11 @@ impl<'a> OmaSearch<'a> {
             };
 
             if let Some(cand) = pkg.candidate() {
-                if !pkg_map.contains_key(pkg.name()) {
+                if !pkg_map.contains_key(&pkg.fullname(true)) {
                     pkg_map.insert(
-                        pkg.name().to_string(),
+                        pkg.fullname(true),
                         SearchEntry {
-                            pkgname: pkg.name().to_string(),
+                            pkgname: pkg.fullname(true),
                             description: format_description(
                                 &cand.description().unwrap_or("".to_string()),
                             )
@@ -178,9 +178,9 @@ impl<'a> OmaSearch<'a> {
 
                 if let Some(cand) = pkg.candidate() {
                     pkg_map.insert(
-                        pkg.name().to_string(),
+                        pkg.fullname(true),
                         SearchEntry {
-                            pkgname: pkg.name().to_string(),
+                            pkgname: pkg.fullname(true),
                             description: format_description(
                                 &cand.description().unwrap_or("".to_string()),
                             )
