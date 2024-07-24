@@ -272,7 +272,12 @@ pub(crate) fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -
 
 pub(crate) fn check_unsupport_stmt(s: &str) {
     for i in s.chars() {
-        if !i.is_ascii_alphabetic() && !i.is_ascii_alphanumeric() && i != '-' && i != '.' && i != ':' {
+        if !i.is_ascii_alphabetic()
+            && !i.is_ascii_alphanumeric()
+            && i != '-'
+            && i != '.'
+            && i != ':'
+        {
             warn!("Unexpected pattern: {s}");
         }
     }
