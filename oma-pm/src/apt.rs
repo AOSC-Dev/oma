@@ -1238,7 +1238,7 @@ fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
 
     let mut line = String::new();
 
-    line += &format!("{pkg} :");
+    line += &format!("{} :", pkg.fullname(true));
 
     // Pick the proper version based on now status.
     // else Return with just the package name like Apt does.
@@ -1250,7 +1250,7 @@ fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
         return result;
     };
 
-    let indent = pkg.name().len() + 3;
+    let indent = pkg.fullname(false).len() + 3;
     let mut first = true;
 
     // ShowBrokenDeps
@@ -1282,7 +1282,7 @@ fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
                 line += &format!(" {}: ", base_dep.dep_type())
             }
 
-            line += base_dep.target_package().name();
+            line += &base_dep.target_package().fullname(true);
 
             if let (Ok(ver_str), Some(comp)) = (base_dep.target_ver(), base_dep.comp_type()) {
                 line += &format!(" ({comp} {ver_str})");

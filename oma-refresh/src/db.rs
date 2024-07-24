@@ -135,7 +135,7 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
     fn try_from(v: &SourceEntry) -> std::prelude::v1::Result<Self, Self::Error> {
         let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
             OmaSourceEntryFrom::Http
-        } else if v.url().starts_with("file://") {
+        } else if v.url().starts_with("file:") {
             OmaSourceEntryFrom::Local
         } else {
             return Err(RefreshError::UnsupportedProtocol(format!("{v:?}")));
@@ -477,13 +477,15 @@ impl<'a> OmaRefresh<'a> {
                 match source_entry.from {
                     OmaSourceEntryFrom::Http => DownloadSourceType::Http,
                     // 为保持与 apt 行为一致，本地源 symlink Release 文件
-                    OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: true },
+                    OmaSourceEntryFrom::Local => DownloadSourceType::Local {
+                        as_symlink: source_entry.is_flat,
+                    },
                 },
             )];
 
             let task = DownloadEntryBuilder::default()
                 .source(sources)
-                .filename(database_filename(&uri).into())
+                .filename(database_filename(&uri)?.into())
                 .dir(self.download_dir.clone())
                 .allow_resume(false)
                 .msg(format!("{msg} {}", repo_type_str))
@@ -744,7 +746,9 @@ fn download_flat_repo_no_release(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: true },
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local {
+            as_symlink: source_index.is_flat,
+        },
     };
 
     let download_url = format!("{}/Packages", dist_url);
@@ -754,7 +758,7 @@ fn download_flat_repo_no_release(
 
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);
-    task.filename(database_filename(&file_path).into());
+    task.filename(database_filename(&file_path)?.into());
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(format!("{msg} Packages"));
@@ -791,7 +795,9 @@ fn collect_download_task(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local { as_symlink: true },
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local {
+            as_symlink: source_index.is_flat,
+        },
     };
 
     let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _)) {
@@ -826,7 +832,7 @@ fn collect_download_task(
 
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);
-    task.filename(database_filename(&file_path).into());
+    task.filename(database_filename(&file_path)?.into());
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(format!("{msg} {typ}"));

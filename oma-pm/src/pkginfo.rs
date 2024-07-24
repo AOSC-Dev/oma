@@ -5,7 +5,7 @@ use oma_apt::{
     cache::Cache,
     raw::{IntoRawIter, PkgIterator, VerIterator},
     records::RecordField,
-    BaseDep, DepType, Dependency, Package, Version,
+    BaseDep, DepType, Dependency, Package, PackageFile, Version,
 };
 use oma_utils::human_bytes::HumanBytes;
 use small_map::SmallMap;
@@ -186,17 +186,18 @@ impl PkgInfo {
         }
 
         println!("Download-Size: {}", HumanBytes(ver.size()));
-        println!("APT-Source:");
+        print!("APT-Source:");
 
-        let uris = ver.uris().collect::<Vec<_>>();
+        let pkg_files = ver
+            .package_files()
+            .filter(|x| {
+                x.index_type()
+                    .map(|x| x != "Debian dpkg status file")
+                    .unwrap_or(true)
+            })
+            .collect::<Vec<_>>();
 
-        if uris.is_empty() {
-            println!("  unknown");
-        } else {
-            for c in uris {
-                println!("  {}", source_url_to_apt_style(&c).unwrap_or(c.to_string()));
-            }
-        }
+        print_pkg_files(pkg_files);
 
         println!(
             "Description: {}",
@@ -249,25 +250,49 @@ impl PkgInfo {
     }
 }
 
-// input: like http://50.50.1.183/debs/pool/stable/main/f/fish_3.6.0-0_amd64.deb
-// output: http://50.50.1.183/debs stable main
-fn source_url_to_apt_style(s: &str) -> Option<String> {
-    let mut s_split = s.split('/');
-    let component = s_split.nth_back(2)?;
-    let branch = s_split.next_back()?;
-    let _ = s_split.next_back();
+fn print_pkg_files(pkg_files: Vec<PackageFile>) {
+    if pkg_files.len() > 1 {
+        println!();
+    }
 
-    let host = &s_split.collect::<Vec<_>>().join("/");
+    for i in &pkg_files {
+        let index = i.index_file();
 
-    Some(format!("{host} {branch} {component}"))
-}
+        if pkg_files.len() == 1 {
+            print!(" ");
+        } else {
+            print!("  ");
+        }
 
-#[test]
-fn test_source_url_to_apt_style() {
-    let url = "http://50.50.1.183/debs/pool/stable/main/f/fish_3.6.0-0_amd64.deb";
-    let s = source_url_to_apt_style(url);
+        print!("{}", index.archive_uri(""));
 
-    assert_eq!(s, Some("http://50.50.1.183/debs stable main".to_string()));
+        if let Some(archive) = i.archive() {
+            print!(" {}", archive);
+        }
+
+        if let Some(comp) = i.component() {
+            print!("/{}", comp);
+        }
+
+        print!(" ");
+
+        if let Some(arch) = i.arch() {
+            print!("{}", arch);
+        }
+
+        print!(" ");
+
+        if let Some(f) = i.index_type() {
+            let f = match f {
+                "Debian Package Index" => "Packages",
+                "Debian Translation Index" => "Translation",
+                _ => "",
+            };
+            print!("{}", f);
+        }
+
+        println!();
+    }
 }
 
 #[test]
