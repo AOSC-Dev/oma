@@ -1,6 +1,6 @@
 use std::{path::Path, sync::atomic::Ordering};
 
-use dialoguer::console;
+use dialoguer::console::{self, style};
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
@@ -232,11 +232,10 @@ async fn inquire(
             let mut s = String::new();
 
             if let Some(desc) = &x.description {
-                s += &console::style(desc).bold().to_string();
-                s += &console::style(format!(" ({})", x.name))
-                    .to_string();
+                s += &style(desc).bold().to_string();
+                s += &x.name;
             } else {
-                s += &console::style(&x.name).bold().to_string();
+                s += &style(&x.name).bold().to_string();
             }
 
             let term_width = WRITER.get_length() as usize;
