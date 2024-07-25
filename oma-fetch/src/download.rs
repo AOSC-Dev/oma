@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder};
+use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
 use derive_builder::Builder;
 use futures::{io::BufReader, AsyncBufRead, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
@@ -359,6 +359,9 @@ impl SingleDownloader<'_> {
                 CompressStream::Gzip(GzipDecoder::new(BufReader::new(bytes_stream)))
             }
             CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(bytes_stream))),
+            CompressFile::Zstd => {
+                CompressStream::Zstd(ZstdDecoder::new(BufReader::new(bytes_stream)))
+            }
             CompressFile::Nothing => CompressStream::Nothing(BufReader::new(bytes_stream)),
         };
 
@@ -676,6 +679,7 @@ impl SingleDownloader<'_> {
             CompressFile::Xz => CompressStream::Xz(XzDecoder::new(BufReader::new(from))),
             CompressFile::Gzip => CompressStream::Gzip(GzipDecoder::new(BufReader::new(from))),
             CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(from))),
+            CompressFile::Zstd => CompressStream::Zstd(ZstdDecoder::new(BufReader::new(from))),
             CompressFile::Nothing => CompressStream::Nothing(BufReader::new(from)),
         };
         let reader = reader.as_inner();
@@ -729,6 +733,7 @@ enum CompressStream<R: AsyncRead + Unpin + Send> {
     Xz(XzDecoder<R>),
     Gzip(GzipDecoder<R>),
     Bz2(BzDecoder<R>),
+    Zstd(ZstdDecoder<R>),
     Nothing(R),
 }
 
@@ -739,6 +744,7 @@ impl<R: AsyncRead + Unpin + Send + AsyncBufRead> CompressStream<R> {
             CompressStream::Gzip(reader) => reader,
             CompressStream::Bz2(reader) => reader,
             CompressStream::Nothing(reader) => reader,
+            CompressStream::Zstd(reader) => reader,
         }
     }
 }
