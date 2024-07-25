@@ -74,13 +74,7 @@ user-aborted-op = 使用者已中止操作。
 count-pkg-has-desc = { $count } 個軟體套件將被
 dep-issue-1 = oma 發現指定軟體套件存在依賴問題，故無法安裝。
 dep-issue-2 = 如下是該依賴問題的完整分析報告，請複製或截圖如下信息並聯系 AOSC OS 維護人員：
-<<<<<<< HEAD
 how-to-op-with-x = 按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁
-=======
-contact-admin-tips = 請聯繫您的系統管理員或開發人員。
-how-to-abort = 按 [q] 或 [Ctrl-c] 中止操作。
-how-to-op-with-x = 按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
->>>>>>> weblate/master
 end-review = 按 [q] 結束檢閱並套用更改
 cc-to-abort = 按 [Ctrl-c] 中止操作
 how-to-op = 按 [PgUp/Dn] 或方向鍵翻頁。
@@ -99,11 +93,7 @@ downgraded = 降級
 reinstall = 重裝
 reinstalled = 重裝
 colon = ：
-<<<<<<< HEAD
 
-=======
-unmet-dep-before = 有 { $count } 個軟體套件的依賴
->>>>>>> weblate/master
 # download
 invaild-filename = 檔案名 { $name } 無效。
 checksum-mismatch-retry = 檔案 { $c } 完整性驗證失敗，正在重試第 { $retry } 次……
