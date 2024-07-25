@@ -66,8 +66,6 @@ pub enum RefreshError {
 pub enum RefreshError {
     #[error("Invalid URL: {0}")]
     InvaildUrl(String),
-    #[error("Can not parse distro repo data {0}: {1}")]
-    ParseDistroRepoDataError(&'static str, serde_yaml::Error),
     #[error("Scan sources.list failed: {0}")]
     ScanSourceError(SourceError),
     #[error("Unsupport Protocol: {0}")]
@@ -329,7 +327,7 @@ impl<'a> OmaRefresh<'a> {
                             "({}/{}) {}",
                             i,
                             sourcelist.len(),
-                            human_download_url(&c, None)?
+                            human_download_url(c, None)?
                         )));
 
                     let cc = callback.clone();
@@ -353,7 +351,7 @@ impl<'a> OmaRefresh<'a> {
                             "({}/{}) {}",
                             i,
                             sourcelist.len(),
-                            human_download_url(&c, None)?
+                            human_download_url(c, None)?
                         )));
 
                     callback(i, event, None);
@@ -453,7 +451,7 @@ impl<'a> OmaRefresh<'a> {
                 repo_type_str
             );
 
-            let msg = human_download_url(&source_entry, Some(repo_type_str))?;
+            let msg = human_download_url(source_entry, Some(repo_type_str))?;
 
             let sources = vec![DownloadSource::new(
                 uri.clone(),
@@ -734,7 +732,7 @@ fn download_flat_repo_no_release(
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
 ) -> Result<()> {
-    let msg = human_download_url(&source_index, Some("Packages"))?;
+    let msg = human_download_url(source_index, Some("Packages"))?;
 
     let dist_url = &source_index.dist_path;
 
@@ -782,7 +780,7 @@ fn collect_download_task(
         _ => unreachable!(),
     };
 
-    let msg = human_download_url(&source_index, Some(&typ))?;
+    let msg = human_download_url(source_index, Some(typ))?;
 
     let dist_url = &source_index.dist_path;
 

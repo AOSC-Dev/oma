@@ -36,7 +36,10 @@ pub(crate) fn database_filename(url: &str) -> Result<String, RefreshError> {
     Ok(url)
 }
 
-pub(crate) fn human_download_url(ose: &OmaSourceEntry, file_name: Option<&str>) -> Result<String, RefreshError> {
+pub(crate) fn human_download_url(
+    ose: &OmaSourceEntry,
+    file_name: Option<&str>,
+) -> Result<String, RefreshError> {
     let url = Url::parse(&ose.url).map_err(|_| RefreshError::InvaildUrl(ose.url.to_string()))?;
 
     let host = url.host_str();
@@ -53,7 +56,7 @@ pub(crate) fn human_download_url(ose: &OmaSourceEntry, file_name: Option<&str>) 
         s.push(' ');
         s.push_str(file_name);
     }
-    
+
     Ok(s)
 }
 
