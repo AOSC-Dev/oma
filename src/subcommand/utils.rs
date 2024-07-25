@@ -35,13 +35,22 @@ use tracing::error;
 use tracing::info;
 use tracing::warn;
 
-pub(crate) fn handle_no_result(no_result: Vec<String>) {
-    for word in no_result {
+pub(crate) fn handle_no_result(no_result: Vec<String>) -> Result<(), OutputError> {
+    for word in &no_result {
         if word == "266" {
             error!("无法找到匹配关键字为艾露露的软件包");
         } else {
             error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
         }
+    }
+
+    if no_result.is_empty() {
+        Ok(())
+    } else {
+        Err(OutputError {
+            description: fl!("has-error-on-top"),
+            source: None,
+        })
     }
 }
 

@@ -72,7 +72,7 @@ pub fn execute(
 
     let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run)?;
     let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, args.install_dbg, true, false)?;
-    handle_no_result(no_result);
+    handle_no_result(no_result)?;
 
     let no_marked_install = apt.install(&pkgs, args.reinstall)?;
 
