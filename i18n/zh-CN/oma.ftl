@@ -93,11 +93,7 @@ downgraded = 降级
 reinstall = 重装
 reinstalled = 重装
 colon = ：
-<<<<<<< HEAD
 
-=======
-unmet-dep-before = 有 { $count } 个软件包的依赖
->>>>>>> weblate/master
 # download
 invaild-filename = 文件名 { $name } 无效。
 checksum-mismatch-retry = 文件 { $c } 完整性验证失败，正在重试第 { $retry } 次 ...
