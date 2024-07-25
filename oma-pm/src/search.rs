@@ -1,5 +1,5 @@
 use cxx::UniquePtr;
-use indicium::simple::{Indexable, SearchIndex};
+use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder, SearchType};
 use oma_apt::{
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
@@ -199,7 +199,9 @@ impl<'a> OmaSearch<'a> {
             }
         }
 
-        let mut search_index: SearchIndex<String> = SearchIndex::default();
+        let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
+            .search_type(SearchType::And)
+            .build();
 
         pkg_map
             .iter()
@@ -215,7 +217,14 @@ impl<'a> OmaSearch<'a> {
     pub fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let mut search_res = vec![];
         let query = query.to_lowercase();
-        let res = self.index.search(&query);
+        let mut res = self.index.search(&query);
+
+        // Workaround: Increase the relevance of "lib" keywords
+        let query_lib = format!("lib{}", query);
+        if !query.contains("lib") {
+            let res_lib = self.index.search(&query_lib);
+            res.extend(res_lib);
+        }
 
         if res.is_empty() {
             return Err(OmaSearchError::NoResult(query));
