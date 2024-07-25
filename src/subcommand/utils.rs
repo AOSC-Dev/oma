@@ -138,7 +138,7 @@ pub(crate) fn refresh(
                         }
                     }
                 },
-                || fl!("do-not-edit-topic-sources-list"),
+                || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
             )
             .await
     })?;

@@ -311,7 +311,7 @@ async fn refresh_topics<P: AsRef<Path>>(
     };
 
     tm.refresh().await?;
-    scan_closed_topic(|| fl!("do-not-edit-topic-sources-list"), sysroot, &tm.arch).await?;
+    scan_closed_topic(|| format!("{}\n", fl!("do-not-edit-topic-sources-list")), sysroot, &tm.arch).await?;
 
     if let Some(pb) = pb {
         pb.finish_and_clear();
