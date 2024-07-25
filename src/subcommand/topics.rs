@@ -229,9 +229,14 @@ async fn inquire(
     let display = all_topics
         .iter()
         .map(|x| {
-            let mut s = x.name.clone();
-            if let Some(d) = &x.description {
-                s += &format!(" ({d})");
+            let mut s = String::new();
+
+            if let Some(desc) = &x.description {
+                s += &console::style(desc).bold().to_string();
+                s += &console::style(format!(" ({})", x.name))
+                    .to_string();
+            } else {
+                s += &console::style(&x.name).bold().to_string();
             }
 
             let term_width = WRITER.get_length() as usize;
