@@ -95,7 +95,7 @@ pub fn execute(
         apt.upgrade()?;
 
         let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, true, false)?;
-        handle_no_result(no_result);
+        handle_no_result(no_result)?;
 
         apt.install(&pkgs, false)?;
 

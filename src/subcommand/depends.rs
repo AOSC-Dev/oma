@@ -20,7 +20,7 @@ pub fn execute(pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
         true,
         false,
     )?;
-    handle_no_result(no_result);
+    handle_no_result(no_result)?;
 
     for pkg in pkgs {
         println!("{}:", pkg.raw_pkg.name());

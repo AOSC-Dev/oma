@@ -32,7 +32,7 @@ pub fn execute(
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
     let (pkgs, no_result) = apt.select_pkg(&keyword, false, true, true)?;
-    handle_no_result(no_result);
+    handle_no_result(no_result)?;
 
     let (mb, pb_map, global_is_set) = multibar();
     let (success, failed) = apt.download(

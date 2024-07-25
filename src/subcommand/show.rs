@@ -13,7 +13,7 @@ pub fn execute(all: bool, input: Vec<&str>, sysroot: String) -> Result<i32, Outp
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
     let (pkgs, no_result) = apt.select_pkg(&input, false, false, false)?;
-    handle_no_result(no_result);
+    handle_no_result(no_result)?;
 
     if !all {
         let mut filter_pkgs: Vec<PkgInfo> = vec![];

@@ -33,7 +33,7 @@ pub fn execute(
                 true,
                 false,
             )?;
-            handle_no_result(no_result);
+            handle_no_result(no_result)?;
 
             apt.mark_install_status(pkgs, op == "auto", dry_run)?
                 .into_iter()
