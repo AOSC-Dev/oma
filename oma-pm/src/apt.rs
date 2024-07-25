@@ -636,7 +636,7 @@ impl OmaApt {
 
         let cmd = Command::new("dpkg")
             .arg("--root")
-            .arg(&self.config.get("Dir").unwrap_or("/".to_owned()))
+            .arg(self.config.get("Dir").unwrap_or_else(|| "/".to_owned()))
             .arg("--configure")
             .arg("-a")
             .spawn()

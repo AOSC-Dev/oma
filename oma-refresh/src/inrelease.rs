@@ -252,11 +252,11 @@ fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {
 /// and for non-standard X:YY:ZZ conversion to XX:YY:ZZ.
 ///
 /// - Some third-party repositories (such as those generated with Aptly) uses "UTC" to denote the Coordinated Universal
-/// Time, which is not allowed in RFC 1123 or 822/2822 (all calls for "GMT" or "UT", 822 allows "Z", and 2822 allows
-/// "+0000").
+///   Time, which is not allowed in RFC 1123 or 822/2822 (all calls for "GMT" or "UT", 822 allows "Z", and 2822 allows
+///   "+0000").
 /// - This is used by many commercial software vendors, such as Google, Microsoft, and Spotify.
 /// - This is allowed in APT's RFC 1123 parser. However, as chrono requires full compliance with the
-/// aforementioned RFC documents, "UTC" is considered illegal.
+///   aforementioned RFC documents, "UTC" is considered illegal.
 ///
 /// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
 ///
