@@ -10,10 +10,8 @@ license = "MIT"
 [dependencies]
 oma-fetch = { version = "^0.11.0", path = "../oma-fetch", default-features = false }
 thiserror = "1.0"
-serde = { version = "1.0", features = ["derive"] }
 url = "2.3"
 tokio = { version = "1.28", default-features = false, features = ["fs"] }
-serde_yaml = "0.9"
 futures = "0.3"
 oma-apt-sources-lists = "0.4"
 oma-debcontrol = "0.3"
