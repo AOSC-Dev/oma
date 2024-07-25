@@ -1,7 +1,6 @@
-use std::{borrow::Cow, collections::HashMap, path::Path};
+use std::{borrow::Cow, path::Path};
 
 use oma_apt_sources_lists::{SourceLine, SourceListType, SourcesLists};
-use serde::Deserialize;
 use url::Url;
 
 use crate::db::{OmaSourceEntry, RefreshError};
@@ -37,52 +36,25 @@ pub(crate) fn database_filename(url: &str) -> Result<String, RefreshError> {
     Ok(url)
 }
 
-#[derive(Deserialize)]
-pub struct MirrorMapItem {
-    url: String,
-}
+pub(crate) fn human_download_url(ose: &OmaSourceEntry, file_name: Option<&str>) -> Result<String, RefreshError> {
+    let url = Url::parse(&ose.url).map_err(|_| RefreshError::InvaildUrl(ose.url.to_string()))?;
 
-pub(crate) fn human_download_url(
-    url: &str,
-    mirror_map: &Option<HashMap<String, MirrorMapItem>>,
-) -> Result<String, RefreshError> {
-    let url = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
+    let host = url.host_str();
 
-    let host = if url.scheme() == "file" {
-        "Local Mirror"
+    let url = if let Some(host) = host {
+        host
     } else {
-        url.host_str()
-            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+        url.path()
     };
 
-    let schema = url.scheme();
-    let branch = url
-        .path()
-        .split('/')
-        .nth_back(1)
-        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+    let mut s = format!("{}:{}", url, ose.suite);
 
-    let url = format!("{schema}://{host}/");
-
-    // MIRROR 文件为 AOSC 独有，为兼容其他 .deb 系统，这里不直接返回错误
-    if let Some(mirror_map) = mirror_map {
-        for (k, v) in mirror_map.iter() {
-            let mirror_url =
-                Url::parse(&v.url).map_err(|_| RefreshError::InvaildUrl(v.url.to_string()))?;
-            let mirror_url_host = mirror_url
-                .host_str()
-                .ok_or_else(|| RefreshError::InvaildUrl(v.url.to_string()))?;
-
-            let schema = mirror_url.scheme();
-            let mirror_url = format!("{schema}://{mirror_url_host}/");
-
-            if mirror_url == url {
-                return Ok(format!("{k}:{branch}"));
-            }
-        }
+    if let Some(file_name) = file_name {
+        s.push(' ');
+        s.push_str(file_name);
     }
-
-    Ok(format!("{host}:{branch}"))
+    
+    Ok(s)
 }
 
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d

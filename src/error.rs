@@ -283,10 +283,6 @@ impl From<RefreshError> for OutputError {
                 description: fl!("invaild-url"),
                 source: None,
             },
-            RefreshError::ParseDistroRepoDataError(path, e) => Self {
-                description: fl!("can-not-parse-sources-list", path = path),
-                source: Some(Box::new(e)),
-            },
             RefreshError::ScanSourceError(e) => Self {
                 description: e.to_string(),
                 source: None,

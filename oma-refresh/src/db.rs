@@ -25,18 +25,14 @@ use tracing::debug;
 
 use crate::{
     inrelease::{ChecksumItem, DistFileType, InRelease, InReleaseParser, InReleaseParserError},
-    util::{database_filename, get_sources, human_download_url, MirrorMapItem},
+    util::{database_filename, get_sources, human_download_url},
 };
-
-const AOSC_MIRROR_FILE: &str = "/usr/share/distro-repository-data/mirrors.yml";
 
 #[cfg(feature = "aosc")]
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
     #[error("Invalid URL: {0}")]
     InvaildUrl(String),
-    #[error("Can not parse distro repo data {0}: {1}")]
-    ParseDistroRepoDataError(&'static str, serde_yaml::Error),
     #[error("Scan sources.list failed: {0}")]
     ScanSourceError(SourceError),
     #[error("Unsupport Protocol: {0}")]
@@ -100,19 +96,12 @@ pub enum RefreshError {
 
 type Result<T> = std::result::Result<T, RefreshError>;
 
-fn mirror_map(buf: &[u8]) -> Result<HashMap<String, MirrorMapItem>> {
-    let mirror_map: HashMap<String, MirrorMapItem> = serde_yaml::from_slice(buf)
-        .map_err(|e| RefreshError::ParseDistroRepoDataError(AOSC_MIRROR_FILE, e))?;
-
-    Ok(mirror_map)
-}
-
 #[derive(Debug, Clone)]
 pub struct OmaSourceEntry {
     from: OmaSourceEntryFrom,
     components: Vec<String>,
-    url: String,
-    _suite: String,
+    pub url: String,
+    pub suite: String,
     dist_path: String,
     is_flat: bool,
     signed_by: Option<String>,
@@ -175,7 +164,7 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             from,
             components,
             url,
-            _suite: suite,
+            suite,
             is_flat,
             dist_path,
             signed_by,
@@ -243,11 +232,6 @@ impl<'a> OmaRefresh<'a> {
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
-        let m = tokio::fs::read(AOSC_MIRROR_FILE)
-            .await
-            .ok()
-            .and_then(|m| mirror_map(&m).ok());
-
         if !self.download_dir.is_dir() {
             tokio::fs::create_dir_all(&self.download_dir)
                 .await
@@ -259,13 +243,11 @@ impl<'a> OmaRefresh<'a> {
                 })?;
         }
 
-        let is_inrelease_map = self
-            .get_is_inrelease_map(&sourcelist, &m, &_callback)
-            .await?;
+        let is_inrelease_map = self.get_is_inrelease_map(&sourcelist, &_callback).await?;
 
         let mut download_list = vec![];
 
-        let tasks = self.collect_download_release_tasks(&sourcelist, &m, is_inrelease_map)?;
+        let tasks = self.collect_download_release_tasks(&sourcelist, is_inrelease_map)?;
 
         for i in &tasks {
             download_list.push(i.filename.to_string());
@@ -280,7 +262,7 @@ impl<'a> OmaRefresh<'a> {
             .await?;
 
         let (tasks, total) = self
-            .collect_all_release_entry(all_inrelease, &sourcelist, &m)
+            .collect_all_release_entry(all_inrelease, &sourcelist)
             .await?;
 
         for i in &tasks {
@@ -302,7 +284,6 @@ impl<'a> OmaRefresh<'a> {
     async fn get_is_inrelease_map<F>(
         &mut self,
         sourcelist: &[OmaSourceEntry],
-        m: &Option<HashMap<String, MirrorMapItem>>,
         callback: &F,
     ) -> Result<HashMap<usize, RepoType>>
     where
@@ -348,7 +329,7 @@ impl<'a> OmaRefresh<'a> {
                             "({}/{}) {}",
                             i,
                             sourcelist.len(),
-                            human_download_url(&c.dist_path, m)?
+                            human_download_url(&c, None)?
                         )));
 
                     let cc = callback.clone();
@@ -372,7 +353,7 @@ impl<'a> OmaRefresh<'a> {
                             "({}/{}) {}",
                             i,
                             sourcelist.len(),
-                            human_download_url(&c.dist_path, m)?
+                            human_download_url(&c, None)?
                         )));
 
                     callback(i, event, None);
@@ -449,7 +430,6 @@ impl<'a> OmaRefresh<'a> {
     fn collect_download_release_tasks(
         &self,
         sourcelist: &[OmaSourceEntry],
-        m: &Option<HashMap<String, MirrorMapItem>>,
         is_inrelease_map: HashMap<usize, RepoType>,
     ) -> Result<Vec<DownloadEntry>> {
         let mut tasks = Vec::new();
@@ -473,7 +453,7 @@ impl<'a> OmaRefresh<'a> {
                 repo_type_str
             );
 
-            let msg = human_download_url(&uri, m)?;
+            let msg = human_download_url(&source_entry, Some(repo_type_str))?;
 
             let sources = vec![DownloadSource::new(
                 uri.clone(),
@@ -491,7 +471,7 @@ impl<'a> OmaRefresh<'a> {
                 .filename(database_filename(&uri)?.into())
                 .dir(self.download_dir.clone())
                 .allow_resume(false)
-                .msg(format!("{msg} {}", repo_type_str))
+                .msg(msg)
                 .build()?;
 
             debug!("oma will fetch {} InRelease", source_entry.url);
@@ -573,7 +553,6 @@ impl<'a> OmaRefresh<'a> {
         &self,
         all_inrelease: Vec<Summary>,
         sourcelist: &[OmaSourceEntry],
-        m: &Option<HashMap<String, MirrorMapItem>>,
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
@@ -710,7 +689,6 @@ impl<'a> OmaRefresh<'a> {
                     &checksums,
                     &self.download_dir,
                     &mut tasks,
-                    m,
                     inrelease.acquire_by_hash,
                 )?;
             }
@@ -756,7 +734,7 @@ fn download_flat_repo_no_release(
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
 ) -> Result<()> {
-    let msg = human_download_url(&source_index.dist_path, &None)?;
+    let msg = human_download_url(&source_index, Some("Packages"))?;
 
     let dist_url = &source_index.dist_path;
 
@@ -777,7 +755,7 @@ fn download_flat_repo_no_release(
     task.filename(database_filename(&file_path)?.into());
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
-    task.msg(format!("{msg} Packages"));
+    task.msg(msg);
     task.file_type(CompressFile::Nothing);
 
     let task = task.build()?;
@@ -793,7 +771,6 @@ fn collect_download_task(
     checksums: &[ChecksumItem],
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
-    m: &Option<HashMap<String, MirrorMapItem>>,
     acquire_by_hash: bool,
 ) -> Result<()> {
     let (typ, not_compress_filename_before) = match &c.file_type {
@@ -805,7 +782,7 @@ fn collect_download_task(
         _ => unreachable!(),
     };
 
-    let msg = human_download_url(&source_index.dist_path, m)?;
+    let msg = human_download_url(&source_index, Some(&typ))?;
 
     let dist_url = &source_index.dist_path;
 
@@ -851,7 +828,7 @@ fn collect_download_task(
     task.filename(database_filename(&file_path)?.into());
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
-    task.msg(format!("{msg} {typ}"));
+    task.msg(msg);
     task.file_type(match c.file_type {
         DistFileType::BinaryContents => CompressFile::Nothing,
         DistFileType::Contents => CompressFile::Nothing,
