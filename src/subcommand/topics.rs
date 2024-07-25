@@ -226,6 +226,7 @@ async fn inquire(
 
     let default = (0..swap_count).collect::<Vec<_>>();
 
+    let term_width = WRITER.get_length() as usize;
     let display = all_topics
         .iter()
         .map(|x| {
@@ -238,7 +239,6 @@ async fn inquire(
                 s += &style(&x.name).bold().to_string();
             }
 
-            let term_width = WRITER.get_length() as usize;
             // 4 是 inquire 前面有四个空格缩进
             // 3 是 ... 的长度
             if console::measure_text_width(&s) + 4 > term_width {
