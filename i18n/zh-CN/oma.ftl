@@ -82,8 +82,6 @@ user-aborted-op = 用户已中止操作。
 count-pkg-has-desc = {$count} 个软件包将被
 dep-issue-1 = oma 发现指定软件包存在依赖问题，故无法安装。
 dep-issue-2 = 如下是该依赖问题的完整分析报告，请复制或截图如下信息并联系 AOSC OS 维护者：
-contact-admin-tips = 请联系您的系统管理员或开发者。
-how-to-abort = 按 [q] 或 [Ctrl-c] 中止操作
 how-to-op-with-x = 按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页
 end-review = 按 [q] 结束审阅并应用更改
 cc-to-abort = 按 [Ctrl-c] 中止操作
@@ -102,9 +100,7 @@ downgrade = 降级
 downgraded = 降级
 reinstall = 重装
 reinstalled = 重装
-unmet-dep = 无法满足
 colon = ：
-unmet-dep-before = 有 {$count} 个软件包的依赖
 
 # download
 invaild-filename = 文件名 {$name} 无效。
@@ -164,10 +160,8 @@ failed-to-connect-history-database = 无法连接到历史数据库。
 failed-to-execute-query-stmt = 无法在历史数据库中执行查询命令。
 failed-to-parse-history-object = 无法解析历史数据库中的对象。
 
-failed-to-connect-dbus = 无法连接到系统消息总线 (D-Bus) 。
 failed-to-set-lockscreen = 无法设置系统锁屏状态。
 failed-to-create-proxy = 无法创建系统消息总线 (D-Bus) 代理：{$proxy}。
-failed-to-get-power-status = 无法获取设备供电状态。
 
 failed-check-dbus = 由于当前管理的系统尚未启动，oma 无法探测系统运行状态。
 failed-check-dbus-tips-1 = 在此状态下，oma 无法检查电源及用户会话等关键系统状态，如继续操作可能会导致系统故障！

@@ -82,8 +82,6 @@ user-aborted-op = User aborted the operation.
 count-pkg-has-desc = {$count} package(s) will be
 dep-issue-1 = oma cannot install the specified package due to dependency issue(s).
 dep-issue-2 = Below is a full dependency report, please copy or take a screenshot of the following and report it to an AOSC OS maintainer:
-contact-admin-tips = Please contact your system administrator or maintainer.
-how-to-abort = Press [q] or [Ctrl-c] to abort.
 how-to-op-with-x = Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.
 end-review = Press [q] to end review
 cc-to-abort = Press [Ctrl-c] to abort
@@ -103,9 +101,7 @@ downgrade = downgrade
 downgraded = downgraded
 reinstall = reinstall
 reinstalled = reinstalled
-unmet-dep = unmet dependency(ies)
 colon = : 
-unmet-dep-before = {$count} package(s) has
 
 # download
 invaild-filename = Invalid file name: {$name}.
@@ -168,10 +164,8 @@ failed-to-connect-history-database = Failed to connect to the history database.
 failed-to-execute-query-stmt = Failed to query the history database.
 failed-to-parse-history-object = Failed to parse an object in the history database.
 
-failed-to-connect-dbus = Failed connect to the system message bus (D-Bus).
 failed-to-set-lockscreen = Failed to set system lockscreen status.
 failed-to-create-proxy = Failed to create a system message bus (D-Bus) proxy: {$proxy}.
-failed-to-get-power-status = Failed to get device power supply status.
 
 failed-check-dbus = oma is unable to detect the status of the currently managed system because it has not yet started up.
 failed-check-dbus-tips-1 = In this state, oma is unable to check the status of critical systems such as power supplies and user sessions, and continued operation may result in system failure!
