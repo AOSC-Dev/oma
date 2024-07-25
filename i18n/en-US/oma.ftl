@@ -94,14 +94,8 @@ downgrade = downgrade
 downgraded = downgraded
 reinstall = reinstall
 reinstalled = reinstalled
-<<<<<<< HEAD
 colon = : 
 
-=======
-unmet-dep = unmet dependency(ies)
-colon = :
-unmet-dep-before = { $count } package(s) has
->>>>>>> weblate/master
 # download
 invaild-filename = Invalid file name: { $name }.
 checksum-mismatch-retry = Checksum verification failed for { $c }. Retrying { $retry } times ...
