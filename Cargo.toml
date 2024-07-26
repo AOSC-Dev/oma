@@ -9,7 +9,6 @@ description = "User-friendly and performant package manager for APT repositories
 [dependencies]
 # Cli
 clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color", "string"] }
-once_cell = "1.18"
 anyhow = "1.0"
 ctrlc = "3.4"
 tabled = { version = "0.16", features = ["ansi"] }
