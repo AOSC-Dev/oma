@@ -35,5 +35,5 @@ zbus = { version = "4.1", features = ["tokio"] }
 cxx = "1.0.121"
 
 [dev-dependencies]
-dashmap = "5.5"
+dashmap = "6"
 indicatif = "0.17"

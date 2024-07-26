@@ -110,8 +110,9 @@ pub struct InstallEntry {
     old_size: Option<u64>,
     new_size: u64,
     pkg_urls: Vec<String>,
-    #[builder(setter(into, strip_option))]
-    checksum: Option<String>,
+    sha256: Option<String>,
+    md5: Option<String>,
+    sha512: Option<String>,
     arch: String,
     download_size: u64,
     op: InstallOperation,
@@ -169,8 +170,16 @@ impl InstallEntry {
         &self.pkg_urls
     }
 
-    pub fn checksum(&self) -> Option<&str> {
-        self.checksum.as_deref()
+    pub fn sha256(&self) -> Option<&str> {
+        self.sha256.as_deref()
+    }
+
+    pub fn md5(&self) -> Option<&str> {
+        self.md5.as_deref()
+    }
+
+    pub fn sha512(&self) -> Option<&str> {
+        self.sha512.as_deref()
     }
 
     pub fn arch(&self) -> &str {

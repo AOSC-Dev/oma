@@ -7,8 +7,8 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{
-    DownloadEntryBuilder, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType,
-    OmaFetcher,
+    checksum::Checksum, DownloadEntryBuilder, DownloadEvent, DownloadResult, DownloadSource,
+    DownloadSourceType, OmaFetcher,
 };
 use reqwest::ClientBuilder;
 use tokio::io::AsyncWriteExt;
@@ -24,7 +24,12 @@ async fn main() -> DownloadResult<()> {
         .source(vec![source_1])
         .filename("go.deb".to_string().into())
         .dir(PathBuf::from("./oma-fetcher-test"))
-        .hash("0625cbba48a14438eea144682567a026a17e173420c5bdcbc06dcb11aba50628".to_string())
+        .hash(
+            Checksum::from_sha256_str(
+                "0625cbba48a14438eea144682567a026a17e173420c5bdcbc06dcb11aba50628",
+            )
+            .unwrap(),
+        )
         .allow_resume(true)
         .build()?;
 
