@@ -460,6 +460,10 @@ impl From<RefreshError> for OutputError {
                     description: e.to_string(),
                     source: None,
                 },
+                InReleaseParserError::NotTrusted(mirror) => Self {
+                    description: fl!("mirror-is-not-trusted", mirror = mirror),
+                    source: None,
+                },
             },
             RefreshError::DpkgArchError(e) => OutputError::from(e),
             RefreshError::JoinError(e) => Self {
