@@ -23,10 +23,7 @@ pub use indicatif;
 use writer::Writer;
 
 #[cfg(feature = "print")]
-use once_cell::sync::Lazy;
-
-#[cfg(feature = "print")]
-pub static WRITER: Lazy<Writer> = Lazy::new(writer::Writer::default);
+pub static WRITER: std::sync::LazyLock<Writer> = std::sync::LazyLock::new(writer::Writer::default);
 
 #[cfg(feature = "print")]
 pub fn is_terminal() -> bool {

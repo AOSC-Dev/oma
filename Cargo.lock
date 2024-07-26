@@ -2948,7 +2948,6 @@ dependencies = [
  "oma-refresh",
  "oma-topics",
  "oma-utils 0.8.0",
- "once_cell",
  "ratatui",
  "reqwest",
  "rust-embed",
@@ -2993,7 +2992,6 @@ dependencies = [
  "console",
  "icu_segmenter",
  "indicatif",
- "once_cell",
  "tracing",
  "tracing-subscriber",
 ]
@@ -3153,7 +3151,6 @@ dependencies = [
  "logind-zbus",
  "number_prefix",
  "oma-console",
- "once_cell",
  "os-release",
  "thiserror",
  "tracing",
