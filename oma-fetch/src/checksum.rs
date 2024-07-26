@@ -1,4 +1,5 @@
 use faster_hex::{hex_decode, hex_string};
+use md5::Md5;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
 use std::{fmt::Display, fs::File, io, path::Path};
@@ -7,12 +8,14 @@ use std::{fmt::Display, fs::File, io, path::Path};
 pub enum Checksum {
     Sha256(Vec<u8>),
     Sha512(Vec<u8>),
+    Md5(Vec<u8>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ChecksumValidator {
     Sha256((Vec<u8>, Sha256)),
     Sha512((Vec<u8>, Sha512)),
+    Md5((Vec<u8>, Md5)),
 }
 
 impl ChecksumValidator {
@@ -20,6 +23,7 @@ impl ChecksumValidator {
         match self {
             ChecksumValidator::Sha256((_, v)) => v.update(data),
             ChecksumValidator::Sha512((_, v)) => v.update(data),
+            ChecksumValidator::Md5((_, v)) => v.update(data),
         }
     }
 
@@ -27,6 +31,7 @@ impl ChecksumValidator {
         match self {
             ChecksumValidator::Sha256((c, v)) => c == &v.clone().finalize().to_vec(),
             ChecksumValidator::Sha512((c, v)) => c == &v.clone().finalize().to_vec(),
+            ChecksumValidator::Md5((c, v)) => c == &v.clone().finalize().to_vec(),
         }
     }
 }
@@ -71,10 +76,39 @@ impl Checksum {
         Ok(Checksum::Sha256(dst))
     }
 
+    /// This function does not do input sanitization, so do checks before!
+    pub fn from_sha512_str(s: &str) -> Result<Self> {
+        if s.len() != 128 {
+            return Err(ChecksumError::BadLength);
+        }
+
+        let from = s.as_bytes();
+        // dst 的长度必须是 src 的一半
+        let mut dst = vec![0; from.len() / 2];
+        hex_decode(from, &mut dst)?;
+
+        Ok(Checksum::Sha512(dst))
+    }
+
+    /// This function does not do input sanitization, so do checks before!
+    pub fn from_md5_str(s: &str) -> Result<Self> {
+        if s.len() != 32 {
+            return Err(ChecksumError::BadLength);
+        }
+
+        let from = s.as_bytes();
+        // dst 的长度必须是 src 的一半
+        let mut dst = vec![0; from.len() / 2];
+        hex_decode(from, &mut dst)?;
+
+        Ok(Checksum::Md5(dst))
+    }
+
     pub fn get_validator(&self) -> ChecksumValidator {
         match self {
             Checksum::Sha256(c) => ChecksumValidator::Sha256((c.clone(), Sha256::new())),
             Checksum::Sha512(c) => ChecksumValidator::Sha512((c.clone(), Sha512::new())),
+            Checksum::Md5(c) => ChecksumValidator::Md5((c.clone(), Md5::new())),
         }
     }
 
@@ -88,6 +122,12 @@ impl Checksum {
             }
             Checksum::Sha512(hex) => {
                 let mut hasher = Sha512::new();
+                io::copy(&mut r, &mut hasher).map_err(ChecksumError::ChecksumIOError)?;
+                let hash = hasher.finalize().to_vec();
+                Ok(hex == &hash)
+            }
+            Checksum::Md5(hex) => {
+                let mut hasher = Md5::new();
                 io::copy(&mut r, &mut hasher).map_err(ChecksumError::ChecksumIOError)?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
@@ -112,6 +152,10 @@ impl Display for Checksum {
             }
             Checksum::Sha512(hex) => {
                 f.write_str("sha512::")?;
+                f.write_str(&hex_string(hex))
+            }
+            Checksum::Md5(hex) => {
+                f.write_str("md5::")?;
                 f.write_str(&hex_string(hex))
             }
         }

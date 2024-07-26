@@ -9,7 +9,7 @@ use futures::{
 };
 use oma_apt_sources_lists::{SourceEntry, SourceError};
 use oma_fetch::{
-    checksum::ChecksumError,
+    checksum::{Checksum, ChecksumError},
     reqwest::{self, Client},
     CompressFile, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent,
     DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
@@ -25,7 +25,9 @@ use tokio::fs;
 use tracing::debug;
 
 use crate::{
-    inrelease::{ChecksumItem, DistFileType, InRelease, InReleaseParser, InReleaseParserError},
+    inrelease::{
+        ChecksumItem, ChecksumType, DistFileType, InRelease, InReleaseParser, InReleaseParserError,
+    },
     util::{database_filename, get_sources, human_download_url},
 };
 
@@ -696,6 +698,7 @@ impl<'a> OmaRefresh<'a> {
                     &self.download_dir,
                     &mut tasks,
                     inrelease.acquire_by_hash,
+                    inrelease.checksum_type,
                 )?;
             }
         }
@@ -778,6 +781,7 @@ fn collect_download_task(
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     acquire_by_hash: bool,
+    checksum_type: ChecksumType,
 ) -> Result<()> {
     let (typ, not_compress_filename_before) = match &c.file_type {
         DistFileType::CompressContents(s, _) => ("Contents", s),
@@ -857,7 +861,11 @@ fn collect_download_task(
     });
 
     if let Some(checksum) = checksum {
-        task.hash(checksum);
+        task.hash(match checksum_type {
+            ChecksumType::Sha256 => Checksum::from_sha256_str(checksum)?,
+            ChecksumType::Sha512 => Checksum::from_sha512_str(checksum)?,
+            ChecksumType::Md5 => Checksum::from_md5_str(checksum)?,
+        });
     }
 
     let task = task.build()?;

@@ -337,7 +337,7 @@ impl From<RefreshError> for OutputError {
                     description: fl!("expired-signature", filename = p),
                     source: None,
                 },
-                InReleaseParserError::BadSha256Value(_) => Self {
+                InReleaseParserError::BadChecksumValue(_) => Self {
                     description: fl!("inrelease-sha256-empty"),
                     source: None,
                 },
@@ -440,7 +440,7 @@ impl From<RefreshError> for OutputError {
                     description: fl!("expired-signature", filename = p),
                     source: None,
                 },
-                InReleaseParserError::BadSha256Value(_) => Self {
+                InReleaseParserError::BadChecksumValue(_) => Self {
                     description: fl!("inrelease-sha256-empty"),
                     source: None,
                 },
@@ -746,6 +746,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: err.to_string(),
             source: None,
         },
+        OmaAptError::ChecksumError(e) => oma_checksum_error(e),
     }
 }
 
