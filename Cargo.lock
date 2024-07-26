@@ -2495,9 +2495,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.28.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c10584274047cb335c23d3e61bcef8e323adae7c5c8c760540f73610177fc3f"
+checksum = "6b694a822684ddb75df4d657029161431bcb4a85c1856952f845b76912bc6fec"
 dependencies = [
  "cc",
  "pkg-config",
@@ -3036,7 +3036,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "async-compression",
  "dashmap 6.0.1",
@@ -3058,7 +3058,7 @@ dependencies = [
 
 [[package]]
 name = "oma-history"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "oma-pm-operation-type",
  "rusqlite",
@@ -3086,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.23.2"
+version = "0.24.0"
 dependencies = [
  "chrono",
  "cxx",
@@ -3110,7 +3110,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm-operation-type"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "derive_builder",
  "oma-utils 0.8.0",
@@ -3119,7 +3119,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3866,9 +3866,9 @@ checksum = "88f8660c1ff60292143c98d08fc6e2f654d722db50410e3f3797d40baaf9d8f3"
 
 [[package]]
 name = "rusqlite"
-version = "0.31.0"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b838eba278d213a8beaf485bd313fd580ca4505a00d5871caeb1457c55322cae"
+checksum = "1cdbe9230a57259b37f7257d0aff38b8c9dbda3513edba2105e59b130189d82f"
 dependencies = [
  "bitflags 2.6.0",
  "fallible-iterator",
