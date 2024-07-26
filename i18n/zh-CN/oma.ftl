@@ -171,3 +171,4 @@ table-size = 大小
 table-detail = 备注
 reading-database = 正在读取软件包数据库
 has-error-on-top = 无法执行您指定的操作，请参考上述报错详情。
+mirror-is-not-trusted = 源 { $mirror } 不受信任。
