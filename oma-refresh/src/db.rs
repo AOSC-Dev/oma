@@ -17,6 +17,7 @@ use oma_fetch::{
 
 use oma_fetch::DownloadError;
 
+use oma_utils::dpkg::dpkg_arch;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
@@ -117,10 +118,8 @@ pub enum Event {
     Info(String),
 }
 
-impl TryFrom<&SourceEntry> for OmaSourceEntry {
-    type Error = RefreshError;
-
-    fn try_from(v: &SourceEntry) -> std::prelude::v1::Result<Self, Self::Error> {
+impl OmaSourceEntry {
+    pub fn new(v: &SourceEntry, sysroot: impl AsRef<Path>) -> Result<Self> {
         let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
             OmaSourceEntryFrom::Http
         } else if v.url().starts_with("file:") {
@@ -130,14 +129,15 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         };
 
         let components = v.components.clone();
-        let url = v.url.clone();
-        let suite = v.suite.clone();
+        let arch = &dpkg_arch(sysroot)?;
+        let url = v.url.replace("$(ARCH)", arch);
+        let suite = v.suite.replace("$(ARCH)", arch);
         let (dist_path, is_flat) = if components.is_empty() {
             // flat repo 后面一定有斜线
             if suite.starts_with('/') {
-                (format!("{}{}", v.url(), suite), true)
+                (format!("{}{}", url, suite), true)
             } else {
-                (format!("{}/{}", v.url(), suite), true)
+                (format!("{}/{}", url, suite), true)
             }
         } else {
             (v.dist_path(), false)
