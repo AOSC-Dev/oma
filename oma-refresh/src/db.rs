@@ -104,6 +104,7 @@ pub struct OmaSourceEntry {
     is_flat: bool,
     signed_by: Option<String>,
     archs: Vec<String>,
+    trusted: bool,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -145,6 +146,8 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         let mut signed_by = None;
         let mut archs = vec![];
 
+        let mut trusted = false;
+
         for i in &v.options {
             if i.starts_with("arch=") {
                 if let Some(v) = i.split_once('=').map(|x| x.1.to_string()) {
@@ -153,8 +156,13 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
                     }
                 }
             }
+
             if i.starts_with("signed-by=") {
                 signed_by = i.split_once('=').map(|x| x.1.to_string());
+            }
+
+            if i.starts_with("trusted=") {
+                trusted = i.split_once('=').map(|(_, v)| v == "yes").unwrap_or(false);
             }
         }
 
@@ -167,6 +175,7 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             dist_path,
             signed_by,
             archs,
+            trusted,
         })
     }
 }
@@ -583,6 +592,7 @@ impl<'a> OmaRefresh<'a> {
                 p: &inrelease_path,
                 rootfs: &self.source,
                 components: &ose.components,
+                trusted: ose.trusted,
             };
 
             let inrelease = InReleaseParser::new(inrelease).map_err(|err| {

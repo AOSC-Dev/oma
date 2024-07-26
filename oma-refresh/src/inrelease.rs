@@ -32,6 +32,8 @@ pub enum DistFileType {
 
 #[derive(Debug, thiserror::Error)]
 pub enum InReleaseParserError {
+    #[error("Mirror {0} is not signed by trusted keyring.")]
+    NotTrusted(String),
     #[error(transparent)]
     VerifyError(#[from] crate::verify::VerifyError),
     #[error("Bad InRelease Data")]
@@ -65,6 +67,7 @@ pub struct InRelease<'a> {
     pub p: &'a Path,
     pub rootfs: &'a Path,
     pub components: &'a [String],
+    pub trusted: bool,
 }
 
 impl InReleaseParser {
@@ -72,17 +75,21 @@ impl InReleaseParser {
         let InRelease {
             inrelease: s,
             signed_by,
-            mirror: _,
+            mirror,
             archs,
             is_flat,
             p,
             rootfs,
             components,
+            trusted,
         } = in_release;
 
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
             Cow::Owned(verify::verify(s, signed_by, rootfs)?)
         } else {
+            if !trusted {
+                return Err(InReleaseParserError::NotTrusted(mirror.to_string()));
+            }
             Cow::Borrowed(s)
         };
 
