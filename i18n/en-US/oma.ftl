@@ -94,8 +94,7 @@ downgrade = downgrade
 downgraded = downgraded
 reinstall = reinstall
 reinstalled = reinstalled
-colon = : 
-
+colon = :
 # download
 invaild-filename = Invalid file name: { $name }.
 checksum-mismatch-retry = Checksum verification failed for { $c }. Retrying { $retry } times ...
@@ -149,10 +148,8 @@ failed-to-create-http-client = Failed to create an HTTP client.
 failed-to-connect-history-database = Failed to connect to the history database.
 failed-to-execute-query-stmt = Failed to query the history database.
 failed-to-parse-history-object = Failed to parse an object in the history database.
-
 failed-to-set-lockscreen = Failed to set system lockscreen status.
 failed-to-create-proxy = Failed to create a system message bus (D-Bus) proxy: { $proxy }.
-
 failed-check-dbus = oma is unable to detect the status of the currently managed system because it has not yet started up.
 failed-check-dbus-tips-1 = In this state, oma is unable to check the status of critical systems such as power supplies and user sessions, and continued operation may result in system failure!
 failed-check-dbus-tips-2 = If you are trying to repair the system using, for example, chroot, please add the --no-check-dbus parameter after the oma command.
@@ -178,3 +175,4 @@ table-size = Installed size
 table-detail = Detail
 reading-database = Reading packages database
 has-error-on-top = The operation you specified did not complete successfully. Please refer to the output above for details.
+mirror-is-not-trusted = Mirror { $mirror } untrusted.
