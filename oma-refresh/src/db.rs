@@ -149,20 +149,18 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         let mut trusted = false;
 
         for i in &v.options {
-            if i.starts_with("arch=") {
-                if let Some(v) = i.split_once('=').map(|x| x.1.to_string()) {
-                    for i in v.split(',') {
-                        archs.push(i.to_string());
-                    }
+            if let Some(v) = i.strip_prefix("arch=") {
+                for i in v.split(',') {
+                    archs.push(i.to_string());
                 }
             }
 
-            if i.starts_with("signed-by=") {
-                signed_by = i.split_once('=').map(|x| x.1.to_string());
+            if let Some(v) = i.strip_prefix("signed-by=") {
+                signed_by = Some(v.to_string());
             }
 
-            if i.starts_with("trusted=") {
-                trusted = i.split_once('=').map(|(_, v)| v == "yes").unwrap_or(false);
+            if let Some(v) = i.strip_prefix("trusted=") {
+                trusted = v == "yes";
             }
         }
 
