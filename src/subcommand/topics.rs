@@ -234,8 +234,7 @@ async fn inquire(
 
             if let Some(desc) = &x.description {
                 s += &style(desc).bold().to_string();
-                s.push(' ');
-                s += &x.name;
+                s += &format!(" ({})", x.name);
             } else {
                 s += &style(&x.name).bold().to_string();
             }
