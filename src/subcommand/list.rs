@@ -7,8 +7,8 @@ use oma_pm::{
 };
 use tracing::info;
 
-use crate::{fl, ALLOWCTRLC};
 use crate::{error::OutputError, table::PagerPrinter};
+use crate::{fl, ALLOWCTRLC};
 use anyhow::anyhow;
 use smallvec::{smallvec, SmallVec};
 
