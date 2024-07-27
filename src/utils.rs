@@ -1,12 +1,10 @@
 use std::{
-    path::Path,
-    process::{exit, Command},
+    process::exit,
     sync::{atomic::AtomicBool, Arc},
 };
 
 use crate::error::OutputError;
 use crate::fl;
-use anyhow::anyhow;
 use dashmap::DashMap;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use oma_console::indicatif::{MultiProgress, ProgressBar};
@@ -121,28 +119,12 @@ pub fn root() -> Result<()> {
         return Ok(());
     }
 
-    let args = std::env::args().collect::<Vec<_>>();
-    let mut handled_args = vec![];
+    sudo2::pkexec().map_err(|e| OutputError {
+        description: fl!("execute-pkexec-fail", e = e.to_string()),
+        source: None,
+    })?;
 
-    // Handle pkexec user input path
-    for arg in args {
-        let mut arg = arg.to_string();
-        if arg.ends_with(".deb") {
-            let path = Path::new(&arg);
-            let path = path.canonicalize().unwrap_or(path.to_path_buf());
-            arg = path.display().to_string();
-        }
-        handled_args.push(arg);
-    }
-
-    let out = Command::new("pkexec")
-        .args(handled_args)
-        .spawn()
-        .and_then(|x| x.wait_with_output())
-        .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
-
-    unlock_oma().ok();
-    exit(out.status.code().unwrap_or(1));
+    Ok(())
 }
 
 pub fn create_async_runtime() -> Result<Runtime> {

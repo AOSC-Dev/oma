@@ -35,6 +35,7 @@ ratatui = "=0.26"
 crossterm = "0.27"
 ansi-to-tui = "4.0"
 glob-match = "0.2"
+sudo2 = "0.2.1"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
