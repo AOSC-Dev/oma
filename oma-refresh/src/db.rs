@@ -816,7 +816,13 @@ fn collect_download_task(
     let download_url = if acquire_by_hash {
         let path = Path::new(&c.name);
         let parent = path.parent().unwrap_or(path);
-        let path = parent.join("by-hash").join("SHA256").join(&c.checksum);
+        let dir = match checksum_type {
+            ChecksumType::Sha256 => "SHA256",
+            ChecksumType::Sha512 => "SHA512",
+            ChecksumType::Md5 => "MD5Sum",
+        };
+
+        let path = parent.join("by-hash").join(dir).join(&c.checksum);
 
         format!("{}/{}", dist_url, path.display())
     } else {
