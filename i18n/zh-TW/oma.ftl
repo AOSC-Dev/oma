@@ -175,3 +175,4 @@ has-error-on-top = 無法執行您指定的操作，請參閱上述報錯細節�
 question-tips-with-gui = 按 [q] 結束檢閱並套用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
 normal-tips-with-gui = 按 [q] 或 [Ctrl-c] 退出， 按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
 mirror-is-not-trusted = 鏡像源 { $mirror } 不受信任。
+please-run-me-as-root = Please run me as root.

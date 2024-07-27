@@ -1,4 +1,5 @@
 use std::{
+    env,
     process::exit,
     sync::{atomic::AtomicBool, Arc},
 };
@@ -119,12 +120,18 @@ pub fn root() -> Result<()> {
         return Ok(());
     }
 
-    sudo2::pkexec().map_err(|e| OutputError {
-        description: fl!("execute-pkexec-fail", e = e.to_string()),
-        source: None,
-    })?;
+    if (env::var("DISPLAY").is_ok() || env::var("WAYLAND_DISPLAY").is_ok()) && !is_wsl() {
+        sudo2::pkexec().map_err(|e| OutputError {
+            description: fl!("execute-pkexec-fail", e = e.to_string()),
+            source: None,
+        })?;
+        return Ok(());
+    }
 
-    Ok(())
+    Err(OutputError {
+        description: fl!("please-run-me-as-root"),
+        source: None,
+    })
 }
 
 pub fn create_async_runtime() -> Result<Runtime> {
@@ -148,6 +155,16 @@ pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<Vec<OwnedFd>> {
     let fds = rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
 
     Ok(fds)
+}
+
+fn is_wsl() -> bool {
+    if let Ok(b) = std::fs::read("/proc/sys/kernel/osrelease") {
+        if let Ok(s) = std::str::from_utf8(&b) {
+            let a = s.to_ascii_lowercase();
+            return a.contains("microsoft") || a.contains("wsl");
+        }
+    }
+    false
 }
 
 pub async fn check_battery(conn: &Connection, yes: bool) {
