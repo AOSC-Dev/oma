@@ -157,6 +157,7 @@ pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<Vec<OwnedFd>> {
     Ok(fds)
 }
 
+// From `is_wsl` crate
 fn is_wsl() -> bool {
     if let Ok(b) = std::fs::read("/proc/sys/kernel/osrelease") {
         if let Ok(s) = std::str::from_utf8(&b) {
@@ -164,6 +165,7 @@ fn is_wsl() -> bool {
             return a.contains("microsoft") || a.contains("wsl");
         }
     }
+
     false
 }
 
