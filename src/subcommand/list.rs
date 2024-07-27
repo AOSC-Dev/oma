@@ -1,4 +1,4 @@
-use std::{borrow::Cow, io::stdout};
+use std::{borrow::Cow, io::stdout, sync::atomic::Ordering};
 
 use dialoguer::console::style;
 use oma_pm::{
@@ -7,7 +7,7 @@ use oma_pm::{
 };
 use tracing::info;
 
-use crate::fl;
+use crate::{fl, ALLOWCTRLC};
 use crate::{error::OutputError, table::PagerPrinter};
 use anyhow::anyhow;
 use smallvec::{smallvec, SmallVec};
@@ -66,6 +66,7 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
     };
 
     let mut printer = PagerPrinter::new(stdout());
+    ALLOWCTRLC.store(true, Ordering::Relaxed);
 
     let mut display_tips = (false, 0);
 
