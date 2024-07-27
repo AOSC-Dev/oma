@@ -25,13 +25,14 @@ Although it is based on apt, we did quite a bit of extra work, the goal of this 
 
 ## Dependencies
 
-- libapt-pkg 2.5.4
+- libapt-pkg
 - Glibc
 - Ripgrep binary (optional, `--no-default-features --features contents-without-rg` to disable)
-- C Compiler
+- LLVM/Clang Compile
 - OpenSSL
 - Rustc with Cargo
 - nettle
+- pkg-config
 
 ## Build & install
 

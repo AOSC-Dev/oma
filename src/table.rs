@@ -27,16 +27,6 @@ struct RemoveEntryDisplay {
     detail: String,
 }
 
-#[derive(Debug, Tabled)]
-pub struct UnmetDepDisplay {
-    #[tabled(rename = "Package")]
-    package: String,
-    #[tabled(rename = "Unmet Dependency")]
-    unmet_dependency: String,
-    #[tabled(rename = "Specified Dependency")]
-    specified_dependency: String,
-}
-
 impl From<&RemoveEntry> for RemoveEntryDisplay {
     fn from(value: &RemoveEntry) -> Self {
         let name = style(value.name()).red().bold().to_string();

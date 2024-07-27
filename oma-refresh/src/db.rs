@@ -9,7 +9,7 @@ use futures::{
 };
 use oma_apt_sources_lists::{SourceEntry, SourceError};
 use oma_fetch::{
-    checksum::ChecksumError,
+    checksum::{Checksum, ChecksumError},
     reqwest::{self, Client},
     CompressFile, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent,
     DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
@@ -17,6 +17,7 @@ use oma_fetch::{
 
 use oma_fetch::DownloadError;
 
+use oma_utils::dpkg::dpkg_arch;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
@@ -24,7 +25,9 @@ use tokio::fs;
 use tracing::debug;
 
 use crate::{
-    inrelease::{ChecksumItem, DistFileType, InRelease, InReleaseParser, InReleaseParserError},
+    inrelease::{
+        ChecksumItem, ChecksumType, DistFileType, InRelease, InReleaseParser, InReleaseParserError,
+    },
     util::{database_filename, get_sources, human_download_url},
 };
 
@@ -104,6 +107,7 @@ pub struct OmaSourceEntry {
     is_flat: bool,
     signed_by: Option<String>,
     archs: Vec<String>,
+    trusted: bool,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -116,10 +120,8 @@ pub enum Event {
     Info(String),
 }
 
-impl TryFrom<&SourceEntry> for OmaSourceEntry {
-    type Error = RefreshError;
-
-    fn try_from(v: &SourceEntry) -> std::prelude::v1::Result<Self, Self::Error> {
+impl OmaSourceEntry {
+    pub fn new(v: &SourceEntry, sysroot: impl AsRef<Path>) -> Result<Self> {
         let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
             OmaSourceEntryFrom::Http
         } else if v.url().starts_with("file:") {
@@ -129,14 +131,15 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         };
 
         let components = v.components.clone();
-        let url = v.url.clone();
-        let suite = v.suite.clone();
+        let arch = &dpkg_arch(sysroot)?;
+        let url = v.url.replace("$(ARCH)", arch);
+        let suite = v.suite.replace("$(ARCH)", arch);
         let (dist_path, is_flat) = if components.is_empty() {
             // flat repo 后面一定有斜线
             if suite.starts_with('/') {
-                (format!("{}{}", v.url(), suite), true)
+                (format!("{}{}", url, suite), true)
             } else {
-                (format!("{}/{}", v.url(), suite), true)
+                (format!("{}/{}", url, suite), true)
             }
         } else {
             (v.dist_path(), false)
@@ -145,16 +148,21 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
         let mut signed_by = None;
         let mut archs = vec![];
 
+        let mut trusted = false;
+
         for i in &v.options {
-            if i.starts_with("arch=") {
-                if let Some(v) = i.split_once('=').map(|x| x.1.to_string()) {
-                    for i in v.split(',') {
-                        archs.push(i.to_string());
-                    }
+            if let Some(v) = i.strip_prefix("arch=") {
+                for i in v.split(',') {
+                    archs.push(i.to_string());
                 }
             }
-            if i.starts_with("signed-by=") {
-                signed_by = i.split_once('=').map(|x| x.1.to_string());
+
+            if let Some(v) = i.strip_prefix("signed-by=") {
+                signed_by = Some(v.to_string());
+            }
+
+            if let Some(v) = i.strip_prefix("trusted=") {
+                trusted = v == "yes";
             }
         }
 
@@ -167,6 +175,7 @@ impl TryFrom<&SourceEntry> for OmaSourceEntry {
             dist_path,
             signed_by,
             archs,
+            trusted,
         })
     }
 }
@@ -580,6 +589,7 @@ impl<'a> OmaRefresh<'a> {
                 p: &inrelease_path,
                 rootfs: &self.source,
                 components: &ose.components,
+                trusted: ose.trusted,
             };
 
             let inrelease = InReleaseParser::new(inrelease).map_err(|err| {
@@ -672,6 +682,7 @@ impl<'a> OmaRefresh<'a> {
                     &self.download_dir,
                     &mut tasks,
                     inrelease.acquire_by_hash,
+                    inrelease.checksum_type,
                 )?;
             }
         }
@@ -754,6 +765,7 @@ fn collect_download_task(
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     acquire_by_hash: bool,
+    checksum_type: ChecksumType,
 ) -> Result<()> {
     let (typ, not_compress_filename_before) = match &c.file_type {
         DistFileType::CompressContents(s, _) => ("Contents", s),
@@ -788,7 +800,13 @@ fn collect_download_task(
     let download_url = if acquire_by_hash {
         let path = Path::new(&c.name);
         let parent = path.parent().unwrap_or(path);
-        let path = parent.join("by-hash").join("SHA256").join(&c.checksum);
+        let dir = match checksum_type {
+            ChecksumType::Sha256 => "SHA256",
+            ChecksumType::Sha512 => "SHA512",
+            ChecksumType::Md5 => "MD5Sum",
+        };
+
+        let path = parent.join("by-hash").join(dir).join(&c.checksum);
 
         format!("{}/{}", dist_url, path.display())
     } else {
@@ -833,7 +851,11 @@ fn collect_download_task(
     });
 
     if let Some(checksum) = checksum {
-        task.hash(checksum);
+        task.hash(match checksum_type {
+            ChecksumType::Sha256 => Checksum::from_sha256_str(checksum)?,
+            ChecksumType::Sha512 => Checksum::from_sha512_str(checksum)?,
+            ChecksumType::Md5 => Checksum::from_md5_str(checksum)?,
+        });
     }
 
     let task = task.build()?;

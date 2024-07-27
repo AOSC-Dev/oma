@@ -24,9 +24,7 @@ use tokio::{
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use tracing::debug;
 
-use crate::{
-    checksum::Checksum, DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Summary,
-};
+use crate::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Summary};
 
 #[derive(Debug, Builder)]
 pub(crate) struct SingleDownloader<'a> {
@@ -240,10 +238,8 @@ impl SingleDownloader<'_> {
                 DownloadEvent::ProgressInc(file_size),
             );
             Some(v)
-        } else if let Some(hash) = hash {
-            Some(Checksum::from_sha256_str(hash)?.get_validator())
         } else {
-            None
+            hash.as_ref().map(|hash| hash.get_validator())
         };
 
         let mut self_progress = 0;
@@ -523,7 +519,7 @@ impl SingleDownloader<'_> {
                 self.entry.filename
             );
 
-            let mut v = Checksum::from_sha256_str(hash)?.get_validator();
+            let mut v = hash.get_validator();
 
             debug!("Validator created.");
 

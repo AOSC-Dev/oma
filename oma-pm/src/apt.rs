@@ -20,8 +20,10 @@ use oma_apt::{
 };
 use oma_console::console::{self, style};
 use oma_fetch::{
-    reqwest::Client, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent,
-    DownloadSource, DownloadSourceType, OmaFetcher, Summary,
+    checksum::{Checksum, ChecksumError},
+    reqwest::Client,
+    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
+    DownloadSourceType, OmaFetcher, Summary,
 };
 use oma_utils::{
     dpkg::{dpkg_arch, is_hold, DpkgError},
@@ -126,6 +128,8 @@ pub enum OmaAptError {
     FailedGetCanonicalize(String, std::io::Error),
     #[error(transparent)]
     PtrIsNone(#[from] PtrIsNone),
+    #[error(transparent)]
+    ChecksumError(#[from] ChecksumError),
 }
 
 #[derive(Default, Builder)]
@@ -380,11 +384,22 @@ impl OmaApt {
             entry.download_size(ver.size());
             entry.op(InstallOperation::Download);
 
+            let sha256 = ver.get_record(RecordField::SHA256);
+            let md5 = ver.get_record(RecordField::MD5sum);
+            let sha512 = ver.sha512();
+
             if ver.uris().all(|x| !x.starts_with("file")) {
-                entry.checksum(
-                    ver.get_record(RecordField::SHA256)
-                        .ok_or_else(|| OmaAptError::PkgNoChecksum(name))?,
-                );
+                if sha256
+                    .as_ref()
+                    .or(md5.as_ref())
+                    .or(sha512.as_ref())
+                    .is_none()
+                {
+                    return Err(OmaAptError::PkgNoChecksum(name));
+                }
+                entry.sha256(sha256);
+                entry.md5(md5);
+                entry.sha512(sha512);
             }
             let entry = entry.build()?;
 
@@ -636,7 +651,7 @@ impl OmaApt {
 
         let cmd = Command::new("dpkg")
             .arg("--root")
-            .arg(&self.config.get("Dir").unwrap_or("/".to_owned()))
+            .arg(self.config.get("Dir").unwrap_or_else(|| "/".to_owned()))
             .arg("--configure")
             .arg("-a")
             .spawn()
@@ -711,8 +726,13 @@ impl OmaApt {
             download_entry.allow_resume(true);
             download_entry.msg(msg);
 
-            if let Some(checksum) = entry.checksum() {
-                download_entry.hash(checksum);
+            if let Some(checksum) = entry.sha256() {
+                // TODO: 添加更多 checksum 类型
+                download_entry.hash(Checksum::from_sha256_str(checksum)?);
+            } else if let Some(checksum) = entry.sha512() {
+                download_entry.hash(Checksum::from_sha512_str(checksum)?);
+            } else if let Some(checksum) = entry.md5() {
+                download_entry.hash(Checksum::from_md5_str(checksum)?);
             }
 
             let download_entry = download_entry.build()?;
@@ -875,7 +895,9 @@ impl OmaApt {
                 let uri = cand.uris().collect::<Vec<_>>();
                 let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
                 let version = cand.version();
-                let checksum = cand.get_record(RecordField::SHA256);
+                let sha256 = cand.get_record(RecordField::SHA256);
+                let md5 = cand.get_record(RecordField::MD5sum);
+                let sha512 = cand.sha512();
 
                 let size = cand.installed_size();
 
@@ -890,10 +912,17 @@ impl OmaApt {
                 entry.automatic(!self.select_pkgs.contains(&pkg.fullname(true)));
 
                 if not_local_source {
-                    entry.checksum(
-                        checksum
-                            .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?,
-                    );
+                    if sha256
+                        .as_ref()
+                        .or(md5.as_ref())
+                        .or(sha512.as_ref())
+                        .is_none()
+                    {
+                        return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
+                    }
+                    entry.sha256(sha256);
+                    entry.md5(md5);
+                    entry.sha512(sha512);
                 }
 
                 let entry = entry.build()?;
@@ -946,7 +975,9 @@ impl OmaApt {
                 // 如果一个包被标记为重装，则肯定已经安装
                 // 所以请求已安装版本应该直接 unwrap
                 let version = pkg.installed().unwrap();
-                let checksum = version.get_record(RecordField::SHA256);
+                let sha256 = version.get_record(RecordField::SHA256);
+                let md5 = version.get_record(RecordField::MD5sum);
+                let sha512 = version.sha512();
                 let uri = version.uris().collect::<Vec<_>>();
                 let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
 
@@ -962,10 +993,17 @@ impl OmaApt {
                 entry.automatic(!self.select_pkgs.contains(&pkg.fullname(true)));
 
                 if not_local_source {
-                    entry.checksum(
-                        checksum
-                            .ok_or_else(|| OmaAptError::PkgNoChecksum(pkg.name().to_string()))?,
-                    );
+                    if sha256
+                        .as_ref()
+                        .or(md5.as_ref())
+                        .or(sha512.as_ref())
+                        .is_none()
+                    {
+                        return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
+                    }
+                    entry.sha256(sha256);
+                    entry.md5(md5);
+                    entry.sha512(sha512);
                 }
 
                 let entry = entry.build()?;
@@ -1107,7 +1145,9 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     let installed = new_pkg.installed().unwrap();
     let old_version = installed.version();
 
-    let checksum = cand.get_record(RecordField::SHA256);
+    let sha256 = cand.get_record(RecordField::SHA256);
+    let md5 = cand.get_record(RecordField::MD5sum);
+    let sha512 = cand.sha512();
 
     let mut install_entry = InstallEntryBuilder::default();
     install_entry.name(new_pkg.fullname(true).to_string());
@@ -1121,9 +1161,17 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     install_entry.op(op);
 
     if not_local_source {
-        install_entry.checksum(
-            checksum.ok_or_else(|| OmaAptError::PkgNoChecksum(new_pkg.name().to_string()))?,
-        );
+        if sha256
+            .as_ref()
+            .or(md5.as_ref())
+            .or(sha512.as_ref())
+            .is_none()
+        {
+            return Err(OmaAptError::PkgNoChecksum(new_pkg.to_string()));
+        }
+        install_entry.sha256(sha256);
+        install_entry.md5(md5);
+        install_entry.sha512(sha512);
     }
 
     let install_entry = install_entry.build()?;

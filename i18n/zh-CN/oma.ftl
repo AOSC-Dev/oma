@@ -93,7 +93,6 @@ downgraded = 降级
 reinstall = 重装
 reinstalled = 重装
 colon = ：
-
 # download
 invaild-filename = 文件名 { $name } 无效。
 checksum-mismatch-retry = 文件 { $c } 完整性验证失败，正在重试第 { $retry } 次 ...
@@ -105,7 +104,7 @@ can-not-parse-date = BUG：无法将 Date 值转换为 RFC2822 格式，请于 h
 can-not-parse-valid-until = BUG：无法将 Valid-Until 值转换为 RFC2822 格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 earlier-signature = InRelease 文件 { $filename } 无效：系统时间早于内联签名时间戳。
 expired-signature = InRelease 文件 { $filename } 无效：内联签名已过期。
-inrelease-sha256-empty = InRelease 文件无效：SHA256 值为空。
+inrelease-sha256-empty = InRelease 中未找到校验和。
 inrelease-checksum-can-not-parse = InRelease 文件无效：无法解析校验和条目 { $i }。
 inrelease-parse-unsupport-file-type = BUG：解析器不支持该 InRelease 文件的格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 can-not-parse-sources-list = 无法解析 sources.list 文件 { $path }。
@@ -145,10 +144,8 @@ failed-to-create-http-client = 无法创建 HTTP 客户端。
 failed-to-connect-history-database = 无法连接到历史数据库。
 failed-to-execute-query-stmt = 无法在历史数据库中执行查询命令。
 failed-to-parse-history-object = 无法解析历史数据库中的对象。
-
 failed-to-set-lockscreen = 无法设置系统锁屏状态。
 failed-to-create-proxy = 无法创建系统消息总线 (D-Bus) 代理：{ $proxy }。
-
 failed-check-dbus = 由于当前管理的系统尚未启动，oma 无法探测系统运行状态。
 failed-check-dbus-tips-1 = 在此状态下，oma 无法检查电源及用户会话等关键系统状态，如继续操作可能会导致系统故障！
 failed-check-dbus-tips-2 = 如果您正尝试用 chroot 等方式修复系统，请在 oma 命令后加 --no-check-dbus 参数。
@@ -174,3 +171,4 @@ table-size = 大小
 table-detail = 备注
 reading-database = 正在读取软件包数据库
 has-error-on-top = 无法执行您指定的操作，请参考上述报错详情。
+mirror-is-not-trusted = 源 { $mirror } 不受信任。

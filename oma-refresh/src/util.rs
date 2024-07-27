@@ -63,20 +63,20 @@ pub(crate) fn human_download_url(
 /// Get /etc/apt/sources.list and /etc/apt/sources.list.d
 pub(crate) fn get_sources<P: AsRef<Path>>(sysroot: P) -> Result<Vec<OmaSourceEntry>, RefreshError> {
     let mut res = Vec::new();
-    let list = SourcesLists::scan_from_root(sysroot).map_err(RefreshError::ScanSourceError)?;
+    let list = SourcesLists::scan_from_root(&sysroot).map_err(RefreshError::ScanSourceError)?;
 
     for file in list.iter() {
         match file.entries {
             SourceListType::SourceLine(ref lines) => {
                 for i in lines {
                     if let SourceLine::Entry(entry) = i {
-                        res.push(OmaSourceEntry::try_from(entry)?);
+                        res.push(OmaSourceEntry::new(entry, &sysroot)?);
                     }
                 }
             }
             SourceListType::Deb822(ref e) => {
                 for i in &e.entries {
-                    res.push(OmaSourceEntry::try_from(i)?);
+                    res.push(OmaSourceEntry::new(i, &sysroot)?);
                 }
             }
         }

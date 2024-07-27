@@ -10,6 +10,7 @@ pub struct InReleaseParser {
     _source: Vec<SmallMap<16, String, String>>,
     pub checksums: SmallVec<[ChecksumItem; 32]>,
     pub acquire_by_hash: bool,
+    pub checksum_type: ChecksumType,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +33,8 @@ pub enum DistFileType {
 
 #[derive(Debug, thiserror::Error)]
 pub enum InReleaseParserError {
+    #[error("Mirror {0} is not signed by trusted keyring.")]
+    NotTrusted(String),
     #[error(transparent)]
     VerifyError(#[from] crate::verify::VerifyError),
     #[error("Bad InRelease Data")]
@@ -43,7 +46,7 @@ pub enum InReleaseParserError {
     #[error("Expired signature: {0}")]
     ExpiredSignature(String),
     #[error("Bad SHA256 value: {0}")]
-    BadSha256Value(String),
+    BadChecksumValue(String),
     #[error("Bad checksum entry: {0}")]
     BadChecksumEntry(String),
     #[error("Bad InRelease")]
@@ -65,6 +68,14 @@ pub struct InRelease<'a> {
     pub p: &'a Path,
     pub rootfs: &'a Path,
     pub components: &'a [String],
+    pub trusted: bool,
+}
+
+#[derive(Clone, Copy)]
+pub enum ChecksumType {
+    Sha256,
+    Sha512,
+    Md5,
 }
 
 impl InReleaseParser {
@@ -72,17 +83,21 @@ impl InReleaseParser {
         let InRelease {
             inrelease: s,
             signed_by,
-            mirror: _,
+            mirror,
             archs,
             is_flat,
             p,
             rootfs,
             components,
+            trusted,
         } = in_release;
 
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
             Cow::Owned(verify::verify(s, signed_by, rootfs)?)
         } else {
+            if !trusted {
+                return Err(InReleaseParserError::NotTrusted(mirror.to_string()));
+            }
             Cow::Borrowed(s)
         };
 
@@ -134,12 +149,23 @@ impl InReleaseParser {
             .map(|x| x.to_lowercase() == "yes")
             .unwrap_or(false);
 
-        let sha256 = source_first
-            .and_then(|x| x.get("SHA256"))
-            .take()
-            .ok_or_else(|| InReleaseParserError::BadSha256Value(p.display().to_string()))?;
+        let sha256 = source_first.and_then(|x| x.get("SHA256")).take();
+        let sha512 = source_first.and_then(|x| x.get("SHA512")).take();
+        let md5 = source_first.and_then(|x| x.get("MD5Sum")).take();
 
-        let mut checksums = sha256.lines();
+        let checksum_type = if sha256.is_some() {
+            ChecksumType::Sha256
+        } else if sha512.is_some() {
+            ChecksumType::Sha512
+        } else {
+            ChecksumType::Md5
+        };
+
+        let mut checksums = sha256
+            .or(sha512)
+            .or(md5)
+            .ok_or_else(|| InReleaseParserError::BadChecksumValue(s.to_string()))?
+            .lines();
 
         // remove first item, It's empty
         checksums.next();
@@ -229,6 +255,7 @@ impl InReleaseParser {
             _source: source,
             checksums: res,
             acquire_by_hash,
+            checksum_type,
         })
     }
 }
@@ -252,11 +279,11 @@ fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {
 /// and for non-standard X:YY:ZZ conversion to XX:YY:ZZ.
 ///
 /// - Some third-party repositories (such as those generated with Aptly) uses "UTC" to denote the Coordinated Universal
-/// Time, which is not allowed in RFC 1123 or 822/2822 (all calls for "GMT" or "UT", 822 allows "Z", and 2822 allows
-/// "+0000").
+///   Time, which is not allowed in RFC 1123 or 822/2822 (all calls for "GMT" or "UT", 822 allows "Z", and 2822 allows
+///   "+0000").
 /// - This is used by many commercial software vendors, such as Google, Microsoft, and Spotify.
 /// - This is allowed in APT's RFC 1123 parser. However, as chrono requires full compliance with the
-/// aforementioned RFC documents, "UTC" is considered illegal.
+///   aforementioned RFC documents, "UTC" is considered illegal.
 ///
 /// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
 ///

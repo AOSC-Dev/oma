@@ -4,6 +4,7 @@ use std::{
     sync::{atomic::AtomicU64, Arc},
 };
 
+use checksum::Checksum;
 use derive_builder::Builder;
 use download::SingleDownloaderBuilder;
 use futures::StreamExt;
@@ -44,7 +45,7 @@ pub struct DownloadEntry {
     pub filename: Arc<String>,
     dir: PathBuf,
     #[builder(setter(into, strip_option))]
-    hash: Option<String>,
+    hash: Option<Checksum>,
     allow_resume: bool,
     #[builder(setter(into, strip_option))]
     msg: Option<String>,

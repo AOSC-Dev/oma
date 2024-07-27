@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, io::stdout};
 
 use dialoguer::console::style;
 use oma_pm::{
@@ -7,8 +7,8 @@ use oma_pm::{
 };
 use tracing::info;
 
-use crate::error::OutputError;
 use crate::fl;
+use crate::{error::OutputError, table::PagerPrinter};
 use anyhow::anyhow;
 use smallvec::{smallvec, SmallVec};
 
@@ -64,6 +64,8 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
             false
         }))
     };
+
+    let mut printer = PagerPrinter::new(stdout());
 
     let mut display_tips = (false, 0);
 
@@ -163,16 +165,18 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
                 Cow::Owned(format!("[{}]", s.join(",")))
             };
 
-            println!(
-                "{}/{} {} {arch} {s}",
-                style(name).color256(148).bold(),
-                style(branches).color256(182),
-                if upgradable {
-                    style(version_str).color256(214)
-                } else {
-                    style(version_str).color256(114)
-                }
-            );
+            printer
+                .print(format!(
+                    "{}/{} {} {arch} {s}",
+                    style(name).color256(148).bold(),
+                    style(branches).color256(182),
+                    if upgradable {
+                        style(version_str).color256(214)
+                    } else {
+                        style(version_str).color256(114)
+                    }
+                ))
+                .ok();
         }
     }
 

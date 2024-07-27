@@ -1,6 +1,6 @@
 use std::{path::Path, sync::atomic::Ordering};
 
-use dialoguer::console;
+use dialoguer::console::{self, style};
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
@@ -217,15 +217,19 @@ async fn inquire(
 
     let default = (0..swap_count).collect::<Vec<_>>();
 
+    let term_width = WRITER.get_length() as usize;
     let display = all_topics
         .iter()
         .map(|x| {
-            let mut s = x.name.clone();
-            if let Some(d) = &x.description {
-                s += &format!(" ({d})");
+            let mut s = String::new();
+
+            if let Some(desc) = &x.description {
+                s += &style(desc).bold().to_string();
+                s += &format!(" ({})", x.name);
+            } else {
+                s += &style(&x.name).bold().to_string();
             }
 
-            let term_width = WRITER.get_length() as usize;
             // 4 是 inquire 前面有四个空格缩进
             // 3 是 ... 的长度
             if console::measure_text_width(&s) + 4 > term_width {
