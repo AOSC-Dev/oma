@@ -1,6 +1,6 @@
 use cxx::UniquePtr;
-use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
 pub use indicium::simple::SearchType;
+use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
 use oma_apt::{
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
@@ -13,7 +13,6 @@ use std::{
 };
 
 use crate::{format_description, pkginfo::PtrIsNone, query::has_dbg};
-
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum PackageStatus {
