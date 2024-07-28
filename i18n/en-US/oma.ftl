@@ -176,3 +176,4 @@ table-detail = Detail
 reading-database = Reading packages database
 has-error-on-top = The operation you specified did not complete successfully. Please refer to the output above for details.
 mirror-is-not-trusted = Mirror { $mirror } untrusted.
+please-run-me-as-root = Please run me as root.

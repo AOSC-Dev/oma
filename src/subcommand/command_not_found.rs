@@ -35,7 +35,11 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
             let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
             for (pkg, file) in res {
-                let pkg = apt.cache.get(&pkg).unwrap();
+                let pkg = apt.cache.get(&pkg);
+                if pkg.is_none() {
+                    continue;
+                }
+                let pkg = pkg.unwrap();
                 let desc = pkg
                     .candidate()
                     .and_then(|x| {
