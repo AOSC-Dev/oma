@@ -1,7 +1,8 @@
-use chrono::{DateTime, FixedOffset, ParseResult, Utc};
+use chrono::{DateTime, FixedOffset, ParseError, Utc};
 use small_map::SmallMap;
 use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, num::ParseIntError, path::Path};
+use thiserror::Error;
 use tracing::debug;
 
 use crate::verify;
@@ -264,13 +265,21 @@ fn file_is_compress(name: &str) -> bool {
     name.ends_with(".gz") || name.ends_with(".bz2") || name.ends_with(".xz")
 }
 
-fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {
+#[derive(Debug, Error)]
+pub enum ParseDateError {
+    #[error(transparent)]
+    ParseError(#[from] ParseError),
+    #[error("Could not parse date: {0}")]
+    BadDate(ParseIntError),
+}
+
+fn parse_date(date: &str) -> Result<DateTime<FixedOffset>, ParseDateError> {
     match DateTime::parse_from_rfc2822(date) {
         Ok(res) => Ok(res),
         Err(e) => {
             debug!("Parse {} failed: {e}, try to use date hack.", date);
-            let hack_date = date_hack(date);
-            DateTime::parse_from_rfc2822(&hack_date)
+            let hack_date = date_hack(date).map_err(ParseDateError::BadDate)?;
+            Ok(DateTime::parse_from_rfc2822(&hack_date)?)
         }
     }
 }
@@ -288,7 +297,7 @@ fn parse_date(date: &str) -> ParseResult<DateTime<FixedOffset>> {
 /// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
 ///
 /// and for non-standard X:YY:ZZ conversion to XX:YY:ZZ to make it palatable to chronos.
-fn date_hack(date: &str) -> String {
+fn date_hack(date: &str) -> Result<String, ParseIntError> {
     let mut split_time = date
         .split_ascii_whitespace()
         .map(|x| x.to_string())
@@ -303,14 +312,11 @@ fn date_hack(date: &str) -> String {
 
         // X:YY:ZZ conversion to XX:YY:ZZ to make it palatable to chronos
         for k in time_split.iter_mut() {
-            match k.parse::<u64>() {
-                Ok(n) => match n {
-                    0..=9 if k.len() == 1 => {
-                        *k = "0".to_string() + k;
-                    }
-                    _ => continue,
-                },
-                Err(_) => break,
+            match k.parse::<u64>()? {
+                0..=9 if k.len() == 1 => {
+                    *k = "0".to_string() + k;
+                }
+                _ => continue,
             }
         }
 
@@ -319,7 +325,7 @@ fn date_hack(date: &str) -> String {
 
     let date = split_time.join(" ");
 
-    date.replace("UTC", "+0000")
+    Ok(date.replace("UTC", "+0000"))
 }
 
 fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String, String>>> {
@@ -345,19 +351,19 @@ fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String
 #[test]
 fn test_date_hack() {
     let a = "Thu, 02 May 2024  9:58:03 UTC";
-    let hack = date_hack(&a);
+    let hack = date_hack(&a).unwrap();
     assert_eq!(hack, "Thu, 02 May 2024 09:58:03 +0000");
     let b = DateTime::parse_from_rfc2822(&hack);
     assert!(b.is_ok());
 
     let a = "Thu, 02 May 2024 09:58:03 +0000";
-    let hack = date_hack(&a);
+    let hack = date_hack(&a).unwrap();
     assert_eq!(hack, "Thu, 02 May 2024 09:58:03 +0000");
     let b = DateTime::parse_from_rfc2822(&hack);
     assert!(b.is_ok());
 
     let a = "Thu, 02 May 2024  0:58:03 +0000";
-    let hack = date_hack(&a);
+    let hack = date_hack(&a).unwrap();
     assert_eq!(hack, "Thu, 02 May 2024 00:58:03 +0000");
     let b = DateTime::parse_from_rfc2822(&hack);
     assert!(b.is_ok());
