@@ -1,5 +1,8 @@
 use std::{
-    env, path::Path, process::{exit, Command}, sync::{atomic::AtomicBool, Arc}
+    env,
+    path::Path,
+    process::{exit, Command},
+    sync::{atomic::AtomicBool, Arc},
 };
 
 use crate::error::OutputError;
@@ -133,19 +136,21 @@ pub fn root() -> Result<()> {
             }
             handled_args.push(arg);
         }
-    
+
         let out = Command::new("pkexec")
             .args(handled_args)
             .spawn()
             .and_then(|x| x.wait_with_output())
             .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
-    
+
         unlock_oma().ok();
         exit(out.status.code().unwrap_or(1));
     }
 
-    Err(OutputError { description: fl!("please-run-me-as-root"), source: None })
-
+    Err(OutputError {
+        description: fl!("please-run-me-as-root"),
+        source: None,
+    })
 }
 
 pub fn create_async_runtime() -> Result<Runtime> {
