@@ -2,6 +2,7 @@ use std::path::Path;
 
 use cxx::UniquePtr;
 use glob_match::glob_match;
+use indicium::simple::SearchType;
 use oma_apt::{
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
@@ -278,7 +279,7 @@ impl<'a> OmaDatabase<'a> {
 
     /// Smart search pkgs
     pub fn search(&self, keyword: &str) -> OmaDatabaseResult<Vec<SearchResult>> {
-        let searcher = OmaSearch::new(self.cache)?;
+        let searcher = OmaSearch::new(self.cache, SearchType::And)?;
         let res = searcher.search(keyword)?;
 
         Ok(res)

@@ -1,5 +1,6 @@
 use cxx::UniquePtr;
-use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder, SearchType};
+use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
+pub use indicium::simple::SearchType;
 use oma_apt::{
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
@@ -12,6 +13,7 @@ use std::{
 };
 
 use crate::{format_description, pkginfo::PtrIsNone, query::has_dbg};
+
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum PackageStatus {
@@ -115,7 +117,7 @@ pub struct OmaSearch<'a> {
 }
 
 impl<'a> OmaSearch<'a> {
-    pub fn new(cache: &'a Cache) -> OmaSearchResult<Self> {
+    pub fn new(cache: &'a Cache, search_type: SearchType) -> OmaSearchResult<Self> {
         let sort = PackageSort::default().include_virtual();
         let packages = cache.packages(&sort);
 
@@ -200,7 +202,7 @@ impl<'a> OmaSearch<'a> {
         }
 
         let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
-            .search_type(SearchType::And)
+            .search_type(search_type)
             .build();
 
         pkg_map

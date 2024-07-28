@@ -22,7 +22,7 @@ use crate::{
 use oma_pm::{
     apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
     pkginfo::PkgInfo,
-    search::{OmaSearch, SearchResult},
+    search::{OmaSearch, SearchResult, SearchType},
     PackageStatus,
 };
 use ratatui::{
@@ -228,7 +228,7 @@ pub fn execute(
 
     let a = apt.available_action()?;
     let installed = apt.installed_packages()?;
-    let searcher = OmaSearch::new(&apt.cache)?;
+    let searcher = OmaSearch::new(&apt.cache, SearchType::Live)?;
 
     let result_rc = Rc::new(RefCell::new(vec![]));
     let result_display = result_rc
