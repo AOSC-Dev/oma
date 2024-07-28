@@ -266,7 +266,7 @@ fn file_is_compress(name: &str) -> bool {
 }
 
 #[derive(Debug, Error)]
-pub enum ParseDateError {
+enum ParseDateError {
     #[error(transparent)]
     ParseError(#[from] ParseError),
     #[error("Could not parse date: {0}")]
