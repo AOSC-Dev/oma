@@ -209,12 +209,7 @@ impl TopicManager {
     }
 
     /// Write topic changes to mirror list
-    pub async fn write_enabled<F>(
-        &self,
-        dry_run: bool,
-        callback: F,
-        check_available: bool,
-    ) -> Result<()>
+    pub async fn write_enabled<F>(&self, dry_run: bool, callback: F) -> Result<()>
     where
         F: Fn() -> String,
     {
@@ -256,11 +251,11 @@ impl TopicManager {
                 } else {
                     format!("{j}/")
                 };
-                if check_available
-                    && !self
-                        .mirror_topic_is_exist(format!("{url}debs/dists/{}", i.name))
-                        .await
-                        .unwrap_or(false)
+
+                if !self
+                    .mirror_topic_is_exist(format!("{url}debs/dists/{}", i.name))
+                    .await
+                    .unwrap_or(false)
                 {
                     warn!("{} topic is inaccessible in mirror {j}.", i.name);
                     warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
@@ -369,7 +364,7 @@ where
         }
     }
 
-    tm.write_enabled(false, callback, false).await?;
+    tm.write_enabled(false, callback).await?;
 
     Ok(res)
 }
