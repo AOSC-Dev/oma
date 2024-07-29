@@ -56,4 +56,4 @@ jobs:
       - name: Build with genric feature
         run: cargo build --no-default-features --features generic
       - name: Test
-        run: cargo test
+        run: cargo test --workspace
