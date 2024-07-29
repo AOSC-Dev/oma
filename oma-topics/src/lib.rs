@@ -68,7 +68,7 @@ pub struct Topic {
     pub name: String,
     pub description: Option<String>,
     date: u64,
-    update_date: u64,
+    update_date: Option<u64>,
     #[serde(skip_serializing)]
     arch: Option<Vec<String>>,
     pub packages: Vec<String>,
@@ -92,7 +92,7 @@ impl TopicManager {
 
         Ok(Self {
             enabled: serde_json::from_str(&f).unwrap_or_else(|e| {
-                debug!("Deserialize state file JSON failed: {e}");
+                warn!("Deserialize state file JSON failed: {e}");
                 vec![]
             }),
             all: vec![],
