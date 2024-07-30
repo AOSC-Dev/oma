@@ -245,24 +245,29 @@ impl TopicManager {
                     )
                 })?;
 
+            let mut tasks = vec![];
             for j in &mirrors {
                 let url = if j.ends_with('/') {
                     j.to_owned()
                 } else {
                     format!("{j}/")
                 };
+                tasks.push(self.mirror_topic_is_exist(format!("{url}debs/dists/{}", i.name)))
+            }
 
-                if !self
-                    .mirror_topic_is_exist(format!("{url}debs/dists/{}", i.name))
-                    .await
-                    .unwrap_or(false)
-                {
-                    warn!("{} topic is inaccessible in mirror {j}.", i.name);
+            let is_exists = futures::future::join_all(tasks).await;
+
+            for (index, c) in is_exists.into_iter().enumerate() {
+                if !c.unwrap_or(false) {
+                    warn!(
+                        "{} topic is inaccessible in mirror {}.",
+                        i.name, mirrors[index]
+                    );
                     warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
                     continue;
                 }
 
-                f.write_all(format!("deb {}debs {} main\n", url, i.name).as_bytes())
+                f.write_all(format!("deb {}debs {} main\n", mirrors[index], i.name).as_bytes())
                     .await
                     .map_err(|e| {
                         OmaTopicsError::FailedToOperateDirOrFile(
@@ -284,13 +289,15 @@ impl TopicManager {
     }
 
     async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
-        Ok(self
+        let res = self
             .client
             .get(url)
             .send()
             .await?
             .error_for_status()
-            .is_ok())
+            .is_ok();
+
+        Ok(res)
     }
 }
 
