@@ -1,9 +1,5 @@
-use std::{
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-use indexmap::IndexMap;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
@@ -29,39 +25,7 @@ pub enum OmaTopicsError {
     FailedGetParentPath(PathBuf),
 }
 
-#[derive(Deserialize)]
-struct GenList {
-    mirror: IndexMap<String, String>,
-}
-
-async fn enabled_mirror<P: AsRef<Path>>(rootfs: P) -> Result<Vec<String>> {
-    let apt_gen_list = rootfs.as_ref().join("var/lib/apt/gen/status.json");
-    let s = tokio::fs::read_to_string(&apt_gen_list)
-        .await
-        .map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(apt_gen_list.display().to_string(), e)
-        })?;
-
-    let gen_list: GenList = serde_json::from_str(&s).map_err(|_| {
-        OmaTopicsError::BrokenFile(
-            apt_gen_list
-                .file_name()
-                .unwrap_or(OsStr::new(""))
-                .to_string_lossy()
-                .to_string(),
-        )
-    })?;
-
-    let urls = gen_list
-        .mirror
-        .values()
-        .map(|x| x.to_owned())
-        .collect::<Vec<_>>();
-
-    Ok(urls)
-}
-
-const TOPICS_JSON: &str = "manifest/topics.json";
+const REPO_URL: &str = "https://repo.aosc.io";
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Topic {
@@ -134,19 +98,7 @@ impl TopicManager {
 
     /// Get all new topics
     pub async fn refresh(&mut self) -> Result<()> {
-        let urls = enabled_mirror(self.sysroot.as_path())
-            .await?
-            .iter()
-            .map(|x| {
-                if x.ends_with('/') {
-                    format!("{}debs/{TOPICS_JSON}", x)
-                } else {
-                    format!("{}/debs/{TOPICS_JSON}", x)
-                }
-            })
-            .collect::<Vec<_>>();
-
-        self.all = refresh_innter(&self.client, urls, &self.arch).await?;
+        self.all = refresh_innter(&self.client, REPO_URL, &self.arch).await?;
 
         Ok(())
     }
@@ -226,8 +178,6 @@ impl TopicManager {
                 )
             })?;
 
-        let mirrors = enabled_mirror(self.sysroot.as_path()).await?;
-
         f.write_all(callback().as_bytes()).await.map_err(|e| {
             OmaTopicsError::FailedToOperateDirOrFile(
                 "/etc/apt/sources.list.d/atm.list".to_string(),
@@ -245,37 +195,14 @@ impl TopicManager {
                     )
                 })?;
 
-            let mut tasks = vec![];
-            for j in &mirrors {
-                let url = if j.ends_with('/') {
-                    j.to_owned()
-                } else {
-                    format!("{j}/")
-                };
-                tasks.push(self.mirror_topic_is_exist(format!("{url}debs/dists/{}", i.name)))
-            }
-
-            let is_exists = futures::future::join_all(tasks).await;
-
-            for (index, c) in is_exists.into_iter().enumerate() {
-                if !c.unwrap_or(false) {
-                    warn!(
-                        "{} topic is inaccessible in mirror {}.",
-                        i.name, mirrors[index]
-                    );
-                    warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
-                    continue;
-                }
-
-                f.write_all(format!("deb {}debs {} main\n", mirrors[index], i.name).as_bytes())
-                    .await
-                    .map_err(|e| {
-                        OmaTopicsError::FailedToOperateDirOrFile(
-                            "/etc/apt/sources.list.d/atm.list".to_string(),
-                            e,
-                        )
-                    })?;
-            }
+            f.write_all(format!("deb {}/debs {} main\n", REPO_URL, i.name).as_bytes())
+                .await
+                .map_err(|e| {
+                    OmaTopicsError::FailedToOperateDirOrFile(
+                        "/etc/apt/sources.list.d/atm.list".to_string(),
+                        e,
+                    )
+                })?;
         }
 
         let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
@@ -287,53 +214,16 @@ impl TopicManager {
 
         Ok(())
     }
-
-    async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
-        let res = self
-            .client
-            .get(url)
-            .send()
-            .await?
-            .error_for_status()
-            .is_ok();
-
-        Ok(res)
-    }
 }
 
-async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Result<Vec<Topic>> {
-    let mut json: Vec<Topic> = vec![];
-    let mut tasks = vec![];
-
-    for url in urls {
-        let v = client.get(url).send();
-        tasks.push(v);
-    }
-
-    let res = futures::future::try_join_all(tasks).await?;
-
-    let mut tasks = vec![];
-
-    for i in res {
-        tasks.push(i.error_for_status()?.json::<Vec<Topic>>());
-    }
-
-    let res = futures::future::try_join_all(tasks).await?;
-
-    for i in res {
-        for j in i {
-            match json.iter().position(|x| x.name == j.name) {
-                Some(index) => {
-                    if j.update_date > json[index].update_date {
-                        json[index] = j.clone();
-                    }
-                }
-                None => {
-                    json.push(j);
-                }
-            }
-        }
-    }
+async fn refresh_innter(client: &Client, url: &str, arch: &str) -> Result<Vec<Topic>> {
+    let mut json = client
+        .get(format!("{url}/debs/manifest/topics.json"))
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<Vec<Topic>>()
+        .await?;
 
     json.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
