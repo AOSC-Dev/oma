@@ -296,28 +296,28 @@ fn test() {
     let cache = new_cache!(&["test_file/Packages"]).unwrap();
 
     let searcher = OmaSearch::new(&cache).unwrap();
-    let res = searcher.search("build-essential").unwrap();
-    let res2 = searcher.search("base-devel").unwrap();
+    let res = searcher.search("pap").unwrap();
+    let res2 = searcher.search("pwp").unwrap();
 
     for i in [res, res2] {
-        assert!(i.iter().any(|x| x.name == "devel-base"));
+        assert!(i.iter().any(|x| x.name == "qaq"));
         assert!(i.iter().any(|x| x.new_version == "9999:1"));
         assert!(i.iter().any(|x| x.full_match));
     }
 
-    let res = searcher.search("telegram").unwrap();
-    let res2 = searcher.search("tdesktop").unwrap();
+    let res = searcher.search("qwq").unwrap();
+    let res2 = searcher.search("qwqdesktop").unwrap();
 
     for i in [res, res2] {
-        assert!(i.iter().any(|x| x.name == "telegram-desktop"));
+        assert!(i.iter().any(|x| x.name == "qwq-desktop"));
         assert!(i.iter().any(|x| x.new_version == "9999:114514"));
         assert!(i.iter().any(|x| x.full_match));
     }
 
-    let res = searcher.search("apt").unwrap();
+    let res = searcher.search("owo").unwrap();
     let res = res.first().unwrap();
 
-    assert_eq!(res.name, "apt".to_string());
+    assert_eq!(res.name, "owo".to_string());
     assert_eq!(res.new_version, "9999:2.6.1-2");
     assert!(res.full_match);
 }
