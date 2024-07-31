@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.24.0"
+version = "0.25.0"
 edition = "2021"
 description = "A crate to help oma handle package manager operation"
 license = "GPL-3.0-or-later"
@@ -27,7 +27,7 @@ oma-console = { version = "^0.11.0", path = "../oma-console", default-features =
     "print",
 ] }
 derive_builder = "0.20"
-fs4 = "0.8"
+fs4 = "0.9"
 tracing = "0.1"
 small-map = "0.1"
 oma-pm-operation-type = { version = "0.2", path = "../oma-pm-operation-type" }
