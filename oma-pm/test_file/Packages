@@ -10,7 +10,7 @@ SHA256: 2b9844eaea74fba32b3f1db72786eea7e42a6c31c46bcb5765142990a5b590db
 Description: Meta package for AOSC OS development/packaging support
 Breaks: pap (<= 0-3)
 Depends: binutils, bison, diffutils, flex, gawk, gcc, groff, libtool, m4, make, patch, pkg-config, sed, autoconf, automake, cmake, gettext, help2man, texinfo, meson, ninja
-Provides: pap, pwp
+Provides: windows-nt-kernel, pwp
 Replaces: pap (<= 0-3)
 
 Package: qwq-desktop

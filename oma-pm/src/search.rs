@@ -296,7 +296,7 @@ fn test() {
     let cache = new_cache!(&["test_file/Packages"]).unwrap();
 
     let searcher = OmaSearch::new(&cache).unwrap();
-    let res = searcher.search("pap").unwrap();
+    let res = searcher.search("windows-nt-kernel").unwrap();
     let res2 = searcher.search("pwp").unwrap();
 
     for i in [res, res2] {
