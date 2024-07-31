@@ -110,7 +110,7 @@ pub struct SearchResult {
 
 pub struct OmaSearch<'a> {
     cache: &'a Cache,
-    pub pkg_map: HashMap<String, SearchEntry>,
+    pkg_map: HashMap<String, SearchEntry>,
     index: SearchIndex<String>,
 }
 
