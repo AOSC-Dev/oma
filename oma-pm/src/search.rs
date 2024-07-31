@@ -178,7 +178,7 @@ impl<'a> OmaSearch<'a> {
 
                 if let Some(cand) = pkg.candidate() {
                     pkg_map
-                        .entry(pkg.fullname(true))
+                        .entry(provide.clone())
                         .and_modify(|x| {
                             if !x.provides.contains(&provide) {
                                 x.provides.push(provide.clone())
@@ -297,22 +297,27 @@ fn test() {
 
     let searcher = OmaSearch::new(&cache).unwrap();
     let res = searcher.search("build-essential").unwrap();
-    let res = res.first().unwrap();
+    let res2 = searcher.search("base-devel").unwrap();
 
-    assert_eq!(res.name, "devel-base".to_string());
-    assert!(res.full_match);
+    for i in [res, res2] {
+        assert!(i.iter().any(|x| x.name == "devel-base"));
+        assert!(i.iter().any(|x| x.new_version == "9999:1"));
+        assert!(i.iter().any(|x| x.full_match));
+    }
 
-    let searcher = OmaSearch::new(&cache).unwrap();
     let res = searcher.search("telegram").unwrap();
-    let res = res.first().unwrap();
+    let res2 = searcher.search("tdesktop").unwrap();
 
-    assert_eq!(res.name, "telegram-desktop".to_string());
-    assert!(res.full_match);
+    for i in [res, res2] {
+        assert!(i.iter().any(|x| x.name == "telegram-desktop"));
+        assert!(i.iter().any(|x| x.new_version == "9999:114514"));
+        assert!(i.iter().any(|x| x.full_match));
+    }
 
-    let searcher = OmaSearch::new(&cache).unwrap();
     let res = searcher.search("apt").unwrap();
     let res = res.first().unwrap();
 
     assert_eq!(res.name, "apt".to_string());
+    assert_eq!(res.new_version, "9999:2.6.1-2");
     assert!(res.full_match);
 }

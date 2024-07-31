@@ -1,5 +1,5 @@
 Package: devel-base
-Version: 1
+Version: 9999:1
 Section: devel
 Architecture: all
 Installed-Size: 20
@@ -14,7 +14,7 @@ Provides: build-essential, base-devel
 Replaces: build-essential (<= 0-3)
 
 Package: telegram-desktop
-Version: 4.12.2-1
+Version: 9999:114514
 Section: web
 Architecture: amd64
 Installed-Size: 89144
@@ -29,7 +29,7 @@ Depends: ffmpeg (>= 4.2.5-5), hicolor-icon-theme (>= 0.17-2), libnotify (>= 0.7.
 Suggests: webkit2gtk
 
 Package: apt
-Version: 2:2.6.1-2
+Version: 9999:2.6.1-2
 Section: admin
 Architecture: amd64
 Installed-Size: 30748
