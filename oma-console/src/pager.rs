@@ -17,11 +17,11 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout},
     style::{Color, Stylize},
     text::Text,
-    widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Widget},
+    widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
     Frame, Terminal,
 };
 
-use crate::writer::Writer;
+use crate::{writer::Writer, WRITER};
 
 pub static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 
@@ -104,6 +104,7 @@ pub struct OmaPager {
     horizontal_scroll: usize,
     text: Option<Text<'static>>,
     area_heigh: u16,
+    max_width: u16,
     tips: String,
     title: Option<String>,
     inner_len: usize,
@@ -122,24 +123,6 @@ impl Write for OmaPager {
     }
 }
 
-struct OmaPagerWidget<'a> {
-    text: &'a Text<'a>,
-    offset: usize,
-}
-
-impl<'a> Widget for OmaPagerWidget<'a> {
-    fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
-        // Render each line
-        for (i, line) in self.text.lines.iter().skip(self.offset).enumerate() {
-            if i < area.height as usize {
-                buf.set_line(area.x, area.y + i as u16, line, area.width);
-            } else {
-                break; // Stop rendering if we reach the limit of visible lines
-            }
-        }
-    }
-}
-
 impl OmaPager {
     pub fn new(tips: impl Display + AsRef<OsStr>, title: Option<&str>) -> Self {
         Self {
@@ -150,6 +133,7 @@ impl OmaPager {
             horizontal_scroll: 0,
             text: None,
             area_heigh: 0,
+            max_width: 0,
             tips: tips.to_string(),
             title: title.map(|x| x.to_string()),
             inner_len: 0,
@@ -197,13 +181,20 @@ impl OmaPager {
                                 self.vertical_scroll_state.position(self.vertical_scroll);
                         }
                         KeyCode::Char('h') | KeyCode::Left => {
-                            self.horizontal_scroll = self.horizontal_scroll.saturating_sub(1);
+                            let width = WRITER.get_length();
+                            self.horizontal_scroll =
+                                self.horizontal_scroll.saturating_sub((width / 4).into());
                             self.horizontal_scroll_state = self
                                 .horizontal_scroll_state
                                 .position(self.horizontal_scroll);
                         }
                         KeyCode::Char('l') | KeyCode::Right => {
-                            self.horizontal_scroll = self.horizontal_scroll.saturating_add(1);
+                            let width = WRITER.get_length();
+                            if self.max_width <= self.horizontal_scroll as u16 + width {
+                                continue;
+                            }
+                            self.horizontal_scroll =
+                                self.horizontal_scroll.saturating_add((width / 4).into());
                             self.horizontal_scroll_state = self
                                 .horizontal_scroll_state
                                 .position(self.horizontal_scroll);
@@ -250,6 +241,7 @@ impl OmaPager {
     fn ui(&mut self, f: &mut Frame) {
         let size = f.size();
         let mut layout = vec![Constraint::Min(0), Constraint::Length(1)];
+
         let mut has_title = false;
         if self.title.is_some() {
             layout.insert(0, Constraint::Length(1));
@@ -259,16 +251,26 @@ impl OmaPager {
         let chunks = Layout::vertical(layout).split(size);
 
         let inner = self.inner.lines().collect::<Vec<_>>();
-        let weight = inner.iter().map(|x| x.len()).max().unwrap_or(1);
+        let width = inner.iter().map(|x| x.chars().count()).max().unwrap_or(1);
 
         self.inner_len = inner.len();
         self.vertical_scroll_state = self
             .vertical_scroll_state
             .content_length(self.inner_len.saturating_sub(self.area_heigh as usize));
+
         self.vertical_scroll_state = self
             .vertical_scroll_state
             .viewport_content_length(self.inner_len.saturating_sub(self.area_heigh as usize));
-        self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(weight);
+
+        let width = if width <= WRITER.get_length().into() {
+            0
+        } else {
+            width
+        };
+
+        self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(width);
+
+        self.max_width = width as u16;
 
         if let Some(title) = &self.title {
             let title = Block::new()
@@ -281,10 +283,8 @@ impl OmaPager {
         }
 
         f.render_widget(
-            OmaPagerWidget {
-                text: self.text.as_ref().unwrap(),
-                offset: self.vertical_scroll,
-            },
+            Paragraph::new(self.text.clone().unwrap())
+                .scroll((self.vertical_scroll as u16, self.horizontal_scroll as u16)),
             if has_title { chunks[1] } else { chunks[0] },
         );
 

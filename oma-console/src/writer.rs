@@ -74,7 +74,7 @@ impl Writer {
         self.term.size_checked().unwrap_or((25, 80)).0
     }
 
-    /// Get terminal height
+    /// Get terminal width
     pub fn get_length(&self) -> u16 {
         self.term.size_checked().unwrap_or((25, 80)).1
     }
