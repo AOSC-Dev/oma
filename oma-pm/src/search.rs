@@ -50,10 +50,10 @@ impl Ord for PackageStatus {
 }
 
 pub struct SearchEntry {
-    pkgname: String,
+    search_pkg_name: String,
     description: String,
     status: PackageStatus,
-    provide: Option<String>,
+    provides: Vec<String>,
     has_dbg: bool,
     raw_pkg: UniquePtr<PkgIterator>,
     section_is_base: bool,
@@ -62,10 +62,10 @@ pub struct SearchEntry {
 impl Debug for SearchEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SearchEntry")
-            .field("pkgname", &self.pkgname)
+            .field("pkgname", &self.search_pkg_name)
             .field("description", &self.description)
             .field("status", &self.status)
-            .field("provide", &self.provide)
+            .field("provides", &self.provides)
             .field("has_dbg", &self.has_dbg)
             .field("raw_pkg", &self.raw_pkg.name())
             .field("section_is_base", &self.section_is_base)
@@ -75,7 +75,7 @@ impl Debug for SearchEntry {
 
 impl Indexable for SearchEntry {
     fn strings(&self) -> Vec<String> {
-        vec![self.pkgname.clone(), self.description.clone()]
+        vec![self.search_pkg_name.clone(), self.description.clone()]
     }
 }
 
@@ -97,7 +97,7 @@ pub enum OmaSearchError {
 
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SearchResult {
     pub name: String,
     pub desc: String,
@@ -111,7 +111,7 @@ pub struct SearchResult {
 
 pub struct OmaSearch<'a> {
     cache: &'a Cache,
-    pub pkg_map: HashMap<String, SearchEntry>,
+    pkg_map: HashMap<String, SearchEntry>,
     index: SearchIndex<String>,
 }
 
@@ -138,14 +138,14 @@ impl<'a> OmaSearch<'a> {
             if let Some(cand) = pkg.candidate() {
                 if let Entry::Vacant(e) = pkg_map.entry(pkg.fullname(true)) {
                     e.insert(SearchEntry {
-                        pkgname: pkg.fullname(true),
+                        search_pkg_name: pkg.fullname(true),
                         description: format_description(
                             &cand.description().unwrap_or("".to_string()),
                         )
                         .0
                         .to_string(),
                         status,
-                        provide: pkg.provides().next().map(|x| x.name().to_string()),
+                        provides: pkg.provides().map(|x| x.to_string()).collect(),
                         has_dbg: has_dbg(cache, &pkg, &cand),
                         raw_pkg: unsafe { pkg.unique() }
                             .make_safe()
@@ -178,24 +178,28 @@ impl<'a> OmaSearch<'a> {
                 };
 
                 if let Some(cand) = pkg.candidate() {
-                    pkg_map.insert(
-                        pkg.fullname(true),
-                        SearchEntry {
-                            pkgname: pkg.fullname(true),
+                    pkg_map
+                        .entry(provide.clone())
+                        .and_modify(|x| {
+                            if !x.provides.contains(&provide) {
+                                x.provides.push(provide.clone())
+                            }
+                        })
+                        .or_insert(SearchEntry {
+                            search_pkg_name: provide.clone(),
                             description: format_description(
                                 &cand.description().unwrap_or("".to_string()),
                             )
                             .0
                             .to_string(),
                             status,
-                            provide: Some(provide.to_string()),
+                            provides: vec![provide.to_string()],
                             has_dbg: has_dbg(cache, &pkg, &cand),
                             raw_pkg: unsafe { pkg.unique() }
                                 .make_safe()
                                 .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
                             section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
-                        },
-                    );
+                        });
                 }
             }
         }
@@ -254,7 +258,7 @@ impl<'a> OmaSearch<'a> {
         query: Option<&str>,
     ) -> Result<SearchResult, OmaSearchError> {
         let entry = self.pkg_map.get(i).unwrap();
-        let name = entry.pkgname.clone();
+        let search_name = entry.search_pkg_name.clone();
         let desc = entry.description.clone();
         let status = entry.status.clone();
         let has_dbg = entry.has_dbg;
@@ -264,7 +268,7 @@ impl<'a> OmaSearch<'a> {
         let pkg = Package::new(self.cache, pkg);
 
         let full_match = if let Some(query) = query {
-            query == name || entry.provide.as_ref().map(|x| x == query).unwrap_or(false)
+            query == search_name || entry.provides.iter().any(|x| x == query)
         } else {
             false
         };
@@ -283,7 +287,7 @@ impl<'a> OmaSearch<'a> {
         let is_base = entry.section_is_base;
 
         Ok(SearchResult {
-            name,
+            name: pkg.fullname(true),
             desc,
             old_version,
             new_version,
@@ -293,4 +297,37 @@ impl<'a> OmaSearch<'a> {
             is_base,
         })
     }
+}
+
+#[test]
+fn test() {
+    use oma_apt::new_cache;
+
+    let cache = new_cache!(&["test_file/Packages"]).unwrap();
+
+    let searcher = OmaSearch::new(&cache, SearchType::And).unwrap();
+    let res = searcher.search("windows-nt-kernel").unwrap();
+    let res2 = searcher.search("pwp").unwrap();
+
+    for i in [res, res2] {
+        assert!(i.iter().any(|x| x.name == "qaq"));
+        assert!(i.iter().any(|x| x.new_version == "9999:1"));
+        assert!(i.iter().any(|x| x.full_match));
+    }
+
+    let res = searcher.search("qwq").unwrap();
+    let res2 = searcher.search("qwqdesktop").unwrap();
+
+    for i in [res, res2] {
+        assert!(i.iter().any(|x| x.name == "qwq-desktop"));
+        assert!(i.iter().any(|x| x.new_version == "9999:114514"));
+        assert!(i.iter().any(|x| x.full_match));
+    }
+
+    let res = searcher.search("owo").unwrap();
+    let res = res.first().unwrap();
+
+    assert_eq!(res.name, "owo".to_string());
+    assert_eq!(res.new_version, "9999:2.6.1-2");
+    assert!(res.full_match);
 }

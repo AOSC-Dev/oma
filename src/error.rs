@@ -498,10 +498,6 @@ impl From<OmaTopicsError> for OutputError {
 fn oma_topics_error(e: OmaTopicsError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        OmaTopicsError::BrokenFile(_) => OutputError {
-            description: fl!("failed-to-read"),
-            source: None,
-        },
         OmaTopicsError::FailedToOperateDirOrFile(path, e) => OutputError {
             description: fl!("failed-to-operate-path", p = path),
             source: Some(Box::new(e)),

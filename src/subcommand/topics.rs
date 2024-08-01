@@ -169,7 +169,7 @@ where
         downgrade_pkgs.extend(removed_topic.packages);
     }
 
-    tm.write_enabled(dry_run, callback, true).await?;
+    tm.write_enabled(dry_run, callback).await?;
 
     let enabled_pkgs = tm
         .enabled_topics()

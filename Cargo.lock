@@ -1491,9 +1491,9 @@ dependencies = [
 
 [[package]]
 name = "fs4"
-version = "0.8.4"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7e180ac76c23b45e767bd7ae9579bc0bb458618c4bc71835926e098e61d15f8"
+checksum = "e8c6b3bd49c37d2aa3f3f2220233b29a7cd23f79d1fe70e5337d25fb390793de"
 dependencies = [
  "rustix",
  "windows-sys 0.52.0",
@@ -2259,7 +2259,6 @@ checksum = "168fb715dda47215e360912c096649d23d58bf392ac62f73919e831745e40f26"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.5",
- "serde",
 ]
 
 [[package]]
@@ -3091,7 +3090,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "chrono",
  "cxx",
@@ -3124,7 +3123,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.20.1"
+version = "0.20.4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3148,10 +3147,9 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.8.1"
+version = "0.10.0"
 dependencies = [
  "futures",
- "indexmap 2.2.6",
  "oma-console",
  "oma-inquire",
  "reqwest",
