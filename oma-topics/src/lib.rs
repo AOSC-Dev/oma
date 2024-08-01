@@ -17,8 +17,6 @@ pub enum OmaTopicsError {
     FailedToDisableTopic(String),
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
-    #[error("File {0} Contains broken data.")]
-    BrokenFile(String),
     #[error("Failed to serialize data")]
     FailedSer,
     #[error("Failed to get path parent: {0:?}")]
