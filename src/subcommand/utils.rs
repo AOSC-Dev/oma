@@ -173,13 +173,13 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
         fix_dpkg_status,
     } = args;
 
+    apt.resolve(no_fixbroken, fix_dpkg_status)?;
+
     let op = apt.summary()?;
     let op_after = op.clone();
     let install = op.install;
     let remove = op.remove;
     let disk_size = op.disk_size;
-
-    apt.resolve(no_fixbroken, fix_dpkg_status)?;
 
     if check_empty_op(&install, &remove) {
         return Ok(());
