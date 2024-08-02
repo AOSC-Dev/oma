@@ -3,6 +3,7 @@ use std::io;
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
+use std::time::Duration;
 
 mod args;
 mod config;
@@ -40,7 +41,7 @@ use utils::create_async_runtime;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
-use oma_console::pager::SUBPROCESS;
+use oma_console::pager::{exit_tui, prepare_create_tui, SUBPROCESS};
 
 use crate::config::{Config, GeneralConfig};
 #[cfg(feature = "egg")]
@@ -466,14 +467,24 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         Some(("tui", _)) | None => {
             let client = Client::builder().user_agent("oma").build().unwrap();
 
-            tui_deprecated::execute(
-                sysroot,
-                no_progress,
-                dry_run,
-                oma_args.network_thread,
-                client,
-                no_check_dbus,
-            )?
+            // tui_deprecated::execute(
+            //     sysroot,
+            //     no_progress,
+            //     dry_run,
+            //     oma_args.network_thread,
+            //     client,
+            //     no_check_dbus,
+            // )?
+            let mut tui = tui::OmaTui::new();
+            let mut term = prepare_create_tui().unwrap();
+            let exit = tui.run(&mut term, Duration::from_millis(250)).unwrap();
+            exit_tui(&mut term).unwrap();
+
+            if exit {
+                0
+            } else {
+                1
+            }
         }
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");
