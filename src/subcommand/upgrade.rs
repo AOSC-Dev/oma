@@ -98,6 +98,7 @@ pub fn execute(
         handle_no_result(no_result)?;
 
         apt.install(&pkgs, false)?;
+        apt.resolve(false, true)?;
 
         let op = apt.summary()?;
         let op_after = op.clone();
@@ -105,8 +106,6 @@ pub fn execute(
         let install = op.install;
         let remove = op.remove;
         let disk_size = op.disk_size;
-
-        apt.resolve(false, true)?;
 
         if check_empty_op(&install, &remove) {
             return Ok(0);
