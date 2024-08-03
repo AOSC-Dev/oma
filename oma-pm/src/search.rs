@@ -297,13 +297,12 @@ impl<'a> OmaSearch<'a> {
 
 #[test]
 fn test() {
-    use oma_apt::config::Config;
     use oma_apt::new_cache;
 
-    let config = Config::new();
-    config.clear("Dir::State");
-    config.set("Dir::State::status", "");
-    let cache = new_cache!(&["test_file/Packages"]).unwrap();
+    let packages = std::path::Path::new(&std::env::var_os("CARGO_MANIFEST_DIR").unwrap())
+        .join("test_file")
+        .join("Packages");
+    let cache = new_cache!(&[packages.to_string_lossy().to_string()]).unwrap();
 
     let searcher = OmaSearch::new(&cache).unwrap();
     let res = searcher.search("windows-nt-kernel").unwrap();
