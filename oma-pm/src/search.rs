@@ -256,7 +256,7 @@ impl<'a> OmaSearch<'a> {
         let entry = self.pkg_map.get(i).unwrap();
         let search_name = entry.name.clone();
         let desc = entry.description.clone();
-        let status = entry.status.clone();
+        let status = entry.status;
         let has_dbg = entry.has_dbg;
         let pkg = unsafe { entry.raw_pkg.unique() }
             .make_safe()
@@ -324,7 +324,6 @@ fn test() {
         assert!(i.iter().any(|x| x.new_version == "9999:114514"));
         assert!(i.iter().any(|x| x.full_match));
         assert!(i.iter().filter(|x| x.name == "qwq-desktop").count() == 1)
-
     }
 
     let res = searcher.search("owo").unwrap();
@@ -333,5 +332,4 @@ fn test() {
     assert_eq!(res.name, "owo".to_string());
     assert_eq!(res.new_version, "9999:2.6.1-2");
     assert!(res.full_match);
-
 }
