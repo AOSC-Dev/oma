@@ -13,7 +13,7 @@ use std::{
 
 use crate::{format_description, pkginfo::PtrIsNone, query::has_dbg};
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum PackageStatus {
     Avail,
     Installed,
@@ -49,7 +49,7 @@ impl Ord for PackageStatus {
 }
 
 pub struct SearchEntry {
-    search_pkg_name: String,
+    name: String,
     description: String,
     status: PackageStatus,
     provides: Vec<String>,
@@ -61,7 +61,7 @@ pub struct SearchEntry {
 impl Debug for SearchEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SearchEntry")
-            .field("pkgname", &self.search_pkg_name)
+            .field("pkgname", &self.name)
             .field("description", &self.description)
             .field("status", &self.status)
             .field("provides", &self.provides)
@@ -74,7 +74,10 @@ impl Debug for SearchEntry {
 
 impl Indexable for SearchEntry {
     fn strings(&self) -> Vec<String> {
-        vec![self.search_pkg_name.clone(), self.description.clone()]
+        let mut v = vec![self.name.clone(), self.description.clone()];
+        let provides = self.provides.clone().into_iter();
+        v.extend(provides);
+        v
     }
 }
 
@@ -137,7 +140,7 @@ impl<'a> OmaSearch<'a> {
             if let Some(cand) = pkg.candidate() {
                 if let Entry::Vacant(e) = pkg_map.entry(pkg.fullname(true)) {
                     e.insert(SearchEntry {
-                        search_pkg_name: pkg.fullname(true),
+                        name: pkg.fullname(true),
                         description: format_description(
                             &cand.description().unwrap_or("".to_string()),
                         )
@@ -151,54 +154,57 @@ impl<'a> OmaSearch<'a> {
                             .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
                         section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
                     });
-                    continue;
                 }
-            }
+            } else {
+                // Provides
+                let mut real_pkgs = vec![];
+                for i in pkg.provides() {
+                    real_pkgs.push((
+                        i.name().to_string(),
+                        unsafe { i.target_pkg() }
+                            .make_safe()
+                            .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
+                    ));
+                }
 
-            let mut real_pkgs = vec![];
-            for i in pkg.provides() {
-                real_pkgs.push((
-                    i.name().to_string(),
-                    unsafe { i.target_pkg() }
-                        .make_safe()
-                        .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
-                ));
-            }
+                for (provide, i) in real_pkgs {
+                    let pkg = Package::new(cache, i);
 
-            for (provide, i) in real_pkgs {
-                let pkg = Package::new(cache, i);
+                    let status = if pkg.is_upgradable() {
+                        PackageStatus::Upgrade
+                    } else if pkg.is_installed() {
+                        PackageStatus::Installed
+                    } else {
+                        PackageStatus::Avail
+                    };
 
-                let status = if pkg.is_upgradable() {
-                    PackageStatus::Upgrade
-                } else if pkg.is_installed() {
-                    PackageStatus::Installed
-                } else {
-                    PackageStatus::Avail
-                };
-
-                if let Some(cand) = pkg.candidate() {
-                    pkg_map
-                        .entry(provide.clone())
-                        .and_modify(|x| {
-                            if !x.provides.contains(&provide) {
-                                x.provides.push(provide.clone())
-                            }
-                        })
-                        .or_insert(SearchEntry {
-                            search_pkg_name: provide.clone(),
-                            description: format_description(
-                                &cand.description().unwrap_or("".to_string()),
-                            )
-                            .0
-                            .to_string(),
-                            status,
-                            provides: vec![provide.to_string()],
-                            has_dbg: has_dbg(cache, &pkg, &cand),
-                            raw_pkg: unsafe { pkg.unique() }
-                                .make_safe()
-                                .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
-                            section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
-                        });
+                    if let Some(cand) = pkg.candidate() {
+                        pkg_map
+                            .entry(pkg.fullname(true))
+                            .and_modify(|x| {
+                                if !x.provides.contains(&provide) {
+                                    x.provides.push(provide.clone())
+                                }
+                            })
+                            .or_insert(SearchEntry {
+                                name: pkg.fullname(true),
+                                description: format_description(
+                                    &cand.description().unwrap_or("".to_string()),
+                                )
+                                .0
+                                .to_string(),
+                                status,
+                                provides: vec![provide.clone()],
+                                has_dbg: has_dbg(cache, &pkg, &cand),
+                                raw_pkg: unsafe { pkg.unique() }
+                                    .make_safe()
+                                    .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
+                                section_is_base: cand
+                                    .section()
+                                    .map(|x| x == "Bases")
+                                    .unwrap_or(false),
+                            });
+                    }
                 }
             }
         }
@@ -248,7 +254,7 @@ impl<'a> OmaSearch<'a> {
         query: Option<&str>,
     ) -> Result<SearchResult, OmaSearchError> {
         let entry = self.pkg_map.get(i).unwrap();
-        let search_name = entry.search_pkg_name.clone();
+        let search_name = entry.name.clone();
         let desc = entry.description.clone();
         let status = entry.status.clone();
         let has_dbg = entry.has_dbg;
@@ -291,8 +297,12 @@ impl<'a> OmaSearch<'a> {
 
 #[test]
 fn test() {
+    use oma_apt::config::Config;
     use oma_apt::new_cache;
 
+    let config = Config::new();
+    config.clear("Dir::State");
+    config.set("Dir::State::status", "");
     let cache = new_cache!(&["test_file/Packages"]).unwrap();
 
     let searcher = OmaSearch::new(&cache).unwrap();
@@ -303,6 +313,7 @@ fn test() {
         assert!(i.iter().any(|x| x.name == "qaq"));
         assert!(i.iter().any(|x| x.new_version == "9999:1"));
         assert!(i.iter().any(|x| x.full_match));
+        assert!(i.iter().filter(|x| x.name == "qaq").count() == 1)
     }
 
     let res = searcher.search("qwq").unwrap();
@@ -312,6 +323,8 @@ fn test() {
         assert!(i.iter().any(|x| x.name == "qwq-desktop"));
         assert!(i.iter().any(|x| x.new_version == "9999:114514"));
         assert!(i.iter().any(|x| x.full_match));
+        assert!(i.iter().filter(|x| x.name == "qwq-desktop").count() == 1)
+
     }
 
     let res = searcher.search("owo").unwrap();
@@ -320,4 +333,5 @@ fn test() {
     assert_eq!(res.name, "owo".to_string());
     assert_eq!(res.new_version, "9999:2.6.1-2");
     assert!(res.full_match);
+
 }
