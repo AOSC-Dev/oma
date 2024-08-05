@@ -204,6 +204,7 @@ pub fn execute(
         download_pure_db,
         network_thread,
         &sysroot,
+        true,
     )?;
 
     stdout()

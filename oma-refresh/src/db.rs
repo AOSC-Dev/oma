@@ -187,6 +187,7 @@ pub struct OmaRefreshBuilder<'a> {
     pub download_dir: PathBuf,
     pub download_compress: bool,
     pub client: &'a Client,
+    pub refresh_topics: bool,
 }
 
 pub struct OmaRefresh<'a> {
@@ -197,6 +198,7 @@ pub struct OmaRefresh<'a> {
     download_compress: bool,
     client: &'a Client,
     flat_repo_no_release: Vec<usize>,
+    refresh_topics: bool,
 }
 
 impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
@@ -209,6 +211,7 @@ impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
             download_compress: builder.download_compress,
             client: builder.client,
             flat_repo_no_release: vec![],
+            refresh_topics: builder.refresh_topics,
         }
     }
 }
@@ -516,7 +519,8 @@ impl<'a> OmaRefresh<'a> {
                             DownloadError::ReqwestError(e)
                                 if e.status()
                                     .map(|x| x == StatusCode::NOT_FOUND)
-                                    .unwrap_or(false) =>
+                                    .unwrap_or(false)
+                                    && self.refresh_topics =>
                             {
                                 let url = e.url().map(|x| x.to_owned());
                                 not_found.push(url.unwrap());

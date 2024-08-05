@@ -55,6 +55,7 @@ pub fn execute(
             download_pure_db,
             network_thread,
             &args.sysroot,
+            !args.no_refresh_topic,
         )?;
     }
 

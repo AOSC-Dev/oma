@@ -39,6 +39,8 @@ pub fn execute(
     root()?;
     lock_oma()?;
 
+    let no_refresh_topics = args.no_refresh_topcs;
+
     let OmaArgs {
         dry_run,
         network_thread,
@@ -63,6 +65,7 @@ pub fn execute(
         download_pure_db,
         network_thread,
         &args.sysroot,
+        !no_refresh_topics,
     )?;
 
     if args.yes {

@@ -92,6 +92,7 @@ pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
         download_pure_db,
         network_thread,
         &sysroot,
+        true,
     )?;
 
     let oma_apt_args = OmaAptArgsBuilder::default()

@@ -21,6 +21,7 @@ pub fn execute(
     oma_args: OmaArgs,
     sysroot: String,
     client: Client,
+    no_refresh_topic: bool,
 ) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
@@ -50,6 +51,7 @@ pub fn execute(
             download_pure_db,
             network_thread,
             &sysroot,
+            !no_refresh_topic,
         )?;
     }
 

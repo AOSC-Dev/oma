@@ -69,6 +69,7 @@ pub struct InstallArgs {
     no_install_recommends: bool,
     no_install_suggests: bool,
     sysroot: String,
+    no_refresh_topic: bool,
 }
 
 #[derive(Debug, Default)]
@@ -78,6 +79,7 @@ pub struct UpgradeArgs {
     force_confnew: bool,
     dpkg_force_all: bool,
     sysroot: String,
+    no_refresh_topcs: bool,
 }
 
 #[derive(Debug, Default)]
@@ -290,6 +292,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 install_suggests: args.get_flag("install_suggests"),
                 no_install_recommends: args.get_flag("no_install_recommends"),
                 no_install_suggests: args.get_flag("no_install_recommends"),
+                no_refresh_topic: args.get_flag("no_refresh_topics"),
                 sysroot,
             };
 
@@ -306,6 +309,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 force_confnew: args.get_flag("force_confnew"),
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
                 sysroot,
+                no_refresh_topcs: args.get_flag("no_refresh_topics"),
             };
 
             let client = Client::builder().user_agent("oma").build().unwrap();
@@ -344,9 +348,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             remove::execute(input, args, oma_args, client)?
         }
-        Some(("refresh", _)) => {
+        Some(("refresh", args)) => {
             let client = Client::builder().user_agent("oma").build().unwrap();
-            refresh::execute(oma_args, sysroot, client)?
+            refresh::execute(oma_args, sysroot, client, args.get_flag("no_refresh_topics"))?
         }
         Some(("show", args)) => {
             let input = pkgs_getter(args).unwrap_or_default();
@@ -384,6 +388,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 oma_args,
                 sysroot,
                 client,
+                args.get_flag("no_refresh_topics")
             )?
         }
         Some(("mark", args)) => {

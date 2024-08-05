@@ -30,6 +30,7 @@ async fn main() -> Result<(), RefreshError> {
         arch: dpkg_arch("/").unwrap(),
         download_dir: p.to_path_buf(),
         download_compress: true,
+        refresh_topics: true,
     }
     .into();
 

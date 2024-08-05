@@ -48,6 +48,11 @@ pub fn command_builder() -> Command {
         .help("Request dpkg(1) to ignore any issues occurred during the installation and configuration process")
         .action(ArgAction::SetTrue);
 
+    let no_refresh_topics = Arg::new("no_refresh_topics")
+        .long("no-refresh-topics")
+        .help("Do not refresh topics manifest.json file")
+        .action(ArgAction::SetTrue);
+
     let mut cmd = command!()
         .max_term_width(100)
         .disable_version_flag(true)
@@ -141,7 +146,8 @@ pub fn command_builder() -> Command {
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))
                 .arg(&dry_run)
-                .arg(&dpkg_force_all),
+                .arg(&dpkg_force_all)
+                .arg(&no_refresh_topics),
         )
         .subcommand(
             Command::new("upgrade")
@@ -153,7 +159,8 @@ pub fn command_builder() -> Command {
                 .arg(&force_yes)
                 .arg(force_confnew)
                 .arg(&dry_run)
-                .arg(&dpkg_force_all),
+                .arg(&dpkg_force_all)
+                .arg(&no_refresh_topics),
         )
         .subcommand(
             Command::new("download")
@@ -202,7 +209,8 @@ pub fn command_builder() -> Command {
         )
         .subcommand(Command::new("refresh")
             .about("Refresh repository metadata/catalog")
-            .long_about("Refresh repository metadata/catalog to check for available updates and new packages"))
+            .long_about("Refresh repository metadata/catalog to check for available updates and new packages")
+            .arg(&no_refresh_topics))
         .subcommand(
             Command::new("show").about("Show information on the specified package(s)").arg(pkgs.clone().required(true)).arg(
                 Arg::new("all")
@@ -211,7 +219,7 @@ pub fn command_builder() -> Command {
                     .help("Show information on all available version(s) of (a) package(s) from all repository(ies)")
                     .action(ArgAction::SetTrue)
                     .requires("packages")
-            ),
+            ).arg(&no_refresh_topics),
         )
         .subcommand(
             Command::new("search")
@@ -265,7 +273,8 @@ pub fn command_builder() -> Command {
                 )
                 .arg(no_refresh.requires("package"))
                 .arg(&dry_run)
-                .arg(&dpkg_force_all),
+                .arg(&dpkg_force_all)
+                .arg(&no_refresh_topics),
         )
         .subcommand(
             Command::new("mark")

@@ -9,7 +9,12 @@ use crate::{fl, OmaArgs};
 
 use super::utils::refresh;
 
-pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32, OutputError> {
+pub fn execute(
+    oma_args: OmaArgs,
+    sysroot: String,
+    client: Client,
+    no_refresh_topics: bool,
+) -> Result<i32, OutputError> {
     root()?;
 
     let OmaArgs {
@@ -27,6 +32,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         download_pure_db,
         network_thread,
         &sysroot,
+        !no_refresh_topics,
     )?;
 
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
