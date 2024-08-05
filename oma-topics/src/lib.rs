@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     ffi::OsStr,
     path::{Path, PathBuf},
 };
@@ -246,13 +247,12 @@ impl TopicManager {
                 })?;
 
             let mut tasks = vec![];
-            for j in &mirrors {
-                let url = if j.ends_with('/') {
-                    j.to_owned()
-                } else {
-                    format!("{j}/")
-                };
-                tasks.push(self.mirror_topic_is_exist(format!("{url}debs/dists/{}", i.name)))
+            for mirror in &mirrors {
+                tasks.push(self.mirror_topic_is_exist(format!(
+                    "{}debs/dists/{}",
+                    url_with_suffix(mirror),
+                    i.name
+                )))
             }
 
             let is_exists = futures::future::join_all(tasks).await;
@@ -267,7 +267,7 @@ impl TopicManager {
                     continue;
                 }
 
-                f.write_all(format!("deb {}debs {} main\n", mirrors[index], i.name).as_bytes())
+                f.write_all(format!("deb {}debs {} main\n", url_with_suffix(&mirrors[index]), i.name).as_bytes())
                     .await
                     .map_err(|e| {
                         OmaTopicsError::FailedToOperateDirOrFile(
@@ -298,6 +298,14 @@ impl TopicManager {
             .is_ok();
 
         Ok(res)
+    }
+}
+
+fn url_with_suffix(url: &str) -> Cow<str> {
+    if url.ends_with('/') {
+        Cow::Borrowed(url)
+    } else {
+        Cow::Owned(format!("{url}/"))
     }
 }
 
