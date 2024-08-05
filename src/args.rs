@@ -218,8 +218,7 @@ pub fn command_builder() -> Command {
                     .long("all")
                     .help("Show information on all available version(s) of (a) package(s) from all repository(ies)")
                     .action(ArgAction::SetTrue)
-                    .requires("packages")
-            ).arg(&no_refresh_topics),
+                    .requires("packages"))
         )
         .subcommand(
             Command::new("search")

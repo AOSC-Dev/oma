@@ -564,7 +564,7 @@ _oma() {
             return 0
             ;;
         oma__install)
-            opts="-y -h --install-dbg --reinstall --install-recommends --install-suggests --no-install-recommends --no-install-suggests --no-fix-broken --no-refresh --yes --force-yes --force-confnew --dry-run --dpkg-force-all --debug --no-color --no-progress --no-check-dbus --sysroot --help [packages]..."
+            opts="-y -h --install-dbg --reinstall --install-recommends --install-suggests --no-install-recommends --no-install-suggests --no-fix-broken --no-refresh --yes --force-yes --force-confnew --dry-run --dpkg-force-all --no-refresh-topics --debug --no-color --no-progress --no-check-dbus --sysroot --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -635,7 +635,7 @@ _oma() {
             return 0
             ;;
         oma__pick)
-            opts="-h --dry-run --debug --no-color --no-progress --no-check-dbus --sysroot --help hold unhold manual auto ."
+            opts="-h --no-refresh --dry-run --dpkg-force-all --no-refresh-topics --debug --no-color --no-progress --no-check-dbus --sysroot --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -745,7 +745,7 @@ _oma() {
             return 0
             ;;
         oma__refresh)
-            opts="-h --debug --no-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --no-refresh-topics --debug --no-color --no-progress --no-check-dbus --sysroot --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -799,7 +799,7 @@ _oma() {
             return 0
             ;;
         oma__show)
-            opts="-a -h --all --debug --no-color --no-progress --no-check-dbus --sysroot --help ."
+            opts="-a -h --all --debug --no-color --no-progress --no-check-dbus --sysroot --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -880,7 +880,7 @@ _oma() {
             return 0
             ;;
         oma__upgrade)
-            opts="-y -h --yes --force-yes --force-confnew --dry-run --dpkg-force-all --debug --no-color --no-progress --no-check-dbus --sysroot --help [packages]..."
+            opts="-y -h --yes --force-yes --force-confnew --dry-run --dpkg-force-all --no-refresh-topics --debug --no-color --no-progress --no-check-dbus --sysroot --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
