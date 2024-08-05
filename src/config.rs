@@ -93,5 +93,4 @@ impl Config {
             .map(|x| x.no_refresh_topics)
             .unwrap_or_else(GeneralConfig::default_no_refresh_topics)
     }
-
 }

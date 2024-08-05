@@ -85,7 +85,7 @@ pub(crate) fn refresh(
     download_pure_db: bool,
     limit: usize,
     sysroot: &str,
-    refresh_topics: bool
+    refresh_topics: bool,
 ) -> Result<(), OutputError> {
     if dry_run {
         return Ok(());
