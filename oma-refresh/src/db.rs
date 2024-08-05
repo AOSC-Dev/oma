@@ -540,20 +540,24 @@ impl<'a> OmaRefresh<'a> {
 
         #[cfg(feature = "aosc")]
         {
-            let removed_suites =
-                oma_topics::scan_closed_topic(_handle_topic_msg, &self.source, &self.arch).await?;
+            if self.refresh_topics {
+                _callback(0, RefreshEvent::ScanningTopic, None);
+                let removed_suites =
+                    oma_topics::scan_closed_topic(_handle_topic_msg, &self.source, &self.arch)
+                        .await?;
 
-            for url in not_found {
-                let suite = url
-                    .path_segments()
-                    .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
-                    .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+                for url in not_found {
+                    let suite = url
+                        .path_segments()
+                        .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
+                        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
 
-                if !removed_suites.contains(&suite) {
-                    return Err(RefreshError::NoInReleaseFile(url.to_string()));
+                    if !removed_suites.contains(&suite) {
+                        return Err(RefreshError::NoInReleaseFile(url.to_string()));
+                    }
+
+                    _callback(0, RefreshEvent::ClosingTopic(suite), None);
                 }
-
-                _callback(0, RefreshEvent::ClosingTopic(suite), None);
             }
         }
 
@@ -734,6 +738,7 @@ async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> 
 pub enum RefreshEvent {
     DownloadEvent(DownloadEvent),
     ClosingTopic(String),
+    ScanningTopic,
 }
 
 impl From<DownloadEvent> for RefreshEvent {

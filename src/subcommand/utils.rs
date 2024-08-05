@@ -10,6 +10,7 @@ use crate::pb;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::multibar;
+use crate::AILURUS;
 use crate::LOCKED;
 use chrono::Local;
 use dialoguer::console::style;
@@ -137,6 +138,19 @@ pub(crate) fn refresh(
                             RefreshEvent::DownloadEvent(event) => {
                                 pb!(event, mb, pb_map, count, total, global_is_set)
                             }
+                            RefreshEvent::ScanningTopic => {
+                                let (sty, inv) = oma_console::pb::oma_spinner(
+                                    AILURUS.load(std::sync::atomic::Ordering::Relaxed),
+                                );
+                                let pb = mb.insert(
+                                    count + 1,
+                                    oma_console::indicatif::ProgressBar::new_spinner()
+                                        .with_style(sty),
+                                );
+                                pb.set_message(fl!("refreshing-topic-metadata"));
+                                pb.enable_steady_tick(inv);
+                                pb_map.insert(count + 1, pb);
+                            }
                         }
                     } else {
                         match event {
@@ -145,6 +159,9 @@ pub(crate) fn refresh(
                             }
                             RefreshEvent::ClosingTopic(topic_name) => {
                                 info!("{}", fl!("scan-topic-is-removed", name = topic_name));
+                            }
+                            RefreshEvent::ScanningTopic => {
+                                info!("{}", fl!("refreshing-topic-metadata"));
                             }
                         }
                     }
