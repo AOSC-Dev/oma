@@ -2217,6 +2217,7 @@ checksum = "de3fc2e30ba82dd1b3911c8de1ffc143c74a914a14e99514d7637e3099df5ea0"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.5",
+ "serde",
 ]
 
 [[package]]
@@ -3105,6 +3106,7 @@ name = "oma-topics"
 version = "0.10.0"
 dependencies = [
  "futures",
+ "indexmap 2.3.0",
  "oma-console",
  "oma-inquire",
  "reqwest",
