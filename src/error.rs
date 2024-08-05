@@ -522,7 +522,7 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
         OmaTopicsError::BrokenFile(p) => OutputError {
             description: fl!("failed-to-read", p = p),
             source: None,
-        }
+        },
     }
 }
 
