@@ -350,12 +350,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         }
         Some(("refresh", args)) => {
             let client = Client::builder().user_agent("oma").build().unwrap();
-            refresh::execute(
-                oma_args,
-                sysroot,
-                client,
-                no_refresh_topics(&config, args),
-            )?
+            refresh::execute(oma_args, sysroot, client, no_refresh_topics(&config, args))?
         }
         Some(("show", args)) => {
             let input = pkgs_getter(args).unwrap_or_default();
