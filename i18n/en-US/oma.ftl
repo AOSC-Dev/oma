@@ -14,7 +14,7 @@ select-topics-dialog = Enable topic(s) to receive testing updates, deselect to r
 tips = Press [Space]/[Enter] to toggle selection, [Esc] to apply changes, [Ctrl-c] to abort.
 scan-topic-is-removed = Topic { $name } has been removed from the repository, disabling ...
 refreshing-topic-metadata = Refreshing topics metadata ...
-failed-to-read = Failed to read status file.
+failed-to-read = Failed to read status file ({ $p }).
 # pkg
 can-not-get-pkg-from-database = Failed to get metadata for package { $name } from the local database.
 debug-symbol-available = debug symbols available

@@ -14,7 +14,7 @@ select-topics-dialog = 打開測試庫以取得實驗性更新，關閉測試庫
 tips = 按 [Space]/[Enter] 開關測試庫，按 [Esc] 套用更改，按 [Ctrl-c] 結束。
 scan-topic-is-removed = 測試庫 { $name } 已從軟體庫移除，現將關閉……
 refreshing-topic-metadata = 正在重新整理測試庫資料……
-failed-to-read = 無法讀取狀態檔案。
+failed-to-read = 無法讀取狀態檔案 ({ $p })。
 # pkg
 can-not-get-pkg-from-database = 無法從本機資料庫中取得軟體套件 { $name } 的後設資料。
 invaild-path = 路徑格式有誤：{ $p }

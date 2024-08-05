@@ -25,6 +25,8 @@ pub enum OmaTopicsError {
     FailedSer,
     #[error("Failed to get path parent: {0:?}")]
     FailedGetParentPath(PathBuf),
+    #[error("file is broken")]
+    BrokenFile(String),
 }
 
 #[derive(Deserialize)]
