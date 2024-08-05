@@ -102,6 +102,9 @@ async fn main() -> Result<(), RefreshError> {
                             }
                         }
                     },
+                    RefreshEvent::ScanningTopic => {
+                        mb.println("Scanning topic...").unwrap();
+                    }
                 }
 
                 if let Some(total) = total {
