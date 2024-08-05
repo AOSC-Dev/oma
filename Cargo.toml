@@ -30,7 +30,7 @@ reqwest = { version = "0.12", default-features = false }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 smallvec = "1.11"
-console-subscriber = { version = "0.3", optional = true }
+console-subscriber = { version = "0.4", optional = true }
 ratatui = "=0.26"
 crossterm = "0.27"
 ansi-to-tui = "4.0"
