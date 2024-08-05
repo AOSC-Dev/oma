@@ -187,6 +187,7 @@ pub struct OmaRefreshBuilder<'a> {
     pub download_dir: PathBuf,
     pub download_compress: bool,
     pub client: &'a Client,
+    #[cfg(feature = "aosc")]
     pub refresh_topics: bool,
 }
 
@@ -198,6 +199,7 @@ pub struct OmaRefresh<'a> {
     download_compress: bool,
     client: &'a Client,
     flat_repo_no_release: Vec<usize>,
+    #[cfg(feature = "aosc")]
     refresh_topics: bool,
 }
 
@@ -211,6 +213,7 @@ impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
             download_compress: builder.download_compress,
             client: builder.client,
             flat_repo_no_release: vec![],
+            #[cfg(feature = "aosc")]
             refresh_topics: builder.refresh_topics,
         }
     }

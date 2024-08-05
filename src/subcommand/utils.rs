@@ -86,7 +86,7 @@ pub(crate) fn refresh(
     download_pure_db: bool,
     limit: usize,
     sysroot: &str,
-    refresh_topics: bool,
+    _refresh_topics: bool,
 ) -> Result<(), OutputError> {
     if dry_run {
         return Ok(());
@@ -112,7 +112,8 @@ pub(crate) fn refresh(
         download_dir: sysroot.join("var/lib/apt/lists"),
         download_compress: !download_pure_db,
         client,
-        refresh_topics,
+        #[cfg(feature = "aosc")]
+        refresh_topics: _refresh_topics,
     }
     .into();
 
