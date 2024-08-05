@@ -267,14 +267,21 @@ impl TopicManager {
                     continue;
                 }
 
-                f.write_all(format!("deb {}debs {} main\n", url_with_suffix(&mirrors[index]), i.name).as_bytes())
-                    .await
-                    .map_err(|e| {
-                        OmaTopicsError::FailedToOperateDirOrFile(
-                            "/etc/apt/sources.list.d/atm.list".to_string(),
-                            e,
-                        )
-                    })?;
+                f.write_all(
+                    format!(
+                        "deb {}debs {} main\n",
+                        url_with_suffix(&mirrors[index]),
+                        i.name
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .map_err(|e| {
+                    OmaTopicsError::FailedToOperateDirOrFile(
+                        "/etc/apt/sources.list.d/atm.list".to_string(),
+                        e,
+                    )
+                })?;
             }
         }
 
