@@ -48,6 +48,7 @@ complete -c oma -n "__fish_seen_subcommand_from install" -l force-yes -d 'Ignore
 complete -c oma -n "__fish_seen_subcommand_from install" -l force-confnew -d 'Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)'
 complete -c oma -n "__fish_seen_subcommand_from install" -l dry-run -d 'Run Omakase in “dry-run” mode'
 complete -c oma -n "__fish_seen_subcommand_from install" -l dpkg-force-all -d 'Request dpkg(1) to ignore any issues occurred during the installation and configuration process'
+complete -c oma -n "__fish_seen_subcommand_from install" -l no-refresh-topics -d 'Do not refresh topics manifest.json file'
 complete -c oma -n "__fish_seen_subcommand_from install" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from install" -l no-color -d 'No color output to result'
 complete -c oma -n "__fish_seen_subcommand_from install" -l no-progress -d 'Do not display progress bar'
@@ -58,6 +59,7 @@ complete -c oma -n "__fish_seen_subcommand_from upgrade" -s y -l yes -d 'Bypass 
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l force-yes -d 'Ignore repository and package dependency issues'
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l force-confnew -d 'Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)'
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l dry-run -d 'Run Omakase in “dry-run” mode'
+complete -c oma -n "__fish_seen_subcommand_from upgrade" -l no-refresh-topics -d 'Do not refresh topics manifest.json file'
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l dpkg-force-all -d 'Request dpkg(1) to ignore any issues occurred during the installation and configuration process'
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l no-color -d 'No color output to result'
@@ -93,6 +95,7 @@ complete -c oma -n "__fish_seen_subcommand_from purge" -l no-progress -d 'Do not
 complete -c oma -n "__fish_seen_subcommand_from purge" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from purge" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from refresh" -l sysroot -d 'Set sysroot target directory' -r
+complete -c oma -n "__fish_seen_subcommand_from refresh" -l no-refresh-topics -d 'Do not refresh topics manifest.json file'
 complete -c oma -n "__fish_seen_subcommand_from refresh" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from refresh" -l no-color -d 'No color output to result'
 complete -c oma -n "__fish_seen_subcommand_from refresh" -l no-progress -d 'Do not display progress bar'
@@ -140,6 +143,7 @@ complete -c oma -n "__fish_seen_subcommand_from pick" -l debug -d 'Run oma with 
 complete -c oma -n "__fish_seen_subcommand_from pick" -l no-color -d 'No color output to result'
 complete -c oma -n "__fish_seen_subcommand_from pick" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from pick" -l no-check-dbus
+complete -c oma -n "__fish_seen_subcommand_from pick" -l no-refresh-topics -d 'Do not refresh topics manifest.json file'
 complete -c oma -n "__fish_seen_subcommand_from pick" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from mark" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from mark" -l dry-run -d 'Run Omakase in “dry-run” mode'

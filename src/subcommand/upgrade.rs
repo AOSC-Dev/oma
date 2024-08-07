@@ -39,6 +39,8 @@ pub fn execute(
     root()?;
     lock_oma()?;
 
+    let no_refresh_topics = args.no_refresh_topcs;
+
     let OmaArgs {
         dry_run,
         network_thread,
@@ -55,7 +57,14 @@ pub fn execute(
         None
     };
 
-    refresh(&client, dry_run, no_progress, network_thread, &args.sysroot)?;
+    refresh(
+        &client,
+        dry_run,
+        no_progress,
+        network_thread,
+        &args.sysroot,
+        !no_refresh_topics,
+    )?;
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));

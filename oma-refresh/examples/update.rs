@@ -29,6 +29,7 @@ async fn main() -> Result<(), RefreshError> {
         limit: Some(4),
         arch: dpkg_arch("/").unwrap(),
         download_dir: p.to_path_buf(),
+        refresh_topics: true,
     }
     .into();
 
@@ -100,6 +101,9 @@ async fn main() -> Result<(), RefreshError> {
                             }
                         }
                     },
+                    RefreshEvent::ScanningTopic => {
+                        mb.println("Scanning topic...").unwrap();
+                    }
                 }
 
                 if let Some(total) = total {

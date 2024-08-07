@@ -47,7 +47,14 @@ pub fn execute(
     };
 
     if !args.no_refresh {
-        refresh(&client, dry_run, no_progress, network_thread, &args.sysroot)?;
+        refresh(
+            &client,
+            dry_run,
+            no_progress,
+            network_thread,
+            &args.sysroot,
+            !args.no_refresh_topic,
+        )?;
     }
 
     if args.yes {

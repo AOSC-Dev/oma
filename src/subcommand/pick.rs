@@ -21,6 +21,7 @@ pub fn execute(
     oma_args: OmaArgs,
     sysroot: String,
     client: Client,
+    no_refresh_topic: bool,
 ) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
@@ -42,7 +43,14 @@ pub fn execute(
     };
 
     if !no_refresh {
-        refresh(&client, dry_run, no_progress, network_thread, &sysroot)?;
+        refresh(
+            &client,
+            dry_run,
+            no_progress,
+            network_thread,
+            &sysroot,
+            !no_refresh_topic,
+        )?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default()

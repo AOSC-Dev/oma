@@ -32,7 +32,7 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-    let mut filter_mode: SmallVec<[_; 4]> = smallvec![FilterMode::Names];
+    let mut filter_mode: SmallVec<[_; 5]> = smallvec![FilterMode::Names];
 
     if installed {
         filter_mode.push(FilterMode::Installed);

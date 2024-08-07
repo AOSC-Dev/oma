@@ -48,6 +48,11 @@ pub fn command_builder() -> Command {
         .help("Request dpkg(1) to ignore any issues occurred during the installation and configuration process")
         .action(ArgAction::SetTrue);
 
+    let no_refresh_topics = Arg::new("no_refresh_topics")
+        .long("no-refresh-topics")
+        .help("Do not refresh topics manifest.json file")
+        .action(ArgAction::SetTrue);
+
     let mut cmd = command!()
         .max_term_width(100)
         .disable_version_flag(true)
@@ -98,8 +103,8 @@ pub fn command_builder() -> Command {
             .num_args(1)
             .default_value("/")
         )
-        .subcommand(
-            Command::new("install")
+        .subcommand({
+            let mut cmd = Command::new("install")
                 .about("Install package(s) from the repository")
                 .arg(pkgs.clone().help("Package(s) to install"))
                 .arg(
@@ -141,10 +146,17 @@ pub fn command_builder() -> Command {
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))
                 .arg(&dry_run)
-                .arg(&dpkg_force_all),
+                .arg(&dpkg_force_all);
+
+            if cfg!(feature = "aosc") {
+                cmd = cmd.arg(&no_refresh_topics);
+            }
+
+            cmd
+        }
         )
-        .subcommand(
-            Command::new("upgrade")
+        .subcommand({
+            let mut cmd = Command::new("upgrade")
                 .alias("dist-upgrade")
                 .alias("full-upgrade")
                 .about("Upgrade packages installed on the system")
@@ -153,7 +165,14 @@ pub fn command_builder() -> Command {
                 .arg(&force_yes)
                 .arg(force_confnew)
                 .arg(&dry_run)
-                .arg(&dpkg_force_all),
+                .arg(&dpkg_force_all);
+
+            if cfg!(feature = "aosc") {
+                cmd = cmd.arg(&no_refresh_topics);
+            }
+
+            cmd
+        }
         )
         .subcommand(
             Command::new("download")
@@ -200,9 +219,17 @@ pub fn command_builder() -> Command {
                 .arg(no_autoremove.requires("packages"))
                 .arg(&dry_run),
         )
-        .subcommand(Command::new("refresh")
+        .subcommand({
+            let mut cmd = Command::new("refresh")
             .about("Refresh repository metadata/catalog")
-            .long_about("Refresh repository metadata/catalog to check for available updates and new packages"))
+            .long_about("Refresh repository metadata/catalog to check for available updates and new packages");
+
+            if cfg!(feature = "aosc") {
+                cmd = cmd.arg(&no_refresh_topics);
+            }
+
+            cmd
+        })
         .subcommand(
             Command::new("show").about("Show information on the specified package(s)").arg(pkgs.clone().required(true)).arg(
                 Arg::new("all")
@@ -210,8 +237,7 @@ pub fn command_builder() -> Command {
                     .long("all")
                     .help("Show information on all available version(s) of (a) package(s) from all repository(ies)")
                     .action(ArgAction::SetTrue)
-                    .requires("packages")
-            ),
+                    .requires("packages"))
         )
         .subcommand(
             Command::new("search")
@@ -253,8 +279,8 @@ pub fn command_builder() -> Command {
                 .about("Resolve broken system dependencies in the system")
                 .arg(&dry_run),
         )
-        .subcommand(
-            Command::new("pick")
+        .subcommand({
+            let mut cmd = Command::new("pick")
                 .about("Install specific version of a package")
                 .arg(
                     Arg::new("package")
@@ -265,8 +291,14 @@ pub fn command_builder() -> Command {
                 )
                 .arg(no_refresh.requires("package"))
                 .arg(&dry_run)
-                .arg(&dpkg_force_all),
-        )
+                .arg(&dpkg_force_all);
+
+            if cfg!(feature = "aosc") {
+                cmd = cmd.arg(&no_refresh_topics);
+            }
+
+            cmd
+        })
         .subcommand(
             Command::new("mark")
                 .about("Mark status for one or multiple package(s)")

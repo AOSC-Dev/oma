@@ -5,6 +5,8 @@ protect_essentials = true
 refresh_pure_database = false
 # Set to true to no check dbus with install pacakge
 no_check_dbus = false
+# set to true to do not refresh topic manifest data
+no_refresh_topics = false
 
 [network]
 # Number of network threads to use when downloading metadata and packages.

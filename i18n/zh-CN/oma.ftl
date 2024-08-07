@@ -14,7 +14,7 @@ select-topics-dialog = 打开测试源以获取实验性更新，关闭测试源
 tips = 按 [Space]/[Enter] 开关测试源，按 [Esc] 应用更改，按 [Ctrl-c] 退出。
 scan-topic-is-removed = 测试源 { $name } 已从软件源中被删除，现将关闭 ...
 refreshing-topic-metadata = 正在刷新测试源数据 ...
-failed-to-read = 无法读取状态文件。
+failed-to-read = 无法读取状态文件 ({ $p })。
 # pkg
 can-not-get-pkg-from-database = 无法从本机数据库中获取软件包 { $name } 的元数据。
 invaild-path = 非法路径：{ $p }

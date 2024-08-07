@@ -519,6 +519,10 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             description: fl!("failed-to-get-parent-path", p = p.display().to_string()),
             source: None,
         },
+        OmaTopicsError::BrokenFile(p) => OutputError {
+            description: fl!("failed-to-read", p = p),
+            source: None,
+        },
     }
 }
 

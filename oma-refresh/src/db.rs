@@ -186,6 +186,8 @@ pub struct OmaRefreshBuilder<'a> {
     pub arch: String,
     pub download_dir: PathBuf,
     pub client: &'a Client,
+    #[cfg(feature = "aosc")]
+    pub refresh_topics: bool,
 }
 
 pub struct OmaRefresh<'a> {
@@ -195,6 +197,8 @@ pub struct OmaRefresh<'a> {
     download_dir: PathBuf,
     client: &'a Client,
     flat_repo_no_release: Vec<usize>,
+    #[cfg(feature = "aosc")]
+    refresh_topics: bool,
 }
 
 impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
@@ -206,6 +210,8 @@ impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
             download_dir: builder.download_dir,
             client: builder.client,
             flat_repo_no_release: vec![],
+            #[cfg(feature = "aosc")]
+            refresh_topics: builder.refresh_topics,
         }
     }
 }
@@ -513,7 +519,8 @@ impl<'a> OmaRefresh<'a> {
                             DownloadError::ReqwestError(e)
                                 if e.status()
                                     .map(|x| x == StatusCode::NOT_FOUND)
-                                    .unwrap_or(false) =>
+                                    .unwrap_or(false)
+                                    && self.refresh_topics =>
                             {
                                 let url = e.url().map(|x| x.to_owned());
                                 not_found.push(url.unwrap());
@@ -533,20 +540,24 @@ impl<'a> OmaRefresh<'a> {
 
         #[cfg(feature = "aosc")]
         {
-            let removed_suites =
-                oma_topics::scan_closed_topic(_handle_topic_msg, &self.source, &self.arch).await?;
+            if self.refresh_topics {
+                _callback(0, RefreshEvent::ScanningTopic, None);
+                let removed_suites =
+                    oma_topics::scan_closed_topic(_handle_topic_msg, &self.source, &self.arch)
+                        .await?;
 
-            for url in not_found {
-                let suite = url
-                    .path_segments()
-                    .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
-                    .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+                for url in not_found {
+                    let suite = url
+                        .path_segments()
+                        .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
+                        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
 
-                if !removed_suites.contains(&suite) {
-                    return Err(RefreshError::NoInReleaseFile(url.to_string()));
+                    if !removed_suites.contains(&suite) {
+                        return Err(RefreshError::NoInReleaseFile(url.to_string()));
+                    }
+
+                    _callback(0, RefreshEvent::ClosingTopic(suite), None);
                 }
-
-                _callback(0, RefreshEvent::ClosingTopic(suite), None);
             }
         }
 
@@ -714,6 +725,7 @@ async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> 
 pub enum RefreshEvent {
     DownloadEvent(DownloadEvent),
     ClosingTopic(String),
+    ScanningTopic,
 }
 
 impl From<DownloadEvent> for RefreshEvent {
