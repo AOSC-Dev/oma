@@ -955,7 +955,7 @@ All notable changes to this project will be documented in this file.
 - Run cargo fmt
 - Run cargo clippy (warnings as error)
 - Apply cargo fmt
-- Rename Omakase as oma
+- Rename oma as oma
 - Update screenshot
 - *(oma-refresh)* Release oma-refresh-v0.12.5
 
@@ -1090,7 +1090,7 @@ All notable changes to this project will be documented in this file.
 
 ### Meta
 
-- Rebrand Omakase => oma
+- Rebrand oma => oma
 
 ## [1.2.5] - 2023-12-11
 
@@ -2613,7 +2613,7 @@ All notable changes to this project will be documented in this file.
 
 ### I18n
 
-- Make Omakase speak English
+- Make oma speak English
 - Reword pid => PID
 - Remove 'type to filter item' in topic tips
 - Fix typos in en-US
@@ -3994,8 +3994,8 @@ All notable changes to this project will be documented in this file.
 
 - Rename to oma, fix grammar
 - Update
-- Add a definition for Omakase
-- Add Japanese spelling for Omakase
+- Add a definition for oma
+- Add Japanese spelling for oma
 - Add dependencies
 
 ### Action
