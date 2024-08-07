@@ -4,11 +4,496 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+### 🚀 Features
+
+- Add notes for contributors
+
 ### ⚙️ Miscellaneous Tasks
 
-- Release v1.13.13
+- Remove REL line
+- *(README)* Clean up formatting and proses
+- Omakase -> oma
+- Lint ctates description string
 
-## [oma-refresh-v0.14.1] - 2024-05-29
+## [1.4.1] - 2024-08-05
+
+### 🐛 Bug Fixes
+
+- *(oma-topics)* Fix url suffix not is '/'
+
+## [1.4.0] - 2024-08-05
+
+### 🚀 Features
+
+- *(oma-refresh)* Add --no-refresh-topics` option
+- Add `no_refresh_topics` to config file
+- Add scan closed topic progress spinner
+
+### ⚙️ Miscellaneous Tasks
+
+- Update all deps
+- Update all deps(2)
+- *(subcmd/list)* Set smallvec size as 5
+- *(oma-refresh)* Fix example build
+- Update completions ...
+- Make `--no-refresh-topics` aosc feature only
+- Make `refresh_topic` field aosc only
+
+### I18n
+
+- Re-add `failed-to-read` translate
+
+## [1.3.39] - 2024-08-03
+
+### 🐛 Bug Fixes
+
+- *(oma-pm)* Fix `oma search` search provides repetition result ...
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove `mips64r6el`
+- *(oa-pm)* Use crates.io `oma-apt`
+- Fix `oma-pm` search test
+
+## [1.3.38] - 2024-08-02
+
+### 🐛 Bug Fixes
+
+- *(subcmd/upgrade)* Should `resolve` after run `summary`
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.3.38
+
+## [1.3.37] - 2024-08-02
+
+### 🐛 Bug Fixes
+
+- Should `resolve` after run `summary` functon
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-topics)* Remove unused enum entry
+- Release v1.3.37
+
+## [1.3.36] - 2024-08-01
+
+### 🚀 Features
+
+- *(oma-topics)* Multi thread to check mirror topics is exist
+- *(oma-topics)* Only allow repo.aosc.io use topic
+
+### 🐛 Bug Fixes
+
+- *(oma-pm)* Fix provides search
+
+### ⚙️ Miscellaneous Tasks
+
+- Release oma-topics-v0.10.0 oma-refresh-v0.20.4
+- *(oma-pm)* Make `OmaSearch::pkg_map` private
+- *(oma-pm)* Release oma-pm-v0.25.0
+- Release v1.3.36
+
+## [1.3.35] - 2024-07-29
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix `date_hack` split date
+
+### ⚙️ Miscellaneous Tasks
+
+- Use `--workspace` arg to check crates test
+- *(oma-pm)* Fix example build
+- Use `RUST_TEST_THREADS=1` to fix `oma-om` test
+- *(oma-refresh)* Release oma-refresh-v0.20.3
+- Release v1.3.35
+
+## [1.3.34] - 2024-07-29
+
+### 🐛 Bug Fixes
+
+- *(cnf)* Ignore package is none from apt cache
+- *(oma-refresh)* `date_hack` get error should return failed
+- *(oma-topics)* Fix atm state missing `update_date` will create new atm state ...
+- *(oma-topics)* Always check mirror topic is available ...
+
+### 📚 Documentation
+
+- Improve pkexec comment
+
+### ⚙️ Miscellaneous Tasks
+
+- Release oma-topics-v0.9.0 oma-refresh-v0.20.2
+- Release v1.3.34
+
+## [1.3.33] - 2024-07-27
+
+### 🚀 Features
+
+- `oma topics` list topic name will wrap by `()`
+- *(oma-refresh)* Add `$(ARCH)` support ...
+- *(oma-refresh,oma-fetch,oma-pm)* Support SHA512/Md5 checksum
+- *(oma-refresh)* Support acquire-by-hash SHA512/MD5Sum dir
+- Use `sudo2` crate to execute `pkexec`
+- Do not exuecute `pkexec` in WSL
+
+### 🐛 Bug Fixes
+
+- Fix `oma list | less` exits before the result reaches the end ...
+- `oma list` piped should allow ctrlc ...
+
+### 🚜 Refactor
+
+- *(oma-refresh)* Refactor foreach sources.list options logic
+
+### 📚 Documentation
+
+- Update compile dep
+- Add `is_wsl` function source
+
+### ⚙️ Miscellaneous Tasks
+
+- Release oma-fetch-v0.12.0 oma-pm-operation-type-v0.2.0 oma-pm-v0.24.0 oma-refresh-v0.20.0 oma-history-v0.4.3
+- Update all deps
+- *(oma-refresh)* Release oma-refresh-v0.20.1
+- Release v1.3.33
+
+## [1.3.32] - 2024-07-26
+
+### 🚀 Features
+
+- Returns an error if the passed args has no result
+- Improve `oma topics` list color
+- *(oma-refresh)* Do not allow mirror if mirror is not contains `[trusted=yes]` and is not InRelease file
+
+### 🐛 Bug Fixes
+
+- *(src)* Add missing \n for do-not-edit comments
+- *(oma-refresh)* Fix mirror database display message text
+
+### 🚜 Refactor
+
+- No need to repetition get terminal length
+
+### 🎨 Styling
+
+- *(oma-fetch)* Rename `as_inner` to `as_inner_mut`
+
+### ⚙️ Miscellaneous Tasks
+
+- Update all deps
+- *(oma-refresh)* Release oma-refresh-v0.19.0
+- Release v1.3.32
+
+### I18n
+
+- Remove useless string
+- Merge from weblate
+- Fix merge mistake
+- *(zh-CN)* Fix merge mistake
+
+### Less
+
+- Detect WAYLAND_DISPLAY
+
+## [1.3.31] - 2024-07-24
+
+### 🚀 Features
+
+- Add progress spinner for `oma refresh`
+
+### 🐛 Bug Fixes
+
+- *(oma-pm)* Use package fullname as search result ...
+- *(oma-pm)* Fix `oma show` output `APT-Source` field in Debian/Ubuntu
+- Support search char ':'
+- Fix `APT-Source` new line
+- *(oma-pm)* Improve show broken message in multiarch env
+- *(oma-pm)* Fix print `APT-Source` new line again
+- *(oma-refresh)* Add `file:` support
+- *(oma-refresh)* Handle `file:` url parser has no `host`
+- *(oma-refresh)* Do not as symlink in InRelease repo
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-pm)* Release v0.23.2
+- *(oma-refresh)* Release oma-refresh-v0.18.3
+- Release v1.3.31
+
+### I18n
+
+- *(en-US)* Fix empty value in `can-not-parse-date`
+
+## [1.3.30] - 2024-07-21
+
+### 🚀 Features
+
+- *(oma-contents)* Adjust strsim magic number as 0.83 ...
+- Give command-not-found more color
+
+### 🐛 Bug Fixes
+
+- *(oma-pm)* Do not return empty keywork in `query_from_branch` ...
+- *(oma-pm)* Also fix `query_from_version` maybe pkgname is empty
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-contents)* Release oma-contents-v0.7.4
+- *(oma-pm)* Release oma-pm-v0.23.1
+- Release v1.3.30
+
+## [1.3.29] - 2024-07-21
+
+### 🐛 Bug Fixes
+
+- Fix `oma undo` get wrong index if history database has `oma undo` entry
+
+### 🚜 Refactor
+
+- Use `faster-hex` to improve checksum performance
+
+### ⚙️ Miscellaneous Tasks
+
+- Adapt new oma-apt
+- *(oma-pm)* Release oma-pm-v0.23.0
+- Release v1.3.29
+
+## [1.3.28] - 2024-07-18
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix flat repo Packages file symlink action (2)
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-refresh)* Release oma-refresh-v0.18.2
+- Release v1.3.28
+
+## [1.3.27] - 2024-07-18
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix flat repo Packages file symlink action
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-refresh)* Release oma-refresh-v0.18.1
+- Release v1.3.27
+
+## [1.3.26] - 2024-07-18
+
+### 🚀 Features
+
+- *(oma-refresh)* [**breaking**] Support debian multiarch
+- *(oma-pm)* Use pretty package full name display to table ...
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Support flat repo no release
+- *(oma-pm)* Fix `oma install foo` without arch install
+
+### 🚜 Refactor
+
+- *(oma-refresh)* [**breaking**] Make `OmaRefresh` all field private
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-refresh)* Release oma-refresh v0.18.0
+- *(oma-pm)* Release v0.22.0
+- *(oma-pm)* Release oma-pm-v0.22.1
+- Release v1.3.26
+
+## [1.3.25] - 2024-07-17
+
+### 🐛 Bug Fixes
+
+- *(i18n/en-US)* Fix a grammatical error in can-not-parse-sources-list
+- *(oma-refresh)* Support symlink local mirror database
+
+### ⚙️ Miscellaneous Tasks
+
+- Release oma-fetch-v0.11.0 oma-refresh-v0.17.0 oma-pm-v0.21.1
+- Release v1.3.25
+
+## [1.3.24] - 2024-07-17
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix flat repo database file name
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-refresh)* Release oma-refresh-v0.16.4
+- *(oma-refresh)* Release oma-refresh-v0.16.5
+- Release v1.3.24
+
+## [1.3.23] - 2024-07-17
+
+### 🐛 Bug Fixes
+
+- *(i18n)* Avoid comma-at-beginning-of-line with zh_*
+- *(oma-refresh)* Fix sources.list options has multi field
+- *(oma-refresh)* Update `oma-apt-sources-list` to fix deb822 parse field logic
+- *(oma-refresh)* Local path url should strip prefix `file:`
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v1.3.23
+
+### I18n
+
+- Add table headers translation
+
+## [1.3.22] - 2024-07-05
+
+### 🚀 Features
+
+- *(oma-pm)* [**breaking**] Add `fix_dpkg_status` arg to `OmaApt::resolve` function
+
+### 🎨 Styling
+
+- Rename `CompressStream::stream` function to `CompressStream::as_inner`
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-pm)* Release oma-pm-v0.21.0
+- Release v1.3.22
+
+## [1.3.21] - 2024-07-02
+
+### 🐛 Bug Fixes
+
+- *(oma-fetch)* Fix use `-` maybe overflow
+- *(oma-fetch)* Fix global progress reset will overflow
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-fetch)* Release oma-fetch-v0.10.3
+- Release v1.3.21
+
+## [1.3.20] - 2024-07-01
+
+### 🐛 Bug Fixes
+
+- *(oma-utils)* [**breaking**] Fix take wake lock inoperative
+
+### ⚙️ Miscellaneous Tasks
+
+- Update all deps
+- Release oma-utils-v0.8.0 oma-refresh-v0.16.3 oma-pm-operation-type-v0.1.5 oma-pm-v0.20.1
+- Update all deps
+- Release v1.3.20
+
+## [1.3.19] - 2024-06-24
+
+### 🐛 Bug Fixes
+
+- Fix build with `generic`
+- Fix build with `generic` compile has warning
+
+### 🚜 Refactor
+
+- Use `faster-hex` to improve checksum performance
+- *(oma-fetch)* Unnecessary Box<dyn T>
+- Use `lines` to replaced `split('\n')` to improve performance
+
+### ⚙️ Miscellaneous Tasks
+
+- Add `generic` feature build check
+- Release oma-fetch-v0.10.2, oma-refresh-v0.16.2
+- Update all deps
+- Release v1.3.19
+
+## [1.3.18] - 2024-06-19
+
+### 🚀 Features
+
+- *(oma-refresh)* Refresh will auto delete unused mirror database
+- *(oma-refresh)* Do not read `/usr/share/keyrings` by default
+
+### 🐛 Bug Fixes
+
+- *(oma-contents)* Use file modified time to check `ContentsMayNotBeAccurate`
+- *(oma-refresh)* Save InRelease file
+
+### 🚜 Refactor
+
+- *(oma-contents)* Use `delta.num_days` to calc delta days
+
+### ⚙️ Miscellaneous Tasks
+
+- Release oma-refresh-v0.16.0, Release oma-contents-v0.7.3
+- *(oma-fetch)* Release oma-fetch-v0.10.1
+- *(oma-refresh)* Release v0.16.1
+- Release v1.3.18
+
+## [1.3.17] - 2024-06-17
+
+### 🐛 Bug Fixes
+
+- Do not display useless `covert to AptErrors` message
+- *(oma-refresh)* Fix callback wrong uncompress file size
+- Fix a typo
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-refresh)* Release oma-refresh-v0.15.2
+- Release v1.3.17
+
+## [1.3.16] - 2024-06-16
+
+### 🚀 Features
+
+- *(oma-pm)* Add `FilterMode::Manual` and add `oma list` arg `--manual` and `--automatic`
+- Update completion
+
+### 🐛 Bug Fixes
+
+- Fix fetch flat repo will create wrong file name
+- *(oma-refresh)* Fix dist_url ends with '/' will create wrong file name
+- *(oma-refresh)* Do not trans ":" to "%3a"
+- Update bash completions
+- Update fish completions
+- Rename all `default_features` to `default-features` to fix rust 2024 edition
+- *(oma-refresh)* Always scan closed topic
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-pm)* Release oma-pm-v0.20.0
+- Update all deps
+- *(oma-refresh)* Release oma-refresh-v0.15.1
+- Release v1.3.16
+
+## [1.3.15] - 2024-06-03
+
+### 🚀 Features
+
+- *(oma-refresh)* Support sources.list inner signed-by
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix build with aosc feature
+- *(oma-refresh)* Fix apt sources.list options parse
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-refresh)* Release oma-refresh-v0.15.0
+- Release v1.3.15
+
+## [1.3.14] - 2024-05-29
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix oma won't be download `.xz` file
+
+### ⚙️ Miscellaneous Tasks
+
+- Ignore `oma-*` tag
+- Fix create pr pipeline
+- *(oma-refresh)* Release oma-refresh-v0.14.2
+- Release v1.3.14
+
+## [1.3.13] - 2024-05-29
 
 ### 🚀 Features
 
@@ -26,50 +511,29 @@ All notable changes to this project will be documented in this file.
 - Add create pr pipeline step
 - Do not auto crate release log
 - *(oma-refresh)* Release oma-refresh-v0.14.1
+- Release v1.13.13
 
 ## [1.3.12] - 2024-05-27
 
 ### 🚀 Features
 
+- *(oma-pm)* Rename `PkgInfo` to `UnsafePkgInfo` ...
+- *(oma-topics)* Add atm state file deserialize failed debug info
+- *(oma-refresh)* Support `Acquire-By-Hash`
+- *(oma-fetch)* [**breaking**] Allow user set file type, not auto check
 - *(oma-pm)* Support `oma install foo:bar`, like: `oma install fish:amd64`
 
 ### 🐛 Bug Fixes
 
-- *(oma-refresh)* Fix build with `generic` feature
-- Fix pick will panic if pkg version uris is empty
-
-### 🚜 Refactor
-
-- *(oma-pm)* No need to `Collect` iter
-- *(oma-pm)* No need to clone String
-- Replace all `glob_match::glob_match_with_captures().is_some` to `glob_match::glob_match`
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.3.12
-
-## [oma-pm-v0.19.0] - 2024-05-24
-
-### ⚙️ Miscellaneous Tasks
-
-- Release oma-pm-v0.19.0
-
-## [oma-refresh-v0.14.0] - 2024-05-24
-
-### 🚀 Features
-
-- *(oma-topics)* Add atm state file deserialize failed debug info
-- *(oma-refresh)* Support `Acquire-By-Hash`
-- *(oma-fetch)* [**breaking**] Allow user set file type, not auto check
-
-### 🐛 Bug Fixes
-
+- Fix `tui.rs` build
 - Fix atm.list file comment no new line in 1st line
 - *(oma-refresh)* Fix some mirror only have Release file ...
 - *(oma-refresh)* Fix fetch some mirror has no `InRelease` file
 - *(oma-refresh)* Do not use `inrelease_path` value
 - Fix build without `aosc` feature
 - *(oma-fetch)* Avoid unsupport file type
+- *(oma-refresh)* Fix build with `generic` feature
+- Fix pick will panic if pkg version uris is empty
 
 ### 🚜 Refactor
 
@@ -78,6 +542,13 @@ All notable changes to this project will be documented in this file.
 - *(oma-refresh)* No need to use `OnceCell`
 - Use const var to save AOSC_MIRROR_FILE path
 - *(oma-refresh)* Use type builder for `OmaRefresh`
+- *(oma-pm)* No need to `Collect` iter
+- *(oma-pm)* No need to clone String
+- Replace all `glob_match::glob_match_with_captures().is_some` to `glob_match::glob_match`
+
+### 📚 Documentation
+
+- Update changelog use git-cliff
 
 ### ⚡ Performance
 
@@ -86,6 +557,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🎨 Styling
 
+- Apply `cargo fmt`
 - Apply `cargo clippy`
 - Apply `cargo fmt`
 - Apply `cargo clippy`
@@ -96,37 +568,18 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
+- Add cliff config
+- Add auto release body
+- *(oma-pm)* Release oma-pm-v0.18.12
 - Add create pr label
 - Add `generic` feature ...
 - Release oma-fetch-v0.10.0 oma-refresh-v0.14.0 oma-pm-v0.18.13
+- Release oma-pm-v0.19.0
+- Release v1.3.12
 
 ### I18n
 
 - *(zh-TW)* Initialize translation
-
-## [oma-pm-v0.18.12] - 2024-05-18
-
-### 🚀 Features
-
-- *(oma-pm)* Rename `PkgInfo` to `UnsafePkgInfo` ...
-
-### 🐛 Bug Fixes
-
-- Fix `tui.rs` build
-
-### 📚 Documentation
-
-- Update changelog use git-cliff
-
-### 🎨 Styling
-
-- Apply `cargo fmt`
-
-### ⚙️ Miscellaneous Tasks
-
-- Add cliff config
-- Add auto release body
-- *(oma-pm)* Release oma-pm-v0.18.12
 
 ## [1.3.11] - 2024-05-17
 
@@ -136,33 +589,15 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- Release v1.3.11
-
-## [release-test] - 2024-05-16
-
-### ⚙️ Miscellaneous Tasks
-
 - Add auto release workflow
+- Release v1.3.11
 
 ## [1.3.10] - 2024-05-14
 
 ### 🚀 Features
 
-- *(oma-refresh)* Only debug mode display unknown file type warn
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.3.10
-
-### I18n
-
-- Display oma lock file path in `failed-to-unlock-oma`
-
-## [oma-refresh-v0.13.2] - 2024-05-14
-
-### 🚀 Features
-
 - *(oma-refresh)* Do not download udeb contents
+- *(oma-refresh)* Only debug mode display unknown file type warn
 
 ### 🐛 Bug Fixes
 
@@ -170,14 +605,14 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
+- *(oma-refresh)* Release oma-refresh-v0.13.1
 - Update all deps and `cargo fmt`
 - *(oma-refresh)* Release oma-refresh-v0.13.2
+- Release v1.3.10
 
-## [oma-refresh-v0.13.1] - 2024-05-13
+### I18n
 
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-refresh)* Release oma-refresh-v0.13.1
+- Display oma lock file path in `failed-to-unlock-oma`
 
 ## [1.3.9] - 2024-05-13
 
@@ -220,19 +655,6 @@ All notable changes to this project will be documented in this file.
 
 ## [1.3.6] - 2024-05-07
 
-### ⚙️ Miscellaneous Tasks
-
-- Update all deps
-- Release v1.3.6
-
-## [oma-refresh-v0.13.0] - 2024-05-07
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-refresh)* Release oma-refresh-v0.13.0
-
-## [oma-pm-v0.18.11] - 2024-05-07
-
 ### 🚀 Features
 
 - Improve `OutputError` display
@@ -246,6 +668,8 @@ All notable changes to this project will be documented in this file.
 
 ### 🚜 Refactor
 
+- *(oma-fetch)* Refactor some step to `file_reader`
+- *(oma-fetch)* Refactor some step to `file_reader` (2)
 - *(oma-refresh)* Use `TryFrom` trait for `SourceEntry` convert to `OmaSourceEntry`
 - Use `stdout().execute`
 
@@ -258,34 +682,15 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
+- Update all deps
 - Adapt `oma-apt` v0.5 change
 - Update all deps
 - *(oma-pm)* Release v0.18.11
-
-## [oma-refresh-v0.12.13] - 2024-05-05
-
-### 🚜 Refactor
-
-- *(oma-fetch)* Refactor some step to `file_reader`
-- *(oma-fetch)* Refactor some step to `file_reader` (2)
-
-### ⚙️ Miscellaneous Tasks
-
+- *(oma-refresh)* Release oma-refresh-v0.13.0
 - Update all deps
+- Release v1.3.6
 
 ## [1.3.5] - 2024-05-04
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.3.5
-
-## [oma-refresh-v0.12.12+sequoua-header-fi] - 2024-05-04
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-refresh)* Release oma-refresh-v0.12.12+sequoua-header-fix
-
-## [oma-fetch-v0.9.1] - 2024-05-04
 
 ### 🚀 Features
 
@@ -327,14 +732,10 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(oma-fetch)* Release oma-fetch-v0.9.1
+- *(oma-refresh)* Release oma-refresh-v0.12.12+sequoua-header-fix
+- Release v1.3.5
 
 ## [1.3.4] - 2024-05-03
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.3.4
-
-## [oma-refresh-v0.12.11+sequoia-header-fix] - 2024-05-03
 
 ### 🚀 Features
 
@@ -343,14 +744,9 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Bump multi crates
+- Release v1.3.4
 
 ## [1.3.3] - 2024-05-03
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.3.3
-
-## [oma-refresh-v0.12.10+sequoia-header-fix] - 2024-05-03
 
 ### 🐛 Bug Fixes
 
@@ -378,20 +774,9 @@ All notable changes to this project will be documented in this file.
 
 - *(oma-fetch)* Adjust dependencies
 - Bump multi crates
+- Release v1.3.3
 
 ## [1.3.2] - 2024-05-02
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.3.2
-
-## [oma-history-v0.4.2] - 2024-05-02
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-history)* Release oma-history-v0.4.2
-
-## [oma-refresh-v0.12.9+sequoia-header-fix] - 2024-05-02
 
 ### 🚀 Features
 
@@ -407,14 +792,10 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(oma-refresh)* Release oma-refresh-v0.12.9+sequoia-header-fix
+- *(oma-history)* Release oma-history-v0.4.2
+- Release v1.3.2
 
 ## [1.3.1] - 2024-04-29
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.3.1
-
-## [oma-pm-v0.18.9] - 2024-04-29
 
 ### 🐛 Bug Fixes
 
@@ -423,15 +804,9 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(oma-pm)* Release oma-pm-v0.18.9
+- Release v1.3.1
 
 ## [1.3.0-beta.5] - 2024-04-24
-
-### ⚙️ Miscellaneous Tasks
-
-- Update all deps
-- Release v1.3.0-beta.5
-
-## [0.12.8+sequoia-header-fix] - 2024-04-24
 
 ### 🐛 Bug Fixes
 
@@ -449,6 +824,8 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(oma-refresh)* Release oma-refresh-v0.12.8-with-sequoia-header-fix
+- Update all deps
+- Release v1.3.0-beta.5
 
 ## [1.3.0-beta.4] - 2024-04-03
 
@@ -474,28 +851,15 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 Features
 
-- *(tui)* Input space twice remove item from pending list
-
-### 🐛 Bug Fixes
-
-- *(tui)* Switch panel will selected index 0
-- Dependency issue interface do not 80 new line
-
-### ⚙️ Miscellaneous Tasks
-
-- Update all deps
-- Release v1.3.0-beta.3
-
-## [oma-pm-v0.18.8] - 2024-04-02
-
-### 🚀 Features
-
 - *(oma-topics)* Filter newest topic to list from multi mirrors
+- *(tui)* Input space twice remove item from pending list
 
 ### 🐛 Bug Fixes
 
 - *(oma-pm)* Oma with `--yes` argument will set `DEBIAN_FRONTEND` as `noninteractive`
 - *(oma-pm)* Use `dpkg --force-confold --force-confdef` option with `yes` argument
+- *(tui)* Switch panel will selected index 0
+- Dependency issue interface do not 80 new line
 
 ### 🎨 Styling
 
@@ -504,119 +868,53 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(oma-pm)* Release oma-pm-v0.18.8
+- Update all deps
+- Release v1.3.0-beta.3
 
 ## [1.3.0-beta.2] - 2024-03-29
-
-### 🐛 Bug Fixes
-
-- *(tui)* Lock oma before committing instead of immediately after opening tui
-
-### 🎨 Styling
-
-- Apply `cargo fmt`
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.3.0-beta.2
-
-## [oma-pm-v0.18.7] - 2024-03-29
-
-### 🐛 Bug Fixes
-
-- *(oma-pm)* Improve `mark_install` mark `auto_inst` logic
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-pm)* Release oma-pm-v0.18.7
-
-## [oma-pm-v0.18.6] - 2024-03-28
-
-### 🐛 Bug Fixes
-
-- *(oma-pm)* Workaround check dependency issue and set `auto_inst` flag as true ...
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-pm)* Release oma-pm-v0.18.6
-
-## [oma-utils-v0.7.3] - 2024-03-28
-
-### ⚙️ Miscellaneous Tasks
-
-- Bump multi crates
-
-## [oma-console-v0.11.0] - 2024-03-28
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-console)* Release v0.11.0
-
-## [oma-console-v0.10.2] - 2024-03-28
-
-### 🐛 Bug Fixes
-
-- *(oma-console)* Fix Plain text should output to stdout. not stderr
-
-### ⚙️ Miscellaneous Tasks
-
-- Update all deps
-- *(oma-console)* Release v0.10.2
-
-## [oma-fetch-v0.8.5] - 2024-03-28
 
 ### 🚀 Features
 
 - *(oma-fetch)* Only retry times > 1 will display retry message
 
+### 🐛 Bug Fixes
+
+- *(oma-console)* Fix Plain text should output to stdout. not stderr
+- *(oma-pm)* Workaround check dependency issue and set `auto_inst` flag as true ...
+- *(oma-pm)* Improve `mark_install` mark `auto_inst` logic
+- *(tui)* Lock oma before committing instead of immediately after opening tui
+
 ### 🎨 Styling
 
+- Apply `cargo fmt`
 - Apply `cargo fmt`
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(oma-fetch)* Release oma-fetch-v0.8.5
-
-## [oma-pm-v0.18.4] - 2024-03-27
-
-### ⚙️ Miscellaneous Tasks
-
 - *(oma-pm)* Release v0.18.4
+- *(oma-fetch)* Release oma-fetch-v0.8.5
+- Update all deps
+- *(oma-console)* Release v0.10.2
+- *(oma-console)* Release v0.11.0
+- Bump multi crates
+- *(oma-pm)* Release oma-pm-v0.18.6
+- *(oma-pm)* Release oma-pm-v0.18.7
+- Release v1.3.0-beta.2
 
 ## [1.3.0-beta.1] - 2024-03-27
 
-### 🐛 Bug Fixes
-
-- Workaround `mark_install` method auto_instl flag
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.3.0-beta.1
-
-## [oma-refresh-0.12.7+sequoia-header-fix] - 2024-03-27
-
-### 🐛 Bug Fixes
-
-- *(oma-refresh)* Fix cleartext-signed repositories
-- *(oma-refresh)* Add default-features = false for sequoia-openpgp
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-refresh)* Release v0.12.7+sequoia-header-fix
-
-## [oma-topics-v0.8.1] - 2024-03-26
-
-### 🚜 Refactor
-
-- *(oma-topics)* No need check arch in `add` method
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-topics)* Release v0.8.1
-
-## [oma-topics-v0.8.0] - 2024-03-26
-
 ### 🚀 Features
 
+- Add `oma topics` alias subcommand `oma topic`
+- `oma` with subcommand will go to tui interface
+- *(tui)* Add `available/removable/installed`
+- *(tui)* Some changes
+- *(tui)* Start interface add packages available info
+- Use `resolvo-deb` to print dependency issue
+- Add apt `show_broken` output
+- Imporve unmet dependency output
+- Improve unmet dependency message output
+- Add egg
 - *(tui)* Do not bold tips
 - Add check terminal size display tips feature
 - *(tui)* Improve ui style
@@ -625,114 +923,55 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
-- *(tui)* Fix remove empty vector entry
-- Fix pending remove item will loss cursor
-- Run oma tui will lock oma
-- *(i18n)* Lint UI strings
-
-### 🎨 Styling
-
-- *(oma-fetch)* Apply `cargo clippy` suggest
-
-### ⚙️ Miscellaneous Tasks
-
-- Remove useless line
-- Update all deps
-- Bump multi crates
-
-### I18n
-
-- Add another-oma-is-running
-- Remove useless translate
-- Fix some string
-
-## [oma-pm-v0.18.2] - 2024-03-17
-
-### 🚀 Features
-
-- Add egg
-
-### 🚜 Refactor
-
-- Use move `show_broken_pkg` from `oma-apt` to oma logic ...
-
-### 🎨 Styling
-
-- Fix with `cargo fmt`
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-pm)* Release oma-pm-v0.18.2
-
-## [oma-pm-v0.18.1] - 2024-03-15
-
-### 🚀 Features
-
-- Use `resolvo-deb` to print dependency issue
-- Add apt `show_broken` output
-- Imporve unmet dependency output
-- Improve unmet dependency message output
-
-### 🐛 Bug Fixes
-
 - *(oma-utils)* Adapt new zbus
 - Fix install local .deb file show broken dependency
 - Fix `show_broken` has wrong output
 - Fix `install-recommend` default should is true
 - Fix `auto_inst` var logic ...
-
-### 🎨 Styling
-
-- *(oma-pm)* Remove discard zbus api
-
-### ⚙️ Miscellaneous Tasks
-
-- Update all deps
-- Remove useless dep and line
-- *(oma-pm)* Release oma-pm v0.18.1
-
-### I18n
-
-- Add some strings
-
-## [oma-pm-v0.17.0] - 2024-01-26
-
-### 🚀 Features
-
-- `oma` with subcommand will go to tui interface
-- *(tui)* Add `available/removable/installed`
-- *(tui)* Some changes
-- *(tui)* Start interface add packages available info
+- *(tui)* Fix remove empty vector entry
+- Fix pending remove item will loss cursor
+- Run oma tui will lock oma
+- *(i18n)* Lint UI strings
+- *(oma-refresh)* Fix cleartext-signed repositories
+- *(oma-refresh)* Add default_features = false for sequoia-openpgp
+- Workaround `mark_install` method auto_instl flag
 
 ### 🚜 Refactor
 
 - *(oma-pm)* Use `OmaSearch` struct to save search index
+- Use move `show_broken_pkg` from `oma-apt` to oma logic ...
+- *(oma-topics)* No need check arch in `add` method
 
 ### 🎨 Styling
 
 - Apply `cargo clippy` suggest
-
-### ⚙️ Miscellaneous Tasks
-
-- Bump multi crates
-
-## [oma-refresh-v0.12.3] - 2024-01-24
-
-### 🚀 Features
-
-- Add `oma topics` alias subcommand `oma topic`
+- *(oma-pm)* Remove discard zbus api
+- Fix with `cargo fmt`
+- *(oma-fetch)* Apply `cargo clippy` suggest
 
 ### ⚙️ Miscellaneous Tasks
 
 - Bump multi crates for update deps
+- Bump multi crates
+- Update all deps
+- Remove useless dep and line
+- *(oma-pm)* Release oma-pm v0.18.1
+- *(oma-pm)* Release oma-pm-v0.18.2
+- Remove useless line
+- Update all deps
+- Bump multi crates
+- *(oma-topics)* Release v0.8.1
+- *(oma-refresh)* Release v0.12.7+sequoia-header-fix
+- Release v1.3.0-beta.1
+
+### I18n
+
+- Add some strings
+- Add another-oma-is-running
+- Remove useless translate
+- Fix some string
 
 ## [0.16.2] - 2024-01-18
-
-### ⚙️ Miscellaneous Tasks
-
-- Add oma-dbus.xml
-
-## [oma-utils-v0.7.0] - 2024-01-16
 
 ### 🚀 Features
 
@@ -743,14 +982,9 @@ All notable changes to this project will be documented in this file.
 - Re set version to 1.3.0-alpha.0
 - *(oma-pm)* Release oma-pm v0.16.0
 - Bump multi crates
+- Add oma-dbus.xml
 
 ## [1.2.24] - 2024-03-29
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.2.24
-
-## [oma-console-v0.10.1] - 2024-03-28
 
 ### 🐛 Bug Fixes
 
@@ -759,8 +993,14 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(oma-console)* Release v0.10.1
+- Release v1.2.24
 
 ## [1.2.23] - 2024-03-27
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix cleartext-signed repositories
+- *(oma-refresh)* Add default_features = false for sequoia-openpgp
 
 ### 🎨 Styling
 
@@ -768,18 +1008,8 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- Release v1.2.23
-
-## [oma-refresh-v0.12.6+sequoia-header-fix] - 2024-03-27
-
-### 🐛 Bug Fixes
-
-- *(oma-refresh)* Fix cleartext-signed repositories
-- *(oma-refresh)* Add default-features = false for sequoia-openpgp
-
-### ⚙️ Miscellaneous Tasks
-
 - *(oma-refresh)* Release oma-refresh v0.12.6+sequoia-header-fix
+- Release v1.2.23
 
 ## [1.2.22] - 2024-03-18
 
@@ -795,22 +1025,11 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- Release v1.2.21
-
-## [oma-utils-v0.6.4] - 2024-03-16
-
-### ⚙️ Miscellaneous Tasks
-
 - Try to pin `zvariant_utils` to v1.0.1 to fix rustc 1.74.0 build
 - *(oma-utils)* Release v0.6.4
+- Release v1.2.21
 
 ## [1.2.20] - 2024-03-15
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.2.20
-
-## [oma-pm-v0.15.13] - 2024-03-15
 
 ### 🐛 Bug Fixes
 
@@ -825,14 +1044,9 @@ All notable changes to this project will be documented in this file.
 
 - Remove useless dep
 - *(oma-pm)* Release oma-pm v0.15.13
+- Release v1.2.20
 
 ## [1.2.19] - 2024-03-06
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.2.19
-
-## [oma-utils-v0.6.3] - 2024-03-06
 
 ### 🐛 Bug Fixes
 
@@ -851,14 +1065,9 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Bump multi crates
+- Release v1.2.19
 
 ## [1.2.18] - 2024-03-06
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.2.18
-
-## [oma-pm-v0.15.11] - 2024-03-06
 
 ### 🐛 Bug Fixes
 
@@ -868,13 +1077,11 @@ All notable changes to this project will be documented in this file.
 
 - *(oma-pm)* `format_description` method no need to return String
 
-## [1.2.17] - 2024-03-06
-
 ### ⚙️ Miscellaneous Tasks
 
-- Release v1.2.17
+- Release v1.2.18
 
-## [oma-console-v0.9.2] - 2024-03-06
+## [1.2.17] - 2024-03-06
 
 ### 🐛 Bug Fixes
 
@@ -884,6 +1091,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Release oma-console-v0.9.2
+- Release v1.2.17
 
 ## [1.2.16] - 2024-03-04
 
@@ -914,12 +1122,6 @@ All notable changes to this project will be documented in this file.
 - Apply cargo fmt
 
 ## [1.2.14] - 2024-02-25
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.2.14
-
-## [oma-refresh-v0.12.5] - 2024-02-25
 
 ### 🚀 Features
 
@@ -955,9 +1157,10 @@ All notable changes to this project will be documented in this file.
 - Run cargo fmt
 - Run cargo clippy (warnings as error)
 - Apply cargo fmt
-- Rename oma as oma
+- Rename Omakase as oma
 - Update screenshot
 - *(oma-refresh)* Release oma-refresh-v0.12.5
+- Release v1.2.14
 
 ### Hack
 
@@ -967,15 +1170,10 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- Release v1.2.13
-
-## [oma-topics-v0.7.2] - 2024-01-24
-
-### ⚙️ Miscellaneous Tasks
-
 - Bump multi crates for update deps
 - Default use `Rustls`
 - Bump multi crates
+- Release v1.2.13
 
 ## [1.2.12] - 2024-01-23
 
@@ -1011,18 +1209,6 @@ All notable changes to this project will be documented in this file.
 
 ## [1.2.9] - 2024-01-18
 
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.2.9
-
-## [oma-topics-v0.7.1] - 2024-01-18
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-topics)* Release oma-pm v0.7.1
-
-## [oma-pm-v0.15.8] - 2024-01-18
-
 ### 🐛 Bug Fixes
 
 - *(oma-pm)* Handle search result not only one provide (2)
@@ -1032,14 +1218,10 @@ All notable changes to this project will be documented in this file.
 
 - Update all deps
 - *(oma-pm)* Release oma-pm v0.15.8
+- *(oma-topics)* Release oma-pm v0.7.1
+- Release v1.2.9
 
 ## [1.2.8] - 2024-01-18
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.2.8
-
-## [oma-pm-v0.15.7] - 2024-01-18
 
 ### 🐛 Bug Fixes
 
@@ -1048,6 +1230,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Release oma-pm v0.15.7
+- Release v1.2.8
 
 ## [1.2.7] - 2024-01-14
 
@@ -1090,21 +1273,9 @@ All notable changes to this project will be documented in this file.
 
 ### Meta
 
-- Rebrand oma => oma
+- Rebrand Omakase => oma
 
 ## [1.2.5] - 2023-12-11
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.2.5
-
-## [oma-refresh-v0.12.1] - 2023-12-11
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-refresh)* Release oma-refresh-v0.12.1
-
-## [oma-fetch-v0.8.1] - 2023-12-11
 
 ### 🚀 Features
 
@@ -1120,6 +1291,8 @@ All notable changes to this project will be documented in this file.
 
 - Update all deps
 - *(oma-fetch)* Release oma-fetch-v0.8.1
+- *(oma-refresh)* Release oma-refresh-v0.12.1
+- Release v1.2.5
 
 ### I18n
 
@@ -1169,13 +1342,6 @@ All notable changes to this project will be documented in this file.
 
 ## [1.2.1] - 2023-12-06
 
-### ⚙️ Miscellaneous Tasks
-
-- Update all deps
-- Release v1.2.1
-
-## [oma-history-v0.3.0] - 2023-12-06
-
 ### 🚀 Features
 
 - *(oma-history)* Raise `HistoryError::HistoryEmpty` if no such database, table and table is empty
@@ -1188,6 +1354,8 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(oma-history)* Release oma-history-v0.3.0
+- Update all deps
+- Release v1.2.1
 
 ## [1.2.0] - 2023-12-05
 
@@ -1404,12 +1572,6 @@ All notable changes to this project will be documented in this file.
 
 ## [1.1.8] - 2023-11-23
 
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.1.8
-
-## [oma-pm-v0.9.1] - 2023-11-23
-
 ### 🚀 Features
 
 - *(utils)* Default return 1 if pkexec failed to get exit code
@@ -1423,6 +1585,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - *(oma-pm)* Release oma-pm-v0.9.1
+- Release v1.1.8
 
 ## [1.1.7] - 2023-11-03
 
@@ -1447,24 +1610,19 @@ All notable changes to this project will be documented in this file.
 
 ## [1.1.6] - 2023-10-23
 
+### 🐛 Bug Fixes
+
+- *(oma-pm)* Download packages failed return error
+
 ### 🎨 Styling
 
 - Fix with `cargo clippy`
 
 ### ⚙️ Miscellaneous Tasks
 
+- *(oma-pm)* Release oma-pm-v0.9.0
 - Update all deps
 - Release v1.1.6
-
-## [oma-pm-v0.9.0] - 2023-10-23
-
-### 🐛 Bug Fixes
-
-- *(oma-pm)* Download packages failed return error
-
-### ⚙️ Miscellaneous Tasks
-
-- *(oma-pm)* Release oma-pm-v0.9.0
 
 ## [1.1.5] - 2023-10-22
 
@@ -1511,38 +1669,16 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 Features
 
-- Add features `sequoia-openssl-backend` ...
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.1.2
-
-## [oma-refresh-v0.6.10] - 2023-10-17
-
-### 🚀 Features
-
 - *(oma-refresh)* Add `sequoia-openssl-backend` feature to allow user use openssl as sequoia backend
+- Add features `sequoia-openssl-backend` ...
 
 ### ⚙️ Miscellaneous Tasks
 
 - *(oma-refresh)* Remove useless file
 - *(oma-refresh)* Release oma-refresh-v0.6.10
+- Release v1.1.2
 
 ## [1.1.1] - 2023-10-17
-
-### 🎨 Styling
-
-- *(oma-utils)* Fix with `cargo clippy`
-
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.1.1
-
-### I18n
-
-- "N package(s) will be X" X -> Xed
-
-## [oma-utils-v0.2.0] - 2023-10-17
 
 ### 🐛 Bug Fixes
 
@@ -1554,6 +1690,7 @@ All notable changes to this project will be documented in this file.
 ### 🎨 Styling
 
 - Run cargo clippy and cargo fmt to lint code
+- *(oma-utils)* Fix with `cargo clippy`
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -1562,14 +1699,23 @@ All notable changes to this project will be documented in this file.
 - *(oma-fetch)* Release v0.5.1
 - Update all deps
 - Bump multi crates
+- Release v1.1.1
+
+### I18n
+
+- "N package(s) will be X" X -> Xed
 
 ## [1.1.0] - 2023-10-16
 
-### ⚙️ Miscellaneous Tasks
+### 🚀 Features
 
-- Release v1.1.0
+- *(subcmd/utils)* Add more unexpected char
+- *(oma-console)* Use `icu_segmenter` crate to help oma calculator text breakpoint
 
-## [oma-refresh-v0.6.7] - 2023-10-16
+### 🐛 Bug Fixes
+
+- *(oma-console)* Fix `bar_writeln` logic mistake
+- *(oma-fetch)* Download error should finish progress bar
 
 ### 🚜 Refactor
 
@@ -1577,36 +1723,14 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- `inquire` use `console` backend to remove unnecessary dependencies
-- Update all deps
-- Bump multi crates
-
-## [oma-utils-v0.1.9] - 2023-10-16
-
-### 🚀 Features
-
-- *(oma-console)* Use `icu_segmenter` crate to help oma calculator text breakpoint
-
-### ⚙️ Miscellaneous Tasks
-
-- Bump multi crate
-
-## [oma-refresh-v0.6.5] - 2023-10-15
-
-### 🚀 Features
-
-- *(subcmd/utils)* Add more unexpected char
-
-### 🐛 Bug Fixes
-
-- *(oma-console)* Fix `bar_writeln` logic mistake
-- *(oma-fetch)* Download error should finish progress bar
-
-### ⚙️ Miscellaneous Tasks
-
 - *(oma-console)* Release oma-console-v0.4.1
 - Update all deps
 - Bump multi crates
+- Bump multi crate
+- `inquire` use `console` backend to remove unnecessary dependencies
+- Update all deps
+- Bump multi crates
+- Release v1.1.0
 
 ### I18n
 
@@ -1627,12 +1751,6 @@ All notable changes to this project will be documented in this file.
 
 ## [1.1.0-beta.8] - 2023-10-13
 
-### ⚙️ Miscellaneous Tasks
-
-- Release v1.1.0-beta.8
-
-## [oma-utils-v0.1.8] - 2023-10-13
-
 ### 🐛 Bug Fixes
 
 - *(oma-pm)* Fix `oma download` download unavailable candidate package
@@ -1651,6 +1769,7 @@ All notable changes to this project will be documented in this file.
 - Update all deps
 - *(oma-console)* Release oma-console-v0.4.0
 - Bump multi crates
+- Release v1.1.0-beta.8
 
 ## [1.1.0-beta.7] - 2023-10-13
 
@@ -2613,7 +2732,7 @@ All notable changes to this project will be documented in this file.
 
 ### I18n
 
-- Make oma speak English
+- Make Omakase speak English
 - Reword pid => PID
 - Remove 'type to filter item' in topic tips
 - Fix typos in en-US
@@ -3610,372 +3729,11 @@ All notable changes to this project will be documented in this file.
 
 ## [0.13.2] - 2023-03-22
 
-### Cargo.toml
-
-- Bump version to 0.13.2 for adapt cargo-smart-release
-
-### README
-
-- Update
-
-### Action
-
-- If find_unmet_deps can't find any dependencies problem, return apt's error
-
-### Changelog
-
-- New
-
-### Formatter
-
-- Add find_unmet_deps_with_markinstall method to handle if mark_install can't success
-- Find_unmet_deps_with_markinstall method do not display 'User aborted the operation' info
-- Find_unmet_deps_with_markinstall if apt cache could not find pkg, add to UnmetTable list
-
-### Lint
-
-- Use cargo fmt
-- Cargo fmt
-
-### Main
-
-- Add fake clap output for wrong --ailurus argument count
-- Fake clap more like real clap
-- Fake clap more like real clap
-
-## [0.13.1] - 2023-03-21
-
-### Release
-
-- 0.13.0
-- 0.13.1
-
-### Action
-
-- Add unmet dependency error output
-- Do not display user abort op in find_unmet dep method
-- Improve find unmet dep logic
-
-### Contents
-
-- Progress spinner use oma style
-
-### Formatter
-
-- Add Break and Conflict to unmet dependencies table
-- Add PreDepends to unmet dependencies table
-- Improve unmet pending ui style
-- Unmet ui do not right align
-- Improve pending ui style
-
-### Lint
-
-- Use Lazy<Writer> replaced OnceCell<Writer>
-- Adjust code stract
-- Use OnceCell::Lazy<PathBuf> to replace Path String
-- Use cargo clippy
-
-### Pkg
-
-- Move mark_install method to pkg.rs
-
-## [0.1.0-alpha.12] - 2023-03-19
-
-### README
-
-- Update TODO
-
-### Release
-
-- 0.1.0-alpha.12
-
-### Action
-
-- Improve pending ui style ...
-- Fix pending ui upgrade/install style
-- Adjust upgrade table color again
-- Improve remove table ui statement
-- Rewrite log write
-- Fix install loop
-- Log format adjust
-- Adjust log format
-
-### Deps
-
-- Use once_cell replaced lazy_static
-
-### Download
-
-- Improve download InRelease ProgressBar
-- Use bouncingBall spinner style
-- Code clean up
-- Improve 'download' method logic ...
-- Remove redundant reqwest error handle
-
-### Lint
-
-- Use cargo clippy
-
-### Main
-
-- Add some ailurus
-- Add oma log feature ...
-- Set log filename as history
-
-## [0.1.0-alpha.11] - 2023-03-16
-
-### Verify
-
-- Fix multi key in one cert file  error handle
-- Fix multi key in one cert file error handle (2)
-
-## [0.1.0-alpha.10] - 2023-03-16
-
-### ⚙️ Miscellaneous Tasks
-
-- Try to fix ci
-
-### README
-
-- Update TODO
-- Update TODO and usage
-- Fix a typo
-
-### Action
-
-- Add 'oma clean' subcommand
-- Improve install version select
-- Improve pick select version
-- Pick display branch if version is equal
-- Fix pick panic
-- Fix pick display wrong branch
-- Improve pick version display
-- Fix oma pick select pos
-- Add oma list argument --upgradable (-u)
-- Add 'yes' option
-- Add yes warn
-- Fix install need root tips
-- Add 'force_yes' argument to apt_handler method
-
-### Bin
-
-- Move main.rs to bin/oma.rs
-
-### Bin/oma
-
-- Allow yes option
-- Add yes warn
-
-### Cli
-
-- Fix dead forloop
-
-### Db
-
-- Fix local source twice fetch
-- Optimize update_db logic
-- Add apt sources.list signed-by support
-
-### Deps
-
-- Update
-- Use own debcontrol-rs fork to fix rustc warning
-
-### Download
-
-- Optimize down_package method logic
-- Set global pb steady_tick as 100ms
-- Fix global pb style
-
-### Formatter
-
-- Try to fix apt automatic install
-- Try to fix apt automatic install (2)
-- {Yes,Apt}InstallProgress -> OmaAptInstallProgress ...
-- If no --yes do not set --force-confold
-
-### Lint
-
-- Use cargo clippy
-- Use cargo clippy
-- Use cargo clippy
-- Make cargo clippy happy
-- Use cargo clippy
-
-### Main
-
-- Add clean subcommand description
-- Try to fix random segfault
-- Oma-yes =? oma --yes/-y
-- Add args comment
-
-### Pkg
-
-- Fix the version selection problem of the same version but different sources
-
-### Verify
-
-- Support .asc file verify
-- Add missing key dueto
-- Fix multi key in one cert file parser
-
-## [0.1.0-alpha.9] - 2023-03-11
-
-### READNE
-
-- Update usage and fix  typo
-
-### Action
-
-- Fix list installed display
-- Improve fix-broken feature
-- Oma install default fix_broken pkg
-- Add oma install --no-fix-broken and --no-upgrade argument
-- Add some comment; improve display_result logic
-- Add tips to oma install doesn't not exist pkg
-- Oma list/show/search if results is empty, return error
-- Fix mark hold/unhold pkgs can't unlock dpkg
-- Try to fix install count == 0 but configure count != 0, oma exit
-
-### Db
-
-- Fix a typo
-
-### Deps
-
-- Use fs4 replaced fs2 crate
-
-### Download
-
-- Move packages_download function from db.rs
-
-### Lint
-
-- Comment unuse code
-
-### Release
-
-- 0.1.0-alpha.9
-
-### Util
-
-- Size_checker display human bytes
-
-## [0.1.0-alpha.8] - 2023-03-08
-
-### Action
-
-- Fix install wrong pkg version
-
-### Lint
-
-- Use cargo fmt and clippy
-
-### Pager
-
-- Different pages display different tips
-
-### Release
-
-- 0.1.0-alpha.8
-
-### Search
-
-- If height > 1 page, use less to display
-- If input equal provide name, sort to top
-- Improve cmp logic
-
-## [0.1.0-alpha.7] - 2023-03-05
-
-### Action
-
-- Abstract some step to mark_install function
-- Output package file path when local installation returns an error
-- Fix install local pkg version select
-- List add automatic status display
-- List add display additional version info output
-- Fix another_version info display
-- Fix another_version info display again
-- Add oma show -a argument
-- Show add display additional version info output
-- Check root after lock oma to fix need root tips
-- If oma remove package does not exist display info
-- Subcommand 'mark' adjust
-
-### Conntents
-
-- Adjust pb steady_tick and if rg return non-zero code return error
-
-### Contents
-
-- Add progress spinner output
-
-### Db
-
-- Fix local source metadata fetch
-- Fetch done display info
-- Improve local deb install logic
-
-### Lint
-
-- Cargo clippy
-- Improve logic
-- Use cargo clippy, fmt
-
-### Main
-
-- Oma remove add 'purge' alias
-
-### Release
-
-- 0.1.0-alpha.7
-
-## [0.1.0-alpha.6] - 2023-03-03
-
-### Action
-
-- Fix marked upgrade/downgrade check
-- Fix download need sudo
-- Remove debug output
-
-### Release
-
-- 0.1.0-alpha.6
-
-## [0.1.0-alpha.5] - 2023-03-02
-
 ### ⚙️ Miscellaneous Tasks
 
 - Add rust templete
 - Try fix ci
-
-### Cargo.toml
-
-- Bump version to 0.1.0-alpha.4
-
-### README
-
-- Update dep
-- Add TODO
-- Fix a typo
-
-### Action
-
-- Add 'oma refresh' tips to tell user can upgradable and auto removable package
-- Fix handle if package depends does not exist
-- Support reinstall local package
-- Improve local package reinstall logic
-
-### Lint
-
-- Use cargo clippy
-- Use cargo clippy
-
-### Release
-
-- 0.1.0-alpha.5
-
-## [0.1.0-alpha.3] - 2023-02-25
+- Try to fix ci
 
 ### Action
 
@@ -3989,14 +3747,34 @@ All notable changes to this project will be documented in this file.
 - Bump version to 0.1.0-alpha.1
 - Buml ver to 0.1.0-alpha.2
 - Bump version to 0.1.0.alpha.3
+- Bump version to 0.1.0-alpha.4
+- Bump version to 0.13.2 for adapt cargo-smart-release
 
 ### README
 
 - Rename to oma, fix grammar
 - Update
-- Add a definition for oma
-- Add Japanese spelling for oma
+- Add a definition for Omakase
+- Add Japanese spelling for Omakase
 - Add dependencies
+- Update dep
+- Add TODO
+- Fix a typo
+- Update TODO
+- Update TODO and usage
+- Fix a typo
+- Update TODO
+- Update
+
+### READNE
+
+- Update usage and fix  typo
+
+### Release
+
+- 0.1.0-alpha.12
+- 0.13.0
+- 0.13.1
 
 ### Action
 
@@ -4065,6 +3843,69 @@ All notable changes to this project will be documented in this file.
 - List display package arch
 - Fix list installed display logic
 - List function improve code style
+- Add 'oma refresh' tips to tell user can upgradable and auto removable package
+- Fix handle if package depends does not exist
+- Support reinstall local package
+- Improve local package reinstall logic
+- Fix marked upgrade/downgrade check
+- Fix download need sudo
+- Remove debug output
+- Abstract some step to mark_install function
+- Output package file path when local installation returns an error
+- Fix install local pkg version select
+- List add automatic status display
+- List add display additional version info output
+- Fix another_version info display
+- Fix another_version info display again
+- Add oma show -a argument
+- Show add display additional version info output
+- Check root after lock oma to fix need root tips
+- If oma remove package does not exist display info
+- Subcommand 'mark' adjust
+- Fix install wrong pkg version
+- Fix list installed display
+- Improve fix-broken feature
+- Oma install default fix_broken pkg
+- Add oma install --no-fix-broken and --no-upgrade argument
+- Add some comment; improve display_result logic
+- Add tips to oma install doesn't not exist pkg
+- Oma list/show/search if results is empty, return error
+- Fix mark hold/unhold pkgs can't unlock dpkg
+- Try to fix install count == 0 but configure count != 0, oma exit
+- Add 'oma clean' subcommand
+- Improve install version select
+- Improve pick select version
+- Pick display branch if version is equal
+- Fix pick panic
+- Fix pick display wrong branch
+- Improve pick version display
+- Fix oma pick select pos
+- Add oma list argument --upgradable (-u)
+- Add 'yes' option
+- Add yes warn
+- Fix install need root tips
+- Add 'force_yes' argument to apt_handler method
+- Improve pending ui style ...
+- Fix pending ui upgrade/install style
+- Adjust upgrade table color again
+- Improve remove table ui statement
+- Rewrite log write
+- Fix install loop
+- Log format adjust
+- Adjust log format
+- Add unmet dependency error output
+- Do not display user abort op in find_unmet dep method
+- Improve find unmet dep logic
+- If find_unmet_deps can't find any dependencies problem, return apt's error
+
+### Bin
+
+- Move main.rs to bin/oma.rs
+
+### Bin/oma
+
+- Allow yes option
+- Add yes warn
 
 ### Blackbox
 
@@ -4082,6 +3923,10 @@ All notable changes to this project will be documented in this file.
 
 - Improve abstraction
 
+### Changelog
+
+- New
+
 ### Checksum
 
 - Fix checksum eat memory issue ...
@@ -4089,6 +3934,11 @@ All notable changes to this project will be documented in this file.
 ### Cli
 
 - Use stderr to output info/warn/debug/dueto ...
+- Fix dead forloop
+
+### Conntents
+
+- Adjust pb steady_tick and if rg return non-zero code return error
 
 ### Contents
 
@@ -4113,6 +3963,8 @@ All notable changes to this project will be documented in this file.
 - Remove useless char
 - Adapt command-not-found subcommand
 - Fix area/section/package line
+- Add progress spinner output
+- Progress spinner use oma style
 
 ### Db
 
@@ -4128,6 +3980,13 @@ All notable changes to this project will be documented in this file.
 - Fix non-flat local mirror refresh logic
 - Improve flat/non-flat mirror refresh logic
 - Improve flat/non-flat mirror refresh logic again
+- Fix local source metadata fetch
+- Fetch done display info
+- Improve local deb install logic
+- Fix a typo
+- Fix local source twice fetch
+- Optimize update_db logic
+- Add apt sources.list signed-by support
 
 ### Deps
 
@@ -4137,6 +3996,10 @@ All notable changes to this project will be documented in this file.
 - No need to use indexmap
 - Rust-apt use my fork to fix search/show panic ...
 - Use rust-apt https://gitlab.com/volian/rust-apt/ newest git
+- Use fs4 replaced fs2 crate
+- Update
+- Use own debcontrol-rs fork to fix rustc warning
+- Use once_cell replaced lazy_static
 
 ### Download
 
@@ -4164,6 +4027,15 @@ All notable changes to this project will be documented in this file.
 - Abstract some step to try_download
 - Fix libapt get url
 - Fix oma_style_pb in terminal length < 100 run
+- Move packages_download function from db.rs
+- Optimize down_package method logic
+- Set global pb steady_tick as 100ms
+- Fix global pb style
+- Improve download InRelease ProgressBar
+- Use bouncingBall spinner style
+- Code clean up
+- Improve 'download' method logic ...
+- Remove redundant reqwest error handle
 
 ### Download_db
 
@@ -4174,6 +4046,18 @@ All notable changes to this project will be documented in this file.
 ### Formatter
 
 - Add more ouput
+- Try to fix apt automatic install
+- Try to fix apt automatic install (2)
+- {Yes,Apt}InstallProgress -> OmaAptInstallProgress ...
+- If no --yes do not set --force-confold
+- Add Break and Conflict to unmet dependencies table
+- Add PreDepends to unmet dependencies table
+- Improve unmet pending ui style
+- Unmet ui do not right align
+- Improve pending ui style
+- Add find_unmet_deps_with_markinstall method to handle if mark_install can't success
+- Find_unmet_deps_with_markinstall method do not display 'User aborted the operation' info
+- Find_unmet_deps_with_markinstall if apt cache could not find pkg, add to UnmetTable list
 
 ### Lint
 
@@ -4188,6 +4072,25 @@ All notable changes to this project will be documented in this file.
 - Use cargo clippy
 - Use cargo clippy
 - Use cargo clippy
+- Use cargo clippy
+- Use cargo clippy
+- Cargo clippy
+- Improve logic
+- Use cargo clippy, fmt
+- Use cargo fmt and clippy
+- Comment unuse code
+- Use cargo clippy
+- Use cargo clippy
+- Use cargo clippy
+- Make cargo clippy happy
+- Use cargo clippy
+- Use cargo clippy
+- Use Lazy<Writer> replaced OnceCell<Writer>
+- Adjust code stract
+- Use OnceCell::Lazy<PathBuf> to replace Path String
+- Use cargo clippy
+- Use cargo fmt
+- Cargo fmt
 
 ### Main
 
@@ -4204,6 +4107,17 @@ All notable changes to this project will be documented in this file.
 - Improve lock/unkock logic from szclsya/sasm
 - Unlock_oma with has error
 - Move unlock step from try_main to main
+- Oma remove add 'purge' alias
+- Add clean subcommand description
+- Try to fix random segfault
+- Oma-yes =? oma --yes/-y
+- Add args comment
+- Add some ailurus
+- Add oma log feature ...
+- Set log filename as history
+- Add fake clap output for wrong --ailurus argument count
+- Fake clap more like real clap
+- Fake clap more like real clap
 
 ### Main,action
 
@@ -4212,6 +4126,20 @@ All notable changes to this project will be documented in this file.
 ### Pager
 
 - Handle ctrlc exit status
+- Different pages display different tips
+
+### Pkg
+
+- Fix the version selection problem of the same version but different sources
+- Move mark_install method to pkg.rs
+
+### Release
+
+- 0.1.0-alpha.5
+- 0.1.0-alpha.6
+- 0.1.0-alpha.7
+- 0.1.0-alpha.8
+- 0.1.0-alpha.9
 
 ### Search
 
@@ -4221,6 +4149,9 @@ All notable changes to this project will be documented in this file.
 - Improve upgradable ui style
 - Set section bases package as blue color
 - Fix APT-Source field display ...
+- If height > 1 page, use less to display
+- If input equal provide name, sort to top
+- Improve cmp logic
 
 ### Update
 
@@ -4235,9 +4166,18 @@ All notable changes to this project will be documented in this file.
 ### Util
 
 - Check available space before download and installation
+- Size_checker display human bytes
 
 ### Utils
 
 - Fix size_checker in chroot
+
+### Verify
+
+- Support .asc file verify
+- Add missing key dueto
+- Fix multi key in one cert file parser
+- Fix multi key in one cert file  error handle
+- Fix multi key in one cert file error handle (2)
 
 
