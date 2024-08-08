@@ -203,6 +203,20 @@ fn test_ose() {
     let ose = OmaSourceEntry::new(&entry, "/").unwrap();
     assert_eq!(ose.url, "file:///debs/");
     assert_eq!(ose.dist_path, "file:///debs/./");
+
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:/debs/".to_string(),
+        suite: "/".to_string(),
+        components: vec![],
+        is_deb822: false,
+    };
+
+    let ose = OmaSourceEntry::new(&entry, "/").unwrap();
+    assert_eq!(ose.url, "file:/debs/");
+    assert_eq!(ose.dist_path, "file:/debs/");
 }
 
 #[test]
