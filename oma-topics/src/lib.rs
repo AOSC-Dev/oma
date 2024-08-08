@@ -1,14 +1,16 @@
 use std::{
     borrow::Cow,
     ffi::OsStr,
+    io,
     path::{Path, PathBuf},
 };
 
 use indexmap::IndexMap;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tokio::{fs, io::AsyncWriteExt};
 use tracing::{debug, warn};
+use url::Url;
 
 pub type Result<T> = std::result::Result<T, OmaTopicsError>;
 
@@ -28,6 +30,14 @@ pub enum OmaTopicsError {
     FailedGetParentPath(PathBuf),
     #[error("file is broken")]
     BrokenFile(String),
+    #[error("Failed to Parse Url: {0}")]
+    ParseUrl(url::ParseError),
+    #[error("Unsupport url protocol from url: {0}")]
+    UnsupportProtocol(String),
+    #[error("Failed to open file {0}: {1}")]
+    OpenFile(String, io::Error),
+    #[error("Failed to read file {0}: {1}")]
+    ReadFile(String, serde_json::Error),
 }
 
 #[derive(Deserialize)]
@@ -296,15 +306,47 @@ impl TopicManager {
     }
 
     async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
-        let res = self
-            .client
-            .get(url)
-            .send()
-            .await?
-            .error_for_status()
-            .is_ok();
+        check(&self.client, &url).await
+    }
+}
 
-        Ok(res)
+async fn get<T: DeserializeOwned>(client: &Client, url: String) -> Result<T> {
+    let url = Url::parse(&url).map_err(OmaTopicsError::ParseUrl)?;
+
+    let schema = url.scheme();
+
+    match schema {
+        "file" => {
+            let path = url.path();
+            let bytes = fs::read(path)
+                .await
+                .map_err(|e| OmaTopicsError::OpenFile(path.to_string(), e))?;
+            serde_json::from_slice(&bytes)
+                .map_err(|e| OmaTopicsError::ReadFile(path.to_string(), e))
+        }
+        x if x.starts_with("http") => {
+            let res = client
+                .get(url)
+                .send()
+                .await?
+                .error_for_status()?
+                .json::<T>()
+                .await?;
+            Ok(res)
+        }
+        _ => Err(OmaTopicsError::UnsupportProtocol(url.to_string())),
+    }
+}
+
+async fn check(client: &Client, url: &str) -> Result<bool> {
+    let url = Url::parse(url).map_err(OmaTopicsError::ParseUrl)?;
+
+    let schema = url.scheme();
+
+    match schema {
+        "file" => Ok(Path::new(url.path()).exists()),
+        x if x.starts_with("http") => Ok(client.head(url).send().await?.error_for_status().is_ok()),
+        _ => Err(OmaTopicsError::UnsupportProtocol(url.to_string())),
     }
 }
 
@@ -321,16 +363,8 @@ async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Resul
     let mut tasks = vec![];
 
     for url in urls {
-        let v = client.get(url).send();
+        let v = get::<Vec<Topic>>(client, url);
         tasks.push(v);
-    }
-
-    let res = futures::future::try_join_all(tasks).await?;
-
-    let mut tasks = vec![];
-
-    for i in res {
-        tasks.push(i.error_for_status()?.json::<Vec<Topic>>());
     }
 
     let res = futures::future::try_join_all(tasks).await?;
