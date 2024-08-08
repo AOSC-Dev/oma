@@ -19,11 +19,9 @@ pub(crate) fn database_filename(url: &str) -> Result<String, RefreshError> {
             .1
     } else {
         // file:/// or file:/
-        let res = url
-            .strip_prefix("file://")
-            .or(url.strip_prefix("file:"))
-            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
-        res
+        url.strip_prefix("file://")
+            .or_else(|| url.strip_prefix("file:"))
+            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
     };
 
     let url = if let Some(host) = host {
