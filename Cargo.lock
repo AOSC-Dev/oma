@@ -3096,11 +3096,11 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "anyhow",
  "chrono",
- "dashmap 5.5.3",
+ "dashmap 6.0.1",
  "futures",
  "indicatif",
  "oma-apt-sources-lists",
@@ -3120,7 +3120,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "futures",
  "indexmap 2.3.0",
