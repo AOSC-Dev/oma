@@ -16,7 +16,7 @@ pub static LANGUAGE_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
     let fallback_language: Vec<LanguageIdentifier> = vec!["en-US".parse().unwrap()];
     let languages: Vec<LanguageIdentifier> = requested_languages
         .into_iter()
-        .chain(fallback_language.into_iter())
+        .chain(fallback_language)
         .collect();
     language_loader
         .load_languages(&Localizations, &languages)
