@@ -3,7 +3,7 @@ name = "oma-pm-operation-type"
 version = "0.2.0"
 edition = "2021"
 license = "MIT"
-description = "some type abstract from oma-pm crate"
+description = "APT package management operation abstraction library"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
