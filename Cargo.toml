@@ -47,8 +47,8 @@ oma-topics = { path = "./oma-topics", optional = true, default-features = false 
 oma-history = { path = "./oma-history" }
 
 # i18n
-i18n-embed = { version = "0.14", features = ["fluent-system", "desktop-requester"]}
-i18n-embed-fl = "0.8"
+i18n-embed = { version = "0.15", features = ["fluent-system", "desktop-requester"]}
+i18n-embed-fl = "0.9"
 rust-embed = "^8"
 unic-langid = "0.9"
 
