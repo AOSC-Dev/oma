@@ -2,7 +2,7 @@
 name = "oma"
 version = "1.4.1"
 edition = "2021"
-description = "Package management interface for AOSC OS"
+description = "User-friendly and performant package manager for APT repositories"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

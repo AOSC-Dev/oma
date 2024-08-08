@@ -2,7 +2,7 @@
 name = "oma-topics"
 version = "0.12.0"
 edition = "2021"
-description = "A crate to handle AOSC OS topics."
+description = "AOSC OS topic (testing) repository manager used by oma"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

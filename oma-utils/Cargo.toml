@@ -2,7 +2,7 @@
 name = "oma-utils"
 version = "0.8.0"
 edition = "2021"
-description = "Some small-tools to help oma handle something"
+description = "General system API and utilities used by oma"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
