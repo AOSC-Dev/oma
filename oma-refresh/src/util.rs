@@ -174,6 +174,9 @@ impl OmaSourceEntry {
 
 #[test]
 fn test_ose() {
+    // Flat repository tests.
+
+    // deb file:///debs/ /
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -188,6 +191,7 @@ fn test_ose() {
     assert_eq!(ose.url, "file:///debs/");
     assert_eq!(ose.dist_path, "file:///debs/");
 
+    // deb file:///debs/ ./
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -202,6 +206,7 @@ fn test_ose() {
     assert_eq!(ose.url, "file:///debs/");
     assert_eq!(ose.dist_path, "file:///debs/./");
 
+    // deb file:/debs/ /
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -215,24 +220,124 @@ fn test_ose() {
     let ose = OmaSourceEntry::new(&entry, "/").unwrap();
     assert_eq!(ose.url, "file:/debs/");
     assert_eq!(ose.dist_path, "file:/debs/");
+
+    // deb file:/debs /
+    //
+    // APT will append implicitly a / at the end of the URL.
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:/debs".to_string(),
+        suite: "/".to_string(),
+        components: vec![],
+        is_deb822: false,
+    };
+
+    let ose = OmaSourceEntry::new(&entry, "/").unwrap();
+    assert_eq!(ose.url, "file:/debs");
+    assert_eq!(ose.dist_path, "file:/debs//");
+
+    // deb file:/debs/ ./././
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:/debs/".to_string(),
+        suite: "./././".to_string(),
+        components: vec![],
+        is_deb822: false,
+    };
+
+    let ose = OmaSourceEntry::new(&entry, "/").unwrap();
+    assert_eq!(ose.url, "file:/debs/");
+    assert_eq!(ose.dist_path, "file:/debs/./././");
+
+    // deb file:/debs/ .//
+    //
+    // APT will throw a warning but carry on with the suite name:
+    //
+    // W: Conflicting distribution: file:/debs .// Release (expected .// but got )
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:/debs/".to_string(),
+        suite: ".//".to_string(),
+        components: vec![],
+        is_deb822: false,
+    };
+
+    let ose = OmaSourceEntry::new(&entry, "/").unwrap();
+    assert_eq!(ose.url, "file:/debs/");
+    assert_eq!(ose.dist_path, "file:/debs/.//");
+
+    // deb file:/debs/ //
+    //
+    // APT will throw a warning but carry on with the suite name:
+    //
+    // W: Conflicting distribution: file:/debs // Release (expected // but got )
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:/debs/".to_string(),
+        suite: "//".to_string(),
+        components: vec![],
+        is_deb822: false,
+    };
+
+    let ose = OmaSourceEntry::new(&entry, "/").unwrap();
+    assert_eq!(ose.url, "file:/debs/");
+    assert_eq!(ose.dist_path, "file:/debs///");
+
+    // deb file:/./debs/ ./
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:/./debs/".to_string(),
+        suite: "./".to_string(),
+        components: vec![],
+        is_deb822: false,
+    };
+
+    let ose = OmaSourceEntry::new(&entry, "/").unwrap();
+    assert_eq!(ose.url, "file:/./debs/");
+    assert_eq!(ose.dist_path, "file:/./debs/./");
+
+    // deb file:/usr/../debs/ ./
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:/usr/../debs/".to_string(),
+        suite: "./".to_string(),
+        components: vec![],
+        is_deb822: false,
+    };
+
+    let ose = OmaSourceEntry::new(&entry, "/").unwrap();
+    assert_eq!(ose.url, "file:/usr/../debs/");
+    assert_eq!(ose.dist_path, "file:/usr/../debs/./");
 }
 
 #[test]
 fn test_database_filename() {
-    // Mirror name contains '+' must be url encode twice
+    // Encode + as %252b.
     let s = "https://repo.aosc.io/debs/dists/x264-0+git20240305/InRelease";
     let res = database_filename(s).unwrap();
-
     assert_eq!(
         res,
         "repo.aosc.io_debs_dists_x264-0%252bgit20240305_InRelease"
     );
 
+    // Encode : as %3A.
     let s = "https://ci.deepin.com/repo/obs/deepin%3A/CI%3A/TestingIntegration%3A/test-integration-pr-1537/testing/./Packages";
     let res = database_filename(s).unwrap();
-
     assert_eq!(res, "ci.deepin.com_repo_obs_deepin:_CI:_TestingIntegration:_test-integration-pr-1537_testing_._Packages");
 
+    // file:/// should be transliterated as file:/.
     let s1 = "file:/debs";
     let s2 = "file:///debs";
     let res1 = database_filename(s1).unwrap();
@@ -240,11 +345,28 @@ fn test_database_filename() {
     assert_eq!(res1, "_debs");
     assert_eq!(res1, res2);
 
+    // Dots (.) in flat repo URLs should be preserved in resolved database name.
+    let s = "file:///././debs/./Packages";
+    let res = database_filename(s).unwrap();
+    assert_eq!(res, "_._._debs_._Packages");
+
+    // Slash (/) in flat repo "suite" names should be transliterated as _.
     let s = "file:///debs/Packages";
     let res = database_filename(s).unwrap();
     assert_eq!(res, "_debs_Packages");
 
-    let s = "file:///debs//./Packages";
+    // Dots (.) in flat repo "suite" names should be preserved in resolved database name.
+    let s = "file:///debs/./Packages";
     let res = database_filename(s).unwrap();
-    assert_eq!(res, "_debs__._Packages");
+    assert_eq!(res, "_debs_._Packages");
+
+    // Slashes in URL and in flat repo "suite" names should be preserved in original number (1).
+    let s = "file:///debs///./Packages";
+    let res = database_filename(s).unwrap();
+    assert_eq!(res, "_debs___._Packages");
+
+    // Slashes in URL and in flat repo "suite" names should be preserved in original number (2).
+    let s = "file:///debs///.///Packages";
+    let res = database_filename(s).unwrap();
+    assert_eq!(res, "_debs___.___Packages");
 }
