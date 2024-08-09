@@ -8,18 +8,16 @@ Although it is based on apt, we did quite a bit of extra work, the goal of this 
 
 ![](screenshot/image.png)
 
-### Multi-thread download
+### Multi-threaded Downloads
+
 [multi-thread-download.webm](https://github.com/AOSC-Dev/oma/assets/19554922/e857a946-b6c5-4c22-8d56-398b2ce0a624)
 
-
-
 ### Smart Search
-[oma-search.webm](https://github.com/AOSC-Dev/oma/assets/19554922/eed6d992-6464-48eb-8b4f-075ea378bd0c)
 
+[oma-search.webm](https://github.com/AOSC-Dev/oma/assets/19554922/eed6d992-6464-48eb-8b4f-075ea378bd0c)
 
 ### Undo
 [undo.webm](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
-
 
 ...and more.
 
@@ -45,7 +43,7 @@ cp ./target/release/oma /usr/local/bin/oma
 
 ```bash
 saki@Magputer [ aoscpt@master ] $ oma
-Omakase (oma) - Package management interface for AOSC OS
+oma (oma) - Package management interface for AOSC OS
 
 Usage: oma [OPTIONS] [COMMAND]
 

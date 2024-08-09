@@ -2,7 +2,7 @@
 name = "oma-history"
 version = "0.4.3"
 edition = "2021"
-description = "A crate to help oma operate history database"
+description = "Package manager operations history database management library"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

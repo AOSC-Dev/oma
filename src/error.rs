@@ -523,6 +523,22 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             description: fl!("failed-to-read", p = p),
             source: None,
         },
+        OmaTopicsError::ParseUrl(e) => OutputError {
+            description: fl!("invaild-url"),
+            source: Some(Box::new(e)),
+        },
+        OmaTopicsError::UnsupportProtocol(s) => OutputError {
+            description: fl!("unsupport-protocol", url = s),
+            source: None,
+        },
+        OmaTopicsError::OpenFile(s, e) => OutputError {
+            description: fl!("failed-to-operate-path", p = s),
+            source: Some(Box::new(e)),
+        },
+        OmaTopicsError::ReadFile(s, e) => OutputError {
+            description: fl!("failed-to-read-file-metadata", p = s),
+            source: Some(Box::new(e)),
+        },
     }
 }
 

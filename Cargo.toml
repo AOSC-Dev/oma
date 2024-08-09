@@ -1,15 +1,14 @@
 [package]
 name = "oma"
-version = "1.4.0-alpha.0"
+version = "2.0.0-alpha.0"
 edition = "2021"
-description = "Package management interface for AOSC OS"
+description = "User-friendly and performant package manager for APT repositories"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 # Cli
 clap = { version = "4.2.4", features = ["cargo", "wrap_help", "color", "string"] }
-once_cell = "1.18"
 anyhow = "1.0"
 ctrlc = "3.4"
 tabled = { version = "0.16", features = ["ansi"] }
@@ -47,8 +46,8 @@ oma-topics = { path = "./oma-topics", optional = true, default-features = false 
 oma-history = { path = "./oma-history" }
 
 # i18n
-i18n-embed = { version = "0.14", features = ["fluent-system", "desktop-requester"]}
-i18n-embed-fl = "0.8"
+i18n-embed = { version = "0.15", features = ["fluent-system", "desktop-requester"]}
+i18n-embed-fl = "0.9"
 rust-embed = "^8"
 unic-langid = "0.9"
 

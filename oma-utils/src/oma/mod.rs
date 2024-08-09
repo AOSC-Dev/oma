@@ -1,12 +1,12 @@
 use oma_console::is_terminal;
-use once_cell::sync::Lazy;
 use std::{
     io::{Error, ErrorKind},
     path::PathBuf,
+    sync::LazyLock,
 };
 
 type IOResult<T> = std::io::Result<T>;
-static LOCK: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("/run/lock/oma.lock"));
+static LOCK: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("/run/lock/oma.lock"));
 
 /// lock oma
 pub fn lock_oma_inner() -> IOResult<()> {

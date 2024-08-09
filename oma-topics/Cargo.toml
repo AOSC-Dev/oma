@@ -1,8 +1,8 @@
 [package]
 name = "oma-topics"
-version = "0.11.1"
+version = "0.12.0"
 edition = "2021"
-description = "A crate to handle AOSC OS topics."
+description = "AOSC OS topic (testing) repository manager used by oma"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,6 +16,7 @@ tokio = { version = "1.28", default-features = false, features = ["fs"] }
 thiserror = "1.0"
 futures = "0.3"
 tracing = "0.1"
+url = "2.5"
 
 [dev-dependencies]
 oma-inquire = "0.1"

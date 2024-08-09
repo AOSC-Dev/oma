@@ -1,22 +1,23 @@
+use std::sync::LazyLock;
+
 use i18n_embed::{
     fluent::{fluent_language_loader, FluentLanguageLoader},
     unic_langid::LanguageIdentifier,
     DesktopLanguageRequester, LanguageLoader,
 };
-use once_cell::sync::Lazy;
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "./i18n/"]
 struct Localizations;
 
-pub static LANGUAGE_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
+pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     let language_loader: FluentLanguageLoader = fluent_language_loader!();
     let requested_languages = DesktopLanguageRequester::requested_languages();
-    let fallback_language: &[LanguageIdentifier] = &["en-US".parse().unwrap()];
-    let languages: Vec<&LanguageIdentifier> = requested_languages
-        .iter()
-        .chain(fallback_language.iter())
+    let fallback_language: Vec<LanguageIdentifier> = vec!["en-US".parse().unwrap()];
+    let languages: Vec<LanguageIdentifier> = requested_languages
+        .into_iter()
+        .chain(fallback_language)
         .collect();
     language_loader
         .load_languages(&Localizations, &languages)

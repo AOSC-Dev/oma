@@ -2,7 +2,7 @@
 name = "oma-utils"
 version = "0.8.0"
 edition = "2021"
-description = "Some small-tools to help oma handle something"
+description = "General system API and utilities used by oma"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,7 +10,6 @@ license = "MIT"
 [dependencies]
 thiserror = "1.0"
 number_prefix = { version = "0.4", optional = true }
-once_cell = "1.18"
 os-release = "0.1"
 oma-console = { version = "^0.11", path = "../oma-console", optional = true, default-features = false, features = [
     "print",

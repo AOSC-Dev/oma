@@ -4,8 +4,8 @@ use std::{ffi::OsStr, path::PathBuf};
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
         .long("dry-run")
-        .help("Run Omakase in “dry-run” mode")
-        .long_help("Run Omakase in “dry-run” mode. Useful for testing changes and operations without making changes to the system")
+        .help("Run oma in “dry-run” mode")
+        .long_help("Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system")
         .action(clap::ArgAction::SetTrue);
 
     let pkgs = Arg::new("packages")
@@ -61,7 +61,7 @@ pub fn command_builder() -> Command {
             Arg::new("debug")
                 .long("debug")
                 .help("Run oma with debug mode")
-                .long_help("Run Omakase with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues")
+                .long_help("Run oma with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues")
                 .action(clap::ArgAction::SetTrue)
                 .global(true)
         )
@@ -302,7 +302,7 @@ pub fn command_builder() -> Command {
         .subcommand(
             Command::new("mark")
                 .about("Mark status for one or multiple package(s)")
-                .long_about("Mark status for one or multiple package(s), Omakase will resolve dependencies in accordance with the marked status(es) of the specified package(s)")
+                .long_about("Mark status for one or multiple package(s), oma will resolve dependencies in accordance with the marked status(es) of the specified package(s)")
                 .arg(Arg::new("action").value_parser([
                     PossibleValue::new("hold").help("Lock package version(s), this will prevent the specified package(s) from being updated or downgraded"),
                     PossibleValue::new("unhold").help("Unlock package version(s), this will undo the “hold” status on the specified packge(s)"),

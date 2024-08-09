@@ -7,7 +7,7 @@ use futures::{
     future::{join_all, BoxFuture},
     FutureExt, StreamExt,
 };
-use oma_apt_sources_lists::{SourceEntry, SourceError};
+use oma_apt_sources_lists::SourceError;
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::{self, Client},
@@ -17,7 +17,6 @@ use oma_fetch::{
 
 use oma_fetch::DownloadError;
 
-use oma_utils::dpkg::dpkg_arch;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
@@ -28,7 +27,9 @@ use crate::{
     inrelease::{
         ChecksumItem, ChecksumType, DistFileType, InRelease, InReleaseParser, InReleaseParserError,
     },
-    util::{database_filename, get_sources, human_download_url},
+    util::{
+        database_filename, get_sources, human_download_url, OmaSourceEntry, OmaSourceEntryFrom,
+    },
 };
 
 #[cfg(feature = "aosc")]
@@ -97,87 +98,8 @@ pub enum RefreshError {
 
 type Result<T> = std::result::Result<T, RefreshError>;
 
-#[derive(Debug, Clone)]
-pub struct OmaSourceEntry {
-    from: OmaSourceEntryFrom,
-    components: Vec<String>,
-    pub url: String,
-    pub suite: String,
-    dist_path: String,
-    is_flat: bool,
-    signed_by: Option<String>,
-    archs: Vec<String>,
-    trusted: bool,
-}
-
-#[derive(PartialEq, Eq, Debug, Clone)]
-enum OmaSourceEntryFrom {
-    Http,
-    Local,
-}
-
 pub enum Event {
     Info(String),
-}
-
-impl OmaSourceEntry {
-    pub fn new(v: &SourceEntry, sysroot: impl AsRef<Path>) -> Result<Self> {
-        let from = if v.url().starts_with("http://") || v.url().starts_with("https://") {
-            OmaSourceEntryFrom::Http
-        } else if v.url().starts_with("file:") {
-            OmaSourceEntryFrom::Local
-        } else {
-            return Err(RefreshError::UnsupportedProtocol(format!("{v:?}")));
-        };
-
-        let components = v.components.clone();
-        let arch = &dpkg_arch(sysroot)?;
-        let url = v.url.replace("$(ARCH)", arch);
-        let suite = v.suite.replace("$(ARCH)", arch);
-        let (dist_path, is_flat) = if components.is_empty() {
-            // flat repo 后面一定有斜线
-            if suite.starts_with('/') {
-                (format!("{}{}", url, suite), true)
-            } else {
-                (format!("{}/{}", url, suite), true)
-            }
-        } else {
-            (v.dist_path(), false)
-        };
-
-        let mut signed_by = None;
-        let mut archs = vec![];
-
-        let mut trusted = false;
-
-        for i in &v.options {
-            if let Some(v) = i.strip_prefix("arch=") {
-                for i in v.split(',') {
-                    archs.push(i.to_string());
-                }
-            }
-
-            if let Some(v) = i.strip_prefix("signed-by=") {
-                signed_by = Some(v.to_string());
-            }
-
-            if let Some(v) = i.strip_prefix("trusted=") {
-                trusted = v == "yes";
-            }
-        }
-
-        Ok(Self {
-            from,
-            components,
-            url,
-            suite,
-            is_flat,
-            dist_path,
-            signed_by,
-            archs,
-            trusted,
-        })
-    }
 }
 
 pub struct OmaRefreshBuilder<'a> {
