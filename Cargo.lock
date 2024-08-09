@@ -2976,7 +2976,7 @@ version = "0.11.0"
 dependencies = [
  "ansi-to-tui",
  "console",
- "crossterm 0.27.0",
+ "crossterm 0.28.1",
  "icu_segmenter",
  "indicatif",
  "ratatui",
