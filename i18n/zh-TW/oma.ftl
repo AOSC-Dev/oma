@@ -66,7 +66,7 @@ semicolon = ；
 pick-tips = 請指定要安裝的 { $pkgname } 的版本：
 battery = 您的電腦目前似乎正在使用電池供電。oma 在執行任務時可能消耗大量電量，建議插電以防斷電導致資料損壞。
 continue = 您確定要繼續嗎？
-changing-system = oma 正在更改你的系統。
+changing-system = oma 正在更改您的系統。
 failed-to-lock-oma = 無法解鎖 oma 行程鎖檔案 (/run/lock/oma.lock)
 # main
 user-aborted-op = 使用者已中止操作。
@@ -170,11 +170,11 @@ table-version = 版本
 table-size = 大小
 table-detail = 註記
 reading-database = 正在讀取軟體套件資料庫……
-has-error-on-top = The operation you specified did not complete successfully. Please refer to the output above for details.
+has-error-on-top = 您指定的操作未成功完成，請參閱上方輸出取得更多資訊。
 # pager
 question-tips-with-gui = 按 [q] 結束檢閱並套用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
 normal-tips-with-gui = 按 [q] 或 [Ctrl-c] 退出， 按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
-mirror-is-not-trusted = Mirror { $mirror } is unsigned or not trusted, please check your repository settings.
-please-run-me-as-root = oma requires elevated privileges to perform system administration.
-topic-not-in-mirror = Topic { $topic } is inaccessible in mirror { $mirror }.
-skip-write-mirror = This is likely because the mirror(s) you specified are not yet synchronized. Skipping this mirror in favor of other options ...
+mirror-is-not-trusted = 鏡像源 { $mirror } 未簽署或未受信任，請檢查您的軟體庫設定。
+please-run-me-as-root = oma 需執行系統管理操作，請使用管理者權限執行 oma 指令。
+topic-not-in-mirror = 測試庫 { $topic } 在鏡像源 { $mirror } 上無法使用。
+skip-write-mirror = 這通常是您指定的鏡像源尚未同步完成導致的，將嘗試從您開啟的其他鏡像源中重新整理測試庫資料……
