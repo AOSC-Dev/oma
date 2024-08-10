@@ -148,21 +148,13 @@ enum RepoType {
 }
 
 impl<'a> OmaRefresh<'a> {
-    pub async fn start<F, F2>(
-        mut self,
-        _callback: F,
-        _handle_topic_msg: F2,
-    ) -> Result<()>
+    pub async fn start<F, F2>(mut self, _callback: F, _handle_topic_msg: F2) -> Result<()>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
         F2: Fn() -> String + Copy,
     {
-        self.update_db(
-            get_sources(&self.source)?,
-            _callback,
-            _handle_topic_msg,
-        )
-        .await
+        self.update_db(get_sources(&self.source)?, _callback, _handle_topic_msg)
+            .await
     }
 
     async fn update_db<F, F2>(
@@ -201,11 +193,7 @@ impl<'a> OmaRefresh<'a> {
             .await;
 
         let all_inrelease = self
-            .handle_downloaded_release_result(
-                release_results,
-                _callback.clone(),
-                _handle_topic_msg,
-            )
+            .handle_downloaded_release_result(release_results, _callback.clone(), _handle_topic_msg)
             .await?;
 
         let (tasks, total) = self
@@ -481,7 +469,11 @@ impl<'a> OmaRefresh<'a> {
                 let removed_suites = oma_topics::scan_closed_topic(
                     _handle_topic_msg,
                     |topic, mirror| {
-                        _callback(0, RefreshEvent::TopicNotInMirror(topic.to_string(), mirror.to_string()), None);
+                        _callback(
+                            0,
+                            RefreshEvent::TopicNotInMirror(topic.to_string(), mirror.to_string()),
+                            None,
+                        );
                     },
                     &self.source,
                     &self.arch,

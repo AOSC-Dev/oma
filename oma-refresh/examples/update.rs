@@ -104,7 +104,7 @@ async fn main() -> Result<(), RefreshError> {
                     },
                     RefreshEvent::ScanningTopic => {
                         mb.println("Scanning topic...").unwrap();
-                    },
+                    }
                     RefreshEvent::TopicNotInMirror(topic, mirror) => {
                         mb.println(format!("{topic} not in {mirror}")).unwrap();
                     }

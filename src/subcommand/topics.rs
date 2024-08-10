@@ -336,7 +336,7 @@ async fn refresh_topics<P: AsRef<Path>>(
                         pb.println(s);
                     },
                     &style("WARN").yellow().bold().to_string(),
-                    &format!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.")
+                    "probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being."
                 );
             } else {
                 warn!("{topic} topic is inaccessible in mirror {mirror}.");

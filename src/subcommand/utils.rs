@@ -165,7 +165,7 @@ pub(crate) fn refresh(
                                         mb.println(s).ok();
                                     },
                                     &style("WARN").yellow().bold().to_string(),
-                                    &format!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.")
+                                    "probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being."
                                 );
                             }
                         }
