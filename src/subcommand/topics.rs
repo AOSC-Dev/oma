@@ -6,7 +6,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::{indicatif::ProgressBar, pb::oma_spinner, WRITER};
+use oma_console::{indicatif::ProgressBar, pb::oma_spinner, writer::bar_writeln, WRITER};
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
@@ -14,6 +14,7 @@ use oma_pm::{
 };
 use oma_utils::dpkg::dpkg_arch;
 use reqwest::Client;
+use tracing::warn;
 
 use crate::{
     error::OutputError,
@@ -176,7 +177,14 @@ where
         downgrade_pkgs.extend(removed_topic.packages);
     }
 
-    tm.write_enabled(dry_run, callback).await?;
+    tm.write_enabled(dry_run, callback, |topic, mirror| {
+        warn!(
+            "{}",
+            fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+        );
+        warn!("{}", fl!("skip-write-mirror"));
+    })
+    .await?;
 
     let enabled_pkgs = tm
         .enabled_topics()
@@ -315,6 +323,30 @@ async fn refresh_topics<P: AsRef<Path>>(
     tm.refresh().await?;
     scan_closed_topic(
         || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
+        |topic, mirror| {
+            if let Some(pb) = &pb {
+                bar_writeln(
+                    |s| {
+                        pb.println(s);
+                    },
+                    &style("WARNING").yellow().bold().to_string(),
+                    &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
+                );
+                bar_writeln(
+                    |s| {
+                        pb.println(s);
+                    },
+                    &style("WARNING").yellow().bold().to_string(),
+                    &fl!("skip-write-mirror"),
+                );
+            } else {
+                warn!(
+                    "{}",
+                    fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                );
+                warn!("{}", fl!("skip-write-mirror"));
+            }
+        },
         sysroot,
         &tm.arch,
     )

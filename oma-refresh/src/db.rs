@@ -413,15 +413,14 @@ impl<'a> OmaRefresh<'a> {
         Ok(tasks)
     }
 
-    async fn handle_downloaded_release_result<F, F2>(
+    async fn handle_downloaded_release_result<F>(
         &self,
         res: Vec<std::result::Result<Summary, DownloadError>>,
         _callback: F,
-        _handle_topic_msg: F2,
+        _handle_topic_msg: impl Fn() -> String,
     ) -> Result<Vec<Summary>>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
-        F2: Fn() -> String + Copy,
     {
         let mut all_inrelease = vec![];
 
@@ -464,9 +463,19 @@ impl<'a> OmaRefresh<'a> {
         {
             if self.refresh_topics {
                 _callback(0, RefreshEvent::ScanningTopic, None);
-                let removed_suites =
-                    oma_topics::scan_closed_topic(_handle_topic_msg, &self.source, &self.arch)
-                        .await?;
+                let removed_suites = oma_topics::scan_closed_topic(
+                    _handle_topic_msg,
+                    |topic, mirror| {
+                        _callback(
+                            0,
+                            RefreshEvent::TopicNotInMirror(topic.to_string(), mirror.to_string()),
+                            None,
+                        );
+                    },
+                    &self.source,
+                    &self.arch,
+                )
+                .await?;
 
                 for url in not_found {
                     let suite = url
@@ -648,6 +657,7 @@ pub enum RefreshEvent {
     DownloadEvent(DownloadEvent),
     ClosingTopic(String),
     ScanningTopic,
+    TopicNotInMirror(String, String),
 }
 
 impl From<DownloadEvent> for RefreshEvent {

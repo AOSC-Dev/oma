@@ -141,6 +141,22 @@ pub(crate) fn refresh(
                                 pb.enable_steady_tick(inv);
                                 pb_map.insert(count + 1, pb);
                             }
+                            RefreshEvent::TopicNotInMirror(topic, mirror) => {
+                                bar_writeln(
+                                    |s| {
+                                        mb.println(s).ok();
+                                    },
+                                    &style("WARNING").yellow().bold().to_string(),
+                                    &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
+                                );
+                                bar_writeln(
+                                    |s| {
+                                        mb.println(s).ok();
+                                    },
+                                    &style("WARNING").yellow().bold().to_string(),
+                                    &fl!("skip-write-mirror"),
+                                );
+                            }
                         }
                     } else {
                         match event {
@@ -152,6 +168,13 @@ pub(crate) fn refresh(
                             }
                             RefreshEvent::ScanningTopic => {
                                 info!("{}", fl!("refreshing-topic-metadata"));
+                            }
+                            RefreshEvent::TopicNotInMirror(topic, mirror) => {
+                                warn!(
+                                    "{}",
+                                    fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                                );
+                                warn!("{}", fl!("skip-write-mirror"));
                             }
                         }
                     }
