@@ -169,7 +169,7 @@ table-name = 套件名稱
 table-version = 版本
 table-size = 大小
 table-detail = 註記
-reading-database = Reading packages database ...
+reading-database = 正在讀取軟體套件資料庫……
 has-error-on-top = The operation you specified did not complete successfully. Please refer to the output above for details.
 # pager
 question-tips-with-gui = 按 [q] 結束檢閱並套用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
@@ -177,4 +177,4 @@ normal-tips-with-gui = 按 [q] 或 [Ctrl-c] 退出， 按 [PgUp/Dn]、方向鍵�
 mirror-is-not-trusted = Mirror { $mirror } is unsigned or not trusted, please check your repository settings.
 please-run-me-as-root = oma requires elevated privileges to perform system administration.
 topic-not-in-mirror = Topic { $topic } is inaccessible in mirror { $mirror }.
-skip-write-mirror = This is likely because the mirror(s) you specified are not yet synchronized. Skipping this mirror in favor of other options ... 
+skip-write-mirror = This is likely because the mirror(s) you specified are not yet synchronized. Skipping this mirror in favor of other options ...
