@@ -170,6 +170,6 @@ table-version = 版本
 table-size = 大小
 table-detail = 备注
 reading-database = 正在读取软件包数据库
-has-error-on-top = 无法执行您指定的操作，请参考上述报错详情。
+has-error-on-top = 您指定的操作未成果完成，请查阅上方输出。
 mirror-is-not-trusted = 源 { $mirror } 不受信任。
 please-run-me-as-root = 请以管理员权限运行 oma。
