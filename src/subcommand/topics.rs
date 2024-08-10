@@ -332,14 +332,14 @@ async fn refresh_topics<P: AsRef<Path>>(
                     |s| {
                         pb.println(s);
                     },
-                    &style("WARN").yellow().bold().to_string(),
+                    &style("WARNING").yellow().bold().to_string(),
                     &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
                 );
                 bar_writeln(
                     |s| {
                         pb.println(s);
                     },
-                    &style("WARN").yellow().bold().to_string(),
+                    &style("WARNING").yellow().bold().to_string(),
                     &fl!("skip-write-mirror"),
                 );
             } else {

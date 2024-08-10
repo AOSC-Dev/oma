@@ -157,14 +157,14 @@ pub(crate) fn refresh(
                                     |s| {
                                         mb.println(s).ok();
                                     },
-                                    &style("WARN").yellow().bold().to_string(),
+                                    &style("WARNING").yellow().bold().to_string(),
                                     &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
                                 );
                                 bar_writeln(
                                     |s| {
                                         mb.println(s).ok();
                                     },
-                                    &style("WARN").yellow().bold().to_string(),
+                                    &style("WARNING").yellow().bold().to_string(),
                                     &fl!("skip-write-mirror"),
                                 );
                             }
