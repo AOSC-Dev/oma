@@ -158,14 +158,14 @@ pub(crate) fn refresh(
                                         mb.println(s).ok();
                                     },
                                     &style("WARN").yellow().bold().to_string(),
-                                    &format!("{topic} topic is inaccessible in mirror {mirror}.")
+                                    &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
                                 );
                                 bar_writeln(
                                     |s| {
                                         mb.println(s).ok();
                                     },
                                     &style("WARN").yellow().bold().to_string(),
-                                    "probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being."
+                                    &fl!("skip-write-mirror"),
                                 );
                             }
                         }
@@ -181,8 +181,11 @@ pub(crate) fn refresh(
                                 info!("{}", fl!("refreshing-topic-metadata"));
                             }
                             RefreshEvent::TopicNotInMirror(topic, mirror) => {
-                                warn!("{topic} topic is inaccessible in mirror {mirror}.");
-                                warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
+                                warn!(
+                                    "{}",
+                                    fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                                );
+                                warn!("{}", fl!("skip-write-mirror"));
                             }
                         }
                     }

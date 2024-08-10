@@ -181,9 +181,13 @@ where
     }
 
     tm.write_enabled(dry_run, callback, |topic, mirror| {
-        warn!("{topic} topic is inaccessible in mirror {mirror}.");
-        warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
-    }).await?;
+        warn!(
+            "{}",
+            fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+        );
+        warn!("{}", fl!("skip-write-mirror"));
+    })
+    .await?;
 
     let enabled_pkgs = tm
         .enabled_topics()
@@ -329,18 +333,21 @@ async fn refresh_topics<P: AsRef<Path>>(
                         pb.println(s);
                     },
                     &style("WARN").yellow().bold().to_string(),
-                    &format!("{topic} topic is inaccessible in mirror {mirror}.")
+                    &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
                 );
                 bar_writeln(
                     |s| {
                         pb.println(s);
                     },
                     &style("WARN").yellow().bold().to_string(),
-                    "probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being."
+                    &fl!("skip-write-mirror"),
                 );
             } else {
-                warn!("{topic} topic is inaccessible in mirror {mirror}.");
-                warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
+                warn!(
+                    "{}",
+                    fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                );
+                warn!("{}", fl!("skip-write-mirror"));
             }
         },
         sysroot,
