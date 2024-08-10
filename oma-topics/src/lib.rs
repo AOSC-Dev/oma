@@ -220,10 +220,12 @@ impl TopicManager {
     }
 
     /// Write topic changes to mirror list
-    pub async fn write_enabled<F>(&self, dry_run: bool, callback: F) -> Result<()>
-    where
-        F: Fn() -> String,
-    {
+    pub async fn write_enabled(
+        &self,
+        dry_run: bool,
+        comment_cb: impl Fn() -> String,
+        message_cb: impl Fn(&str, &str),
+    ) -> Result<()> {
         if dry_run {
             return Ok(());
         }
@@ -239,7 +241,7 @@ impl TopicManager {
 
         let mirrors = enabled_mirror(self.sysroot.as_path()).await?;
 
-        f.write_all(callback().as_bytes()).await.map_err(|e| {
+        f.write_all(comment_cb().as_bytes()).await.map_err(|e| {
             OmaTopicsError::FailedToOperateDirOrFile(
                 "/etc/apt/sources.list.d/atm.list".to_string(),
                 e,
@@ -269,11 +271,7 @@ impl TopicManager {
 
             for (index, c) in is_exists.into_iter().enumerate() {
                 if !c.unwrap_or(false) {
-                    warn!(
-                        "{} topic is inaccessible in mirror {}.",
-                        i.name, mirrors[index]
-                    );
-                    warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
+                    message_cb(&i.name, &mirrors[index]);
                     continue;
                 }
 
@@ -400,11 +398,12 @@ async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Resul
 }
 
 /// Scan all close topics from upstream and disable it
-pub async fn scan_closed_topic<F, P>(callback: F, rootfs: P, arch: &str) -> Result<Vec<String>>
-where
-    F: Fn() -> String + Copy,
-    P: AsRef<Path>,
-{
+pub async fn scan_closed_topic(
+    comment_cb: impl Fn() -> String,
+    message_cb: impl Fn(&str, &str),
+    rootfs: impl AsRef<Path>,
+    arch: &str,
+) -> Result<Vec<String>> {
     let mut tm = TopicManager::new(rootfs, arch).await?;
     tm.refresh().await?;
     let all = tm.all_topics().to_owned();
@@ -420,7 +419,7 @@ where
         }
     }
 
-    tm.write_enabled(false, callback).await?;
+    tm.write_enabled(false, comment_cb, message_cb).await?;
 
     Ok(res)
 }

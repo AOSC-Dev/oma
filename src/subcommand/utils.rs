@@ -152,6 +152,22 @@ pub(crate) fn refresh(
                                 pb.enable_steady_tick(inv);
                                 pb_map.insert(count + 1, pb);
                             }
+                            RefreshEvent::TopicNotInMirror(topic, mirror) => {
+                                bar_writeln(
+                                    |s| {
+                                        mb.println(s).ok();
+                                    },
+                                    &style("WARN").yellow().bold().to_string(),
+                                    &format!("{topic} topic is inaccessible in mirror {mirror}.")
+                                );
+                                bar_writeln(
+                                    |s| {
+                                        mb.println(s).ok();
+                                    },
+                                    &style("WARN").yellow().bold().to_string(),
+                                    &format!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.")
+                                );
+                            }
                         }
                     } else {
                         match event {
@@ -163,6 +179,10 @@ pub(crate) fn refresh(
                             }
                             RefreshEvent::ScanningTopic => {
                                 info!("{}", fl!("refreshing-topic-metadata"));
+                            }
+                            RefreshEvent::TopicNotInMirror(topic, mirror) => {
+                                warn!("{topic} topic is inaccessible in mirror {mirror}.");
+                                warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
                             }
                         }
                     }

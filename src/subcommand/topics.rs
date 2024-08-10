@@ -6,7 +6,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::{indicatif::ProgressBar, pb::oma_spinner, WRITER};
+use oma_console::{indicatif::ProgressBar, pb::oma_spinner, writer::bar_writeln, WRITER};
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
@@ -14,6 +14,7 @@ use oma_pm::{
 };
 use oma_utils::dpkg::dpkg_arch;
 use reqwest::Client;
+use tracing::warn;
 
 use crate::{
     error::OutputError,
@@ -179,7 +180,10 @@ where
         downgrade_pkgs.extend(removed_topic.packages);
     }
 
-    tm.write_enabled(dry_run, callback).await?;
+    tm.write_enabled(dry_run, callback, |topic, mirror| {
+        warn!("{topic} topic is inaccessible in mirror {mirror}.");
+        warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
+    }).await?;
 
     let enabled_pkgs = tm
         .enabled_topics()
@@ -318,6 +322,27 @@ async fn refresh_topics<P: AsRef<Path>>(
     tm.refresh().await?;
     scan_closed_topic(
         || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
+        |topic, mirror| {
+            if let Some(pb) = &pb {
+                bar_writeln(
+                    |s| {
+                        pb.println(s);
+                    },
+                    &style("WARN").yellow().bold().to_string(),
+                    &format!("{topic} topic is inaccessible in mirror {mirror}.")
+                );
+                bar_writeln(
+                    |s| {
+                        pb.println(s);
+                    },
+                    &style("WARN").yellow().bold().to_string(),
+                    &format!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.")
+                );
+            } else {
+                warn!("{topic} topic is inaccessible in mirror {mirror}.");
+                warn!("probably because the mirrors are not synchronised, skip writing this source to the source configuration file for the time being.");
+            }
+        },
         sysroot,
         &tm.arch,
     )
