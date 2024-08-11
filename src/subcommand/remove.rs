@@ -57,7 +57,7 @@ pub fn execute(
 
     let context = apt.remove(&pkgs, args.remove_config, args.no_autoremove, |pkg| {
         if protect {
-            true
+            false
         } else {
             ask_user_do_as_i_say(pkg).unwrap_or(false)
         }
