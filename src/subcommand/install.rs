@@ -1,3 +1,5 @@
+use oma_console::msg;
+use oma_console::writer::Writer;
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgsBuilder;
 use oma_pm::apt::OmaApt;
@@ -81,10 +83,10 @@ pub fn execute(
     let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, args.install_dbg, true, false)?;
     handle_no_result(no_result)?;
 
-    let no_marked_install = apt.install(&pkgs, args.reinstall)?;
+    let (no_marked_install, sugs) = apt.install(&pkgs, args.reinstall)?;
 
     if !no_marked_install.is_empty() {
-        for (pkg, version) in no_marked_install {
+        for (pkg, version) in &no_marked_install {
             info!(
                 "{}",
                 fl!("already-installed", name = pkg, version = version)
@@ -117,6 +119,24 @@ pub fn execute(
     };
 
     normal_commit(args, &client)?;
+    
+    let sugs = sugs
+        .iter()
+        .filter(|x| no_marked_install.iter().any(|y| x.1 != y.0) || no_marked_install.is_empty())
+        .collect::<Vec<_>>();
+
+    if !sugs.is_empty() {
+        info!("{}", fl!("suggest-tips"));
+        let len = sugs.iter().map(|x| x.0.len()).max().unwrap_or(0) as u16;
+        let writer = Writer::new(len + 4);
+
+        println!();
+        for (pkg, pkg_sug, desc) in sugs {
+            writer
+                .writeln(&format!("{pkg}:"), &format!("({pkg_sug}) {desc}"))
+                .ok();
+        }
+    }
 
     drop(fds);
 

@@ -39,7 +39,7 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
-    pkginfo::{PkgInfo, PtrIsNone},
+    pkginfo::{OmaDependency, PkgInfo, PtrIsNone},
     progress::{InstallProgressArgs, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
 };
@@ -293,8 +293,9 @@ impl OmaApt {
         &mut self,
         pkgs: &[PkgInfo],
         reinstall: bool,
-    ) -> OmaAptResult<Vec<(String, String)>> {
+    ) -> OmaAptResult<(Vec<(String, String)>, Vec<(String, String, String)>)> {
         let mut no_marked_install = vec![];
+        let mut sugs = vec![];
         for pkg in pkgs {
             let marked_install = mark_install(&self.cache, pkg, reinstall)?;
 
@@ -316,9 +317,38 @@ impl OmaApt {
                 self.select_pkgs
                     .push(pkg.raw_pkg.fullname(true).to_string());
             }
+
+            let ver = Version::new(
+                unsafe { pkg.version_raw.unique() }
+                    .make_safe()
+                    .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?,
+                &self.cache,
+            );
+
+            let dep_map = ver.depends_map();
+            let sug = dep_map.get(&oma_apt::DepType::Suggests);
+
+            if sug.is_none() {
+                continue;
+            }
+
+            let sug = sug.unwrap();
+
+            let v = OmaDependency::map_deps(&sug);
+            for i in v.inner() {
+                for j in i {
+                    if let Some(ver) = self.cache.get(&j.name).and_then(|x| x.candidate()) {
+                        sugs.push((
+                            j.name.to_string(),
+                            pkg.raw_pkg.name().to_string(),
+                            ver.description().unwrap_or_else(|| String::new()),
+                        ))
+                    }
+                }
+            }
         }
 
-        Ok(no_marked_install)
+        Ok((no_marked_install, sugs))
     }
 
     /// Find system is broken
