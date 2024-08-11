@@ -17,7 +17,9 @@ use reqwest::Client;
 use tracing::warn;
 
 use crate::{
-    error::OutputError, utils::{create_async_runtime, dbus_check, root}, OmaArgs, AILURUS
+    error::OutputError,
+    utils::{create_async_runtime, dbus_check, root},
+    OmaArgs, AILURUS,
 };
 
 use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};

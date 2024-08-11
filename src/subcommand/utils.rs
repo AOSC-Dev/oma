@@ -248,7 +248,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
     let remove = &op.remove;
     let disk_size = &op.disk_size;
 
-    if check_empty_op(&install, &remove) {
+    if check_empty_op(install, remove) {
         return Ok(());
     }
 
@@ -269,7 +269,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
                 handle_event_without_progressbar(event);
             }
         },
-        op
+        op,
     );
 
     match res {

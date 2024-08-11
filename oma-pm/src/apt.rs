@@ -942,13 +942,12 @@ impl OmaApt {
             }
 
             if pkg.marked_delete() {
-                if pkg.is_essential() {
-                    if !how_handle_essential(&pkg.fullname(true)) {
-                        return Err(OmaAptError::PkgIsEssential(pkg.fullname(true)));
-                    }
+                let name = pkg.fullname(true);
+
+                if pkg.is_essential() && !how_handle_essential(&name) {
+                    return Err(OmaAptError::PkgIsEssential(name));
                 }
 
-                let name = pkg.fullname(true);
                 let is_purge = pkg.marked_purge();
 
                 let mut tags = vec![];

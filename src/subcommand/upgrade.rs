@@ -120,12 +120,12 @@ pub fn execute(
         let remove = &op.remove;
         let disk_size = &op.disk_size;
 
-        if check_empty_op(&install, &remove) {
+        if check_empty_op(install, remove) {
             return Ok(0);
         }
 
         if retry_times == 1 {
-            table_for_install_pending(install, remove, &disk_size, !args.yes, dry_run)?;
+            table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
         }
 
         let typ = SummaryType::Upgrade(
