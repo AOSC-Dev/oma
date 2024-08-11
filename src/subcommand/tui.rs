@@ -690,7 +690,7 @@ pub fn execute(
         lock_oma()?;
         apt.upgrade()?;
         apt.install(&install, false)?;
-        apt.remove(&remove, false, false, |_| false)?;
+        apt.remove(&remove, false, false)?;
 
         let apt_args = AptArgsBuilder::default().no_progress(no_progress).build()?;
 
@@ -705,6 +705,7 @@ pub fn execute(
                 no_progress,
                 sysroot,
                 fix_dpkg_status: true,
+                protect_essential: true,
             },
             &client,
         )?;

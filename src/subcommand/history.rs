@@ -69,6 +69,7 @@ pub fn execute_undo(
         no_progress,
         download_pure_db: _,
         no_check_dbus,
+        protect_essentials: protect_essential,
         ..
     } = oma_args;
 
@@ -128,7 +129,7 @@ pub fn execute_undo(
     let (delete, no_result) = apt.select_pkg(&delete, false, true, false)?;
     handle_no_result(no_result)?;
 
-    apt.remove(&delete, false, true, |_| false)?;
+    apt.remove(&delete, false, true)?;
 
     let pkgs = apt.filter_pkgs(&[FilterMode::Default])?.collect::<Vec<_>>();
 
@@ -158,6 +159,7 @@ pub fn execute_undo(
         no_progress,
         sysroot,
         fix_dpkg_status: true,
+        protect_essential,
     };
 
     normal_commit(args, client)?;

@@ -436,19 +436,15 @@ impl OmaApt {
     }
 
     /// Set apt manager status as remove
-    pub fn remove<F>(
+    pub fn remove(
         &mut self,
         pkgs: &[PkgInfo],
         purge: bool,
         no_autoremove: bool,
-        callback: F,
-    ) -> OmaAptResult<Vec<String>>
-    where
-        F: Fn(&str) -> bool + Copy,
-    {
+    ) -> OmaAptResult<Vec<String>> {
         let mut no_marked_remove = vec![];
         for pkg in pkgs {
-            let is_marked_delete = mark_delete(&self.cache, pkg, purge, callback)?;
+            let is_marked_delete = mark_delete(&self.cache, pkg, purge)?;
             if !is_marked_delete {
                 no_marked_remove.push(pkg.raw_pkg.name().to_string());
             } else if !self.select_pkgs.contains(&pkg.raw_pkg.name().to_string()) {
@@ -490,11 +486,12 @@ impl OmaApt {
         network_thread: Option<usize>,
         args_config: &AptArgs,
         callback: F,
+        op: OmaOperation,
     ) -> OmaAptResult<()>
     where
         F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
     {
-        let v = self.summary()?;
+        let v = op;
         let v_str = v.to_string();
 
         let sysroot = self.config.get("Dir").unwrap_or("/".to_string());
@@ -880,7 +877,10 @@ impl OmaApt {
     }
 
     /// Show changes summary
-    pub fn summary(&self) -> OmaAptResult<OmaOperation> {
+    pub fn summary(
+        &self,
+        how_handle_essential: impl Fn(&str) -> bool,
+    ) -> OmaAptResult<OmaOperation> {
         let mut install = vec![];
         let mut remove = vec![];
         let changes = self.cache.get_changes(true);
@@ -942,6 +942,12 @@ impl OmaApt {
             }
 
             if pkg.marked_delete() {
+                if pkg.is_essential() {
+                    if !how_handle_essential(&pkg.fullname(true)) {
+                        return Err(OmaAptError::PkgIsEssential(pkg.fullname(true)));
+                    }
+                }
+
                 let name = pkg.fullname(true);
                 let is_purge = pkg.marked_purge();
 
@@ -1042,11 +1048,9 @@ impl OmaApt {
     }
 
     /// Check available disk space
-    pub fn check_disk_size(&self) -> OmaAptResult<()> {
-        let op = self.summary()?;
-
-        let (symbol, n) = op.disk_size;
-        let n = n as i64;
+    pub fn check_disk_size(&self, op: &OmaOperation) -> OmaAptResult<()> {
+        let (symbol, n) = &op.disk_size;
+        let n = *n as i64;
         let download_size = op.total_download_size as i64;
 
         let need_space = match symbol.as_str() {
@@ -1098,15 +1102,7 @@ impl OmaApt {
 }
 
 /// Mark package as delete.
-fn mark_delete<F>(
-    cache: &Cache,
-    pkg: &PkgInfo,
-    purge: bool,
-    how_handle_essential: F,
-) -> OmaAptResult<bool>
-where
-    F: Fn(&str) -> bool + Copy,
-{
+fn mark_delete(cache: &Cache, pkg: &PkgInfo, purge: bool) -> OmaAptResult<bool> {
     let pkg = Package::new(cache, unsafe { pkg.raw_pkg.unique() });
     let removed_but_has_config = pkg.current_state() == PkgCurrentState::ConfigFiles;
     if !pkg.is_installed() && !removed_but_has_config {
@@ -1115,13 +1111,6 @@ where
             pkg.name()
         );
         return Ok(false);
-    }
-
-    if pkg.is_essential() {
-        let remove_essential = how_handle_essential(pkg.name());
-        if !remove_essential {
-            return Err(OmaAptError::PkgIsEssential(pkg.name().to_string()));
-        }
     }
 
     pkg.protect();

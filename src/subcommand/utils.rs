@@ -36,6 +36,8 @@ use tracing::error;
 use tracing::info;
 use tracing::warn;
 
+use super::remove::ask_user_do_as_i_say;
+
 pub(crate) fn handle_no_result(no_result: Vec<String>) -> Result<(), OutputError> {
     for word in &no_result {
         if word == "266" {
@@ -212,6 +214,7 @@ pub struct NormalCommitArgs {
     pub no_progress: bool,
     pub sysroot: String,
     pub fix_dpkg_status: bool,
+    pub protect_essential: bool,
 }
 
 pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(), OutputError> {
@@ -225,23 +228,31 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
         no_progress,
         sysroot,
         fix_dpkg_status,
+        protect_essential,
     } = args;
 
     apt.resolve(no_fixbroken, fix_dpkg_status)?;
 
-    let op = apt.summary()?;
+    let op = apt.summary(|pkg| {
+        if protect_essential {
+            false
+        } else {
+            ask_user_do_as_i_say(pkg).unwrap_or(false)
+        }
+    })?;
+
+    apt.check_disk_size(&op)?;
+
     let op_after = op.clone();
-    let install = op.install;
-    let remove = op.remove;
-    let disk_size = op.disk_size;
+    let install = &op.install;
+    let remove = &op.remove;
+    let disk_size = &op.disk_size;
 
     if check_empty_op(&install, &remove) {
         return Ok(());
     }
 
-    apt.check_disk_size()?;
-
-    table_for_install_pending(&install, &remove, &disk_size, !apt_args.yes(), dry_run)?;
+    table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)?;
 
     let (mb, pb_map, global_is_set) = multibar();
 
@@ -258,6 +269,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
                 handle_event_without_progressbar(event);
             }
         },
+        op
     );
 
     match res {

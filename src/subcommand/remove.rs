@@ -55,13 +55,7 @@ pub fn execute(
     let (pkgs, no_result) = apt.select_pkg(&pkgs, false, true, false)?;
     handle_no_result(no_result)?;
 
-    let context = apt.remove(&pkgs, args.remove_config, args.no_autoremove, |pkg| {
-        if protect {
-            false
-        } else {
-            ask_user_do_as_i_say(pkg).unwrap_or(false)
-        }
-    })?;
+    let context = apt.remove(&pkgs, args.remove_config, args.no_autoremove)?;
 
     if !context.is_empty() {
         for c in context {
@@ -87,6 +81,7 @@ pub fn execute(
         no_progress,
         sysroot: args.sysroot,
         fix_dpkg_status: true,
+        protect_essential: protect,
     };
 
     normal_commit(args, &client)?;

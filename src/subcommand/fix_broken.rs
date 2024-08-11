@@ -20,7 +20,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         no_progress,
         download_pure_db: _,
         no_check_dbus,
-        ..
+        protect_essentials: protect_essential,
     } = oma_args;
 
     let mut fds = None;
@@ -47,6 +47,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         no_progress,
         sysroot,
         fix_dpkg_status: false,
+        protect_essential,
     };
 
     normal_commit(args, &client)?;
