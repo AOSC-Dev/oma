@@ -84,9 +84,9 @@ impl From<&SearchResult> for FormatSearchResult {
         }
 
         let prefix = match i.status {
-            PackageStatus::Avail => style(fl!("pkg-search-avail")).dim(),
-            PackageStatus::Installed => style(fl!("pkg-search-installed")).color256(72),
-            PackageStatus::Upgrade => style(fl!("pkg-search-upgrade")).color256(214),
+            PackageStatus::Avail => style("AVAIL").dim(),
+            PackageStatus::Installed => style("INSTALLED").color256(72),
+            PackageStatus::Upgrade => style("UPGRADE").color256(214),
         }
         .to_string();
 
