@@ -23,7 +23,6 @@ full-match = 完全符合
 already-installed = 軟體套件 { $name } ({ $version }) 已經安裝。
 can-not-mark-reinstall = 無法重裝軟體套件 { $name } ({ $version })，因為目前可用的軟體庫中找不到指定的軟體套件和版本。
 pkg-is-essential = 軟體套件 { $name } 是不允許移除的關鍵組件。
-pkg-search-installed = 已安裝
 pkg-search-upgrade = 可更新
 pkg-no-checksum = 軟體套件 { $name } 沒有雜湊值。
 pkg-unavailable = 軟體庫中找不到 { $ver } 版本的軟體套件 { $pkg }。
