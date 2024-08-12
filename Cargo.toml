@@ -3,6 +3,7 @@ name = "oma"
 version = "1.4.3"
 edition = "2021"
 description = "User-friendly and performant package manager for APT repositories"
+license = "GPL-3.0-or-later"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
