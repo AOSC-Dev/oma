@@ -23,7 +23,6 @@ invaild-path = Invaild path: { $p }
 already-installed = { $name } ({ $version }) is already installed.
 can-not-mark-reinstall = Cannot reinstall package { $name } ({ $version }), as the specified package and version could not be found in any available repository.
 pkg-is-essential = Package { $name } is essential. Refusing to remove.
-pkg-search-installed = INSTALLED
 pkg-search-upgrade = UPGRADE
 pkg-no-checksum = Package { $name } no checksum.
 pkg-unavailable = Version { $ver } of { $pkg } is not available from any configured repository.
