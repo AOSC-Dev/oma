@@ -23,6 +23,7 @@ use crate::utils::root;
 use crate::OmaArgs;
 use crate::UpgradeArgs;
 
+use super::remove::ask_user_do_as_i_say;
 use super::utils::check_empty_op;
 use super::utils::handle_event_without_progressbar;
 use super::utils::handle_no_result;
@@ -46,7 +47,7 @@ pub fn execute(
         network_thread,
         no_progress,
         no_check_dbus,
-        ..
+        protect_essentials,
     } = oma_args;
 
     let fds = if !no_check_dbus {
@@ -101,18 +102,25 @@ pub fn execute(
         apt.install(&pkgs, false)?;
         apt.resolve(false, true)?;
 
-        let op = apt.summary()?;
+        let op = apt.summary(|pkg| {
+            if protect_essentials {
+                false
+            } else {
+                ask_user_do_as_i_say(pkg).unwrap_or(false)
+            }
+        })?;
+
+        apt.check_disk_size(&op)?;
+
         let op_after = op.clone();
 
-        let install = op.install;
-        let remove = op.remove;
-        let disk_size = op.disk_size;
+        let install = &op.install;
+        let remove = &op.remove;
+        let disk_size = &op.disk_size;
 
-        if check_empty_op(&install, &remove) {
+        if check_empty_op(install, remove) {
             return Ok(0);
         }
-
-        apt.check_disk_size()?;
 
         if retry_times == 1
             && !table_for_install_pending(&install, &remove, &disk_size, !args.yes, dry_run)?
@@ -129,13 +137,19 @@ pub fn execute(
         let start_time = Local::now().timestamp();
 
         let (mb, pb_map, global_is_set) = multibar();
-        match apt.commit(&client, None, &apt_args, |count, event, total| {
-            if !no_progress {
-                pb!(event, mb, pb_map, count, total, global_is_set)
-            } else {
-                handle_event_without_progressbar(event);
-            }
-        }) {
+        match apt.commit(
+            &client,
+            None,
+            &apt_args,
+            |count, event, total| {
+                if !no_progress {
+                    pb!(event, mb, pb_map, count, total, global_is_set)
+                } else {
+                    handle_event_without_progressbar(event);
+                }
+            },
+            op,
+        ) {
             Ok(()) => {
                 write_history_entry(
                     op_after,

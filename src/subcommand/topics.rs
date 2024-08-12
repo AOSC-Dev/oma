@@ -19,7 +19,7 @@ use tracing::warn;
 use crate::{
     error::OutputError,
     utils::{create_async_runtime, dbus_check, root},
-    AILURUS,
+    OmaArgs, AILURUS,
 };
 
 use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
@@ -44,7 +44,7 @@ pub struct TopicArgs {
     pub sysroot: String,
 }
 
-pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
+pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
@@ -137,6 +137,7 @@ pub fn execute(args: TopicArgs, client: Client) -> Result<i32, OutputError> {
         no_progress,
         sysroot,
         fix_dpkg_status: true,
+        protect_essential: oma_args.protect_essentials,
     };
 
     normal_commit(args, &client)?;

@@ -461,7 +461,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             let client = Client::builder().user_agent("oma").build().unwrap();
 
-            topics::execute(args, client)?
+            topics::execute(args, client, oma_args)?
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());

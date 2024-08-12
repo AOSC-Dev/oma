@@ -16,7 +16,6 @@ use reqwest::Client;
 
 use crate::{
     fl,
-    remove::ask_user_do_as_i_say,
     utils::{create_async_runtime, dbus_check},
 };
 use oma_pm::{
@@ -689,9 +688,7 @@ pub fn execute(
         lock_oma()?;
         apt.upgrade()?;
         apt.install(&install, false)?;
-        apt.remove(&remove, false, false, |pkg| {
-            ask_user_do_as_i_say(pkg).unwrap_or(false)
-        })?;
+        apt.remove(&remove, false, false)?;
 
         let apt_args = AptArgsBuilder::default().no_progress(no_progress).build()?;
 
@@ -706,6 +703,7 @@ pub fn execute(
                 no_progress,
                 sysroot,
                 fix_dpkg_status: true,
+                protect_essential: true,
             },
             &client,
         )?;

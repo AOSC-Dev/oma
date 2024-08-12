@@ -31,6 +31,7 @@ pub fn execute(
         network_thread,
         no_progress,
         no_check_dbus,
+        protect_essentials: protect_essential,
         ..
     } = oma_args;
 
@@ -131,6 +132,7 @@ pub fn execute(
         no_progress,
         sysroot,
         fix_dpkg_status: true,
+        protect_essential,
     };
 
     normal_commit(args, &client)?;
