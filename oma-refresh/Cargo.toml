@@ -23,11 +23,12 @@ oma-utils = { version = "^0.8.0", path = "../oma-utils", features = ["dpkg"] }
 tracing ="0.1"
 smallvec = "1.1"
 small-map = "0.1"
+oma-repo-verify = { version = "^0.1.0", path = "../oma-repo-verify", default-features = false }
 
 [features]
 aosc = ["dep:oma-topics"]
-sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]
-sequoia-nettle-backend = ["sequoia-openpgp/crypto-nettle"]
+sequoia-openssl-backend = ["oma-repo-verify/sequoia-openssl-backend"]
+sequoia-nettle-backend = ["oma-repo-verify/sequoia-nettle-backend"]
 rustls = ["oma-fetch/rustls", "oma-topics/rustls"]
 native-tls = ["oma-fetch/native-tls", "oma-topics/native-tls"]
 default = ["aosc", "sequoia-nettle-backend", "rustls"]

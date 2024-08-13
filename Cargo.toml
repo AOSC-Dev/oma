@@ -46,6 +46,7 @@ oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch", default-features = false }
 oma-topics = { path = "./oma-topics", optional = true, default-features = false }
 oma-history = { path = "./oma-history" }
+oma-repo-verify = { path = "./oma-repo-verify" }
 
 # i18n
 i18n-embed = { version = "0.15", features = ["fluent-system", "desktop-requester"]}
@@ -72,7 +73,7 @@ generic = ["sequoia-nettle-backend", "rustls"]
 default = ["aosc", "generic"]
 
 [workspace]
-members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type"]
+members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify"]
 
 [package.metadata.deb]
 copyright = "2024, AOSC Dev <maintainers@aosc.io>"
