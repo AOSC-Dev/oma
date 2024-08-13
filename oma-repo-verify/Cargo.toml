@@ -2,6 +2,8 @@
 name = "oma-repo-verify"
 version = "0.1.0"
 edition = "2021"
+description = "Handle APT repository verify library"
+license = "MIT"
 
 [dependencies]
 anyhow = "1"
