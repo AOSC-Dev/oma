@@ -420,7 +420,7 @@ impl<'a> OmaRefresh<'a> {
         &self,
         res: Vec<std::result::Result<Summary, DownloadError>>,
         _callback: F,
-        _handle_topic_msg: impl Fn() -> String,
+        _handle_topic_msg: impl Fn() -> String + Copy,
     ) -> Result<Vec<Summary>>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
