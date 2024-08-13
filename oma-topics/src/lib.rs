@@ -158,7 +158,7 @@ impl<'a> TopicManager<'a> {
             })
             .collect::<Vec<_>>();
 
-        self.all = refresh_innter(&self.client, urls, &self.arch).await?;
+        self.all = refresh_innter(&self.client, urls, self.arch).await?;
 
         Ok(())
     }

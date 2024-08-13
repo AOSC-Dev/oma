@@ -352,7 +352,7 @@ async fn refresh_topics<P: AsRef<Path>>(
             }
         },
         sysroot,
-        &tm.arch,
+        tm.arch,
     )
     .await?;
 
