@@ -273,7 +273,7 @@ fn print_pending_inner<W: Write>(
                 remove_display,
                 Some(vec![
                     fl!("table-name").as_str(),
-                    fl!("table-version").as_str(),
+                    fl!("table-size").as_str(),
                     fl!("table-detail").as_str(),
                 ]),
             )
