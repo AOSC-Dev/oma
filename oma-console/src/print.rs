@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use console::{style, StyledObject};
-use num_enum::IntoPrimitive;
 use termbg::Theme;
 use tracing::{field::Field, warn, Level};
 use tracing_subscriber::Layer;
@@ -15,16 +14,40 @@ enum StyleFollow {
     TermTheme,
 }
 
-#[derive(IntoPrimitive)]
-#[repr(u8)]
 pub enum Action {
-    Emphasis = 148,
-    Foreground = 72,
-    Secondary = 182,
-    EmphasisSecondary = 114,
-    WARN = 214,
-    Purple = 141,
-    Note = 178,
+    Emphasis,
+    Foreground,
+    Secondary,
+    EmphasisSecondary,
+    WARN,
+    Purple,
+    Note,
+}
+
+impl Action {
+    fn dark(&self) -> u8 {
+        match self {
+            Action::Emphasis => 148,
+            Action::Foreground => 72,
+            Action::Secondary => 182,
+            Action::EmphasisSecondary => 114,
+            Action::WARN => 214,
+            Action::Purple => 141,
+            Action::Note => 178,
+        }
+    }
+
+    fn light(&self) -> u8 {
+        match self {
+            Action::Emphasis => 142,
+            Action::Foreground => 72,
+            Action::Secondary => 167,
+            Action::EmphasisSecondary => 106,
+            Action::WARN => 208,
+            Action::Purple => 141,
+            Action::Note => 172,
+        }
+    }
 }
 
 pub struct OmaColorFormat {
@@ -33,22 +56,22 @@ pub struct OmaColorFormat {
 }
 
 impl OmaColorFormat {
-    pub fn new(follow: bool, theme: Result<Theme, termbg::Error>) -> Self {
+    pub fn new(follow: bool, theme_rgb: Result<Theme, termbg::Error>) -> Self {
         Self {
             follow: if follow {
                 StyleFollow::TermTheme
             } else {
                 StyleFollow::OmaTheme
             },
-            theme,
+            theme: theme_rgb,
         }
     }
 
     pub fn color_str<D>(&self, input: D, color: Action) -> StyledObject<D> {
         match self.follow {
             StyleFollow::OmaTheme => match &self.theme {
-                Ok(Theme::Dark) => style(input).color256(color.into()),
-                Ok(Theme::Light) => term_color(input, color),
+                Ok(Theme::Dark) => style(input).color256(color.dark()),
+                Ok(Theme::Light) => style(input).color256(color.light()),
                 Err(e) => {
                     warn!("{e}");
                     term_color(input, color)
