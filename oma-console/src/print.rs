@@ -2,12 +2,15 @@ use std::collections::BTreeMap;
 
 use console::{style, StyledObject};
 use num_enum::IntoPrimitive;
-use tracing::{field::Field, Level};
+use termbg::Theme;
+use tracing::{field::Field, warn, Level};
 use tracing_subscriber::Layer;
+
+pub use termbg;
 
 use crate::WRITER;
 
-pub enum StyleFollow {
+enum StyleFollow {
     OmaTheme,
     TermTheme,
 }
@@ -26,26 +29,45 @@ pub enum Action {
 
 pub struct OmaColorFormat {
     follow: StyleFollow,
+    theme: Result<Theme, termbg::Error>,
 }
 
 impl OmaColorFormat {
-    pub fn new(follow: StyleFollow) -> Self {
-        Self { follow }
+    pub fn new(follow: bool, theme: Result<Theme, termbg::Error>) -> Self {
+        Self {
+            follow: if follow {
+                StyleFollow::TermTheme
+            } else {
+                StyleFollow::OmaTheme
+            },
+            theme,
+        }
     }
 
     pub fn color_str<D>(&self, input: D, color: Action) -> StyledObject<D> {
         match self.follow {
-            StyleFollow::OmaTheme => style(input).color256(color.into()),
-            StyleFollow::TermTheme => match color {
-                Action::Emphasis => style(input).green(),
-                Action::Secondary => style(input).dim(),
-                Action::EmphasisSecondary => style(input).cyan(),
-                Action::WARN => style(input).yellow().bold(),
-                Action::Purple => style(input).magenta(),
-                Action::Note => style(input).yellow(),
-                Action::Foreground => style(input).cyan().bold(),
+            StyleFollow::OmaTheme => match &self.theme {
+                Ok(Theme::Dark) => style(input).color256(color.into()),
+                Ok(Theme::Light) => term_color(input, color),
+                Err(e) => {
+                    warn!("{e}");
+                    term_color(input, color)
+                }
             },
+            StyleFollow::TermTheme => term_color(input, color),
         }
+    }
+}
+
+fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
+    match color {
+        Action::Emphasis => style(input).green(),
+        Action::Secondary => style(input).dim(),
+        Action::EmphasisSecondary => style(input).cyan(),
+        Action::WARN => style(input).yellow().bold(),
+        Action::Purple => style(input).magenta(),
+        Action::Note => style(input).yellow(),
+        Action::Foreground => style(input).cyan().bold(),
     }
 }
 

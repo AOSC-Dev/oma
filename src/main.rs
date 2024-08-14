@@ -3,6 +3,7 @@ use std::io;
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
+use std::time::Duration;
 
 mod args;
 mod config;
@@ -20,7 +21,7 @@ use anyhow::anyhow;
 use clap::ArgMatches;
 use error::OutputError;
 use list::ListFlags;
-use oma_console::print::{OmaColorFormat, StyleFollow};
+use oma_console::print::{termbg, OmaColorFormat};
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
@@ -267,11 +268,8 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             Some(Ok(Some(true)))
         );
 
-    let color_formatter = OmaColorFormat::new(if follow_term_color {
-        StyleFollow::TermTheme
-    } else {
-        StyleFollow::OmaTheme
-    });
+    let color_formatter =
+        OmaColorFormat::new(follow_term_color, termbg::theme(Duration::from_millis(100)));
 
     let no_check_dbus = if matches.get_flag("no_check_dbus") {
         true
