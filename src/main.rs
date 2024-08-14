@@ -20,6 +20,7 @@ use anyhow::anyhow;
 use clap::ArgMatches;
 use error::OutputError;
 use list::ListFlags;
+use oma_console::print::{OmaColorFormat, StyleFollow};
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
@@ -34,6 +35,7 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter, Layer};
+use tui::Tui;
 use utils::create_async_runtime;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -256,6 +258,21 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
     };
 
+    let follow_term_color = config.follow_terminal_color()
+        || matches.get_flag("follow_terminal_color")
+        || matches!(
+            matches
+                .subcommand()
+                .map(|(_, x)| x.try_get_one("follow_terminal_color")),
+            Some(Ok(Some(true)))
+        );
+
+    let color_formatter = OmaColorFormat::new(if follow_term_color {
+        StyleFollow::TermTheme
+    } else {
+        StyleFollow::OmaTheme
+    });
+
     let no_check_dbus = if matches.get_flag("no_check_dbus") {
         true
     } else {
@@ -365,7 +382,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap();
 
-            search::execute(&args, no_progress, sysroot)?
+            search::execute(&args, no_progress, sysroot, color_formatter)?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
@@ -400,7 +417,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             mark::execute(op, pkgs, dry_run, sysroot)?
         }
         Some(("command-not-found", args)) => {
-            command_not_found::execute(args.get_one::<String>("package").unwrap())?
+            command_not_found::execute(args.get_one::<String>("package").unwrap(), color_formatter)?
         }
         Some(("list", args)) => {
             let pkgs = pkgs_getter(args).unwrap_or_default();
@@ -418,7 +435,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 auto,
             };
 
-            list::execute(flags, pkgs, sysroot)?
+            list::execute(flags, pkgs, sysroot, color_formatter)?
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
@@ -472,15 +489,16 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         }
         Some(("tui", _)) | None => {
             let client = Client::builder().user_agent("oma").build().unwrap();
-            tui::execute(
+            tui::execute(Tui {
                 sysroot,
                 no_progress,
-                oma_args.download_pure_db,
+                download_pure_db: oma_args.download_pure_db,
                 dry_run,
-                oma_args.network_thread,
+                network_thread: oma_args.network_thread,
                 client,
                 no_check_dbus,
-            )?
+                color_format: color_formatter,
+            })?
         }
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");

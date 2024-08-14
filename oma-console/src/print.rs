@@ -1,9 +1,53 @@
 use std::collections::BTreeMap;
 
+use console::{style, StyledObject};
+use num_enum::IntoPrimitive;
 use tracing::{field::Field, Level};
 use tracing_subscriber::Layer;
 
 use crate::WRITER;
+
+pub enum StyleFollow {
+    OmaTheme,
+    TermTheme,
+}
+
+#[derive(IntoPrimitive)]
+#[repr(u8)]
+pub enum Action {
+    Emphasis = 148,
+    Foreground = 72,
+    Secondary = 182,
+    EmphasisSecondary = 114,
+    WARN = 214,
+    Purple = 141,
+    Note = 178,
+}
+
+pub struct OmaColorFormat {
+    follow: StyleFollow,
+}
+
+impl OmaColorFormat {
+    pub fn new(follow: StyleFollow) -> Self {
+        Self { follow }
+    }
+
+    pub fn color_str<D>(&self, input: D, color: Action) -> StyledObject<D> {
+        match self.follow {
+            StyleFollow::OmaTheme => style(input).color256(color.into()),
+            StyleFollow::TermTheme => match color {
+                Action::Emphasis => style(input).green(),
+                Action::Secondary => style(input).dim(),
+                Action::EmphasisSecondary => style(input).cyan(),
+                Action::WARN => style(input).yellow().bold(),
+                Action::Purple => style(input).magenta(),
+                Action::Note => style(input).yellow(),
+                Action::Foreground => style(input).cyan().bold(),
+            },
+        }
+    }
+}
 
 pub struct OmaLayer;
 

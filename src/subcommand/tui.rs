@@ -8,6 +8,7 @@ use crossterm::{
 };
 use dialoguer::console::style;
 use oma_console::{
+    print::{Action, OmaColorFormat},
     writer::{gen_prefix, writeln_inner, MessageType},
     WRITER,
 };
@@ -44,12 +45,17 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Clone)]
 pub struct FormatSearchResult(String);
 
-impl From<&SearchResult> for FormatSearchResult {
-    fn from(i: &SearchResult) -> Self {
+impl FormatSearchResult {
+    fn new(i: &SearchResult, color_format: &OmaColorFormat) -> Self {
         let mut pkg_info_line = if i.is_base {
-            style(&i.name).bold().color256(141).to_string()
+            color_format
+                .color_str(&i.name, Action::Purple)
+                .bold()
+                .to_string()
         } else {
-            style(&i.name).bold().color256(148).to_string()
+            color_format
+                .color_str(&i.name, Action::Emphasis)
+                .to_string()
         };
 
         pkg_info_line.push(' ');
@@ -57,11 +63,15 @@ impl From<&SearchResult> for FormatSearchResult {
         if i.status == PackageStatus::Upgrade {
             pkg_info_line.push_str(&format!(
                 "{} -> {}",
-                style(i.old_version.as_ref().unwrap()).color256(214),
-                style(&i.new_version).color256(114)
+                color_format.color_str(i.old_version.as_ref().unwrap(), Action::WARN),
+                color_format.color_str(&i.new_version, Action::EmphasisSecondary)
             ));
         } else {
-            pkg_info_line.push_str(&style(&i.new_version).color256(114).to_string());
+            pkg_info_line.push_str(
+                &color_format
+                    .color_str(&i.new_version, Action::EmphasisSecondary)
+                    .to_string(),
+            );
         }
 
         let mut pkg_tags = vec![];
@@ -77,16 +87,16 @@ impl From<&SearchResult> for FormatSearchResult {
         if !pkg_tags.is_empty() {
             pkg_info_line.push(' ');
             pkg_info_line.push_str(
-                &style(format!("[{}]", pkg_tags.join(",")))
-                    .color256(178)
+                &color_format
+                    .color_str(format!("[{}]", pkg_tags.join(",")), Action::Note)
                     .to_string(),
             );
         }
 
         let prefix = match i.status {
             PackageStatus::Avail => style("AVAIL").dim(),
-            PackageStatus::Installed => style("INSTALLED").color256(72),
-            PackageStatus::Upgrade => style("UPGRADE").color256(214),
+            PackageStatus::Installed => color_format.color_str("INSTALLED", Action::Foreground),
+            PackageStatus::Upgrade => color_format.color_str("UPGRADE", Action::WARN),
         }
         .to_string();
 
@@ -100,7 +110,10 @@ impl From<&SearchResult> for FormatSearchResult {
             WRITER.get_max_len().into(),
             WRITER.get_prefix_len(),
             |t, s| match t {
-                MessageType::Msg => desc.push_str(&format!("{}\n", style(s.trim()).color256(182))),
+                MessageType::Msg => desc.push_str(&format!(
+                    "{}\n",
+                    color_format.color_str(s.trim(), Action::Secondary)
+                )),
                 MessageType::Prefix => desc.push_str(&gen_prefix(s, 10)),
             },
         );
@@ -177,16 +190,30 @@ struct Operation {
     is_install: bool,
 }
 
-pub fn execute(
-    sysroot: String,
-    no_progress: bool,
-    download_pure_db: bool,
-    dry_run: bool,
-    network_thread: usize,
-    client: Client,
-    no_check_dbus: bool,
-) -> Result<i32, OutputError> {
+pub struct Tui {
+    pub sysroot: String,
+    pub no_progress: bool,
+    pub download_pure_db: bool,
+    pub dry_run: bool,
+    pub network_thread: usize,
+    pub client: Client,
+    pub no_check_dbus: bool,
+    pub color_format: OmaColorFormat,
+}
+
+pub fn execute(tui: Tui) -> Result<i32, OutputError> {
     root()?;
+
+    let Tui {
+        sysroot,
+        no_progress,
+        download_pure_db,
+        dry_run,
+        network_thread,
+        client,
+        no_check_dbus,
+        color_format,
+    } = tui;
 
     let fds = if !no_check_dbus {
         let rt = create_async_runtime()?;
@@ -243,7 +270,12 @@ pub fn execute(
         .borrow()
         .clone()
         .into_iter()
-        .filter_map(|x| FormatSearchResult::from(&x).0.into_text().ok())
+        .filter_map(|x| {
+            FormatSearchResult::new(&x, &color_format)
+                .0
+                .into_text()
+                .ok()
+        })
         .collect::<Vec<_>>();
 
     let input = Rc::new(RefCell::new("".to_string()));
@@ -576,7 +608,9 @@ pub fn execute(
                         if let Ok(res) = res {
                             let res_display = res
                                 .iter()
-                                .filter_map(|x| FormatSearchResult::from(x).0.into_text().ok())
+                                .filter_map(|x| {
+                                    FormatSearchResult::new(x, &color_format).0.into_text().ok()
+                                })
                                 .collect::<Vec<_>>();
                             display_list = StatefulList::with_items(res_display);
                             result_rc.replace(res);
@@ -622,7 +656,9 @@ pub fn execute(
                             if let Ok(res) = res {
                                 let res_display = res
                                     .iter()
-                                    .filter_map(|x| FormatSearchResult::from(x).0.into_text().ok())
+                                    .filter_map(|x| {
+                                        FormatSearchResult::new(x, &color_format).0.into_text().ok()
+                                    })
                                     .collect::<Vec<_>>();
 
                                 display_list = StatefulList::with_items(res_display);

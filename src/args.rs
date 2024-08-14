@@ -73,6 +73,14 @@ pub fn command_builder() -> Command {
                 .global(true)
         )
         .arg(
+            Arg::new("follow_terminal_color")
+                .long("follow-terminal-color")
+                .help("Output result with terminal theme color")
+                .action(ArgAction::SetTrue)
+                .global(true)
+                .conflicts_with("no_color")
+        )
+        .arg(
             Arg::new("no_progress")
             .long("no-progress")
             .help("Do not display progress bar")

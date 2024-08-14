@@ -7,6 +7,8 @@ refresh_pure_database = false
 no_check_dbus = false
 # set to true to do not refresh topic manifest data
 no_refresh_topics = false
+# follow system theme as oma color output
+follow_terminal_color = false
 
 [network]
 # Number of network threads to use when downloading metadata and packages.

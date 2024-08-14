@@ -1,6 +1,6 @@
 use std::{borrow::Cow, io::stdout, sync::atomic::Ordering};
 
-use dialoguer::console::style;
+use oma_console::print::{Action, OmaColorFormat};
 use oma_pm::{
     apt::{FilterMode, OmaApt, OmaAptArgsBuilder},
     PkgCurrentState,
@@ -20,7 +20,12 @@ pub struct ListFlags {
     pub auto: bool,
 }
 
-pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
+pub fn execute(
+    flags: ListFlags,
+    pkgs: Vec<String>,
+    sysroot: String,
+    color_format: OmaColorFormat,
+) -> Result<i32, OutputError> {
     let ListFlags {
         all,
         installed,
@@ -169,12 +174,12 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
             printer
                 .print(format!(
                     "{}/{} {} {arch} {s}",
-                    style(name).color256(148).bold(),
-                    style(branches).color256(182),
+                    color_format.color_str(name, Action::Emphasis).bold(),
+                    color_format.color_str(branches, Action::Secondary),
                     if upgradable {
-                        style(version_str).color256(214)
+                        color_format.color_str(version_str, Action::WARN)
                     } else {
-                        style(version_str).color256(114)
+                        color_format.color_str(version_str, Action::EmphasisSecondary)
                     }
                 ))
                 .ok();
