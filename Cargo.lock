@@ -3094,7 +3094,7 @@ dependencies = [
  "oma-refresh",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.0",
+ "oma-utils 0.8.1",
  "ratatui",
  "reqwest",
  "rust-embed",
@@ -3134,7 +3134,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "console",
  "icu_segmenter",
@@ -3152,7 +3152,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.8.0",
+ "oma-utils 0.8.1",
  "rayon",
  "regex",
  "strsim",
@@ -3182,7 +3182,7 @@ dependencies = [
  "indicatif",
  "md-5",
  "oma-console",
- "oma-utils 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "oma-utils 0.8.0",
  "reqwest",
  "serde",
  "sha2",
@@ -3222,7 +3222,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.27.0"
+version = "0.27.1"
 dependencies = [
  "chrono",
  "cxx",
@@ -3236,7 +3236,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.8.0",
+ "oma-utils 0.8.1",
  "small-map",
  "thiserror",
  "tokio",
@@ -3249,13 +3249,13 @@ name = "oma-pm-operation-type"
 version = "0.2.0"
 dependencies = [
  "derive_builder",
- "oma-utils 0.8.0",
+ "oma-utils 0.8.1",
  "serde",
 ]
 
 [[package]]
 name = "oma-refresh"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3268,7 +3268,7 @@ dependencies = [
  "oma-fetch",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.0",
+ "oma-utils 0.8.1",
  "sequoia-openpgp",
  "small-map",
  "smallvec",
@@ -3290,7 +3290,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "futures",
  "indexmap 2.3.0",
@@ -3308,20 +3308,6 @@ dependencies = [
 [[package]]
 name = "oma-utils"
 version = "0.8.0"
-dependencies = [
- "logind-zbus",
- "number_prefix",
- "oma-console",
- "os-release",
- "thiserror",
- "tracing",
- "url-escape",
- "zbus",
-]
-
-[[package]]
-name = "oma-utils"
-version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "581ca144ad559eb60cae2c864927d5481d2122531a8df35bc547709ffd7c5668"
 dependencies = [
@@ -3331,6 +3317,20 @@ dependencies = [
  "thiserror",
  "tracing",
  "url-escape",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.8.1"
+dependencies = [
+ "logind-zbus",
+ "number_prefix",
+ "oma-console",
+ "os-release",
+ "thiserror",
+ "tracing",
+ "url-escape",
+ "zbus",
 ]
 
 [[package]]
