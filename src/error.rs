@@ -14,7 +14,7 @@ use oma_pm::AptErrors;
 use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseParserError;
-use oma_refresh::verify::VerifyError;
+use oma_repo_verify::VerifyError;
 use oma_utils::dbus::OmaDbusError;
 use oma_utils::dpkg::DpkgError;
 

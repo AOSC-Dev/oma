@@ -1,0 +1,16 @@
+[package]
+name = "oma-repo-verify"
+version = "0.1.0"
+edition = "2021"
+description = "Handle APT repository verify library"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+thiserror = "1"
+sequoia-openpgp = { version = "1.20", default-features = false }
+tracing = "0.1"
+
+[features]
+sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]
+sequoia-nettle-backend = ["sequoia-openpgp/crypto-nettle"]

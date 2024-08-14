@@ -5,8 +5,6 @@ use std::{borrow::Cow, num::ParseIntError, path::Path};
 use thiserror::Error;
 use tracing::debug;
 
-use crate::verify;
-
 pub struct InReleaseParser {
     _source: Vec<SmallMap<16, String, String>>,
     pub checksums: SmallVec<[ChecksumItem; 32]>,
@@ -37,7 +35,7 @@ pub enum InReleaseParserError {
     #[error("Mirror {0} is not signed by trusted keyring.")]
     NotTrusted(String),
     #[error(transparent)]
-    VerifyError(#[from] crate::verify::VerifyError),
+    VerifyError(#[from] oma_repo_verify::VerifyError),
     #[error("Bad InRelease Data")]
     BadInReleaseData,
     #[error("Bad vaild until")]
@@ -94,7 +92,7 @@ impl InReleaseParser {
         } = in_release;
 
         let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-            Cow::Owned(verify::verify(s, signed_by, rootfs)?)
+            Cow::Owned(oma_repo_verify::verify(s, signed_by, rootfs)?)
         } else {
             if !trusted {
                 return Err(InReleaseParserError::NotTrusted(mirror.to_string()));

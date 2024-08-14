@@ -2931,6 +2931,7 @@ dependencies = [
  "oma-inquire",
  "oma-pm",
  "oma-refresh",
+ "oma-repo-verify",
  "oma-topics",
  "oma-utils 0.8.0",
  "ratatui",
@@ -3095,7 +3096,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.22.2"
+version = "0.23.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3106,6 +3107,7 @@ dependencies = [
  "oma-console",
  "oma-debcontrol",
  "oma-fetch",
+ "oma-repo-verify",
  "oma-topics",
  "oma-utils 0.8.0",
  "sequoia-openpgp",
@@ -3118,8 +3120,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-repo-verify"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "sequoia-openpgp",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "oma-topics"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "futures",
  "indexmap 2.3.0",

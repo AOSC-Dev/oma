@@ -3,6 +3,8 @@ name = "oma"
 version = "2.0.0-alpha.0"
 edition = "2021"
 description = "User-friendly and performant package manager for APT repositories"
+license = "GPL-3.0-or-later"
+authors = ["eatradish <sakiiily@aosc.io>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -44,6 +46,7 @@ oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch", default-features = false }
 oma-topics = { path = "./oma-topics", optional = true, default-features = false }
 oma-history = { path = "./oma-history" }
+oma-repo-verify = { path = "./oma-repo-verify" }
 
 # i18n
 i18n-embed = { version = "0.15", features = ["fluent-system", "desktop-requester"]}
@@ -70,4 +73,21 @@ generic = ["sequoia-nettle-backend", "rustls"]
 default = ["aosc", "generic"]
 
 [workspace]
-members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type"]
+members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify"]
+
+[package.metadata.deb]
+copyright = "2024, AOSC Dev <maintainers@aosc.io>"
+maintainer = "eatradish <sakiiily@aosc.io>"
+license-file = ["COPYING", "4"]
+extended-description = "User-friendly and performant package manager for APT repositories"
+depends = "$auto"
+section = "admin"
+priority = "optional"
+assets = [
+    ["target/release/oma", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/oma/README", "644"],
+    ["data/config/oma.toml", "etc/oma.toml", "755"],
+    ["data/dbus/oma-dbus.conf", "usr/share/dbus-1/oma-dbus.conf", "755"]
+]
+features = ["generic"]
+default-features = false

@@ -202,7 +202,7 @@ where
 }
 
 async fn inquire(
-    tm: &mut TopicManager,
+    tm: &mut TopicManager<'_>,
     opt_in: &mut Vec<String>,
     opt_out: &mut Vec<String>,
 ) -> Result<(), OutputError> {
@@ -306,7 +306,7 @@ async fn inquire(
 
 async fn refresh_topics<P: AsRef<Path>>(
     no_progress: bool,
-    tm: &mut TopicManager,
+    tm: &mut TopicManager<'_>,
     sysroot: P,
 ) -> Result<(), OutputError> {
     let pb = if !no_progress {
@@ -349,7 +349,7 @@ async fn refresh_topics<P: AsRef<Path>>(
             }
         },
         sysroot,
-        &tm.arch,
+        tm.arch,
     )
     .await?;
 

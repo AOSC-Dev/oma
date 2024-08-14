@@ -86,30 +86,31 @@ pub struct Topic {
 }
 
 #[derive(Debug)]
-pub struct TopicManager {
+pub struct TopicManager<'a> {
     enabled: Vec<Topic>,
     all: Vec<Topic>,
     client: Client,
     sysroot: PathBuf,
-    pub arch: String,
+    pub arch: &'a str,
 }
 
-impl TopicManager {
-    pub async fn new<P: AsRef<Path>>(sysroot: P, arch: &str) -> Result<Self> {
+impl<'a> TopicManager<'a> {
+    pub async fn new<P: AsRef<Path>>(sysroot: P, arch: &'a str) -> Result<Self> {
         let atm_state = Self::atm_state_path(&sysroot).await?;
-        let f = tokio::fs::read_to_string(&atm_state).await.map_err(|e| {
+        let atm_state_string = tokio::fs::read_to_string(&atm_state).await.map_err(|e| {
             OmaTopicsError::FailedToOperateDirOrFile(atm_state.display().to_string(), e)
         })?;
 
         Ok(Self {
-            enabled: serde_json::from_str(&f).unwrap_or_else(|e| {
-                warn!("Deserialize state file JSON failed: {e}");
+            enabled: serde_json::from_str(&atm_state_string).unwrap_or_else(|e| {
+                warn!("Deserialize oma topics state JSON failed: {e}");
+                warn!("oma will create new state file");
                 vec![]
             }),
             all: vec![],
             client: reqwest::ClientBuilder::new().user_agent("oma").build()?,
             sysroot: sysroot.as_ref().to_path_buf(),
-            arch: arch.to_string(),
+            arch,
         })
     }
 
@@ -157,7 +158,7 @@ impl TopicManager {
             })
             .collect::<Vec<_>>();
 
-        self.all = refresh_innter(&self.client, urls, &self.arch).await?;
+        self.all = refresh_innter(&self.client, urls, self.arch).await?;
 
         Ok(())
     }
@@ -304,7 +305,7 @@ impl TopicManager {
     }
 
     async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
-        check(&self.client, &url).await
+        check(&self.client, &format!("{}InRelease", url)).await
     }
 }
 
