@@ -22,6 +22,7 @@ pub enum Action {
     WARN,
     Purple,
     Note,
+    UpgradeTips,
 }
 
 impl Action {
@@ -34,6 +35,7 @@ impl Action {
             Action::WARN => 214,
             Action::Purple => 141,
             Action::Note => 178,
+            Action::UpgradeTips => 87,
         }
     }
 
@@ -46,6 +48,7 @@ impl Action {
             Action::WARN => 208,
             Action::Purple => 141,
             Action::Note => 172,
+            Action::UpgradeTips => 63,
         }
     }
 }
@@ -91,6 +94,7 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
         Action::Purple => style(input).magenta(),
         Action::Note => style(input).yellow(),
         Action::Foreground => style(input).cyan().bold(),
+        Action::UpgradeTips => style(input).blue().bold(),
     }
 }
 
