@@ -140,23 +140,16 @@ impl<W: Write> PagerPrinter<W> {
         writeln!(self.writer, "{d}")
     }
 
-    pub fn print_table<T, I>(&mut self, table: I, header: Option<Vec<&str>>) -> std::io::Result<()>
+    pub fn print_table<T, I>(&mut self, table: I, header: Vec<&str>) -> std::io::Result<()>
     where
         I: IntoIterator<Item = T>,
         T: Tabled,
     {
-        let mut table = match header {
-            Some(h) => {
-                let mut t = Table::builder(table);
-                t.remove_record(0);
-                t.insert_record(0, h);
-                t.build()
-            }
-            None => {
-                let mut t = Table::builder(table);
-                t.remove_record(0);
-                t.build()
-            }
+        let mut table = {
+            let mut t = Table::builder(table);
+            t.remove_record(0);
+            t.insert_record(0, header);
+            t.build()
         };
 
         table
@@ -275,11 +268,11 @@ fn print_pending_inner<W: Write>(
         printer
             .print_table(
                 remove_display,
-                Some(vec![
+                vec![
                     fl!("table-name").as_str(),
                     fl!("table-size").as_str(),
                     fl!("table-detail").as_str(),
-                ]),
+                ],
             )
             .ok();
         printer.print("\n").ok();
@@ -311,11 +304,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     install_e_display,
-                    Some(vec![
+                    vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
-                    ]),
+                    ],
                 )
                 .ok();
             printer.print("\n").ok();
@@ -340,11 +333,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     update_display,
-                    Some(vec![
+                    vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
-                    ]),
+                    ],
                 )
                 .ok();
             printer.print("\n").ok();
@@ -369,11 +362,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     downgrade_display,
-                    Some(vec![
+                    vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
-                    ]),
+                    ],
                 )
                 .ok();
             printer.print("\n").ok();
@@ -398,11 +391,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     reinstall_display,
-                    Some(vec![
+                    vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
-                    ]),
+                    ],
                 )
                 .ok();
             printer.print("\n").ok();
