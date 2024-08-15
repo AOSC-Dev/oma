@@ -52,7 +52,7 @@ pub fn execute(pkg: &str, color_format: OmaColorFormat) -> Result<i32, OutputErr
                     "{} {}: {}",
                     color_format.color_str(pkg.name(), Action::Emphasis).bold(),
                     color_format.color_str(format!("({})", file), Action::Secondary),
-                    color_format.color_str(desc, Action::EmphasisSecondary),
+                    desc
                 );
             }
         }
