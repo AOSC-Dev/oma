@@ -1,5 +1,5 @@
-use std::borrow::Cow;
 use std::error::Error;
+use std::io::stdout;
 use std::path::Path;
 
 use oma_console::due_to;
@@ -12,6 +12,7 @@ use tracing::error;
 
 use crate::error::OutputError;
 use crate::fl;
+use crate::table::PagerPrinter;
 
 pub fn execute(pkg: &str, color_format: OmaColorFormat) -> Result<i32, OutputError> {
     let arch = dpkg_arch("/")?;
@@ -34,27 +35,30 @@ pub fn execute(pkg: &str, color_format: OmaColorFormat) -> Result<i32, OutputErr
             let oma_apt_args = OmaAptArgsBuilder::default().build()?;
             let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-            for (pkg, file) in res {
-                let pkg = apt.cache.get(&pkg);
-                if pkg.is_none() {
-                    continue;
-                }
-                let pkg = pkg.unwrap();
+            let res = res.into_iter().filter_map(|(pkg, file)| {
+                let pkg = apt.cache.get(&pkg)?;
                 let desc = pkg
                     .candidate()
                     .and_then(|x| {
                         x.description()
-                            .map(|x| Cow::Owned(format_description(&x).0.to_string()))
+                            .map(|x| format_description(&x).0.to_string())
                     })
-                    .unwrap_or(Cow::Borrowed("no description."));
+                    .unwrap_or_else(|| "no description.".to_string());
 
-                println!(
-                    "{} {}: {}",
-                    color_format.color_str(pkg.name(), Action::Emphasis).bold(),
-                    color_format.color_str(format!("({})", file), Action::Secondary),
-                    desc
-                );
-            }
+                return Some((
+                    color_format
+                        .color_str(pkg.name(), Action::Emphasis)
+                        .bold()
+                        .to_string(),
+                    color_format.color_str(file, Action::Secondary).to_string(),
+                    desc,
+                ));
+            });
+
+            let mut printer = PagerPrinter::new(stdout());
+            printer
+                .print_table(res, vec!["Name", "Path", "Ddescription"].into())
+                .ok();
         }
         Err(e) => {
             if !matches!(e, OmaContentsError::NoResult) {

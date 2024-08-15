@@ -152,7 +152,11 @@ impl<W: Write> PagerPrinter<W> {
                 t.insert_record(0, h);
                 t.build()
             }
-            None => Table::new(table),
+            None => {
+                let mut t = Table::builder(table);
+                t.remove_record(0);
+                t.build()
+            }
         };
 
         table
