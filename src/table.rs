@@ -3,7 +3,7 @@ use std::io::Write;
 use std::sync::atomic::Ordering;
 
 use crate::color_formatter;
-use crate::console::{style, Color};
+use crate::console::style;
 use crate::error::OutputError;
 use crate::{fl, ALLOWCTRLC};
 use oma_console::indicatif::HumanBytes;
@@ -432,7 +432,7 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>, pager_name: Option<&str>)
         printer
             .print(format!(
                 "{:<80}",
-                style(fl!("pending-op")).bold().bg(Color::Color256(25))
+                color_formatter().color_str(fl!("pending-op"), Action::PendingBg)
             ))
             .ok();
     }
