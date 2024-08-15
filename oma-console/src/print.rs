@@ -56,14 +56,14 @@ pub struct OmaColorFormat {
 }
 
 impl OmaColorFormat {
-    pub fn new(follow: bool, theme_rgb: Result<Theme, termbg::Error>) -> Self {
+    pub fn new(follow: bool, theme: Result<Theme, termbg::Error>) -> Self {
         Self {
             follow: if follow {
                 StyleFollow::TermTheme
             } else {
                 StyleFollow::OmaTheme
             },
-            theme: theme_rgb,
+            theme,
         }
     }
 

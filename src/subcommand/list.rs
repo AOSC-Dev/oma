@@ -1,13 +1,13 @@
 use std::{borrow::Cow, io::stdout, sync::atomic::Ordering};
 
-use oma_console::print::{Action, OmaColorFormat};
+use oma_console::print::Action;
 use oma_pm::{
     apt::{FilterMode, OmaApt, OmaAptArgsBuilder},
     PkgCurrentState,
 };
 use tracing::info;
 
-use crate::{error::OutputError, table::PagerPrinter};
+use crate::{color_formatter, error::OutputError, table::PagerPrinter};
 use crate::{fl, ALLOWCTRLC};
 use anyhow::anyhow;
 use smallvec::{smallvec, SmallVec};
@@ -20,12 +20,7 @@ pub struct ListFlags {
     pub auto: bool,
 }
 
-pub fn execute(
-    flags: ListFlags,
-    pkgs: Vec<String>,
-    sysroot: String,
-    color_format: OmaColorFormat,
-) -> Result<i32, OutputError> {
+pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
     let ListFlags {
         all,
         installed,
@@ -174,12 +169,12 @@ pub fn execute(
             printer
                 .print(format!(
                     "{}/{} {} {arch} {s}",
-                    color_format.color_str(name, Action::Emphasis).bold(),
-                    color_format.color_str(branches, Action::Secondary),
+                    color_formatter().color_str(name, Action::Emphasis).bold(),
+                    color_formatter().color_str(branches, Action::Secondary),
                     if upgradable {
-                        color_format.color_str(version_str, Action::WARN)
+                        color_formatter().color_str(version_str, Action::WARN)
                     } else {
-                        color_format.color_str(version_str, Action::EmphasisSecondary)
+                        color_formatter().color_str(version_str, Action::EmphasisSecondary)
                     }
                 ))
                 .ok();

@@ -3,6 +3,7 @@ use std::io;
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 mod args;
@@ -57,6 +58,8 @@ static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
 static DEBUG: AtomicBool = AtomicBool::new(false);
+
+static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
 
 #[derive(Debug, Default)]
 pub struct InstallArgs {
@@ -276,8 +279,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             Some(Ok(Some(true)))
         );
 
-    let color_formatter =
-        OmaColorFormat::new(follow_term_color, termbg::theme(Duration::from_millis(100)));
+    COLOR_FORMATTER.get_or_init(|| {
+        OmaColorFormat::new(follow_term_color, termbg::theme(Duration::from_millis(100)))
+    });
 
     let no_check_dbus = if matches.get_flag("no_check_dbus") {
         true
@@ -388,7 +392,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap();
 
-            search::execute(&args, no_progress, sysroot, color_formatter)?
+            search::execute(&args, no_progress, sysroot)?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
@@ -423,7 +427,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             mark::execute(op, pkgs, dry_run, sysroot)?
         }
         Some(("command-not-found", args)) => {
-            command_not_found::execute(args.get_one::<String>("package").unwrap(), color_formatter)?
+            command_not_found::execute(args.get_one::<String>("package").unwrap())?
         }
         Some(("list", args)) => {
             let pkgs = pkgs_getter(args).unwrap_or_default();
@@ -441,7 +445,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 auto,
             };
 
-            list::execute(flags, pkgs, sysroot, color_formatter)?
+            list::execute(flags, pkgs, sysroot)?
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
@@ -503,7 +507,6 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 network_thread: oma_args.network_thread,
                 client,
                 no_check_dbus,
-                color_format: color_formatter,
             })?
         }
         Some((cmd, args)) => {
@@ -536,6 +539,14 @@ fn no_refresh_topics(config: &Config, args: &ArgMatches) -> bool {
 
     config.no_refresh_topics() || args.get_flag("no_refresh_topics")
 }
+
+#[inline]
+fn color_formatter() -> &'static OmaColorFormat {
+    COLOR_FORMATTER
+        .get()
+        .unwrap()
+}
+
 
 fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
     let mut unlock = true;

@@ -4,7 +4,7 @@ use dialoguer::console::style;
 use oma_console::{
     indicatif::ProgressBar,
     pb::oma_spinner,
-    print::{Action, OmaColorFormat},
+    print::Action,
     writer::{gen_prefix, writeln_inner, MessageType},
     WRITER,
 };
@@ -14,17 +14,12 @@ use oma_pm::{
     PackageStatus,
 };
 
-use crate::{error::OutputError, table::oma_display_with_normal_output};
+use crate::{color_formatter, error::OutputError, table::oma_display_with_normal_output};
 use crate::{fl, AILURUS};
 
 use super::utils::check_unsupport_stmt;
 
-pub fn execute(
-    args: &[String],
-    no_progress: bool,
-    sysroot: String,
-    color_format: OmaColorFormat,
-) -> Result<i32, OutputError> {
+pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i32, OutputError> {
     for arg in args {
         check_unsupport_stmt(arg);
     }
@@ -61,12 +56,12 @@ pub fn execute(
 
     for i in res {
         let mut pkg_info_line = if i.is_base {
-            color_format
+            color_formatter()
                 .color_str(&i.name, Action::Purple)
                 .bold()
                 .to_string()
         } else {
-            color_format
+            color_formatter()
                 .color_str(&i.name, Action::Emphasis)
                 .bold()
                 .to_string()
@@ -77,12 +72,12 @@ pub fn execute(
         if i.status == PackageStatus::Upgrade {
             pkg_info_line.push_str(&format!(
                 "{} -> {}",
-                color_format.color_str(i.old_version.unwrap(), Action::WARN),
-                color_format.color_str(&i.new_version, Action::EmphasisSecondary)
+                color_formatter().color_str(i.old_version.unwrap(), Action::WARN),
+                color_formatter().color_str(&i.new_version, Action::EmphasisSecondary)
             ));
         } else {
             pkg_info_line.push_str(
-                &color_format
+                &color_formatter()
                     .color_str(&i.new_version, Action::EmphasisSecondary)
                     .to_string(),
             );
@@ -101,7 +96,7 @@ pub fn execute(
         if !pkg_tags.is_empty() {
             pkg_info_line.push(' ');
             pkg_info_line.push_str(
-                &color_format
+                &color_formatter()
                     .color_str(format!("[{}]", pkg_tags.join(",")), Action::Note)
                     .to_string(),
             );
@@ -109,8 +104,10 @@ pub fn execute(
 
         let prefix = match i.status {
             PackageStatus::Avail => style("AVAIL").dim(),
-            PackageStatus::Installed => color_format.color_str("INSTALLED", Action::Foreground),
-            PackageStatus::Upgrade => color_format.color_str("UPGRADE", Action::WARN),
+            PackageStatus::Installed => {
+                color_formatter().color_str("INSTALLED", Action::Foreground)
+            }
+            PackageStatus::Upgrade => color_formatter().color_str("UPGRADE", Action::WARN),
         }
         .to_string();
 
@@ -127,7 +124,7 @@ pub fn execute(
                         writeln!(
                             writer,
                             "{}",
-                            color_format.color_str(s.trim(), Action::Secondary)
+                            color_formatter().color_str(s.trim(), Action::Secondary)
                         )
                     }
                     MessageType::Prefix => write!(writer, "{}", gen_prefix(s, 10)),

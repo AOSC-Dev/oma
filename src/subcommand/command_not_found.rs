@@ -3,7 +3,7 @@ use std::io::stdout;
 use std::path::Path;
 
 use oma_console::due_to;
-use oma_console::print::{Action, OmaColorFormat};
+use oma_console::print::Action;
 use oma_contents::{OmaContentsError, QueryMode};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use oma_pm::format_description;
@@ -11,10 +11,10 @@ use oma_utils::dpkg::dpkg_arch;
 use tracing::error;
 
 use crate::error::OutputError;
-use crate::fl;
+use crate::{color_formatter, fl};
 use crate::table::PagerPrinter;
 
-pub fn execute(pkg: &str, color_format: OmaColorFormat) -> Result<i32, OutputError> {
+pub fn execute(pkg: &str) -> Result<i32, OutputError> {
     let arch = dpkg_arch("/")?;
     let res = oma_contents::find(
         pkg,
@@ -46,11 +46,11 @@ pub fn execute(pkg: &str, color_format: OmaColorFormat) -> Result<i32, OutputErr
                     .unwrap_or_else(|| "no description.".to_string());
 
                 return Some((
-                    color_format
+                    color_formatter()
                         .color_str(pkg.name(), Action::Emphasis)
                         .bold()
                         .to_string(),
-                    color_format.color_str(file, Action::Secondary).to_string(),
+                    color_formatter().color_str(file, Action::Secondary).to_string(),
                     desc,
                 ));
             });

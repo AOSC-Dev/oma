@@ -8,7 +8,7 @@ use crossterm::{
 };
 use dialoguer::console::style;
 use oma_console::{
-    print::{Action, OmaColorFormat},
+    print::Action,
     writer::{gen_prefix, writeln_inner, MessageType},
     WRITER,
 };
@@ -16,7 +16,7 @@ use oma_history::SummaryType;
 use reqwest::Client;
 
 use crate::{
-    fl,
+    color_formatter, fl,
     utils::{create_async_runtime, dbus_check},
 };
 use oma_pm::{
@@ -46,14 +46,14 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct FormatSearchResult(String);
 
 impl FormatSearchResult {
-    fn new(i: &SearchResult, color_format: &OmaColorFormat) -> Self {
+    fn new(i: &SearchResult) -> Self {
         let mut pkg_info_line = if i.is_base {
-            color_format
+            color_formatter()
                 .color_str(&i.name, Action::Purple)
                 .bold()
                 .to_string()
         } else {
-            color_format
+            color_formatter()
                 .color_str(&i.name, Action::Emphasis)
                 .to_string()
         };
@@ -63,12 +63,12 @@ impl FormatSearchResult {
         if i.status == PackageStatus::Upgrade {
             pkg_info_line.push_str(&format!(
                 "{} -> {}",
-                color_format.color_str(i.old_version.as_ref().unwrap(), Action::WARN),
-                color_format.color_str(&i.new_version, Action::EmphasisSecondary)
+                color_formatter().color_str(i.old_version.as_ref().unwrap(), Action::WARN),
+                color_formatter().color_str(&i.new_version, Action::EmphasisSecondary)
             ));
         } else {
             pkg_info_line.push_str(
-                &color_format
+                &color_formatter()
                     .color_str(&i.new_version, Action::EmphasisSecondary)
                     .to_string(),
             );
@@ -87,7 +87,7 @@ impl FormatSearchResult {
         if !pkg_tags.is_empty() {
             pkg_info_line.push(' ');
             pkg_info_line.push_str(
-                &color_format
+                &color_formatter()
                     .color_str(format!("[{}]", pkg_tags.join(",")), Action::Note)
                     .to_string(),
             );
@@ -95,8 +95,10 @@ impl FormatSearchResult {
 
         let prefix = match i.status {
             PackageStatus::Avail => style("AVAIL").dim(),
-            PackageStatus::Installed => color_format.color_str("INSTALLED", Action::Foreground),
-            PackageStatus::Upgrade => color_format.color_str("UPGRADE", Action::WARN),
+            PackageStatus::Installed => {
+                color_formatter().color_str("INSTALLED", Action::Foreground)
+            }
+            PackageStatus::Upgrade => color_formatter().color_str("UPGRADE", Action::WARN),
         }
         .to_string();
 
@@ -112,7 +114,7 @@ impl FormatSearchResult {
             |t, s| match t {
                 MessageType::Msg => desc.push_str(&format!(
                     "{}\n",
-                    color_format.color_str(s.trim(), Action::Secondary)
+                    color_formatter().color_str(s.trim(), Action::Secondary)
                 )),
                 MessageType::Prefix => desc.push_str(&gen_prefix(s, 10)),
             },
@@ -198,7 +200,6 @@ pub struct Tui {
     pub network_thread: usize,
     pub client: Client,
     pub no_check_dbus: bool,
-    pub color_format: OmaColorFormat,
 }
 
 pub fn execute(tui: Tui) -> Result<i32, OutputError> {
@@ -212,7 +213,6 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         network_thread,
         client,
         no_check_dbus,
-        color_format,
     } = tui;
 
     let fds = if !no_check_dbus {
@@ -270,12 +270,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         .borrow()
         .clone()
         .into_iter()
-        .filter_map(|x| {
-            FormatSearchResult::new(&x, &color_format)
-                .0
-                .into_text()
-                .ok()
-        })
+        .filter_map(|x| FormatSearchResult::new(&x).0.into_text().ok())
         .collect::<Vec<_>>();
 
     let input = Rc::new(RefCell::new("".to_string()));
@@ -608,9 +603,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                         if let Ok(res) = res {
                             let res_display = res
                                 .iter()
-                                .filter_map(|x| {
-                                    FormatSearchResult::new(x, &color_format).0.into_text().ok()
-                                })
+                                .filter_map(|x| FormatSearchResult::new(x).0.into_text().ok())
                                 .collect::<Vec<_>>();
                             display_list = StatefulList::with_items(res_display);
                             result_rc.replace(res);
@@ -656,9 +649,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                             if let Ok(res) = res {
                                 let res_display = res
                                     .iter()
-                                    .filter_map(|x| {
-                                        FormatSearchResult::new(x, &color_format).0.into_text().ok()
-                                    })
+                                    .filter_map(|x| FormatSearchResult::new(x).0.into_text().ok())
                                     .collect::<Vec<_>>();
 
                                 display_list = StatefulList::with_items(res_display);
