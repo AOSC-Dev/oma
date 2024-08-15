@@ -1,7 +1,8 @@
 use std::sync::LazyLock;
 
 use i18n_embed::{
-    fluent::{fluent_language_loader, FluentLanguageLoader}, DefaultLocalizer, LanguageLoader, Localizer
+    fluent::{fluent_language_loader, FluentLanguageLoader},
+    DefaultLocalizer, LanguageLoader, Localizer,
 };
 use rust_embed::RustEmbed;
 
@@ -12,7 +13,9 @@ struct Localizations;
 pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     let loader: FluentLanguageLoader = fluent_language_loader!();
 
-    loader.load_fallback_language(&Localizations).expect("Error while loading fallback language");
+    loader
+        .load_fallback_language(&Localizations)
+        .expect("Error while loading fallback language");
     // Windows Terminal doesn't support bidirectional (BiDi) text, and renders the isolate characters incorrectly.
     // This is a temporary workaround for https://github.com/microsoft/terminal/issues/16574
     // TODO: this might break BiDi text, though we don't support any writing system depends on that.
