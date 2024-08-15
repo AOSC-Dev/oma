@@ -57,7 +57,7 @@ pub fn execute(pkg: &str, color_format: OmaColorFormat) -> Result<i32, OutputErr
 
             let mut printer = PagerPrinter::new(stdout());
             printer
-                .print_table(res, vec!["Name", "Path", "Ddescription"].into())
+                .print_table(res, vec!["Name", "Path", "Ddescription"])
                 .ok();
         }
         Err(e) => {
