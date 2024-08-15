@@ -2,7 +2,7 @@ name: deb-build
 
 on:
   push:
-    tags: [ "*" ]
+    tags: [ "v*" ]
 
 jobs:
   package:
