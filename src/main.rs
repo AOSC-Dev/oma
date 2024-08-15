@@ -20,6 +20,7 @@ use anyhow::anyhow;
 
 use clap::ArgMatches;
 use error::OutputError;
+use i18n_embed::DesktopLanguageRequester;
 use list::ListFlags;
 use oma_console::print::{termbg, OmaColorFormat};
 use oma_console::writer::{writeln_inner, MessageType, Writer};
@@ -104,6 +105,13 @@ pub struct OmaArgs {
 }
 
 fn main() {
+    let localizer = crate::lang::localizer();
+    let requested_languages = DesktopLanguageRequester::requested_languages();
+
+    if let Err(error) = localizer.select(&requested_languages) {
+        eprintln!("Error while loading languages for library_fluent {}", error);
+    }
+
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
