@@ -11,8 +11,8 @@ use oma_utils::dpkg::dpkg_arch;
 use tracing::error;
 
 use crate::error::OutputError;
-use crate::{color_formatter, fl};
 use crate::table::PagerPrinter;
+use crate::{color_formatter, fl};
 
 pub fn execute(pkg: &str) -> Result<i32, OutputError> {
     let arch = dpkg_arch("/")?;
@@ -50,7 +50,9 @@ pub fn execute(pkg: &str) -> Result<i32, OutputError> {
                         .color_str(pkg.name(), Action::Emphasis)
                         .bold()
                         .to_string(),
-                    color_formatter().color_str(file, Action::Secondary).to_string(),
+                    color_formatter()
+                        .color_str(file, Action::Secondary)
+                        .to_string(),
                     desc,
                 ));
             });

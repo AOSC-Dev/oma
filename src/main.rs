@@ -542,11 +542,8 @@ fn no_refresh_topics(config: &Config, args: &ArgMatches) -> bool {
 
 #[inline]
 fn color_formatter() -> &'static OmaColorFormat {
-    COLOR_FORMATTER
-        .get()
-        .unwrap()
+    COLOR_FORMATTER.get().unwrap()
 }
-
 
 fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
     let mut unlock = true;
