@@ -451,7 +451,7 @@ fn locale_has_zh() -> anyhow::Result<bool> {
     let locales = std::process::Command::new("locale").arg("-a").output()?;
     let lines = locales.stdout.lines();
 
-    Ok(lines.flatten().any(|x| x.starts_with("zh_")))
+    Ok(lines.map_while(Result::ok).any(|x| x.starts_with("zh_")))
 }
 
 /// List all the available plugins/helper scripts
