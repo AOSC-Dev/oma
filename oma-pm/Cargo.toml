@@ -38,3 +38,6 @@ cxx = "1.0.121"
 dashmap = "6"
 indicatif = "0.17"
 oma-console = { version = "^0.13.0", path = "../oma-console", default-features = false, features = ["progress_bar_style"] }
+
+[features]
+aosc = []

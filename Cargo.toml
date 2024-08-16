@@ -40,7 +40,7 @@ glob-match = "0.2"
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
 oma-console = { path = "./oma-console" }
-oma-pm = { path = "./oma-pm" }
+oma-pm = { path = "./oma-pm", features = ["aosc"] }
 oma-refresh = { path = "./oma-refresh", default-features = false }
 oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch", default-features = false }
