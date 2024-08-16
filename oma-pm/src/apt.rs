@@ -1250,7 +1250,6 @@ fn mark_install(
             let is_marked = pkg.mark_reinstall(true);
             pkg.protect();
 
-            #[cfg(feature = "aosc")]
             if install_recommends {
                 also_install_recommends(&ver, cache);
             }
@@ -1281,6 +1280,7 @@ fn mark_install_inner(pkg: &Package) -> bool {
     pkg.mark_install(false, true)
 }
 
+#[cfg(feature = "aosc")]
 fn also_install_recommends(ver: &Version, cache: &Cache) {
     let recommends = ver.recommends();
 
@@ -1301,6 +1301,9 @@ fn also_install_recommends(ver: &Version, cache: &Cache) {
         }
     }
 }
+
+#[cfg(not(feature = "aosc"))]
+fn also_install_recommends(_ver: &Version, _cache: &Cache) {}
 
 fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
     let mut result = vec![];
