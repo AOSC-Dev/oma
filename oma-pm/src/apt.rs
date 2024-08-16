@@ -39,7 +39,7 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
-    pkginfo::{PkgInfo, PtrIsNone},
+    pkginfo::{OmaDependency, PkgInfo, PtrIsNone},
     progress::{InstallProgressArgs, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
 };
@@ -295,8 +295,11 @@ impl OmaApt {
         reinstall: bool,
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
+
+        let install_recommends = self.config.bool("APT::Install-Recommends", true);
+
         for pkg in pkgs {
-            let marked_install = mark_install(&self.cache, pkg, reinstall)?;
+            let marked_install = mark_install(&self.cache, pkg, reinstall, install_recommends)?;
 
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
@@ -1211,7 +1214,12 @@ fn select_pkg(
 }
 
 /// Mark package as install.
-fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResult<bool> {
+fn mark_install(
+    cache: &Cache,
+    pkginfo: &PkgInfo,
+    reinstall: bool,
+    install_recommends: bool,
+) -> OmaAptResult<bool> {
     let pkg = unsafe { pkginfo.raw_pkg.unique() }
         .make_safe()
         .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?;
@@ -1241,18 +1249,19 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
 
             let is_marked = pkg.mark_reinstall(true);
             pkg.protect();
+
+            #[cfg(feature = "aosc")]
+            if install_recommends {
+                also_install_recommends(&ver, cache);
+            }
+
             return Ok(is_marked);
         }
     }
 
     pkg.protect();
 
-    // 根据 Packagekit 的源码
-    // https://github.com/PackageKit/PackageKit/blob/a0a52ce90adb75a5df7ad1f0b1c9888f2eaf1a7b/backends/apt/apt-job.cpp#L388
-    // 先标记 auto_inst 为 true 把所有该包的依赖标记为自动安装
-    // 再把本包的 auto_inst 标记为 false，检查依赖问题
-    pkg.mark_install(true, true);
-    pkg.mark_install(false, true);
+    mark_install_inner(&pkg);
 
     debug!("marked_install: {}", pkg.marked_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
@@ -1261,6 +1270,34 @@ fn mark_install(cache: &Cache, pkginfo: &PkgInfo, reinstall: bool) -> OmaAptResu
     debug!("{} will marked install", pkg.name());
 
     Ok(true)
+}
+
+fn mark_install_inner(pkg: &Package) -> bool {
+    // 根据 Packagekit 的源码
+    // https://github.com/PackageKit/PackageKit/blob/a0a52ce90adb75a5df7ad1f0b1c9888f2eaf1a7b/backends/apt/apt-job.cpp#L388
+    // 先标记 auto_inst 为 true 把所有该包的依赖标记为自动安装
+    // 再把本包的 auto_inst 标记为 false，检查依赖问题
+    pkg.mark_install(true, true);
+    pkg.mark_install(false, true)
+}
+
+fn also_install_recommends(ver: &Version, cache: &Cache) {
+    let recommends = ver.recommends();
+
+    if let Some(recommends) = recommends {
+        let group = OmaDependency::map_deps(recommends);
+        for base_deps in group.inner() {
+            for dep in base_deps {
+                if let Some(pkg) = cache.get(&dep.name) {
+                    if !mark_install_inner(&pkg) {
+                        warn!("Failed to mark install recommend: {}", dep.name);
+                    }
+                    continue;
+                }
+                warn!("Recommand {} does not exist.", dep.name);
+            }
+        }
+    }
 }
 
 fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
