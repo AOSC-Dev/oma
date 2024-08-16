@@ -1291,6 +1291,8 @@ fn also_install_recommends(ver: &Version, cache: &Cache) {
                 if let Some(pkg) = cache.get(&dep.name) {
                     if !mark_install_inner(&pkg) {
                         warn!("Failed to mark install recommend: {}", dep.name);
+                    } else {
+                        pkg.protect();
                     }
                     continue;
                 }
