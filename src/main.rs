@@ -22,6 +22,7 @@ use anyhow::anyhow;
 use clap::ArgMatches;
 use error::OutputError;
 use i18n_embed::DesktopLanguageRequester;
+use lang::LANGUAGE_LOADER;
 use list::ListFlags;
 use oma_console::print::{termbg, OmaColorFormat};
 use oma_console::writer::{writeln_inner, MessageType, Writer};
@@ -114,6 +115,11 @@ fn main() {
     if let Err(error) = localizer.select(&requested_languages) {
         eprintln!("Error while loading languages for library_fluent {}", error);
     }
+
+    // Windows Terminal doesn't support bidirectional (BiDi) text, and renders the isolate characters incorrectly.
+    // This is a temporary workaround for https://github.com/microsoft/terminal/issues/16574
+    // TODO: this might break BiDi text, though we don't support any writing system depends on that.
+    LANGUAGE_LOADER.set_use_isolating(false);
 
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
