@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use console::{style, Color, StyledObject};
 use termbg::Theme;
-use tracing::{field::Field, warn, Level};
+use tracing::{debug, field::Field, Level};
 use tracing_subscriber::Layer;
 
 pub use termbg;
@@ -85,7 +85,7 @@ impl OmaColorFormat {
                     x => style(input).color256(x.light()),
                 },
                 Err(e) => {
-                    warn!("{e}");
+                    debug!("Failed to use oma theme color, will fallback to terminal color: {e:?}");
                     term_color(input, color)
                 }
             },
