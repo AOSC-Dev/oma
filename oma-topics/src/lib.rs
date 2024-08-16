@@ -305,7 +305,7 @@ impl<'a> TopicManager<'a> {
     }
 
     async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
-        check(&self.client, &format!("{}InRelease", url)).await
+        check(&self.client, &format!("{}/InRelease", url)).await
     }
 }
 

@@ -61,7 +61,7 @@ clap = { version = "4.3", features = ["cargo", "wrap_help", "color", "string"] }
 anyhow = "1.0.75"
 
 [features]
-aosc = ["dep:oma-topics", "oma-refresh/aosc"]
+aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc"]
 contents-without-rg = ["oma-contents/no-rg-binary"]
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]

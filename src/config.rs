@@ -19,6 +19,8 @@ pub struct GeneralConfig {
     pub no_check_dbus: bool,
     #[serde(default = "GeneralConfig::default_no_refresh_topics")]
     pub no_refresh_topics: bool,
+    #[serde(default = "GeneralConfig::default_follow_terminal_color")]
+    pub follow_terminal_color: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -43,6 +45,10 @@ impl GeneralConfig {
     }
 
     pub const fn default_no_refresh_topics() -> bool {
+        false
+    }
+
+    pub const fn default_follow_terminal_color() -> bool {
         false
     }
 }
@@ -79,5 +85,12 @@ impl Config {
             .as_ref()
             .map(|x| x.no_refresh_topics)
             .unwrap_or_else(GeneralConfig::default_no_refresh_topics)
+    }
+
+    pub fn follow_terminal_color(&self) -> bool {
+        self.general
+            .as_ref()
+            .map(|x| x.follow_terminal_color)
+            .unwrap_or_else(GeneralConfig::default_follow_terminal_color)
     }
 }

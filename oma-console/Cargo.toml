@@ -1,6 +1,6 @@
 [package]
 name = "oma-console"
-version = "0.11.0"
+version = "0.13.1"
 edition = "2021"
 description = "Console and terminal emulator handling library used by oma"
 license = "MIT"
@@ -16,9 +16,12 @@ tracing-subscriber =  { version = "0.3", optional = true }
 ratatui = { version = "=0.26", optional = true }
 crossterm = { version = "0.28", optional = true }
 ansi-to-tui = { version = "4.0", optional = true }
+termbg = { version = "0.5", optional = true }
+
 
 [features]
-print = ["dep:tracing", "dep:tracing-subscriber", "dep:icu_segmenter", "dep:console"]
+print = ["dep:tracing", "dep:tracing-subscriber", "dep:icu_segmenter", "dep:console", "dep:termbg"]
 pager = ["dep:ratatui", "dep:crossterm", "dep:ansi-to-tui"]
+
 progress_bar_style = ["dep:indicatif"]
 default = ["print", "pager", "progress_bar_style"]

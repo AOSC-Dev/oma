@@ -1,9 +1,112 @@
 use std::collections::BTreeMap;
 
-use tracing::{field::Field, Level};
+use console::{style, Color, StyledObject};
+use termbg::Theme;
+use tracing::{debug, field::Field, Level};
 use tracing_subscriber::Layer;
 
+pub use termbg;
+
 use crate::WRITER;
+
+enum StyleFollow {
+    OmaTheme,
+    TermTheme,
+}
+
+pub enum Action {
+    Emphasis,
+    Foreground,
+    Secondary,
+    EmphasisSecondary,
+    WARN,
+    Purple,
+    Note,
+    UpgradeTips,
+    PendingBg,
+}
+
+impl Action {
+    fn dark(&self) -> u8 {
+        match self {
+            Action::Emphasis => 148,
+            Action::Foreground => 72,
+            Action::Secondary => 182,
+            Action::EmphasisSecondary => 114,
+            Action::WARN => 214,
+            Action::Purple => 141,
+            Action::Note => 178,
+            Action::UpgradeTips => 87,
+            Action::PendingBg => 25,
+        }
+    }
+
+    fn light(&self) -> u8 {
+        match self {
+            Action::Emphasis => 142,
+            Action::Foreground => 72,
+            Action::Secondary => 167,
+            Action::EmphasisSecondary => 106,
+            Action::WARN => 208,
+            Action::Purple => 141,
+            Action::Note => 172,
+            Action::UpgradeTips => 63,
+            Action::PendingBg => 189,
+        }
+    }
+}
+
+pub struct OmaColorFormat {
+    follow: StyleFollow,
+    theme: Result<Theme, termbg::Error>,
+}
+
+impl OmaColorFormat {
+    pub fn new(follow: bool, theme: Result<Theme, termbg::Error>) -> Self {
+        Self {
+            follow: if follow {
+                StyleFollow::TermTheme
+            } else {
+                StyleFollow::OmaTheme
+            },
+            theme,
+        }
+    }
+
+    pub fn color_str<D>(&self, input: D, color: Action) -> StyledObject<D> {
+        match self.follow {
+            StyleFollow::OmaTheme => match &self.theme {
+                Ok(Theme::Dark) => match color {
+                    x @ Action::PendingBg => style(input).bg(Color::Color256(x.dark())).bold(),
+                    x => style(input).color256(x.dark()),
+                },
+                Ok(Theme::Light) => match color {
+                    x @ Action::PendingBg => style(input).bg(Color::Color256(x.light())).bold(),
+                    x => style(input).color256(x.light()),
+                },
+                Err(e) => {
+                    debug!("Failed to use oma theme color, will fallback to terminal color: {e:?}");
+                    term_color(input, color)
+                }
+            },
+            StyleFollow::TermTheme => term_color(input, color),
+        }
+    }
+}
+
+fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
+    match color {
+        Action::Emphasis => style(input).green(),
+        Action::Secondary => style(input).dim(),
+        Action::EmphasisSecondary => style(input).cyan(),
+        Action::WARN => style(input).yellow().bold(),
+        Action::Purple => style(input).magenta(),
+        Action::Note => style(input).yellow(),
+        Action::Foreground => style(input).cyan().bold(),
+        Action::UpgradeTips => style(input).blue().bold(),
+        Action::PendingBg => style(input).bg(Color::Blue).bold(),
+    }
+}
 
 pub struct OmaLayer;
 

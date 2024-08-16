@@ -2,8 +2,7 @@ use std::sync::LazyLock;
 
 use i18n_embed::{
     fluent::{fluent_language_loader, FluentLanguageLoader},
-    unic_langid::LanguageIdentifier,
-    DesktopLanguageRequester, LanguageLoader,
+    DefaultLocalizer, LanguageLoader, Localizer,
 };
 use rust_embed::RustEmbed;
 
@@ -12,21 +11,13 @@ use rust_embed::RustEmbed;
 struct Localizations;
 
 pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
-    let language_loader: FluentLanguageLoader = fluent_language_loader!();
-    let requested_languages = DesktopLanguageRequester::requested_languages();
-    let fallback_language: Vec<LanguageIdentifier> = vec!["en-US".parse().unwrap()];
-    let languages: Vec<LanguageIdentifier> = requested_languages
-        .into_iter()
-        .chain(fallback_language)
-        .collect();
-    language_loader
-        .load_languages(&Localizations, &languages)
-        .expect("Unable to local i18n languager");
-    // Windows Terminal doesn't support bidirectional (BiDi) text, and renders the isolate characters incorrectly.
-    // This is a temporary workaround for https://github.com/microsoft/terminal/issues/16574
-    // TODO: this might break BiDi text, though we don't support any writing system depends on that.
-    language_loader.set_use_isolating(false);
-    language_loader
+    let loader: FluentLanguageLoader = fluent_language_loader!();
+
+    loader
+        .load_fallback_language(&Localizations)
+        .expect("Error while loading fallback language");
+
+    loader
 });
 
 #[macro_export]
@@ -38,4 +29,9 @@ macro_rules! fl {
     ($message_id:literal, $($args:expr),*) => {{
         i18n_embed_fl::fl!($crate::lang::LANGUAGE_LOADER, $message_id, $($args), *)
     }};
+}
+
+// Get the `Localizer` to be used for localizing this library.
+pub fn localizer() -> Box<dyn Localizer> {
+    Box::from(DefaultLocalizer::new(&*LANGUAGE_LOADER, &Localizations))
 }

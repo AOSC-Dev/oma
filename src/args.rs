@@ -1,5 +1,5 @@
 use clap::{builder::PossibleValue, command, Arg, ArgAction, Command};
-use std::{ffi::OsStr, path::PathBuf};
+use std::{ffi::OsStr, io::BufRead, path::PathBuf};
 
 pub fn command_builder() -> Command {
     let dry_run = Arg::new("dry_run")
@@ -56,7 +56,6 @@ pub fn command_builder() -> Command {
     let mut cmd = command!()
         .max_term_width(100)
         .disable_version_flag(true)
-        .after_help("本 oma 具有超级小熊猫力")
         .arg(
             Arg::new("debug")
                 .long("debug")
@@ -71,6 +70,14 @@ pub fn command_builder() -> Command {
                 .help("No color output to result")
                 .action(ArgAction::SetTrue)
                 .global(true)
+        )
+        .arg(
+            Arg::new("follow_terminal_color")
+                .long("follow-terminal-color")
+                .help("Output result with terminal theme color")
+                .action(ArgAction::SetTrue)
+                .global(true)
+                .conflicts_with("no_color")
         )
         .arg(
             Arg::new("no_progress")
@@ -410,6 +417,10 @@ pub fn command_builder() -> Command {
         })
         .subcommand(Command::new("tui").about("Oma tui interface"));
 
+    if locale_has_zh().unwrap_or(false) {
+        cmd = cmd.after_help("本 oma 具有超级小熊猫力！");
+    }
+
     if cfg!(feature = "aosc") {
         cmd = cmd.subcommand(
             Command::new("topics")
@@ -434,6 +445,13 @@ pub fn command_builder() -> Command {
     }
 
     cmd
+}
+
+fn locale_has_zh() -> anyhow::Result<bool> {
+    let locales = std::process::Command::new("locale").arg("-a").output()?;
+    let lines = locales.stdout.lines();
+
+    Ok(lines.map_while(Result::ok).any(|x| x.starts_with("zh_")))
 }
 
 /// List all the available plugins/helper scripts

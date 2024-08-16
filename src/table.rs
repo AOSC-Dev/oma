@@ -2,11 +2,13 @@ use std::fmt::Display;
 use std::io::Write;
 use std::sync::atomic::Ordering;
 
+use crate::color_formatter;
 use crate::console::style;
 use crate::error::OutputError;
 use crate::{fl, ALLOWCTRLC};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::Pager;
+use oma_console::print::Action;
 use oma_console::WRITER;
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 use tabled::settings::object::{Columns, Segment};
@@ -57,7 +59,9 @@ impl From<&InstallEntry> for InstallEntryDisplay {
         let name = match value.op() {
             InstallOperation::Install => style(value.name()).green().to_string(),
             InstallOperation::ReInstall => style(value.name()).blue().to_string(),
-            InstallOperation::Upgrade => style(value.name()).color256(87).to_string(),
+            InstallOperation::Upgrade => color_formatter()
+                .color_str(value.name(), Action::UpgradeTips)
+                .to_string(),
             InstallOperation::Downgrade => style(value.name()).yellow().to_string(),
             InstallOperation::Download => value.name().to_string(),
             InstallOperation::Default => unreachable!(),
@@ -139,19 +143,16 @@ impl<W: Write> PagerPrinter<W> {
         writeln!(self.writer, "{d}")
     }
 
-    pub fn print_table<T, I>(&mut self, table: I, header: Option<Vec<&str>>) -> std::io::Result<()>
+    pub fn print_table<T, I>(&mut self, table: I, header: Vec<&str>) -> std::io::Result<()>
     where
         I: IntoIterator<Item = T>,
         T: Tabled,
     {
-        let mut table = match header {
-            Some(h) => {
-                let mut t = Table::builder(table);
-                t.remove_record(0);
-                t.insert_record(0, h);
-                t.build()
-            }
-            None => Table::new(table),
+        let mut table = {
+            let mut t = Table::builder(table);
+            t.remove_record(0);
+            t.insert_record(0, header);
+            t.build()
         };
 
         table
@@ -270,11 +271,11 @@ fn print_pending_inner<W: Write>(
         printer
             .print_table(
                 remove_display,
-                Some(vec![
+                vec![
                     fl!("table-name").as_str(),
                     fl!("table-size").as_str(),
                     fl!("table-detail").as_str(),
-                ]),
+                ],
             )
             .ok();
         printer.print("\n").ok();
@@ -306,11 +307,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     install_e_display,
-                    Some(vec![
+                    vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
-                    ]),
+                    ],
                 )
                 .ok();
             printer.print("\n").ok();
@@ -327,7 +328,7 @@ fn print_pending_inner<W: Write>(
                 .print(format!(
                     "{} {}{}\n",
                     fl!("count-pkg-has-desc", count = update_display.len()),
-                    style(fl!("upgraded")).color256(87),
+                    color_formatter().color_str(fl!("upgrade"), Action::UpgradeTips),
                     fl!("colon")
                 ))
                 .ok();
@@ -335,11 +336,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     update_display,
-                    Some(vec![
+                    vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
-                    ]),
+                    ],
                 )
                 .ok();
             printer.print("\n").ok();
@@ -364,11 +365,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     downgrade_display,
-                    Some(vec![
+                    vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
-                    ]),
+                    ],
                 )
                 .ok();
             printer.print("\n").ok();
@@ -393,11 +394,11 @@ fn print_pending_inner<W: Write>(
             printer
                 .print_table(
                     reinstall_display,
-                    Some(vec![
+                    vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
-                    ]),
+                    ],
                 )
                 .ok();
             printer.print("\n").ok();
@@ -435,7 +436,9 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
                 "oma-may",
                 a = style(fl!("install")).green().to_string(),
                 b = style(fl!("remove")).red().to_string(),
-                c = style(fl!("upgrade")).color256(87).to_string(),
+                c = color_formatter()
+                    .color_str(fl!("upgrade"), Action::UpgradeTips)
+                    .to_string(),
                 d = style(fl!("downgrade")).yellow().to_string(),
                 e = style(fl!("reinstall")).blue().to_string()
             )

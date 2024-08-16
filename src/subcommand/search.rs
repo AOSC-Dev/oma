@@ -4,6 +4,7 @@ use dialoguer::console::style;
 use oma_console::{
     indicatif::ProgressBar,
     pb::oma_spinner,
+    print::Action,
     writer::{gen_prefix, writeln_inner, MessageType},
     WRITER,
 };
@@ -13,7 +14,7 @@ use oma_pm::{
     PackageStatus,
 };
 
-use crate::{error::OutputError, table::oma_display_with_normal_output};
+use crate::{color_formatter, error::OutputError, table::oma_display_with_normal_output};
 use crate::{fl, AILURUS};
 
 use super::utils::check_unsupport_stmt;
@@ -55,9 +56,15 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
 
     for i in res {
         let mut pkg_info_line = if i.is_base {
-            style(&i.name).bold().color256(141).to_string()
+            color_formatter()
+                .color_str(&i.name, Action::Purple)
+                .bold()
+                .to_string()
         } else {
-            style(&i.name).bold().color256(148).to_string()
+            color_formatter()
+                .color_str(&i.name, Action::Emphasis)
+                .bold()
+                .to_string()
         };
 
         pkg_info_line.push(' ');
@@ -65,11 +72,15 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
         if i.status == PackageStatus::Upgrade {
             pkg_info_line.push_str(&format!(
                 "{} -> {}",
-                style(i.old_version.unwrap()).color256(214),
-                style(&i.new_version).color256(114)
+                color_formatter().color_str(i.old_version.unwrap(), Action::WARN),
+                color_formatter().color_str(&i.new_version, Action::EmphasisSecondary)
             ));
         } else {
-            pkg_info_line.push_str(&style(&i.new_version).color256(114).to_string());
+            pkg_info_line.push_str(
+                &color_formatter()
+                    .color_str(&i.new_version, Action::EmphasisSecondary)
+                    .to_string(),
+            );
         }
 
         let mut pkg_tags = vec![];
@@ -85,16 +96,18 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
         if !pkg_tags.is_empty() {
             pkg_info_line.push(' ');
             pkg_info_line.push_str(
-                &style(format!("[{}]", pkg_tags.join(",")))
-                    .color256(178)
+                &color_formatter()
+                    .color_str(format!("[{}]", pkg_tags.join(",")), Action::Note)
                     .to_string(),
             );
         }
 
         let prefix = match i.status {
             PackageStatus::Avail => style("AVAIL").dim(),
-            PackageStatus::Installed => style("INSTALLED").color256(72),
-            PackageStatus::Upgrade => style("UPGRADE").color256(214),
+            PackageStatus::Installed => {
+                color_formatter().color_str("INSTALLED", Action::Foreground)
+            }
+            PackageStatus::Upgrade => color_formatter().color_str("UPGRADE", Action::WARN),
         }
         .to_string();
 
@@ -107,7 +120,13 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
             WRITER.get_prefix_len(),
             |t, s| {
                 match t {
-                    MessageType::Msg => writeln!(writer, "{}", style(s.trim()).color256(182)),
+                    MessageType::Msg => {
+                        writeln!(
+                            writer,
+                            "{}",
+                            color_formatter().color_str(s.trim(), Action::Secondary)
+                        )
+                    }
                     MessageType::Prefix => write!(writer, "{}", gen_prefix(s, 10)),
                 }
                 .ok();

@@ -3,6 +3,8 @@ use std::io;
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
+use std::sync::OnceLock;
+use std::time::Duration;
 
 mod args;
 mod config;
@@ -20,7 +22,10 @@ use anyhow::anyhow;
 
 use clap::ArgMatches;
 use error::OutputError;
+use i18n_embed::DesktopLanguageRequester;
+use lang::LANGUAGE_LOADER;
 use list::ListFlags;
+use oma_console::print::{termbg, OmaColorFormat};
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
@@ -35,6 +40,7 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter, Layer};
+use tui_deprecated::Tui;
 use utils::create_async_runtime;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -54,6 +60,8 @@ static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static AILURUS: AtomicBool = AtomicBool::new(false);
 static DEBUG: AtomicBool = AtomicBool::new(false);
+
+static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
 
 #[derive(Debug, Default)]
 pub struct InstallArgs {
@@ -101,6 +109,18 @@ pub struct OmaArgs {
 }
 
 fn main() {
+    let localizer = crate::lang::localizer();
+    let requested_languages = DesktopLanguageRequester::requested_languages();
+
+    if let Err(error) = localizer.select(&requested_languages) {
+        eprintln!("Error while loading languages for library_fluent {}", error);
+    }
+
+    // Windows Terminal doesn't support bidirectional (BiDi) text, and renders the isolate characters incorrectly.
+    // This is a temporary workaround for https://github.com/microsoft/terminal/issues/16574
+    // TODO: this might break BiDi text, though we don't support any writing system depends on that.
+    LANGUAGE_LOADER.set_use_isolating(false);
+
     ctrlc::set_handler(single_handler).expect(
         "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
     );
@@ -255,6 +275,19 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         args.get_many::<String>("packages")
             .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
     };
+
+    let follow_term_color = config.follow_terminal_color()
+        || matches.get_flag("follow_terminal_color")
+        || matches!(
+            matches
+                .subcommand()
+                .map(|(_, x)| x.try_get_one("follow_terminal_color")),
+            Some(Ok(Some(true)))
+        );
+
+    COLOR_FORMATTER.get_or_init(|| {
+        OmaColorFormat::new(follow_term_color, termbg::theme(Duration::from_millis(100)))
+    });
 
     let no_check_dbus = if matches.get_flag("no_check_dbus") {
         true
@@ -471,14 +504,14 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         Some(("tui", _)) | None => {
             let client = Client::builder().user_agent("oma").build().unwrap();
 
-            tui_deprecated::execute(
+            tui_deprecated::execute(Tui {
                 sysroot,
                 no_progress,
                 dry_run,
-                oma_args.network_thread,
+                network_thread: oma_args.network_thread,
                 client,
                 no_check_dbus,
-            )?
+            })?
         }
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");
@@ -509,6 +542,11 @@ fn no_refresh_topics(config: &Config, args: &ArgMatches) -> bool {
     }
 
     config.no_refresh_topics() || args.get_flag("no_refresh_topics")
+}
+
+#[inline]
+fn color_formatter() -> &'static OmaColorFormat {
+    COLOR_FORMATTER.get().unwrap()
 }
 
 fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
