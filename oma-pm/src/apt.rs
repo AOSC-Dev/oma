@@ -39,7 +39,7 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
-    pkginfo::{OmaDependency, PkgInfo, PtrIsNone},
+    pkginfo::{PkgInfo, PtrIsNone},
     progress::{InstallProgressArgs, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
 };
@@ -1285,7 +1285,7 @@ fn also_install_recommends(ver: &Version, cache: &Cache) {
     let recommends = ver.recommends();
 
     if let Some(recommends) = recommends {
-        let group = OmaDependency::map_deps(recommends);
+        let group = crate::pkginfo::OmaDependency::map_deps(recommends);
         for base_deps in group.inner() {
             for dep in base_deps {
                 if let Some(pkg) = cache.get(&dep.name) {
