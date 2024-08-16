@@ -40,7 +40,7 @@ glob-match = "0.2"
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
 oma-console = { path = "./oma-console" }
-oma-pm = { path = "./oma-pm", features = ["aosc"] }
+oma-pm = { path = "./oma-pm" }
 oma-refresh = { path = "./oma-refresh", default-features = false }
 oma-contents = { path = "./oma-contents" }
 oma-fetch = { path = "./oma-fetch", default-features = false }
@@ -61,7 +61,7 @@ clap = { version = "4.3", features = ["cargo", "wrap_help", "color", "string"] }
 anyhow = "1.0.75"
 
 [features]
-aosc = ["dep:oma-topics", "oma-refresh/aosc"]
+aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc"]
 contents-without-rg = ["oma-contents/no-rg-binary"]
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
