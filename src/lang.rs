@@ -16,10 +16,7 @@ pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     loader
         .load_fallback_language(&Localizations)
         .expect("Error while loading fallback language");
-    // Windows Terminal doesn't support bidirectional (BiDi) text, and renders the isolate characters incorrectly.
-    // This is a temporary workaround for https://github.com/microsoft/terminal/issues/16574
-    // TODO: this might break BiDi text, though we don't support any writing system depends on that.
-    loader.set_use_isolating(false);
+
     loader
 });
 
