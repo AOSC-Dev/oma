@@ -197,21 +197,17 @@ impl InReleaseParser {
                 let component_type = name_split.next();
 
                 // debian-installer 是为 Debian 安装器专门准备的源，应该没有人把 oma 用在这种场景上面
-                let is_debian_installer = component_type
-                    .map(|x| x == "debian-installer")
-                    .unwrap_or(false);
+                let is_debian_installer = component_type.is_some_and(|x| x == "debian-installer");
 
                 if let Some(c) = component {
                     if c != *name {
-                        components.contains(&c.to_string())
+                        return components.contains(&c.to_string())
                             && ((name.contains("all") || archs.iter().any(|x| name.contains(x)))
-                                && !is_debian_installer)
-                    } else {
-                        name.contains("all") || archs.iter().any(|x| name.contains(x))
+                                && !is_debian_installer);
                     }
-                } else {
-                    name.contains("all") || archs.iter().any(|x| name.contains(x))
                 }
+
+                name.contains("all") || archs.iter().any(|x| name.contains(x))
             })
             .collect::<Vec<_>>();
 
