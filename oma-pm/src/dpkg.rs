@@ -117,11 +117,12 @@ impl Pty {
         }
     }
 
-    fn read_master(&mut self) -> Result<bool, ReadDpkgStatusError> {
+    fn read_master(&mut self, cb: impl Fn(&str)) -> Result<bool, ReadDpkgStatusError> {
         match read_fd(&mut self.pty, &mut self.pty_buf)? {
             PtyStr::Str(string) => {
                 for line in string.lines() {
                     // dprog!(config, progress, "pty", "{line:?}");
+                    debug!("pty: {line}");
 
                     if line.trim().is_empty() || check_spam(line) {
                         continue;
@@ -137,7 +138,7 @@ impl Pty {
                         continue;
                     }
 
-                    dbg!(line);
+                    cb(line);
                 }
                 Ok(true)
             }
@@ -146,12 +147,12 @@ impl Pty {
         }
     }
 
-    fn read_status(&mut self) -> Result<bool, ReadDpkgStatusError> {
+    fn read_status(&mut self, cb: impl Fn(&DpkgStatus)) -> Result<bool, ReadDpkgStatusError> {
         match read_fd(&mut self.status, &mut self.status_buf)? {
             PtyStr::Str(string) => {
                 for line in string.lines() {
                     let status = DpkgStatus::try_from(line)?;
-                    dbg!(status);
+                    cb(&status);
                 }
                 Ok(true)
             }
@@ -224,19 +225,24 @@ impl Pty {
         }
     }
 
-    pub fn listen_to_child(&mut self, child: Pid) -> Result<bool, ReadDpkgStatusError> {
+    pub fn listen_to_child(
+        &mut self,
+        child: Pid,
+        status_handler: impl Fn(&DpkgStatus),
+        line_handler: impl Fn(&str),
+    ) -> Result<bool, ReadDpkgStatusError> {
         if !self.poll(child)? {
             return Ok(false);
         }
 
         debug!("{:#?}", self);
 
-        if self.status_ready() && !self.read_status()? {
+        if self.status_ready() && !self.read_status(status_handler)? {
             return Ok(false);
         }
 
         if self.ready() {
-            return self.read_master();
+            return self.read_master(line_handler);
         }
 
         if self.stdin_ready() {
@@ -273,7 +279,7 @@ fn read_fd<'a>(file: &mut File, buffer: &'a mut [u8]) -> Result<PtyStr<'a>, Read
 }
 
 #[derive(Debug, Default)]
-enum DpkgStatusType {
+pub enum DpkgStatusType {
     Status,
     Error,
     ConfFile,
@@ -293,10 +299,10 @@ impl From<&str> for DpkgStatusType {
 }
 
 #[derive(Debug, Default)]
-struct DpkgStatus {
-    status_type: DpkgStatusType,
-    _pkg_name: String,
-    percent: u64,
+pub struct DpkgStatus {
+    pub status_type: DpkgStatusType,
+    pub pkg_name: String,
+    pub percent: u64,
     _status: String,
 }
 
@@ -308,7 +314,7 @@ impl TryFrom<&str> for DpkgStatus {
 
         Ok(DpkgStatus {
             status_type: DpkgStatusType::from(status[0]),
-            _pkg_name: status[1].into(),
+            pkg_name: status[1].into(),
             percent: status[2].parse::<f64>()? as u64,
             _status: status[3].into(),
         })

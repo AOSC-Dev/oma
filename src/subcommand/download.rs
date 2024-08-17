@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use oma_console::{due_to, success};
-use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{InstallPackageEvent, OmaApt, OmaAptArgsBuilder};
 use reqwest::Client;
 use tracing::error;
 
@@ -42,6 +42,7 @@ pub fn execute(
         Some(&path),
         dry_run,
         |count, event, total| {
+            let event = InstallPackageEvent::from(event);
             if !no_progress {
                 pb!(event, mb, pb_map, count, total, global_is_set)
             } else {

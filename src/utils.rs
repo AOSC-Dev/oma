@@ -29,75 +29,85 @@ macro_rules! pb {
     ($event:expr, $mb:expr, $pb_map:expr, $count:expr, $total:expr, $global_is_set:expr) => {{
         tracing::debug!("{}", $event);
         match $event {
-            oma_fetch::DownloadEvent::ChecksumMismatchRetry { filename, times } => {
-                // println 返回的错误是无法控制终端的 I/O 错误，这种处理应该直接 panic 返回
-                // 所以这里直接 unwrap
-                // （下同）
-                oma_console::writer::bar_writeln(|s| { $mb.println(s).ok(); },
-                    &oma_console::console::style("ERROR")
+            oma_pm::apt::InstallPackageEvent::DownloadEvent(event) => {
+                match event {
+                    oma_fetch::DownloadEvent::ChecksumMismatchRetry { filename, times } => {
+                        // println 返回的错误是无法控制终端的 I/O 错误，这种处理应该直接 panic 返回
+                        // 所以这里直接 unwrap
+                        // （下同）
+                        oma_console::writer::bar_writeln(|s| { $mb.println(s).ok(); },
+                            &oma_console::console::style("ERROR")
+                                .red()
+                                .bold()
+                                .to_string(),
+                            &fl!("checksum-mismatch-retry", c = filename, retry = times))
+                    }
+                    oma_fetch::DownloadEvent::GlobalProgressSet(size) => {
+                        if let Some(pb) = $pb_map.get(&0) {
+                            pb.set_position(size);
+                        }
+                    }
+                    oma_fetch::DownloadEvent::GlobalProgressInc(size) => {
+                        if let Some(pb) = $pb_map.get(&0) {
+                            pb.inc(size);
+                        }
+                    }
+                    oma_fetch::DownloadEvent::ProgressDone => {
+                        if let Some(pb) = $pb_map.get(&($count + 1)) {
+                            pb.finish_and_clear();
+                        }
+                    }
+                    oma_fetch::DownloadEvent::NewProgressSpinner(msg) => {
+                        let (sty, inv) = oma_console::pb::oma_spinner($crate::AILURUS.load(std::sync::atomic::Ordering::Relaxed));
+                        let pb = $mb.insert(
+                            $count + 1,
+                            oma_console::indicatif::ProgressBar::new_spinner().with_style(sty),
+                        );
+                        pb.set_message(msg);
+                        pb.enable_steady_tick(inv);
+                        $pb_map.insert($count + 1, pb);
+                    }
+                    oma_fetch::DownloadEvent::NewProgress(size, msg) => {
+                        let sty =
+                            oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), false);
+                        let pb = $mb.insert(
+                            $count + 1,
+                            oma_console::indicatif::ProgressBar::new(size).with_style(sty),
+                        );
+                        pb.set_message(msg);
+                        $pb_map.insert($count + 1, pb);
+                    }
+                    oma_fetch::DownloadEvent::ProgressInc(size) => {
+                        let pb = $pb_map.get(&($count + 1)).unwrap();
+                        pb.inc(size);
+                    }
+                    oma_fetch::DownloadEvent::ProgressSet(size) => {
+                        let pb = $pb_map.get(&($count + 1)).unwrap();
+                        pb.set_position(size);
+                    }
+                    oma_fetch::DownloadEvent::CanNotGetSourceNextUrl(e) => {
+                        oma_console::writer::bar_writeln(|s| { $mb.println(s).ok(); },
+                        &oma_console::console::style("ERROR")
                         .red()
                         .bold()
                         .to_string(),
-                    &fl!("checksum-mismatch-retry", c = filename, retry = times))
-            }
-            oma_fetch::DownloadEvent::GlobalProgressSet(size) => {
-                if let Some(pb) = $pb_map.get(&0) {
-                    pb.set_position(size);
+                    &fl!("can-not-get-source-next-url", e = e.to_string()), )
+                    }
+                    oma_fetch::DownloadEvent::Done(filename) => {
+                        tracing::debug!("Downloaded {filename}");
+                    }
+                    oma_fetch::DownloadEvent::AllDone => {
+                        if let Some(gpb) = $pb_map.get(&0) {
+                            gpb.finish_and_clear();
+                        }
+                    }
                 }
             }
-            oma_fetch::DownloadEvent::GlobalProgressInc(size) => {
-                if let Some(pb) = $pb_map.get(&0) {
-                    pb.inc(size);
-                }
+            oma_pm::apt::InstallPackageEvent::DpkgEvent(event) => {
+                dbg!(event);
             }
-            oma_fetch::DownloadEvent::ProgressDone => {
-                if let Some(pb) = $pb_map.get(&($count + 1)) {
-                    pb.finish_and_clear();
-                }
-            }
-            oma_fetch::DownloadEvent::NewProgressSpinner(msg) => {
-                let (sty, inv) = oma_console::pb::oma_spinner($crate::AILURUS.load(std::sync::atomic::Ordering::Relaxed));
-                let pb = $mb.insert(
-                    $count + 1,
-                    oma_console::indicatif::ProgressBar::new_spinner().with_style(sty),
-                );
-                pb.set_message(msg);
-                pb.enable_steady_tick(inv);
-                $pb_map.insert($count + 1, pb);
-            }
-            oma_fetch::DownloadEvent::NewProgress(size, msg) => {
-                let sty =
-                    oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), false);
-                let pb = $mb.insert(
-                    $count + 1,
-                    oma_console::indicatif::ProgressBar::new(size).with_style(sty),
-                );
-                pb.set_message(msg);
-                $pb_map.insert($count + 1, pb);
-            }
-            oma_fetch::DownloadEvent::ProgressInc(size) => {
-                let pb = $pb_map.get(&($count + 1)).unwrap();
-                pb.inc(size);
-            }
-            oma_fetch::DownloadEvent::ProgressSet(size) => {
-                let pb = $pb_map.get(&($count + 1)).unwrap();
-                pb.set_position(size);
-            }
-            oma_fetch::DownloadEvent::CanNotGetSourceNextUrl(e) => {
-                oma_console::writer::bar_writeln(|s| { $mb.println(s).ok(); },
-                &oma_console::console::style("ERROR")
-                .red()
-                .bold()
-                .to_string(),
-            &fl!("can-not-get-source-next-url", e = e.to_string()), )
-            }
-            oma_fetch::DownloadEvent::Done(filename) => {
-                tracing::debug!("Downloaded {filename}");
-            }
-            oma_fetch::DownloadEvent::AllDone => {
-                if let Some(gpb) = $pb_map.get(&0) {
-                    gpb.finish_and_clear();
-                }
+            oma_pm::apt::InstallPackageEvent::DpkgLine(line) => {
+                dbg!(line);
             }
         }
 

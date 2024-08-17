@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    fmt,
     fs::File,
     io::{self, ErrorKind, Write},
     os::fd::{AsRawFd, FromRawFd, IntoRawFd},
@@ -47,7 +48,7 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
-    dpkg::{get_winsize, Pty},
+    dpkg::{get_winsize, DpkgStatus, Pty, ReadDpkgStatusError},
     pkginfo::{PkgInfo, PtrIsNone},
     progress::{InstallProgressArgs, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
@@ -145,6 +146,8 @@ pub enum OmaAptError {
     CreatePipe(nix::errno::Errno),
     #[error(transparent)]
     OtherErrno(#[from] nix::errno::Errno),
+    #[error("Failed to read dpkg output")]
+    DpkgOutput(ReadDpkgStatusError),
 }
 
 #[derive(Default, Builder)]
@@ -185,6 +188,25 @@ pub enum FilterMode {
     Automatic,
     Manual,
     Names,
+}
+
+#[derive(Debug)]
+pub enum InstallPackageEvent<'a> {
+    DownloadEvent(DownloadEvent),
+    DpkgEvent(&'a DpkgStatus),
+    DpkgLine(&'a str),
+}
+
+impl<'a> From<DownloadEvent> for InstallPackageEvent<'a> {
+    fn from(value: DownloadEvent) -> Self {
+        Self::DownloadEvent(value)
+    }
+}
+
+impl<'a> fmt::Display for InstallPackageEvent<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{self:?}"))
+    }
 }
 
 impl OmaApt {
@@ -507,7 +529,7 @@ impl OmaApt {
         op: OmaOperation,
     ) -> OmaAptResult<()>
     where
-        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
+        F: Fn(usize, InstallPackageEvent, Option<u64>) + Clone + Send + Sync,
     {
         let v = op;
         let v_str = v.to_string();
@@ -524,12 +546,23 @@ impl OmaApt {
         let path = self.get_archive_dir();
 
         let conn = self.connection.clone();
+
+        let cb = callback.clone();
+        let cb2 = callback.clone();
+
         let (success, failed) = self.tokio.block_on(async move {
             if let Some(conn) = conn {
                 change_status(&conn, "Downloading").await.ok();
             }
 
-            Self::download_pkgs(client, download_pkg_list, network_thread, &path, callback).await
+            Self::download_pkgs(
+                client,
+                download_pkg_list,
+                network_thread,
+                &path,
+                |count, event, total| callback(count, InstallPackageEvent::from(event), total),
+            )
+            .await
         })?;
 
         if !failed.is_empty() {
@@ -613,7 +646,14 @@ impl OmaApt {
                 )
                 .unwrap();
 
-                while pty.listen_to_child(child).unwrap() {}
+                while pty
+                    .listen_to_child(
+                        child,
+                        |status| cb(0, InstallPackageEvent::DpkgEvent(status), None),
+                        |line| cb2(0, InstallPackageEvent::DpkgLine(line), None),
+                    )
+                    .map_err(OmaAptError::DpkgOutput)?
+                {}
             }
         }
 
