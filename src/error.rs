@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::io::{self, ErrorKind};
 
 use oma_console::due_to;
-use oma_console::writer::gen_prefix;
+use oma_console::writer::Writer;
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
@@ -682,16 +682,65 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("can-not-mark-reinstall", name = pkg, version = version),
             source: None,
         },
-        OmaAptError::DependencyIssue(ref v) => {
+        OmaAptError::DependencyIssue(ref broken_deps) => {
             error!("{}", fl!("dep-issue-1"));
 
-            if !v.is_empty() {
-                info!("{}", fl!("dep-issue-2"));
-                println!();
-                for i in v {
-                    println!("{}{i}", gen_prefix("", 10));
+            if !broken_deps.is_empty() {
+                let name_len_max = broken_deps
+                    .iter()
+                    .filter(|dep| !dep.is_empty())
+                    .map(|dep| dep[0].name.len())
+                    .max();
+
+                if let Some(name_len_max) = name_len_max {
+                    #[cfg(feature = "aosc")]
+                    info!("{}", fl!("dep-issue-2"));
+
+                    println!();
+
+                    let first_writer = Writer::new(name_len_max as u16 + 2 + 4);
+                    let mut writer = first_writer.get_writer();
+
+                    let mut last_name = "";
+
+                    for dep in broken_deps {
+                        if last_name != dep[0].name {
+                            first_writer.write_prefix(&format!("{}:", dep[0].name)).ok();
+                            last_name = &dep[0].name;
+                        } else {
+                            first_writer.write_prefix("").ok();
+                        }
+
+                        let why = &dep[0].why;
+                        write!(writer, "{}: {}", why.0, why.1).ok();
+
+                        let readson = &dep[0].reason;
+
+                        if let Some(reason) = readson {
+                            write!(writer, " {}\n", reason).ok();
+                        } else {
+                            writeln!(writer).ok();
+                        }
+
+                        if dep.len() > 1 {
+                            let why_len_max = dep.iter().map(|dep| dep.why.0.len()).max().unwrap();
+
+                            let second_writer =
+                                Writer::new(name_len_max as u16 + 2 + why_len_max as u16 + 2);
+                            for or in dep {
+                                second_writer.write_prefix(&format!("{}:", or.why.0)).ok();
+                                write!(writer, " {}", or.why.1).ok();
+                                let reason = &or.reason;
+
+                                if let Some(reason) = reason {
+                                    write!(writer, " {}\n", reason).ok();
+                                } else {
+                                    writeln!(writer).ok();
+                                }
+                            }
+                        }
+                    }
                 }
-                println!();
             }
 
             OutputError {
