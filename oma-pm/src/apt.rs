@@ -630,7 +630,8 @@ impl OmaApt {
             self.cache.fix_broken();
         }
 
-        if self.cache.resolve(!no_fixbroken).is_err() {
+        if let Err(e) = self.cache.resolve(!no_fixbroken) {
+            debug!("{e:#?}");
             for pkg in self.cache.iter() {
                 let res = show_broken_pkg(&self.cache, &pkg, false);
                 if !res.is_empty() {
