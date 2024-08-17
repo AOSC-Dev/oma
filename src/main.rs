@@ -316,7 +316,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 no_refresh: args.get_flag("no_refresh"),
                 install_dbg: args.get_flag("install_dbg"),
                 reinstall: args.get_flag("reinstall"),
-                no_fixbroken: args.get_flag("no_fix_broken"),
+                no_fixbroken: !args.get_flag("fix_broken"),
                 yes: args.get_flag("yes"),
                 force_yes: args.get_flag("force_yes"),
                 force_confnew: args.get_flag("force_confnew"),
