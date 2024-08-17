@@ -656,12 +656,16 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         },
         OmaAptError::DependencyIssue(ref v) => {
             error!("{}", fl!("dep-issue-1"));
-            info!("{}", fl!("dep-issue-2"));
-            println!();
-            for i in v {
-                println!("{}{i}", gen_prefix("", 10));
+
+            if !v.is_empty() {
+                info!("{}", fl!("dep-issue-2"));
+                println!();
+                for i in v {
+                    println!("{}{i}", gen_prefix("", 10));
+                }
+                println!();
             }
-            println!();
+
             OutputError {
                 description: "".to_string(),
                 source: None,
