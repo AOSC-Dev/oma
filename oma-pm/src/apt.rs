@@ -557,7 +557,10 @@ impl OmaApt {
             connection: self.connection,
         };
 
-        let mut progress = InstallProgress::new(OmaAptInstallProgress::new(args));
+        let _p = OmaAptInstallProgress::new(args);
+
+        // let mut progress = InstallProgress::new(OmaAptInstallProgress::new(args));
+        let mut progress = InstallProgress::fd(2);
 
         debug!("Try to unlock apt lock inner");
 
