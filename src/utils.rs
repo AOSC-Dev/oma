@@ -100,14 +100,30 @@ macro_rules! pb {
                         if let Some(gpb) = $pb_map.get(&0) {
                             gpb.finish_and_clear();
                         }
+                        $pb_map.remove(&0);
                     }
                 }
             }
             oma_pm::apt::InstallPackageEvent::DpkgEvent(event) => {
-                dbg!(event);
+                let gpb = $pb_map.get(&0);
+                if gpb.is_none() {
+                    $global_is_set.store(true, std::sync::atomic::Ordering::SeqCst);
+                    let sty =
+                    oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), true);
+                    let gpb = $mb.insert(
+                        0,
+                        oma_console::indicatif::ProgressBar::new(100).with_style(sty),
+                    );
+                    gpb.set_prefix("Progress");
+                    gpb.set_position(event.percent);
+                    $pb_map.insert(0, gpb);
+                    return;
+                }
+                let gpb = gpb.unwrap();
+                gpb.set_position(event.percent);
             }
             oma_pm::apt::InstallPackageEvent::DpkgLine(line) => {
-                dbg!(line);
+                $mb.println(line).ok();
             }
         }
 

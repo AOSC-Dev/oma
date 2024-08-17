@@ -121,15 +121,9 @@ impl Pty {
         match read_fd(&mut self.pty, &mut self.pty_buf)? {
             PtyStr::Str(string) => {
                 for line in string.lines() {
-                    // dprog!(config, progress, "pty", "{line:?}");
                     debug!("pty: {line}");
 
-                    if line.trim().is_empty() || check_spam(line) {
-                        continue;
-                    }
-
-                    // Occasionally there is a line which comes through
-                    if line.ends_with('\r') {
+                    if line.trim().is_empty() {
                         continue;
                     }
 
@@ -251,17 +245,6 @@ impl Pty {
 
         Ok(true)
     }
-}
-
-fn check_spam(line: &str) -> bool {
-    [
-        "Nothing to fetch",
-        "(Reading database",
-        "Selecting previously unselected package",
-        "Preparing to unpack",
-    ]
-    .iter()
-    .any(|spam| line.contains(spam))
 }
 
 fn read_fd<'a>(file: &mut File, buffer: &'a mut [u8]) -> Result<PtyStr<'a>, ReadDpkgStatusError> {

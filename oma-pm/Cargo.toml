@@ -37,7 +37,6 @@ cxx = "1.0.121"
 nix = { version = "0.29.0", features = ["fs", "process", "term", "ioctl", "signal"] }
 mio = { version = "1.0.1", features = ["os-ext"] }
 
-
 [dev-dependencies]
 dashmap = "6"
 indicatif = "0.17"

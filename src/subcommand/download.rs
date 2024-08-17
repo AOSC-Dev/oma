@@ -44,7 +44,7 @@ pub fn execute(
         |count, event, total| {
             let event = InstallPackageEvent::from(event);
             if !no_progress {
-                pb!(event, mb, pb_map, count, total, global_is_set)
+                pb!(event, mb, pb_map, count, total, global_is_set);
             } else {
                 handle_event_without_progressbar(event);
             }

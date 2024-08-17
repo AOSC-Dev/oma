@@ -273,13 +273,17 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
         &apt_args,
         |count, event, total| {
             if !no_progress {
-                pb!(event, mb, pb_map, count, total, global_is_set)
+                pb!(event, mb, pb_map, count, total, global_is_set);
             } else {
                 handle_event_without_progressbar(event);
             }
         },
         op,
     );
+
+    if let Some(gpb) = pb_map.get(&0) {
+        gpb.finish_and_clear();
+    }
 
     match res {
         Ok(_) => {
@@ -335,7 +339,7 @@ pub(crate) fn handle_event_without_progressbar(event: InstallPackageEvent) {
         },
         InstallPackageEvent::DpkgEvent(_) => {}
         InstallPackageEvent::DpkgLine(line) => {
-            info!("{line}")
+            println!("{line}")
         }
     }
 }
