@@ -13,7 +13,7 @@ use derive_builder::Builder;
 
 use nix::{
     fcntl::{fcntl, FcntlArg, OFlag},
-    pty::forkpty,
+    pty::{forkpty, ForkptyResult},
     unistd::{close, pipe},
 };
 use oma_apt::{
@@ -573,13 +573,12 @@ impl OmaApt {
 
         let mut no_progress = AcquireProgress::quiet();
 
-        // TODO: 去掉 unwrap
         let (statusfd, writefd) = pipe().map_err(OmaAptError::CreatePipe)?;
         fcntl(statusfd.as_raw_fd(), FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
 
         let window_size = unsafe { get_winsize()? };
         match unsafe { forkpty(&window_size, None).map_err(OmaAptError::ForkPty)? } {
-            nix::pty::ForkptyResult::Child => {
+            ForkptyResult::Child => {
                 close(statusfd.as_raw_fd())?;
 
                 if let Err(e) = apt_lock() {
@@ -593,8 +592,6 @@ impl OmaApt {
                 }
 
                 debug!("Try to get apt archives");
-
-                // self.cache.commit(&mut no_progress, &mut progress)?;
 
                 self.cache.get_archives(&mut no_progress).map_err(|e| {
                     debug!("Get exception! Try to unlock apt lock");
@@ -626,7 +623,6 @@ impl OmaApt {
                     e
                 })?;
 
-                // apt_lock_inner().ok();
                 apt_unlock();
 
                 close(writefd.into_raw_fd())?;
@@ -638,13 +634,13 @@ impl OmaApt {
                         .map_err(|e| OmaAptError::FailedOperateDirOrFile(format!("fd: {fd}"), e))?;
                 }
             }
-            nix::pty::ForkptyResult::Parent { child, master } => {
+            ForkptyResult::Parent { child, master } => {
                 let mut pty = Pty::new(
                     writefd.into_raw_fd(),
                     statusfd.as_raw_fd(),
                     master.as_raw_fd(),
                 )
-                .unwrap();
+                .map_err(OmaAptError::DpkgOutput)?;
 
                 while pty
                     .listen_to_child(
