@@ -980,7 +980,7 @@ impl OmaApt {
         let changes = self.cache.get_changes(true);
 
         for pkg in changes {
-            if pkg.marked_install() {
+            if pkg.marked_new_install() {
                 let cand = pkg
                     .candidate()
                     .take()
