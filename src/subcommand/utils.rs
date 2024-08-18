@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt::Debug;
 use std::io;
+use std::panic;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
@@ -30,6 +31,7 @@ use oma_refresh::db::OmaRefreshBuilder;
 use oma_refresh::db::RefreshEvent;
 use oma_utils::dpkg::dpkg_arch;
 use oma_utils::oma::lock_oma_inner;
+use oma_utils::oma::unlock_oma;
 use reqwest::Client;
 use std::fmt::Display;
 use tracing::error;
@@ -76,6 +78,11 @@ impl Error for LockError {
 
 pub(crate) fn lock_oma() -> Result<(), LockError> {
     lock_oma_inner().map_err(|e| LockError { source: e })?;
+
+    panic::set_hook(Box::new(|_| {
+        unlock_oma().ok();
+    }));
+
     LOCKED.store(true, Ordering::Relaxed);
 
     Ok(())
