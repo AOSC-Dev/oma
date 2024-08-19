@@ -9,7 +9,10 @@ use std::{
 
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar};
-use oma_console::{pb::OmaProgressStyle, writer::Writer};
+use oma_console::{
+    pb::{global_progress_bar_style, progress_bar_style, spinner_style},
+    writer::Writer,
+};
 use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
 use oma_refresh::db::{OmaRefresh, OmaRefreshBuilder, RefreshError, RefreshEvent};
 use oma_utils::dpkg::dpkg_arch;
@@ -66,9 +69,7 @@ async fn main() -> Result<(), RefreshError> {
                             }
                         }
                         DownloadEvent::NewProgressSpinner(msg) => {
-                            let writer = Writer::default();
-                            let ps = OmaProgressStyle::new(&writer);
-                            let (sty, inv) = ps.spinner();
+                            let (sty, inv) = spinner_style();
                             let pb =
                                 mb.insert(count + 1, ProgressBar::new_spinner().with_style(sty));
                             pb.set_message(msg);
@@ -77,8 +78,7 @@ async fn main() -> Result<(), RefreshError> {
                         }
                         DownloadEvent::NewProgress(size, msg) => {
                             let writer = Writer::default();
-                            let ps = OmaProgressStyle::new(&writer);
-                            let sty = ps.progress_bar();
+                            let sty = progress_bar_style(&writer);
                             let pb = mb.insert(count + 1, ProgressBar::new(size).with_style(sty));
                             pb.set_message(msg);
                             pb_map.insert(count + 1, pb);
@@ -114,8 +114,7 @@ async fn main() -> Result<(), RefreshError> {
                 if let Some(total) = total {
                     if !global_is_set.load(Ordering::SeqCst) {
                         let writer = Writer::default();
-                        let ps = OmaProgressStyle::new(&writer);
-                        let sty = ps.global_progress_bar();
+                        let sty = global_progress_bar_style(&writer);
                         let gpb = mb.insert(0, ProgressBar::new(total).with_style(sty));
                         pb_map.insert(0, gpb);
                         global_is_set.store(true, Ordering::SeqCst);

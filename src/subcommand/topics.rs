@@ -6,7 +6,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::{indicatif::ProgressBar, pb::OmaProgressStyle, writer::bar_writeln, WRITER};
+use oma_console::{indicatif::ProgressBar, pb::spinner_style, writer::bar_writeln, WRITER};
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
@@ -314,8 +314,7 @@ async fn refresh_topics<P: AsRef<Path>>(
 ) -> Result<(), OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
-        let ps = OmaProgressStyle::new(&WRITER);
-        let (style, inv) = ps.spinner();
+        let (style, inv) = spinner_style();
         pb.set_style(style);
         pb.enable_steady_tick(inv);
         pb.set_message(fl!("refreshing-topic-metadata"));
