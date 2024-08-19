@@ -1,7 +1,5 @@
-use std::sync::atomic::Ordering;
-
-use crate::{fl, AILURUS};
-use oma_console::{indicatif::ProgressBar, pb::oma_spinner, success};
+use crate::fl;
+use oma_console::{indicatif::ProgressBar, pb::OmaProgressStyle, success, WRITER};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 
 use crate::{error::OutputError, utils::root};
@@ -18,7 +16,8 @@ pub fn execute(no_progress: bool, sysroot: String) -> Result<i32, OutputError> {
     })?;
 
     let pb = if no_progress {
-        let (sty, inv) = oma_spinner(AILURUS.load(Ordering::Relaxed));
+        let ps = OmaProgressStyle::new(&WRITER);
+        let (sty, inv) = ps.spinner();
         let pb = ProgressBar::new_spinner().with_style(sty);
         pb.enable_steady_tick(inv);
         pb.set_message(fl!("cleaning"));

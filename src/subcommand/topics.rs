@@ -1,4 +1,4 @@
-use std::{path::Path, sync::atomic::Ordering};
+use std::path::Path;
 
 use dialoguer::console::{self, style};
 use inquire::{
@@ -6,7 +6,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::{indicatif::ProgressBar, pb::oma_spinner, writer::bar_writeln, WRITER};
+use oma_console::{indicatif::ProgressBar, pb::OmaProgressStyle, writer::bar_writeln, WRITER};
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
@@ -19,7 +19,7 @@ use tracing::warn;
 use crate::{
     error::OutputError,
     utils::{create_async_runtime, dbus_check, root},
-    OmaArgs, AILURUS,
+    OmaArgs,
 };
 
 use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
@@ -314,7 +314,8 @@ async fn refresh_topics<P: AsRef<Path>>(
 ) -> Result<(), OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
-        let (style, inv) = oma_spinner(AILURUS.load(Ordering::Relaxed));
+        let ps = OmaProgressStyle::new(&WRITER);
+        let (style, inv) = ps.spinner();
         pb.set_style(style);
         pb.enable_steady_tick(inv);
         pb.set_message(fl!("refreshing-topic-metadata"));
