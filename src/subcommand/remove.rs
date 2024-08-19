@@ -12,7 +12,7 @@ use crate::{
     utils::{create_async_runtime, dbus_check, root},
     RemoveArgs,
 };
-use crate::{fl, OmaArgs};
+use crate::{fl, OmaArgs, FDS};
 
 use super::utils::{
     handle_no_result, lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs,
@@ -36,12 +36,12 @@ pub fn execute(
         protect_essentials: protect,
     } = oma_args;
 
-    let fds = if !no_check_dbus {
+    if !no_check_dbus {
         let rt = create_async_runtime()?;
-        Some(dbus_check(&rt, args.yes))
+        let fds = dbus_check(&rt, false)?;
+        unsafe { FDS.get_or_init(|| fds) };
     } else {
         no_check_dbus_warn();
-        None
     };
 
     if args.yes {
@@ -85,8 +85,6 @@ pub fn execute(
     };
 
     normal_commit(args, &client)?;
-
-    drop(fds);
 
     Ok(0)
 }

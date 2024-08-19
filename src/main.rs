@@ -30,6 +30,7 @@ use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusError};
 use oma_utils::oma::{terminal_ring, unlock_oma};
+use oma_utils::zbus::zvariant::OwnedFd;
 use oma_utils::OsRelease;
 use reqwest::Client;
 use rustix::process::{kill_process, Pid, Signal};
@@ -60,6 +61,7 @@ static LOCKED: AtomicBool = AtomicBool::new(false);
 static DEBUG: AtomicBool = AtomicBool::new(false);
 
 static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
+static mut FDS: OnceLock<Vec<OwnedFd>> = OnceLock::new();
 
 #[derive(Debug, Default)]
 pub struct InstallArgs {
@@ -233,9 +235,19 @@ fn main() {
         }
     };
 
+    drop_inhibit();
+
     terminal_ring();
 
     exit(code);
+}
+
+#[inline]
+fn drop_inhibit() {
+    // 接触 inhibit 状态
+    if let Some(v) = unsafe { FDS.get_mut() } {
+        *v = vec![];
+    }
 }
 
 fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i32, OutputError> {
@@ -650,6 +662,8 @@ fn single_handler() {
     if LOCKED.load(Ordering::Relaxed) {
         unlock_oma().expect("Failed to unlock instance.");
     }
+
+    drop_inhibit();
 
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.

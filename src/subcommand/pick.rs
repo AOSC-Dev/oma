@@ -9,6 +9,7 @@ use reqwest::Client;
 use crate::{
     error::OutputError,
     utils::{create_async_runtime, dbus_check, root},
+    FDS,
 };
 use crate::{fl, OmaArgs};
 use anyhow::anyhow;
@@ -36,12 +37,12 @@ pub fn execute(
         ..
     } = oma_args;
 
-    let fds = if !no_check_dbus {
+    if !no_check_dbus {
         let rt = create_async_runtime()?;
-        Some(dbus_check(&rt, false)?)
+        let fds = dbus_check(&rt, false)?;
+        unsafe { FDS.get_or_init(|| fds) };
     } else {
         no_check_dbus_warn();
-        None
     };
 
     if !no_refresh {
@@ -138,8 +139,6 @@ pub fn execute(
     };
 
     normal_commit(args, &client)?;
-
-    drop(fds);
 
     Ok(0)
 }

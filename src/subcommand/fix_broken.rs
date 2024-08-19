@@ -5,7 +5,7 @@ use reqwest::Client;
 use crate::{
     error::OutputError,
     utils::{create_async_runtime, dbus_check, root},
-    OmaArgs,
+    OmaArgs, FDS,
 };
 
 use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs};
@@ -23,14 +23,13 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         protect_essentials: protect_essential,
     } = oma_args;
 
-    let mut fds = None;
-
     if !no_check_dbus {
         let rt = create_async_runtime()?;
-        fds = Some(dbus_check(&rt, false)?);
+        let fds = dbus_check(&rt, false)?;
+        unsafe { FDS.get_or_init(|| fds) };
     } else {
         no_check_dbus_warn();
-    }
+    };
 
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
@@ -51,8 +50,6 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
     };
 
     normal_commit(args, &client)?;
-
-    drop(fds);
 
     Ok(0)
 }

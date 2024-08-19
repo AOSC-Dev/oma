@@ -22,6 +22,7 @@ use crate::utils::multibar;
 use crate::utils::root;
 use crate::OmaArgs;
 use crate::UpgradeArgs;
+use crate::FDS;
 
 use super::remove::ask_user_do_as_i_say;
 use super::utils::check_empty_op;
@@ -51,12 +52,12 @@ pub fn execute(
         protect_essentials,
     } = oma_args;
 
-    let fds = if !no_check_dbus {
+    if !no_check_dbus {
         let rt = create_async_runtime()?;
-        Some(dbus_check(&rt, args.yes)?)
+        let fds = dbus_check(&rt, false)?;
+        unsafe { FDS.get_or_init(|| fds) };
     } else {
         no_check_dbus_warn();
-        None
     };
 
     refresh(
@@ -164,7 +165,6 @@ pub fn execute(
                 )?;
                 success!("{}", fl!("history-tips-1"));
                 info!("{}", fl!("history-tips-2"));
-                drop(fds);
                 return Ok(0);
             }
             Err(e) => match e {
@@ -196,7 +196,6 @@ pub fn execute(
                     retry_times += 1;
                 }
                 _ => {
-                    drop(fds);
                     return Err(OutputError::from(e));
                 }
             },
