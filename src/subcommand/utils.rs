@@ -14,7 +14,7 @@ use crate::utils::multibar;
 use crate::LOCKED;
 use chrono::Local;
 use dialoguer::console::style;
-use oma_console::pb::OmaProgressStyle;
+use oma_console::pb::spinner_style;
 use oma_console::success;
 use oma_console::writer::bar_writeln;
 use oma_console::WRITER;
@@ -149,8 +149,7 @@ pub(crate) fn refresh(
                                 pb!(event, mb, pb_map, count, total, global_is_set)
                             }
                             RefreshEvent::ScanningTopic => {
-                                let ps = OmaProgressStyle::new(&WRITER);
-                                let (sty, inv) = ps.spinner();
+                                let (sty, inv) = spinner_style();
                                 let pb = mb.insert(
                                     count + 1,
                                     oma_console::indicatif::ProgressBar::new_spinner()

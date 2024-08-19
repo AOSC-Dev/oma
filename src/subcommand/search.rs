@@ -1,7 +1,7 @@
 use dialoguer::console::style;
 use oma_console::{
     indicatif::ProgressBar,
-    pb::OmaProgressStyle,
+    pb::spinner_style,
     print::Action,
     writer::{gen_prefix, writeln_inner, MessageType},
     WRITER,
@@ -27,8 +27,7 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.concat();
 
-    let ps = OmaProgressStyle::new(&WRITER);
-    let (sty, inv) = ps.spinner();
+    let (sty, inv) = spinner_style();
 
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner().with_style(sty);
