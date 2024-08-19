@@ -1,8 +1,10 @@
 use std::path::Path;
 
 use dialoguer::console;
+use oma_console::indicatif::ProgressBar;
+use oma_console::pb::OmaProgressStyle;
 use oma_console::writer::bar_writeln;
-use oma_console::{indicatif::ProgressBar, pb::oma_spinner};
+use oma_console::WRITER;
 use oma_contents::{ContentsEvent, QueryMode};
 use oma_utils::dpkg::dpkg_arch;
 
@@ -19,7 +21,8 @@ pub fn execute(
 ) -> Result<i32, OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
-        let (style, inv) = oma_spinner(false);
+        let ps = OmaProgressStyle::new(&WRITER);
+        let (style, inv) = ps.spinner();
         pb.set_style(style);
         pb.enable_steady_tick(inv);
         pb.set_message(fl!("searching"));

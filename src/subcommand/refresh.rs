@@ -1,6 +1,6 @@
 use oma_console::indicatif::ProgressBar;
-use oma_console::pb::oma_spinner;
-use oma_console::success;
+use oma_console::pb::OmaProgressStyle;
+use oma_console::{success, WRITER};
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use reqwest::Client;
 
@@ -38,7 +38,8 @@ pub fn execute(
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
     let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-    let (style, inv) = oma_spinner(false);
+    let ps = OmaProgressStyle::new(&WRITER);
+    let (style, inv) = ps.spinner();
 
     let pb = ProgressBar::new_spinner().with_style(style);
     pb.enable_steady_tick(inv);

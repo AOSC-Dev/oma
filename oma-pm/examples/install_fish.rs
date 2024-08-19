@@ -5,10 +5,8 @@ use std::sync::{
 
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar};
-use oma_console::{
-    pb::{oma_spinner, oma_style_pb},
-    writer::Writer,
-};
+use oma_console::pb::OmaProgressStyle;
+use oma_console::writer::Writer;
 use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
 use oma_pm::apt::{AptArgs, OmaApt, OmaAptArgsBuilder, OmaAptError};
 
@@ -57,14 +55,18 @@ fn main() -> Result<(), OmaAptError> {
                     }
                 }
                 DownloadEvent::NewProgressSpinner(msg) => {
-                    let (sty, inv) = oma_spinner(false);
+                    let writer = Writer::default();
+                    let ps = OmaProgressStyle::new(&writer);
+                    let (sty, inv) = ps.spinner();
                     let pb = mb.insert(count + 1, ProgressBar::new_spinner().with_style(sty));
                     pb.set_message(msg);
                     pb.enable_steady_tick(inv);
                     pb_map.insert(count + 1, pb);
                 }
                 DownloadEvent::NewProgress(size, msg) => {
-                    let sty = oma_style_pb(Writer::default(), false);
+                    let writer = Writer::default();
+                    let ps = OmaProgressStyle::new(&writer);
+                    let sty = ps.progress_bar();
                     let pb = mb.insert(count + 1, ProgressBar::new(size).with_style(sty));
                     pb.set_message(msg);
                     pb_map.insert(count + 1, pb);
@@ -89,7 +91,9 @@ fn main() -> Result<(), OmaAptError> {
             }
             if let Some(total) = total {
                 if !global_is_set.load(Ordering::SeqCst) {
-                    let sty = oma_style_pb(Writer::default(), true);
+                    let writer = Writer::default();
+                    let ps = OmaProgressStyle::new(&writer);
+                    let sty = ps.global_progress_bar();
                     let gpb = mb.insert(0, ProgressBar::new(total).with_style(sty));
                     pb_map.insert(0, gpb);
                     global_is_set.store(true, Ordering::SeqCst);
