@@ -5,7 +5,7 @@ use indicatif::{HumanBytes, ProgressState, ProgressStyle};
 
 use crate::writer::Writer;
 
-const SPINNER: &[&str] = &[
+const SPINNER_ANIME: &[&str] = &[
     "( ●    )",
     "(  ●   )",
     "(   ●  )",
@@ -17,13 +17,20 @@ const SPINNER: &[&str] = &[
     "( ●    )",
     "(●     )",
 ];
+const GLOBAL_BAR_SMALL_TEMPLATE: &str = " {prefix:.blue.bold} {bytes:>14.green.bold} {total_bytes:.green.bold} {binary_bytes_per_sec:<10.green.bold}";
+const GLOBAL_BAR_TEMPLATE: &str =
+    " {progress_msg:<59} {elapsed_precise:<11.blue.bold} [{wide_bar:.cyan/blue}] {percent:>3}";
+const NORMAL_BAR_SMALL_TEMPLATE: &str = " {msg} {percent:>3}";
+const NORMAL_BAR_TEMPLATE: &str =
+    " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>3}";
+const SPINNER_TEMPLATE: &str = " {msg:<48} {spinner}";
 
 pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
     let max_len = writer.get_length();
     let template = if max_len < 100 {
-        " {msg} {percent:>3}"
+        NORMAL_BAR_SMALL_TEMPLATE
     } else {
-        " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>3}"
+        NORMAL_BAR_TEMPLATE
     };
 
     ProgressStyle::default_bar()
@@ -38,9 +45,9 @@ pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
 pub fn global_progress_bar_style(writer: &Writer) -> ProgressStyle {
     let max_len = writer.get_length();
     let template = if max_len < 100 {
-        " {prefix:.blue.bold} {bytes:>14.green.bold} {total_bytes:.green.bold} {binary_bytes_per_sec:<10.green.bold}"
+        GLOBAL_BAR_SMALL_TEMPLATE
     } else {
-        " {progress_msg:<59} {elapsed_precise:<11.blue.bold} [{wide_bar:.cyan/blue}] {percent:>3}"
+        GLOBAL_BAR_TEMPLATE
     };
 
     ProgressStyle::default_bar()
@@ -80,9 +87,9 @@ fn oma_global_bar_template(state: &ProgressState, w: &mut dyn Write) {
 }
 
 pub fn spinner_style() -> (ProgressStyle, Duration) {
-    let (template, inv) = (SPINNER, 80);
+    let (template, inv) = (SPINNER_ANIME, 80);
 
-    let style = ProgressStyle::with_template(" {msg:<48} {spinner}")
+    let style = ProgressStyle::with_template(SPINNER_TEMPLATE)
         .unwrap()
         .tick_strings(template);
 
