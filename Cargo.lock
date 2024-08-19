@@ -3077,7 +3077,7 @@ dependencies = [
  "oma-refresh",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.2",
+ "oma-utils 0.8.3",
  "ratatui",
  "reqwest",
  "rust-embed",
@@ -3117,7 +3117,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "console",
  "icu_segmenter",
@@ -3135,7 +3135,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.8.2",
+ "oma-utils 0.8.3",
  "rayon",
  "regex",
  "strsim",
@@ -3205,7 +3205,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.28.1"
+version = "0.28.2"
 dependencies = [
  "chrono",
  "cxx",
@@ -3219,7 +3219,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.8.2",
+ "oma-utils 0.8.3",
  "small-map",
  "thiserror",
  "tokio",
@@ -3232,7 +3232,7 @@ name = "oma-pm-operation-type"
 version = "0.2.0"
 dependencies = [
  "derive_builder",
- "oma-utils 0.8.2",
+ "oma-utils 0.8.3",
  "serde",
 ]
 
@@ -3251,7 +3251,7 @@ dependencies = [
  "oma-fetch",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.2",
+ "oma-utils 0.8.3",
  "sequoia-openpgp",
  "small-map",
  "smallvec",
@@ -3303,7 +3303,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.8.2"
+version = "0.8.3"
 dependencies = [
  "logind-zbus",
  "number_prefix",
