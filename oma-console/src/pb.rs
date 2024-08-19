@@ -23,7 +23,7 @@ const GLOBAL_BAR_TEMPLATE: &str =
 const NORMAL_BAR_SMALL_TEMPLATE: &str = " {msg} {percent:>3}";
 const NORMAL_BAR_TEMPLATE: &str =
     " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>3}";
-const SPINNER_TEMPLATE: &str = " {msg:<48} {spinner}";
+const SPINNER_TEMPLATE: &str = " {msg:<59} {spinner}";
 
 pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
     let max_len = writer.get_length();
