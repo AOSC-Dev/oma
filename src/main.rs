@@ -57,7 +57,6 @@ use crate::subcommand::*;
 
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
-static AILURUS: AtomicBool = AtomicBool::new(false);
 static DEBUG: AtomicBool = AtomicBool::new(false);
 
 static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();

@@ -58,7 +58,7 @@ macro_rules! pb {
                         }
                     }
                     oma_fetch::DownloadEvent::NewProgressSpinner(msg) => {
-                        let (sty, inv) = oma_console::pb::oma_spinner($crate::AILURUS.load(std::sync::atomic::Ordering::Relaxed));
+                        let (sty, inv) = oma_console::pb::spinner_style();
                         let pb = $mb.insert(
                             $count + 1,
                             oma_console::indicatif::ProgressBar::new_spinner().with_style(sty),
@@ -69,7 +69,7 @@ macro_rules! pb {
                     }
                     oma_fetch::DownloadEvent::NewProgress(size, msg) => {
                         let sty =
-                            oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), false);
+                            oma_console::pb::progress_bar_style(&oma_console::WRITER);
                         let pb = $mb.insert(
                             $count + 1,
                             oma_console::indicatif::ProgressBar::new(size).with_style(sty),
@@ -108,8 +108,7 @@ macro_rules! pb {
                 let gpb = $pb_map.get(&0);
                 if gpb.is_none() {
                     $global_is_set.store(true, std::sync::atomic::Ordering::SeqCst);
-                    let sty =
-                    oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), true);
+                    let sty = oma_console::pb::global_progress_bar_style(&oma_console::WRITER);
                     let gpb = $mb.insert(
                         0,
                         oma_console::indicatif::ProgressBar::new(100).with_style(sty),
@@ -129,8 +128,7 @@ macro_rules! pb {
 
         if let Some(total) = $total {
             if !$global_is_set.load(std::sync::atomic::Ordering::SeqCst) {
-                let sty =
-                    oma_console::pb::oma_style_pb(oma_console::writer::Writer::default(), true);
+                let sty = oma_console::pb::global_progress_bar_style(&oma_console::WRITER);
                 let gpb = $mb.insert(
                     0,
                     oma_console::indicatif::ProgressBar::new(total).with_style(sty),

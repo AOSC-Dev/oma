@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar};
 use oma_console::{
-    pb::{oma_spinner, oma_style_pb},
+    pb::{progress_bar_style, spinner_style},
     writer::Writer,
 };
 use oma_fetch::{
@@ -91,14 +91,15 @@ async fn main() -> DownloadResult<()> {
                 }
             }
             DownloadEvent::NewProgressSpinner(msg) => {
-                let (sty, inv) = oma_spinner(false);
+                let (sty, inv) = spinner_style();
                 let pb = mb.insert(count + 1, ProgressBar::new_spinner().with_style(sty));
                 pb.set_message(msg);
                 pb.enable_steady_tick(inv);
                 pb_map.insert(count + 1, pb);
             }
             DownloadEvent::NewProgress(size, msg) => {
-                let sty = oma_style_pb(Writer::default(), false);
+                let writer = Writer::default();
+                let sty = progress_bar_style(&writer);
                 let pb = mb.insert(count + 1, ProgressBar::new(size).with_style(sty));
                 pb.set_message(msg);
                 pb_map.insert(count + 1, pb);

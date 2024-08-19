@@ -11,10 +11,10 @@ use crate::pb;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::multibar;
-use crate::AILURUS;
 use crate::LOCKED;
 use chrono::Local;
 use dialoguer::console::style;
+use oma_console::pb::spinner_style;
 use oma_console::success;
 use oma_console::writer::bar_writeln;
 use oma_console::WRITER;
@@ -151,9 +151,7 @@ pub(crate) fn refresh(
                                 pb!(event, mb, pb_map, count, total, global_is_set)
                             }
                             RefreshEvent::ScanningTopic => {
-                                let (sty, inv) = oma_console::pb::oma_spinner(
-                                    AILURUS.load(std::sync::atomic::Ordering::Relaxed),
-                                );
+                                let (sty, inv) = spinner_style();
                                 let pb = mb.insert(
                                     count + 1,
                                     oma_console::indicatif::ProgressBar::new_spinner()
