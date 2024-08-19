@@ -1,8 +1,9 @@
 use std::io::{self, Write};
 
-use crate::WRITER;
 use console::Term;
 use icu_segmenter::LineSegmenter;
+
+use crate::WRITER;
 
 /// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
@@ -101,7 +102,7 @@ impl Writer {
 
         let mut res = Ok(());
 
-        writeln_inner(msg, prefix, max_len as usize, WRITER.prefix_len, |t, s| {
+        writeln_inner(msg, prefix, max_len as usize, self.prefix_len, |t, s| {
             match t {
                 MessageType::Msg => res = self.term.write_str(s),
                 MessageType::Prefix => res = self.write_prefix(s),
