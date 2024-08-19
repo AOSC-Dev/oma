@@ -1,6 +1,9 @@
 use std::{
     borrow::Cow,
+    fmt,
+    fs::File,
     io::{self, ErrorKind, Write},
+    os::fd::{AsRawFd, FromRawFd, IntoRawFd},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -8,6 +11,11 @@ use std::{
 use chrono::Local;
 use derive_builder::Builder;
 
+use nix::{
+    fcntl::{fcntl, FcntlArg, OFlag},
+    pty::{forkpty, ForkptyResult},
+    unistd::{close, pipe},
+};
 use oma_apt::{
     cache::{Cache, PackageSort, Upgrade},
     error::{AptError, AptErrors},
@@ -31,6 +39,7 @@ use oma_utils::{
 };
 
 pub use oma_apt::config::Config as AptConfig;
+// use rustix::{fs::{fcntl_setfl, OFlags}, pipe::pipe};
 use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
@@ -39,6 +48,7 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
+    dpkg::{get_winsize, DpkgStatus, Pty, ReadDpkgStatusError},
     pkginfo::{PkgInfo, PtrIsNone},
     progress::{InstallProgressArgs, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
@@ -130,6 +140,14 @@ pub enum OmaAptError {
     PtrIsNone(#[from] PtrIsNone),
     #[error(transparent)]
     ChecksumError(#[from] ChecksumError),
+    #[error("Failed to fork pty")]
+    ForkPty(nix::errno::Errno),
+    #[error("Failed to create os pipe")]
+    CreatePipe(nix::errno::Errno),
+    #[error(transparent)]
+    OtherErrno(#[from] nix::errno::Errno),
+    #[error("Failed to read dpkg output")]
+    DpkgOutput(ReadDpkgStatusError),
 }
 
 #[derive(Default, Builder)]
@@ -170,6 +188,25 @@ pub enum FilterMode {
     Automatic,
     Manual,
     Names,
+}
+
+#[derive(Debug)]
+pub enum InstallPackageEvent<'a> {
+    DownloadEvent(DownloadEvent),
+    DpkgEvent(&'a DpkgStatus),
+    DpkgLine(&'a str),
+}
+
+impl<'a> From<DownloadEvent> for InstallPackageEvent<'a> {
+    fn from(value: DownloadEvent) -> Self {
+        Self::DownloadEvent(value)
+    }
+}
+
+impl<'a> fmt::Display for InstallPackageEvent<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{self:?}"))
+    }
 }
 
 impl OmaApt {
@@ -492,7 +529,7 @@ impl OmaApt {
         op: OmaOperation,
     ) -> OmaAptResult<()>
     where
-        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
+        F: Fn(usize, InstallPackageEvent, Option<u64>) + Clone + Send + Sync,
     {
         let v = op;
         let v_str = v.to_string();
@@ -509,12 +546,23 @@ impl OmaApt {
         let path = self.get_archive_dir();
 
         let conn = self.connection.clone();
+
+        let cb = callback.clone();
+        let cb2 = callback.clone();
+
         let (success, failed) = self.tokio.block_on(async move {
             if let Some(conn) = conn {
                 change_status(&conn, "Downloading").await.ok();
             }
 
-            Self::download_pkgs(client, download_pkg_list, network_thread, &path, callback).await
+            Self::download_pkgs(
+                client,
+                download_pkg_list,
+                network_thread,
+                &path,
+                |count, event, total| callback(count, InstallPackageEvent::from(event), total),
+            )
+            .await
         })?;
 
         if !failed.is_empty() {
@@ -525,51 +573,89 @@ impl OmaApt {
 
         let mut no_progress = AcquireProgress::quiet();
 
-        debug!("Try to lock apt");
+        let (statusfd, writefd) = pipe().map_err(OmaAptError::CreatePipe)?;
+        fcntl(statusfd.as_raw_fd(), FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
 
-        if let Err(e) = apt_lock() {
-            let e_str = e.to_string();
-            if e_str.contains("dpkg --configure -a") {
-                self.run_dpkg_configure()?;
+        let window_size = unsafe { get_winsize()? };
+        match unsafe { forkpty(&window_size, None).map_err(OmaAptError::ForkPty)? } {
+            ForkptyResult::Child => {
+                close(statusfd.as_raw_fd())?;
 
-                apt_lock()?;
-            } else {
-                return Err(e.into());
+                if let Err(e) = apt_lock() {
+                    let e_str = e.to_string();
+                    if e_str.contains("dpkg --configure -a") {
+                        self.run_dpkg_configure()?;
+                        apt_lock()?;
+                    } else {
+                        return Err(e.into());
+                    }
+                }
+
+                debug!("Try to get apt archives");
+
+                self.cache.get_archives(&mut no_progress).map_err(|e| {
+                    debug!("Get exception! Try to unlock apt lock");
+                    apt_unlock();
+                    e
+                })?;
+
+                // If the system is locked we will want to unlock the dpkg files.
+                // This way when dpkg is running it can access its files.
+                apt_unlock_inner();
+
+                let args = InstallProgressArgs {
+                    config: self.config,
+                    yes: args_config.yes,
+                    force_yes: args_config.force_yes,
+                    dpkg_force_confnew: args_config.dpkg_force_confnew,
+                    dpkg_force_all: args_config.dpkg_force_all,
+                    no_progress: args_config.no_progress,
+                    tokio: self.tokio,
+                    connection: self.connection,
+                };
+
+                let _p = OmaAptInstallProgress::new(args);
+                let mut progress = InstallProgress::fd(writefd.as_raw_fd());
+
+                self.cache.do_install(&mut progress).map_err(|e| {
+                    apt_lock_inner().ok();
+                    apt_unlock();
+                    e
+                })?;
+
+                apt_unlock();
+
+                close(writefd.into_raw_fd())?;
+
+                // Flush all stdio for the child before we leave.
+                for fd in [0, 1, 2] {
+                    let mut file = unsafe { File::from_raw_fd(fd) };
+                    file.flush()
+                        .map_err(|e| OmaAptError::FailedOperateDirOrFile(format!("fd: {fd}"), e))?;
+                }
+            }
+            ForkptyResult::Parent { child, master } => {
+                let mut pty = Pty::new(
+                    writefd.into_raw_fd(),
+                    statusfd.as_raw_fd(),
+                    master.as_raw_fd(),
+                )
+                .map_err(OmaAptError::DpkgOutput)?;
+
+                while pty
+                    .listen_to_child(
+                        child,
+                        |status| cb(0, InstallPackageEvent::DpkgEvent(status), None),
+                        |line| cb2(0, InstallPackageEvent::DpkgLine(line), None),
+                    )
+                    .map_err(OmaAptError::DpkgOutput)?
+                {}
             }
         }
-
-        debug!("Try to get apt archives");
-
-        self.cache.get_archives(&mut no_progress).map_err(|e| {
-            debug!("Get exception! Try to unlock apt lock");
-            apt_unlock();
-            e
-        })?;
-
-        let args = InstallProgressArgs {
-            config: self.config,
-            yes: args_config.yes,
-            force_yes: args_config.force_yes,
-            dpkg_force_confnew: args_config.dpkg_force_confnew,
-            dpkg_force_all: args_config.dpkg_force_all,
-            no_progress: args_config.no_progress,
-            tokio: self.tokio,
-            connection: self.connection,
-        };
-
-        let mut progress = InstallProgress::new(OmaAptInstallProgress::new(args));
 
         debug!("Try to unlock apt lock inner");
 
         apt_unlock_inner();
-
-        debug!("Do install");
-
-        self.cache.do_install(&mut progress).map_err(|e| {
-            apt_lock_inner().ok();
-            apt_unlock();
-            e
-        })?;
 
         debug!("Try to unlock apt lock");
 
@@ -890,7 +976,7 @@ impl OmaApt {
         let changes = self.cache.get_changes(true);
 
         for pkg in changes {
-            if pkg.marked_install() {
+            if pkg.marked_new_install() {
                 let cand = pkg
                     .candidate()
                     .take()

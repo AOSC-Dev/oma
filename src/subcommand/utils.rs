@@ -24,6 +24,7 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgs;
+use oma_pm::apt::InstallPackageEvent;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_refresh::db::OmaRefresh;
@@ -146,6 +147,7 @@ pub(crate) fn refresh(
                                 &fl!("scan-topic-is-removed", name = topic_name),
                             ),
                             RefreshEvent::DownloadEvent(event) => {
+                                let event = InstallPackageEvent::from(event);
                                 pb!(event, mb, pb_map, count, total, global_is_set)
                             }
                             RefreshEvent::ScanningTopic => {
@@ -179,7 +181,7 @@ pub(crate) fn refresh(
                     } else {
                         match event {
                             RefreshEvent::DownloadEvent(d) => {
-                                handle_event_without_progressbar(d);
+                                handle_event_without_progressbar(InstallPackageEvent::from(d));
                             }
                             RefreshEvent::ClosingTopic(topic_name) => {
                                 info!("{}", fl!("scan-topic-is-removed", name = topic_name));
@@ -269,13 +271,17 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
         &apt_args,
         |count, event, total| {
             if !no_progress {
-                pb!(event, mb, pb_map, count, total, global_is_set)
+                pb!(event, mb, pb_map, count, total, global_is_set);
             } else {
                 handle_event_without_progressbar(event);
             }
         },
         op,
     );
+
+    if let Some(gpb) = pb_map.get(&0) {
+        gpb.finish_and_clear();
+    }
 
     match res {
         Ok(_) => {
@@ -312,21 +318,27 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
     }
 }
 
-pub(crate) fn handle_event_without_progressbar(event: DownloadEvent) {
+pub(crate) fn handle_event_without_progressbar(event: InstallPackageEvent) {
     match event {
-        DownloadEvent::ChecksumMismatchRetry { filename, times } => {
-            error!(
-                "{}",
-                fl!("checksum-mismatch-retry", c = filename, retry = times)
-            );
+        InstallPackageEvent::DownloadEvent(event) => match event {
+            DownloadEvent::ChecksumMismatchRetry { filename, times } => {
+                error!(
+                    "{}",
+                    fl!("checksum-mismatch-retry", c = filename, retry = times)
+                );
+            }
+            DownloadEvent::CanNotGetSourceNextUrl(e) => {
+                error!("{}", fl!("can-not-get-source-next-url", e = e.to_string()));
+            }
+            DownloadEvent::Done(msg) => {
+                WRITER.writeln("DONE", &msg).ok();
+            }
+            _ => {}
+        },
+        InstallPackageEvent::DpkgEvent(_) => {}
+        InstallPackageEvent::DpkgLine(line) => {
+            println!("{line}")
         }
-        DownloadEvent::CanNotGetSourceNextUrl(e) => {
-            error!("{}", fl!("can-not-get-source-next-url", e = e.to_string()));
-        }
-        DownloadEvent::Done(msg) => {
-            WRITER.writeln("DONE", &msg).ok();
-        }
-        _ => {}
     }
 }
 

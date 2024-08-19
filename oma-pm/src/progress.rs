@@ -96,9 +96,10 @@ impl OmaAptInstallProgress {
             debug!("Dpkg::Options:: is set to --force-all");
         }
 
+        config.set("Dpkg::Use-Pty", "false");
+
         if !is_terminal() || no_progress {
             std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
-            config.set("Dpkg::Use-Pty", "false");
         }
 
         if yes || force_yes || dpkg_force_all {

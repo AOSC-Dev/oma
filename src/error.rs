@@ -767,6 +767,22 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: None,
         },
         OmaAptError::ChecksumError(e) => oma_checksum_error(e),
+        OmaAptError::ForkPty(_) => OutputError {
+            description: err.to_string(),
+            source: None,
+        },
+        OmaAptError::CreatePipe(_) => OutputError {
+            description: err.to_string(),
+            source: None,
+        },
+        OmaAptError::OtherErrno(_) => OutputError {
+            description: err.to_string(),
+            source: None,
+        },
+        OmaAptError::DpkgOutput(_) => OutputError {
+            description: err.to_string(),
+            source: None,
+        },
     }
 }
 

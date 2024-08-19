@@ -151,6 +151,9 @@ pub fn execute(
             op,
         ) {
             Ok(()) => {
+                if let Some(gpb) = pb_map.get(&0) {
+                    gpb.finish_and_clear();
+                }
                 write_history_entry(
                     op_after,
                     typ,
@@ -171,6 +174,9 @@ pub fn execute(
                 OmaAptError::AptErrors(_)
                 | OmaAptError::AptError(_)
                 | OmaAptError::AptCxxException(_) => {
+                    if let Some(gpb) = pb_map.get(&0) {
+                        gpb.finish_and_clear();
+                    }
                     if retry_times == 3 {
                         write_history_entry(
                             op_after,
@@ -196,6 +202,9 @@ pub fn execute(
                     retry_times += 1;
                 }
                 _ => {
+                    if let Some(gpb) = pb_map.get(&0) {
+                        gpb.finish_and_clear();
+                    }
                     drop(fds);
                     return Err(OutputError::from(e));
                 }
