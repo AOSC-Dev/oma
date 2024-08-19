@@ -1,10 +1,11 @@
 use std::{fmt::Write, time::Duration};
 
-use indicatif::{BinaryBytes, HumanBytes, ProgressState, ProgressStyle};
+use console::style;
+use indicatif::{HumanBytes, ProgressState, ProgressStyle};
 
 use crate::writer::Writer;
 
-const SPINNER: &[&str] = &[
+const SPINNER_ANIME: &[&str] = &[
     "( ●    )",
     "(  ●   )",
     "(   ●  )",
@@ -16,17 +17,24 @@ const SPINNER: &[&str] = &[
     "( ●    )",
     "(●     )",
 ];
+const GLOBAL_BAR_SMALL_TEMPLATE: &str = " {prefix:.blue.bold} {bytes:>14.green.bold} {total_bytes:.green.bold} {binary_bytes_per_sec:<10.green.bold}";
+const GLOBAL_BAR_TEMPLATE: &str =
+    " {progress_msg:<59} {elapsed_precise:<11.blue.bold} [{wide_bar:.cyan/blue}] {percent:>3}";
+const NORMAL_BAR_SMALL_TEMPLATE: &str = " {msg} {percent:>3}";
+const NORMAL_BAR_TEMPLATE: &str =
+    " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>3}";
+const SPINNER_TEMPLATE: &str = " {msg:<59} {spinner}";
 
 pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
     let max_len = writer.get_length();
     let template = if max_len < 100 {
-        " {msg} {percent:>3}".to_owned()
+        NORMAL_BAR_SMALL_TEMPLATE
     } else {
-        " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>3}".to_owned()
+        NORMAL_BAR_TEMPLATE
     };
 
     ProgressStyle::default_bar()
-        .template(&template)
+        .template(template)
         .unwrap()
         .progress_chars("=>-")
         .with_key("percent", |state: &ProgressState, w: &mut dyn Write| {
@@ -37,33 +45,51 @@ pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
 pub fn global_progress_bar_style(writer: &Writer) -> ProgressStyle {
     let max_len = writer.get_length();
     let template = if max_len < 100 {
-        " {prefix:.blue.bold} {bytes:>14.green.bold} {total_bytes:.green.bold} {binary_bytes_per_sec:<10.green.bold}".to_owned()
+        GLOBAL_BAR_SMALL_TEMPLATE
     } else {
-        " {prefix:.blue.bold} {bytes:>14.green.bold} {total_bytes:>8.green.bold} {binary_bytes_per_sec:<25.green.bold} {eta_precise:<10.blue.bold} [{wide_bar:.blue.bold}] {percent:>3.blue.bold}".to_owned()
+        GLOBAL_BAR_TEMPLATE
     };
 
     ProgressStyle::default_bar()
-        .template(&template)
+        .template(template)
         .unwrap()
         .progress_chars("=>-")
-        .with_key("bytes", |state: &ProgressState, w: &mut dyn Write| {
-            write!(w, "{} /", HumanBytes(state.pos())).unwrap()
-        })
-        .with_key(
-            "binary_bytes_per_sec",
-            |state: &ProgressState, w: &mut dyn Write| {
-                write!(w, "@ {}/s", BinaryBytes(state.per_sec() as u64)).unwrap()
-            },
-        )
         .with_key("percent", |state: &ProgressState, w: &mut dyn Write| {
             write!(w, "{:.*}%", 0, state.fraction() * 100f32).unwrap()
         })
+        .with_key("progress_msg", oma_global_bar_template)
+}
+
+fn oma_global_bar_template(state: &ProgressState, w: &mut dyn Write) {
+    write!(w, "{}  ", style("Progress").blue().bold()).unwrap();
+
+    write!(
+        w,
+        "{}",
+        style(format!(
+            "{} / {}",
+            HumanBytes(state.pos()),
+            HumanBytes(state.len().unwrap_or(0))
+        ))
+        .green()
+        .bold()
+    )
+    .unwrap();
+
+    write!(
+        w,
+        "{}",
+        style(format!(" @ {}/s", HumanBytes(state.per_sec() as u64)))
+            .green()
+            .bold()
+    )
+    .unwrap();
 }
 
 pub fn spinner_style() -> (ProgressStyle, Duration) {
-    let (template, inv) = (SPINNER, 80);
+    let (template, inv) = (SPINNER_ANIME, 80);
 
-    let style = ProgressStyle::with_template(" {msg:<48} {spinner}")
+    let style = ProgressStyle::with_template(SPINNER_TEMPLATE)
         .unwrap()
         .tick_strings(template);
 
