@@ -2,11 +2,145 @@
 
 All notable changes to this project will be documented in this file.
 
-## [unreleased]
+## [1.6.0] - 2024-08-19
+
+### 🚀 Features
+
+- *(oma-console)* Add color format `Action::UpgradeTips`
+- *(oma-console)* Add oma color `Action::PendingBg`
+- *(oma-pm)* Allow `oma install foo --reinstall` will also install recommends
+- Improve empty dependency issue output
+- *(oma-pm)* Add debug output for resolve get error
+- Make `oma install` no fix broken by default ...
+- Set panic hook to unlock oma
+- Panic hook display panic info
+
+### 🐛 Bug Fixes
+
+- Disable `--help` egg if locales not contains zh* locale
+- *(oma-pm)* Protect recommend package
+- *(oma-console)* Fix `oma search` display warning in windows terminal ...
+- Correctly disable BiDi text marker
+- *(oma-console)* Do not use global WRITER prefix len as `writeln_inner` arg
+- *(oma-console)* Fix global progress bar align
+- *(oma-console)* Spinner should align progress bar
+
+### 🚜 Refactor
+
+- Set color formatter as global var
+- *(oma-console)* [**breaking**] Impl `OmaProgressStyle` to replace `oma_style_pb` and `oma_spinner` function
+- [**breaking**] `spinner_style` `global_progress_bar_style` `progress_bar_style` to replace `OmaProgressSrtle`
+- *(oma-console)* Use const to save progress bar template
+
+### 🎨 Styling
+
+- *(oma-refresh)* Lint
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-pm)* Fix build warning without aosc feature
+- Do not always use oma-pm aosc feature
+- Update all deps
+
+## [1.5.2] - 2024-08-15
+
+### 🐛 Bug Fixes
+
+- *(oma-topics)* Fix check mirror url missing '/'
+- Fix i18n loader fallback
+- Fix i18n_embed fallback to select language
+
+### ⚙️ Miscellaneous Tasks
+
+- Only version prefix contain 'v' will make deb
+
+## [1.5.1] - 2024-08-15
+
+### 🐛 Bug Fixes
+
+- *(command_not_found.rs)* Fix typo Ddescription => Description
+
+## [1.5.0] - 2024-08-15
+
+### 🚀 Features
+
+- *(oma-console)* Impl OmaColorFormat
+- *(oma-console)* Use `termbg` crate to check terminal theme
+- *(oma-console)* Add color theme for terminal light theme
+- *(command-not-found)* Package desc use white color
+- Use table to print command-not-found message
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Add Copy mark to fix build
+- Use correct i18n key for remove table headers
+- *(oma-topics)* Check `InRelease` file is exist
+
+### 🚜 Refactor
+
+- *(oma-topics)* No need to clone `arch` var
+- `PagerPrinter::print_table` must only allow `Vec` argument as header
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-refresh)* Move verify logic to `oma-repo-verify` crate ...
+- *(oma-repo-verify)* Add description and license
+- Update all deps
+
+### I18n
+
+- Not allow translate AVAIL UPGRADE and INSTALLED
+
+## [1.4.3-with-deb-ci] - 2024-08-12
+
+### ⚙️ Miscellaneous Tasks
+
+- Add `license` field in Cargo.toml
+
+### CI
+
+- Add a workflow to build Debian packages
+
+### Cargo.toml
+
+- Add cargo-deb metadata
+
+## [1.4.3] - 2024-08-11
+
+### 🚀 Features
+
+- *(oma-topics)* [**breaking**] Topic not in mirror msg should use callback to handle
+
+### 🐛 Bug Fixes
+
+- Do not remove essential package
+- *(oma-pm)* [**breaking**] Check dependencies is essential package
+
+### ⚙️ Miscellaneous Tasks
+
+- Update all deps
+- [**breaking**] Use `std::sync::LazyLock` to replace `once_cell::sync::Lazy`
+- *(i18n)* Update UI strings
+- Update all deps
+
+### I18n
+
+- Add some new string
+
+## [1.4.2] - 2024-08-08
 
 ### 🚀 Features
 
 - Add notes for contributors
+- *(oma-topics)* Add `file` protocol support
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix database file name on flat repo ...
+
+### 🧪 Testing
+
+- Add `file:/debs/` test on `test_ose`
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -14,6 +148,9 @@ All notable changes to this project will be documented in this file.
 - *(README)* Clean up formatting and proses
 - Omakase -> oma
 - Lint ctates description string
+- Update changelog
+- Refine descriptions for each crate
+- *(oma-refresh)* Add a lot of (ridiculous) test cases for flat repositories
 
 ## [1.4.1] - 2024-08-05
 
