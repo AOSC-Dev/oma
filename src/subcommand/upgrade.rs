@@ -14,6 +14,8 @@ use tracing::warn;
 
 use crate::error::OutputError;
 use crate::fl;
+use crate::pb::NoProgressBar;
+use crate::pb::OmaProgress;
 use crate::pb::OmaProgressBar;
 use crate::pb::ProgressEvent;
 use crate::table::table_for_install_pending;
@@ -25,7 +27,6 @@ use crate::UpgradeArgs;
 
 use super::remove::ask_user_do_as_i_say;
 use super::utils::check_empty_op;
-use super::utils::handle_event_without_progressbar;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
@@ -136,23 +137,18 @@ pub fn execute(
 
         let start_time = Local::now().timestamp();
 
-        let oma_pb = if !no_progress {
-            Some(OmaProgressBar::new())
+        let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
+            let pb = OmaProgressBar::new();
+            Box::new(pb)
         } else {
-            None
+            Box::new(NoProgressBar)
         };
 
         match apt.commit(
             &client,
             None,
             &apt_args,
-            |count, event, total| {
-                if let Some(pb) = &oma_pb {
-                    pb.change(ProgressEvent::from(event), count, total);
-                } else {
-                    handle_event_without_progressbar(event);
-                }
-            },
+            |count, event, total| oma_pb.change(ProgressEvent::from(event), count, total),
             op,
         ) {
             Ok(()) => {

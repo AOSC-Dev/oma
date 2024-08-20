@@ -10,8 +10,13 @@ use oma_console::{
 };
 use oma_fetch::DownloadEvent;
 use oma_refresh::db::RefreshEvent;
+use tracing::{error, info, warn};
 
 use crate::fl;
+
+pub trait OmaProgress {
+    fn change(&self, action: ProgressEvent, index: usize, total: Option<u64>);
+}
 
 pub struct OmaProgressBar {
     mb: MultiProgress,
@@ -35,15 +40,8 @@ impl From<RefreshEvent> for ProgressEvent {
     }
 }
 
-impl OmaProgressBar {
-    pub fn new() -> Self {
-        let mb = MultiProgress::new();
-        let pb_map = Arc::new(DashMap::new());
-
-        Self { mb, pb_map }
-    }
-
-    pub fn change(&self, action: ProgressEvent, index: usize, total: Option<u64>) {
+impl OmaProgress for OmaProgressBar {
+    fn change(&self, action: ProgressEvent, index: usize, total: Option<u64>) {
         if let Some(total) = total {
             if self.pb_map.get(&0).is_none() {
                 let sty = global_progress_bar_style(&WRITER);
@@ -96,6 +94,15 @@ impl OmaProgressBar {
                 }
             },
         }
+    }
+}
+
+impl OmaProgressBar {
+    pub fn new() -> Self {
+        let mb = MultiProgress::new();
+        let pb_map = Arc::new(DashMap::new());
+
+        Self { mb, pb_map }
     }
 
     fn handle_download_event(&self, action: DownloadEvent, index: usize) {
@@ -172,6 +179,66 @@ impl OmaProgressBar {
                     gpb.finish_and_clear();
                 }
             }
+        }
+    }
+}
+
+pub struct NoProgressBar;
+
+impl OmaProgress for NoProgressBar {
+    fn change(&self, action: ProgressEvent, _index: usize, _total: Option<u64>) {
+        match action {
+            ProgressEvent::DownloadEvent(event) => match event {
+                DownloadEvent::ChecksumMismatchRetry { filename, times } => {
+                    error!(
+                        "{}",
+                        fl!("checksum-mismatch-retry", c = filename, retry = times)
+                    );
+                }
+                DownloadEvent::CanNotGetSourceNextUrl(e) => {
+                    error!("{}", fl!("can-not-get-source-next-url", e = e.to_string()));
+                }
+                DownloadEvent::Done(msg) => {
+                    WRITER.writeln("DONE", &msg).ok();
+                }
+                _ => {}
+            },
+            ProgressEvent::RefreshEvent(event) => match event {
+                RefreshEvent::DownloadEvent(event) => Self::handle_download_event(event),
+                RefreshEvent::ClosingTopic(topic_name) => {
+                    info!("{}", fl!("scan-topic-is-removed", name = topic_name));
+                }
+                RefreshEvent::ScanningTopic => {
+                    info!("{}", fl!("refreshing-topic-metadata"));
+                }
+                RefreshEvent::TopicNotInMirror(topic, mirror) => {
+                    warn!(
+                        "{}",
+                        fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                    );
+                    warn!("{}", fl!("skip-write-mirror"));
+                }
+            },
+        }
+    }
+}
+
+impl NoProgressBar {
+    fn handle_download_event(event: DownloadEvent) {
+        match event {
+            DownloadEvent::ChecksumMismatchRetry { filename, times } => {
+                error!(
+                    "{}",
+                    fl!("checksum-mismatch-retry", c = filename, retry = times)
+                );
+            }
+            DownloadEvent::CanNotGetSourceNextUrl(e) => {
+                error!("{}", fl!("can-not-get-source-next-url", e = e.to_string()));
+            }
+            DownloadEvent::Done(msg) => {
+                WRITER.writeln("DONE", &msg).ok();
+            }
+            _ => {}
         }
     }
 }
