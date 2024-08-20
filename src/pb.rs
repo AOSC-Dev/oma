@@ -20,7 +20,7 @@ pub trait OmaProgress {
 
 pub struct OmaProgressBar {
     mb: MultiProgress,
-    pub pb_map: Arc<DashMap<usize, ProgressBar>>,
+    pb_map: Arc<DashMap<usize, ProgressBar>>,
 }
 
 pub enum ProgressEvent {
