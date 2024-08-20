@@ -97,6 +97,7 @@ pub struct RemoveArgs {
     no_autoremove: bool,
     force_yes: bool,
     sysroot: String,
+    fix_broken: bool,
 }
 
 pub struct OmaArgs {
@@ -375,6 +376,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 no_autoremove: args.get_flag("no_autoremove"),
                 force_yes: args.get_flag("force_yes"),
                 sysroot,
+                fix_broken: args.get_flag("fix_broken"),
             };
 
             let client = Client::builder().user_agent("oma").build().unwrap();

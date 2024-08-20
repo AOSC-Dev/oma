@@ -76,7 +76,7 @@ pub fn execute(
             .force_yes(args.force_yes)
             .no_progress(no_progress)
             .build()?,
-        no_fixbroken: false,
+        no_fixbroken: !args.fix_broken,
         network_thread,
         no_progress,
         sysroot: args.sysroot,
