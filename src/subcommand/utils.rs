@@ -8,6 +8,8 @@ use std::sync::atomic::Ordering;
 
 use crate::error::OutputError;
 use crate::fl;
+use crate::pb::NoProgressBar;
+use crate::pb::OmaProgress;
 use crate::pb::OmaProgressBar;
 use crate::pb::ProgressEvent;
 use crate::table::table_for_install_pending;
@@ -15,8 +17,6 @@ use crate::utils::create_async_runtime;
 use crate::LOCKED;
 use chrono::Local;
 use oma_console::success;
-use oma_console::WRITER;
-use oma_fetch::DownloadEvent;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
@@ -26,7 +26,6 @@ use oma_pm::apt::OmaApt;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_refresh::db::OmaRefresh;
 use oma_refresh::db::OmaRefreshBuilder;
-use oma_refresh::db::RefreshEvent;
 use oma_utils::dpkg::dpkg_arch;
 use oma_utils::oma::lock_oma_inner;
 use oma_utils::oma::unlock_oma;
@@ -132,40 +131,19 @@ pub(crate) fn refresh(
 
     let mut pb_map_clone = None;
 
-    let oma_pb = if !no_progress {
+    let oma_pb: Box<dyn OmaProgress + Send + Sync> = if !no_progress {
         let pb = OmaProgressBar::new();
         pb_map_clone = Some(pb.pb_map.clone());
-        Some(pb)
+        Box::new(pb)
     } else {
-        None
+        Box::new(NoProgressBar)
     };
 
     tokio.block_on(async move {
         refresh
             .start(
                 |count, event, total| {
-                    if let Some(oma_pb) = &oma_pb {
-                        oma_pb.change(ProgressEvent::from(event), count, total);
-                    } else {
-                        match event {
-                            RefreshEvent::DownloadEvent(d) => {
-                                handle_event_without_progressbar(d);
-                            }
-                            RefreshEvent::ClosingTopic(topic_name) => {
-                                info!("{}", fl!("scan-topic-is-removed", name = topic_name));
-                            }
-                            RefreshEvent::ScanningTopic => {
-                                info!("{}", fl!("refreshing-topic-metadata"));
-                            }
-                            RefreshEvent::TopicNotInMirror(topic, mirror) => {
-                                warn!(
-                                    "{}",
-                                    fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
-                                );
-                                warn!("{}", fl!("skip-write-mirror"));
-                            }
-                        }
-                    }
+                    oma_pb.change(ProgressEvent::from(event), count, total);
                 },
                 || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
             )
@@ -231,10 +209,11 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
 
     table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)?;
 
-    let oma_pb = if !no_progress {
-        Some(OmaProgressBar::new())
+    let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
+        let pb = OmaProgressBar::new();
+        Box::new(pb)
     } else {
-        None
+        Box::new(NoProgressBar)
     };
 
     let start_time = Local::now().timestamp();
@@ -244,11 +223,7 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
         Some(network_thread),
         &apt_args,
         |count, event, total| {
-            if let Some(pb) = &oma_pb {
-                pb.change(ProgressEvent::from(event), count, total);
-            } else {
-                handle_event_without_progressbar(event);
-            }
+            oma_pb.change(ProgressEvent::from(event), count, total);
         },
         op,
     );
@@ -285,24 +260,6 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
             )?;
             Err(e.into())
         }
-    }
-}
-
-pub(crate) fn handle_event_without_progressbar(event: DownloadEvent) {
-    match event {
-        DownloadEvent::ChecksumMismatchRetry { filename, times } => {
-            error!(
-                "{}",
-                fl!("checksum-mismatch-retry", c = filename, retry = times)
-            );
-        }
-        DownloadEvent::CanNotGetSourceNextUrl(e) => {
-            error!("{}", fl!("can-not-get-source-next-url", e = e.to_string()));
-        }
-        DownloadEvent::Done(msg) => {
-            WRITER.writeln("DONE", &msg).ok();
-        }
-        _ => {}
     }
 }
 
