@@ -129,11 +129,8 @@ pub(crate) fn refresh(
 
     let tokio = create_async_runtime()?;
 
-    let mut pb_map_clone = None;
-
     let oma_pb: Box<dyn OmaProgress + Send + Sync> = if !no_progress {
         let pb = OmaProgressBar::new();
-        pb_map_clone = Some(pb.pb_map.clone());
         Box::new(pb)
     } else {
         Box::new(NoProgressBar)
@@ -142,19 +139,11 @@ pub(crate) fn refresh(
     tokio.block_on(async move {
         refresh
             .start(
-                |count, event, total| {
-                    oma_pb.change(ProgressEvent::from(event), count, total);
-                },
+                |count, event, total| oma_pb.change(ProgressEvent::from(event), count, total),
                 || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
             )
             .await
     })?;
-
-    if let Some(pb_map) = pb_map_clone {
-        if let Some(gpb) = pb_map.get(&0) {
-            gpb.finish_and_clear();
-        }
-    }
 
     Ok(())
 }

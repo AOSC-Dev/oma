@@ -34,11 +34,8 @@ pub fn execute(
     let (pkgs, no_result) = apt.select_pkg(&keyword, false, true, true)?;
     handle_no_result(no_result)?;
 
-    let mut pb_map_clone = None;
-
     let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
         let pb = OmaProgressBar::new();
-        pb_map_clone = Some(pb.pb_map.clone());
         Box::new(pb)
     } else {
         Box::new(NoProgressBar)
@@ -54,12 +51,6 @@ pub fn execute(
             oma_pb.change(ProgressEvent::from(event), count, total);
         },
     )?;
-
-    if let Some(pb_map) = pb_map_clone {
-        if let Some(gpb) = pb_map.get(&0) {
-            gpb.finish_and_clear();
-        }
-    }
 
     if !success.is_empty() {
         success!(
