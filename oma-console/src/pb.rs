@@ -17,7 +17,7 @@ const SPINNER_ANIME: &[&str] = &[
     "( ●    )",
     "(●     )",
 ];
-const GLOBAL_BAR_SMALL_TEMPLATE: &str = " {prefix:.blue.bold} {bytes:>14.green.bold} {total_bytes:.green.bold} {binary_bytes_per_sec:<10.green.bold}";
+const GLOBAL_BAR_SMALL_TEMPLATE: &str = " {progress_msg:<59}";
 const GLOBAL_BAR_TEMPLATE: &str =
     " {progress_msg:<59} {elapsed_precise:<11.blue.bold} [{wide_bar:.cyan/blue}] {percent:>3}";
 const NORMAL_BAR_SMALL_TEMPLATE: &str = " {msg} {percent:>3}";
