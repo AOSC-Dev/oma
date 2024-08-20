@@ -8,16 +8,13 @@ use std::sync::atomic::Ordering;
 
 use crate::error::OutputError;
 use crate::fl;
-use crate::pb;
+use crate::pb::OmaProgressBar;
+use crate::pb::ProgressEvent;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
-use crate::utils::multibar;
 use crate::LOCKED;
 use chrono::Local;
-use dialoguer::console::style;
-use oma_console::pb::spinner_style;
 use oma_console::success;
-use oma_console::writer::bar_writeln;
 use oma_console::WRITER;
 use oma_fetch::DownloadEvent;
 use oma_history::connect_db;
@@ -133,54 +130,22 @@ pub(crate) fn refresh(
 
     let tokio = create_async_runtime()?;
 
-    let (mb, pb_map, global_is_set) = multibar();
+    let mut pb_map_clone = None;
 
-    let pbc = pb_map.clone();
+    let oma_pb = if !no_progress {
+        let pb = OmaProgressBar::new();
+        pb_map_clone = Some(pb.pb_map.clone());
+        Some(pb)
+    } else {
+        None
+    };
 
     tokio.block_on(async move {
         refresh
             .start(
                 |count, event, total| {
-                    if !no_progress {
-                        match event {
-                            RefreshEvent::ClosingTopic(topic_name) => bar_writeln(
-                                |s| {
-                                    mb.println(s).ok();
-                                },
-                                &style("INFO").blue().bold().to_string(),
-                                &fl!("scan-topic-is-removed", name = topic_name),
-                            ),
-                            RefreshEvent::DownloadEvent(event) => {
-                                pb!(event, mb, pb_map, count, total, global_is_set)
-                            }
-                            RefreshEvent::ScanningTopic => {
-                                let (sty, inv) = spinner_style();
-                                let pb = mb.insert(
-                                    count + 1,
-                                    oma_console::indicatif::ProgressBar::new_spinner()
-                                        .with_style(sty),
-                                );
-                                pb.set_message(fl!("refreshing-topic-metadata"));
-                                pb.enable_steady_tick(inv);
-                                pb_map.insert(count + 1, pb);
-                            }
-                            RefreshEvent::TopicNotInMirror(topic, mirror) => {
-                                bar_writeln(
-                                    |s| {
-                                        mb.println(s).ok();
-                                    },
-                                    &style("WARNING").yellow().bold().to_string(),
-                                    &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
-                                );
-                                bar_writeln(
-                                    |s| {
-                                        mb.println(s).ok();
-                                    },
-                                    &style("WARNING").yellow().bold().to_string(),
-                                    &fl!("skip-write-mirror"),
-                                );
-                            }
-                        }
+                    if let Some(oma_pb) = &oma_pb {
+                        oma_pb.change(ProgressEvent::from(event), count, total);
                     } else {
                         match event {
                             RefreshEvent::DownloadEvent(d) => {
@@ -207,8 +172,10 @@ pub(crate) fn refresh(
             .await
     })?;
 
-    if let Some(gpb) = pbc.get(&0) {
-        gpb.finish_and_clear();
+    if let Some(pb_map) = pb_map_clone {
+        if let Some(gpb) = pb_map.get(&0) {
+            gpb.finish_and_clear();
+        }
     }
 
     Ok(())
@@ -264,7 +231,11 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
 
     table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)?;
 
-    let (mb, pb_map, global_is_set) = multibar();
+    let oma_pb = if !no_progress {
+        Some(OmaProgressBar::new())
+    } else {
+        None
+    };
 
     let start_time = Local::now().timestamp();
 
@@ -273,8 +244,8 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<(
         Some(network_thread),
         &apt_args,
         |count, event, total| {
-            if !no_progress {
-                pb!(event, mb, pb_map, count, total, global_is_set)
+            if let Some(pb) = &oma_pb {
+                pb.change(ProgressEvent::from(event), count, total);
             } else {
                 handle_event_without_progressbar(event);
             }

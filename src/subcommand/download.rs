@@ -5,8 +5,9 @@ use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use reqwest::Client;
 use tracing::error;
 
+use crate::pb::{OmaProgressBar, ProgressEvent};
 use crate::subcommand::utils::handle_event_without_progressbar;
-use crate::{error::OutputError, pb, subcommand::utils::handle_no_result, utils::multibar};
+use crate::{error::OutputError, subcommand::utils::handle_no_result};
 use crate::{fl, OmaArgs};
 
 pub fn execute(
@@ -34,7 +35,12 @@ pub fn execute(
     let (pkgs, no_result) = apt.select_pkg(&keyword, false, true, true)?;
     handle_no_result(no_result)?;
 
-    let (mb, pb_map, global_is_set) = multibar();
+    let oma_pb = if !no_progress {
+        Some(OmaProgressBar::new())
+    } else {
+        None
+    };
+
     let (success, failed) = apt.download(
         client,
         pkgs,
@@ -42,16 +48,18 @@ pub fn execute(
         Some(&path),
         dry_run,
         |count, event, total| {
-            if !no_progress {
-                pb!(event, mb, pb_map, count, total, global_is_set)
+            if let Some(pb) = &oma_pb {
+                pb.change(ProgressEvent::from(event), count, total);
             } else {
                 handle_event_without_progressbar(event);
             }
         },
     )?;
 
-    if let Some(gpb) = pb_map.get(&0) {
-        gpb.finish_and_clear();
+    if let Some(pb) = &oma_pb {
+        if let Some(gpb) = pb.pb_map.get(&0) {
+            gpb.finish_and_clear();
+        }
     }
 
     if !success.is_empty() {

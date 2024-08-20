@@ -14,11 +14,11 @@ use tracing::warn;
 
 use crate::error::OutputError;
 use crate::fl;
-use crate::pb;
+use crate::pb::OmaProgressBar;
+use crate::pb::ProgressEvent;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::dbus_check;
-use crate::utils::multibar;
 use crate::utils::root;
 use crate::OmaArgs;
 use crate::UpgradeArgs;
@@ -136,14 +136,19 @@ pub fn execute(
 
         let start_time = Local::now().timestamp();
 
-        let (mb, pb_map, global_is_set) = multibar();
+        let oma_pb = if !no_progress {
+            Some(OmaProgressBar::new())
+        } else {
+            None
+        };
+
         match apt.commit(
             &client,
             None,
             &apt_args,
             |count, event, total| {
-                if !no_progress {
-                    pb!(event, mb, pb_map, count, total, global_is_set)
+                if let Some(pb) = &oma_pb {
+                    pb.change(ProgressEvent::from(event), count, total);
                 } else {
                     handle_event_without_progressbar(event);
                 }
