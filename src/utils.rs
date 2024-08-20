@@ -2,15 +2,12 @@ use std::{
     env,
     path::Path,
     process::{exit, Command},
-    sync::{atomic::AtomicBool, Arc},
 };
 
 use crate::error::OutputError;
 use crate::fl;
 use anyhow::anyhow;
-use dashmap::DashMap;
 use dialoguer::{theme::ColorfulTheme, Confirm};
-use oma_console::indicatif::{MultiProgress, ProgressBar};
 use oma_utils::{
     dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
     oma::unlock_oma,
@@ -21,99 +18,6 @@ use tokio::runtime::Runtime;
 use tracing::warn;
 
 type Result<T> = std::result::Result<T, OutputError>;
-
-// 似乎用函数无法修改 Dashmap 的内容，不知道该怎么办，所以用了宏
-/// Control progress bar
-#[macro_export]
-macro_rules! pb {
-    ($event:expr, $mb:expr, $pb_map:expr, $count:expr, $total:expr, $global_is_set:expr) => {{
-        tracing::debug!("{}", $event);
-        match $event {
-            oma_fetch::DownloadEvent::ChecksumMismatchRetry { filename, times } => {
-                // println 返回的错误是无法控制终端的 I/O 错误，这种处理应该直接 panic 返回
-                // 所以这里直接 unwrap
-                // （下同）
-                oma_console::writer::bar_writeln(|s| { $mb.println(s).ok(); },
-                    &oma_console::console::style("ERROR")
-                        .red()
-                        .bold()
-                        .to_string(),
-                    &fl!("checksum-mismatch-retry", c = filename, retry = times))
-            }
-            oma_fetch::DownloadEvent::GlobalProgressSet(size) => {
-                if let Some(pb) = $pb_map.get(&0) {
-                    pb.set_position(size);
-                }
-            }
-            oma_fetch::DownloadEvent::GlobalProgressInc(size) => {
-                if let Some(pb) = $pb_map.get(&0) {
-                    pb.inc(size);
-                }
-            }
-            oma_fetch::DownloadEvent::ProgressDone => {
-                if let Some(pb) = $pb_map.get(&($count + 1)) {
-                    pb.finish_and_clear();
-                }
-            }
-            oma_fetch::DownloadEvent::NewProgressSpinner(msg) => {
-                let (sty, inv) = oma_console::pb::spinner_style();
-                let pb = $mb.insert(
-                    $count + 1,
-                    oma_console::indicatif::ProgressBar::new_spinner().with_style(sty),
-                );
-                pb.set_message(msg);
-                pb.enable_steady_tick(inv);
-                $pb_map.insert($count + 1, pb);
-            }
-            oma_fetch::DownloadEvent::NewProgress(size, msg) => {
-                let sty = oma_console::pb::progress_bar_style(&oma_console::WRITER);
-                let pb = $mb.insert(
-                    $count + 1,
-                    oma_console::indicatif::ProgressBar::new(size).with_style(sty),
-                );
-                pb.set_message(msg);
-                $pb_map.insert($count + 1, pb);
-            }
-            oma_fetch::DownloadEvent::ProgressInc(size) => {
-                let pb = $pb_map.get(&($count + 1)).unwrap();
-                pb.inc(size);
-            }
-            oma_fetch::DownloadEvent::ProgressSet(size) => {
-                let pb = $pb_map.get(&($count + 1)).unwrap();
-                pb.set_position(size);
-            }
-            oma_fetch::DownloadEvent::CanNotGetSourceNextUrl(e) => {
-                oma_console::writer::bar_writeln(|s| { $mb.println(s).ok(); },
-                &oma_console::console::style("ERROR")
-                .red()
-                .bold()
-                .to_string(),
-            &fl!("can-not-get-source-next-url", e = e.to_string()), )
-            }
-            oma_fetch::DownloadEvent::Done(filename) => {
-                tracing::debug!("Downloaded {filename}");
-            }
-            oma_fetch::DownloadEvent::AllDone => {
-                if let Some(gpb) = $pb_map.get(&0) {
-                    gpb.finish_and_clear();
-                }
-            }
-        }
-
-        if let Some(total) = $total {
-            if !$global_is_set.load(std::sync::atomic::Ordering::SeqCst) {
-                let sty = oma_console::pb::global_progress_bar_style(&oma_console::WRITER);
-                let gpb = $mb.insert(
-                    0,
-                    oma_console::indicatif::ProgressBar::new(total).with_style(sty),
-                );
-                gpb.set_prefix("Progress");
-                $pb_map.insert(0, gpb);
-                $global_is_set.store(true, std::sync::atomic::Ordering::SeqCst);
-            }
-        }
-    }};
-}
 
 pub fn root() -> Result<()> {
     if process::geteuid().is_root() {
@@ -207,17 +111,4 @@ pub async fn check_battery(conn: &Connection, yes: bool) {
             exit(0);
         }
     }
-}
-
-pub fn multibar() -> (
-    Arc<MultiProgress>,
-    DashMap<usize, ProgressBar>,
-    Arc<AtomicBool>,
-) {
-    let mb = Arc::new(MultiProgress::new());
-    let pb_map: DashMap<usize, ProgressBar> = DashMap::new();
-
-    let global_is_set = Arc::new(AtomicBool::new(false));
-
-    (mb, pb_map, global_is_set)
 }

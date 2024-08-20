@@ -10,6 +10,7 @@ mod args;
 mod config;
 mod error;
 mod lang;
+mod pb;
 mod subcommand;
 mod table;
 mod utils;
