@@ -1,11 +1,8 @@
 use std::path::Path;
 
-use dialoguer::console;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
-use oma_console::writer::bar_writeln;
-use oma_contents::{ContentsEvent, QueryMode};
-use oma_utils::dpkg::dpkg_arch;
+use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
 
 use crate::error::OutputError;
 use crate::fl;
@@ -30,47 +27,35 @@ pub fn execute(
         None
     };
 
-    let query_mode = match mode {
-        "files" => QueryMode::ListFiles(is_bin),
-        "provides" => QueryMode::Provides(is_bin),
+    let mode = match mode {
+        "provides" if is_bin => Mode::BinProvides,
+        "provides" => Mode::Provides,
+        "files" if is_bin => Mode::BinFiles,
+        "files" => Mode::Files,
         _ => unreachable!(),
     };
 
-    let arch = dpkg_arch(&sysroot)?;
+    let cb = move |count: usize| {
+        if let Some(pb) = &pb {
+            pb.set_message(fl!("search-with-result-count", count = count));
+        }
+    };
 
-    let res = oma_contents::find(
-        input,
-        query_mode,
-        &Path::new(&sysroot).join("var/lib/apt/lists"),
-        &arch,
-        move |c| match c {
-            ContentsEvent::Progress(c) => {
-                if let Some(pb) = &pb {
-                    pb.set_message(fl!("search-with-result-count", count = c));
-                }
-            }
-            ContentsEvent::ContentsMayNotBeAccurate => {
-                if let Some(pb) = &pb {
-                    bar_writeln(
-                        |s| pb.println(s),
-                        &console::style("WARNING").yellow().bold().to_string(),
-                        &fl!("contents-may-not-be-accurate-1"),
-                    );
-                    bar_writeln(
-                        |s| pb.println(s),
-                        &console::style("WARNING").yellow().bold().to_string(),
-                        &fl!("contents-may-not-be-accurate-2"),
-                    );
-                }
-            }
-            ContentsEvent::Done => {
-                if let Some(pb) = &pb {
-                    pb.finish_and_clear();
-                }
-            }
-        },
-        arch != "mips64r6el",
-    )?;
+    let res = if which::which("rg").is_ok() {
+        ripgrep_search(
+            Path::new(&sysroot).join("var/lib/apt/lists"),
+            mode,
+            input,
+            cb,
+        )
+    } else {
+        pure_search(
+            Path::new(&sysroot).join("var/lib/apt/lists"),
+            mode,
+            input,
+            cb,
+        )
+    }?;
 
     let mut pager = oma_display_with_normal_output(false, res.len())?;
     let mut out = pager.get_writer().map_err(|e| OutputError {

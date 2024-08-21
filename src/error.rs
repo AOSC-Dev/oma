@@ -560,40 +560,7 @@ impl From<DownloadError> for OutputError {
 
 impl From<OmaContentsError> for OutputError {
     fn from(value: OmaContentsError) -> Self {
-        #[cfg(feature = "contents-without-rg")]
-        let s = match value {
-            OmaContentsError::ContentsNotExist => Self {
-                description: fl!("contents-does-not-exist"),
-                source: None,
-            },
-            OmaContentsError::ContentsEntryMissingPathList(s) => Self {
-                description: fl!("contents-entry-missing-path-list", entry = s),
-                source: None,
-            },
-            OmaContentsError::CnfWrongArgument => Self {
-                description: value.to_string(),
-                source: None,
-            },
-            OmaContentsError::NoResult => Self {
-                description: "".to_string(),
-                source: None,
-            },
-            OmaContentsError::LzzzErr(e) => Self {
-                description: fl!("failed-to-decompress-contains"),
-                source: Some(Box::new(e)),
-            },
-            OmaContentsError::FailedToOperateDirOrFile(path, e) => Self {
-                description: fl!("failed-to-operate-path", p = path),
-                source: Some(Box::new(e)),
-            },
-            OmaContentsError::FailedToGetFileMetadata(path, e) => Self {
-                description: fl!("failed-to-operate-path", p = path),
-                source: Some(Box::new(e)),
-            },
-        };
-
-        #[cfg(not(feature = "contents-without-rg"))]
-        let s = match value {
+        match value {
             OmaContentsError::ContentsNotExist => Self {
                 description: fl!("contents-does-not-exist"),
                 source: None,
@@ -614,10 +581,6 @@ impl From<OmaContentsError> for OutputError {
                 description: fl!("rg-non-zero"),
                 source: None,
             },
-            OmaContentsError::NoResult => Self {
-                description: "".to_string(),
-                source: None,
-            },
             OmaContentsError::FailedToOperateDirOrFile(path, e) => Self {
                 description: fl!("failed-to-operate-path", p = path),
                 source: Some(Box::new(e)),
@@ -630,9 +593,15 @@ impl From<OmaContentsError> for OutputError {
                 description: fl!("failed-to-get-rg-process-info"),
                 source: Some(Box::new(e)),
             },
-        };
-
-        s
+            OmaContentsError::LzzzErr(e) => Self {
+                description: fl!("failed-to-decompress-contents"),
+                source: Some(Box::new(e)),
+            },
+            OmaContentsError::NoResult => Self {
+                description: "".to_string(),
+                source: None,
+            },
+        }
     }
 }
 

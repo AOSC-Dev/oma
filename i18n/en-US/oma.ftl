@@ -176,3 +176,4 @@ mirror-is-not-trusted = Mirror { $mirror } is unsigned or not trusted, please ch
 please-run-me-as-root = oma requires elevated privileges to perform system administration.
 topic-not-in-mirror = Topic { $topic } is inaccessible in mirror { $mirror }.
 skip-write-mirror = This is likely because the mirror(s) you specified are not yet synchronized. Skipping this mirror in favor of other options ...
+failed-to-decompress-contents = Failed to decompress contents.
