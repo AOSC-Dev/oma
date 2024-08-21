@@ -1,7 +1,6 @@
 pub mod parser;
 pub mod searcher;
 
-#[cfg(not(feature = "no-rg-binary"))]
 #[derive(Debug, thiserror::Error)]
 pub enum OmaContentsError {
     #[error("Contents does not exist")]
