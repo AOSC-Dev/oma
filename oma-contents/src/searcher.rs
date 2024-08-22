@@ -192,6 +192,9 @@ fn pure_search_contents_from_path(
     let contents_entry: &mut dyn Read = match path.extension().and_then(|x| x.to_str()) {
         Some("gz") => &mut GzDecoder::new(BufReader::new(f)),
         Some("lz4") => &mut BufReadDecompressor::new(BufReader::new(f))?,
+        Some("zst") => {
+            &mut zstd::stream::Decoder::new(BufReader::new(f)).map_err(OmaContentsError::Zstd)?
+        }
         Some(_) | None => &mut BufReader::new(f),
     };
 

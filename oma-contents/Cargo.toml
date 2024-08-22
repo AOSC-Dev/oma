@@ -17,6 +17,7 @@ rayon = "1.8"
 lzzzz = "1.0"
 tracing = "0.1"
 which = "6"
+zstd = "0.13"
 
 [dev-dependencies]
 indicatif = "0.17"

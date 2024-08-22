@@ -601,6 +601,10 @@ impl From<OmaContentsError> for OutputError {
                 description: "".to_string(),
                 source: None,
             },
+            OmaContentsError::Zstd(e) => Self {
+                description: fl!("failed-to-decompress-contents"),
+                source: Some(Box::new(e)),
+            },
         }
     }
 }

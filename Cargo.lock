@@ -3149,6 +3149,7 @@ dependencies = [
  "tracing",
  "which",
  "winnow 0.6.18",
+ "zstd",
 ]
 
 [[package]]
