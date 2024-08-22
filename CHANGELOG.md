@@ -2,7 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.6.0] - 2024-08-19
+## [1.7.0] - 2024-08-22
+
+### 🚀 Features
+
+- *(command-not-found)* Sort jaro num
+- *(oma-refresh, oma-fetch)* Add zstd download support
+- *(oma-refresh)* Prioritize zip compress download order
+- *(oma-contents)* Add pure search zstd contents support
+
+### 🐛 Bug Fixes
+
+- `oma remove` no fix broken by default ...
+- *(oma-console)* Fix global progress bar small style
+- Correct tense for "be upgraded"
+- *(oma-console)* Fix progress bar 100% will not align
+
+### 🚜 Refactor
+
+- Refactor progress bar handle logic
+- Add trait `OmaProgress` to handle has progress bar and no progress bar
+- Remove unnecessary logic
+- *(oma-contents)* Refactor all
+
+### 📚 Documentation
+
+- *(oma-fetch)* Add comment
+
+### ⚙️ Miscellaneous Tasks
+
+- Update all version in Cargo.toml
+
+## [1.6.0] - 2024-08-20
 
 ### 🚀 Features
 
