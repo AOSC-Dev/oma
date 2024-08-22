@@ -567,7 +567,7 @@ impl<'a> OmaRefresh<'a> {
                 handle
             } else {
                 let mut handle = vec![];
-                let mut handle_file_name = vec![];
+                let mut compress_file_map = HashMap::new();
                 for i in &checksums {
                     match &i.file_type {
                         DistFileType::BinaryContents => {
@@ -582,43 +582,57 @@ impl<'a> OmaRefresh<'a> {
                             handle.push(i);
                             total += i.size;
                         }
-                        DistFileType::CompressContents(name, _) => {
+                        DistFileType::CompressContents(name, compress_type) => {
                             if self.download_compress {
                                 debug!(
                                     "oma will download compress Package List/compress Contetns: {}",
                                     i.name
                                 );
 
-                                if !handle_file_name.contains(&name) {
-                                    handle.push(i);
-                                    handle_file_name.push(name);
-                                    total += i.size;
-                                }
+                                compress_file_map
+                                    .entry(name)
+                                    .and_modify(|x: &mut Vec<(&str, u64, &ChecksumItem)>| {
+                                        x.push((compress_type, i.size, i))
+                                    })
+                                    .or_insert(vec![(compress_type, i.size, i)]);
                             }
                         }
-                        DistFileType::CompressPackageList(name, _) => {
+                        DistFileType::CompressPackageList(name, compress_type) => {
                             if self.download_compress {
                                 debug!(
                                     "oma will download compress Package List/compress Contetns: {}",
                                     i.name
                                 );
 
-                                if !handle_file_name.contains(&name) {
-                                    handle.push(i);
-                                    handle_file_name.push(name);
-                                    let size = checksums
-                                        .iter()
-                                        .find_map(
-                                            |x| if x.name == *name { Some(x.size) } else { None },
-                                        )
-                                        .unwrap_or(i.size);
+                                let size = checksums
+                                    .iter()
+                                    .find_map(|x| if x.name == *name { Some(x.size) } else { None })
+                                    .unwrap_or(i.size);
 
-                                    total += size;
-                                }
+                                compress_file_map
+                                    .entry(name)
+                                    .and_modify(|x: &mut Vec<(&str, u64, &ChecksumItem)>| {
+                                        x.push((compress_type, size, i))
+                                    })
+                                    .or_insert(vec![(compress_type, size, i)]);
                             }
                         }
                         _ => continue,
                     }
+                }
+
+                for (_, mut v) in compress_file_map {
+                    if v.is_empty() {
+                        continue;
+                    }
+
+                    v.sort_unstable_by(|a, b| {
+                        CompressFile::from(b.0).cmp(&CompressFile::from(a.0))
+                    });
+
+                    let (_, size, i) = v.first().unwrap();
+                    handle.push(i);
+                    total += size;
                 }
 
                 handle
