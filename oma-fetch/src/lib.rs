@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fmt::Display,
     path::PathBuf,
     sync::{atomic::AtomicU64, Arc},
@@ -52,7 +53,7 @@ pub struct DownloadEntry {
     file_type: CompressFile,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum CompressFile {
     Bz2,
     Gzip,
@@ -60,6 +61,66 @@ pub enum CompressFile {
     Zstd,
     #[default]
     Nothing,
+}
+
+impl Ord for CompressFile {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self {
+            CompressFile::Bz2 => match other {
+                CompressFile::Bz2 => Ordering::Equal,
+                CompressFile::Gzip => Ordering::Less,
+                CompressFile::Xz => Ordering::Less,
+                CompressFile::Zstd => Ordering::Less,
+                CompressFile::Nothing => Ordering::Greater,
+            },
+            CompressFile::Gzip => match other {
+                CompressFile::Bz2 => Ordering::Greater,
+                CompressFile::Gzip => Ordering::Less,
+                CompressFile::Xz => Ordering::Less,
+                CompressFile::Zstd => Ordering::Less,
+                CompressFile::Nothing => Ordering::Greater,
+            },
+            CompressFile::Xz => match other {
+                CompressFile::Bz2 => Ordering::Greater,
+                CompressFile::Gzip => Ordering::Greater,
+                CompressFile::Xz => Ordering::Equal,
+                CompressFile::Zstd => Ordering::Less,
+                CompressFile::Nothing => Ordering::Greater,
+            },
+            CompressFile::Zstd => match other {
+                CompressFile::Bz2 => Ordering::Greater,
+                CompressFile::Gzip => Ordering::Greater,
+                CompressFile::Xz => Ordering::Greater,
+                CompressFile::Zstd => Ordering::Equal,
+                CompressFile::Nothing => Ordering::Greater,
+            },
+            CompressFile::Nothing => match other {
+                CompressFile::Bz2 => Ordering::Less,
+                CompressFile::Gzip => Ordering::Less,
+                CompressFile::Xz => Ordering::Less,
+                CompressFile::Zstd => Ordering::Less,
+                CompressFile::Nothing => Ordering::Equal,
+            },
+        }
+    }
+}
+
+impl PartialOrd for CompressFile {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl From<&str> for CompressFile {
+    fn from(s: &str) -> Self {
+        match s {
+            "xz" => CompressFile::Xz,
+            "gz" => CompressFile::Gzip,
+            "bz2" => CompressFile::Bz2,
+            "zst" => CompressFile::Zstd,
+            _ => CompressFile::Nothing,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -81,21 +142,21 @@ pub enum DownloadSourceType {
 }
 
 impl PartialOrd for DownloadSourceType {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for DownloadSourceType {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         match self {
             DownloadSourceType::Http => match other {
-                DownloadSourceType::Http => std::cmp::Ordering::Equal,
-                DownloadSourceType::Local { .. } => std::cmp::Ordering::Less,
+                DownloadSourceType::Http => Ordering::Equal,
+                DownloadSourceType::Local { .. } => Ordering::Less,
             },
             DownloadSourceType::Local { .. } => match other {
-                DownloadSourceType::Http => std::cmp::Ordering::Greater,
-                DownloadSourceType::Local { .. } => std::cmp::Ordering::Equal,
+                DownloadSourceType::Http => Ordering::Greater,
+                DownloadSourceType::Local { .. } => Ordering::Equal,
             },
         }
     }
