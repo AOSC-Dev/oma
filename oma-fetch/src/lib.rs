@@ -57,6 +57,7 @@ pub enum CompressFile {
     Bz2,
     Gzip,
     Xz,
+    Zstd,
     #[default]
     Nothing,
 }

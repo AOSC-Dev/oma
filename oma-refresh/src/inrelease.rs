@@ -77,6 +77,8 @@ pub enum ChecksumType {
     Md5,
 }
 
+const COMPRESS: &[&str] = &[".gz", ".xz", ".zst", ".bz2"];
+
 impl InReleaseParser {
     pub fn new(in_release: InRelease<'_>) -> InReleaseParserResult<Self> {
         let InRelease {
@@ -256,7 +258,13 @@ impl InReleaseParser {
 }
 
 fn file_is_compress(name: &str) -> bool {
-    name.ends_with(".gz") || name.ends_with(".bz2") || name.ends_with(".xz")
+    for i in COMPRESS {
+        if name.ends_with(i) {
+            return true;
+        }
+    }
+
+    false
 }
 
 #[derive(Debug, Error)]
