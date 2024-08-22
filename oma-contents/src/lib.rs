@@ -21,6 +21,8 @@ pub enum OmaContentsError {
     RgWithError,
     #[error(transparent)]
     LzzzErr(#[from] lzzzz::lz4f::Error),
+    #[error("zstd decompress error")]
+    Zstd(std::io::Error),
     #[error("")]
     NoResult,
 }
