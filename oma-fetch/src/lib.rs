@@ -63,7 +63,7 @@ pub enum CompressFile {
     Nothing,
 }
 
-// 压缩文件下载顺序：Zstd -> XZ -> Gzip -> Bz2 -> 未压缩 
+// 压缩文件下载顺序：Zstd -> XZ -> Gzip -> Bz2 -> 未压缩
 impl Ord for CompressFile {
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
