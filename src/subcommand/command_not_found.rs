@@ -31,13 +31,23 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
             let oma_apt_args = OmaAptArgsBuilder::default().build()?;
             let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
+            let mut jaro = jaro_nums(provides_res, query);
+
+            let all_match = jaro
+                .iter()
+                .filter(|x| x.2 == u8::MAX)
+                .map(|x| x.to_owned())
+                .collect::<Vec<_>>();
+
+            if !all_match.is_empty() {
+                jaro = all_match;
+            }
+
             let mut res = vec![];
 
             Some(()).and_then(|_| {
-                for (pkg, file) in provides_res {
-                    let num = strsim::jaro_winkler(query, file.split('/').next_back()?);
-
-                    if num < JARO_NUM {
+                for (pkg, file, jaro) in jaro {
+                    if jaro < FILTER_JARO_NUM {
                         continue;
                     }
 
@@ -60,11 +70,6 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
                             .to_string(),
                         desc,
                     );
-
-                    if num == 1.0 {
-                        res = vec![entry];
-                        return Some(());
-                    }
 
                     res.push(entry);
                 }
@@ -98,4 +103,30 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
     }
 
     Ok(127)
+}
+
+fn jaro_nums(input: Vec<(String, String)>, query: &str) -> Vec<(String, String, u8)> {
+    let mut output = vec![];
+
+    for (pkg, file) in input {
+        if pkg == query {
+            output.push((pkg, file, u8::MAX));
+            continue;
+        }
+
+        let binary_name = file.split('/').next_back().unwrap_or(&file);
+
+        if binary_name == query {
+            output.push((pkg, file, u8::MAX));
+            continue;
+        }
+
+        let num = (strsim::jaro_winkler(query, binary_name) * 255.0) as u8;
+
+        output.push((pkg, file, num));
+    }
+
+    output.sort_unstable_by(|a, b| b.2.cmp(&a.2));
+
+    output
 }
