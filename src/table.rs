@@ -329,7 +329,7 @@ fn print_pending_inner<W: Write>(
                 .print(format!(
                     "{} {}{}\n",
                     fl!("count-pkg-has-desc", count = update_display.len()),
-                    color_formatter().color_str(fl!("upgrade"), Action::UpgradeTips),
+                    color_formatter().color_str(fl!("upgraded"), Action::UpgradeTips),
                     fl!("colon")
                 ))
                 .ok();
