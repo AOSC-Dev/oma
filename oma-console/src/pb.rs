@@ -19,10 +19,10 @@ const SPINNER_ANIME: &[&str] = &[
 ];
 const GLOBAL_BAR_SMALL_TEMPLATE: &str = " {progress_msg:<59}";
 const GLOBAL_BAR_TEMPLATE: &str =
-    " {progress_msg:<59} {elapsed_precise:<11.blue.bold} [{wide_bar:.cyan/blue}] {percent:>3}";
+    " {progress_msg:<59} {elapsed_precise:<11.blue.bold} [{wide_bar:.cyan/blue}] {percent:>4}";
 const NORMAL_BAR_SMALL_TEMPLATE: &str = " {msg} {percent:>3}";
 const NORMAL_BAR_TEMPLATE: &str =
-    " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>3}";
+    " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>4}";
 const SPINNER_TEMPLATE: &str = " {msg:<59} {spinner}";
 
 pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
