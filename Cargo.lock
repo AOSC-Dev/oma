@@ -3162,7 +3162,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "async-compression",
  "dashmap",
@@ -3212,7 +3212,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.28.2"
+version = "0.28.3"
 dependencies = [
  "chrono",
  "cxx",
@@ -3245,7 +3245,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "anyhow",
  "chrono",
