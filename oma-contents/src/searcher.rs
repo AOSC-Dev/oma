@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     fs,
-    io::{self, BufRead, BufReader, Read},
+    io::{self, BufRead, BufReader, Read, Seek},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
@@ -17,6 +17,10 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::debug;
 
 use crate::{parser::single_line, OmaContentsError};
+
+const ZSTD_MAGIC: &[u8] = &[40, 181, 47, 253];
+const LZ4_MAGIC: &[u8] = &[0x04, 0x22, 0x4d, 0x18];
+const GZIP_MAGIC: &[u8] = &[0x1F, 0x8B];
 
 #[derive(Debug, Clone, Copy)]
 pub enum Mode {
@@ -159,11 +163,13 @@ pub fn pure_search(
     let worker = thread::spawn(move || {
         paths
             .par_iter()
-            .filter_map(move |path| {
-                pure_search_contents_from_path(path, &query, count.clone(), mode).ok()
-            })
-            .flatten()
-            .collect::<Vec<_>>()
+            .map(
+                move |path| -> Result<Vec<(String, String)>, OmaContentsError> {
+                    pure_search_contents_from_path(path, &query, count.clone(), mode)
+                },
+            )
+            .collect::<Result<Vec<_>, OmaContentsError>>()
+            .map(|x| x.into_iter().flatten().collect::<Vec<_>>())
     });
 
     let mut tmp = 0;
@@ -175,7 +181,7 @@ pub fn pure_search(
         }
 
         if worker.is_finished() {
-            return Ok(worker.join().unwrap());
+            return worker.join().unwrap();
         }
     }
 }
@@ -186,16 +192,46 @@ fn pure_search_contents_from_path(
     count: Arc<AtomicUsize>,
     mode: Mode,
 ) -> Result<Vec<(String, String)>, OmaContentsError> {
-    let f = fs::File::open(path)
+    let mut f = fs::File::open(path)
         .map_err(|e| OmaContentsError::FailedToOperateDirOrFile(path.display().to_string(), e))?;
 
-    let contents_entry: &mut dyn Read = match path.extension().and_then(|x| x.to_str()) {
+    let mut buf = [0; 4];
+    f.read_exact(&mut buf).ok();
+
+    let ext = path.extension().and_then(|x| x.to_str());
+
+    match ext {
+        Some("zst") if buf != ZSTD_MAGIC => {
+            return Err(OmaContentsError::IllegalFile(
+                "zstd",
+                path.display().to_string(),
+            ));
+        }
+        Some("lz4") if buf != LZ4_MAGIC => {
+            return Err(OmaContentsError::IllegalFile(
+                "lz4",
+                path.display().to_string(),
+            ));
+        }
+        Some("gz") if buf[..2] != *GZIP_MAGIC => {
+            return Err(OmaContentsError::IllegalFile(
+                "gzip",
+                path.display().to_string(),
+            ));
+        }
+        _ => {}
+    }
+
+    f.rewind().map_err(OmaContentsError::SeekFile)?;
+
+    let contents_entry: &mut dyn Read = match ext {
         Some("gz") => &mut GzDecoder::new(BufReader::new(f)),
         Some("lz4") => &mut BufReadDecompressor::new(BufReader::new(f))?,
         Some("zst") => {
-            &mut zstd::stream::Decoder::new(BufReader::new(f)).map_err(OmaContentsError::Zstd)?
+            // https://github.com/gyscos/zstd-rs/issues/281
+            &mut zstd::stream::Decoder::new(BufReader::new(f)).unwrap()
         }
-        Some(_) | None => &mut BufReader::new(f),
+        _ => &mut BufReader::new(f),
     };
 
     let reader = BufReader::new(contents_entry);

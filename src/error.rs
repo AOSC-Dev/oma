@@ -601,8 +601,12 @@ impl From<OmaContentsError> for OutputError {
                 description: "".to_string(),
                 source: None,
             },
-            OmaContentsError::Zstd(e) => Self {
-                description: fl!("failed-to-decompress-contents"),
+            OmaContentsError::IllegalFile(decomperssor, path) => Self {
+                description: format!("Illegal {decomperssor} file: {path}"),
+                source: None,
+            },
+            OmaContentsError::SeekFile(e) => Self {
+                description: "Failed to seek file".to_string(),
                 source: Some(Box::new(e)),
             },
         }
