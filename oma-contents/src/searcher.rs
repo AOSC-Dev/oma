@@ -202,27 +202,21 @@ fn pure_search_contents_from_path(
 
     match ext {
         Some("zst") if buf != ZSTD_MAGIC => {
-            return Err(OmaContentsError::IllegalFile(
-                "zstd",
-                path.display().to_string(),
-            ));
+            return Err(OmaContentsError::IllegalFile(path.display().to_string()));
         }
         Some("lz4") if buf != LZ4_MAGIC => {
-            return Err(OmaContentsError::IllegalFile(
-                "lz4",
-                path.display().to_string(),
-            ));
+            return Err(OmaContentsError::IllegalFile(path.display().to_string()));
         }
         Some("gz") if buf[..2] != *GZIP_MAGIC => {
-            return Err(OmaContentsError::IllegalFile(
-                "gzip",
-                path.display().to_string(),
-            ));
+            return Err(OmaContentsError::IllegalFile(path.display().to_string()));
         }
         _ => {}
     }
 
-    f.rewind().map_err(OmaContentsError::SeekFile)?;
+    f.rewind().map_err(|e| {
+        debug!("{e}");
+        OmaContentsError::IllegalFile(path.display().to_string())
+    })?;
 
     let contents_entry: &mut dyn Read = match ext {
         Some("gz") => &mut GzDecoder::new(BufReader::new(f)),

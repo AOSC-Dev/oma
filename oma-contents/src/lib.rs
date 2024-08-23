@@ -23,8 +23,6 @@ pub enum OmaContentsError {
     LzzzErr(#[from] lzzzz::lz4f::Error),
     #[error("")]
     NoResult,
-    #[error("Failed to seek file")]
-    SeekFile(std::io::Error),
-    #[error("Illegal {0} file: {1}")]
-    IllegalFile(&'static str, String),
+    #[error("Illegal file: {0}")]
+    IllegalFile(String),
 }

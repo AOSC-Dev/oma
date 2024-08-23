@@ -601,13 +601,9 @@ impl From<OmaContentsError> for OutputError {
                 description: "".to_string(),
                 source: None,
             },
-            OmaContentsError::IllegalFile(decomperssor, path) => Self {
-                description: format!("Illegal {decomperssor} file: {path}"),
+            OmaContentsError::IllegalFile(path) => Self {
+                description: format!("Illegal file: {path}"),
                 source: None,
-            },
-            OmaContentsError::SeekFile(e) => Self {
-                description: "Failed to seek file".to_string(),
-                source: Some(Box::new(e)),
             },
         }
     }
