@@ -21,8 +21,10 @@ pub enum OmaContentsError {
     RgWithError,
     #[error(transparent)]
     LzzzErr(#[from] lzzzz::lz4f::Error),
-    #[error("zstd decompress error")]
-    Zstd(std::io::Error),
     #[error("")]
     NoResult,
+    #[error("Failed to seek file")]
+    SeekFile(std::io::Error),
+    #[error("Illegal {0} file: {1}")]
+    IllegalFile(&'static str, String),
 }
