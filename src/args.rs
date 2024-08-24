@@ -173,7 +173,8 @@ pub fn command_builder() -> Command {
                 .arg(&force_yes)
                 .arg(force_confnew)
                 .arg(&dry_run)
-                .arg(&dpkg_force_all);
+                .arg(&dpkg_force_all)
+                .arg(Arg::new("autoremove").long("autoremove").help("Auto remove unnecessary package(s)").action(ArgAction::SetTrue));
 
             if cfg!(feature = "aosc") {
                 cmd = cmd.arg(&no_refresh_topics);

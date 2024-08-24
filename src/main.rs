@@ -88,6 +88,7 @@ pub struct UpgradeArgs {
     dpkg_force_all: bool,
     sysroot: String,
     no_refresh_topcs: bool,
+    autoremove: bool,
 }
 
 #[derive(Debug, Default)]
@@ -344,6 +345,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 dpkg_force_all: args.get_flag("dpkg_force_all"),
                 sysroot,
                 no_refresh_topcs: no_refresh_topics(&config, args),
+                autoremove: args.get_flag("autoremove"),
             };
 
             let client = Client::builder().user_agent("oma").build().unwrap();
