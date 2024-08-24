@@ -466,7 +466,7 @@ impl OmaApt {
     }
 
     /// find autoremove and remove it
-    fn autoremove(&mut self, purge: bool) -> OmaAptResult<()> {
+    pub fn autoremove(&mut self, purge: bool) -> OmaAptResult<()> {
         let sort = PackageSort::default().installed();
         let pkgs = self.cache.packages(&sort);
 
