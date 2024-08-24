@@ -25,7 +25,7 @@ Although it is based on apt, we did quite a bit of extra work, the goal of this 
 
 - libapt-pkg
 - Glibc
-- Ripgrep binary (optional, `--no-default-features --features contents-without-rg` to disable)
+- Ripgrep binary (optional, accelerates `oma provides` `oma files` and `oma command-not-found`)
 - LLVM/Clang Compile
 - OpenSSL
 - Rustc with Cargo
