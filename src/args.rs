@@ -206,7 +206,7 @@ pub fn command_builder() -> Command {
                 .alias("autoremove")
                 .about("Remove the specified package(s)")
                 .arg(pkgs.clone().help("Package(s) to remove"))
-                .arg(yes.clone().requires("packages"))
+                .arg(yes.clone())
                 .arg(force_yes.clone().requires("packages"))
                 .arg(no_autoremove.clone().requires("packages"))
                 .arg(fix_broken.clone())
