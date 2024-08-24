@@ -5,7 +5,6 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgsBuilder;
-use oma_pm::apt::FilterMode;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
 use oma_pm::apt::OmaAptError;
@@ -107,12 +106,7 @@ pub fn execute(
         apt.resolve(false, true)?;
 
         if args.autoremove {
-            for pkg in apt.filter_pkgs(&[FilterMode::Installed])? {
-                if pkg.is_auto_removable() {
-                    pkg.mark_delete(false);
-                }
-            }
-
+            apt.autoremove(false)?;
             apt.resolve(false, true)?;
         }
 
