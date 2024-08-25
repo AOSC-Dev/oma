@@ -24,6 +24,7 @@ tracing ="0.1"
 smallvec = "1.1"
 small-map = "0.1"
 oma-repo-verify = { version = "^0.1.0", path = "../oma-repo-verify", default-features = false }
+ahash = "0.8.11"
 
 [features]
 aosc = ["dep:oma-topics"]

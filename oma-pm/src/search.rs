@@ -1,3 +1,4 @@
+use ahash::AHashMap;
 use cxx::UniquePtr;
 use indicium::simple::{Indexable, SearchIndex};
 use oma_apt::{
@@ -6,10 +7,7 @@ use oma_apt::{
     raw::{IntoRawIter, PkgIterator},
     Package,
 };
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    fmt::Debug,
-};
+use std::{collections::hash_map::Entry, fmt::Debug};
 
 use crate::{format_description, pkginfo::PtrIsNone, query::has_dbg};
 
@@ -113,7 +111,7 @@ pub struct SearchResult {
 
 pub struct OmaSearch<'a> {
     cache: &'a Cache,
-    pkg_map: HashMap<String, SearchEntry>,
+    pkg_map: AHashMap<String, SearchEntry>,
     index: SearchIndex<String>,
 }
 
@@ -122,7 +120,7 @@ impl<'a> OmaSearch<'a> {
         let sort = PackageSort::default().include_virtual();
         let packages = cache.packages(&sort);
 
-        let mut pkg_map = HashMap::new();
+        let mut pkg_map = AHashMap::new();
 
         for pkg in packages {
             if pkg.fullname(true).contains("-dbg") {

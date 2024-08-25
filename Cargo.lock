@@ -3216,6 +3216,7 @@ dependencies = [
 name = "oma-pm"
 version = "0.29.0"
 dependencies = [
+ "ahash",
  "chrono",
  "cxx",
  "dashmap",
@@ -3249,6 +3250,7 @@ dependencies = [
 name = "oma-refresh"
 version = "0.24.0"
 dependencies = [
+ "ahash",
  "anyhow",
  "chrono",
  "dashmap",
