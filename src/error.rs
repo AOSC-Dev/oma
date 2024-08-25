@@ -605,6 +605,10 @@ impl From<OmaContentsError> for OutputError {
                 description: format!("Illegal file: {path}"),
                 source: None,
             },
+            OmaContentsError::AhoCorasick(e) => Self {
+                description: e.to_string(),
+                source: None,
+            },
         }
     }
 }

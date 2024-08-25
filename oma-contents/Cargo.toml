@@ -18,6 +18,8 @@ lzzzz = "1.0"
 tracing = "0.1"
 which = "6"
 zstd = "0.13"
+aho-corasick = "1.1.3"
+ahash = "0.8.11"
 
 [dev-dependencies]
 indicatif = "0.17"
