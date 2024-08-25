@@ -11,13 +11,13 @@ use std::{
     thread::{self},
 };
 
-use ahash::AHashSet;
 use aho_corasick::AhoCorasick;
 use flate2::bufread::GzDecoder;
 use lzzzz::lz4f::BufReadDecompressor;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::debug;
 use zstd::Decoder;
+use indexmap::IndexSet;
 
 use crate::{parser::single_line, OmaContentsError};
 
@@ -90,7 +90,7 @@ pub fn ripgrep_search(
         ),
     };
 
-    let mut res = AHashSet::new();
+    let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
     let mut cmd = Command::new("rg")
         .arg("-N")
@@ -117,8 +117,6 @@ pub fn ripgrep_search(
 
     while stdout_reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
         if let Some(line) = rg_filter_line(&buffer, is_list, &query) {
-            // TODO: 实现输入时 filter
-
             #[cfg(not(feature = "aosc"))]
             match mode {
                 Mode::BinFiles | Mode::BinProvides => {
@@ -166,8 +164,7 @@ pub fn pure_search(
     let paths = mode.paths(path.as_ref())?;
     let count = Arc::new(AtomicUsize::new(0));
     let count_clone = count.clone();
-    let ac = AhoCorasick::new(vec![query])?;
-
+    let ac = AhoCorasick::new([query])?;
     let query = Arc::from(query);
 
     let worker = thread::spawn(move || {
@@ -271,7 +268,7 @@ fn pure_search_foreach_result(
     count: &AtomicUsize,
     query: &str,
 ) -> Vec<(String, String)> {
-    let mut res = AHashSet::new();
+    let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
     let mut buffer = String::new();
 
