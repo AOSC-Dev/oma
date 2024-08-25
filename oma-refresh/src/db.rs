@@ -1,8 +1,6 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
+use ahash::AHashMap;
 use futures::{
     future::{join_all, BoxFuture},
     FutureExt, StreamExt,
@@ -220,13 +218,13 @@ impl<'a> OmaRefresh<'a> {
         &mut self,
         sourcelist: &[OmaSourceEntry],
         callback: &F,
-    ) -> Result<HashMap<usize, RepoType>>
+    ) -> Result<AHashMap<usize, RepoType>>
     where
         F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
     {
         let mut tasks = vec![];
 
-        let mut mirrors_inrelease = HashMap::new();
+        let mut mirrors_inrelease = AHashMap::new();
 
         for (i, c) in sourcelist.iter().enumerate() {
             let mut tasks1 = vec![];
@@ -365,7 +363,7 @@ impl<'a> OmaRefresh<'a> {
     fn collect_download_release_tasks(
         &self,
         sourcelist: &[OmaSourceEntry],
-        is_inrelease_map: HashMap<usize, RepoType>,
+        is_inrelease_map: AHashMap<usize, RepoType>,
     ) -> Result<Vec<DownloadEntry>> {
         let mut tasks = Vec::new();
         for (i, source_entry) in sourcelist.iter().enumerate() {
@@ -567,7 +565,7 @@ impl<'a> OmaRefresh<'a> {
                 handle
             } else {
                 let mut handle = vec![];
-                let mut compress_file_map = HashMap::new();
+                let mut compress_file_map = AHashMap::new();
                 for i in &checksums {
                     match &i.file_type {
                         DistFileType::BinaryContents => {

@@ -33,6 +33,7 @@ small-map = "0.1"
 oma-pm-operation-type = { version = "0.2", path = "../oma-pm-operation-type" }
 zbus = { version = "4.1", features = ["tokio"] }
 cxx = "1.0.121"
+ahash = "0.8.11"
 
 [dev-dependencies]
 dashmap = "6"
