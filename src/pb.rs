@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use dashmap::DashMap;
 use dialoguer::console::style;
 use oma_console::{
     indicatif::{MultiProgress, ProgressBar},
@@ -13,6 +12,8 @@ use oma_refresh::db::RefreshEvent;
 use tracing::{error, info, warn};
 
 use crate::fl;
+
+type DashMap<K, V> = dashmap::DashMap<K, V, ahash::random_state::RandomState>;
 
 pub trait OmaProgress {
     fn change(&self, action: ProgressEvent, index: usize, total: Option<u64>);
@@ -100,7 +101,7 @@ impl OmaProgress for OmaProgressBar {
 impl OmaProgressBar {
     pub fn new() -> Self {
         let mb = MultiProgress::new();
-        let pb_map = Arc::new(DashMap::new());
+        let pb_map = Arc::new(DashMap::with_hasher(ahash::RandomState::new()));
 
         Self { mb, pb_map }
     }
