@@ -3055,6 +3055,7 @@ dependencies = [
 name = "oma"
 version = "1.7.1"
 dependencies = [
+ "ahash",
  "ansi-to-tui",
  "anyhow",
  "chrono",
