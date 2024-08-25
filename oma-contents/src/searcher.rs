@@ -15,6 +15,7 @@ use flate2::bufread::GzDecoder;
 use lzzzz::lz4f::BufReadDecompressor;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::debug;
+use zstd::Decoder;
 
 use crate::{parser::single_line, OmaContentsError};
 
@@ -197,38 +198,33 @@ fn pure_search_contents_from_path(
 
     let mut buf = [0; 4];
     f.read_exact(&mut buf).ok();
-
-    let ext = path.extension().and_then(|x| x.to_str());
-
-    match ext {
-        Some("zst") if buf != ZSTD_MAGIC => {
-            return Err(OmaContentsError::IllegalFile(path.display().to_string()));
-        }
-        Some("lz4") if buf != LZ4_MAGIC => {
-            return Err(OmaContentsError::IllegalFile(path.display().to_string()));
-        }
-        Some("gz") if buf[..2] != *GZIP_MAGIC => {
-            return Err(OmaContentsError::IllegalFile(path.display().to_string()));
-        }
-        _ => {}
-    }
-
     f.rewind().map_err(|e| {
         debug!("{e}");
         OmaContentsError::IllegalFile(path.display().to_string())
     })?;
 
-    let contents_entry: &mut dyn Read = match ext {
-        Some("gz") => &mut GzDecoder::new(BufReader::new(f)),
-        Some("lz4") => &mut BufReadDecompressor::new(BufReader::new(f))?,
+    let ext = path.extension().and_then(|x| x.to_str());
+
+    let contents_reader: &mut dyn Read = match ext {
         Some("zst") => {
+            check_file_magic_4bytes(buf, path, ZSTD_MAGIC)?;
             // https://github.com/gyscos/zstd-rs/issues/281
-            &mut zstd::stream::Decoder::new(BufReader::new(f)).unwrap()
+            &mut Decoder::new(BufReader::new(f)).unwrap()
+        }
+        Some("lz4") => {
+            check_file_magic_4bytes(buf, path, LZ4_MAGIC)?;
+            &mut BufReadDecompressor::new(BufReader::new(f))?
+        }
+        Some("gz") => {
+            if buf[..2] != *GZIP_MAGIC {
+                return Err(OmaContentsError::IllegalFile(path.display().to_string()));
+            }
+            &mut GzDecoder::new(BufReader::new(f))
         }
         _ => &mut BufReader::new(f),
     };
 
-    let reader = BufReader::new(contents_entry);
+    let reader = BufReader::new(contents_reader);
 
     let cb = match mode {
         Mode::Provides => |_pkg: &str, file: &str, query: &str| file.contains(query),
@@ -244,6 +240,19 @@ fn pure_search_contents_from_path(
     let res = pure_search_foreach_result(cb, reader, count, query);
 
     Ok(res)
+}
+
+#[inline]
+fn check_file_magic_4bytes(
+    buf: [u8; 4],
+    path: &Path,
+    magic: &[u8],
+) -> Result<(), OmaContentsError> {
+    if buf != magic {
+        return Err(OmaContentsError::IllegalFile(path.display().to_string()));
+    }
+
+    Ok(())
 }
 
 fn pure_search_foreach_result(
