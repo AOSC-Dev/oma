@@ -3139,6 +3139,8 @@ dependencies = [
 name = "oma-contents"
 version = "0.10.0"
 dependencies = [
+ "ahash",
+ "aho-corasick",
  "chrono",
  "flate2",
  "indicatif",

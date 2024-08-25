@@ -11,6 +11,8 @@ use std::{
     thread::{self},
 };
 
+use ahash::AHashSet;
+use aho_corasick::AhoCorasick;
 use flate2::bufread::GzDecoder;
 use lzzzz::lz4f::BufReadDecompressor;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -88,7 +90,7 @@ pub fn ripgrep_search(
         ),
     };
 
-    let mut res = vec![];
+    let mut res = AHashSet::new();
 
     let mut cmd = Command::new("rg")
         .arg("-N")
@@ -133,7 +135,7 @@ pub fn ripgrep_search(
             lines += 1;
 
             if !res.contains(&line) {
-                res.push(line);
+                res.insert(line);
             }
         }
 
@@ -152,7 +154,7 @@ pub fn ripgrep_search(
         return Err(OmaContentsError::RgWithError);
     }
 
-    Ok(res)
+    Ok(res.into_iter().collect())
 }
 
 pub fn pure_search(
@@ -164,6 +166,7 @@ pub fn pure_search(
     let paths = mode.paths(path.as_ref())?;
     let count = Arc::new(AtomicUsize::new(0));
     let count_clone = count.clone();
+    let ac = AhoCorasick::new(vec![query])?;
 
     let query = Arc::from(query);
 
@@ -172,7 +175,7 @@ pub fn pure_search(
             .par_iter()
             .map(
                 move |path| -> Result<Vec<(String, String)>, OmaContentsError> {
-                    pure_search_contents_from_path(path, &query, count.clone(), mode)
+                    pure_search_contents_from_path(path, &query, &count, mode, &ac)
                 },
             )
             .collect::<Result<Vec<_>, OmaContentsError>>()
@@ -181,7 +184,7 @@ pub fn pure_search(
 
     let mut tmp = 0;
     loop {
-        let count = count_clone.load(Ordering::SeqCst);
+        let count = count_clone.load(Ordering::Acquire);
         if count > 0 && count != tmp {
             cb(count);
             tmp = count;
@@ -196,8 +199,9 @@ pub fn pure_search(
 fn pure_search_contents_from_path(
     path: &Path,
     query: &str,
-    count: Arc<AtomicUsize>,
+    count: &AtomicUsize,
     mode: Mode,
+    ac: &AhoCorasick,
 ) -> Result<Vec<(String, String)>, OmaContentsError> {
     let mut f = fs::File::open(path)
         .map_err(|e| OmaContentsError::FailedToOperateDirOrFile(path.display().to_string(), e))?;
@@ -232,15 +236,15 @@ fn pure_search_contents_from_path(
 
     let reader = BufReader::new(contents_reader);
 
-    let cb = match mode {
-        Mode::Provides => |_pkg: &str, file: &str, query: &str| file.contains(query),
-        Mode::Files => |pkg: &str, _file: &str, query: &str| pkg == query,
-        Mode::BinProvides => |_pkg: &str, file: &str, query: &str| {
-            file.contains(query) && file.starts_with(BIN_PREFIX)
-        },
-        Mode::BinFiles => {
-            |pkg: &str, file: &str, query: &str| pkg == query && file.starts_with(BIN_PREFIX)
-        }
+    let cb: Box<dyn Fn(&str, &str, &str) -> bool> = match mode {
+        Mode::Provides => Box::new(|_pkg: &str, file: &str, _query: &str| ac.is_match(file)),
+        Mode::Files => Box::new(|pkg: &str, _file: &str, query: &str| pkg == query),
+        Mode::BinProvides => Box::new(|_pkg: &str, file: &str, _query: &str| {
+            ac.is_match(file) && file.starts_with(BIN_PREFIX)
+        }),
+        Mode::BinFiles => Box::new(|pkg: &str, file: &str, query: &str| {
+            pkg == query && file.starts_with(BIN_PREFIX)
+        }),
     };
 
     let res = pure_search_foreach_result(cb, reader, count, query);
@@ -264,10 +268,10 @@ fn check_file_magic_4bytes(
 fn pure_search_foreach_result(
     cb: impl Fn(&str, &str, &str) -> bool,
     mut reader: BufReader<&mut dyn Read>,
-    count: Arc<AtomicUsize>,
+    count: &AtomicUsize,
     query: &str,
 ) -> Vec<(String, String)> {
-    let mut res = vec![];
+    let mut res = AHashSet::new();
 
     let mut buffer = String::new();
 
@@ -279,10 +283,10 @@ fn pure_search_foreach_result(
 
         for (_, pkg) in pkgs {
             if cb(pkg, file, query) {
-                count.fetch_add(1, Ordering::SeqCst);
+                count.fetch_add(1, Ordering::AcqRel);
                 let line = (pkg.to_string(), prefix(file));
                 if !res.contains(&line) {
-                    res.push(line);
+                    res.insert(line);
                 }
             }
         }
@@ -290,7 +294,7 @@ fn pure_search_foreach_result(
         buffer.clear();
     }
 
-    res
+    res.into_iter().collect()
 }
 
 fn rg_filter_line(mut line: &str, is_list: bool, query: &str) -> Option<(String, String)> {

@@ -25,4 +25,6 @@ pub enum OmaContentsError {
     NoResult,
     #[error("Illegal file: {0}")]
     IllegalFile(String),
+    #[error(transparent)]
+    AhoCorasick(#[from] aho_corasick::BuildError),
 }
