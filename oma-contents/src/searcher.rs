@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     fs,
-    io::{self, BufRead, BufReader, Read, Seek},
+    io::{BufRead, BufReader, Read, Seek},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
@@ -106,13 +106,15 @@ pub fn ripgrep_search(
         .as_mut()
         .expect("Unexpected error: can not get stdout, maybe you environment is broken?");
 
-    let stdout_reader = BufReader::new(stdout);
-    let stdout_lines = stdout_reader.lines();
+    let mut stdout_reader = BufReader::new(stdout);
 
     let mut has_result = false;
 
-    for (i, c) in stdout_lines.map_while(io::Result::ok).enumerate() {
-        if let Some(line) = rg_filter_line(&c, is_list, &query) {
+    let mut buffer = String::new();
+    let mut lines = 0;
+
+    while stdout_reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
+        if let Some(line) = rg_filter_line(&buffer, is_list, &query) {
             // TODO: 实现输入时 filter
 
             #[cfg(not(feature = "aosc"))]
@@ -127,11 +129,15 @@ pub fn ripgrep_search(
 
             has_result = true;
 
-            cb(i + 1);
+            cb(lines + 1);
+            lines += 1;
+
             if !res.contains(&line) {
                 res.push(line);
             }
         }
+
+        buffer.clear();
     }
 
     if !has_result {
@@ -257,19 +263,16 @@ fn check_file_magic_4bytes(
 
 fn pure_search_foreach_result(
     cb: impl Fn(&str, &str, &str) -> bool,
-    reader: BufReader<&mut dyn Read>,
+    mut reader: BufReader<&mut dyn Read>,
     count: Arc<AtomicUsize>,
     query: &str,
 ) -> Vec<(String, String)> {
     let mut res = vec![];
 
-    for i in reader.lines() {
-        let i = match i {
-            Ok(i) => i,
-            Err(_) => continue,
-        };
+    let mut buffer = String::new();
 
-        let (file, pkgs) = match single_line::<()>(&mut i.as_str()) {
+    while reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
+        let (file, pkgs) = match single_line::<()>(&mut buffer.as_str()) {
             Ok(line) => line,
             Err(_) => continue,
         };
@@ -283,6 +286,8 @@ fn pure_search_foreach_result(
                 }
             }
         }
+
+        buffer.clear();
     }
 
     res
