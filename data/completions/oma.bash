@@ -564,7 +564,7 @@ _oma() {
             return 0
             ;;
         oma__install)
-            opts="-y -h --install-dbg --reinstall --install-recommends --install-suggests --no-install-recommends --no-install-suggests --no-fix-broken --no-refresh --yes --force-yes --force-confnew --dry-run --dpkg-force-all --no-refresh-topics --debug --no-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-f -y -h --install-dbg --reinstall --install-recommends --install-suggests --no-install-recommends --no-install-suggests --fix-broken --no-refresh --yes --force-yes --force-confnew --dry-run --dpkg-force-all --no-refresh-topics --debug --no-color --no-progress --no-check-dbus --sysroot --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -763,7 +763,7 @@ _oma() {
             return 0
             ;;
         oma__remove)
-            opts="-y -h --yes --force-yes --no-autoremove --remove-config --dry-run --debug --no-color --no-progress --no-check-dbus --sysroot --help [packages]..."
+            opts="-y -h --yes --force-yes --no-autoremove --remove-config --dry-run --debug --no-color --no-progress --no-check-dbus --sysroot --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -880,7 +880,7 @@ _oma() {
             return 0
             ;;
         oma__upgrade)
-            opts="-y -h --yes --force-yes --force-confnew --dry-run --dpkg-force-all --no-refresh-topics --debug --no-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-y -h --yes --force-yes --force-confnew --dry-run --dpkg-force-all --autoremove --no-refresh-topics --debug --no-color --no-progress --no-check-dbus --sysroot --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
