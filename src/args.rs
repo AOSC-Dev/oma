@@ -228,6 +228,7 @@ pub fn command_builder() -> Command {
                 .arg(yes.requires("packages"))
                 .arg(force_yes.requires("packages"))
                 .arg(no_autoremove.requires("packages"))
+                .arg(fix_broken.clone())
                 .arg(&dry_run),
         )
         .subcommand({
