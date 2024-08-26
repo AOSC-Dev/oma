@@ -94,3 +94,6 @@ assets = [
 ]
 features = ["generic"]
 default-features = false
+
+[profile.release]
+lto = "thin"
