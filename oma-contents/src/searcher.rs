@@ -13,11 +13,11 @@ use std::{
 
 use aho_corasick::AhoCorasick;
 use flate2::bufread::GzDecoder;
+use indexmap::IndexSet;
 use lzzzz::lz4f::BufReadDecompressor;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::debug;
 use zstd::Decoder;
-use indexmap::IndexSet;
 
 use crate::{parser::single_line, OmaContentsError};
 
@@ -115,22 +115,25 @@ pub fn ripgrep_search(
     let mut buffer = String::new();
     let mut lines = 0;
 
+    #[cfg(not(feature = "aosc"))]
+    let is_bin = match mode {
+        Mode::BinProvides | Mode::BinFiles => |file: &str| {
+            return !file.starts_with(BIN_PREFIX);
+        },
+        _ => |_: &str| false,
+    };
+
     while stdout_reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
         if let Some(line) = rg_filter_line(&buffer, is_list, &query) {
             #[cfg(not(feature = "aosc"))]
-            match mode {
-                Mode::BinFiles | Mode::BinProvides => {
-                    if !line.1.starts_with(BIN_PREFIX) {
-                        continue;
-                    }
-                }
-                _ => {}
+            if is_bin(&line.1) {
+                continue;
             }
 
             has_result = true;
 
-            cb(lines + 1);
             lines += 1;
+            cb(lines);
 
             if !res.contains(&line) {
                 res.insert(line);
@@ -233,15 +236,15 @@ fn pure_search_contents_from_path(
 
     let reader = BufReader::new(contents_reader);
 
-    let cb: Box<dyn Fn(&str, &str, &str) -> bool> = match mode {
-        Mode::Provides => Box::new(|_pkg: &str, file: &str, _query: &str| ac.is_match(file)),
-        Mode::Files => Box::new(|pkg: &str, _file: &str, query: &str| pkg == query),
-        Mode::BinProvides => Box::new(|_pkg: &str, file: &str, _query: &str| {
+    let cb: &dyn Fn(&str, &str, &str) -> bool = match mode {
+        Mode::Provides => &|_pkg: &str, file: &str, _query: &str| ac.is_match(file),
+        Mode::Files => &|pkg: &str, _file: &str, query: &str| pkg == query,
+        Mode::BinProvides => &|_pkg: &str, file: &str, _query: &str| {
             ac.is_match(file) && file.starts_with(BIN_PREFIX)
-        }),
-        Mode::BinFiles => Box::new(|pkg: &str, file: &str, query: &str| {
-            pkg == query && file.starts_with(BIN_PREFIX)
-        }),
+        },
+        Mode::BinFiles => {
+            &|pkg: &str, file: &str, query: &str| pkg == query && file.starts_with(BIN_PREFIX)
+        }
     };
 
     let res = pure_search_foreach_result(cb, reader, count, query);
