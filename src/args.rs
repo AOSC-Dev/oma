@@ -149,7 +149,7 @@ pub fn command_builder() -> Command {
                 )
                 .arg(Arg::new("no_install_recommends").long("no-install-recommends").requires("packages").help("Do not install recommend package(s)").conflicts_with("install_recommends").action(ArgAction::SetTrue))
                 .arg(Arg::new("no_install_suggests").long("no-install-suggests").requires("packages").help("Do not install recommend package(s)").conflicts_with("install_suggests").action(ArgAction::SetTrue))
-                .arg(fix_broken.clone())
+                .arg(&fix_broken)
                 .arg(&no_refresh)
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
@@ -208,10 +208,10 @@ pub fn command_builder() -> Command {
                 .visible_alias("rm")
                 .about("Remove the specified package(s)")
                 .arg(pkgs.clone().help("Package(s) to remove"))
-                .arg(yes.clone())
+                .arg(&yes)
                 .arg(force_yes.clone().requires("packages"))
                 .arg(no_autoremove.clone().requires("packages"))
-                .arg(fix_broken.clone())
+                .arg(&fix_broken)
                 .arg(
                     Arg::new("remove_config")
                         .long("remove-config")
@@ -228,7 +228,7 @@ pub fn command_builder() -> Command {
                 .arg(yes.requires("packages"))
                 .arg(force_yes.requires("packages"))
                 .arg(no_autoremove.requires("packages"))
-                .arg(fix_broken.clone())
+                .arg(fix_broken)
                 .arg(&dry_run),
         )
         .subcommand({
