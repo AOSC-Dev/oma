@@ -62,6 +62,10 @@ impl Mode {
             }
         }
 
+        if paths.is_empty() {
+            return Err(OmaContentsError::ContentsNotExist);
+        }
+
         Ok(paths)
     }
 }
