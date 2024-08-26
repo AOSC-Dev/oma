@@ -113,6 +113,7 @@ pub fn command_builder() -> Command {
         )
         .subcommand({
             let mut cmd = Command::new("install")
+                .visible_alias("add")
                 .about("Install package(s) from the repository")
                 .arg(pkgs.clone().help("Package(s) to install"))
                 .arg(
@@ -165,8 +166,7 @@ pub fn command_builder() -> Command {
         )
         .subcommand({
             let mut cmd = Command::new("upgrade")
-                .alias("dist-upgrade")
-                .alias("full-upgrade")
+                .visible_alias("full-upgrade")
                 .about("Upgrade packages installed on the system")
                 .arg(pkgs.clone().help("Package(s) to upgrade"))
                 .arg(&yes)
@@ -203,8 +203,9 @@ pub fn command_builder() -> Command {
         )
         .subcommand(
             Command::new("remove")
-                .alias("delete")
-                .alias("autoremove")
+                .visible_alias("autoremove")
+                .visible_alias("del")
+                .visible_alias("rm")
                 .about("Remove the specified package(s)")
                 .arg(pkgs.clone().help("Package(s) to remove"))
                 .arg(yes.clone())
@@ -370,7 +371,7 @@ pub fn command_builder() -> Command {
         )
         .subcommand(
             Command::new("depends")
-                .alias("dep")
+                .visible_alias("dep")
                 .arg(
                     pkgs.clone()
                         .num_args(1..)
@@ -381,7 +382,7 @@ pub fn command_builder() -> Command {
         )
         .subcommand(
             Command::new("rdepends")
-                .alias("rdep")
+                .visible_alias("rdep")
                 .arg(
                     pkgs.num_args(1..)
                         .required(true)
@@ -392,7 +393,7 @@ pub fn command_builder() -> Command {
         .subcommand(Command::new("clean").about("Clear downloaded package cache"))
         .subcommand(
             Command::new("history")
-                        .alias("log")
+                        .visible_alias("log")
                         .about("Show a history/log of package changes in the system"))
         .subcommand(
             Command::new("undo")
@@ -427,7 +428,7 @@ pub fn command_builder() -> Command {
     if cfg!(feature = "aosc") {
         cmd = cmd.subcommand(
             Command::new("topics")
-                .alias("topic")
+                .visible_alias("topic")
                 .about("Manage testing topics enrollment")
                 .arg(
                     Arg::new("opt_in")
