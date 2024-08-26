@@ -2,7 +2,7 @@ use std::path::Path;
 
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
-use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
+use oma_contents::searcher::{pure_search, ripgrep_search, Mode, OutputMode};
 
 use crate::error::OutputError;
 use crate::fl;
@@ -14,8 +14,9 @@ pub fn execute(
     input: &str,
     no_progress: bool,
     sysroot: String,
+    println: bool,
 ) -> Result<i32, OutputError> {
-    let pb = if !no_progress {
+    let pb = if !no_progress && !println {
         let pb = ProgressBar::new_spinner();
         let (style, inv) = spinner_style();
         pb.set_style(style);
@@ -35,10 +36,16 @@ pub fn execute(
         _ => unreachable!(),
     };
 
-    let cb = move |count: usize| {
-        if let Some(pb) = &pb {
-            pb.set_message(fl!("search-with-result-count", count = count));
-        }
+    let output_mode = if println {
+        OutputMode::PrintLn
+    } else {
+        let cb = move |count: usize| {
+            if let Some(pb) = &pb {
+                pb.set_message(fl!("search-with-result-count", count = count));
+            }
+        };
+
+        OutputMode::Progress(Box::new(cb))
     };
 
     let res = if which::which("rg").is_ok() {
@@ -46,16 +53,20 @@ pub fn execute(
             Path::new(&sysroot).join("var/lib/apt/lists"),
             mode,
             input,
-            cb,
+            output_mode,
         )
     } else {
         pure_search(
             Path::new(&sysroot).join("var/lib/apt/lists"),
             mode,
             input,
-            cb,
+            output_mode,
         )
     }?;
+
+    if println {
+        return Ok(0);
+    }
 
     let mut pager = oma_display_with_normal_output(false, res.len())?;
     let mut out = pager.get_writer().map_err(|e| OutputError {

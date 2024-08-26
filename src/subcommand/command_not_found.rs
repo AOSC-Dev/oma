@@ -3,7 +3,7 @@ use std::io::stdout;
 
 use oma_console::due_to;
 use oma_console::print::Action;
-use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
+use oma_contents::searcher::{pure_search, ripgrep_search, Mode, OutputMode};
 use oma_contents::OmaContentsError;
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use oma_pm::format_description;
@@ -18,9 +18,19 @@ const APT_LIST_PATH: &str = "/var/lib/apt/lists";
 
 pub fn execute(query: &str) -> Result<i32, OutputError> {
     let res = if which::which("rg").is_ok() {
-        ripgrep_search(APT_LIST_PATH, Mode::BinProvides, query, |_| {})
+        ripgrep_search(
+            APT_LIST_PATH,
+            Mode::BinProvides,
+            query,
+            OutputMode::Progress(Box::new(|_| {})),
+        )
     } else {
-        pure_search(APT_LIST_PATH, Mode::BinProvides, query, |_| {})
+        pure_search(
+            APT_LIST_PATH,
+            Mode::BinProvides,
+            query,
+            OutputMode::Progress(Box::new(|_| {})),
+        )
     };
 
     match res {

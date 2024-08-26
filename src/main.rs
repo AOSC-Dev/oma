@@ -408,8 +408,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let arg = if x == "files" { "package" } else { "pattern" };
             let pkg = args.get_one::<String>(arg).unwrap();
             let is_bin = args.get_flag("bin");
+            let println = args.get_flag("println");
 
-            contents_find::execute(x, is_bin, pkg, no_progress, sysroot)?
+            contents_find::execute(x, is_bin, pkg, no_progress, sysroot, println)?
         }
         Some(("fix-broken", _)) => {
             let client = Client::builder().user_agent("oma").build().unwrap();

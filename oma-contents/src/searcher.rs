@@ -66,11 +66,16 @@ impl Mode {
     }
 }
 
+pub enum OutputMode {
+    Progress(Box<dyn Fn(usize) + Sync + Send + 'static>),
+    PrintLn,
+}
+
 pub fn ripgrep_search(
     dir: impl AsRef<Path>,
     mode: Mode,
     query: &str,
-    cb: impl Fn(usize) + Sync + Send + 'static,
+    output_mode: OutputMode,
 ) -> Result<Vec<(String, String)>, OmaContentsError> {
     let query = regex::escape(query);
 
@@ -133,10 +138,16 @@ pub fn ripgrep_search(
             has_result = true;
 
             lines += 1;
-            cb(lines);
-
-            if !res.contains(&line) {
-                res.insert(line);
+            match output_mode {
+                OutputMode::Progress(ref cb) => {
+                    cb(lines);
+                    if !res.contains(&line) {
+                        res.insert(line);
+                    }
+                }
+                OutputMode::PrintLn => {
+                    println!("{}: {}", line.0, line.1)
+                }
             }
         }
 
@@ -162,20 +173,29 @@ pub fn pure_search(
     path: impl AsRef<Path>,
     mode: Mode,
     query: &str,
-    cb: impl Fn(usize) + Sync + Send + 'static,
+    output_mode: OutputMode,
 ) -> Result<Vec<(String, String)>, OmaContentsError> {
     let paths = mode.paths(path.as_ref())?;
     let count = Arc::new(AtomicUsize::new(0));
     let count_clone = count.clone();
     let ac = AhoCorasick::new([query])?;
     let query = Arc::from(query);
+    let output_mode = Arc::new(output_mode);
+    let output_mode_clone = output_mode.clone();
 
     let worker = thread::spawn(move || {
         paths
             .par_iter()
             .map(
                 move |path| -> Result<Vec<(String, String)>, OmaContentsError> {
-                    pure_search_contents_from_path(path, &query, &count, mode, &ac)
+                    pure_search_contents_from_path(
+                        path,
+                        &query,
+                        &count,
+                        mode,
+                        &ac,
+                        output_mode.clone(),
+                    )
                 },
             )
             .collect::<Result<Vec<_>, OmaContentsError>>()
@@ -186,7 +206,12 @@ pub fn pure_search(
     loop {
         let count = count_clone.load(Ordering::Acquire);
         if count > 0 && count != tmp {
-            cb(count);
+            match &*output_mode_clone {
+                OutputMode::Progress(cb) => {
+                    cb(count);
+                }
+                OutputMode::PrintLn => {}
+            }
             tmp = count;
         }
 
@@ -202,6 +227,7 @@ fn pure_search_contents_from_path(
     count: &AtomicUsize,
     mode: Mode,
     ac: &AhoCorasick,
+    output_mode: Arc<OutputMode>,
 ) -> Result<Vec<(String, String)>, OmaContentsError> {
     let mut f = fs::File::open(path)
         .map_err(|e| OmaContentsError::FailedToOperateDirOrFile(path.display().to_string(), e))?;
@@ -247,7 +273,7 @@ fn pure_search_contents_from_path(
         }
     };
 
-    let res = pure_search_foreach_result(cb, reader, count, query);
+    let res = pure_search_foreach_result(cb, reader, count, query, &output_mode);
 
     Ok(res)
 }
@@ -270,6 +296,7 @@ fn pure_search_foreach_result(
     mut reader: BufReader<&mut dyn Read>,
     count: &AtomicUsize,
     query: &str,
+    output_mode: &OutputMode,
 ) -> Vec<(String, String)> {
     let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
@@ -285,8 +312,16 @@ fn pure_search_foreach_result(
             if cb(pkg, file, query) {
                 count.fetch_add(1, Ordering::AcqRel);
                 let line = (pkg.to_string(), prefix(file));
-                if !res.contains(&line) {
-                    res.insert(line);
+
+                match output_mode {
+                    OutputMode::Progress(_) => {
+                        if !res.contains(&line) {
+                            res.insert(line);
+                        }
+                    }
+                    OutputMode::PrintLn => {
+                        println!("{}: {}", line.0, line.1);
+                    }
                 }
             }
         }
