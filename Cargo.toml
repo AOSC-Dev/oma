@@ -97,3 +97,5 @@ default-features = false
 
 [profile.release]
 lto = "thin"
+opt-level = 3
+codegen-units = 1
