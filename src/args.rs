@@ -273,6 +273,7 @@ pub fn command_builder() -> Command {
                         .required(true),
                 )
                 .arg(Arg::new("bin").long("bin").help("Search binary of package(s)").action(ArgAction::SetTrue).requires("package"))
+                .arg(Arg::new("println").long("println").help("Set output mode as current println mode").action(ArgAction::SetTrue).requires("package"))
         )
         .subcommand(
             Command::new("provides")
@@ -284,6 +285,7 @@ pub fn command_builder() -> Command {
                         .num_args(0..=1)
                         .required(true),
                 )
+                .arg(Arg::new("println").long("println").help("Set output mode as current println mode").action(ArgAction::SetTrue).requires("pattern"))
                 .arg(Arg::new("bin").long("bin").help("Search binary of package(s)").action(ArgAction::SetTrue).requires("pattern"))
         )
         .subcommand(
