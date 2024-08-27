@@ -5,15 +5,14 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        mpsc::{self, Sender},
         Arc,
     },
-    thread::{self},
+    thread,
 };
 
 use aho_corasick::AhoCorasick;
 use flate2::bufread::GzDecoder;
-use indexmap::IndexSet;
 use lzzzz::lz4f::BufReadDecompressor;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::debug;
@@ -66,17 +65,12 @@ impl Mode {
     }
 }
 
-pub enum OutputMode {
-    Progress(Box<dyn Fn(usize) + Sync + Send + 'static>),
-    PrintLn,
-}
-
 pub fn ripgrep_search(
     dir: impl AsRef<Path>,
     mode: Mode,
     query: &str,
-    output_mode: OutputMode,
-) -> Result<Vec<(String, String)>, OmaContentsError> {
+    mut cb: impl FnMut((String, String)),
+) -> Result<(), OmaContentsError> {
     let query = regex::escape(query);
 
     let query = if Path::new(&query).is_absolute() {
@@ -94,8 +88,6 @@ pub fn ripgrep_search(
             true,
         ),
     };
-
-    let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
     let mut cmd = Command::new("rg")
         .arg("-N")
@@ -118,7 +110,6 @@ pub fn ripgrep_search(
     let mut has_result = false;
 
     let mut buffer = String::new();
-    let mut lines = 0;
 
     #[cfg(not(feature = "aosc"))]
     let is_bin = match mode {
@@ -135,20 +126,9 @@ pub fn ripgrep_search(
                 continue;
             }
 
-            has_result = true;
+            cb(line);
 
-            lines += 1;
-            match output_mode {
-                OutputMode::Progress(ref cb) => {
-                    cb(lines);
-                    if !res.contains(&line) {
-                        res.insert(line);
-                    }
-                }
-                OutputMode::PrintLn => {
-                    println!("{}: {}", line.0, line.1)
-                }
-            }
+            has_result = true;
         }
 
         buffer.clear();
@@ -166,53 +146,33 @@ pub fn ripgrep_search(
         return Err(OmaContentsError::RgWithError);
     }
 
-    Ok(res.into_iter().collect())
+    Ok(())
 }
 
 pub fn pure_search(
     path: impl AsRef<Path>,
     mode: Mode,
     query: &str,
-    output_mode: OutputMode,
-) -> Result<Vec<(String, String)>, OmaContentsError> {
+    mut cb: impl FnMut((String, String)) + Sync + Send,
+) -> Result<(), OmaContentsError> {
     let paths = mode.paths(path.as_ref())?;
-    let count = Arc::new(AtomicUsize::new(0));
-    let count_clone = count.clone();
     let ac = AhoCorasick::new([query])?;
     let query = Arc::from(query);
-    let output_mode = Arc::new(output_mode);
-    let output_mode_clone = output_mode.clone();
+
+    let (tx, rx) = mpsc::channel();
 
     let worker = thread::spawn(move || {
         paths
             .par_iter()
-            .map(
-                move |path| -> Result<Vec<(String, String)>, OmaContentsError> {
-                    pure_search_contents_from_path(
-                        path,
-                        &query,
-                        &count,
-                        mode,
-                        &ac,
-                        output_mode.clone(),
-                    )
-                },
-            )
-            .collect::<Result<Vec<_>, OmaContentsError>>()
-            .map(|x| x.into_iter().flatten().collect::<Vec<_>>())
+            .map(move |path| -> Result<(), OmaContentsError> {
+                pure_search_contents_from_path(path, &query, mode, &ac, &tx)
+            })
+            .collect::<Result<(), OmaContentsError>>()
     });
 
-    let mut tmp = 0;
     loop {
-        let count = count_clone.load(Ordering::Acquire);
-        if count > 0 && count != tmp {
-            match &*output_mode_clone {
-                OutputMode::Progress(cb) => {
-                    cb(count);
-                }
-                OutputMode::PrintLn => {}
-            }
-            tmp = count;
+        if let Ok(v) = rx.try_recv() {
+            cb(v)
         }
 
         if worker.is_finished() {
@@ -224,11 +184,10 @@ pub fn pure_search(
 fn pure_search_contents_from_path(
     path: &Path,
     query: &str,
-    count: &AtomicUsize,
     mode: Mode,
     ac: &AhoCorasick,
-    output_mode: Arc<OutputMode>,
-) -> Result<Vec<(String, String)>, OmaContentsError> {
+    tx: &Sender<(String, String)>,
+) -> Result<(), OmaContentsError> {
     let mut f = fs::File::open(path)
         .map_err(|e| OmaContentsError::FailedToOperateDirOrFile(path.display().to_string(), e))?;
 
@@ -262,7 +221,7 @@ fn pure_search_contents_from_path(
 
     let reader = BufReader::new(contents_reader);
 
-    let cb: &dyn Fn(&str, &str, &str) -> bool = match mode {
+    let can_next: &dyn Fn(&str, &str, &str) -> bool = match mode {
         Mode::Provides => &|_pkg: &str, file: &str, _query: &str| ac.is_match(file),
         Mode::Files => &|pkg: &str, _file: &str, query: &str| pkg == query,
         Mode::BinProvides => &|_pkg: &str, file: &str, _query: &str| {
@@ -273,9 +232,9 @@ fn pure_search_contents_from_path(
         }
     };
 
-    let res = pure_search_foreach_result(cb, reader, count, query, &output_mode);
+    pure_search_foreach_result(can_next, reader, query, tx);
 
-    Ok(res)
+    Ok(())
 }
 
 #[inline]
@@ -292,14 +251,11 @@ fn check_file_magic_4bytes(
 }
 
 fn pure_search_foreach_result(
-    cb: impl Fn(&str, &str, &str) -> bool,
+    next: impl Fn(&str, &str, &str) -> bool,
     mut reader: BufReader<&mut dyn Read>,
-    count: &AtomicUsize,
     query: &str,
-    output_mode: &OutputMode,
-) -> Vec<(String, String)> {
-    let mut res = IndexSet::with_hasher(ahash::RandomState::new());
-
+    tx: &Sender<(String, String)>,
+) {
     let mut buffer = String::new();
 
     while reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
@@ -309,27 +265,15 @@ fn pure_search_foreach_result(
         };
 
         for (_, pkg) in pkgs {
-            if cb(pkg, file, query) {
-                count.fetch_add(1, Ordering::AcqRel);
+            if next(pkg, file, query) {
                 let line = (pkg.to_string(), prefix(file));
 
-                match output_mode {
-                    OutputMode::Progress(_) => {
-                        if !res.contains(&line) {
-                            res.insert(line);
-                        }
-                    }
-                    OutputMode::PrintLn => {
-                        println!("{}: {}", line.0, line.1);
-                    }
-                }
+                tx.send(line).unwrap();
             }
         }
 
         buffer.clear();
     }
-
-    res.into_iter().collect()
 }
 
 fn rg_filter_line(mut line: &str, is_list: bool, query: &str) -> Option<(String, String)> {
