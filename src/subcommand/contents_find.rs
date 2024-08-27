@@ -1,12 +1,11 @@
-use std::path::Path;
-
-use oma_console::indicatif::ProgressBar;
-use oma_console::pb::spinner_style;
-use oma_contents::searcher::{pure_search, ripgrep_search, Mode, OutputMode};
-
 use crate::error::OutputError;
 use crate::fl;
 use crate::table::oma_display_with_normal_output;
+use indexmap::IndexSet;
+use oma_console::indicatif::ProgressBar;
+use oma_console::pb::spinner_style;
+use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
+use std::path::Path;
 
 pub fn execute(
     mode: &str,
@@ -36,33 +35,40 @@ pub fn execute(
         _ => unreachable!(),
     };
 
-    let output_mode = if println {
-        OutputMode::PrintLn
-    } else {
-        let cb = move |count: usize| {
+    let mut res = IndexSet::with_hasher(ahash::RandomState::new());
+    let mut count = 0;
+
+    let cb = |line: (String, String)| {
+        if println {
+            println!("{}: {}", line.0, line.1);
+        } else if !res.contains(&line) {
+            res.insert(line);
+            count += 1;
             if let Some(pb) = &pb {
                 pb.set_message(fl!("search-with-result-count", count = count));
             }
-        };
-
-        OutputMode::Progress(Box::new(cb))
+        }
     };
 
-    let res = if which::which("rg").is_ok() {
+    if which::which("rg").is_ok() {
         ripgrep_search(
             Path::new(&sysroot).join("var/lib/apt/lists"),
             mode,
             input,
-            output_mode,
-        )
+            cb,
+        )?;
     } else {
         pure_search(
             Path::new(&sysroot).join("var/lib/apt/lists"),
             mode,
             input,
-            output_mode,
-        )
-    }?;
+            cb,
+        )?;
+    };
+
+    if let Some(pb) = &pb {
+        pb.finish_and_clear();
+    }
 
     if println {
         return Ok(0);

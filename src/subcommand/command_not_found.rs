@@ -3,7 +3,7 @@ use std::io::stdout;
 
 use oma_console::due_to;
 use oma_console::print::Action;
-use oma_contents::searcher::{pure_search, ripgrep_search, Mode, OutputMode};
+use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
 use oma_contents::OmaContentsError;
 use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
 use oma_pm::format_description;
@@ -16,32 +16,32 @@ use crate::{color_formatter, fl};
 const FILTER_JARO_NUM: u8 = 204;
 const APT_LIST_PATH: &str = "/var/lib/apt/lists";
 
+type IndexSet<T> = indexmap::IndexSet<T, ahash::RandomState>;
+
 pub fn execute(query: &str) -> Result<i32, OutputError> {
-    let res = if which::which("rg").is_ok() {
-        ripgrep_search(
-            APT_LIST_PATH,
-            Mode::BinProvides,
-            query,
-            OutputMode::Progress(Box::new(|_| {})),
-        )
-    } else {
-        pure_search(
-            APT_LIST_PATH,
-            Mode::BinProvides,
-            query,
-            OutputMode::Progress(Box::new(|_| {})),
-        )
+    let mut res = IndexSet::with_hasher(ahash::RandomState::new());
+
+    let cb = |line| {
+        if !res.contains(&line) {
+            res.insert(line);
+        }
     };
 
-    match res {
-        Ok(res) if res.is_empty() => {
+    let search_res = if which::which("rg").is_ok() {
+        ripgrep_search(APT_LIST_PATH, Mode::BinProvides, query, cb)
+    } else {
+        pure_search(APT_LIST_PATH, Mode::BinProvides, query, cb)
+    };
+
+    match search_res {
+        Ok(()) if res.is_empty() => {
             error!("{}", fl!("command-not-found", kw = query));
         }
-        Ok(provides_res) => {
+        Ok(()) => {
             let oma_apt_args = OmaAptArgsBuilder::default().build()?;
             let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-            let mut jaro = jaro_nums(provides_res, query);
+            let mut jaro = jaro_nums(res, query);
 
             let all_match = jaro
                 .iter()
@@ -115,7 +115,7 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
     Ok(127)
 }
 
-fn jaro_nums(input: Vec<(String, String)>, query: &str) -> Vec<(String, String, u8)> {
+fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, String, u8)> {
     let mut output = vec![];
 
     for (pkg, file) in input {
