@@ -45,13 +45,12 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
 
             let mut res = vec![];
 
-            Some(()).and_then(|_| {
-                for (pkg, file, jaro) in jaro {
-                    if jaro < FILTER_JARO_NUM {
-                        continue;
-                    }
+            for (pkg, file, jaro) in jaro {
+                if jaro < FILTER_JARO_NUM {
+                    continue;
+                }
 
-                    let pkg = apt.cache.get(&pkg)?;
+                if let Some(pkg) = apt.cache.get(&pkg) {
                     let desc = pkg
                         .candidate()
                         .and_then(|x| {
@@ -73,9 +72,7 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
 
                     res.push(entry);
                 }
-
-                Some(())
-            });
+            }
 
             if res.is_empty() {
                 error!("{}", fl!("command-not-found", kw = query));
