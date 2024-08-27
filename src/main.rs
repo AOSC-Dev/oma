@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use std::io;
+use std::io::{self, stderr, stdin, IsTerminal};
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
@@ -34,6 +34,7 @@ use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
 use reqwest::Client;
 use rustix::process::{kill_process, Pid, Signal};
+use rustix::stdio::stdout;
 use subcommand::utils::LockError;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
@@ -314,16 +315,16 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         // Ref: https://github.com/dalance/procs/commit/83305be6fb431695a070524328b66c7107ce98f3
         let timeout = Duration::from_millis(100);
 
-        if !follow_term_color {
-            if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
-                if latency * 2 > timeout {
-                    debug!("term latency too long, will fallback to term color");
-                    follow_term_color = true;
-                }
-            } else {
+        if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
+            follow_term_color = true;
+        } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
+            if latency * 2 > timeout {
                 debug!("term latency too long, will fallback to term color");
                 follow_term_color = true;
             }
+        } else {
+            debug!("term latency too long, will fallback to term color");
+            follow_term_color = true;
         }
 
         OmaColorFormat::new(follow_term_color, timeout)
