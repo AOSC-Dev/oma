@@ -1,3 +1,4 @@
+use std::env;
 use std::ffi::CString;
 use std::io::{self, stderr, stdin, IsTerminal};
 use std::path::PathBuf;
@@ -318,7 +319,12 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         // Ref: https://github.com/dalance/procs/commit/83305be6fb431695a070524328b66c7107ce98f3
         let timeout = Duration::from_millis(100);
 
-        if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() || no_color
+        if !stdout().is_terminal()
+            || !stderr().is_terminal()
+            || !stdin().is_terminal()
+            || no_color
+            // 规避延迟
+            || env::var("SSH_CONNECTION").is_ok()
         {
             follow_term_color = true;
         } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
