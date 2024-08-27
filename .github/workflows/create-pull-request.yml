@@ -43,7 +43,7 @@ jobs:
           git config user.name "eatradish"
           git config user.email "sakiiily@aosc.io"
           # Note: Git not allow tilde (~) in branch names, so use dash here.
-          git checkout -b oma-${DPKG_VER}
+          git checkout -b oma-${DPKG_VER/\~/-}
           git add .
           git commit -m "oma: update to ${DPKG_VER}"
           # Note: Git not allow tilde (~) in branch names, so use dash here.
