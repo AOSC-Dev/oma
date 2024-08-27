@@ -325,6 +325,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             || no_color
             // 规避延迟
             || env::var("SSH_CONNECTION").is_ok()
+            || env::var("TERM").is_err()
         {
             follow_term_color = true;
         } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
