@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::Duration};
 
 use console::{style, Color, StyledObject};
 use termbg::Theme;
@@ -58,36 +58,44 @@ impl Action {
 
 pub struct OmaColorFormat {
     follow: StyleFollow,
-    theme: Result<Theme, termbg::Error>,
+    theme: Option<Theme>,
 }
 
 impl OmaColorFormat {
-    pub fn new(follow: bool, theme: Result<Theme, termbg::Error>) -> Self {
+    pub fn new(follow: bool, duration: Duration) -> Self {
         Self {
             follow: if follow {
                 StyleFollow::TermTheme
             } else {
                 StyleFollow::OmaTheme
             },
-            theme,
+            theme: if !follow {
+                termbg::theme(duration)
+                    .map_err(|e| {
+                        debug!(
+                            "Failed to use oma theme color, will fallback to terminal color: {e:?}"
+                        );
+                        e
+                    })
+                    .ok()
+            } else {
+                None
+            },
         }
     }
 
     pub fn color_str<D>(&self, input: D, color: Action) -> StyledObject<D> {
         match self.follow {
-            StyleFollow::OmaTheme => match &self.theme {
-                Ok(Theme::Dark) => match color {
+            StyleFollow::OmaTheme => match self.theme {
+                Some(Theme::Dark) => match color {
                     x @ Action::PendingBg => style(input).bg(Color::Color256(x.dark())).bold(),
                     x => style(input).color256(x.dark()),
                 },
-                Ok(Theme::Light) => match color {
+                Some(Theme::Light) => match color {
                     x @ Action::PendingBg => style(input).bg(Color::Color256(x.light())).bold(),
                     x => style(input).color256(x.light()),
                 },
-                Err(e) => {
-                    debug!("Failed to use oma theme color, will fallback to terminal color: {e:?}");
-                    term_color(input, color)
-                }
+                None => term_color(input, color),
             },
             StyleFollow::TermTheme => term_color(input, color),
         }

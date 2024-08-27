@@ -278,7 +278,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
     };
 
-    let follow_term_color = config.follow_terminal_color()
+    let mut follow_term_color = config.follow_terminal_color()
         || matches.get_flag("follow_terminal_color")
         || matches!(
             matches
@@ -288,7 +288,45 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         );
 
     COLOR_FORMATTER.get_or_init(|| {
-        OmaColorFormat::new(follow_term_color, termbg::theme(Duration::from_millis(100)))
+        // FIXME: Marking latency limits for oma's terminal color queries (via
+        // termbg). On slower terminals - i.e., SSH and unaccelerated
+        // graphical environments, any colored interfaces in oma may return a
+        // terminal color query string in the returned shell, confusing users.
+        //
+        //   (ssh)root@LoongUnion1 [ ~ ] ? 11;rgb:2323/2626/2727
+        //
+        // Following advice from termbg here. Add latency limits to avoid this
+        // strange output on slower terminals.
+        //
+        // For further investigation, we have some remaining questions:
+        //
+        // 1. Why 100ms? We see that the termbg-based procs project using the
+        //    same latency limit to workaround the aforementioned issue.
+        //    It should be noted that this is nothing more than a "magic
+        //    number" that we have tested to work.
+        // 2. The true cause or reproducing conditions for this issue is not
+        //    yet clear, we found the same issue on a slower machine (Loongson
+        //    3B4000) in a nearby datacenter (~50ms) with a faster one
+        //    (Loongson 3C5000), which does not exhibit the issue; as well as
+        //    on a faster machine (AMD EPYC 7H12) with high latency (~450ms).
+        //
+        // Ref: https://github.com/dalance/procs/issues/221
+        // Ref: https://github.com/dalance/procs/commit/83305be6fb431695a070524328b66c7107ce98f3
+        let timeout = Duration::from_millis(100);
+
+        if !follow_term_color {
+            if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
+                if latency * 2 > timeout {
+                    debug!("term latency too long, will fallback to term color");
+                    follow_term_color = true;
+                }
+            } else {
+                debug!("term latency too long, will fallback to term color");
+                follow_term_color = true;
+            }
+        }
+
+        OmaColorFormat::new(follow_term_color, timeout)
     });
 
     let no_check_dbus = if matches.get_flag("no_check_dbus") {
