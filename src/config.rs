@@ -23,6 +23,8 @@ pub struct GeneralConfig {
     pub no_refresh_topics: bool,
     #[serde(default = "GeneralConfig::default_follow_terminal_color")]
     pub follow_terminal_color: bool,
+    #[serde(default = "GeneralConfig::default_search_contents_println")]
+    pub search_contents_println: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -55,6 +57,10 @@ impl GeneralConfig {
     }
 
     pub const fn default_follow_terminal_color() -> bool {
+        false
+    }
+
+    pub const fn default_search_contents_println() -> bool {
         false
     }
 }
@@ -105,5 +111,12 @@ impl Config {
             .as_ref()
             .map(|x| x.follow_terminal_color)
             .unwrap_or_else(GeneralConfig::default_follow_terminal_color)
+    }
+
+    pub fn search_contents_println(&self) -> bool {
+        self.general
+            .as_ref()
+            .map(|x| x.search_contents_println)
+            .unwrap_or_else(GeneralConfig::default_search_contents_println)
     }
 }
