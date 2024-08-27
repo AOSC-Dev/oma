@@ -152,16 +152,6 @@ fn main() {
         false
     };
 
-    // --no-color option
-    if matches.get_flag("no_color")
-        || matches!(
-            matches.subcommand().map(|(_, x)| x.try_get_one("no_color")),
-            Some(Ok(Some(true)))
-        )
-    {
-        std::env::set_var("NO_COLOR", "");
-    }
-
     // --no-progress
     let no_progress = matches.get_flag("no_progress")
         || matches!(
@@ -288,6 +278,19 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             Some(Ok(Some(true)))
         );
 
+    let mut no_color = false;
+
+    // --no-color option
+    if matches.get_flag("no_color")
+        || matches!(
+            matches.subcommand().map(|(_, x)| x.try_get_one("no_color")),
+            Some(Ok(Some(true)))
+        )
+    {
+        std::env::set_var("NO_COLOR", "");
+        no_color = true;
+    }
+
     COLOR_FORMATTER.get_or_init(|| {
         // FIXME: Marking latency limits for oma's terminal color queries (via
         // termbg). On slower terminals - i.e., SSH and unaccelerated
@@ -315,7 +318,8 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         // Ref: https://github.com/dalance/procs/commit/83305be6fb431695a070524328b66c7107ce98f3
         let timeout = Duration::from_millis(100);
 
-        if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
+        if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() || no_color
+        {
             follow_term_color = true;
         } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
             if latency * 2 > timeout {
