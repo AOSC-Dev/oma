@@ -9,6 +9,9 @@ no_check_dbus = false
 no_refresh_topics = false
 # follow system theme as oma color output
 follow_terminal_color = false
+# Print search contents results directly without sorting and paging
+# recommended for devices with small RAM capacities.
+search_contents_println = false
 
 [network]
 # Number of network threads to use when downloading metadata and packages.

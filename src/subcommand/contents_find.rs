@@ -5,7 +5,10 @@ use indexmap::IndexSet;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
 use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
-use std::path::Path;
+use std::{
+    io::{stdout, Write},
+    path::Path,
+};
 
 pub fn execute(
     mode: &str,
@@ -40,7 +43,7 @@ pub fn execute(
 
     let cb = |line: (String, String)| {
         if println {
-            println!("{}: {}", line.0, line.1);
+            writeln!(stdout(), "{}: {}", line.0, line.1).ok();
         } else if !res.contains(&line) {
             res.insert(line);
             count += 1;
