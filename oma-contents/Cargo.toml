@@ -20,9 +20,5 @@ which = "6"
 zstd = "0.13"
 aho-corasick = "1.1.3"
 
-[dev-dependencies]
-indicatif = "0.17"
-oma-utils = { path = "../oma-utils", features = ["dpkg"] }
-
 [features]
 aosc = []
