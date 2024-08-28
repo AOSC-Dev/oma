@@ -132,6 +132,7 @@ pub struct RemoveEntry {
 pub enum RemoveTag {
     Purge,
     AutoRemove,
+    Resolver,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize)]
