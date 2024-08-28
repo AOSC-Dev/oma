@@ -57,7 +57,7 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
 
             for (pkg, file, jaro) in jaro {
                 if jaro < FILTER_JARO_NUM {
-                    continue;
+                    break;
                 }
 
                 if let Some(pkg) = apt.cache.get(&pkg) {
