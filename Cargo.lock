@@ -3084,7 +3084,7 @@ dependencies = [
  "oma-refresh",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.3",
+ "oma-utils 0.8.4",
  "ratatui",
  "reqwest",
  "rust-embed",
@@ -3126,7 +3126,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.14.3"
+version = "0.15.0"
 dependencies = [
  "console",
  "icu_segmenter",
@@ -3145,7 +3145,7 @@ dependencies = [
  "flate2",
  "indicatif",
  "lzzzz",
- "oma-utils 0.8.3",
+ "oma-utils 0.8.4",
  "rayon",
  "regex",
  "thiserror",
@@ -3176,7 +3176,7 @@ dependencies = [
  "indicatif",
  "md-5",
  "oma-console",
- "oma-utils 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "oma-utils 0.8.3",
  "reqwest",
  "serde",
  "sha2",
@@ -3216,7 +3216,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.29.1"
+version = "0.29.2"
 dependencies = [
  "ahash",
  "chrono",
@@ -3231,7 +3231,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.8.3",
+ "oma-utils 0.8.4",
  "small-map",
  "thiserror",
  "tokio",
@@ -3244,7 +3244,7 @@ name = "oma-pm-operation-type"
 version = "0.2.0"
 dependencies = [
  "derive_builder",
- "oma-utils 0.8.3",
+ "oma-utils 0.8.4",
  "serde",
 ]
 
@@ -3264,7 +3264,7 @@ dependencies = [
  "oma-fetch",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.3",
+ "oma-utils 0.8.4",
  "sequoia-openpgp",
  "small-map",
  "smallvec",
@@ -3304,6 +3304,19 @@ dependencies = [
 [[package]]
 name = "oma-utils"
 version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaecebf5a77e730e3de424e6335a860a9088b3beb6e485c02a2d5823c5acaed1"
+dependencies = [
+ "logind-zbus",
+ "os-release",
+ "thiserror",
+ "tracing",
+ "url-escape",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.8.4"
 dependencies = [
  "logind-zbus",
  "number_prefix",
@@ -3313,19 +3326,6 @@ dependencies = [
  "tracing",
  "url-escape",
  "zbus",
-]
-
-[[package]]
-name = "oma-utils"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaecebf5a77e730e3de424e6335a860a9088b3beb6e485c02a2d5823c5acaed1"
-dependencies = [
- "logind-zbus",
- "os-release",
- "thiserror",
- "tracing",
- "url-escape",
 ]
 
 [[package]]
