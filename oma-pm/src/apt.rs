@@ -959,8 +959,12 @@ impl OmaApt {
                     tags.push(RemoveTag::Purge);
                 }
 
-                if self.autoremove.contains(&pkg.fullname(true)) {
+                if self.autoremove.contains(&name) {
                     tags.push(RemoveTag::AutoRemove);
+                }
+
+                if !self.autoremove.contains(&name) && !self.select_pkgs.contains(&name) {
+                    tags.push(RemoveTag::Resolver);
                 }
 
                 let installed = pkg.installed();
