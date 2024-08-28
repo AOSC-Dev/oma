@@ -51,6 +51,7 @@ complete -c oma -n "__fish_seen_subcommand_from install" -l dpkg-force-all -d 'R
 complete -c oma -n "__fish_seen_subcommand_from install" -l no-refresh-topics -d 'Do not refresh topics manifest.json file'
 complete -c oma -n "__fish_seen_subcommand_from install" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from install" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand install" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from install" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from install" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from install" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -64,6 +65,7 @@ complete -c oma -n "__fish_seen_subcommand_from upgrade" -l dpkg-force-all -d 'R
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l autoremove -d 'Auto remove unnecessary package(s)'
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand upgrade" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from upgrade" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -71,6 +73,7 @@ complete -c oma -n "__fish_seen_subcommand_from download" -s p -l path -d 'The p
 complete -c oma -n "__fish_seen_subcommand_from download" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from download" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from download" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand download" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from download" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from download" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from download" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -82,6 +85,7 @@ complete -c oma -n "__fish_seen_subcommand_from remove" -l remove-config -d 'Rem
 complete -c oma -n "__fish_seen_subcommand_from remove" -l dry-run -d 'Run oma in “dry-run” mode'
 complete -c oma -n "__fish_seen_subcommand_from remove" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from remove" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand remove" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from remove" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from remove" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from remove" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -92,6 +96,7 @@ complete -c oma -n "__fish_seen_subcommand_from purge" -l no-autoremove -d 'Do n
 complete -c oma -n "__fish_seen_subcommand_from purge" -l dry-run -d 'Run oma in “dry-run” mode'
 complete -c oma -n "__fish_seen_subcommand_from purge" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from purge" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand purge" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from purge" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from purge" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from purge" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -99,6 +104,7 @@ complete -c oma -n "__fish_seen_subcommand_from refresh" -l sysroot -d 'Set sysr
 complete -c oma -n "__fish_seen_subcommand_from refresh" -l no-refresh-topics -d 'Do not refresh topics manifest.json file'
 complete -c oma -n "__fish_seen_subcommand_from refresh" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from refresh" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand refresh" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from refresh" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from refresh" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from refresh" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -112,6 +118,7 @@ complete -c oma -n "__fish_seen_subcommand_from show" -s h -l help -d 'Print hel
 complete -c oma -n "__fish_seen_subcommand_from search" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from search" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from search" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand search" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from search" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from search" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from search" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -119,6 +126,7 @@ complete -c oma -n "__fish_seen_subcommand_from files" -l sysroot -d 'Set sysroo
 complete -c oma -n "__fish_seen_subcommand_from files" -l bin -d 'Search binary of package(s)'
 complete -c oma -n "__fish_seen_subcommand_from files" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from files" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand files" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from files" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from files" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from files" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -126,6 +134,7 @@ complete -c oma -n "__fish_seen_subcommand_from provides" -l sysroot -d 'Set sys
 complete -c oma -n "__fish_seen_subcommand_from provides" -l bin -d 'Search binary of package(s)'
 complete -c oma -n "__fish_seen_subcommand_from provides" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from provides" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand provides" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from provides" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from provides" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from provides" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -133,6 +142,7 @@ complete -c oma -n "__fish_seen_subcommand_from fix-broken" -l sysroot -d 'Set s
 complete -c oma -n "__fish_seen_subcommand_from fix-broken" -l dry-run -d 'Run oma in “dry-run” mode'
 complete -c oma -n "__fish_seen_subcommand_from fix-broken" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from fix-broken" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand fix-broken" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from fix-broken" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from fix-broken" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from fix-broken" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -142,6 +152,7 @@ complete -c oma -n "__fish_seen_subcommand_from pick" -l dry-run -d 'Run oma in 
 complete -c oma -n "__fish_seen_subcommand_from pick" -l dpkg-force-all -d 'Request dpkg(1) to ignore any issues occurred during the installation and configuration process'
 complete -c oma -n "__fish_seen_subcommand_from pick" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from pick" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand pick" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from pick" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from pick" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from pick" -l no-refresh-topics -d 'Do not refresh topics manifest.json file'
@@ -161,17 +172,20 @@ complete -c oma -n "__fish_seen_subcommand_from list" -s m -l manually-installed
 complete -c oma -n "__fish_seen_subcommand_from list" -l automatic -d 'List only package(s) with automatic installed'
 complete -c oma -n "__fish_seen_subcommand_from list" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from list" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand list" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from list" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from list" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from list" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from depends" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from depends" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from depends" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand depends" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from depends" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from depends" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from depends" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from rdepends" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from rdepends" -l debug -d 'Run oma with debug mode'
+complete -c oma -n "__fish_seen_subcommand_from rdepends" -l no-color -d 'No color output to result'
 complete -c oma -n "__fish_seen_subcommand_from rdepends" -l no-color -d 'No color output to result'
 complete -c oma -n "__fish_seen_subcommand_from rdepends" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from rdepends" -l no-check-dbus
@@ -179,24 +193,28 @@ complete -c oma -n "__fish_seen_subcommand_from rdepends" -s h -l help -d 'Print
 complete -c oma -n "__fish_seen_subcommand_from clean" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from clean" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from clean" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand clean" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from clean" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from clean" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from clean" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from history" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from history" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from history" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand history" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from history" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from history" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from history" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from undo" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from undo" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from undo" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand undo" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from undo" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from undo" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from undo" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from mirror" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from mirror" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from mirror" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand mirror" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from mirror" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from mirror" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from mirror" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -209,6 +227,7 @@ complete -c oma -n "__fish_seen_subcommand_from mirrors" -s h -l help -d 'Print 
 complete -c oma -n "__fish_seen_subcommand_from tui" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from tui" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from tui" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand tui" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from tui" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from tui" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from tui" -s h -l help -d 'Print help (see more with \'--help\')'
@@ -218,6 +237,7 @@ complete -c oma -n "__fish_seen_subcommand_from topics" -l sysroot -d 'Set sysro
 complete -c oma -n "__fish_seen_subcommand_from topics" -l dry-run -d 'Run oma in “dry-run” mode'
 complete -c oma -n "__fish_seen_subcommand_from topics" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from topics" -l no-color -d 'No color output to result'
+complete -c oma -n "__fish_oma_using_subcommand topics" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from topics" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_seen_subcommand_from topics" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from topics" -s h -l help -d 'Print help (see more with \'--help\')'
