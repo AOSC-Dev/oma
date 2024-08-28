@@ -324,25 +324,25 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             follow_term_color = true;
         } else if env::var("SSH_CONNECTION").is_ok() {
             debug!(
-                "You are running oma at SSH session, force use terminal color due to avoid latency"
+                "You are running oma in an SSH session, using default terminal colors to avoid latency."
             );
             follow_term_color = true;
         } else if env::var("TERM").is_err() {
             debug!(
-                "Unknown terminal ($TERM is empty), force use terminal color due to avoid latency"
+                "Unknown or unsupported terminal ($TERM is empty) detected, using default terminal colors to avoid latency."
             );
             follow_term_color = true;
         } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
             debug!("latency: {:?}", latency);
             if latency * 2 > timeout {
                 debug!(
-                    "term latency too long, will fallback to term color, latency: {:?}",
+                    "Terminal latency is too long, falling back to default terminal colors, latency: {:?}.",
                     latency
                 );
                 follow_term_color = true;
             }
         } else {
-            debug!("term latency too long, will fallback to term color");
+            debug!("Terminal latency is too long, falling back to default terminal colors.");
             follow_term_color = true;
         }
 

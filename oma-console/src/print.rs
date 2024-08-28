@@ -73,7 +73,7 @@ impl OmaColorFormat {
                 termbg::theme(duration)
                     .map_err(|e| {
                         debug!(
-                            "Failed to use oma theme color, will fallback to terminal color: {e:?}"
+                            "Failed to apply oma color schemes, falling back to default terminal colors: {e:?}."
                         );
                         e
                     })
