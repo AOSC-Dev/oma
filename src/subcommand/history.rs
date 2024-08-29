@@ -5,6 +5,7 @@ use oma_history::{
     connect_db, find_history_by_id, list_history, HistoryListEntry, SummaryType, DATABASE_PATH,
 };
 use oma_pm::apt::InstallOperation;
+use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
     pkginfo::PkgInfo,
@@ -144,8 +145,12 @@ pub fn execute_undo(
                 None
             }
         })
-        .flat_map(|(x, y)| PkgInfo::new(&y, x))
-        .collect::<Vec<_>>();
+        .map(|(x, y)| PkgInfo::new(&y, x))
+        .collect::<Result<Vec<PkgInfo>, PtrIsNone>>()
+        .map_err(|e| OutputError {
+            description: e.to_string(),
+            source: None,
+        })?;
 
     apt.install(&install, false)?;
 
