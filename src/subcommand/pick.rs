@@ -113,10 +113,10 @@ pub fn execute(
     let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
     let version = pkg.get_version(&versions_str[sel]).unwrap();
 
-    let pkgs = vec![PkgInfo::new(&version, &pkg)]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+    let pkgs = vec![PkgInfo::new(&version, &pkg).map_err(|e| OutputError {
+        description: e.to_string(),
+        source: None,
+    })?];
 
     apt.install(&pkgs, false)?;
 
