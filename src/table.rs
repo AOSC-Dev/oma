@@ -37,7 +37,7 @@ impl From<&RemoveEntry> for RemoveEntryDisplay {
             match i {
                 RemoveTag::Purge => detail.push(fl!("purge-file")),
                 RemoveTag::AutoRemove => detail.push(fl!("removed-as-unneed-dep")),
-                RemoveTag::Resolver => detail.push("From resolver".to_string()),
+                RemoveTag::Resolver => detail.push(fl!("removed-as-unmet-dep")),
             }
         }
 
