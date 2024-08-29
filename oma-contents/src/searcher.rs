@@ -168,9 +168,7 @@ pub fn pure_search(
     let worker = thread::spawn(move || {
         paths
             .par_iter()
-            .map(move |path| -> Result<(), OmaContentsError> {
-                pure_search_contents_from_path(path, &query, mode, &ac, &tx)
-            })
+            .map(move |path| pure_search_contents_from_path(path, &query, mode, &ac, &tx))
             .collect::<Result<(), OmaContentsError>>()
     });
 
