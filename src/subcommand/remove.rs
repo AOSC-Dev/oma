@@ -3,7 +3,7 @@ use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_history::SummaryType;
-use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptArgsBuilder, AptConfig, OmaApt, OmaAptArgsBuilder};
 use reqwest::Client;
 use tracing::{info, warn};
 
@@ -51,7 +51,7 @@ pub fn execute(
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(args.sysroot.clone())
         .build()?;
-    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
     let (pkgs, no_result) = apt.select_pkg(&pkgs, false, true, false)?;
     handle_no_result(no_result)?;
 

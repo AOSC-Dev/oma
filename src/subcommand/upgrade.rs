@@ -5,6 +5,7 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgsBuilder;
+use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
 use oma_pm::apt::OmaAptError;
@@ -31,6 +32,7 @@ use super::utils::handle_no_result;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
 use super::utils::refresh;
+use super::utils::RefreshRequest;
 
 pub fn execute(
     pkgs_unparse: Vec<String>,
@@ -40,8 +42,6 @@ pub fn execute(
 ) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
-
-    let no_refresh_topics = args.no_refresh_topcs;
 
     let OmaArgs {
         dry_run,
@@ -60,15 +60,20 @@ pub fn execute(
         None
     };
 
-    refresh(
-        &client,
+    let apt_config = AptConfig::new();
+
+    let req = RefreshRequest {
+        client: &client,
         dry_run,
         no_progress,
         download_pure_db,
-        network_thread,
-        &args.sysroot,
-        !no_refresh_topics,
-    )?;
+        limit: network_thread,
+        sysroot: &args.sysroot,
+        _refresh_topics: !args.no_refresh_topcs,
+        config: &apt_config,
+    };
+
+    refresh(req)?;
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));
@@ -96,7 +101,12 @@ pub fn execute(
         .build()?;
 
     loop {
-        let mut apt = OmaApt::new(local_debs.clone(), oma_apt_args.clone(), dry_run)?;
+        let mut apt = OmaApt::new(
+            local_debs.clone(),
+            oma_apt_args.clone(),
+            dry_run,
+            AptConfig::new(),
+        )?;
         apt.upgrade()?;
 
         let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, true, false)?;

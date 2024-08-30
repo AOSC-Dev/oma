@@ -1,7 +1,7 @@
 use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::SummaryType;
 use oma_pm::{
-    apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
+    apt::{AptArgsBuilder, AptConfig, OmaApt, OmaAptArgsBuilder},
     pkginfo::PkgInfo,
 };
 use reqwest::Client;
@@ -13,7 +13,9 @@ use crate::{
 use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
-use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
+use super::utils::{
+    lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs, RefreshRequest,
+};
 
 pub fn execute(
     pkg_str: &str,
@@ -44,22 +46,27 @@ pub fn execute(
         None
     };
 
+    let apt_config = AptConfig::new();
+
     if !no_refresh {
-        refresh(
-            &client,
+        let req = RefreshRequest {
+            client: &client,
             dry_run,
             no_progress,
             download_pure_db,
-            network_thread,
-            &sysroot,
-            !no_refresh_topic,
-        )?;
+            limit: network_thread,
+            sysroot: &sysroot,
+            _refresh_topics: !no_refresh_topic,
+            config: &apt_config,
+        };
+
+        refresh(req)?;
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
         .build()?;
-    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
     let pkg = apt
         .cache
         .get(pkg_str)

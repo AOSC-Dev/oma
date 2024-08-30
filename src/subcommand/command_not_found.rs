@@ -5,7 +5,7 @@ use oma_console::due_to;
 use oma_console::print::Action;
 use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
 use oma_contents::OmaContentsError;
-use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgsBuilder};
 use oma_pm::format_description;
 use tracing::error;
 
@@ -38,8 +38,9 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
             error!("{}", fl!("command-not-found", kw = query));
         }
         Ok(()) => {
+            let apt_config = AptConfig::new();
             let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-            let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+            let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
             let mut jaro = jaro_nums(res, query);
 

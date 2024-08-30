@@ -9,7 +9,7 @@ use inquire::{
 use oma_console::{indicatif::ProgressBar, pb::spinner_style, writer::bar_writeln, WRITER};
 use oma_history::SummaryType;
 use oma_pm::{
-    apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
+    apt::{AptArgsBuilder, AptConfig, FilterMode, OmaApt, OmaAptArgsBuilder},
     query::OmaDatabase,
 };
 use oma_utils::dpkg::dpkg_arch;
@@ -22,7 +22,9 @@ use crate::{
     OmaArgs,
 };
 
-use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
+use super::utils::{
+    lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs, RefreshRequest,
+};
 use crate::fl;
 use anyhow::anyhow;
 use oma_topics::{scan_closed_topic, TopicManager};
@@ -86,21 +88,26 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     let enabled_pkgs = topics_changed.enabled_pkgs;
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
-    refresh(
-        &client,
+    let apt_config = AptConfig::new();
+
+    let req = RefreshRequest {
+        client: &client,
         dry_run,
         no_progress,
         download_pure_db,
-        network_thread,
-        &sysroot,
-        true,
-    )?;
+        limit: network_thread,
+        sysroot: &sysroot,
+        _refresh_topics: true,
+        config: &apt_config,
+    };
+
+    refresh(req)?;
 
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
         .build()?;
 
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
     let mut pkgs = vec![];
 

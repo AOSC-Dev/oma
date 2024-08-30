@@ -3256,6 +3256,7 @@ dependencies = [
  "dashmap",
  "futures",
  "indicatif",
+ "oma-apt",
  "oma-apt-sources-lists",
  "oma-console",
  "oma-debcontrol",

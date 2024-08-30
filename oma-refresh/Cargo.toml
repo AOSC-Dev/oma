@@ -3,7 +3,7 @@ name = "oma-refresh"
 version = "0.25.0"
 edition = "2021"
 description = "APT repository refresh handler library"
-license = "MIT"
+license = "GPL-3.0-or-later"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -25,6 +25,7 @@ smallvec = "1.1"
 small-map = "0.1"
 oma-repo-verify = { version = "^0.1.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
+oma-apt = "0.7.0"
 
 [features]
 aosc = ["dep:oma-topics"]

@@ -62,11 +62,9 @@ pub struct InRelease<'a> {
     pub inrelease: &'a str,
     pub signed_by: Option<&'a str>,
     pub mirror: &'a str,
-    pub archs: &'a [String],
     pub is_flat: bool,
     pub p: &'a Path,
     pub rootfs: &'a Path,
-    pub components: &'a [String],
     pub trusted: bool,
 }
 
@@ -85,11 +83,9 @@ impl InReleaseParser {
             inrelease: s,
             signed_by,
             mirror,
-            archs,
             is_flat,
             p,
             rootfs,
-            components,
             trusted,
         } = in_release;
 
@@ -189,33 +185,7 @@ impl InReleaseParser {
 
         let mut res: SmallVec<[_; 32]> = smallvec![];
 
-        let c_res_clone = checksums_res.clone();
-
-        let c = checksums_res
-            .into_iter()
-            .filter(|(name, _, _)| {
-                let mut name_split = name.split('/');
-                let component = name_split.next();
-                let component_type = name_split.next();
-
-                // debian-installer 是为 Debian 安装器专门准备的源，应该没有人把 oma 用在这种场景上面
-                let is_debian_installer = component_type.is_some_and(|x| x == "debian-installer");
-
-                if let Some(c) = component {
-                    if c != *name {
-                        return components.contains(&c.to_string())
-                            && ((name.contains("all") || archs.iter().any(|x| name.contains(x)))
-                                && !is_debian_installer);
-                    }
-                }
-
-                name.contains("all") || archs.iter().any(|x| name.contains(x))
-            })
-            .collect::<Vec<_>>();
-
-        let c = if c.is_empty() { c_res_clone } else { c };
-
-        for i in c {
+        for i in checksums_res {
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
                 x if x.contains("Contents-") && file_is_compress(x) && !x.contains("udeb") => {

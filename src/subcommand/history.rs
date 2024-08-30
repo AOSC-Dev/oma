@@ -4,7 +4,7 @@ use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::{
     connect_db, find_history_by_id, list_history, HistoryListEntry, SummaryType, DATABASE_PATH,
 };
-use oma_pm::apt::InstallOperation;
+use oma_pm::apt::{AptConfig, InstallOperation};
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{
     apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
@@ -102,7 +102,7 @@ pub fn execute_undo(
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
         .build()?;
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let mut delete = vec![];
     let mut install = vec![];

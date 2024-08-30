@@ -1,14 +1,15 @@
 use crate::fl;
 use oma_console::{indicatif::ProgressBar, pb::spinner_style, success};
-use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgsBuilder};
 
 use crate::{error::OutputError, utils::root};
 
 pub fn execute(no_progress: bool, sysroot: String) -> Result<i32, OutputError> {
     root()?;
 
+    let apt_config = AptConfig::new();
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
     let download_dir = apt.get_archive_dir();
     let dir = std::fs::read_dir(&download_dir).map_err(|e| OutputError {
         description: format!("Failed to read dir: {}", download_dir.display()),

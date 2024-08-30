@@ -13,11 +13,11 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
-use oma_pm::apt::{OmaApt, OmaAptArgsBuilder, OmaAptError};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgsBuilder, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgsBuilder::default().build().unwrap();
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let pkgs = apt.select_pkg(&vec!["vscodium", "go"], false, true, true)?;
     std::fs::create_dir_all("./test").unwrap();

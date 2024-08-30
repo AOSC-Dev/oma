@@ -1,5 +1,5 @@
 use oma_history::SummaryType;
-use oma_pm::apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptArgsBuilder, AptConfig, OmaApt, OmaAptArgsBuilder};
 use reqwest::Client;
 
 use crate::{
@@ -35,7 +35,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
     let oma_apt_args = OmaAptArgsBuilder::default()
         .sysroot(sysroot.clone())
         .build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
 
     let args = NormalCommitArgs {
         apt,

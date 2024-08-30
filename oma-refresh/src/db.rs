@@ -5,6 +5,7 @@ use futures::{
     future::{join_all, BoxFuture},
     FutureExt, StreamExt,
 };
+use oma_apt::config::Config;
 use oma_apt_sources_lists::SourceError;
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
@@ -22,6 +23,7 @@ use tokio::fs;
 use tracing::debug;
 
 use crate::{
+    config::fiilter_download_list,
     inrelease::{
         ChecksumItem, ChecksumType, DistFileType, InRelease, InReleaseParser, InReleaseParserError,
     },
@@ -109,6 +111,7 @@ pub struct OmaRefreshBuilder<'a> {
     pub client: &'a Client,
     #[cfg(feature = "aosc")]
     pub refresh_topics: bool,
+    pub apt_config: &'a Config,
 }
 
 pub struct OmaRefresh<'a> {
@@ -121,6 +124,7 @@ pub struct OmaRefresh<'a> {
     flat_repo_no_release: Vec<usize>,
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
+    apt_config: &'a Config,
 }
 
 impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
@@ -135,6 +139,7 @@ impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
             flat_repo_no_release: vec![],
             #[cfg(feature = "aosc")]
             refresh_topics: builder.refresh_topics,
+            apt_config: builder.apt_config,
         }
     }
 }
@@ -527,11 +532,9 @@ impl<'a> OmaRefresh<'a> {
                 inrelease: &inrelease,
                 signed_by: ose.signed_by.as_deref(),
                 mirror: urlc,
-                archs: &archs,
                 is_flat: ose.is_flat,
                 p: &inrelease_path,
                 rootfs: &self.source,
-                components: &ose.components,
                 trusted: ose.trusted,
             };
 
@@ -539,22 +542,19 @@ impl<'a> OmaRefresh<'a> {
                 RefreshError::InReleaseParseError(inrelease_path.display().to_string(), err)
             })?;
 
-            let checksums = inrelease
-                .checksums
-                .iter()
-                .filter(|x| {
-                    ose.components
-                        .iter()
-                        .any(|y| y.contains(x.name.split('/').next().unwrap_or(&x.name)))
-                })
-                .map(|x| x.to_owned())
-                .collect::<Vec<_>>();
+            let checksums = fiilter_download_list(
+                inrelease.checksums,
+                self.apt_config,
+                &archs,
+                &ose.components,
+                &ose.native_arch,
+            );
 
             let handle = if ose.is_flat {
                 debug!("{} is flat repo", ose.url);
                 // Flat repo
                 let mut handle = vec![];
-                for i in &inrelease.checksums {
+                for i in &checksums {
                     if i.file_type == DistFileType::PackageList {
                         debug!("oma will download package list: {}", i.name);
                         handle.push(i);

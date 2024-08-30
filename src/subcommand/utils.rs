@@ -22,6 +22,7 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgs;
+use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_refresh::db::OmaRefresh;
@@ -89,15 +90,29 @@ pub(crate) fn lock_oma() -> Result<(), LockError> {
     Ok(())
 }
 
-pub(crate) fn refresh(
-    client: &Client,
-    dry_run: bool,
-    no_progress: bool,
-    download_pure_db: bool,
-    limit: usize,
-    sysroot: &str,
-    _refresh_topics: bool,
-) -> Result<(), OutputError> {
+pub struct RefreshRequest<'a> {
+    pub client: &'a Client,
+    pub dry_run: bool,
+    pub no_progress: bool,
+    pub download_pure_db: bool,
+    pub limit: usize,
+    pub sysroot: &'a str,
+    pub _refresh_topics: bool,
+    pub config: &'a AptConfig,
+}
+
+pub(crate) fn refresh(refresh_req: RefreshRequest) -> Result<(), OutputError> {
+    let RefreshRequest {
+        client,
+        dry_run,
+        no_progress,
+        download_pure_db,
+        limit,
+        sysroot,
+        _refresh_topics,
+        config,
+    } = refresh_req;
+
     if dry_run {
         return Ok(());
     }
@@ -124,6 +139,7 @@ pub(crate) fn refresh(
         client,
         #[cfg(feature = "aosc")]
         refresh_topics: _refresh_topics,
+        apt_config: config,
     }
     .into();
 

@@ -101,6 +101,7 @@ pub(crate) struct OmaSourceEntry {
     pub signed_by: Option<String>,
     pub archs: Vec<String>,
     pub trusted: bool,
+    pub native_arch: String,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -170,6 +171,7 @@ impl OmaSourceEntry {
             signed_by,
             archs,
             trusted,
+            native_arch: arch.to_string(),
         })
     }
 }
