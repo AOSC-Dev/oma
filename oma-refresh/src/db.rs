@@ -542,7 +542,7 @@ impl<'a> OmaRefresh<'a> {
                 RefreshError::InReleaseParseError(inrelease_path.display().to_string(), err)
             })?;
 
-            let checksums = fiilter_download_list(
+            let filter_checksums = fiilter_download_list(
                 &inrelease.checksums,
                 self.apt_config,
                 &archs,
@@ -554,7 +554,7 @@ impl<'a> OmaRefresh<'a> {
                 debug!("{} is flat repo", ose.url);
                 // Flat repo
                 let mut handle = vec![];
-                for i in &checksums {
+                for i in &filter_checksums {
                     if i.file_type == DistFileType::PackageList {
                         debug!("oma will download package list: {}", i.name);
                         handle.push(i);
@@ -566,7 +566,7 @@ impl<'a> OmaRefresh<'a> {
             } else {
                 let mut handle = vec![];
                 let mut compress_file_map = AHashMap::new();
-                for i in &checksums {
+                for i in &filter_checksums {
                     match &i.file_type {
                         DistFileType::BinaryContents => {
                             debug!("oma will download Binary Contents: {}", i.name);
@@ -603,7 +603,8 @@ impl<'a> OmaRefresh<'a> {
                                     i.name
                                 );
 
-                                let size = checksums
+                                let size = inrelease
+                                    .checksums
                                     .iter()
                                     .find_map(|x| if x.name == *name { Some(x.size) } else { None })
                                     .unwrap_or(i.size);
@@ -640,6 +641,8 @@ impl<'a> OmaRefresh<'a> {
 
                 handle
             };
+
+            debug!("{:?}", handle);
 
             for i in &self.flat_repo_no_release {
                 download_flat_repo_no_release(
