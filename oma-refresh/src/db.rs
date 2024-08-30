@@ -642,7 +642,6 @@ impl<'a> OmaRefresh<'a> {
                 handle
             };
 
-            debug!("{:?}", handle);
 
             for i in &self.flat_repo_no_release {
                 download_flat_repo_no_release(

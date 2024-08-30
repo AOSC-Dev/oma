@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::VecDeque, path::Path};
+use std::{cmp::Ordering, collections::VecDeque, env, path::Path};
 
 use ahash::AHashMap;
 use oma_apt::config::Config;
@@ -97,7 +97,38 @@ pub fn fiilter_download_list(
                     if a == native_arch {
                         s = s.replace("$(NATIVE_ARCHITECTURE)", a);
                     }
-                    filter_entry.push(s);
+
+                    let mut list = vec![];
+
+                    if v.contains("$(LANGUAGE)") {
+                        if let Ok(env_lang) = env::var("LANG") {
+                            let mut langs = vec![];
+                            let env_lang = env_lang
+                                .split_once('.')
+                                .map(|x| x.0)
+                                .unwrap_or(&env_lang)
+                                .to_ascii_lowercase();
+    
+                            let lang = if env_lang == "c" { "en" } else { &env_lang };
+    
+                            langs.push(lang);
+    
+                            // en_US.UTF-8 => en
+                            if let Some((a, _)) = lang.split_once('_') {
+                                langs.push(a);
+                            }
+    
+                            for i in langs {
+                                list.push(s.replace("$(LANGUAGE)", &i));
+                            }
+                        }
+                    }
+
+                    if list.is_empty() {
+                        filter_entry.push(s);
+                    } else {
+                        filter_entry.extend(list);
+                    }
                 }
             }
         }
