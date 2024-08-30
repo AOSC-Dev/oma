@@ -30,7 +30,9 @@ pub(crate) fn database_filename(url: &str) -> Result<String, RefreshError> {
         Cow::Borrowed(path)
     };
 
+    // _ 的转译须先行完成，否则 / 替换为 _ 后会全部被替换
     let url = url
+        .replace("_", "%5f")
         .replace('/', "_")
         .replace('+', "%252b")
         .replace("%3a", ":")
