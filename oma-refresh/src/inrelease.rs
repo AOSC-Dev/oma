@@ -189,23 +189,21 @@ impl InReleaseParser {
             let t = match i.0 {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
                 x if x.contains("Contents-") && file_is_compress(x) && !x.contains("udeb") => {
-                    let s = x.split_once('.').unwrap();
-                    DistFileType::CompressContents(s.0.to_string(), s.1.to_string())
+                    let (ext, name) = split_ext_and_filename(x);
+                    DistFileType::CompressContents(name, ext)
                 }
                 x if x.contains("Contents-") && !x.contains('.') && !x.contains("udeb") => {
                     DistFileType::Contents
                 }
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
                 x if x.contains("Packages") && file_is_compress(x) => {
-                    let s = x.split_once('.').unwrap();
-                    DistFileType::CompressPackageList(s.0.to_string(), s.1.to_string())
+                    let (ext, name) = split_ext_and_filename(x);
+                    DistFileType::CompressPackageList(name, ext)
                 }
                 x if x.contains("Release") => DistFileType::Release,
                 x if file_is_compress(x) => {
-                    let mut s = s.split(".").collect::<Vec<_>>();
-                    let compress_type = s.pop().unwrap();
-                    let s = s.join(".");
-                    DistFileType::CompressOther(s, compress_type.to_string())
+                    let (ext, name) = split_ext_and_filename(x);
+                    DistFileType::CompressOther(name, ext)
                 }
                 _ => DistFileType::Other,
             };
@@ -228,6 +226,15 @@ impl InReleaseParser {
             checksum_type,
         })
     }
+}
+
+fn split_ext_and_filename(x: &str) -> (String, String) {
+    let path = Path::new(x);
+    let ext = path.extension().unwrap_or_default().to_string_lossy().to_string();
+    let name = path.with_extension("");
+    let name = name.to_string_lossy().to_string();
+
+    (ext, name)
 }
 
 pub(crate) fn file_is_compress(name: &str) -> bool {
@@ -342,4 +349,19 @@ fn test_date_hack() {
     assert_eq!(hack, "Thu, 02 May 2024 00:58:03 +0000");
     let b = DateTime::parse_from_rfc2822(&hack);
     assert!(b.is_ok());
+}
+
+#[test]
+fn test_split_name_and_ext() {
+    let example1 = "main/dep11/icons-128x128.tar.gz";
+    let res = split_ext_and_filename(&example1);
+    assert_eq!(res, ("gz".to_string(), "main/dep11/icons-128x128.tar".to_string()));
+
+    let example2 = "main/i18n/Translation-bg.xz";
+    let res = split_ext_and_filename(&example2);
+    assert_eq!(res, ("xz".to_string(), "main/i18n/Translation-bg".to_string()));
+
+    let example2 = "main/i18n/Translation-bg";
+    let res = split_ext_and_filename(&example2);
+    assert_eq!(res, ("".to_string(), "main/i18n/Translation-bg".to_string()));
 }

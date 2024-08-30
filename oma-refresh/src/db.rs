@@ -565,7 +565,6 @@ impl<'a> OmaRefresh<'a> {
                 handle
             } else {
                 let mut handle = vec![];
-                let mut compress_file_map = AHashMap::new();
                 for i in &filter_checksums {
                     match &i.file_type {
                         DistFileType::BinaryContents => {
@@ -580,23 +579,26 @@ impl<'a> OmaRefresh<'a> {
                                 total += i.size;
                             }
                         }
-                        DistFileType::CompressContents(name, compress_type)
-                        | DistFileType::CompressOther(name, compress_type) => {
+                        DistFileType::CompressContents(_, _)
+                        | DistFileType::CompressOther(_, _) => {
                             if self.download_compress {
                                 debug!(
                                     "oma will download compress Package List/compress Contetns: {}",
                                     i.name
                                 );
 
-                                compress_file_map
-                                    .entry(name)
-                                    .and_modify(|x: &mut Vec<(&str, u64, &ChecksumItem)>| {
-                                        x.push((compress_type, i.size, i))
-                                    })
-                                    .or_insert(vec![(compress_type, i.size, i)]);
+                                // compress_file_map
+                                //     .entry(name)
+                                //     .and_modify(|x: &mut Vec<(&str, u64, &ChecksumItem)>| {
+                                //         x.push((compress_type, i.size, i))
+                                //     })
+                                //     .or_insert(vec![(compress_type, i.size, i)]);
+
+                                handle.push(i);
+                                total += i.size;
                             }
                         }
-                        DistFileType::CompressPackageList(name, compress_type) => {
+                        DistFileType::CompressPackageList(name, _) => {
                             if self.download_compress {
                                 debug!(
                                     "oma will download compress Package List/compress Contetns: {}",
@@ -609,12 +611,8 @@ impl<'a> OmaRefresh<'a> {
                                     .find_map(|x| if x.name == *name { Some(x.size) } else { None })
                                     .unwrap_or(i.size);
 
-                                compress_file_map
-                                    .entry(name)
-                                    .and_modify(|x: &mut Vec<(&str, u64, &ChecksumItem)>| {
-                                        x.push((compress_type, size, i))
-                                    })
-                                    .or_insert(vec![(compress_type, size, i)]);
+                                    handle.push(i);
+                                    total += size;
                             }
                         }
                         DistFileType::Other => {
@@ -625,23 +623,8 @@ impl<'a> OmaRefresh<'a> {
                     }
                 }
 
-                for (_, mut v) in compress_file_map {
-                    if v.is_empty() {
-                        continue;
-                    }
-
-                    v.sort_unstable_by(|a, b| {
-                        CompressFile::from(b.0).cmp(&CompressFile::from(a.0))
-                    });
-
-                    let (_, size, i) = v.first().unwrap();
-                    handle.push(i);
-                    total += size;
-                }
-
                 handle
             };
-
 
             for i in &self.flat_repo_no_release {
                 download_flat_repo_no_release(
@@ -807,6 +790,8 @@ fn collect_download_task(
     } else {
         format!("{}/{}", dist_url, not_compress_filename_before)
     };
+
+    debug!("{:?}", c.file_type);
 
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);
