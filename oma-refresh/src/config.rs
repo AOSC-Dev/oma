@@ -1,11 +1,12 @@
-use std::{cmp::Ordering, collections::VecDeque};
+use std::{cmp::Ordering, collections::VecDeque, path::Path};
 
 use ahash::AHashMap;
 use oma_apt::config::Config;
+use oma_fetch::CompressFile;
 use smallvec::{smallvec, SmallVec};
 use tracing::debug;
 
-use crate::inrelease::{file_is_compress, ChecksumItem};
+use crate::inrelease::ChecksumItem;
 
 fn get_config(config: &Config) -> Vec<(String, String)> {
     let Some(tree) = config.root_tree() else {
@@ -109,9 +110,9 @@ pub fn fiilter_download_list(
     for i in checksums {
         if let Some(x) = filter_entry.iter().find(|x| i.name.starts_with(*x)) {
             if let Some(y) = map.get_mut(x.as_str()) {
-                if file_is_compress(&y.name) {
+                if compress_file(&y.name) > compress_file(&i.name) {
                     continue;
-                } else if file_is_compress(&i.name) {
+                } else {
                     *y = i.clone();
                 }
             } else {
@@ -127,6 +128,17 @@ pub fn fiilter_download_list(
     debug!("{:?}", v);
 
     v
+}
+
+fn compress_file(name: &str) -> CompressFile {
+    CompressFile::from(
+        Path::new(name)
+            .extension()
+            .map(|x| x.to_string_lossy())
+            .unwrap_or_default()
+            .to_string()
+            .as_str(),
+    )
 }
 
 #[test]
