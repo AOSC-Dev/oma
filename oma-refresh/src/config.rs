@@ -73,7 +73,7 @@ fn get_config(config: &Config) -> Vec<(String, String)> {
 }
 
 pub fn fiilter_download_list(
-    checksums: SmallVec<[ChecksumItem; 32]>,
+    checksums: &SmallVec<[ChecksumItem; 32]>,
     config: &Config,
     archs: &[String],
     components: &[String],
@@ -112,10 +112,10 @@ pub fn fiilter_download_list(
                 if file_is_compress(&y.name) {
                     continue;
                 } else if file_is_compress(&i.name) {
-                    *y = i;
+                    *y = i.clone();
                 }
             } else {
-                map.insert(x, i);
+                map.insert(x, i.clone());
             }
         }
     }

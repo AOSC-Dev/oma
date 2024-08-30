@@ -543,7 +543,7 @@ impl<'a> OmaRefresh<'a> {
             })?;
 
             let checksums = fiilter_download_list(
-                inrelease.checksums,
+                &inrelease.checksums,
                 self.apt_config,
                 &archs,
                 &ose.components,
@@ -653,7 +653,7 @@ impl<'a> OmaRefresh<'a> {
                 collect_download_task(
                     c,
                     sourcelist.get(inrelease_summary.count).unwrap(),
-                    &checksums,
+                    &inrelease.checksums,
                     &self.download_dir,
                     &mut tasks,
                     inrelease.acquire_by_hash,
@@ -750,7 +750,7 @@ fn collect_download_task(
         DistFileType::CompressPackageList(s, _) => ("Package List", s),
         DistFileType::PackageList => ("Package List", &c.name),
         DistFileType::BinaryContents => ("BinContents", &c.name),
-        _ => ("", &c.name),
+        _ => ("Other", &c.name),
     };
 
     let msg = human_download_url(source_index, Some(typ))?;
@@ -764,7 +764,9 @@ fn collect_download_task(
         },
     };
 
-    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _)) {
+    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _))
+        || matches!(c.file_type, DistFileType::CompressOther(_, _))
+    {
         Some(&c.checksum)
     } else {
         checksums
