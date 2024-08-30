@@ -342,7 +342,10 @@ fn test_database_filename() {
     // Encode _ as %5f
     let s = "https://repo.aosc.io/debs/dists/xorg-server-21.1.13-hyperv_drm-fix";
     let res = database_filename(s).unwrap();
-    assert_eq!(res, "repo.aosc.io_debs_dists_xorg-server-21.1.13-hyperv%5fdrm-fix");
+    assert_eq!(
+        res,
+        "repo.aosc.io_debs_dists_xorg-server-21.1.13-hyperv%5fdrm-fix"
+    );
 
     // file:/// should be transliterated as file:/.
     let s1 = "file:/debs";
