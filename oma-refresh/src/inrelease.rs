@@ -28,6 +28,7 @@ pub enum DistFileType {
     PackageList,
     CompressPackageList(String, String),
     Release,
+    CompressOther(String, String),
     Other,
 }
 
@@ -202,6 +203,12 @@ impl InReleaseParser {
                     DistFileType::CompressPackageList(s.0.to_string(), s.1.to_string())
                 }
                 x if x.contains("Release") => DistFileType::Release,
+                x if file_is_compress(x) => {
+                    let mut s = s.split(".").collect::<Vec<_>>();
+                    let compress_type = s.pop().unwrap();
+                    let s = s.join(".");
+                    DistFileType::CompressOther(s, compress_type.to_string())
+                }
                 _ => DistFileType::Other,
             };
 
@@ -225,7 +232,7 @@ impl InReleaseParser {
     }
 }
 
-fn file_is_compress(name: &str) -> bool {
+pub(crate) fn file_is_compress(name: &str) -> bool {
     for i in COMPRESS {
         if name.ends_with(i) {
             return true;

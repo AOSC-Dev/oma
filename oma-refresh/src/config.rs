@@ -1,10 +1,11 @@
 use std::{cmp::Ordering, collections::VecDeque};
 
+use ahash::AHashMap;
 use oma_apt::config::Config;
 use smallvec::{smallvec, SmallVec};
 use tracing::debug;
 
-use crate::inrelease::ChecksumItem;
+use crate::inrelease::{file_is_compress, ChecksumItem};
 
 fn get_config(config: &Config) -> Vec<(String, String)> {
     let Some(tree) = config.root_tree() else {
@@ -81,30 +82,46 @@ pub fn fiilter_download_list(
     let mut v = smallvec![];
     let config_tree = get_config(config);
 
-    let mut filter_str = vec![];
+    let mut filter_entry = vec![];
 
     let mut archs_contains_all = vec![];
     archs_contains_all.extend_from_slice(archs);
     archs_contains_all.push("all".to_string());
 
     for (k, v) in config_tree {
-        if k.starts_with("APT::Acquire::IndexTargets::deb::") && k.ends_with("MetaKey") {
-            for (a, c) in archs_contains_all.iter().zip(components) {
-                let mut s = v.replace("$(COMPONENT)", c).replace("$(ARCHITECTURE)", a);
-                if a == native_arch {
-                    s = s.replace("$(NATIVE_ARCHITECTURE)", a);
+        if k.starts_with("APT::Acquire::IndexTargets::deb::") && k.ends_with("::MetaKey") {
+            for a in &archs_contains_all {
+                for c in components {
+                    let mut s = v.replace("$(COMPONENT)", c).replace("$(ARCHITECTURE)", a);
+                    if a == native_arch {
+                        s = s.replace("$(NATIVE_ARCHITECTURE)", a);
+                    }
+                    filter_entry.push(s);
                 }
-                filter_str.push(s);
             }
         }
     }
 
-    debug!("{:?}", filter_str);
+    debug!("{:?}", filter_entry);
+
+    let mut map: AHashMap<&str, ChecksumItem> = AHashMap::new();
 
     for i in checksums {
-        if filter_str.iter().any(|x| i.name.starts_with(x)) {
-            v.push(i);
+        if let Some(x) = filter_entry.iter().find(|x| i.name.starts_with(*x)) {
+            if let Some(y) = map.get_mut(x.as_str()) {
+                if file_is_compress(&y.name) {
+                    continue;
+                } else if file_is_compress(&i.name) {
+                    *y = i;
+                }
+            } else {
+                map.insert(x, i);
+            }
         }
+    }
+
+    for (_, i) in map {
+        v.push(i);
     }
 
     debug!("{:?}", v);

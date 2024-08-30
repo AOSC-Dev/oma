@@ -580,7 +580,8 @@ impl<'a> OmaRefresh<'a> {
                                 total += i.size;
                             }
                         }
-                        DistFileType::CompressContents(name, compress_type) => {
+                        DistFileType::CompressContents(name, compress_type)
+                        | DistFileType::CompressOther(name, compress_type) => {
                             if self.download_compress {
                                 debug!(
                                     "oma will download compress Package List/compress Contetns: {}",
@@ -615,10 +616,11 @@ impl<'a> OmaRefresh<'a> {
                                     .or_insert(vec![(compress_type, size, i)]);
                             }
                         }
-                        _ => {
+                        DistFileType::Other => {
                             handle.push(i);
                             total += i.size;
                         }
+                        _ => continue,
                     }
                 }
 
@@ -808,7 +810,9 @@ fn collect_download_task(
         DistFileType::BinaryContents => CompressFile::Nothing,
         DistFileType::Contents => CompressFile::Nothing,
         // 不解压 Contents
-        DistFileType::CompressContents(_, _) => CompressFile::Nothing,
+        DistFileType::CompressContents(_, _) | DistFileType::CompressOther(_, _) => {
+            CompressFile::Nothing
+        }
         DistFileType::PackageList => CompressFile::Nothing,
         DistFileType::CompressPackageList(_, _) => {
             match Path::new(&c.name).extension().and_then(|x| x.to_str()) {
