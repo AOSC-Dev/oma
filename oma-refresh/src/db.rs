@@ -793,7 +793,11 @@ fn collect_download_task(
     let sources = vec![DownloadSource::new(download_url.clone(), from)];
 
     let file_path = if let DistFileType::CompressContents(_, _) = c.file_type {
-        download_url.clone()
+        if acquire_by_hash {
+            format!("{}/{}", dist_url, c.name)
+        } else {
+            download_url.clone()
+        }
     } else if dist_url.ends_with('/') {
         format!("{}{}", dist_url, not_compress_filename_before)
     } else {
