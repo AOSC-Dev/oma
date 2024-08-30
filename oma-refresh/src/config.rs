@@ -108,16 +108,16 @@ pub fn fiilter_download_list(
                                 .map(|x| x.0)
                                 .unwrap_or(&env_lang)
                                 .to_ascii_lowercase();
-    
+
                             let lang = if env_lang == "c" { "en" } else { &env_lang };
-    
+
                             langs.push(lang);
-    
+
                             // en_US.UTF-8 => en
                             if let Some((a, _)) = lang.split_once('_') {
                                 langs.push(a);
                             }
-    
+
                             for i in langs {
                                 list.push(s.replace("$(LANGUAGE)", &i));
                             }
@@ -139,7 +139,16 @@ pub fn fiilter_download_list(
     let mut map: AHashMap<&str, ChecksumItem> = AHashMap::new();
 
     for i in checksums {
-        if let Some(x) = filter_entry.iter().find(|x| i.name.starts_with(*x)) {
+        if let Some(x) = filter_entry
+            .iter()
+            // 压缩格式
+            .find(|x| {
+                let path = Path::new(&i.name);
+                let path = path.with_extension("");
+                let path = path.to_string_lossy();
+                path == **x
+            })
+        {
             if let Some(y) = map.get_mut(x.as_str()) {
                 if compress_file(&y.name) > compress_file(&i.name) {
                     continue;
