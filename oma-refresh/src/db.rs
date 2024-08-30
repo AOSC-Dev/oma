@@ -573,12 +573,12 @@ impl<'a> OmaRefresh<'a> {
                             handle.push(i);
                             total += i.size;
                         }
-                        DistFileType::Contents | DistFileType::PackageList
-                            if !self.download_compress =>
-                        {
-                            debug!("oma will download Package List/Contents: {}", i.name);
-                            handle.push(i);
-                            total += i.size;
+                        DistFileType::Contents | DistFileType::PackageList => {
+                            if !self.download_compress {
+                                debug!("oma will download Package List/Contents: {}", i.name);
+                                handle.push(i);
+                                total += i.size;
+                            }
                         }
                         DistFileType::CompressContents(name, compress_type) => {
                             if self.download_compress {
@@ -615,7 +615,10 @@ impl<'a> OmaRefresh<'a> {
                                     .or_insert(vec![(compress_type, size, i)]);
                             }
                         }
-                        _ => continue,
+                        _ => {
+                            handle.push(i);
+                            total += i.size;
+                        }
                     }
                 }
 
@@ -745,7 +748,7 @@ fn collect_download_task(
         DistFileType::CompressPackageList(s, _) => ("Package List", s),
         DistFileType::PackageList => ("Package List", &c.name),
         DistFileType::BinaryContents => ("BinContents", &c.name),
-        _ => unreachable!(),
+        _ => ("", &c.name),
     };
 
     let msg = human_download_url(source_index, Some(typ))?;
@@ -820,6 +823,7 @@ fn collect_download_task(
             }
         }
         DistFileType::Release => CompressFile::Nothing,
+        DistFileType::Other => CompressFile::Nothing,
     });
 
     if let Some(checksum) = checksum {

@@ -28,6 +28,7 @@ pub enum DistFileType {
     PackageList,
     CompressPackageList(String, String),
     Release,
+    Other,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -201,10 +202,7 @@ impl InReleaseParser {
                     DistFileType::CompressPackageList(s.0.to_string(), s.1.to_string())
                 }
                 x if x.contains("Release") => DistFileType::Release,
-                x => {
-                    debug!("Unknown file type: {x:?}");
-                    continue;
-                }
+                _ => DistFileType::Other,
             };
 
             res.push(ChecksumItem {
