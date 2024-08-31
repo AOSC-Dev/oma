@@ -106,10 +106,9 @@ pub fn fiilter_download_list(
                             let env_lang = env_lang
                                 .split_once('.')
                                 .map(|x| x.0)
-                                .unwrap_or(&env_lang)
-                                .to_ascii_lowercase();
+                                .unwrap_or(&env_lang);
 
-                            let lang = if env_lang == "c" { "en" } else { &env_lang };
+                            let lang = if env_lang == "C" { "en" } else { &env_lang };
 
                             langs.push(lang);
 
