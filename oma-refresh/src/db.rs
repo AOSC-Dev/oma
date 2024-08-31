@@ -666,8 +666,7 @@ impl<'a> OmaRefresh<'a> {
                     &checksums,
                     &self.download_dir,
                     &mut tasks,
-                    inrelease.acquire_by_hash,
-                    inrelease.checksum_type,
+                    &inrelease,
                     replacer,
                 )?;
             }
@@ -753,8 +752,7 @@ fn collect_download_task(
     checksums: &[ChecksumItem],
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
-    acquire_by_hash: bool,
-    checksum_type: ChecksumType,
+    inrelease: &InReleaseParser,
     replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
     let (typ, not_compress_filename_before) = match &c.file_type {
@@ -787,10 +785,10 @@ fn collect_download_task(
             .map(|c| &c.checksum)
     };
 
-    let download_url = if acquire_by_hash {
+    let download_url = if inrelease.acquire_by_hash {
         let path = Path::new(&c.name);
         let parent = path.parent().unwrap_or(path);
-        let dir = match checksum_type {
+        let dir = match inrelease.checksum_type {
             ChecksumType::Sha256 => "SHA256",
             ChecksumType::Sha512 => "SHA512",
             ChecksumType::Md5 => "MD5Sum",
@@ -841,7 +839,7 @@ fn collect_download_task(
     });
 
     if let Some(checksum) = checksum {
-        task.hash(match checksum_type {
+        task.hash(match inrelease.checksum_type {
             ChecksumType::Sha256 => Checksum::from_sha256_str(checksum)?,
             ChecksumType::Sha512 => Checksum::from_sha512_str(checksum)?,
             ChecksumType::Md5 => Checksum::from_md5_str(checksum)?,
