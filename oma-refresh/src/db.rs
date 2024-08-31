@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::{borrow::Cow, path::{Path, PathBuf}};
 
 use ahash::AHashMap;
 use futures::{
@@ -23,9 +23,10 @@ use tokio::fs;
 use tracing::debug;
 
 use crate::{
-    config::fiilter_download_list,
+    config::{fiilter_download_list, ChecksumDownloadEntry},
     inrelease::{
-        ChecksumItem, ChecksumType, DistFileType, InRelease, InReleaseParser, InReleaseParserError,
+        file_is_compress, split_ext_and_filename, ChecksumItem, ChecksumType,
+        InRelease, InReleaseParser, InReleaseParserError,
     },
     util::{
         database_filename, get_sources, human_download_url, OmaSourceEntry, OmaSourceEntryFrom,
@@ -550,73 +551,36 @@ impl<'a> OmaRefresh<'a> {
                 &ose.native_arch,
             );
 
-            let handle = if ose.is_flat {
-                debug!("{} is flat repo", ose.url);
-                // Flat repo
-                let mut handle = vec![];
-                for i in &filter_checksums {
-                    if i.file_type == DistFileType::PackageList {
-                        debug!("oma will download package list: {}", i.name);
-                        handle.push(i);
-                        total += i.size;
-                    }
+            let mut handle = vec![];
+            for i in &filter_checksums {
+                if i.keep_compress {
+                    handle.push(i);
+                    total += i.item.size;
+                } else {
+                    handle.push(i);
+
+                    let name_without_compress = if file_is_compress(&i.item.name) {
+                        let (_, name) = split_ext_and_filename(&i.item.name);
+                        name
+                    } else {
+                        i.item.name.to_string()
+                    };
+
+                    let size = inrelease
+                        .checksums
+                        .iter()
+                        .find_map(|x| {
+                            if x.name == *name_without_compress {
+                                Some(x.size)
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(i.item.size);
+
+                    total += size;
                 }
-
-                handle
-            } else {
-                let mut handle = vec![];
-                for i in &filter_checksums {
-                    match &i.file_type {
-                        DistFileType::BinaryContents => {
-                            debug!("oma will download Binary Contents: {}", i.name);
-                            handle.push(i);
-                            total += i.size;
-                        }
-                        DistFileType::Contents | DistFileType::PackageList => {
-                            if !self.download_compress {
-                                debug!("oma will download Package List/Contents: {}", i.name);
-                                handle.push(i);
-                                total += i.size;
-                            }
-                        }
-                        DistFileType::Compress(_, _) => {
-                            if self.download_compress {
-                                debug!(
-                                    "oma will download compress Package List/compress Contetns: {}",
-                                    i.name
-                                );
-
-                                handle.push(i);
-                                total += i.size;
-                            }
-                        }
-                        DistFileType::CompressAndExtract(name, _) => {
-                            if self.download_compress {
-                                debug!(
-                                    "oma will download compress Package List/compress Contetns: {}",
-                                    i.name
-                                );
-
-                                let size = inrelease
-                                    .checksums
-                                    .iter()
-                                    .find_map(|x| if x.name == *name { Some(x.size) } else { None })
-                                    .unwrap_or(i.size);
-
-                                handle.push(i);
-                                total += size;
-                            }
-                        }
-                        DistFileType::Other => {
-                            handle.push(i);
-                            total += i.size;
-                        }
-                        _ => continue,
-                    }
-                }
-
-                handle
-            };
+            }
 
             for i in &self.flat_repo_no_release {
                 download_flat_repo_no_release(
@@ -713,7 +677,7 @@ fn download_flat_repo_no_release(
 }
 
 fn collect_download_task(
-    c: &ChecksumItem,
+    c: &ChecksumDownloadEntry,
     source_index: &OmaSourceEntry,
     checksums: &[ChecksumItem],
     download_dir: &Path,
@@ -721,23 +685,7 @@ fn collect_download_task(
     acquire_by_hash: bool,
     checksum_type: ChecksumType,
 ) -> Result<()> {
-    let (typ, not_compress_filename_before) = match &c.file_type {
-        DistFileType::Compress(s, _) => {
-            if s.contains("Contains") {
-                ("Contents", s)
-            } else {
-                ("Other", s)
-            }
-        }
-        DistFileType::Contents => ("Contents", &c.name),
-        DistFileType::CompressAndExtract(s, _) => match s {
-            x if x.contains("Packakges") => ("Package List", s),
-            _ => ("Other", s),
-        },
-        DistFileType::PackageList => ("Package List", &c.name),
-        DistFileType::BinaryContents => ("BinContents", &c.name),
-        _ => ("Other", &c.name),
-    };
+    let typ = &c.msg;
 
     let msg = human_download_url(source_index, Some(typ))?;
 
@@ -750,18 +698,24 @@ fn collect_download_task(
         },
     };
 
-    let checksum = if matches!(c.file_type, DistFileType::Compress(_, _)) {
-        Some(&c.checksum)
+    let not_compress_filename_before = if file_is_compress(&c.item.name) {
+        Cow::Owned(split_ext_and_filename(&c.item.name).1)
+    } else {
+        Cow::Borrowed(&c.item.name)
+    };
+
+    let checksum = if c.keep_compress {
+        Some(&c.item.checksum)
     } else {
         checksums
             .iter()
-            .find(|x| &x.name == not_compress_filename_before)
+            .find(|x| x.name == *not_compress_filename_before)
             .as_ref()
             .map(|c| &c.checksum)
     };
 
     let download_url = if acquire_by_hash {
-        let path = Path::new(&c.name);
+        let path = Path::new(&c.item.name);
         let parent = path.parent().unwrap_or(path);
         let dir = match checksum_type {
             ChecksumType::Sha256 => "SHA256",
@@ -769,18 +723,18 @@ fn collect_download_task(
             ChecksumType::Md5 => "MD5Sum",
         };
 
-        let path = parent.join("by-hash").join(dir).join(&c.checksum);
+        let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
 
         format!("{}/{}", dist_url, path.display())
     } else {
-        format!("{}/{}", dist_url, c.name)
+        format!("{}/{}", dist_url, c.item.name)
     };
 
     let sources = vec![DownloadSource::new(download_url.clone(), from)];
 
-    let file_path = if let DistFileType::Compress(_, _) = c.file_type {
+    let file_path = if c.keep_compress {
         if acquire_by_hash {
-            format!("{}/{}", dist_url, c.name)
+            format!("{}/{}", dist_url, c.item.name)
         } else {
             download_url.clone()
         }
@@ -790,7 +744,6 @@ fn collect_download_task(
         format!("{}/{}", dist_url, not_compress_filename_before)
     };
 
-    debug!("{:?}", c.file_type);
 
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);
@@ -798,26 +751,18 @@ fn collect_download_task(
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(msg);
-    task.file_type(match c.file_type {
-        DistFileType::BinaryContents => CompressFile::Nothing,
-        DistFileType::Contents => CompressFile::Nothing,
-        // 不解压 Contents
-        DistFileType::Compress(_, _) => CompressFile::Nothing,
-        DistFileType::PackageList => CompressFile::Nothing,
-        DistFileType::CompressAndExtract(_, _) => {
-            match Path::new(&c.name).extension().and_then(|x| x.to_str()) {
+    task.file_type({
+        if c.keep_compress {
+            CompressFile::Nothing
+        } else {
+            match Path::new(&c.item.name).extension().and_then(|x| x.to_str()) {
                 Some("gz") => CompressFile::Gzip,
                 Some("xz") => CompressFile::Xz,
                 Some("bz2") => CompressFile::Bz2,
-                Some(x) => {
-                    debug!("unsupport file type: {x}");
-                    return Ok(());
-                }
-                None => unreachable!(),
+                Some("zst") => CompressFile::Zstd,
+                _ => CompressFile::Nothing,
             }
         }
-        DistFileType::Release => CompressFile::Nothing,
-        DistFileType::Other => CompressFile::Nothing,
     });
 
     if let Some(checksum) = checksum {

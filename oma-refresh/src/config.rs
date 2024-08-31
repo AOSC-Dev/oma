@@ -73,13 +73,20 @@ fn get_config(config: &Config) -> Vec<(String, String)> {
     list
 }
 
+#[derive(Debug)]
+pub struct ChecksumDownloadEntry {
+    pub item: ChecksumItem,
+    pub keep_compress: bool,
+    pub msg: String,
+}
+
 pub fn fiilter_download_list(
     checksums: &SmallVec<[ChecksumItem; 32]>,
     config: &Config,
     archs: &[String],
     components: &[String],
     native_arch: &str,
-) -> SmallVec<[ChecksumItem; 32]> {
+) -> SmallVec<[ChecksumDownloadEntry; 32]> {
     let mut v = smallvec![];
     let config_tree = get_config(config);
 
@@ -93,38 +100,52 @@ pub fn fiilter_download_list(
         if k.starts_with("APT::Acquire::IndexTargets::deb::") && k.ends_with("::MetaKey") {
             for a in &archs_contains_all {
                 for c in components {
-                    let mut s = v.replace("$(COMPONENT)", c).replace("$(ARCHITECTURE)", a);
-                    if a == native_arch {
-                        s = s.replace("$(NATIVE_ARCHITECTURE)", a);
-                    }
+                    let s = replace_arch_and_component(&v, c, a, native_arch);
+                    let e = k
+                        .strip_prefix("APT::")
+                        .unwrap()
+                        .strip_suffix("::MetaKey")
+                        .unwrap();
+
+                    let keep_compress = config.bool(&format!("{e}::KeepCompressed"), false);
+
+                    debug!("{k} keep compress: {}", keep_compress);
+
+                    let msg = if let Some(match_msg) = config.get(&format!("{e}::ShortDescription"))
+                    {
+                        let mut s = replace_arch_and_component(&match_msg, c, a, native_arch);
+
+                        if let Ok(env_lang) = env::var("LANG") {
+                            let langs = get_matches_language(&env_lang);
+
+                            if !langs.is_empty() {
+                                s = s.replace("$(LANGUAGE)", langs[0]);
+                            }
+                        }
+
+                        s
+                    } else {
+                        "Other".to_string()
+                    };
 
                     let mut list = vec![];
 
                     if v.contains("$(LANGUAGE)") {
                         if let Ok(env_lang) = env::var("LANG") {
-                            let mut langs = vec![];
-                            let env_lang = env_lang
-                                .split_once('.')
-                                .map(|x| x.0)
-                                .unwrap_or(&env_lang);
-
-                            let lang = if env_lang == "C" { "en" } else { &env_lang };
-
-                            langs.push(lang);
-
-                            // en_US.UTF-8 => en
-                            if let Some((a, _)) = lang.split_once('_') {
-                                langs.push(a);
-                            }
+                            let langs = get_matches_language(&env_lang);
 
                             for i in langs {
-                                list.push(s.replace("$(LANGUAGE)", i));
+                                list.push((
+                                    s.replace("$(LANGUAGE)", i),
+                                    keep_compress,
+                                    msg.clone(),
+                                ));
                             }
                         }
                     }
 
                     if list.is_empty() {
-                        filter_entry.push(s);
+                        filter_entry.push((s, keep_compress, msg.clone()));
                     } else {
                         filter_entry.extend(list);
                     }
@@ -135,23 +156,34 @@ pub fn fiilter_download_list(
 
     debug!("{:?}", filter_entry);
 
-    let mut map: AHashMap<&str, ChecksumItem> = AHashMap::new();
+    let mut map: AHashMap<&str, ChecksumDownloadEntry> = AHashMap::new();
 
     for i in checksums {
         if let Some(x) = filter_entry.iter().find(|x| {
             let path = Path::new(&i.name);
             let path = path.with_extension("");
             let path = path.to_string_lossy();
-            path == **x
+            path == x.0
         }) {
-            if let Some(y) = map.get_mut(x.as_str()) {
-                if compress_file(&y.name) > compress_file(&i.name) {
+            if let Some(y) = map.get_mut(x.0.as_str()) {
+                if compress_file(&y.item.name) > compress_file(&i.name) {
                     continue;
                 } else {
-                    *y = i.clone();
+                    *y = ChecksumDownloadEntry {
+                        item: i.clone(),
+                        keep_compress: x.1,
+                        msg: x.2.clone(),
+                    }
                 }
             } else {
-                map.insert(x, i.clone());
+                map.insert(
+                    &x.0,
+                    ChecksumDownloadEntry {
+                        item: i.clone(),
+                        keep_compress: x.1,
+                        msg: x.2.clone(),
+                    },
+                );
             }
         }
     }
@@ -163,6 +195,33 @@ pub fn fiilter_download_list(
     debug!("{:?}", v);
 
     v
+}
+
+fn get_matches_language(env_lang: &str) -> Vec<&str> {
+    let mut langs = vec![];
+    let env_lang =
+        env_lang.split_once('.').map(|x| x.0).unwrap_or(&env_lang);
+
+    let lang = if env_lang == "C" { "en" } else { &env_lang };
+
+    langs.push(lang);
+
+    // en_US.UTF-8 => en
+    if let Some((a, _)) = lang.split_once('_') {
+        langs.push(a);
+    }
+
+    langs
+}
+
+fn replace_arch_and_component(input: &str, component: &str, arch: &str, native_arch: &str) -> String {
+    let mut output = input.replace("$(COMPONENT)", component).replace("$(ARCHITECTURE)", arch);
+
+    if arch == native_arch {
+        output = output.replace("$(NATIVE_ARCHITECTURE)", arch);
+    }
+
+    output
 }
 
 fn compress_file(name: &str) -> CompressFile {

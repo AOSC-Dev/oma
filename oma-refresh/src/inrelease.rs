@@ -17,18 +17,6 @@ pub struct ChecksumItem {
     pub name: String,
     pub size: u64,
     pub checksum: String,
-    pub file_type: DistFileType,
-}
-
-#[derive(Debug, PartialEq, Clone, Eq)]
-pub enum DistFileType {
-    BinaryContents,
-    Contents,
-    Compress(String, String),
-    PackageList,
-    CompressAndExtract(String, String),
-    Release,
-    Other,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -185,36 +173,6 @@ impl InReleaseParser {
         let mut res: SmallVec<[_; 32]> = smallvec![];
 
         for i in checksums_res {
-            let t = match i.0 {
-                x if x.contains("BinContents") => DistFileType::BinaryContents,
-                x if x.contains("Contents-") && file_is_compress(x) && !x.contains("udeb") => {
-                    let (ext, name) = split_ext_and_filename(x);
-                    DistFileType::Compress(name, ext)
-                }
-                x if x.contains("Contents-") && !x.contains('.') && !x.contains("udeb") => {
-                    DistFileType::Contents
-                }
-                x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
-                x if x.contains("Packages") && file_is_compress(x) => {
-                    let (ext, name) = split_ext_and_filename(x);
-                    DistFileType::CompressAndExtract(name, ext)
-                }
-                x if x.contains("/Translation-") && file_is_compress(x) => {
-                    let (ext, name) = split_ext_and_filename(x);
-                    DistFileType::CompressAndExtract(name, ext)
-                }
-                x if x.contains("/Commands-") && file_is_compress(x) => {
-                    let (ext, name) = split_ext_and_filename(x);
-                    DistFileType::CompressAndExtract(name, ext)
-                }
-                x if x.contains("Release") => DistFileType::Release,
-                x if file_is_compress(x) => {
-                    let (ext, name) = split_ext_and_filename(x);
-                    DistFileType::Compress(name, ext)
-                }
-                _ => DistFileType::Other,
-            };
-
             res.push(ChecksumItem {
                 name: i.0.to_owned(),
                 size: i
@@ -222,8 +180,7 @@ impl InReleaseParser {
                     .parse::<u64>()
                     .map_err(InReleaseParserError::ParseIntError)?,
                 checksum: i.2.to_owned(),
-                file_type: t,
-            })
+            });
         }
 
         Ok(Self {
@@ -235,7 +192,7 @@ impl InReleaseParser {
     }
 }
 
-fn split_ext_and_filename(x: &str) -> (String, String) {
+pub(crate) fn split_ext_and_filename(x: &str) -> (String, String) {
     let path = Path::new(x);
     let ext = path
         .extension()
