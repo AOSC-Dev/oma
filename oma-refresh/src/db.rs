@@ -579,26 +579,18 @@ impl<'a> OmaRefresh<'a> {
                                 total += i.size;
                             }
                         }
-                        DistFileType::CompressContents(_, _)
-                        | DistFileType::CompressOther(_, _) => {
+                        DistFileType::Compress(_, _) => {
                             if self.download_compress {
                                 debug!(
                                     "oma will download compress Package List/compress Contetns: {}",
                                     i.name
                                 );
 
-                                // compress_file_map
-                                //     .entry(name)
-                                //     .and_modify(|x: &mut Vec<(&str, u64, &ChecksumItem)>| {
-                                //         x.push((compress_type, i.size, i))
-                                //     })
-                                //     .or_insert(vec![(compress_type, i.size, i)]);
-
                                 handle.push(i);
                                 total += i.size;
                             }
                         }
-                        DistFileType::CompressPackageList(name, _) => {
+                        DistFileType::CompressAndExtract(name, _) => {
                             if self.download_compress {
                                 debug!(
                                     "oma will download compress Package List/compress Contetns: {}",
@@ -611,8 +603,8 @@ impl<'a> OmaRefresh<'a> {
                                     .find_map(|x| if x.name == *name { Some(x.size) } else { None })
                                     .unwrap_or(i.size);
 
-                                    handle.push(i);
-                                    total += size;
+                                handle.push(i);
+                                total += size;
                             }
                         }
                         DistFileType::Other => {
@@ -730,9 +722,18 @@ fn collect_download_task(
     checksum_type: ChecksumType,
 ) -> Result<()> {
     let (typ, not_compress_filename_before) = match &c.file_type {
-        DistFileType::CompressContents(s, _) => ("Contents", s),
+        DistFileType::Compress(s, _) => {
+            if s.contains("Contains") {
+                ("Contents", s)
+            } else {
+                ("Other", s)
+            }
+        }
         DistFileType::Contents => ("Contents", &c.name),
-        DistFileType::CompressPackageList(s, _) => ("Package List", s),
+        DistFileType::CompressAndExtract(s, _) => match s {
+            x if x.contains("Packakges") => ("Package List", s),
+            _ => ("Other", s),
+        },
         DistFileType::PackageList => ("Package List", &c.name),
         DistFileType::BinaryContents => ("BinContents", &c.name),
         _ => ("Other", &c.name),
@@ -749,9 +750,7 @@ fn collect_download_task(
         },
     };
 
-    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _))
-        || matches!(c.file_type, DistFileType::CompressOther(_, _))
-    {
+    let checksum = if matches!(c.file_type, DistFileType::Compress(_, _)) {
         Some(&c.checksum)
     } else {
         checksums
@@ -779,7 +778,7 @@ fn collect_download_task(
 
     let sources = vec![DownloadSource::new(download_url.clone(), from)];
 
-    let file_path = if let DistFileType::CompressContents(_, _) = c.file_type {
+    let file_path = if let DistFileType::Compress(_, _) = c.file_type {
         if acquire_by_hash {
             format!("{}/{}", dist_url, c.name)
         } else {
@@ -803,11 +802,9 @@ fn collect_download_task(
         DistFileType::BinaryContents => CompressFile::Nothing,
         DistFileType::Contents => CompressFile::Nothing,
         // 不解压 Contents
-        DistFileType::CompressContents(_, _) | DistFileType::CompressOther(_, _) => {
-            CompressFile::Nothing
-        }
+        DistFileType::Compress(_, _) => CompressFile::Nothing,
         DistFileType::PackageList => CompressFile::Nothing,
-        DistFileType::CompressPackageList(_, _) => {
+        DistFileType::CompressAndExtract(_, _) => {
             match Path::new(&c.name).extension().and_then(|x| x.to_str()) {
                 Some("gz") => CompressFile::Gzip,
                 Some("xz") => CompressFile::Xz,

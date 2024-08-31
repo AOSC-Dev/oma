@@ -24,11 +24,10 @@ pub struct ChecksumItem {
 pub enum DistFileType {
     BinaryContents,
     Contents,
-    CompressContents(String, String),
+    Compress(String, String),
     PackageList,
-    CompressPackageList(String, String),
+    CompressAndExtract(String, String),
     Release,
-    CompressOther(String, String),
     Other,
 }
 
@@ -190,7 +189,7 @@ impl InReleaseParser {
                 x if x.contains("BinContents") => DistFileType::BinaryContents,
                 x if x.contains("Contents-") && file_is_compress(x) && !x.contains("udeb") => {
                     let (ext, name) = split_ext_and_filename(x);
-                    DistFileType::CompressContents(name, ext)
+                    DistFileType::Compress(name, ext)
                 }
                 x if x.contains("Contents-") && !x.contains('.') && !x.contains("udeb") => {
                     DistFileType::Contents
@@ -198,12 +197,20 @@ impl InReleaseParser {
                 x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
                 x if x.contains("Packages") && file_is_compress(x) => {
                     let (ext, name) = split_ext_and_filename(x);
-                    DistFileType::CompressPackageList(name, ext)
+                    DistFileType::CompressAndExtract(name, ext)
+                }
+                x if x.contains("/Translation-") && file_is_compress(x) => {
+                    let (ext, name) = split_ext_and_filename(x);
+                    DistFileType::CompressAndExtract(name, ext)
+                }
+                x if x.contains("/Commands-") && file_is_compress(x) => {
+                    let (ext, name) = split_ext_and_filename(x);
+                    DistFileType::CompressAndExtract(name, ext)
                 }
                 x if x.contains("Release") => DistFileType::Release,
                 x if file_is_compress(x) => {
                     let (ext, name) = split_ext_and_filename(x);
-                    DistFileType::CompressOther(name, ext)
+                    DistFileType::Compress(name, ext)
                 }
                 _ => DistFileType::Other,
             };
@@ -230,7 +237,11 @@ impl InReleaseParser {
 
 fn split_ext_and_filename(x: &str) -> (String, String) {
     let path = Path::new(x);
-    let ext = path.extension().unwrap_or_default().to_string_lossy().to_string();
+    let ext = path
+        .extension()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
     let name = path.with_extension("");
     let name = name.to_string_lossy().to_string();
 
@@ -355,13 +366,22 @@ fn test_date_hack() {
 fn test_split_name_and_ext() {
     let example1 = "main/dep11/icons-128x128.tar.gz";
     let res = split_ext_and_filename(&example1);
-    assert_eq!(res, ("gz".to_string(), "main/dep11/icons-128x128.tar".to_string()));
+    assert_eq!(
+        res,
+        ("gz".to_string(), "main/dep11/icons-128x128.tar".to_string())
+    );
 
     let example2 = "main/i18n/Translation-bg.xz";
     let res = split_ext_and_filename(&example2);
-    assert_eq!(res, ("xz".to_string(), "main/i18n/Translation-bg".to_string()));
+    assert_eq!(
+        res,
+        ("xz".to_string(), "main/i18n/Translation-bg".to_string())
+    );
 
     let example2 = "main/i18n/Translation-bg";
     let res = split_ext_and_filename(&example2);
-    assert_eq!(res, ("".to_string(), "main/i18n/Translation-bg".to_string()));
+    assert_eq!(
+        res,
+        ("".to_string(), "main/i18n/Translation-bg".to_string())
+    );
 }

@@ -119,7 +119,7 @@ pub fn fiilter_download_list(
                             }
 
                             for i in langs {
-                                list.push(s.replace("$(LANGUAGE)", &i));
+                                list.push(s.replace("$(LANGUAGE)", i));
                             }
                         }
                     }
@@ -139,16 +139,12 @@ pub fn fiilter_download_list(
     let mut map: AHashMap<&str, ChecksumItem> = AHashMap::new();
 
     for i in checksums {
-        if let Some(x) = filter_entry
-            .iter()
-            // 压缩格式
-            .find(|x| {
-                let path = Path::new(&i.name);
-                let path = path.with_extension("");
-                let path = path.to_string_lossy();
-                path == **x
-            })
-        {
+        if let Some(x) = filter_entry.iter().find(|x| {
+            let path = Path::new(&i.name);
+            let path = path.with_extension("");
+            let path = path.to_string_lossy();
+            path == **x
+        }) {
             if let Some(y) = map.get_mut(x.as_str()) {
                 if compress_file(&y.name) > compress_file(&i.name) {
                     continue;
