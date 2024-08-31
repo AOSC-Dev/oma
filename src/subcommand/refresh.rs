@@ -21,7 +21,6 @@ pub fn execute(
         dry_run: _,
         network_thread,
         no_progress,
-        download_pure_db,
         ..
     } = oma_args;
 
@@ -31,7 +30,6 @@ pub fn execute(
         client: &client,
         dry_run: false,
         no_progress,
-        download_pure_db,
         limit: network_thread,
         sysroot: &sysroot,
         _refresh_topics: !no_refresh_topics,

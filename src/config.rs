@@ -15,8 +15,6 @@ pub struct Config {
 pub struct GeneralConfig {
     #[serde(default = "GeneralConfig::default_protect_essentials")]
     pub protect_essentials: bool,
-    #[serde(default = "GeneralConfig::default_refresh_pure_database")]
-    pub refresh_pure_database: bool,
     #[serde(default = "GeneralConfig::default_no_check_dbus")]
     pub no_check_dbus: bool,
     #[serde(default = "GeneralConfig::default_no_refresh_topics")]
@@ -42,10 +40,6 @@ impl NetworkConfig {
 impl GeneralConfig {
     pub const fn default_protect_essentials() -> bool {
         true
-    }
-
-    pub const fn default_refresh_pure_database() -> bool {
-        false
     }
 
     pub const fn default_no_check_dbus() -> bool {
@@ -83,13 +77,6 @@ impl Config {
             .as_ref()
             .map(|x| x.network_threads)
             .unwrap_or_else(NetworkConfig::default_network_thread)
-    }
-
-    pub fn pure_db(&self) -> bool {
-        self.general
-            .as_ref()
-            .map(|x| x.refresh_pure_database)
-            .unwrap_or_else(GeneralConfig::default_refresh_pure_database)
     }
 
     pub fn no_check_dbus(&self) -> bool {

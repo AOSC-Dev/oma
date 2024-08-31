@@ -1,4 +1,7 @@
-use std::{borrow::Cow, path::{Path, PathBuf}};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 
 use ahash::AHashMap;
 use futures::{
@@ -25,8 +28,8 @@ use tracing::debug;
 use crate::{
     config::{fiilter_download_list, ChecksumDownloadEntry},
     inrelease::{
-        file_is_compress, split_ext_and_filename, ChecksumItem, ChecksumType,
-        InRelease, InReleaseParser, InReleaseParserError,
+        file_is_compress, split_ext_and_filename, ChecksumItem, ChecksumType, InRelease,
+        InReleaseParser, InReleaseParserError,
     },
     util::{
         database_filename, get_sources, human_download_url, OmaSourceEntry, OmaSourceEntryFrom,
@@ -108,7 +111,6 @@ pub struct OmaRefreshBuilder<'a> {
     pub limit: Option<usize>,
     pub arch: String,
     pub download_dir: PathBuf,
-    pub download_compress: bool,
     pub client: &'a Client,
     #[cfg(feature = "aosc")]
     pub refresh_topics: bool,
@@ -120,7 +122,6 @@ pub struct OmaRefresh<'a> {
     limit: Option<usize>,
     arch: String,
     download_dir: PathBuf,
-    download_compress: bool,
     client: &'a Client,
     flat_repo_no_release: Vec<usize>,
     #[cfg(feature = "aosc")]
@@ -135,7 +136,6 @@ impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
             limit: builder.limit,
             arch: builder.arch,
             download_dir: builder.download_dir,
-            download_compress: builder.download_compress,
             client: builder.client,
             flat_repo_no_release: vec![],
             #[cfg(feature = "aosc")]
@@ -743,7 +743,6 @@ fn collect_download_task(
     } else {
         format!("{}/{}", dist_url, not_compress_filename_before)
     };
-
 
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);

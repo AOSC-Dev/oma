@@ -18,7 +18,6 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         dry_run,
         network_thread,
         no_progress,
-        download_pure_db: _,
         no_check_dbus,
         protect_essentials: protect_essential,
     } = oma_args;

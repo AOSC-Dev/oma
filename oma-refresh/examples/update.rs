@@ -32,7 +32,6 @@ async fn main() -> Result<(), RefreshError> {
         limit: Some(4),
         arch: dpkg_arch("/").unwrap(),
         download_dir: p.to_path_buf(),
-        download_compress: true,
         refresh_topics: false,
         apt_config: &apt_config,
     }

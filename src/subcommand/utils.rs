@@ -94,7 +94,6 @@ pub struct RefreshRequest<'a> {
     pub client: &'a Client,
     pub dry_run: bool,
     pub no_progress: bool,
-    pub download_pure_db: bool,
     pub limit: usize,
     pub sysroot: &'a str,
     pub _refresh_topics: bool,
@@ -106,7 +105,6 @@ pub(crate) fn refresh(refresh_req: RefreshRequest) -> Result<(), OutputError> {
         client,
         dry_run,
         no_progress,
-        download_pure_db,
         limit,
         sysroot,
         _refresh_topics,
@@ -119,15 +117,6 @@ pub(crate) fn refresh(refresh_req: RefreshRequest) -> Result<(), OutputError> {
 
     info!("{}", fl!("refreshing-repo-metadata"));
 
-    let download_pure_db = if dpkg_arch(sysroot)
-        .map(|x| x == "mips64r6el")
-        .unwrap_or(false)
-    {
-        false
-    } else {
-        download_pure_db
-    };
-
     let sysroot = PathBuf::from(sysroot);
 
     let refresh: OmaRefresh = OmaRefreshBuilder {
@@ -135,7 +124,6 @@ pub(crate) fn refresh(refresh_req: RefreshRequest) -> Result<(), OutputError> {
         limit: Some(limit),
         arch: dpkg_arch(&sysroot)?,
         download_dir: sysroot.join("var/lib/apt/lists"),
-        download_compress: !download_pure_db,
         client,
         #[cfg(feature = "aosc")]
         refresh_topics: _refresh_topics,

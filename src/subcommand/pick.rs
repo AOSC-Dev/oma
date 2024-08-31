@@ -32,7 +32,6 @@ pub fn execute(
         dry_run,
         network_thread,
         no_progress,
-        download_pure_db,
         no_check_dbus,
         protect_essentials: protect_essential,
         ..
@@ -53,7 +52,6 @@ pub fn execute(
             client: &client,
             dry_run,
             no_progress,
-            download_pure_db,
             limit: network_thread,
             sysroot: &sysroot,
             _refresh_topics: !no_refresh_topic,

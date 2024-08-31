@@ -197,7 +197,6 @@ struct Operation {
 pub struct Tui {
     pub sysroot: String,
     pub no_progress: bool,
-    pub download_pure_db: bool,
     pub dry_run: bool,
     pub network_thread: usize,
     pub client: Client,
@@ -210,7 +209,6 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
     let Tui {
         sysroot,
         no_progress,
-        download_pure_db,
         dry_run,
         network_thread,
         client,
@@ -231,7 +229,6 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         client: &client,
         dry_run,
         no_progress,
-        download_pure_db,
         limit: network_thread,
         sysroot: &sysroot,
         _refresh_topics: true,

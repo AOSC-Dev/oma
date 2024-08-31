@@ -42,7 +42,6 @@ pub struct TopicArgs {
     pub dry_run: bool,
     pub network_thread: usize,
     pub no_progress: bool,
-    pub download_pure_db: bool,
     pub no_check_dbus: bool,
     pub sysroot: String,
 }
@@ -57,7 +56,6 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         dry_run,
         network_thread,
         no_progress,
-        download_pure_db,
         sysroot,
         no_check_dbus,
     } = args;
@@ -94,7 +92,6 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         client: &client,
         dry_run,
         no_progress,
-        download_pure_db,
         limit: network_thread,
         sysroot: &sysroot,
         _refresh_topics: true,
