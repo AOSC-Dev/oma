@@ -380,6 +380,14 @@ impl From<RefreshError> for OutputError {
                 description: e.to_string(),
                 source: Some(Box::new(e)),
             },
+            RefreshError::AhoCorasickBuilder(e) => Self {
+                description: e.to_string(),
+                source: None,
+            },
+            RefreshError::ReplaceAll(e) => Self {
+                description: e.to_string(),
+                source: Some(Box::new(e)),
+            },
         }
         #[cfg(not(feature = "aosc"))]
         match value {
@@ -480,6 +488,14 @@ impl From<RefreshError> for OutputError {
                 source: Some(Box::new(e)),
             },
             RefreshError::ReadDownloadDir(_, e) => Self {
+                description: e.to_string(),
+                source: Some(Box::new(e)),
+            },
+            RefreshError::AhoCorasickBuilder(e) => Self {
+                description: e.to_string(),
+                source: None,
+            },
+            RefreshError::ReplaceAll(e) => Self {
                 description: e.to_string(),
                 source: Some(Box::new(e)),
             },

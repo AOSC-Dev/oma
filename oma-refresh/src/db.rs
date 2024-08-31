@@ -4,6 +4,7 @@ use std::{
 };
 
 use ahash::AHashMap;
+use aho_corasick::BuildError;
 use futures::{
     future::{join_all, BoxFuture},
     FutureExt, StreamExt,
@@ -28,11 +29,12 @@ use tracing::debug;
 use crate::{
     config::{fiilter_download_list, ChecksumDownloadEntry},
     inrelease::{
-        file_is_compress, split_ext_and_filename, ChecksumItem, ChecksumType, InRelease,
-        InReleaseParser, InReleaseParserError,
+        file_is_compress, split_ext_and_filename, ChecksumType, InRelease, InReleaseParser,
+        InReleaseParserError,
     },
     util::{
-        database_filename, get_sources, human_download_url, OmaSourceEntry, OmaSourceEntryFrom,
+        get_sources, human_download_url, DatabaseFilenameReplacer, OmaSourceEntry,
+        OmaSourceEntryFrom,
     },
 };
 
@@ -67,6 +69,10 @@ pub enum RefreshError {
     InReleaseParseError(String, InReleaseParserError),
     #[error("Failed to read download dir: {0}")]
     ReadDownloadDir(String, std::io::Error),
+    #[error(transparent)]
+    AhoCorasickBuilder(#[from] BuildError),
+    #[error("stream_replace_all failed")]
+    ReplaceAll(std::io::Error),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -98,6 +104,10 @@ pub enum RefreshError {
     InReleaseParseError(String, InReleaseParserError),
     #[error("Failed to read download dir: {0}")]
     ReadDownloadDir(String, std::io::Error),
+    #[error(transparent)]
+    AhoCorasickBuilder(#[from] BuildError),
+    #[error("stream_replace_all failed")]
+    ReplaceAll(std::io::Error),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -186,7 +196,9 @@ impl<'a> OmaRefresh<'a> {
 
         let mut download_list = vec![];
 
-        let tasks = self.collect_download_release_tasks(&sourcelist, is_inrelease_map)?;
+        let replacer = DatabaseFilenameReplacer::new()?;
+        let tasks =
+            self.collect_download_release_tasks(&sourcelist, is_inrelease_map, &replacer)?;
 
         for i in &tasks {
             download_list.push(i.filename.to_string());
@@ -201,7 +213,7 @@ impl<'a> OmaRefresh<'a> {
             .await?;
 
         let (tasks, total) = self
-            .collect_all_release_entry(all_inrelease, &sourcelist)
+            .collect_all_release_entry(all_inrelease, &sourcelist, &replacer)
             .await?;
 
         for i in &tasks {
@@ -370,6 +382,7 @@ impl<'a> OmaRefresh<'a> {
         &self,
         sourcelist: &[OmaSourceEntry],
         is_inrelease_map: AHashMap<usize, RepoType>,
+        replacer: &DatabaseFilenameReplacer,
     ) -> Result<Vec<DownloadEntry>> {
         let mut tasks = Vec::new();
         for (i, source_entry) in sourcelist.iter().enumerate() {
@@ -407,7 +420,7 @@ impl<'a> OmaRefresh<'a> {
 
             let task = DownloadEntryBuilder::default()
                 .source(sources)
-                .filename(database_filename(&uri)?.into())
+                .filename(replacer.replace(&uri)?.into())
                 .dir(self.download_dir.clone())
                 .allow_resume(false)
                 .msg(msg)
@@ -506,6 +519,7 @@ impl<'a> OmaRefresh<'a> {
         &self,
         all_inrelease: Vec<Summary>,
         sourcelist: &[OmaSourceEntry],
+        replacer: &DatabaseFilenameReplacer,
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
@@ -584,6 +598,7 @@ impl<'a> OmaRefresh<'a> {
                     sourcelist.get(*i).unwrap(),
                     &self.download_dir,
                     &mut tasks,
+                    replacer,
                 )?;
             }
 
@@ -591,11 +606,10 @@ impl<'a> OmaRefresh<'a> {
                 collect_download_task(
                     c,
                     sourcelist.get(inrelease_summary.count).unwrap(),
-                    &inrelease.checksums,
                     &self.download_dir,
                     &mut tasks,
-                    inrelease.acquire_by_hash,
-                    inrelease.checksum_type,
+                    &inrelease,
+                    replacer,
                 )?;
             }
         }
@@ -641,6 +655,7 @@ fn download_flat_repo_no_release(
     source_index: &OmaSourceEntry,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
+    replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
     let msg = human_download_url(source_index, Some("Packages"))?;
 
@@ -660,7 +675,7 @@ fn download_flat_repo_no_release(
 
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);
-    task.filename(database_filename(&file_path)?.into());
+    task.filename(replacer.replace(&file_path)?.into());
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(msg);
@@ -676,11 +691,10 @@ fn download_flat_repo_no_release(
 fn collect_download_task(
     c: &ChecksumDownloadEntry,
     source_index: &OmaSourceEntry,
-    checksums: &[ChecksumItem],
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
-    acquire_by_hash: bool,
-    checksum_type: ChecksumType,
+    inrelease: &InReleaseParser,
+    replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
     let typ = &c.msg;
 
@@ -704,17 +718,18 @@ fn collect_download_task(
     let checksum = if c.keep_compress {
         Some(&c.item.checksum)
     } else {
-        checksums
+        inrelease
+            .checksums
             .iter()
             .find(|x| x.name == *not_compress_filename_before)
             .as_ref()
             .map(|c| &c.checksum)
     };
 
-    let download_url = if acquire_by_hash {
+    let download_url = if inrelease.acquire_by_hash {
         let path = Path::new(&c.item.name);
         let parent = path.parent().unwrap_or(path);
-        let dir = match checksum_type {
+        let dir = match inrelease.checksum_type {
             ChecksumType::Sha256 => "SHA256",
             ChecksumType::Sha512 => "SHA512",
             ChecksumType::Md5 => "MD5Sum",
@@ -730,7 +745,7 @@ fn collect_download_task(
     let sources = vec![DownloadSource::new(download_url.clone(), from)];
 
     let file_path = if c.keep_compress {
-        if acquire_by_hash {
+        if inrelease.acquire_by_hash {
             format!("{}/{}", dist_url, c.item.name)
         } else {
             download_url.clone()
@@ -743,7 +758,7 @@ fn collect_download_task(
 
     let mut task = DownloadEntryBuilder::default();
     task.source(sources);
-    task.filename(database_filename(&file_path)?.into());
+    task.filename(replacer.replace(&file_path)?.into());
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(msg);
@@ -762,7 +777,7 @@ fn collect_download_task(
     });
 
     if let Some(checksum) = checksum {
-        task.hash(match checksum_type {
+        task.hash(match inrelease.checksum_type {
             ChecksumType::Sha256 => Checksum::from_sha256_str(checksum)?,
             ChecksumType::Sha512 => Checksum::from_sha512_str(checksum)?,
             ChecksumType::Md5 => Checksum::from_md5_str(checksum)?,
