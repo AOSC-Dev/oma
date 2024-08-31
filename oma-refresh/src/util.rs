@@ -1,44 +1,58 @@
 use std::{borrow::Cow, path::Path};
 
+use aho_corasick::AhoCorasick;
 use oma_apt_sources_lists::{SourceEntry, SourceLine, SourceListType, SourcesLists};
 use oma_utils::dpkg::dpkg_arch;
 use url::Url;
 
 use crate::db::RefreshError;
 
-pub(crate) fn database_filename(url: &str) -> Result<String, RefreshError> {
-    let url_parsed = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
+pub(crate) struct DatabaseFilenameReplacer {
+    ac: AhoCorasick,
+}
 
-    let host = url_parsed.host_str();
+impl DatabaseFilenameReplacer {
+    const PATTERNS: &'static [&'static str] = &["_", "/", "+", "%3a", "%3A"];
+    const REPLACE_WITH: &'static [&'static str] = &["%5f", "_", "%252b", ":", ":"];
 
-    // 不能使用 url_parsed.path()
-    // 原因是 "/./" 会被解析器解析为 "/"，而 apt 则不会这样
-    let path = if let Some(host) = host {
-        url.split_once(host)
-            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
-            .1
-    } else {
-        // file:/// or file:/
-        url.strip_prefix("file://")
-            .or_else(|| url.strip_prefix("file:"))
-            .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
-    };
+    pub fn new() -> Result<Self, RefreshError> {
+        Ok(Self {
+            ac: AhoCorasick::new(Self::PATTERNS)?,
+        })
+    }
 
-    let url = if let Some(host) = host {
-        Cow::Owned(format!("{}{}", host, path))
-    } else {
-        Cow::Borrowed(path)
-    };
+    pub fn replace(&self, url: &str) -> Result<String, RefreshError> {
+        let url_parsed = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
 
-    // _ 的转译须先行完成，否则 / 替换为 _ 后会全部被替换
-    let url = url
-        .replace("_", "%5f")
-        .replace('/', "_")
-        .replace('+', "%252b")
-        .replace("%3a", ":")
-        .replace("%3A", ":");
+        let host = url_parsed.host_str();
 
-    Ok(url)
+        // 不能使用 url_parsed.path()
+        // 原因是 "/./" 会被解析器解析为 "/"，而 apt 则不会这样
+        let path = if let Some(host) = host {
+            url.split_once(host)
+                .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+                .1
+        } else {
+            // file:/// or file:/
+            url.strip_prefix("file://")
+                .or_else(|| url.strip_prefix("file:"))
+                .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+        };
+
+        let url = if let Some(host) = host {
+            Cow::Owned(format!("{}{}", host, path))
+        } else {
+            Cow::Borrowed(path)
+        };
+
+        let mut wtr = vec![];
+
+        self.ac
+            .try_stream_replace_all(url.as_bytes(), &mut wtr, Self::REPLACE_WITH)
+            .map_err(RefreshError::ReplaceAll)?;
+
+        Ok(String::from_utf8_lossy(&wtr).to_string())
+    }
 }
 
 pub(crate) fn human_download_url(
@@ -326,9 +340,11 @@ fn test_ose() {
 
 #[test]
 fn test_database_filename() {
+    let replacer = DatabaseFilenameReplacer::new().unwrap();
+
     // Encode + as %252b.
     let s = "https://repo.aosc.io/debs/dists/x264-0+git20240305/InRelease";
-    let res = database_filename(s).unwrap();
+    let res = replacer.replace(s).unwrap();
     assert_eq!(
         res,
         "repo.aosc.io_debs_dists_x264-0%252bgit20240305_InRelease"
@@ -336,12 +352,12 @@ fn test_database_filename() {
 
     // Encode : as %3A.
     let s = "https://ci.deepin.com/repo/obs/deepin%3A/CI%3A/TestingIntegration%3A/test-integration-pr-1537/testing/./Packages";
-    let res = database_filename(s).unwrap();
+    let res = replacer.replace(s).unwrap();
     assert_eq!(res, "ci.deepin.com_repo_obs_deepin:_CI:_TestingIntegration:_test-integration-pr-1537_testing_._Packages");
 
     // Encode _ as %5f
     let s = "https://repo.aosc.io/debs/dists/xorg-server-21.1.13-hyperv_drm-fix";
-    let res = database_filename(s).unwrap();
+    let res = replacer.replace(s).unwrap();
     assert_eq!(
         res,
         "repo.aosc.io_debs_dists_xorg-server-21.1.13-hyperv%5fdrm-fix"
@@ -350,33 +366,33 @@ fn test_database_filename() {
     // file:/// should be transliterated as file:/.
     let s1 = "file:/debs";
     let s2 = "file:///debs";
-    let res1 = database_filename(s1).unwrap();
-    let res2 = database_filename(s2).unwrap();
+    let res1 = replacer.replace(s1).unwrap();
+    let res2 = replacer.replace(s2).unwrap();
     assert_eq!(res1, "_debs");
     assert_eq!(res1, res2);
 
     // Dots (.) in flat repo URLs should be preserved in resolved database name.
     let s = "file:///././debs/./Packages";
-    let res = database_filename(s).unwrap();
+    let res = replacer.replace(s).unwrap();
     assert_eq!(res, "_._._debs_._Packages");
 
     // Slash (/) in flat repo "suite" names should be transliterated as _.
     let s = "file:///debs/Packages";
-    let res = database_filename(s).unwrap();
+    let res = replacer.replace(s).unwrap();
     assert_eq!(res, "_debs_Packages");
 
     // Dots (.) in flat repo "suite" names should be preserved in resolved database name.
     let s = "file:///debs/./Packages";
-    let res = database_filename(s).unwrap();
+    let res = replacer.replace(s).unwrap();
     assert_eq!(res, "_debs_._Packages");
 
     // Slashes in URL and in flat repo "suite" names should be preserved in original number (1).
     let s = "file:///debs///./Packages";
-    let res = database_filename(s).unwrap();
+    let res = replacer.replace(s).unwrap();
     assert_eq!(res, "_debs___._Packages");
 
     // Slashes in URL and in flat repo "suite" names should be preserved in original number (2).
     let s = "file:///debs///.///Packages";
-    let res = database_filename(s).unwrap();
+    let res = replacer.replace(s).unwrap();
     assert_eq!(res, "_debs___.___Packages");
 }
