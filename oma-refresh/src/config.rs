@@ -109,7 +109,7 @@ pub fn fiilter_download_list(
 
                     let keep_compress = config.bool(&format!("{e}::KeepCompressed"), false);
 
-                    debug!("{k} keep compress: {}", keep_compress);
+                    debug!("{e} keep compress: {}", keep_compress);
 
                     let msg = if let Some(match_msg) = config.get(&format!("{e}::ShortDescription"))
                     {
@@ -199,10 +199,9 @@ pub fn fiilter_download_list(
 
 fn get_matches_language(env_lang: &str) -> Vec<&str> {
     let mut langs = vec![];
-    let env_lang =
-        env_lang.split_once('.').map(|x| x.0).unwrap_or(&env_lang);
+    let env_lang = env_lang.split_once('.').map(|x| x.0).unwrap_or(env_lang);
 
-    let lang = if env_lang == "C" { "en" } else { &env_lang };
+    let lang = if env_lang == "C" { "en" } else { env_lang };
 
     langs.push(lang);
 
@@ -214,8 +213,15 @@ fn get_matches_language(env_lang: &str) -> Vec<&str> {
     langs
 }
 
-fn replace_arch_and_component(input: &str, component: &str, arch: &str, native_arch: &str) -> String {
-    let mut output = input.replace("$(COMPONENT)", component).replace("$(ARCHITECTURE)", arch);
+fn replace_arch_and_component(
+    input: &str,
+    component: &str,
+    arch: &str,
+    native_arch: &str,
+) -> String {
+    let mut output = input
+        .replace("$(COMPONENT)", component)
+        .replace("$(ARCHITECTURE)", arch);
 
     if arch == native_arch {
         output = output.replace("$(NATIVE_ARCHITECTURE)", arch);

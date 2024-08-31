@@ -554,32 +554,29 @@ impl<'a> OmaRefresh<'a> {
             let mut handle = vec![];
             for i in &filter_checksums {
                 if i.keep_compress {
-                    handle.push(i);
                     total += i.item.size;
                 } else {
-                    handle.push(i);
+                    let size = if file_is_compress(&i.item.name) {
+                        let (_, name_without_compress) = split_ext_and_filename(&i.item.name);
 
-                    let name_without_compress = if file_is_compress(&i.item.name) {
-                        let (_, name) = split_ext_and_filename(&i.item.name);
-                        name
+                        inrelease
+                            .checksums
+                            .iter()
+                            .find_map(|x| {
+                                if x.name == name_without_compress {
+                                    Some(x.size)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(i.item.size)
                     } else {
-                        i.item.name.to_string()
+                        i.item.size
                     };
-
-                    let size = inrelease
-                        .checksums
-                        .iter()
-                        .find_map(|x| {
-                            if x.name == *name_without_compress {
-                                Some(x.size)
-                            } else {
-                                None
-                            }
-                        })
-                        .unwrap_or(i.item.size);
 
                     total += size;
                 }
+                handle.push(i);
             }
 
             for i in &self.flat_repo_no_release {
