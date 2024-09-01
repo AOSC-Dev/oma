@@ -172,3 +172,5 @@ mirror-is-not-trusted = 镜像源 { $mirror } 未签名或不受信任，请检�
 please-run-me-as-root = oma 需执行系统管理操作，请使用管理员权限执行 oma 命令。
 topic-not-in-mirror = 测试源 { $topic } 在镜像源 { $mirror } 上不可用。
 skip-write-mirror = 这一般是您指定的镜像源未同步导致的，将尝试从您开启的其他镜像源中刷新测试源信息 ...
+pkexec-tips-1 = 请在弹出的密码框输入密码以授权 oma 执行系统管理操作。
+pkexec-tips-2 = 如果您无法操作该输入框，请按 Ctrl + C 退出并以管理员权限运行 oma。
