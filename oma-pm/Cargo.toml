@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.29.2"
+version = "0.30.0"
 edition = "2021"
 description = "APT package manager API abstraction library"
 license = "GPL-3.0-or-later"
@@ -30,7 +30,7 @@ derive_builder = "0.20"
 fs4 = "0.9"
 tracing = "0.1"
 small-map = "0.1"
-oma-pm-operation-type = { version = "0.2", path = "../oma-pm-operation-type" }
+oma-pm-operation-type = { version = "0.3", path = "../oma-pm-operation-type" }
 zbus = { version = "4.1", features = ["tokio"] }
 cxx = "1.0.121"
 ahash = "0.8.11"
