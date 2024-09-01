@@ -15,15 +15,15 @@ anyhow = "1.0.86"
 ctrlc = "3.4.5"
 tabled = { version = "0.16.0", features = ["ansi"] }
 dialoguer = "0.11.0"
-tokio = "1.39.3"
-derive_builder = "0.20.0"
+tokio = "1.40.0"
+derive_builder = "0.20.1"
 oma-inquire = "0.1.1"
-serde = { version = "1.0.208", features = ["derive"] }
-serde_json = "1.0.125"
+serde = { version = "1.0.209", features = ["derive"] }
+serde_json = "1.0.127"
 toml = "0.8.19"
 dashmap = "6.0.1"
 chrono = "0.4.38"
-rustix = { version = "0.38.34", features = ["process"] }
+rustix = { version = "0.38.35", features = ["process"] }
 colored = { version = "2.1.0", optional = true }
 image = { version = "0.25.2", optional = true }
 libc = "0.2.158"
@@ -56,11 +56,11 @@ i18n-embed = { version = "0.15.0", features = ["fluent-system", "desktop-request
 i18n-embed-fl = "0.9.1"
 rust-embed = "8.5.0"
 unic-langid = "0.9.5"
-indexmap = "2.4.0"
+indexmap = "2.5.0"
 
 [build-dependencies]
 clap_mangen = "0.2.23"
-clap_complete = "4.5.20"
+clap_complete = "4.5.24"
 clap = { version = "4.5.16", features = ["cargo", "wrap_help", "color", "string"] }
 anyhow = "1.0.86"
 
