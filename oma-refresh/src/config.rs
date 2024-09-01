@@ -97,8 +97,9 @@ pub fn fiilter_download_list(
     archs_contains_all.push("all".to_string());
 
     for (k, v) in config_tree {
-        if (k.starts_with("APT::Acquire::IndexTargets::deb::"))
-            || (k.starts_with("Acquire::IndexTargets::deb::")) && k.ends_with("::MetaKey")
+        if (k.starts_with("APT::Acquire::IndexTargets::deb::")
+            || k.starts_with("Acquire::IndexTargets::deb::"))
+            && k.ends_with("::MetaKey")
         {
             for a in &archs_contains_all {
                 for c in components {
