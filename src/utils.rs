@@ -17,7 +17,6 @@ use rustix::process;
 use tokio::runtime::Runtime;
 use tracing::{info, warn};
 
-
 type Result<T> = std::result::Result<T, OutputError>;
 
 pub fn root() -> Result<()> {
