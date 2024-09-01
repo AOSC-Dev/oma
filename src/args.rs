@@ -313,6 +313,16 @@ pub fn command_builder() -> Command {
 
             cmd
         })
+        .subcommand(Command::new("completions")
+                .about("Generate a shell completion script")
+                .arg(Arg::new("shell").value_parser([
+                    PossibleValue::new("bash").help("Generates a completion script for the bash shell"),
+                    PossibleValue::new("fish").help("Generates a completion script for the fish shell")
+                ])
+                .required(true)
+                .num_args(1)
+                .action(ArgAction::Set))
+            )
         .subcommand(
             Command::new("mark")
                 .about("Mark status for one or multiple package(s)")

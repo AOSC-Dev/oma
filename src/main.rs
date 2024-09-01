@@ -574,6 +574,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 no_check_dbus,
             })?
         }
+        Some(("completions", args)) => {
+            completions::execute(args.get_one::<String>("shell").unwrap())
+        }
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");
             let plugin = exe_dir.join(format!("oma-{}", cmd));

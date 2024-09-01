@@ -1,5 +1,6 @@
 pub mod clean;
 pub mod command_not_found;
+pub mod completions;
 pub mod contents_find;
 pub mod depends;
 pub mod download;
