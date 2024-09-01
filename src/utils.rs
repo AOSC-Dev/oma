@@ -41,6 +41,8 @@ pub fn root() -> Result<()> {
             handled_args.push(arg);
         }
 
+        println!("{}", fl!("pkexec-tips"));
+
         let out = Command::new("pkexec")
             .args(handled_args)
             .spawn()
