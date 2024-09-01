@@ -15,7 +15,8 @@ use oma_utils::{
 };
 use rustix::process;
 use tokio::runtime::Runtime;
-use tracing::warn;
+use tracing::{info, warn};
+
 
 type Result<T> = std::result::Result<T, OutputError>;
 
@@ -41,7 +42,8 @@ pub fn root() -> Result<()> {
             handled_args.push(arg);
         }
 
-        println!("{}", fl!("pkexec-tips"));
+        info!("{}", fl!("pkexec-tips-1"));
+        info!("{}", fl!("pkexec-tips-2"));
 
         let out = Command::new("pkexec")
             .args(handled_args)

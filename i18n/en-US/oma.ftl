@@ -178,5 +178,5 @@ please-run-me-as-root = oma requires elevated privileges to perform system admin
 topic-not-in-mirror = Topic { $topic } is inaccessible in mirror { $mirror }.
 skip-write-mirror = This is likely because the mirror(s) you specified are not yet synchronized. Skipping this mirror in favor of other options ...
 failed-to-decompress-contents = Failed to decompress contents.
-pkexec-tips = oma has detected that you are on a desktop environment and will use Polkit to elevate privileges, you should notice a pop-up window on your desktop, please enter your password in the window to elevate privileges.
-    If you believe this is a mistake, please use Ctrl+C to end the program and run oma as root.
+pkexec-tips-1 = Please input your password in the password prompt to grant oma privileges to perform system administration.
+pkexec-tips-2 = If you are unable to access the graphical prompt, please press Ctrl + C to abort and run oma with elevated privileges.
