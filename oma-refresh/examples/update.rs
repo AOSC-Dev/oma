@@ -9,6 +9,7 @@ use std::{
 
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar};
+use oma_apt::config::Config;
 use oma_console::{
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
     writer::Writer,
@@ -23,14 +24,16 @@ async fn main() -> Result<(), RefreshError> {
     tokio::fs::create_dir_all(p).await.unwrap();
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();
 
+    let apt_config = Config::new();
+
     let refresher: OmaRefresh = OmaRefreshBuilder {
         client: &client,
         source: PathBuf::from("/"),
         limit: Some(4),
         arch: dpkg_arch("/").unwrap(),
         download_dir: p.to_path_buf(),
-        download_compress: true,
-        refresh_topics: true,
+        refresh_topics: false,
+        apt_config: &apt_config,
     }
     .into();
 

@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 
 use ahash::AHashMap;
 use aho_corasick::BuildError;
@@ -6,6 +9,7 @@ use futures::{
     future::{join_all, BoxFuture},
     FutureExt, StreamExt,
 };
+use oma_apt::config::Config;
 use oma_apt_sources_lists::SourceError;
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
@@ -23,8 +27,10 @@ use tokio::fs;
 use tracing::debug;
 
 use crate::{
+    config::{fiilter_download_list, ChecksumDownloadEntry},
     inrelease::{
-        ChecksumItem, ChecksumType, DistFileType, InRelease, InReleaseParser, InReleaseParserError,
+        file_is_compress, split_ext_and_filename, ChecksumType, InRelease, InReleaseParser,
+        InReleaseParserError,
     },
     util::{
         get_sources, human_download_url, DatabaseFilenameReplacer, OmaSourceEntry,
@@ -115,10 +121,10 @@ pub struct OmaRefreshBuilder<'a> {
     pub limit: Option<usize>,
     pub arch: String,
     pub download_dir: PathBuf,
-    pub download_compress: bool,
     pub client: &'a Client,
     #[cfg(feature = "aosc")]
     pub refresh_topics: bool,
+    pub apt_config: &'a Config,
 }
 
 pub struct OmaRefresh<'a> {
@@ -126,11 +132,11 @@ pub struct OmaRefresh<'a> {
     limit: Option<usize>,
     arch: String,
     download_dir: PathBuf,
-    download_compress: bool,
     client: &'a Client,
     flat_repo_no_release: Vec<usize>,
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
+    apt_config: &'a Config,
 }
 
 impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
@@ -140,11 +146,11 @@ impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
             limit: builder.limit,
             arch: builder.arch,
             download_dir: builder.download_dir,
-            download_compress: builder.download_compress,
             client: builder.client,
             flat_repo_no_release: vec![],
             #[cfg(feature = "aosc")]
             refresh_topics: builder.refresh_topics,
+            apt_config: builder.apt_config,
         }
     }
 }
@@ -541,11 +547,9 @@ impl<'a> OmaRefresh<'a> {
                 inrelease: &inrelease,
                 signed_by: ose.signed_by.as_deref(),
                 mirror: urlc,
-                archs: &archs,
                 is_flat: ose.is_flat,
                 p: &inrelease_path,
                 rootfs: &self.source,
-                components: &ose.components,
                 trusted: ose.trusted,
             };
 
@@ -553,102 +557,41 @@ impl<'a> OmaRefresh<'a> {
                 RefreshError::InReleaseParseError(inrelease_path.display().to_string(), err)
             })?;
 
-            let checksums = inrelease
-                .checksums
-                .iter()
-                .filter(|x| {
-                    ose.components
-                        .iter()
-                        .any(|y| y.contains(x.name.split('/').next().unwrap_or(&x.name)))
-                })
-                .map(|x| x.to_owned())
-                .collect::<Vec<_>>();
+            let filter_checksums = fiilter_download_list(
+                &inrelease.checksums,
+                self.apt_config,
+                &archs,
+                &ose.components,
+                &ose.native_arch,
+            );
 
-            let handle = if ose.is_flat {
-                debug!("{} is flat repo", ose.url);
-                // Flat repo
-                let mut handle = vec![];
-                for i in &inrelease.checksums {
-                    if i.file_type == DistFileType::PackageList {
-                        debug!("oma will download package list: {}", i.name);
-                        handle.push(i);
-                        total += i.size;
-                    }
-                }
+            let mut handle = vec![];
+            for i in &filter_checksums {
+                if i.keep_compress {
+                    total += i.item.size;
+                } else {
+                    let size = if file_is_compress(&i.item.name) {
+                        let (_, name_without_compress) = split_ext_and_filename(&i.item.name);
 
-                handle
-            } else {
-                let mut handle = vec![];
-                let mut compress_file_map = AHashMap::new();
-                for i in &checksums {
-                    match &i.file_type {
-                        DistFileType::BinaryContents => {
-                            debug!("oma will download Binary Contents: {}", i.name);
-                            handle.push(i);
-                            total += i.size;
-                        }
-                        DistFileType::Contents | DistFileType::PackageList
-                            if !self.download_compress =>
-                        {
-                            debug!("oma will download Package List/Contents: {}", i.name);
-                            handle.push(i);
-                            total += i.size;
-                        }
-                        DistFileType::CompressContents(name, compress_type) => {
-                            if self.download_compress {
-                                debug!(
-                                    "oma will download compress Package List/compress Contetns: {}",
-                                    i.name
-                                );
+                        inrelease
+                            .checksums
+                            .iter()
+                            .find_map(|x| {
+                                if x.name == name_without_compress {
+                                    Some(x.size)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(i.item.size)
+                    } else {
+                        i.item.size
+                    };
 
-                                compress_file_map
-                                    .entry(name)
-                                    .and_modify(|x: &mut Vec<(&str, u64, &ChecksumItem)>| {
-                                        x.push((compress_type, i.size, i))
-                                    })
-                                    .or_insert(vec![(compress_type, i.size, i)]);
-                            }
-                        }
-                        DistFileType::CompressPackageList(name, compress_type) => {
-                            if self.download_compress {
-                                debug!(
-                                    "oma will download compress Package List/compress Contetns: {}",
-                                    i.name
-                                );
-
-                                let size = checksums
-                                    .iter()
-                                    .find_map(|x| if x.name == *name { Some(x.size) } else { None })
-                                    .unwrap_or(i.size);
-
-                                compress_file_map
-                                    .entry(name)
-                                    .and_modify(|x: &mut Vec<(&str, u64, &ChecksumItem)>| {
-                                        x.push((compress_type, size, i))
-                                    })
-                                    .or_insert(vec![(compress_type, size, i)]);
-                            }
-                        }
-                        _ => continue,
-                    }
-                }
-
-                for (_, mut v) in compress_file_map {
-                    if v.is_empty() {
-                        continue;
-                    }
-
-                    v.sort_unstable_by(|a, b| {
-                        CompressFile::from(b.0).cmp(&CompressFile::from(a.0))
-                    });
-
-                    let (_, size, i) = v.first().unwrap();
-                    handle.push(i);
                     total += size;
                 }
-
-                handle
-            };
+                handle.push(i);
+            }
 
             for i in &self.flat_repo_no_release {
                 download_flat_repo_no_release(
@@ -663,7 +606,6 @@ impl<'a> OmaRefresh<'a> {
                 collect_download_task(
                     c,
                     sourcelist.get(inrelease_summary.count).unwrap(),
-                    &checksums,
                     &self.download_dir,
                     &mut tasks,
                     &inrelease,
@@ -747,22 +689,14 @@ fn download_flat_repo_no_release(
 }
 
 fn collect_download_task(
-    c: &ChecksumItem,
+    c: &ChecksumDownloadEntry,
     source_index: &OmaSourceEntry,
-    checksums: &[ChecksumItem],
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     inrelease: &InReleaseParser,
     replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
-    let (typ, not_compress_filename_before) = match &c.file_type {
-        DistFileType::CompressContents(s, _) => ("Contents", s),
-        DistFileType::Contents => ("Contents", &c.name),
-        DistFileType::CompressPackageList(s, _) => ("Package List", s),
-        DistFileType::PackageList => ("Package List", &c.name),
-        DistFileType::BinaryContents => ("BinContents", &c.name),
-        _ => unreachable!(),
-    };
+    let typ = &c.msg;
 
     let msg = human_download_url(source_index, Some(typ))?;
 
@@ -775,18 +709,25 @@ fn collect_download_task(
         },
     };
 
-    let checksum = if matches!(c.file_type, DistFileType::CompressContents(_, _)) {
-        Some(&c.checksum)
+    let not_compress_filename_before = if file_is_compress(&c.item.name) {
+        Cow::Owned(split_ext_and_filename(&c.item.name).1)
     } else {
-        checksums
+        Cow::Borrowed(&c.item.name)
+    };
+
+    let checksum = if c.keep_compress {
+        Some(&c.item.checksum)
+    } else {
+        inrelease
+            .checksums
             .iter()
-            .find(|x| &x.name == not_compress_filename_before)
+            .find(|x| x.name == *not_compress_filename_before)
             .as_ref()
             .map(|c| &c.checksum)
     };
 
     let download_url = if inrelease.acquire_by_hash {
-        let path = Path::new(&c.name);
+        let path = Path::new(&c.item.name);
         let parent = path.parent().unwrap_or(path);
         let dir = match inrelease.checksum_type {
             ChecksumType::Sha256 => "SHA256",
@@ -794,17 +735,21 @@ fn collect_download_task(
             ChecksumType::Md5 => "MD5Sum",
         };
 
-        let path = parent.join("by-hash").join(dir).join(&c.checksum);
+        let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
 
         format!("{}/{}", dist_url, path.display())
     } else {
-        format!("{}/{}", dist_url, c.name)
+        format!("{}/{}", dist_url, c.item.name)
     };
 
     let sources = vec![DownloadSource::new(download_url.clone(), from)];
 
-    let file_path = if let DistFileType::CompressContents(_, _) = c.file_type {
-        download_url.clone()
+    let file_path = if c.keep_compress {
+        if inrelease.acquire_by_hash {
+            format!("{}/{}", dist_url, c.item.name)
+        } else {
+            download_url.clone()
+        }
     } else if dist_url.ends_with('/') {
         format!("{}{}", dist_url, not_compress_filename_before)
     } else {
@@ -817,25 +762,18 @@ fn collect_download_task(
     task.dir(download_dir.to_path_buf());
     task.allow_resume(false);
     task.msg(msg);
-    task.file_type(match c.file_type {
-        DistFileType::BinaryContents => CompressFile::Nothing,
-        DistFileType::Contents => CompressFile::Nothing,
-        // 不解压 Contents
-        DistFileType::CompressContents(_, _) => CompressFile::Nothing,
-        DistFileType::PackageList => CompressFile::Nothing,
-        DistFileType::CompressPackageList(_, _) => {
-            match Path::new(&c.name).extension().and_then(|x| x.to_str()) {
+    task.file_type({
+        if c.keep_compress {
+            CompressFile::Nothing
+        } else {
+            match Path::new(&c.item.name).extension().and_then(|x| x.to_str()) {
                 Some("gz") => CompressFile::Gzip,
                 Some("xz") => CompressFile::Xz,
                 Some("bz2") => CompressFile::Bz2,
-                Some(x) => {
-                    debug!("unsupport file type: {x}");
-                    return Ok(());
-                }
-                None => unreachable!(),
+                Some("zst") => CompressFile::Zstd,
+                _ => CompressFile::Nothing,
             }
         }
-        DistFileType::Release => CompressFile::Nothing,
     });
 
     if let Some(checksum) = checksum {

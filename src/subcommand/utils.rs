@@ -22,6 +22,7 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgs;
+use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_refresh::db::OmaRefresh;
@@ -89,29 +90,32 @@ pub(crate) fn lock_oma() -> Result<(), LockError> {
     Ok(())
 }
 
-pub(crate) fn refresh(
-    client: &Client,
-    dry_run: bool,
-    no_progress: bool,
-    download_pure_db: bool,
-    limit: usize,
-    sysroot: &str,
-    _refresh_topics: bool,
-) -> Result<(), OutputError> {
+pub struct RefreshRequest<'a> {
+    pub client: &'a Client,
+    pub dry_run: bool,
+    pub no_progress: bool,
+    pub limit: usize,
+    pub sysroot: &'a str,
+    pub _refresh_topics: bool,
+    pub config: &'a AptConfig,
+}
+
+pub(crate) fn refresh(refresh_req: RefreshRequest) -> Result<(), OutputError> {
+    let RefreshRequest {
+        client,
+        dry_run,
+        no_progress,
+        limit,
+        sysroot,
+        _refresh_topics,
+        config,
+    } = refresh_req;
+
     if dry_run {
         return Ok(());
     }
 
     info!("{}", fl!("refreshing-repo-metadata"));
-
-    let download_pure_db = if dpkg_arch(sysroot)
-        .map(|x| x == "mips64r6el")
-        .unwrap_or(false)
-    {
-        false
-    } else {
-        download_pure_db
-    };
 
     let sysroot = PathBuf::from(sysroot);
 
@@ -120,10 +124,10 @@ pub(crate) fn refresh(
         limit: Some(limit),
         arch: dpkg_arch(&sysroot)?,
         download_dir: sysroot.join("var/lib/apt/lists"),
-        download_compress: !download_pure_db,
         client,
         #[cfg(feature = "aosc")]
         refresh_topics: _refresh_topics,
+        apt_config: config,
     }
     .into();
 

@@ -1,5 +1,6 @@
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgsBuilder;
+use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgsBuilder;
 use reqwest::Client;
@@ -20,6 +21,7 @@ use super::utils::no_check_dbus_warn;
 use super::utils::normal_commit;
 use super::utils::refresh;
 use super::utils::NormalCommitArgs;
+use super::utils::RefreshRequest;
 
 pub fn execute(
     input: Vec<String>,
@@ -34,7 +36,6 @@ pub fn execute(
         dry_run,
         network_thread,
         no_progress,
-        download_pure_db,
         no_check_dbus,
         protect_essentials: protect_essential,
         ..
@@ -48,16 +49,20 @@ pub fn execute(
         None
     };
 
+    let apt_config = AptConfig::new();
+
+    let req = RefreshRequest {
+        client: &client,
+        dry_run,
+        no_progress,
+        limit: network_thread,
+        sysroot: &args.sysroot,
+        _refresh_topics: !args.no_refresh_topic,
+        config: &apt_config,
+    };
+
     if !args.no_refresh {
-        refresh(
-            &client,
-            dry_run,
-            no_progress,
-            download_pure_db,
-            network_thread,
-            &args.sysroot,
-            !args.no_refresh_topic,
-        )?;
+        refresh(req)?;
     }
 
     if args.yes {
@@ -80,7 +85,7 @@ pub fn execute(
         .no_install_suggests(args.no_install_suggests)
         .build()?;
 
-    let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run)?;
+    let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, apt_config)?;
     let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, args.install_dbg, true, false)?;
     handle_no_result(no_result)?;
 

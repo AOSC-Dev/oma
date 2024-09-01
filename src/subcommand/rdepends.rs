@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgsBuilder};
 
 use crate::error::OutputError;
 
@@ -12,7 +12,7 @@ pub fn execute(pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let (pkgs, no_result) = apt.select_pkg(
         &pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),

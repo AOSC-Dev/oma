@@ -174,8 +174,13 @@ pub enum FilterMode {
 
 impl OmaApt {
     /// Create a new apt manager
-    pub fn new(local_debs: Vec<String>, args: OmaAptArgs, dry_run: bool) -> OmaAptResult<Self> {
-        let config = Self::init_config(args)?;
+    pub fn new(
+        local_debs: Vec<String>,
+        args: OmaAptArgs,
+        dry_run: bool,
+        config: AptConfig,
+    ) -> OmaAptResult<Self> {
+        let config = Self::init_config(config, args)?;
 
         let bus = OmaBus {
             status: Status::Configing,
@@ -214,9 +219,7 @@ impl OmaApt {
     }
 
     /// Init apt config (before create new apt manager)
-    fn init_config(args: OmaAptArgs) -> OmaAptResult<AptConfig> {
-        let config = AptConfig::new();
-
+    fn init_config(config: AptConfig, args: OmaAptArgs) -> OmaAptResult<AptConfig> {
         let sysroot = Path::new(&args.sysroot);
         let sysroot = sysroot
             .canonicalize()

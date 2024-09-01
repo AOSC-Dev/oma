@@ -17,17 +17,6 @@ pub struct ChecksumItem {
     pub name: String,
     pub size: u64,
     pub checksum: String,
-    pub file_type: DistFileType,
-}
-
-#[derive(Debug, PartialEq, Clone, Eq)]
-pub enum DistFileType {
-    BinaryContents,
-    Contents,
-    CompressContents(String, String),
-    PackageList,
-    CompressPackageList(String, String),
-    Release,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -62,11 +51,9 @@ pub struct InRelease<'a> {
     pub inrelease: &'a str,
     pub signed_by: Option<&'a str>,
     pub mirror: &'a str,
-    pub archs: &'a [String],
     pub is_flat: bool,
     pub p: &'a Path,
     pub rootfs: &'a Path,
-    pub components: &'a [String],
     pub trusted: bool,
 }
 
@@ -85,11 +72,9 @@ impl InReleaseParser {
             inrelease: s,
             signed_by,
             mirror,
-            archs,
             is_flat,
             p,
             rootfs,
-            components,
             trusted,
         } = in_release;
 
@@ -105,8 +90,6 @@ impl InReleaseParser {
         let source = debcontrol_from_str(&s)?;
 
         let source_first = source.first();
-
-        debug!("InRelease is: {source:#?}");
 
         if !is_flat {
             let date = source_first
@@ -189,54 +172,7 @@ impl InReleaseParser {
 
         let mut res: SmallVec<[_; 32]> = smallvec![];
 
-        let c_res_clone = checksums_res.clone();
-
-        let c = checksums_res
-            .into_iter()
-            .filter(|(name, _, _)| {
-                let mut name_split = name.split('/');
-                let component = name_split.next();
-                let component_type = name_split.next();
-
-                // debian-installer 是为 Debian 安装器专门准备的源，应该没有人把 oma 用在这种场景上面
-                let is_debian_installer = component_type.is_some_and(|x| x == "debian-installer");
-
-                if let Some(c) = component {
-                    if c != *name {
-                        return components.contains(&c.to_string())
-                            && ((name.contains("all") || archs.iter().any(|x| name.contains(x)))
-                                && !is_debian_installer);
-                    }
-                }
-
-                name.contains("all") || archs.iter().any(|x| name.contains(x))
-            })
-            .collect::<Vec<_>>();
-
-        let c = if c.is_empty() { c_res_clone } else { c };
-
-        for i in c {
-            let t = match i.0 {
-                x if x.contains("BinContents") => DistFileType::BinaryContents,
-                x if x.contains("Contents-") && file_is_compress(x) && !x.contains("udeb") => {
-                    let s = x.split_once('.').unwrap();
-                    DistFileType::CompressContents(s.0.to_string(), s.1.to_string())
-                }
-                x if x.contains("Contents-") && !x.contains('.') && !x.contains("udeb") => {
-                    DistFileType::Contents
-                }
-                x if x.contains("Packages") && !x.contains('.') => DistFileType::PackageList,
-                x if x.contains("Packages") && file_is_compress(x) => {
-                    let s = x.split_once('.').unwrap();
-                    DistFileType::CompressPackageList(s.0.to_string(), s.1.to_string())
-                }
-                x if x.contains("Release") => DistFileType::Release,
-                x => {
-                    debug!("Unknown file type: {x:?}");
-                    continue;
-                }
-            };
-
+        for i in checksums_res {
             res.push(ChecksumItem {
                 name: i.0.to_owned(),
                 size: i
@@ -244,8 +180,7 @@ impl InReleaseParser {
                     .parse::<u64>()
                     .map_err(InReleaseParserError::ParseIntError)?,
                 checksum: i.2.to_owned(),
-                file_type: t,
-            })
+            });
         }
 
         Ok(Self {
@@ -257,7 +192,20 @@ impl InReleaseParser {
     }
 }
 
-fn file_is_compress(name: &str) -> bool {
+pub(crate) fn split_ext_and_filename(x: &str) -> (String, String) {
+    let path = Path::new(x);
+    let ext = path
+        .extension()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let name = path.with_extension("");
+    let name = name.to_string_lossy().to_string();
+
+    (ext, name)
+}
+
+pub(crate) fn file_is_compress(name: &str) -> bool {
     for i in COMPRESS {
         if name.ends_with(i) {
             return true;
@@ -369,4 +317,28 @@ fn test_date_hack() {
     assert_eq!(hack, "Thu, 02 May 2024 00:58:03 +0000");
     let b = DateTime::parse_from_rfc2822(&hack);
     assert!(b.is_ok());
+}
+
+#[test]
+fn test_split_name_and_ext() {
+    let example1 = "main/dep11/icons-128x128.tar.gz";
+    let res = split_ext_and_filename(&example1);
+    assert_eq!(
+        res,
+        ("gz".to_string(), "main/dep11/icons-128x128.tar".to_string())
+    );
+
+    let example2 = "main/i18n/Translation-bg.xz";
+    let res = split_ext_and_filename(&example2);
+    assert_eq!(
+        res,
+        ("xz".to_string(), "main/i18n/Translation-bg".to_string())
+    );
+
+    let example2 = "main/i18n/Translation-bg";
+    let res = split_ext_and_filename(&example2);
+    assert_eq!(
+        res,
+        ("".to_string(), "main/i18n/Translation-bg".to_string())
+    );
 }

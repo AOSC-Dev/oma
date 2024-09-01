@@ -10,11 +10,11 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
-use oma_pm::apt::{AptArgs, OmaApt, OmaAptArgsBuilder, OmaAptError};
+use oma_pm::apt::{AptArgs, AptConfig, OmaApt, OmaAptArgsBuilder, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgsBuilder::default().build().unwrap();
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let pkgs = apt.select_pkg(&vec!["fish"], false, true, true)?;
 
     let mb = Arc::new(MultiProgress::new());

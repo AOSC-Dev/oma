@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use oma_console::{due_to, success};
-use oma_pm::apt::{OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgsBuilder};
 use reqwest::Client;
 use tracing::error;
 
@@ -29,8 +29,9 @@ pub fn execute(
         source: Some(Box::new(e)),
     })?;
 
+    let apt_config = AptConfig::new();
     let oma_apt_args = OmaAptArgsBuilder::default().build()?;
-    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
     let (pkgs, no_result) = apt.select_pkg(&keyword, false, true, true)?;
     handle_no_result(no_result)?;
 

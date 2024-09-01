@@ -107,7 +107,6 @@ pub struct OmaArgs {
     dry_run: bool,
     network_thread: usize,
     no_progress: bool,
-    download_pure_db: bool,
     no_check_dbus: bool,
     protect_essentials: bool,
 }
@@ -359,7 +358,6 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         dry_run,
         network_thread: config.network_thread(),
         no_progress,
-        download_pure_db: config.pure_db(),
         no_check_dbus,
         protect_essentials: config
             .general
@@ -552,7 +550,6 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 dry_run,
                 network_thread,
                 no_progress,
-                download_pure_db: config.pure_db(),
                 no_check_dbus,
                 sysroot,
             };
@@ -571,7 +568,6 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             tui::execute(Tui {
                 sysroot,
                 no_progress,
-                download_pure_db: oma_args.download_pure_db,
                 dry_run,
                 network_thread: oma_args.network_thread,
                 client,

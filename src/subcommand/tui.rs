@@ -20,7 +20,7 @@ use crate::{
     utils::{create_async_runtime, dbus_check},
 };
 use oma_pm::{
-    apt::{AptArgsBuilder, OmaApt, OmaAptArgsBuilder},
+    apt::{AptArgsBuilder, AptConfig, OmaApt, OmaAptArgsBuilder},
     pkginfo::PkgInfo,
     search::{OmaSearch, SearchResult},
     PackageStatus,
@@ -38,7 +38,9 @@ use ratatui::{
 use crate::{error::OutputError, utils::root};
 use std::fmt::Display;
 
-use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs};
+use super::utils::{
+    lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs, RefreshRequest,
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -195,7 +197,6 @@ struct Operation {
 pub struct Tui {
     pub sysroot: String,
     pub no_progress: bool,
-    pub download_pure_db: bool,
     pub dry_run: bool,
     pub network_thread: usize,
     pub client: Client,
@@ -208,7 +209,6 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
     let Tui {
         sysroot,
         no_progress,
-        download_pure_db,
         dry_run,
         network_thread,
         client,
@@ -223,15 +223,19 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         None
     };
 
-    refresh(
-        &client,
+    let apt_config = AptConfig::new();
+
+    let req = RefreshRequest {
+        client: &client,
         dry_run,
         no_progress,
-        download_pure_db,
-        network_thread,
-        &sysroot,
-        true,
-    )?;
+        limit: network_thread,
+        sysroot: &sysroot,
+        _refresh_topics: true,
+        config: &apt_config,
+    };
+
+    refresh(req)?;
 
     stdout()
         .execute(EnterAlternateScreen)
@@ -259,7 +263,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         .sysroot(sysroot.clone())
         .build()?;
 
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
     let a = apt.available_action()?;
     let installed = apt.installed_packages()?;

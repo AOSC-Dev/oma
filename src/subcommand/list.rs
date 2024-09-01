@@ -2,7 +2,7 @@ use std::{borrow::Cow, io::stdout, sync::atomic::Ordering};
 
 use oma_console::print::Action;
 use oma_pm::{
-    apt::{FilterMode, OmaApt, OmaAptArgsBuilder},
+    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgsBuilder},
     PkgCurrentState,
 };
 use tracing::info;
@@ -30,7 +30,7 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
     } = flags;
 
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let mut filter_mode: SmallVec<[_; 5]> = smallvec![FilterMode::Names];
 

@@ -7,7 +7,7 @@ use oma_console::{
     WRITER,
 };
 use oma_pm::{
-    apt::{OmaApt, OmaAptArgsBuilder},
+    apt::{AptConfig, OmaApt, OmaAptArgsBuilder},
     query::OmaDatabase,
     PackageStatus,
 };
@@ -23,7 +23,7 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
     }
 
     let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
-    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.concat();
 
