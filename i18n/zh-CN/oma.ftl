@@ -58,6 +58,7 @@ clean-successfully = 成功清理 oma 本机数据库和缓存。
 dpkg-configure-a-non-zero = `dpkg --configure -a' 返回错误。
 automatic-mode-warn = 正以无人值守模式运行 oma。如非本人所为，请立即按 Ctrl + C 中止操作！
 removed-as-unneed-dep = 清理未使用的依赖
+removed-as-unmet-dep = 因无法满足依赖条件被移除
 purge-file = 清理配置文件
 semicolon = ；
 pick-tips = 请指定要安装的 { $pkgname } 的版本：
