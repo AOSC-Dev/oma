@@ -175,3 +175,7 @@ mirror-is-not-trusted = 鏡像源 { $mirror } 未簽署或未受信任，請檢�
 please-run-me-as-root = oma 需執行系統管理操作，請使用管理者權限執行 oma 指令。
 topic-not-in-mirror = 測試庫 { $topic } 在鏡像源 { $mirror } 上無法使用。
 skip-write-mirror = 這通常是您指定的鏡像源尚未同步完成導致的，將嘗試從您開啟的其他鏡像源中重新整理測試庫資料……
+pkexec-tips-2 = 如果您無法存取圖形化輸入欄位，請按 Ctrl + C 中止操作並使用管理員權限執行 oma 指令。
+pkexec-tips-1 = 請在彈出的密碼欄位中輸入密碼以授權 oma 執行系統管理操作。
+failed-to-decompress-contents = 無法解壓縮軟體套件內容檔案。
+removed-as-unmet-dep = 因依賴關係不滿足而移除
