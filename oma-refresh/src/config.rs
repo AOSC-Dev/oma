@@ -249,3 +249,35 @@ fn test() {
     let map = get_config(&Config::new());
     dbg!(map);
 }
+
+#[test]
+fn test_replace_arch_and_component() {
+    let input = "$(COMPONENT)/Contents-$(ARCHITECTURE)";
+    assert_eq!(
+        replace_arch_and_component(input, "main", "amd64", "amd64"),
+        "main/Contents-amd64"
+    );
+
+    let input = "Contents-$(ARCHITECTURE)";
+    assert_eq!(
+        replace_arch_and_component(input, "main", "amd64", "amd64"),
+        "Contents-amd64"
+    );
+
+    let input = "$(COMPONENT)/dep11/Components-$(NATIVE_ARCHITECTURE).yml";
+    assert_eq!(
+        replace_arch_and_component(input, "main", "amd64", "amd64"),
+        "main/dep11/Components-amd64.yml"
+    );
+    assert_eq!(
+        replace_arch_and_component(input, "main", "amd64", "arm64"),
+        "main/dep11/Components-$(NATIVE_ARCHITECTURE).yml"
+    );
+}
+
+#[test]
+fn test_get_matches_language() {
+    assert_eq!(get_matches_language("C"), vec!["en"]);
+    assert_eq!(get_matches_language("zh_CN.UTF-8"), vec!["zh_CN", "zh"]);
+    assert_eq!(get_matches_language("en_US.UTF-8"), vec!["en_US", "en"]);
+}
