@@ -2,10 +2,11 @@ use std::{
     env,
     path::Path,
     process::{exit, Command},
+    sync::atomic::Ordering,
 };
 
-use crate::error::OutputError;
 use crate::fl;
+use crate::{error::OutputError, SPAWN_NEW_OMA};
 use anyhow::anyhow;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use oma_utils::{
@@ -44,13 +45,14 @@ pub fn root() -> Result<()> {
         info!("{}", fl!("pkexec-tips-1"));
         info!("{}", fl!("pkexec-tips-2"));
 
+        SPAWN_NEW_OMA.store(true, Ordering::Relaxed);
+
         let out = Command::new("pkexec")
             .args(handled_args)
             .spawn()
             .and_then(|x| x.wait_with_output())
             .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
 
-        unlock_oma().ok();
         exit(out.status.code().unwrap_or(1));
     }
 
