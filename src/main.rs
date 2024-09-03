@@ -61,6 +61,7 @@ use crate::subcommand::*;
 static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static DEBUG: AtomicBool = AtomicBool::new(false);
+static SPAWN_NEW_OMA: AtomicBool = AtomicBool::new(false);
 
 static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
 
@@ -697,6 +698,10 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
 }
 
 fn single_handler() {
+    if SPAWN_NEW_OMA.load(Ordering::Relaxed) {
+        return;
+    }
+
     // Kill subprocess
     let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
     let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
