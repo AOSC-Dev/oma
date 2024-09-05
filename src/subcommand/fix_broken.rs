@@ -31,9 +31,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         no_check_dbus_warn();
     }
 
-    let oma_apt_args = OmaAptArgs::builder()
-        .sysroot(sysroot.clone())
-        .build();
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
 
     let args = NormalCommitArgs {

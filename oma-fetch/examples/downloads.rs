@@ -7,8 +7,8 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{
-    checksum::Checksum, DownloadEntry, DownloadEvent, DownloadResult,
-    DownloadSource, DownloadSourceType, OmaFetcher,
+    checksum::Checksum, DownloadEntry, DownloadEvent, DownloadResult, DownloadSource,
+    DownloadSourceType, OmaFetcher,
 };
 use reqwest::ClientBuilder;
 use tokio::io::AsyncWriteExt;

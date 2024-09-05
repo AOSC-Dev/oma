@@ -98,9 +98,7 @@ pub fn execute_undo(
     let id = selected.id;
     let op = find_history_by_id(&conn, id)?;
 
-    let oma_apt_args = OmaAptArgs::builder()
-        .sysroot(sysroot.clone())
-        .build();
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let mut delete = vec![];

@@ -100,9 +100,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
 
     refresh(req)?;
 
-    let oma_apt_args = OmaAptArgs::builder()
-        .sysroot(sysroot.clone())
-        .build();
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
