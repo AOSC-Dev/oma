@@ -455,10 +455,6 @@ impl From<RefreshError> for OutputError {
                 description: e.to_string(),
                 source: None,
             },
-            RefreshError::DownloadEntryBuilderError(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
             RefreshError::ChecksumError(e) => oma_checksum_error(e),
             RefreshError::FailedToOperateDirOrFile(path, e) => Self {
                 description: fl!("failed-to-operate-path", p = path),
