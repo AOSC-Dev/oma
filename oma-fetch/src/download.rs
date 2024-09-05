@@ -9,7 +9,7 @@ use std::{
 };
 
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
-use derive_builder::Builder;
+use bon::builder;
 use futures::{io::BufReader, AsyncBufRead, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
@@ -23,13 +23,14 @@ use tracing::debug;
 
 use crate::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Summary};
 
-#[derive(Debug, Builder)]
+#[derive(Debug)]
+#[builder]
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
     pub entry: &'a DownloadEntry,
-    progress: (usize, usize, Arc<Option<String>>),
+    progress: (usize, usize, Option<String>),
     retry_times: usize,
-    context: Arc<Option<String>>,
+    context: Option<String>,
     download_list_index: usize,
     file_type: CompressFile,
 }
@@ -216,12 +217,12 @@ impl SingleDownloader<'_> {
 
                     callback(self.download_list_index, DownloadEvent::ProgressDone);
 
-                    return Ok(Summary::new(
-                        self.entry.filename.clone(),
-                        false,
-                        self.download_list_index,
-                        self.context.clone(),
-                    ));
+                    return Ok(Summary {
+                        filename: self.entry.filename.clone(),
+                        writed: false,
+                        count: self.download_list_index,
+                        context: self.context.clone(),
+                    });
                 }
 
                 debug!(
@@ -492,12 +493,12 @@ impl SingleDownloader<'_> {
 
         callback(self.download_list_index, DownloadEvent::ProgressDone);
 
-        Ok(Summary::new(
-            self.entry.filename.clone(),
-            true,
-            self.download_list_index,
-            self.context.clone(),
-        ))
+        Ok(Summary {
+            filename: self.entry.filename.clone(),
+            writed: true,
+            count: self.download_list_index,
+            context: self.context.clone(),
+        })
     }
 
     fn set_progress_msg(&self) -> String {
@@ -564,12 +565,12 @@ impl SingleDownloader<'_> {
 
             callback(self.download_list_index, DownloadEvent::ProgressDone);
 
-            return Ok(Summary::new(
-                self.entry.filename.clone(),
-                true,
-                self.download_list_index,
-                self.context.clone(),
-            ));
+            return Ok(Summary {
+                filename: self.entry.filename.clone(),
+                writed: true,
+                count: self.download_list_index,
+                context: self.context.clone(),
+            });
         }
 
         debug!("File path is: {}", url_path.display());
@@ -632,12 +633,12 @@ impl SingleDownloader<'_> {
 
         callback(self.download_list_index, DownloadEvent::ProgressDone);
 
-        Ok(Summary::new(
-            self.entry.filename.clone(),
-            true,
-            self.download_list_index,
-            self.context.clone(),
-        ))
+        Ok(Summary {
+            filename: self.entry.filename.clone(),
+            writed: true,
+            count: self.download_list_index,
+            context: self.context.clone(),
+        })
     }
 }
 

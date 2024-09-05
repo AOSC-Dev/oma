@@ -22,8 +22,8 @@ use oma_console::console::{self, style};
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::Client,
-    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
-    DownloadSourceType, OmaFetcher, Summary,
+    DownloadEntry, DownloadError, DownloadEvent, DownloadSource, DownloadSourceType, OmaFetcher,
+    Summary,
 };
 use oma_utils::{
     dpkg::{dpkg_arch, is_hold, DpkgError},
@@ -108,8 +108,6 @@ pub enum OmaAptError {
     DpkgFailedConfigure(std::io::Error),
     #[error("Insufficient disk space: need: {0}, available: {1}")]
     DiskSpaceInsufficient(HumanBytes, HumanBytes),
-    #[error(transparent)]
-    DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
     #[error("Can not commit: {0}")]
     CommitErr(String),
     #[error("Failed to mark pkg status: {0} is not installed")]
@@ -724,23 +722,24 @@ impl OmaApt {
 
             let msg = format!("{} {new_version} ({})", entry.name(), entry.arch());
 
-            let mut download_entry = DownloadEntryBuilder::default();
-            download_entry.source(sources);
-            download_entry.filename(apt_style_filename(&entry).into());
-            download_entry.dir(download_dir.to_path_buf());
-            download_entry.allow_resume(true);
-            download_entry.msg(msg);
-
-            if let Some(checksum) = entry.sha256() {
-                // TODO: 添加更多 checksum 类型
-                download_entry.hash(Checksum::from_sha256_str(checksum)?);
-            } else if let Some(checksum) = entry.sha512() {
-                download_entry.hash(Checksum::from_sha512_str(checksum)?);
-            } else if let Some(checksum) = entry.md5() {
-                download_entry.hash(Checksum::from_md5_str(checksum)?);
-            }
-
-            let download_entry = download_entry.build()?;
+            let download_entry = DownloadEntry::builder()
+                .source(sources)
+                .filename(apt_style_filename(&entry).into())
+                .dir(download_dir.to_path_buf())
+                .allow_resume(true)
+                .msg(msg)
+                .maybe_hash({
+                    if let Some(checksum) = entry.sha256() {
+                        Some(Checksum::from_sha256_str(checksum)?)
+                    } else if let Some(checksum) = entry.sha512() {
+                        Some(Checksum::from_sha512_str(checksum)?)
+                    } else if let Some(checksum) = entry.md5() {
+                        Some(Checksum::from_md5_str(checksum)?)
+                    } else {
+                        None
+                    }
+                })
+                .build();
 
             total_size += entry.download_size();
 

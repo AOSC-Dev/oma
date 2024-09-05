@@ -348,10 +348,6 @@ impl From<RefreshError> for OutputError {
                 description: e.to_string(),
                 source: None,
             },
-            RefreshError::DownloadEntryBuilderError(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
             RefreshError::ChecksumError(e) => oma_checksum_error(e),
             RefreshError::FailedToOperateDirOrFile(path, e) => Self {
                 description: fl!("failed-to-operate-path", p = path),
@@ -674,10 +670,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             ),
             source: None,
         },
-        OmaAptError::DownloadEntryBuilderError(e) => OutputError {
-            description: e.to_string(),
-            source: None,
-        },
         OmaAptError::CommitErr(e) => OutputError {
             description: e,
             source: None,
@@ -787,10 +779,6 @@ fn oma_download_error(e: DownloadError) -> OutputError {
         DownloadError::FailedOpenLocalSourceFile(path, e) => OutputError {
             description: fl!("can-not-parse-sources-list", path = path.to_string()),
             source: Some(Box::new(e)),
-        },
-        DownloadError::DownloadSourceBuilderError(e) => OutputError {
-            description: e.to_string(),
-            source: None,
         },
         DownloadError::InvaildURL(s) => OutputError {
             description: fl!("invaild-url", url = s),
