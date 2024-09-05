@@ -1,8 +1,6 @@
 name: deb-build
 
-on:
-  push:
-    tags: [ "v*" ]
+on: push
 
 jobs:
   package:
@@ -26,7 +24,7 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang
+          apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
@@ -47,7 +45,24 @@ jobs:
           echo "VER_SUFFIX=${VER_SUFFIX}" >> "${GITHUB_ENV}"
         env:
           TARGET_DISTRO: "${{ matrix.target }}"
-      - name: Upload
+      - name: Setup SSH private key
+        env:
+          KEY: ${{ secrets.KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          chmod 0700 ~/.ssh/
+          echo "$KEY" > ~/.ssh/id_ed25519
+          cp .github/workflows/known_hosts ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Upload packages (repository)
+        shell: bash
+        run: |
+          scp -v -o IdentityFile=~/.ssh/id_ed25519 -o UserKnownHostsFile=~/.ssh/known_hosts target/debian/*-"${VER_SUFFIX}".deb ${USER}@repo.aosc.io:/mirror/oma/pool/"${VER_SUFFIX}"/main/o/
+          ssh -v -o IdentityFile=~/.ssh/id_ed25519 -o UserKnownHostsFile=~/.ssh/known_hosts ${USER}@repo.aosc.io touch /mirror/.updated
+        env:
+          TARGET_DISTRO: "${{ matrix.target }}"
+          USER: ${{ secrets.USER }}
+      - name: Upload packages (GitHub Release)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.VER_SUFFIX }}
