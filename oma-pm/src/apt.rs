@@ -816,7 +816,7 @@ impl OmaApt {
         pkgs: &'a [String],
         hold: bool,
         dry_run: bool,
-    ) -> OmaAptResult<Vec<(&str, bool)>> {
+    ) -> OmaAptResult<Vec<(&'a str, bool)>> {
         for pkg in pkgs {
             if !self
                 .cache
