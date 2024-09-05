@@ -384,15 +384,14 @@ impl OmaApt {
             let md5 = ver.get_record(RecordField::MD5sum);
             let sha512 = ver.sha512();
 
-            if ver.uris().all(|x| !x.starts_with("file")) {
-                if sha256
+            if ver.uris().all(|x| !x.starts_with("file"))
+                && sha256
                     .as_ref()
                     .or(md5.as_ref())
                     .or(sha512.as_ref())
                     .is_none()
-                {
-                    return Err(OmaAptError::PkgNoChecksum(name));
-                }
+            {
+                return Err(OmaAptError::PkgNoChecksum(name));
             }
 
             let entry = InstallEntry::builder()
@@ -724,7 +723,7 @@ impl OmaApt {
 
             let download_entry = DownloadEntry::builder()
                 .source(sources)
-                .filename(apt_style_filename(&entry).into())
+                .filename(apt_style_filename(&entry))
                 .dir(download_dir.to_path_buf())
                 .allow_resume(true)
                 .msg(msg)
@@ -908,15 +907,14 @@ impl OmaApt {
 
                 let size = cand.installed_size();
 
-                if not_local_source {
-                    if sha256
+                if not_local_source
+                    && sha256
                         .as_ref()
                         .or(md5.as_ref())
                         .or(sha512.as_ref())
                         .is_none()
-                    {
-                        return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
-                    }
+                {
+                    return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
                 }
 
                 let entry = if not_local_source {
@@ -1009,15 +1007,14 @@ impl OmaApt {
                 let uri = version.uris().collect::<Vec<_>>();
                 let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
 
-                if not_local_source {
-                    if sha256
+                if not_local_source
+                    && sha256
                         .as_ref()
                         .or(md5.as_ref())
                         .or(sha512.as_ref())
                         .is_none()
-                    {
-                        return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
-                    }
+                {
+                    return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
                 }
 
                 let entry = if not_local_source {
@@ -1173,15 +1170,14 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     let md5 = cand.get_record(RecordField::MD5sum);
     let sha512 = cand.sha512();
 
-    if not_local_source {
-        if sha256
+    if not_local_source
+        && sha256
             .as_ref()
             .or(md5.as_ref())
             .or(sha512.as_ref())
             .is_none()
-        {
-            return Err(OmaAptError::PkgNoChecksum(new_pkg.to_string()));
-        }
+    {
+        return Err(OmaAptError::PkgNoChecksum(new_pkg.to_string()));
     }
 
     let install_entry = if not_local_source {

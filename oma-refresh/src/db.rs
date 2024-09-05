@@ -416,7 +416,7 @@ impl<'a> OmaRefresh<'a> {
 
             let task = DownloadEntry::builder()
                 .source(sources)
-                .filename(replacer.replace(&uri)?.into())
+                .filename(replacer.replace(&uri)?)
                 .dir(self.download_dir.clone())
                 .allow_resume(false)
                 .msg(msg)
@@ -671,7 +671,7 @@ fn download_flat_repo_no_release(
 
     let task = DownloadEntry::builder()
         .source(sources)
-        .filename(replacer.replace(&file_path)?.into())
+        .filename(replacer.replace(&file_path)?)
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
         .msg(msg)
@@ -754,7 +754,7 @@ fn collect_download_task(
 
     let task = DownloadEntry::builder()
         .source(sources)
-        .filename(replacer.replace(&file_path)?.into())
+        .filename(replacer.replace(&file_path)?)
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
         .msg(msg)
