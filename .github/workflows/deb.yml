@@ -1,6 +1,8 @@
 name: deb-build
 
-on: push
+on:
+  push:
+    tags: [ "v*" ]
 
 jobs:
   package:
