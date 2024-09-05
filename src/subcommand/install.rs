@@ -1,8 +1,8 @@
 use oma_history::SummaryType;
-use oma_pm::apt::AptArgsBuilder;
+use oma_pm::apt::AptArgs;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
-use oma_pm::apt::OmaAptArgsBuilder;
+use oma_pm::apt::OmaAptArgs;
 use reqwest::Client;
 use tracing::info;
 use tracing::warn;
@@ -77,13 +77,13 @@ pub fn execute(
 
     let pkgs_unparse = input.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
-    let oma_apt_args = OmaAptArgsBuilder::default()
+    let oma_apt_args = OmaAptArgs::builder()
         .sysroot(args.sysroot.clone())
         .install_recommends(args.install_recommends)
         .install_suggests(args.install_suggests)
         .no_install_recommends(args.no_install_recommends)
         .no_install_suggests(args.no_install_suggests)
-        .build()?;
+        .build();
 
     let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, apt_config)?;
     let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, args.install_dbg, true, false)?;
@@ -100,13 +100,13 @@ pub fn execute(
         }
     }
 
-    let apt_args = AptArgsBuilder::default()
+    let apt_args = AptArgs::builder()
         .yes(args.yes)
         .force_yes(args.force_yes)
         .dpkg_force_all(args.dpkg_force_all)
         .dpkg_force_confnew(args.force_confnew)
         .no_progress(no_progress)
-        .build()?;
+        .build();
 
     let args = NormalCommitArgs {
         apt,

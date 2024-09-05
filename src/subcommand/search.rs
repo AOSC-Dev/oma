@@ -7,7 +7,7 @@ use oma_console::{
     WRITER,
 };
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgsBuilder},
+    apt::{AptConfig, OmaApt, OmaAptArgs},
     query::OmaDatabase,
     PackageStatus,
 };
@@ -22,7 +22,7 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
         check_unsupport_stmt(arg);
     }
 
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.concat();

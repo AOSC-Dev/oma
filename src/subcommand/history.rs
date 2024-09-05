@@ -4,10 +4,10 @@ use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::{
     connect_db, find_history_by_id, list_history, HistoryListEntry, SummaryType, DATABASE_PATH,
 };
-use oma_pm::apt::{AptConfig, InstallOperation};
+use oma_pm::apt::{AptArgs, AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{
-    apt::{AptArgsBuilder, FilterMode, OmaApt, OmaAptArgsBuilder},
+    apt::{FilterMode, OmaApt},
     pkginfo::PkgInfo,
 };
 use reqwest::Client;
@@ -98,9 +98,9 @@ pub fn execute_undo(
     let id = selected.id;
     let op = find_history_by_id(&conn, id)?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default()
+    let oma_apt_args = OmaAptArgs::builder()
         .sysroot(sysroot.clone())
-        .build()?;
+        .build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let mut delete = vec![];
@@ -157,7 +157,7 @@ pub fn execute_undo(
         apt,
         dry_run: false,
         typ: SummaryType::Undo,
-        apt_args: AptArgsBuilder::default().no_progress(no_progress).build()?,
+        apt_args: AptArgs::builder().no_progress(no_progress).build(),
         no_fixbroken: false,
         network_thread,
         no_progress,

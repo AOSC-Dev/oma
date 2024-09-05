@@ -1,7 +1,7 @@
 use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::SummaryType;
 use oma_pm::{
-    apt::{AptArgsBuilder, AptConfig, OmaApt, OmaAptArgsBuilder},
+    apt::{AptArgs, AptConfig, OmaApt, OmaAptArgs},
     pkginfo::PkgInfo,
 };
 use reqwest::Client;
@@ -61,9 +61,7 @@ pub fn execute(
         refresh(req)?;
     }
 
-    let oma_apt_args = OmaAptArgsBuilder::default()
-        .sysroot(sysroot.clone())
-        .build()?;
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
     let pkg = apt
         .cache
@@ -133,7 +131,7 @@ pub fn execute(
                 .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
-        apt_args: AptArgsBuilder::default().no_progress(no_progress).build()?,
+        apt_args: AptArgs::builder().no_progress(no_progress).build(),
         no_fixbroken: false,
         network_thread,
         no_progress,

@@ -3,7 +3,7 @@ use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_history::SummaryType;
-use oma_pm::apt::{AptArgsBuilder, AptConfig, OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptArgs, AptConfig, OmaApt, OmaAptArgs};
 use reqwest::Client;
 use tracing::{info, warn};
 
@@ -47,9 +47,7 @@ pub fn execute(
         warn!("{}", fl!("automatic-mode-warn"));
     }
 
-    let oma_apt_args = OmaAptArgsBuilder::default()
-        .sysroot(args.sysroot.clone())
-        .build()?;
+    let oma_apt_args = OmaAptArgs::builder().sysroot(args.sysroot.clone()).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
     let (pkgs, no_result) = apt.select_pkg(&pkgs, false, true, false)?;
     handle_no_result(no_result)?;
@@ -70,11 +68,11 @@ pub fn execute(
                 .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
-        apt_args: AptArgsBuilder::default()
+        apt_args: AptArgs::builder()
             .yes(args.yes)
             .force_yes(args.force_yes)
             .no_progress(no_progress)
-            .build()?,
+            .build(),
         no_fixbroken: !args.fix_broken,
         network_thread,
         no_progress,

@@ -1,5 +1,5 @@
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgsBuilder},
+    apt::{AptConfig, OmaApt, OmaAptArgs},
     pkginfo::PkgInfo,
 };
 use tracing::info;
@@ -10,7 +10,7 @@ use super::utils::handle_no_result;
 use crate::fl;
 
 pub fn execute(all: bool, input: Vec<&str>, sysroot: String) -> Result<i32, OutputError> {
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let (pkgs, no_result) = apt.select_pkg(&input, false, false, false)?;
     handle_no_result(no_result)?;

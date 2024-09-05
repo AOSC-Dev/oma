@@ -20,7 +20,7 @@ use crate::{
     utils::{create_async_runtime, dbus_check},
 };
 use oma_pm::{
-    apt::{AptArgsBuilder, AptConfig, OmaApt, OmaAptArgsBuilder},
+    apt::{AptArgs, AptConfig, OmaApt, OmaAptArgs},
     pkginfo::PkgInfo,
     search::{OmaSearch, SearchResult},
     PackageStatus,
@@ -259,9 +259,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         source: Some(Box::new(e)),
     })?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default()
-        .sysroot(sysroot.clone())
-        .build()?;
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
@@ -723,7 +721,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         apt.install(&install, false)?;
         apt.remove(&remove, false, false)?;
 
-        let apt_args = AptArgsBuilder::default().no_progress(no_progress).build()?;
+        let apt_args = AptArgs::builder().no_progress(no_progress).build();
 
         normal_commit(
             NormalCommitArgs {

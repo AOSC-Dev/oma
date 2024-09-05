@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use oma_console::success;
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::info;
 
 use crate::{error::OutputError, utils::root};
@@ -17,7 +17,7 @@ pub fn execute(
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let set = match op {

@@ -1,7 +1,7 @@
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
 use oma_console::success;
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use reqwest::Client;
 
 use crate::{error::OutputError, utils::root};
@@ -38,7 +38,7 @@ pub fn execute(
 
     refresh(req)?;
 
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
     let (style, inv) = spinner_style();
