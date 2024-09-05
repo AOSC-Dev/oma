@@ -14,8 +14,8 @@ use oma_apt_sources_lists::SourceError;
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::{self, Client},
-    CompressFile, DownloadEntry, DownloadEntryBuilder, DownloadEntryBuilderError, DownloadEvent,
-    DownloadResult, DownloadSource, DownloadSourceType, OmaFetcher, Summary,
+    CompressFile, DownloadEntry, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType,
+    OmaFetcher, Summary,
 };
 
 use oma_fetch::DownloadError;
@@ -60,8 +60,6 @@ pub enum RefreshError {
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
     #[error(transparent)]
-    DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
-    #[error(transparent)]
     ChecksumError(#[from] ChecksumError),
     #[error("Failed to operate dir or file {0}: {1}")]
     FailedToOperateDirOrFile(String, tokio::io::Error),
@@ -94,8 +92,6 @@ pub enum RefreshError {
     DpkgArchError(#[from] oma_utils::dpkg::DpkgError),
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
-    #[error(transparent)]
-    DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
     #[error(transparent)]
     ChecksumError(#[from] ChecksumError),
     #[error("Failed to operate dir or file {0}: {1}")]
@@ -418,13 +414,13 @@ impl<'a> OmaRefresh<'a> {
                 },
             )];
 
-            let task = DownloadEntryBuilder::default()
+            let task = DownloadEntry::builder()
                 .source(sources)
-                .filename(replacer.replace(&uri)?.into())
+                .filename(replacer.replace(&uri)?)
                 .dir(self.download_dir.clone())
                 .allow_resume(false)
                 .msg(msg)
-                .build()?;
+                .build();
 
             debug!("oma will fetch {} InRelease", source_entry.url);
             tasks.push(task);
@@ -673,15 +669,15 @@ fn download_flat_repo_no_release(
 
     let sources = vec![DownloadSource::new(download_url.clone(), from)];
 
-    let mut task = DownloadEntryBuilder::default();
-    task.source(sources);
-    task.filename(replacer.replace(&file_path)?.into());
-    task.dir(download_dir.to_path_buf());
-    task.allow_resume(false);
-    task.msg(msg);
-    task.file_type(CompressFile::Nothing);
+    let task = DownloadEntry::builder()
+        .source(sources)
+        .filename(replacer.replace(&file_path)?)
+        .dir(download_dir.to_path_buf())
+        .allow_resume(false)
+        .msg(msg)
+        .file_type(CompressFile::Nothing)
+        .build();
 
-    let task = task.build()?;
     debug!("oma will download source database: {download_url}");
     tasks.push(task);
 
@@ -756,35 +752,36 @@ fn collect_download_task(
         format!("{}/{}", dist_url, not_compress_filename_before)
     };
 
-    let mut task = DownloadEntryBuilder::default();
-    task.source(sources);
-    task.filename(replacer.replace(&file_path)?.into());
-    task.dir(download_dir.to_path_buf());
-    task.allow_resume(false);
-    task.msg(msg);
-    task.file_type({
-        if c.keep_compress {
-            CompressFile::Nothing
-        } else {
-            match Path::new(&c.item.name).extension().and_then(|x| x.to_str()) {
-                Some("gz") => CompressFile::Gzip,
-                Some("xz") => CompressFile::Xz,
-                Some("bz2") => CompressFile::Bz2,
-                Some("zst") => CompressFile::Zstd,
-                _ => CompressFile::Nothing,
+    let task = DownloadEntry::builder()
+        .source(sources)
+        .filename(replacer.replace(&file_path)?)
+        .dir(download_dir.to_path_buf())
+        .allow_resume(false)
+        .msg(msg)
+        .file_type({
+            if c.keep_compress {
+                CompressFile::Nothing
+            } else {
+                match Path::new(&c.item.name).extension().and_then(|x| x.to_str()) {
+                    Some("gz") => CompressFile::Gzip,
+                    Some("xz") => CompressFile::Xz,
+                    Some("bz2") => CompressFile::Bz2,
+                    Some("zst") => CompressFile::Zstd,
+                    _ => CompressFile::Nothing,
+                }
             }
-        }
-    });
+        })
+        .maybe_hash(if let Some(checksum) = checksum {
+            match inrelease.checksum_type {
+                ChecksumType::Sha256 => Some(Checksum::from_sha256_str(checksum)?),
+                ChecksumType::Sha512 => Some(Checksum::from_sha512_str(checksum)?),
+                ChecksumType::Md5 => Some(Checksum::from_md5_str(checksum)?),
+            }
+        } else {
+            None
+        })
+        .build();
 
-    if let Some(checksum) = checksum {
-        task.hash(match inrelease.checksum_type {
-            ChecksumType::Sha256 => Checksum::from_sha256_str(checksum)?,
-            ChecksumType::Sha512 => Checksum::from_sha512_str(checksum)?,
-            ChecksumType::Md5 => Checksum::from_md5_str(checksum)?,
-        });
-    }
-
-    let task = task.build()?;
     debug!("oma will download source database: {download_url}");
     tasks.push(task);
 

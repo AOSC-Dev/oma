@@ -7,7 +7,7 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{
-    checksum::Checksum, DownloadEntryBuilder, DownloadEvent, DownloadResult, DownloadSource,
+    checksum::Checksum, DownloadEntry, DownloadEvent, DownloadResult, DownloadSource,
     DownloadSourceType, OmaFetcher,
 };
 use reqwest::ClientBuilder;
@@ -20,7 +20,7 @@ async fn main() -> DownloadResult<()> {
         DownloadSourceType::Http
     );
 
-    let file_1 = DownloadEntryBuilder::default()
+    let file_1 = DownloadEntry::builder()
         .source(vec![source_1])
         .filename("go.deb".to_string().into())
         .dir(PathBuf::from("./oma-fetcher-test"))
@@ -31,19 +31,19 @@ async fn main() -> DownloadResult<()> {
             .unwrap(),
         )
         .allow_resume(true)
-        .build()?;
+        .build();
 
     let source_2 = DownloadSource::new(
         "https://mirrors.bfsu.edu.cn/anthon/debs/pool/stable/main/v/vscodium_1.77.3.23102-0_arm64.deb".to_string(),
         DownloadSourceType::Http
     );
 
-    let file_2 = DownloadEntryBuilder::default()
+    let file_2 = DownloadEntry::builder()
         .source(vec![source_2])
         .filename("vscode.deb".to_string().into())
         .dir(PathBuf::from("./oma-fetcher-test"))
         .allow_resume(false)
-        .build()?;
+        .build();
 
     let mut test_local_file = tokio::fs::File::create("test").await.unwrap();
     test_local_file.write_all(b"test").await.unwrap();

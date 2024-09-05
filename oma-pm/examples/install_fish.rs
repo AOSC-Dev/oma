@@ -10,10 +10,10 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
-use oma_pm::apt::{AptArgs, AptConfig, OmaApt, OmaAptArgsBuilder, OmaAptError};
+use oma_pm::apt::{AptArgs, AptConfig, OmaApt, OmaAptArgs, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
-    let oma_apt_args = OmaAptArgsBuilder::default().build().unwrap();
+    let oma_apt_args = OmaAptArgs::builder().build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let pkgs = apt.select_pkg(&vec!["fish"], false, true, true)?;
 
@@ -32,7 +32,7 @@ fn main() -> Result<(), OmaAptError> {
     apt.commit(
         &client,
         None,
-        &AptArgs::default(),
+        &AptArgs::builder().build(),
         |count, event, total| {
             match event {
                 DownloadEvent::ChecksumMismatchRetry { filename, times } => {

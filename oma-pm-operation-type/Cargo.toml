@@ -8,8 +8,8 @@ description = "APT package management operation abstraction library"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-derive_builder = "0.20"
 serde = { version = "1.0", features = ["derive"] }
 oma-utils = { version = "^0.8.0", path = "../oma-utils", features = [
     "human-bytes",
 ] }
+bon = "2.1"

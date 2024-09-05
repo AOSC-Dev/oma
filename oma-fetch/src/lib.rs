@@ -5,9 +5,9 @@ use std::{
     sync::{atomic::AtomicU64, Arc},
 };
 
+use bon::builder;
 use checksum::Checksum;
-use derive_builder::Builder;
-use download::SingleDownloaderBuilder;
+use download::SingleDownloader;
 use futures::StreamExt;
 
 use reqwest::Client;
@@ -29,8 +29,6 @@ pub enum DownloadError {
     ChecksumError(#[from] crate::checksum::ChecksumError),
     #[error("Failed to open local source file {0}: {1}")]
     FailedOpenLocalSourceFile(String, tokio::io::Error),
-    #[error(transparent)]
-    DownloadSourceBuilderError(#[from] DownloadEntryBuilderError),
     #[error("Invaild URL: {0}")]
     InvaildURL(String),
     #[error("download source list is empty")]
@@ -39,17 +37,16 @@ pub enum DownloadError {
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 
-#[derive(Debug, Clone, Builder, Default)]
-#[builder(default)]
+#[derive(Debug, Clone, Default)]
+#[builder]
 pub struct DownloadEntry {
     pub source: Vec<DownloadSource>,
-    pub filename: Arc<String>,
+    pub filename: String,
     dir: PathBuf,
-    #[builder(setter(into, strip_option))]
     hash: Option<Checksum>,
     allow_resume: bool,
-    #[builder(setter(into, strip_option))]
     msg: Option<String>,
+    #[builder(default)]
     file_type: CompressFile,
 }
 
@@ -173,10 +170,10 @@ pub struct OmaFetcher<'a> {
 
 #[derive(Debug)]
 pub struct Summary {
-    pub filename: Arc<String>,
+    pub filename: String,
     pub writed: bool,
     pub count: usize,
-    pub context: Arc<Option<String>>,
+    pub context: Option<String>,
 }
 
 #[derive(Debug)]
@@ -197,23 +194,6 @@ pub enum DownloadEvent {
 impl Display for DownloadEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{self:?}"))
-    }
-}
-
-/// Summary struct to save download result
-impl Summary {
-    fn new(
-        filename: Arc<String>,
-        writed: bool,
-        count: usize,
-        context: Arc<Option<String>>,
-    ) -> Self {
-        Self {
-            filename,
-            writed,
-            count,
-            context,
-        }
     }
 }
 
@@ -248,18 +228,17 @@ impl<'a> OmaFetcher<'a> {
         let mut tasks = Vec::new();
         let mut list = vec![];
         for (i, c) in self.download_list.iter().enumerate() {
-            let msg = Arc::new(c.msg.clone());
+            let msg = c.msg.clone();
             // 因为数据的来源是确定的，所以这里能够确定肯定不崩溃，因此直接 unwrap
-            let single = SingleDownloaderBuilder::default()
+            let single = SingleDownloader::builder()
                 .client(self.client)
-                .context(msg.clone())
+                .maybe_context(msg.clone())
                 .download_list_index(i)
                 .entry(c)
                 .progress((i + 1, self.download_list.len(), msg))
                 .retry_times(self.retry_times)
                 .file_type(c.file_type.clone())
-                .build()
-                .unwrap();
+                .build();
 
             list.push(single);
         }

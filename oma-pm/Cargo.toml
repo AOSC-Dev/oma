@@ -26,7 +26,6 @@ tokio = { version = "1.15", default-features = false, features = [
 oma-console = { version = "^0.15.0", path = "../oma-console", default-features = false, features = [
     "print",
 ] }
-derive_builder = "0.20"
 fs4 = "0.9"
 tracing = "0.1"
 small-map = "0.1"
@@ -34,6 +33,7 @@ oma-pm-operation-type = { version = "0.3", path = "../oma-pm-operation-type" }
 zbus = { version = "4.1", features = ["tokio"] }
 cxx = "1.0.121"
 ahash = "0.8.11"
+bon = "2.1"
 
 [dev-dependencies]
 dashmap = "6"

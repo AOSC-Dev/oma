@@ -15,12 +15,12 @@ serde = { version = "1.0", features = ["derive"] }
 faster-hex = "0.9"
 sha2 = "0.10"
 futures = "0.3"
-derive_builder = "0.20"
 async-compression = { version = "0.4", features = ["gzip", "xz", "futures-io", "bzip2", "zstd"] }
 oma-utils = { version = "^0.8", features = ["url-no-escape"] }
 tracing = "0.1"
 tokio-util = { version = "0.7", features = ["compat"] }
 md-5 = "0.10.6"
+bon = "2.1"
 
 [dev-dependencies]
 tokio = { version = "1.28", default-features = false, features = ["macros", "rt-multi-thread"] }

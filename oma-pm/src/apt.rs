@@ -5,8 +5,8 @@ use std::{
     process::Command,
 };
 
+use bon::builder;
 use chrono::Local;
-use derive_builder::Builder;
 
 use oma_apt::{
     cache::{Cache, PackageSort, Upgrade},
@@ -22,8 +22,8 @@ use oma_console::console::{self, style};
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::Client,
-    DownloadEntryBuilder, DownloadEntryBuilderError, DownloadError, DownloadEvent, DownloadSource,
-    DownloadSourceType, OmaFetcher, Summary,
+    DownloadEntry, DownloadError, DownloadEvent, DownloadSource, DownloadSourceType, OmaFetcher,
+    Summary,
 };
 use oma_utils::{
     dpkg::{dpkg_arch, is_hold, DpkgError},
@@ -46,21 +46,19 @@ use crate::{
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
-#[derive(Builder, Default, Clone)]
-#[builder(default)]
+#[builder]
+#[derive(Debug, Clone)]
 pub struct OmaAptArgs {
+    #[builder(default = true)]
     install_recommends: bool,
+    #[builder(default)]
     install_suggests: bool,
+    #[builder(default)]
     no_install_recommends: bool,
+    #[builder(default = true)]
     no_install_suggests: bool,
-    #[builder(default = "self.default_sysroot()")]
+    #[builder(default = "/".to_string())]
     sysroot: String,
-}
-
-impl OmaAptArgsBuilder {
-    fn default_sysroot(&self) -> String {
-        String::from("/")
-    }
 }
 
 pub struct OmaApt {
@@ -106,14 +104,10 @@ pub enum OmaAptError {
     FailedOperateDirOrFile(String, std::io::Error),
     #[error("Failed to get available space: {0}")]
     FailedGetAvailableSpace(std::io::Error),
-    #[error(transparent)]
-    InstallEntryBuilderError(#[from] InstallEntryBuilderError),
     #[error("Failed to run dpkg --configure -a: {0}")]
     DpkgFailedConfigure(std::io::Error),
     #[error("Insufficient disk space: need: {0}, available: {1}")]
     DiskSpaceInsufficient(HumanBytes, HumanBytes),
-    #[error(transparent)]
-    DownloadEntryBuilderError(#[from] DownloadEntryBuilderError),
     #[error("Can not commit: {0}")]
     CommitErr(String),
     #[error("Failed to mark pkg status: {0} is not installed")]
@@ -132,13 +126,17 @@ pub enum OmaAptError {
     ChecksumError(#[from] ChecksumError),
 }
 
-#[derive(Default, Builder)]
-#[builder(default)]
+#[builder]
 pub struct AptArgs {
+    #[builder(default)]
     yes: bool,
+    #[builder(default)]
     force_yes: bool,
+    #[builder(default)]
     dpkg_force_confnew: bool,
+    #[builder(default)]
     dpkg_force_all: bool,
+    #[builder(default)]
     no_progress: bool,
 }
 
@@ -381,33 +379,33 @@ impl OmaApt {
             if !ver.is_downloadable() {
                 return Err(OmaAptError::PkgUnavailable(name, ver.version().to_string()));
             }
-            let mut entry = InstallEntryBuilder::default();
-            entry.name(pkg.raw_pkg.fullname(true).to_string());
-            entry.new_version(ver.version().to_string());
-            entry.new_size(install_size);
-            entry.pkg_urls(ver.uris().collect::<Vec<_>>());
-            entry.arch(ver.arch().to_string());
-            entry.download_size(ver.size());
-            entry.op(InstallOperation::Download);
 
             let sha256 = ver.get_record(RecordField::SHA256);
             let md5 = ver.get_record(RecordField::MD5sum);
             let sha512 = ver.sha512();
 
-            if ver.uris().all(|x| !x.starts_with("file")) {
-                if sha256
+            if ver.uris().all(|x| !x.starts_with("file"))
+                && sha256
                     .as_ref()
                     .or(md5.as_ref())
                     .or(sha512.as_ref())
                     .is_none()
-                {
-                    return Err(OmaAptError::PkgNoChecksum(name));
-                }
-                entry.sha256(sha256);
-                entry.md5(md5);
-                entry.sha512(sha512);
+            {
+                return Err(OmaAptError::PkgNoChecksum(name));
             }
-            let entry = entry.build()?;
+
+            let entry = InstallEntry::builder()
+                .name(pkg.raw_pkg.fullname(true).to_string())
+                .new_version(ver.version().to_string())
+                .new_size(install_size)
+                .pkg_urls(ver.uris().collect::<Vec<_>>())
+                .arch(ver.arch().to_string())
+                .download_size(ver.size())
+                .op(InstallOperation::Download)
+                .maybe_sha256(sha256)
+                .maybe_sha512(sha512)
+                .maybe_md5(md5)
+                .build();
 
             download_list.push(entry);
         }
@@ -723,23 +721,24 @@ impl OmaApt {
 
             let msg = format!("{} {new_version} ({})", entry.name(), entry.arch());
 
-            let mut download_entry = DownloadEntryBuilder::default();
-            download_entry.source(sources);
-            download_entry.filename(apt_style_filename(&entry).into());
-            download_entry.dir(download_dir.to_path_buf());
-            download_entry.allow_resume(true);
-            download_entry.msg(msg);
-
-            if let Some(checksum) = entry.sha256() {
-                // TODO: 添加更多 checksum 类型
-                download_entry.hash(Checksum::from_sha256_str(checksum)?);
-            } else if let Some(checksum) = entry.sha512() {
-                download_entry.hash(Checksum::from_sha512_str(checksum)?);
-            } else if let Some(checksum) = entry.md5() {
-                download_entry.hash(Checksum::from_md5_str(checksum)?);
-            }
-
-            let download_entry = download_entry.build()?;
+            let download_entry = DownloadEntry::builder()
+                .source(sources)
+                .filename(apt_style_filename(&entry))
+                .dir(download_dir.to_path_buf())
+                .allow_resume(true)
+                .msg(msg)
+                .maybe_hash({
+                    if let Some(checksum) = entry.sha256() {
+                        Some(Checksum::from_sha256_str(checksum)?)
+                    } else if let Some(checksum) = entry.sha512() {
+                        Some(Checksum::from_sha512_str(checksum)?)
+                    } else if let Some(checksum) = entry.md5() {
+                        Some(Checksum::from_md5_str(checksum)?)
+                    } else {
+                        None
+                    }
+                })
+                .build();
 
             total_size += entry.download_size();
 
@@ -908,31 +907,42 @@ impl OmaApt {
 
                 let size = cand.installed_size();
 
-                let mut entry = InstallEntryBuilder::default();
-                entry.name(pkg.fullname(true).to_string());
-                entry.new_version(version.to_string());
-                entry.new_size(size);
-                entry.pkg_urls(uri);
-                entry.arch(cand.arch().to_string());
-                entry.download_size(cand.size());
-                entry.op(InstallOperation::Install);
-                entry.automatic(!self.select_pkgs.contains(&pkg.fullname(true)));
-
-                if not_local_source {
-                    if sha256
+                if not_local_source
+                    && sha256
                         .as_ref()
                         .or(md5.as_ref())
                         .or(sha512.as_ref())
                         .is_none()
-                    {
-                        return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
-                    }
-                    entry.sha256(sha256);
-                    entry.md5(md5);
-                    entry.sha512(sha512);
+                {
+                    return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
                 }
 
-                let entry = entry.build()?;
+                let entry = if not_local_source {
+                    InstallEntry::builder()
+                        .name(pkg.fullname(true).to_string())
+                        .new_version(version.to_string())
+                        .new_size(size)
+                        .pkg_urls(uri)
+                        .arch(cand.arch().to_string())
+                        .download_size(cand.size())
+                        .op(InstallOperation::Install)
+                        .automatic(!self.select_pkgs.contains(&pkg.fullname(true)))
+                        .maybe_md5(md5)
+                        .maybe_sha256(sha256)
+                        .maybe_sha512(sha512)
+                        .build()
+                } else {
+                    InstallEntry::builder()
+                        .name(pkg.fullname(true).to_string())
+                        .new_version(version.to_string())
+                        .new_size(size)
+                        .pkg_urls(uri)
+                        .arch(cand.arch().to_string())
+                        .download_size(cand.size())
+                        .op(InstallOperation::Install)
+                        .automatic(!self.select_pkgs.contains(&pkg.fullname(true)))
+                        .build()
+                };
 
                 install.push(entry);
 
@@ -997,32 +1007,44 @@ impl OmaApt {
                 let uri = version.uris().collect::<Vec<_>>();
                 let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
 
-                let mut entry = InstallEntryBuilder::default();
-                entry.name(pkg.fullname(true));
-                entry.new_version(version.version().to_string());
-                entry.old_size(version.installed_size());
-                entry.new_size(version.installed_size());
-                entry.pkg_urls(uri);
-                entry.arch(version.arch().to_string());
-                entry.download_size(version.size());
-                entry.op(InstallOperation::ReInstall);
-                entry.automatic(!self.select_pkgs.contains(&pkg.fullname(true)));
-
-                if not_local_source {
-                    if sha256
+                if not_local_source
+                    && sha256
                         .as_ref()
                         .or(md5.as_ref())
                         .or(sha512.as_ref())
                         .is_none()
-                    {
-                        return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
-                    }
-                    entry.sha256(sha256);
-                    entry.md5(md5);
-                    entry.sha512(sha512);
+                {
+                    return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
                 }
 
-                let entry = entry.build()?;
+                let entry = if not_local_source {
+                    InstallEntry::builder()
+                        .name(pkg.fullname(true))
+                        .new_version(version.version().to_string())
+                        .old_size(version.installed_size())
+                        .new_size(version.installed_size())
+                        .pkg_urls(uri)
+                        .arch(version.arch().to_string())
+                        .download_size(version.size())
+                        .op(InstallOperation::ReInstall)
+                        .automatic(!self.select_pkgs.contains(&pkg.fullname(true)))
+                        .maybe_sha256(sha256)
+                        .maybe_sha512(sha512)
+                        .maybe_md5(md5)
+                        .build()
+                } else {
+                    InstallEntry::builder()
+                        .name(pkg.fullname(true))
+                        .new_version(version.version().to_string())
+                        .old_size(version.installed_size())
+                        .new_size(version.installed_size())
+                        .pkg_urls(uri)
+                        .arch(version.arch().to_string())
+                        .download_size(version.size())
+                        .op(InstallOperation::ReInstall)
+                        .automatic(!self.select_pkgs.contains(&pkg.fullname(true)))
+                        .build()
+                };
 
                 install.push(entry);
             }
@@ -1148,32 +1170,44 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     let md5 = cand.get_record(RecordField::MD5sum);
     let sha512 = cand.sha512();
 
-    let mut install_entry = InstallEntryBuilder::default();
-    install_entry.name(new_pkg.fullname(true).to_string());
-    install_entry.old_version(old_version.to_string());
-    install_entry.new_version(new_version.to_owned());
-    install_entry.old_size(installed.installed_size());
-    install_entry.new_size(cand.installed_size());
-    install_entry.pkg_urls(cand.uris().collect::<Vec<_>>());
-    install_entry.arch(cand.arch().to_string());
-    install_entry.download_size(cand.size());
-    install_entry.op(op);
-
-    if not_local_source {
-        if sha256
+    if not_local_source
+        && sha256
             .as_ref()
             .or(md5.as_ref())
             .or(sha512.as_ref())
             .is_none()
-        {
-            return Err(OmaAptError::PkgNoChecksum(new_pkg.to_string()));
-        }
-        install_entry.sha256(sha256);
-        install_entry.md5(md5);
-        install_entry.sha512(sha512);
+    {
+        return Err(OmaAptError::PkgNoChecksum(new_pkg.to_string()));
     }
 
-    let install_entry = install_entry.build()?;
+    let install_entry = if not_local_source {
+        InstallEntry::builder()
+            .name(new_pkg.fullname(true).to_string())
+            .old_version(old_version.to_string())
+            .new_version(new_version.to_owned())
+            .old_size(installed.installed_size())
+            .new_size(cand.installed_size())
+            .pkg_urls(cand.uris().collect::<Vec<_>>())
+            .arch(cand.arch().to_string())
+            .download_size(cand.size())
+            .op(op)
+            .maybe_sha256(sha256)
+            .maybe_sha512(sha512)
+            .maybe_md5(md5)
+            .build()
+    } else {
+        InstallEntry::builder()
+            .name(new_pkg.fullname(true).to_string())
+            .old_version(old_version.to_string())
+            .new_version(new_version.to_owned())
+            .old_size(installed.installed_size())
+            .new_size(cand.installed_size())
+            .pkg_urls(cand.uris().collect::<Vec<_>>())
+            .arch(cand.arch().to_string())
+            .download_size(cand.size())
+            .op(op)
+            .build()
+    };
 
     Ok(install_entry)
 }

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use derive_builder::Builder;
+use bon::builder;
 use oma_utils::human_bytes::HumanBytes;
 use serde::{Deserialize, Serialize};
 
@@ -99,14 +99,12 @@ impl Display for OmaOperation {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Builder, Clone, Default, Serialize, Deserialize)]
-#[builder(default)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize)]
+#[builder]
 pub struct InstallEntry {
     name: String,
-    #[builder(setter(into, strip_option))]
     old_version: Option<String>,
     new_version: String,
-    #[builder(setter(into, strip_option))]
     old_size: Option<u64>,
     new_size: u64,
     pkg_urls: Vec<String>,
@@ -116,6 +114,7 @@ pub struct InstallEntry {
     arch: String,
     download_size: u64,
     op: InstallOperation,
+    #[builder(default)]
     automatic: bool,
 }
 

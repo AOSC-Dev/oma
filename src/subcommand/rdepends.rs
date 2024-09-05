@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgsBuilder};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
 use crate::error::OutputError;
 
@@ -11,7 +11,7 @@ pub fn execute(pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
         check_unsupport_stmt(pkg);
     }
 
-    let oma_apt_args = OmaAptArgsBuilder::default().sysroot(sysroot).build()?;
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let (pkgs, no_result) = apt.select_pkg(

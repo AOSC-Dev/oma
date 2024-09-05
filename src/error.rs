@@ -8,7 +8,6 @@ use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
 use oma_history::HistoryError;
-use oma_pm::apt::{AptArgsBuilderError, OmaAptArgsBuilderError};
 use oma_pm::search::OmaSearchError;
 use oma_pm::AptErrors;
 use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
@@ -164,15 +163,6 @@ impl From<OmaAptError> for OutputError {
     }
 }
 
-impl From<OmaAptArgsBuilderError> for OutputError {
-    fn from(value: OmaAptArgsBuilderError) -> Self {
-        Self {
-            description: value.to_string(),
-            source: None,
-        }
-    }
-}
-
 impl From<LockError> for OutputError {
     fn from(value: LockError) -> Self {
         Self {
@@ -254,15 +244,6 @@ impl From<AptErrors> for OutputError {
 
         OutputError {
             description: fl!("apt-error"),
-            source: None,
-        }
-    }
-}
-
-impl From<AptArgsBuilderError> for OutputError {
-    fn from(value: AptArgsBuilderError) -> Self {
-        Self {
-            description: value.to_string(),
             source: None,
         }
     }
@@ -364,10 +345,6 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::DpkgArchError(e) => OutputError::from(e),
             RefreshError::JoinError(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
-            RefreshError::DownloadEntryBuilderError(e) => Self {
                 description: e.to_string(),
                 source: None,
             },
@@ -475,10 +452,6 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::DpkgArchError(e) => OutputError::from(e),
             RefreshError::JoinError(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
-            RefreshError::DownloadEntryBuilderError(e) => Self {
                 description: e.to_string(),
                 source: None,
             },
@@ -681,10 +654,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: None,
         },
         OmaAptError::DownlaodError(e) => oma_download_error(e),
-        OmaAptError::InstallEntryBuilderError(e) => OutputError {
-            description: e.to_string(),
-            source: None,
-        },
         OmaAptError::DpkgFailedConfigure(e) => OutputError {
             description: fl!("dpkg-configure-a-non-zero"),
             source: Some(Box::new(e)),
@@ -695,10 +664,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 a = avail.to_string(),
                 n = need.to_string()
             ),
-            source: None,
-        },
-        OmaAptError::DownloadEntryBuilderError(e) => OutputError {
-            description: e.to_string(),
             source: None,
         },
         OmaAptError::CommitErr(e) => OutputError {
@@ -810,10 +775,6 @@ fn oma_download_error(e: DownloadError) -> OutputError {
         DownloadError::FailedOpenLocalSourceFile(path, e) => OutputError {
             description: fl!("can-not-parse-sources-list", path = path.to_string()),
             source: Some(Box::new(e)),
-        },
-        DownloadError::DownloadSourceBuilderError(e) => OutputError {
-            description: e.to_string(),
-            source: None,
         },
         DownloadError::InvaildURL(s) => OutputError {
             description: fl!("invaild-url", url = s),
