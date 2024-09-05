@@ -56,7 +56,14 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
 
             let mut res = vec![];
 
+            let mut too_many = false;
+
             for (pkg, file, jaro) in jaro {
+                if res.len() == 10 {
+                    too_many = true;
+                    break;
+                }
+
                 if jaro < FILTER_JARO_NUM {
                     break;
                 }
@@ -93,6 +100,11 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
                 printer
                     .print_table(res, vec!["Name", "Path", "Description"])
                     .ok();
+
+                if too_many {
+                    println!("\n{}", fl!("cnf-too-many-query"));
+                    println!("{}", fl!("cnf-too-many-query-2", query = query));
+                }
             }
         }
         Err(e) => {

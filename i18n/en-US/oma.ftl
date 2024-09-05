@@ -180,3 +180,5 @@ skip-write-mirror = This is likely because the mirror(s) you specified are not y
 failed-to-decompress-contents = Failed to decompress contents.
 pkexec-tips-1 = Please input your password in the password prompt to grant oma privileges to perform system administration.
 pkexec-tips-2 = If you are unable to access the graphical prompt, please press Ctrl + C to abort and run oma with elevated privileges.
+cnf-too-many-query = It seems that there are many matches for the command you are looking for.
+cnf-too-many-query-2 = Please consider using `oma provides --bin { $query }' for a full list of potential matches.
