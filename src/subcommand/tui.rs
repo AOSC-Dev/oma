@@ -1,4 +1,8 @@
-use std::{cell::RefCell, io::stdout, rc::Rc};
+use std::{
+    cell::{Ref, RefCell},
+    io::stdout,
+    rc::Rc,
+};
 
 use ansi_to_tui::IntoText;
 use crossterm::{
@@ -598,11 +602,19 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                         if mode != Mode::Search {
                             continue;
                         }
-                        input.borrow_mut().push(c);
+
+                        let byte_index = input
+                            .borrow()
+                            .char_indices()
+                            .map(|(i, _)| i)
+                            .nth(cursor_position)
+                            .unwrap_or(input.borrow().len());
+
+                        input.borrow_mut().insert(byte_index, c);
+                        cursor_position = cursor_position.saturating_add(1);
+
                         let s = input.borrow();
                         let res = searcher.search(&s);
-
-                        cursor_position += 1;
 
                         if let Ok(res) = res {
                             let res_display = res
@@ -645,28 +657,33 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                         if mode != Mode::Search {
                             continue;
                         }
-                        if cursor_position > 0 {
-                            input.borrow_mut().pop();
-                            let s = input.borrow();
-                            let res = searcher.search(&s);
 
-                            if let Ok(res) = res {
-                                let res_display = res
-                                    .iter()
-                                    .filter_map(|x| FormatSearchResult::new(x).0.into_text().ok())
-                                    .collect::<Vec<_>>();
-
-                                display_list = StatefulList::with_items(res_display);
-                                result_rc.replace(res);
-                            } else {
-                                display_list = StatefulList::with_items(vec![]);
-                                result_rc.borrow_mut().clear();
-                            }
-
-                            cursor_position -= 1;
-                        } else {
+                        if cursor_position == 0 {
                             result_rc.replace(vec![]);
+                            continue;
                         }
+
+                        let from_left_to_current_index = cursor_position - 1;
+                        delete_inner(&input, from_left_to_current_index, cursor_position);
+
+                        cursor_position = cursor_position.saturating_sub(1);
+
+                        let s = input.borrow();
+                        update_search_result(&searcher, s, &mut display_list, &result_rc);
+                    }
+                    KeyCode::Delete => {
+                        if mode != Mode::Search {
+                            continue;
+                        }
+
+                        if cursor_position > input.borrow().len() - 1 {
+                            continue;
+                        }
+
+                        delete_inner(&input, cursor_position, cursor_position + 1);
+
+                        let s = input.borrow();
+                        update_search_result(&searcher, s, &mut display_list, &result_rc);
                     }
                     KeyCode::Left => match mode {
                         Mode::Search => {
@@ -745,6 +762,41 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
     drop(fds);
 
     Ok(0)
+}
+
+fn update_search_result(
+    searcher: &OmaSearch<'_>,
+    s: Ref<'_, String>,
+    display_list: &mut StatefulList<Text<'_>>,
+    result_rc: &Rc<RefCell<Vec<SearchResult>>>,
+) {
+    let res = searcher.search(&s);
+
+    if let Ok(res) = res {
+        let res_display = res
+            .iter()
+            .filter_map(|x| FormatSearchResult::new(x).0.into_text().ok())
+            .collect::<Vec<_>>();
+
+        *display_list = StatefulList::with_items(res_display);
+        result_rc.replace(res);
+    } else {
+        *display_list = StatefulList::with_items(vec![]);
+        result_rc.borrow_mut().clear();
+    }
+}
+
+fn delete_inner(input: &Rc<RefCell<String>>, before: usize, after: usize) {
+    // Method "remove" is not used on the saved text for deleting the selected char.
+    // Reason: Using remove on String works on bytes instead of the chars.
+    // Using remove would require special care because of char boundaries.
+    // Getting all characters before the selected character.
+    let before_char_to_delete = input.borrow().chars().take(before).collect::<String>();
+
+    // Getting all characters after selected character.
+    let after_char_to_delete = input.borrow().chars().skip(after).collect::<String>();
+
+    *input.borrow_mut() = before_char_to_delete + &after_char_to_delete;
 }
 
 fn change_to_packages_window(mode: &mut Mode, display_list: &mut StatefulList<Text<'static>>) {
