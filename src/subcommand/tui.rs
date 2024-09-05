@@ -598,11 +598,19 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                         if mode != Mode::Search {
                             continue;
                         }
-                        input.borrow_mut().push(c);
+
+                        let byte_index = input
+                            .borrow()
+                            .char_indices()
+                            .map(|(i, _)| i)
+                            .nth(cursor_position)
+                            .unwrap_or(input.borrow().len());
+
+                        input.borrow_mut().insert(byte_index, c);
+                        cursor_position = cursor_position.saturating_add(1);
+
                         let s = input.borrow();
                         let res = searcher.search(&s);
-
-                        cursor_position += 1;
 
                         if let Ok(res) = res {
                             let res_display = res
@@ -646,7 +654,30 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                             continue;
                         }
                         if cursor_position > 0 {
-                            input.borrow_mut().pop();
+                            // Method "remove" is not used on the saved text for deleting the selected char.
+                            // Reason: Using remove on String works on bytes instead of the chars.
+                            // Using remove would require special care because of char boundaries.
+                            let from_left_to_current_index = cursor_position - 1;
+
+                            // Getting all characters before the selected character.
+                            let before_char_to_delete = input
+                                .borrow()
+                                .chars()
+                                .take(from_left_to_current_index)
+                                .collect::<String>();
+                            // Getting all characters after selected character.
+                            let after_char_to_delete = input
+                                .borrow()
+                                .chars()
+                                .skip(cursor_position)
+                                .collect::<String>();
+
+                            cursor_position = cursor_position.saturating_sub(1);
+
+                            // Put all characters together except the selected one.
+                            // By leaving the selected one out, it is forgotten and therefore deleted.
+                            *input.borrow_mut() = before_char_to_delete + &after_char_to_delete;
+
                             let s = input.borrow();
                             let res = searcher.search(&s);
 
@@ -662,8 +693,6 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                                 display_list = StatefulList::with_items(vec![]);
                                 result_rc.borrow_mut().clear();
                             }
-
-                            cursor_position -= 1;
                         } else {
                             result_rc.replace(vec![]);
                         }
