@@ -41,10 +41,28 @@ jobs:
         run: |
           cargo deb -Z xz
           VER_SUFFIX="${TARGET_DISTRO/:/}"
+          case "${TARGET_DISTRO}" in
+              'debian:11')
+                  CODENAME='bullseye'
+                  ;;
+              'debian:12')
+                  CODENAME='bookworm'
+                  ;;
+              'ubuntu:20.04')
+                  CODENAME='focal'
+                  ;;
+              'ubuntu:22.04')
+                  CODENAME='jammy'
+                  ;;
+              'ubuntu:24.04')
+                  CODENAME='noble'
+                  ;;
+          esac
           for i in target/debian/*.deb; do
             mv -v "${i}" "${i/\.deb/-$VER_SUFFIX.deb}"
           done
           echo "VER_SUFFIX=${VER_SUFFIX}" >> "${GITHUB_ENV}"
+          echo "CODENAME=${CODENAME}" >> "${GITHUB_ENV}"
         env:
           TARGET_DISTRO: "${{ matrix.target }}"
       - name: Setup SSH private key
@@ -59,8 +77,18 @@ jobs:
       - name: Upload packages (repository)
         shell: bash
         run: |
-          scp -v -o IdentityFile=~/.ssh/id_ed25519 -o UserKnownHostsFile=~/.ssh/known_hosts target/debian/*-"${VER_SUFFIX}".deb ${USER}@repo.aosc.io:/mirror/oma/pool/"${VER_SUFFIX}"/main/o/
-          ssh -v -o IdentityFile=~/.ssh/id_ed25519 -o UserKnownHostsFile=~/.ssh/known_hosts ${USER}@repo.aosc.io touch /mirror/.updated
+          scp \
+              -v \
+              -o IdentityFile=~/.ssh/id_ed25519 \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              target/debian/*-"${VER_SUFFIX}".deb \
+              ${USER}@repo.aosc.io:/mirror/oma/pool/"${CODENAME}"/main/o/
+          ssh \
+              -v \
+              -o IdentityFile=~/.ssh/id_ed25519 \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              ${USER}@repo.aosc.io \
+              touch /mirror/.updated
         env:
           TARGET_DISTRO: "${{ matrix.target }}"
           USER: ${{ secrets.USER }}
