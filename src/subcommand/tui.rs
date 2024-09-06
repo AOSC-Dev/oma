@@ -306,7 +306,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                         Constraint::Min(0),    // packages
                         Constraint::Length(1), // tips
                     ])
-                    .split(frame.size());
+                    .split(frame.area());
 
                 frame.render_widget(
                     Block::default()
@@ -368,13 +368,13 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                 );
 
                 if mode == Mode::Search {
-                    frame.set_cursor(
+                    frame.set_cursor_position((
                         // Draw the cursor at the current position in the input field.
                         // This position is can be controlled via the left and right arrow key
                         main_layout[1].x + cursor_position as u16 + 1,
                         // Move one line down, from the border to the input line
                         main_layout[1].y + 1,
-                    );
+                    ));
                 }
 
                 let length = WRITER.get_length();

@@ -541,10 +541,9 @@ impl OmaApt {
 
         debug!("Try to get apt archives");
 
-        self.cache.get_archives(&mut no_progress).map_err(|e| {
-            debug!("Get exception! Try to unlock apt lock");
+        self.cache.get_archives(&mut no_progress).inspect_err(|e| {
+            debug!("Get exception: {e}. Try to unlock apt lock");
             apt_unlock();
-            e
         })?;
 
         let args = InstallProgressArgs {
@@ -566,10 +565,10 @@ impl OmaApt {
 
         debug!("Do install");
 
-        self.cache.do_install(&mut progress).map_err(|e| {
+        self.cache.do_install(&mut progress).inspect_err(|e| {
+            debug!("do_install got except: {e}");
             apt_lock_inner().ok();
             apt_unlock();
-            e
         })?;
 
         debug!("Try to unlock apt lock");
