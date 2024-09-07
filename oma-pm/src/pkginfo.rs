@@ -297,7 +297,10 @@ fn print_pkg_files(pkg_files: Vec<PackageFile>) {
 
 #[test]
 fn test_pkginfo_display() {
+    use crate::test::TEST_LOCK;
     use oma_apt::new_cache;
+
+    let _lock = TEST_LOCK.lock().unwrap();
     let cache = new_cache!().unwrap();
     let pkg = cache.get("apt").unwrap();
     let version = pkg.candidate().unwrap();
