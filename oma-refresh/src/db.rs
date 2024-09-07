@@ -559,19 +559,16 @@ impl<'a> OmaRefresh<'a> {
             })?;
 
             let mut handle = vec![];
-            if ose.is_flat {
-                get_all_db_flat_repo(&mut total, &inrelease, &mut handle)
-            } else {
-                let filter_checksums = fiilter_download_list(
-                    &inrelease.checksums,
-                    self.apt_config,
-                    &archs,
-                    &ose.components,
-                    &ose.native_arch,
-                );
+            let filter_checksums = fiilter_download_list(
+                &inrelease.checksums,
+                self.apt_config,
+                &archs,
+                &ose.components,
+                &ose.native_arch,
+                ose.is_flat,
+            );
 
-                get_all_need_db_from_config(filter_checksums, &mut total, &inrelease, &mut handle);
-            }
+            get_all_need_db_from_config(filter_checksums, &mut total, &inrelease, &mut handle);
 
             for i in &self.flat_repo_no_release {
                 download_flat_repo_no_release(
@@ -631,27 +628,6 @@ fn get_all_need_db_from_config(
 
         handle.push(i);
     }
-}
-
-fn get_all_db_flat_repo(
-    total: &mut u64,
-    inrelease: &InReleaseParser,
-    handle: &mut Vec<ChecksumDownloadEntry>,
-) {
-    *handle = inrelease
-        .checksums
-        .clone()
-        .into_iter()
-        .map(|x| {
-            let (_, name_without_compress) = split_ext_and_filename(&x.name);
-            *total += x.size;
-            ChecksumDownloadEntry {
-                item: x,
-                keep_compress: true,
-                msg: name_without_compress,
-            }
-        })
-        .collect::<Vec<_>>()
 }
 
 async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> Result<()> {

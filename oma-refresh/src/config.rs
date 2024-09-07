@@ -86,6 +86,7 @@ pub fn fiilter_download_list(
     archs: &[String],
     components: &[String],
     native_arch: &str,
+    is_flat: bool,
 ) -> SmallVec<[ChecksumDownloadEntry; 32]> {
     let mut v = smallvec![];
     let config_tree = get_config(config);
@@ -96,10 +97,22 @@ pub fn fiilter_download_list(
     archs_contains_all.extend_from_slice(archs);
     archs_contains_all.push("all".to_string());
 
+    let components = if components.is_empty() {
+        &["".to_string()]
+    } else {
+        components
+    };
+
+    let metakey = if !is_flat {
+        "::MetaKey"
+    } else {
+        "::flatMetaKey"
+    };
+
     for (k, v) in config_tree {
         if (k.starts_with("APT::Acquire::IndexTargets::deb::")
             || k.starts_with("Acquire::IndexTargets::deb::"))
-            && k.ends_with("::MetaKey")
+            && k.ends_with(metakey)
         {
             for a in &archs_contains_all {
                 for c in components {
@@ -107,7 +120,7 @@ pub fn fiilter_download_list(
                     let e = k
                         .strip_prefix("APT::")
                         .unwrap_or(&k)
-                        .strip_suffix("::MetaKey")
+                        .strip_suffix(metakey)
                         .unwrap();
 
                     let keep_compress = config.bool(&format!("{e}::KeepCompressed"), false);
