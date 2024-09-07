@@ -353,12 +353,15 @@ pub fn has_dbg(cache: &Cache, pkg: &Package<'_>, ver: &Version) -> bool {
 
 #[cfg(test)]
 mod test {
+    use crate::test::TEST_LOCK;
+
     use super::OmaDatabase;
     use oma_apt::new_cache;
     use oma_utils::dpkg::dpkg_arch;
 
     #[test]
     fn test_glob_search() {
+        let _lock = TEST_LOCK.lock().unwrap();
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
         let res_filter = db
@@ -381,6 +384,7 @@ mod test {
 
     #[test]
     fn test_virtual_pkg_search() {
+        let _lock = TEST_LOCK.lock().unwrap();
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
         let res_filter = db
@@ -394,6 +398,7 @@ mod test {
 
     #[test]
     fn test_branch_search() {
+        let _lock = TEST_LOCK.lock().unwrap();
         let cache = new_cache!().unwrap();
         let db = OmaDatabase::new(&cache).unwrap();
         let res_filter = db.query_from_branch("apt/stable", true, false).unwrap();
