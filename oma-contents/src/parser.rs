@@ -6,23 +6,13 @@ use winnow::{
 };
 
 #[inline]
-fn pkg_split<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(&'a str, &'a str), E> {
-    separated_pair(take_till(0.., '/'), pkg_name_sep, second_single).parse_next(input)
-}
-
-#[inline]
-fn pkg_name_sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(), E> {
-    "/".void().parse_next(input)
-}
-
-#[inline]
 fn second_single<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<&'a str, E> {
     take_till(0.., |c| c == ',' || c == '\n').parse_next(input)
 }
 
 #[inline]
-fn second<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<Vec<(&'a str, &'a str)>, E> {
-    separated(0.., pkg_split, ',').parse_next(input)
+fn second<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<Vec<&'a str>, E> {
+    separated(0.., second_single, ',').parse_next(input)
 }
 
 #[inline]
@@ -35,7 +25,7 @@ fn sep<'a, E: ParserError<&'a str>>(input: &mut &'a str) -> PResult<(), E> {
     "   ".void().parse_next(input)
 }
 
-type ContentsLine<'a> = (&'a str, Vec<(&'a str, &'a str)>);
+type ContentsLine<'a> = (&'a str, Vec<&'a str>);
 
 #[inline]
 pub fn single_line<'a, E: ParserError<&'a str>>(
@@ -44,22 +34,12 @@ pub fn single_line<'a, E: ParserError<&'a str>>(
     separated_pair(first, sep, second).parse_next(input)
 }
 
-pub type ContentsLines<'a> = Vec<(&'a str, Vec<(&'a str, &'a str)>)>;
-
 #[inline]
 pub fn parse_contents<'a, E: ParserError<&'a str>>(
     input: &mut &'a str,
-) -> PResult<ContentsLines<'a>, E> {
+) -> PResult<Vec<ContentsLine<'a>>, E> {
     use winnow::combinator::{repeat, terminated};
     repeat(1.., terminated(single_line, "\n")).parse_next(input)
-}
-
-#[test]
-fn test_pkg_name() {
-    let a = &mut "admin/apt-file\n/   qaq/qaq\n";
-    let res = pkg_split::<()>(a);
-
-    assert_eq!(res, Ok(("admin", "apt-file")))
 }
 
 #[test]
@@ -77,11 +57,11 @@ fn test_second_single() {
 fn test_second() {
     let a = &mut "admin/apt-file,admin/apt\n";
     let res = second::<()>(a);
-    assert_eq!(res, Ok(vec![("admin", "apt-file"), ("admin", "apt")]));
+    assert_eq!(res, Ok(vec!["admin/apt-file", "admin/apt"]));
 
     let b = &mut "admin/apt-file\n";
     let res = second::<()>(b);
-    assert_eq!(res, Ok(vec![("admin", "apt-file")]));
+    assert_eq!(res, Ok(vec!["admin/apt-file"]));
 }
 
 #[test]
@@ -93,17 +73,17 @@ fn test_single_line() {
         Ok((
             "opt/32/libexec",
             vec![
-                ("devel", "gcc+32"),
-                ("devel", "llvm+32"),
-                ("gnome", "gconf+32"),
-                ("libs", "gdk-pixbuf+32")
+                "devel/gcc+32",
+                "devel/llvm+32",
+                "gnome/gconf+32",
+                "libs/gdk-pixbuf+32"
             ]
         ))
     );
 
     let b = &mut "/   admin/apt-file\n";
     let res = single_line::<()>(b);
-    assert_eq!(res, Ok(("/", vec![("admin", "apt-file")])));
+    assert_eq!(res, Ok(("/", vec!["admin/apt-file"])));
 }
 
 #[test]
@@ -116,15 +96,11 @@ fn test_multiple_lines() {
         Ok(vec![
             (
                 "opt/32/libexec",
-                vec![
-                    ("devel", "gcc+32"),
-                    ("devel", "llvm+32"),
-                    ("gnome", "gconf+32"),
-                ]
+                vec!["devel/gcc+32", "devel/llvm+32", "gnome/gconf+32",]
             ),
             (
                 "opt/32/share",
-                vec![("devel", "llvm+32"), ("libs", "alsa-plugins+32")]
+                vec!["devel/llvm+32", "libs/alsa-plugins+32"]
             )
         ])
     )

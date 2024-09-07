@@ -266,7 +266,8 @@ fn pure_search_foreach_result(
             Err(_) => continue,
         };
 
-        for (_, pkg) in pkgs {
+        for pkg in pkgs {
+            let pkg = pkg.split('/').last().unwrap();
             if next(pkg, file, query) {
                 let line = (pkg.to_string(), prefix(file));
 
@@ -284,7 +285,8 @@ fn rg_filter_line(mut line: &str, is_list: bool, query: &str) -> Option<(String,
     debug!("file: {file}, pkgs: {pkgs:?}");
 
     if pkgs.len() != 1 {
-        for (_, pkg) in pkgs {
+        for pkg in pkgs {
+            let pkg = pkg.split('/').last().unwrap();
             if pkg == query || !is_list {
                 let file = prefix(file);
                 return Some((pkg.to_string(), file));
@@ -292,7 +294,8 @@ fn rg_filter_line(mut line: &str, is_list: bool, query: &str) -> Option<(String,
         }
     } else {
         // 比如 /usr/bin/apt admin/apt
-        let (_, pkg) = pkgs[0];
+        let pkg = pkgs[0];
+        let pkg = pkg.split('/').last().unwrap();
         let file = prefix(file);
         return Some((pkg.to_string(), file));
     }
