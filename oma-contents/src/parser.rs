@@ -1,12 +1,24 @@
-pub(crate) fn single_line(input: &str) -> Option<(String, Vec<&str>)> {
+use winnow::{combinator::separated, token::take_till, PResult, Parser};
+
+pub(crate) fn single_line(input: &str) -> Option<(&str, Vec<&str>)> {
     // https://wiki.debian.org/DebianRepository/Format#A.22Contents.22_indices
-    let mut s = input.split_whitespace();
+    let (file, pkgs) = input.rsplit_once(|c: char| c.is_whitespace() && c != '\n')?;
     // 最后一个空格是分隔符
-    let pkgs = s.next_back()?;
-    let file = s.collect::<Vec<_>>().join(" ");
-    let pkgs = pkgs.split(',').collect::<Vec<_>>();
+    let file = file.trim();
+    let mut pkgs = pkgs.trim();
+    let pkgs = multi_packagee(&mut pkgs).ok()?;
 
     Some((file, pkgs))
+}
+
+#[inline]
+fn single_package<'a>(input: &mut &'a str) -> PResult<&'a str> {
+    take_till(0.., |c| c == ',' || c == '\n').parse_next(input)
+}
+
+#[inline]
+fn multi_packagee<'a>(input: &mut &'a str) -> PResult<Vec<&'a str>> {
+    separated(0.., single_package, ',').parse_next(input)
 }
 
 #[test]
@@ -16,10 +28,7 @@ fn test_single_line() {
 
     assert_eq!(
         res,
-        Some((
-            "etc/dpkg/dpkg.cfg.d/pk4".to_string(),
-            vec!["universe/utils/pk4"]
-        ))
+        Some(("etc/dpkg/dpkg.cfg.d/pk4", vec!["universe/utils/pk4"]))
     )
 }
 
@@ -31,7 +40,7 @@ fn test_single_line_multi_packages() {
     assert_eq!(
         res,
         Some((
-            "opt/32/libexec".to_string(),
+            "opt/32/libexec",
             vec![
                 "devel/gcc+32",
                 "devel/llvm+32",
@@ -47,13 +56,5 @@ fn test_single_line_file_multi_space() {
     let s = "/etc/i have multi space foo/bar/abc\n";
     let res = single_line(s);
 
-    assert_eq!(
-        res,
-        Some((
-            "/etc/i have multi space".to_string(),
-            vec![
-                "foo/bar/abc"
-            ]
-        ))
-    )
+    assert_eq!(res, Some(("/etc/i have multi space", vec!["foo/bar/abc"])))
 }

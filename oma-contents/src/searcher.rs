@@ -36,7 +36,6 @@ const BIN_PREFIX: &str = "usr/bin";
 #[cfg(not(feature = "aosc"))]
 const BIN_PREFIX_WITH_PREFIX: &str = "/usr/bin";
 
-
 impl Mode {
     fn paths(&self, dir: &Path) -> Result<Vec<PathBuf>, OmaContentsError> {
         use std::fs;
