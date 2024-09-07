@@ -3065,7 +3065,7 @@ dependencies = [
 
 [[package]]
 name = "oma"
-version = "1.9.0"
+version = "1.9.1"
 dependencies = [
  "ahash",
  "ansi-to-tui",
@@ -3259,7 +3259,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.26.2"
+version = "0.26.3"
 dependencies = [
  "ahash",
  "aho-corasick",
