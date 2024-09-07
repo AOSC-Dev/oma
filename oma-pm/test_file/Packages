@@ -16,7 +16,7 @@ Replaces: pap (<= 0-3)
 Package: qwq-desktop
 Version: 9999:114514
 Section: web
-Architecture: amd64
+Architecture: all
 Installed-Size: 89144
 Maintainer: Kay Lin <kaymw@aosc.io>
 Filename: pool/stable/main/t/telegram-desktop_4.12.2-1_amd64.deb
@@ -31,7 +31,7 @@ Suggests: webkit2gtk
 Package: owo
 Version: 9999:2.6.1-2
 Section: admin
-Architecture: amd64
+Architecture: all
 Installed-Size: 30748
 Maintainer: AOSC OS Maintainers <maintainers@aosc.io>
 Filename: pool/stable/main/a/apt_2.6.1-2_amd64.deb
