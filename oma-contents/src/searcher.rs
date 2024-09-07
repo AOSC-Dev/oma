@@ -127,13 +127,13 @@ pub fn ripgrep_search(
 
     while stdout_reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
         if let Some(lines) = rg_filter_line(&buffer, is_list, &query) {
-            #[cfg(not(feature = "aosc"))]
-            if is_bin(&lines.1) {
-                buffer.clear();
-                continue;
-            }
-
             for i in lines {
+                #[cfg(not(feature = "aosc"))]
+                if is_bin(&i.1) {
+                    buffer.clear();
+                    continue;
+                }
+
                 cb(i);
             }
             has_result = true;
@@ -323,4 +323,30 @@ fn prefix(s: &str) -> String {
     } else {
         "/".to_owned() + s
     }
+}
+
+#[test]
+fn test_rg_filter_line() {
+    let s = "usr/bin/yakuake   Trinity/yakuake-trinity,utils/yakuake";
+    let res = rg_filter_line(s, false, "yakuake");
+    assert_eq!(
+        res,
+        Some(vec![
+            (
+                "yakuake-trinity".to_string(),
+                "/usr/bin/yakuake".to_string()
+            ),
+            ("yakuake".to_string(), "/usr/bin/yakuake".to_string())
+        ])
+    );
+
+    let s = "usr/bin/yakuake   Trinity/yakuake-trinity";
+    let res = rg_filter_line(s, false, "yakuake");
+    assert_eq!(
+        res,
+        Some(vec![(
+            "yakuake-trinity".to_string(),
+            "/usr/bin/yakuake".to_string()
+        )])
+    );
 }
