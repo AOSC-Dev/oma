@@ -33,6 +33,9 @@ pub enum Mode {
 }
 
 const BIN_PREFIX: &str = "usr/bin";
+#[cfg(not(feature = "aosc"))]
+const BIN_PREFIX_WITH_PREFIX: &str = "/usr/bin";
+
 
 impl Mode {
     fn paths(&self, dir: &Path) -> Result<Vec<PathBuf>, OmaContentsError> {
@@ -118,7 +121,7 @@ pub fn ripgrep_search(
     #[cfg(not(feature = "aosc"))]
     let is_bin = match mode {
         Mode::BinProvides | Mode::BinFiles => |file: &str| {
-            return !file.starts_with(BIN_PREFIX);
+            return !file.starts_with(BIN_PREFIX_WITH_PREFIX);
         },
         _ => |_: &str| false,
     };
@@ -127,14 +130,13 @@ pub fn ripgrep_search(
         if let Some(line) = rg_filter_line(&buffer, is_list, &query) {
             #[cfg(not(feature = "aosc"))]
             if is_bin(&line.1) {
+                buffer.clear();
                 continue;
             }
 
             cb(line);
-
             has_result = true;
         }
-
         buffer.clear();
     }
 
@@ -261,17 +263,18 @@ fn pure_search_foreach_result(
     let mut buffer = String::new();
 
     while reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
-        let (file, pkgs) = match single_line::<()>(&mut buffer.as_str()) {
-            Ok(line) => line,
-            Err(_) => continue,
+        let (file, pkgs) = match single_line(&mut buffer.as_str()) {
+            Some(line) => line,
+            None => continue,
         };
 
         for pkg in pkgs {
-            let pkg = pkg.split('/').last().unwrap();
-            if next(pkg, file, query) {
-                let line = (pkg.to_string(), prefix(file));
+            if let Some(pkg) = pkg_name(pkg) {
+                if next(pkg, &file, query) {
+                    let line = (pkg.to_string(), prefix(&file));
 
-                tx.send(line).unwrap();
+                    tx.send(line).unwrap();
+                }
             }
         }
 
@@ -280,27 +283,31 @@ fn pure_search_foreach_result(
 }
 
 fn rg_filter_line(mut line: &str, is_list: bool, query: &str) -> Option<(String, String)> {
-    let (file, pkgs) = single_line::<()>(&mut line).ok()?;
+    let (file, pkgs) = single_line(&mut line)?;
 
     debug!("file: {file}, pkgs: {pkgs:?}");
 
     if pkgs.len() != 1 {
         for pkg in pkgs {
-            let pkg = pkg.split('/').last().unwrap();
+            let pkg = pkg_name(pkg)?;
             if pkg == query || !is_list {
-                let file = prefix(file);
+                let file = prefix(&file);
                 return Some((pkg.to_string(), file));
             }
         }
     } else {
         // 比如 /usr/bin/apt admin/apt
         let pkg = pkgs[0];
-        let pkg = pkg.split('/').last().unwrap();
-        let file = prefix(file);
+        let pkg = pkg_name(pkg)?;
+        let file = prefix(&file);
         return Some((pkg.to_string(), file));
     }
 
     None
+}
+
+fn pkg_name(pkg: &str) -> Option<&str> {
+    pkg.split('/').last()
 }
 
 #[inline]
