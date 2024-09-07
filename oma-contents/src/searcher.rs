@@ -126,14 +126,16 @@ pub fn ripgrep_search(
     };
 
     while stdout_reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
-        if let Some(line) = rg_filter_line(&buffer, is_list, &query) {
+        if let Some(lines) = rg_filter_line(&buffer, is_list, &query) {
             #[cfg(not(feature = "aosc"))]
-            if is_bin(&line.1) {
+            if is_bin(&lines.1) {
                 buffer.clear();
                 continue;
             }
 
-            cb(line);
+            for i in lines {
+                cb(i);
+            }
             has_result = true;
         }
         buffer.clear();
@@ -281,28 +283,33 @@ fn pure_search_foreach_result(
     }
 }
 
-fn rg_filter_line(line: &str, is_list: bool, query: &str) -> Option<(String, String)> {
+fn rg_filter_line(line: &str, is_list: bool, query: &str) -> Option<Vec<(String, String)>> {
     let (file, pkgs) = single_line(line)?;
 
     debug!("file: {file}, pkgs: {pkgs:?}");
 
     if pkgs.len() != 1 {
+        let mut res = vec![];
         for pkg in pkgs {
-            let pkg = pkg_name(pkg)?;
+            let Some(pkg) = pkg_name(pkg) else {
+                continue;
+            };
+
             if pkg == query || !is_list {
                 let file = prefix(file);
-                return Some((pkg.to_string(), file));
+                res.push((pkg.to_string(), file));
             }
         }
+
+        Some(res)
     } else {
         // 比如 /usr/bin/apt admin/apt
         let pkg = pkgs[0];
         let pkg = pkg_name(pkg)?;
         let file = prefix(file);
-        return Some((pkg.to_string(), file));
-    }
 
-    None
+        Some(vec![(pkg.to_string(), file)])
+    }
 }
 
 fn pkg_name(pkg: &str) -> Option<&str> {
