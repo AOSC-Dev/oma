@@ -141,12 +141,14 @@ impl OmaSourceEntry {
 
         let (dist_path, is_flat) = if components.is_empty() {
             // flat repo suite 后面一定有斜线
-            if url.ends_with('/') {
-                if suite == "/" {
-                    (url.to_string(), true)
-                } else {
+            if suite == "/" {
+                if !url.ends_with('/') {
                     (format!("{}{}", url, suite), true)
+                } else {
+                    (url.to_string(), true)
                 }
+            } else if url.ends_with('/') {
+                (format!("{}{}", url, suite), true)
             } else {
                 (format!("{}/{}", url, suite), true)
             }
@@ -254,7 +256,7 @@ fn test_ose() {
 
     let ose = OmaSourceEntry::new(&entry, "/").unwrap();
     assert_eq!(ose.url, "file:/debs");
-    assert_eq!(ose.dist_path, "file:/debs//");
+    assert_eq!(ose.dist_path, "file:/debs/");
 
     // deb file:/debs/ ./././
     let entry = SourceEntry {

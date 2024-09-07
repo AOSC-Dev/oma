@@ -23,6 +23,7 @@ use oma_fetch::DownloadError;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
+use smallvec::SmallVec;
 use tokio::fs;
 use tracing::debug;
 
@@ -553,40 +554,19 @@ impl<'a> OmaRefresh<'a> {
                 RefreshError::InReleaseParseError(inrelease_path.display().to_string(), err)
             })?;
 
-            let filter_checksums = fiilter_download_list(
-                &inrelease.checksums,
-                self.apt_config,
-                &archs,
-                &ose.components,
-                &ose.native_arch,
-            );
-
             let mut handle = vec![];
-            for i in &filter_checksums {
-                if i.keep_compress {
-                    total += i.item.size;
-                } else {
-                    let size = if file_is_compress(&i.item.name) {
-                        let (_, name_without_compress) = split_ext_and_filename(&i.item.name);
+            if ose.is_flat {
+                get_all_db_flat_repo(&mut total, &inrelease, &mut handle)
+            } else {
+                let filter_checksums = fiilter_download_list(
+                    &inrelease.checksums,
+                    self.apt_config,
+                    &archs,
+                    &ose.components,
+                    &ose.native_arch,
+                );
 
-                        inrelease
-                            .checksums
-                            .iter()
-                            .find_map(|x| {
-                                if x.name == name_without_compress {
-                                    Some(x.size)
-                                } else {
-                                    None
-                                }
-                            })
-                            .unwrap_or(i.item.size)
-                    } else {
-                        i.item.size
-                    };
-
-                    total += size;
-                }
-                handle.push(i);
+                get_all_need_db_from_config(filter_checksums, &mut total, &inrelease, &mut handle);
             }
 
             for i in &self.flat_repo_no_release {
@@ -600,7 +580,7 @@ impl<'a> OmaRefresh<'a> {
 
             for c in handle {
                 collect_download_task(
-                    c,
+                    &c,
                     sourcelist.get(inrelease_summary.count).unwrap(),
                     &self.download_dir,
                     &mut tasks,
@@ -612,6 +592,62 @@ impl<'a> OmaRefresh<'a> {
 
         Ok((tasks, total))
     }
+}
+
+fn get_all_need_db_from_config(
+    filter_checksums: SmallVec<[ChecksumDownloadEntry; 32]>,
+    total: &mut u64,
+    inrelease: &InReleaseParser,
+    handle: &mut Vec<ChecksumDownloadEntry>,
+) {
+    for i in filter_checksums {
+        if i.keep_compress {
+            *total += i.item.size;
+        } else {
+            let size = if file_is_compress(&i.item.name) {
+                let (_, name_without_compress) = split_ext_and_filename(&i.item.name);
+
+                inrelease
+                    .checksums
+                    .iter()
+                    .find_map(|x| {
+                        if x.name == name_without_compress {
+                            Some(x.size)
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(i.item.size)
+            } else {
+                i.item.size
+            };
+
+            *total += size;
+        }
+
+        handle.push(i);
+    }
+}
+
+fn get_all_db_flat_repo(
+    total: &mut u64,
+    inrelease: &InReleaseParser,
+    handle: &mut Vec<ChecksumDownloadEntry>,
+) {
+    *handle = inrelease
+        .checksums
+        .clone()
+        .into_iter()
+        .map(|x| {
+            let (_, name_without_compress) = split_ext_and_filename(&x.name);
+            *total += x.size;
+            ChecksumDownloadEntry {
+                item: x,
+                keep_compress: true,
+                msg: name_without_compress,
+            }
+        })
+        .collect::<Vec<_>>()
 }
 
 async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> Result<()> {
@@ -734,6 +770,8 @@ fn collect_download_task(
         let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
 
         format!("{}/{}", dist_url, path.display())
+    } else if dist_url.ends_with('/') {
+        format!("{}{}", dist_url, c.item.name)
     } else {
         format!("{}/{}", dist_url, c.item.name)
     };
