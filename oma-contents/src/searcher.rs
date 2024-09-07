@@ -262,15 +262,15 @@ fn pure_search_foreach_result(
     let mut buffer = String::new();
 
     while reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
-        let (file, pkgs) = match single_line(&mut buffer.as_str()) {
+        let (file, pkgs) = match single_line(&buffer) {
             Some(line) => line,
             None => continue,
         };
 
         for pkg in pkgs {
             if let Some(pkg) = pkg_name(pkg) {
-                if next(pkg, &file, query) {
-                    let line = (pkg.to_string(), prefix(&file));
+                if next(pkg, file, query) {
+                    let line = (pkg.to_string(), prefix(file));
 
                     tx.send(line).unwrap();
                 }
@@ -281,8 +281,8 @@ fn pure_search_foreach_result(
     }
 }
 
-fn rg_filter_line(mut line: &str, is_list: bool, query: &str) -> Option<(String, String)> {
-    let (file, pkgs) = single_line(&mut line)?;
+fn rg_filter_line(line: &str, is_list: bool, query: &str) -> Option<(String, String)> {
+    let (file, pkgs) = single_line(line)?;
 
     debug!("file: {file}, pkgs: {pkgs:?}");
 
@@ -290,7 +290,7 @@ fn rg_filter_line(mut line: &str, is_list: bool, query: &str) -> Option<(String,
         for pkg in pkgs {
             let pkg = pkg_name(pkg)?;
             if pkg == query || !is_list {
-                let file = prefix(&file);
+                let file = prefix(file);
                 return Some((pkg.to_string(), file));
             }
         }
@@ -298,7 +298,7 @@ fn rg_filter_line(mut line: &str, is_list: bool, query: &str) -> Option<(String,
         // 比如 /usr/bin/apt admin/apt
         let pkg = pkgs[0];
         let pkg = pkg_name(pkg)?;
-        let file = prefix(&file);
+        let file = prefix(file);
         return Some((pkg.to_string(), file));
     }
 
