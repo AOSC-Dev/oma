@@ -62,7 +62,7 @@ static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static DEBUG: AtomicBool = AtomicBool::new(false);
 static SPAWN_NEW_OMA: AtomicBool = AtomicBool::new(false);
-
+static APP_USER_AGENT: &str = concat!("oma/", env!("CARGO_PKG_VERSION"));
 static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
 
 #[derive(Debug, Default)]
@@ -388,7 +388,10 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            let client = Client::builder().user_agent("oma").build().unwrap();
+            let client = Client::builder()
+                .user_agent(APP_USER_AGENT)
+                .build()
+                .unwrap();
 
             install::execute(input, install_args, oma_args, client)?
         }
@@ -405,14 +408,20 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 autoremove: args.get_flag("autoremove"),
             };
 
-            let client = Client::builder().user_agent("oma").build().unwrap();
+            let client = Client::builder()
+                .user_agent(APP_USER_AGENT)
+                .build()
+                .unwrap();
 
             upgrade::execute(pkgs_unparse, args, oma_args, client)?
         }
         Some(("download", args)) => {
             let keyword = pkgs_getter(args).unwrap_or_default();
             let keyword = keyword.iter().map(|x| x.as_str()).collect::<Vec<_>>();
-            let client = Client::builder().user_agent("oma").build().unwrap();
+            let client = Client::builder()
+                .user_agent(APP_USER_AGENT)
+                .build()
+                .unwrap();
 
             let path = args
                 .get_one::<String>("path")
@@ -438,7 +447,10 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 fix_broken: args.get_flag("fix_broken"),
             };
 
-            let client = Client::builder().user_agent("oma").build().unwrap();
+            let client = Client::builder()
+                .user_agent(APP_USER_AGENT)
+                .build()
+                .unwrap();
 
             remove::execute(input, args, oma_args, client)?
         }
@@ -470,12 +482,18 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             contents_find::execute(x, is_bin, pkg, no_progress, sysroot, println)?
         }
         Some(("fix-broken", _)) => {
-            let client = Client::builder().user_agent("oma").build().unwrap();
+            let client = Client::builder()
+                .user_agent(APP_USER_AGENT)
+                .build()
+                .unwrap();
             fix_broken::execute(oma_args, sysroot, client)?
         }
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
-            let client = Client::builder().user_agent("oma").build().unwrap();
+            let client = Client::builder()
+                .user_agent(APP_USER_AGENT)
+                .build()
+                .unwrap();
 
             pick::execute(
                 pkg_str,
@@ -555,7 +573,10 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            let client = Client::builder().user_agent("oma").build().unwrap();
+            let client = Client::builder()
+                .user_agent(APP_USER_AGENT)
+                .build()
+                .unwrap();
 
             topics::execute(args, client, oma_args)?
         }
@@ -565,7 +586,10 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             pkgnames::execute(keyword, sysroot)?
         }
         Some(("tui", _)) | None => {
-            let client = Client::builder().user_agent("oma").build().unwrap();
+            let client = Client::builder()
+                .user_agent(APP_USER_AGENT)
+                .build()
+                .unwrap();
             tui::execute(Tui {
                 sysroot,
                 no_progress,
