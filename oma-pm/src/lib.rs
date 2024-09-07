@@ -15,3 +15,9 @@ pub fn format_description(desc: &str) -> (&str, Option<&str>) {
         (desc, None)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::sync::{LazyLock, Mutex};
+    pub(crate) static TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+}

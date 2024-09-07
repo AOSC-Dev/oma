@@ -295,7 +295,9 @@ impl<'a> OmaSearch<'a> {
 
 #[test]
 fn test() {
+    use crate::test::TEST_LOCK;
     use oma_apt::new_cache;
+    let _lock = TEST_LOCK.lock().unwrap();
 
     let packages = std::path::Path::new(&std::env::var_os("CARGO_MANIFEST_DIR").unwrap())
         .join("test_file")
