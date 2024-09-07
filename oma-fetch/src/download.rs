@@ -53,11 +53,10 @@ impl SingleDownloader<'_> {
         for (i, c) in sources.iter().enumerate() {
             let download_res = match c.source_type {
                 DownloadSourceType::Http => {
-                    self.try_http_download(i, cc.clone(), gpc.clone(), &sources)
-                        .await
+                    self.try_http_download(cc.clone(), gpc.clone(), c).await
                 }
                 DownloadSourceType::Local { as_symlink } => {
-                    self.download_local(i, cc.clone(), gpc.clone(), &sources, as_symlink)
+                    self.download_local(cc.clone(), gpc.clone(), c, as_symlink)
                         .await
                 }
             };
@@ -89,10 +88,9 @@ impl SingleDownloader<'_> {
     /// Downlaod file with retry (http)
     async fn try_http_download<F>(
         &self,
-        position: usize,
         callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
-        sources: &[DownloadSource],
+        source: &DownloadSource,
     ) -> DownloadResult<Summary>
     where
         F: Fn(usize, DownloadEvent) + Clone,
@@ -102,11 +100,10 @@ impl SingleDownloader<'_> {
         loop {
             match self
                 .http_download(
-                    position,
                     callback.clone(),
                     global_progress.clone(),
                     allow_resume,
-                    sources,
+                    source,
                 )
                 .await
             {
@@ -142,11 +139,10 @@ impl SingleDownloader<'_> {
 
     async fn http_download<F>(
         &self,
-        position: usize,
         callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
         allow_resume: bool,
-        sources: &[DownloadSource],
+        source: &DownloadSource,
     ) -> DownloadResult<Summary>
     where
         F: Fn(usize, DownloadEvent) + Clone,
@@ -155,7 +151,7 @@ impl SingleDownloader<'_> {
         let file_exist = file.exists();
         let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
-        debug!("Exist file size is: {file_size}");
+        debug!("{} Exist file size is: {file_size}", file.display());
         let mut dest = None;
         let mut validator = None;
 
@@ -249,7 +245,7 @@ impl SingleDownloader<'_> {
             DownloadEvent::NewProgressSpinner(msg.clone()),
         );
 
-        let resp_head = match self.client.head(&sources[position].url).send().await {
+        let resp_head = match self.client.head(&source.url).send().await {
             Ok(resp) => resp,
             Err(e) => {
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
@@ -286,7 +282,7 @@ impl SingleDownloader<'_> {
 
         debug!("File total size is: {total_size}");
 
-        let mut req = self.client.get(&sources[position].url);
+        let mut req = self.client.get(&source.url);
 
         if can_resume && allow_resume {
             // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
@@ -511,10 +507,9 @@ impl SingleDownloader<'_> {
     /// Download local source file
     async fn download_local<F>(
         &self,
-        download_source_position: usize,
         callback: Arc<F>,
         global_progress: Arc<AtomicU64>,
-        sources: &[DownloadSource],
+        source: &DownloadSource,
         as_symlink: bool,
     ) -> DownloadResult<Summary>
     where
@@ -523,7 +518,7 @@ impl SingleDownloader<'_> {
         debug!("{:?}", self.entry);
         let msg = self.set_progress_msg();
 
-        let url = &sources[download_source_position].url;
+        let url = &source.url;
         let url_path = url_no_escape(
             url.strip_prefix("file:")
                 .ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?,
