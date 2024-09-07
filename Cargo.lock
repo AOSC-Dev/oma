@@ -3160,7 +3160,6 @@ dependencies = [
  "thiserror",
  "tracing",
  "which",
- "winnow",
  "zstd",
 ]
 
