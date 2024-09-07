@@ -430,7 +430,7 @@ impl<'a> OmaRefresh<'a> {
                 .build()?;
 
             debug!("oma will fetch {} InRelease", source_entry.url);
-            map.insert(task.filename.clone(), source_entry.clone());
+            map.insert(task.filename.to_string(), source_entry.clone());
             tasks.push(task);
         }
 
@@ -530,7 +530,7 @@ impl<'a> OmaRefresh<'a> {
         let mut tasks = vec![];
         for inrelease_summary in all_inrelease {
             // 源数据确保是存在的，所以直接 unwrap
-            let ose = sources_map.get(&inrelease_summary.filename).unwrap();
+            let ose = sources_map.get(&*inrelease_summary.filename).unwrap();
             let urlc = &ose.url;
 
             debug!("Getted oma source entry: {:#?}", ose);
