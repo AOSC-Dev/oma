@@ -198,7 +198,7 @@ impl<'a> OmaRefresh<'a> {
         let mut download_list = vec![];
 
         let replacer = DatabaseFilenameReplacer::new()?;
-        let tasks =
+        let (tasks, soueces_map) =
             self.collect_download_release_tasks(&sourcelist, is_inrelease_map, &replacer)?;
 
         for i in &tasks {
@@ -214,7 +214,7 @@ impl<'a> OmaRefresh<'a> {
             .await?;
 
         let (tasks, total) = self
-            .collect_all_release_entry(all_inrelease, &sourcelist, &replacer)
+            .collect_all_release_entry(all_inrelease, &sourcelist, &replacer, soueces_map)
             .await?;
 
         for i in &tasks {
@@ -321,8 +321,8 @@ impl<'a> OmaRefresh<'a> {
                         mirrors_inrelease.insert(i, RepoType::Release);
                     } else if c.is_flat {
                         // flat repo 可以没有 Release 文件
-                        mirrors_inrelease.insert(i, RepoType::FlatNoRelease);
                         self.flat_repo_no_release.push(i);
+                        mirrors_inrelease.insert(i, RepoType::FlatNoRelease);
                         continue;
                     } else {
                         callback(
@@ -384,8 +384,10 @@ impl<'a> OmaRefresh<'a> {
         sourcelist: &[OmaSourceEntry],
         is_inrelease_map: AHashMap<usize, RepoType>,
         replacer: &DatabaseFilenameReplacer,
-    ) -> Result<Vec<DownloadEntry>> {
+    ) -> Result<(Vec<DownloadEntry>, AHashMap<String, OmaSourceEntry>)> {
         let mut tasks = Vec::new();
+        let mut map = AHashMap::new();
+
         for (i, source_entry) in sourcelist.iter().enumerate() {
             let repo_type = is_inrelease_map.get(&i).unwrap();
 
@@ -428,10 +430,11 @@ impl<'a> OmaRefresh<'a> {
                 .build()?;
 
             debug!("oma will fetch {} InRelease", source_entry.url);
+            map.insert(task.filename.clone(), source_entry.clone());
             tasks.push(task);
         }
 
-        Ok(tasks)
+        Ok((tasks, map))
     }
 
     async fn handle_downloaded_release_result<F>(
@@ -521,12 +524,13 @@ impl<'a> OmaRefresh<'a> {
         all_inrelease: Vec<Summary>,
         sourcelist: &[OmaSourceEntry],
         replacer: &DatabaseFilenameReplacer,
+        sources_map: AHashMap<String, OmaSourceEntry>,
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
         for inrelease_summary in all_inrelease {
             // 源数据确保是存在的，所以直接 unwrap
-            let ose = sourcelist.get(inrelease_summary.count).unwrap();
+            let ose = sources_map.get(&inrelease_summary.filename).unwrap();
             let urlc = &ose.url;
 
             debug!("Getted oma source entry: {:#?}", ose);
@@ -582,7 +586,7 @@ impl<'a> OmaRefresh<'a> {
             for c in handle {
                 collect_download_task(
                     &c,
-                    sourcelist.get(inrelease_summary.count).unwrap(),
+                    ose,
                     &self.download_dir,
                     &mut tasks,
                     &inrelease,
