@@ -153,6 +153,7 @@ impl SingleDownloader<'_> {
         let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
         debug!("{} Exist file size is: {file_size}", file.display());
+        debug!("{} download url is: {}", file.display(), source.url);
         let mut dest = None;
         let mut validator = None;
 
@@ -162,7 +163,7 @@ impl SingleDownloader<'_> {
             debug!("File: {} exists", self.entry.filename);
 
             if let Some(hash) = &self.entry.hash {
-                debug!("Hash exist! It is: {hash:?}");
+                debug!("Hash exist! It is: {}", hash);
 
                 let mut f = tokio::fs::OpenOptions::new()
                     .write(true)
