@@ -5,7 +5,7 @@ use std::{
     sync::{atomic::AtomicU64, Arc},
 };
 
-use bon::builder;
+use bon::{builder, Builder};
 use checksum::Checksum;
 use download::SingleDownloader;
 use futures::StreamExt;
@@ -37,8 +37,7 @@ pub enum DownloadError {
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 
-#[derive(Debug, Clone, Default)]
-#[builder]
+#[derive(Debug, Clone, Default, Builder)]
 pub struct DownloadEntry {
     pub source: Vec<DownloadSource>,
     pub filename: String,

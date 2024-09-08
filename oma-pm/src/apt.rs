@@ -5,7 +5,7 @@ use std::{
     process::Command,
 };
 
-use bon::builder;
+use bon::{builder, Builder};
 use chrono::Local;
 
 use oma_apt::{
@@ -46,8 +46,7 @@ use crate::{
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
-#[builder]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Builder)]
 pub struct OmaAptArgs {
     #[builder(default = true)]
     install_recommends: bool,
@@ -126,7 +125,7 @@ pub enum OmaAptError {
     ChecksumError(#[from] ChecksumError),
 }
 
-#[builder]
+#[derive(Builder)]
 pub struct AptArgs {
     #[builder(default)]
     yes: bool,

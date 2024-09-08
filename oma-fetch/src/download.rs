@@ -9,7 +9,7 @@ use std::{
 };
 
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
-use bon::builder;
+use bon::Builder;
 use futures::{io::BufReader, AsyncBufRead, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
@@ -23,8 +23,7 @@ use tracing::debug;
 
 use crate::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Summary};
 
-#[derive(Debug)]
-#[builder]
+#[derive(Debug, Builder)]
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
     pub entry: &'a DownloadEntry,
