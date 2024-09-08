@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use bon::builder;
+use bon::{builder, Builder};
 use oma_utils::human_bytes::HumanBytes;
 use serde::{Deserialize, Serialize};
 
@@ -99,8 +99,7 @@ impl Display for OmaOperation {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize)]
-#[builder]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize, Builder)]
 pub struct InstallEntry {
     name: String,
     old_version: Option<String>,
