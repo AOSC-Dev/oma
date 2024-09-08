@@ -12,6 +12,8 @@ use crossterm::{
 };
 use dialoguer::console::style;
 use oma_console::{
+    indicatif::ProgressBar,
+    pb::spinner_style,
     print::Action,
     writer::{gen_prefix, writeln_inner, MessageType},
     WRITER,
@@ -26,7 +28,7 @@ use crate::{
 use oma_pm::{
     apt::{AptArgs, AptConfig, OmaApt, OmaAptArgs},
     pkginfo::PkgInfo,
-    search::{OmaSearch, SearchResult},
+    search::{IndiciumSearch, OmaSearch, SearchResult},
     PackageStatus,
 };
 use ratatui::{
@@ -241,6 +243,23 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
 
     refresh(req)?;
 
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
+
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+
+    let (sty, inv) = spinner_style();
+    let pb = ProgressBar::new_spinner().with_style(sty);
+    pb.enable_steady_tick(inv);
+    pb.set_message(fl!("reading-database"));
+
+    let a = apt.available_action()?;
+    let installed = apt.installed_packages()?;
+
+    let searcher = IndiciumSearch::new(&apt.cache, |n| {
+        pb.set_message(fl!("reading-database-with-count", count = n));
+    })?;
+    pb.finish_and_clear();
+
     stdout()
         .execute(EnterAlternateScreen)
         .map_err(|e| OutputError {
@@ -262,14 +281,6 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         description: "Failed to clear terminal".to_string(),
         source: Some(Box::new(e)),
     })?;
-
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
-
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
-
-    let a = apt.available_action()?;
-    let installed = apt.installed_packages()?;
-    let searcher = OmaSearch::new(&apt.cache)?;
 
     let result_rc = Rc::new(RefCell::new(vec![]));
     let result_display = result_rc
@@ -763,7 +774,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
 }
 
 fn update_search_result(
-    searcher: &OmaSearch<'_>,
+    searcher: &IndiciumSearch<'_>,
     s: Ref<'_, String>,
     display_list: &mut StatefulList<Text<'_>>,
     result_rc: &Rc<RefCell<Vec<SearchResult>>>,

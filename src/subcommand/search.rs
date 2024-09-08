@@ -39,7 +39,7 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
         None
     };
 
-    let res = db.search(&s)?;
+    let res = db.search(&s, |_| {})?;
 
     if let Some(pb) = pb {
         pb.finish_and_clear();

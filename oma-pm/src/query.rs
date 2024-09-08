@@ -14,7 +14,7 @@ use tracing::{debug, info};
 
 use crate::{
     pkginfo::{PkgInfo, PtrIsNone},
-    search::{OmaSearch, OmaSearchError, SearchResult},
+    search::{IndiciumSearch, OmaSearch, OmaSearchError, SearchResult},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -277,8 +277,12 @@ impl<'a> OmaDatabase<'a> {
     }
 
     /// Smart search pkgs
-    pub fn search(&self, keyword: &str) -> OmaDatabaseResult<Vec<SearchResult>> {
-        let searcher = OmaSearch::new(self.cache)?;
+    pub fn search(
+        &self,
+        keyword: &str,
+        progress: impl Fn(usize),
+    ) -> OmaDatabaseResult<Vec<SearchResult>> {
+        let searcher = IndiciumSearch::new(self.cache, progress)?;
         let res = searcher.search(keyword)?;
 
         Ok(res)

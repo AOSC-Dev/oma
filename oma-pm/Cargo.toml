@@ -34,6 +34,7 @@ zbus = { version = "4.1", features = ["tokio"] }
 cxx = "1.0.121"
 ahash = "0.8.11"
 bon = "2.1"
+strsim = "0.11.1"
 
 [dev-dependencies]
 dashmap = "6"

@@ -172,6 +172,8 @@ table-version = Version
 table-size = Installed size
 table-detail = Detail
 reading-database = Reading packages database ...
+reading-database-with-count = Reading packages database, { $count } readed ...
+
 has-error-on-top = The operation you specified did not complete successfully. Please refer to the output above for details.
 mirror-is-not-trusted = Mirror { $mirror } is unsigned or not trusted, please check your repository settings.
 please-run-me-as-root = oma requires elevated privileges to perform system administration.
