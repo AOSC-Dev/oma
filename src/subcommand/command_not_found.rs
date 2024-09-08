@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::io::stdout;
 
+use ahash::AHashMap;
 use oma_console::due_to;
 use oma_console::print::Action;
 use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
@@ -58,6 +59,8 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
 
             let mut too_many = false;
 
+            let mut map: AHashMap<String, String> = AHashMap::new();
+
             for (pkg, file, jaro) in jaro {
                 if res.len() == 10 {
                     too_many = true;
@@ -68,7 +71,9 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
                     break;
                 }
 
-                if let Some(pkg) = apt.cache.get(&pkg) {
+                let desc = if let Some(desc) = map.get(&pkg) {
+                    desc.to_string()
+                } else if let Some(pkg) = apt.cache.get(&pkg) {
                     let desc = pkg
                         .candidate()
                         .and_then(|x| {
@@ -77,19 +82,25 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
                         })
                         .unwrap_or_else(|| "no description.".to_string());
 
-                    let entry = (
-                        color_formatter()
-                            .color_str(pkg.name(), Action::Emphasis)
-                            .bold()
-                            .to_string(),
-                        color_formatter()
-                            .color_str(file, Action::Secondary)
-                            .to_string(),
-                        desc,
-                    );
+                    map.insert(pkg.name().to_string(), desc.to_string());
 
-                    res.push(entry);
-                }
+                    desc
+                } else {
+                    continue;
+                };
+
+                let entry = (
+                    color_formatter()
+                        .color_str(pkg, Action::Emphasis)
+                        .bold()
+                        .to_string(),
+                    color_formatter()
+                        .color_str(file, Action::Secondary)
+                        .to_string(),
+                    desc,
+                );
+
+                res.push(entry);
             }
 
             if res.is_empty() {
