@@ -174,3 +174,5 @@ topic-not-in-mirror = 测试源 { $topic } 在镜像源 { $mirror } 上不可用
 skip-write-mirror = 这一般是您指定的镜像源未同步导致的，将尝试从您开启的其他镜像源中刷新测试源信息 ...
 pkexec-tips-1 = 请在弹出的密码框输入密码以授权 oma 执行系统管理操作。
 pkexec-tips-2 = 如果您无法操作该输入框，请按 Ctrl + C 退出并以管理员权限运行 oma。
+cnf-too-many-query-2 = 请考虑使用 `oma provides --bin { $query }' 命令查阅所有匹配命令。
+cnf-too-many-query = 您查询的命令有大量匹配项。
