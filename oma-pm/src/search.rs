@@ -349,7 +349,7 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
                     .description()
                     .is_some_and(|x| query_matcher.is_match(&x))
                     && !res.contains_key(&name)
-                    && !pkg.name().contains("-dbg")
+                    && !name.ends_with("-dbg")
                 {
                     let oma_pkg = PkgInfo::new(&cand, &pkg)?;
                     res.insert(
@@ -401,7 +401,7 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
                 .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
 
             let name = pkg.fullname(true);
-            let is_base = name.contains("-base");
+            let is_base = name.ends_with("-base");
             let full_match = query == name;
 
             v.push(SearchResult {
@@ -481,7 +481,7 @@ impl<'a> OmaSearch for TextSearch<'a> {
             let name = pkg.fullname(true);
             let cand = pkg.candidate();
 
-            if (ac.is_match(&name) || glob_match(&query, &name)) && !name.ends_with("-dbg") {
+            if (ac.is_match(&name) || glob_match(query, &name)) && !name.ends_with("-dbg") {
                 let full_match = query == name;
                 let is_base = name.ends_with("-base");
                 let upgrade = pkg.is_upgradable();
