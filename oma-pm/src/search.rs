@@ -363,8 +363,8 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
         let mut res = res.into_values().collect::<Vec<_>>();
 
         res.sort_unstable_by(|x, y| {
-            let x_score = pkg_score(query, &x.0, x.3);
-            let y_score = pkg_score(query, &y.0, y.3);
+            let x_score = Self::pkg_score(query, &x.0, x.3);
+            let y_score = Self::pkg_score(query, &y.0, y.3);
 
             let c = x_score.cmp(&y_score);
 
@@ -430,14 +430,14 @@ impl<'a> StrSimSearch<'a> {
     pub fn new(cache: &'a Cache) -> Self {
         Self { cache }
     }
-}
 
-fn pkg_score(input: &str, pkginfo: &PkgInfo, is_provide: bool) -> u16 {
-    if is_provide {
-        return 1000;
+    fn pkg_score(input: &str, pkginfo: &PkgInfo, is_provide: bool) -> u16 {
+        if is_provide {
+            return 1000;
+        }
+
+        (strsim::jaro_winkler(&pkginfo.raw_pkg.fullname(true), input) * 1000.0) as u16
     }
-
-    (strsim::jaro_winkler(&pkginfo.raw_pkg.fullname(true), input) * 1000.0) as u16
 }
 
 #[test]
