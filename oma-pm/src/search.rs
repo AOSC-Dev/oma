@@ -1,15 +1,21 @@
-use ahash::AHashMap;
+use ahash::{AHashMap, RandomState};
 use cxx::UniquePtr;
 use indicium::simple::{Indexable, SearchIndex};
 use oma_apt::{
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
     raw::{IntoRawIter, PkgIterator},
-    Package,
+    Package, Version,
 };
 use std::{collections::hash_map::Entry, fmt::Debug};
 
-use crate::{format_description, pkginfo::PtrIsNone, query::has_dbg};
+type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
+
+use crate::{
+    format_description,
+    pkginfo::{PkgInfo, PtrIsNone},
+    query::has_dbg,
+};
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum PackageStatus {
@@ -50,7 +56,7 @@ pub struct SearchEntry {
     name: String,
     description: String,
     status: PackageStatus,
-    provides: Vec<String>,
+    provides: IndexSet<String>,
     has_dbg: bool,
     raw_pkg: UniquePtr<PkgIterator>,
     section_is_base: bool,
@@ -109,21 +115,56 @@ pub struct SearchResult {
     pub is_base: bool,
 }
 
-pub struct OmaSearch<'a> {
+pub struct IndiciumSearch<'a> {
     cache: &'a Cache,
     pkg_map: AHashMap<String, SearchEntry>,
     index: SearchIndex<String>,
 }
 
-impl<'a> OmaSearch<'a> {
-    pub fn new(cache: &'a Cache) -> OmaSearchResult<Self> {
+pub trait OmaSearch {
+    fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>>;
+}
+
+impl<'a> OmaSearch for IndiciumSearch<'a> {
+    fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
+        let mut search_res = vec![];
+        let query = query.to_lowercase();
+        let res = self.index.search(&query);
+
+        if res.is_empty() {
+            return Err(OmaSearchError::NoResult(query));
+        }
+
+        for i in res {
+            let entry = self.search_result(i, Some(&query))?;
+            search_res.push(entry);
+        }
+
+        search_res.sort_by(|a, b| b.status.cmp(&a.status));
+
+        for i in 0..search_res.len() {
+            if search_res[i].full_match {
+                let i = search_res.remove(i);
+                search_res.insert(0, i);
+            }
+        }
+
+        Ok(search_res)
+    }
+}
+
+impl<'a> IndiciumSearch<'a> {
+    pub fn new(cache: &'a Cache, progress: impl Fn(usize)) -> OmaSearchResult<Self> {
         let sort = PackageSort::default().include_virtual();
         let packages = cache.packages(&sort);
 
         let mut pkg_map = AHashMap::new();
 
-        for pkg in packages {
-            if pkg.fullname(true).contains("-dbg") {
+        for (i, pkg) in packages.enumerate() {
+            let name = pkg.fullname(true);
+            progress(i);
+
+            if name.contains("-dbg") {
                 continue;
             }
 
@@ -136,9 +177,9 @@ impl<'a> OmaSearch<'a> {
             };
 
             if let Some(cand) = pkg.candidate() {
-                if let Entry::Vacant(e) = pkg_map.entry(pkg.fullname(true)) {
+                if let Entry::Vacant(e) = pkg_map.entry(name.clone()) {
                     e.insert(SearchEntry {
-                        name: pkg.fullname(true),
+                        name,
                         description: format_description(
                             &cand.description().unwrap_or("".to_string()),
                         )
@@ -167,6 +208,7 @@ impl<'a> OmaSearch<'a> {
 
                 for (provide, i) in real_pkgs {
                     let pkg = Package::new(cache, i);
+                    let name = pkg.fullname(true);
 
                     let status = if pkg.is_upgradable() {
                         PackageStatus::Upgrade
@@ -178,21 +220,25 @@ impl<'a> OmaSearch<'a> {
 
                     if let Some(cand) = pkg.candidate() {
                         pkg_map
-                            .entry(pkg.fullname(true))
+                            .entry(name.clone())
                             .and_modify(|x| {
                                 if !x.provides.contains(&provide) {
-                                    x.provides.push(provide.clone())
+                                    x.provides.insert(provide.clone());
                                 }
                             })
                             .or_insert(SearchEntry {
-                                name: pkg.fullname(true),
+                                name,
                                 description: format_description(
                                     &cand.description().unwrap_or("".to_string()),
                                 )
                                 .0
                                 .to_string(),
                                 status,
-                                provides: vec![provide.clone()],
+                                provides: {
+                                    let mut set = IndexSet::with_hasher(RandomState::new());
+                                    set.insert(provide.clone());
+                                    set
+                                },
                                 has_dbg: has_dbg(cache, &pkg, &cand),
                                 raw_pkg: unsafe { pkg.unique() }
                                     .make_safe()
@@ -218,32 +264,6 @@ impl<'a> OmaSearch<'a> {
             pkg_map,
             index: search_index,
         })
-    }
-
-    pub fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
-        let mut search_res = vec![];
-        let query = query.to_lowercase();
-        let res = self.index.search(&query);
-
-        if res.is_empty() {
-            return Err(OmaSearchError::NoResult(query));
-        }
-
-        for i in res {
-            let entry = self.search_result(i, Some(&query))?;
-            search_res.push(entry);
-        }
-
-        search_res.sort_by(|a, b| b.status.cmp(&a.status));
-
-        for i in 0..search_res.len() {
-            if search_res[i].full_match {
-                let i = search_res.remove(i);
-                search_res.insert(0, i);
-            }
-        }
-
-        Ok(search_res)
     }
 
     pub fn search_result(
@@ -293,6 +313,143 @@ impl<'a> OmaSearch<'a> {
     }
 }
 
+pub struct StrSimSearch<'a> {
+    cache: &'a Cache,
+}
+
+impl<'a> OmaSearch for StrSimSearch<'a> {
+    fn search(&self, query: &str) -> Result<Vec<SearchResult>, OmaSearchError> {
+        let pkgs = self
+            .cache
+            .packages(&PackageSort::default().include_virtual());
+
+        let mut res = AHashMap::new();
+
+        for pkg in pkgs {
+            let name = pkg.fullname(true);
+            if let Some(cand) = pkg.candidate() {
+                if name.contains(query) && !name.contains("-dbg") && !res.contains_key(&name) {
+                    let oma_pkg = PkgInfo::new(&cand, &pkg)?;
+                    res.insert(
+                        name.clone(),
+                        (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                    );
+                }
+
+                if cand.description().is_some_and(|x| x.contains(query))
+                    && !res.contains_key(&name)
+                    && !pkg.name().contains("-dbg")
+                {
+                    let oma_pkg = PkgInfo::new(&cand, &pkg)?;
+                    res.insert(
+                        name.clone(),
+                        (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
+                    );
+                }
+            } else if name == query && pkg.has_provides() {
+                let real_pkgs = pkg.provides().flat_map(|x| {
+                    unsafe { x.target_pkg() }
+                        .make_safe()
+                        .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))
+                });
+                for pkg in real_pkgs {
+                    let pkg = Package::new(self.cache, pkg);
+                    if let Some(cand) = pkg.candidate() {
+                        let oma_pkg = PkgInfo::new(&cand, &pkg)?;
+
+                        res.insert(
+                            name.clone(),
+                            (oma_pkg, cand.is_installed(), pkg.is_upgradable(), true),
+                        );
+                    }
+                }
+            }
+        }
+
+        let mut res = res.into_values().collect::<Vec<_>>();
+
+        res.sort_unstable_by(|x, y| {
+            let x_score = Self::pkg_score(query, &x.0, x.3);
+            let y_score = Self::pkg_score(query, &y.0, y.3);
+
+            let c = x_score.cmp(&y_score);
+
+            if c == std::cmp::Ordering::Equal {
+                x.0.raw_pkg.fullname(true).cmp(&y.0.raw_pkg.fullname(true))
+            } else {
+                c
+            }
+        });
+
+        let mut v = vec![];
+
+        for (pkginfo, install, upgrade, _) in res {
+            let pkg = Package::new(self.cache, pkginfo.raw_pkg);
+            let cand = pkg
+                .candidate()
+                .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
+
+            let name = pkg.fullname(true);
+            let is_base = name.contains("-base");
+            let full_match = query == name;
+
+            v.push(SearchResult {
+                name,
+                desc: format_description(
+                    &Version::new(pkginfo.version_raw, self.cache)
+                        .description()
+                        .unwrap_or_default(),
+                )
+                .0
+                .to_owned(),
+                old_version: {
+                    if !upgrade {
+                        None
+                    } else {
+                        pkg.installed().map(|x| x.version().to_string())
+                    }
+                },
+                new_version: cand.version().to_string(),
+                full_match,
+                dbg_package: has_dbg(self.cache, &pkg, &cand),
+                status: if upgrade {
+                    PackageStatus::Upgrade
+                } else if install {
+                    PackageStatus::Installed
+                } else {
+                    PackageStatus::Avail
+                },
+                is_base,
+            });
+        }
+
+        v.sort_by(|a, b| b.status.cmp(&a.status));
+
+        for i in 0..v.len() {
+            if v[i].full_match {
+                let i = v.remove(i);
+                v.insert(0, i);
+            }
+        }
+
+        Ok(v)
+    }
+}
+
+impl<'a> StrSimSearch<'a> {
+    pub fn new(cache: &'a Cache) -> Self {
+        Self { cache }
+    }
+
+    fn pkg_score(input: &str, pkginfo: &PkgInfo, is_provide: bool) -> u16 {
+        if is_provide {
+            return 1000;
+        }
+
+        (strsim::jaro_winkler(&pkginfo.raw_pkg.fullname(true), input) * 1000.0) as u16
+    }
+}
+
 #[test]
 fn test() {
     use crate::test::TEST_LOCK;
@@ -304,7 +461,7 @@ fn test() {
         .join("Packages");
     let cache = new_cache!(&[packages.to_string_lossy().to_string()]).unwrap();
 
-    let searcher = OmaSearch::new(&cache).unwrap();
+    let searcher = IndiciumSearch::new(&cache, |_| {}).unwrap();
     let res = searcher.search("windows-nt-kernel").unwrap();
     let res2 = searcher.search("pwp").unwrap();
 
