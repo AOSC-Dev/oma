@@ -18,18 +18,12 @@ use tracing::warn;
 use crate::fl;
 use crate::{color_formatter, error::OutputError, table::oma_display_with_normal_output};
 
-use super::utils::check_unsupport_stmt;
-
 pub fn execute(
     args: &[String],
     no_progress: bool,
     sysroot: String,
     engine: Cow<String>,
 ) -> Result<i32, OutputError> {
-    for arg in args {
-        check_unsupport_stmt(arg);
-    }
-
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let db = OmaDatabase::new(&apt.cache)?;
@@ -52,6 +46,7 @@ pub fn execute(
         match engine.as_str() {
             "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
             "strsim" => SearchEngine::Strsim,
+            "text" => SearchEngine::Text,
             x => {
                 warn!("Unsupport mode: {x}, fallback to indicium ...");
                 SearchEngine::Indicium(Box::new(|_| {}))

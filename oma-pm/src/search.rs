@@ -1,5 +1,7 @@
 use ahash::{AHashMap, RandomState};
+use aho_corasick::AhoCorasick;
 use cxx::UniquePtr;
+use glob_match::glob_match;
 use indicium::simple::{Indexable, SearchIndex};
 use oma_apt::{
     cache::{Cache, PackageSort},
@@ -99,6 +101,8 @@ pub enum OmaSearchError {
     FailedGetCandidate(String),
     #[error(transparent)]
     PtrIsNone(#[from] PtrIsNone),
+    #[error(transparent)]
+    AhoCorasick(#[from] aho_corasick::BuildError),
 }
 
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
@@ -323,12 +327,17 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
             .cache
             .packages(&PackageSort::default().include_virtual());
 
+        let query_matcher = AhoCorasick::new([query])?;
+
         let mut res = AHashMap::new();
 
         for pkg in pkgs {
             let name = pkg.fullname(true);
             if let Some(cand) = pkg.candidate() {
-                if name.contains(query) && !name.contains("-dbg") && !res.contains_key(&name) {
+                if query_matcher.is_match(&name)
+                    && !name.ends_with("-dbg")
+                    && !res.contains_key(&name)
+                {
                     let oma_pkg = PkgInfo::new(&cand, &pkg)?;
                     res.insert(
                         name.clone(),
@@ -336,7 +345,9 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
                     );
                 }
 
-                if cand.description().is_some_and(|x| x.contains(query))
+                if cand
+                    .description()
+                    .is_some_and(|x| query_matcher.is_match(&x))
                     && !res.contains_key(&name)
                     && !pkg.name().contains("-dbg")
                 {
@@ -447,6 +458,73 @@ impl<'a> StrSimSearch<'a> {
         }
 
         (strsim::jaro_winkler(&pkginfo.raw_pkg.fullname(true), input) * 1000.0) as u16
+    }
+}
+
+pub struct TextSearch<'a> {
+    cache: &'a Cache,
+}
+
+impl<'a> TextSearch<'a> {
+    pub fn new(cache: &'a Cache) -> Self {
+        Self { cache }
+    }
+}
+
+impl<'a> OmaSearch for TextSearch<'a> {
+    fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
+        let mut res = vec![];
+        let pkgs = self.cache.packages(&PackageSort::default());
+        let ac = AhoCorasick::new([query])?;
+
+        for pkg in pkgs {
+            let name = pkg.fullname(true);
+            let cand = pkg.candidate();
+
+            if (ac.is_match(&name) || glob_match(&query, &name)) && !name.ends_with("-dbg") {
+                let full_match = query == name;
+                let is_base = name.ends_with("-base");
+                let upgrade = pkg.is_upgradable();
+                let installed = pkg.is_installed();
+                if let Some(cand) = cand {
+                    res.push(SearchResult {
+                        name,
+                        desc: format_description(&cand.description().unwrap_or_default())
+                            .0
+                            .to_string(),
+                        old_version: {
+                            if !pkg.is_upgradable() {
+                                None
+                            } else {
+                                pkg.installed().map(|x| x.version().to_string())
+                            }
+                        },
+                        new_version: cand.version().to_string(),
+                        full_match,
+                        dbg_package: has_dbg(self.cache, &pkg, &cand),
+                        status: if upgrade {
+                            PackageStatus::Upgrade
+                        } else if installed {
+                            PackageStatus::Installed
+                        } else {
+                            PackageStatus::Avail
+                        },
+                        is_base,
+                    })
+                }
+            }
+        }
+
+        res.sort_by(|a, b| b.status.cmp(&a.status));
+
+        for i in 0..res.len() {
+            if res[i].full_match {
+                let i = res.remove(i);
+                res.insert(0, i);
+            }
+        }
+
+        Ok(res)
     }
 }
 

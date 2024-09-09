@@ -17,6 +17,8 @@ search_contents_println = false
 # - strsim:   Simple string-based search on package names and descriptions,
 #             with relatively low performance requirements but not as
 #             effective as indicium.
+# - text:     Will only string match inputs to enrollments,
+#             fastest but unsatisfactory result
 search_engine = "indicium"
 
 
