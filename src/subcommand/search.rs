@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use dialoguer::console::style;
 use oma_console::{
     indicatif::ProgressBar,
@@ -8,16 +10,22 @@ use oma_console::{
 };
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
-    query::OmaDatabase,
+    query::{OmaDatabase, SearchEngine},
     PackageStatus,
 };
+use tracing::warn;
 
 use crate::fl;
 use crate::{color_formatter, error::OutputError, table::oma_display_with_normal_output};
 
 use super::utils::check_unsupport_stmt;
 
-pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i32, OutputError> {
+pub fn execute(
+    args: &[String],
+    no_progress: bool,
+    sysroot: String,
+    engine: Cow<String>,
+) -> Result<i32, OutputError> {
     for arg in args {
         check_unsupport_stmt(arg);
     }
@@ -39,7 +47,17 @@ pub fn execute(args: &[String], no_progress: bool, sysroot: String) -> Result<i3
         None
     };
 
-    let res = db.search(&s, |_| {})?;
+    let res = db.search(
+        &s,
+        match engine.as_str() {
+            "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
+            "strsim" => SearchEngine::Strsim,
+            x => {
+                warn!("Unsupport mode: {x}, fallback to indicium ...");
+                SearchEngine::Indicium(Box::new(|_| {}))
+            }
+        },
+    )?;
 
     if let Some(pb) = pb {
         pb.finish_and_clear();

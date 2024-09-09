@@ -409,6 +409,15 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
             });
         }
 
+        v.sort_by(|a, b| b.status.cmp(&a.status));
+
+        for i in 0..v.len() {
+            if v[i].full_match {
+                let i = v.remove(i);
+                v.insert(0, i);
+            }
+        }
+
         Ok(v)
     }
 }

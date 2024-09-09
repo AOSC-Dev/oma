@@ -471,7 +471,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap();
 
-            search::execute(&args, no_progress, sysroot)?
+            let engine = config.search_engine();
+
+            search::execute(&args, no_progress, sysroot, engine)?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };

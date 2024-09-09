@@ -10,6 +10,12 @@ follow_terminal_color = false
 # Print search contents results directly without sorting and paging
 # recommended for devices with small RAM capacities.
 search_contents_println = false
+# Set search engine for `oma search`, optional:
+#   - indicium: is a complete search engine, but with high performance requirements (default)
+#   - strsim: Relevance search on package name and description only,
+#             relatively low performance requirements, but not as good as indicium.
+search_engine = "indicium"
+
 
 [network]
 # Number of network threads to use when downloading metadata and packages.

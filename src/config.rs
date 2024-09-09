@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::fl;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -23,6 +25,8 @@ pub struct GeneralConfig {
     pub follow_terminal_color: bool,
     #[serde(default = "GeneralConfig::default_search_contents_println")]
     pub search_contents_println: bool,
+    #[serde(default = "GeneralConfig::default_search_engine")]
+    pub search_engine: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -56,6 +60,10 @@ impl GeneralConfig {
 
     pub const fn default_search_contents_println() -> bool {
         false
+    }
+
+    pub fn default_search_engine() -> String {
+        String::from("indicium")
     }
 }
 
@@ -105,5 +113,12 @@ impl Config {
             .as_ref()
             .map(|x| x.search_contents_println)
             .unwrap_or_else(GeneralConfig::default_search_contents_println)
+    }
+
+    pub fn search_engine(&self) -> Cow<String> {
+        self.general
+            .as_ref()
+            .map(|x| Cow::Borrowed(&x.search_engine))
+            .unwrap_or_else(|| Cow::Owned(GeneralConfig::default_search_engine()))
     }
 }
