@@ -1,0 +1,28 @@
+[general]
+# Set to false to allow removal of "Essential" packages.
+protect_essentials = true
+# Set to true to no check dbus with install pacakge
+no_check_dbus = false
+# Set to true to do not refresh topic manifest data
+no_refresh_topics = false
+# Follow system theme as oma color output
+follow_terminal_color = false
+# Print search contents results directly without sorting and paging
+# recommended for devices with small RAM capacities.
+search_contents_println = false
+# Default search engine for `oma search':
+#
+# - indicium: A complete search engine, but with higher performance
+#             requirements (default).
+# - strsim:   Simple string-based search on package names and descriptions,
+#             with relatively low performance requirements but not as
+#             effective as indicium.
+search_engine = "strsim"
+
+
+[network]
+# Number of network threads to use when downloading metadata and packages.
+#
+# Note: It is not advised to set this value to more than 4 to avoid flooding
+# remote servers.
+network_threads = 4
