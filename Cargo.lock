@@ -3164,6 +3164,7 @@ dependencies = [
  "dashmap",
  "fs4",
  "glob-match",
+ "indexmap 2.5.0",
  "indicatif",
  "indicium",
  "oma-apt",

@@ -1,4 +1,4 @@
-use ahash::AHashMap;
+use ahash::{AHashMap, RandomState};
 use cxx::UniquePtr;
 use indicium::simple::{Indexable, SearchIndex};
 use oma_apt::{
@@ -8,6 +8,8 @@ use oma_apt::{
     Package, Version,
 };
 use std::{collections::hash_map::Entry, fmt::Debug};
+
+type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
 
 use crate::{
     format_description,
@@ -54,7 +56,7 @@ pub struct SearchEntry {
     name: String,
     description: String,
     status: PackageStatus,
-    provides: Vec<String>,
+    provides: IndexSet<String>,
     has_dbg: bool,
     raw_pkg: UniquePtr<PkgIterator>,
     section_is_base: bool,
@@ -159,9 +161,10 @@ impl<'a> IndiciumSearch<'a> {
         let mut pkg_map = AHashMap::new();
 
         for (i, pkg) in packages.enumerate() {
+            let name = pkg.fullname(true);
             progress(i);
 
-            if pkg.fullname(true).contains("-dbg") {
+            if name.contains("-dbg") {
                 continue;
             }
 
@@ -174,9 +177,9 @@ impl<'a> IndiciumSearch<'a> {
             };
 
             if let Some(cand) = pkg.candidate() {
-                if let Entry::Vacant(e) = pkg_map.entry(pkg.fullname(true)) {
+                if let Entry::Vacant(e) = pkg_map.entry(name.clone()) {
                     e.insert(SearchEntry {
-                        name: pkg.fullname(true),
+                        name,
                         description: format_description(
                             &cand.description().unwrap_or("".to_string()),
                         )
@@ -205,6 +208,7 @@ impl<'a> IndiciumSearch<'a> {
 
                 for (provide, i) in real_pkgs {
                     let pkg = Package::new(cache, i);
+                    let name = pkg.fullname(true);
 
                     let status = if pkg.is_upgradable() {
                         PackageStatus::Upgrade
@@ -216,21 +220,25 @@ impl<'a> IndiciumSearch<'a> {
 
                     if let Some(cand) = pkg.candidate() {
                         pkg_map
-                            .entry(pkg.fullname(true))
+                            .entry(name.clone())
                             .and_modify(|x| {
                                 if !x.provides.contains(&provide) {
-                                    x.provides.push(provide.clone())
+                                    x.provides.insert(provide.clone());
                                 }
                             })
                             .or_insert(SearchEntry {
-                                name: pkg.fullname(true),
+                                name,
                                 description: format_description(
                                     &cand.description().unwrap_or("".to_string()),
                                 )
                                 .0
                                 .to_string(),
                                 status,
-                                provides: vec![provide.clone()],
+                                provides: {
+                                    let mut set = IndexSet::with_hasher(RandomState::new());
+                                    set.insert(provide.clone());
+                                    set
+                                },
                                 has_dbg: has_dbg(cache, &pkg, &cand),
                                 raw_pkg: unsafe { pkg.unique() }
                                     .make_safe()
@@ -318,30 +326,27 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
         let mut res = AHashMap::new();
 
         for pkg in pkgs {
+            let name = pkg.fullname(true);
             if let Some(cand) = pkg.candidate() {
-                if pkg.name().contains(query)
-                    && !pkg.name().contains("-dbg")
-                    && res.get(pkg.name()).is_none()
-                {
+                if name.contains(query) && !name.contains("-dbg") && !res.contains_key(&name) {
                     let oma_pkg = PkgInfo::new(&cand, &pkg)?;
                     res.insert(
-                        pkg.name().to_string(),
+                        name.clone(),
                         (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
                     );
                 }
 
-                if cand.description().unwrap_or("".to_owned()).contains(query)
-                    && !res.contains_key(pkg.name())
+                if cand.description().is_some_and(|x| x.contains(query))
+                    && !res.contains_key(&name)
                     && !pkg.name().contains("-dbg")
-                    && res.get(pkg.name()).is_none()
                 {
                     let oma_pkg = PkgInfo::new(&cand, &pkg)?;
                     res.insert(
-                        pkg.name().to_string(),
+                        name.clone(),
                         (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
                     );
                 }
-            } else if pkg.name() == query && pkg.has_provides() {
+            } else if name == query && pkg.has_provides() {
                 let real_pkgs = pkg.provides().flat_map(|x| {
                     unsafe { x.target_pkg() }
                         .make_safe()
@@ -349,13 +354,14 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
                 });
                 for pkg in real_pkgs {
                     let pkg = Package::new(self.cache, pkg);
-                    let cand = pkg.candidate().unwrap();
-                    let oma_pkg = PkgInfo::new(&cand, &pkg)?;
+                    if let Some(cand) = pkg.candidate() {
+                        let oma_pkg = PkgInfo::new(&cand, &pkg)?;
 
-                    res.insert(
-                        pkg.name().to_string(),
-                        (oma_pkg, cand.is_installed(), pkg.is_upgradable(), true),
-                    );
+                        res.insert(
+                            name.clone(),
+                            (oma_pkg, cand.is_installed(), pkg.is_upgradable(), true),
+                        );
+                    }
                 }
             }
         }
@@ -377,16 +383,20 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
 
         let mut v = vec![];
 
-        for (pkg, install, upgrade, _) in res {
-            let ppkg = Package::new(self.cache, pkg.raw_pkg);
-            let cand = ppkg
+        for (pkginfo, install, upgrade, _) in res {
+            let pkg = Package::new(self.cache, pkginfo.raw_pkg);
+            let cand = pkg
                 .candidate()
-                .ok_or_else(|| OmaSearchError::FailedGetCandidate(ppkg.name().to_string()))?;
+                .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
+
+            let name = pkg.fullname(true);
+            let is_base = name.contains("-base");
+            let full_match = query == name;
 
             v.push(SearchResult {
-                name: ppkg.fullname(true),
+                name,
                 desc: format_description(
-                    &Version::new(pkg.version_raw, self.cache)
+                    &Version::new(pkginfo.version_raw, self.cache)
                         .description()
                         .unwrap_or_default(),
                 )
@@ -396,12 +406,12 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
                     if !upgrade {
                         None
                     } else {
-                        ppkg.installed().map(|x| x.version().to_string())
+                        pkg.installed().map(|x| x.version().to_string())
                     }
                 },
                 new_version: cand.version().to_string(),
-                full_match: query == ppkg.fullname(true),
-                dbg_package: has_dbg(self.cache, &ppkg, &cand),
+                full_match,
+                dbg_package: has_dbg(self.cache, &pkg, &cand),
                 status: if upgrade {
                     PackageStatus::Upgrade
                 } else if install {
@@ -409,7 +419,7 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
                 } else {
                     PackageStatus::Avail
                 },
-                is_base: ppkg.fullname(true).contains("-base"),
+                is_base,
             });
         }
 
