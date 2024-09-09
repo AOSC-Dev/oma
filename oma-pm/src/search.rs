@@ -385,9 +385,13 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
 
             v.push(SearchResult {
                 name: ppkg.fullname(true),
-                desc: Version::new(pkg.version_raw, self.cache)
-                    .description()
-                    .unwrap_or_default(),
+                desc: format_description(
+                    &Version::new(pkg.version_raw, self.cache)
+                        .description()
+                        .unwrap_or_default(),
+                )
+                .0
+                .to_owned(),
                 old_version: {
                     if !upgrade {
                         None
