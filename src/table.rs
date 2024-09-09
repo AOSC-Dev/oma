@@ -12,7 +12,8 @@ use oma_console::print::Action;
 use oma_console::WRITER;
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 use tabled::settings::object::{Columns, Segment};
-use tabled::settings::{Alignment, Format, Modify, Style};
+use tabled::settings::peaker::PriorityMax;
+use tabled::settings::{Alignment, Modify, Padding, Style, Width};
 use tabled::{Table, Tabled};
 
 #[derive(Debug, Tabled)]
@@ -158,10 +159,15 @@ impl<W: Write> PagerPrinter<W> {
         };
 
         table
+            .with(Padding::new(2, 2, 0, 0))
             .with(Modify::new(Segment::all()).with(Alignment::left()))
             .with(Modify::new(Columns::new(2..3)).with(Alignment::left()))
             .with(Style::psql())
-            .with(Modify::new(Segment::all()).with(Format::content(|s| format!(" {s} "))));
+            .with(
+                Width::wrap(WRITER.get_length() as usize)
+                    .priority::<PriorityMax>()
+                    .keep_words(),
+            );
 
         writeln!(self.writer, "{table}")
     }
