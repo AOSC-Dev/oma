@@ -426,7 +426,7 @@ impl<'a> OmaRefresh<'a> {
                 .build();
 
             debug!("oma will fetch {} InRelease", source_entry.url);
-            map.insert(task.filename.clone(), source_entry.clone());
+            map.insert(task.filename.to_string(), source_entry.clone());
             tasks.push(task);
         }
 
