@@ -14,7 +14,7 @@ use tracing::{debug, info};
 
 use crate::{
     pkginfo::{PkgInfo, PtrIsNone},
-    search::{IndiciumSearch, OmaSearch, OmaSearchError, SearchResult, StrSimSearch},
+    search::{IndiciumSearch, OmaSearch, OmaSearchError, SearchResult, StrSimSearch, TextSearch},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -44,6 +44,7 @@ pub enum OmaDatabaseError {
 pub enum SearchEngine {
     Indicium(Box<dyn Fn(usize)>),
     Strsim,
+    Text,
 }
 
 pub struct OmaDatabase<'a> {
@@ -290,6 +291,7 @@ impl<'a> OmaDatabase<'a> {
         let searcher: Box<dyn OmaSearch> = match engine {
             SearchEngine::Indicium(f) => Box::new(IndiciumSearch::new(self.cache, f)?),
             SearchEngine::Strsim => Box::new(StrSimSearch::new(self.cache)),
+            SearchEngine::Text => Box::new(TextSearch::new(self.cache)),
         };
 
         let res = searcher.search(keyword)?;

@@ -14,9 +14,11 @@ search_contents_println = false
 #
 # - indicium: A complete search engine, but with higher performance
 #             requirements (default).
-# - strsim:   Simple string-based search on package names and descriptions,
-#             with relatively low performance requirements but not as
-#             effective as indicium.
+# - strsim:   Simple string-based relevance search on package names and
+#             descriptions, with relatively low performance requirements but
+#             not as effective as indicium.
+# - text:     Simple character-based search with support for globs and no
+#             relevance sorting, most rudimentary but the fastest.
 search_engine = "strsim"
 
 
