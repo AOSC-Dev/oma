@@ -383,10 +383,10 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
             let x_score = Self::pkg_score(query, &x.0, x.3);
             let y_score = Self::pkg_score(query, &y.0, y.3);
 
-            let c = x_score.cmp(&y_score);
+            let c = y_score.cmp(&x_score);
 
             if c == std::cmp::Ordering::Equal {
-                x.0.raw_pkg.fullname(true).cmp(&y.0.raw_pkg.fullname(true))
+                y.0.raw_pkg.fullname(true).cmp(&x.0.raw_pkg.fullname(true))
             } else {
                 c
             }
