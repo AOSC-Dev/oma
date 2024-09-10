@@ -9,6 +9,7 @@ pub use termbg;
 
 use crate::WRITER;
 
+#[derive(Clone)]
 enum StyleFollow {
     OmaTheme,
     TermTheme,
@@ -56,9 +57,10 @@ impl Action {
     }
 }
 
+#[derive(Clone)]
 pub struct OmaColorFormat {
     follow: StyleFollow,
-    theme: Option<Theme>,
+    pub theme: Option<Theme>,
 }
 
 impl OmaColorFormat {

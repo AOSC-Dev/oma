@@ -104,7 +104,7 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
     let pager = if len < WRITER.get_height().into() {
         Pager::plain()
     } else {
-        Pager::external(tips, None).map_err(|e| OutputError {
+        Pager::external(tips, None, color_formatter()).map_err(|e| OutputError {
             description: "Failed to get pager".to_string(),
             source: Some(Box::new(e)),
         })?
@@ -185,9 +185,11 @@ pub fn table_for_install_pending(
     let tips = tips(true);
 
     let mut pager = if is_pager {
-        Pager::external(tips, Some(&fl!("pending-op"))).map_err(|e| OutputError {
-            description: "Failed to get pager".to_string(),
-            source: Some(Box::new(e)),
+        Pager::external(tips, Some(&fl!("pending-op")), color_formatter()).map_err(|e| {
+            OutputError {
+                description: "Failed to get pager".to_string(),
+                source: Some(Box::new(e)),
+            }
         })?
     } else {
         Pager::plain()
@@ -232,10 +234,13 @@ pub fn table_for_history_pending(
 ) -> Result<(), OutputError> {
     let tips = tips(false);
 
-    let mut pager = Pager::external(tips, Some(&fl!("pending-op"))).map_err(|e| OutputError {
-        description: "Failed to get pager".to_string(),
-        source: Some(Box::new(e)),
-    })?;
+    let mut pager =
+        Pager::external(tips, Some(&fl!("pending-op")), color_formatter()).map_err(|e| {
+            OutputError {
+                description: "Failed to get pager".to_string(),
+                source: Some(Box::new(e)),
+            }
+        })?;
 
     let out = pager.get_writer().map_err(|e| OutputError {
         description: "Failed to get writer".to_string(),

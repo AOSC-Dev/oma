@@ -20,8 +20,9 @@ use ratatui::{
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
     Frame, Terminal,
 };
+use termbg::Theme;
 
-use crate::{writer::Writer, WRITER};
+use crate::{print::OmaColorFormat, writer::Writer, WRITER};
 
 pub static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 
@@ -35,8 +36,12 @@ impl Pager {
         Self::Plain
     }
 
-    pub fn external<D: Display + AsRef<OsStr>>(tips: D, title: Option<&str>) -> io::Result<Self> {
-        let app = OmaPager::new(tips, title);
+    pub fn external<D: Display + AsRef<OsStr>>(
+        tips: D,
+        title: Option<&str>,
+        color_format: &OmaColorFormat,
+    ) -> io::Result<Self> {
+        let app = OmaPager::new(tips, title, color_format);
         let res = Pager::External(app);
 
         Ok(res)
@@ -108,6 +113,7 @@ pub struct OmaPager {
     tips: String,
     title: Option<String>,
     inner_len: usize,
+    theme: OmaColorFormat,
 }
 
 impl Write for OmaPager {
@@ -140,7 +146,11 @@ impl From<PagerExit> for i32 {
 }
 
 impl OmaPager {
-    pub fn new(tips: impl Display + AsRef<OsStr>, title: Option<&str>) -> Self {
+    pub fn new(
+        tips: impl Display + AsRef<OsStr>,
+        title: Option<&str>,
+        theme: &OmaColorFormat,
+    ) -> Self {
         Self {
             inner: String::new(),
             vertical_scroll_state: ScrollbarState::new(0),
@@ -153,6 +163,7 @@ impl OmaPager {
             tips: tips.to_string(),
             title: title.map(|x| x.to_string()),
             inner_len: 0,
+            theme: theme.clone(),
         }
     }
 
@@ -289,12 +300,26 @@ impl OmaPager {
 
         self.max_width = width as u16;
 
+        let color = self.theme.theme;
+
+        let title_bg_color = match color {
+            Some(Theme::Dark) => Color::Indexed(25),
+            Some(Theme::Light) => Color::Indexed(189),
+            None => Color::Indexed(25),
+        };
+
+        let title_fg_color = match color {
+            Some(Theme::Dark) => Color::White,
+            Some(Theme::Light) => Color::Black,
+            None => Color::White,
+        };
+
         if let Some(title) = &self.title {
             let title = Block::new()
                 .title_alignment(Alignment::Left)
                 .title(title.to_string())
-                .fg(Color::White)
-                .bg(Color::Indexed(25));
+                .fg(title_fg_color)
+                .bg(title_bg_color);
 
             f.render_widget(title, chunks[0]);
         }
