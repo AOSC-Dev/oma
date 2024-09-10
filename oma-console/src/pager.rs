@@ -2,19 +2,17 @@ use std::{
     ffi::OsStr,
     fmt::Display,
     io::{self, ErrorKind, Write},
+    ops::ControlFlow,
     sync::atomic::AtomicI32,
     time::{Duration, Instant},
 };
 
 use ansi_to_tui::IntoText;
-use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Layout},
+    restore,
     style::{Color, Stylize},
     text::Text,
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
@@ -77,28 +75,14 @@ impl Pager {
 }
 
 pub fn exit_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-
+    restore();
     terminal.show_cursor()?;
 
     Ok(())
 }
 
 pub fn prepare_create_tui() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
-    enable_raw_mode()?;
-
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-
-    let backend = CrosstermBackend::new(stdout);
-    let terminal = Terminal::new(backend)?;
-
-    Ok(terminal)
+    Ok(ratatui::init())
 }
 
 pub struct OmaPager {
@@ -184,85 +168,109 @@ impl OmaPager {
             terminal.draw(|f| self.ui(f))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
             if crossterm::event::poll(timeout)? {
-                if let Event::Key(key) = event::read()? {
-                    if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
-                        return Ok(PagerExit::Sigint);
+                match event::read()? {
+                    Event::Key(key) => {
+                        if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c')
+                        {
+                            return Ok(PagerExit::Sigint);
+                        }
+                        match key.code {
+                            KeyCode::Char('q') => return Ok(PagerExit::NormalExit),
+                            KeyCode::Char('j') | KeyCode::Down => {
+                                if let ControlFlow::Break(_) = self.down() {
+                                    continue;
+                                }
+                            }
+                            KeyCode::Char('k') | KeyCode::Up => {
+                                self.up();
+                            }
+                            KeyCode::Char('h') | KeyCode::Left => {
+                                self.left();
+                            }
+                            KeyCode::Char('l') | KeyCode::Right => {
+                                if let ControlFlow::Break(_) = self.right() {
+                                    continue;
+                                }
+                            }
+                            KeyCode::Char('g') => {
+                                self.vertical_scroll = 0;
+                                self.vertical_scroll_state =
+                                    self.vertical_scroll_state.position(self.vertical_scroll);
+                            }
+                            KeyCode::Char('G') => {
+                                self.vertical_scroll = self.inner_len.saturating_sub(1);
+                                self.vertical_scroll_state =
+                                    self.vertical_scroll_state.position(self.vertical_scroll);
+                            }
+                            KeyCode::PageUp => {
+                                self.vertical_scroll = self
+                                    .vertical_scroll
+                                    .saturating_sub(self.area_heigh as usize);
+                                self.vertical_scroll_state =
+                                    self.vertical_scroll_state.position(self.vertical_scroll);
+                            }
+                            KeyCode::PageDown => {
+                                let pos = self
+                                    .vertical_scroll
+                                    .saturating_add(self.area_heigh as usize);
+                                if pos <= self.inner_len {
+                                    self.vertical_scroll = pos;
+                                } else {
+                                    continue;
+                                }
+                                self.vertical_scroll_state =
+                                    self.vertical_scroll_state.position(self.vertical_scroll);
+                            }
+                            _ => {}
+                        }
                     }
-                    match key.code {
-                        KeyCode::Char('q') => return Ok(PagerExit::NormalExit),
-                        KeyCode::Char('j') | KeyCode::Down => {
-                            if self
-                                .vertical_scroll
-                                .saturating_add(self.area_heigh as usize)
-                                >= self.inner_len
-                            {
-                                continue;
-                            }
-                            self.vertical_scroll = self.vertical_scroll.saturating_add(1);
-                            self.vertical_scroll_state =
-                                self.vertical_scroll_state.position(self.vertical_scroll);
-                        }
-                        KeyCode::Char('k') | KeyCode::Up => {
-                            self.vertical_scroll = self.vertical_scroll.saturating_sub(1);
-                            self.vertical_scroll_state =
-                                self.vertical_scroll_state.position(self.vertical_scroll);
-                        }
-                        KeyCode::Char('h') | KeyCode::Left => {
-                            let width = WRITER.get_length();
-                            self.horizontal_scroll =
-                                self.horizontal_scroll.saturating_sub((width / 4).into());
-                            self.horizontal_scroll_state = self
-                                .horizontal_scroll_state
-                                .position(self.horizontal_scroll);
-                        }
-                        KeyCode::Char('l') | KeyCode::Right => {
-                            let width = WRITER.get_length();
-                            if self.max_width <= self.horizontal_scroll as u16 + width {
-                                continue;
-                            }
-                            self.horizontal_scroll =
-                                self.horizontal_scroll.saturating_add((width / 4).into());
-                            self.horizontal_scroll_state = self
-                                .horizontal_scroll_state
-                                .position(self.horizontal_scroll);
-                        }
-                        KeyCode::Char('g') => {
-                            self.vertical_scroll = 0;
-                            self.vertical_scroll_state =
-                                self.vertical_scroll_state.position(self.vertical_scroll);
-                        }
-                        KeyCode::Char('G') => {
-                            self.vertical_scroll = self.inner_len.saturating_sub(1);
-                            self.vertical_scroll_state =
-                                self.vertical_scroll_state.position(self.vertical_scroll);
-                        }
-                        KeyCode::PageUp => {
-                            self.vertical_scroll = self
-                                .vertical_scroll
-                                .saturating_sub(self.area_heigh as usize);
-                            self.vertical_scroll_state =
-                                self.vertical_scroll_state.position(self.vertical_scroll);
-                        }
-                        KeyCode::PageDown => {
-                            let pos = self
-                                .vertical_scroll
-                                .saturating_add(self.area_heigh as usize);
-                            if pos <= self.inner_len {
-                                self.vertical_scroll = pos;
-                            } else {
-                                continue;
-                            }
-                            self.vertical_scroll_state =
-                                self.vertical_scroll_state.position(self.vertical_scroll);
-                        }
-                        _ => {}
-                    }
+                    _ => continue,
                 }
             }
             if last_tick.elapsed() >= tick_rate {
                 last_tick = Instant::now();
             }
         }
+    }
+
+    fn right(&mut self) -> ControlFlow<()> {
+        let width = WRITER.get_length();
+        if self.max_width <= self.horizontal_scroll as u16 + width {
+            return ControlFlow::Break(());
+        }
+
+        self.horizontal_scroll = self.horizontal_scroll.saturating_add((width / 4).into());
+        self.horizontal_scroll_state = self
+            .horizontal_scroll_state
+            .position(self.horizontal_scroll);
+
+        ControlFlow::Continue(())
+    }
+
+    fn left(&mut self) {
+        let width = WRITER.get_length();
+        self.horizontal_scroll = self.horizontal_scroll.saturating_sub((width / 4).into());
+        self.horizontal_scroll_state = self
+            .horizontal_scroll_state
+            .position(self.horizontal_scroll);
+    }
+
+    fn up(&mut self) {
+        self.vertical_scroll = self.vertical_scroll.saturating_sub(1);
+        self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
+    }
+
+    fn down(&mut self) -> ControlFlow<()> {
+        if self
+            .vertical_scroll
+            .saturating_add(self.area_heigh as usize)
+            >= self.inner_len
+        {
+            return ControlFlow::Break(());
+        }
+        self.vertical_scroll = self.vertical_scroll.saturating_add(1);
+        self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
+        ControlFlow::Continue(())
     }
 
     fn ui(&mut self, f: &mut Frame) {
