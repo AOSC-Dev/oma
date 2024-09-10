@@ -88,10 +88,11 @@ pub fn execute(
     }
 
     drop(out);
-    let success = pager.wait_for_exit().map_err(|e| OutputError {
+
+    let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
     })?;
 
-    Ok(if success { 0 } else { 1 })
+    Ok(exit.into())
 }

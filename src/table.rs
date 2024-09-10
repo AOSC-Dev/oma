@@ -6,7 +6,7 @@ use crate::console::style;
 use crate::error::OutputError;
 use crate::{color_formatter, fl, ALLOWCTRLC};
 use oma_console::indicatif::HumanBytes;
-use oma_console::pager::Pager;
+use oma_console::pager::{Pager, PagerExit};
 use oma_console::print::Action;
 use oma_console::WRITER;
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
@@ -113,7 +113,6 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
     Ok(pager)
 }
 
-
 fn tips(is_question: bool) -> String {
     let has_x11 = std::env::var("DISPLAY");
     let has_wayland = std::env::var("WAYLAND_DISPLAY");
@@ -178,9 +177,9 @@ pub fn table_for_install_pending(
     disk_size: &(String, u64),
     is_pager: bool,
     dry_run: bool,
-) -> Result<bool, OutputError> {
+) -> Result<PagerExit, OutputError> {
     if dry_run {
-        return Ok(false);
+        return Ok(PagerExit::NormalExit);
     }
 
     let tips = tips(true);
@@ -205,24 +204,25 @@ pub fn table_for_install_pending(
     }
 
     print_pending_inner(printer, remove, install, disk_size);
-    let success = pager.wait_for_exit().map_err(|e| OutputError {
+    let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
     })?;
 
-    if is_pager && success {
-        let mut pager = Pager::plain();
-        let out = pager.get_writer().map_err(|e| OutputError {
-            description: "Failed to wait exit".to_string(),
-            source: Some(Box::new(e)),
-        })?;
-        let mut printer = PagerPrinter::new(out);
-        printer.print("").ok();
-        print_pending_inner(printer, remove, install, disk_size);
-        return Ok(true);
+    match exit {
+        PagerExit::NormalExit if is_pager => {
+            let mut pager = Pager::plain();
+            let out = pager.get_writer().map_err(|e| OutputError {
+                description: "Failed to wait exit".to_string(),
+                source: Some(Box::new(e)),
+            })?;
+            let mut printer = PagerPrinter::new(out);
+            printer.print("").ok();
+            print_pending_inner(printer, remove, install, disk_size);
+            Ok(exit)
+        }
+        _ => Ok(exit),
     }
-
-    Ok(false)
 }
 
 pub fn table_for_history_pending(

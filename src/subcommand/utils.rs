@@ -16,6 +16,7 @@ use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::LOCKED;
 use chrono::Local;
+use oma_console::pager::PagerExit;
 use oma_console::success;
 use oma_history::connect_db;
 use oma_history::create_db_file;
@@ -200,8 +201,10 @@ pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<i
         return Ok(0);
     }
 
-    if !table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)? {
-        return Ok(1);
+    match table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)? {
+        PagerExit::NormalExit => {}
+        x @ PagerExit::Sigint => return Ok(x.into()),
+        x @ PagerExit::DryRun => return Ok(x.into()),
     }
 
     let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {

@@ -748,9 +748,7 @@ fn single_handler() {
 
     if !allow_ctrlc {
         info!("{}", fl!("user-aborted-op"));
-    } else {
-        std::process::exit(0);
     }
 
-    std::process::exit(2);
+    std::process::exit(130);
 }

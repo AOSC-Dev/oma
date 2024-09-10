@@ -56,7 +56,7 @@ impl Pager {
     }
 
     /// Wait pager to exit
-    pub fn wait_for_exit(&mut self) -> io::Result<bool> {
+    pub fn wait_for_exit(&mut self) -> io::Result<PagerExit> {
         let success = if let Pager::External(app) = self {
             let mut terminal = prepare_create_tui()?;
             let res = app.run(&mut terminal, Duration::from_millis(250))?;
@@ -64,7 +64,7 @@ impl Pager {
 
             res
         } else {
-            true
+            PagerExit::NormalExit
         };
 
         Ok(success)
@@ -123,6 +123,22 @@ impl Write for OmaPager {
     }
 }
 
+pub enum PagerExit {
+    NormalExit,
+    Sigint,
+    DryRun,
+}
+
+impl From<PagerExit> for i32 {
+    fn from(value: PagerExit) -> Self {
+        match value {
+            PagerExit::NormalExit => 0,
+            PagerExit::Sigint => 130,
+            PagerExit::DryRun => 0,
+        }
+    }
+}
+
 impl OmaPager {
     pub fn new(tips: impl Display + AsRef<OsStr>, title: Option<&str>) -> Self {
         Self {
@@ -144,7 +160,7 @@ impl OmaPager {
         &mut self,
         terminal: &mut Terminal<B>,
         tick_rate: Duration,
-    ) -> io::Result<bool> {
+    ) -> io::Result<PagerExit> {
         let text = self
             .inner
             .into_text()
@@ -159,10 +175,10 @@ impl OmaPager {
             if crossterm::event::poll(timeout)? {
                 if let Event::Key(key) = event::read()? {
                     if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
-                        return Ok(false);
+                        return Ok(PagerExit::Sigint);
                     }
                     match key.code {
-                        KeyCode::Char('q') => return Ok(true),
+                        KeyCode::Char('q') => return Ok(PagerExit::NormalExit),
                         KeyCode::Char('j') | KeyCode::Down => {
                             if self
                                 .vertical_scroll
