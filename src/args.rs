@@ -243,7 +243,7 @@ pub fn command_builder() -> Command {
             cmd
         })
         .subcommand(
-            Command::new("show").about("Show information on the specified package(s)").arg(pkgs.clone().required(true)).arg(
+            Command::new("show").visible_alias("info").about("Show information on the specified package(s)").arg(pkgs.clone().required(true)).arg(
                 Arg::new("all")
                     .short('a')
                     .long("all")
