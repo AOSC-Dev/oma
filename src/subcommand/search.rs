@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use dialoguer::console::style;
 use oma_console::{
     indicatif::ProgressBar,
+    pager::Pager,
     pb::spinner_style,
     print::Action,
     writer::{gen_prefix, writeln_inner, MessageType},
@@ -23,6 +24,7 @@ pub fn execute(
     no_progress: bool,
     sysroot: String,
     engine: Cow<String>,
+    no_pager: bool,
 ) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
@@ -58,7 +60,11 @@ pub fn execute(
         pb.finish_and_clear();
     }
 
-    let mut pager = oma_display_with_normal_output(false, res.len() * 2)?;
+    let mut pager = if !no_pager {
+        oma_display_with_normal_output(false, res.len() * 2)?
+    } else {
+        Pager::plain()
+    };
 
     let mut writer = pager.get_writer().map_err(|e| OutputError {
         description: "Failed to get writer".to_string(),
