@@ -743,6 +743,8 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         source: Some(Box::new(e)),
     })?;
 
+    let mut code = 0;
+
     if execute_apt {
         lock_oma()?;
         apt.upgrade()?;
@@ -751,7 +753,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
 
         let apt_args = AptArgs::builder().no_progress(no_progress).build();
 
-        normal_commit(
+        code = normal_commit(
             NormalCommitArgs {
                 apt,
                 dry_run,
@@ -770,7 +772,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
 
     drop(fds);
 
-    Ok(0)
+    Ok(code)
 }
 
 fn update_search_result(

@@ -1,4 +1,5 @@
 use chrono::Local;
+use oma_console::pager::PagerExit;
 use oma_console::success;
 use oma_history::connect_db;
 use oma_history::create_db_file;
@@ -137,7 +138,11 @@ pub fn execute(
         }
 
         if retry_times == 1 {
-            table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)?;
+            match table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)? {
+                PagerExit::NormalExit => {}
+                x @ PagerExit::Sigint => return Ok(x.into()),
+                x @ PagerExit::DryRun => return Ok(x.into()),
+            }
         }
 
         let typ = SummaryType::Upgrade(

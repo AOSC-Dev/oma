@@ -145,11 +145,11 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         protect_essential: oma_args.protect_essentials,
     };
 
-    normal_commit(args, &client)?;
+    let code = normal_commit(args, &client)?;
 
     drop(fds);
 
-    Ok(0)
+    Ok(code)
 }
 
 async fn topics_inner<F, P>(

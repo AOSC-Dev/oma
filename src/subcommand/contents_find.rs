@@ -16,9 +16,9 @@ pub fn execute(
     input: &str,
     no_progress: bool,
     sysroot: String,
-    println: bool,
+    no_pager: bool,
 ) -> Result<i32, OutputError> {
-    let pb = if !no_progress && !println {
+    let pb = if !no_progress && !no_pager {
         let pb = ProgressBar::new_spinner();
         let (style, inv) = spinner_style();
         pb.set_style(style);
@@ -42,7 +42,7 @@ pub fn execute(
     let mut count = 0;
 
     let cb = |line: (String, String)| {
-        if println {
+        if no_pager {
             writeln!(stdout(), "{}: {}", line.0, line.1).ok();
         } else if !res.contains(&line) {
             res.insert(line);
@@ -73,7 +73,7 @@ pub fn execute(
         pb.finish_and_clear();
     }
 
-    if println {
+    if no_pager {
         return Ok(0);
     }
 
@@ -88,10 +88,11 @@ pub fn execute(
     }
 
     drop(out);
-    pager.wait_for_exit().map_err(|e| OutputError {
+
+    let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
     })?;
 
-    Ok(0)
+    Ok(exit.into())
 }
