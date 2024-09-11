@@ -1,7 +1,5 @@
 use std::{
-    ffi::OsStr,
-    fmt::Display,
-    io::{self, ErrorKind, Write},
+    io::{self, BufRead, ErrorKind, Write},
     ops::ControlFlow,
     sync::atomic::AtomicI32,
     time::{Duration, Instant},
@@ -19,25 +17,26 @@ use ratatui::{
     Frame, Terminal,
 };
 use termbg::Theme;
+use tracing::debug;
 
 use crate::{print::OmaColorFormat, writer::Writer, WRITER};
 
 pub static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 
-pub enum Pager {
+pub enum Pager<'a> {
     Plain,
-    External(OmaPager),
+    External(OmaPager<'a>),
 }
 
-impl Pager {
+impl<'a> Pager<'a> {
     pub fn plain() -> Self {
         Self::Plain
     }
 
-    pub fn external<D: Display + AsRef<OsStr>>(
-        tips: D,
-        title: Option<&str>,
-        color_format: &OmaColorFormat,
+    pub fn external(
+        tips: String,
+        title: Option<String>,
+        color_format: &'a OmaColorFormat,
     ) -> io::Result<Self> {
         let app = OmaPager::new(tips, title, color_format);
         let res = Pager::External(app);
@@ -59,7 +58,7 @@ impl Pager {
     }
 
     /// Wait pager to exit
-    pub fn wait_for_exit(&mut self) -> io::Result<PagerExit> {
+    pub fn wait_for_exit(self) -> io::Result<PagerExit> {
         let success = if let Pager::External(app) = self {
             let mut terminal = prepare_create_tui()?;
             let res = app.run(&mut terminal, Duration::from_millis(250))?;
@@ -85,25 +84,33 @@ pub fn prepare_create_tui() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>
     Ok(ratatui::init())
 }
 
-pub struct OmaPager {
-    inner: String,
+enum PagerInner {
+    Working(Vec<u8>),
+    Finished(Vec<String>),
+}
+
+pub struct OmaPager<'a> {
+    inner: PagerInner,
     vertical_scroll_state: ScrollbarState,
     horizontal_scroll_state: ScrollbarState,
     vertical_scroll: usize,
     horizontal_scroll: usize,
-    text: Option<Text<'static>>,
     area_heigh: u16,
     max_width: u16,
     tips: String,
     title: Option<String>,
     inner_len: usize,
-    theme: OmaColorFormat,
+    theme: &'a OmaColorFormat,
 }
 
-impl Write for OmaPager {
+impl<'a> Write for OmaPager<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let s = std::str::from_utf8(buf).map_err(|e| io::Error::new(ErrorKind::InvalidInput, e))?;
-        self.inner.push_str(s);
+        match self.inner {
+            PagerInner::Working(ref mut v) => v.extend_from_slice(buf),
+            PagerInner::Finished(_) => {
+                return Err(io::Error::new(ErrorKind::Other, "write is finished"));
+            }
+        }
 
         Ok(buf.len())
     }
@@ -129,39 +136,49 @@ impl From<PagerExit> for i32 {
     }
 }
 
-impl OmaPager {
-    pub fn new(
-        tips: impl Display + AsRef<OsStr>,
-        title: Option<&str>,
-        theme: &OmaColorFormat,
-    ) -> Self {
+impl<'a> OmaPager<'a> {
+    pub fn new(tips: String, title: Option<String>, theme: &'a OmaColorFormat) -> Self {
         Self {
-            inner: String::new(),
+            inner: PagerInner::Working(vec![]),
             vertical_scroll_state: ScrollbarState::new(0),
             horizontal_scroll_state: ScrollbarState::new(0),
             vertical_scroll: 0,
             horizontal_scroll: 0,
-            text: None,
             area_heigh: 0,
             max_width: 0,
-            tips: tips.to_string(),
-            title: title.map(|x| x.to_string()),
+            tips,
+            title,
             inner_len: 0,
-            theme: theme.clone(),
+            theme,
         }
     }
 
     pub fn run<B: Backend>(
-        &mut self,
+        mut self,
         terminal: &mut Terminal<B>,
         tick_rate: Duration,
     ) -> io::Result<PagerExit> {
-        let text = self
-            .inner
-            .into_text()
-            .map_err(|e| io::Error::new(ErrorKind::InvalidInput, e))?;
+        self.inner = if let PagerInner::Working(v) = self.inner {
+            PagerInner::Finished(v.lines().map_while(Result::ok).collect::<Vec<_>>())
+        } else {
+            return Err(io::Error::new(ErrorKind::Other, "write is finished"));
+        };
 
-        self.text = Some(text);
+        let PagerInner::Finished(ref text) = self.inner else {
+            unreachable!()
+        };
+
+        let width = text.iter().map(|x| x.chars().count()).max().unwrap_or(1);
+        self.inner_len = text.len();
+
+        let width = if width <= WRITER.get_length().into() {
+            0
+        } else {
+            width
+        };
+
+        self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(width);
+        self.max_width = width as u16;
 
         let mut last_tick = Instant::now();
         loop {
@@ -285,29 +302,6 @@ impl OmaPager {
 
         let chunks = Layout::vertical(layout).split(area);
 
-        let inner = self.inner.lines().collect::<Vec<_>>();
-
-        let width = inner.iter().map(|x| x.chars().count()).max().unwrap_or(1);
-
-        self.inner_len = inner.len();
-        self.vertical_scroll_state = self
-            .vertical_scroll_state
-            .content_length(self.inner_len.saturating_sub(self.area_heigh as usize));
-
-        self.vertical_scroll_state = self
-            .vertical_scroll_state
-            .viewport_content_length(self.inner_len.saturating_sub(self.area_heigh as usize));
-
-        let width = if width <= WRITER.get_length().into() {
-            0
-        } else {
-            width
-        };
-
-        self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(width);
-
-        self.max_width = width as u16;
-
         let color = self.theme.theme;
 
         let title_bg_color = match color {
@@ -332,9 +326,44 @@ impl OmaPager {
             f.render_widget(title, chunks[0]);
         }
 
+        self.area_heigh = if has_title {
+            chunks[1].height
+        } else {
+            chunks[0].height
+        };
+
+        self.vertical_scroll_state = self
+            .vertical_scroll_state
+            .content_length(self.inner_len.saturating_sub(self.area_heigh as usize));
+
+        let PagerInner::Finished(ref text) = self.inner else {
+            unreachable!()
+        };
+
+        let text = if let Some(text) =
+            text.get(self.vertical_scroll..self.vertical_scroll + self.area_heigh as usize)
+        {
+            // 根据屏幕高度来决定显示多少行
+            text
+        } else {
+            // 达到末尾，即剩余行数小于屏幕高度
+            &text[self.vertical_scroll..]
+        };
+
+        let text = text.join("\n");
+        let text = match text.to_text() {
+            Ok(text) => text,
+            Err(e) => {
+                debug!("{e}");
+                return;
+            }
+        };
+
+        // 不使用 .scroll 控制上下滚动是因为它需要一整个 self.text 来计算滚动
+        // 因为 Paragraph 只接受 owner, self.text 每一次都需要 clone 获取主动权
+        // 当 self.text 行数一多，性能就会非常的“好”
         f.render_widget(
-            Paragraph::new(self.text.clone().unwrap())
-                .scroll((self.vertical_scroll as u16, self.horizontal_scroll as u16)),
+            Paragraph::new(text).scroll((0, self.horizontal_scroll as u16)),
             if has_title { chunks[1] } else { chunks[0] },
         );
 
@@ -345,12 +374,6 @@ impl OmaPager {
             if has_title { chunks[1] } else { chunks[0] },
             &mut self.vertical_scroll_state,
         );
-
-        self.area_heigh = if has_title {
-            chunks[1].height
-        } else {
-            chunks[0].height
-        };
 
         f.render_widget(
             Paragraph::new(

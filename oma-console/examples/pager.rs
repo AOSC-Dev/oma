@@ -6,11 +6,8 @@ use oma_console::{
 use std::{io, time::Duration};
 
 fn main() -> io::Result<()> {
-    let pager = OmaPager::new(
-        "PAP",
-        Some("QAQ"),
-        &OmaColorFormat::new(true, Duration::from_millis(100)),
-    );
+    let cf = OmaColorFormat::new(true, Duration::from_millis(100));
+    let pager = OmaPager::new("PAP".to_string(), Some("QAQ".to_string()), &cf);
     let mut p = Pager::External(pager);
     let mut w = p.get_writer()?;
     w.write_all("QAQ\n".cyan().to_string().as_bytes()).ok();

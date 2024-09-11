@@ -94,7 +94,10 @@ impl From<&InstallEntry> for InstallEntryDisplay {
     }
 }
 
-pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<Pager, OutputError> {
+pub fn oma_display_with_normal_output(
+    is_question: bool,
+    len: usize,
+) -> Result<Pager<'static>, OutputError> {
     if !is_question {
         ALLOWCTRLC.store(true, Ordering::Relaxed);
     }
@@ -185,7 +188,7 @@ pub fn table_for_install_pending(
     let tips = tips(true);
 
     let mut pager = if is_pager {
-        Pager::external(tips, Some(&fl!("pending-op")), color_formatter()).map_err(|e| {
+        Pager::external(tips, Some(fl!("pending-op")), color_formatter()).map_err(|e| {
             OutputError {
                 description: "Failed to get pager".to_string(),
                 source: Some(Box::new(e)),
@@ -235,7 +238,7 @@ pub fn table_for_history_pending(
     let tips = tips(false);
 
     let mut pager =
-        Pager::external(tips, Some(&fl!("pending-op")), color_formatter()).map_err(|e| {
+        Pager::external(tips, Some(fl!("pending-op")), color_formatter()).map_err(|e| {
             OutputError {
                 description: "Failed to get pager".to_string(),
                 source: Some(Box::new(e)),

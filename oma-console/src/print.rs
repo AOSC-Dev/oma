@@ -57,7 +57,6 @@ impl Action {
     }
 }
 
-#[derive(Clone)]
 pub struct OmaColorFormat {
     follow: StyleFollow,
     pub theme: Option<Theme>,
