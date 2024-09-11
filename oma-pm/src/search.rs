@@ -1,8 +1,8 @@
 use ahash::{AHashMap, RandomState};
-use aho_corasick::AhoCorasick;
 use cxx::UniquePtr;
 use glob_match::glob_match;
 use indicium::simple::{Indexable, SearchIndex};
+use memchr::memmem;
 use oma_apt::{
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
@@ -101,8 +101,6 @@ pub enum OmaSearchError {
     FailedGetCandidate(String),
     #[error(transparent)]
     PtrIsNone(#[from] PtrIsNone),
-    #[error(transparent)]
-    AhoCorasick(#[from] aho_corasick::BuildError),
 }
 
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
@@ -327,14 +325,12 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
             .cache
             .packages(&PackageSort::default().include_virtual());
 
-        let query_matcher = AhoCorasick::new([query])?;
-
         let mut res = AHashMap::new();
 
         for pkg in pkgs {
             let name = pkg.fullname(true);
             if let Some(cand) = pkg.candidate() {
-                if query_matcher.is_match(&name)
+                if memmem::find(name.as_bytes(), query.as_bytes()).is_some()
                     && !name.ends_with("-dbg")
                     && !res.contains_key(&name)
                 {
@@ -347,7 +343,7 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
 
                 if cand
                     .description()
-                    .is_some_and(|x| query_matcher.is_match(&x))
+                    .is_some_and(|x| memmem::find(x.as_bytes(), query.as_bytes()).is_some())
                     && !res.contains_key(&name)
                     && !name.ends_with("-dbg")
                 {
@@ -475,13 +471,15 @@ impl<'a> OmaSearch for TextSearch<'a> {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let mut res = vec![];
         let pkgs = self.cache.packages(&PackageSort::default());
-        let ac = AhoCorasick::new([query])?;
 
         for pkg in pkgs {
             let name = pkg.fullname(true);
             let cand = pkg.candidate();
 
-            if (ac.is_match(&name) || glob_match(query, &name)) && !name.ends_with("-dbg") {
+            if (memmem::find(name.as_bytes(), query.as_bytes()).is_some()
+                || glob_match(query, &name))
+                && !name.ends_with("-dbg")
+            {
                 let full_match = query == name;
                 let is_base = name.ends_with("-base");
                 let upgrade = pkg.is_upgradable();

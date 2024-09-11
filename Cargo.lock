@@ -3158,7 +3158,6 @@ name = "oma-pm"
 version = "0.33.0"
 dependencies = [
  "ahash",
- "aho-corasick",
  "bon",
  "chrono",
  "cxx",
@@ -3168,6 +3167,7 @@ dependencies = [
  "indexmap 2.5.0",
  "indicatif",
  "indicium",
+ "memchr",
  "oma-apt",
  "oma-console",
  "oma-fetch",
