@@ -3025,7 +3025,7 @@ dependencies = [
  "oma-refresh",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.4",
+ "oma-utils 0.8.5",
  "ratatui",
  "reqwest",
  "rust-embed",
@@ -3067,7 +3067,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "ansi-to-tui",
  "console",
@@ -3158,7 +3158,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.33.0"
+version = "0.33.1"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3175,7 +3175,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.8.4",
+ "oma-utils 0.8.5",
  "small-map",
  "strsim",
  "thiserror",
@@ -3189,7 +3189,7 @@ name = "oma-pm-operation-type"
 version = "0.4.0"
 dependencies = [
  "bon",
- "oma-utils 0.8.4",
+ "oma-utils 0.8.5",
  "serde",
 ]
 
@@ -3211,7 +3211,7 @@ dependencies = [
  "oma-fetch",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.4",
+ "oma-utils 0.8.5",
  "sequoia-openpgp",
  "small-map",
  "smallvec",
@@ -3263,7 +3263,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "logind-zbus",
  "number_prefix",
