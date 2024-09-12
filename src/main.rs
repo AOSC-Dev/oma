@@ -663,7 +663,7 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
                         &c.to_string(),
                         "",
                         cause_writer.get_max_len().into(),
-                        cause_writer.get_prefix_len(),
+                        cause_writer.get_prefix_len() + WRITER.get_prefix_len(),
                         |t, s| match t {
                             MessageType::Msg => res.push(s.to_owned()),
                             MessageType::Prefix => (),
