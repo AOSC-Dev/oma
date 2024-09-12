@@ -116,6 +116,7 @@ complete -c oma -n "__fish_seen_subcommand_from show" -l no-progress -d 'Do not 
 complete -c oma -n "__fish_seen_subcommand_from show" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from show" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from search" -l sysroot -d 'Set sysroot target directory' -r
+complete -c oma -n "__fish_seen_subcommand_from search" -l no-pager -d 'Output result to stdout, not pager'
 complete -c oma -n "__fish_seen_subcommand_from search" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from search" -l no-color -d 'No color output to result'
 complete -c oma -n "__fish_seen_subcommand_from search" -l follow-terminal-color -d 'Output result with terminal theme color'
@@ -124,6 +125,7 @@ complete -c oma -n "__fish_seen_subcommand_from search" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from search" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from files" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_seen_subcommand_from files" -l bin -d 'Search binary of package(s)'
+complete -c oma -n "__fish_seen_subcommand_from files" -l no-pager -l println -d 'Set output mode as current println mode'
 complete -c oma -n "__fish_seen_subcommand_from files" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from files" -l no-color -d 'No color output to result'
 complete -c oma -n "__fish_seen_subcommand_from files" -l follow-terminal-color -d 'Output result with terminal theme color'
@@ -131,6 +133,7 @@ complete -c oma -n "__fish_seen_subcommand_from files" -l no-progress -d 'Do not
 complete -c oma -n "__fish_seen_subcommand_from files" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from files" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from provides" -l sysroot -d 'Set sysroot target directory' -r
+complete -c oma -n "__fish_seen_subcommand_from provides" -l no-pager -l println -d 'Set output mode as current println mode'
 complete -c oma -n "__fish_seen_subcommand_from provides" -l bin -d 'Search binary of package(s)'
 complete -c oma -n "__fish_seen_subcommand_from provides" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_seen_subcommand_from provides" -l no-color -d 'No color output to result'
