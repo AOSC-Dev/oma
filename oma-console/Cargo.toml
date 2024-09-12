@@ -20,6 +20,6 @@ ansi-to-tui = { version = "6.0", optional = true }
 
 [features]
 print = ["dep:tracing", "dep:tracing-subscriber", "dep:icu_segmenter", "dep:console", "dep:termbg"]
-pager = ["dep:ratatui", "dep:crossterm", "dep:ansi-to-tui"]
+pager = ["dep:ratatui", "dep:crossterm", "dep:ansi-to-tui", "dep:console"]
 progress_bar_style = ["dep:indicatif"]
 default = ["print", "pager", "progress_bar_style"]
