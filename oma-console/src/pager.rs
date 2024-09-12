@@ -168,7 +168,12 @@ impl<'a> OmaPager<'a> {
             unreachable!()
         };
 
-        let width = text.iter().map(|x| x.chars().count()).max().unwrap_or(1);
+        let width = text
+            .iter()
+            .map(|x| console::measure_text_width(x))
+            .max()
+            .unwrap_or(1);
+
         self.max_width = width as u16;
         self.inner_len = text.len();
 
@@ -244,6 +249,7 @@ impl<'a> OmaPager<'a> {
 
     fn right(&mut self) -> ControlFlow<()> {
         let width = WRITER.get_length();
+
         if self.max_width <= self.horizontal_scroll as u16 + width {
             return ControlFlow::Break(());
         }
