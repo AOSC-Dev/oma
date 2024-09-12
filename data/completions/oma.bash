@@ -602,7 +602,7 @@ _oma() {
             return 0
             ;;
         oma__files)
-            opts="-h --bin --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help [package]"
+            opts="-h --bin --println --no-pager --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help [package]"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -690,7 +690,7 @@ _oma() {
             return 0
             ;;
         oma__provides)
-            opts="-h --bin --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help [pattern]"
+            opts="-h --println --no-pager --bin --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help [pattern]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -781,7 +781,7 @@ _oma() {
             return 0
             ;;
         oma__search)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --no-pager --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
