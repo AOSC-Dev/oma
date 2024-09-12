@@ -166,7 +166,7 @@ table-name = 套件名稱
 table-version = 版本
 table-size = 大小
 table-detail = 註記
-reading-database = 正在讀取軟體套件資料庫……
+reading-database = 正在為軟體套件資料庫構建索引……
 has-error-on-top = 您指定的操作未成功完成，請參閱上方輸出取得更多資訊。
 # pager
 question-tips-with-gui = 按 [q] 結束檢閱並套用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
@@ -179,3 +179,6 @@ pkexec-tips-2 = 如果您無法存取圖形化輸入欄位，請按 Ctrl + C 中
 pkexec-tips-1 = 請在彈出的密碼欄位中輸入密碼以授權 oma 執行系統管理操作。
 failed-to-decompress-contents = 無法解壓縮軟體套件內容檔案。
 removed-as-unmet-dep = 因依賴關係不滿足而移除
+cnf-too-many-query-2 = 請考慮使用 `oma provides --bin { $query }' 指令檢閱所有匹配的指令。
+cnf-too-many-query = 您查詢的指令有大量匹配的項目。
+reading-database-with-count = 正在為軟體套件資料庫構建索引，已索引 { $count } 個軟體套件……
