@@ -227,10 +227,6 @@ impl From<OmaSearchError> for OutputError {
                 description: value.to_string(),
                 source: None,
             },
-            OmaSearchError::AhoCorasick(_) => OutputError {
-                description: value.to_string(),
-                source: None,
-            },
         }
     }
 }
@@ -598,10 +594,6 @@ impl From<OmaContentsError> for OutputError {
                 description: format!("Illegal file: {path}"),
                 source: None,
             },
-            OmaContentsError::AhoCorasick(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
         }
     }
 }
@@ -860,10 +852,6 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
                 source: None,
             },
             OmaSearchError::PtrIsNone(_) => OutputError {
-                description: e.to_string(),
-                source: None,
-            },
-            OmaSearchError::AhoCorasick(_) => OutputError {
                 description: e.to_string(),
                 source: None,
             },

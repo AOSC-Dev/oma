@@ -11,9 +11,9 @@ use std::{
     thread,
 };
 
-use aho_corasick::AhoCorasick;
 use flate2::bufread::GzDecoder;
 use lzzzz::lz4f::BufReadDecompressor;
+use memchr::memmem;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::debug;
 use zstd::Decoder;
@@ -163,7 +163,6 @@ pub fn pure_search(
     mut cb: impl FnMut((String, String)) + Sync + Send,
 ) -> Result<(), OmaContentsError> {
     let paths = mode.paths(path.as_ref())?;
-    let ac = AhoCorasick::new([query])?;
     let query = Arc::from(query);
 
     let (tx, rx) = mpsc::channel();
@@ -171,7 +170,7 @@ pub fn pure_search(
     let worker = thread::spawn(move || {
         paths
             .par_iter()
-            .map(move |path| pure_search_contents_from_path(path, &query, mode, &ac, &tx))
+            .map(move |path| pure_search_contents_from_path(path, &query, mode, &tx))
             .collect::<Result<(), OmaContentsError>>()
     });
 
@@ -190,7 +189,6 @@ fn pure_search_contents_from_path(
     path: &Path,
     query: &str,
     mode: Mode,
-    ac: &AhoCorasick,
     tx: &Sender<(String, String)>,
 ) -> Result<(), OmaContentsError> {
     let mut f = fs::File::open(path)
@@ -226,14 +224,17 @@ fn pure_search_contents_from_path(
 
     let reader = BufReader::new(contents_reader);
 
-    let can_next: &dyn Fn(&str, &str, &str) -> bool = match mode {
-        Mode::Provides => &|_pkg: &str, file: &str, _query: &str| ac.is_match(file),
-        Mode::Files => &|pkg: &str, _file: &str, query: &str| pkg == query,
-        Mode::BinProvides => &|_pkg: &str, file: &str, _query: &str| {
-            ac.is_match(file) && file.starts_with(BIN_PREFIX)
+    let can_next = match mode {
+        Mode::Provides => |_pkg: &str, file: &str, query: &str| {
+            memmem::find(file.as_bytes(), query.as_bytes()).is_some()
+        },
+        Mode::Files => |pkg: &str, _file: &str, query: &str| pkg == query,
+        Mode::BinProvides => |_pkg: &str, file: &str, query: &str| {
+            memmem::find(file.as_bytes(), query.as_bytes()).is_some()
+                && file.starts_with(BIN_PREFIX)
         },
         Mode::BinFiles => {
-            &|pkg: &str, file: &str, query: &str| pkg == query && file.starts_with(BIN_PREFIX)
+            |pkg: &str, file: &str, query: &str| pkg == query && file.starts_with(BIN_PREFIX)
         }
     };
 

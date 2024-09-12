@@ -3084,10 +3084,10 @@ dependencies = [
 name = "oma-contents"
 version = "0.12.0"
 dependencies = [
- "aho-corasick",
  "chrono",
  "flate2",
  "lzzzz",
+ "memchr",
  "rayon",
  "regex",
  "thiserror",
@@ -3161,7 +3161,6 @@ name = "oma-pm"
 version = "0.33.1"
 dependencies = [
  "ahash",
- "aho-corasick",
  "bon",
  "chrono",
  "cxx",
@@ -3171,6 +3170,7 @@ dependencies = [
  "indexmap 2.5.0",
  "indicatif",
  "indicium",
+ "memchr",
  "oma-apt",
  "oma-console",
  "oma-fetch",
