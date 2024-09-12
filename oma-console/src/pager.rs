@@ -169,16 +169,8 @@ impl<'a> OmaPager<'a> {
         };
 
         let width = text.iter().map(|x| x.chars().count()).max().unwrap_or(1);
-        self.inner_len = text.len();
-
-        let width = if width <= WRITER.get_length().into() {
-            0
-        } else {
-            width
-        };
-
-        self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(width);
         self.max_width = width as u16;
+        self.inner_len = text.len();
 
         let mut last_tick = Instant::now();
         loop {
@@ -331,6 +323,14 @@ impl<'a> OmaPager<'a> {
         } else {
             chunks[0].height
         };
+
+        let width = if self.max_width <= WRITER.get_length() {
+            0
+        } else {
+            self.max_width
+        };
+
+        self.horizontal_scroll_state = self.horizontal_scroll_state.content_length(width as usize);
 
         self.vertical_scroll_state = self
             .vertical_scroll_state
