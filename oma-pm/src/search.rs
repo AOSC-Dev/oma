@@ -1,6 +1,7 @@
 use ahash::{AHashMap, RandomState};
 use cxx::UniquePtr;
 use glob_match::glob_match;
+use indexmap::map::Entry;
 use indicium::simple::{Indexable, SearchIndex};
 use memchr::memmem;
 use oma_apt::{
@@ -9,9 +10,10 @@ use oma_apt::{
     raw::{IntoRawIter, PkgIterator},
     Package, Version,
 };
-use std::{collections::hash_map::Entry, fmt::Debug};
+use std::fmt::Debug;
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
+type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
 
 use crate::{
     format_description,
@@ -119,7 +121,7 @@ pub struct SearchResult {
 
 pub struct IndiciumSearch<'a> {
     cache: &'a Cache,
-    pkg_map: AHashMap<String, SearchEntry>,
+    pkg_map: IndexMap<String, SearchEntry>,
     index: SearchIndex<String>,
 }
 
@@ -160,7 +162,7 @@ impl<'a> IndiciumSearch<'a> {
         let sort = PackageSort::default().include_virtual();
         let packages = cache.packages(&sort);
 
-        let mut pkg_map = AHashMap::new();
+        let mut pkg_map = IndexMap::with_hasher(RandomState::new());
 
         for (i, pkg) in packages.enumerate() {
             let name = pkg.fullname(true);
