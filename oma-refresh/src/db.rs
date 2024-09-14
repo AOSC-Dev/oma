@@ -24,11 +24,11 @@ use oma_fetch::DownloadError;
 use reqwest::StatusCode;
 
 use smallvec::SmallVec;
-use tokio::fs;
-use tracing::debug;
+use tokio::{fs, process::Command};
+use tracing::{debug, warn};
 
 use crate::{
-    config::{fiilter_download_list, ChecksumDownloadEntry},
+    config::{fiilter_download_list, get_config, ChecksumDownloadEntry},
     inrelease::{
         file_is_compress, split_ext_and_filename, ChecksumType, InRelease, InReleaseParser,
         InReleaseParserError,
@@ -209,8 +209,16 @@ impl<'a> OmaRefresh<'a> {
             .handle_downloaded_release_result(release_results, _callback.clone(), _handle_topic_msg)
             .await?;
 
+        let config_tree = get_config(self.apt_config);
+
         let (tasks, total) = self
-            .collect_all_release_entry(all_inrelease, &sourcelist, &replacer, soueces_map)
+            .collect_all_release_entry(
+                all_inrelease,
+                &sourcelist,
+                &replacer,
+                soueces_map,
+                &config_tree,
+            )
             .await?;
 
         for i in &tasks {
@@ -218,7 +226,8 @@ impl<'a> OmaRefresh<'a> {
         }
 
         let download_dir = self.download_dir.clone();
-        tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
+        let remove_task =
+            tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
 
         let res = OmaFetcher::new(self.client, tasks, self.limit)?
             .start_download(|count, event| _callback(count, RefreshEvent::from(event), Some(total)))
@@ -226,7 +235,38 @@ impl<'a> OmaRefresh<'a> {
 
         res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
 
+        // Finally, run success post invoke
+        let _ = remove_task.await;
+        Self::run_success_post_invoke(&config_tree).await;
+
         Ok(())
+    }
+
+    async fn run_success_post_invoke(config_tree: &[(String, String)]) {
+        let cmds = config_tree
+            .iter()
+            .filter(|x| x.0 == "APT::Update::Post-Invoke-Success::");
+
+        for (_, cmd) in cmds {
+            debug!("Running post-invoke script: {cmd}");
+            let output = Command::new("sh").arg("-c").arg(cmd).output().await;
+
+            match output {
+                Ok(output) => {
+                    if !output.status.success() {
+                        warn!(
+                            "Run {cmd} return non-zero code: {}",
+                            output.status.code().unwrap_or(1)
+                        );
+                        continue;
+                    }
+                    debug!("Run {cmd} success");
+                }
+                Err(e) => {
+                    warn!("Run {cmd} failed: {e}");
+                }
+            }
+        }
     }
 
     async fn get_is_inrelease_map<F>(
@@ -521,6 +561,7 @@ impl<'a> OmaRefresh<'a> {
         sourcelist: &[OmaSourceEntry],
         replacer: &DatabaseFilenameReplacer,
         sources_map: AHashMap<String, OmaSourceEntry>,
+        config_tree: &[(String, String)],
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
@@ -562,6 +603,7 @@ impl<'a> OmaRefresh<'a> {
             let filter_checksums = fiilter_download_list(
                 &inrelease.checksums,
                 self.apt_config,
+                config_tree,
                 &archs,
                 &ose.components,
                 &ose.native_arch,
