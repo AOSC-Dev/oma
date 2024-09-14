@@ -5,7 +5,11 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
+#[cfg(feature = "aosc")]
 const DEFAULT_CONFIG: &str = include_str!("../data/config/oma.toml");
+
+#[cfg(not(feature = "aosc"))]
+const DEFAULT_CONFIG: &str = include_str!("../data/config/oma-debian.toml");
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
@@ -63,7 +67,11 @@ impl GeneralConfig {
     }
 
     pub fn default_search_engine() -> String {
-        String::from("indicium")
+        if cfg!(feature = "aosc") {
+            String::from("indicium")
+        } else {
+            String::from("strsim")
+        }
     }
 }
 
