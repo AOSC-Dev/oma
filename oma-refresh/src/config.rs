@@ -1,28 +1,33 @@
 use std::{env, path::Path};
 
 use ahash::AHashMap;
-use aho_corasick::AhoCorasick;
 use oma_apt::config::Config;
 use oma_fetch::CompressFile;
 use smallvec::{smallvec, SmallVec};
 use tracing::debug;
 
-use crate::{db::RefreshError, inrelease::ChecksumItem};
+use crate::inrelease::ChecksumItem;
 
-pub fn get_config(config: &Config) -> Result<Vec<(String, String)>, RefreshError> {
-    let ac = AhoCorasick::new([";", "\""])?;
-
-    Ok(config
+pub fn get_config(config: &Config) -> Vec<(String, String)> {
+    config
         .dump()
         .lines()
         .filter_map(|x| x.split_once(|c: char| c.is_ascii_whitespace()))
         .map(|x| {
-            (
-                ac.replace_all(x.0, &["", ""]),
-                ac.replace_all(x.1, &["", ""]),
-            )
+            let (k, v) = x;
+            let mut v = v.to_string();
+
+            while v.ends_with(";") || v.ends_with("\"") {
+                v.pop();
+            }
+
+            while v.starts_with("\"") {
+                v.remove(0);
+            }
+
+            (k.to_string(), v)
         })
-        .collect())
+        .collect()
 }
 
 #[derive(Debug)]

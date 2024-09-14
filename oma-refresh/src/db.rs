@@ -209,7 +209,7 @@ impl<'a> OmaRefresh<'a> {
             .handle_downloaded_release_result(release_results, _callback.clone(), _handle_topic_msg)
             .await?;
 
-        let config_tree = get_config(self.apt_config)?;
+        let config_tree = get_config(self.apt_config);
 
         let (tasks, total) = self
             .collect_all_release_entry(
