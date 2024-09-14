@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::VecDeque, env, path::Path};
+use std::{env, path::Path};
 
 use ahash::AHashMap;
 use oma_apt::config::Config;
@@ -8,69 +8,14 @@ use tracing::debug;
 
 use crate::inrelease::ChecksumItem;
 
-fn get_config(config: &Config) -> Vec<(String, String)> {
-    let Some(tree) = config.root_tree() else {
-        return vec![];
-    };
-
-    let mut list = vec![];
-
-    let mut stack = VecDeque::new();
-    stack.push_back((tree, 0));
-
-    let mut depth = 0;
-    let mut name = "".to_string();
-
-    while let Some((node, indent)) = stack.pop_back() {
-        let mut k = None;
-        let mut v = None;
-
-        if let Some(item) = node.sibling() {
-            stack.push_back((item, indent));
-        }
-
-        if let Some(item) = node.child() {
-            stack.push_back((item, indent + 2));
-        }
-
-        if let Some(tag) = node.tag() {
-            match indent.cmp(&depth) {
-                Ordering::Less => {
-                    let mut tmp = name.split("::").collect::<Vec<_>>();
-                    for _ in 0..=1 {
-                        tmp.pop();
-                    }
-                    name = tmp.join("::");
-                    name.push_str("::");
-                    name.push_str(&tag);
-                }
-                Ordering::Equal => {
-                    let mut tmp = name.split("::").collect::<Vec<_>>();
-                    tmp.pop();
-                    name = tmp.join("::");
-                    name.push_str("::");
-                    name.push_str(&tag);
-                }
-                Ordering::Greater => {
-                    name.push_str("::");
-                    name.push_str(&tag);
-                }
-            }
-
-            depth = indent;
-            k = Some(name.strip_prefix("::").unwrap().to_string());
-        }
-
-        if let Some(value) = node.value() {
-            v = Some(value);
-        }
-
-        if let Some(v) = k.zip(v) {
-            list.push((v.0, v.1));
-        }
-    }
-
-    list
+pub fn get_config(config: &Config) -> Vec<(String, String)> {
+    config
+        .dump()
+        .lines()
+        .map(|x| x.split_once(|c: char| c.is_ascii_whitespace()))
+        .flatten()
+        .map(|x| (x.0.to_string(), x.1.to_string()))
+        .collect()
 }
 
 #[derive(Debug)]
@@ -83,13 +28,13 @@ pub struct ChecksumDownloadEntry {
 pub fn fiilter_download_list(
     checksums: &SmallVec<[ChecksumItem; 32]>,
     config: &Config,
+    config_tree: &[(String, String)],
     archs: &[String],
     components: &[String],
     native_arch: &str,
     is_flat: bool,
 ) -> SmallVec<[ChecksumDownloadEntry; 32]> {
     let mut v = smallvec![];
-    let config_tree = get_config(config);
 
     let mut filter_entry = vec![];
 
@@ -260,7 +205,19 @@ fn compress_file(name: &str) -> CompressFile {
 #[test]
 fn test() {
     let map = get_config(&Config::new());
-    dbg!(map);
+    dbg!(&map);
+    // let v = map.get("APT::Update:Post-Invoke-Success::");
+    let v = map
+        .iter()
+        .filter(|x| x.0 == "APT::Update::Post-Invoke-Success::")
+        .collect::<Vec<_>>();
+    dbg!(v);
+
+    let v = map
+        .iter()
+        .filter(|x| x.0 == "APT::Update::Post-Invoke::")
+        .collect::<Vec<_>>();
+    dbg!(v);
 }
 
 #[test]
