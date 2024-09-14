@@ -8,7 +8,7 @@ use crate::{
     OmaArgs,
 };
 
-use super::utils::{lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs};
+use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest};
 
 pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32, OutputError> {
     root()?;
@@ -34,7 +34,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
 
-    let args = NormalCommitArgs {
+    let request = CommitRequest {
         apt,
         dry_run,
         typ: SummaryType::FixBroken,
@@ -45,9 +45,10 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         sysroot,
         fix_dpkg_status: false,
         protect_essential,
+        client: &client,
     };
 
-    let code = normal_commit(args, &client)?;
+    let code = request.run()?;
 
     drop(fds);
 

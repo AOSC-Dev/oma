@@ -44,9 +44,7 @@ use ratatui::{
 use crate::{error::OutputError, utils::root};
 use std::fmt::Display;
 
-use super::utils::{
-    lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs, RefreshRequest,
-};
+use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -231,7 +229,7 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
 
     let apt_config = AptConfig::new();
 
-    let req = RefreshRequest {
+    RefreshRequest {
         client: &client,
         dry_run,
         no_progress,
@@ -239,9 +237,8 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
         sysroot: &sysroot,
         _refresh_topics: true,
         config: &apt_config,
-    };
-
-    refresh(req)?;
+    }
+    .run()?;
 
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
 
@@ -753,21 +750,20 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
 
         let apt_args = AptArgs::builder().no_progress(no_progress).build();
 
-        code = normal_commit(
-            NormalCommitArgs {
-                apt,
-                dry_run,
-                typ: SummaryType::Changes,
-                apt_args,
-                no_fixbroken: false,
-                network_thread,
-                no_progress,
-                sysroot,
-                fix_dpkg_status: true,
-                protect_essential: true,
-            },
-            &client,
-        )?;
+        code = CommitRequest {
+            apt,
+            dry_run,
+            typ: SummaryType::Changes,
+            apt_args,
+            no_fixbroken: false,
+            network_thread,
+            no_progress,
+            sysroot,
+            fix_dpkg_status: true,
+            protect_essential: true,
+            client: &client,
+        }
+        .run()?;
     }
 
     drop(fds);

@@ -14,9 +14,7 @@ use crate::{
 };
 use crate::{fl, OmaArgs};
 
-use super::utils::{
-    handle_no_result, lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs,
-};
+use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitRequest};
 
 pub fn execute(
     pkgs: Vec<&str>,
@@ -60,7 +58,7 @@ pub fn execute(
         }
     }
 
-    let args = NormalCommitArgs {
+    let request = CommitRequest {
         apt,
         dry_run,
         typ: SummaryType::Remove(
@@ -79,9 +77,10 @@ pub fn execute(
         sysroot: args.sysroot,
         fix_dpkg_status: true,
         protect_essential: protect,
+        client: &client,
     };
 
-    let code = normal_commit(args, &client)?;
+    let code = request.run()?;
 
     drop(fds);
 
