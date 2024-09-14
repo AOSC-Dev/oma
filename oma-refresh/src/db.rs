@@ -245,8 +245,7 @@ impl<'a> OmaRefresh<'a> {
     async fn run_success_post_invoke(config_tree: &[(String, String)]) {
         let cmds = config_tree
             .iter()
-            .filter(|x| x.0 == "APT::Update::Post-Invoke-Success::")
-            .collect::<Vec<_>>();
+            .filter(|x| x.0 == "APT::Update::Post-Invoke-Success::");
 
         for (_, cmd) in cmds {
             debug!("Running post-invoke script: {cmd}");
