@@ -217,19 +217,7 @@ fn compress_file(name: &str) -> CompressFile {
 #[test]
 fn test() {
     let map = get_config(&Config::new());
-    dbg!(&map);
-    // let v = map.get("APT::Update:Post-Invoke-Success::");
-    // let v = map
-    //     .iter()
-    //     .filter(|x| x.0 == "APT::Update::Post-Invoke-Success::")
-    //     .collect::<Vec<_>>();
-    // dbg!(v);
-
-    // let v = map
-    //     .iter()
-    //     .filter(|x| x.0 == "APT::Update::Post-Invoke::")
-    //     .collect::<Vec<_>>();
-    // dbg!(v);
+    dbg!(map);
 }
 
 #[test]
