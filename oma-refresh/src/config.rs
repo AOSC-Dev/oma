@@ -68,10 +68,10 @@ pub fn fiilter_download_list(
         {
             for a in &archs_contains_all {
                 for c in components {
-                    let s = replace_arch_and_component(&v, c, a, native_arch);
+                    let s = replace_arch_and_component(v, c, a, native_arch);
                     let e = k
                         .strip_prefix("APT::")
-                        .unwrap_or(&k)
+                        .unwrap_or(k)
                         .strip_suffix(metakey)
                         .unwrap();
 
