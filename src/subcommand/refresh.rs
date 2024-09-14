@@ -7,7 +7,7 @@ use reqwest::Client;
 use crate::{error::OutputError, utils::root};
 use crate::{fl, OmaArgs};
 
-use super::utils::{refresh, RefreshRequest};
+use super::utils::RefreshRequest;
 
 pub fn execute(
     oma_args: OmaArgs,
@@ -26,7 +26,7 @@ pub fn execute(
 
     let apt_config = AptConfig::new();
 
-    let req = RefreshRequest {
+    RefreshRequest {
         client: &client,
         dry_run: false,
         no_progress,
@@ -34,9 +34,8 @@ pub fn execute(
         sysroot: &sysroot,
         _refresh_topics: !no_refresh_topics,
         config: &apt_config,
-    };
-
-    refresh(req)?;
+    }
+    .run()?;
 
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;

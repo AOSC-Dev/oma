@@ -13,9 +13,7 @@ use crate::{
 use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
-use super::utils::{
-    lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs, RefreshRequest,
-};
+use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest};
 
 pub fn execute(
     pkg_str: &str,
@@ -48,7 +46,7 @@ pub fn execute(
     let apt_config = AptConfig::new();
 
     if !no_refresh {
-        let req = RefreshRequest {
+        RefreshRequest {
             client: &client,
             dry_run,
             no_progress,
@@ -56,9 +54,8 @@ pub fn execute(
             sysroot: &sysroot,
             _refresh_topics: !no_refresh_topic,
             config: &apt_config,
-        };
-
-        refresh(req)?;
+        }
+        .run()?;
     }
 
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
@@ -123,7 +120,7 @@ pub fn execute(
 
     apt.install(&pkgs, false)?;
 
-    let args = NormalCommitArgs {
+    let request = CommitRequest {
         apt,
         dry_run,
         typ: SummaryType::Install(
@@ -138,9 +135,10 @@ pub fn execute(
         sysroot,
         fix_dpkg_status: true,
         protect_essential,
+        client: &client,
     };
 
-    let exit = normal_commit(args, &client)?;
+    let exit = request.run()?;
 
     drop(fds);
 

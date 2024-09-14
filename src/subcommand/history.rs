@@ -23,9 +23,7 @@ use crate::{
     ALLOWCTRLC,
 };
 
-use super::utils::{
-    handle_no_result, lock_oma, no_check_dbus_warn, normal_commit, NormalCommitArgs,
-};
+use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitRequest};
 
 pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
@@ -151,7 +149,7 @@ pub fn execute_undo(
 
     apt.install(&install, false)?;
 
-    let args = NormalCommitArgs {
+    let request = CommitRequest {
         apt,
         dry_run: false,
         typ: SummaryType::Undo,
@@ -162,9 +160,10 @@ pub fn execute_undo(
         sysroot,
         fix_dpkg_status: true,
         protect_essential,
+        client,
     };
 
-    let code = normal_commit(args, client)?;
+    let code = request.run()?;
 
     drop(fds);
 

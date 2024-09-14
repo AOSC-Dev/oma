@@ -32,7 +32,6 @@ use super::utils::check_empty_op;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
-use super::utils::refresh;
 use super::utils::RefreshRequest;
 
 pub fn execute(
@@ -62,7 +61,7 @@ pub fn execute(
 
     let apt_config = AptConfig::new();
 
-    let req = RefreshRequest {
+    RefreshRequest {
         client: &client,
         dry_run,
         no_progress,
@@ -70,9 +69,8 @@ pub fn execute(
         sysroot: &args.sysroot,
         _refresh_topics: !args.no_refresh_topcs,
         config: &apt_config,
-    };
-
-    refresh(req)?;
+    }
+    .run()?;
 
     if args.yes {
         warn!("{}", fl!("automatic-mode-warn"));

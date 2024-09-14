@@ -22,9 +22,7 @@ use crate::{
     OmaArgs,
 };
 
-use super::utils::{
-    lock_oma, no_check_dbus_warn, normal_commit, refresh, NormalCommitArgs, RefreshRequest,
-};
+use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest};
 use crate::fl;
 use anyhow::anyhow;
 use oma_topics::{scan_closed_topic, TopicManager};
@@ -88,7 +86,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
 
     let apt_config = AptConfig::new();
 
-    let req = RefreshRequest {
+    RefreshRequest {
         client: &client,
         dry_run,
         no_progress,
@@ -96,9 +94,8 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         sysroot: &sysroot,
         _refresh_topics: true,
         config: &apt_config,
-    };
-
-    refresh(req)?;
+    }
+    .run()?;
 
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
 
@@ -129,7 +126,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     apt.install(&pkgs, false)?;
     apt.upgrade()?;
 
-    let args = NormalCommitArgs {
+    let request = CommitRequest {
         apt,
         dry_run,
         typ: SummaryType::TopicsChanged {
@@ -143,9 +140,10 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         sysroot,
         fix_dpkg_status: true,
         protect_essential: oma_args.protect_essentials,
+        client: &client,
     };
 
-    let code = normal_commit(args, &client)?;
+    let code = request.run()?;
 
     drop(fds);
 

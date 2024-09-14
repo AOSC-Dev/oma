@@ -101,59 +101,61 @@ pub struct RefreshRequest<'a> {
     pub config: &'a AptConfig,
 }
 
-pub(crate) fn refresh(refresh_req: RefreshRequest) -> Result<(), OutputError> {
-    let RefreshRequest {
-        client,
-        dry_run,
-        no_progress,
-        limit,
-        sysroot,
-        _refresh_topics,
-        config,
-    } = refresh_req;
+impl<'a> RefreshRequest<'a> {
+    pub(crate) fn run(self) -> Result<(), OutputError> {
+        let RefreshRequest {
+            client,
+            dry_run,
+            no_progress,
+            limit,
+            sysroot,
+            _refresh_topics,
+            config,
+        } = self;
 
-    if dry_run {
-        return Ok(());
+        if dry_run {
+            return Ok(());
+        }
+
+        info!("{}", fl!("refreshing-repo-metadata"));
+
+        let sysroot = PathBuf::from(sysroot);
+
+        let refresh: OmaRefresh = OmaRefreshBuilder {
+            source: sysroot.clone(),
+            limit: Some(limit),
+            arch: dpkg_arch(&sysroot)?,
+            download_dir: sysroot.join("var/lib/apt/lists"),
+            client,
+            #[cfg(feature = "aosc")]
+            refresh_topics: _refresh_topics,
+            apt_config: config,
+        }
+        .into();
+
+        let tokio = create_async_runtime()?;
+
+        let oma_pb: Box<dyn OmaProgress + Send + Sync> = if !no_progress {
+            let pb = OmaProgressBar::new();
+            Box::new(pb)
+        } else {
+            Box::new(NoProgressBar)
+        };
+
+        tokio.block_on(async move {
+            refresh
+                .start(
+                    |count, event, total| oma_pb.change(ProgressEvent::from(event), count, total),
+                    || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
+                )
+                .await
+        })?;
+
+        Ok(())
     }
-
-    info!("{}", fl!("refreshing-repo-metadata"));
-
-    let sysroot = PathBuf::from(sysroot);
-
-    let refresh: OmaRefresh = OmaRefreshBuilder {
-        source: sysroot.clone(),
-        limit: Some(limit),
-        arch: dpkg_arch(&sysroot)?,
-        download_dir: sysroot.join("var/lib/apt/lists"),
-        client,
-        #[cfg(feature = "aosc")]
-        refresh_topics: _refresh_topics,
-        apt_config: config,
-    }
-    .into();
-
-    let tokio = create_async_runtime()?;
-
-    let oma_pb: Box<dyn OmaProgress + Send + Sync> = if !no_progress {
-        let pb = OmaProgressBar::new();
-        Box::new(pb)
-    } else {
-        Box::new(NoProgressBar)
-    };
-
-    tokio.block_on(async move {
-        refresh
-            .start(
-                |count, event, total| oma_pb.change(ProgressEvent::from(event), count, total),
-                || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
-            )
-            .await
-    })?;
-
-    Ok(())
 }
 
-pub struct NormalCommitArgs {
+pub struct CommitRequest<'a> {
     pub apt: OmaApt,
     pub dry_run: bool,
     pub typ: SummaryType,
@@ -164,99 +166,103 @@ pub struct NormalCommitArgs {
     pub sysroot: String,
     pub fix_dpkg_status: bool,
     pub protect_essential: bool,
+    pub client: &'a Client,
 }
 
-pub(crate) fn normal_commit(args: NormalCommitArgs, client: &Client) -> Result<i32, OutputError> {
-    let NormalCommitArgs {
-        mut apt,
-        dry_run,
-        typ,
-        apt_args,
-        no_fixbroken,
-        network_thread,
-        no_progress,
-        sysroot,
-        fix_dpkg_status,
-        protect_essential,
-    } = args;
+impl<'a> CommitRequest<'a> {
+    pub fn run(self) -> Result<i32, OutputError> {
+        let CommitRequest {
+            mut apt,
+            dry_run,
+            typ,
+            apt_args,
+            no_fixbroken,
+            network_thread,
+            no_progress,
+            sysroot,
+            fix_dpkg_status,
+            protect_essential,
+            client,
+        } = self;
 
-    apt.resolve(no_fixbroken, fix_dpkg_status)?;
+        apt.resolve(no_fixbroken, fix_dpkg_status)?;
 
-    let op = apt.summary(|pkg| {
-        if protect_essential {
-            false
+        let op = apt.summary(|pkg| {
+            if protect_essential {
+                false
+            } else {
+                ask_user_do_as_i_say(pkg).unwrap_or(false)
+            }
+        })?;
+
+        apt.check_disk_size(&op)?;
+
+        let op_after = op.clone();
+        let install = &op.install;
+        let remove = &op.remove;
+        let disk_size = &op.disk_size;
+
+        if check_empty_op(install, remove) {
+            return Ok(0);
+        }
+
+        match table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)? {
+            PagerExit::NormalExit => {}
+            x @ PagerExit::Sigint => return Ok(x.into()),
+            x @ PagerExit::DryRun => return Ok(x.into()),
+        }
+
+        let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
+            let pb = OmaProgressBar::new();
+            Box::new(pb)
         } else {
-            ask_user_do_as_i_say(pkg).unwrap_or(false)
-        }
-    })?;
+            Box::new(NoProgressBar)
+        };
 
-    apt.check_disk_size(&op)?;
+        let start_time = Local::now().timestamp();
 
-    let op_after = op.clone();
-    let install = &op.install;
-    let remove = &op.remove;
-    let disk_size = &op.disk_size;
+        let res = apt.commit(
+            client,
+            Some(network_thread),
+            &apt_args,
+            |count, event, total| {
+                oma_pb.change(ProgressEvent::from(event), count, total);
+            },
+            op,
+        );
 
-    if check_empty_op(install, remove) {
-        return Ok(0);
-    }
-
-    match table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)? {
-        PagerExit::NormalExit => {}
-        x @ PagerExit::Sigint => return Ok(x.into()),
-        x @ PagerExit::DryRun => return Ok(x.into()),
-    }
-
-    let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
-        let pb = OmaProgressBar::new();
-        Box::new(pb)
-    } else {
-        Box::new(NoProgressBar)
-    };
-
-    let start_time = Local::now().timestamp();
-
-    let res = apt.commit(
-        client,
-        Some(network_thread),
-        &apt_args,
-        |count, event, total| {
-            oma_pb.change(ProgressEvent::from(event), count, total);
-        },
-        op,
-    );
-
-    match res {
-        Ok(_) => {
-            success!("{}", fl!("history-tips-1"));
-            info!("{}", fl!("history-tips-2"));
-            write_history_entry(
-                op_after,
-                typ,
-                {
-                    let db = create_db_file(sysroot)?;
-                    connect_db(db, true)?
-                },
-                dry_run,
-                start_time,
-                true,
-            )?;
-            Ok(0)
-        }
-        Err(e) => {
-            info!("{}", fl!("history-tips-2"));
-            write_history_entry(
-                op_after,
-                typ,
-                {
-                    let db = create_db_file(sysroot)?;
-                    connect_db(db, true)?
-                },
-                dry_run,
-                start_time,
-                false,
-            )?;
-            Err(e.into())
+        match res {
+            Ok(_) => {
+                success!("{}", fl!("history-tips-1"));
+                info!("{}", fl!("history-tips-2"));
+                write_history_entry(
+                    op_after,
+                    typ,
+                    {
+                        let db = create_db_file(sysroot)?;
+                        connect_db(db, true)?
+                    },
+                    dry_run,
+                    start_time,
+                    true,
+                )?;
+                Ok(0)
+            }
+            Err(e) => {
+                info!("{}", fl!("history-tips-2"));
+                write_history_entry(
+                    op_after,
+                    typ,
+                    {
+                        let db = create_db_file(sysroot)?;
+                        connect_db(db, true)?
+                    },
+                    dry_run,
+                    start_time,
+                    false,
+                )?;
+                Err(e.into())
+            }
         }
     }
 }

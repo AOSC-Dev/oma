@@ -18,9 +18,7 @@ use crate::OmaArgs;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
-use super::utils::normal_commit;
-use super::utils::refresh;
-use super::utils::NormalCommitArgs;
+use super::utils::CommitRequest;
 use super::utils::RefreshRequest;
 
 pub fn execute(
@@ -51,18 +49,17 @@ pub fn execute(
 
     let apt_config = AptConfig::new();
 
-    let req = RefreshRequest {
-        client: &client,
-        dry_run,
-        no_progress,
-        limit: network_thread,
-        sysroot: &args.sysroot,
-        _refresh_topics: !args.no_refresh_topic,
-        config: &apt_config,
-    };
-
     if !args.no_refresh {
-        refresh(req)?;
+        RefreshRequest {
+            client: &client,
+            dry_run,
+            no_progress,
+            limit: network_thread,
+            sysroot: &args.sysroot,
+            _refresh_topics: !args.no_refresh_topic,
+            config: &apt_config,
+        }
+        .run()?;
     }
 
     if args.yes {
@@ -108,7 +105,7 @@ pub fn execute(
         .no_progress(no_progress)
         .build();
 
-    let args = NormalCommitArgs {
+    let request = CommitRequest {
         apt,
         dry_run,
         typ: SummaryType::Install(
@@ -123,9 +120,10 @@ pub fn execute(
         sysroot: args.sysroot,
         fix_dpkg_status: true,
         protect_essential,
+        client: &client,
     };
 
-    let code = normal_commit(args, &client)?;
+    let code = request.run()?;
 
     drop(fds);
 
