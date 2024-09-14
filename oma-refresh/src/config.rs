@@ -13,8 +13,7 @@ pub fn get_config(config: &Config) -> Vec<(String, String)> {
         .dump()
         .lines()
         .filter_map(|x| x.split_once(|c: char| c.is_ascii_whitespace()))
-        .map(|x| {
-            let (k, v) = x;
+        .map(|(k, v)| {
             let mut v = v.to_string();
 
             while v.ends_with(";") || v.ends_with("\"") {
