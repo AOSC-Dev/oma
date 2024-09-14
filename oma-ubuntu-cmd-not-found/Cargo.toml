@@ -1,0 +1,10 @@
+[package]
+name = "oma-ubuntu-cmd-not-found"
+version = "0.1.0"
+edition = "2021"
+description = "Ubuntu command-not-found database handling library"
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+tracing = "0.1"
+thiserror = "1.0"

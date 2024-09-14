@@ -607,6 +607,16 @@ impl From<anyhow::Error> for OutputError {
     }
 }
 
+#[cfg(feature = "ubuntu")]
+impl From<oma_ubuntu_cmd_not_found::Error> for OutputError {
+    fn from(value: oma_ubuntu_cmd_not_found::Error) -> Self {
+        Self {
+            description: value.to_string(),
+            source: Some(Box::new(value)),
+        }
+    }
+}
+
 pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
     debug!("{:?}", err);
     match err {
