@@ -202,7 +202,7 @@ impl<'a> CommitRequest<'a> {
         let remove = &op.remove;
         let disk_size = &op.disk_size;
 
-        if check_empty_op(install, remove) {
+        if is_nothing_to_do(install, remove) {
             return Ok(0);
         }
 
@@ -267,7 +267,7 @@ impl<'a> CommitRequest<'a> {
     }
 }
 
-pub(crate) fn check_empty_op(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
+pub(crate) fn is_nothing_to_do(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
     if install.is_empty() && remove.is_empty() {
         success!("{}", fl!("no-need-to-do-anything"));
         return true;

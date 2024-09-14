@@ -28,8 +28,8 @@ use crate::OmaArgs;
 use crate::UpgradeArgs;
 
 use super::remove::ask_user_do_as_i_say;
-use super::utils::check_empty_op;
 use super::utils::handle_no_result;
+use super::utils::is_nothing_to_do;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
 use super::utils::RefreshRequest;
@@ -131,7 +131,7 @@ pub fn execute(
         let remove = &op.remove;
         let disk_size = &op.disk_size;
 
-        if check_empty_op(install, remove) {
+        if is_nothing_to_do(install, remove) {
             return Ok(0);
         }
 
