@@ -226,7 +226,7 @@ impl<'a> OmaRefresh<'a> {
         }
 
         let download_dir = self.download_dir.clone();
-        tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
+        let remove_task = tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
 
         let res = OmaFetcher::new(self.client, tasks, self.limit)?
             .start_download(|count, event| _callback(count, RefreshEvent::from(event), Some(total)))
@@ -235,6 +235,7 @@ impl<'a> OmaRefresh<'a> {
         res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
 
         // Finally, run success post invoke
+        let _ = remove_task.await;
         Self::run_success_post_invoke(&config_tree).await;
 
         Ok(())
