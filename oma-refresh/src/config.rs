@@ -1,21 +1,28 @@
 use std::{env, path::Path};
 
 use ahash::AHashMap;
+use aho_corasick::AhoCorasick;
 use oma_apt::config::Config;
 use oma_fetch::CompressFile;
 use smallvec::{smallvec, SmallVec};
 use tracing::debug;
 
-use crate::inrelease::ChecksumItem;
+use crate::{db::RefreshError, inrelease::ChecksumItem};
 
-pub fn get_config(config: &Config) -> Vec<(String, String)> {
-    config
+pub fn get_config(config: &Config) -> Result<Vec<(String, String)>, RefreshError> {
+    let ac = AhoCorasick::new([";", "\""])?;
+
+    Ok(config
         .dump()
         .lines()
-        .map(|x| x.split_once(|c: char| c.is_ascii_whitespace()))
-        .flatten()
-        .map(|x| (x.0.to_string(), x.1.to_string()))
-        .collect()
+        .filter_map(|x| x.split_once(|c: char| c.is_ascii_whitespace()))
+        .map(|x| {
+            (
+                ac.replace_all(x.0, &["", ""]),
+                ac.replace_all(x.1, &["", ""]),
+            )
+        })
+        .collect())
 }
 
 #[derive(Debug)]
@@ -207,17 +214,17 @@ fn test() {
     let map = get_config(&Config::new());
     dbg!(&map);
     // let v = map.get("APT::Update:Post-Invoke-Success::");
-    let v = map
-        .iter()
-        .filter(|x| x.0 == "APT::Update::Post-Invoke-Success::")
-        .collect::<Vec<_>>();
-    dbg!(v);
+    // let v = map
+    //     .iter()
+    //     .filter(|x| x.0 == "APT::Update::Post-Invoke-Success::")
+    //     .collect::<Vec<_>>();
+    // dbg!(v);
 
-    let v = map
-        .iter()
-        .filter(|x| x.0 == "APT::Update::Post-Invoke::")
-        .collect::<Vec<_>>();
-    dbg!(v);
+    // let v = map
+    //     .iter()
+    //     .filter(|x| x.0 == "APT::Update::Post-Invoke::")
+    //     .collect::<Vec<_>>();
+    // dbg!(v);
 }
 
 #[test]

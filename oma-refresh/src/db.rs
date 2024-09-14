@@ -209,7 +209,7 @@ impl<'a> OmaRefresh<'a> {
             .handle_downloaded_release_result(release_results, _callback.clone(), _handle_topic_msg)
             .await?;
 
-        let config_tree = get_config(self.apt_config);
+        let config_tree = get_config(self.apt_config)?;
 
         let (tasks, total) = self
             .collect_all_release_entry(
@@ -226,7 +226,8 @@ impl<'a> OmaRefresh<'a> {
         }
 
         let download_dir = self.download_dir.clone();
-        let remove_task = tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
+        let remove_task =
+            tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
 
         let res = OmaFetcher::new(self.client, tasks, self.limit)?
             .start_download(|count, event| _callback(count, RefreshEvent::from(event), Some(total)))
