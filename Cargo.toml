@@ -1,6 +1,6 @@
 [package]
 name = "oma"
-version = "1.10.0-rc1"
+version = "1.10.0"
 edition = "2021"
 description = "User-friendly and performant package manager for APT repositories"
 license = "GPL-3.0-or-later"
@@ -11,7 +11,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 [dependencies]
 # Cli
 clap = { version = "4.5.17", features = ["cargo", "wrap_help", "color", "string"] }
-anyhow = "1.0.88"
+anyhow = "1.0.89"
 ctrlc = "3.4.5"
 # https://github.com/zhiburt/tabled/issues/423
 tabled = { version = "=0.15", features = ["ansi"] }
@@ -62,7 +62,7 @@ indexmap = "2.5.0"
 clap_mangen = "0.2.23"
 clap_complete = "4.5.26"
 clap = { version = "4.5.17", features = ["cargo", "wrap_help", "color", "string"] }
-anyhow = "1.0.88"
+anyhow = "1.0.89"
 
 [features]
 aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc"]
