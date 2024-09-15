@@ -2,6 +2,299 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.0] - 2024-09-15
+
+### 🚀 Features
+
+- Set default config as oma-debian.toml if without `aosc` feature (#102)
+
+### 🐛 Bug Fixes
+
+- Update all completions
+
+## [1.10.0-rc1] - 2024-09-12
+
+### 🚀 Features
+
+- *(arg)* Add `oma show` alias `oma info` (#95)
+- *(oma-console)* [**breaking**] New pager
+- Add `--no-pager` for `oma search` and `oma files/provides`
+- *(oma-console)* Resize window will re-calculate terminal width (#97)
+
+### 🐛 Bug Fixes
+
+- Fix cause writer get wrong breakpoint (#99)
+- *(oma-console)* Use `console::measure_text_width` to calculate terminal width on pager (#98)
+
+### 🚜 Refactor
+
+- *(oma-console)* [**breaking**] Refactor pager exit status to `PagerExit` enum
+- *(oma-console)* [**breaking**] Use `memchr` crate to reduce dependency
+- *(oma-contents)* [**breaking**] Use `memchr` crate to reduce dependency
+
+### ⚙️ Miscellaneous Tasks
+
+- Update all deps
+
+## [1.9.5] - 2024-09-09
+
+### 🚀 Features
+
+- *(oma-pm)* [**breaking**] Add `oma search` text search mode
+
+### 🐛 Bug Fixes
+
+- *(table)* Wrap terminal width (#92)
+
+### 🚜 Refactor
+
+- *(oma-pm)* Use `aho-corasick` to improve match string performance
+
+### ⚙️ Miscellaneous Tasks
+
+- *(data/config)* Lint configuration descriptions
+
+## [1.9.4] - 2024-09-09
+
+### I18n
+
+- *(zh_CN)* Fix a typo
+
+## [1.9.3] - 2024-09-07
+
+### 🚀 Features
+
+- *(tui)* Add progress bar on oma tui before reading apt cache ...
+- *(oma-pm)* [**breaking**] Add strsim search engine mode ...
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix refresh when mixing normal and flat sources
+- *(oma-refresh)* Fix refresh when mixing normal and flat sources
+
+### 🚜 Refactor
+
+- *(oma-refresh)* Refactor flat repo refresh logic
+- *(oma-fetch)* Improve logic
+- *(subcmd/c-n-f)* Try to use HashMap to reduce read apt cache (#88)
+- *(oma-refresh)* Refactor flat repo refresh logic
+- *(oma-fetch)* Improve logic
+
+### 🧪 Testing
+
+- *(oma-pm)* Use `Mutex` to limit some test thread
+- *(oma-pm)* Fix `search.rs/test` test on non amd64 arch
+- *(oma-pm)* Use `Mutex` to limit some test thread
+- *(oma-pm)* Fix `search.rs/test` test on non amd64 arch
+
+### ⚙️ Miscellaneous Tasks
+
+- No need to use `RUST_TEST_THREADS=1`
+- *(oma-pm)* Bump oma-pm-operation-type to v0.4
+- Update all deps (#89)
+- Lint UI and configuration strings
+- Set `oma-debian.toml` as debian default config file
+- No need to use `RUST_TEST_THREADS=1`
+
+### I18n
+
+- *(zh_CN)* Fix a typo
+
+## [1.9.2] - 2024-09-07
+
+### 🐛 Bug Fixes
+
+- *(oma-contents)* [**breaking**] Fix search contents like `universe/foo/bar` (#87)
+- *(oma-contents)* [**breaking**] Fix search contents like `universe/foo/bar` (#87)
+
+### 🚜 Refactor
+
+- Move user agent string to global var (#86)
+
+## [1.9.1] - 2024-09-07
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix download flat repo Packages (#83)
+- *(oma-refresh)* Fix download flat repo Packages (#83)
+
+## [1.9.0] - 2024-09-06
+
+### 🚀 Features
+
+- *(subcmd/command-not-found)* Too many matches will only display top 10 (#76)
+
+### 🐛 Bug Fixes
+
+- Not allow exit if pkexec spawn new oma (#75)
+- *(tui)* Fix enter char and delete char action (#79)
+- Not allow exit if pkexec spawn new oma (#75)
+- *(tui)* Fix enter char and delete char action (#79)
+
+### 🚜 Refactor
+
+- *(oma-pm)* [**breaking**] Use `bon` to replaced `derive_builder` ...
+- *(oma-fetch)* [**breaking**] Use `bon` crate to replaced `derive_builder`
+- *(oma-pm)* Improve `OmaApt::summary` logic (#80)
+
+### 🧪 Testing
+
+- *(oma-refresh)* Add `config.rs` some test (#74)
+- *(oma-refresh)* Add `config.rs` some test (#74)
+
+### ⚙️ Miscellaneous Tasks
+
+- *(deb.yml)* Upload packages to repo.aosc.io (#77)
+- Update all deps (#81)
+- Generate APT repository and add an one-liner installation script (#82)
+- *(deb.yml)* Upload packages to repo.aosc.io (#77)
+- Update all deps (#81)
+- Generate APT repository and add an one-liner installation script (#82)
+
+## [1.9.0-rc2] - 2024-09-01
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Fix get refrresh config logic mistake
+- *(oma-refresh)* Fix get refrresh config logic mistake
+
+## [1.9.0-rc1] - 2024-09-01
+
+### 🚀 Features
+
+- *(oma-refresh)* [**breaking**] Read `apt.conf.d` to filter InRelease download list (#69)
+
+### 🚜 Refactor
+
+- *(oma-refresh)* Use `aho-corasick` to improve `database_filename` performance
+
+### ⚙️ Miscellaneous Tasks
+
+- Update all deps
+
+## [1.8.2] - 2024-08-30
+
+### 🐛 Bug Fixes
+
+- *(completions)* Fix Fish completions
+
+## [1.8.1] - 2024-08-30
+
+### 🚀 Features
+
+- *(oma-pm-operation-type)* [**breaking**] Add `RemoveTag::Resolver` field ...
+
+### 🐛 Bug Fixes
+
+- *(oma-refresh)* Transliterate _ in dist as %5f
+- *(oma-refresh)* Add unit test for _ => %5f
+- *(oma-refresh)* Transliterate _ in dist as %5f
+- *(oma-refresh)* Add unit test for _ => %5f
+
+### 🚜 Refactor
+
+- *(subcmd/command-not-found)* If strsin number < `FILTER_JARO_NUM` should break
+- *(subcmd)* Do not ignore error from `PkgInfo`
+
+### 🎨 Styling
+
+- *(oma-contents)* Remove unnecessary type Signature
+
+### ⚙️ Miscellaneous Tasks
+
+- *(oma-contents)* Cleanup example code
+- Localise broken dependency note
+- Run cargo fmt
+- Run cargo fmt
+
+## [1.8.0] - 2024-08-28
+
+### 🐛 Bug Fixes
+
+- Update all completions
+
+## [1.8.0-rc2] - 2024-08-28
+
+### 🚀 Features
+
+- *(oma-contents)* [**breaking**] Add `oma provides` and `oma files` println mode ...
+- *(config)* Add `search_contents_println` to config
+- Do not check color if `--no-color` is set
+- Force follow terminal color if is ssh session
+- Force follow terminal color if `TERM` var is not set
+- Do not check color if `--no-color` is set
+- Force follow terminal color if is ssh session
+- Force follow terminal color if `TERM` var is not set
+
+### 🐛 Bug Fixes
+
+- Add a latency limit for terminal coloring
+- Not is terminal do not execute `termbg::theme`
+- Update all completions
+- Add a latency limit for terminal coloring
+- Not is terminal do not execute `termbg::theme`
+
+### 🚜 Refactor
+
+- *(oma-contents)* Move OutputMode logic to outside of library
+- *(subcmd/command-not-found)* Improve foreach result logic
+- *(subcmd/command-not-found)* Improve foreach result logic
+
+### ⚙️ Miscellaneous Tasks
+
+- *(main.rs)* Fix debug message for unsupported/high-latency terminals
+- *(main.rs)* Fix debug message for unsupported/high-latency terminals
+
+## [1.8.0-rc.1] - 2024-08-27
+
+### 🚀 Features
+
+- Add `oma upgrade` arg `--autoremove` ...
+- *(oma-pm)* [**breaking**] Make `autoremove` function public
+- *(oma-contents)* Improve error output
+- Use `ahash` as Progress Bar map hasher ...
+- *(oma-pm, oma-fresh)* Use `ahash` as hasher
+- Adjust subcmd alias
+
+### 🐛 Bug Fixes
+
+- Update all shell completions
+- Fix `oma purge xxx` will panic
+- *(oma-contents)* Fix `/var/lib/apt/lists` contents does not exist ...
+- *(.github)* Replace tilde correctly in Git branch
+
+### 🚜 Refactor
+
+- *(oma-contents)* Do not repeatedly check file ext
+- *(oma-contents)* Use buffer to reuse cache
+- *(oma-contents)* Some changes
+- *(oma-contents)* Use `IndexSet`
+- *(oma-console)* `ripgrep_search` function do not repetitivly check mode
+- *(args)* Remove unnecessary clone
+
+### 📚 Documentation
+
+- Update readme
+
+### ⚙️ Miscellaneous Tasks
+
+- Use lto thin by default
+- *(Cargo.toml)* Enable more compiler optimization
+- *(.github)* Use tilde to replace dash-suffix in DPKG_VER
+- *(.github)* Use tilde in Git branch
+
+## [1.7.1] - 2024-08-24
+
+### 🐛 Bug Fixes
+
+- *(oma-contents)* Add file magic check on `pure_search`
+- Do not require packages argument in `oma remove --yes`
+
+### ⚙️ Miscellaneous Tasks
+
+- Make `apt update` download `BinContents`
+- Add download contents option to apt config file
+
 ## [1.7.0] - 2024-08-22
 
 ### 🚀 Features
