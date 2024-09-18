@@ -37,7 +37,10 @@ use ratatui::{
     prelude::{Frame, Rect},
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListState, Padding, Paragraph},
+    widgets::{
+        Block, Borders, List, ListState, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
+        ScrollbarState,
+    },
     Terminal,
 };
 
@@ -302,6 +305,8 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
     let mut execute_apt = true;
     let mut pending = vec![];
 
+    let mut scrollbar_state = ScrollbarState::new(display_list.items.len());
+
     loop {
         let input = input.clone();
         terminal
@@ -328,6 +333,8 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                     .direction(Direction::Horizontal)
                     .split(main_layout[2]);
 
+                scrollbar_state = scrollbar_state.content_length(display_list.items.len());
+
                 if display_pending_detail {
                     show_packages(
                         &result_rc,
@@ -351,6 +358,14 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                         chunks[1],
                         &mut pending_display_list.state,
                     );
+
+                    frame.render_stateful_widget(
+                        Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                            .begin_symbol(Some("↑"))
+                            .end_symbol(Some("↓")),
+                        chunks[0],
+                        &mut scrollbar_state,
+                    );
                 } else {
                     show_packages(
                         &result_rc,
@@ -360,6 +375,14 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                         main_layout[2],
                         a,
                         installed,
+                    );
+
+                    frame.render_stateful_widget(
+                        Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                            .begin_symbol(Some("↑"))
+                            .end_symbol(Some("↓")),
+                        main_layout[2],
+                        &mut scrollbar_state,
                     );
                 }
 
@@ -456,6 +479,8 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                                 mode = Mode::Search;
                             } else {
                                 display_list.previous();
+                                scrollbar_state = scrollbar_state
+                                    .position(display_list.state.selected().unwrap_or(0));
                             }
                         }
                         Mode::Pending => {
@@ -477,6 +502,8 @@ pub fn execute(tui: Tui) -> Result<i32, OutputError> {
                         }
                         Mode::Packages => {
                             display_list.next();
+                            scrollbar_state = scrollbar_state
+                                .position(display_list.state.selected().unwrap_or(0));
                         }
                         Mode::Pending => {
                             pending_display_list.next();
