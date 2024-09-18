@@ -1,14 +1,21 @@
 use std::{
     env,
+    fmt::Display,
     path::Path,
     process::{exit, Command},
     sync::atomic::Ordering,
 };
 
-use crate::fl;
+use crate::{color_formatter, fl};
 use crate::{error::OutputError, SPAWN_NEW_OMA};
 use anyhow::anyhow;
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use dialoguer::{console::style, theme::ColorfulTheme, Confirm};
+use oma_console::{
+    print::Action,
+    writer::{gen_prefix, writeln_inner, MessageType},
+    WRITER,
+};
+use oma_pm::{search::SearchResult, PackageStatus};
 use oma_utils::{
     dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
     oma::unlock_oma,
@@ -115,5 +122,92 @@ pub async fn check_battery(conn: &Connection, yes: bool) {
             unlock_oma().ok();
             exit(0);
         }
+    }
+}
+
+pub struct SearchResultDisplay<'a>(pub &'a SearchResult);
+
+impl<'a> Display for SearchResultDisplay<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let i = &self.0;
+        let mut pkg_info_line = if i.is_base {
+            color_formatter()
+                .color_str(&i.name, Action::Purple)
+                .bold()
+                .to_string()
+        } else {
+            color_formatter()
+                .color_str(&i.name, Action::Emphasis)
+                .bold()
+                .to_string()
+        };
+
+        pkg_info_line.push(' ');
+
+        if i.status == PackageStatus::Upgrade {
+            pkg_info_line.push_str(&format!(
+                "{} -> {}",
+                color_formatter().color_str(i.old_version.as_ref().unwrap(), Action::WARN),
+                color_formatter().color_str(&i.new_version, Action::EmphasisSecondary)
+            ));
+        } else {
+            pkg_info_line.push_str(
+                &color_formatter()
+                    .color_str(&i.new_version, Action::EmphasisSecondary)
+                    .to_string(),
+            );
+        }
+
+        let mut pkg_tags = vec![];
+
+        if i.dbg_package {
+            pkg_tags.push(fl!("debug-symbol-available"));
+        }
+
+        if i.full_match {
+            pkg_tags.push(fl!("full-match"))
+        }
+
+        if !pkg_tags.is_empty() {
+            pkg_info_line.push(' ');
+            pkg_info_line.push_str(
+                &color_formatter()
+                    .color_str(format!("[{}]", pkg_tags.join(",")), Action::Note)
+                    .to_string(),
+            );
+        }
+
+        let prefix = match i.status {
+            PackageStatus::Avail => style("AVAIL").dim(),
+            PackageStatus::Installed => {
+                color_formatter().color_str("INSTALLED", Action::Foreground)
+            }
+            PackageStatus::Upgrade => color_formatter().color_str("UPGRADE", Action::WARN),
+        }
+        .to_string();
+
+        writeln!(f, "{}{}", gen_prefix(&prefix, 10), pkg_info_line)?;
+
+        writeln_inner(
+            &i.desc,
+            "",
+            WRITER.get_max_len().into(),
+            WRITER.get_prefix_len(),
+            |t, s| {
+                match t {
+                    MessageType::Msg => {
+                        writeln!(
+                            f,
+                            "{}",
+                            color_formatter().color_str(s.trim(), Action::Secondary)
+                        )
+                    }
+                    MessageType::Prefix => write!(f, "{}", gen_prefix(s, 10)),
+                }
+                .ok();
+            },
+        );
+
+        Ok(())
     }
 }
