@@ -212,7 +212,8 @@ impl<'a> OmaPager<'a> {
                                     self.vertical_scroll_state.position(self.vertical_scroll);
                             }
                             KeyCode::Char('G') => {
-                                self.vertical_scroll = self.inner_len.saturating_sub(1);
+                                self.vertical_scroll =
+                                    self.inner_len.saturating_sub(self.area_heigh.into());
                                 self.vertical_scroll_state =
                                     self.vertical_scroll_state.position(self.vertical_scroll);
                             }
