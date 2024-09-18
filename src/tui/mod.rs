@@ -344,6 +344,7 @@ impl<'a> Tui<'a> {
                                 .unwrap();
                             self.pending.remove(pending_pos);
                             self.install.remove(pkg_index);
+
                             return ControlFlow::Break(());
                         }
 
@@ -715,7 +716,7 @@ fn update_search_result(
     if let Ok(res) = res {
         let res_display = res
             .iter()
-            .filter_map(|x| SearchResultDisplay(&x).to_string().into_text().ok())
+            .filter_map(|x| SearchResultDisplay(x).to_string().into_text().ok())
             .collect::<Vec<_>>();
 
         *display_list = StatefulList::with_items(res_display);
