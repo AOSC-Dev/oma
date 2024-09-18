@@ -2,6 +2,7 @@ mod state;
 
 use std::{
     cell::{Ref, RefCell},
+    ops::ControlFlow,
     rc::Rc,
     time::{Duration, Instant},
 };
@@ -107,178 +108,18 @@ impl<'a> Tui<'a> {
                         return Ok((false, vec![], vec![]));
                     }
                     match key.code {
-                        KeyCode::Up => match self.mode {
-                            Mode::Search => {}
-                            Mode::Packages => {
-                                if self
-                                    .pkg_result_state
-                                    .state
-                                    .selected()
-                                    .map(|x| x == 0)
-                                    .unwrap_or(true)
-                                {
-                                    self.mode = Mode::Search;
-                                } else {
-                                    self.pkg_result_state.previous();
-                                }
-                            }
-                            Mode::Pending => {
-                                if self
-                                    .pending_result_state
-                                    .state
-                                    .selected()
-                                    .map(|x| x == 0)
-                                    .unwrap_or(true)
-                                {
-                                    self.mode = Mode::Search;
-                                } else {
-                                    self.pending_result_state.previous();
-                                }
-                            }
-                        },
-                        KeyCode::Down => match self.mode {
-                            Mode::Search => {
-                                change_to_packages_window(
-                                    &mut self.mode,
-                                    &mut self.pkg_result_state,
-                                );
-                            }
-                            Mode::Packages => {
-                                self.pkg_result_state.next();
-                            }
-                            Mode::Pending => {
-                                self.pending_result_state.next();
-                            }
-                        },
+                        KeyCode::Up => {
+                            self.handle_up();
+                        }
+                        KeyCode::Down => {
+                            self.handle_down();
+                        }
                         KeyCode::Esc => break,
-                        KeyCode::Char(' ') => match self.mode {
-                            Mode::Search => {}
-                            Mode::Packages => {
-                                let selected = self.pkg_result_state.state.selected();
-                                if let Some(i) = selected {
-                                    self.display_pending_detail = true;
-                                    let name = &self.pkg_results.borrow()[i].name;
-                                    if let Some(pkg) = self.apt.cache.get(name) {
-                                        if let Some(pkg_index) = self
-                                            .install
-                                            .iter()
-                                            .position(|x: &PkgInfo| x.raw_pkg.name() == name)
-                                        {
-                                            let pos = self
-                                                .pending_result_state
-                                                .items
-                                                .iter()
-                                                .position(|x| {
-                                                    x.to_string().starts_with(&format!(
-                                                        "+ {}",
-                                                        self.install[pkg_index].raw_pkg.name()
-                                                    ))
-                                                })
-                                                .unwrap();
-
-                                            self.pending_result_state.items.remove(pos);
-                                            self.pending_result_state.state.select(None);
-
-                                            let pending_pos = self
-                                                .pending
-                                                .iter()
-                                                .position(|x: &Operation| x.name == *name)
-                                                .unwrap();
-                                            self.pending.remove(pending_pos);
-                                            self.install.remove(pkg_index);
-                                            continue;
-                                        }
-
-                                        if let Some(pkg_index) = self
-                                            .remove
-                                            .iter()
-                                            .position(|x: &PkgInfo| x.raw_pkg.name() == name)
-                                        {
-                                            let pos = self
-                                                .pending_result_state
-                                                .items
-                                                .iter()
-                                                .position(|x| {
-                                                    x.to_string().starts_with(&format!(
-                                                        "- {}",
-                                                        self.remove[pkg_index].raw_pkg.name()
-                                                    ))
-                                                })
-                                                .unwrap();
-
-                                            self.pending_result_state.items.remove(pos);
-                                            self.pending_result_state.state.select(None);
-                                            self.remove.remove(pkg_index);
-                                            let pending_pos = self
-                                                .pending
-                                                .iter()
-                                                .position(|x: &Operation| x.name == *name)
-                                                .unwrap();
-                                            self.pending.remove(pending_pos);
-                                            continue;
-                                        }
-
-                                        let cand = pkg.candidate().or(pkg.versions().next());
-
-                                        if let Some(cand) = cand {
-                                            let pkginfo = PkgInfo::new(&cand, &pkg);
-                                            if !cand.is_installed() {
-                                                self.install.push(pkginfo.unwrap());
-                                                self.pending_result_state.items.push(Text::raw(
-                                                    format!(
-                                                        "+ {} ({})",
-                                                        pkg.name(),
-                                                        cand.version()
-                                                    ),
-                                                ));
-
-                                                self.pending.push(Operation {
-                                                    name: pkg.name().to_string(),
-                                                    is_install: true,
-                                                });
-                                            } else {
-                                                self.remove.push(pkginfo.unwrap());
-                                                self.pending_result_state
-                                                    .items
-                                                    .push(Text::raw(format!("- {}", pkg.name())));
-
-                                                self.pending.push(Operation {
-                                                    name: pkg.fullname(true).to_string(),
-                                                    is_install: false,
-                                                });
-                                            }
-                                        }
-                                    }
-                                }
+                        KeyCode::Char(' ') => {
+                            if let ControlFlow::Break(_) = self.handle_space() {
+                                continue;
                             }
-                            Mode::Pending => {
-                                let selected = self.pending_result_state.state.selected();
-                                if let Some(i) = selected {
-                                    self.pending_result_state.remove(i);
-                                    let removed = self.pending.remove(i);
-                                    if removed.is_install {
-                                        let inst_pos = self
-                                            .install
-                                            .iter()
-                                            .position(|x| x.raw_pkg.name() == removed.name)
-                                            .unwrap();
-                                        self.install.remove(inst_pos);
-                                    } else {
-                                        let remove_pos = self
-                                            .remove
-                                            .iter()
-                                            .position(|x| x.raw_pkg.name() == removed.name)
-                                            .unwrap();
-                                        self.remove.remove(remove_pos);
-                                    }
-                                    if self.pending_result_state.items.is_empty() {
-                                        self.pending_result_state.state.select(None);
-                                    } else {
-                                        self.pending_result_state.previous();
-                                    }
-                                }
-                            }
-                        },
+                        }
                         KeyCode::Char('/') => {
                             self.mode = Mode::Search;
                         }
@@ -287,154 +128,35 @@ impl<'a> Tui<'a> {
                                 continue;
                             }
 
-                            let byte_index = self
-                                .input
-                                .borrow()
-                                .char_indices()
-                                .map(|(i, _)| i)
-                                .nth(self.input_cursor_position)
-                                .unwrap_or(self.input.borrow().len());
-
-                            self.input.borrow_mut().insert(byte_index, c);
-                            self.input_cursor_position =
-                                self.input_cursor_position.saturating_add(1);
-
-                            let s = self.input.borrow();
-                            let res = self.searcher.search(&s);
-
-                            if let Ok(res) = res {
-                                let res_display = res
-                                    .iter()
-                                    .filter_map(|x| {
-                                        SearchResultDisplay(x).to_string().into_text().ok()
-                                    })
-                                    .collect::<Vec<_>>();
-                                self.pkg_result_state = StatefulList::with_items(res_display);
-                                self.pkg_results.replace(res);
-                            } else {
-                                self.pkg_result_state = StatefulList::with_items(vec![]);
-                                self.pkg_results.borrow_mut().clear();
-                            }
+                            self.handle_input_text(c);
                         }
                         KeyCode::Tab => {
-                            if self.display_pending_detail {
-                                self.mode = match self.mode {
-                                    Mode::Search => Mode::Packages,
-                                    Mode::Packages => Mode::Pending,
-                                    Mode::Pending => Mode::Search,
-                                };
-                            } else {
-                                self.mode = match self.mode {
-                                    Mode::Search => Mode::Packages,
-                                    Mode::Packages => Mode::Search,
-                                    Mode::Pending => Mode::Search,
-                                };
-                            }
-
-                            match self.mode {
-                                Mode::Search => {}
-                                Mode::Packages => {
-                                    change_to_packages_window(
-                                        &mut self.mode,
-                                        &mut self.pkg_result_state,
-                                    );
-                                }
-                                Mode::Pending => {
-                                    change_to_pending_window(
-                                        &mut self.mode,
-                                        &mut self.pending_result_state,
-                                    );
-                                }
-                            }
+                            self.handle_tab();
                         }
                         KeyCode::Backspace => {
                             if self.mode != Mode::Search {
                                 continue;
                             }
 
-                            if self.input_cursor_position == 0 {
-                                self.pkg_results.replace(vec![]);
+                            if let ControlFlow::Break(_) = self.handle_input_backspace() {
                                 continue;
                             }
-
-                            let from_left_to_current_index = self.input_cursor_position - 1;
-                            delete_inner(
-                                &self.input,
-                                from_left_to_current_index,
-                                self.input_cursor_position,
-                            );
-
-                            self.input_cursor_position =
-                                self.input_cursor_position.saturating_sub(1);
-
-                            let s = self.input.borrow();
-                            update_search_result(
-                                &self.searcher,
-                                s,
-                                &mut self.pkg_result_state,
-                                &self.pkg_results,
-                            );
                         }
                         KeyCode::Delete => {
                             if self.mode != Mode::Search {
                                 continue;
                             }
 
-                            if self.input_cursor_position > self.input.borrow().len() - 1 {
+                            if let ControlFlow::Break(_) = self.handle_input_delete() {
                                 continue;
                             }
-
-                            delete_inner(
-                                &self.input,
-                                self.input_cursor_position,
-                                self.input_cursor_position + 1,
-                            );
-
-                            let s = self.input.borrow();
-                            update_search_result(
-                                &self.searcher,
-                                s,
-                                &mut self.pkg_result_state,
-                                &self.pkg_results,
-                            );
                         }
-                        KeyCode::Left => match self.mode {
-                            Mode::Search => {
-                                self.input_cursor_position =
-                                    self.input_cursor_position.saturating_sub(1);
-                            }
-                            Mode::Packages => {
-                                change_to_pending_window(
-                                    &mut self.mode,
-                                    &mut self.pending_result_state,
-                                );
-                            }
-                            Mode::Pending => {
-                                change_to_packages_window(
-                                    &mut self.mode,
-                                    &mut self.pkg_result_state,
-                                );
-                            }
-                        },
-                        KeyCode::Right => match self.mode {
-                            Mode::Search => {
-                                if self.input_cursor_position < self.input.borrow().len() {
-                                    self.input_cursor_position += 1;
-                                }
-                            }
-                            Mode::Packages => {
-                                change_to_pending_window(
-                                    &mut self.mode,
-                                    &mut self.pending_result_state,
-                                );
-                            }
-                            Mode::Pending => {
-                                change_to_packages_window(
-                                    &mut self.mode,
-                                    &mut self.pkg_result_state,
-                                );
-                            }
-                        },
+                        KeyCode::Left => {
+                            self.handle_left();
+                        }
+                        KeyCode::Right => {
+                            self.handle_right();
+                        }
                         KeyCode::F(1) => {
                             self.display_pending_detail = !self.display_pending_detail;
                         }
@@ -449,6 +171,318 @@ impl<'a> Tui<'a> {
         }
 
         Ok((true, self.install, self.remove))
+    }
+
+    fn handle_right(&mut self) {
+        match self.mode {
+            Mode::Search => {
+                if self.input_cursor_position < self.input.borrow().len() {
+                    self.input_cursor_position += 1;
+                }
+            }
+            Mode::Packages => {
+                change_to_pending_window(&mut self.mode, &mut self.pending_result_state);
+            }
+            Mode::Pending => {
+                change_to_packages_window(&mut self.mode, &mut self.pkg_result_state);
+            }
+        }
+    }
+
+    fn handle_left(&mut self) {
+        match self.mode {
+            Mode::Search => {
+                self.input_cursor_position = self.input_cursor_position.saturating_sub(1);
+            }
+            Mode::Packages => {
+                change_to_pending_window(&mut self.mode, &mut self.pending_result_state);
+            }
+            Mode::Pending => {
+                change_to_packages_window(&mut self.mode, &mut self.pkg_result_state);
+            }
+        }
+    }
+
+    fn handle_input_delete(&mut self) -> ControlFlow<()> {
+        if self.input_cursor_position > self.input.borrow().len() - 1 {
+            return ControlFlow::Break(());
+        }
+
+        delete_inner(
+            &self.input,
+            self.input_cursor_position,
+            self.input_cursor_position + 1,
+        );
+
+        let s = self.input.borrow();
+
+        update_search_result(
+            &self.searcher,
+            s,
+            &mut self.pkg_result_state,
+            &self.pkg_results,
+        );
+
+        ControlFlow::Continue(())
+    }
+
+    fn handle_input_backspace(&mut self) -> ControlFlow<()> {
+        if self.input_cursor_position == 0 {
+            self.pkg_results.replace(vec![]);
+            return ControlFlow::Break(());
+        }
+
+        let from_left_to_current_index = self.input_cursor_position - 1;
+
+        delete_inner(
+            &self.input,
+            from_left_to_current_index,
+            self.input_cursor_position,
+        );
+
+        self.input_cursor_position = self.input_cursor_position.saturating_sub(1);
+
+        let s = self.input.borrow();
+
+        update_search_result(
+            &self.searcher,
+            s,
+            &mut self.pkg_result_state,
+            &self.pkg_results,
+        );
+
+        ControlFlow::Continue(())
+    }
+
+    fn handle_tab(&mut self) {
+        if self.display_pending_detail {
+            self.mode = match self.mode {
+                Mode::Search => Mode::Packages,
+                Mode::Packages => Mode::Pending,
+                Mode::Pending => Mode::Search,
+            };
+        } else {
+            self.mode = match self.mode {
+                Mode::Search => Mode::Packages,
+                Mode::Packages => Mode::Search,
+                Mode::Pending => Mode::Search,
+            };
+        }
+
+        match self.mode {
+            Mode::Search => {}
+            Mode::Packages => {
+                change_to_packages_window(&mut self.mode, &mut self.pkg_result_state);
+            }
+            Mode::Pending => {
+                change_to_pending_window(&mut self.mode, &mut self.pending_result_state);
+            }
+        }
+    }
+
+    fn handle_input_text(&mut self, c: char) {
+        let byte_index = self
+            .input
+            .borrow()
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(self.input_cursor_position)
+            .unwrap_or(self.input.borrow().len());
+
+        self.input.borrow_mut().insert(byte_index, c);
+        self.input_cursor_position = self.input_cursor_position.saturating_add(1);
+
+        let s = self.input.borrow();
+        let res = self.searcher.search(&s);
+
+        if let Ok(res) = res {
+            let res_display = res
+                .iter()
+                .filter_map(|x| SearchResultDisplay(x).to_string().into_text().ok())
+                .collect::<Vec<_>>();
+            self.pkg_result_state = StatefulList::with_items(res_display);
+            self.pkg_results.replace(res);
+        } else {
+            self.pkg_result_state = StatefulList::with_items(vec![]);
+            self.pkg_results.borrow_mut().clear();
+        }
+    }
+
+    fn handle_space(&mut self) -> ControlFlow<()> {
+        match self.mode {
+            Mode::Search => {}
+            Mode::Packages => {
+                let selected = self.pkg_result_state.state.selected();
+                if let Some(i) = selected {
+                    self.display_pending_detail = true;
+                    let name = &self.pkg_results.borrow()[i].name;
+                    if let Some(pkg) = self.apt.cache.get(name) {
+                        if let Some(pkg_index) = self
+                            .install
+                            .iter()
+                            .position(|x: &PkgInfo| x.raw_pkg.name() == name)
+                        {
+                            let pos = self
+                                .pending_result_state
+                                .items
+                                .iter()
+                                .position(|x| {
+                                    x.to_string().starts_with(&format!(
+                                        "+ {}",
+                                        self.install[pkg_index].raw_pkg.name()
+                                    ))
+                                })
+                                .unwrap();
+
+                            self.pending_result_state.items.remove(pos);
+                            self.pending_result_state.state.select(None);
+
+                            let pending_pos = self
+                                .pending
+                                .iter()
+                                .position(|x: &Operation| x.name == *name)
+                                .unwrap();
+                            self.pending.remove(pending_pos);
+                            self.install.remove(pkg_index);
+                            return ControlFlow::Break(());
+                        }
+
+                        if let Some(pkg_index) = self
+                            .remove
+                            .iter()
+                            .position(|x: &PkgInfo| x.raw_pkg.name() == name)
+                        {
+                            let pos = self
+                                .pending_result_state
+                                .items
+                                .iter()
+                                .position(|x| {
+                                    x.to_string().starts_with(&format!(
+                                        "- {}",
+                                        self.remove[pkg_index].raw_pkg.name()
+                                    ))
+                                })
+                                .unwrap();
+
+                            self.pending_result_state.items.remove(pos);
+                            self.pending_result_state.state.select(None);
+                            self.remove.remove(pkg_index);
+                            let pending_pos = self
+                                .pending
+                                .iter()
+                                .position(|x: &Operation| x.name == *name)
+                                .unwrap();
+                            self.pending.remove(pending_pos);
+                            return ControlFlow::Break(());
+                        }
+
+                        let cand = pkg.candidate().or(pkg.versions().next());
+
+                        if let Some(cand) = cand {
+                            let pkginfo = PkgInfo::new(&cand, &pkg);
+                            if !cand.is_installed() {
+                                self.install.push(pkginfo.unwrap());
+                                self.pending_result_state.items.push(Text::raw(format!(
+                                    "+ {} ({})",
+                                    pkg.name(),
+                                    cand.version()
+                                )));
+
+                                self.pending.push(Operation {
+                                    name: pkg.name().to_string(),
+                                    is_install: true,
+                                });
+                            } else {
+                                self.remove.push(pkginfo.unwrap());
+                                self.pending_result_state
+                                    .items
+                                    .push(Text::raw(format!("- {}", pkg.name())));
+
+                                self.pending.push(Operation {
+                                    name: pkg.fullname(true).to_string(),
+                                    is_install: false,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            Mode::Pending => {
+                let selected = self.pending_result_state.state.selected();
+                if let Some(i) = selected {
+                    self.pending_result_state.remove(i);
+                    let removed = self.pending.remove(i);
+                    if removed.is_install {
+                        let inst_pos = self
+                            .install
+                            .iter()
+                            .position(|x| x.raw_pkg.name() == removed.name)
+                            .unwrap();
+                        self.install.remove(inst_pos);
+                    } else {
+                        let remove_pos = self
+                            .remove
+                            .iter()
+                            .position(|x| x.raw_pkg.name() == removed.name)
+                            .unwrap();
+                        self.remove.remove(remove_pos);
+                    }
+                    if self.pending_result_state.items.is_empty() {
+                        self.pending_result_state.state.select(None);
+                    } else {
+                        self.pending_result_state.previous();
+                    }
+                }
+            }
+        }
+
+        ControlFlow::Continue(())
+    }
+
+    fn handle_down(&mut self) {
+        match self.mode {
+            Mode::Search => {
+                change_to_packages_window(&mut self.mode, &mut self.pkg_result_state);
+            }
+            Mode::Packages => {
+                self.pkg_result_state.next();
+            }
+            Mode::Pending => {
+                self.pending_result_state.next();
+            }
+        }
+    }
+
+    fn handle_up(&mut self) {
+        match self.mode {
+            Mode::Search => {}
+            Mode::Packages => {
+                if self
+                    .pkg_result_state
+                    .state
+                    .selected()
+                    .map(|x| x == 0)
+                    .unwrap_or(true)
+                {
+                    self.mode = Mode::Search;
+                } else {
+                    self.pkg_result_state.previous();
+                }
+            }
+            Mode::Pending => {
+                if self
+                    .pending_result_state
+                    .state
+                    .selected()
+                    .map(|x| x == 0)
+                    .unwrap_or(true)
+                {
+                    self.mode = Mode::Search;
+                } else {
+                    self.pending_result_state.previous();
+                }
+            }
+        }
     }
 
     fn ui(&mut self, f: &mut Frame) {
