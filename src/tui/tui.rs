@@ -95,21 +95,15 @@ impl<'a> Tui<'a> {
                         return Ok((false, vec![], vec![]));
                     }
                     match key.code {
-                        KeyCode::Up => {
-                            self.handle_up();
-                        }
-                        KeyCode::Down => {
-                            self.handle_down();
-                        }
+                        KeyCode::Up => self.handle_up(),
+                        KeyCode::Down => self.handle_down(),
                         KeyCode::Esc => break,
                         KeyCode::Char(' ') => {
                             if let ControlFlow::Break(_) = self.handle_space() {
                                 continue;
                             }
                         }
-                        KeyCode::Char('/') => {
-                            self.mode = Mode::Search;
-                        }
+                        KeyCode::Char('/') => self.mode = Mode::Search,
                         KeyCode::Char(c) => {
                             if self.mode != Mode::Search {
                                 continue;
@@ -117,9 +111,7 @@ impl<'a> Tui<'a> {
 
                             self.handle_input_text(c);
                         }
-                        KeyCode::Tab => {
-                            self.handle_tab();
-                        }
+                        KeyCode::Tab => self.handle_tab(),
                         KeyCode::Backspace => {
                             if self.mode != Mode::Search {
                                 continue;
@@ -138,15 +130,9 @@ impl<'a> Tui<'a> {
                                 continue;
                             }
                         }
-                        KeyCode::Left => {
-                            self.handle_left();
-                        }
-                        KeyCode::Right => {
-                            self.handle_right();
-                        }
-                        KeyCode::F(1) => {
-                            self.display_pending_detail = !self.display_pending_detail;
-                        }
+                        KeyCode::Left => self.handle_left(),
+                        KeyCode::Right => self.handle_right(),
+                        KeyCode::F(1) => self.display_pending_detail = !self.display_pending_detail,
                         _ => {}
                     }
                 }
