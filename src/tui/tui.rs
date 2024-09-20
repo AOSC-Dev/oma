@@ -1,5 +1,6 @@
 use std::{
     cell::{Ref, RefCell},
+    fmt::Display,
     ops::ControlFlow,
     rc::Rc,
     time::{Duration, Instant},
@@ -21,7 +22,8 @@ use ratatui::{
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, List, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+        Block, Borders, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
+        ScrollbarState,
     },
     Frame, Terminal,
 };
@@ -53,24 +55,27 @@ pub struct Tui<'a> {
     installed: usize,
     pkg_results: Rc<RefCell<Vec<SearchResult>>>,
     pkg_result_state: StatefulList<Text<'static>>,
-    pending_result_state: StatefulList<Text<'static>>,
+    pending_result_state: StatefulList<Operation>,
     install: Vec<PkgInfo>,
     remove: Vec<PkgInfo>,
-    pending: Vec<Operation>,
     result_scroll: ScrollbarState,
 }
 
-impl IntoText for Operation {
-    fn into_text(&self) -> Result<Text<'static>, ansi_to_tui::Error> {
+impl Display for Operation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(ref ver) = self.version {
-            Ok(Text::from(format!("+ {} ({})", self.name, ver)))
+            writeln!(f, "+ {} ({})", self.name, ver)?;
         } else {
-            Ok(Text::from(format!("- {}", self.name)))
+            writeln!(f, "- {}", self.name)?;
         }
-    }
 
-    fn to_text(&self) -> Result<Text<'_>, ansi_to_tui::Error> {
-        self.into_text()
+        Ok(())
+    }
+}
+
+impl From<Operation> for ListItem<'_> {
+    fn from(value: Operation) -> Self {
+        Self::new(value.to_string())
     }
 }
 
@@ -105,7 +110,6 @@ impl<'a> Tui<'a> {
             pkg_results,
             install: vec![],
             remove: vec![],
-            pending: vec![],
             result_scroll: ScrollbarState::new(0),
         }
     }
@@ -337,7 +341,8 @@ impl<'a> Tui<'a> {
                             .position(|x: &PkgInfo| x.raw_pkg.name() == name)
                         {
                             let pos = self
-                                .pending
+                                .pending_result_state
+                                .items
                                 .iter()
                                 .position(|x| {
                                     x.name == self.install[pkg_index].raw_pkg.name()
@@ -347,7 +352,6 @@ impl<'a> Tui<'a> {
 
                             self.pending_result_state.items.remove(pos);
                             self.pending_result_state.state.select(None);
-                            self.pending.remove(pos);
 
                             self.install.remove(pkg_index);
 
@@ -360,7 +364,8 @@ impl<'a> Tui<'a> {
                             .position(|x: &PkgInfo| x.raw_pkg.name() == name)
                         {
                             let pos = self
-                                .pending
+                                .pending_result_state
+                                .items
                                 .iter()
                                 .position(|x| {
                                     x.name == self.install[pkg_index].raw_pkg.name()
@@ -370,7 +375,6 @@ impl<'a> Tui<'a> {
 
                             self.pending_result_state.items.remove(pos);
                             self.pending_result_state.state.select(None);
-                            self.pending.remove(pos);
 
                             self.remove.remove(pkg_index);
 
@@ -388,20 +392,14 @@ impl<'a> Tui<'a> {
                                     version: Some(cand.version().to_string()),
                                 };
 
-                                self.pending_result_state
-                                    .items
-                                    .push(op.into_text().unwrap());
-                                self.pending.push(op);
+                                self.pending_result_state.items.push(op);
                             } else {
                                 let op = Operation {
                                     name: pkg.fullname(true).to_string(),
                                     version: None,
                                 };
                                 self.remove.push(pkginfo.unwrap());
-                                self.pending.push(op.clone());
-                                self.pending_result_state
-                                    .items
-                                    .push(op.into_text().unwrap());
+                                self.pending_result_state.items.push(op);
                             }
                         }
                     }
@@ -410,8 +408,7 @@ impl<'a> Tui<'a> {
             Mode::Pending => {
                 let selected = self.pending_result_state.state.selected();
                 if let Some(i) = selected {
-                    self.pending_result_state.items.remove(i);
-                    let removed = self.pending.remove(i);
+                    let removed = self.pending_result_state.items.remove(i);
                     if removed.version.is_some() {
                         let inst_pos = self
                             .install
@@ -722,10 +719,7 @@ fn change_to_packages_window(mode: &mut Mode, display_list: &mut StatefulList<Te
     }
 }
 
-fn change_to_pending_window(
-    mode: &mut Mode,
-    pending_display_list: &mut StatefulList<Text<'static>>,
-) {
+fn change_to_pending_window(mode: &mut Mode, pending_display_list: &mut StatefulList<Operation>) {
     *mode = Mode::Pending;
     if pending_display_list.state.selected().is_none() && !pending_display_list.items.is_empty() {
         pending_display_list.state.select(Some(0));
