@@ -14,6 +14,7 @@ mod lang;
 mod pb;
 mod subcommand;
 mod table;
+mod tui;
 mod utils;
 
 #[cfg(feature = "egg")]
@@ -42,7 +43,7 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter, Layer};
-use tui::Tui;
+use tui::TuiArgs;
 use utils::create_async_runtime;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -594,7 +595,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .user_agent(APP_USER_AGENT)
                 .build()
                 .unwrap();
-            tui::execute(Tui {
+            tui::execute(TuiArgs {
                 sysroot,
                 no_progress,
                 dry_run,
