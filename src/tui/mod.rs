@@ -11,7 +11,7 @@ use oma_pm::{
     search::IndiciumSearch,
 };
 use reqwest::Client;
-use tui::Tui;
+use tui_inner::Tui;
 
 use crate::{
     error::OutputError,
@@ -21,7 +21,7 @@ use crate::{
 };
 
 mod state;
-mod tui;
+mod tui_inner;
 
 pub struct TuiArgs {
     pub sysroot: String,
