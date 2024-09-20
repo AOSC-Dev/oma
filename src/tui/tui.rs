@@ -20,7 +20,9 @@ use ratatui::{
     prelude::Backend,
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, Padding, Paragraph},
+    widgets::{
+        Block, Borders, List, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    },
     Frame, Terminal,
 };
 use rustix::io;
@@ -34,9 +36,10 @@ enum Mode {
     Pending,
 }
 
+#[derive(Clone)]
 struct Operation {
     name: String,
-    is_install: bool,
+    version: Option<String>,
 }
 
 pub struct Tui<'a> {
@@ -54,6 +57,21 @@ pub struct Tui<'a> {
     install: Vec<PkgInfo>,
     remove: Vec<PkgInfo>,
     pending: Vec<Operation>,
+    result_scroll: ScrollbarState,
+}
+
+impl IntoText for Operation {
+    fn into_text(&self) -> Result<Text<'static>, ansi_to_tui::Error> {
+        if let Some(ref ver) = self.version {
+            Ok(Text::from(format!("+ {} ({})", self.name, ver)))
+        } else {
+            Ok(Text::from(format!("- {}", self.name)))
+        }
+    }
+
+    fn to_text(&self) -> Result<Text<'_>, ansi_to_tui::Error> {
+        self.into_text()
+    }
 }
 
 impl<'a> Tui<'a> {
@@ -63,6 +81,16 @@ impl<'a> Tui<'a> {
         installed: usize,
         searcher: IndiciumSearch<'a>,
     ) -> Self {
+        let pkg_results = Rc::new(RefCell::new(vec![]));
+        let pkg_result_state = StatefulList::with_items(
+            pkg_results
+                .borrow()
+                .clone()
+                .into_iter()
+                .filter_map(|x| SearchResultDisplay(&x).to_string().into_text().ok())
+                .collect(),
+        );
+
         Self {
             apt,
             searcher,
@@ -72,12 +100,13 @@ impl<'a> Tui<'a> {
             input: Rc::new(RefCell::new("".to_string())),
             action,
             installed,
-            pkg_result_state: StatefulList::with_items(vec![]),
+            pkg_result_state,
             pending_result_state: StatefulList::with_items(vec![]),
-            pkg_results: Rc::new(RefCell::new(vec![])),
+            pkg_results,
             install: vec![],
             remove: vec![],
             pending: vec![],
+            result_scroll: ScrollbarState::new(0),
         }
     }
 
@@ -196,6 +225,10 @@ impl<'a> Tui<'a> {
             &self.pkg_results,
         );
 
+        self.result_scroll = self
+            .result_scroll
+            .content_length(self.pkg_result_state.items.len());
+
         ControlFlow::Continue(())
     }
 
@@ -223,6 +256,10 @@ impl<'a> Tui<'a> {
             &mut self.pkg_result_state,
             &self.pkg_results,
         );
+
+        self.result_scroll = self
+            .result_scroll
+            .content_length(self.pkg_result_state.items.len());
 
         ControlFlow::Continue(())
     }
@@ -275,6 +312,10 @@ impl<'a> Tui<'a> {
                 .collect::<Vec<_>>();
             self.pkg_result_state = StatefulList::with_items(res_display);
             self.pkg_results.replace(res);
+
+            self.result_scroll = self
+                .result_scroll
+                .content_length(self.pkg_result_state.items.len());
         } else {
             self.pkg_result_state = StatefulList::with_items(vec![]);
             self.pkg_results.borrow_mut().clear();
@@ -296,26 +337,18 @@ impl<'a> Tui<'a> {
                             .position(|x: &PkgInfo| x.raw_pkg.name() == name)
                         {
                             let pos = self
-                                .pending_result_state
-                                .items
+                                .pending
                                 .iter()
                                 .position(|x| {
-                                    x.to_string().starts_with(&format!(
-                                        "+ {}",
-                                        self.install[pkg_index].raw_pkg.name()
-                                    ))
+                                    x.name == self.install[pkg_index].raw_pkg.name()
+                                        && x.version.is_some()
                                 })
                                 .unwrap();
 
                             self.pending_result_state.items.remove(pos);
                             self.pending_result_state.state.select(None);
+                            self.pending.remove(pos);
 
-                            let pending_pos = self
-                                .pending
-                                .iter()
-                                .position(|x: &Operation| x.name == *name)
-                                .unwrap();
-                            self.pending.remove(pending_pos);
                             self.install.remove(pkg_index);
 
                             return ControlFlow::Break(());
@@ -327,26 +360,20 @@ impl<'a> Tui<'a> {
                             .position(|x: &PkgInfo| x.raw_pkg.name() == name)
                         {
                             let pos = self
-                                .pending_result_state
-                                .items
+                                .pending
                                 .iter()
                                 .position(|x| {
-                                    x.to_string().starts_with(&format!(
-                                        "- {}",
-                                        self.remove[pkg_index].raw_pkg.name()
-                                    ))
+                                    x.name == self.install[pkg_index].raw_pkg.name()
+                                        && x.version.is_none()
                                 })
                                 .unwrap();
 
                             self.pending_result_state.items.remove(pos);
                             self.pending_result_state.state.select(None);
+                            self.pending.remove(pos);
+
                             self.remove.remove(pkg_index);
-                            let pending_pos = self
-                                .pending
-                                .iter()
-                                .position(|x: &Operation| x.name == *name)
-                                .unwrap();
-                            self.pending.remove(pending_pos);
+
                             return ControlFlow::Break(());
                         }
 
@@ -356,26 +383,25 @@ impl<'a> Tui<'a> {
                             let pkginfo = PkgInfo::new(&cand, &pkg);
                             if !cand.is_installed() {
                                 self.install.push(pkginfo.unwrap());
-                                self.pending_result_state.items.push(Text::raw(format!(
-                                    "+ {} ({})",
-                                    pkg.name(),
-                                    cand.version()
-                                )));
+                                let op = Operation {
+                                    name: pkg.fullname(true).to_string(),
+                                    version: Some(cand.version().to_string()),
+                                };
 
-                                self.pending.push(Operation {
-                                    name: pkg.name().to_string(),
-                                    is_install: true,
-                                });
-                            } else {
-                                self.remove.push(pkginfo.unwrap());
                                 self.pending_result_state
                                     .items
-                                    .push(Text::raw(format!("- {}", pkg.name())));
-
-                                self.pending.push(Operation {
+                                    .push(op.into_text().unwrap());
+                                self.pending.push(op);
+                            } else {
+                                let op = Operation {
                                     name: pkg.fullname(true).to_string(),
-                                    is_install: false,
-                                });
+                                    version: None,
+                                };
+                                self.remove.push(pkginfo.unwrap());
+                                self.pending.push(op.clone());
+                                self.pending_result_state
+                                    .items
+                                    .push(op.into_text().unwrap());
                             }
                         }
                     }
@@ -384,9 +410,9 @@ impl<'a> Tui<'a> {
             Mode::Pending => {
                 let selected = self.pending_result_state.state.selected();
                 if let Some(i) = selected {
-                    self.pending_result_state.remove(i);
+                    self.pending_result_state.items.remove(i);
                     let removed = self.pending.remove(i);
-                    if removed.is_install {
+                    if removed.version.is_some() {
                         let inst_pos = self
                             .install
                             .iter()
@@ -420,6 +446,9 @@ impl<'a> Tui<'a> {
             }
             Mode::Packages => {
                 self.pkg_result_state.next();
+                self.result_scroll = self
+                    .result_scroll
+                    .position(self.pkg_result_state.state.selected().unwrap_or(0));
             }
             Mode::Pending => {
                 self.pending_result_state.next();
@@ -441,6 +470,9 @@ impl<'a> Tui<'a> {
                     self.mode = Mode::Search;
                 } else {
                     self.pkg_result_state.previous();
+                    self.result_scroll = self
+                        .result_scroll
+                        .position(self.pkg_result_state.state.selected().unwrap_or(0));
                 }
             }
             Mode::Pending => {
@@ -473,7 +505,7 @@ impl<'a> Tui<'a> {
 
         f.render_widget(
             Block::default()
-                .title(format!(" {} v{}", env!("CARGO_PKG_VERSION"), fl!("oma")))
+                .title(format!(" {} v{}", fl!("oma"), env!("CARGO_PKG_VERSION")))
                 .style(Style::default().bg(Color::White).fg(Color::Black)),
             main_layout[0],
         );
@@ -482,15 +514,6 @@ impl<'a> Tui<'a> {
             .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
             .direction(Direction::Horizontal)
             .split(main_layout[2]);
-
-        self.pkg_result_state = StatefulList::with_items(
-            self.pkg_results
-                .borrow()
-                .clone()
-                .into_iter()
-                .filter_map(|x| SearchResultDisplay(&x).to_string().into_text().ok())
-                .collect(),
-        );
 
         show_packages(
             &self.pkg_results,
@@ -505,6 +528,37 @@ impl<'a> Tui<'a> {
             self.action,
             self.installed,
         );
+
+        if self.display_pending_detail {
+            f.render_stateful_widget(
+                List::new(self.pending_result_state.items.clone())
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .title(fl!("tui-pending"))
+                            .style(hightlight_window(&self.mode, &Mode::Pending)),
+                    )
+                    .highlight_style(Style::default().bg(Color::Rgb(59, 64, 70))),
+                chunks[1],
+                &mut self.pending_result_state.state,
+            );
+
+            f.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .begin_symbol(Some("↑"))
+                    .end_symbol(Some("↓")),
+                chunks[0],
+                &mut self.result_scroll,
+            );
+        } else {
+            f.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .begin_symbol(Some("↑"))
+                    .end_symbol(Some("↓")),
+                main_layout[2],
+                &mut self.result_scroll,
+            );
+        }
 
         f.render_widget(
             Paragraph::new(input.as_ref().to_owned().into_inner())

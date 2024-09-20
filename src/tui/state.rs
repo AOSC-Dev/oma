@@ -34,12 +34,4 @@ impl<T> StatefulList<T> {
         };
         self.state.select(Some(i));
     }
-
-    pub fn remove(&mut self, i: usize) {
-        self.items.remove(i);
-
-        if self.items.is_empty() {
-            self.state.select(None);
-        }
-    }
 }
