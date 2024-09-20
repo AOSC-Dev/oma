@@ -44,14 +44,6 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         no_check_dbus,
     } = tui;
 
-    let fds = if !no_check_dbus {
-        let rt = create_async_runtime()?;
-        Some(dbus_check(&rt, false)?)
-    } else {
-        no_check_dbus_warn();
-        None
-    };
-
     let apt_config = AptConfig::new();
 
     RefreshRequest {
@@ -82,17 +74,31 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     })?;
     pb.finish_and_clear();
 
-    let mut terminal = prepare_create_tui().unwrap();
+    let mut terminal = prepare_create_tui().map_err(|e| OutputError {
+        description: "BUG: Failed to create crossterm instance".to_string(),
+        source: Some(Box::new(e)),
+    })?;
 
     let tui = Tui::new(&apt, a, installed, searcher);
     let (execute_apt, install, remove) =
         tui.run(&mut terminal, Duration::from_millis(250)).unwrap();
 
-    exit_tui(&mut terminal).unwrap();
+    exit_tui(&mut terminal).map_err(|e| OutputError {
+        description: "BUG: Failed to exit tui".to_string(),
+        source: Some(Box::new(e)),
+    })?;
 
     let mut code = 0;
 
     if execute_apt {
+        let fds = if !no_check_dbus {
+            let rt = create_async_runtime()?;
+            Some(dbus_check(&rt, false)?)
+        } else {
+            no_check_dbus_warn();
+            None
+        };
+
         lock_oma()?;
         apt.upgrade()?;
         apt.install(&install, false)?;
@@ -114,9 +120,9 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
             client: &client,
         }
         .run()?;
-    }
 
-    drop(fds);
+        drop(fds);
+    }
 
     Ok(code)
 }
