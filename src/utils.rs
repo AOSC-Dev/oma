@@ -129,7 +129,7 @@ pub struct SearchResultDisplay<'a>(pub &'a SearchResult);
 
 impl<'a> Display for SearchResultDisplay<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let i = &self.0;
+        let i = self.0;
         let mut pkg_info_line = if i.is_base {
             color_formatter()
                 .color_str(&i.name, Action::Purple)
