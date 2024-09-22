@@ -10,6 +10,7 @@ use oma_pm::{
     apt::{AptArgs, AptConfig, OmaApt, OmaAptArgs},
     search::IndiciumSearch,
 };
+use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
 use reqwest::Client;
 use tui_inner::Tui;
 
@@ -17,7 +18,7 @@ use crate::{
     error::OutputError,
     fl,
     subcommand::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest},
-    utils::{create_async_runtime, dbus_check, root},
+    utils::{check_battery, create_async_runtime, root},
 };
 
 mod state;
@@ -34,6 +35,10 @@ pub struct TuiArgs {
 
 pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     root()?;
+
+    let rt = create_async_runtime()?;
+    let conn = rt.block_on(create_dbus_connection())?;
+    rt.block_on(check_battery(&conn, false));
 
     let TuiArgs {
         sysroot,
@@ -91,9 +96,9 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     let mut code = 0;
 
     if execute_apt {
-        let fds = if !no_check_dbus {
-            let rt = create_async_runtime()?;
-            Some(dbus_check(&rt, false)?)
+        let _fds = if !no_check_dbus {
+            let fds = rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+            Some(fds)
         } else {
             no_check_dbus_warn();
             None
@@ -120,8 +125,6 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
             client: &client,
         }
         .run()?;
-
-        drop(fds);
     }
 
     Ok(code)
