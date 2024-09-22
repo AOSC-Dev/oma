@@ -103,8 +103,8 @@ impl<'a> TopicManager<'a> {
 
         Ok(Self {
             enabled: serde_json::from_str(&atm_state_string).unwrap_or_else(|e| {
-                warn!("Deserialize oma topics state JSON failed: {e}");
-                warn!("oma will create new state file");
+                debug!("Deserialize oma topics state JSON failed: {e}");
+                warn!("oma topics status file does not exist or is currupted, a new status file will be created.");
                 vec![]
             }),
             all: vec![],
