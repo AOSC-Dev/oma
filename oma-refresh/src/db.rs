@@ -28,6 +28,7 @@ use tokio::{fs, process::Command};
 use tracing::{debug, warn};
 
 use crate::{
+    auth::{AuthConfig, AuthConfigError},
     config::{fiilter_download_list, get_config, ChecksumDownloadEntry},
     inrelease::{
         file_is_compress, split_ext_and_filename, ChecksumType, InRelease, InReleaseParser,
@@ -72,6 +73,8 @@ pub enum RefreshError {
     AhoCorasickBuilder(#[from] BuildError),
     #[error("stream_replace_all failed")]
     ReplaceAll(std::io::Error),
+    #[error(transparent)]
+    AuthConfig(#[from] AuthConfigError),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -105,6 +108,8 @@ pub enum RefreshError {
     AhoCorasickBuilder(#[from] BuildError),
     #[error("stream_replace_all failed")]
     ReplaceAll(std::io::Error),
+    #[error(transparent)]
+    AuthConfig(#[from] AuthConfigError),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -134,10 +139,12 @@ pub struct OmaRefresh<'a> {
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
     apt_config: &'a Config,
+    auth_config: Option<AuthConfig>,
 }
 
 impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
     fn from(builder: OmaRefreshBuilder<'a>) -> Self {
+        let auth = AuthConfig::system(&builder.source).ok();
         Self {
             source: builder.source,
             limit: builder.limit,
@@ -148,6 +155,7 @@ impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
             #[cfg(feature = "aosc")]
             refresh_topics: builder.refresh_topics,
             apt_config: builder.apt_config,
+            auth_config: auth,
         }
     }
 }
@@ -285,19 +293,30 @@ impl<'a> OmaRefresh<'a> {
             let mut tasks1 = vec![];
             match c.from {
                 OmaSourceEntryFrom::Http => {
-                    let resp1: BoxFuture<'_, _> = Box::pin(
-                        self.client
-                            .head(format!("{}/InRelease", c.dist_path))
-                            .send()
-                            .map(move |x| (x.and_then(|x| x.error_for_status()), i)),
-                    );
+                    let resp1: BoxFuture<'_, _> = Box::pin({
+                        let mut client = self.client.head(format!("{}/InRelease", c.dist_path));
 
-                    let resp2 = Box::pin(
-                        self.client
-                            .head(format!("{}/Release", c.dist_path))
+                        if let Some(ac) = &self.auth_config.as_ref().and_then(|x| x.find(&c.url)) {
+                            client = client.basic_auth(&ac.user, Some(&ac.password));
+                        }
+
+                        client
                             .send()
-                            .map(move |x| (x.and_then(|x| x.error_for_status()), i)),
-                    );
+                            .map(move |x| (x.and_then(|x| x.error_for_status()), i))
+                    });
+
+                    let resp2 = Box::pin({
+                        let mut client = self.client.head(format!("{}/Release", c.dist_path));
+
+                        if let Some(auth) = &self.auth_config.as_ref().and_then(|x| x.find(&c.url))
+                        {
+                            client = client.basic_auth(&auth.user, Some(&auth.password));
+                        }
+
+                        client
+                            .send()
+                            .map(move |x| (x.and_then(|x| x.error_for_status()), i))
+                    });
 
                     tasks1.push(resp1);
                     tasks1.push(resp2);

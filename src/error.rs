@@ -365,6 +365,10 @@ impl From<RefreshError> for OutputError {
                 description: e.to_string(),
                 source: Some(Box::new(e)),
             },
+            RefreshError::AuthConfig(auth_config_error) => Self {
+                description: auth_config_error.to_string(),
+                source: Some(Box::new(auth_config_error)),
+            },
         }
         #[cfg(not(feature = "aosc"))]
         match value {
@@ -471,6 +475,10 @@ impl From<RefreshError> for OutputError {
             RefreshError::ReplaceAll(e) => Self {
                 description: e.to_string(),
                 source: Some(Box::new(e)),
+            },
+            RefreshError::AuthConfig(auth_config_error) => Self {
+                description: auth_config_error.to_string(),
+                source: Some(Box::new(auth_config_error)),
             },
         }
     }
