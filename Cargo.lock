@@ -3205,7 +3205,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.14.1"
+version = "0.14.2"
 dependencies = [
  "futures",
  "indexmap 2.5.0",
