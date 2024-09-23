@@ -318,6 +318,8 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         // Ref: https://github.com/dalance/procs/commit/83305be6fb431695a070524328b66c7107ce98f3
         let timeout = Duration::from_millis(100);
 
+        let term = env::var("TERM");
+
         if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() || no_color
         {
             follow_term_color = true;
@@ -326,9 +328,13 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 "You are running oma in an SSH session, using default terminal colors to avoid latency."
             );
             follow_term_color = true;
-        } else if env::var("TERM").is_err() {
+        } else if term.is_err() || term.is_ok_and(|x| x == "linux") {
+            // Workaround for raw tty:
+            // termbg will get stdin
+            // pager requires two key presses to respond to time
+            // so disable it!
             debug!(
-                "Unknown or unsupported terminal ($TERM is empty) detected, using default terminal colors to avoid latency."
+                "Unknown or unsupported terminal ($TERM is empty or unsupport) detected, using default terminal colors to avoid latency."
             );
             follow_term_color = true;
         } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
