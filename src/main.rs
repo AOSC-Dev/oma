@@ -35,7 +35,6 @@ use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusErr
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
 use reqwest::Client;
-use rustix::process::{kill_process, Pid, Signal};
 use rustix::stdio::stdout;
 use subcommand::utils::LockError;
 use tracing::{debug, error, info, warn};
@@ -49,7 +48,6 @@ use utils::create_async_runtime;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
-use oma_console::pager::SUBPROCESS;
 
 use crate::config::{Config, GeneralConfig};
 #[cfg(feature = "egg")]
@@ -731,14 +729,7 @@ fn single_handler() {
         return;
     }
 
-    // Kill subprocess
-    let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
     let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
-
-    if subprocess_pid > 0 {
-        let pid = Pid::from_raw(subprocess_pid).expect("Pid is empty?");
-        kill_process(pid, Signal::Term).expect("Failed to kill child process.");
-    }
 
     // Dealing with lock
     if LOCKED.load(Ordering::Relaxed) {
