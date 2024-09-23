@@ -10,7 +10,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 [dependencies]
 # Cli
-clap = { version = "4.5.17", features = ["cargo", "wrap_help", "color", "string"] }
+clap = { version = "4.5.18", features = ["cargo", "wrap_help", "color", "string"] }
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
 # https://github.com/zhiburt/tabled/issues/423
@@ -60,8 +60,8 @@ indexmap = "2.5.0"
 
 [build-dependencies]
 clap_mangen = "0.2.23"
-clap_complete = "4.5.26"
-clap = { version = "4.5.17", features = ["cargo", "wrap_help", "color", "string"] }
+clap_complete = "4.5.29"
+clap = { version = "4.5.18", features = ["cargo", "wrap_help", "color", "string"] }
 anyhow = "1.0.89"
 
 [features]
