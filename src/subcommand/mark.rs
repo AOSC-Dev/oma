@@ -17,7 +17,7 @@ pub fn execute(
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let set = match op {
@@ -33,7 +33,8 @@ pub fn execute(
                 true,
                 false,
             )?;
-            handle_no_result(no_result)?;
+
+            handle_no_result(sysroot, no_result)?;
 
             apt.mark_install_status(pkgs, op == "auto", dry_run)?
                 .into_iter()

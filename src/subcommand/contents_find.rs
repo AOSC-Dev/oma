@@ -4,11 +4,10 @@ use crate::table::oma_display_with_normal_output;
 use indexmap::IndexSet;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
-use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
-use std::{
-    io::{stdout, Write},
-    path::Path,
-};
+use oma_contents::searcher::Mode;
+use std::io::{stdout, Write};
+
+use super::utils::contents_search;
 
 pub fn execute(
     mode: &str,
@@ -53,21 +52,7 @@ pub fn execute(
         }
     };
 
-    if which::which("rg").is_ok() {
-        ripgrep_search(
-            Path::new(&sysroot).join("var/lib/apt/lists"),
-            mode,
-            input,
-            cb,
-        )?;
-    } else {
-        pure_search(
-            Path::new(&sysroot).join("var/lib/apt/lists"),
-            mode,
-            input,
-            cb,
-        )?;
-    };
+    contents_search(sysroot, mode, input, cb)?;
 
     if let Some(pb) = &pb {
         pb.finish_and_clear();

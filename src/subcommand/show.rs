@@ -10,10 +10,10 @@ use super::utils::handle_no_result;
 use crate::fl;
 
 pub fn execute(all: bool, input: Vec<&str>, sysroot: String) -> Result<i32, OutputError> {
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let (pkgs, no_result) = apt.select_pkg(&input, false, false, false)?;
-    handle_no_result(no_result)?;
+    handle_no_result(sysroot, no_result)?;
 
     if !all {
         let mut filter_pkgs: Vec<PkgInfo> = vec![];
