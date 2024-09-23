@@ -35,7 +35,6 @@ use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusErr
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
 use reqwest::Client;
-use rustix::process::{kill_process, Pid, Signal};
 use rustix::stdio::stdout;
 use subcommand::utils::LockError;
 use tracing::{debug, error, info, warn};
@@ -49,7 +48,6 @@ use utils::create_async_runtime;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
-use oma_console::pager::SUBPROCESS;
 
 use crate::config::{Config, GeneralConfig};
 #[cfg(feature = "egg")]
@@ -320,6 +318,8 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         // Ref: https://github.com/dalance/procs/commit/83305be6fb431695a070524328b66c7107ce98f3
         let timeout = Duration::from_millis(100);
 
+        let term = env::var("TERM");
+
         if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() || no_color
         {
             follow_term_color = true;
@@ -328,9 +328,13 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 "You are running oma in an SSH session, using default terminal colors to avoid latency."
             );
             follow_term_color = true;
-        } else if env::var("TERM").is_err() {
+        } else if term.is_err() || term.is_ok_and(|x| x == "linux") {
+            // Workaround for raw tty:
+            // termbg will get stdin
+            // pager requires two key presses to respond to time
+            // so disable it!
             debug!(
-                "Unknown or unsupported terminal ($TERM is empty) detected, using default terminal colors to avoid latency."
+                "Unknown or unsupported terminal ($TERM is empty or unsupport) detected, using default terminal colors to avoid latency."
             );
             follow_term_color = true;
         } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
@@ -731,14 +735,7 @@ fn single_handler() {
         return;
     }
 
-    // Kill subprocess
-    let subprocess_pid = SUBPROCESS.load(Ordering::Relaxed);
     let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
-
-    if subprocess_pid > 0 {
-        let pid = Pid::from_raw(subprocess_pid).expect("Pid is empty?");
-        kill_process(pid, Signal::Term).expect("Failed to kill child process.");
-    }
 
     // Dealing with lock
     if LOCKED.load(Ordering::Relaxed) {
