@@ -1,12 +1,15 @@
 use std::{
-    io::{self, BufRead, ErrorKind, Write},
+    io::{self, stdout, BufRead, ErrorKind, Write},
     ops::ControlFlow,
-    sync::atomic::AtomicI32,
     time::{Duration, Instant},
 };
 
 use ansi_to_tui::IntoText;
-use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use crossterm::{
+    event::{self, Event, KeyCode, KeyModifiers},
+    execute,
+    terminal::{enable_raw_mode, EnterAlternateScreen},
+};
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Layout},
@@ -20,8 +23,6 @@ use termbg::Theme;
 use tracing::debug;
 
 use crate::{print::OmaColorFormat, writer::Writer, WRITER};
-
-pub static SUBPROCESS: AtomicI32 = AtomicI32::new(-1);
 
 pub enum Pager<'a> {
     Plain,
@@ -81,7 +82,21 @@ pub fn exit_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Re
 }
 
 pub fn prepare_create_tui() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
-    Ok(ratatui::init())
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        restore();
+        hook(info);
+    }));
+
+    execute!(stdout(), EnterAlternateScreen)?;
+    enable_raw_mode()?;
+
+    let backend = CrosstermBackend::new(stdout());
+    let mut terminal = Terminal::new(backend)?;
+
+    terminal.clear()?;
+
+    Ok(terminal)
 }
 
 enum PagerInner {
