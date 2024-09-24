@@ -28,7 +28,7 @@ use tokio::{fs, process::Command};
 use tracing::{debug, warn};
 
 use crate::{
-    config::{fiilter_download_list, get_config, ChecksumDownloadEntry},
+    config::{fiilter_download_list, get_config, ChecksumDownloadEntry, FilterDownloadList},
     inrelease::{
         file_is_compress, split_ext_and_filename, ChecksumType, InRelease, InReleaseParser,
         InReleaseParserError,
@@ -600,15 +600,18 @@ impl<'a> OmaRefresh<'a> {
             })?;
 
             let mut handle = vec![];
-            let filter_checksums = fiilter_download_list(
-                &inrelease.checksums,
-                self.apt_config,
+            let f = FilterDownloadList {
+                checksums: &inrelease.checksums,
+                config: self.apt_config,
                 config_tree,
-                &archs,
-                &ose.components,
-                &ose.native_arch,
-                ose.is_flat,
-            );
+                archs: &archs,
+                components: &ose.components,
+                native_arch: &ose.native_arch,
+                is_flat: ose.is_flat,
+                is_source: ose.is_source,
+            };
+
+            let filter_checksums = fiilter_download_list(f);
 
             get_all_need_db_from_config(filter_checksums, &mut total, &inrelease, &mut handle);
 

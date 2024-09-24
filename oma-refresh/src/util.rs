@@ -116,6 +116,7 @@ pub(crate) struct OmaSourceEntry {
     pub archs: Vec<String>,
     pub trusted: bool,
     pub native_arch: String,
+    pub is_source: bool,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -138,6 +139,7 @@ impl OmaSourceEntry {
         let arch = &dpkg_arch(sysroot)?;
         let url = v.url.replace("$(ARCH)", arch);
         let suite = v.suite.replace("$(ARCH)", arch);
+        let is_source = v.source;
 
         let (dist_path, is_flat) = if components.is_empty() {
             // flat repo suite 后面一定有斜线
@@ -188,6 +190,7 @@ impl OmaSourceEntry {
             archs,
             trusted,
             native_arch: arch.to_string(),
+            is_source,
         })
     }
 }
