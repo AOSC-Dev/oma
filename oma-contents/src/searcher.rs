@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     fs,
     io::{BufRead, BufReader, Read, Seek},
     path::{Path, PathBuf},
@@ -78,12 +77,7 @@ pub fn ripgrep_search(
     mut cb: impl FnMut((String, String)),
 ) -> Result<(), OmaContentsError> {
     let query = regex::escape(query);
-
-    let query = if Path::new(&query).is_absolute() {
-        Cow::Borrowed(query.strip_prefix('/').unwrap_or(&query))
-    } else {
-        Cow::Owned(query)
-    };
+    let query = strip_path_prefix(&query);
 
     let (regex, is_list) = match mode {
         Mode::Provides | Mode::BinProvides => {
@@ -156,6 +150,14 @@ pub fn ripgrep_search(
     Ok(())
 }
 
+fn strip_path_prefix(query: &str) -> &str {
+    if Path::new(query).is_absolute() {
+        query.strip_prefix('/').unwrap_or(&query)
+    } else {
+        query
+    }
+}
+
 pub fn pure_search(
     path: impl AsRef<Path>,
     mode: Mode,
@@ -163,6 +165,7 @@ pub fn pure_search(
     mut cb: impl FnMut((String, String)) + Sync + Send,
 ) -> Result<(), OmaContentsError> {
     let paths = mode.paths(path.as_ref())?;
+    let query = strip_path_prefix(query);
     let query = Arc::from(query);
 
     let (tx, rx) = mpsc::channel();
