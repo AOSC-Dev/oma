@@ -27,6 +27,8 @@ const GZIP_MAGIC: &[u8] = &[0x1F, 0x8B];
 pub enum Mode {
     Provides,
     Files,
+    ProvidesSrc,
+    FilesSrc,
     BinProvides,
     BinFiles,
 }
@@ -41,12 +43,20 @@ impl Mode {
 
         #[cfg(feature = "aosc")]
         let contains_name = match self {
-            Mode::Provides | Mode::Files => "_Contents-",
-            Mode::BinProvides | Mode::BinFiles => "_BinContents-",
+            Mode::FilesSrc | Mode::ProvidesSrc => |x: &str| x.contains("_Contents-source"),
+            Mode::Provides | Mode::Files => {
+                |x: &str| x.contains("_Contents-") && !x.contains("_Contents-source")
+            }
+            Mode::BinProvides | Mode::BinFiles => |x: &str| x.contains("_BinContents-"),
         };
 
         #[cfg(not(feature = "aosc"))]
-        let contains_name = "_Contents-";
+        let contains_name = match self {
+            Mode::FilesSrc | Mode::ProvidesSrc => |x: &str| x.contains("_Contents-source"),
+            Mode::Provides | Mode::Files | Mode::BinFiles | Mode::BinProvides => {
+                |x: &str| x.contains("_Contents-") && !x.contains("_Contents-source")
+            }
+        };
 
         let mut paths = vec![];
 
@@ -54,10 +64,7 @@ impl Mode {
             .map_err(|e| OmaContentsError::FailedToOperateDirOrFile(dir.display().to_string(), e))?
             .flatten()
         {
-            if i.file_name()
-                .into_string()
-                .is_ok_and(|x| x.contains(contains_name))
-            {
+            if i.file_name().to_str().is_some_and(contains_name) {
                 paths.push(i.path());
             }
         }
@@ -80,10 +87,10 @@ pub fn ripgrep_search(
     let query = strip_path_prefix(&query);
 
     let (regex, is_list) = match mode {
-        Mode::Provides | Mode::BinProvides => {
+        Mode::Provides | Mode::ProvidesSrc | Mode::BinProvides => {
             (format!(r"^(.*?{query}(?:.*[^\s])?)\s+(\S+)\s*$"), false)
         }
-        Mode::Files | Mode::BinFiles => (
+        Mode::Files | Mode::FilesSrc | Mode::BinFiles => (
             format!(r"^\s*(.*?)\s+((?:\S*[,/])?{query}(?:,\S*|))\s*$"),
             true,
         ),
@@ -228,10 +235,10 @@ fn pure_search_contents_from_path(
     let reader = BufReader::new(contents_reader);
 
     let can_next = match mode {
-        Mode::Provides => |_pkg: &str, file: &str, query: &str| {
+        Mode::Provides | Mode::ProvidesSrc => |_pkg: &str, file: &str, query: &str| {
             memmem::find(file.as_bytes(), query.as_bytes()).is_some()
         },
-        Mode::Files => |pkg: &str, _file: &str, query: &str| pkg == query,
+        Mode::Files | Mode::FilesSrc => |pkg: &str, _file: &str, query: &str| pkg == query,
         Mode::BinProvides => |_pkg: &str, file: &str, query: &str| {
             memmem::find(file.as_bytes(), query.as_bytes()).is_some()
                 && file.starts_with(BIN_PREFIX)
