@@ -120,7 +120,7 @@ pub fn ripgrep_search(
     };
 
     while stdout_reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
-        if let Some(lines) = rg_filter_line(&buffer, is_list, &query) {
+        if let Some(lines) = rg_filter_line(&buffer, is_list, query) {
             for i in lines {
                 #[cfg(not(feature = "aosc"))]
                 if is_bin(&i.1) {
@@ -152,7 +152,7 @@ pub fn ripgrep_search(
 
 fn strip_path_prefix(query: &str) -> &str {
     if Path::new(query).is_absolute() {
-        query.strip_prefix('/').unwrap_or(&query)
+        query.strip_prefix('/').unwrap_or(query)
     } else {
         query
     }
