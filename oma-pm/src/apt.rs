@@ -69,6 +69,7 @@ pub struct OmaApt {
     tokio: Runtime,
     connection: Option<Connection>,
     unmet: Vec<String>,
+    purge: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -200,6 +201,7 @@ impl OmaApt {
             tokio,
             connection: conn,
             unmet: vec![],
+            purge: false,
         })
     }
 
@@ -445,6 +447,7 @@ impl OmaApt {
         purge: bool,
         no_autoremove: bool,
     ) -> OmaAptResult<Vec<String>> {
+        self.purge = purge;
         let mut no_marked_remove = vec![];
         for pkg in pkgs {
             let is_marked_delete = mark_delete(&self.cache, pkg, purge)?;
@@ -955,7 +958,13 @@ impl OmaApt {
                     return Err(OmaAptError::PkgIsEssential(name));
                 }
 
-                let is_purge = pkg.marked_purge();
+                let mut is_purge = pkg.marked_purge();
+
+                if !is_purge && self.purge {
+                    pkg.mark_delete(true);
+                    pkg.protect();
+                    is_purge = true;
+                }
 
                 let mut tags = vec![];
                 if is_purge {
@@ -1127,8 +1136,8 @@ fn mark_delete(cache: &Cache, pkg: &PkgInfo, purge: bool) -> OmaAptResult<bool> 
         return Ok(false);
     }
 
-    pkg.protect();
     pkg.mark_delete(purge || removed_but_has_config);
+    pkg.protect();
 
     Ok(true)
 }
