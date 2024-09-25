@@ -36,15 +36,29 @@ pub struct ChecksumDownloadEntry {
     pub msg: String,
 }
 
-pub fn fiilter_download_list(
-    checksums: &SmallVec<[ChecksumItem; 32]>,
-    config: &Config,
-    config_tree: &[(String, String)],
-    archs: &[String],
-    components: &[String],
-    native_arch: &str,
-    is_flat: bool,
-) -> SmallVec<[ChecksumDownloadEntry; 32]> {
+pub struct FilterDownloadList<'a> {
+    pub checksums: &'a SmallVec<[ChecksumItem; 32]>,
+    pub config: &'a Config,
+    pub config_tree: &'a [(String, String)],
+    pub archs: &'a [String],
+    pub components: &'a [String],
+    pub native_arch: &'a str,
+    pub is_flat: bool,
+    pub is_source: bool,
+}
+
+pub fn fiilter_download_list(f: FilterDownloadList) -> SmallVec<[ChecksumDownloadEntry; 32]> {
+    let FilterDownloadList {
+        checksums,
+        config,
+        config_tree,
+        archs,
+        components,
+        native_arch,
+        is_flat,
+        is_source,
+    } = f;
+
     let mut v = smallvec![];
 
     let mut filter_entry = vec![];
@@ -66,10 +80,7 @@ pub fn fiilter_download_list(
     };
 
     for (k, v) in config_tree {
-        if (k.starts_with("APT::Acquire::IndexTargets::deb::")
-            || k.starts_with("Acquire::IndexTargets::deb::"))
-            && k.ends_with(metakey)
-        {
+        if is_match(is_source, k, metakey) {
             for a in &archs_contains_all {
                 for c in components {
                     let s = replace_arch_and_component(v, c, a, native_arch);
@@ -167,6 +178,22 @@ pub fn fiilter_download_list(
     debug!("{:?}", v);
 
     v
+}
+
+fn is_match(is_source: bool, key: &str, metakey: &str) -> bool {
+    let deb = (key.starts_with("APT::Acquire::IndexTargets::deb::")
+        || key.starts_with("Acquire::IndexTargets::deb::"))
+        && key.ends_with(metakey);
+
+    let deb_src = (key.starts_with("APT::Acquire::IndexTargets::deb-src::")
+        || key.starts_with("Acquire::IndexTargets::deb-src::"))
+        && key.ends_with(metakey);
+
+    if is_source {
+        deb || deb_src
+    } else {
+        deb
+    }
 }
 
 fn get_matches_language(env_lang: &str) -> Vec<&str> {
