@@ -51,7 +51,12 @@ impl Mode {
         };
 
         #[cfg(not(feature = "aosc"))]
-        let contains_name = "_Contents-";
+        let contains_name = match self {
+            Mode::FilesSrc | Mode::ProvidesSrc => |x: &str| x.contains("_Contents-source"),
+            Mode::Provides | Mode::Files | Mode::BinFiles | Mode::BinProvides => {
+                |x: &str| x.contains("_Contents-") && !x.contains("_Contents-source")
+            }
+        };
 
         let mut paths = vec![];
 
