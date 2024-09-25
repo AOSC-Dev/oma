@@ -2972,7 +2972,7 @@ dependencies = [
 
 [[package]]
 name = "oma-contents"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "chrono",
  "flate2",
@@ -3048,7 +3048,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.33.2"
+version = "0.33.3"
 dependencies = [
  "ahash",
  "bon",
