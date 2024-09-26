@@ -327,10 +327,6 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             );
             follow_term_color = true;
         } else if env::var("TERM").is_err() {
-            // Workaround for raw tty:
-            // termbg will get stdin
-            // pager requires two key presses to respond to time
-            // so disable it!
             debug!(
                 "Unknown or unsupported terminal ($TERM is empty or unsupport) detected, using default terminal colors to avoid latency."
             );
