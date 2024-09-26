@@ -2,6 +2,10 @@ _oma_packages() {
     COMPREPLY+=($(oma pkgnames "$cur" 2> /dev/null))
 }
 
+_oma_packages_installed() {
+    COMPREPLY+=($(oma pkgnames --installed "$cur" 2> /dev/null))
+}
+
 _oma() {
     local i cur prev opts cmd
     COMPREPLY=()
@@ -708,8 +712,8 @@ _oma() {
             return 0
             ;;
         oma__purge)
-            opts="-y -h --yes --force-yes --no-autoremove --dry-run --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help ."
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            opts="-y -h --yes --force-yes --no-autoremove --remove-config --dry-run --debug --no-color --no-progress --follow-terminal-color --no-check-dbus --sysroot --help"
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -723,6 +727,7 @@ _oma() {
                     ;;
             esac
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages_installed "${cur}"
             return 0
             ;;
         oma__rdepends)
@@ -764,7 +769,7 @@ _oma() {
             ;;
         oma__remove)
             opts="-y -h --yes --force-yes --no-autoremove --remove-config --dry-run --debug --no-color --no-progress --follow-terminal-color --no-check-dbus --sysroot --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -778,6 +783,7 @@ _oma() {
                     ;;
             esac
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages_installed "${cur}"
             return 0
             ;;
         oma__search)

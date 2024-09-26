@@ -585,8 +585,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         }
         Some(("pkgnames", args)) => {
             let keyword = args.get_one::<String>("keyword").map(|x| x.as_str());
+            let filter_installed = args.get_flag("installed");
 
-            pkgnames::execute(keyword, sysroot)?
+            pkgnames::execute(keyword, sysroot, filter_installed)?
         }
         Some(("tui", _)) | None => {
             let client = Client::builder()
