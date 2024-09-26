@@ -3,9 +3,11 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::io;
 use std::panic;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
+use crate::color_formatter;
 use crate::error::OutputError;
 use crate::fl;
 use crate::pb::NoProgressBar;
@@ -16,8 +18,13 @@ use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::LOCKED;
 use chrono::Local;
+use oma_console::msg;
 use oma_console::pager::PagerExit;
+use oma_console::print::Action;
 use oma_console::success;
+use oma_contents::searcher::pure_search;
+use oma_contents::searcher::ripgrep_search;
+use oma_contents::searcher::Mode;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
@@ -39,12 +46,41 @@ use tracing::warn;
 
 use super::remove::ask_user_do_as_i_say;
 
-pub(crate) fn handle_no_result(no_result: Vec<String>) -> Result<(), OutputError> {
+pub(crate) fn handle_no_result(
+    sysroot: impl AsRef<Path>,
+    no_result: Vec<String>,
+) -> Result<(), OutputError> {
+    let mut bin = vec![];
     for word in &no_result {
         if word == "266" {
             error!("无法找到匹配关键字为艾露露的软件包");
         } else {
             error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
+
+            contents_search(&sysroot, Mode::BinProvides, word, |(pkg, file)| {
+                if file == format!("/usr/bin/{}", word) {
+                    bin.push((pkg, word));
+                }
+            })
+            .ok();
+        }
+    }
+
+    if !bin.is_empty() {
+        info!("{}", fl!("no-result-bincontents-tips"));
+        for (pkg, cmd) in bin {
+            msg!(
+                "{}",
+                fl!(
+                    "no-result-bincontents-tips-2",
+                    pkg = color_formatter()
+                        .color_str(pkg, Action::Emphasis)
+                        .to_string(),
+                    cmd = color_formatter()
+                        .color_str(cmd, Action::Secondary)
+                        .to_string()
+                )
+            );
         }
     }
 
@@ -56,6 +92,21 @@ pub(crate) fn handle_no_result(no_result: Vec<String>) -> Result<(), OutputError
             source: None,
         })
     }
+}
+
+pub fn contents_search(
+    sysroot: impl AsRef<Path>,
+    mode: Mode,
+    input: &str,
+    cb: impl FnMut((String, String)) + Send + Sync,
+) -> Result<(), OutputError> {
+    if which::which("rg").is_ok() {
+        ripgrep_search(sysroot.as_ref().join("var/lib/apt/lists"), mode, input, cb)?;
+    } else {
+        pure_search(sysroot.as_ref().join("var/lib/apt/lists"), mode, input, cb)?;
+    };
+
+    Ok(())
 }
 
 #[derive(Debug)]

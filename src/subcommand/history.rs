@@ -123,7 +123,7 @@ pub fn execute_undo(
     }
 
     let (delete, no_result) = apt.select_pkg(&delete, false, true, false)?;
-    handle_no_result(no_result)?;
+    handle_no_result(&sysroot, no_result)?;
 
     apt.remove(&delete, false, true)?;
 

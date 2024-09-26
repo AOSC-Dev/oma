@@ -33,7 +33,7 @@ pub fn execute(
     let oma_apt_args = OmaAptArgs::builder().build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
     let (pkgs, no_result) = apt.select_pkg(&keyword, false, true, true)?;
-    handle_no_result(no_result)?;
+    handle_no_result("/", no_result)?;
 
     let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
         let pb = OmaProgressBar::new();

@@ -105,9 +105,20 @@ pub fn execute(
         apt.upgrade()?;
 
         let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, true, false)?;
-        handle_no_result(no_result)?;
 
-        apt.install(&pkgs, false)?;
+        let no_marked_install = apt.install(&pkgs, false)?;
+
+        if !no_marked_install.is_empty() {
+            for (pkg, version) in no_marked_install {
+                info!(
+                    "{}",
+                    fl!("already-installed", name = pkg, version = version)
+                );
+            }
+        }
+
+        handle_no_result(&args.sysroot, no_result)?;
+
         apt.resolve(false, true)?;
 
         if args.autoremove {

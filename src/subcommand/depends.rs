@@ -12,7 +12,7 @@ pub fn execute(pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
     }
 
     let apt_config = AptConfig::new();
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
+    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
     let (pkgs, no_result) = apt.select_pkg(
@@ -21,7 +21,8 @@ pub fn execute(pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
         true,
         false,
     )?;
-    handle_no_result(no_result)?;
+
+    handle_no_result(sysroot, no_result)?;
 
     for pkg in pkgs {
         println!("{}:", pkg.raw_pkg.name());
