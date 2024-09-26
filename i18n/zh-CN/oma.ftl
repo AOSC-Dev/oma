@@ -179,3 +179,5 @@ cnf-too-many-query-2 = 请考虑使用 `oma provides --bin { $query }' 命令查
 cnf-too-many-query = 您查询的命令有大量匹配项。
 failed-to-decompress-contents = 无法解压缩 Contents 数据库。
 removed-as-unmet-dep = 因依赖关系不满足而移除
+no-result-bincontents-tips = 您可能在找这些软件包：
+no-result-bincontents-tips-2 = 命令 { $cmd } 由 { $pkg } 软件包提供

@@ -184,5 +184,5 @@ pkexec-tips-1 = Please input your password in the password prompt to grant oma p
 pkexec-tips-2 = If you are unable to access the graphical prompt, please press Ctrl + C to abort and run oma with elevated privileges.
 cnf-too-many-query = It seems that there are many matches for the command you are looking for.
 cnf-too-many-query-2 = Please consider using `oma provides --bin { $query }' for a full list of potential matches.
-no-result-bincontents-tips = You might be looking:
+no-result-bincontents-tips = You might be looking for:
 no-result-bincontents-tips-2 = The { $cmd } command comes from the package { $pkg }
