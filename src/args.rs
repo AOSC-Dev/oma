@@ -414,6 +414,7 @@ pub fn command_builder() -> Command {
                     .action(ArgAction::Set)
                     .num_args(1)
                 )
+                .arg(Arg::new("installed").long("installed").action(ArgAction::SetTrue))
         )
         .subcommands({
             let plugins = list_plugin();

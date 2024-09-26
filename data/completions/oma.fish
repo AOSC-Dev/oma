@@ -1,6 +1,11 @@
 function _oma_packages
     oma pkgnames 2> /dev/null
 end
+
+function _oma_packages_installed
+    oma pkgnames --installed 2> /dev/null
+end
+
 complete -c oma -n "__fish_use_subcommand" -l sysroot -d 'Set sysroot target directory' -r
 complete -c oma -n "__fish_use_subcommand" -l debug -d 'Run oma with debug mode'
 complete -c oma -n "__fish_use_subcommand" -l no-color -d 'No color output to result'
@@ -280,3 +285,5 @@ complete -xc oma -n "__fish_seen_subcommand_from pick" -a "(_oma_packages)"
 complete -xc oma -n "__fish_seen_subcommand_from rdepends" -a "(_oma_packages)"
 complete -xc oma -n "__fish_seen_subcommand_from search" -a "(_oma_packages)"
 complete -xc oma -n "__fish_seen_subcommand_from show" -a "(_oma_packages)"
+complete -xc oma -n "__fish_seen_subcommand_from remove" -a "(_oma_packages_installed)"
+complete -xc oma -n "__fish_seen_subcommand_from purge" -a "(_oma_packages_installed)"
