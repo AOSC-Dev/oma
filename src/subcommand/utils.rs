@@ -1,4 +1,3 @@
-use std::backtrace::Backtrace;
 use std::error::Error;
 use std::fmt::Debug;
 use std::io;
@@ -128,13 +127,11 @@ impl Error for LockError {
 
 pub(crate) fn lock_oma() -> Result<(), LockError> {
     lock_oma_inner().map_err(|e| LockError { source: e })?;
+    let hook = std::panic::take_hook();
 
-    panic::set_hook(Box::new(|info| {
-        let backtrace = Backtrace::force_capture();
-        eprintln!("{}", info);
-        eprintln!("Backtrace:");
-        eprintln!("{}", backtrace);
+    panic::set_hook(Box::new(move |info| {
         unlock_oma().ok();
+        hook(info);
     }));
 
     LOCKED.store(true, Ordering::Relaxed);
