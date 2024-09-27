@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client
+          apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
@@ -83,10 +83,12 @@ jobs:
       - name: Upload packages (repository)
         shell: bash
         run: |
-          scp \
+          rsync \
+              --ignore-existing \
               -v \
-              -o IdentityFile=~/.ssh/id_ed25519 \
-              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              -e "ssh \
+                  -o IdentityFile=$HOME/.ssh/id_ed25519 \
+                  -o UserKnownHostsFile=$HOME/.ssh/known_hosts" \
               target/debian/*-"${VER_SUFFIX}".deb \
               ${USER}@repo.aosc.io:/mirror/oma/pool/"${CODENAME}"/main/o/
           ssh \
