@@ -182,5 +182,5 @@ removed-as-unmet-dep = 因依賴關係不滿足而移除
 cnf-too-many-query-2 = 請考慮使用 `oma provides --bin { $query }' 指令檢閱所有匹配的指令。
 cnf-too-many-query = 您查詢的指令有大量匹配的項目。
 reading-database-with-count = 正在為軟體套件資料庫構建索引，已索引 { $count } 個軟體套件……
-no-result-bincontents-tips = You might be looking for:
-no-result-bincontents-tips-2 = The { $cmd } command comes from the package { $pkg }
+no-result-bincontents-tips = 您可能在尋找這些軟體套件：
+no-result-bincontents-tips-2 = 指令 { $cmd } 由軟體套件 { $pkg } 提供
