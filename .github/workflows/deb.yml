@@ -16,6 +16,7 @@ jobs:
             "ubuntu:24.04",
             "debian:11",
             "debian:12",
+            "linuxdeepin/deepin",
           ]
     container:
       image: "${{ matrix.target }}"
@@ -41,6 +42,7 @@ jobs:
         run: |
           cargo deb -Z xz
           VER_SUFFIX="${TARGET_DISTRO/:/}"
+          VER_SUFFIX="${VER_SUFFIX##*\/}"
           case "${TARGET_DISTRO}" in
               'debian:11')
                   CODENAME='bullseye'
@@ -56,6 +58,10 @@ jobs:
                   ;;
               'ubuntu:24.04')
                   CODENAME='noble'
+                  ;;
+              'linuxdeepin/deepin')
+                  CODENAME='beige'
+                  VER_SUFFIX="${VER_SUFFIX}23"
                   ;;
           esac
           for i in target/debian/*.deb; do
