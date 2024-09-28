@@ -458,10 +458,22 @@ impl OmaApt {
             }
         }
 
-        // 寻找系统有哪些不必要的软件包
-        if !no_autoremove {
+        if purge || !no_autoremove {
             // 需要先计算依赖才知道后面多少软件包是不必要的
             self.resolve(false, true)?;
+        }
+
+        if purge {
+            self.cache
+                .get_changes(true)
+                .filter(|pkg| pkg.marked_delete())
+                .for_each(|pkg| {
+                    pkg.mark_delete(true);
+                    pkg.protect();
+                });
+        }
+
+        if !no_autoremove {
             self.autoremove(purge)?;
         }
 
@@ -958,13 +970,7 @@ impl OmaApt {
                     return Err(OmaAptError::PkgIsEssential(name));
                 }
 
-                let mut is_purge = pkg.marked_purge();
-
-                if !is_purge && self.purge {
-                    pkg.mark_delete(true);
-                    pkg.protect();
-                    is_purge = true;
-                }
+                let is_purge = pkg.marked_purge();
 
                 let mut tags = vec![];
                 if is_purge {
