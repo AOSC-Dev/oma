@@ -69,7 +69,6 @@ pub struct OmaApt {
     tokio: Runtime,
     connection: Option<Connection>,
     unmet: Vec<String>,
-    purge: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -201,7 +200,6 @@ impl OmaApt {
             tokio,
             connection: conn,
             unmet: vec![],
-            purge: false,
         })
     }
 
@@ -447,7 +445,6 @@ impl OmaApt {
         purge: bool,
         no_autoremove: bool,
     ) -> OmaAptResult<Vec<String>> {
-        self.purge = purge;
         let mut no_marked_remove = vec![];
         for pkg in pkgs {
             let is_marked_delete = mark_delete(&self.cache, pkg, purge)?;
