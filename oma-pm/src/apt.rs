@@ -465,7 +465,7 @@ impl OmaApt {
 
         if purge {
             self.cache
-                .get_changes(true)
+                .get_changes(false)
                 .filter(|pkg| pkg.marked_delete())
                 .for_each(|pkg| {
                     pkg.mark_delete(true);
