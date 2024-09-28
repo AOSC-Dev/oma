@@ -206,7 +206,7 @@ impl<'a> RefreshRequest<'a> {
 pub struct CommitRequest<'a> {
     pub apt: OmaApt,
     pub dry_run: bool,
-    pub typ: SummaryType,
+    pub request_type: SummaryType,
     pub apt_args: AptArgs,
     pub no_fixbroken: bool,
     pub network_thread: usize,
@@ -222,7 +222,7 @@ impl<'a> CommitRequest<'a> {
         let CommitRequest {
             mut apt,
             dry_run,
-            typ,
+            request_type: typ,
             apt_args,
             no_fixbroken,
             network_thread,

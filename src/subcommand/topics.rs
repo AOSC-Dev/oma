@@ -129,7 +129,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     let request = CommitRequest {
         apt,
         dry_run,
-        typ: SummaryType::TopicsChanged {
+        request_type: SummaryType::TopicsChanged {
             add: topics_changed.opt_in,
             remove: topics_changed.opt_out,
         },

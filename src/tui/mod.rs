@@ -114,7 +114,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         code = CommitRequest {
             apt,
             dry_run,
-            typ: SummaryType::Changes,
+            request_type: SummaryType::Changes,
             apt_args,
             no_fixbroken: false,
             network_thread,

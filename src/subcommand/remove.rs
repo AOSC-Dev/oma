@@ -62,7 +62,7 @@ pub fn execute(
     let request = CommitRequest {
         apt,
         dry_run,
-        typ: SummaryType::Remove(
+        request_type: SummaryType::Remove(
             pkgs.iter()
                 .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                 .collect::<Vec<_>>(),
