@@ -37,7 +37,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
     let request = CommitRequest {
         apt,
         dry_run,
-        typ: SummaryType::FixBroken,
+        request_type: SummaryType::FixBroken,
         apt_args: AptArgs::builder().no_progress(no_progress).build(),
         no_fixbroken: false,
         network_thread,

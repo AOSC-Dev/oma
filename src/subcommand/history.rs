@@ -152,7 +152,7 @@ pub fn execute_undo(
     let request = CommitRequest {
         apt,
         dry_run: false,
-        typ: SummaryType::Undo,
+        request_type: SummaryType::Undo,
         apt_args: AptArgs::builder().no_progress(no_progress).build(),
         no_fixbroken: false,
         network_thread,
