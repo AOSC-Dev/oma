@@ -17,7 +17,7 @@ refreshing-topic-metadata = 正在刷新测试源数据 ...
 failed-to-read = 无法读取状态文件 ({ $p })。
 # pkg
 can-not-get-pkg-from-database = 无法从本机数据库中获取软件包 { $name } 的元数据。
-invaild-path = 非法路径：{ $p }
+invalid-path = 非法路径：{ $p }
 debug-symbol-available = 调试符号可用
 full-match = 完整匹配
 already-installed = 软件包 { $name } ({ $version }) 已经安装。
@@ -33,7 +33,7 @@ normal-tips = 按 [q] 或 [Ctrl-c] 退出，按 [PgUp/Dn] 或方向键翻页。
 # oma
 no-need-to-do-anything = 无需进行任何操作。
 apt-error = `apt' 返回了错误。
-invaild-pattern = 非法的表达式：{ $p }
+invalid-pattern = 非法的表达式：{ $p }
 additional-version = 另有 { $len } 个可用版本。请使用 `-a' 列出所有可用版本。
 could-not-find-pkg-from-keyword = 无法找到匹配关键字 { $c } 的软件包。
 no-need-to-remove = 软件包 { $name } 尚未安装，因此无需卸载。
@@ -91,21 +91,21 @@ reinstall = 重装
 reinstalled = 重装
 colon = ：
 # download
-invaild-filename = 文件名 { $name } 无效。
+invalid-filename = 文件名 { $name } 无效。
 checksum-mismatch-retry = 文件 { $c } 完整性验证失败，正在重试第 { $retry } 次 ...
 can-not-get-source-next-url = 无法下载文件：{ $e }，将使用下一个镜像源重试 ...
 checksum-mismatch = 文件 { $filename } 完整性验证失败。
 # db
-invaild-url = URL { $url } 无效。
+invalid-url = URL { $url } 无效。
 can-not-parse-date = BUG：无法将 Date 值转换为 RFC2822 格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 can-not-parse-valid-until = BUG：无法将 Valid-Until 值转换为 RFC2822 格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 earlier-signature = InRelease 文件 { $filename } 无效：系统时间早于内联签名时间戳。
 expired-signature = InRelease 文件 { $filename } 无效：内联签名已过期。
 inrelease-sha256-empty = InRelease 中未找到校验和。
 inrelease-checksum-can-not-parse = InRelease 文件无效：无法解析校验和条目 { $i }。
-inrelease-parse-unsupport-file-type = BUG：解析器不支持该 InRelease 文件的格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
+inrelease-parse-unsupported-file-type = BUG：解析器不支持该 InRelease 文件的格式，请于 https://github.com/AOSC-Dev/oma 报告问题。
 can-not-parse-sources-list = 无法解析 sources.list 文件 { $path }。
-unsupport-protocol = oma 不支持协议：{ $url }。
+unsupported-protocol = oma 不支持协议：{ $url }。
 refreshing-repo-metadata = 正在刷新本机软件包数据库 ...
 not-found = 无法从 { $url } 下载 InRelease 文件：找不到远端文件 (HTTP 404)。
 inrelease-syntax-error = 位于 { $path } 的 InRelease 文件解析失败。
@@ -123,7 +123,7 @@ sha256-bad-length = SHA256 校验和无效：长度不正确。
 can-not-checksum = 无法解析 SHA256 校验和。
 failed-to-open-to-checksum = BUG：无法打开用于验证校验和的路径 { $path }，请于 https://github.com/AOSC-Dev/oma 报告问题。
 # config
-config-invaild = oma 配置文件 (/etc/oma.toml) 似乎已损坏！将使用默认配置。
+config-invalid = oma 配置文件 (/etc/oma.toml) 似乎已损坏！将使用默认配置。
 cleaning = 正在清理本地软件包缓存 ...
 download-failed-with-len = { $len } 个软件包下载失败。
 download-failed = 下载 { $filename } 文件失败！

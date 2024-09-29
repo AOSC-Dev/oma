@@ -391,7 +391,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - 111 ([`082f233`](https://github.com/AOSC-Dev/oma/commit/082f233e33bc481bb164ef4e972a6bda8966da41))
     - Done for operation_map ([`4e28e41`](https://github.com/AOSC-Dev/oma/commit/4e28e415ebaceb64cd85145f3a940516d50730e6))
     - 111 ([`29bba29`](https://github.com/AOSC-Dev/oma/commit/29bba29170c5b39b6e8b569f6629b98774fca20d))
-    - Add opration.rs ....zzz ([`53363a7`](https://github.com/AOSC-Dev/oma/commit/53363a77097badf966faa33c927d2d8b8d0edd16))
+    - Add operation.rs ....zzz ([`53363a7`](https://github.com/AOSC-Dev/oma/commit/53363a77097badf966faa33c927d2d8b8d0edd16))
     - Some detail for oma-pm ([`d00927f`](https://github.com/AOSC-Dev/oma/commit/d00927feb013445075eeb5da51377fba651958b3))
     - Remove pkg add protect bool ([`1a43ad7`](https://github.com/AOSC-Dev/oma/commit/1a43ad7b9ebf2111c632b71e735e2289e4d39e12))
     - Add remove package feature ([`530935f`](https://github.com/AOSC-Dev/oma/commit/530935f6d61e8a91681adcaa85a16614585fccd6))
@@ -409,7 +409,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 </details>
 
 <csr-unknown>
- Use feature to select abstract code Table display remove size delta message Do not display apt progress if not is terminal Add Size-delta field on oma history; improve file output Add mark_install_status function Add mark_version_status function Find unmet dep only display layer 1 dep Fill of remove() function Add opration.rs ….zzz Remove pkg add protect bool Add remove package feature Support local package install Add OmaApt struct Add virtual pkg support and query_from_branch function Add query_from_version and query_from_branch function Add OmaDatabase impl<csr-unknown/>
+ Use feature to select abstract code Table display remove size delta message Do not display apt progress if not is terminal Add Size-delta field on oma history; improve file output Add mark_install_status function Add mark_version_status function Find unmet dep only display layer 1 dep Fill of remove() function Add operation.rs ….zzz Remove pkg add protect bool Add remove package feature Support local package install Add OmaApt struct Add virtual pkg support and query_from_branch function Add query_from_version and query_from_branch function Add OmaDatabase impl<csr-unknown/>
 
 ## v0.2.0 (2023-08-21)
 

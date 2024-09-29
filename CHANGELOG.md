@@ -530,7 +530,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
-- Should `resolve` after run `summary` functon
+- Should `resolve` after run `summary` function
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -694,7 +694,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
-- *(oma-pm)* Do not return empty keywork in `query_from_branch` ...
+- *(oma-pm)* Do not return empty keyword in `query_from_branch` ...
 - *(oma-pm)* Also fix `query_from_version` maybe pkgname is empty
 
 ### ⚙️ Miscellaneous Tasks
@@ -992,7 +992,7 @@ All notable changes to this project will be documented in this file.
 - *(oma-refresh)* Fix fetch some mirror has no `InRelease` file
 - *(oma-refresh)* Do not use `inrelease_path` value
 - Fix build without `aosc` feature
-- *(oma-fetch)* Avoid unsupport file type
+- *(oma-fetch)* Avoid unsupported file type
 - *(oma-refresh)* Fix build with `generic` feature
 - Fix pick will panic if pkg version uris is empty
 
@@ -1013,7 +1013,7 @@ All notable changes to this project will be documented in this file.
 
 ### ⚡ Performance
 
-- *(oma-refresh)* Reuse `reqwest::Clinet`
+- *(oma-refresh)* Reuse `reqwest::Client`
 - Always reuse `reqwest::Client`
 
 ### 🎨 Styling
@@ -1373,7 +1373,7 @@ All notable changes to this project will be documented in this file.
 - *(tui)* Start interface add packages available info
 - Use `resolvo-deb` to print dependency issue
 - Add apt `show_broken` output
-- Imporve unmet dependency output
+- Improve unmet dependency output
 - Improve unmet dependency message output
 - Add egg
 - *(tui)* Do not bold tips
@@ -1701,8 +1701,8 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
-- *(subcmd/topic)* Fix `--opt-in` always retrun user select topic does not exist
-- Fix(subcmd/topic): fix `--opt-in` always retrun user select topic does not exist (2)
+- *(subcmd/topic)* Fix `--opt-in` always return user select topic does not exist
+- Fix(subcmd/topic): fix `--opt-in` always return user select topic does not exist (2)
 
 ### 🚜 Refactor
 
@@ -1745,7 +1745,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - *(oma-refresh)* Flat repo is not only path is '/'
-- *(oma-fetch)* Fix download file list postition
+- *(oma-fetch)* Fix download file list position
 - *(oma-fetch)* Fix `source` sort issue lead to local source download failed
 
 ### ⚙️ Miscellaneous Tasks
@@ -1757,7 +1757,7 @@ All notable changes to this project will be documented in this file.
 
 ### I18n
 
-- Fix invaild value in `can-not-parse-valid-until` translate
+- Fix invalid value in `can-not-parse-valid-until` translate
 
 ## [1.2.4] - 2023-12-09
 
@@ -1869,14 +1869,14 @@ All notable changes to this project will be documented in this file.
 - Fix always display egg
 - *(oma-pm)* Fix default sysroot path argument
 - *(oma-refresh)* Fix a typo
-- *(error)* Fix output message infomation
-- *(oma-console)* Fix new line terminal lenth < 80
+- *(error)* Fix output message information
+- *(oma-console)* Fix new line terminal length < 80
 - *(oma-contents)* Fix progress bar always mini terminal mode
 - *(oma-refresh)* Fix InRelease verify rootfs dir
 - *(oma-console)* Fix terminal width is 90 new line progress bar
 - *(oma-refresh)* Fix create `/var/lib/apt/lists` if does not exist
 - *(oma-utils)* Fix dpkg `sysroot` argument
-- *(subcmd/upgrade)* Fix sucess message display
+- *(subcmd/upgrade)* Fix success message display
 - *(subcmd/utils)* Fix return error
 - *(oma-contents)* Fix unexcept `oma files pushpkg` result and unexcept `oma provides XXX`
 - `main()` init tracing logger
@@ -1914,7 +1914,7 @@ All notable changes to this project will be documented in this file.
 - *(oma-contetns)* Split `OmaContents::IOError`
 - *(oma-refresh)* [**breaking**] Split `RefreshError::IOError`
 - *(oma-topics)* [**breaking**] Split `OmaTopicsError::IOError`
-- *(oma-contents)* [**breaking**] Split `OmaContents::IOError` woth `contains-without-rg` feature
+- *(oma-contents)* [**breaking**] Split `OmaContents::IOError` worth `contains-without-rg` feature
 - Refactor display error step to `display_error` fn
 - Move `history.rs` logic to `oma-history` crate
 - *(oma-pm)* Use `small-map` to improve `get_deps` and `get_rdeps` performance
@@ -2249,7 +2249,7 @@ All notable changes to this project will be documented in this file.
 - *(oma-pm)* Support local package install
 - Add remove package feature
 - *(oma-pm)* Remove pkg add protect bool
-- *(oma-pm)* Add opration.rs ....zzz
+- *(oma-pm)* Add operation.rs ....zzz
 - Api change to support multi mirror download
 - *(oma-pm)* Fill of remove() function
 - *(oma-console)* Use DEBUG globar var to store yes/no display debug message
@@ -2312,7 +2312,7 @@ All notable changes to this project will be documented in this file.
 - Support plugin like: oma-mirror, you can use oma mirror to run it
 - Oma history pending ui q after back to menu
 - Check expected pattern in oma depends/rdepends/list/search
-- Use timestemp to store history datetime
+- Use timestamp to store history datetime
 - Drop purge-as-default and differentiate oma remove and oma remove --remove-config (purge)
 - Improve oma download failed error message
 - *(oma-refresh)* Add download_compress argument to allow user download prue database; do not cipunited in oma-refresh
@@ -2415,13 +2415,13 @@ All notable changes to this project will be documented in this file.
 - Execute plugin logic
 - *(oma-refresh)* Fix topic does not exist auto disable topic
 - *(oma-topics)* Do not display no need remove topic message
-- *(oma-refresh)* Do not displat topic closeing message in non-topic mirror
+- *(oma-refresh)* Do not displat topic closing message in non-topic mirror
 - *(oma-pm)* Query branch and version set candidate to fix oma show with branch/version
 - *(oma-pm)* Check branch array boundary
 - Fix a typo expected -> unexpected
-- Typo Installl -> Installed
+- Typo Install -> Installed
 - Use oma history/undo local datetime display
-- Fallback timestemp to 0 if invaild timestemp
+- Fallback timestamp to 0 if invalid timestamp
 - Improve due_to message
 - Improve command-not-found error output message
 - *(oma-fetch)* Request head failed clear progress bar
@@ -2557,7 +2557,7 @@ All notable changes to this project will be documented in this file.
 - *(oma-refresh)* Adapt new oma-fetch api
 - *(src/command)* Adapt oma-fetch new API
 - *(subcommand)* Move command.rs to subcommand module
-- *(oma-fetch)* Refactor try_donwload function to SingleDownloader impl to fix clippy
+- *(oma-fetch)* Refactor try_download function to SingleDownloader impl to fix clippy
 - Improve arg parser logic
 - *(oma-refresh)* Improve closed topic logic
 - *(oma-refresh)* Improve closed topic logic again
@@ -2570,7 +2570,7 @@ All notable changes to this project will be documented in this file.
 - *(oma-fetch)* Refactor clone (1)
 - *(oma-fetch)* Refactor clone (2)
 - *(oma-contents)* Use Arc<T> and Arc<Mutex<T>> to clone some var
-- Some var use refrence
+- Some var use reference
 - Some var no need to clone
 - Use `iter.count()` replace `iter.collect::<Vec<_>>().len()`
 - *(subcmd/show)* Use `pkgs.len()` replace `pkgs.iter().count()`
@@ -2599,7 +2599,7 @@ All notable changes to this project will be documented in this file.
 - Add some comment
 - *(README)* Update README
 - Fix markdown syntax error
-- Fix asciinema preivew
+- Fix asciinema preview
 - *(subcmd/topics)* Add comment
 
 ### 🎨 Styling
@@ -2636,7 +2636,7 @@ All notable changes to this project will be documented in this file.
 - *(oma-refresh)* Fix clippy
 - Fix clippy
 - Run cargo clippy and cargo fmt to lint code
-- *(subcmd/utils)* Use `array[..N]` replace `array[0], array[1], ..., array[N-1]` to imrpove code style
+- *(subcmd/utils)* Use `array[..N]` replace `array[0], array[1], ..., array[N-1]` to improve code style
 - Run cargo clippy and cargo fmt to lint code
 - Use `cargo clippy` to lint code
 - *(oma-pm)* Fix clippy
@@ -2713,8 +2713,8 @@ All notable changes to this project will be documented in this file.
 - *(oma-refresh)* Release 0.5.2
 - Set oma version as 1.0.9999
 - Update all deps
-- *(oma-contents)* Releasse 0.2.0
-- *(oma-contents)* No need to use `grep` ceate
+- *(oma-contents)* Release 0.2.0
+- *(oma-contents)* No need to use `grep` create
 - Update all deps
 - *(oma-contents)* Set `which` crate to optional
 - *(oma-topics)* Remove unnecessary dep
@@ -2783,7 +2783,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
-- Switch flate zlib backend to default to fix loongarch64 build
+- Switch flat zlib backend to default to fix loongarch64 build
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -3096,7 +3096,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Do not display downloading package tips if user ctrlc pending ui
-- Undo opration tips should display 'redo'
+- Undo operation tips should display 'redo'
 - Use modified() to get update time delta
 - Sometimes progressbar stdout eat oma message
 
@@ -3459,7 +3459,7 @@ All notable changes to this project will be documented in this file.
 
 - Return 1 if oma show pkgs result is empty
 - Add oma pkgnames for shell completion
-- Add shell competions feature
+- Add shell completions feature
 - Support fish completion
 - Add oma systemd service
 - Oma install/remove/upgrade -y should display review message
@@ -3531,9 +3531,9 @@ All notable changes to this project will be documented in this file.
 
 - Abstract install_other logic
 - No need to collect upgrade package in update_inner method
-- Optmize search_pkgs filter logic
-- Optmize search_pkgs filter logic again
-- Optmize search_pkgs filter logic
+- Optimize search_pkgs filter logic
+- Optimize search_pkgs filter logic again
+- Optimize search_pkgs filter logic
 - No need to collect checksum entry to parse
 - No need to download multi contents
 - Use BinContents to command-not-found feature
@@ -3571,8 +3571,8 @@ All notable changes to this project will be documented in this file.
 
 ### 🚜 Refactor
 
-- Optmize download db logic again
-- Optmize local mirror download and extract logic
+- Optimize download db logic again
+- Optimize local mirror download and extract logic
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -3654,7 +3654,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Add missing ! to fix wrong logic in scan_closed_topic
-- Reson => Reason
+- Reason => Reason
 
 ### 🚜 Refactor
 
@@ -3699,7 +3699,7 @@ All notable changes to this project will be documented in this file.
 
 - Set clap help header and usage color as bright blue
 - Improve clap oma style theme ...
-- Check InRelaese date and vaild-until
+- Check InRelease date and valid-until
 
 ### 🐛 Bug Fixes
 
@@ -3712,7 +3712,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🎨 Styling
 
-- Remove useless refrence flag
+- Remove useless reference flag
 - Use cargo clippy to lint code
 
 ### ⚙️ Miscellaneous Tasks
@@ -3949,7 +3949,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🚜 Refactor
 
-- Improve capitalize output message logic in apt_handler mehod
+- Improve capitalize output message logic in apt_handler method
 
 ### 🎨 Styling
 
@@ -4019,7 +4019,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🚜 Refactor
 
-- Optmize download before check file is exist logic
+- Optimize download before check file is exist logic
 
 ## [0.18.0] - 2023-03-31
 
@@ -4072,7 +4072,7 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - Add policykit support
-- Add .policy file to add policykit oma infomation
+- Add .policy file to add policykit oma information
 - If fetch last url has error, output error prefix
 
 ### 🐛 Bug Fixes
@@ -4192,7 +4192,7 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- Add rust templete
+- Add rust template
 - Try fix ci
 - Try to fix ci
 
@@ -4274,7 +4274,7 @@ All notable changes to this project will be documented in this file.
 - Fix install with branch and version
 - Fix local install again ...
 - Add 'download' command
-- Download command only download package ifself
+- Download command only download package itself
 - Move root check to need root function
 - Add fix-broken command
 - Fix-broken command add pending operations page
@@ -4298,7 +4298,7 @@ All notable changes to this project will be documented in this file.
 - Use anyhow to handle non-apt errors in cache.upgrade
 - Add 'command-not-found' subcommand
 - Fix list display
-- Fix list preformance and style
+- Fix list performance and style
 - Sort output order and add --installed argument
 - Fix next line output logic
 - List display package arch
@@ -4397,7 +4397,7 @@ All notable changes to this project will be documented in this file.
 - Use stderr to output info/warn/debug/dueto ...
 - Fix dead forloop
 
-### Conntents
+### Contents
 
 - Adjust pb steady_tick and if rg return non-zero code return error
 
@@ -4506,7 +4506,7 @@ All notable changes to this project will be documented in this file.
 
 ### Formatter
 
-- Add more ouput
+- Add more output
 - Try to fix apt automatic install
 - Try to fix apt automatic install (2)
 - {Yes,Apt}InstallProgress -> OmaAptInstallProgress ...
@@ -4622,7 +4622,7 @@ All notable changes to this project will be documented in this file.
 - Handle if apt Installed-Size and dpkg mismatch
 - UpdatePackage add filename and from field; fix var name mistake
 - UpdatePackage add some size field
-- Dpkg_executer: retry 3 times to workround dpkg trigger cycle
+- Dpkg_executer: retry 3 times to workaround dpkg trigger cycle
 
 ### Util
 

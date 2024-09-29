@@ -41,7 +41,7 @@ pub fn execute(
             "strsim" => SearchEngine::Strsim,
             "text" => SearchEngine::Text,
             x => {
-                warn!("Unsupport mode: {x}, fallback to indicium ...");
+                warn!("Unsupported mode: {x}, fallback to indicium ...");
                 SearchEngine::Indicium(Box::new(|_| {}))
             }
         },

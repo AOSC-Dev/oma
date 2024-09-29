@@ -82,7 +82,7 @@ impl Config {
         Ok(match s {
             Ok(s) => toml::from_str(&s)?,
             Err(_) => {
-                warn!("{}", fl!("config-invaild"));
+                warn!("{}", fl!("config-invalid"));
                 toml::from_str(DEFAULT_CONFIG)?
             }
         })

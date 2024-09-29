@@ -85,7 +85,7 @@ impl SingleDownloader<'_> {
         Err(DownloadError::EmptySources)
     }
 
-    /// Downlaod file with retry (http)
+    /// Download file with retry (http)
     async fn try_http_download<F>(
         &self,
         callback: Arc<F>,
@@ -111,7 +111,7 @@ impl SingleDownloader<'_> {
                     return Ok(s);
                 }
                 Err(e) => match e {
-                    DownloadError::ChecksumMisMatch(ref filename) => {
+                    DownloadError::ChecksumMismatch(ref filename) => {
                         if self.retry_times == times {
                             return Err(e);
                         }
@@ -181,28 +181,28 @@ impl SingleDownloader<'_> {
                 debug!("Validator created.");
 
                 let mut buf = vec![0; 4096];
-                let mut readed = 0;
+                let mut read = 0;
 
                 loop {
-                    if readed == file_size {
+                    if read == file_size {
                         break;
                     }
 
-                    let readed_count = f
+                    let read_count = f
                         .read(&mut buf[..])
                         .await
                         .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
 
-                    v.update(&buf[..readed_count]);
+                    v.update(&buf[..read_count]);
 
-                    global_progress.fetch_add(readed_count as u64, Ordering::SeqCst);
+                    global_progress.fetch_add(read_count as u64, Ordering::SeqCst);
 
                     callback(
                         self.download_list_index,
-                        DownloadEvent::GlobalProgressInc(readed_count as u64),
+                        DownloadEvent::GlobalProgressInc(read_count as u64),
                     );
 
-                    readed += readed_count as u64;
+                    read += read_count as u64;
                 }
 
                 if v.finish() {
@@ -215,7 +215,7 @@ impl SingleDownloader<'_> {
 
                     return Ok(Summary {
                         filename: self.entry.filename.clone(),
-                        writed: false,
+                        wrote: false,
                         count: self.download_list_index,
                         context: self.context.clone(),
                     });
@@ -227,7 +227,7 @@ impl SingleDownloader<'_> {
                 );
 
                 if !allow_resume {
-                    global_progress.fetch_sub(readed, Ordering::SeqCst);
+                    global_progress.fetch_sub(read, Ordering::SeqCst);
                     let progress = global_progress.load(Ordering::SeqCst);
                     callback(
                         self.download_list_index,
@@ -479,7 +479,7 @@ impl SingleDownloader<'_> {
                 );
                 callback(self.download_list_index, DownloadEvent::ProgressDone);
 
-                return Err(DownloadError::ChecksumMisMatch(
+                return Err(DownloadError::ChecksumMismatch(
                     self.entry.filename.to_string(),
                 ));
             }
@@ -491,7 +491,7 @@ impl SingleDownloader<'_> {
 
         Ok(Summary {
             filename: self.entry.filename.clone(),
-            writed: true,
+            wrote: true,
             count: self.download_list_index,
             context: self.context.clone(),
         })
@@ -522,7 +522,7 @@ impl SingleDownloader<'_> {
         let url = &source.url;
         let url_path = url_no_escape(
             url.strip_prefix("file:")
-                .ok_or_else(|| DownloadError::InvaildURL(url.to_string()))?,
+                .ok_or_else(|| DownloadError::InvalidURL(url.to_string()))?,
         );
 
         let url_path = Path::new(&url_path);
@@ -562,7 +562,7 @@ impl SingleDownloader<'_> {
 
             return Ok(Summary {
                 filename: self.entry.filename.clone(),
-                writed: true,
+                wrote: true,
                 count: self.download_list_index,
                 context: self.context.clone(),
             });
@@ -630,7 +630,7 @@ impl SingleDownloader<'_> {
 
         Ok(Summary {
             filename: self.entry.filename.clone(),
-            writed: true,
+            wrote: true,
             count: self.download_list_index,
             context: self.context.clone(),
         })
