@@ -533,7 +533,7 @@ impl<'a> Tui<'a> {
                         Block::default()
                             .borders(Borders::ALL)
                             .title(fl!("tui-pending"))
-                            .style(hightlight_window(&self.mode, &Mode::Pending)),
+                            .style(highlight_window(&self.mode, &Mode::Pending)),
                     )
                     .highlight_style(Style::default().bg(Color::Rgb(59, 64, 70))),
                 chunks[1],
@@ -564,7 +564,7 @@ impl<'a> Tui<'a> {
                     Block::default()
                         .borders(Borders::ALL)
                         .title(fl!("tui-search"))
-                        .style(hightlight_window(&self.mode, &Mode::Search)),
+                        .style(highlight_window(&self.mode, &Mode::Search)),
                 ),
             main_layout[1],
         );
@@ -648,7 +648,7 @@ fn show_packages(
                             r = action.1,
                             i = installed
                         ))
-                        .style(hightlight_window(mode, &Mode::Packages)),
+                        .style(highlight_window(mode, &Mode::Packages)),
                 )
                 .highlight_style(Style::default().bg(Color::Rgb(59, 64, 70))),
             area,
@@ -695,7 +695,7 @@ fn show_packages(
                 Block::default()
                     .borders(Borders::ALL)
                     .title(fl!("tui-start"))
-                    .style(hightlight_window(mode, &Mode::Packages))
+                    .style(highlight_window(mode, &Mode::Packages))
                     .padding(Padding::new(0, 0, area.height / 2 - 8, 0)),
             )
             .alignment(Alignment::Center),
@@ -704,7 +704,7 @@ fn show_packages(
     }
 }
 
-fn hightlight_window(mode: &Mode, right: &Mode) -> Style {
+fn highlight_window(mode: &Mode, right: &Mode) -> Style {
     if mode == right {
         Style::default().bold()
     } else {

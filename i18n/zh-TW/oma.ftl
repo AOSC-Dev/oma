@@ -17,7 +17,7 @@ refreshing-topic-metadata = 正在重新整理測試庫資料……
 failed-to-read = 無法讀取狀態檔案 ({ $p })。
 # pkg
 can-not-get-pkg-from-database = 無法從本機資料庫中取得軟體套件 { $name } 的後設資料。
-invaild-path = 路徑格式有誤：{ $p }
+invalid-path = 路徑格式有誤：{ $p }
 debug-symbol-available = 除錯符號可用
 full-match = 完全符合
 already-installed = 軟體套件 { $name } ({ $version }) 已經安裝。
@@ -33,7 +33,7 @@ normal-tips = 按 [q] 或 [Ctrl-c] 結束，按 [PgUp/Dn] 或方向鍵翻頁。
 # oma
 no-need-to-do-anything = 無需進行任何操作。
 apt-error = `apt' 回傳了錯誤。
-invaild-pattern = 表達式格式有誤：{ $p }
+invalid-pattern = 表達式格式有誤：{ $p }
 additional-version = 另有 { $len } 個可用版本。請使用 `-a' 列出所有可用版本。
 could-not-find-pkg-from-keyword = 無法找到符合關鍵字 { $c } 的軟體套件。
 no-need-to-remove = 軟體套件 { $name } 尚未安裝，因此無需解除安裝。
@@ -91,21 +91,21 @@ reinstall = 重裝
 reinstalled = 重裝
 colon = ：
 # download
-invaild-filename = 檔案名 { $name } 無效。
+invalid-filename = 檔案名 { $name } 無效。
 checksum-mismatch-retry = 檔案 { $c } 完整性驗證失敗，正在重試第 { $retry } 次……
 can-not-get-source-next-url = 無法下載檔案：{ $e }，將使用下一個鏡像源重試……
 checksum-mismatch = 檔案 { $filename } 完整性驗證失敗。
 # db
-invaild-url = URL { $url } 無效。
+invalid-url = URL { $url } 無效。
 can-not-parse-date = BUG：無法將 Date 值轉換為 RFC2822 格式，請於 https://github.com/AOSC-Dev/oma 報告問題。
 can-not-parse-valid-until = BUG：無法將 Valid-Until 值轉換為 RFC2822 格式，請於 https://github.com/AOSC-Dev/oma 報告問題。
 earlier-signature = InRelease 檔案 { $filename } 無效：系統時間早於內附簽章時間戳。
 expired-signature = InRelease 檔案 { $filename } 無效：內附簽章已過期。
 inrelease-sha256-empty = InRelease 中未找到雜湊值。
 inrelease-checksum-can-not-parse = InRelease 檔案無效：無法解析雜湊值條目 { $i }。
-inrelease-parse-unsupport-file-type = BUG：解析器不支援該 InRelease 檔案的格式，請於 https://github.com/AOSC-Dev/oma 報告問題。
+inrelease-parse-unsupported-file-type = BUG：解析器不支援該 InRelease 檔案的格式，請於 https://github.com/AOSC-Dev/oma 報告問題。
 can-not-parse-sources-list = 無法解析 sources.list 檔案 { $path }。
-unsupport-protocol = oma 不支援協定：{ $url }。
+unsupported-protocol = oma 不支援協定：{ $url }。
 refreshing-repo-metadata = 正在重新整理本機軟體套件資料庫……
 not-found = 無法從 { $url } 下載 InRelease 檔案：找不到遠端檔案 (HTTP 404)。
 inrelease-syntax-error = 位於 { $path } 的 InRelease 檔案解析失敗。
@@ -123,7 +123,7 @@ sha256-bad-length = SHA256 雜湊值無效：長度不正確。
 can-not-checksum = 無法解析 SHA256 雜湊值。
 failed-to-open-to-checksum = BUG：無法打開用於驗證雜湊值的路徑 { $path }，請於 https://github.com/AOSC-Dev/oma 報告問題。
 # config
-config-invaild = oma 設定檔 (/etc/oma.toml) 似乎已損壞！將使用預設設定。
+config-invalid = oma 設定檔 (/etc/oma.toml) 似乎已損壞！將使用預設設定。
 cleaning = 正在清理本地軟體套件……
 download-failed-with-len = { $len } 個軟體套件下載失敗。
 download-failed = 下載 { $filename } 檔案失敗！

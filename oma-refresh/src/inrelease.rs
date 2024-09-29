@@ -27,8 +27,8 @@ pub enum InReleaseParserError {
     VerifyError(#[from] oma_repo_verify::VerifyError),
     #[error("Bad InRelease Data")]
     BadInReleaseData,
-    #[error("Bad vaild until")]
-    BadInReleaseVaildUntil,
+    #[error("Bad valid until")]
+    BadInReleaseValidUntil,
     #[error("Earlier signature: {0}")]
     EarlierSignature(String),
     #[error("Expired signature: {0}")]
@@ -39,8 +39,8 @@ pub enum InReleaseParserError {
     BadChecksumEntry(String),
     #[error("Bad InRelease")]
     InReleaseSyntaxError,
-    #[error("Unsupport file type in path")]
-    UnsupportFileType,
+    #[error("Unsupported file type in path")]
+    UnsupportedFileType,
     #[error(transparent)]
     ParseIntError(ParseIntError),
 }
@@ -117,7 +117,7 @@ impl InReleaseParser {
             if let Some(valid_until_date) = valid_until {
                 let valid_until = parse_date(valid_until_date).map_err(|e| {
                     debug!("Parse valid_until failed: {}", e);
-                    InReleaseParserError::BadInReleaseVaildUntil
+                    InReleaseParserError::BadInReleaseValidUntil
                 })?;
 
                 if now > valid_until {

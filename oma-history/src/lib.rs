@@ -76,7 +76,7 @@ pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Conn
                 is_success INTEGER NOT NULL,
                 install_packages BLOB,
                 remove_packages BLOB,
-                disk_size INTERGER NOT NULL,
+                disk_size INTEGER NOT NULL,
                 total_download_size INTEGER
             )",
             (), // empty list of parameters.

@@ -25,8 +25,8 @@ pub enum OmaDatabaseError {
     AptError(#[from] AptError),
     #[error(transparent)]
     AptCxxException(#[from] cxx::Exception),
-    #[error("Invaild pattern: {0}")]
-    InvaildPattern(String),
+    #[error("Invalid pattern: {0}")]
+    InvalidPattern(String),
     #[error("Can not find package {0} from database")]
     NoPackage(String),
     #[error("Pkg {0} has no version {1}")]
@@ -198,7 +198,7 @@ impl<'a> OmaDatabase<'a> {
     pub fn query_from_version(&self, pat: &str, dbg: bool) -> OmaDatabaseResult<Vec<PkgInfo>> {
         let (pkgname, version_str) = pat
             .split_once('=')
-            .ok_or_else(|| OmaDatabaseError::InvaildPattern(pat.to_string()))?;
+            .ok_or_else(|| OmaDatabaseError::InvalidPattern(pat.to_string()))?;
 
         let pkg = self
             .cache
@@ -233,7 +233,7 @@ impl<'a> OmaDatabase<'a> {
         let mut res = vec![];
         let (pkgname, branch) = pat
             .split_once('/')
-            .ok_or_else(|| OmaDatabaseError::InvaildPattern(pat.to_string()))?;
+            .ok_or_else(|| OmaDatabaseError::InvalidPattern(pat.to_string()))?;
 
         let pkg = self
             .cache

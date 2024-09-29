@@ -32,8 +32,8 @@ pub enum OmaTopicsError {
     BrokenFile(String),
     #[error("Failed to Parse Url: {0}")]
     ParseUrl(url::ParseError),
-    #[error("Unsupport url protocol from url: {0}")]
-    UnsupportProtocol(String),
+    #[error("Unsupported url protocol from url: {0}")]
+    UnsupportedProtocol(String),
     #[error("Failed to open file {0}: {1}")]
     OpenFile(String, io::Error),
     #[error("Failed to read file {0}: {1}")]
@@ -104,7 +104,7 @@ impl<'a> TopicManager<'a> {
         Ok(Self {
             enabled: serde_json::from_str(&atm_state_string).unwrap_or_else(|e| {
                 debug!("Deserialize oma topics state JSON failed: {e}");
-                warn!("oma topics status file does not exist or is currupted, a new status file will be created.");
+                warn!("oma topics status file does not exist or is corrupted, a new status file will be created.");
                 vec![]
             }),
             all: vec![],
@@ -333,7 +333,7 @@ async fn get<T: DeserializeOwned>(client: &Client, url: String) -> Result<T> {
                 .await?;
             Ok(res)
         }
-        _ => Err(OmaTopicsError::UnsupportProtocol(url.to_string())),
+        _ => Err(OmaTopicsError::UnsupportedProtocol(url.to_string())),
     }
 }
 
@@ -345,7 +345,7 @@ async fn check(client: &Client, url: &str) -> Result<bool> {
     match schema {
         "file" => Ok(Path::new(url.path()).exists()),
         x if x.starts_with("http") => Ok(client.head(url).send().await?.error_for_status().is_ok()),
-        _ => Err(OmaTopicsError::UnsupportProtocol(url.to_string())),
+        _ => Err(OmaTopicsError::UnsupportedProtocol(url.to_string())),
     }
 }
 

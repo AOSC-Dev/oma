@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Refactor
 
- - <csr-id-6436e59e5891fb21ccc512f884003af415209aa4/> Refactor try_donwload function to SingleDownloader impl to fix clippy
+ - <csr-id-6436e59e5891fb21ccc512f884003af415209aa4/> Refactor try_download function to SingleDownloader impl to fix clippy
 
 ### Commit Statistics
 
@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
-    - Refactor try_donwload function to SingleDownloader impl to fix clippy ([`6436e59`](https://github.com/AOSC-Dev/oma/commit/6436e59e5891fb21ccc512f884003af415209aa4))
+    - Refactor try_download function to SingleDownloader impl to fix clippy ([`6436e59`](https://github.com/AOSC-Dev/oma/commit/6436e59e5891fb21ccc512f884003af415209aa4))
 </details>
 
 ## v0.3.0 (2023-09-06)
