@@ -1,6 +1,6 @@
 [package]
 name = "oma-fetch"
-version = "0.15.0"
+version = "0.15.1"
 edition = "2021"
 description = "APT repository download routines library"
 license = "MIT"
@@ -12,7 +12,7 @@ thiserror = "1.0"
 reqwest = { version = "0.12", default-features = false, features = ["stream"] }
 tokio = { version = "1.28", default-features = false, features = ["fs"] }
 serde = { version = "1.0", features = ["derive"] }
-faster-hex = "0.9"
+faster-hex = "0.10"
 sha2 = "0.10"
 futures = "0.3"
 async-compression = { version = "0.4", features = ["gzip", "xz", "futures-io", "bzip2", "zstd"] }
