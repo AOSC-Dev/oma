@@ -17,6 +17,7 @@ jobs:
             "debian:11",
             "debian:12",
             "linuxdeepin/deepin",
+            "chenchongbiao/openkylin",
           ]
     container:
       image: "${{ matrix.target }}"
@@ -62,6 +63,10 @@ jobs:
               'linuxdeepin/deepin')
                   CODENAME='beige'
                   VER_SUFFIX="${VER_SUFFIX}23"
+                  ;;
+              'chenchongbiao/openkylin')
+                  CODENAME='nile'
+                  VER_SUFFIX="${VER_SUFFIX}2.0"
                   ;;
           esac
           for i in target/debian/*.deb; do
