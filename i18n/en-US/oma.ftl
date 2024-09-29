@@ -186,3 +186,5 @@ cnf-too-many-query = It seems that there are many matches for the command you ar
 cnf-too-many-query-2 = Please consider using `oma provides --bin { $query }' for a full list of potential matches.
 no-result-bincontents-tips = You might be looking for:
 no-result-bincontents-tips-2 = The { $cmd } command comes from the package { $pkg }
+oma-refresh-lock = Unable to refresh local database.
+oma-refresh-lock-dueto = { $exec } ({ $pid }) has acquired the lock to the database.

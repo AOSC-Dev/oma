@@ -181,3 +181,5 @@ failed-to-decompress-contents = 无法解压缩 Contents 数据库。
 removed-as-unmet-dep = 因依赖关系不满足而移除
 no-result-bincontents-tips = 您可能在找这些软件包：
 no-result-bincontents-tips-2 = 命令 { $cmd } 由 { $pkg } 软件包提供
+oma-refresh-lock = 无法刷新本地软件包数据库。
+oma-refresh-lock-dueto = { $exec } ({ $pid }) 正占用数据库锁。
