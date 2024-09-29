@@ -6,7 +6,7 @@ pub(crate) fn single_line(input: &str) -> Option<(&str, Vec<&str>)> {
     // 最后一个空格是分隔符
     let file = file.trim();
     let mut pkgs = pkgs.trim();
-    let pkgs = multi_packagee(&mut pkgs).ok()?;
+    let pkgs = multi_packages(&mut pkgs).ok()?;
 
     Some((file, pkgs))
 }
@@ -17,7 +17,7 @@ fn single_package<'a>(input: &mut &'a str) -> PResult<&'a str> {
 }
 
 #[inline]
-fn multi_packagee<'a>(input: &mut &'a str) -> PResult<Vec<&'a str>> {
+fn multi_packages<'a>(input: &mut &'a str) -> PResult<Vec<&'a str>> {
     separated(0.., single_package, ',').parse_next(input)
 }
 
