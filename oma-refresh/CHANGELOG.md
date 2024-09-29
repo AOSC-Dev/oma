@@ -156,7 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Release oma-fetch v0.2.0, safety bump 2 crates ([`3d643f9`](https://github.com/AOSC-Dev/oma/commit/3d643f98588d93c60a094808b794624e78d464b7))
     - Adapt new oma-fetch api ([`1943b76`](https://github.com/AOSC-Dev/oma/commit/1943b764ee60248d6c02f820e50cdc1e5d73716b))
     - Bump oma-utils v0.1.5 ([`f671881`](https://github.com/AOSC-Dev/oma/commit/f67188176dfaa546bcfec4512c00509a60c86f98))
-    - Fix mips64r6el contents fetch ... ([`7a41dbe`](https://github.com/AOSC-Dev/oma/commit/7a41dbe55da4336620a5b3ea0606f2144bff0c50))
+    - Fix mips64r6el contents fetch ... ([`7a41be`](https://github.com/AOSC-Dev/oma/commit/7a41dbe55da4336620a5b3ea0606f2144bff0c50))
     - Use cargo-fmt to format code ([`0e32cee`](https://github.com/AOSC-Dev/oma/commit/0e32ceead5727a79c2841c5d137fd32a8cd88753))
     - Lint code style ([`65fa216`](https://github.com/AOSC-Dev/oma/commit/65fa216e325fe96f964a31c47d500e3197c9a269))
     - Do not fetch database with the same content but in a different compression format ([`94687df`](https://github.com/AOSC-Dev/oma/commit/94687df792f92c1b717c81ff31b8e803aa5fb125))

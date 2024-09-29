@@ -22,7 +22,7 @@ impl DatabaseFilenameReplacer {
     }
 
     pub fn replace(&self, url: &str) -> Result<String, RefreshError> {
-        let url_parsed = Url::parse(url).map_err(|_| RefreshError::InvaildUrl(url.to_string()))?;
+        let url_parsed = Url::parse(url).map_err(|_| RefreshError::InvalidUrl(url.to_string()))?;
 
         let host = url_parsed.host_str();
 
@@ -30,13 +30,13 @@ impl DatabaseFilenameReplacer {
         // 原因是 "/./" 会被解析器解析为 "/"，而 apt 则不会这样
         let path = if let Some(host) = host {
             url.split_once(host)
-                .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+                .ok_or_else(|| RefreshError::InvalidUrl(url.to_string()))?
                 .1
         } else {
             // file:/// or file:/
             url.strip_prefix("file://")
                 .or_else(|| url.strip_prefix("file:"))
-                .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?
+                .ok_or_else(|| RefreshError::InvalidUrl(url.to_string()))?
         };
 
         let url = if let Some(host) = host {
@@ -59,7 +59,7 @@ pub(crate) fn human_download_url(
     ose: &OmaSourceEntry,
     file_name: Option<&str>,
 ) -> Result<String, RefreshError> {
-    let url = Url::parse(&ose.url).map_err(|_| RefreshError::InvaildUrl(ose.url.to_string()))?;
+    let url = Url::parse(&ose.url).map_err(|_| RefreshError::InvalidUrl(ose.url.to_string()))?;
 
     let host = url.host_str();
 

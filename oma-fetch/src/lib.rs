@@ -20,7 +20,7 @@ pub use reqwest;
 #[derive(thiserror::Error, Debug)]
 pub enum DownloadError {
     #[error("checksum mismatch {0}")]
-    ChecksumMisMatch(String),
+    ChecksumMismatch(String),
     #[error("Failed to download file: {0}, kind: {1}")]
     IOError(String, std::io::Error),
     #[error(transparent)]
@@ -29,8 +29,8 @@ pub enum DownloadError {
     ChecksumError(#[from] crate::checksum::ChecksumError),
     #[error("Failed to open local source file {0}: {1}")]
     FailedOpenLocalSourceFile(String, tokio::io::Error),
-    #[error("Invaild URL: {0}")]
-    InvaildURL(String),
+    #[error("Invalid URL: {0}")]
+    InvalidURL(String),
     #[error("download source list is empty")]
     EmptySources,
 }
@@ -170,7 +170,7 @@ pub struct OmaFetcher<'a> {
 #[derive(Debug)]
 pub struct Summary {
     pub filename: String,
-    pub writed: bool,
+    pub wrote: bool,
     pub count: usize,
     pub context: Option<String>,
 }

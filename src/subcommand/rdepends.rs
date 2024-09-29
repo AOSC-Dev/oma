@@ -4,11 +4,11 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
 use crate::error::OutputError;
 
-use super::utils::{check_unsupport_stmt, handle_no_result};
+use super::utils::{check_unsupported_stmt, handle_no_result};
 
 pub fn execute(pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
     for pkg in &pkgs {
-        check_unsupport_stmt(pkg);
+        check_unsupported_stmt(pkg);
     }
 
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();

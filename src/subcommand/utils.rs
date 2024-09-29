@@ -324,7 +324,7 @@ pub(crate) fn is_nothing_to_do(install: &[InstallEntry], remove: &[RemoveEntry])
     false
 }
 
-pub(crate) fn check_unsupport_stmt(s: &str) {
+pub(crate) fn check_unsupported_stmt(s: &str) {
     for i in s.chars() {
         if !i.is_ascii_alphabetic()
             && !i.is_ascii_alphanumeric()

@@ -43,10 +43,10 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
     #[error("Invalid URL: {0}")]
-    InvaildUrl(String),
+    InvalidUrl(String),
     #[error("Scan sources.list failed: {0}")]
     ScanSourceError(SourceError),
-    #[error("Unsupport Protocol: {0}")]
+    #[error("Unsupported Protocol: {0}")]
     UnsupportedProtocol(String),
     #[error(transparent)]
     FetcherError(#[from] oma_fetch::DownloadError),
@@ -78,10 +78,10 @@ pub enum RefreshError {
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
     #[error("Invalid URL: {0}")]
-    InvaildUrl(String),
+    InvalidUrl(String),
     #[error("Scan sources.list failed: {0}")]
     ScanSourceError(SourceError),
-    #[error("Unsupport Protocol: {0}")]
+    #[error("Unsupported Protocol: {0}")]
     UnsupportedProtocol(String),
     #[error(transparent)]
     FetcherError(#[from] oma_fetch::DownloadError),
@@ -541,7 +541,7 @@ impl<'a> OmaRefresh<'a> {
                     let suite = url
                         .path_segments()
                         .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
-                        .ok_or_else(|| RefreshError::InvaildUrl(url.to_string()))?;
+                        .ok_or_else(|| RefreshError::InvalidUrl(url.to_string()))?;
 
                     if !removed_suites.contains(&suite) {
                         return Err(RefreshError::NoInReleaseFile(url.to_string()));

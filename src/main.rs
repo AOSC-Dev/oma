@@ -328,7 +328,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             follow_term_color = true;
         } else if env::var("TERM").is_err() {
             debug!(
-                "Unknown or unsupported terminal ($TERM is empty or unsupport) detected, using default terminal colors to avoid latency."
+                "Unknown or unsupported terminal ($TERM is empty or unsupported) detected, using default terminal colors to avoid latency."
             );
             follow_term_color = true;
         } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {

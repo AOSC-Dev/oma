@@ -260,8 +260,8 @@ impl From<RefreshError> for OutputError {
         debug!("{:?}", value);
         #[cfg(feature = "aosc")]
         match value {
-            RefreshError::InvaildUrl(_) => Self {
-                description: fl!("invaild-url"),
+            RefreshError::InvalidUrl(_) => Self {
+                description: fl!("invalid-url"),
                 source: None,
             },
             RefreshError::ScanSourceError(e) => Self {
@@ -269,7 +269,7 @@ impl From<RefreshError> for OutputError {
                 source: None,
             },
             RefreshError::UnsupportedProtocol(s) => Self {
-                description: fl!("unsupport-protocol", url = s),
+                description: fl!("unsupported-protocol", url = s),
                 source: None,
             },
             RefreshError::FetcherError(e) => oma_download_error(e),
@@ -306,7 +306,7 @@ impl From<RefreshError> for OutputError {
                     description: fl!("can-not-parse-date"),
                     source: None,
                 },
-                InReleaseParserError::BadInReleaseVaildUntil => Self {
+                InReleaseParserError::BadInReleaseValidUntil => Self {
                     description: fl!("can-not-parse-valid-until"),
                     source: None,
                 },
@@ -330,8 +330,8 @@ impl From<RefreshError> for OutputError {
                     description: fl!("inrelease-syntax-error", path = s),
                     source: None,
                 },
-                InReleaseParserError::UnsupportFileType => Self {
-                    description: fl!("inrelease-parse-unsupport-file-type"),
+                InReleaseParserError::UnsupportedFileType => Self {
+                    description: fl!("inrelease-parse-unsupported-file-type"),
                     source: None,
                 },
                 InReleaseParserError::ParseIntError(e) => Self {
@@ -368,8 +368,8 @@ impl From<RefreshError> for OutputError {
         }
         #[cfg(not(feature = "aosc"))]
         match value {
-            RefreshError::InvaildUrl(_) => Self {
-                description: fl!("invaild-url"),
+            RefreshError::InvalidUrl(_) => Self {
+                description: fl!("invalid-url"),
                 source: None,
             },
             RefreshError::ScanSourceError(e) => Self {
@@ -377,7 +377,7 @@ impl From<RefreshError> for OutputError {
                 source: None,
             },
             RefreshError::UnsupportedProtocol(s) => Self {
-                description: fl!("unsupport-protocol", url = s),
+                description: fl!("unsupported-protocol", url = s),
                 source: None,
             },
             RefreshError::FetcherError(e) => oma_download_error(e),
@@ -413,7 +413,7 @@ impl From<RefreshError> for OutputError {
                     description: fl!("can-not-parse-date"),
                     source: None,
                 },
-                InReleaseParserError::BadInReleaseVaildUntil => Self {
+                InReleaseParserError::BadInReleaseValidUntil => Self {
                     description: fl!("can-not-parse-valid-until"),
                     source: None,
                 },
@@ -437,8 +437,8 @@ impl From<RefreshError> for OutputError {
                     description: fl!("inrelease-syntax-error", path = s),
                     source: None,
                 },
-                InReleaseParserError::UnsupportFileType => Self {
-                    description: fl!("inrelease-parse-unsupport-file-type"),
+                InReleaseParserError::UnsupportedFileType => Self {
+                    description: fl!("inrelease-parse-unsupported-file-type"),
                     source: None,
                 },
                 InReleaseParserError::ParseIntError(e) => Self {
@@ -513,11 +513,11 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             source: None,
         },
         OmaTopicsError::ParseUrl(e) => OutputError {
-            description: fl!("invaild-url"),
+            description: fl!("invalid-url"),
             source: Some(Box::new(e)),
         },
-        OmaTopicsError::UnsupportProtocol(s) => OutputError {
-            description: fl!("unsupport-protocol", url = s),
+        OmaTopicsError::UnsupportedProtocol(s) => OutputError {
+            description: fl!("unsupported-protocol", url = s),
             source: None,
         },
         OmaTopicsError::OpenFile(s, e) => OutputError {
@@ -646,10 +646,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: None,
         },
         OmaAptError::InvalidFileName(s) => OutputError {
-            description: fl!("invaild-filename", name = s),
+            description: fl!("invalid-filename", name = s),
             source: None,
         },
-        OmaAptError::DownlaodError(e) => oma_download_error(e),
+        OmaAptError::DownloadError(e) => oma_download_error(e),
         OmaAptError::DpkgFailedConfigure(e) => OutputError {
             description: fl!("dpkg-configure-a-non-zero"),
             source: Some(Box::new(e)),
@@ -758,7 +758,7 @@ impl From<reqwest::Error> for OutputError {
 fn oma_download_error(e: DownloadError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        DownloadError::ChecksumMisMatch(filename) => OutputError {
+        DownloadError::ChecksumMismatch(filename) => OutputError {
             description: fl!("checksum-mismatch", filename = filename),
             source: None,
         },
@@ -772,8 +772,8 @@ fn oma_download_error(e: DownloadError) -> OutputError {
             description: fl!("can-not-parse-sources-list", path = path.to_string()),
             source: Some(Box::new(e)),
         },
-        DownloadError::InvaildURL(s) => OutputError {
-            description: fl!("invaild-url", url = s),
+        DownloadError::InvalidURL(s) => OutputError {
+            description: fl!("invalid-url", url = s),
             source: None,
         },
         DownloadError::EmptySources => OutputError {
@@ -817,8 +817,8 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(AptErrors::from(e))),
         },
-        OmaDatabaseError::InvaildPattern(s) => OutputError {
-            description: fl!("invaild-pattern", p = s),
+        OmaDatabaseError::InvalidPattern(s) => OutputError {
+            description: fl!("invalid-pattern", p = s),
             source: None,
         },
         OmaDatabaseError::NoPackage(s) => OutputError {
@@ -830,7 +830,7 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
             source: None,
         },
         OmaDatabaseError::NoPath(s) => OutputError {
-            description: fl!("invaild-path", p = s),
+            description: fl!("invalid-path", p = s),
             source: None,
         },
         OmaDatabaseError::OmaSearchError(e) => match e {

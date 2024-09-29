@@ -110,7 +110,7 @@ pub struct OmaPager<'a> {
     horizontal_scroll_state: ScrollbarState,
     vertical_scroll: usize,
     horizontal_scroll: usize,
-    area_heigh: u16,
+    area_height: u16,
     max_width: u16,
     tips: String,
     title: Option<String>,
@@ -159,7 +159,7 @@ impl<'a> OmaPager<'a> {
             horizontal_scroll_state: ScrollbarState::new(0),
             vertical_scroll: 0,
             horizontal_scroll: 0,
-            area_heigh: 0,
+            area_height: 0,
             max_width: 0,
             tips,
             title,
@@ -228,21 +228,21 @@ impl<'a> OmaPager<'a> {
                             }
                             KeyCode::Char('G') => {
                                 self.vertical_scroll =
-                                    self.inner_len.saturating_sub(self.area_heigh.into());
+                                    self.inner_len.saturating_sub(self.area_height.into());
                                 self.vertical_scroll_state =
                                     self.vertical_scroll_state.position(self.vertical_scroll);
                             }
                             KeyCode::PageUp => {
                                 self.vertical_scroll = self
                                     .vertical_scroll
-                                    .saturating_sub(self.area_heigh as usize);
+                                    .saturating_sub(self.area_height as usize);
                                 self.vertical_scroll_state =
                                     self.vertical_scroll_state.position(self.vertical_scroll);
                             }
                             KeyCode::PageDown => {
                                 let pos = self
                                     .vertical_scroll
-                                    .saturating_add(self.area_heigh as usize);
+                                    .saturating_add(self.area_height as usize);
                                 if pos <= self.inner_len {
                                     self.vertical_scroll = pos;
                                 } else {
@@ -294,7 +294,7 @@ impl<'a> OmaPager<'a> {
     fn down(&mut self) -> ControlFlow<()> {
         if self
             .vertical_scroll
-            .saturating_add(self.area_heigh as usize)
+            .saturating_add(self.area_height as usize)
             >= self.inner_len
         {
             return ControlFlow::Break(());
@@ -340,7 +340,7 @@ impl<'a> OmaPager<'a> {
             f.render_widget(title, chunks[0]);
         }
 
-        self.area_heigh = if has_title {
+        self.area_height = if has_title {
             chunks[1].height
         } else {
             chunks[0].height
@@ -356,14 +356,14 @@ impl<'a> OmaPager<'a> {
 
         self.vertical_scroll_state = self
             .vertical_scroll_state
-            .content_length(self.inner_len.saturating_sub(self.area_heigh as usize));
+            .content_length(self.inner_len.saturating_sub(self.area_height as usize));
 
         let PagerInner::Finished(ref text) = self.inner else {
             unreachable!()
         };
 
         let text = if let Some(text) =
-            text.get(self.vertical_scroll..self.vertical_scroll + self.area_heigh as usize)
+            text.get(self.vertical_scroll..self.vertical_scroll + self.area_height as usize)
         {
             // 根据屏幕高度来决定显示多少行
             text

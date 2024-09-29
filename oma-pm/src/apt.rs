@@ -96,7 +96,7 @@ pub enum OmaAptError {
     #[error("Ivaild file name: {0}")]
     InvalidFileName(String),
     #[error(transparent)]
-    DownlaodError(#[from] DownloadError),
+    DownloadError(#[from] DownloadError),
     #[error("Failed to create async runtime: {0}")]
     FailedCreateAsyncRuntime(std::io::Error),
     #[error("Failed to create dir or file: {0}: {1}")]
@@ -1323,7 +1323,7 @@ fn also_install_recommends(ver: &Version, cache: &Cache) {
                     }
                     continue;
                 }
-                warn!("Recommand {} does not exist.", dep.name);
+                warn!("Recommend {} does not exist.", dep.name);
             }
         }
     }

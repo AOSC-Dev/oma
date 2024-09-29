@@ -325,7 +325,7 @@ pub fn command_builder() -> Command {
                 .long_about("Mark status for one or multiple package(s), oma will resolve dependencies in accordance with the marked status(es) of the specified package(s)")
                 .arg(Arg::new("action").value_parser([
                     PossibleValue::new("hold").help("Lock package version(s), this will prevent the specified package(s) from being updated or downgraded"),
-                    PossibleValue::new("unhold").help("Unlock package version(s), this will undo the “hold” status on the specified packge(s)"),
+                    PossibleValue::new("unhold").help("Unlock package version(s), this will undo the “hold” status on the specified package(s)"),
                     PossibleValue::new("manual").help("Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed"),
                     PossibleValue::new("auto").help("Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed")])
                 .required(true).num_args(1).action(ArgAction::Set))
