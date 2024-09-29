@@ -1,0 +1,14 @@
+name: Check typo
+
+on:
+  push:
+    branches: [ "*" ]
+
+jobs:
+  check-typo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: typos-action
+        uses: crate-ci/typos@v1.24.6
