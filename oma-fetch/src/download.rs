@@ -180,7 +180,7 @@ impl SingleDownloader<'_> {
 
                 debug!("Validator created.");
 
-                let mut buf = vec![0; 4096];
+                let mut buf = vec![0; 8192];
                 let mut read = 0;
 
                 loop {
