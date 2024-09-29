@@ -1,0 +1,6 @@
+[default.extend-words]
+ratatui = "ratatui"
+
+[type.md]
+extend-glob = ["*.md"]
+check-file = false
