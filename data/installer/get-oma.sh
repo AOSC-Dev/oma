@@ -65,10 +65,15 @@ _parse_os_release() {
 		elif [ "$VERSION_ID" = '24.04' ]; then
 			_oma_codename='noble'
 			_non_lts='0'
-		elif [ "$VERSION_ID" = '24.10' ]; then
-			# Match 24.04 (Noble Numbat).
-			_oma_codename='noble'
-			_non_lts='1'
+# FIXME: Ubuntu 24.10 ships with APT 2.9, which is no longer compatible with
+# our current GPG signing key's encryption algorithm (nistp521).
+#
+# Re-enable Ubuntu 24.10 when we refresh that key.
+#
+#		elif [ "$VERSION_ID" = '24.10' ]; then
+#			# Match 24.04 (Noble Numbat).
+#			_oma_codename='noble'
+#			_non_lts='1'
 		fi
 		echo "
 >>> 探测到 Ubuntu ${VERSION_ID} ...
@@ -99,8 +104,8 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 		exit 1
 	else
 		echo "
->>> oma 暂不支持 ${PRETTY_NAME}，抱歉！
->>> oma does not yet support ${PRETTY_NAME}, sorry!
+>>> oma 暂不支持 ${NAME} ${VERSION_ID}，抱歉！
+>>> oma does not yet support ${NAME} ${VERSION_ID}, sorry!
 "
 		exit 1
 	fi
