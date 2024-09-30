@@ -104,8 +104,8 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 		exit 1
 	else
 		echo "
->>> oma 暂不支持 ${PRETTY_NAME}，抱歉！
->>> oma does not yet support ${PRETTY_NAME}, sorry!
+>>> oma 暂不支持 ${NAME} ${VERSION_ID}，抱歉！
+>>> oma does not yet support ${NAME} ${VERSION_ID}, sorry!
 "
 		exit 1
 	fi
