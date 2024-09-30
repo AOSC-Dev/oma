@@ -74,6 +74,12 @@ _parse_os_release() {
 #			# Match 24.04 (Noble Numbat).
 #			_oma_codename='noble'
 #			_non_lts='1'
+		else
+			echo "
+>>> oma 暂不支持 Ubuntu ${VERSION_ID}，抱歉！
+>>> oma does not yet support Ubuntu ${VERSION_ID}, sorry!
+"
+			exit 1
 		fi
 		echo "
 >>> 探测到 Ubuntu ${VERSION_ID} ...
