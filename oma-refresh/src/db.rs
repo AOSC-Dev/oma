@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    os::fd::AsRawFd,
     path::{Path, PathBuf},
 };
 
@@ -8,6 +9,17 @@ use aho_corasick::BuildError;
 use futures::{
     future::{join_all, BoxFuture},
     FutureExt, StreamExt,
+};
+use nix::{
+    errno::Errno,
+    fcntl::{
+        fcntl, open,
+        FcntlArg::{F_GETLK, F_SETFD, F_SETLK},
+        FdFlag, OFlag,
+    },
+    libc::{flock, F_WRLCK, SEEK_SET},
+    sys::stat::Mode,
+    unistd::close,
 };
 use oma_apt::config::Config;
 use oma_apt_sources_lists::SourceError;
@@ -24,6 +36,7 @@ use oma_fetch::DownloadError;
 use reqwest::StatusCode;
 
 use smallvec::SmallVec;
+use sysinfo::{Pid, System};
 use tokio::{fs, process::Command};
 use tracing::{debug, warn};
 
@@ -72,6 +85,10 @@ pub enum RefreshError {
     AhoCorasickBuilder(#[from] BuildError),
     #[error("stream_replace_all failed")]
     ReplaceAll(std::io::Error),
+    #[error("Set lock failed")]
+    SetLock(Errno),
+    #[error("Set lock failed: process {0} ({1}) is using.")]
+    SetLockWithProcess(String, i32),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -105,6 +122,10 @@ pub enum RefreshError {
     AhoCorasickBuilder(#[from] BuildError),
     #[error("stream_replace_all failed")]
     ReplaceAll(std::io::Error),
+    #[error("Set lock failed")]
+    SetLock(Errno),
+    #[error("Set lock failed: process {0} ({1}) is using.")]
+    SetLockWithProcess(String, i32),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -168,6 +189,65 @@ impl<'a> OmaRefresh<'a> {
             .await
     }
 
+    async fn get_lock(&self) -> Result<()> {
+        let lock_path = self.download_dir.join("lock");
+
+        let fd = open(
+            &lock_path,
+            OFlag::O_RDWR | OFlag::O_CREAT | OFlag::O_NOFOLLOW,
+            Mode::from_bits_truncate(0o640),
+        )
+        .map_err(RefreshError::SetLock)?;
+
+        fcntl(fd, F_SETFD(FdFlag::FD_CLOEXEC)).map_err(|e| {
+            close(fd).ok();
+            RefreshError::SetLock(e)
+        })?;
+
+        // From apt libapt-pkg/fileutil.cc:287
+        let mut fl = flock {
+            l_type: F_WRLCK as i16,
+            l_whence: SEEK_SET as i16,
+            l_start: 0,
+            l_len: 0,
+            l_pid: -1,
+        };
+
+        if let Err(e) = fcntl(fd.as_raw_fd(), F_SETLK(&fl)) {
+            debug!("{e}");
+
+            if e == Errno::EACCES || e == Errno::EAGAIN {
+                fl.l_type = F_WRLCK as i16;
+                fl.l_whence = SEEK_SET as i16;
+                fl.l_len = 0;
+                fl.l_start = 0;
+                fl.l_pid = -1;
+                fcntl(fd.as_raw_fd(), F_GETLK(&mut fl)).ok();
+            } else {
+                fl.l_pid = -1;
+            }
+
+            close(fd).map_err(RefreshError::SetLock)?;
+
+            if fl.l_pid != -1 {
+                let mut sys = System::new();
+                sys.refresh_processes(sysinfo::ProcessesToUpdate::All);
+                let Some(process) = sys.process(Pid::from(fl.l_pid as usize)) else {
+                    return Err(RefreshError::SetLock(e));
+                };
+
+                return Err(RefreshError::SetLockWithProcess(
+                    process.name().to_string_lossy().to_string(),
+                    fl.l_pid,
+                ));
+            }
+
+            return Err(RefreshError::SetLock(e));
+        }
+
+        Ok(())
+    }
+
     async fn update_db<F, F2>(
         &mut self,
         sourcelist: Vec<OmaSourceEntry>,
@@ -188,6 +268,8 @@ impl<'a> OmaRefresh<'a> {
                     )
                 })?;
         }
+
+        self.get_lock().await?;
 
         let is_inrelease_map = self.get_is_inrelease_map(&sourcelist, &_callback).await?;
 
@@ -683,6 +765,7 @@ async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> 
     while let Ok(Some(x)) = download_dir.next_entry().await {
         if x.path().is_file()
             && !download_list.contains(&x.file_name().to_string_lossy().to_string())
+            && x.file_name() != "lock"
         {
             debug!("Removing {:?}", x.file_name());
             if let Err(e) = tokio::fs::remove_file(x.path()).await {

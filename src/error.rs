@@ -365,6 +365,17 @@ impl From<RefreshError> for OutputError {
                 description: e.to_string(),
                 source: Some(Box::new(e)),
             },
+            RefreshError::SetLock(errno) => Self {
+                description: fl!("oma-refresh-lock"),
+                source: Some(Box::new(errno)),
+            },
+            RefreshError::SetLockWithProcess(cmd, pid) => Self {
+                description: fl!("oma-refresh-lock"),
+                source: Some(Box::new(io::Error::new(
+                    ErrorKind::Other,
+                    fl!("oma-refresh-lock-dueto", exec = cmd, pid = pid),
+                ))),
+            },
         }
         #[cfg(not(feature = "aosc"))]
         match value {
@@ -471,6 +482,17 @@ impl From<RefreshError> for OutputError {
             RefreshError::ReplaceAll(e) => Self {
                 description: e.to_string(),
                 source: Some(Box::new(e)),
+            },
+            RefreshError::SetLock(errno) => Self {
+                description: fl!("oma-refresh-lock"),
+                source: Some(Box::new(errno)),
+            },
+            RefreshError::SetLockWithProcess(cmd, pid) => Self {
+                description: fl!("oma-refresh-lock"),
+                source: Some(Box::new(io::Error::new(
+                    ErrorKind::Other,
+                    fl!("oma-refresh-lock-dueto", exec = cmd, pid = pid),
+                ))),
             },
         }
     }
