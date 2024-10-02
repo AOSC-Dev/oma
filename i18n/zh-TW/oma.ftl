@@ -184,3 +184,5 @@ cnf-too-many-query = 您查詢的指令有大量匹配的項目。
 reading-database-with-count = 正在為軟體套件資料庫構建索引，已索引 { $count } 個軟體套件……
 no-result-bincontents-tips = 您可能在尋找這些軟體套件：
 no-result-bincontents-tips-2 = 指令 { $cmd } 由軟體套件 { $pkg } 提供
+oma-refresh-lock = 無法重新整理本機軟體套件資料庫。
+oma-refresh-lock-dueto = { $exec } ({ $pid }) 已鎖定資料庫。
