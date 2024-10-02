@@ -10,11 +10,11 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 [dependencies]
 # Cli
-clap = { version = "4.5.18", features = ["cargo", "wrap_help", "color", "string"] }
+clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string"] }
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
 # https://github.com/zhiburt/tabled/issues/423
-tabled = { version = "=0.15", features = ["ansi"] }
+tabled = { version = "=0.15.0", features = ["ansi"] }
 dialoguer = "0.11.0"
 tokio = "1.40.0"
 oma-inquire = "0.1.1"
@@ -27,7 +27,7 @@ rustix = { version = "0.38.37", features = ["process"] }
 colored = { version = "2.1.0", optional = true }
 image = { version = "0.25.2", optional = true }
 libc = "0.2.159"
-reqwest = { version = "0.12.7", default-features = false }
+reqwest = { version = "0.12.8", default-features = false }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 smallvec = "1.13.2"
@@ -39,6 +39,7 @@ glob-match = "0.2.1"
 which = "6.0.3"
 strsim = "0.11.1"
 ahash = "0.8.11"
+indexmap = "2.6.0"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
@@ -56,12 +57,11 @@ i18n-embed = { version = "0.15.0", features = ["fluent-system", "desktop-request
 i18n-embed-fl = "0.9.1"
 rust-embed = "8.5.0"
 unic-langid = "0.9.5"
-indexmap = "2.5.0"
 
 [build-dependencies]
 clap_mangen = "0.2.23"
 clap_complete = "4.5.29"
-clap = { version = "4.5.18", features = ["cargo", "wrap_help", "color", "string"] }
+clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string"] }
 anyhow = "1.0.89"
 
 [features]
