@@ -56,7 +56,7 @@ pub fn execute(
             no_progress,
             limit: network_thread,
             sysroot: &args.sysroot,
-            _refresh_topics: !args.no_refresh_topic,
+            refresh_topics: !args.no_refresh_topic,
             config: &apt_config,
         }
         .run()?;

@@ -224,7 +224,7 @@ impl<'a> TopicManager<'a> {
     pub async fn write_enabled(
         &self,
         dry_run: bool,
-        comment_cb: impl Fn() -> String,
+        comment: &str,
         message_cb: impl Fn(&str, &str),
     ) -> Result<()> {
         if dry_run {
@@ -242,7 +242,7 @@ impl<'a> TopicManager<'a> {
 
         let mirrors = enabled_mirror(self.sysroot.as_path()).await?;
 
-        f.write_all(comment_cb().as_bytes()).await.map_err(|e| {
+        f.write_all(comment.as_bytes()).await.map_err(|e| {
             OmaTopicsError::FailedToOperateDirOrFile(
                 "/etc/apt/sources.list.d/atm.list".to_string(),
                 e,
@@ -400,7 +400,7 @@ async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Resul
 
 /// Scan all close topics from upstream and disable it
 pub async fn scan_closed_topic(
-    comment_cb: impl Fn() -> String,
+    comment: &str,
     message_cb: impl Fn(&str, &str),
     rootfs: impl AsRef<Path>,
     arch: &str,
@@ -420,7 +420,7 @@ pub async fn scan_closed_topic(
         }
     }
 
-    tm.write_enabled(false, comment_cb, message_cb).await?;
+    tm.write_enabled(false, comment, message_cb).await?;
 
     Ok(res)
 }

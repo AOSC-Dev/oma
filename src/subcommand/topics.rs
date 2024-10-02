@@ -75,7 +75,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
             opt_out,
             dry_run,
             no_progress,
-            || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
+            format!("{}\n", fl!("do-not-edit-topic-sources-list")),
             sysroot_ref,
         )
         .await
@@ -92,7 +92,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         no_progress,
         limit: network_thread,
         sysroot: &sysroot,
-        _refresh_topics: true,
+        refresh_topics: true,
         config: &apt_config,
     }
     .run()?;
@@ -150,18 +150,14 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     Ok(code)
 }
 
-async fn topics_inner<F, P>(
+async fn topics_inner(
     mut opt_in: Vec<String>,
     mut opt_out: Vec<String>,
     dry_run: bool,
     no_progress: bool,
-    callback: F,
-    sysroot: P,
-) -> Result<TopicChanged, OutputError>
-where
-    F: Fn() -> String,
-    P: AsRef<Path>,
-{
+    sysroot: impl AsRef<Path>,
+    topic_msg: &str,
+) -> Result<TopicChanged, OutputError> {
     let dpkg_arch = dpkg_arch(&sysroot)?;
     let mut tm = TopicManager::new(&sysroot, &dpkg_arch).await?;
 
@@ -181,7 +177,7 @@ where
         downgrade_pkgs.extend(removed_topic.packages);
     }
 
-    tm.write_enabled(dry_run, callback, |topic, mirror| {
+    tm.write_enabled(dry_run, topic_msg, |topic, mirror| {
         warn!(
             "{}",
             fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
@@ -326,7 +322,7 @@ async fn refresh_topics<P: AsRef<Path>>(
 
     tm.refresh().await?;
     scan_closed_topic(
-        || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
+        &format!("{}\n", fl!("do-not-edit-topic-sources-list")),
         |topic, mirror| {
             if let Some(pb) = &pb {
                 bar_writeln(

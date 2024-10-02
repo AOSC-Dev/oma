@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 
 use oma_console::{due_to, success};
+use oma_fetch::DownloadProgressControl;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use reqwest::Client;
 use tracing::error;
 
-use crate::pb::{NoProgressBar, OmaProgress, OmaProgressBar, ProgressEvent};
+use crate::pb::{NoProgressBar, OmaProgressBar};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 use crate::{fl, OmaArgs};
 
@@ -35,11 +36,10 @@ pub fn execute(
     let (pkgs, no_result) = apt.select_pkg(&keyword, false, true, true)?;
     handle_no_result("/", no_result)?;
 
-    let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
-        let pb = OmaProgressBar::new();
-        Box::new(pb)
+    let progress_manager: &dyn DownloadProgressControl = if !no_progress {
+        &OmaProgressBar::default()
     } else {
-        Box::new(NoProgressBar)
+        &NoProgressBar
     };
 
     let (success, failed) = apt.download(
@@ -48,9 +48,7 @@ pub fn execute(
         Some(network_thread),
         Some(&path),
         dry_run,
-        |count, event, total| {
-            oma_pb.change(ProgressEvent::from(event), count, total);
-        },
+        progress_manager,
     )?;
 
     if !success.is_empty() {

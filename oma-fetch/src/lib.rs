@@ -1,6 +1,5 @@
 use std::{
     cmp::Ordering,
-    fmt::Display,
     path::PathBuf,
     sync::{atomic::AtomicU64, Arc},
 };
@@ -122,20 +121,14 @@ impl From<&str> for CompressFile {
 
 #[derive(Debug, Clone)]
 pub struct DownloadSource {
-    url: String,
-    source_type: DownloadSourceType,
-}
-
-impl DownloadSource {
-    pub fn new(url: String, source_type: DownloadSourceType) -> Self {
-        Self { url, source_type }
-    }
+    pub url: String,
+    pub source_type: DownloadSourceType,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DownloadSourceType {
     Http,
-    Local { as_symlink: bool },
+    Local(bool),
 }
 
 impl PartialOrd for DownloadSourceType {
@@ -159,12 +152,19 @@ impl Ord for DownloadSourceType {
     }
 }
 
-pub struct OmaFetcher<'a> {
+#[derive(Builder)]
+pub struct DownloadManager<'a> {
     client: &'a Client,
     download_list: Vec<DownloadEntry>,
-    limit_thread: usize,
+    #[builder(default = 4)]
+    threads: usize,
+    #[builder(default = 3)]
     retry_times: usize,
+    #[builder(skip = Arc::new(AtomicU64::new(0)))]
     global_progress: Arc<AtomicU64>,
+    progress_manager: &'a dyn DownloadProgressControl,
+    #[builder(default)]
+    total_size: u64,
 }
 
 #[derive(Debug)]
@@ -175,60 +175,38 @@ pub struct Summary {
     pub context: Option<String>,
 }
 
-#[derive(Debug)]
-pub enum DownloadEvent {
-    ChecksumMismatchRetry { filename: String, times: usize },
-    GlobalProgressSet(u64),
-    GlobalProgressInc(u64),
-    ProgressDone,
-    NewProgressSpinner(String),
-    NewProgress(u64, String),
-    ProgressInc(u64),
-    ProgressSet(u64),
-    CanNotGetSourceNextUrl(String),
-    Done(String),
-    AllDone,
+pub trait DownloadProgressControl: AsDownloadProgressControl {
+    fn checksum_mismatch_retry(&self, index: usize, filename: &str, times: usize);
+    fn global_progress_set(&self, num: &AtomicU64);
+    fn progress_done(&self, index: usize);
+    fn new_progress_spinner(&self, index: usize, msg: &str);
+    fn new_progress_bar(&self, index: usize, msg: &str, size: u64);
+    fn progress_inc(&self, index: usize, num: u64);
+    fn progress_set(&self, index: usize, num: u64);
+    fn failed_to_get_source_next_url(&self, index: usize, err: &str);
+    fn download_done(&self, index: usize, msg: &str);
+    fn all_done(&self);
+    fn new_global_progress_bar(&self, total_size: u64);
 }
 
-impl Display for DownloadEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{self:?}"))
-    }
+// https://stackoverflow.com/questions/28632968/why-doesnt-rust-support-trait-object-upcasting
+pub trait AsDownloadProgressControl {
+    fn as_download_progress_control(&self) -> &dyn DownloadProgressControl;
 }
 
-/// OmaFetcher is a Download Manager
-impl<'a> OmaFetcher<'a> {
-    pub fn new(
-        client: &'a Client,
-        download_list: Vec<DownloadEntry>,
-        limit_thread: Option<usize>,
-    ) -> DownloadResult<OmaFetcher<'a>> {
-        Ok(Self {
-            client,
-            download_list,
-            limit_thread: limit_thread.unwrap_or(4),
-            retry_times: 3,
-            global_progress: Arc::new(AtomicU64::new(0)),
-        })
-    }
-
-    /// Set retry times
-    pub fn retry_times(&mut self, retry_times: usize) -> &mut Self {
-        self.retry_times = retry_times;
+impl<T: DownloadProgressControl> AsDownloadProgressControl for T {
+    fn as_download_progress_control(&self) -> &dyn DownloadProgressControl {
         self
     }
+}
 
+impl<'a> DownloadManager<'a> {
     /// Start download
-    pub async fn start_download<F>(&self, callback: F) -> Vec<DownloadResult<Summary>>
-    where
-        F: Fn(usize, DownloadEvent) + Clone + Send + Sync,
-    {
-        let callback = Arc::new(callback);
+    pub async fn start_download(&self) -> Vec<DownloadResult<Summary>> {
         let mut tasks = Vec::new();
         let mut list = vec![];
         for (i, c) in self.download_list.iter().enumerate() {
             let msg = c.msg.clone();
-            // 因为数据的来源是确定的，所以这里能够确定肯定不崩溃，因此直接 unwrap
             let single = SingleDownloader::builder()
                 .client(self.client)
                 .maybe_context(msg.clone())
@@ -255,18 +233,23 @@ impl<'a> OmaFetcher<'a> {
         let http_download_source = list.len() - file_download_source;
 
         for single in list {
-            tasks.push(single.try_download(self.global_progress.clone(), callback.clone()));
+            tasks.push(single.try_download(self.global_progress.clone(), self.progress_manager));
         }
 
         let thread = if file_download_source >= http_download_source {
             1
         } else {
-            self.limit_thread
+            self.threads
         };
+
+        if self.total_size != 0 {
+            self.progress_manager
+                .new_global_progress_bar(self.total_size);
+        }
 
         let stream = futures::stream::iter(tasks).buffer_unordered(thread);
         let res = stream.collect::<Vec<_>>().await;
-        callback(0, DownloadEvent::AllDone);
+        self.progress_manager.all_done();
 
         res
     }

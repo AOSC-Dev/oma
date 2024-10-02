@@ -22,8 +22,8 @@ use oma_console::console::{self, style};
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::Client,
-    DownloadEntry, DownloadError, DownloadEvent, DownloadSource, DownloadSourceType, OmaFetcher,
-    Summary,
+    DownloadEntry, DownloadError, DownloadManager, DownloadProgressControl, DownloadSource,
+    DownloadSourceType, Summary,
 };
 use oma_utils::{
     dpkg::{dpkg_arch, is_hold, DpkgError},
@@ -358,18 +358,15 @@ impl OmaApt {
     }
 
     /// Download packages
-    pub fn download<F>(
+    pub fn download(
         &self,
         client: &Client,
         pkgs: Vec<PkgInfo>,
         network_thread: Option<usize>,
         download_dir: Option<&Path>,
         dry_run: bool,
-        callback: F,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
-    where
-        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
-    {
+        progress_manager: &dyn DownloadProgressControl,
+    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
         let mut download_list = vec![];
         for pkg in pkgs {
             let name = pkg.raw_pkg.name().to_string();
@@ -430,7 +427,7 @@ impl OmaApt {
                 download_list,
                 network_thread,
                 download_dir.unwrap_or(Path::new(".")),
-                callback,
+                progress_manager,
             )
             .await
         })?;
@@ -495,17 +492,14 @@ impl OmaApt {
     }
 
     /// Commit changes
-    pub fn commit<F>(
+    pub fn commit(
         self,
         client: &Client,
         network_thread: Option<usize>,
         args_config: &AptArgs,
-        callback: F,
+        progress_manager: &dyn DownloadProgressControl,
         op: OmaOperation,
-    ) -> OmaAptResult<()>
-    where
-        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
-    {
+    ) -> OmaAptResult<()> {
         let v = op;
         let v_str = v.to_string();
 
@@ -526,7 +520,14 @@ impl OmaApt {
                 change_status(&conn, "Downloading").await.ok();
             }
 
-            Self::download_pkgs(client, download_pkg_list, network_thread, &path, callback).await
+            Self::download_pkgs(
+                client,
+                download_pkg_list,
+                network_thread,
+                &path,
+                progress_manager,
+            )
+            .await
         })?;
 
         if !failed.is_empty() {
@@ -680,18 +681,15 @@ impl OmaApt {
     }
 
     /// Download packages (inner)
-    async fn download_pkgs<F>(
+    async fn download_pkgs(
         client: &Client,
         download_pkg_list: Vec<InstallEntry>,
         network_thread: Option<usize>,
         download_dir: &Path,
-        callback: F,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
-    where
-        F: Fn(usize, DownloadEvent, Option<u64>) + Clone + Send + Sync,
-    {
+        progress_manager: &dyn DownloadProgressControl,
+    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
         if download_pkg_list.is_empty() {
-            callback(0, DownloadEvent::AllDone, None);
+            progress_manager.all_done();
             return Ok((vec![], vec![]));
         }
 
@@ -704,12 +702,15 @@ impl OmaApt {
                 .iter()
                 .map(|x| {
                     let source_type = if x.starts_with("file:") {
-                        DownloadSourceType::Local { as_symlink: false }
+                        DownloadSourceType::Local(false)
                     } else {
                         DownloadSourceType::Http
                     };
 
-                    DownloadSource::new(x.to_string(), source_type)
+                    DownloadSource {
+                        url: x.to_string(),
+                        source_type,
+                    }
                 })
                 .collect::<Vec<_>>();
 
@@ -755,11 +756,15 @@ impl OmaApt {
             download_list.push(download_entry);
         }
 
-        let downloader = OmaFetcher::new(client, download_list, network_thread)?;
+        let downloader = DownloadManager::builder()
+            .client(client)
+            .download_list(download_list)
+            .maybe_threads(network_thread)
+            .progress_manager(progress_manager)
+            .total_size(total_size)
+            .build();
 
-        let res = downloader
-            .start_download(|count, event| callback(count, event, Some(total_size)))
-            .await;
+        let res = downloader.start_download().await;
 
         let (mut success, mut failed) = (vec![], vec![]);
 

@@ -10,9 +10,7 @@ use crate::color_formatter;
 use crate::error::OutputError;
 use crate::fl;
 use crate::pb::NoProgressBar;
-use crate::pb::OmaProgress;
 use crate::pb::OmaProgressBar;
-use crate::pb::ProgressEvent;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::LOCKED;
@@ -24,6 +22,7 @@ use oma_console::success;
 use oma_contents::searcher::pure_search;
 use oma_contents::searcher::ripgrep_search;
 use oma_contents::searcher::Mode;
+use oma_fetch::DownloadProgressControl;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
@@ -32,8 +31,8 @@ use oma_pm::apt::AptArgs;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
+use oma_refresh::db::HandleRefresh;
 use oma_refresh::db::OmaRefresh;
-use oma_refresh::db::OmaRefreshBuilder;
 use oma_utils::dpkg::dpkg_arch;
 use oma_utils::oma::lock_oma_inner;
 use oma_utils::oma::unlock_oma;
@@ -145,7 +144,7 @@ pub struct RefreshRequest<'a> {
     pub no_progress: bool,
     pub limit: usize,
     pub sysroot: &'a str,
-    pub _refresh_topics: bool,
+    pub refresh_topics: bool,
     pub config: &'a AptConfig,
 }
 
@@ -157,7 +156,7 @@ impl<'a> RefreshRequest<'a> {
             no_progress,
             limit,
             sysroot,
-            _refresh_topics,
+            refresh_topics,
             config,
         } = self;
 
@@ -169,35 +168,35 @@ impl<'a> RefreshRequest<'a> {
 
         let sysroot = PathBuf::from(sysroot);
 
-        let refresh: OmaRefresh = OmaRefreshBuilder {
-            source: sysroot.clone(),
-            limit: Some(limit),
-            arch: dpkg_arch(&sysroot)?,
-            download_dir: sysroot.join("var/lib/apt/lists"),
-            client,
-            #[cfg(feature = "aosc")]
-            refresh_topics: _refresh_topics,
-            apt_config: config,
-        }
-        .into();
+        let msg = format!("{}\n", fl!("do-not-edit-topic-sources-list"));
+
+        let pm: &dyn HandleRefresh = if !no_progress {
+            &OmaProgressBar::default()
+        } else {
+            &NoProgressBar
+        };
+
+        let arch = dpkg_arch(&sysroot)?;
+
+        let refresh = OmaRefresh::builder()
+            .download_dir(sysroot.join("var/lib/apt/lists"))
+            .source(sysroot)
+            .threads(limit)
+            .arch(arch)
+            .apt_config(config)
+            .client(client)
+            .progress_manager(pm)
+            .topic_msg(&msg);
+
+        #[cfg(feature = "aosc")]
+        let refresh = refresh.refresh_topics(refresh_topics).build();
+
+        #[cfg(not(feature = "aosc"))]
+        let refresh = refresh.build();
 
         let tokio = create_async_runtime()?;
 
-        let oma_pb: Box<dyn OmaProgress + Send + Sync> = if !no_progress {
-            let pb = OmaProgressBar::new();
-            Box::new(pb)
-        } else {
-            Box::new(NoProgressBar)
-        };
-
-        tokio.block_on(async move {
-            refresh
-                .start(
-                    |count, event, total| oma_pb.change(ProgressEvent::from(event), count, total),
-                    || format!("{}\n", fl!("do-not-edit-topic-sources-list")),
-                )
-                .await
-        })?;
+        tokio.block_on(async move { refresh.start().await })?;
 
         Ok(())
     }
@@ -260,24 +259,16 @@ impl<'a> CommitRequest<'a> {
             x @ PagerExit::DryRun => return Ok(x.into()),
         }
 
-        let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
-            let pb = OmaProgressBar::new();
+        let start_time = Local::now().timestamp();
+
+        let pm: Box<dyn DownloadProgressControl> = if !no_progress {
+            let pb = OmaProgressBar::default();
             Box::new(pb)
         } else {
             Box::new(NoProgressBar)
         };
 
-        let start_time = Local::now().timestamp();
-
-        let res = apt.commit(
-            client,
-            Some(network_thread),
-            &apt_args,
-            |count, event, total| {
-                oma_pb.change(ProgressEvent::from(event), count, total);
-            },
-            op,
-        );
+        let res = apt.commit(client, Some(network_thread), &apt_args, pm.as_ref(), op);
 
         match res {
             Ok(_) => {
