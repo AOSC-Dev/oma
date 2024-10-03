@@ -144,7 +144,7 @@ pub struct RefreshRequest<'a> {
     pub no_progress: bool,
     pub limit: usize,
     pub sysroot: &'a str,
-    pub refresh_topics: bool,
+    pub _refresh_topics: bool,
     pub config: &'a AptConfig,
 }
 
@@ -156,7 +156,7 @@ impl<'a> RefreshRequest<'a> {
             no_progress,
             limit,
             sysroot,
-            refresh_topics,
+            _refresh_topics,
             config,
         } = self;
 
@@ -189,7 +189,7 @@ impl<'a> RefreshRequest<'a> {
             .topic_msg(&msg);
 
         #[cfg(feature = "aosc")]
-        let refresh = refresh.refresh_topics(refresh_topics).build();
+        let refresh = refresh.refresh_topics(_refresh_topics).build();
 
         #[cfg(not(feature = "aosc"))]
         let refresh = refresh.build();

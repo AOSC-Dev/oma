@@ -52,7 +52,7 @@ pub fn execute(
             no_progress,
             limit: network_thread,
             sysroot: &sysroot,
-            refresh_topics: !no_refresh_topic,
+            _refresh_topics: !no_refresh_topic,
             config: &apt_config,
         }
         .run()?;

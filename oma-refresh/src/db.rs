@@ -31,6 +31,7 @@ use oma_fetch::{
     DownloadSource, DownloadSourceType, Summary,
 };
 
+#[cfg(feature = "aosc")]
 use oma_fetch::DownloadError;
 
 #[cfg(feature = "aosc")]
@@ -525,9 +526,9 @@ impl<'a> OmaRefresh<'a> {
 
     async fn handle_downloaded_release_result(
         &self,
-        res: Vec<std::result::Result<Summary, DownloadError>>,
-        progress_manager: &dyn HandleRefresh,
-        handle_topic_msg: &str,
+        res: Vec<DownloadResult<Summary>>,
+        _progress_manager: &dyn HandleRefresh,
+        _handle_topic_msg: &str,
     ) -> Result<Vec<Summary>> {
         let mut all_inrelease = vec![];
 
@@ -569,10 +570,10 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(feature = "aosc")]
         {
             if self.refresh_topics {
-                progress_manager.scanning_topic();
+                _progress_manager.scanning_topic();
                 let removed_suites = oma_topics::scan_closed_topic(
-                    handle_topic_msg,
-                    |topic, mirror| progress_manager.topic_not_in_mirror(topic, mirror),
+                    _handle_topic_msg,
+                    |topic, mirror| _progress_manager.topic_not_in_mirror(topic, mirror),
                     &self.source,
                     &self.arch,
                 )
@@ -588,7 +589,7 @@ impl<'a> OmaRefresh<'a> {
                         return Err(RefreshError::NoInReleaseFile(url.to_string()));
                     }
 
-                    progress_manager.closing_topic(&suite);
+                    _progress_manager.closing_topic(&suite);
                 }
             }
         }

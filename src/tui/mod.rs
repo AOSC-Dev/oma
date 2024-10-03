@@ -57,7 +57,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         no_progress,
         limit: network_thread,
         sysroot: &sysroot,
-        refresh_topics: true,
+        _refresh_topics: true,
         config: &apt_config,
     }
     .run()?;

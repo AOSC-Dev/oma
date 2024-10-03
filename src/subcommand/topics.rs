@@ -92,7 +92,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         no_progress,
         limit: network_thread,
         sysroot: &sysroot,
-        refresh_topics: true,
+        _refresh_topics: true,
         config: &apt_config,
     }
     .run()?;
