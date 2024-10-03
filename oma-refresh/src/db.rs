@@ -527,7 +527,7 @@ impl<'a> OmaRefresh<'a> {
         &self,
         res: Vec<std::result::Result<Summary, DownloadError>>,
         progress_manager: &dyn HandleRefresh,
-        _handle_topic_msg: &str,
+        handle_topic_msg: &str,
     ) -> Result<Vec<Summary>> {
         let mut all_inrelease = vec![];
 
@@ -571,7 +571,7 @@ impl<'a> OmaRefresh<'a> {
             if self.refresh_topics {
                 progress_manager.scanning_topic();
                 let removed_suites = oma_topics::scan_closed_topic(
-                    _handle_topic_msg,
+                    handle_topic_msg,
                     |topic, mirror| progress_manager.topic_not_in_mirror(topic, mirror),
                     &self.source,
                     &self.arch,

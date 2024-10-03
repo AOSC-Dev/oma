@@ -168,7 +168,7 @@ impl<'a> RefreshRequest<'a> {
 
         let sysroot = PathBuf::from(sysroot);
 
-        let msg = format!("{}\n", fl!("do-not-edit-topic-sources-list"));
+        let msg = fl!("do-not-edit-topic-sources-list");
 
         let pm: &dyn HandleRefresh = if !no_progress {
             &OmaProgressBar::default()

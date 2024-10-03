@@ -242,12 +242,14 @@ impl<'a> TopicManager<'a> {
 
         let mirrors = enabled_mirror(self.sysroot.as_path()).await?;
 
-        f.write_all(comment.as_bytes()).await.map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(
-                "/etc/apt/sources.list.d/atm.list".to_string(),
-                e,
-            )
-        })?;
+        f.write_all(format!("{}\n", comment).as_bytes())
+            .await
+            .map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(
+                    "/etc/apt/sources.list.d/atm.list".to_string(),
+                    e,
+                )
+            })?;
 
         for i in &self.enabled {
             f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())

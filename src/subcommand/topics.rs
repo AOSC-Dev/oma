@@ -75,7 +75,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
             opt_out,
             dry_run,
             no_progress,
-            format!("{}\n", fl!("do-not-edit-topic-sources-list")),
+            fl!("do-not-edit-topic-sources-list"),
             sysroot_ref,
         )
         .await
