@@ -387,7 +387,7 @@ impl<'a> OmaRefresh<'a> {
                     let task = async move {
                         progress_manager.new_progress_spinner(
                             i,
-                            &format!("({}/{}) {}", i, sourcelist.len(), s),
+                            &format!("({}/{}) {}", i + 1, sourcelist.len(), s),
                         );
                         let res = join_all(tasks1).await;
                         progress_manager.progress_done(i);
@@ -399,7 +399,7 @@ impl<'a> OmaRefresh<'a> {
                 OmaSourceEntryFrom::Local => {
                     let msg = format!(
                         "({}/{}) {}",
-                        i,
+                        i + 1,
                         sourcelist.len(),
                         human_download_url(c, None)?
                     );
