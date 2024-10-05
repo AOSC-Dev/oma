@@ -153,16 +153,23 @@ impl FromStr for ChecksumItem {
     type Err = InReleaseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut line = s.splitn(3, |c: char| c.is_ascii_whitespace());
+        debug!("Parsing line: {s}");
+
+        let mut line = s.split_ascii_whitespace();
+
         let checksum = line
             .next()
             .ok_or(InReleaseError::BrokenInRelease)?
             .to_string();
-        let size = line
-            .next()
-            .ok_or(InReleaseError::BrokenInRelease)?
-            .parse::<u64>()
-            .map_err(InReleaseError::ParseIntError)?;
+
+        debug!("checksum is: {checksum}");
+
+        let size = line.next().ok_or(InReleaseError::BrokenInRelease)?;
+
+        debug!("size is: {size}");
+
+        let size = size.parse::<u64>().map_err(InReleaseError::ParseIntError)?;
+
         let name = line
             .next()
             .ok_or(InReleaseError::BrokenInRelease)?
@@ -330,5 +337,19 @@ fn test_split_name_and_ext() {
     assert_eq!(
         res,
         ("".to_string(), "main/i18n/Translation-bg".to_string())
+    );
+}
+
+#[test]
+fn test_checksum_parse() {
+    let entry = "87c803ffdc2655fd4df8779707ae7713b8e1e2dba44fea4a68b4783b7d8aa6c9           392728 Contents-amd64";
+    assert_eq!(
+        ChecksumItem::from_str(entry).unwrap(),
+        ChecksumItem {
+            name: "Contents-amd64".to_string(),
+            size: 392728,
+            checksum: "87c803ffdc2655fd4df8779707ae7713b8e1e2dba44fea4a68b4783b7d8aa6c9"
+                .to_string()
+        }
     );
 }
