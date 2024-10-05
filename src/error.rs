@@ -12,7 +12,7 @@ use oma_pm::search::OmaSearchError;
 use oma_pm::AptErrors;
 use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
 use oma_refresh::db::RefreshError;
-use oma_refresh::inrelease::InReleaseParserError;
+use oma_refresh::inrelease::InReleaseError;
 use oma_repo_verify::VerifyError;
 use oma_utils::dbus::OmaDbusError;
 use oma_utils::dpkg::DpkgError;
@@ -279,8 +279,8 @@ impl From<RefreshError> for OutputError {
                 description: fl!("not-found", url = s),
                 source: None,
             },
-            RefreshError::InReleaseParseError(s, e) => match e {
-                InReleaseParserError::VerifyError(e) => match e {
+            RefreshError::InReleaseParseError(path, e) => match e {
+                InReleaseError::VerifyError(e) => match e {
                     VerifyError::CertParseFileError(p, e) => Self {
                         description: fl!("fail-load-certs-from-file", path = p),
                         source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
@@ -302,44 +302,40 @@ impl From<RefreshError> for OutputError {
                         source: Some(Box::new(e)),
                     },
                 },
-                InReleaseParserError::BadInReleaseData => Self {
+                InReleaseError::BadInReleaseData => Self {
                     description: fl!("can-not-parse-date"),
                     source: None,
                 },
-                InReleaseParserError::BadInReleaseValidUntil => Self {
+                InReleaseError::BadInReleaseValidUntil => Self {
                     description: fl!("can-not-parse-valid-until"),
                     source: None,
                 },
-                InReleaseParserError::EarlierSignature(p) => Self {
-                    description: fl!("earlier-signature", filename = p),
+                InReleaseError::EarlierSignature => Self {
+                    description: fl!("earlier-signature", filename = path),
                     source: None,
                 },
-                InReleaseParserError::ExpiredSignature(p) => Self {
-                    description: fl!("expired-signature", filename = p),
+                InReleaseError::ExpiredSignature => Self {
+                    description: fl!("expired-signature", filename = path),
                     source: None,
                 },
-                InReleaseParserError::BadChecksumValue(_) => Self {
-                    description: fl!("inrelease-sha256-empty"),
+                InReleaseError::InReleaseSyntaxError => Self {
+                    description: fl!("inrelease-syntax-error", path = path),
                     source: None,
                 },
-                InReleaseParserError::BadChecksumEntry(line) => Self {
-                    description: fl!("inrelease-checksum-can-not-parse", i = line),
-                    source: None,
-                },
-                InReleaseParserError::InReleaseSyntaxError => Self {
-                    description: fl!("inrelease-syntax-error", path = s),
-                    source: None,
-                },
-                InReleaseParserError::UnsupportedFileType => Self {
+                InReleaseError::UnsupportedFileType => Self {
                     description: fl!("inrelease-parse-unsupported-file-type"),
                     source: None,
                 },
-                InReleaseParserError::ParseIntError(e) => Self {
+                InReleaseError::ParseIntError(e) => Self {
                     description: e.to_string(),
                     source: None,
                 },
-                InReleaseParserError::NotTrusted(mirror) => Self {
-                    description: fl!("mirror-is-not-trusted", mirror = mirror),
+                InReleaseError::NotTrusted => Self {
+                    description: fl!("mirror-is-not-trusted", mirror = path),
+                    source: None,
+                },
+                InReleaseError::BrokenInRelease => Self {
+                    description: fl!("inrelease-checksum-can-not-parse", p = path),
                     source: None,
                 },
             },
@@ -397,8 +393,8 @@ impl From<RefreshError> for OutputError {
                 description: fl!("not-found", url = s),
                 source: None,
             },
-            RefreshError::InReleaseParseError(s, e) => match e {
-                InReleaseParserError::VerifyError(e) => match e {
+            RefreshError::InReleaseParseError(p, e) => match e {
+                InReleaseError::VerifyError(e) => match e {
                     VerifyError::CertParseFileError(p, e) => Self {
                         description: fl!("fail-load-certs-from-file", path = p),
                         source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
@@ -420,44 +416,40 @@ impl From<RefreshError> for OutputError {
                         source: Some(Box::new(e)),
                     },
                 },
-                InReleaseParserError::BadInReleaseData => Self {
+                InReleaseError::BadInReleaseData => Self {
                     description: fl!("can-not-parse-date"),
                     source: None,
                 },
-                InReleaseParserError::BadInReleaseValidUntil => Self {
+                InReleaseError::BadInReleaseValidUntil => Self {
                     description: fl!("can-not-parse-valid-until"),
                     source: None,
                 },
-                InReleaseParserError::EarlierSignature(p) => Self {
+                InReleaseError::EarlierSignature => Self {
                     description: fl!("earlier-signature", filename = p),
                     source: None,
                 },
-                InReleaseParserError::ExpiredSignature(p) => Self {
+                InReleaseError::ExpiredSignature => Self {
                     description: fl!("expired-signature", filename = p),
                     source: None,
                 },
-                InReleaseParserError::BadChecksumValue(_) => Self {
-                    description: fl!("inrelease-sha256-empty"),
+                InReleaseError::InReleaseSyntaxError => Self {
+                    description: fl!("inrelease-syntax-error", path = p),
                     source: None,
                 },
-                InReleaseParserError::BadChecksumEntry(line) => Self {
-                    description: fl!("inrelease-checksum-can-not-parse", i = line),
-                    source: None,
-                },
-                InReleaseParserError::InReleaseSyntaxError => Self {
-                    description: fl!("inrelease-syntax-error", path = s),
-                    source: None,
-                },
-                InReleaseParserError::UnsupportedFileType => Self {
+                InReleaseError::UnsupportedFileType => Self {
                     description: fl!("inrelease-parse-unsupported-file-type"),
                     source: None,
                 },
-                InReleaseParserError::ParseIntError(e) => Self {
+                InReleaseError::ParseIntError(e) => Self {
                     description: e.to_string(),
                     source: None,
                 },
-                InReleaseParserError::NotTrusted(mirror) => Self {
-                    description: fl!("mirror-is-not-trusted", mirror = mirror),
+                InReleaseError::NotTrusted => Self {
+                    description: fl!("mirror-is-not-trusted", mirror = p),
+                    source: None,
+                },
+                InReleaseError::BrokenInRelease => Self {
+                    description: fl!("inrelease-checksum-can-not-parse", p = p),
                     source: None,
                 },
             },

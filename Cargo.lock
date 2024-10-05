@@ -3138,6 +3138,7 @@ dependencies = [
  "oma-repo-verify",
  "oma-topics",
  "oma-utils 0.8.6",
+ "once_cell",
  "sequoia-openpgp",
  "small-map",
  "smallvec",

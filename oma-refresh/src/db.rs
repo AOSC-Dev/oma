@@ -7,6 +7,7 @@ use std::{
 use ahash::AHashMap;
 use aho_corasick::BuildError;
 use bon::{builder, Builder};
+use chrono::Utc;
 use futures::{
     future::{join_all, BoxFuture},
     FutureExt, StreamExt,
@@ -45,8 +46,8 @@ use tracing::{debug, warn};
 use crate::{
     config::{fiilter_download_list, get_config, ChecksumDownloadEntry, FilterDownloadList},
     inrelease::{
-        file_is_compress, split_ext_and_filename, ChecksumType, InRelease, InReleaseParser,
-        InReleaseParserError,
+        file_is_compress, split_ext_and_filename, verify_inrelease, ChecksumItem, InRelease,
+        InReleaseChecksum, InReleaseError,
     },
     util::{
         get_sources, human_download_url, DatabaseFilenameReplacer, OmaSourceEntry,
@@ -82,7 +83,7 @@ pub enum RefreshError {
     #[error("Failed to operate dir or file {0}: {1}")]
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
-    InReleaseParseError(String, InReleaseParserError),
+    InReleaseParseError(String, InReleaseError),
     #[error("Failed to read download dir: {0}")]
     ReadDownloadDir(String, std::io::Error),
     #[error(transparent)]
@@ -119,7 +120,7 @@ pub enum RefreshError {
     #[error("Failed to operate dir or file {0}: {1}")]
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
-    InReleaseParseError(String, InReleaseParserError),
+    InReleaseParseError(String, InReleaseError),
     #[error("Failed to read download dir: {0}")]
     ReadDownloadDir(String, std::io::Error),
     #[error(transparent)]
@@ -611,7 +612,6 @@ impl<'a> OmaRefresh<'a> {
         for inrelease_summary in all_inrelease {
             // 源数据确保是存在的，所以直接 unwrap
             let ose = sources_map.get(&inrelease_summary.filename).unwrap();
-            let urlc = &ose.url;
 
             debug!("Getted oma source entry: {:#?}", ose);
             let inrelease_path = self.download_dir.join(&*inrelease_summary.filename);
@@ -628,23 +628,41 @@ impl<'a> OmaRefresh<'a> {
                 ose.archs.clone()
             };
 
-            let inrelease = InRelease {
-                inrelease: &inrelease,
-                signed_by: ose.signed_by.as_deref(),
-                mirror: urlc,
-                is_flat: ose.is_flat,
-                p: &inrelease_path,
-                rootfs: &self.source,
-                trusted: ose.trusted,
-            };
-
-            let inrelease = InReleaseParser::new(inrelease).map_err(|err| {
-                RefreshError::InReleaseParseError(inrelease_path.display().to_string(), err)
+            let inrelease = verify_inrelease(
+                &inrelease,
+                ose.signed_by.as_deref(),
+                &self.source,
+                ose.trusted,
+            )
+            .map_err(|e| {
+                RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
             })?;
+
+            let mut inrelease = InRelease::new(&inrelease).map_err(|e| {
+                RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+            })?;
+
+            if !ose.is_flat {
+                let now = Utc::now();
+
+                inrelease.check_date(&now).map_err(|e| {
+                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                })?;
+
+                inrelease.check_valid_until(&now).map_err(|e| {
+                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                })?;
+            }
+
+            inrelease.try_init().map_err(|e| {
+                RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+            })?;
+
+            let checksums = &inrelease.checksum_type_and_list().1;
 
             let mut handle = vec![];
             let f = FilterDownloadList {
-                checksums: &inrelease.checksums,
+                checksums,
                 config: self.apt_config,
                 config_tree,
                 archs: &archs,
@@ -656,7 +674,7 @@ impl<'a> OmaRefresh<'a> {
 
             let filter_checksums = fiilter_download_list(f);
 
-            get_all_need_db_from_config(filter_checksums, &mut total, &inrelease, &mut handle);
+            get_all_need_db_from_config(filter_checksums, &mut total, checksums, &mut handle);
 
             for i in &self.flat_repo_no_release {
                 download_flat_repo_no_release(
@@ -686,7 +704,7 @@ impl<'a> OmaRefresh<'a> {
 fn get_all_need_db_from_config(
     filter_checksums: SmallVec<[ChecksumDownloadEntry; 32]>,
     total: &mut u64,
-    inrelease: &InReleaseParser,
+    checksums: &[ChecksumItem],
     handle: &mut Vec<ChecksumDownloadEntry>,
 ) {
     for i in filter_checksums {
@@ -696,8 +714,7 @@ fn get_all_need_db_from_config(
             let size = if file_is_compress(&i.item.name) {
                 let (_, name_without_compress) = split_ext_and_filename(&i.item.name);
 
-                inrelease
-                    .checksums
+                checksums
                     .iter()
                     .find_map(|x| {
                         if x.name == name_without_compress {
@@ -781,7 +798,7 @@ fn collect_download_task(
     source_index: &OmaSourceEntry,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
-    inrelease: &InReleaseParser,
+    inrelease: &InRelease,
     replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
     let typ = &c.msg;
@@ -805,20 +822,21 @@ fn collect_download_task(
         Some(&c.item.checksum)
     } else {
         inrelease
-            .checksums
+            .checksum_type_and_list()
+            .1
             .iter()
             .find(|x| x.name == *not_compress_filename_before)
             .as_ref()
             .map(|c| &c.checksum)
     };
 
-    let download_url = if inrelease.acquire_by_hash {
+    let download_url = if inrelease.acquire_by_hash() {
         let path = Path::new(&c.item.name);
         let parent = path.parent().unwrap_or(path);
-        let dir = match inrelease.checksum_type {
-            ChecksumType::Sha256 => "SHA256",
-            ChecksumType::Sha512 => "SHA512",
-            ChecksumType::Md5 => "MD5Sum",
+        let dir = match inrelease.checksum_type_and_list().0 {
+            InReleaseChecksum::Sha256 => "SHA256",
+            InReleaseChecksum::Sha512 => "SHA512",
+            InReleaseChecksum::Md5 => "MD5Sum",
         };
 
         let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
@@ -836,7 +854,7 @@ fn collect_download_task(
     }];
 
     let file_path = if c.keep_compress {
-        if inrelease.acquire_by_hash {
+        if inrelease.acquire_by_hash() {
             format!("{}/{}", dist_url, c.item.name)
         } else {
             download_url.clone()
@@ -867,10 +885,10 @@ fn collect_download_task(
             }
         })
         .maybe_hash(if let Some(checksum) = checksum {
-            match inrelease.checksum_type {
-                ChecksumType::Sha256 => Some(Checksum::from_sha256_str(checksum)?),
-                ChecksumType::Sha512 => Some(Checksum::from_sha512_str(checksum)?),
-                ChecksumType::Md5 => Some(Checksum::from_md5_str(checksum)?),
+            match inrelease.checksum_type_and_list().0 {
+                InReleaseChecksum::Sha256 => Some(Checksum::from_sha256_str(checksum)?),
+                InReleaseChecksum::Sha512 => Some(Checksum::from_sha512_str(checksum)?),
+                InReleaseChecksum::Md5 => Some(Checksum::from_md5_str(checksum)?),
             }
         } else {
             None
