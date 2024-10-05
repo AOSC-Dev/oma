@@ -22,7 +22,6 @@ oma-topics = { version = "^0.16.0", path = "../oma-topics", optional = true, def
 oma-utils = { version = "^0.8.0", path = "../oma-utils", features = ["dpkg"] }
 tracing ="0.1"
 smallvec = "1.1"
-small-map = "0.1"
 oma-repo-verify = { version = "^0.1.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
 oma-apt = "0.7.0"
