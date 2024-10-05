@@ -91,6 +91,12 @@ pub fn fiilter_download_list(f: FilterDownloadList) -> SmallVec<[ChecksumDownloa
                         .unwrap();
 
                     let keep_compress = config.bool(&format!("{e}::KeepCompressed"), false);
+                    let default_enabled = config.bool(&format!("{e}::DefaultEnabled"), true);
+
+                    if !default_enabled {
+                        debug!("{e}::DefaultEnabled is false, so continue");
+                        continue;
+                    }
 
                     debug!("{e} keep compress: {}", keep_compress);
 
