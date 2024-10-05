@@ -137,7 +137,8 @@ type Result<T> = std::result::Result<T, RefreshError>;
 #[derive(Builder)]
 pub struct OmaRefresh<'a> {
     source: PathBuf,
-    threads: Option<usize>,
+    #[builder(default = 4)]
+    threads: usize,
     arch: String,
     download_dir: PathBuf,
     client: &'a Client,
@@ -266,7 +267,7 @@ impl<'a> OmaRefresh<'a> {
 
         let release_results = DownloadManager::builder()
             .client(self.client)
-            .maybe_threads(self.threads)
+            .threads(self.threads)
             .download_list(tasks)
             .progress_manager(progress_manager.as_download_progress_control())
             .build()
@@ -300,7 +301,7 @@ impl<'a> OmaRefresh<'a> {
         let res = DownloadManager::builder()
             .client(self.client)
             .download_list(tasks)
-            .maybe_threads(self.threads)
+            .threads(self.threads)
             .progress_manager(progress_manager.as_download_progress_control())
             .total_size(total)
             .build()
@@ -435,7 +436,7 @@ impl<'a> OmaRefresh<'a> {
             }
         }
 
-        let stream = futures::stream::iter(tasks).buffer_unordered(self.threads.unwrap_or(4));
+        let stream = futures::stream::iter(tasks).buffer_unordered(self.threads);
         let res = stream.collect::<Vec<_>>().await;
 
         for i in res {
