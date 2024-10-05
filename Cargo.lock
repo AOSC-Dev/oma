@@ -3124,6 +3124,7 @@ dependencies = [
  "ahash",
  "aho-corasick",
  "anyhow",
+ "bon",
  "chrono",
  "dashmap",
  "futures",

@@ -6,6 +6,7 @@ use std::{
 
 use ahash::AHashMap;
 use aho_corasick::BuildError;
+use bon::{builder, Builder};
 use futures::{
     future::{join_all, BoxFuture},
     FutureExt, StreamExt,
@@ -26,10 +27,11 @@ use oma_apt_sources_lists::SourceError;
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::{self, Client},
-    CompressFile, DownloadEntry, DownloadEvent, DownloadResult, DownloadSource, DownloadSourceType,
-    OmaFetcher, Summary,
+    CompressFile, DownloadEntry, DownloadManager, DownloadProgressControl, DownloadResult,
+    DownloadSource, DownloadSourceType, Summary,
 };
 
+#[cfg(feature = "aosc")]
 use oma_fetch::DownloadError;
 
 #[cfg(feature = "aosc")]
@@ -51,6 +53,8 @@ use crate::{
         OmaSourceEntryFrom,
     },
 };
+
+pub trait HandleRefresh: DownloadProgressControl + HandleTopicsControl {}
 
 #[cfg(feature = "aosc")]
 #[derive(Debug, thiserror::Error)]
@@ -130,47 +134,21 @@ pub enum RefreshError {
 
 type Result<T> = std::result::Result<T, RefreshError>;
 
-pub enum Event {
-    Info(String),
-}
-
-pub struct OmaRefreshBuilder<'a> {
-    pub source: PathBuf,
-    pub limit: Option<usize>,
-    pub arch: String,
-    pub download_dir: PathBuf,
-    pub client: &'a Client,
-    #[cfg(feature = "aosc")]
-    pub refresh_topics: bool,
-    pub apt_config: &'a Config,
-}
-
+#[derive(Builder)]
 pub struct OmaRefresh<'a> {
     source: PathBuf,
-    limit: Option<usize>,
+    #[builder(default = 4)]
+    threads: usize,
     arch: String,
     download_dir: PathBuf,
     client: &'a Client,
+    #[builder(skip)]
     flat_repo_no_release: Vec<usize>,
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
     apt_config: &'a Config,
-}
-
-impl<'a> From<OmaRefreshBuilder<'a>> for OmaRefresh<'a> {
-    fn from(builder: OmaRefreshBuilder<'a>) -> Self {
-        Self {
-            source: builder.source,
-            limit: builder.limit,
-            arch: builder.arch,
-            download_dir: builder.download_dir,
-            client: builder.client,
-            flat_repo_no_release: vec![],
-            #[cfg(feature = "aosc")]
-            refresh_topics: builder.refresh_topics,
-            apt_config: builder.apt_config,
-        }
-    }
+    topic_msg: &'a str,
+    progress_manager: &'a dyn HandleRefresh,
 }
 
 enum RepoType {
@@ -179,14 +157,20 @@ enum RepoType {
     FlatNoRelease,
 }
 
+pub trait HandleTopicsControl {
+    fn scanning_topic(&self);
+    fn closing_topic(&self, topic: &str);
+    fn topic_not_in_mirror(&self, topic: &str, mirror: &str);
+}
+
 impl<'a> OmaRefresh<'a> {
-    pub async fn start<F, F2>(mut self, _callback: F, _handle_topic_msg: F2) -> Result<()>
-    where
-        F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
-        F2: Fn() -> String + Copy,
-    {
-        self.update_db(get_sources(&self.source)?, _callback, _handle_topic_msg)
-            .await
+    pub async fn start(mut self) -> Result<()> {
+        self.update_db(
+            get_sources(&self.source)?,
+            self.progress_manager,
+            self.topic_msg,
+        )
+        .await
     }
 
     async fn get_lock(&self) -> Result<()> {
@@ -248,16 +232,12 @@ impl<'a> OmaRefresh<'a> {
         Ok(())
     }
 
-    async fn update_db<F, F2>(
+    async fn update_db(
         &mut self,
         sourcelist: Vec<OmaSourceEntry>,
-        _callback: F,
-        _handle_topic_msg: F2,
-    ) -> Result<()>
-    where
-        F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
-        F2: Fn() -> String + Copy,
-    {
+        progress_manager: &dyn HandleRefresh,
+        topic_msg: &str,
+    ) -> Result<()> {
         if !self.download_dir.is_dir() {
             tokio::fs::create_dir_all(&self.download_dir)
                 .await
@@ -271,7 +251,9 @@ impl<'a> OmaRefresh<'a> {
 
         self.get_lock().await?;
 
-        let is_inrelease_map = self.get_is_inrelease_map(&sourcelist, &_callback).await?;
+        let is_inrelease_map = self
+            .get_is_inrelease_map(&sourcelist, progress_manager)
+            .await?;
 
         let mut download_list = vec![];
 
@@ -283,12 +265,17 @@ impl<'a> OmaRefresh<'a> {
             download_list.push(i.filename.to_string());
         }
 
-        let release_results = OmaFetcher::new(self.client, tasks, self.limit)?
-            .start_download(|c, event| _callback(c, RefreshEvent::from(event), None))
+        let release_results = DownloadManager::builder()
+            .client(self.client)
+            .threads(self.threads)
+            .download_list(tasks)
+            .progress_manager(progress_manager.as_download_progress_control())
+            .build()
+            .start_download()
             .await;
 
         let all_inrelease = self
-            .handle_downloaded_release_result(release_results, _callback.clone(), _handle_topic_msg)
+            .handle_downloaded_release_result(release_results, progress_manager, topic_msg)
             .await?;
 
         let config_tree = get_config(self.apt_config);
@@ -311,8 +298,14 @@ impl<'a> OmaRefresh<'a> {
         let remove_task =
             tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
 
-        let res = OmaFetcher::new(self.client, tasks, self.limit)?
-            .start_download(|count, event| _callback(count, RefreshEvent::from(event), Some(total)))
+        let res = DownloadManager::builder()
+            .client(self.client)
+            .download_list(tasks)
+            .threads(self.threads)
+            .progress_manager(progress_manager.as_download_progress_control())
+            .total_size(total)
+            .build()
+            .start_download()
             .await;
 
         res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
@@ -351,14 +344,11 @@ impl<'a> OmaRefresh<'a> {
         }
     }
 
-    async fn get_is_inrelease_map<F>(
+    async fn get_is_inrelease_map(
         &mut self,
         sourcelist: &[OmaSourceEntry],
-        callback: &F,
-    ) -> Result<AHashMap<usize, RepoType>>
-    where
-        F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
-    {
+        progress_manager: &dyn HandleRefresh,
+    ) -> Result<AHashMap<usize, RepoType>> {
         let mut tasks = vec![];
 
         let mut mirrors_inrelease = AHashMap::new();
@@ -394,39 +384,29 @@ impl<'a> OmaRefresh<'a> {
                         tasks1.push(resp3);
                     }
 
-                    let event =
-                        RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
-                            "({}/{}) {}",
-                            i,
-                            sourcelist.len(),
-                            human_download_url(c, None)?
-                        )));
-
-                    let cc = callback.clone();
+                    let s = human_download_url(c, None)?;
 
                     let task = async move {
-                        cc(i, event, None);
-                        let res = join_all(tasks1).await;
-                        cc(
+                        progress_manager.new_progress_spinner(
                             i,
-                            RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
-                            None,
+                            &format!("({}/{}) {}", i + 1, sourcelist.len(), s),
                         );
+                        let res = join_all(tasks1).await;
+                        progress_manager.progress_done(i);
                         res
                     };
 
                     tasks.push(task);
                 }
                 OmaSourceEntryFrom::Local => {
-                    let event =
-                        RefreshEvent::DownloadEvent(DownloadEvent::NewProgressSpinner(format!(
-                            "({}/{}) {}",
-                            i,
-                            sourcelist.len(),
-                            human_download_url(c, None)?
-                        )));
+                    let msg = format!(
+                        "({}/{}) {}",
+                        i + 1,
+                        sourcelist.len(),
+                        human_download_url(c, None)?
+                    );
 
-                    callback(i, event, None);
+                    progress_manager.new_progress_spinner(i, &msg);
 
                     let dist_path = c.dist_path.strip_prefix("file:").unwrap_or(&c.dist_path);
 
@@ -443,11 +423,7 @@ impl<'a> OmaRefresh<'a> {
                         mirrors_inrelease.insert(i, RepoType::FlatNoRelease);
                         continue;
                     } else {
-                        callback(
-                            i,
-                            RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
-                            None,
-                        );
+                        progress_manager.progress_done(i);
                         #[cfg(feature = "aosc")]
                         // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
                         mirrors_inrelease.insert(i, RepoType::InRelease);
@@ -455,16 +431,12 @@ impl<'a> OmaRefresh<'a> {
                         return Err(RefreshError::NoInReleaseFile(c.dist_path.clone()));
                     }
 
-                    callback(
-                        i,
-                        RefreshEvent::DownloadEvent(DownloadEvent::ProgressDone),
-                        None,
-                    );
+                    progress_manager.progress_done(i);
                 }
             }
         }
 
-        let stream = futures::stream::iter(tasks).buffer_unordered(self.limit.unwrap_or(4));
+        let stream = futures::stream::iter(tasks).buffer_unordered(self.threads);
         let res = stream.collect::<Vec<_>>().await;
 
         for i in res {
@@ -528,16 +500,14 @@ impl<'a> OmaRefresh<'a> {
 
             let msg = human_download_url(source_entry, Some(repo_type_str))?;
 
-            let sources = vec![DownloadSource::new(
-                uri.clone(),
-                match source_entry.from {
+            let sources = vec![DownloadSource {
+                url: uri.clone(),
+                source_type: match source_entry.from {
                     OmaSourceEntryFrom::Http => DownloadSourceType::Http,
                     // 为保持与 apt 行为一致，本地源 symlink Release 文件
-                    OmaSourceEntryFrom::Local => DownloadSourceType::Local {
-                        as_symlink: source_entry.is_flat,
-                    },
+                    OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_entry.is_flat),
                 },
-            )];
+            }];
 
             let task = DownloadEntry::builder()
                 .source(sources)
@@ -555,15 +525,12 @@ impl<'a> OmaRefresh<'a> {
         Ok((tasks, map))
     }
 
-    async fn handle_downloaded_release_result<F>(
+    async fn handle_downloaded_release_result(
         &self,
-        res: Vec<std::result::Result<Summary, DownloadError>>,
-        _callback: F,
-        _handle_topic_msg: impl Fn() -> String + Copy,
-    ) -> Result<Vec<Summary>>
-    where
-        F: Fn(usize, RefreshEvent, Option<u64>) + Clone + Send + Sync,
-    {
+        res: Vec<DownloadResult<Summary>>,
+        _progress_manager: &dyn HandleRefresh,
+        _handle_topic_msg: &str,
+    ) -> Result<Vec<Summary>> {
         let mut all_inrelease = vec![];
 
         #[cfg(feature = "aosc")]
@@ -604,16 +571,10 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(feature = "aosc")]
         {
             if self.refresh_topics {
-                _callback(0, RefreshEvent::ScanningTopic, None);
+                _progress_manager.scanning_topic();
                 let removed_suites = oma_topics::scan_closed_topic(
                     _handle_topic_msg,
-                    |topic, mirror| {
-                        _callback(
-                            0,
-                            RefreshEvent::TopicNotInMirror(topic.to_string(), mirror.to_string()),
-                            None,
-                        );
-                    },
+                    |topic, mirror| _progress_manager.topic_not_in_mirror(topic, mirror),
                     &self.source,
                     &self.arch,
                 )
@@ -629,7 +590,7 @@ impl<'a> OmaRefresh<'a> {
                         return Err(RefreshError::NoInReleaseFile(url.to_string()));
                     }
 
-                    _callback(0, RefreshEvent::ClosingTopic(suite), None);
+                    _progress_manager.closing_topic(&suite);
                 }
             }
         }
@@ -777,20 +738,6 @@ async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> 
     Ok(())
 }
 
-#[derive(Debug)]
-pub enum RefreshEvent {
-    DownloadEvent(DownloadEvent),
-    ClosingTopic(String),
-    ScanningTopic,
-    TopicNotInMirror(String, String),
-}
-
-impl From<DownloadEvent> for RefreshEvent {
-    fn from(value: DownloadEvent) -> Self {
-        RefreshEvent::DownloadEvent(value)
-    }
-}
-
 fn download_flat_repo_no_release(
     source_index: &OmaSourceEntry,
     download_dir: &Path,
@@ -803,15 +750,16 @@ fn download_flat_repo_no_release(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local {
-            as_symlink: source_index.is_flat,
-        },
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_index.is_flat),
     };
 
     let download_url = format!("{}/Packages", dist_url);
     let file_path = format!("{}Packages", dist_url);
 
-    let sources = vec![DownloadSource::new(download_url.clone(), from)];
+    let sources = vec![DownloadSource {
+        url: download_url.clone(),
+        source_type: from,
+    }];
 
     let task = DownloadEntry::builder()
         .source(sources)
@@ -844,9 +792,7 @@ fn collect_download_task(
 
     let from = match source_index.from {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local {
-            as_symlink: source_index.is_flat,
-        },
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_index.is_flat),
     };
 
     let not_compress_filename_before = if file_is_compress(&c.item.name) {
@@ -884,7 +830,10 @@ fn collect_download_task(
         format!("{}/{}", dist_url, c.item.name)
     };
 
-    let sources = vec![DownloadSource::new(download_url.clone(), from)];
+    let sources = vec![DownloadSource {
+        url: download_url.clone(),
+        source_type: from,
+    }];
 
     let file_path = if c.keep_compress {
         if inrelease.acquire_by_hash {

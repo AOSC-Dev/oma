@@ -1,10 +1,4 @@
-use std::{
-    path::Path,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-};
+use std::{path::Path, sync::atomic::Ordering};
 
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar};
@@ -12,7 +6,7 @@ use oma_console::{
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
     writer::Writer,
 };
-use oma_fetch::{reqwest::ClientBuilder, DownloadEvent};
+use oma_fetch::{reqwest::ClientBuilder, DownloadProgressControl};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
@@ -22,88 +16,100 @@ fn main() -> Result<(), OmaAptError> {
     let pkgs = apt.select_pkg(&vec!["vscodium", "go"], false, true, true)?;
     std::fs::create_dir_all("./test").unwrap();
 
-    let mb = Arc::new(MultiProgress::new());
-    let pb_map: DashMap<usize, ProgressBar> = DashMap::new();
-
-    let global_is_set = Arc::new(AtomicBool::new(false));
-
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();
 
-    let res = apt.download(
-        &client,
-        pkgs.0,
-        None,
-        Some(Path::new("test")),
-        false,
-        |count, event, total| {
-            match event {
-                DownloadEvent::ChecksumMismatchRetry { filename, times } => {
-                    mb.println(format!(
-                        "{filename} checksum failed, retrying {times} times"
-                    ))
-                    .unwrap();
-                }
-                DownloadEvent::GlobalProgressSet(size) => {
-                    if let Some(pb) = pb_map.get(&0) {
-                        pb.set_position(size);
-                    }
-                }
-                DownloadEvent::GlobalProgressInc(size) => {
-                    if let Some(pb) = pb_map.get(&0) {
-                        pb.inc(size);
-                    }
-                }
-                DownloadEvent::ProgressDone => {
-                    if let Some(pb) = pb_map.get(&(count + 1)) {
-                        pb.finish_and_clear();
-                    }
-                }
-                DownloadEvent::NewProgressSpinner(msg) => {
-                    let (sty, inv) = spinner_style();
-                    let pb = mb.insert(count + 1, ProgressBar::new_spinner().with_style(sty));
-                    pb.set_message(msg);
-                    pb.enable_steady_tick(inv);
-                    pb_map.insert(count + 1, pb);
-                }
-                DownloadEvent::NewProgress(size, msg) => {
-                    let writer = Writer::default();
-                    let sty = progress_bar_style(&writer);
-                    let pb = mb.insert(count + 1, ProgressBar::new(size).with_style(sty));
-                    pb.set_message(msg);
-                    pb_map.insert(count + 1, pb);
-                }
-                DownloadEvent::ProgressInc(size) => {
-                    let pb = pb_map.get(&(count + 1)).unwrap();
-                    pb.inc(size);
-                }
-                DownloadEvent::ProgressSet(size) => {
-                    let pb = pb_map.get(&(count + 1)).unwrap();
-                    pb.set_position(size);
-                }
-                DownloadEvent::CanNotGetSourceNextUrl(e) => {
-                    mb.println(format!("Error: {e}")).unwrap();
-                }
-                DownloadEvent::Done(_) => {
-                    return;
-                }
-                DownloadEvent::AllDone => {
-                    pb_map.get(&0).unwrap().finish_and_clear();
-                }
-            }
+    let pm = MyProgressManager::default();
 
-            if let Some(total) = total {
-                if !global_is_set.load(Ordering::SeqCst) {
-                    let writer = Writer::default();
-                    let sty = global_progress_bar_style(&writer);
-                    let gpb = mb.insert(0, ProgressBar::new(total).with_style(sty));
-                    pb_map.insert(0, gpb);
-                    global_is_set.store(true, Ordering::SeqCst);
-                }
-            }
-        },
-    )?;
+    let res = apt.download(&client, pkgs.0, None, Some(Path::new("test")), false, &pm)?;
 
     dbg!(res);
 
     Ok(())
+}
+
+struct MyProgressManager {
+    mb: MultiProgress,
+    pb_map: DashMap<usize, ProgressBar>,
+}
+
+impl Default for MyProgressManager {
+    fn default() -> Self {
+        Self {
+            mb: MultiProgress::new(),
+            pb_map: DashMap::new(),
+        }
+    }
+}
+
+impl DownloadProgressControl for MyProgressManager {
+    fn checksum_mismatch_retry(&self, _index: usize, filename: &str, times: usize) {
+        self.mb
+            .println(format!(
+                "{filename} checksum failed, retrying {times} times"
+            ))
+            .unwrap();
+    }
+
+    fn global_progress_set(&self, num: &std::sync::atomic::AtomicU64) {
+        if let Some(pb) = self.pb_map.get(&0) {
+            pb.set_position(num.load(Ordering::SeqCst));
+        }
+    }
+
+    fn progress_done(&self, index: usize) {
+        if let Some(pb) = self.pb_map.get(&(index + 1)) {
+            pb.finish_and_clear();
+        }
+    }
+
+    fn new_progress_spinner(&self, index: usize, msg: &str) {
+        let (sty, inv) = spinner_style();
+        let pb = self
+            .mb
+            .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
+        pb.set_message(msg.to_string());
+        pb.enable_steady_tick(inv);
+        self.pb_map.insert(index + 1, pb);
+    }
+
+    fn new_progress_bar(&self, index: usize, msg: &str, size: u64) {
+        let writer = Writer::default();
+        let sty = progress_bar_style(&writer);
+        let pb = self
+            .mb
+            .insert(index + 1, ProgressBar::new(size).with_style(sty));
+        pb.set_message(msg.to_string());
+        self.pb_map.insert(index + 1, pb);
+    }
+
+    fn progress_inc(&self, index: usize, num: u64) {
+        let pb = self.pb_map.get(&(index + 1)).unwrap();
+        pb.inc(num);
+    }
+
+    fn progress_set(&self, index: usize, num: u64) {
+        let pb = self.pb_map.get(&(index + 1)).unwrap();
+        pb.set_position(num);
+    }
+
+    fn failed_to_get_source_next_url(&self, _index: usize, err: &str) {
+        self.mb.println(format!("Error: {err}")).unwrap();
+    }
+
+    fn download_done(&self, _index: usize, _msg: &str) {
+        return;
+    }
+
+    fn all_done(&self) {
+        return;
+    }
+
+    fn new_global_progress_bar(&self, total_size: u64) {
+        let writer = Writer::default();
+        let sty = global_progress_bar_style(&writer);
+        let pb = self
+            .mb
+            .insert(0, ProgressBar::new(total_size).with_style(sty));
+        self.pb_map.insert(0, pb);
+    }
 }

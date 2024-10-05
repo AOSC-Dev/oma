@@ -1,6 +1,7 @@
 use chrono::Local;
 use oma_console::pager::PagerExit;
 use oma_console::success;
+use oma_fetch::DownloadProgressControl;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
@@ -17,9 +18,7 @@ use tracing::warn;
 use crate::error::OutputError;
 use crate::fl;
 use crate::pb::NoProgressBar;
-use crate::pb::OmaProgress;
 use crate::pb::OmaProgressBar;
-use crate::pb::ProgressEvent;
 use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::utils::dbus_check;
@@ -162,20 +161,13 @@ pub fn execute(
 
         let start_time = Local::now().timestamp();
 
-        let oma_pb: Box<dyn OmaProgress + Sync + Send> = if !no_progress {
-            let pb = OmaProgressBar::new();
-            Box::new(pb)
+        let progress_manager: &dyn DownloadProgressControl = if !no_progress {
+            &OmaProgressBar::default()
         } else {
-            Box::new(NoProgressBar)
+            &NoProgressBar
         };
 
-        match apt.commit(
-            &client,
-            None,
-            &apt_args,
-            |count, event, total| oma_pb.change(ProgressEvent::from(event), count, total),
-            op,
-        ) {
+        match apt.commit(&client, None, &apt_args, progress_manager, op) {
             Ok(()) => {
                 write_history_entry(
                     op_after,

@@ -1,4 +1,4 @@
-use crate::{CompressFile, DownloadEvent, DownloadSource};
+use crate::{CompressFile, DownloadProgressControl, DownloadSource};
 use std::{
     io::{self, ErrorKind, SeekFrom},
     path::Path,
@@ -10,7 +10,7 @@ use std::{
 
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
 use bon::Builder;
-use futures::{io::BufReader, AsyncBufRead, AsyncRead, TryStreamExt};
+use futures::{io::BufReader, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
@@ -35,38 +35,32 @@ pub(crate) struct SingleDownloader<'a> {
 }
 
 impl SingleDownloader<'_> {
-    pub(crate) async fn try_download<F>(
+    pub(crate) async fn try_download(
         self,
         global_progress: Arc<AtomicU64>,
-        callback: Arc<F>,
-    ) -> DownloadResult<Summary>
-    where
-        F: Fn(usize, DownloadEvent) + Clone,
-    {
+        progress_manager: &dyn DownloadProgressControl,
+    ) -> DownloadResult<Summary> {
         let mut sources = self.entry.source.clone();
         sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
 
-        let cc = callback.clone();
         let gpc = global_progress.clone();
         let msg = self.progress.2.as_deref().unwrap_or(&*self.entry.filename);
 
         for (i, c) in sources.iter().enumerate() {
             let download_res = match c.source_type {
                 DownloadSourceType::Http => {
-                    self.try_http_download(cc.clone(), gpc.clone(), c).await
+                    self.try_http_download(progress_manager, gpc.clone(), c)
+                        .await
                 }
-                DownloadSourceType::Local { as_symlink } => {
-                    self.download_local(cc.clone(), gpc.clone(), c, as_symlink)
+                DownloadSourceType::Local(as_symlink) => {
+                    self.download_local(progress_manager, gpc.clone(), c, as_symlink)
                         .await
                 }
             };
 
             match download_res {
                 Ok(download_res) => {
-                    callback(
-                        self.download_list_index,
-                        DownloadEvent::Done(msg.to_string()),
-                    );
+                    progress_manager.download_done(self.download_list_index, msg);
                     return Ok(download_res);
                 }
                 Err(e) => {
@@ -74,10 +68,8 @@ impl SingleDownloader<'_> {
                         return Err(e);
                     }
                     debug!("{c:?} download failed {e}, trying next url.");
-                    callback(
-                        self.download_list_index,
-                        DownloadEvent::CanNotGetSourceNextUrl(e.to_string()),
-                    );
+                    progress_manager
+                        .failed_to_get_source_next_url(self.download_list_index, &e.to_string());
                 }
             }
         }
@@ -86,21 +78,18 @@ impl SingleDownloader<'_> {
     }
 
     /// Download file with retry (http)
-    async fn try_http_download<F>(
+    async fn try_http_download(
         &self,
-        callback: Arc<F>,
+        progress_manager: &dyn DownloadProgressControl,
         global_progress: Arc<AtomicU64>,
         source: &DownloadSource,
-    ) -> DownloadResult<Summary>
-    where
-        F: Fn(usize, DownloadEvent) + Clone,
-    {
+    ) -> DownloadResult<Summary> {
         let mut times = 1;
         let mut allow_resume = self.entry.allow_resume;
         loop {
             match self
                 .http_download(
-                    callback.clone(),
+                    progress_manager,
                     global_progress.clone(),
                     allow_resume,
                     source,
@@ -117,12 +106,10 @@ impl SingleDownloader<'_> {
                         }
 
                         if times > 1 {
-                            callback(
+                            progress_manager.checksum_mismatch_retry(
                                 self.download_list_index,
-                                DownloadEvent::ChecksumMismatchRetry {
-                                    filename: filename.clone(),
-                                    times,
-                                },
+                                filename,
+                                times,
                             );
                         }
 
@@ -137,16 +124,13 @@ impl SingleDownloader<'_> {
         }
     }
 
-    async fn http_download<F>(
+    async fn http_download(
         &self,
-        callback: Arc<F>,
+        progress_manager: &dyn DownloadProgressControl,
         global_progress: Arc<AtomicU64>,
         allow_resume: bool,
         source: &DownloadSource,
-    ) -> DownloadResult<Summary>
-    where
-        F: Fn(usize, DownloadEvent) + Clone,
-    {
+    ) -> DownloadResult<Summary> {
         let file = self.entry.dir.join(&*self.entry.filename);
         let file_exist = file.exists();
         let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
@@ -196,11 +180,7 @@ impl SingleDownloader<'_> {
                     v.update(&buf[..read_count]);
 
                     global_progress.fetch_add(read_count as u64, Ordering::SeqCst);
-
-                    callback(
-                        self.download_list_index,
-                        DownloadEvent::GlobalProgressInc(read_count as u64),
-                    );
+                    progress_manager.global_progress_set(&global_progress);
 
                     read += read_count as u64;
                 }
@@ -211,7 +191,7 @@ impl SingleDownloader<'_> {
                         self.entry.filename
                     );
 
-                    callback(self.download_list_index, DownloadEvent::ProgressDone);
+                    progress_manager.progress_done(self.download_list_index);
 
                     return Ok(Summary {
                         filename: self.entry.filename.clone(),
@@ -228,11 +208,7 @@ impl SingleDownloader<'_> {
 
                 if !allow_resume {
                     global_progress.fetch_sub(read, Ordering::SeqCst);
-                    let progress = global_progress.load(Ordering::SeqCst);
-                    callback(
-                        self.download_list_index,
-                        DownloadEvent::GlobalProgressSet(progress),
-                    );
+                    progress_manager.global_progress_set(&global_progress);
                 } else {
                     dest = Some(f);
                     validator = Some(v);
@@ -241,15 +217,12 @@ impl SingleDownloader<'_> {
         }
 
         let msg = self.set_progress_msg();
-        callback(
-            self.download_list_index,
-            DownloadEvent::NewProgressSpinner(msg.clone()),
-        );
+        progress_manager.new_progress_spinner(self.download_list_index, &msg);
 
         let resp_head = match self.client.head(&source.url).send().await {
             Ok(resp) => resp,
             Err(e) => {
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::ReqwestError(e));
             }
         };
@@ -290,12 +263,10 @@ impl SingleDownloader<'_> {
             // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
             if total_size <= file_size {
                 debug!("Exist file size is reset to 0, because total size <= exist file size");
-                let gp = global_progress.load(Ordering::SeqCst);
-                callback(
-                    self.download_list_index,
-                    DownloadEvent::GlobalProgressSet(gp.saturating_sub(file_size)),
-                );
+                let gpc = global_progress.as_ref();
+                let gp = gpc.load(Ordering::SeqCst);
                 global_progress.store(gp.saturating_sub(file_size), Ordering::SeqCst);
+                progress_manager.global_progress_set(&global_progress);
                 file_size = 0;
                 can_resume = false;
             }
@@ -310,16 +281,13 @@ impl SingleDownloader<'_> {
         let resp = req.send().await.map_err(DownloadError::ReqwestError)?;
 
         if let Err(e) = resp.error_for_status_ref() {
-            callback(self.download_list_index, DownloadEvent::ProgressDone);
+            progress_manager.progress_done(self.download_list_index);
             return Err(DownloadError::ReqwestError(e));
         } else {
-            callback(self.download_list_index, DownloadEvent::ProgressDone);
+            progress_manager.progress_done(self.download_list_index);
         }
 
-        callback(
-            self.download_list_index,
-            DownloadEvent::NewProgress(total_size, msg.clone()),
-        );
+        progress_manager.new_progress_bar(self.download_list_index, &msg, total_size);
 
         let source = resp;
 
@@ -327,10 +295,7 @@ impl SingleDownloader<'_> {
         // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
         let hash = &self.entry.hash;
         let mut validator = if let Some(v) = validator {
-            callback(
-                self.download_list_index,
-                DownloadEvent::ProgressInc(file_size),
-            );
+            progress_manager.progress_inc(self.download_list_index, file_size);
             Some(v)
         } else {
             hash.as_ref().map(|hash| hash.get_validator())
@@ -347,13 +312,13 @@ impl SingleDownloader<'_> {
             let f = match tokio::fs::File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
-                    callback(self.download_list_index, DownloadEvent::ProgressDone);
+                    progress_manager.progress_done(self.download_list_index);
                     return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
                 }
             };
 
             if let Err(e) = f.set_len(0).await {
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
 
@@ -375,13 +340,13 @@ impl SingleDownloader<'_> {
             let f = match tokio::fs::File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
-                    callback(self.download_list_index, DownloadEvent::ProgressDone);
+                    progress_manager.progress_done(self.download_list_index);
                     return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
                 }
             };
 
             if let Err(e) = f.set_len(0).await {
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
 
@@ -392,7 +357,7 @@ impl SingleDownloader<'_> {
             // 把文件指针移动到末尾
             debug!("oma will seek file: {} to end", self.entry.filename);
             if let Err(e) = dest.seek(SeekFrom::End(0)).await {
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
         }
@@ -404,25 +369,21 @@ impl SingleDownloader<'_> {
             .map_err(|e| io::Error::new(ErrorKind::Other, e))
             .into_async_read();
 
-        let mut reader = match self.file_type {
-            CompressFile::Xz => CompressStream::Xz(XzDecoder::new(BufReader::new(bytes_stream))),
-            CompressFile::Gzip => {
-                CompressStream::Gzip(GzipDecoder::new(BufReader::new(bytes_stream)))
-            }
-            CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(bytes_stream))),
-            CompressFile::Nothing => CompressStream::Nothing(BufReader::new(bytes_stream)),
-            CompressFile::Zstd => {
-                CompressStream::Zstd(ZstdDecoder::new(BufReader::new(bytes_stream)))
-            }
+        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
+            CompressFile::Xz => &mut XzDecoder::new(BufReader::new(bytes_stream)),
+            CompressFile::Gzip => &mut GzipDecoder::new(BufReader::new(bytes_stream)),
+            CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(bytes_stream)),
+            CompressFile::Nothing => &mut BufReader::new(bytes_stream),
+            CompressFile::Zstd => &mut ZstdDecoder::new(BufReader::new(bytes_stream)),
         };
-        let reader = reader.as_inner_mut();
+
         let mut reader = reader.compat();
 
         let mut buf = vec![0u8; 8 * 1024];
 
         loop {
             let size = reader.read(&mut buf[..]).await.map_err(|e| {
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                progress_manager.progress_done(self.download_list_index);
                 DownloadError::IOError(self.entry.filename.to_string(), e)
             })?;
 
@@ -431,23 +392,16 @@ impl SingleDownloader<'_> {
             }
 
             dest.write_all(&buf[..size]).await.map_err(|e| {
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
+                progress_manager.progress_done(self.download_list_index);
                 DownloadError::IOError(self.entry.filename.to_string(), e)
             })?;
 
-            callback(
-                self.download_list_index,
-                DownloadEvent::ProgressInc(size as u64),
-            );
+            progress_manager.progress_inc(self.download_list_index, size as u64);
 
             self_progress += size as u64;
 
-            callback(
-                self.download_list_index,
-                DownloadEvent::GlobalProgressInc(size as u64),
-            );
-
             global_progress.fetch_add(size as u64, Ordering::SeqCst);
+            progress_manager.global_progress_set(&global_progress);
 
             if let Some(ref mut v) = validator {
                 v.update(&buf[..size]);
@@ -457,7 +411,7 @@ impl SingleDownloader<'_> {
         // 下载完成，告诉内核不再写这个文件了
         debug!("Download complete! shutting down dest file stream ...");
         if let Err(e) = dest.shutdown().await {
-            callback(self.download_list_index, DownloadEvent::ProgressDone);
+            progress_manager.progress_done(self.download_list_index);
             return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
         }
 
@@ -469,16 +423,9 @@ impl SingleDownloader<'_> {
                 debug!("{self_progress}");
 
                 global_progress.fetch_sub(self_progress, Ordering::SeqCst);
-                let now_gp = global_progress.load(Ordering::SeqCst);
 
-                debug!("Reset to: {now_gp}");
-
-                callback(
-                    self.download_list_index,
-                    DownloadEvent::GlobalProgressSet(now_gp),
-                );
-                callback(self.download_list_index, DownloadEvent::ProgressDone);
-
+                progress_manager.global_progress_set(&global_progress);
+                progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::ChecksumMismatch(
                     self.entry.filename.to_string(),
                 ));
@@ -487,7 +434,7 @@ impl SingleDownloader<'_> {
             debug!("checksum success: {}", self.entry.filename);
         }
 
-        callback(self.download_list_index, DownloadEvent::ProgressDone);
+        progress_manager.progress_done(self.download_list_index);
 
         Ok(Summary {
             filename: self.entry.filename.clone(),
@@ -506,16 +453,13 @@ impl SingleDownloader<'_> {
     }
 
     /// Download local source file
-    async fn download_local<F>(
+    async fn download_local(
         &self,
-        callback: Arc<F>,
+        progress_manager: &dyn DownloadProgressControl,
         global_progress: Arc<AtomicU64>,
         source: &DownloadSource,
         as_symlink: bool,
-    ) -> DownloadResult<Summary>
-    where
-        F: Fn(usize, DownloadEvent) + Clone,
-    {
+    ) -> DownloadResult<Summary> {
         debug!("{:?}", self.entry);
         let msg = self.set_progress_msg();
 
@@ -534,10 +478,7 @@ impl SingleDownloader<'_> {
             })?
             .len();
 
-        callback(
-            self.download_list_index,
-            DownloadEvent::NewProgress(total_size, msg.clone()),
-        );
+        progress_manager.new_progress_bar(self.download_list_index, &msg, total_size);
 
         if as_symlink {
             let symlink = self.entry.dir.join(&*self.entry.filename);
@@ -551,14 +492,9 @@ impl SingleDownloader<'_> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
-            callback(
-                self.download_list_index,
-                DownloadEvent::GlobalProgressInc(total_size as u64),
-            );
-
             global_progress.fetch_add(total_size as u64, Ordering::SeqCst);
-
-            callback(self.download_list_index, DownloadEvent::ProgressDone);
+            progress_manager.global_progress_set(&global_progress);
+            progress_manager.progress_done(self.download_list_index);
 
             return Ok(Summary {
                 filename: self.entry.filename.clone(),
@@ -583,14 +519,14 @@ impl SingleDownloader<'_> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
-        let mut reader = match self.file_type {
-            CompressFile::Xz => CompressStream::Xz(XzDecoder::new(BufReader::new(from))),
-            CompressFile::Gzip => CompressStream::Gzip(GzipDecoder::new(BufReader::new(from))),
-            CompressFile::Bz2 => CompressStream::Bz2(BzDecoder::new(BufReader::new(from))),
-            CompressFile::Nothing => CompressStream::Nothing(BufReader::new(from)),
-            CompressFile::Zstd => CompressStream::Zstd(ZstdDecoder::new(BufReader::new(from))),
+        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
+            CompressFile::Xz => &mut XzDecoder::new(BufReader::new(from)),
+            CompressFile::Gzip => &mut GzipDecoder::new(BufReader::new(from)),
+            CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(from)),
+            CompressFile::Nothing => &mut BufReader::new(from),
+            CompressFile::Zstd => &mut ZstdDecoder::new(BufReader::new(from)),
         };
-        let reader = reader.as_inner_mut();
+
         let mut reader = reader.compat();
 
         debug!(
@@ -613,20 +549,12 @@ impl SingleDownloader<'_> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
-            callback(
-                self.download_list_index,
-                DownloadEvent::ProgressInc(size as u64),
-            );
-
-            callback(
-                self.download_list_index,
-                DownloadEvent::GlobalProgressInc(size as u64),
-            );
-
+            progress_manager.progress_inc(self.download_list_index, size as u64);
             global_progress.fetch_add(size as u64, Ordering::SeqCst);
+            progress_manager.global_progress_set(&global_progress);
         }
 
-        callback(self.download_list_index, DownloadEvent::ProgressDone);
+        progress_manager.progress_done(self.download_list_index);
 
         Ok(Summary {
             filename: self.entry.filename.clone(),
@@ -634,25 +562,5 @@ impl SingleDownloader<'_> {
             count: self.download_list_index,
             context: self.context.clone(),
         })
-    }
-}
-
-enum CompressStream<R: AsyncRead + Unpin + Send> {
-    Xz(XzDecoder<R>),
-    Gzip(GzipDecoder<R>),
-    Bz2(BzDecoder<R>),
-    Zstd(ZstdDecoder<R>),
-    Nothing(R),
-}
-
-impl<R: AsyncRead + Unpin + Send + AsyncBufRead> CompressStream<R> {
-    fn as_inner_mut(&mut self) -> &mut (dyn AsyncRead + Unpin + Send) {
-        match self {
-            CompressStream::Xz(reader) => reader,
-            CompressStream::Gzip(reader) => reader,
-            CompressStream::Bz2(reader) => reader,
-            CompressStream::Zstd(reader) => reader,
-            CompressStream::Nothing(reader) => reader,
-        }
     }
 }

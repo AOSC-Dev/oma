@@ -79,13 +79,9 @@ async fn main() -> Result<()> {
         tm.remove(&i, false)?;
     }
 
-    tm.write_enabled(
-        false,
-        || "a".to_owned(),
-        |topic, mirror| {
-            println!("{topic} not in {mirror}");
-        },
-    )
+    tm.write_enabled(false, "test", |topic, mirror| {
+        println!("{topic} not in {mirror}");
+    })
     .await?;
 
     Ok(())
