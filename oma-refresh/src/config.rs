@@ -37,7 +37,7 @@ pub struct ChecksumDownloadEntry {
 }
 
 pub struct FilterDownloadList<'a> {
-    pub checksums: &'a SmallVec<[ChecksumItem; 32]>,
+    pub checksums: &'a [ChecksumItem],
     pub config: &'a Config,
     pub config_tree: &'a [(String, String)],
     pub archs: &'a [String],

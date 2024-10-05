@@ -1,16 +1,8 @@
+use ahash::AHashMap;
 use chrono::{DateTime, FixedOffset, ParseError, Utc};
-use small_map::SmallMap;
-use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, num::ParseIntError, path::Path};
+use std::{borrow::Cow, num::ParseIntError, path::Path, str::FromStr};
 use thiserror::Error;
 use tracing::debug;
-
-pub struct InReleaseParser {
-    _source: Vec<SmallMap<16, String, String>>,
-    pub checksums: SmallVec<[ChecksumItem; 32]>,
-    pub acquire_by_hash: bool,
-    pub checksum_type: ChecksumType,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChecksumItem {
@@ -20,45 +12,33 @@ pub struct ChecksumItem {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum InReleaseParserError {
-    #[error("Mirror {0} is not signed by trusted keyring.")]
-    NotTrusted(String),
+pub enum InReleaseError {
+    #[error("Mirror is not signed by trusted keyring.")]
+    NotTrusted,
     #[error(transparent)]
     VerifyError(#[from] oma_repo_verify::VerifyError),
     #[error("Bad InRelease Data")]
     BadInReleaseData,
     #[error("Bad valid until")]
     BadInReleaseValidUntil,
-    #[error("Earlier signature: {0}")]
-    EarlierSignature(String),
-    #[error("Expired signature: {0}")]
-    ExpiredSignature(String),
-    #[error("Bad SHA256 value: {0}")]
-    BadChecksumValue(String),
-    #[error("Bad checksum entry: {0}")]
-    BadChecksumEntry(String),
+    #[error("Earlier signature")]
+    EarlierSignature,
+    #[error("Expired signature")]
+    ExpiredSignature,
     #[error("Bad InRelease")]
     InReleaseSyntaxError,
     #[error("Unsupported file type in path")]
     UnsupportedFileType,
     #[error(transparent)]
     ParseIntError(ParseIntError),
+    #[error("InRelease is broken")]
+    BrokenInRelease,
 }
 
-pub type InReleaseParserResult<T> = Result<T, InReleaseParserError>;
-
-pub struct InRelease<'a> {
-    pub inrelease: &'a str,
-    pub signed_by: Option<&'a str>,
-    pub mirror: &'a str,
-    pub is_flat: bool,
-    pub p: &'a Path,
-    pub rootfs: &'a Path,
-    pub trusted: bool,
-}
+pub type InReleaseParserResult<T> = Result<T, InReleaseError>;
 
 #[derive(Clone, Copy)]
-pub enum ChecksumType {
+pub enum InReleaseChecksum {
     Sha256,
     Sha512,
     Md5,
@@ -66,129 +46,137 @@ pub enum ChecksumType {
 
 const COMPRESS: &[&str] = &[".gz", ".xz", ".zst", ".bz2"];
 
-impl InReleaseParser {
-    pub fn new(in_release: InRelease<'_>) -> InReleaseParserResult<Self> {
-        let InRelease {
-            inrelease: s,
-            signed_by,
-            mirror,
-            is_flat,
-            p,
-            rootfs,
-            trusted,
-        } = in_release;
+pub struct InRelease<'a> {
+    source: AHashMap<&'a str, String>,
+    pub acquire_by_hash: bool,
+    pub checksum_type: InReleaseChecksum,
+    pub checksums: Vec<ChecksumItem>,
+}
 
-        let s = if s.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-            Cow::Owned(oma_repo_verify::verify(s, signed_by, rootfs)?)
-        } else {
-            if !trusted {
-                return Err(InReleaseParserError::NotTrusted(mirror.to_string()));
-            }
-            Cow::Borrowed(s)
-        };
+impl<'a> InRelease<'a> {
+    pub fn new(input: &'a str) -> Result<Self, InReleaseError> {
+        let mut map = AHashMap::new();
+        let debcontrol =
+            oma_debcontrol::parse_str(input).map_err(|_| InReleaseError::InReleaseSyntaxError)?;
 
-        let source = debcontrol_from_str(&s)?;
+        let inrelease = debcontrol.first().ok_or(InReleaseError::BrokenInRelease)?;
 
-        let source_first = source.first();
-
-        if !is_flat {
-            let date = source_first
-                .and_then(|x| x.get("Date"))
-                .take()
-                .ok_or_else(|| InReleaseParserError::BadInReleaseData)?;
-
-            let date = parse_date(date).map_err(|e| {
-                debug!("Parse data failed: {}", e);
-                InReleaseParserError::BadInReleaseData
-            })?;
-
-            let now = Utc::now();
-
-            // Make `Valid-Until` field optional.
-            // Some third-party repos do not have such field in their InRelease files.
-            let valid_until = source_first.and_then(|x| x.get("Valid-Until")).take();
-            if now < date {
-                return Err(InReleaseParserError::EarlierSignature(
-                    p.display().to_string(),
-                ));
-            }
-
-            // Check if the `Valid-Until` field is valid only when it is defined.
-            if let Some(valid_until_date) = valid_until {
-                let valid_until = parse_date(valid_until_date).map_err(|e| {
-                    debug!("Parse valid_until failed: {}", e);
-                    InReleaseParserError::BadInReleaseValidUntil
-                })?;
-
-                if now > valid_until {
-                    return Err(InReleaseParserError::ExpiredSignature(
-                        p.display().to_string(),
-                    ));
-                }
-            }
+        for i in &inrelease.fields {
+            map.insert(i.name, i.value.to_string());
         }
 
-        let acquire_by_hash = source_first
-            .and_then(|x| x.get("Acquire-By-Hash"))
+        let acquire_by_hash = map
+            .get("Acquire-By-Hash")
             .map(|x| x.to_lowercase() == "yes")
             .unwrap_or(false);
 
-        let sha256 = source_first.and_then(|x| x.get("SHA256")).take();
-        let sha512 = source_first.and_then(|x| x.get("SHA512")).take();
-        let md5 = source_first.and_then(|x| x.get("MD5Sum")).take();
+        let sha256 = map.get("SHA256");
+        let sha512 = map.get("SHA512");
+        let md5 = map.get("MD5Sum");
 
-        let checksum_type = if sha256.is_some() {
-            ChecksumType::Sha256
-        } else if sha512.is_some() {
-            ChecksumType::Sha512
+        let (checksum_type, checksums) = if let Some(sha256) = sha256 {
+            (InReleaseChecksum::Sha256, get_checksums_inner(sha256)?)
+        } else if let Some(sha512) = sha512 {
+            (InReleaseChecksum::Sha512, get_checksums_inner(sha512)?)
+        } else if let Some(md5) = md5 {
+            (InReleaseChecksum::Md5, get_checksums_inner(md5)?)
         } else {
-            ChecksumType::Md5
+            return Err(InReleaseError::BrokenInRelease);
         };
 
-        let mut checksums = sha256
-            .or(sha512)
-            .or(md5)
-            .ok_or_else(|| InReleaseParserError::BadChecksumValue(s.to_string()))?
-            .lines();
-
-        // remove first item, It's empty
-        checksums.next();
-
-        let mut checksums_res = vec![];
-
-        for i in checksums {
-            let mut checksum_entry = i.split_whitespace();
-            let checksum = checksum_entry
-                .next()
-                .ok_or_else(|| InReleaseParserError::BadChecksumEntry(i.to_owned()))?;
-            let size = checksum_entry
-                .next()
-                .ok_or_else(|| InReleaseParserError::BadChecksumEntry(i.to_owned()))?;
-            let name = checksum_entry
-                .next()
-                .ok_or_else(|| InReleaseParserError::BadChecksumEntry(i.to_owned()))?;
-            checksums_res.push((name, size, checksum));
-        }
-
-        let mut res: SmallVec<[_; 32]> = smallvec![];
-
-        for i in checksums_res {
-            res.push(ChecksumItem {
-                name: i.0.to_owned(),
-                size: i
-                    .1
-                    .parse::<u64>()
-                    .map_err(InReleaseParserError::ParseIntError)?,
-                checksum: i.2.to_owned(),
-            });
-        }
-
         Ok(Self {
-            _source: source,
-            checksums: res,
+            source: map,
             acquire_by_hash,
             checksum_type,
+            checksums,
         })
+    }
+
+    pub fn check_date(&self, now: &DateTime<Utc>) -> Result<(), InReleaseError> {
+        let date = self
+            .source
+            .get("Date")
+            .ok_or(InReleaseError::BadInReleaseData)?;
+
+        let date = parse_date(date).map_err(|e| {
+            debug!("Parse data failed: {}", e);
+            InReleaseError::BadInReleaseData
+        })?;
+
+        if now < &date {
+            return Err(InReleaseError::EarlierSignature);
+        }
+
+        Ok(())
+    }
+
+    pub fn check_valid_until(&self, now: &DateTime<Utc>) -> Result<(), InReleaseError> {
+        // Check if the `Valid-Until` field is valid only when it is defined.
+        if let Some(valid_until_date) = self.source.get("Valid-Until") {
+            let valid_until = parse_date(valid_until_date).map_err(|e| {
+                debug!("Parse valid_until failed: {}", e);
+                InReleaseError::BadInReleaseValidUntil
+            })?;
+
+            if now > &valid_until {
+                return Err(InReleaseError::ExpiredSignature);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl FromStr for ChecksumItem {
+    type Err = InReleaseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut line = s.splitn(3, |c: char| c.is_ascii_whitespace());
+        let checksum = line
+            .next()
+            .ok_or(InReleaseError::BrokenInRelease)?
+            .to_string();
+        let size = line
+            .next()
+            .ok_or(InReleaseError::BrokenInRelease)?
+            .parse::<u64>()
+            .map_err(InReleaseError::ParseIntError)?;
+        let name = line
+            .next()
+            .ok_or(InReleaseError::BrokenInRelease)?
+            .to_string();
+
+        Ok(Self {
+            name,
+            size,
+            checksum,
+        })
+    }
+}
+
+fn get_checksums_inner(checksum_str: &str) -> Result<Vec<ChecksumItem>, InReleaseError> {
+    checksum_str
+        .trim()
+        .lines()
+        .map(ChecksumItem::from_str)
+        .collect::<Result<Vec<_>, InReleaseError>>()
+}
+
+pub fn verify_inrelease<'a>(
+    inrelease: &'a str,
+    signed_by: Option<&'a str>,
+    rootfs: impl AsRef<Path>,
+    trusted: bool,
+) -> Result<Cow<'a, str>, InReleaseError> {
+    if inrelease.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
+        Ok(Cow::Owned(oma_repo_verify::verify(
+            inrelease, signed_by, rootfs,
+        )?))
+    } else {
+        if !trusted {
+            return Err(InReleaseError::NotTrusted);
+        }
+        Ok(Cow::Borrowed(inrelease))
     }
 }
 
@@ -276,26 +264,6 @@ fn date_hack(date: &str) -> Result<String, ParseIntError> {
     let date = split_time.join(" ");
 
     Ok(date.replace("UTC", "+0000"))
-}
-
-fn debcontrol_from_str(s: &str) -> InReleaseParserResult<Vec<SmallMap<16, String, String>>> {
-    let mut res = vec![];
-
-    let debcontrol =
-        oma_debcontrol::parse_str(s).map_err(|_| InReleaseParserError::InReleaseSyntaxError)?;
-
-    for i in debcontrol {
-        let mut item = SmallMap::<16, _, _>::new();
-        let field = i.fields;
-
-        for j in field {
-            item.insert(j.name.to_string(), j.value.to_string());
-        }
-
-        res.push(item);
-    }
-
-    Ok(res)
 }
 
 #[test]
