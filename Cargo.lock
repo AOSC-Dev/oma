@@ -3032,7 +3032,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.15.1"
+version = "0.16.0"
 dependencies = [
  "async-compression",
  "bon",
@@ -3082,7 +3082,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "ahash",
  "bon",
@@ -3119,7 +3119,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3160,7 +3160,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "futures",
  "indexmap 2.6.0",
