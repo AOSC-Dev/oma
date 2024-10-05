@@ -15,10 +15,13 @@ use crate::table::table_for_install_pending;
 use crate::utils::create_async_runtime;
 use crate::LOCKED;
 use chrono::Local;
+use dialoguer::console::style;
 use oma_console::msg;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
 use oma_console::success;
+use oma_console::writer::bar_writeln;
+use oma_console::{indicatif::ProgressBar, pb::spinner_style};
 use oma_contents::searcher::pure_search;
 use oma_contents::searcher::ripgrep_search;
 use oma_contents::searcher::Mode;
@@ -38,7 +41,6 @@ use oma_utils::oma::lock_oma_inner;
 use oma_utils::oma::unlock_oma;
 use reqwest::Client;
 use std::fmt::Display;
-use tracing::error;
 use tracing::info;
 use tracing::warn;
 
@@ -49,11 +51,25 @@ pub(crate) fn handle_no_result(
     no_result: Vec<String>,
 ) -> Result<(), OutputError> {
     let mut bin = vec![];
+
+    let (sty, inv) = spinner_style();
+    let pb = ProgressBar::new_spinner().with_style(sty);
+    pb.enable_steady_tick(inv);
+    pb.set_message(fl!("searching"));
+
     for word in &no_result {
         if word == "266" {
-            error!("无法找到匹配关键字为艾露露的软件包");
+            bar_writeln(
+                |s| pb.println(s),
+                &style("ERROR").red().bold().to_string(),
+                "无法找到匹配关键字为艾露露的软件包",
+            );
         } else {
-            error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
+            bar_writeln(
+                |s| pb.println(s),
+                &style("ERROR").red().bold().to_string(),
+                &fl!("could-not-find-pkg-from-keyword", c = word),
+            );
 
             contents_search(&sysroot, Mode::BinProvides, word, |(pkg, file)| {
                 if file == format!("/usr/bin/{}", word) {
@@ -61,6 +77,8 @@ pub(crate) fn handle_no_result(
                 }
             })
             .ok();
+
+            pb.finish_and_clear();
         }
     }
 
