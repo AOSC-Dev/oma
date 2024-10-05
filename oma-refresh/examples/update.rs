@@ -140,4 +140,10 @@ impl HandleTopicsControl for MyProgressManager {
     }
 }
 
-impl HandleRefresh for MyProgressManager {}
+impl HandleRefresh for MyProgressManager {
+    fn run_invoke_script(&self) {
+        self.mb
+            .println("Executing Post-refresh configuration script (Post-Invoke-Success) ...")
+            .unwrap();
+    }
+}

@@ -188,3 +188,4 @@ no-result-bincontents-tips = You might be looking for:
 no-result-bincontents-tips-2 = The { $cmd } command comes from the package { $pkg }
 oma-refresh-lock = Unable to refresh local database.
 oma-refresh-lock-dueto = { $exec } ({ $pid }) has acquired the lock to the database.
+oma-refresh-success-invoke = Executing Post-refresh configuration script (Post-Invoke-Success) ...

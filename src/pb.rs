@@ -158,7 +158,17 @@ impl HandleTopicsControl for OmaProgressBar {
     }
 }
 
-impl HandleRefresh for OmaProgressBar {}
+impl HandleRefresh for OmaProgressBar {
+    fn run_invoke_script(&self) {
+        let (sty, inv) = spinner_style();
+        let pb = self
+            .mb
+            .insert(1, ProgressBar::new_spinner().with_style(sty));
+        pb.set_message(fl!("oma-refresh-success-invoke"));
+        pb.enable_steady_tick(inv);
+        self.pb_map.insert(1, pb);
+    }
+}
 
 pub struct NoProgressBar;
 
@@ -214,4 +224,8 @@ impl HandleTopicsControl for NoProgressBar {
     }
 }
 
-impl HandleRefresh for NoProgressBar {}
+impl HandleRefresh for NoProgressBar {
+    fn run_invoke_script(&self) {
+        info!("{}", fl!("oma-refresh-success-invoke"));
+    }
+}

@@ -183,3 +183,4 @@ no-result-bincontents-tips = 您可能在找这些软件包：
 no-result-bincontents-tips-2 = 命令 { $cmd } 由 { $pkg } 软件包提供
 oma-refresh-lock = 无法刷新本地软件包数据库。
 oma-refresh-lock-dueto = { $exec } ({ $pid }) 正占用数据库锁。
+oma-refresh-success-invoke = 正在执行刷新后配置脚本 (Post-Invoke-Success) ...

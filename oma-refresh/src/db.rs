@@ -55,7 +55,9 @@ use crate::{
     },
 };
 
-pub trait HandleRefresh: DownloadProgressControl + HandleTopicsControl {}
+pub trait HandleRefresh: DownloadProgressControl + HandleTopicsControl {
+    fn run_invoke_script(&self);
+}
 
 #[cfg(feature = "aosc")]
 #[derive(Debug, thiserror::Error)]
@@ -313,6 +315,7 @@ impl<'a> OmaRefresh<'a> {
 
         // Finally, run success post invoke
         let _ = remove_task.await;
+        progress_manager.run_invoke_script();
         Self::run_success_post_invoke(&config_tree).await;
 
         Ok(())
