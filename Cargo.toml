@@ -51,6 +51,7 @@ oma-fetch = { path = "./oma-fetch", default-features = false }
 oma-topics = { path = "./oma-topics", optional = true, default-features = false }
 oma-history = { path = "./oma-history" }
 oma-repo-verify = { path = "./oma-repo-verify" }
+oma-ubuntu-cmd-not-found = { path = "./oma-ubuntu-cmd-not-found", optional = true }
 
 # i18n
 i18n-embed = { version = "0.15.0", features = ["fluent-system", "desktop-requester"]}
@@ -70,13 +71,14 @@ sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
 egg = ["dep:colored", "dep:image"]
 tokio-console = ["dep:console-subscriber"]
+ubuntu = ["dep:oma-ubuntu-cmd-not-found"]
 rustls = ["reqwest/rustls-tls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-topics/rustls"]
 openssl = ["reqwest/native-tls", "oma-fetch/native-tls", "oma-refresh/native-tls", "oma-topics/native-tls"]
 generic = ["sequoia-nettle-backend", "rustls"]
 default = ["aosc", "generic"]
 
 [workspace]
-members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify"]
+members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify", "oma-ubuntu-cmd-not-found"]
 
 [package.metadata.deb]
 copyright = "2024, AOSC Dev <maintainers@aosc.io>"
@@ -104,3 +106,4 @@ default-features = false
 lto = "thin"
 opt-level = 3
 codegen-units = 1
+debug = 2
