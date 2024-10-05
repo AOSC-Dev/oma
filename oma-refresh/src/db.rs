@@ -858,14 +858,14 @@ fn collect_download_task(
 
     let file_path = if c.keep_compress {
         if inrelease.acquire_by_hash() {
-            format!("{}/{}", dist_url, c.item.name)
+            Cow::Owned(format!("{}/{}", dist_url, c.item.name))
         } else {
-            download_url.clone()
+            Cow::Borrowed(&download_url)
         }
     } else if dist_url.ends_with('/') {
-        format!("{}{}", dist_url, not_compress_filename_before)
+        Cow::Owned(format!("{}{}", dist_url, not_compress_filename_before))
     } else {
-        format!("{}/{}", dist_url, not_compress_filename_before)
+        Cow::Owned(format!("{}/{}", dist_url, not_compress_filename_before))
     };
 
     let task = DownloadEntry::builder()
