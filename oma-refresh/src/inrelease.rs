@@ -209,13 +209,9 @@ pub fn verify_inrelease<'a>(
     }
 }
 
-pub(crate) fn split_ext_and_filename(x: &str) -> (String, String) {
+pub(crate) fn split_ext_and_filename(x: &str) -> (Cow<'_, str>, String) {
     let path = Path::new(x);
-    let ext = path
-        .extension()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string();
+    let ext = path.extension().unwrap_or_default().to_string_lossy();
     let name = path.with_extension("");
     let name = name.to_string_lossy().to_string();
 
@@ -322,22 +318,16 @@ fn test_split_name_and_ext() {
     let res = split_ext_and_filename(&example1);
     assert_eq!(
         res,
-        ("gz".to_string(), "main/dep11/icons-128x128.tar".to_string())
+        ("gz".into(), "main/dep11/icons-128x128.tar".to_string())
     );
 
     let example2 = "main/i18n/Translation-bg.xz";
     let res = split_ext_and_filename(&example2);
-    assert_eq!(
-        res,
-        ("xz".to_string(), "main/i18n/Translation-bg".to_string())
-    );
+    assert_eq!(res, ("xz".into(), "main/i18n/Translation-bg".to_string()));
 
     let example2 = "main/i18n/Translation-bg";
     let res = split_ext_and_filename(&example2);
-    assert_eq!(
-        res,
-        ("".to_string(), "main/i18n/Translation-bg".to_string())
-    );
+    assert_eq!(res, ("".into(), "main/i18n/Translation-bg".to_string()));
 }
 
 #[test]
