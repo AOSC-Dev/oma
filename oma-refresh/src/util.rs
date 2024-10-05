@@ -12,8 +12,8 @@ pub(crate) struct DatabaseFilenameReplacer {
 }
 
 impl DatabaseFilenameReplacer {
-    const PATTERNS: &'static [&'static str] = &["_", "/", "+", "%3a", "%3A"];
-    const REPLACE_WITH: &'static [&'static str] = &["%5f", "_", "%252b", ":", ":"];
+    const PATTERNS: &'static [&'static str] = &["_", "/", "+", "%3a", "%3A", "@"];
+    const REPLACE_WITH: &'static [&'static str] = &["%5f", "_", "%252b", ":", ":", "%40"];
 
     pub fn new() -> Result<Self, RefreshError> {
         Ok(Self {
