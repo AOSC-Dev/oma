@@ -638,7 +638,7 @@ impl<'a> OmaRefresh<'a> {
                 RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
             })?;
 
-            let inrelease = InRelease::new(&inrelease).map_err(|e| {
+            let mut inrelease = InRelease::new(&inrelease).map_err(|e| {
                 RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
             })?;
 
@@ -654,7 +654,11 @@ impl<'a> OmaRefresh<'a> {
                 })?;
             }
 
-            let checksums = &inrelease.checksums;
+            inrelease.try_init().map_err(|e| {
+                RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+            })?;
+
+            let checksums = &inrelease.checksum_type_and_list().1;
 
             let mut handle = vec![];
             let f = FilterDownloadList {
@@ -818,17 +822,18 @@ fn collect_download_task(
         Some(&c.item.checksum)
     } else {
         inrelease
-            .checksums
+            .checksum_type_and_list()
+            .1
             .iter()
             .find(|x| x.name == *not_compress_filename_before)
             .as_ref()
             .map(|c| &c.checksum)
     };
 
-    let download_url = if inrelease.acquire_by_hash {
+    let download_url = if inrelease.acquire_by_hash() {
         let path = Path::new(&c.item.name);
         let parent = path.parent().unwrap_or(path);
-        let dir = match inrelease.checksum_type {
+        let dir = match inrelease.checksum_type_and_list().0 {
             InReleaseChecksum::Sha256 => "SHA256",
             InReleaseChecksum::Sha512 => "SHA512",
             InReleaseChecksum::Md5 => "MD5Sum",
@@ -849,7 +854,7 @@ fn collect_download_task(
     }];
 
     let file_path = if c.keep_compress {
-        if inrelease.acquire_by_hash {
+        if inrelease.acquire_by_hash() {
             format!("{}/{}", dist_url, c.item.name)
         } else {
             download_url.clone()
@@ -880,7 +885,7 @@ fn collect_download_task(
             }
         })
         .maybe_hash(if let Some(checksum) = checksum {
-            match inrelease.checksum_type {
+            match inrelease.checksum_type_and_list().0 {
                 InReleaseChecksum::Sha256 => Some(Checksum::from_sha256_str(checksum)?),
                 InReleaseChecksum::Sha512 => Some(Checksum::from_sha512_str(checksum)?),
                 InReleaseChecksum::Md5 => Some(Checksum::from_md5_str(checksum)?),

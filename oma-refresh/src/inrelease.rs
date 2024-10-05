@@ -1,5 +1,6 @@
 use ahash::AHashMap;
 use chrono::{DateTime, FixedOffset, ParseError, Utc};
+use once_cell::sync::OnceCell;
 use std::{borrow::Cow, num::ParseIntError, path::Path, str::FromStr};
 use thiserror::Error;
 use tracing::debug;
@@ -48,9 +49,8 @@ const COMPRESS: &[&str] = &[".gz", ".xz", ".zst", ".bz2"];
 
 pub struct InRelease<'a> {
     source: AHashMap<&'a str, String>,
-    pub acquire_by_hash: bool,
-    pub checksum_type: InReleaseChecksum,
-    pub checksums: Vec<ChecksumItem>,
+    acquire_by_hash: OnceCell<bool>,
+    checksum_type_and_list: OnceCell<(InReleaseChecksum, Vec<ChecksumItem>)>,
 }
 
 impl<'a> InRelease<'a> {
@@ -65,31 +65,53 @@ impl<'a> InRelease<'a> {
             map.insert(i.name, i.value.to_string());
         }
 
-        let acquire_by_hash = map
-            .get("Acquire-By-Hash")
-            .map(|x| x.to_lowercase() == "yes")
-            .unwrap_or(false);
-
-        let sha256 = map.get("SHA256");
-        let sha512 = map.get("SHA512");
-        let md5 = map.get("MD5Sum");
-
-        let (checksum_type, checksums) = if let Some(sha256) = sha256 {
-            (InReleaseChecksum::Sha256, get_checksums_inner(sha256)?)
-        } else if let Some(sha512) = sha512 {
-            (InReleaseChecksum::Sha512, get_checksums_inner(sha512)?)
-        } else if let Some(md5) = md5 {
-            (InReleaseChecksum::Md5, get_checksums_inner(md5)?)
-        } else {
-            return Err(InReleaseError::BrokenInRelease);
-        };
-
         Ok(Self {
             source: map,
-            acquire_by_hash,
-            checksum_type,
-            checksums,
+            acquire_by_hash: OnceCell::new(),
+            checksum_type_and_list: OnceCell::new(),
         })
+    }
+
+    pub fn try_init(&mut self) -> Result<(), InReleaseError> {
+        let sha256 = self.source.get("SHA256");
+        let sha512 = self.source.get("SHA512");
+        let md5 = self.source.get("MD5Sum");
+
+        self.checksum_type_and_list.get_or_try_init(|| {
+            let (checksum_type, checksums) = if let Some(sha256) = sha256 {
+                (InReleaseChecksum::Sha256, get_checksums_inner(sha256)?)
+            } else if let Some(sha512) = sha512 {
+                (InReleaseChecksum::Sha512, get_checksums_inner(sha512)?)
+            } else if let Some(md5) = md5 {
+                (InReleaseChecksum::Md5, get_checksums_inner(md5)?)
+            } else {
+                return Err(InReleaseError::BrokenInRelease);
+            };
+
+            Ok((checksum_type, checksums))
+        })?;
+
+        let _ = *self.acquire_by_hash.get_or_init(|| {
+            self.source
+                .get("Acquire-By-Hash")
+                .map(|x| x.to_lowercase() == "yes")
+                .unwrap_or(false)
+        });
+
+        Ok(())
+    }
+
+    pub fn checksum_type_and_list(&self) -> &(InReleaseChecksum, Vec<ChecksumItem>) {
+        self.checksum_type_and_list
+            .get()
+            .expect("checksum type and list does not init")
+    }
+
+    pub fn acquire_by_hash(&self) -> bool {
+        *self
+            .acquire_by_hash
+            .get()
+            .expect("acquire_by_hash value does not init")
     }
 
     pub fn check_date(&self, now: &DateTime<Utc>) -> Result<(), InReleaseError> {
