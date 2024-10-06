@@ -86,6 +86,28 @@ _parse_os_release() {
 You are using a non-LTS Ubuntu release, which is not officially supported!
 '
 		fi
+	# deepin switched their ID half way through the V23 cycle.
+	elif [ "${ID}" = 'Deepin' -o \
+	       "${ID}" = 'deepin' ]; then
+		if [ "$VERSION_ID" = '23' ]; then
+			_oma_codename='beige'
+		else
+			echo "
+>>> oma 暂不支持 deepin ${VERSION_ID}，抱歉！
+>>> oma does not yet support deepin ${VERSION_ID}, sorry!
+"
+			exit 1
+		fi
+	elif [ "${ID}" = 'openkylin' ]; then
+		if [ "$VERSION_ID" = '2.0' ]; then
+			_oma_codename='nile'
+		else
+			echo "
+>>> oma 暂不支持 openKylin ${VERSION_ID}，抱歉！
+>>> oma does not yet support openKylin ${VERSION_ID}, sorry!
+"
+			exit 1
+		fi
 	elif [ "${ID}" = "aosc" -o \
 	       "${ID}" = "afterglow" ]; then
 		echo '
