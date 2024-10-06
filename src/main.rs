@@ -43,7 +43,7 @@ use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter, Layer};
 use tui::TuiArgs;
-use utils::create_async_runtime;
+use utils::{create_async_runtime, is_ssh_from_loginctl};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -321,7 +321,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() || no_color
         {
             follow_term_color = true;
-        } else if env::var("SSH_CONNECTION").is_ok() {
+        } else if env::var("SSH_CONNECTION").is_ok() || is_ssh_from_loginctl()  {
             debug!(
                 "You are running oma in an SSH session, using default terminal colors to avoid latency."
             );
