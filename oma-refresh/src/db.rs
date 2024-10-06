@@ -413,7 +413,7 @@ impl<'a> OmaRefresh<'a> {
 
                     progress_manager.new_progress_spinner(i, &msg);
 
-                    let dist_path = dist_path.strip_prefix("file:").unwrap_or(&dist_path);
+                    let dist_path = dist_path.strip_prefix("file:").unwrap_or(dist_path);
 
                     let p1 = Path::new(dist_path).join("InRelease");
                     let p2 = Path::new(dist_path).join("Release");
@@ -671,7 +671,7 @@ impl<'a> OmaRefresh<'a> {
                 config: self.apt_config,
                 config_tree,
                 archs: &archs,
-                components: &ose.components(),
+                components: ose.components(),
                 native_arch: &self.arch,
                 is_flat: ose.is_flat(),
                 is_source: ose.is_source(),
