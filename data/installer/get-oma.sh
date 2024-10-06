@@ -136,7 +136,7 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 
 _install_keyring() {
 	# Install repository GPG key.
-	curl -sSf https://repo.aosc.io/pubkeys/repo/aosc.gpg | \
+	curl -sSf https://repo.aosc.io/pubkeys/repo/oma.gpg | \
 		gpg --dearmor --yes -o /usr/share/keyrings/oma.gpg
 
 	if [ "$?" != '0' ]; then
