@@ -72,7 +72,9 @@ impl<'a> InRelease<'a> {
         })
     }
 
-    pub fn try_init(&mut self) -> Result<(), InReleaseError> {
+    pub fn get_or_try_init_checksum_type_and_list(
+        &self,
+    ) -> Result<&(InReleaseChecksum, Vec<ChecksumItem>), InReleaseError> {
         let sha256 = self.source.get("SHA256");
         let sha512 = self.source.get("SHA512");
         let md5 = self.source.get("MD5Sum");
@@ -89,29 +91,21 @@ impl<'a> InRelease<'a> {
             };
 
             Ok((checksum_type, checksums))
-        })?;
-
-        let _ = *self.acquire_by_hash.get_or_init(|| {
-            self.source
-                .get("Acquire-By-Hash")
-                .map(|x| x.to_lowercase() == "yes")
-                .unwrap_or(false)
-        });
-
-        Ok(())
+        })
     }
 
     pub fn checksum_type_and_list(&self) -> &(InReleaseChecksum, Vec<ChecksumItem>) {
-        self.checksum_type_and_list
-            .get()
+        self.get_or_try_init_checksum_type_and_list()
             .expect("checksum type and list does not init")
     }
 
     pub fn acquire_by_hash(&self) -> bool {
-        *self
-            .acquire_by_hash
-            .get()
-            .expect("acquire_by_hash value does not init")
+        *self.acquire_by_hash.get_or_init(|| {
+            self.source
+                .get("Acquire-By-Hash")
+                .map(|x| x.to_lowercase() == "yes")
+                .unwrap_or(false)
+        })
     }
 
     pub fn check_date(&self, now: &DateTime<Utc>) -> Result<(), InReleaseError> {
