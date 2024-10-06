@@ -65,15 +65,10 @@ _parse_os_release() {
 		elif [ "$VERSION_ID" = '24.04' ]; then
 			_oma_codename='noble'
 			_non_lts='0'
-# FIXME: Ubuntu 24.10 ships with APT 2.9, which is no longer compatible with
-# our current GPG signing key's encryption algorithm (nistp521).
-#
-# Re-enable Ubuntu 24.10 when we refresh that key.
-#
-#		elif [ "$VERSION_ID" = '24.10' ]; then
-#			# Match 24.04 (Noble Numbat).
-#			_oma_codename='noble'
-#			_non_lts='1'
+		elif [ "$VERSION_ID" = '24.10' ]; then
+			# Match 24.04 (Noble Numbat).
+			_oma_codename='noble'
+			_non_lts='1'
 		else
 			echo "
 >>> oma 暂不支持 Ubuntu ${VERSION_ID}，抱歉！
