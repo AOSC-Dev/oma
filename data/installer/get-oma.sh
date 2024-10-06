@@ -98,6 +98,10 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 "
 			exit 1
 		fi
+		echo "
+>>> 探测到 deepin ${VERSION_ID} ...
+>>> Detected deepin ${VERSION_ID} ...
+"
 	elif [ "${ID}" = 'openkylin' ]; then
 		if [ "$VERSION_ID" = '2.0' ]; then
 			_oma_codename='nile'
@@ -108,6 +112,10 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 "
 			exit 1
 		fi
+		echo "
+>>> 探测到 openKylin ${VERSION_ID} ...
+>>> Detected openKylin ${VERSION_ID} ...
+"
 	elif [ "${ID}" = "aosc" -o \
 	       "${ID}" = "afterglow" ]; then
 		echo '
