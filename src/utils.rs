@@ -2,7 +2,7 @@ use std::{
     env,
     fmt::Display,
     path::Path,
-    process::{exit, Command},
+    process::{exit, Command, Stdio},
     sync::atomic::Ordering,
 };
 
@@ -123,6 +123,33 @@ pub async fn check_battery(conn: &Connection, yes: bool) {
             exit(0);
         }
     }
+}
+
+pub fn is_ssh_from_loginctl() -> bool {
+    // https://unix.stackexchange.com/questions/9605/how-can-i-detect-if-the-shell-is-controlled-from-ssh
+    let cmd = Command::new("loginctl")
+        .arg("session-status")
+        .stdout(Stdio::piped())
+        .spawn();
+
+    let Ok(out1) = cmd else {
+        return false;
+    };
+
+    let cmd2 = Command::new("sh")
+        .arg("-c")
+        .arg("(read session_id ignored; loginctl show-session --value -p Service \"$session_id\")")
+        .stdin(out1.stdout.unwrap())
+        .output();
+
+    let Ok(out2) = cmd2 else {
+        return false;
+    };
+
+    let res = String::from_utf8_lossy(&out2.stdout);
+    let res = res.trim();
+
+    res == "sshd"
 }
 
 pub struct SearchResultDisplay<'a>(pub &'a SearchResult);
