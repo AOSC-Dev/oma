@@ -40,7 +40,7 @@ pub struct FilterDownloadList<'a> {
     pub checksums: &'a [ChecksumItem],
     pub config: &'a Config,
     pub config_tree: &'a [(String, String)],
-    pub archs: &'a [String],
+    pub archs: &'a [&'a str],
     pub components: &'a [String],
     pub native_arch: &'a str,
     pub is_flat: bool,
@@ -65,7 +65,7 @@ pub fn fiilter_download_list(f: FilterDownloadList) -> SmallVec<[ChecksumDownloa
 
     let mut archs_contains_all = vec![];
     archs_contains_all.extend_from_slice(archs);
-    archs_contains_all.push("all".to_string());
+    archs_contains_all.push("all");
 
     let components = if components.is_empty() {
         &["".to_string()]
