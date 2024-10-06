@@ -433,7 +433,7 @@ impl<'a> OmaRefresh<'a> {
                         // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
                         mirrors_inrelease.insert(i, RepoType::InRelease);
                         #[cfg(not(feature = "aosc"))]
-                        return Err(RefreshError::NoInReleaseFile(c.dist_path.clone()));
+                        return Err(RefreshError::NoInReleaseFile(c.dist_path().to_string()));
                     }
 
                     progress_manager.progress_done(i);
@@ -467,7 +467,7 @@ impl<'a> OmaRefresh<'a> {
 
             #[cfg(not(feature = "aosc"))]
             return Err(RefreshError::NoInReleaseFile(
-                sourcelist[i.first().unwrap().1].dist_path.clone(),
+                sourcelist[i.first().unwrap().1].dist_path().to_string(),
             ));
         }
 
