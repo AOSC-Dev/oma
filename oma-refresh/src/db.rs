@@ -642,7 +642,7 @@ impl<'a> OmaRefresh<'a> {
                 RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
             })?;
 
-            let mut inrelease = InRelease::new(&inrelease).map_err(|e| {
+            let inrelease = InRelease::new(&inrelease).map_err(|e| {
                 RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
             })?;
 
@@ -658,11 +658,12 @@ impl<'a> OmaRefresh<'a> {
                 })?;
             }
 
-            inrelease.try_init().map_err(|e| {
-                RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
-            })?;
-
-            let checksums = &inrelease.checksum_type_and_list().1;
+            let checksums = &inrelease
+                .get_or_try_init_checksum_type_and_list()
+                .map_err(|e| {
+                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                })?
+                .1;
 
             let mut handle = vec![];
             let f = FilterDownloadList {
