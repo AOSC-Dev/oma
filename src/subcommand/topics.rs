@@ -68,6 +68,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     };
 
     let sysroot_ref = &sysroot;
+    let client_ref = &client;
 
     let topics_changed = rt.block_on(async move {
         topics_inner(
@@ -75,8 +76,9 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
             opt_out,
             dry_run,
             no_progress,
-            fl!("do-not-edit-topic-sources-list"),
-            sysroot_ref,
+            Path::new(sysroot_ref),
+            client_ref,
+            &fl!("do-not-edit-topic-sources-list"),
         )
         .await
     })?;
@@ -155,13 +157,14 @@ async fn topics_inner(
     mut opt_out: Vec<String>,
     dry_run: bool,
     no_progress: bool,
-    sysroot: impl AsRef<Path>,
+    sysroot: &Path,
+    client: &Client,
     topic_msg: &str,
 ) -> Result<TopicChanged, OutputError> {
     let dpkg_arch = dpkg_arch(&sysroot)?;
-    let mut tm = TopicManager::new(&sysroot, &dpkg_arch).await?;
+    let mut tm = TopicManager::new(&client, &sysroot, &dpkg_arch).await?;
 
-    refresh_topics(no_progress, &mut tm, sysroot).await?;
+    refresh_topics(no_progress, &mut tm).await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
         inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
@@ -189,7 +192,7 @@ async fn topics_inner(
     let enabled_pkgs = tm
         .enabled_topics()
         .iter()
-        .flat_map(|x| x.packages.clone())
+        .flat_map(|x| x.1.packages.clone())
         .collect::<Vec<_>>();
 
     Ok(TopicChanged {
@@ -205,30 +208,22 @@ async fn inquire(
     opt_in: &mut Vec<String>,
     opt_out: &mut Vec<String>,
 ) -> Result<(), OutputError> {
-    let all_topics = tm.all_topics();
+    let mut all_topics = tm.all_topics().to_owned();
 
-    let enabled_names = tm
-        .enabled_topics()
-        .iter()
-        .map(|x| &x.name)
-        .collect::<Vec<_>>();
+    let enabled_names = tm.enabled_topics().keys().collect::<Vec<_>>();
 
     let mut swap_count = 0;
 
-    let mut all_topics = all_topics.to_vec();
-
     // 把所有已启用的源排到最前面
     for i in &enabled_names {
-        let pos = all_topics.iter().position(|x| x.name == **i);
-
-        if let Some(pos) = pos {
-            let entry = all_topics.remove(pos);
-            all_topics.insert(0, entry);
+        if all_topics.contains_key(*i) {
+            let entry = all_topics.shift_remove(*i).unwrap();
+            all_topics.shift_insert(0, i.to_string(), entry);
             swap_count += 1;
         }
     }
 
-    let all_names = all_topics.iter().map(|x| &x.name).collect::<Vec<_>>();
+    let all_names = all_topics.keys().collect::<Vec<_>>();
 
     let default = (0..swap_count).collect::<Vec<_>>();
 
@@ -236,6 +231,7 @@ async fn inquire(
     let display = all_topics
         .iter()
         .map(|x| {
+            let x = x.1;
             let mut s = String::new();
 
             if let Some(desc) = &x.description {
@@ -289,13 +285,13 @@ async fn inquire(
 
     for i in &ans {
         let index = display.iter().position(|x| x == i).unwrap();
-        if !enabled_names.contains(&all_names[index]) {
+        if !enabled_names.iter().any(|x| *x == all_names[index]) {
             opt_in.push(all_names[index].clone());
         }
     }
 
     for (i, c) in all_names.iter().enumerate() {
-        if enabled_names.contains(c) && !ans.contains(&display[i].as_str()) {
+        if enabled_names.iter().any(|x| x == c) && !ans.contains(&display[i].as_str()) {
             opt_out.push(c.to_string());
         }
     }
@@ -303,11 +299,7 @@ async fn inquire(
     Ok(())
 }
 
-async fn refresh_topics<P: AsRef<Path>>(
-    no_progress: bool,
-    tm: &mut TopicManager<'_>,
-    sysroot: P,
-) -> Result<(), OutputError> {
+async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
         let (style, inv) = spinner_style();
@@ -347,8 +339,7 @@ async fn refresh_topics<P: AsRef<Path>>(
                 warn!("{}", fl!("skip-write-mirror"));
             }
         },
-        sysroot,
-        tm.arch,
+        tm,
     )
     .await?;
 

@@ -17,6 +17,7 @@ thiserror = "1.0"
 futures = "0.3"
 tracing = "0.1"
 url = "2.5"
+ahash = "0.8.11"
 
 [dev-dependencies]
 oma-inquire = "0.1"

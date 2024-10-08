@@ -35,6 +35,7 @@ use oma_fetch::{
 #[cfg(feature = "aosc")]
 use oma_fetch::DownloadError;
 
+use oma_topics::TopicManager;
 use oma_utils::dpkg::dpkg_arch;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
@@ -575,13 +576,13 @@ impl<'a> OmaRefresh<'a> {
 
         #[cfg(feature = "aosc")]
         {
+            let mut tm = TopicManager::new(&self.client, &self.source, &self.arch).await?;
             if self.refresh_topics {
                 _progress_manager.scanning_topic();
                 let removed_suites = oma_topics::scan_closed_topic(
                     _handle_topic_msg,
                     |topic, mirror| _progress_manager.topic_not_in_mirror(topic, mirror),
-                    &self.source,
-                    &self.arch,
+                    &mut tm,
                 )
                 .await?;
 
