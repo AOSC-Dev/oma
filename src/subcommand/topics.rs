@@ -171,7 +171,7 @@ async fn topics_inner(
     let enabled_topics = Box::from(tm.enabled_topics());
 
     if opt_in.is_empty() && opt_out.is_empty() {
-        (opt_in, opt_out) = spawn_blocking(|| select_prompt(all_topics, enabled_topics))
+        (opt_in, opt_out) = spawn_blocking(move || select_prompt(&all_topics, &enabled_topics))
             .await
             .unwrap()?;
     }
@@ -210,8 +210,8 @@ async fn topics_inner(
 }
 
 fn select_prompt(
-    all_topics: Box<[Topic]>,
-    enabled_topics: Box<[Topic]>,
+    all_topics: &[Topic],
+    enabled_topics: &[Topic],
 ) -> anyhow::Result<(Vec<String>, Vec<String>)> {
     let mut opt_in = vec![];
     let mut opt_out = vec![];

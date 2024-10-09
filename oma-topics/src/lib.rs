@@ -170,7 +170,7 @@ impl<'a> TopicManager<'a> {
             })
             .collect::<Vec<_>>();
 
-        self.all = refresh_innter(&self.client, urls, self.arch).await?;
+        self.all = refresh_innter(self.client, urls, self.arch).await?;
 
         Ok(())
     }
@@ -323,7 +323,7 @@ impl<'a> TopicManager<'a> {
     }
 
     async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
-        check(&self.client, &format!("{}/InRelease", url)).await
+        check(self.client, &format!("{}/InRelease", url)).await
     }
 }
 
