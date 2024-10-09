@@ -69,6 +69,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     };
 
     let sysroot_ref = &sysroot;
+    let client_ref = &client;
 
     let topics_changed = rt.block_on(async move {
         topics_inner(
@@ -76,9 +77,9 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
             opt_out,
             dry_run,
             no_progress,
-            fl!("do-not-edit-topic-sources-list"),
             sysroot_ref,
-            &client,
+            &fl!("do-not-edit-topic-sources-list"),
+            client_ref,
         )
         .await
     })?;
@@ -157,7 +158,7 @@ async fn topics_inner(
     mut opt_out: Vec<String>,
     dry_run: bool,
     no_progress: bool,
-    sysroot: &Path,
+    sysroot: impl AsRef<Path>,
     topic_msg: &str,
     client: &Client,
 ) -> Result<TopicChanged, OutputError> {
