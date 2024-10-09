@@ -90,16 +90,22 @@ pub struct TopicManager<'a> {
     enabled: Vec<Topic>,
     all: Vec<Topic>,
     client: &'a Client,
-    sysroot: &'a Path,
     arch: &'a str,
     atm_state_path: PathBuf,
     dry_run: bool,
+    enabled_mirrors: Vec<String>,
 }
 
 impl<'a> TopicManager<'a> {
     const ATM_STATE_PATH_SUFFIX: &'a str = "var/lib/atm/state";
-    pub async fn new(client: &'a Client, sysroot: &'a Path, arch: &'a str, dry_run: bool) -> Result<Self> {
-        let atm_state_path = sysroot.join(Self::ATM_STATE_PATH_SUFFIX);
+
+    pub async fn new(
+        client: &'a Client,
+        sysroot: impl AsRef<Path>,
+        arch: &'a str,
+        dry_run: bool,
+    ) -> Result<Self> {
+        let atm_state_path = sysroot.as_ref().join(Self::ATM_STATE_PATH_SUFFIX);
         let atm_state_string = tokio::fs::read_to_string(&atm_state_path)
             .await
             .map_err(|e| {
@@ -135,10 +141,10 @@ impl<'a> TopicManager<'a> {
             }),
             all: vec![],
             client,
-            sysroot,
             arch,
             atm_state_path,
             dry_run,
+            enabled_mirrors: enabled_mirror(sysroot).await?,
         })
     }
 
@@ -152,8 +158,8 @@ impl<'a> TopicManager<'a> {
 
     /// Get all new topics
     pub async fn refresh(&mut self) -> Result<()> {
-        let urls = enabled_mirror(self.sysroot)
-            .await?
+        let urls = self
+            .enabled_mirrors
             .iter()
             .map(|x| {
                 if x.ends_with('/') {
@@ -246,7 +252,7 @@ impl<'a> TopicManager<'a> {
                 )
             })?;
 
-        let mirrors = enabled_mirror(self.sysroot).await?;
+        let mirrors = &self.enabled_mirrors;
 
         f.write_all(format!("{}\n", comment).as_bytes())
             .await
@@ -268,7 +274,7 @@ impl<'a> TopicManager<'a> {
                 })?;
 
             let mut tasks = vec![];
-            for mirror in &mirrors {
+            for mirror in mirrors {
                 tasks.push(self.mirror_topic_is_exist(format!(
                     "{}debs/dists/{}",
                     url_with_suffix(mirror),
@@ -304,9 +310,14 @@ impl<'a> TopicManager<'a> {
 
         let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
 
-        tokio::fs::write(&self.atm_state_path, s).await.map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(self.atm_state_path.display().to_string(), e)
-        })?;
+        tokio::fs::write(&self.atm_state_path, s)
+            .await
+            .map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(
+                    self.atm_state_path.display().to_string(),
+                    e,
+                )
+            })?;
 
         Ok(())
     }
