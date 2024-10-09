@@ -578,7 +578,8 @@ impl<'a> OmaRefresh<'a> {
         {
             if self.refresh_topics {
                 _progress_manager.scanning_topic();
-                let mut tm = TopicManager::new(self.client, &self.source, &self.arch).await?;
+                let mut tm =
+                    TopicManager::new(self.client, &self.source, &self.arch, false).await?;
                 let removed_suites =
                     oma_topics::scan_closed_topic(&mut tm, _handle_topic_msg, |topic, mirror| {
                         _progress_manager.topic_not_in_mirror(topic, mirror)

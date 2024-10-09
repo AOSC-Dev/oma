@@ -161,7 +161,7 @@ async fn topics_inner(
     client: &Client,
 ) -> Result<TopicChanged, OutputError> {
     let dpkg_arch = dpkg_arch(&sysroot)?;
-    let mut tm = TopicManager::new(client, sysroot, &dpkg_arch).await?;
+    let mut tm = TopicManager::new(client, sysroot, &dpkg_arch, dry_run).await?;
 
     refresh_topics(no_progress, &mut tm).await?;
 
@@ -170,12 +170,12 @@ async fn topics_inner(
     }
 
     for i in &opt_in {
-        tm.add(i, dry_run)?;
+        tm.add(i)?;
     }
 
     let mut downgrade_pkgs = vec![];
     for i in &opt_out {
-        let removed_topic = tm.remove(i, false)?;
+        let removed_topic = tm.remove(i)?;
         downgrade_pkgs.extend(removed_topic.packages);
     }
 

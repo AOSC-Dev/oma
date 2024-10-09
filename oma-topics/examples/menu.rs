@@ -13,7 +13,7 @@ use reqwest::Client;
 #[tokio::main]
 async fn main() -> Result<()> {
     let client = Client::builder().user_agent("oma").build()?;
-    let mut tm = TopicManager::new(&client, Path::new("/"), "amd64").await?;
+    let mut tm = TopicManager::new(&client, Path::new("/"), "amd64", false).await?;
     let mut opt_in = vec![];
     let mut opt_out = vec![];
 
@@ -76,11 +76,11 @@ async fn main() -> Result<()> {
     }
 
     for i in opt_in {
-        tm.add(&i, false)?;
+        tm.add(&i)?;
     }
 
     for i in opt_out {
-        tm.remove(&i, false)?;
+        tm.remove(&i)?;
     }
 
     tm.write_enabled(false, "test", |topic, mirror| {

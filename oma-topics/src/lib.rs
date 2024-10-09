@@ -93,11 +93,12 @@ pub struct TopicManager<'a> {
     sysroot: &'a Path,
     arch: &'a str,
     atm_state_path: PathBuf,
+    dry_run: bool,
 }
 
 impl<'a> TopicManager<'a> {
     const ATM_STATE_PATH_SUFFIX: &'a str = "var/lib/atm/state";
-    pub async fn new(client: &'a Client, sysroot: &'a Path, arch: &'a str) -> Result<Self> {
+    pub async fn new(client: &'a Client, sysroot: &'a Path, arch: &'a str, dry_run: bool) -> Result<Self> {
         let atm_state_path = sysroot.join(Self::ATM_STATE_PATH_SUFFIX);
         let atm_state_string = tokio::fs::read_to_string(&atm_state_path)
             .await
@@ -137,6 +138,7 @@ impl<'a> TopicManager<'a> {
             sysroot,
             arch,
             atm_state_path,
+            dry_run,
         })
     }
 
@@ -168,10 +170,10 @@ impl<'a> TopicManager<'a> {
     }
 
     /// Enable select topic
-    pub fn add(&mut self, topic: &str, dry_run: bool) -> Result<()> {
+    pub fn add(&mut self, topic: &str) -> Result<()> {
         debug!("oma will opt_in: {}", topic);
 
-        if dry_run {
+        if self.dry_run {
             return Ok(());
         }
 
@@ -201,7 +203,7 @@ impl<'a> TopicManager<'a> {
     }
 
     /// Disable select topic
-    pub fn remove(&mut self, topic: &str, dry_run: bool) -> Result<Topic> {
+    pub fn remove(&mut self, topic: &str) -> Result<Topic> {
         let index = self
             .enabled
             .iter()
@@ -212,7 +214,7 @@ impl<'a> TopicManager<'a> {
         debug!("topic is: {topic}");
         debug!("enabled topics: {:?}", self.enabled);
 
-        if dry_run {
+        if self.dry_run {
             return Ok(self.enabled[index.unwrap()].to_owned());
         }
 
@@ -418,7 +420,7 @@ pub async fn scan_closed_topic(
 
     for i in enabled {
         if all.iter().all(|x| x.name != i.name) {
-            let d = tm.remove(&i.name, false)?;
+            let d = tm.remove(&i.name)?;
             res.push(d.name);
         }
     }
