@@ -14,6 +14,7 @@ use oma_pm::{
 };
 use oma_utils::dpkg::dpkg_arch;
 use reqwest::Client;
+use tokio::task::spawn_blocking;
 use tracing::warn;
 
 use crate::{
@@ -25,7 +26,7 @@ use crate::{
 use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest};
 use crate::fl;
 use anyhow::anyhow;
-use oma_topics::{scan_closed_topic, TopicManager};
+use oma_topics::{scan_closed_topic, Topic, TopicManager};
 
 struct TopicChanged {
     opt_in: Vec<String>,
@@ -165,8 +166,13 @@ async fn topics_inner(
 
     refresh_topics(no_progress, &mut tm).await?;
 
+    let all_topics = Box::from(tm.all_topics());
+    let enabled_topics = Box::from(tm.enabled_topics());
+
     if opt_in.is_empty() && opt_out.is_empty() {
-        inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
+        (opt_in, opt_out) = spawn_blocking(|| select_prompt(all_topics, enabled_topics))
+            .await
+            .unwrap()?;
     }
 
     for i in &opt_in {
@@ -202,25 +208,21 @@ async fn topics_inner(
     })
 }
 
-async fn inquire(
-    tm: &mut TopicManager<'_>,
-    opt_in: &mut Vec<String>,
-    opt_out: &mut Vec<String>,
-) -> Result<(), OutputError> {
-    let all_topics = tm.all_topics();
-
-    let enabled_names = tm
-        .enabled_topics()
-        .iter()
-        .map(|x| &x.name)
-        .collect::<Vec<_>>();
+fn select_prompt(
+    all_topics: Box<[Topic]>,
+    enabled_topics: Box<[Topic]>,
+) -> anyhow::Result<(Vec<String>, Vec<String>)> {
+    let mut opt_in = vec![];
+    let mut opt_out = vec![];
 
     let mut swap_count = 0;
 
     let mut all_topics = all_topics.to_vec();
 
+    let enabled_names = &*enabled_topics.iter().map(|x| &x.name).collect::<Vec<_>>();
+
     // 把所有已启用的源排到最前面
-    for i in &enabled_names {
+    for i in enabled_names {
         let pos = all_topics.iter().position(|x| x.name == **i);
 
         if let Some(pos) = pos {
@@ -302,7 +304,7 @@ async fn inquire(
         }
     }
 
-    Ok(())
+    Ok((opt_in, opt_out))
 }
 
 async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
