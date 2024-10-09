@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
@@ -6,10 +8,12 @@ use inquire::{
 
 use oma_topics::Result;
 use oma_topics::TopicManager;
+use reqwest::Client;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut tm = TopicManager::new("/", "amd64").await?;
+    let client = Client::builder().user_agent("oma").build()?;
+    let mut tm = TopicManager::new(&client, Path::new("/"), "amd64").await?;
     let mut opt_in = vec![];
     let mut opt_out = vec![];
 

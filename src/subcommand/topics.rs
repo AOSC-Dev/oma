@@ -77,6 +77,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
             no_progress,
             fl!("do-not-edit-topic-sources-list"),
             sysroot_ref,
+            &client,
         )
         .await
     })?;
@@ -155,13 +156,14 @@ async fn topics_inner(
     mut opt_out: Vec<String>,
     dry_run: bool,
     no_progress: bool,
-    sysroot: impl AsRef<Path>,
+    sysroot: &Path,
     topic_msg: &str,
+    client: &Client,
 ) -> Result<TopicChanged, OutputError> {
     let dpkg_arch = dpkg_arch(&sysroot)?;
-    let mut tm = TopicManager::new(&sysroot, &dpkg_arch).await?;
+    let mut tm = TopicManager::new(client, sysroot, &dpkg_arch).await?;
 
-    refresh_topics(no_progress, &mut tm, sysroot).await?;
+    refresh_topics(no_progress, &mut tm).await?;
 
     if opt_in.is_empty() && opt_out.is_empty() {
         inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
@@ -303,11 +305,7 @@ async fn inquire(
     Ok(())
 }
 
-async fn refresh_topics<P: AsRef<Path>>(
-    no_progress: bool,
-    tm: &mut TopicManager<'_>,
-    sysroot: P,
-) -> Result<(), OutputError> {
+async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
         let (style, inv) = spinner_style();
@@ -321,8 +319,10 @@ async fn refresh_topics<P: AsRef<Path>>(
     };
 
     tm.refresh().await?;
+
     scan_closed_topic(
-        &format!("{}\n", fl!("do-not-edit-topic-sources-list")),
+        tm,
+        &fl!("do-not-edit-topic-sources-list"),
         |topic, mirror| {
             if let Some(pb) = &pb {
                 bar_writeln(
@@ -347,8 +347,6 @@ async fn refresh_topics<P: AsRef<Path>>(
                 warn!("{}", fl!("skip-write-mirror"));
             }
         },
-        sysroot,
-        tm.arch,
     )
     .await?;
 
