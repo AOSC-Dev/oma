@@ -314,7 +314,7 @@ async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<
 
     tm.refresh().await?;
     scan_closed_topic(
-        &format!("{}\n", fl!("do-not-edit-topic-sources-list")),
+        &fl!("do-not-edit-topic-sources-list"),
         |topic, mirror| {
             if let Some(pb) = &pb {
                 bar_writeln(
