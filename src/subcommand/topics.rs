@@ -186,14 +186,16 @@ async fn topics_inner(
         downgrade_pkgs.extend(removed_topic.packages);
     }
 
-    tm.write_enabled(dry_run, topic_msg, |topic, mirror| {
-        warn!(
-            "{}",
-            fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
-        );
-        warn!("{}", fl!("skip-write-mirror"));
-    })
-    .await?;
+    if !opt_in.is_empty() || !opt_out.is_empty() {
+        tm.write_enabled(dry_run, topic_msg, |topic, mirror| {
+            warn!(
+                "{}",
+                fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+            );
+            warn!("{}", fl!("skip-write-mirror"));
+        })
+        .await?;
+    }
 
     let enabled_pkgs = tm
         .enabled_topics()

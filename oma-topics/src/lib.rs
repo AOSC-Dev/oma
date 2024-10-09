@@ -423,9 +423,8 @@ pub async fn scan_closed_topic(
     message_cb: impl Fn(&str, &str),
 ) -> Result<Vec<String>> {
     tm.refresh().await?;
-    let all = tm.all_topics().to_owned();
-
-    let enabled = tm.enabled_topics().to_owned();
+    let all: Box<[Topic]> = Box::from(tm.all_topics());
+    let enabled: Box<[Topic]> = Box::from(tm.enabled_topics());
 
     let mut res = vec![];
 
@@ -436,7 +435,9 @@ pub async fn scan_closed_topic(
         }
     }
 
-    tm.write_enabled(false, comment, message_cb).await?;
+    if !res.is_empty() {
+        tm.write_enabled(false, comment, message_cb).await?;
+    }
 
     Ok(res)
 }
