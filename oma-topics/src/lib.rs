@@ -182,10 +182,6 @@ impl<'a> TopicManager<'a> {
     pub fn add(&mut self, topic: &str) -> Result<()> {
         debug!("oma will opt_in: {}", topic);
 
-        if self.dry_run {
-            return Ok(());
-        }
-
         let all = &self.all;
 
         debug!("all topic: {all:?}");
@@ -223,10 +219,6 @@ impl<'a> TopicManager<'a> {
         debug!("topic is: {topic}");
         debug!("enabled topics: {:?}", self.enabled);
 
-        if self.dry_run {
-            return Ok(self.enabled[index.unwrap()].to_owned());
-        }
-
         if let Some(index) = index {
             let d = self.enabled.remove(index);
             return Ok(d);
@@ -238,11 +230,11 @@ impl<'a> TopicManager<'a> {
     /// Write topic changes to mirror list
     pub async fn write_enabled(
         &self,
-        dry_run: bool,
-        comment: &str,
+        source_list_comment: &str,
         message_cb: impl Fn(&str, &str),
     ) -> Result<()> {
-        if dry_run {
+        if self.dry_run {
+            debug!("enabled: {:?}", self.enabled);
             return Ok(());
         }
 
@@ -257,7 +249,7 @@ impl<'a> TopicManager<'a> {
 
         let mirrors = &self.enabled_mirrors;
 
-        f.write_all(format!("{}\n", comment).as_bytes())
+        f.write_all(format!("{}\n", source_list_comment).as_bytes())
             .await
             .map_err(|e| {
                 OmaTopicsError::FailedToOperateDirOrFile(
@@ -439,7 +431,7 @@ pub async fn scan_closed_topic(
     }
 
     if !res.is_empty() {
-        tm.write_enabled(false, comment, message_cb).await?;
+        tm.write_enabled(comment, message_cb).await?;
     }
 
     Ok(res)
