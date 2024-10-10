@@ -8,7 +8,7 @@ use std::{
 use indexmap::IndexMap;
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::{fs, io::AsyncWriteExt};
+use tokio::fs;
 use tracing::{debug, warn};
 use url::Url;
 
@@ -235,38 +235,16 @@ impl<'a> TopicManager<'a> {
     ) -> Result<()> {
         if self.dry_run {
             debug!("enabled: {:?}", self.enabled);
-            return Ok(());
         }
-
-        let mut f = tokio::fs::File::create(&self.atm_source_list_path)
-            .await
-            .map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(
-                    self.atm_source_list_path.display().to_string(),
-                    e,
-                )
-            })?;
 
         let mirrors = &self.enabled_mirrors;
 
-        f.write_all(format!("{}\n", source_list_comment).as_bytes())
-            .await
-            .map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(
-                    self.atm_source_list_path.display().to_string(),
-                    e,
-                )
-            })?;
+        let mut new_source_list = String::new();
+
+        new_source_list.push_str(&format!("{}\n", source_list_comment));
 
         for i in &self.enabled {
-            f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())
-                .await
-                .map_err(|e| {
-                    OmaTopicsError::FailedToOperateDirOrFile(
-                        self.atm_source_list_path.display().to_string(),
-                        e,
-                    )
-                })?;
+            new_source_list.push_str(&format!("# Topic `{}`\n", i.name));
 
             let mut tasks = vec![];
             for mirror in mirrors {
@@ -285,31 +263,36 @@ impl<'a> TopicManager<'a> {
                     continue;
                 }
 
-                f.write_all(
-                    format!(
-                        "deb {}debs {} main\n",
-                        url_with_suffix(&mirrors[index]),
-                        i.name
-                    )
-                    .as_bytes(),
-                )
-                .await
-                .map_err(|e| {
-                    OmaTopicsError::FailedToOperateDirOrFile(
-                        self.atm_source_list_path.display().to_string(),
-                        e,
-                    )
-                })?;
+                new_source_list.push_str(&format!(
+                    "deb {}debs {} main\n",
+                    url_with_suffix(&mirrors[index]),
+                    i.name
+                ));
             }
         }
 
         let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
+
+        if self.dry_run {
+            debug!("ATM State:\n{}", String::from_utf8_lossy(&s));
+            debug!("atm.list:\n{}", new_source_list);
+            return Ok(());
+        }
 
         tokio::fs::write(&self.atm_state_path, s)
             .await
             .map_err(|e| {
                 OmaTopicsError::FailedToOperateDirOrFile(
                     self.atm_state_path.display().to_string(),
+                    e,
+                )
+            })?;
+
+        tokio::fs::write(&self.atm_source_list_path, new_source_list)
+            .await
+            .map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(
+                    self.atm_source_list_path.display().to_string(),
                     e,
                 )
             })?;
