@@ -14,6 +14,7 @@ use oma_pm::{
 };
 use oma_utils::dpkg::dpkg_arch;
 use reqwest::Client;
+use tokio::task::spawn_blocking;
 use tracing::warn;
 
 use crate::{
@@ -25,7 +26,7 @@ use crate::{
 use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest};
 use crate::fl;
 use anyhow::anyhow;
-use oma_topics::{scan_closed_topic, TopicManager};
+use oma_topics::{scan_closed_topic, Topic, TopicManager};
 
 struct TopicChanged {
     opt_in: Vec<String>,
@@ -68,6 +69,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     };
 
     let sysroot_ref = &sysroot;
+    let client_ref = &client;
 
     let topics_changed = rt.block_on(async move {
         topics_inner(
@@ -75,8 +77,9 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
             opt_out,
             dry_run,
             no_progress,
-            fl!("do-not-edit-topic-sources-list"),
             sysroot_ref,
+            &fl!("do-not-edit-topic-sources-list"),
+            client_ref,
         )
         .await
     })?;
@@ -157,34 +160,42 @@ async fn topics_inner(
     no_progress: bool,
     sysroot: impl AsRef<Path>,
     topic_msg: &str,
+    client: &Client,
 ) -> Result<TopicChanged, OutputError> {
     let dpkg_arch = dpkg_arch(&sysroot)?;
-    let mut tm = TopicManager::new(&sysroot, &dpkg_arch).await?;
+    let mut tm = TopicManager::new(client, sysroot, &dpkg_arch, dry_run).await?;
 
-    refresh_topics(no_progress, &mut tm, sysroot).await?;
+    refresh_topics(no_progress, &mut tm).await?;
+
+    let all_topics = Box::from(tm.all_topics());
+    let enabled_topics = Box::from(tm.enabled_topics());
 
     if opt_in.is_empty() && opt_out.is_empty() {
-        inquire(&mut tm, &mut opt_in, &mut opt_out).await?;
+        (opt_in, opt_out) = spawn_blocking(move || select_prompt(&all_topics, &enabled_topics))
+            .await
+            .unwrap()?;
     }
 
     for i in &opt_in {
-        tm.add(i, dry_run)?;
+        tm.add(i)?;
     }
 
     let mut downgrade_pkgs = vec![];
     for i in &opt_out {
-        let removed_topic = tm.remove(i, false)?;
+        let removed_topic = tm.remove(i)?;
         downgrade_pkgs.extend(removed_topic.packages);
     }
 
-    tm.write_enabled(dry_run, topic_msg, |topic, mirror| {
-        warn!(
-            "{}",
-            fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
-        );
-        warn!("{}", fl!("skip-write-mirror"));
-    })
-    .await?;
+    if !opt_in.is_empty() || !opt_out.is_empty() {
+        tm.write_enabled(topic_msg, |topic, mirror| {
+            warn!(
+                "{}",
+                fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+            );
+            warn!("{}", fl!("skip-write-mirror"));
+        })
+        .await?;
+    }
 
     let enabled_pkgs = tm
         .enabled_topics()
@@ -200,25 +211,21 @@ async fn topics_inner(
     })
 }
 
-async fn inquire(
-    tm: &mut TopicManager<'_>,
-    opt_in: &mut Vec<String>,
-    opt_out: &mut Vec<String>,
-) -> Result<(), OutputError> {
-    let all_topics = tm.all_topics();
-
-    let enabled_names = tm
-        .enabled_topics()
-        .iter()
-        .map(|x| &x.name)
-        .collect::<Vec<_>>();
+fn select_prompt(
+    all_topics: &[Topic],
+    enabled_topics: &[Topic],
+) -> anyhow::Result<(Vec<String>, Vec<String>)> {
+    let mut opt_in = vec![];
+    let mut opt_out = vec![];
 
     let mut swap_count = 0;
 
     let mut all_topics = all_topics.to_vec();
 
+    let enabled_names = &*enabled_topics.iter().map(|x| &x.name).collect::<Vec<_>>();
+
     // 把所有已启用的源排到最前面
-    for i in &enabled_names {
+    for i in enabled_names {
         let pos = all_topics.iter().position(|x| x.name == **i);
 
         if let Some(pos) = pos {
@@ -300,14 +307,10 @@ async fn inquire(
         }
     }
 
-    Ok(())
+    Ok((opt_in, opt_out))
 }
 
-async fn refresh_topics<P: AsRef<Path>>(
-    no_progress: bool,
-    tm: &mut TopicManager<'_>,
-    sysroot: P,
-) -> Result<(), OutputError> {
+async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
     let pb = if !no_progress {
         let pb = ProgressBar::new_spinner();
         let (style, inv) = spinner_style();
@@ -321,8 +324,10 @@ async fn refresh_topics<P: AsRef<Path>>(
     };
 
     tm.refresh().await?;
+
     scan_closed_topic(
-        &format!("{}\n", fl!("do-not-edit-topic-sources-list")),
+        tm,
+        &fl!("do-not-edit-topic-sources-list"),
         |topic, mirror| {
             if let Some(pb) = &pb {
                 bar_writeln(
@@ -347,8 +352,6 @@ async fn refresh_topics<P: AsRef<Path>>(
                 warn!("{}", fl!("skip-write-mirror"));
             }
         },
-        sysroot,
-        tm.arch,
     )
     .await?;
 

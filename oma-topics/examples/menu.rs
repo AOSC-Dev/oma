@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
@@ -6,10 +8,12 @@ use inquire::{
 
 use oma_topics::Result;
 use oma_topics::TopicManager;
+use reqwest::Client;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut tm = TopicManager::new("/", "amd64").await?;
+    let client = Client::builder().user_agent("oma").build()?;
+    let mut tm = TopicManager::new(&client, Path::new("/"), "amd64", false).await?;
     let mut opt_in = vec![];
     let mut opt_out = vec![];
 
@@ -72,14 +76,14 @@ async fn main() -> Result<()> {
     }
 
     for i in opt_in {
-        tm.add(&i, false)?;
+        tm.add(&i)?;
     }
 
     for i in opt_out {
-        tm.remove(&i, false)?;
+        tm.remove(&i)?;
     }
 
-    tm.write_enabled(false, "test", |topic, mirror| {
+    tm.write_enabled("test", |topic, mirror| {
         println!("{topic} not in {mirror}");
     })
     .await?;

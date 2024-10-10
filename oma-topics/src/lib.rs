@@ -8,7 +8,7 @@ use std::{
 use indexmap::IndexMap;
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::{fs, io::AsyncWriteExt};
+use tokio::fs;
 use tracing::{debug, warn};
 use url::Url;
 
@@ -89,17 +89,51 @@ pub struct Topic {
 pub struct TopicManager<'a> {
     enabled: Vec<Topic>,
     all: Vec<Topic>,
-    client: Client,
-    sysroot: PathBuf,
-    pub arch: &'a str,
+    client: &'a Client,
+    arch: &'a str,
+    atm_state_path: PathBuf,
+    atm_source_list_path: PathBuf,
+    dry_run: bool,
+    enabled_mirrors: Vec<String>,
 }
 
 impl<'a> TopicManager<'a> {
-    pub async fn new<P: AsRef<Path>>(sysroot: P, arch: &'a str) -> Result<Self> {
-        let atm_state = Self::atm_state_path(&sysroot).await?;
-        let atm_state_string = tokio::fs::read_to_string(&atm_state).await.map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(atm_state.display().to_string(), e)
-        })?;
+    const ATM_STATE_PATH_SUFFIX: &'a str = "var/lib/atm/state";
+    const ATM_SOURCE_LIST_PATH_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.list";
+
+    pub async fn new(
+        client: &'a Client,
+        sysroot: impl AsRef<Path>,
+        arch: &'a str,
+        dry_run: bool,
+    ) -> Result<Self> {
+        let atm_state_path = sysroot.as_ref().join(Self::ATM_STATE_PATH_SUFFIX);
+        let atm_state_string = tokio::fs::read_to_string(&atm_state_path)
+            .await
+            .map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(atm_state_path.display().to_string(), e)
+            })?;
+
+        let parent = atm_state_path
+            .parent()
+            .ok_or_else(|| OmaTopicsError::FailedGetParentPath(atm_state_path.to_path_buf()))?;
+
+        if !parent.is_dir() {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(parent.display().to_string(), e)
+            })?;
+        }
+
+        if !atm_state_path.is_file() {
+            tokio::fs::File::create(&atm_state_path)
+                .await
+                .map_err(|e| {
+                    OmaTopicsError::FailedToOperateDirOrFile(
+                        atm_state_path.display().to_string(),
+                        e,
+                    )
+                })?;
+        }
 
         Ok(Self {
             enabled: serde_json::from_str(&atm_state_string).unwrap_or_else(|e| {
@@ -108,32 +142,13 @@ impl<'a> TopicManager<'a> {
                 vec![]
             }),
             all: vec![],
-            client: reqwest::ClientBuilder::new().user_agent("oma").build()?,
-            sysroot: sysroot.as_ref().to_path_buf(),
+            client,
             arch,
+            atm_state_path,
+            dry_run,
+            enabled_mirrors: enabled_mirror(&sysroot).await?,
+            atm_source_list_path: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_SUFFIX),
         })
-    }
-
-    async fn atm_state_path<P: AsRef<Path>>(rootfs: P) -> Result<PathBuf> {
-        let p = rootfs.as_ref().join("var/lib/atm/state");
-
-        let parent = p
-            .parent()
-            .ok_or_else(|| OmaTopicsError::FailedGetParentPath(p.to_path_buf()))?;
-
-        if !parent.is_dir() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(parent.display().to_string(), e)
-            })?;
-        }
-
-        if !p.is_file() {
-            tokio::fs::File::create(&p).await.map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(p.display().to_string(), e)
-            })?;
-        }
-
-        Ok(p)
     }
 
     pub fn all_topics(&self) -> &[Topic] {
@@ -146,8 +161,8 @@ impl<'a> TopicManager<'a> {
 
     /// Get all new topics
     pub async fn refresh(&mut self) -> Result<()> {
-        let urls = enabled_mirror(self.sysroot.as_path())
-            .await?
+        let urls = self
+            .enabled_mirrors
             .iter()
             .map(|x| {
                 if x.ends_with('/') {
@@ -158,18 +173,14 @@ impl<'a> TopicManager<'a> {
             })
             .collect::<Vec<_>>();
 
-        self.all = refresh_innter(&self.client, urls, self.arch).await?;
+        self.all = refresh_innter(self.client, urls, self.arch).await?;
 
         Ok(())
     }
 
     /// Enable select topic
-    pub fn add(&mut self, topic: &str, dry_run: bool) -> Result<()> {
+    pub fn add(&mut self, topic: &str) -> Result<()> {
         debug!("oma will opt_in: {}", topic);
-
-        if dry_run {
-            return Ok(());
-        }
 
         let all = &self.all;
 
@@ -197,7 +208,7 @@ impl<'a> TopicManager<'a> {
     }
 
     /// Disable select topic
-    pub fn remove(&mut self, topic: &str, dry_run: bool) -> Result<Topic> {
+    pub fn remove(&mut self, topic: &str) -> Result<Topic> {
         let index = self
             .enabled
             .iter()
@@ -207,10 +218,6 @@ impl<'a> TopicManager<'a> {
         debug!("index is: {index:?}");
         debug!("topic is: {topic}");
         debug!("enabled topics: {:?}", self.enabled);
-
-        if dry_run {
-            return Ok(self.enabled[index.unwrap()].to_owned());
-        }
 
         if let Some(index) = index {
             let d = self.enabled.remove(index);
@@ -223,46 +230,24 @@ impl<'a> TopicManager<'a> {
     /// Write topic changes to mirror list
     pub async fn write_enabled(
         &self,
-        dry_run: bool,
-        comment: &str,
+        source_list_comment: &str,
         message_cb: impl Fn(&str, &str),
     ) -> Result<()> {
-        if dry_run {
-            return Ok(());
+        if self.dry_run {
+            debug!("enabled: {:?}", self.enabled);
         }
 
-        let mut f = tokio::fs::File::create("/etc/apt/sources.list.d/atm.list")
-            .await
-            .map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(
-                    "/etc/apt/sources.list.d/atm.list".to_string(),
-                    e,
-                )
-            })?;
+        let mirrors = &self.enabled_mirrors;
 
-        let mirrors = enabled_mirror(self.sysroot.as_path()).await?;
+        let mut new_source_list = String::new();
 
-        f.write_all(format!("{}\n", comment).as_bytes())
-            .await
-            .map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(
-                    "/etc/apt/sources.list.d/atm.list".to_string(),
-                    e,
-                )
-            })?;
+        new_source_list.push_str(&format!("{}\n", source_list_comment));
 
         for i in &self.enabled {
-            f.write_all(format!("# Topic `{}`\n", i.name).as_bytes())
-                .await
-                .map_err(|e| {
-                    OmaTopicsError::FailedToOperateDirOrFile(
-                        "/etc/apt/sources.list.d/atm.list".to_string(),
-                        e,
-                    )
-                })?;
+            new_source_list.push_str(&format!("# Topic `{}`\n", i.name));
 
             let mut tasks = vec![];
-            for mirror in &mirrors {
+            for mirror in mirrors {
                 tasks.push(self.mirror_topic_is_exist(format!(
                     "{}debs/dists/{}",
                     url_with_suffix(mirror),
@@ -278,36 +263,45 @@ impl<'a> TopicManager<'a> {
                     continue;
                 }
 
-                f.write_all(
-                    format!(
-                        "deb {}debs {} main\n",
-                        url_with_suffix(&mirrors[index]),
-                        i.name
-                    )
-                    .as_bytes(),
-                )
-                .await
-                .map_err(|e| {
-                    OmaTopicsError::FailedToOperateDirOrFile(
-                        "/etc/apt/sources.list.d/atm.list".to_string(),
-                        e,
-                    )
-                })?;
+                new_source_list.push_str(&format!(
+                    "deb {}debs {} main\n",
+                    url_with_suffix(&mirrors[index]),
+                    i.name
+                ));
             }
         }
 
         let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
 
-        let atm_state = Self::atm_state_path(&self.sysroot).await?;
-        tokio::fs::write(&atm_state, s).await.map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(atm_state.display().to_string(), e)
-        })?;
+        if self.dry_run {
+            debug!("ATM State:\n{}", String::from_utf8_lossy(&s));
+            debug!("atm.list:\n{}", new_source_list);
+            return Ok(());
+        }
+
+        tokio::fs::write(&self.atm_state_path, s)
+            .await
+            .map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(
+                    self.atm_state_path.display().to_string(),
+                    e,
+                )
+            })?;
+
+        tokio::fs::write(&self.atm_source_list_path, new_source_list)
+            .await
+            .map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(
+                    self.atm_source_list_path.display().to_string(),
+                    e,
+                )
+            })?;
 
         Ok(())
     }
 
     async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
-        check(&self.client, &format!("{}/InRelease", url)).await
+        check(self.client, &format!("{}/InRelease", url)).await
     }
 }
 
@@ -402,27 +396,26 @@ async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Resul
 
 /// Scan all close topics from upstream and disable it
 pub async fn scan_closed_topic(
+    tm: &mut TopicManager<'_>,
     comment: &str,
     message_cb: impl Fn(&str, &str),
-    rootfs: impl AsRef<Path>,
-    arch: &str,
 ) -> Result<Vec<String>> {
-    let mut tm = TopicManager::new(rootfs, arch).await?;
     tm.refresh().await?;
-    let all = tm.all_topics().to_owned();
-
-    let enabled = tm.enabled_topics().to_owned();
+    let all: Box<[Topic]> = Box::from(tm.all_topics());
+    let enabled: Box<[Topic]> = Box::from(tm.enabled_topics());
 
     let mut res = vec![];
 
     for i in enabled {
         if all.iter().all(|x| x.name != i.name) {
-            let d = tm.remove(&i.name, false)?;
+            let d = tm.remove(&i.name)?;
             res.push(d.name);
         }
     }
 
-    tm.write_enabled(false, comment, message_cb).await?;
+    if !res.is_empty() {
+        tm.write_enabled(comment, message_cb).await?;
+    }
 
     Ok(res)
 }
