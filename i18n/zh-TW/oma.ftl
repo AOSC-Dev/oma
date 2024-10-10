@@ -186,3 +186,4 @@ no-result-bincontents-tips = 您可能在尋找這些軟體套件：
 no-result-bincontents-tips-2 = 指令 { $cmd } 由軟體套件 { $pkg } 提供
 oma-refresh-lock = 無法重新整理本機軟體套件資料庫。
 oma-refresh-lock-dueto = { $exec } ({ $pid }) 已鎖定資料庫。
+oma-refresh-success-invoke = 正在執行重新整理後配置腳本 (Post-Invoke-Success)……
