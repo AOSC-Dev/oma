@@ -92,12 +92,14 @@ pub struct TopicManager<'a> {
     client: &'a Client,
     arch: &'a str,
     atm_state_path: PathBuf,
+    atm_source_list_path: PathBuf,
     dry_run: bool,
     enabled_mirrors: Vec<String>,
 }
 
 impl<'a> TopicManager<'a> {
     const ATM_STATE_PATH_SUFFIX: &'a str = "var/lib/atm/state";
+    const ATM_SOURCE_LIST_PATH_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.list";
 
     pub async fn new(
         client: &'a Client,
@@ -144,7 +146,8 @@ impl<'a> TopicManager<'a> {
             arch,
             atm_state_path,
             dry_run,
-            enabled_mirrors: enabled_mirror(sysroot).await?,
+            enabled_mirrors: enabled_mirror(&sysroot).await?,
+            atm_source_list_path: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_SUFFIX),
         })
     }
 
@@ -243,11 +246,11 @@ impl<'a> TopicManager<'a> {
             return Ok(());
         }
 
-        let mut f = tokio::fs::File::create("/etc/apt/sources.list.d/atm.list")
+        let mut f = tokio::fs::File::create(&self.atm_source_list_path)
             .await
             .map_err(|e| {
                 OmaTopicsError::FailedToOperateDirOrFile(
-                    "/etc/apt/sources.list.d/atm.list".to_string(),
+                    self.atm_source_list_path.display().to_string(),
                     e,
                 )
             })?;
@@ -258,7 +261,7 @@ impl<'a> TopicManager<'a> {
             .await
             .map_err(|e| {
                 OmaTopicsError::FailedToOperateDirOrFile(
-                    "/etc/apt/sources.list.d/atm.list".to_string(),
+                    self.atm_source_list_path.display().to_string(),
                     e,
                 )
             })?;
@@ -268,7 +271,7 @@ impl<'a> TopicManager<'a> {
                 .await
                 .map_err(|e| {
                     OmaTopicsError::FailedToOperateDirOrFile(
-                        "/etc/apt/sources.list.d/atm.list".to_string(),
+                        self.atm_source_list_path.display().to_string(),
                         e,
                     )
                 })?;
@@ -301,7 +304,7 @@ impl<'a> TopicManager<'a> {
                 .await
                 .map_err(|e| {
                     OmaTopicsError::FailedToOperateDirOrFile(
-                        "/etc/apt/sources.list.d/atm.list".to_string(),
+                        self.atm_source_list_path.display().to_string(),
                         e,
                     )
                 })?;
