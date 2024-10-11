@@ -4,7 +4,7 @@ use std::io::{self, stderr, stdin, IsTerminal};
 use std::path::PathBuf;
 
 use std::process::{exit, Command};
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 use std::time::Duration;
 
 mod args;
@@ -37,13 +37,14 @@ use oma_utils::OsRelease;
 use reqwest::Client;
 use rustix::stdio::stdout;
 use subcommand::utils::LockError;
+use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter, Layer};
 use tui::TuiArgs;
-use utils::{create_async_runtime, is_ssh_from_loginctl};
+use utils::is_ssh_from_loginctl;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -63,6 +64,12 @@ static DEBUG: AtomicBool = AtomicBool::new(false);
 static SPAWN_NEW_OMA: AtomicBool = AtomicBool::new(false);
 static APP_USER_AGENT: &str = concat!("oma/", env!("CARGO_PKG_VERSION"));
 static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
+static RT: LazyLock<Runtime> = LazyLock::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to init async runtime")
+});
 
 #[derive(Debug, Default)]
 pub struct InstallArgs {
@@ -711,10 +718,7 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
 }
 
 fn find_another_oma() -> Result<(), OutputError> {
-    let tokio = create_async_runtime()?;
-    tokio.block_on(async { find_another_oma_inner().await })?;
-
-    Ok(())
+    RT.block_on(async { find_another_oma_inner().await })
 }
 
 async fn find_another_oma_inner() -> Result<(), OutputError> {

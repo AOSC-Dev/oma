@@ -69,18 +69,6 @@ pub fn root() -> Result<()> {
     })
 }
 
-pub fn create_async_runtime() -> Result<Runtime> {
-    let tokio = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| OutputError {
-            description: "Failed to create async runtime".to_string(),
-            source: Some(Box::new(e)),
-        })?;
-
-    Ok(tokio)
-}
-
 pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<Vec<OwnedFd>> {
     let conn = rt.block_on(create_dbus_connection())?;
     rt.block_on(check_battery(&conn, yes));

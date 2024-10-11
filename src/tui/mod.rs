@@ -18,7 +18,8 @@ use crate::{
     error::OutputError,
     fl,
     subcommand::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest},
-    utils::{check_battery, create_async_runtime, root},
+    utils::{check_battery, root},
+    RT,
 };
 
 mod state;
@@ -36,9 +37,8 @@ pub struct TuiArgs {
 pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     root()?;
 
-    let rt = create_async_runtime()?;
-    let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn, false));
+    let conn = RT.block_on(create_dbus_connection())?;
+    RT.block_on(check_battery(&conn, false));
 
     let TuiArgs {
         sysroot,
@@ -97,7 +97,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
 
     if execute_apt {
         let _fds = if !no_check_dbus {
-            let fds = rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+            let fds = RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
             Some(fds)
         } else {
             no_check_dbus_warn();

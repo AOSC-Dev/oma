@@ -19,8 +19,8 @@ use tracing::warn;
 
 use crate::{
     error::OutputError,
-    utils::{create_async_runtime, dbus_check, root},
-    OmaArgs,
+    utils::{dbus_check, root},
+    OmaArgs, RT,
 };
 
 use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest};
@@ -59,10 +59,8 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         no_check_dbus,
     } = args;
 
-    let rt = create_async_runtime()?;
-
     let fds = if !no_check_dbus {
-        Some(dbus_check(&rt, false)?)
+        Some(dbus_check(&RT, false)?)
     } else {
         no_check_dbus_warn();
         None
@@ -71,7 +69,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     let sysroot_ref = &sysroot;
     let client_ref = &client;
 
-    let topics_changed = rt.block_on(async move {
+    let topics_changed = RT.block_on(async move {
         topics_inner(
             opt_in,
             opt_out,
