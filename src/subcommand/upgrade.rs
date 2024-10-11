@@ -20,11 +20,11 @@ use crate::fl;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaProgressBar;
 use crate::table::table_for_install_pending;
-use crate::utils::create_async_runtime;
 use crate::utils::dbus_check;
 use crate::utils::root;
 use crate::OmaArgs;
 use crate::UpgradeArgs;
+use crate::RT;
 
 use super::remove::ask_user_do_as_i_say;
 use super::utils::handle_no_result;
@@ -51,8 +51,7 @@ pub fn execute(
     } = oma_args;
 
     let fds = if !no_check_dbus {
-        let rt = create_async_runtime()?;
-        Some(dbus_check(&rt, args.yes)?)
+        Some(dbus_check(&RT, args.yes)?)
     } else {
         no_check_dbus_warn();
         None

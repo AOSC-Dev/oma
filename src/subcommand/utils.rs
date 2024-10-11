@@ -12,8 +12,8 @@ use crate::fl;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaProgressBar;
 use crate::table::table_for_install_pending;
-use crate::utils::create_async_runtime;
 use crate::LOCKED;
+use crate::RT;
 use chrono::Local;
 use dialoguer::console::style;
 use oma_console::msg;
@@ -212,9 +212,7 @@ impl<'a> RefreshRequest<'a> {
         #[cfg(not(feature = "aosc"))]
         let refresh = refresh.build();
 
-        let tokio = create_async_runtime()?;
-
-        tokio.block_on(async move { refresh.start().await })?;
+        RT.block_on(async move { refresh.start().await })?;
 
         Ok(())
     }
