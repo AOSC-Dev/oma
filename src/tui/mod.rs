@@ -38,7 +38,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     root()?;
 
     let conn = RT.block_on(create_dbus_connection())?;
-    RT.block_on(check_battery(&conn, false));
+    check_battery(&conn, false);
 
     let TuiArgs {
         sysroot,

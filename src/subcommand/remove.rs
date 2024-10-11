@@ -12,7 +12,7 @@ use crate::{
     utils::{dbus_check, root},
     RemoveArgs,
 };
-use crate::{fl, OmaArgs, RT};
+use crate::{fl, OmaArgs};
 
 use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitRequest};
 
@@ -34,7 +34,7 @@ pub fn execute(
     } = oma_args;
 
     let fds = if !no_check_dbus {
-        Some(dbus_check(&RT, args.yes))
+        Some(dbus_check(args.yes))
     } else {
         no_check_dbus_warn();
         None
