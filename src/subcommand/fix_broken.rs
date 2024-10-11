@@ -5,7 +5,7 @@ use reqwest::Client;
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},
-    OmaArgs, RT,
+    OmaArgs,
 };
 
 use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest};
@@ -25,7 +25,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
     let mut fds = None;
 
     if !no_check_dbus {
-        fds = Some(dbus_check(&RT, false)?);
+        fds = Some(dbus_check(false)?);
     } else {
         no_check_dbus_warn();
     }

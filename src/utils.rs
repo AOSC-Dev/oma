@@ -6,7 +6,7 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use crate::{color_formatter, fl};
+use crate::{color_formatter, fl, RT};
 use crate::{error::OutputError, SPAWN_NEW_OMA};
 use anyhow::anyhow;
 use dialoguer::{console::style, theme::ColorfulTheme, Confirm};
@@ -22,7 +22,6 @@ use oma_utils::{
     zbus::zvariant::OwnedFd,
 };
 use rustix::process;
-use tokio::runtime::Runtime;
 use tracing::{info, warn};
 
 type Result<T> = std::result::Result<T, OutputError>;
@@ -69,13 +68,13 @@ pub fn root() -> Result<()> {
     })
 }
 
-pub fn dbus_check(rt: &Runtime, yes: bool) -> Result<Vec<OwnedFd>> {
-    let conn = rt.block_on(create_dbus_connection())?;
-    rt.block_on(check_battery(&conn, yes));
+pub fn dbus_check(yes: bool) -> Result<Vec<OwnedFd>> {
+    let conn = RT.block_on(create_dbus_connection())?;
+    check_battery(&conn, yes);
 
     // 需要保留 fd
     // login1 根据 fd 来判断是否关闭 inhibit
-    let fds = rt.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+    let fds = RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
 
     Ok(fds)
 }
@@ -92,8 +91,8 @@ fn is_wsl() -> bool {
     false
 }
 
-pub async fn check_battery(conn: &Connection, yes: bool) {
-    let is_battery = is_using_battery(conn).await.unwrap_or(false);
+pub fn check_battery(conn: &Connection, yes: bool) {
+    let is_battery = RT.block_on(is_using_battery(conn)).unwrap_or(false);
 
     if is_battery {
         if yes {

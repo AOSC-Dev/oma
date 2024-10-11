@@ -60,7 +60,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     } = args;
 
     let fds = if !no_check_dbus {
-        Some(dbus_check(&RT, false)?)
+        Some(dbus_check(false)?)
     } else {
         no_check_dbus_warn();
         None

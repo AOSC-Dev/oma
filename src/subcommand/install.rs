@@ -13,7 +13,6 @@ use crate::utils::dbus_check;
 use crate::utils::root;
 use crate::InstallArgs;
 use crate::OmaArgs;
-use crate::RT;
 
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
@@ -40,7 +39,7 @@ pub fn execute(
     } = oma_args;
 
     let fds = if !no_check_dbus {
-        Some(dbus_check(&RT, args.yes)?)
+        Some(dbus_check(args.yes)?)
     } else {
         no_check_dbus_warn();
         None
