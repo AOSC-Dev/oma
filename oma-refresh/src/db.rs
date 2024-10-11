@@ -42,7 +42,7 @@ use reqwest::StatusCode;
 
 use smallvec::SmallVec;
 use sysinfo::{Pid, System};
-use tokio::{fs, process::Command};
+use tokio::{fs, process::Command, task::spawn_blocking};
 use tracing::{debug, warn};
 
 use crate::{
@@ -160,6 +160,65 @@ enum RepoType {
     FlatNoRelease,
 }
 
+fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
+    let lock_path = download_dir.join("lock");
+
+    let fd = open(
+        &lock_path,
+        OFlag::O_RDWR | OFlag::O_CREAT | OFlag::O_NOFOLLOW,
+        Mode::from_bits_truncate(0o640),
+    )
+    .map_err(RefreshError::SetLock)?;
+
+    fcntl(fd, F_SETFD(FdFlag::FD_CLOEXEC)).map_err(|e| {
+        close(fd).ok();
+        RefreshError::SetLock(e)
+    })?;
+
+    // From apt libapt-pkg/fileutil.cc:287
+    let mut fl = flock {
+        l_type: F_WRLCK as i16,
+        l_whence: SEEK_SET as i16,
+        l_start: 0,
+        l_len: 0,
+        l_pid: -1,
+    };
+
+    if let Err(e) = fcntl(fd.as_raw_fd(), F_SETLK(&fl)) {
+        debug!("{e}");
+
+        if e == Errno::EACCES || e == Errno::EAGAIN {
+            fl.l_type = F_WRLCK as i16;
+            fl.l_whence = SEEK_SET as i16;
+            fl.l_len = 0;
+            fl.l_start = 0;
+            fl.l_pid = -1;
+            fcntl(fd.as_raw_fd(), F_GETLK(&mut fl)).ok();
+        } else {
+            fl.l_pid = -1;
+        }
+
+        close(fd).map_err(RefreshError::SetLock)?;
+
+        if fl.l_pid != -1 {
+            let mut sys = System::new();
+            sys.refresh_processes(sysinfo::ProcessesToUpdate::All);
+            let Some(process) = sys.process(Pid::from(fl.l_pid as usize)) else {
+                return Err(RefreshError::SetLock(e));
+            };
+
+            return Err(RefreshError::SetLockWithProcess(
+                process.name().to_string_lossy().to_string(),
+                fl.l_pid,
+            ));
+        }
+
+        return Err(RefreshError::SetLock(e));
+    }
+
+    Ok(())
+}
+
 pub trait HandleTopicsControl {
     fn scanning_topic(&self);
     fn closing_topic(&self, topic: &str);
@@ -175,65 +234,6 @@ impl<'a> OmaRefresh<'a> {
             self.topic_msg,
         )
         .await
-    }
-
-    async fn get_lock(&self) -> Result<()> {
-        let lock_path = self.download_dir.join("lock");
-
-        let fd = open(
-            &lock_path,
-            OFlag::O_RDWR | OFlag::O_CREAT | OFlag::O_NOFOLLOW,
-            Mode::from_bits_truncate(0o640),
-        )
-        .map_err(RefreshError::SetLock)?;
-
-        fcntl(fd, F_SETFD(FdFlag::FD_CLOEXEC)).map_err(|e| {
-            close(fd).ok();
-            RefreshError::SetLock(e)
-        })?;
-
-        // From apt libapt-pkg/fileutil.cc:287
-        let mut fl = flock {
-            l_type: F_WRLCK as i16,
-            l_whence: SEEK_SET as i16,
-            l_start: 0,
-            l_len: 0,
-            l_pid: -1,
-        };
-
-        if let Err(e) = fcntl(fd.as_raw_fd(), F_SETLK(&fl)) {
-            debug!("{e}");
-
-            if e == Errno::EACCES || e == Errno::EAGAIN {
-                fl.l_type = F_WRLCK as i16;
-                fl.l_whence = SEEK_SET as i16;
-                fl.l_len = 0;
-                fl.l_start = 0;
-                fl.l_pid = -1;
-                fcntl(fd.as_raw_fd(), F_GETLK(&mut fl)).ok();
-            } else {
-                fl.l_pid = -1;
-            }
-
-            close(fd).map_err(RefreshError::SetLock)?;
-
-            if fl.l_pid != -1 {
-                let mut sys = System::new();
-                sys.refresh_processes(sysinfo::ProcessesToUpdate::All);
-                let Some(process) = sys.process(Pid::from(fl.l_pid as usize)) else {
-                    return Err(RefreshError::SetLock(e));
-                };
-
-                return Err(RefreshError::SetLockWithProcess(
-                    process.name().to_string_lossy().to_string(),
-                    fl.l_pid,
-                ));
-            }
-
-            return Err(RefreshError::SetLock(e));
-        }
-
-        Ok(())
     }
 
     async fn update_db(
@@ -253,7 +253,11 @@ impl<'a> OmaRefresh<'a> {
                 })?;
         }
 
-        self.get_lock().await?;
+        let download_dir: Box<Path> = Box::from(self.download_dir.as_path());
+
+        spawn_blocking(move || get_apt_update_lock(&download_dir))
+            .await
+            .unwrap()?;
 
         let is_inrelease_map = self
             .get_is_inrelease_map(&sourcelist, progress_manager)
