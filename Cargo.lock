@@ -3100,6 +3100,7 @@ dependencies = [
  "oma-fetch",
  "oma-pm-operation-type",
  "oma-utils 0.8.6",
+ "serde",
  "small-map",
  "strsim",
  "thiserror",

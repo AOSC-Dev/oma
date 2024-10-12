@@ -54,6 +54,11 @@ pub fn command_builder() -> Command {
         .help("Fix apt broken status")
         .action(ArgAction::SetTrue);
 
+    let json = Arg::new("json")
+        .long("json")
+        .action(ArgAction::SetTrue)
+        .help("Set output format as JSON");
+
     let mut cmd = command!()
         .max_term_width(100)
         .disable_version_flag(true)
@@ -243,13 +248,19 @@ pub fn command_builder() -> Command {
             cmd
         })
         .subcommand(
-            Command::new("show").visible_alias("info").about("Show information on the specified package(s)").arg(pkgs.clone().required(true)).arg(
+            Command::new("show")
+            .visible_alias("info")
+            .about("Show information on the specified package(s)")
+            .arg(pkgs.clone().required(true))
+            .arg(
                 Arg::new("all")
                     .short('a')
                     .long("all")
                     .help("Show information on all available version(s) of (a) package(s) from all repository(ies)")
                     .action(ArgAction::SetTrue)
-                    .requires("packages"))
+                    .requires("packages")
+                )
+            .arg(json)
         )
         .subcommand(
             Command::new("search")

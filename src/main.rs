@@ -468,8 +468,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let input = pkgs_getter(args).unwrap_or_default();
             let input = input.iter().map(|x| x.as_str()).collect::<Vec<_>>();
             let all = args.get_flag("all");
+            let json = args.get_flag("json");
 
-            show::execute(all, input, sysroot)?
+            show::execute(all, input, sysroot, json)?
         }
         Some(("search", args)) => {
             let patterns = args

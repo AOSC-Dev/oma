@@ -37,6 +37,7 @@ bon = "2.1"
 strsim = "0.11.1"
 indexmap = "2"
 memchr = "2"
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 dashmap = "6"
