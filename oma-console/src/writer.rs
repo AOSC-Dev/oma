@@ -3,8 +3,6 @@ use std::io::{self, Write};
 use console::Term;
 use icu_segmenter::LineSegmenter;
 
-use crate::WRITER;
-
 /// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
     if console::measure_text_width(prefix) > (prefix_len - 1).into() {
@@ -19,6 +17,27 @@ pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
     real_prefix
 }
 
+pub trait Writeln {
+    fn writeln(&self, prefix: &str, msg: &str) -> io::Result<()>;
+}
+
+impl Writeln for Writer {
+    fn writeln(&self, prefix: &str, msg: &str) -> io::Result<()> {
+        let max_len = self.get_max_len();
+
+        let mut res = Ok(());
+
+        writeln_inner(msg, prefix, max_len as usize, self.prefix_len, |t, s| {
+            match t {
+                MessageType::Msg => res = self.term.write_str(s),
+                MessageType::Prefix => res = self.write_prefix(s),
+            };
+        });
+
+        res
+    }
+}
+
 impl Default for Writer {
     fn default() -> Self {
         Writer {
@@ -30,7 +49,7 @@ impl Default for Writer {
 
 pub struct Writer {
     term: Term,
-    prefix_len: u16,
+    pub prefix_len: u16,
 }
 
 impl Writer {
@@ -96,22 +115,6 @@ impl Writer {
         self.prefix_len
     }
 
-    /// Write oma-style string to terminal
-    pub fn writeln(&self, prefix: &str, msg: &str) -> io::Result<()> {
-        let max_len = self.get_max_len();
-
-        let mut res = Ok(());
-
-        writeln_inner(msg, prefix, max_len as usize, self.prefix_len, |t, s| {
-            match t {
-                MessageType::Msg => res = self.term.write_str(s),
-                MessageType::Prefix => res = self.write_prefix(s),
-            };
-        });
-
-        res
-    }
-
     pub fn write_chunks<S: AsRef<str>>(
         &self,
         prefix: &str,
@@ -152,10 +155,13 @@ pub enum MessageType {
     Prefix,
 }
 
-pub fn writeln_inner<F>(msg: &str, prefix: &str, max_len: usize, prefix_len: u16, mut callback: F)
-where
-    F: FnMut(MessageType, &str),
-{
+pub fn writeln_inner(
+    msg: &str,
+    prefix: &str,
+    max_len: usize,
+    prefix_len: u16,
+    mut callback: impl FnMut(MessageType, &str),
+) {
     let mut ref_s = msg;
     let mut i = 1;
     let mut added_count = 0;
@@ -201,20 +207,4 @@ where
         ref_s = &ref_s[line_msg.len() - 1..];
         i += 1;
     }
-}
-
-pub fn bar_writeln<P: Fn(&str)>(pb: P, prefix: &str, msg: &str) {
-    let max_len = WRITER.get_max_len();
-    let mut res = (None, None);
-    writeln_inner(msg, prefix, max_len as usize, WRITER.prefix_len, |t, s| {
-        match t {
-            MessageType::Msg => res.1 = Some(s.to_string()),
-            MessageType::Prefix => res.0 = Some(gen_prefix(s, 10)),
-        }
-
-        if let (Some(prefix), Some(msg)) = &res {
-            pb(&format!("{prefix}{msg}"));
-            res = (None, None);
-        }
-    });
 }

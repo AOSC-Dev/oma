@@ -10,6 +10,7 @@ use crate::color_formatter;
 use crate::error::OutputError;
 use crate::fl;
 use crate::pb::NoProgressBar;
+use crate::pb::OmaMultiProgressBar;
 use crate::pb::OmaProgressBar;
 use crate::table::table_for_install_pending;
 use crate::LOCKED;
@@ -20,8 +21,7 @@ use oma_console::msg;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
 use oma_console::success;
-use oma_console::writer::bar_writeln;
-use oma_console::{indicatif::ProgressBar, pb::spinner_style};
+use oma_console::writer::Writeln;
 use oma_contents::searcher::pure_search;
 use oma_contents::searcher::ripgrep_search;
 use oma_contents::searcher::Mode;
@@ -52,24 +52,21 @@ pub(crate) fn handle_no_result(
 ) -> Result<(), OutputError> {
     let mut bin = vec![];
 
-    let (sty, inv) = spinner_style();
-    let pb = ProgressBar::new_spinner().with_style(sty);
-    pb.enable_steady_tick(inv);
-    pb.set_message(fl!("searching"));
+    let pb = OmaProgressBar::new_spinner(Some(fl!("searching")));
 
     for word in &no_result {
         if word == "266" {
-            bar_writeln(
-                |s| pb.println(s),
+            pb.writeln(
                 &style("ERROR").red().bold().to_string(),
                 "无法找到匹配关键字为艾露露的软件包",
-            );
+            )
+            .ok();
         } else {
-            bar_writeln(
-                |s| pb.println(s),
+            pb.writeln(
                 &style("ERROR").red().bold().to_string(),
                 &fl!("could-not-find-pkg-from-keyword", c = word),
-            );
+            )
+            .ok();
 
             contents_search(&sysroot, Mode::BinProvides, word, |(pkg, file)| {
                 if file == format!("/usr/bin/{}", word) {
@@ -78,7 +75,7 @@ pub(crate) fn handle_no_result(
             })
             .ok();
 
-            pb.finish_and_clear();
+            pb.inner.finish_and_clear();
         }
     }
 
@@ -189,7 +186,7 @@ impl<'a> RefreshRequest<'a> {
         let msg = fl!("do-not-edit-topic-sources-list");
 
         let pm: &dyn HandleRefresh = if !no_progress {
-            &OmaProgressBar::default()
+            &OmaMultiProgressBar::default()
         } else {
             &NoProgressBar
         };
@@ -278,7 +275,7 @@ impl<'a> CommitRequest<'a> {
         let start_time = Local::now().timestamp();
 
         let pm: Box<dyn DownloadProgressControl> = if !no_progress {
-            let pb = OmaProgressBar::default();
+            let pb = OmaMultiProgressBar::default();
             Box::new(pb)
         } else {
             Box::new(NoProgressBar)

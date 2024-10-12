@@ -7,7 +7,7 @@ use tracing_subscriber::Layer;
 
 pub use termbg;
 
-use crate::WRITER;
+use crate::{writer::Writeln, WRITER};
 
 #[derive(Clone)]
 enum StyleFollow {
@@ -187,6 +187,7 @@ impl tracing::field::Visit for OmaRecorder {
 #[macro_export]
 macro_rules! msg {
     ($($arg:tt)+) => {
+        use oma_console::writer::Writeln as _;
         oma_console::WRITER.writeln("", &format!($($arg)+)).ok();
     };
 }
@@ -195,6 +196,7 @@ macro_rules! msg {
 #[macro_export]
 macro_rules! success {
     ($($arg:tt)+) => {
+        use oma_console::writer::Writeln as _;
         oma_console::WRITER.writeln(&oma_console::console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+)).ok();
     };
 }
@@ -203,6 +205,7 @@ macro_rules! success {
 #[macro_export]
 macro_rules! due_to {
     ($($arg:tt)+) => {
+        use oma_console::writer::Writeln as _;
         oma_console::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
     };
 }

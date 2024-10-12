@@ -1,11 +1,14 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+    borrow::Cow,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 use ahash::RandomState;
-use dialoguer::console::style;
 use oma_console::{
+    console::style,
     indicatif::{MultiProgress, ProgressBar},
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
-    writer::bar_writeln,
+    writer::{gen_prefix, writeln_inner, MessageType, Writeln},
     WRITER,
 };
 use oma_fetch::DownloadProgressControl;
@@ -17,11 +20,54 @@ use crate::fl;
 type DashMap<K, V> = dashmap::DashMap<K, V, ahash::random_state::RandomState>;
 
 pub struct OmaProgressBar {
+    pub inner: ProgressBar,
+}
+
+impl OmaProgressBar {
+    pub fn new_spinner(spinner_message: Option<impl Into<Cow<'static, str>>>) -> Self {
+        let pb = ProgressBar::new_spinner();
+        let (sty, inv) = spinner_style();
+        pb.set_style(sty);
+        pb.enable_steady_tick(inv);
+
+        if let Some(msg) = spinner_message {
+            pb.set_message(msg);
+        }
+
+        Self { inner: pb }
+    }
+}
+
+impl Writeln for OmaProgressBar {
+    fn writeln(&self, prefix: &str, msg: &str) -> std::io::Result<()> {
+        let max_len = WRITER.get_max_len();
+        let mut output = (None, None);
+
+        writeln_inner(msg, prefix, max_len as usize, WRITER.prefix_len, |t, s| {
+            match t {
+                MessageType::Msg => {
+                    let s: Box<str> = Box::from(s);
+                    output.1 = Some(s)
+                }
+                MessageType::Prefix => output.0 = Some(gen_prefix(s, 10)),
+            }
+
+            if let (Some(prefix), Some(msg)) = &output {
+                self.inner.println(format!("{prefix}{msg}"));
+                output = (None, None);
+            }
+        });
+
+        Ok(())
+    }
+}
+
+pub struct OmaMultiProgressBar {
     mb: MultiProgress,
     pb_map: DashMap<usize, ProgressBar>,
 }
 
-impl Default for OmaProgressBar {
+impl Default for OmaMultiProgressBar {
     fn default() -> Self {
         Self {
             mb: MultiProgress::new(),
@@ -30,18 +76,39 @@ impl Default for OmaProgressBar {
     }
 }
 
-impl DownloadProgressControl for OmaProgressBar {
+impl Writeln for OmaMultiProgressBar {
+    fn writeln(&self, prefix: &str, msg: &str) -> std::io::Result<()> {
+        let max_len = WRITER.get_max_len();
+        let mut output = (None, None);
+
+        let mut result = Ok(());
+
+        writeln_inner(msg, prefix, max_len as usize, WRITER.prefix_len, |t, s| {
+            match t {
+                MessageType::Msg => {
+                    let s: Box<str> = Box::from(s);
+                    output.1 = Some(s)
+                }
+                MessageType::Prefix => output.0 = Some(gen_prefix(s, 10)),
+            }
+
+            if let (Some(prefix), Some(msg)) = &output {
+                result = self.mb.println(format!("{prefix}{msg}"));
+                output = (None, None);
+            }
+        });
+
+        result
+    }
+}
+
+impl DownloadProgressControl for OmaMultiProgressBar {
     fn checksum_mismatch_retry(&self, _index: usize, filename: &str, times: usize) {
-        oma_console::writer::bar_writeln(
-            |s| {
-                self.mb.println(s).ok();
-            },
-            &oma_console::console::style("ERROR")
-                .red()
-                .bold()
-                .to_string(),
+        self.writeln(
+            &style("ERROR").red().bold().to_string(),
             &fl!("checksum-mismatch-retry", c = filename, retry = times),
-        );
+        )
+        .ok();
     }
 
     fn global_progress_set(&self, num: &AtomicU64) {
@@ -88,16 +155,11 @@ impl DownloadProgressControl for OmaProgressBar {
     }
 
     fn failed_to_get_source_next_url(&self, _index: usize, err: &str) {
-        oma_console::writer::bar_writeln(
-            |s| {
-                self.mb.println(s).ok();
-            },
-            &oma_console::console::style("ERROR")
-                .red()
-                .bold()
-                .to_string(),
+        self.writeln(
+            &style("ERROR").red().bold().to_string(),
             &fl!("can-not-get-source-next-url", e = err.to_string()),
-        );
+        )
+        .ok();
     }
 
     fn download_done(&self, _index: usize, msg: &str) {
@@ -119,7 +181,7 @@ impl DownloadProgressControl for OmaProgressBar {
     }
 }
 
-impl HandleTopicsControl for OmaProgressBar {
+impl HandleTopicsControl for OmaMultiProgressBar {
     fn scanning_topic(&self) {
         let (sty, inv) = spinner_style();
         let pb = self
@@ -131,34 +193,28 @@ impl HandleTopicsControl for OmaProgressBar {
     }
 
     fn closing_topic(&self, topic: &str) {
-        bar_writeln(
-            |s| {
-                self.mb.println(s).ok();
-            },
+        self.writeln(
             &style("INFO").blue().bold().to_string(),
             &fl!("scan-topic-is-removed", name = topic),
-        );
+        )
+        .ok();
     }
 
     fn topic_not_in_mirror(&self, topic: &str, mirror: &str) {
-        bar_writeln(
-            |s| {
-                self.mb.println(s).ok();
-            },
+        self.writeln(
             &style("WARNING").yellow().bold().to_string(),
             &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
-        );
-        bar_writeln(
-            |s| {
-                self.mb.println(s).ok();
-            },
+        )
+        .ok();
+        self.writeln(
             &style("WARNING").yellow().bold().to_string(),
             &fl!("skip-write-mirror"),
-        );
+        )
+        .ok();
     }
 }
 
-impl HandleRefresh for OmaProgressBar {
+impl HandleRefresh for OmaMultiProgressBar {
     fn run_invoke_script(&self) {
         let (sty, inv) = spinner_style();
         let pb = self
