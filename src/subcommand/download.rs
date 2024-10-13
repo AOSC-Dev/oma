@@ -6,7 +6,7 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use reqwest::Client;
 use tracing::error;
 
-use crate::pb::{NoProgressBar, OmaProgressBar};
+use crate::pb::{NoProgressBar, OmaMultiProgressBar};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 use crate::{fl, OmaArgs};
 
@@ -37,7 +37,7 @@ pub fn execute(
     handle_no_result("/", no_result)?;
 
     let progress_manager: &dyn DownloadProgressControl = if !no_progress {
-        &OmaProgressBar::default()
+        &OmaMultiProgressBar::default()
     } else {
         &NoProgressBar
     };

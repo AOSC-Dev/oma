@@ -18,7 +18,7 @@ use tracing::warn;
 use crate::error::OutputError;
 use crate::fl;
 use crate::pb::NoProgressBar;
-use crate::pb::OmaProgressBar;
+use crate::pb::OmaMultiProgressBar;
 use crate::table::table_for_install_pending;
 use crate::utils::dbus_check;
 use crate::utils::root;
@@ -160,7 +160,7 @@ pub fn execute(
         let start_time = Local::now().timestamp();
 
         let progress_manager: &dyn DownloadProgressControl = if !no_progress {
-            &OmaProgressBar::default()
+            &OmaMultiProgressBar::default()
         } else {
             &NoProgressBar
         };

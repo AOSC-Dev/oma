@@ -6,7 +6,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::{indicatif::ProgressBar, pb::spinner_style, writer::bar_writeln, WRITER};
+use oma_console::{writer::Writeln, WRITER};
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptArgs, AptConfig, FilterMode, OmaApt, OmaAptArgs},
@@ -19,6 +19,7 @@ use tracing::warn;
 
 use crate::{
     error::OutputError,
+    pb::OmaProgressBar,
     utils::{dbus_check, root},
     OmaArgs, RT,
 };
@@ -310,11 +311,7 @@ fn select_prompt(
 
 async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
     let pb = if !no_progress {
-        let pb = ProgressBar::new_spinner();
-        let (style, inv) = spinner_style();
-        pb.set_style(style);
-        pb.enable_steady_tick(inv);
-        pb.set_message(fl!("refreshing-topic-metadata"));
+        let pb = OmaProgressBar::new_spinner(Some(fl!("refreshing-topic-metadata")));
 
         Some(pb)
     } else {
@@ -328,20 +325,16 @@ async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<
         &fl!("do-not-edit-topic-sources-list"),
         |topic, mirror| {
             if let Some(pb) = &pb {
-                bar_writeln(
-                    |s| {
-                        pb.println(s);
-                    },
+                pb.writeln(
                     &style("WARNING").yellow().bold().to_string(),
                     &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
-                );
-                bar_writeln(
-                    |s| {
-                        pb.println(s);
-                    },
+                )
+                .ok();
+                pb.writeln(
                     &style("WARNING").yellow().bold().to_string(),
                     &fl!("skip-write-mirror"),
-                );
+                )
+                .ok();
             } else {
                 warn!(
                     "{}",
@@ -354,7 +347,7 @@ async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<
     .await?;
 
     if let Some(pb) = pb {
-        pb.finish_and_clear();
+        pb.inner.finish_and_clear();
     }
 
     Ok(())
