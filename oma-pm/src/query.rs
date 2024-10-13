@@ -387,13 +387,13 @@ mod test {
             .unwrap();
 
         for i in res_filter {
-            i.print_info(&cache).unwrap();
+            i.pkg_info(&cache).unwrap();
         }
 
         println!("---\n");
 
         for i in res {
-            i.print_info(&cache).unwrap();
+            i.pkg_info(&cache).unwrap();
         }
     }
 
@@ -407,7 +407,7 @@ mod test {
             .unwrap();
 
         for i in res_filter {
-            i.print_info(&cache).unwrap();
+            i.pkg_info(&cache).unwrap();
         }
     }
 
@@ -419,7 +419,7 @@ mod test {
         let res_filter = db.query_from_branch("apt/stable", true, false).unwrap();
 
         for i in res_filter {
-            i.print_info(&cache).unwrap();
+            i.pkg_info(&cache).unwrap();
         }
     }
 }

@@ -16,6 +16,7 @@ pub fn execute(
     sysroot: String,
     engine: Cow<String>,
     no_pager: bool,
+    json: bool,
 ) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
@@ -24,7 +25,7 @@ pub fn execute(
 
     let (sty, inv) = spinner_style();
 
-    let pb = if !no_progress {
+    let pb = if !no_progress && !json {
         let pb = ProgressBar::new_spinner().with_style(sty);
         pb.enable_steady_tick(inv);
         pb.set_message(fl!("searching"));
@@ -51,7 +52,7 @@ pub fn execute(
         pb.finish_and_clear();
     }
 
-    let mut pager = if !no_pager {
+    let mut pager = if !no_pager && !json {
         oma_display_with_normal_output(false, res.len() * 2)?
     } else {
         Pager::plain()
@@ -62,8 +63,20 @@ pub fn execute(
         source: Some(Box::new(e)),
     })?;
 
-    for i in res {
-        write!(writer, "{}", SearchResultDisplay(&i)).ok();
+    if !json {
+        for i in res {
+            write!(writer, "{}", SearchResultDisplay(&i)).ok();
+        }
+    } else {
+        writeln!(
+            writer,
+            "{}",
+            serde_json::to_string(&res).map_err(|e| OutputError {
+                description: e.to_string(),
+                source: None,
+            })?
+        )
+        .ok();
     }
 
     drop(writer);

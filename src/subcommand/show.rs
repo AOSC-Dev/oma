@@ -1,3 +1,5 @@
+use std::io::stdout;
+
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     pkginfo::PkgInfo,
@@ -9,11 +11,20 @@ use crate::error::OutputError;
 use super::utils::handle_no_result;
 use crate::fl;
 
-pub fn execute(all: bool, input: Vec<&str>, sysroot: String) -> Result<i32, OutputError> {
+use std::io::Write;
+
+pub fn execute(
+    all: bool,
+    input: Vec<&str>,
+    sysroot: String,
+    json: bool,
+) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let (pkgs, no_result) = apt.select_pkg(&input, false, false, false)?;
     handle_no_result(sysroot, no_result)?;
+
+    let mut stdout = stdout();
 
     if !all {
         let mut filter_pkgs: Vec<PkgInfo> = vec![];
@@ -32,13 +43,25 @@ pub fn execute(all: bool, input: Vec<&str>, sysroot: String) -> Result<i32, Outp
         }
 
         for (i, pkg) in filter_pkgs.iter().enumerate() {
-            pkg.print_info(&apt.cache)?;
-            if i != filter_pkgs.len() - 1 {
-                println!()
+            if json {
+                writeln!(
+                    stdout,
+                    "{}",
+                    serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| OutputError {
+                        description: e.to_string(),
+                        source: None
+                    })?
+                )
+                .ok();
+            } else {
+                writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
+                if i != filter_pkgs.len() - 1 {
+                    writeln!(stdout).ok();
+                }
             }
         }
 
-        if filter_pkgs.len() == 1 {
+        if filter_pkgs.len() == 1 && !json {
             let other_version = pkgs_len - 1;
 
             if other_version > 0 {
@@ -46,12 +69,22 @@ pub fn execute(all: bool, input: Vec<&str>, sysroot: String) -> Result<i32, Outp
             }
         }
     } else {
-        for (i, c) in pkgs.iter().enumerate() {
-            if i != pkgs.len() - 1 {
-                c.print_info(&apt.cache)?;
-                println!();
+        for (i, pkg) in pkgs.iter().enumerate() {
+            if json {
+                writeln!(
+                    stdout,
+                    "{}",
+                    serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| OutputError {
+                        description: e.to_string(),
+                        source: None
+                    })?
+                )
+                .ok();
+            } else if i != pkgs.len() - 1 {
+                writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
+                writeln!(stdout).ok();
             } else {
-                c.print_info(&apt.cache)?;
+                writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
             }
         }
     }

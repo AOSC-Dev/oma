@@ -54,6 +54,11 @@ pub fn command_builder() -> Command {
         .help("Fix apt broken status")
         .action(ArgAction::SetTrue);
 
+    let json = Arg::new("json")
+        .long("json")
+        .action(ArgAction::SetTrue)
+        .help("Set output format as JSON");
+
     let mut cmd = command!()
         .max_term_width(100)
         .disable_version_flag(true)
@@ -243,13 +248,19 @@ pub fn command_builder() -> Command {
             cmd
         })
         .subcommand(
-            Command::new("show").visible_alias("info").about("Show information on the specified package(s)").arg(pkgs.clone().required(true)).arg(
+            Command::new("show")
+            .visible_alias("info")
+            .about("Show information on the specified package(s)")
+            .arg(pkgs.clone().required(true))
+            .arg(
                 Arg::new("all")
                     .short('a')
                     .long("all")
                     .help("Show information on all available version(s) of (a) package(s) from all repository(ies)")
                     .action(ArgAction::SetTrue)
-                    .requires("packages"))
+                    .requires("packages")
+                )
+            .arg(&json)
         )
         .subcommand(
             Command::new("search")
@@ -266,6 +277,9 @@ pub fn command_builder() -> Command {
                         .long("no-pager")
                         .help("Output result to stdout, not pager")
                         .action(ArgAction::SetTrue)
+                )
+                .arg(
+                    &json
                 )
         )
         .subcommand(
@@ -375,9 +389,13 @@ pub fn command_builder() -> Command {
                     Arg::new("automatic")
                     .long("automatic")
                     .help("List only package(s) with automatic installed")
-                    .action(ArgAction::SetTrue))
-                    .about("List package(s) available from the repository"),
-        )
+                    .action(ArgAction::SetTrue)
+                )
+                .arg(
+                    &json
+                )
+                .about("List package(s) available from the repository"),
+         )
         .subcommand(
             Command::new("depends")
                 .visible_alias("dep")
@@ -387,6 +405,7 @@ pub fn command_builder() -> Command {
                         .required(true)
                         .help("Package(s) to query dependency(ies) for"),
                 )
+                .arg(&json)
                 .about("Lists dependencies of one or multiple packages"),
         )
         .subcommand(
@@ -397,6 +416,7 @@ pub fn command_builder() -> Command {
                         .required(true)
                         .help("Package(s) to query dependency(ies) for"),
                 )
+                .arg(&json)
                 .about("List reverse dependency(ies) for the specified package(s)"),
         )
         .subcommand(Command::new("clean").about("Clear downloaded package cache"))

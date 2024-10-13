@@ -469,8 +469,9 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let input = pkgs_getter(args).unwrap_or_default();
             let input = input.iter().map(|x| x.as_str()).collect::<Vec<_>>();
             let all = args.get_flag("all");
+            let json = args.get_flag("json");
 
-            show::execute(all, input, sysroot)?
+            show::execute(all, input, sysroot, json)?
         }
         Some(("search", args)) => {
             let patterns = args
@@ -479,10 +480,11 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .unwrap();
 
             let no_pager = args.get_flag("no_pager");
+            let json = args.get_flag("json");
 
             let engine = config.search_engine();
 
-            search::execute(&patterns, no_progress, sysroot, engine, no_pager)?
+            search::execute(&patterns, no_progress, sysroot, engine, no_pager, json)?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
@@ -533,6 +535,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let upgradable = args.get_flag("upgradable");
             let manual = args.get_flag("manually-installed");
             let auto = args.get_flag("automatic");
+            let json = args.get_flag("json");
 
             let flags = ListFlags {
                 all,
@@ -542,17 +545,19 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 auto,
             };
 
-            list::execute(flags, pkgs, sysroot)?
+            list::execute(flags, pkgs, sysroot, json)?
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
+            let json = args.get_flag("json");
 
-            depends::execute(pkgs, sysroot)?
+            depends::execute(pkgs, sysroot, json)?
         }
         Some(("rdepends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
+            let json = args.get_flag("json");
 
-            rdepends::execute(pkgs, sysroot)?
+            rdepends::execute(pkgs, sysroot, json)?
         }
         Some(("clean", _)) => clean::execute(no_progress, sysroot)?,
         Some(("history", _)) => subcommand::history::execute_history(sysroot)?,

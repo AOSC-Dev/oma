@@ -28,7 +28,6 @@ oma-console = { version = "^0.17.0", path = "../oma-console", default-features =
 ] }
 fs4 = "0.9"
 tracing = "0.1"
-small-map = "0.1"
 oma-pm-operation-type = { version = "0.4", path = "../oma-pm-operation-type" }
 zbus = { version = "4.1", features = ["tokio"] }
 cxx = "1.0.121"
@@ -37,6 +36,7 @@ bon = "2.1"
 strsim = "0.11.1"
 indexmap = "2"
 memchr = "2"
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 dashmap = "6"

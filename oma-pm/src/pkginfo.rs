@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use ahash::{AHashMap, HashMap};
 use cxx::UniquePtr;
 use oma_apt::{
     cache::Cache,
@@ -8,15 +9,12 @@ use oma_apt::{
     BaseDep, DepType, Dependency, Package, PackageFile, Version,
 };
 use oma_utils::human_bytes::HumanBytes;
-use small_map::SmallMap;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{
-    apt::{OmaAptError, OmaAptResult},
-    format_description,
-};
+use crate::apt::{OmaAptError, OmaAptResult};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OmaDependency {
     pub name: String,
     pub comp_symbol: Option<String>,
@@ -39,7 +37,7 @@ impl From<&BaseDep<'_>> for OmaDependency {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OmaDependencyGroup(Vec<Vec<OmaDependency>>);
 
 impl OmaDependencyGroup {
@@ -105,7 +103,7 @@ impl OmaDependency {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Deserialize, Serialize)]
 pub enum OmaDepType {
     Depends,
     PreDepends,
@@ -140,7 +138,7 @@ impl From<&DepType> for OmaDepType {
     }
 }
 
-/// UnsafePkgInfo - For storing package and version information
+/// PkgInfo - For storing package and version information
 ///
 /// Note: that this should be used before the apt `cache` drop, otherwise a segfault will occur.
 pub struct PkgInfo {
@@ -151,6 +149,116 @@ pub struct PkgInfo {
 #[derive(Debug, Error)]
 #[error("BUG: pointer should is some")]
 pub struct PtrIsNone;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PackageInfo {
+    package: Box<str>,
+    version: Box<str>,
+    section: Box<str>,
+    maintainer: String,
+    install_size: u64,
+    dep_map: HashMap<OmaDepType, OmaDependencyGroup>,
+    download_size: u64,
+    apt_sources: Vec<AptSource>,
+    description: String,
+}
+
+impl Display for PackageInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let PackageInfo {
+            package,
+            version,
+            section,
+            maintainer,
+            install_size,
+            dep_map,
+            download_size,
+            apt_sources,
+            description,
+        } = self;
+
+        writeln!(f, "Package: {}", package)?;
+        writeln!(f, "Version: {}", version)?;
+        writeln!(f, "Section: {}", section)?;
+        writeln!(f, "Maintainer: {}", maintainer)?;
+        writeln!(f, "Install-Size: {}", HumanBytes(*install_size))?;
+        for (k, v) in dep_map {
+            writeln!(f, "{k}: {v}")?;
+        }
+        writeln!(f, "Download-Size: {}", HumanBytes(*download_size))?;
+        writeln!(f, "APT-Sources: {}", {
+            let mut s = String::new();
+            if apt_sources.len() > 1 {
+                s.push('\n');
+                s += &apt_sources
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n  ");
+            } else {
+                s += &apt_sources[0].to_string();
+            }
+            s
+        })?;
+        writeln!(f, "description: {}", description)?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AptSource {
+    archive: Option<Box<str>>,
+    component: Option<Box<str>>,
+    arch: Option<Box<str>>,
+    index_type: Option<Box<str>>,
+    archive_uri: String,
+}
+
+impl From<PackageFile<'_>> for AptSource {
+    fn from(value: PackageFile<'_>) -> Self {
+        let index = value.index_file();
+        let archive_uri = index.archive_uri("");
+
+        Self {
+            archive: value.archive().map(Box::from),
+            component: value.component().map(Box::from),
+            arch: value.arch().map(Box::from),
+            index_type: value.index_type().map(Box::from),
+            archive_uri,
+        }
+    }
+}
+
+impl Display for AptSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", &self.archive_uri)?;
+
+        if let Some(archive) = &self.archive {
+            write!(f, " {}", archive)?;
+        }
+
+        if let Some(comp) = &self.component {
+            write!(f, "/{}", comp)?;
+        }
+
+        if let Some(arch) = &self.arch {
+            write!(f, " {}", arch)?;
+        }
+
+        if let Some(ft) = &self.index_type {
+            let ft = match ft.as_ref() {
+                "Debian Package Index" => "Packages",
+                "Debian Translation Index" => "Translation",
+                _ => "",
+            };
+
+            write!(f, " {}", ft)?;
+        }
+
+        Ok(())
+    }
+}
 
 impl PkgInfo {
     pub fn new(version: &Version, pkg: &Package) -> Result<Self, PtrIsNone> {
@@ -164,29 +272,24 @@ impl PkgInfo {
         })
     }
 
-    pub fn print_info(&self, cache: &Cache) -> OmaAptResult<()> {
-        println!("Package: {}", self.raw_pkg.name());
-        println!("Version: {}", self.version_raw.version());
+    pub fn pkg_info(&self, cache: &Cache) -> OmaAptResult<PackageInfo> {
+        let package: Box<str> = Box::from(self.raw_pkg.name());
+        let version: Box<str> = Box::from(self.version_raw.version());
         let ver = Version::new(
             unsafe { self.version_raw.unique() }
                 .make_safe()
                 .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?,
             cache,
         );
-        println!("Section: {}", ver.section().as_deref().unwrap_or("unknown"));
-        println!(
-            "Maintainer: {}",
-            ver.get_record(RecordField::Maintainer)
-                .unwrap_or("unknown".to_string())
-        );
-        println!("Installed-Size: {}", HumanBytes(ver.installed_size()));
+        let section: Box<str> = Box::from(ver.section().as_deref().unwrap_or("unknown"));
+        let maintainer = ver
+            .get_record(RecordField::Maintainer)
+            .unwrap_or_else(|| "unknown".to_string());
+        let install_size = ver.installed_size();
 
-        for (t, deps) in &self.get_deps(cache)? {
-            println!("{t}: {deps}");
-        }
+        let deps_map = self.get_deps(cache)?;
 
-        println!("Download-Size: {}", HumanBytes(ver.size()));
-        print!("APT-Source:");
+        let download_size = ver.size();
 
         let pkg_files = ver
             .package_files()
@@ -195,23 +298,28 @@ impl PkgInfo {
                     .map(|x| x != "Debian dpkg status file")
                     .unwrap_or(true)
             })
+            .map(AptSource::from)
             .collect::<Vec<_>>();
 
-        print_pkg_files(pkg_files);
+        let description = ver
+            .description()
+            .unwrap_or_else(|| "No description".to_string());
 
-        println!(
-            "Description: {}",
-            format_description(&ver.description().unwrap_or("No description".to_string())).0
-        );
-
-        Ok(())
+        Ok(PackageInfo {
+            package,
+            version,
+            section,
+            maintainer,
+            install_size,
+            dep_map: deps_map,
+            download_size,
+            apt_sources: pkg_files,
+            description,
+        })
     }
 
-    pub fn get_deps(
-        &self,
-        cache: &Cache,
-    ) -> OmaAptResult<SmallMap<9, OmaDepType, OmaDependencyGroup>> {
-        let mut map = SmallMap::new();
+    pub fn get_deps(&self, cache: &Cache) -> OmaAptResult<HashMap<OmaDepType, OmaDependencyGroup>> {
+        let mut map = HashMap::with_hasher(ahash::RandomState::new());
         Version::new(
             unsafe { self.version_raw.unique() }
                 .make_safe()
@@ -231,9 +339,8 @@ impl PkgInfo {
     pub fn get_rdeps(
         &self,
         cache: &Cache,
-    ) -> OmaAptResult<SmallMap<9, OmaDepType, OmaDependencyGroup>> {
-        let mut map = SmallMap::new();
-        Package::new(
+    ) -> OmaAptResult<AHashMap<OmaDepType, OmaDependencyGroup>> {
+        let map = Package::new(
             cache,
             unsafe { self.raw_pkg.unique() }
                 .make_safe()
@@ -242,56 +349,9 @@ impl PkgInfo {
         .rdepends()
         .iter()
         .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-        .for_each(|(x, y)| {
-            map.insert(x, y);
-        });
+        .collect::<AHashMap<_, _>>();
 
         Ok(map)
-    }
-}
-
-fn print_pkg_files(pkg_files: Vec<PackageFile>) {
-    if pkg_files.len() > 1 {
-        println!();
-    }
-
-    for i in &pkg_files {
-        let index = i.index_file();
-
-        if pkg_files.len() == 1 {
-            print!(" ");
-        } else {
-            print!("  ");
-        }
-
-        print!("{}", index.archive_uri(""));
-
-        if let Some(archive) = i.archive() {
-            print!(" {}", archive);
-        }
-
-        if let Some(comp) = i.component() {
-            print!("/{}", comp);
-        }
-
-        print!(" ");
-
-        if let Some(arch) = i.arch() {
-            print!("{}", arch);
-        }
-
-        print!(" ");
-
-        if let Some(f) = i.index_type() {
-            let f = match f {
-                "Debian Package Index" => "Packages",
-                "Debian Translation Index" => "Translation",
-                _ => "",
-            };
-            print!("{}", f);
-        }
-
-        println!();
     }
 }
 
@@ -305,5 +365,6 @@ fn test_pkginfo_display() {
     let pkg = cache.get("apt").unwrap();
     let version = pkg.candidate().unwrap();
     let info = PkgInfo::new(&version, &pkg).unwrap();
-    info.print_info(&cache).unwrap();
+    let info = info.pkg_info(&cache).unwrap();
+    println!("{info}");
 }
