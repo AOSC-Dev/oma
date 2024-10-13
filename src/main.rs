@@ -533,6 +533,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let upgradable = args.get_flag("upgradable");
             let manual = args.get_flag("manually-installed");
             let auto = args.get_flag("automatic");
+            let json = args.get_flag("json");
 
             let flags = ListFlags {
                 all,
@@ -542,7 +543,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 auto,
             };
 
-            list::execute(flags, pkgs, sysroot)?
+            list::execute(flags, pkgs, sysroot, json)?
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();

@@ -260,7 +260,7 @@ pub fn command_builder() -> Command {
                     .action(ArgAction::SetTrue)
                     .requires("packages")
                 )
-            .arg(json)
+            .arg(&json)
         )
         .subcommand(
             Command::new("search")
@@ -386,9 +386,13 @@ pub fn command_builder() -> Command {
                     Arg::new("automatic")
                     .long("automatic")
                     .help("List only package(s) with automatic installed")
-                    .action(ArgAction::SetTrue))
-                    .about("List package(s) available from the repository"),
-        )
+                    .action(ArgAction::SetTrue)
+                )
+                .arg(
+                    &json
+                )
+                .about("List package(s) available from the repository"),
+         )
         .subcommand(
             Command::new("depends")
                 .visible_alias("dep")

@@ -20,7 +20,12 @@ pub struct ListFlags {
     pub auto: bool,
 }
 
-pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i32, OutputError> {
+pub fn execute(
+    flags: ListFlags,
+    pkgs: Vec<String>,
+    sysroot: String,
+    json: bool,
+) -> Result<i32, OutputError> {
     let ListFlags {
         all,
         installed,
@@ -112,14 +117,14 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
             for pkg_file in pkg_files {
                 let branch = pkg_file.archive();
                 let branch = match branch {
-                    Some(branch) => Cow::Owned(branch.to_string()),
+                    Some(branch) => Box::from(branch),
                     None => "unknown".into(),
                 };
 
                 if let Some(inst) = pkg.installed() {
                     let mut inst_pkg_files = inst.package_files();
                     installed = inst_pkg_files
-                        .any(|x| x.archive().map(|x| x == branch).unwrap_or(false))
+                        .any(|x| x.archive().map(|x| x == &*branch).unwrap_or(false))
                         && inst.version() == version.version();
                 }
 
@@ -130,58 +135,77 @@ pub fn execute(flags: ListFlags, pkgs: Vec<String>, sysroot: String) -> Result<i
                 branches.push("unknown".into());
             }
 
-            let branches = branches.join(",");
             let mut version_str = Cow::Borrowed(version.version());
             let arch = version.arch();
 
             let upgradable = pkg.is_upgradable();
             let automatic = pkg.is_auto_installed();
 
-            let mut s = vec![];
+            let mut status = vec![];
 
             if installed {
-                s.push("installed");
+                status.push("installed");
             }
 
+            let mut new_version: Option<Box<str>> = None;
+
             if upgradable && installed {
-                s.push("upgradable");
-                version_str = Cow::Owned(format!(
-                    "{} -> {}",
-                    version_str,
-                    pkg.candidate().map(|x| x.version().to_string()).unwrap()
-                ));
+                status.push("upgradable");
+                new_version = pkg.candidate().map(|x| Box::from(x.version()));
             }
 
             if automatic {
-                s.push("automatic");
+                status.push("automatic");
             }
 
             if pkg.current_state() == PkgCurrentState::ConfigFiles {
-                s.push("residual-config")
+                status.push("residual-config")
             }
 
-            let s = if s.is_empty() {
-                Cow::Borrowed("")
-            } else {
-                Cow::Owned(format!("[{}]", s.join(",")))
-            };
+            if !json {
+                let s = if status.is_empty() {
+                    Cow::Borrowed("")
+                } else {
+                    Cow::Owned(format!("[{}]", status.join(",")))
+                };
 
-            printer
-                .print(format!(
-                    "{}/{} {} {arch} {s}",
-                    color_formatter().color_str(name, Action::Emphasis).bold(),
-                    color_formatter().color_str(branches, Action::Secondary),
-                    if upgradable {
-                        color_formatter().color_str(version_str, Action::WARN)
-                    } else {
-                        color_formatter().color_str(version_str, Action::EmphasisSecondary)
-                    }
-                ))
-                .ok();
+                let branches_str = branches.join(",");
+
+                printer
+                    .print(format!(
+                        "{}/{} {} {arch} {s}",
+                        color_formatter().color_str(name, Action::Emphasis).bold(),
+                        color_formatter().color_str(branches_str, Action::Secondary),
+                        if upgradable {
+                            version_str = Cow::Owned(format!(
+                                "{} -> {}",
+                                version_str,
+                                new_version.as_ref().unwrap(),
+                            ));
+                            color_formatter().color_str(version_str, Action::WARN)
+                        } else {
+                            color_formatter().color_str(version_str, Action::EmphasisSecondary)
+                        }
+                    ))
+                    .ok();
+            } else {
+                printer
+                    .print(serde_json::json!(
+                        {
+                            "name": name,
+                            "branches": branches,
+                            "current_version": version.version(),
+                            "new_version": new_version,
+                            "architecture": arch,
+                            "status": status,
+                        }
+                    ))
+                    .ok();
+            }
         }
     }
 
-    if display_tips.0 && pkg_count == 1 {
+    if display_tips.0 && pkg_count == 1 && !json {
         info!("{}", fl!("additional-version", len = display_tips.1));
     }
 
