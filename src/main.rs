@@ -479,10 +479,11 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .unwrap();
 
             let no_pager = args.get_flag("no_pager");
+            let json = args.get_flag("json");
 
             let engine = config.search_engine();
 
-            search::execute(&patterns, no_progress, sysroot, engine, no_pager)?
+            search::execute(&patterns, no_progress, sysroot, engine, no_pager, json)?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };

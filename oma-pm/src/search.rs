@@ -10,6 +10,7 @@ use oma_apt::{
     raw::{IntoRawIter, PkgIterator},
     Package, Version,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
@@ -21,7 +22,7 @@ use crate::{
     query::has_dbg,
 };
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PackageStatus {
     Avail,
     Installed,
@@ -107,7 +108,7 @@ pub enum OmaSearchError {
 
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SearchResult {
     pub name: String,
     pub desc: String,

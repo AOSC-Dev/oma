@@ -278,6 +278,9 @@ pub fn command_builder() -> Command {
                         .help("Output result to stdout, not pager")
                         .action(ArgAction::SetTrue)
                 )
+                .arg(
+                    &json
+                )
         )
         .subcommand(
             Command::new("files")
