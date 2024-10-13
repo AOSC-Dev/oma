@@ -405,6 +405,7 @@ pub fn command_builder() -> Command {
                         .required(true)
                         .help("Package(s) to query dependency(ies) for"),
                 )
+                .arg(&json)
                 .about("Lists dependencies of one or multiple packages"),
         )
         .subcommand(
@@ -415,6 +416,7 @@ pub fn command_builder() -> Command {
                         .required(true)
                         .help("Package(s) to query dependency(ies) for"),
                 )
+                .arg(&json)
                 .about("List reverse dependency(ies) for the specified package(s)"),
         )
         .subcommand(Command::new("clean").about("Clear downloaded package cache"))

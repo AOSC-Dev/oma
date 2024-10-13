@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use ahash::HashMap;
+use ahash::{AHashMap, HashMap};
 use cxx::UniquePtr;
 use oma_apt::{
     cache::Cache,
@@ -10,12 +10,11 @@ use oma_apt::{
 };
 use oma_utils::human_bytes::HumanBytes;
 use serde::{Deserialize, Serialize};
-use small_map::SmallMap;
 use thiserror::Error;
 
 use crate::apt::{OmaAptError, OmaAptResult};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OmaDependency {
     pub name: String,
     pub comp_symbol: Option<String>,
@@ -38,7 +37,7 @@ impl From<&BaseDep<'_>> for OmaDependency {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OmaDependencyGroup(Vec<Vec<OmaDependency>>);
 
 impl OmaDependencyGroup {
@@ -158,7 +157,7 @@ pub struct PackageInfo {
     section: Box<str>,
     maintainer: String,
     install_size: u64,
-    dep_map: HashMap<String, String>,
+    dep_map: HashMap<OmaDepType, OmaDependencyGroup>,
     download_size: u64,
     apt_sources: Vec<AptSource>,
     description: String,
@@ -288,10 +287,7 @@ impl PkgInfo {
             .unwrap_or_else(|| "unknown".to_string());
         let install_size = ver.installed_size();
 
-        let mut deps_map = HashMap::with_hasher(ahash::RandomState::new());
-        for (t, deps) in &self.get_deps(cache)? {
-            deps_map.insert(t.to_string(), deps.to_string());
-        }
+        let deps_map = self.get_deps(cache)?;
 
         let download_size = ver.size();
 
@@ -322,11 +318,8 @@ impl PkgInfo {
         })
     }
 
-    pub fn get_deps(
-        &self,
-        cache: &Cache,
-    ) -> OmaAptResult<SmallMap<9, OmaDepType, OmaDependencyGroup>> {
-        let mut map = SmallMap::new();
+    pub fn get_deps(&self, cache: &Cache) -> OmaAptResult<HashMap<OmaDepType, OmaDependencyGroup>> {
+        let mut map = HashMap::with_hasher(ahash::RandomState::new());
         Version::new(
             unsafe { self.version_raw.unique() }
                 .make_safe()
@@ -346,9 +339,8 @@ impl PkgInfo {
     pub fn get_rdeps(
         &self,
         cache: &Cache,
-    ) -> OmaAptResult<SmallMap<9, OmaDepType, OmaDependencyGroup>> {
-        let mut map = SmallMap::new();
-        Package::new(
+    ) -> OmaAptResult<AHashMap<OmaDepType, OmaDependencyGroup>> {
+        let map = Package::new(
             cache,
             unsafe { self.raw_pkg.unique() }
                 .make_safe()
@@ -357,9 +349,7 @@ impl PkgInfo {
         .rdepends()
         .iter()
         .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-        .for_each(|(x, y)| {
-            map.insert(x, y);
-        });
+        .collect::<AHashMap<_, _>>();
 
         Ok(map)
     }

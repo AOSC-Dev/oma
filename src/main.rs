@@ -548,13 +548,15 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
+            let json = args.get_flag("json");
 
-            depends::execute(pkgs, sysroot)?
+            depends::execute(pkgs, sysroot, json)?
         }
         Some(("rdepends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
+            let json = args.get_flag("json");
 
-            rdepends::execute(pkgs, sysroot)?
+            rdepends::execute(pkgs, sysroot, json)?
         }
         Some(("clean", _)) => clean::execute(no_progress, sysroot)?,
         Some(("history", _)) => subcommand::history::execute_history(sysroot)?,
