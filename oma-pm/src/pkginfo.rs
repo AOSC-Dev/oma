@@ -281,7 +281,7 @@ impl PkgInfo {
                 .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?,
             cache,
         );
-        let section: Box<str> = Box::from(ver.section().as_deref().unwrap_or("unknown"));
+        let section: Box<str> = Box::from(ver.section().unwrap_or("unknown"));
         let maintainer = ver
             .get_record(RecordField::Maintainer)
             .unwrap_or_else(|| "unknown".to_string());
@@ -319,8 +319,7 @@ impl PkgInfo {
     }
 
     pub fn get_deps(&self, cache: &Cache) -> OmaAptResult<HashMap<OmaDepType, OmaDependencyGroup>> {
-        let mut map = HashMap::with_hasher(ahash::RandomState::new());
-        Version::new(
+        let map = Version::new(
             unsafe { self.version_raw.unique() }
                 .make_safe()
                 .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?,
@@ -329,9 +328,7 @@ impl PkgInfo {
         .depends_map()
         .iter()
         .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-        .for_each(|(x, y)| {
-            map.insert(x, y);
-        });
+        .collect::<HashMap<_, _>>();
 
         Ok(map)
     }
