@@ -167,6 +167,7 @@ pub enum FilterMode {
     Automatic,
     Manual,
     Names,
+    AutoRemovable,
 }
 
 impl OmaApt {
@@ -1122,6 +1123,7 @@ impl OmaApt {
                 FilterMode::Automatic => sort.auto_installed(),
                 FilterMode::Names => sort.names(),
                 FilterMode::Manual => sort.manually_installed(),
+                FilterMode::AutoRemovable => sort.auto_removable(),
                 _ => sort,
             };
         }
