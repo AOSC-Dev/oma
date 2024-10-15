@@ -3,7 +3,7 @@ can-not-run-dpkg-print-arch = 无法执行 `dpkg --print-architecture'。
 execute-pkexec-fail = 无法执行 `pkexec' 命令：{ $e }。
 # history
 history-tips-1 = oma 已成功应用对系统的更改。
-history-tips-2 = 如需撤销本次操作，请使用 `oma undo' 命令。
+history-tips-2 = 如需撤销本次操作，请使用 { $cmd } 命令。
 # verify
 fail-load-certs-from-file = 无法从 { $path } 载入软件源签名。
 cert-file-is-bad = 位于 { $path } 的软件源签名无效。
@@ -184,3 +184,7 @@ no-result-bincontents-tips-2 = 命令 { $cmd } 由 { $pkg } 软件包提供
 oma-refresh-lock = 无法刷新本地软件包数据库。
 oma-refresh-lock-dueto = { $exec } ({ $pid }) 正占用数据库锁。
 oma-refresh-success-invoke = 正在执行刷新后配置脚本 (Post-Invoke-Success) ...
+autoremove-tips-1 = 您的系统中有 { $count } 个可清理（不再需要）的软件包，清理后可释放 { $size } 存储空间。
+autoremove-tips-2 = 请使用 { $cmd } 查阅可清理的软件包。
+autoremove-tips-3 = 如需保留某个软件包，请使用 { $cmd } 将软件包标记为手动安装。
+autoremove-tips-4 = 否则，您可以使用 { $cmd } 清理不再需要的软件包。

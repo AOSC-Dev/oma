@@ -3,7 +3,7 @@ can-not-run-dpkg-print-arch = Could not run `dpkg --print-architecture'.
 execute-pkexec-fail = Failed to execute `pkexec': { $e }.
 # history
 history-tips-1 = oma has successfully applied changes to your system.
-history-tips-2 = If you would like to undo these changes, please use the `oma undo' command.
+history-tips-2 = If you would like to undo these changes, please use the { $cmd } command.
 # verify
 fail-load-certs-from-file = Failed to load repository signature from { $path }.
 cert-file-is-bad = Repository signature at { $path } is invalid.
@@ -189,3 +189,7 @@ no-result-bincontents-tips-2 = The { $cmd } command comes from the package { $pk
 oma-refresh-lock = Unable to refresh local database.
 oma-refresh-lock-dueto = { $exec } ({ $pid }) has acquired the lock to the database.
 oma-refresh-success-invoke = Executing Post-refresh configuration script (Post-Invoke-Success) ...
+autoremove-tips-1 = { $count } unneeded packages on your system may be removed, which will free up { $size } in storage space.
+autoremove-tips-2 = Please use { $cmd } to view the list of packages that can be removed.
+autoremove-tips-3 = If you would like to keep a particular package, use { $cmd } to mark the package as manually installed.
+autoremove-tips-4 = Otherwise, you may use { $cmd } to clean up the packages that are no longer needed.

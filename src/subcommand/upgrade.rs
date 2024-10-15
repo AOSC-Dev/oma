@@ -1,5 +1,6 @@
 use chrono::Local;
 use oma_console::pager::PagerExit;
+use oma_console::print::Action;
 use oma_console::success;
 use oma_fetch::DownloadProgressControl;
 use oma_history::connect_db;
@@ -15,10 +16,12 @@ use reqwest::Client;
 use tracing::info;
 use tracing::warn;
 
+use crate::color_formatter;
 use crate::error::OutputError;
 use crate::fl;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
+use crate::subcommand::utils::autoremovable_tips;
 use crate::table::table_for_install_pending;
 use crate::utils::dbus_check;
 use crate::utils::root;
@@ -140,6 +143,7 @@ pub fn execute(
         let disk_size = &op.disk_size;
 
         if is_nothing_to_do(install, remove) {
+            autoremovable_tips(&apt)?;
             return Ok(0);
         }
 
@@ -178,8 +182,20 @@ pub fn execute(
                     start_time,
                     true,
                 )?;
+
+                let cmd = color_formatter().color_str("oma undo", Action::Foreground);
                 success!("{}", fl!("history-tips-1"));
-                info!("{}", fl!("history-tips-2"));
+                info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+
+                let apt = OmaApt::new(
+                    vec![],
+                    OmaAptArgs::builder().build(),
+                    false,
+                    AptConfig::new(),
+                )?;
+
+                autoremovable_tips(&apt)?;
+
                 drop(fds);
                 return Ok(0);
             }

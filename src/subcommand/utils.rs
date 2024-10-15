@@ -17,6 +17,7 @@ use crate::LOCKED;
 use crate::RT;
 use chrono::Local;
 use dialoguer::console::style;
+use oma_console::indicatif::HumanBytes;
 use oma_console::msg;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
@@ -32,7 +33,9 @@ use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptArgs;
 use oma_pm::apt::AptConfig;
+use oma_pm::apt::FilterMode;
 use oma_pm::apt::OmaApt;
+use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_refresh::db::HandleRefresh;
 use oma_refresh::db::OmaRefresh;
@@ -263,6 +266,7 @@ impl<'a> CommitRequest<'a> {
         let disk_size = &op.disk_size;
 
         if is_nothing_to_do(install, remove) {
+            autoremovable_tips(&apt)?;
             return Ok(0);
         }
 
@@ -285,8 +289,9 @@ impl<'a> CommitRequest<'a> {
 
         match res {
             Ok(_) => {
+                let cmd = color_formatter().color_str("oma undo", Action::Foreground);
                 success!("{}", fl!("history-tips-1"));
-                info!("{}", fl!("history-tips-2"));
+                info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
                 write_history_entry(
                     op_after,
                     typ,
@@ -298,6 +303,16 @@ impl<'a> CommitRequest<'a> {
                     start_time,
                     true,
                 )?;
+
+                let apt = OmaApt::new(
+                    vec![],
+                    OmaAptArgs::builder().build(),
+                    false,
+                    AptConfig::new(),
+                )?;
+
+                autoremovable_tips(&apt)?;
+
                 Ok(0)
             }
             Err(e) => {
@@ -317,6 +332,41 @@ impl<'a> CommitRequest<'a> {
             }
         }
     }
+}
+
+pub fn autoremovable_tips(apt: &OmaApt) -> Result<(), OutputError> {
+    let autoremovable = apt
+        .filter_pkgs(&[FilterMode::AutoRemovable])?
+        .collect::<Vec<_>>();
+    let mut total_size = 0;
+    let count = autoremovable.len();
+
+    for pkg in autoremovable {
+        let size = pkg.installed().unwrap().installed_size();
+        total_size += size;
+    }
+
+    if count > 0 {
+        let total_size = HumanBytes(total_size).to_string();
+        let cmd1 = color_formatter()
+            .color_str("oma list --autoremovable", Action::Emphasis)
+            .to_string();
+        let cmd2 = color_formatter()
+            .color_str("oma mark manual <packages>", Action::Note)
+            .to_string();
+        let cmd3 = color_formatter()
+            .color_str("oma autoremove", Action::Secondary)
+            .to_string();
+        info!(
+            "{}",
+            fl!("autoremove-tips-1", count = count, size = total_size)
+        );
+        info!("{}", fl!("autoremove-tips-2", cmd = cmd1));
+        info!("{}", fl!("autoremove-tips-3", cmd = cmd2));
+        info!("{}", fl!("autoremove-tips-4", cmd = cmd3));
+    }
+
+    Ok(())
 }
 
 pub(crate) fn is_nothing_to_do(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
