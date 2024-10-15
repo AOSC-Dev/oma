@@ -2959,6 +2959,7 @@ dependencies = [
  "oma-refresh",
  "oma-repo-verify",
  "oma-topics",
+ "oma-ubuntu-cmd-not-found",
  "oma-utils 0.8.6",
  "ratatui",
  "reqwest",
@@ -3183,6 +3184,15 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "oma-ubuntu-cmd-not-found"
+version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]

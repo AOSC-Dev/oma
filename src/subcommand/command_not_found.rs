@@ -1,11 +1,7 @@
-use std::error::Error;
 use std::io::stdout;
 
 use ahash::AHashMap;
-use oma_console::due_to;
 use oma_console::print::Action;
-use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
-use oma_contents::OmaContentsError;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use oma_pm::format_description;
 use tracing::error;
@@ -14,12 +10,19 @@ use crate::error::OutputError;
 use crate::table::PagerPrinter;
 use crate::{color_formatter, fl};
 
-const FILTER_JARO_NUM: u8 = 204;
-const APT_LIST_PATH: &str = "/var/lib/apt/lists";
-
+#[cfg(not(feature = "ubuntu"))]
 type IndexSet<T> = indexmap::IndexSet<T, ahash::RandomState>;
 
+#[cfg(not(feature = "ubuntu"))]
 pub fn execute(query: &str) -> Result<i32, OutputError> {
+    use oma_console::due_to;
+    use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
+    use oma_contents::OmaContentsError;
+    use std::error::Error;
+
+    const FILTER_JARO_NUM: u8 = 204;
+    const APT_LIST_PATH: &str = "/var/lib/apt/lists";
+
     let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
     let cb = |line| {
@@ -136,6 +139,82 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
     Ok(127)
 }
 
+#[cfg(feature = "ubuntu")]
+pub fn execute(query: &str) -> Result<i32, OutputError> {
+    use oma_ubuntu_cmd_not_found::UbuntuCmdNotFound;
+
+    let cnf = UbuntuCmdNotFound::default_new()?;
+    let count = cnf.query_where_command_count(query)?;
+
+    let query_res = if count != 0 {
+        cnf.query_where_command(query)?
+    } else if cnf.query_where_command_like_count(query)? == 0 {
+        error!("{}", fl!("command-not-found", kw = query));
+        return Ok(127);
+    } else {
+        cnf.query_where_command_like(query)?
+    };
+
+    let mut too_many = false;
+    let mut map: AHashMap<String, String> = AHashMap::new();
+    let apt_config = AptConfig::new();
+    let oma_apt_args = OmaAptArgs::builder().build();
+    let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+    let mut res = vec![];
+
+    for (i, (pkg, cmd)) in query_res.iter().enumerate() {
+        if i == 10 {
+            too_many = true;
+            break;
+        }
+
+        let desc = if let Some(desc) = map.get(pkg) {
+            desc.to_string()
+        } else if let Some(pkg) = apt.cache.get(&pkg) {
+            let desc = pkg
+                .candidate()
+                .and_then(|x| {
+                    x.description()
+                        .map(|x| format_description(&x).0.to_string())
+                })
+                .unwrap_or_else(|| "no description.".to_string());
+
+            map.insert(pkg.name().to_string(), desc.to_string());
+
+            desc
+        } else {
+            continue;
+        };
+
+        let entry = (
+            color_formatter()
+                .color_str(pkg, Action::Emphasis)
+                .bold()
+                .to_string(),
+            color_formatter()
+                .color_str(cmd, Action::Secondary)
+                .to_string(),
+            desc,
+        );
+
+        res.push(entry);
+    }
+
+    println!("{}\n", fl!("command-not-found-with-result", kw = query));
+    let mut printer = PagerPrinter::new(stdout());
+    printer
+        .print_table(res, vec!["Name", "Path", "Description"])
+        .ok();
+
+    if too_many {
+        println!("\n{}", fl!("cnf-too-many-query"));
+        println!("{}", fl!("cnf-too-many-query-2", query = query));
+    }
+
+    Ok(127)
+}
+
+#[cfg(not(feature = "ubuntu"))]
 fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, String, u8)> {
     let mut output = vec![];
 
