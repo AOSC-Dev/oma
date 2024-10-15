@@ -18,6 +18,7 @@ pub struct ListFlags {
     pub upgradable: bool,
     pub manual: bool,
     pub auto: bool,
+    pub autoremovable: bool,
 }
 
 pub fn execute(
@@ -32,6 +33,7 @@ pub fn execute(
         upgradable,
         manual,
         auto,
+        autoremovable,
     } = flags;
 
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
@@ -53,6 +55,10 @@ pub fn execute(
 
     if manual {
         filter_mode.push(FilterMode::Manual);
+    }
+
+    if autoremovable {
+        filter_mode.push(FilterMode::AutoRemovable);
     }
 
     let filter_pkgs = apt.filter_pkgs(&filter_mode)?;
