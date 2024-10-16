@@ -49,32 +49,27 @@ impl OmaAptInstallProgress {
             connection,
         } = args;
 
+        let mut dpkg_args = vec![];
+
+        let opts = config.get("Dpkg::Options::");
+
+        if let Some(ref opts) = opts {
+            dpkg_args.push(opts.as_str());
+        }
+
         if yes {
-            oma_apt::raw::config::set("APT::Get::Assume-Yes".to_owned(), "true".to_owned());
+            config.set("APT::Get::Assume-Yes", "true");
             debug!("APT::Get::Assume-Yes is set to true");
         }
 
         if dpkg_force_confnew {
-            let opts = config.get("Dpkg::Options::");
-            let mut args = vec!["--force-confnew"];
-            if let Some(ref opts) = opts {
-                args.push(opts);
-            }
-
-            config.set_vector("Dpkg::Options::", &args);
-
+            dpkg_args.push("--force-confnew");
             debug!("Dpkg::Options:: is set to --force-confnew");
         } else if yes {
             // --force-confdef reason:
             // https://unix.stackexchange.com/questions/641099/any-possible-conflict-between-using-both-force-confold-and-force-confnew-wit/642541#642541
-            let opts = config.get("Dpkg::Options::");
-            let mut args = vec!["--force-confold", "--force-confdef"];
-            if let Some(ref opts) = opts {
-                args.push(opts);
-            }
-
-            config.set_vector("Dpkg::Options::", &args);
-
+            let args = &["--force-confold", "--force-confdef"];
+            dpkg_args.extend_from_slice(args);
             debug!("Dpkg::Options:: added --force-confold --force-confdef");
         }
 
@@ -85,14 +80,8 @@ impl OmaAptInstallProgress {
         }
 
         if dpkg_force_unsafe_io {
-            let opts = config.get("Dpkg::Options::");
-            let mut args = vec!["--force-unsafe-io"];
-            if let Some(ref opts) = opts {
-                args.push(opts);
-            }
-
-            config.set_vector("Dpkg::Options::", &args);
-            debug!("Dpkg::Options:: is set to --force-unsafe-io");
+            dpkg_args.push("--force-unsafe-io");
+            debug!("Dpkg::Options:: added --force-unsafe-io");
         }
 
         if !is_terminal() || no_progress {
@@ -106,15 +95,9 @@ impl OmaAptInstallProgress {
 
         let dir = config.get("Dir").unwrap_or("/".to_owned());
         let root_arg = format!("--root={dir}");
-        let mut args = vec![root_arg.as_str()];
+        dpkg_args.push(&root_arg);
 
-        let opts = config.get("Dpkg::Options::");
-
-        if let Some(ref opts) = opts {
-            args.push(opts);
-        }
-
-        config.set_vector("Dpkg::Options::", &args);
+        config.set_vector("Dpkg::Options::", &dpkg_args);
 
         Self {
             config,
