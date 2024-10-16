@@ -137,6 +137,8 @@ pub struct AptArgs {
     dpkg_force_all: bool,
     #[builder(default)]
     no_progress: bool,
+    #[builder(default)]
+    dpkg_force_unsafe_io: bool,
 }
 
 impl AptArgs {
@@ -564,6 +566,7 @@ impl OmaApt {
             force_yes: args_config.force_yes,
             dpkg_force_confnew: args_config.dpkg_force_confnew,
             dpkg_force_all: args_config.dpkg_force_all,
+            dpkg_force_unsafe_io: args_config.dpkg_force_unsafe_io,
             no_progress: args_config.no_progress,
             tokio: self.tokio,
             connection: self.connection,

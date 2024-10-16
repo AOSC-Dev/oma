@@ -23,6 +23,7 @@ pub struct InstallProgressArgs {
     pub force_yes: bool,
     pub dpkg_force_confnew: bool,
     pub dpkg_force_all: bool,
+    pub dpkg_force_unsafe_io: bool,
     pub no_progress: bool,
     pub tokio: Runtime,
     pub connection: Option<Connection>,
@@ -44,6 +45,7 @@ impl OmaAptInstallProgress {
             force_yes,
             dpkg_force_confnew,
             dpkg_force_all,
+            dpkg_force_unsafe_io,
             no_progress,
             tokio,
             connection,
@@ -82,6 +84,17 @@ impl OmaAptInstallProgress {
             // warn!("{}", fl!("force-auto-mode"));
             config.set("APT::Get::force-yes", "true");
             debug!("APT::Get::force-Yes is set to true");
+        }
+
+        if dpkg_force_unsafe_io {
+            let opts = config.get("Dpkg::Options::");
+            let mut args = vec!["--force-unsafe-io"];
+            if let Some(ref opts) = opts {
+                args.push(opts);
+            }
+
+            config.set_vector("Dpkg::Options::", &args);
+            debug!("Dpkg::Options:: is set to --force-unsafe-io");
         }
 
         if dpkg_force_all {
