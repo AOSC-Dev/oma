@@ -190,7 +190,7 @@ impl<'a> RefreshRequest<'a> {
         let pm: &dyn HandleRefresh = if !no_progress {
             &OmaMultiProgressBar::default()
         } else {
-            &NoProgressBar
+            &NoProgressBar::default()
         };
 
         let arch = dpkg_arch(&sysroot)?;
@@ -281,7 +281,7 @@ impl<'a> CommitRequest<'a> {
             let pb = OmaMultiProgressBar::default();
             Box::new(pb)
         } else {
-            Box::new(NoProgressBar)
+            Box::new(NoProgressBar::default())
         };
 
         let res = apt.commit(client, Some(network_thread), pm.as_ref(), op);

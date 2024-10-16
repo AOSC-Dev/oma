@@ -1,18 +1,25 @@
 use std::{
     borrow::Cow,
-    sync::atomic::{AtomicU64, Ordering},
+    cell::OnceCell,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        RwLock,
+    },
+    time::{Duration, Instant},
 };
 
 use ahash::RandomState;
 use oma_console::{
     console::style,
     indicatif::{MultiProgress, ProgressBar},
+    msg,
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
     writer::{gen_prefix, writeln_inner, MessageType, Writeln},
     WRITER,
 };
 use oma_fetch::DownloadProgressControl;
 use oma_refresh::db::{HandleRefresh, HandleTopicsControl};
+use oma_utils::human_bytes::HumanBytes;
 use tracing::{error, info, warn};
 
 use crate::fl;
@@ -226,7 +233,21 @@ impl HandleRefresh for OmaMultiProgressBar {
     }
 }
 
-pub struct NoProgressBar;
+impl Default for NoProgressBar {
+    fn default() -> Self {
+        Self {
+            timer: RwLock::new(Instant::now()),
+            total_size: OnceCell::new(),
+            old_downloaded: AtomicU64::new(0),
+        }
+    }
+}
+
+pub struct NoProgressBar {
+    timer: RwLock<Instant>,
+    total_size: OnceCell<u64>,
+    old_downloaded: AtomicU64,
+}
 
 impl DownloadProgressControl for NoProgressBar {
     fn checksum_mismatch_retry(&self, _index: usize, filename: &str, times: usize) {
@@ -236,7 +257,27 @@ impl DownloadProgressControl for NoProgressBar {
         );
     }
 
-    fn global_progress_set(&self, _num: &AtomicU64) {}
+    fn global_progress_set(&self, num: &AtomicU64) {
+        let elapsed = self.timer.read().unwrap().elapsed();
+        if elapsed >= Duration::from_secs(3) {
+            let downloaded = num.load(Ordering::SeqCst);
+            if let Some(total_size) = self.total_size.get() {
+                msg!(
+                    "{} / {} ({}/s)",
+                    HumanBytes(downloaded),
+                    HumanBytes(*total_size),
+                    HumanBytes(
+                        (downloaded - self.old_downloaded.load(Ordering::SeqCst))
+                            / elapsed.as_secs()
+                    )
+                );
+                self.old_downloaded.store(downloaded, Ordering::SeqCst);
+            } else {
+                msg!("Downloaded {}", HumanBytes(downloaded));
+            }
+            *self.timer.write().unwrap() = Instant::now();
+        }
+    }
 
     fn progress_done(&self, _index: usize) {}
 
@@ -261,7 +302,9 @@ impl DownloadProgressControl for NoProgressBar {
 
     fn all_done(&self) {}
 
-    fn new_global_progress_bar(&self, _total_size: u64) {}
+    fn new_global_progress_bar(&self, total_size: u64) {
+        self.total_size.get_or_init(|| total_size);
+    }
 }
 
 impl HandleTopicsControl for NoProgressBar {

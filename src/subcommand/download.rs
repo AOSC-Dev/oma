@@ -39,7 +39,7 @@ pub fn execute(
     let progress_manager: &dyn DownloadProgressControl = if !no_progress {
         &OmaMultiProgressBar::default()
     } else {
-        &NoProgressBar
+        &NoProgressBar::default()
     };
 
     let (success, failed) = apt.download(
