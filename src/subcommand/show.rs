@@ -18,8 +18,12 @@ pub fn execute(
     input: Vec<&str>,
     sysroot: String,
     json: bool,
+    another_apt_options: Vec<String>,
 ) -> Result<i32, OutputError> {
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
+    let oma_apt_args = OmaAptArgs::builder()
+        .another_apt_options(another_apt_options)
+        .sysroot(sysroot.clone())
+        .build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let (pkgs, no_result) = apt.select_pkg(&input, false, false, false)?;
     handle_no_result(sysroot, no_result)?;

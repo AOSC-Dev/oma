@@ -7,7 +7,7 @@ use oma_console::{
 };
 use oma_history::SummaryType;
 use oma_pm::{
-    apt::{AptArgs, AptConfig, OmaApt, OmaAptArgs},
+    apt::{AptConfig, OmaApt, OmaAptArgs},
     search::IndiciumSearch,
 };
 use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
@@ -32,6 +32,7 @@ pub struct TuiArgs {
     pub network_thread: usize,
     pub client: Client,
     pub no_check_dbus: bool,
+    pub another_apt_options: Vec<String>,
 }
 
 pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
@@ -47,6 +48,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         network_thread,
         client,
         no_check_dbus,
+        another_apt_options,
     } = tui;
 
     let apt_config = AptConfig::new();
@@ -62,7 +64,11 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     }
     .run()?;
 
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
+    let oma_apt_args = OmaAptArgs::builder()
+        .no_progress(no_progress)
+        .sysroot(sysroot.clone())
+        .another_apt_options(another_apt_options)
+        .build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
@@ -109,13 +115,10 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         apt.install(&install, false)?;
         apt.remove(&remove, false, false)?;
 
-        let apt_args = AptArgs::builder().no_progress(no_progress).build();
-
         code = CommitRequest {
             apt,
             dry_run,
             request_type: SummaryType::Changes,
-            apt_args,
             no_fixbroken: false,
             network_thread,
             no_progress,
@@ -123,6 +126,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
             fix_dpkg_status: true,
             protect_essential: true,
             client: &client,
+            yes: false,
         }
         .run()?;
     }

@@ -6,13 +6,21 @@ use crate::error::OutputError;
 
 use super::utils::{check_unsupported_stmt, handle_no_result};
 
-pub fn execute(pkgs: Vec<String>, sysroot: String, json: bool) -> Result<i32, OutputError> {
+pub fn execute(
+    pkgs: Vec<String>,
+    sysroot: String,
+    json: bool,
+    another_apt_options: Vec<String>,
+) -> Result<i32, OutputError> {
     for pkg in &pkgs {
         check_unsupported_stmt(pkg);
     }
 
     let apt_config = AptConfig::new();
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
+    let oma_apt_args = OmaAptArgs::builder()
+        .sysroot(sysroot.clone())
+        .another_apt_options(another_apt_options)
+        .build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
     let (pkgs, no_result) = apt.select_pkg(

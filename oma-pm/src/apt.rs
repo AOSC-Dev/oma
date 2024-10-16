@@ -58,6 +58,18 @@ pub struct OmaAptArgs {
     no_install_suggests: bool,
     #[builder(default = "/".to_string())]
     sysroot: String,
+    #[builder(default)]
+    yes: bool,
+    #[builder(default)]
+    force_yes: bool,
+    #[builder(default)]
+    dpkg_force_confnew: bool,
+    #[builder(default)]
+    no_progress: bool,
+    #[builder(default)]
+    dpkg_force_unsafe_io: bool,
+    #[builder(default)]
+    another_apt_options: Vec<String>,
 }
 
 pub struct OmaApt {
@@ -125,38 +137,6 @@ pub enum OmaAptError {
     ChecksumError(#[from] ChecksumError),
 }
 
-#[derive(Builder)]
-pub struct AptArgs {
-    #[builder(default)]
-    yes: bool,
-    #[builder(default)]
-    force_yes: bool,
-    #[builder(default)]
-    dpkg_force_confnew: bool,
-    #[builder(default)]
-    dpkg_force_all: bool,
-    #[builder(default)]
-    no_progress: bool,
-}
-
-impl AptArgs {
-    pub fn yes(&self) -> bool {
-        self.yes
-    }
-
-    pub fn force_yes(&self) -> bool {
-        self.force_yes
-    }
-
-    pub fn dpkg_force_confnew(&self) -> bool {
-        self.dpkg_force_confnew
-    }
-
-    pub fn dpkg_force_all(&self) -> bool {
-        self.dpkg_force_all
-    }
-}
-
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
 
 #[derive(Debug)]
@@ -217,7 +197,25 @@ impl OmaApt {
 
     /// Init apt config (before create new apt manager)
     fn init_config(config: AptConfig, args: OmaAptArgs) -> OmaAptResult<AptConfig> {
-        let sysroot = Path::new(&args.sysroot);
+        let OmaAptArgs {
+            install_recommends,
+            install_suggests,
+            no_install_recommends,
+            no_install_suggests,
+            sysroot,
+            yes,
+            force_yes,
+            dpkg_force_confnew,
+            no_progress,
+            dpkg_force_unsafe_io,
+            another_apt_options,
+        } = args;
+
+        if no_progress {
+            config.set("Oma::NoProgress", "true");
+        }
+
+        let sysroot = Path::new(&sysroot);
         let sysroot = sysroot
             .canonicalize()
             .map_err(|e| OmaAptError::FailedGetCanonicalize(sysroot.display().to_string(), e))?;
@@ -234,17 +232,17 @@ impl OmaApt {
             config.get("Dir::State::status")
         );
 
-        let install_recommend = if args.install_recommends {
+        let install_recommend = if install_recommends {
             true
-        } else if args.no_install_recommends {
+        } else if no_install_recommends {
             false
         } else {
             config.bool("APT::Install-Recommends", true)
         };
 
-        let install_suggests = if args.install_suggests {
+        let install_suggests = if install_suggests {
             true
-        } else if args.no_install_suggests {
+        } else if no_install_suggests {
             false
         } else {
             config.bool("APT::Install-Suggests", false)
@@ -255,6 +253,55 @@ impl OmaApt {
 
         config.set("APT::Install-Suggests", &install_suggests.to_string());
         debug!("APT::Install-Suggests is set to {install_suggests}");
+
+        if yes {
+            config.set("APT::Get::Assume-Yes", "true");
+            debug!("APT::Get::Assume-Yes is set to true");
+        }
+
+        let mut dpkg_args = vec![];
+        let opts = config.get("Dpkg::Options::");
+        if let Some(ref opts) = opts {
+            dpkg_args.push(opts.as_str());
+        }
+
+        if dpkg_force_confnew {
+            dpkg_args.push("--force-confnew");
+            debug!("Dpkg::Options:: is set to --force-confnew");
+        } else if yes {
+            // --force-confdef reason:
+            // https://unix.stackexchange.com/questions/641099/any-possible-conflict-between-using-both-force-confold-and-force-confnew-wit/642541#642541
+            let args = &["--force-confold", "--force-confdef"];
+            dpkg_args.extend_from_slice(args);
+            debug!("Dpkg::Options:: added --force-confold --force-confdef");
+        }
+
+        if force_yes {
+            // warn!("{}", fl!("force-auto-mode"));
+            config.set("APT::Get::force-yes", "true");
+            debug!("APT::Get::force-Yes is set to true");
+        }
+
+        if dpkg_force_unsafe_io {
+            dpkg_args.push("--force-unsafe-io");
+            debug!("Dpkg::Options:: added --force-unsafe-io");
+        }
+
+        if yes || force_yes {
+            std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
+        }
+
+        let dir = config.get("Dir").unwrap_or("/".to_owned());
+        let root_arg = format!("--root={dir}");
+        dpkg_args.push(&root_arg);
+
+        config.set_vector("Dpkg::Options::", &dpkg_args);
+
+        for kv in another_apt_options {
+            let (k, v) = kv.split_once('=').unwrap_or((&kv, ""));
+            config.set(k, v);
+            debug!("{k}={v} is set");
+        }
 
         Ok(config)
     }
@@ -496,7 +543,6 @@ impl OmaApt {
         self,
         client: &Client,
         network_thread: Option<usize>,
-        args_config: &AptArgs,
         progress_manager: &dyn DownloadProgressControl,
         op: OmaOperation,
     ) -> OmaAptResult<()> {
@@ -560,11 +606,6 @@ impl OmaApt {
 
         let args = InstallProgressArgs {
             config: self.config,
-            yes: args_config.yes,
-            force_yes: args_config.force_yes,
-            dpkg_force_confnew: args_config.dpkg_force_confnew,
-            dpkg_force_all: args_config.dpkg_force_all,
-            no_progress: args_config.no_progress,
             tokio: self.tokio,
             connection: self.connection,
         };

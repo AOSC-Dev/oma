@@ -33,15 +33,15 @@ pub fn command_builder() -> Command {
         .help("Ignore repository and package dependency issues")
         .action(clap::ArgAction::SetTrue);
 
+    let force_unsafe_io = Arg::new("force_unsafe_io")
+        .long("force-unsafe-io")
+        .help("Install package(s) without fsync(2)")
+        .action(clap::ArgAction::SetTrue);
+
     let force_confnew = Arg::new("force_confnew")
         .long("force-confnew")
         .help("Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)")
         .action(clap::ArgAction::SetTrue);
-
-    let dpkg_force_all = Arg::new("dpkg_force_all")
-        .long("dpkg-force-all")
-        .help("Request dpkg(1) to ignore any issues occurred during the installation and configuration process")
-        .action(ArgAction::SetTrue);
 
     let no_refresh_topics = Arg::new("no_refresh_topics")
         .long("no-refresh-topics")
@@ -116,6 +116,14 @@ pub fn command_builder() -> Command {
             .num_args(1)
             .default_value("/")
         )
+        .arg(
+            Arg::new("apt_options")
+            .long("apt-options")
+            .short('o')
+            .action(ArgAction::Append)
+            .global(true)
+            .num_args(1)
+        )
         .subcommand({
             let mut cmd = Command::new("install")
                 .visible_alias("add")
@@ -155,12 +163,12 @@ pub fn command_builder() -> Command {
                 .arg(Arg::new("no_install_recommends").long("no-install-recommends").requires("packages").help("Do not install recommend package(s)").conflicts_with("install_recommends").action(ArgAction::SetTrue))
                 .arg(Arg::new("no_install_suggests").long("no-install-suggests").requires("packages").help("Do not install recommend package(s)").conflicts_with("install_suggests").action(ArgAction::SetTrue))
                 .arg(&fix_broken)
+                .arg(&force_unsafe_io)
                 .arg(&no_refresh)
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))
-                .arg(&dry_run)
-                .arg(&dpkg_force_all);
+                .arg(&dry_run);
 
             if cfg!(feature = "aosc") {
                 cmd = cmd.arg(&no_refresh_topics);
@@ -175,10 +183,10 @@ pub fn command_builder() -> Command {
                 .about("Upgrade packages installed on the system")
                 .arg(pkgs.clone().help("Package(s) to upgrade"))
                 .arg(&yes)
+                .arg(&force_unsafe_io)
                 .arg(&force_yes)
                 .arg(force_confnew)
                 .arg(&dry_run)
-                .arg(&dpkg_force_all)
                 .arg(Arg::new("autoremove").long("autoremove").help("Auto remove unnecessary package(s)").action(ArgAction::SetTrue));
 
             if cfg!(feature = "aosc") {
@@ -214,6 +222,7 @@ pub fn command_builder() -> Command {
                 .about("Remove the specified package(s)")
                 .arg(pkgs.clone().help("Package(s) to remove"))
                 .arg(&yes)
+                .arg(&force_unsafe_io)
                 .arg(force_yes.clone().requires("packages"))
                 .arg(no_autoremove.clone().requires("packages"))
                 .arg(&fix_broken)
@@ -324,8 +333,7 @@ pub fn command_builder() -> Command {
                         .required(true),
                 )
                 .arg(no_refresh.requires("package"))
-                .arg(&dry_run)
-                .arg(&dpkg_force_all);
+                .arg(&dry_run);
 
             if cfg!(feature = "aosc") {
                 cmd = cmd.arg(&no_refresh_topics);

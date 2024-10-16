@@ -80,13 +80,13 @@ pub struct InstallArgs {
     yes: bool,
     force_yes: bool,
     force_confnew: bool,
-    dpkg_force_all: bool,
     install_recommends: bool,
     install_suggests: bool,
     no_install_recommends: bool,
     no_install_suggests: bool,
     sysroot: String,
     no_refresh_topic: bool,
+    force_unsafe_io: bool,
 }
 
 #[derive(Debug, Default)]
@@ -94,10 +94,10 @@ pub struct UpgradeArgs {
     yes: bool,
     force_yes: bool,
     force_confnew: bool,
-    dpkg_force_all: bool,
     sysroot: String,
     no_refresh_topcs: bool,
     autoremove: bool,
+    force_unsafe_io: bool,
 }
 
 #[derive(Debug, Default)]
@@ -108,6 +108,7 @@ pub struct RemoveArgs {
     force_yes: bool,
     sysroot: String,
     fix_broken: bool,
+    force_unsafe_io: bool,
 }
 
 pub struct OmaArgs {
@@ -116,6 +117,7 @@ pub struct OmaArgs {
     no_progress: bool,
     no_check_dbus: bool,
     protect_essentials: bool,
+    another_apt_options: Vec<String>,
 }
 
 fn main() {
@@ -362,6 +364,18 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         config.no_check_dbus()
     };
 
+    let apt_options = matches
+        .try_get_many::<String>("apt_options")
+        .ok()
+        .flatten()
+        .or_else(|| {
+            matches
+                .subcommand()
+                .and_then(|(_, x)| x.try_get_many("apt_options").ok())
+                .flatten()
+        })
+        .unwrap_or_default();
+
     let oma_args = OmaArgs {
         dry_run,
         network_thread: config.network_thread(),
@@ -372,6 +386,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             .as_ref()
             .map(|x| x.protect_essentials)
             .unwrap_or_else(GeneralConfig::default_protect_essentials),
+        another_apt_options: apt_options.map(|x| x.to_string()).collect::<Vec<_>>(),
     };
 
     let exit_code = match matches.subcommand() {
@@ -386,12 +401,12 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 yes: args.get_flag("yes"),
                 force_yes: args.get_flag("force_yes"),
                 force_confnew: args.get_flag("force_confnew"),
-                dpkg_force_all: args.get_flag("dpkg_force_all"),
                 install_recommends: args.get_flag("install_recommends"),
                 install_suggests: args.get_flag("install_suggests"),
                 no_install_recommends: args.get_flag("no_install_recommends"),
                 no_install_suggests: args.get_flag("no_install_recommends"),
                 no_refresh_topic: no_refresh_topics(&config, args),
+                force_unsafe_io: args.get_flag("force_unsafe_io"),
                 sysroot,
             };
 
@@ -409,10 +424,10 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 yes: args.get_flag("yes"),
                 force_yes: args.get_flag("force_yes"),
                 force_confnew: args.get_flag("force_confnew"),
-                dpkg_force_all: args.get_flag("dpkg_force_all"),
                 sysroot,
                 no_refresh_topcs: no_refresh_topics(&config, args),
                 autoremove: args.get_flag("autoremove"),
+                force_unsafe_io: args.get_flag("force_unsafe_io"),
             };
 
             let client = Client::builder()
@@ -452,6 +467,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 force_yes: args.get_flag("force_yes"),
                 sysroot,
                 fix_broken: args.get_flag("fix_broken"),
+                force_unsafe_io: args.get_flag("force_unsafe_io"),
             };
 
             let client = Client::builder()
@@ -471,7 +487,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let all = args.get_flag("all");
             let json = args.get_flag("json");
 
-            show::execute(all, input, sysroot, json)?
+            show::execute(all, input, sysroot, json, oma_args.another_apt_options)?
         }
         Some(("search", args)) => {
             let patterns = args
@@ -484,7 +500,15 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             let engine = config.search_engine();
 
-            search::execute(&patterns, no_progress, sysroot, engine, no_pager, json)?
+            search::execute(
+                &patterns,
+                no_progress,
+                sysroot,
+                engine,
+                no_pager,
+                json,
+                oma_args.another_apt_options,
+            )?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
@@ -523,7 +547,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let pkgs = pkgs_getter(args).unwrap();
             let dry_run = args.get_flag("dry_run");
 
-            mark::execute(op, pkgs, dry_run, sysroot)?
+            mark::execute(op, pkgs, dry_run, sysroot, oma_args.another_apt_options)?
         }
         Some(("command-not-found", args)) => {
             command_not_found::execute(args.get_one::<String>("package").unwrap())?
@@ -545,21 +569,21 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 auto,
             };
 
-            list::execute(flags, pkgs, sysroot, json)?
+            list::execute(flags, pkgs, sysroot, json, oma_args.another_apt_options)?
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
             let json = args.get_flag("json");
 
-            depends::execute(pkgs, sysroot, json)?
+            depends::execute(pkgs, sysroot, json, oma_args.another_apt_options)?
         }
         Some(("rdepends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
             let json = args.get_flag("json");
 
-            rdepends::execute(pkgs, sysroot, json)?
+            rdepends::execute(pkgs, sysroot, json, oma_args.another_apt_options)?
         }
-        Some(("clean", _)) => clean::execute(no_progress, sysroot)?,
+        Some(("clean", _)) => clean::execute(no_progress, sysroot, oma_args.another_apt_options)?,
         Some(("history", _)) => subcommand::history::execute_history(sysroot)?,
         Some(("undo", _)) => {
             let client = Client::builder().user_agent("oma").build().unwrap();
@@ -607,6 +631,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .user_agent(APP_USER_AGENT)
                 .build()
                 .unwrap();
+
             tui::execute(TuiArgs {
                 sysroot,
                 no_progress,
@@ -614,6 +639,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 network_thread: oma_args.network_thread,
                 client,
                 no_check_dbus,
+                another_apt_options: oma_args.another_apt_options,
             })?
         }
         Some((cmd, args)) => {

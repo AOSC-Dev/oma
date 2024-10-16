@@ -30,7 +30,6 @@ use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
-use oma_pm::apt::AptArgs;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
@@ -219,7 +218,6 @@ pub struct CommitRequest<'a> {
     pub apt: OmaApt,
     pub dry_run: bool,
     pub request_type: SummaryType,
-    pub apt_args: AptArgs,
     pub no_fixbroken: bool,
     pub network_thread: usize,
     pub no_progress: bool,
@@ -227,6 +225,7 @@ pub struct CommitRequest<'a> {
     pub fix_dpkg_status: bool,
     pub protect_essential: bool,
     pub client: &'a Client,
+    pub yes: bool,
 }
 
 impl<'a> CommitRequest<'a> {
@@ -235,7 +234,6 @@ impl<'a> CommitRequest<'a> {
             mut apt,
             dry_run,
             request_type: typ,
-            apt_args,
             no_fixbroken,
             network_thread,
             no_progress,
@@ -243,6 +241,7 @@ impl<'a> CommitRequest<'a> {
             fix_dpkg_status,
             protect_essential,
             client,
+            yes,
         } = self;
 
         apt.resolve(no_fixbroken, fix_dpkg_status)?;
@@ -266,7 +265,7 @@ impl<'a> CommitRequest<'a> {
             return Ok(0);
         }
 
-        match table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)? {
+        match table_for_install_pending(install, remove, disk_size, !yes, dry_run)? {
             PagerExit::NormalExit => {}
             x @ PagerExit::Sigint => return Ok(x.into()),
             x @ PagerExit::DryRun => return Ok(x.into()),
@@ -281,7 +280,7 @@ impl<'a> CommitRequest<'a> {
             Box::new(NoProgressBar)
         };
 
-        let res = apt.commit(client, Some(network_thread), &apt_args, pm.as_ref(), op);
+        let res = apt.commit(client, Some(network_thread), pm.as_ref(), op);
 
         match res {
             Ok(_) => {
