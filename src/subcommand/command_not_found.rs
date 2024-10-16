@@ -41,12 +41,7 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
         Ok(()) => {
             let apt_config = AptConfig::new();
             let oma_apt_args = OmaAptArgs::builder().build();
-            let apt = OmaApt::new(
-                vec![],
-                oma_apt_args,
-                false,
-                apt_config,
-            )?;
+            let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
             let mut jaro = jaro_nums(res, query);
 

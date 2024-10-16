@@ -494,7 +494,15 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             let engine = config.search_engine();
 
-            search::execute(&patterns, no_progress, sysroot, engine, no_pager, json, oma_args.another_apt_options)?
+            search::execute(
+                &patterns,
+                no_progress,
+                sysroot,
+                engine,
+                no_pager,
+                json,
+                oma_args.another_apt_options,
+            )?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
