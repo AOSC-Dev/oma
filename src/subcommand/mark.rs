@@ -45,8 +45,9 @@ pub fn execute(
     };
 
     for (pkg, is_set) in set {
-
-        let pkg = color_formatter().color_str(pkg, Action::Emphasis).to_string();
+        let pkg = color_formatter()
+            .color_str(pkg, Action::Emphasis)
+            .to_string();
 
         match op {
             "hold" if is_set => {
