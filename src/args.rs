@@ -33,6 +33,11 @@ pub fn command_builder() -> Command {
         .help("Ignore repository and package dependency issues")
         .action(clap::ArgAction::SetTrue);
 
+    let force_unsafe_io = Arg::new("force_unsafe_io")
+        .long("force-unsafe-io")
+        .help("Install package(s) without fsync(2)")
+        .action(clap::ArgAction::SetTrue);
+
     let force_confnew = Arg::new("force_confnew")
         .long("force-confnew")
         .help("Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)")
@@ -158,6 +163,7 @@ pub fn command_builder() -> Command {
                 .arg(Arg::new("no_install_recommends").long("no-install-recommends").requires("packages").help("Do not install recommend package(s)").conflicts_with("install_recommends").action(ArgAction::SetTrue))
                 .arg(Arg::new("no_install_suggests").long("no-install-suggests").requires("packages").help("Do not install recommend package(s)").conflicts_with("install_suggests").action(ArgAction::SetTrue))
                 .arg(&fix_broken)
+                .arg(&force_unsafe_io)
                 .arg(&no_refresh)
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
@@ -177,6 +183,7 @@ pub fn command_builder() -> Command {
                 .about("Upgrade packages installed on the system")
                 .arg(pkgs.clone().help("Package(s) to upgrade"))
                 .arg(&yes)
+                .arg(&force_unsafe_io)
                 .arg(&force_yes)
                 .arg(force_confnew)
                 .arg(&dry_run)
@@ -215,6 +222,7 @@ pub fn command_builder() -> Command {
                 .about("Remove the specified package(s)")
                 .arg(pkgs.clone().help("Package(s) to remove"))
                 .arg(&yes)
+                .arg(&force_unsafe_io)
                 .arg(force_yes.clone().requires("packages"))
                 .arg(no_autoremove.clone().requires("packages"))
                 .arg(&fix_broken)

@@ -83,6 +83,7 @@ pub fn execute(
         .dpkg_force_confnew(args.force_confnew)
         .no_progress(no_progress)
         .another_apt_options(another_apt_options)
+        .dpkg_force_unsafe_io(args.force_unsafe_io)
         .build();
 
     let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, apt_config)?;

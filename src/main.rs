@@ -86,6 +86,7 @@ pub struct InstallArgs {
     no_install_suggests: bool,
     sysroot: String,
     no_refresh_topic: bool,
+    force_unsafe_io: bool,
 }
 
 #[derive(Debug, Default)]
@@ -96,6 +97,7 @@ pub struct UpgradeArgs {
     sysroot: String,
     no_refresh_topcs: bool,
     autoremove: bool,
+    force_unsafe_io: bool,
 }
 
 #[derive(Debug, Default)]
@@ -106,6 +108,7 @@ pub struct RemoveArgs {
     force_yes: bool,
     sysroot: String,
     fix_broken: bool,
+    force_unsafe_io: bool,
 }
 
 pub struct OmaArgs {
@@ -403,6 +406,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 no_install_recommends: args.get_flag("no_install_recommends"),
                 no_install_suggests: args.get_flag("no_install_recommends"),
                 no_refresh_topic: no_refresh_topics(&config, args),
+                force_unsafe_io: args.get_flag("force_unsafe_io"),
                 sysroot,
             };
 
@@ -423,6 +427,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
                 no_refresh_topcs: no_refresh_topics(&config, args),
                 autoremove: args.get_flag("autoremove"),
+                force_unsafe_io: args.get_flag("force_unsafe_io"),
             };
 
             let client = Client::builder()
@@ -462,6 +467,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 force_yes: args.get_flag("force_yes"),
                 sysroot,
                 fix_broken: args.get_flag("fix_broken"),
+                force_unsafe_io: args.get_flag("force_unsafe_io"),
             };
 
             let client = Client::builder()

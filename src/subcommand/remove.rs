@@ -51,6 +51,7 @@ pub fn execute(
         .no_progress(no_progress)
         .sysroot(args.sysroot.clone())
         .another_apt_options(another_apt_options)
+        .dpkg_force_unsafe_io(args.force_unsafe_io)
         .build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
