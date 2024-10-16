@@ -3,7 +3,7 @@ can-not-run-dpkg-print-arch = 無法執行 `dpkg --print-architecture'。
 execute-pkexec-fail = 無法執行 `pkexec' 指令：{ $e }。
 # history
 history-tips-1 = oma 已成功套用對系統的更改。
-history-tips-2 = 如需取消本次操作，請使用 `oma undo' 指令。
+history-tips-2 = 如需取消本次操作，請使用 { $cmd } 指令。
 # verify
 fail-load-certs-from-file = 無法從 { $path } 載入軟體庫簽章。
 cert-file-is-bad = 位於 { $path } 的軟體庫簽章無效。

@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
-use oma_console::success;
+use oma_console::{print::Action, success};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::info;
 
-use crate::{error::OutputError, utils::root};
+use crate::{color_formatter, error::OutputError, utils::root};
 
 use super::utils::handle_no_result;
 use crate::fl;
@@ -50,30 +50,34 @@ pub fn execute(
     };
 
     for (pkg, is_set) in set {
+        let pkg = color_formatter()
+            .color_str(pkg, Action::Emphasis)
+            .to_string();
+
         match op {
             "hold" if is_set => {
-                success!("{}", fl!("set-to-hold", name = pkg.to_string()));
+                success!("{}", fl!("set-to-hold", name = pkg));
             }
             "hold" => {
-                info!("{}", fl!("already-hold", name = pkg.to_string()));
+                info!("{}", fl!("already-hold", name = pkg));
             }
             "unhold" if is_set => {
-                success!("{}", fl!("set-to-unhold", name = pkg.to_string()));
+                success!("{}", fl!("set-to-unhold", name = pkg));
             }
             "unhold" => {
-                info!("{}", fl!("already-unhold", name = pkg.to_string()));
+                info!("{}", fl!("already-unhold", name = pkg));
             }
             "auto" if is_set => {
-                success!("{}", fl!("setting-auto", name = pkg.to_string()));
+                success!("{}", fl!("setting-auto", name = pkg));
             }
             "auto" => {
-                info!("{}", fl!("already-auto", name = pkg.to_string()));
+                info!("{}", fl!("already-auto", name = pkg));
             }
             "manual" if is_set => {
-                success!("{}", fl!("setting-manual", name = pkg.to_string()));
+                success!("{}", fl!("setting-manual", name = pkg));
             }
             "manual" => {
-                info!("{}", fl!("already-manual", name = pkg.to_string()));
+                info!("{}", fl!("already-manual", name = pkg));
             }
             _ => unreachable!(),
         };

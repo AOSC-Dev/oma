@@ -400,6 +400,12 @@ pub fn command_builder() -> Command {
                     .action(ArgAction::SetTrue)
                 )
                 .arg(
+                    Arg::new("autoremovable")
+                    .long("autoremovable")
+                    .help("List only package(s) with autoremovable")
+                    .action(ArgAction::SetTrue)
+                )
+                .arg(
                     &json
                 )
                 .about("List package(s) available from the repository"),
