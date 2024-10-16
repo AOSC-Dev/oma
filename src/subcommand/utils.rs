@@ -357,11 +357,20 @@ pub fn autoremovable_tips(apt: &OmaApt) -> Result<(), OutputError> {
         let cmd3 = color_formatter()
             .color_str("oma autoremove", Action::Secondary)
             .to_string();
-        let count = color_formatter().color_str(count, Action::Secondary).to_string();
-        let total_size = color_formatter().color_str(total_size, Action::Secondary).to_string();
+        let count = color_formatter()
+            .color_str(count, Action::Secondary)
+            .to_string();
+        let total_size = color_formatter()
+            .color_str(total_size, Action::Secondary)
+            .to_string();
         info!(
             "{}",
-            fl!("autoremove-tips-1", count = count, size = total_size, cmd = cmd1)
+            fl!(
+                "autoremove-tips-1",
+                count = count,
+                size = total_size,
+                cmd = cmd1
+            )
         );
         info!("{}", fl!("autoremove-tips-2", cmd1 = cmd2, cmd2 = cmd3));
     }
