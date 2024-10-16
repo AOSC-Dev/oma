@@ -111,6 +111,14 @@ pub fn command_builder() -> Command {
             .num_args(1)
             .default_value("/")
         )
+        .arg(
+            Arg::new("apt_options")
+            .long("apt-options")
+            .short('o')
+            .action(ArgAction::Append)
+            .global(true)
+            .num_args(1)
+        )
         .subcommand({
             let mut cmd = Command::new("install")
                 .visible_alias("add")

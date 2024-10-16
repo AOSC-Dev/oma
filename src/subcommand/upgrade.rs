@@ -46,6 +46,7 @@ pub fn execute(
         no_progress,
         no_check_dbus,
         protect_essentials,
+        another_apt_options,
     } = oma_args;
 
     let fds = if !no_check_dbus {
@@ -87,6 +88,7 @@ pub fn execute(
         .force_yes(args.force_yes)
         .yes(args.yes)
         .no_progress(no_progress)
+        .another_apt_options(another_apt_options)
         .build();
 
     loop {

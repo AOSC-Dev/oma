@@ -25,6 +25,7 @@ pub fn execute(
     pkgs: Vec<String>,
     sysroot: String,
     json: bool,
+    another_apt_options: Vec<String>,
 ) -> Result<i32, OutputError> {
     let ListFlags {
         all,
@@ -34,7 +35,11 @@ pub fn execute(
         auto,
     } = flags;
 
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
+    let oma_apt_args = OmaAptArgs::builder()
+        .sysroot(sysroot)
+        .another_apt_options(another_apt_options)
+        .build();
+
     let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let mut filter_mode: SmallVec<[_; 5]> = smallvec![FilterMode::Names];

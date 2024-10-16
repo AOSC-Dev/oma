@@ -17,8 +17,13 @@ pub fn execute(
     engine: Cow<String>,
     no_pager: bool,
     json: bool,
+    another_apt_options: Vec<String>,
 ) -> Result<i32, OutputError> {
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
+    let oma_apt_args = OmaAptArgs::builder()
+        .another_apt_options(another_apt_options)
+        .sysroot(sysroot)
+        .build();
+
     let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let db = OmaDatabase::new(&apt.cache)?;
     let s = args.concat();

@@ -34,6 +34,7 @@ pub fn execute(
         no_progress,
         no_check_dbus,
         protect_essentials: protect_essential,
+        another_apt_options,
         ..
     } = oma_args;
 
@@ -81,6 +82,7 @@ pub fn execute(
         .force_yes(args.force_yes)
         .dpkg_force_confnew(args.force_confnew)
         .no_progress(no_progress)
+        .another_apt_options(another_apt_options)
         .build();
 
     let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, apt_config)?;

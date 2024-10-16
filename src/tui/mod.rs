@@ -32,6 +32,7 @@ pub struct TuiArgs {
     pub network_thread: usize,
     pub client: Client,
     pub no_check_dbus: bool,
+    pub another_apt_options: Vec<String>,
 }
 
 pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
@@ -47,6 +48,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         network_thread,
         client,
         no_check_dbus,
+        another_apt_options,
     } = tui;
 
     let apt_config = AptConfig::new();
@@ -65,6 +67,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     let oma_apt_args = OmaAptArgs::builder()
         .no_progress(no_progress)
         .sysroot(sysroot.clone())
+        .another_apt_options(another_apt_options)
         .build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;

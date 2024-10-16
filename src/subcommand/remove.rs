@@ -31,6 +31,7 @@ pub fn execute(
         no_progress,
         no_check_dbus,
         protect_essentials: protect,
+        another_apt_options,
     } = oma_args;
 
     let fds = if !no_check_dbus {
@@ -49,6 +50,7 @@ pub fn execute(
         .force_yes(args.force_yes)
         .no_progress(no_progress)
         .sysroot(args.sysroot.clone())
+        .another_apt_options(another_apt_options)
         .build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;

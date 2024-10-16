@@ -68,6 +68,8 @@ pub struct OmaAptArgs {
     no_progress: bool,
     #[builder(default)]
     dpkg_force_unsafe_io: bool,
+    #[builder(default)]
+    another_apt_options: Vec<String>,
 }
 
 pub struct OmaApt {
@@ -206,6 +208,7 @@ impl OmaApt {
             dpkg_force_confnew,
             no_progress,
             dpkg_force_unsafe_io,
+            another_apt_options,
         } = args;
 
         if no_progress {
@@ -293,6 +296,12 @@ impl OmaApt {
         dpkg_args.push(&root_arg);
 
         config.set_vector("Dpkg::Options::", &dpkg_args);
+
+        for kv in another_apt_options {
+            let (k, v) = kv.split_once('=').unwrap_or((&kv, ""));
+            config.set(k, v);
+            debug!("{k}={v} is set");
+        }
 
         Ok(config)
     }

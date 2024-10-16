@@ -14,10 +14,15 @@ pub fn execute(
     pkgs: Vec<String>,
     dry_run: bool,
     sysroot: String,
+    another_apt_options: Vec<String>,
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
+    let oma_apt_args = OmaAptArgs::builder()
+        .sysroot(sysroot.clone())
+        .another_apt_options(another_apt_options)
+        .build();
+
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let set = match op {

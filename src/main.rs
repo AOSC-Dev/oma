@@ -114,6 +114,7 @@ pub struct OmaArgs {
     no_progress: bool,
     no_check_dbus: bool,
     protect_essentials: bool,
+    another_apt_options: Vec<String>,
 }
 
 fn main() {
@@ -360,6 +361,18 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         config.no_check_dbus()
     };
 
+    let apt_options = matches
+        .try_get_many::<String>("apt_options")
+        .ok()
+        .flatten()
+        .or_else(|| {
+            matches
+                .subcommand()
+                .and_then(|(_, x)| x.try_get_many("apt_options").ok())
+                .flatten()
+        })
+        .unwrap_or_default();
+
     let oma_args = OmaArgs {
         dry_run,
         network_thread: config.network_thread(),
@@ -370,6 +383,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             .as_ref()
             .map(|x| x.protect_essentials)
             .unwrap_or_else(GeneralConfig::default_protect_essentials),
+        another_apt_options: apt_options.map(|x| x.to_string()).collect::<Vec<_>>(),
     };
 
     let exit_code = match matches.subcommand() {
@@ -467,7 +481,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let all = args.get_flag("all");
             let json = args.get_flag("json");
 
-            show::execute(all, input, sysroot, json)?
+            show::execute(all, input, sysroot, json, oma_args.another_apt_options)?
         }
         Some(("search", args)) => {
             let patterns = args
@@ -480,7 +494,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             let engine = config.search_engine();
 
-            search::execute(&patterns, no_progress, sysroot, engine, no_pager, json)?
+            search::execute(&patterns, no_progress, sysroot, engine, no_pager, json, oma_args.another_apt_options)?
         }
         Some((x, args)) if x == "files" || x == "provides" => {
             let arg = if x == "files" { "package" } else { "pattern" };
@@ -519,7 +533,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let pkgs = pkgs_getter(args).unwrap();
             let dry_run = args.get_flag("dry_run");
 
-            mark::execute(op, pkgs, dry_run, sysroot)?
+            mark::execute(op, pkgs, dry_run, sysroot, oma_args.another_apt_options)?
         }
         Some(("command-not-found", args)) => {
             command_not_found::execute(args.get_one::<String>("package").unwrap())?
@@ -541,21 +555,21 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 auto,
             };
 
-            list::execute(flags, pkgs, sysroot, json)?
+            list::execute(flags, pkgs, sysroot, json, oma_args.another_apt_options)?
         }
         Some(("depends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
             let json = args.get_flag("json");
 
-            depends::execute(pkgs, sysroot, json)?
+            depends::execute(pkgs, sysroot, json, oma_args.another_apt_options)?
         }
         Some(("rdepends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
             let json = args.get_flag("json");
 
-            rdepends::execute(pkgs, sysroot, json)?
+            rdepends::execute(pkgs, sysroot, json, oma_args.another_apt_options)?
         }
-        Some(("clean", _)) => clean::execute(no_progress, sysroot)?,
+        Some(("clean", _)) => clean::execute(no_progress, sysroot, oma_args.another_apt_options)?,
         Some(("history", _)) => subcommand::history::execute_history(sysroot)?,
         Some(("undo", _)) => {
             let client = Client::builder().user_agent("oma").build().unwrap();
@@ -603,6 +617,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .user_agent(APP_USER_AGENT)
                 .build()
                 .unwrap();
+
             tui::execute(TuiArgs {
                 sysroot,
                 no_progress,
@@ -610,6 +625,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 network_thread: oma_args.network_thread,
                 client,
                 no_check_dbus,
+                another_apt_options: oma_args.another_apt_options,
             })?
         }
         Some((cmd, args)) => {
