@@ -1,5 +1,4 @@
 use oma_history::SummaryType;
-use oma_pm::apt::AptArgs;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
@@ -78,6 +77,10 @@ pub fn execute(
         .install_suggests(args.install_suggests)
         .no_install_recommends(args.no_install_recommends)
         .no_install_suggests(args.no_install_suggests)
+        .yes(args.yes)
+        .force_yes(args.force_yes)
+        .dpkg_force_confnew(args.force_confnew)
+        .no_progress(no_progress)
         .build();
 
     let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, apt_config)?;
@@ -96,14 +99,6 @@ pub fn execute(
 
     handle_no_result(&args.sysroot, no_result)?;
 
-    let apt_args = AptArgs::builder()
-        .yes(args.yes)
-        .force_yes(args.force_yes)
-        .dpkg_force_all(args.dpkg_force_all)
-        .dpkg_force_confnew(args.force_confnew)
-        .no_progress(no_progress)
-        .build();
-
     let request = CommitRequest {
         apt,
         dry_run,
@@ -112,7 +107,6 @@ pub fn execute(
                 .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
-        apt_args,
         no_fixbroken: args.no_fixbroken,
         network_thread,
         no_progress,
@@ -120,6 +114,7 @@ pub fn execute(
         fix_dpkg_status: true,
         protect_essential,
         client: &client,
+        yes: args.yes,
     };
 
     let code = request.run()?;

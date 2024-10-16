@@ -1,5 +1,5 @@
 use oma_history::SummaryType;
-use oma_pm::apt::{AptArgs, AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use reqwest::Client;
 
 use crate::{
@@ -30,14 +30,16 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         no_check_dbus_warn();
     }
 
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
+    let oma_apt_args = OmaAptArgs::builder()
+        .sysroot(sysroot.clone())
+        .no_progress(no_progress)
+        .build();
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
 
     let request = CommitRequest {
         apt,
         dry_run,
         request_type: SummaryType::FixBroken,
-        apt_args: AptArgs::builder().no_progress(no_progress).build(),
         no_fixbroken: false,
         network_thread,
         no_progress,
@@ -45,6 +47,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         fix_dpkg_status: false,
         protect_essential,
         client: &client,
+        yes: false,
     };
 
     let code = request.run()?;

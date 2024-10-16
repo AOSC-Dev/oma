@@ -7,10 +7,10 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{reqwest::ClientBuilder, DownloadProgressControl};
-use oma_pm::apt::{AptArgs, AptConfig, OmaApt, OmaAptArgs, OmaAptError};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
-    let oma_apt_args = OmaAptArgs::builder().build();
+    let oma_apt_args = OmaAptArgs::builder().yes(true).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let pkgs = apt.select_pkg(&vec!["fish"], false, true, true)?;
 
@@ -24,7 +24,7 @@ fn main() -> Result<(), OmaAptError> {
 
     let pm = MyProgressManager::default();
 
-    apt.commit(&client, None, &AptArgs::builder().build(), &pm, op)?;
+    apt.commit(&client, None, &pm, op)?;
 
     Ok(())
 }

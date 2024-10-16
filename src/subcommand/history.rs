@@ -4,7 +4,7 @@ use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::{
     connect_db, find_history_by_id, list_history, HistoryListEntry, SummaryType, DATABASE_PATH,
 };
-use oma_pm::apt::{AptArgs, AptConfig, InstallOperation, OmaAptArgs};
+use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{
     apt::{FilterMode, OmaApt},
@@ -95,7 +95,10 @@ pub fn execute_undo(
     let id = selected.id;
     let op = find_history_by_id(&conn, id)?;
 
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
+    let oma_apt_args = OmaAptArgs::builder()
+        .no_progress(no_progress)
+        .sysroot(sysroot.clone())
+        .build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
     let mut delete = vec![];
@@ -152,7 +155,6 @@ pub fn execute_undo(
         apt,
         dry_run: false,
         request_type: SummaryType::Undo,
-        apt_args: AptArgs::builder().no_progress(no_progress).build(),
         no_fixbroken: false,
         network_thread,
         no_progress,
@@ -160,6 +162,7 @@ pub fn execute_undo(
         fix_dpkg_status: true,
         protect_essential,
         client,
+        yes: false,
     };
 
     let code = request.run()?;

@@ -9,7 +9,7 @@ use inquire::{
 use oma_console::{writer::Writeln, WRITER};
 use oma_history::SummaryType;
 use oma_pm::{
-    apt::{AptArgs, AptConfig, FilterMode, OmaApt, OmaAptArgs},
+    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
     query::OmaDatabase,
 };
 use oma_utils::dpkg::dpkg_arch;
@@ -99,7 +99,10 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     }
     .run()?;
 
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot.clone()).build();
+    let oma_apt_args = OmaAptArgs::builder()
+        .no_progress(no_progress)
+        .sysroot(sysroot.clone())
+        .build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
@@ -135,7 +138,6 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
             add: topics_changed.opt_in,
             remove: topics_changed.opt_out,
         },
-        apt_args: AptArgs::builder().no_progress(no_progress).build(),
         no_fixbroken: false,
         network_thread,
         no_progress,
@@ -143,6 +145,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         fix_dpkg_status: true,
         protect_essential: oma_args.protect_essentials,
         client: &client,
+        yes: false,
     };
 
     let code = request.run()?;

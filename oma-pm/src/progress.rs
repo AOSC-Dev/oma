@@ -19,11 +19,10 @@ pub struct NoProgress {
 
 pub struct InstallProgressArgs {
     pub config: AptConfig,
-    pub yes: bool,
-    pub force_yes: bool,
-    pub dpkg_force_confnew: bool,
-    pub dpkg_force_unsafe_io: bool,
-    pub no_progress: bool,
+    // pub yes: bool,
+    // pub force_yes: bool,
+    // pub dpkg_force_confnew: bool,
+    // pub dpkg_force_unsafe_io: bool,
     pub tokio: Runtime,
     pub connection: Option<Connection>,
 }
@@ -40,64 +39,18 @@ impl OmaAptInstallProgress {
     pub fn new(args: InstallProgressArgs) -> Self {
         let InstallProgressArgs {
             config,
-            yes,
-            force_yes,
-            dpkg_force_confnew,
-            dpkg_force_unsafe_io,
-            no_progress,
             tokio,
             connection,
         } = args;
 
-        let mut dpkg_args = vec![];
+        let no_progress = config.bool("Oma::NoProgress", false);
 
-        let opts = config.get("Dpkg::Options::");
-
-        if let Some(ref opts) = opts {
-            dpkg_args.push(opts.as_str());
-        }
-
-        if yes {
-            config.set("APT::Get::Assume-Yes", "true");
-            debug!("APT::Get::Assume-Yes is set to true");
-        }
-
-        if dpkg_force_confnew {
-            dpkg_args.push("--force-confnew");
-            debug!("Dpkg::Options:: is set to --force-confnew");
-        } else if yes {
-            // --force-confdef reason:
-            // https://unix.stackexchange.com/questions/641099/any-possible-conflict-between-using-both-force-confold-and-force-confnew-wit/642541#642541
-            let args = &["--force-confold", "--force-confdef"];
-            dpkg_args.extend_from_slice(args);
-            debug!("Dpkg::Options:: added --force-confold --force-confdef");
-        }
-
-        if force_yes {
-            // warn!("{}", fl!("force-auto-mode"));
-            config.set("APT::Get::force-yes", "true");
-            debug!("APT::Get::force-Yes is set to true");
-        }
-
-        if dpkg_force_unsafe_io {
-            dpkg_args.push("--force-unsafe-io");
-            debug!("Dpkg::Options:: added --force-unsafe-io");
-        }
+        debug!("Oma::NoProgress is: {}", no_progress);
 
         if !is_terminal() || no_progress {
             std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
             config.set("Dpkg::Use-Pty", "false");
         }
-
-        if yes || force_yes {
-            std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
-        }
-
-        let dir = config.get("Dir").unwrap_or("/".to_owned());
-        let root_arg = format!("--root={dir}");
-        dpkg_args.push(&root_arg);
-
-        config.set_vector("Dpkg::Options::", &dpkg_args);
 
         Self {
             config,

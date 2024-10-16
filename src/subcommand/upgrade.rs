@@ -6,7 +6,6 @@ use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
-use oma_pm::apt::AptArgs;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
@@ -82,15 +81,13 @@ pub fn execute(
     let pkgs_unparse = pkgs_unparse.iter().map(|x| x.as_str()).collect::<Vec<_>>();
     let mut retry_times = 1;
 
-    let apt_args = AptArgs::builder()
-        .dpkg_force_all(args.dpkg_force_all)
+    let oma_apt_args = OmaAptArgs::builder()
+        .sysroot(args.sysroot.clone())
         .dpkg_force_confnew(args.force_confnew)
         .force_yes(args.force_yes)
         .yes(args.yes)
         .no_progress(no_progress)
         .build();
-
-    let oma_apt_args = OmaAptArgs::builder().sysroot(args.sysroot.clone()).build();
 
     loop {
         let mut apt = OmaApt::new(
@@ -144,7 +141,7 @@ pub fn execute(
         }
 
         if retry_times == 1 {
-            match table_for_install_pending(install, remove, disk_size, !apt_args.yes(), dry_run)? {
+            match table_for_install_pending(install, remove, disk_size, !args.yes, dry_run)? {
                 PagerExit::NormalExit => {}
                 x @ PagerExit::Sigint => return Ok(x.into()),
                 x @ PagerExit::DryRun => return Ok(x.into()),
@@ -165,7 +162,7 @@ pub fn execute(
             &NoProgressBar
         };
 
-        match apt.commit(&client, None, &apt_args, progress_manager, op) {
+        match apt.commit(&client, None, progress_manager, op) {
             Ok(()) => {
                 write_history_entry(
                     op_after,
