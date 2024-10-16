@@ -1,7 +1,6 @@
 use std::io::{self, Write};
 
 use console::Term;
-use icu_segmenter::LineSegmenter;
 
 /// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
@@ -162,28 +161,10 @@ pub fn writeln_inner(
     prefix_len: u16,
     mut callback: impl FnMut(MessageType, &str),
 ) {
-    let mut ref_s = msg;
-    let mut i = 1;
-    let mut added_count = 0;
+    let len = max_len - prefix_len as usize;
     let mut first_run = true;
 
-    let len = max_len - prefix_len as usize;
-
-    loop {
-        let line_msg = if console::measure_text_width(ref_s) <= len {
-            format!("{}\n", ref_s).into()
-        } else {
-            let segmenter = LineSegmenter::new_auto();
-            let breakpoint = segmenter.segment_str(ref_s).filter(|x| x <= &len).max();
-            let mut breakpoint = breakpoint.unwrap_or(len);
-
-            if breakpoint == 0 {
-                breakpoint = len;
-            }
-
-            console::truncate_str(ref_s, breakpoint, "\n")
-        };
-
+    for i in textwrap::wrap(msg, len) {
         if first_run {
             callback(MessageType::Prefix, prefix);
             first_run = false;
@@ -191,20 +172,6 @@ pub fn writeln_inner(
             callback(MessageType::Prefix, "");
         }
 
-        callback(MessageType::Msg, &line_msg);
-
-        // added_count 是已经处理过字符串的长度
-        added_count += line_msg.len();
-
-        // i 代表了有多少个换行符
-        // 因此，当预处理的消息长度等于已经处理的消息长度，减去加入的换行符
-        // 则处理结束
-        if msg.len() == added_count - i {
-            break;
-        }
-
-        // 移动已经处理的切片的指针
-        ref_s = &ref_s[line_msg.len() - 1..];
-        i += 1;
+        callback(MessageType::Msg, &format!("{i}\n"));
     }
 }
