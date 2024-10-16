@@ -565,7 +565,6 @@ impl OmaApt {
             yes: args_config.yes,
             force_yes: args_config.force_yes,
             dpkg_force_confnew: args_config.dpkg_force_confnew,
-            dpkg_force_all: args_config.dpkg_force_all,
             dpkg_force_unsafe_io: args_config.dpkg_force_unsafe_io,
             no_progress: args_config.no_progress,
             tokio: self.tokio,

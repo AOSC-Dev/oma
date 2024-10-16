@@ -22,7 +22,6 @@ pub struct InstallProgressArgs {
     pub yes: bool,
     pub force_yes: bool,
     pub dpkg_force_confnew: bool,
-    pub dpkg_force_all: bool,
     pub dpkg_force_unsafe_io: bool,
     pub no_progress: bool,
     pub tokio: Runtime,
@@ -44,7 +43,6 @@ impl OmaAptInstallProgress {
             yes,
             force_yes,
             dpkg_force_confnew,
-            dpkg_force_all,
             dpkg_force_unsafe_io,
             no_progress,
             tokio,
@@ -97,24 +95,12 @@ impl OmaAptInstallProgress {
             debug!("Dpkg::Options:: is set to --force-unsafe-io");
         }
 
-        if dpkg_force_all {
-            // warn!("{}", fl!("dpkg-force-all-mode"));
-            let opts = config.get("Dpkg::Options::");
-            let mut args = vec!["--force-all"];
-            if let Some(ref opts) = opts {
-                args.push(opts);
-            }
-
-            config.set_vector("Dpkg::Options::", &args);
-            debug!("Dpkg::Options:: is set to --force-all");
-        }
-
         if !is_terminal() || no_progress {
             std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
             config.set("Dpkg::Use-Pty", "false");
         }
 
-        if yes || force_yes || dpkg_force_all {
+        if yes || force_yes {
             std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
         }
 

@@ -38,11 +38,6 @@ pub fn command_builder() -> Command {
         .help("Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)")
         .action(clap::ArgAction::SetTrue);
 
-    let dpkg_force_all = Arg::new("dpkg_force_all")
-        .long("dpkg-force-all")
-        .help("Request dpkg(1) to ignore any issues occurred during the installation and configuration process")
-        .action(ArgAction::SetTrue);
-
     let no_refresh_topics = Arg::new("no_refresh_topics")
         .long("no-refresh-topics")
         .help("Do not refresh topics manifest.json file")
@@ -159,8 +154,7 @@ pub fn command_builder() -> Command {
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))
-                .arg(&dry_run)
-                .arg(&dpkg_force_all);
+                .arg(&dry_run);
 
             if cfg!(feature = "aosc") {
                 cmd = cmd.arg(&no_refresh_topics);
@@ -178,7 +172,6 @@ pub fn command_builder() -> Command {
                 .arg(&force_yes)
                 .arg(force_confnew)
                 .arg(&dry_run)
-                .arg(&dpkg_force_all)
                 .arg(Arg::new("autoremove").long("autoremove").help("Auto remove unnecessary package(s)").action(ArgAction::SetTrue));
 
             if cfg!(feature = "aosc") {
@@ -324,8 +317,7 @@ pub fn command_builder() -> Command {
                         .required(true),
                 )
                 .arg(no_refresh.requires("package"))
-                .arg(&dry_run)
-                .arg(&dpkg_force_all);
+                .arg(&dry_run);
 
             if cfg!(feature = "aosc") {
                 cmd = cmd.arg(&no_refresh_topics);
