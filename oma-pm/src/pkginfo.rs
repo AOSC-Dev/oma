@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use ahash::{AHashMap, HashMap};
+use ahash::HashMap;
 use cxx::UniquePtr;
 use oma_apt::{
     cache::Cache,
@@ -336,7 +336,7 @@ impl PkgInfo {
     pub fn get_rdeps(
         &self,
         cache: &Cache,
-    ) -> OmaAptResult<AHashMap<OmaDepType, OmaDependencyGroup>> {
+    ) -> OmaAptResult<HashMap<OmaDepType, OmaDependencyGroup>> {
         let map = Package::new(
             cache,
             unsafe { self.raw_pkg.unique() }
@@ -346,7 +346,7 @@ impl PkgInfo {
         .rdepends()
         .iter()
         .map(|(x, y)| (OmaDepType::from(x), OmaDependency::map_deps(y)))
-        .collect::<AHashMap<_, _>>();
+        .collect::<HashMap<_, _>>();
 
         Ok(map)
     }
