@@ -5,6 +5,7 @@ use std::{
     process::Command,
 };
 
+use ahash::HashSet;
 use bon::{builder, Builder};
 use chrono::Local;
 
@@ -135,6 +136,8 @@ pub enum OmaAptError {
     PtrIsNone(#[from] PtrIsNone),
     #[error(transparent)]
     ChecksumError(#[from] ChecksumError),
+    #[error("Blocking install due to features")]
+    Features,
 }
 
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
@@ -943,7 +946,9 @@ impl OmaApt {
     pub fn summary(
         &self,
         how_handle_essential: impl Fn(&str) -> bool,
+        how_handle_features: impl Fn(&HashSet<Box<str>>) -> bool,
     ) -> OmaAptResult<OmaOperation> {
+        let mut features = HashSet::with_hasher(ahash::RandomState::new());
         let mut install = vec![];
         let mut remove = vec![];
         let changes = self.cache.get_changes(true);
@@ -1012,6 +1017,18 @@ impl OmaApt {
 
                 if pkg.is_essential() && !how_handle_essential(&name) {
                     return Err(OmaAptError::PkgIsEssential(name));
+                }
+
+                #[cfg(feature = "aosc")]
+                if let Some(feat) = pkg
+                    .installed()
+                    .and_then(|x| x.get_record("X-AOSC-Features"))
+                {
+                    for i in feat.split_ascii_whitespace() {
+                        if !features.contains(i) {
+                            features.insert(Box::from(i));
+                        }
+                    }
                 }
 
                 let is_purge = pkg.marked_purge();
@@ -1111,6 +1128,10 @@ impl OmaApt {
             })
             .map(|x| x.download_size())
             .sum();
+
+        if !features.is_empty() && !how_handle_features(&features) {
+            return Err(OmaAptError::Features);
+        }
 
         Ok(OmaOperation {
             install,
