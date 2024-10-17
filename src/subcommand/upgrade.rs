@@ -166,7 +166,7 @@ pub fn execute(
         let progress_manager: &dyn DownloadProgressControl = if !no_progress {
             &OmaMultiProgressBar::default()
         } else {
-            &NoProgressBar
+            &NoProgressBar::default()
         };
 
         match apt.commit(&client, None, progress_manager, op) {
