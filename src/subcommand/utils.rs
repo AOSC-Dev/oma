@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Debug;
 use std::io;
@@ -15,8 +16,11 @@ use crate::pb::OmaProgressBar;
 use crate::table::table_for_install_pending;
 use crate::LOCKED;
 use crate::RT;
+use ahash::HashSet;
 use chrono::Local;
 use dialoguer::console::style;
+use dialoguer::theme::ColorfulTheme;
+use dialoguer::Confirm;
 use oma_console::indicatif::HumanBytes;
 use oma_console::msg;
 use oma_console::pager::PagerExit;
@@ -43,6 +47,8 @@ use oma_utils::oma::lock_oma_inner;
 use oma_utils::oma::unlock_oma;
 use reqwest::Client;
 use std::fmt::Display;
+use tracing::debug;
+use tracing::error;
 use tracing::info;
 use tracing::warn;
 
@@ -249,13 +255,16 @@ impl<'a> CommitRequest<'a> {
 
         apt.resolve(no_fixbroken, fix_dpkg_status)?;
 
-        let op = apt.summary(|pkg| {
-            if protect_essential {
-                false
-            } else {
-                ask_user_do_as_i_say(pkg).unwrap_or(false)
-            }
-        })?;
+        let op = apt.summary(
+            |pkg| {
+                if protect_essential {
+                    false
+                } else {
+                    ask_user_do_as_i_say(pkg).unwrap_or(false)
+                }
+            },
+            |features| handle_features(features, protect_essential).unwrap_or(false),
+        )?;
 
         apt.check_disk_size(&op)?;
 
@@ -401,4 +410,74 @@ pub(crate) fn check_unsupported_stmt(s: &str) {
 
 pub(crate) fn no_check_dbus_warn() {
     warn!("{}", fl!("no-check-dbus-tips"));
+}
+
+pub fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, OutputError> {
+    debug!("{:?}", features);
+
+    let theme = ColorfulTheme::default();
+
+    let features = match format_features(features) {
+        Ok(v) => v,
+        Err(e) => {
+            warn!("{e}");
+
+            if protect {
+                error!("{}", fl!("features-without-value"));
+                return Ok(false);
+            }
+
+            warn!("{}", fl!("features-without-value"));
+
+            let delete = Confirm::with_theme(&theme)
+                .with_prompt(fl!("features-continue-prompt"))
+                .default(false)
+                .interact()
+                .map_err(|_| anyhow::anyhow!(""))?;
+
+            return Ok(delete);
+        }
+    };
+
+    if protect {
+        error!("{}", fl!("features-tips-1"));
+        msg!("\n{}\n", features);
+        return Ok(false);
+    }
+
+    warn!("{}", fl!("features-tips-1"));
+    msg!("\n{}\n", features);
+
+    let delete = Confirm::with_theme(&theme)
+        .with_prompt(fl!("features-continue-prompt"))
+        .default(false)
+        .interact()
+        .map_err(|_| anyhow::anyhow!(""))?;
+
+    Ok(delete)
+}
+
+pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
+    let mut res = String::new();
+    let features_data = std::fs::read_to_string("/usr/share/aosc-os/features.toml")?;
+    let features_data: HashMap<Box<str>, HashMap<Box<str>, Box<str>>> =
+        toml::from_str(&features_data)?;
+
+    let lang = std::env::var("LANG")?;
+    let lang = lang.split_once('.').unwrap_or(("en_US", "")).0;
+
+    for (index, f) in features.iter().enumerate() {
+        if let Some(v) = features_data.get(f) {
+            let text = v.get(lang).unwrap_or_else(|| v.get("en_US").unwrap());
+            res.push_str(&format!("  * {}", text));
+        } else {
+            res.push_str(&format!("  * {}", f));
+        }
+
+        if index != features.len() - 1 {
+            res.push('\n');
+        }
+    }
+
+    Ok(res)
 }
