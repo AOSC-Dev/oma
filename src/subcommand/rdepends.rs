@@ -63,7 +63,7 @@ pub fn execute(
                 "{}",
                 serde_json::json!({
                     "name": pkg.raw_pkg.name(),
-                    "rdeps": pkg.get_deps(&apt.cache)?,
+                    "rdeps": pkg.get_rdeps(&apt.cache)?,
                 })
             )
             .ok();
