@@ -28,6 +28,7 @@ use crate::OmaArgs;
 use crate::UpgradeArgs;
 
 use super::remove::ask_user_do_as_i_say;
+use super::utils::handle_features;
 use super::utils::handle_no_result;
 use super::utils::is_nothing_to_do;
 use super::utils::lock_oma;
@@ -126,13 +127,16 @@ pub fn execute(
             apt.resolve(false, true)?;
         }
 
-        let op = apt.summary(|pkg| {
-            if protect_essentials {
-                false
-            } else {
-                ask_user_do_as_i_say(pkg).unwrap_or(false)
-            }
-        })?;
+        let op = apt.summary(
+            |pkg| {
+                if protect_essentials {
+                    false
+                } else {
+                    ask_user_do_as_i_say(pkg).unwrap_or(false)
+                }
+            },
+            |features| handle_features(features, protect_essentials).unwrap_or(false),
+        )?;
 
         apt.check_disk_size(&op)?;
 

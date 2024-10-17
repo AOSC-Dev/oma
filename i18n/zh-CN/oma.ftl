@@ -186,3 +186,7 @@ oma-refresh-lock-dueto = { $exec } ({ $pid }) 正占用数据库锁。
 oma-refresh-success-invoke = 正在执行刷新后配置脚本 (Post-Invoke-Success) ...
 autoremove-tips-1 = 您的系统中有 { $count } 个可清理的软件包，清理后可释放 { $size } 存储空间；请使用 { $cmd } 查阅可清理的软件包。
 autoremove-tips-2 = 如需保留某个软件包，请使用 { $cmd1 } 标记保留；否则，您可以使用 { $cmd2 } 清理不再需要的软件包。
+features-without-value = 当前操作可能导致部分关键 AOSC OS 组件被移除，如继续操作，将导致某些系统特性不可用。
+features-tips-1 = 当前操作可能导致部分关键 AOSC OS 组件被移除，如继续操作，将导致如下系统特性不可用：
+features-abort = 为避免系统故障，oma 已中止该操作。
+features-continue-prompt = 您确定要继续该操作吗？

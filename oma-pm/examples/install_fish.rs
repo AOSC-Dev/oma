@@ -20,7 +20,7 @@ fn main() -> Result<(), OmaAptError> {
 
     apt.resolve(false, true)?;
 
-    let op = apt.summary(|_| false)?;
+    let op = apt.summary(|_| false, |_| false)?;
 
     let pm = MyProgressManager::default();
 

@@ -95,18 +95,24 @@ pub fn execute(
 /// "Yes Do as I say" steps
 pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
     let theme = ColorfulTheme::default();
+
     let delete = Confirm::with_theme(&theme)
-        .with_prompt(format!("DELETE THIS PACKAGE? PACKAGE {pkg} IS ESSENTIAL!",))
+        .with_prompt(fl!("essential-tips", pkg = pkg))
         .default(false)
         .interact()
         .map_err(|_| anyhow!(""))?;
+
     if !delete {
-        info!("Not confirmed.");
+        info!("Not confirm");
         return Ok(false);
     }
+
     info!(
-        "If you are absolutely sure, please type the following: {}",
-        style("Do as I say!").bold()
+        "{}",
+        fl!(
+            "yes-do-as-i-say",
+            input = style("Do as I say!").bold().to_string()
+        ),
     );
 
     if Input::<String>::with_theme(&theme)
