@@ -647,8 +647,8 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 source: None,
             }
         }
-        OmaAptError::PkgIsEssential(s) => OutputError {
-            description: fl!("pkg-is-essential", name = s),
+        OmaAptError::PkgIsEssential(pkg) => OutputError {
+            description: fl!("pkg-is-essential", name = pkg),
             source: None,
         },
         OmaAptError::PkgNoCandidate(s) => OutputError {
@@ -735,6 +735,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: None,
         },
         OmaAptError::ChecksumError(e) => oma_checksum_error(e),
+        OmaAptError::Features => OutputError {
+            description: fl!("features-abort"),
+            source: None,
+        },
     }
 }
 
