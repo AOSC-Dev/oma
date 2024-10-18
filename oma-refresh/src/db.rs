@@ -202,7 +202,7 @@ fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
 
         if fl.l_pid != -1 {
             let mut sys = System::new();
-            sys.refresh_processes(sysinfo::ProcessesToUpdate::All);
+            sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
             let Some(process) = sys.process(Pid::from(fl.l_pid as usize)) else {
                 return Err(RefreshError::SetLock(e));
             };
