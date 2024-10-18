@@ -65,7 +65,7 @@ pub fn execute(
         }
     }
 
-    handle_no_result(&args.sysroot, no_result)?;
+    handle_no_result(&args.sysroot, no_result, no_progress)?;
 
     let request = CommitRequest {
         apt,
