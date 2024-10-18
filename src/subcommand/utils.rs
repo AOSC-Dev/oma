@@ -57,24 +57,37 @@ use super::remove::ask_user_do_as_i_say;
 pub(crate) fn handle_no_result(
     sysroot: impl AsRef<Path>,
     no_result: Vec<String>,
+    no_progress: bool,
 ) -> Result<(), OutputError> {
     let mut bin = vec![];
 
-    let pb = OmaProgressBar::new_spinner(Some(fl!("searching")));
+    let pb = if !no_progress {
+        Some(OmaProgressBar::new_spinner(Some(fl!("searching"))))
+    } else {
+        None
+    };
 
     for word in &no_result {
         if word == "266" {
-            pb.writeln(
-                &style("ERROR").red().bold().to_string(),
-                "无法找到匹配关键字为艾露露的软件包",
-            )
-            .ok();
+            if let Some(ref pb) = pb {
+                pb.writeln(
+                    &style("ERROR").red().bold().to_string(),
+                    "无法找到匹配关键字为艾露露的软件包",
+                )
+                .ok();
+            } else {
+                error!("无法找到匹配关键字为艾露露的软件包");
+            }
         } else {
-            pb.writeln(
-                &style("ERROR").red().bold().to_string(),
-                &fl!("could-not-find-pkg-from-keyword", c = word),
-            )
-            .ok();
+            if let Some(ref pb) = pb {
+                pb.writeln(
+                    &style("ERROR").red().bold().to_string(),
+                    &fl!("could-not-find-pkg-from-keyword", c = word),
+                )
+                .ok();
+            } else {
+                error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
+            }
 
             contents_search(&sysroot, Mode::BinProvides, word, |(pkg, file)| {
                 if file == format!("/usr/bin/{}", word) {
@@ -83,7 +96,9 @@ pub(crate) fn handle_no_result(
             })
             .ok();
 
-            pb.inner.finish_and_clear();
+            if let Some(ref pb) = pb {
+                pb.inner.finish_and_clear();
+            }
         }
     }
 

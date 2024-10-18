@@ -15,6 +15,7 @@ pub fn execute(
     dry_run: bool,
     sysroot: String,
     another_apt_options: Vec<String>,
+    no_progress: bool,
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -39,7 +40,7 @@ pub fn execute(
                 false,
             )?;
 
-            handle_no_result(sysroot, no_result)?;
+            handle_no_result(sysroot, no_result, no_progress)?;
 
             apt.mark_install_status(pkgs, op == "auto", dry_run)?
                 .into_iter()

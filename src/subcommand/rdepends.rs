@@ -12,6 +12,7 @@ pub fn execute(
     sysroot: String,
     json: bool,
     another_apt_options: Vec<String>,
+    no_progress: bool,
 ) -> Result<i32, OutputError> {
     for pkg in &pkgs {
         check_unsupported_stmt(pkg);
@@ -31,7 +32,7 @@ pub fn execute(
         false,
     )?;
 
-    handle_no_result(sysroot, no_result)?;
+    handle_no_result(sysroot, no_result, no_progress)?;
 
     if !json {
         for pkg in pkgs {

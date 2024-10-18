@@ -487,7 +487,14 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let all = args.get_flag("all");
             let json = args.get_flag("json");
 
-            show::execute(all, input, sysroot, json, oma_args.another_apt_options)?
+            show::execute(
+                all,
+                input,
+                sysroot,
+                json,
+                oma_args.another_apt_options,
+                no_progress,
+            )?
         }
         Some(("search", args)) => {
             let patterns = args
@@ -547,7 +554,14 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let pkgs = pkgs_getter(args).unwrap();
             let dry_run = args.get_flag("dry_run");
 
-            mark::execute(op, pkgs, dry_run, sysroot, oma_args.another_apt_options)?
+            mark::execute(
+                op,
+                pkgs,
+                dry_run,
+                sysroot,
+                oma_args.another_apt_options,
+                no_progress,
+            )?
         }
         Some(("command-not-found", args)) => {
             command_not_found::execute(args.get_one::<String>("package").unwrap())?
@@ -577,13 +591,25 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let pkgs = pkgs_getter(args).unwrap();
             let json = args.get_flag("json");
 
-            depends::execute(pkgs, sysroot, json, oma_args.another_apt_options)?
+            depends::execute(
+                pkgs,
+                sysroot,
+                json,
+                oma_args.another_apt_options,
+                no_progress,
+            )?
         }
         Some(("rdepends", args)) => {
             let pkgs = pkgs_getter(args).unwrap();
             let json = args.get_flag("json");
 
-            rdepends::execute(pkgs, sysroot, json, oma_args.another_apt_options)?
+            rdepends::execute(
+                pkgs,
+                sysroot,
+                json,
+                oma_args.another_apt_options,
+                no_progress,
+            )?
         }
         Some(("clean", _)) => clean::execute(no_progress, sysroot, oma_args.another_apt_options)?,
         Some(("history", _)) => subcommand::history::execute_history(sysroot)?,
