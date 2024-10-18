@@ -948,7 +948,12 @@ impl OmaApt {
         how_handle_essential: impl Fn(&str) -> bool,
         how_handle_features: impl Fn(&HashSet<Box<str>>) -> bool,
     ) -> OmaAptResult<OmaOperation> {
+        #[cfg(feature = "aosc")]
         let mut features = HashSet::with_hasher(ahash::RandomState::new());
+
+        #[cfg(not(feature = "aosc"))]
+        let features = HashSet::with_hasher(ahash::RandomState::new());
+
         let mut install = vec![];
         let mut remove = vec![];
         let changes = self.cache.get_changes(true);
