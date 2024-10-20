@@ -173,7 +173,6 @@ table-size = Installed size
 table-detail = Detail
 reading-database = Building index for the package database ...
 reading-database-with-count = Building index for the package database, { $count } package(s) indexed ...
-
 has-error-on-top = The operation you specified did not complete successfully. Please refer to the output above for details.
 mirror-is-not-trusted = Mirror { $mirror } is unsigned or not trusted, please check your repository settings.
 please-run-me-as-root = oma requires elevated privileges to perform system administration.
@@ -191,7 +190,7 @@ oma-refresh-lock-dueto = { $exec } ({ $pid }) has acquired the lock to the datab
 oma-refresh-success-invoke = Executing Post-refresh configuration script (Post-Invoke-Success) ...
 autoremove-tips-1 = { $count } unneeded packages on your system may be removed, which will free up { $size } in storage space; Please use { $cmd } to view the list of packages that can be removed.
 autoremove-tips-2 = If you would like to keep a particular package, use { $cmd1 } to mark the package as manually installed; Otherwise, you may use { $cmd2 } to clean up the packages that are no longer needed.
-essential-tips = { $pkg } is an ESSENTIAL system componen.
+essential-tips = { $pkg } is an ESSENTIAL system component.
 essential-continue = Are you sure that you would like to remove it?
 yes-do-as-i-say-prompt = Your turn
 yes-do-as-i-say = If you are absolutely sure, please type the following: { $input }
