@@ -35,7 +35,9 @@ use oma_fetch::{
 #[cfg(feature = "aosc")]
 use oma_fetch::DownloadError;
 
+#[cfg(feature = "aosc")]
 use oma_topics::TopicManager;
+
 use oma_utils::dpkg::dpkg_arch;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
