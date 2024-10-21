@@ -2971,7 +2971,7 @@ dependencies = [
  "crossterm 0.28.1",
  "indicatif",
  "ratatui",
- "termbg-with-async-stdin",
+ "termbg",
  "textwrap",
  "tracing",
  "tracing-subscriber",
@@ -4502,16 +4502,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "termbg-with-async-stdin"
-version = "0.1.1"
+name = "termbg"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e83fcc64cf181d0288bb0435826e94127bb01c4748d848e7a6d0c5e20e7b27f8"
+checksum = "0a89303fd1e127e84c66ccb9326f102466810affc17b344fb9decd435d9ecc7a"
 dependencies = [
  "crossterm 0.28.1",
- "futures",
- "libc",
+ "log",
+ "scopeguard",
  "thiserror",
- "tokio",
  "winapi",
 ]
 
