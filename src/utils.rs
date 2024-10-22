@@ -31,22 +31,13 @@ pub fn root() -> Result<()> {
         return Ok(());
     }
 
-    let args = std::env::args().collect::<Vec<_>>();
-    let mut handled_args = vec![];
+    let mut args = std::env::args().collect::<Vec<_>>();
 
     if (env::var("DISPLAY").is_ok() || env::var("WAYLAND_DISPLAY").is_ok()) && !is_wsl() {
         // Workaround: 使用 pkexec 执行其它程序时，若你指定了相对路径
         // pkexec 并不会以当前路径作为起点寻求这个位置
         // 所以需要转换成绝对路径，再喂给 pkexec
-        for arg in args {
-            let mut arg = arg.to_string();
-            if arg.ends_with(".deb") {
-                let path = Path::new(&arg);
-                let path = path.canonicalize().unwrap_or(path.to_path_buf());
-                arg = path.display().to_string();
-            }
-            handled_args.push(arg);
-        }
+        file_path_canonicalize(&mut args);
 
         info!("{}", fl!("pkexec-tips-1"));
         info!("{}", fl!("pkexec-tips-2"));
@@ -54,7 +45,7 @@ pub fn root() -> Result<()> {
         SPAWN_NEW_OMA.store(true, Ordering::Relaxed);
 
         let out = Command::new("pkexec")
-            .args(handled_args)
+            .args(args)
             .spawn()
             .and_then(|x| x.wait_with_output())
             .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
@@ -66,6 +57,18 @@ pub fn root() -> Result<()> {
         description: fl!("please-run-me-as-root"),
         source: None,
     })
+}
+
+fn file_path_canonicalize(args: &mut Vec<String>) {
+    for arg in args {
+        if !arg.ends_with(".deb") {
+            continue;
+        }
+
+        let path = Path::new(&arg);
+        let path = path.canonicalize().unwrap_or(path.to_path_buf());
+        *arg = path.display().to_string();
+    }
 }
 
 pub fn dbus_check(yes: bool) -> Result<Vec<OwnedFd>> {
