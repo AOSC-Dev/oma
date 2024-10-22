@@ -129,7 +129,7 @@ where
         event: &tracing::Event<'_>,
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
-        let level = event.metadata().level().to_owned();
+        let level = *event.metadata().level();
         let prefix = match level {
             Level::DEBUG => console::style("DEBUG").dim().to_string(),
             Level::INFO => console::style("INFO").blue().bold().to_string(),
