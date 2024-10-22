@@ -335,8 +335,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 "You are running oma in an SSH session, using default terminal colors to avoid latency."
             );
             follow_term_color = true;
-        } else if env::var("TERM").is_err() || termbg::terminal() != termbg::Terminal::XtermCompatible {
-            debug!("Your terminal is: {:?}", termbg::terminal());
+        } else if env::var("TERM").is_err() {
             debug!(
                 "Unknown or unsupported terminal ($TERM is empty or unsupported) detected, using default terminal colors to avoid latency."
             );
