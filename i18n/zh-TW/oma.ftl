@@ -196,5 +196,5 @@ features-without-value = 當前操作可能導致部分關鍵 AOSC OS 組件被�
 features-tips-1 = 當前操作可能導致部分關鍵 AOSC OS 組件被移除。如果繼續操作，將導致如下系統特性無法使用：
 features-abort = 為避免系統損壞，oma 已中止該操作。
 features-continue-prompt = 您確定要繼續該操作嗎？
-essential-tips = { $pkg } 為系統必要組件。
+essential-tips = { $pkg } 為系統必要組件，移除後將導致系統無法工作。
 autoremove-tips-2 = 如果希望保留某個軟體套件，請使用 { $cmd1 } 將軟體套件標記為手動安裝；否則，您可以使用 { $cmd2 } 清理不再需要的軟體套件。
