@@ -149,37 +149,35 @@ where
     }
 }
 
-struct OmaRecorder(BTreeMap<String, String>);
+struct OmaRecorder<'a>(BTreeMap<&'a str, String>);
 
-impl tracing::field::Visit for OmaRecorder {
+impl<'a> tracing::field::Visit for OmaRecorder<'a> {
     fn record_f64(&mut self, field: &Field, value: f64) {
-        self.0.insert(field.name().to_owned(), value.to_string());
+        self.0.insert(field.name(), value.to_string());
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
-        self.0.insert(field.name().to_owned(), value.to_string());
+        self.0.insert(field.name(), value.to_string());
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
-        self.0.insert(field.name().to_owned(), value.to_string());
+        self.0.insert(field.name(), value.to_string());
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        self.0.insert(field.name().to_owned(), value.to_string());
+        self.0.insert(field.name(), value.to_string());
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
-        self.0.insert(field.name().to_owned(), value.to_string());
+        self.0.insert(field.name(), value.to_string());
     }
 
     fn record_error(&mut self, field: &Field, value: &(dyn std::error::Error + 'static)) {
-        self.0
-            .insert(field.name().to_owned(), format!("{value:#?}"));
+        self.0.insert(field.name(), format!("{value:#?}"));
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        self.0
-            .insert(field.name().to_owned(), format!("{value:#?}"));
+        self.0.insert(field.name(), format!("{value:#?}"));
     }
 }
 
