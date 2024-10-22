@@ -191,6 +191,7 @@ essential-continue = 您确定要移除该软件包吗？
 yes-do-as-i-say-prompt = 直面天命
 yes-do-as-i-say = 如果您确认要继续，请键入：{ $input }
 yes-do-as-i-say-abort = 提示回答错误。
+features-without-value = 当前操作可能导致部分关键 AOSC OS 组件被移除，如继续操作，将导致某些系统特性不可用。
 features-tips-1 = 当前操作可能导致部分关键 AOSC OS 组件被移除，如继续操作，将导致如下系统特性不可用：
 features-abort = 为避免系统故障，oma 已中止该操作。
 features-continue-prompt = 您确定要继续该操作吗？

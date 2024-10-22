@@ -195,6 +195,7 @@ essential-continue = Are you sure that you would like to remove it?
 yes-do-as-i-say-prompt = Your turn
 yes-do-as-i-say = If you are absolutely sure, please type the following: { $input }
 yes-do-as-i-say-abort = Prompt answered incorrectly.
+features-without-value = The current operation would remove key AOSC OS components. If we proceed, Will cause some system features to be unavailable.
 features-tips-1 = The current operation would remove key AOSC OS components. If we proceed, the system features below will no longer be available:
 features-abort = To avoid system failure, oma has aborted the operation.
 features-continue-prompt = Would you like to proceed with the operation?
