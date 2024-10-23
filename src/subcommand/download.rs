@@ -3,18 +3,16 @@ use std::path::PathBuf;
 use oma_console::{due_to, success};
 use oma_fetch::DownloadProgressControl;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-use reqwest::Client;
 use tracing::error;
 
 use crate::pb::{NoProgressBar, OmaMultiProgressBar};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
-use crate::{fl, OmaArgs};
+use crate::{fl, OmaArgs, HTTP_CLIENT};
 
 pub fn execute(
     keyword: Vec<&str>,
     path: Option<PathBuf>,
     oma_args: OmaArgs,
-    client: &Client,
 ) -> Result<i32, OutputError> {
     let OmaArgs {
         dry_run,
@@ -43,7 +41,7 @@ pub fn execute(
     };
 
     let (success, failed) = apt.download(
-        client,
+        &HTTP_CLIENT,
         pkgs,
         Some(network_thread),
         Some(&path),

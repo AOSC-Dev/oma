@@ -2,7 +2,6 @@ use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
-use reqwest::Client;
 use tracing::info;
 use tracing::warn;
 
@@ -12,6 +11,7 @@ use crate::utils::dbus_check;
 use crate::utils::root;
 use crate::InstallArgs;
 use crate::OmaArgs;
+use crate::HTTP_CLIENT;
 
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
@@ -23,7 +23,6 @@ pub fn execute(
     input: Vec<String>,
     args: InstallArgs,
     oma_args: OmaArgs,
-    client: Client,
 ) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
@@ -49,7 +48,7 @@ pub fn execute(
 
     if !args.no_refresh {
         RefreshRequest {
-            client: &client,
+            client: &HTTP_CLIENT,
             dry_run,
             no_progress,
             limit: network_thread,
@@ -116,7 +115,7 @@ pub fn execute(
         sysroot: args.sysroot,
         fix_dpkg_status: true,
         protect_essential,
-        client: &client,
+        client: &HTTP_CLIENT,
         yes: args.yes,
     };
 

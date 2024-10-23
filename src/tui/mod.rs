@@ -11,7 +11,6 @@ use oma_pm::{
     search::IndiciumSearch,
 };
 use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
-use reqwest::Client;
 use tui_inner::Tui;
 
 use crate::{
@@ -19,7 +18,7 @@ use crate::{
     fl,
     subcommand::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest},
     utils::{check_battery, root},
-    RT,
+    HTTP_CLIENT, RT,
 };
 
 mod state;
@@ -30,7 +29,6 @@ pub struct TuiArgs {
     pub no_progress: bool,
     pub dry_run: bool,
     pub network_thread: usize,
-    pub client: Client,
     pub no_check_dbus: bool,
     pub another_apt_options: Vec<String>,
 }
@@ -46,7 +44,6 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         no_progress,
         dry_run,
         network_thread,
-        client,
         no_check_dbus,
         another_apt_options,
     } = tui;
@@ -54,7 +51,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     let apt_config = AptConfig::new();
 
     RefreshRequest {
-        client: &client,
+        client: &HTTP_CLIENT,
         dry_run,
         no_progress,
         limit: network_thread,
@@ -125,7 +122,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
             sysroot,
             fix_dpkg_status: true,
             protect_essential: true,
-            client: &client,
+            client: &HTTP_CLIENT,
             yes: false,
         }
         .run()?;

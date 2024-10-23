@@ -10,18 +10,17 @@ use oma_pm::{
     apt::{FilterMode, OmaApt},
     pkginfo::PkgInfo,
 };
-use reqwest::Client;
 
 use std::path::Path;
 use std::{borrow::Cow, sync::atomic::Ordering};
 
-use crate::OmaArgs;
 use crate::{
     error::OutputError,
     table::table_for_history_pending,
     utils::{dbus_check, root},
     ALLOWCTRLC,
 };
+use crate::{OmaArgs, HTTP_CLIENT};
 
 use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitRequest};
 
@@ -54,11 +53,7 @@ pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     }
 }
 
-pub fn execute_undo(
-    oma_args: OmaArgs,
-    sysroot: String,
-    client: &Client,
-) -> Result<i32, OutputError> {
+pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
@@ -163,7 +158,7 @@ pub fn execute_undo(
         sysroot,
         fix_dpkg_status: true,
         protect_essential,
-        client,
+        client: &HTTP_CLIENT,
         yes: false,
     };
 
