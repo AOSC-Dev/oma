@@ -2,10 +2,7 @@ use crate::{CompressFile, DownloadProgressControl, DownloadSource};
 use std::{
     io::{self, ErrorKind, SeekFrom},
     path::Path,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
@@ -37,23 +34,22 @@ pub(crate) struct SingleDownloader<'a> {
 impl SingleDownloader<'_> {
     pub(crate) async fn try_download(
         self,
-        global_progress: Arc<AtomicU64>,
+        global_progress: &AtomicU64,
         progress_manager: &dyn DownloadProgressControl,
     ) -> DownloadResult<Summary> {
         let mut sources = self.entry.source.clone();
         sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
 
-        let gpc = global_progress.clone();
         let msg = self.progress.2.as_deref().unwrap_or(&*self.entry.filename);
 
         for (i, c) in sources.iter().enumerate() {
             let download_res = match c.source_type {
                 DownloadSourceType::Http => {
-                    self.try_http_download(progress_manager, gpc.clone(), c)
+                    self.try_http_download(progress_manager, global_progress, c)
                         .await
                 }
                 DownloadSourceType::Local(as_symlink) => {
-                    self.download_local(progress_manager, gpc.clone(), c, as_symlink)
+                    self.download_local(progress_manager, global_progress, c, as_symlink)
                         .await
                 }
             };
@@ -81,19 +77,14 @@ impl SingleDownloader<'_> {
     async fn try_http_download(
         &self,
         progress_manager: &dyn DownloadProgressControl,
-        global_progress: Arc<AtomicU64>,
+        global_progress: &AtomicU64,
         source: &DownloadSource,
     ) -> DownloadResult<Summary> {
         let mut times = 1;
         let mut allow_resume = self.entry.allow_resume;
         loop {
             match self
-                .http_download(
-                    progress_manager,
-                    global_progress.clone(),
-                    allow_resume,
-                    source,
-                )
+                .http_download(progress_manager, global_progress, allow_resume, source)
                 .await
             {
                 Ok(s) => {
@@ -127,7 +118,7 @@ impl SingleDownloader<'_> {
     async fn http_download(
         &self,
         progress_manager: &dyn DownloadProgressControl,
-        global_progress: Arc<AtomicU64>,
+        global_progress: &AtomicU64,
         allow_resume: bool,
         source: &DownloadSource,
     ) -> DownloadResult<Summary> {
@@ -180,7 +171,7 @@ impl SingleDownloader<'_> {
                     v.update(&buf[..read_count]);
 
                     global_progress.fetch_add(read_count as u64, Ordering::SeqCst);
-                    progress_manager.global_progress_set(&global_progress);
+                    progress_manager.global_progress_set(global_progress);
 
                     read += read_count as u64;
                 }
@@ -208,7 +199,7 @@ impl SingleDownloader<'_> {
 
                 if !allow_resume {
                     global_progress.fetch_sub(read, Ordering::SeqCst);
-                    progress_manager.global_progress_set(&global_progress);
+                    progress_manager.global_progress_set(global_progress);
                 } else {
                     dest = Some(f);
                     validator = Some(v);
@@ -263,10 +254,9 @@ impl SingleDownloader<'_> {
             // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
             if total_size <= file_size {
                 debug!("Exist file size is reset to 0, because total size <= exist file size");
-                let gpc = global_progress.as_ref();
-                let gp = gpc.load(Ordering::SeqCst);
+                let gp = global_progress.load(Ordering::SeqCst);
                 global_progress.store(gp.saturating_sub(file_size), Ordering::SeqCst);
-                progress_manager.global_progress_set(&global_progress);
+                progress_manager.global_progress_set(global_progress);
                 file_size = 0;
                 can_resume = false;
             }
@@ -401,7 +391,7 @@ impl SingleDownloader<'_> {
             self_progress += size as u64;
 
             global_progress.fetch_add(size as u64, Ordering::SeqCst);
-            progress_manager.global_progress_set(&global_progress);
+            progress_manager.global_progress_set(global_progress);
 
             if let Some(ref mut v) = validator {
                 v.update(&buf[..size]);
@@ -424,7 +414,7 @@ impl SingleDownloader<'_> {
 
                 global_progress.fetch_sub(self_progress, Ordering::SeqCst);
 
-                progress_manager.global_progress_set(&global_progress);
+                progress_manager.global_progress_set(global_progress);
                 progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::ChecksumMismatch(
                     self.entry.filename.to_string(),
@@ -456,7 +446,7 @@ impl SingleDownloader<'_> {
     async fn download_local(
         &self,
         progress_manager: &dyn DownloadProgressControl,
-        global_progress: Arc<AtomicU64>,
+        global_progress: &AtomicU64,
         source: &DownloadSource,
         as_symlink: bool,
     ) -> DownloadResult<Summary> {
@@ -493,7 +483,7 @@ impl SingleDownloader<'_> {
             })?;
 
             global_progress.fetch_add(total_size as u64, Ordering::SeqCst);
-            progress_manager.global_progress_set(&global_progress);
+            progress_manager.global_progress_set(global_progress);
             progress_manager.progress_done(self.download_list_index);
 
             return Ok(Summary {
@@ -551,7 +541,7 @@ impl SingleDownloader<'_> {
 
             progress_manager.progress_inc(self.download_list_index, size as u64);
             global_progress.fetch_add(size as u64, Ordering::SeqCst);
-            progress_manager.global_progress_set(&global_progress);
+            progress_manager.global_progress_set(global_progress);
         }
 
         progress_manager.progress_done(self.download_list_index);

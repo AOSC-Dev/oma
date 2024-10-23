@@ -1,8 +1,4 @@
-use std::{
-    cmp::Ordering,
-    path::PathBuf,
-    sync::{atomic::AtomicU64, Arc},
-};
+use std::{cmp::Ordering, path::PathBuf, sync::atomic::AtomicU64};
 
 use bon::{builder, Builder};
 use checksum::Checksum;
@@ -160,8 +156,8 @@ pub struct DownloadManager<'a> {
     threads: usize,
     #[builder(default = 3)]
     retry_times: usize,
-    #[builder(skip = Arc::new(AtomicU64::new(0)))]
-    global_progress: Arc<AtomicU64>,
+    #[builder(skip = AtomicU64::new(0))]
+    global_progress: AtomicU64,
     progress_manager: &'a dyn DownloadProgressControl,
     #[builder(default)]
     total_size: u64,
@@ -233,7 +229,7 @@ impl<'a> DownloadManager<'a> {
         let http_download_source = list.len() - file_download_source;
 
         for single in list {
-            tasks.push(single.try_download(self.global_progress.clone(), self.progress_manager));
+            tasks.push(single.try_download(&self.global_progress, self.progress_manager));
         }
 
         let thread = if file_download_source >= http_download_source {
