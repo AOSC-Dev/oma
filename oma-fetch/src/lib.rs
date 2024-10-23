@@ -44,7 +44,7 @@ pub struct DownloadEntry {
     file_type: CompressFile,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Copy)]
 pub enum CompressFile {
     Bz2,
     Gzip,
@@ -205,12 +205,12 @@ impl<'a> DownloadManager<'a> {
             let msg = c.msg.clone();
             let single = SingleDownloader::builder()
                 .client(self.client)
-                .maybe_context(msg.clone())
+                .maybe_msg(msg)
                 .download_list_index(i)
                 .entry(c)
-                .progress((i + 1, self.download_list.len(), msg))
+                .progress((i + 1, self.download_list.len()))
                 .retry_times(self.retry_times)
-                .file_type(c.file_type.clone())
+                .file_type(c.file_type)
                 .build();
 
             list.push(single);

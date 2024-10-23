@@ -24,9 +24,9 @@ use crate::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Su
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
     pub entry: &'a DownloadEntry,
-    progress: (usize, usize, Option<String>),
+    progress: (usize, usize),
     retry_times: usize,
-    context: Option<String>,
+    msg: Option<String>,
     download_list_index: usize,
     file_type: CompressFile,
 }
@@ -40,7 +40,7 @@ impl SingleDownloader<'_> {
         let mut sources = self.entry.source.clone();
         sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
 
-        let msg = self.progress.2.as_deref().unwrap_or(&*self.entry.filename);
+        let msg = self.msg.as_deref().unwrap_or(&*self.entry.filename);
 
         for (i, c) in sources.iter().enumerate() {
             let download_res = match c.source_type {
@@ -188,7 +188,7 @@ impl SingleDownloader<'_> {
                         filename: self.entry.filename.clone(),
                         wrote: false,
                         count: self.download_list_index,
-                        context: self.context.clone(),
+                        context: self.msg.clone(),
                     });
                 }
 
@@ -207,7 +207,7 @@ impl SingleDownloader<'_> {
             }
         }
 
-        let msg = self.set_progress_msg();
+        let msg = self.progress_msg();
         progress_manager.new_progress_spinner(self.download_list_index, &msg);
 
         let resp_head = match self.client.head(&source.url).send().await {
@@ -430,13 +430,13 @@ impl SingleDownloader<'_> {
             filename: self.entry.filename.clone(),
             wrote: true,
             count: self.download_list_index,
-            context: self.context.clone(),
+            context: self.msg.clone(),
         })
     }
 
-    fn set_progress_msg(&self) -> String {
-        let (count, len, msg) = &self.progress;
-        let msg = msg.as_deref().unwrap_or(&self.entry.filename);
+    fn progress_msg(&self) -> String {
+        let (count, len) = &self.progress;
+        let msg = self.msg.as_deref().unwrap_or(&self.entry.filename);
         let msg = format!("({count}/{len}) {msg}");
 
         msg
@@ -451,7 +451,7 @@ impl SingleDownloader<'_> {
         as_symlink: bool,
     ) -> DownloadResult<Summary> {
         debug!("{:?}", self.entry);
-        let msg = self.set_progress_msg();
+        let msg = self.progress_msg();
 
         let url = &source.url;
         let url_path = url_no_escape(
@@ -490,7 +490,7 @@ impl SingleDownloader<'_> {
                 filename: self.entry.filename.clone(),
                 wrote: true,
                 count: self.download_list_index,
-                context: self.context.clone(),
+                context: self.msg.clone(),
             });
         }
 
@@ -550,7 +550,7 @@ impl SingleDownloader<'_> {
             filename: self.entry.filename.clone(),
             wrote: true,
             count: self.download_list_index,
-            context: self.context.clone(),
+            context: self.msg.clone(),
         })
     }
 }
