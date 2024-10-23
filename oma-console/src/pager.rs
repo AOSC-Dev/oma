@@ -116,6 +116,8 @@ pub struct OmaPager<'a> {
     title: Option<String>,
     inner_len: usize,
     theme: &'a OmaColorFormat,
+    search_results: Vec<usize>,
+    current_result_index: usize,
 }
 
 impl<'a> Write for OmaPager<'a> {
@@ -165,6 +167,8 @@ impl<'a> OmaPager<'a> {
             title,
             inner_len: 0,
             theme,
+            search_results: Vec::new(),
+            current_result_index: 0,
         }
     }
 
@@ -193,8 +197,6 @@ impl<'a> OmaPager<'a> {
         self.inner_len = text.len();
 
         let mut last_tick = Instant::now();
-        let mut search_results = Vec::new();
-        let mut current_result_index = 0;
         loop {
             terminal.draw(|f| self.ui(f))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
@@ -240,14 +242,15 @@ impl<'a> OmaPager<'a> {
                                 loop {
                                     terminal.draw(|f| self.ui(f))?;
                                     if crossterm::event::poll(Duration::from_millis(100))? {
-                                        match event::read()? {
-                                            Event::Key(key) => match key.code {
+                                        if let Event::Key(key) = event::read()? {
+                                            match key.code {
                                                 KeyCode::Enter => {
-                                                    search_results = self.search(&query);
-                                                    if !search_results.is_empty() {
-                                                        current_result_index = 0;
+                                                    self.search_results = self.search(&query);
+                                                    if !self.search_results.is_empty() {
+                                                        self.current_result_index = 0;
                                                         self.jump_to(
-                                                            search_results[current_result_index],
+                                                            self.search_results
+                                                                [self.current_result_index],
                                                         );
                                                     }
                                                     break;
@@ -258,8 +261,7 @@ impl<'a> OmaPager<'a> {
                                                     query.pop();
                                                 }
                                                 _ => {}
-                                            },
-                                            _ => {}
+                                            }
                                         }
                                     }
                                     // update tips with search patterns
@@ -269,20 +271,20 @@ impl<'a> OmaPager<'a> {
                                 self.tips = "Press Esc to exit search, press N or n to jump to the next match.".to_string();
                             }
                             KeyCode::Char('n') => {
-                                if !search_results.is_empty() {
-                                    current_result_index =
-                                        (current_result_index + 1) % search_results.len();
-                                    self.jump_to(search_results[current_result_index]);
+                                if !self.search_results.is_empty() {
+                                    self.current_result_index =
+                                        (self.current_result_index + 1) % self.search_results.len();
+                                    self.jump_to(self.search_results[self.current_result_index]);
                                 }
                             }
                             KeyCode::Char('N') => {
-                                if !search_results.is_empty() {
-                                    if current_result_index == 0 {
-                                        current_result_index = search_results.len() - 1;
+                                if !self.search_results.is_empty() {
+                                    if self.current_result_index == 0 {
+                                        self.current_result_index = self.search_results.len() - 1;
                                     } else {
-                                        current_result_index -= 1;
+                                        self.current_result_index -= 1;
                                     }
-                                    self.jump_to(search_results[current_result_index]);
+                                    self.jump_to(self.search_results[self.current_result_index]);
                                 }
                             }
                             KeyCode::Esc => {
@@ -385,8 +387,10 @@ impl<'a> OmaPager<'a> {
 
     fn clear_highlight(&mut self) {
         if let PagerInner::Finished(ref mut text) = self.inner {
-            for line in text.iter_mut() {
-                *line = line.replace("\x1b[47m", "").replace("\x1b[0m", "");
+            for &line_index in &self.search_results {
+                if let Some(line) = text.get_mut(line_index) {
+                    *line = line.replace("\x1b[47m", "").replace("\x1b[0m", "");
+                }
             }
         }
     }
