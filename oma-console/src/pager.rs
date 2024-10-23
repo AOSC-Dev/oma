@@ -116,6 +116,8 @@ pub struct OmaPager<'a> {
     title: Option<String>,
     inner_len: usize,
     theme: &'a OmaColorFormat,
+    search_results: Vec<usize>,
+    current_result_index: usize,
 }
 
 impl<'a> Write for OmaPager<'a> {
@@ -165,6 +167,8 @@ impl<'a> OmaPager<'a> {
             title,
             inner_len: 0,
             theme,
+            search_results: Vec::new(),
+            current_result_index: 0,
         }
     }
 
@@ -193,6 +197,7 @@ impl<'a> OmaPager<'a> {
         self.inner_len = text.len();
 
         let mut last_tick = Instant::now();
+        let origin_tip = self.tips.clone();
         loop {
             terminal.draw(|f| self.ui(f))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
@@ -231,6 +236,70 @@ impl<'a> OmaPager<'a> {
                                     self.inner_len.saturating_sub(self.area_height.into());
                                 self.vertical_scroll_state =
                                     self.vertical_scroll_state.position(self.vertical_scroll);
+                            }
+                            KeyCode::Char('/') => {
+                                self.clear_highlight();
+                                let mut query = String::new();
+                                loop {
+                                    terminal.draw(|f| self.ui(f))?;
+                                    if crossterm::event::poll(Duration::from_millis(100))? {
+                                        if let Event::Key(key) = event::read()? {
+                                            match key.code {
+                                                KeyCode::Enter => {
+                                                    if query.trim().is_empty() {
+                                                        self.tips = "Search pattern cannot be empty (Press /)".to_string();
+                                                    } else {
+                                                        self.search_results = self.search(&query);
+                                                        if self.search_results.is_empty() {
+                                                            self.tips =
+                                                                "Pattern not found (Press /)"
+                                                                    .to_string();
+                                                        } else {
+                                                            self.current_result_index = 0;
+                                                            self.jump_to(
+                                                                self.search_results
+                                                                    [self.current_result_index],
+                                                            );
+                                                            self.tips = "Press Esc to exit search, press N or n to jump to the prev or next match.".to_string();
+                                                        }
+                                                    }
+                                                    break;
+                                                }
+                                                KeyCode::Esc => break,
+                                                KeyCode::Char(input_char) => query.push(input_char),
+                                                KeyCode::Backspace => {
+                                                    query.pop();
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                    }
+                                    // update tips with search patterns
+                                    self.tips = format!("Search: {}", query);
+                                }
+                            }
+                            KeyCode::Char('n') => {
+                                if !self.search_results.is_empty() {
+                                    self.current_result_index =
+                                        (self.current_result_index + 1) % self.search_results.len();
+                                    self.jump_to(self.search_results[self.current_result_index]);
+                                }
+                            }
+                            KeyCode::Char('N') => {
+                                if !self.search_results.is_empty() {
+                                    if self.current_result_index == 0 {
+                                        self.current_result_index = self.search_results.len() - 1;
+                                    } else {
+                                        self.current_result_index -= 1;
+                                    }
+                                    self.jump_to(self.search_results[self.current_result_index]);
+                                }
+                            }
+                            KeyCode::Esc => {
+                                // clear highlight
+                                self.clear_highlight();
+                                // clear search tips
+                                self.tips = origin_tip.clone();
                             }
                             KeyCode::PageUp => {
                                 self.vertical_scroll = self
@@ -302,6 +371,39 @@ impl<'a> OmaPager<'a> {
         self.vertical_scroll = self.vertical_scroll.saturating_add(1);
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
         ControlFlow::Continue(())
+    }
+
+    fn search(&mut self, pattern: &str) -> Vec<usize> {
+        let mut result: Vec<usize> = Vec::new();
+
+        if let PagerInner::Finished(ref mut text) = self.inner {
+            for (i, line) in text.iter_mut().enumerate() {
+                if line.contains(pattern) {
+                    result.push(i);
+                    // highlight the pattern
+                    *line = line.replace(
+                        pattern,
+                        &format!("\x1b[47m{}\x1b[49m", pattern), // only reset bg color
+                    );
+                }
+            }
+        }
+        result
+    }
+
+    fn jump_to(&mut self, line: usize) {
+        self.vertical_scroll = line;
+        self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
+    }
+
+    fn clear_highlight(&mut self) {
+        if let PagerInner::Finished(ref mut text) = self.inner {
+            for &line_index in &self.search_results {
+                if let Some(line) = text.get_mut(line_index) {
+                    *line = line.replace("\x1b[47m", "").replace("\x1b[49m", "");
+                }
+            }
+        }
     }
 
     fn ui(&mut self, f: &mut Frame) {
