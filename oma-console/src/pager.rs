@@ -197,6 +197,7 @@ impl<'a> OmaPager<'a> {
         self.inner_len = text.len();
 
         let mut last_tick = Instant::now();
+        let origin_tip = self.tips.clone();
         loop {
             terminal.draw(|f| self.ui(f))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
@@ -245,13 +246,22 @@ impl<'a> OmaPager<'a> {
                                         if let Event::Key(key) = event::read()? {
                                             match key.code {
                                                 KeyCode::Enter => {
-                                                    self.search_results = self.search(&query);
-                                                    if !self.search_results.is_empty() {
-                                                        self.current_result_index = 0;
-                                                        self.jump_to(
-                                                            self.search_results
-                                                                [self.current_result_index],
-                                                        );
+                                                    if query.trim().is_empty() {
+                                                        self.tips = "Search pattern cannot be empty (Press /)".to_string();
+                                                    } else {
+                                                        self.search_results = self.search(&query);
+                                                        if self.search_results.is_empty() {
+                                                            self.tips =
+                                                                "Pattern not found (Press /)"
+                                                                    .to_string();
+                                                        } else {
+                                                            self.current_result_index = 0;
+                                                            self.jump_to(
+                                                                self.search_results
+                                                                    [self.current_result_index],
+                                                            );
+                                                            self.tips = "Press Esc to exit search, press N or n to jump to the prev or next match.".to_string();
+                                                        }
                                                     }
                                                     break;
                                                 }
@@ -267,8 +277,6 @@ impl<'a> OmaPager<'a> {
                                     // update tips with search patterns
                                     self.tips = format!("Search: {}", query);
                                 }
-                                // set tips
-                                self.tips = "Press Esc to exit search, press N or n to jump to the next match.".to_string();
                             }
                             KeyCode::Char('n') => {
                                 if !self.search_results.is_empty() {
@@ -291,7 +299,7 @@ impl<'a> OmaPager<'a> {
                                 // clear highlight
                                 self.clear_highlight();
                                 // clear search tips
-                                self.tips = String::new();
+                                self.tips = origin_tip.clone();
                             }
                             KeyCode::PageUp => {
                                 self.vertical_scroll = self
@@ -373,7 +381,10 @@ impl<'a> OmaPager<'a> {
                 if line.contains(pattern) {
                     result.push(i);
                     // highlight the pattern
-                    *line = line.replace(pattern, &format!("\x1b[47m{}\x1b[0m", pattern));
+                    *line = line.replace(
+                        pattern,
+                        &format!("\x1b[47m{}\x1b[49m", pattern), // only reset bg color
+                    );
                 }
             }
         }
@@ -389,7 +400,7 @@ impl<'a> OmaPager<'a> {
         if let PagerInner::Finished(ref mut text) = self.inner {
             for &line_index in &self.search_results {
                 if let Some(line) = text.get_mut(line_index) {
-                    *line = line.replace("\x1b[47m", "").replace("\x1b[0m", "");
+                    *line = line.replace("\x1b[47m", "").replace("\x1b[49m", "");
                 }
             }
         }
