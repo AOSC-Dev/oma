@@ -193,6 +193,8 @@ impl<'a> OmaPager<'a> {
         self.inner_len = text.len();
 
         let mut last_tick = Instant::now();
+        let mut search_results = Vec::new();
+        let mut current_result_index = 0;
         loop {
             terminal.draw(|f| self.ui(f))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
@@ -231,6 +233,63 @@ impl<'a> OmaPager<'a> {
                                     self.inner_len.saturating_sub(self.area_height.into());
                                 self.vertical_scroll_state =
                                     self.vertical_scroll_state.position(self.vertical_scroll);
+                            }
+                            KeyCode::Char('/') => {
+                                self.clear_highlight();
+                                let mut query = String::new();
+                                loop {
+                                    terminal.draw(|f| self.ui(f))?;
+                                    if crossterm::event::poll(Duration::from_millis(100))? {
+                                        match event::read()? {
+                                            Event::Key(key) => match key.code {
+                                                KeyCode::Enter => {
+                                                    search_results = self.search(&query);
+                                                    if !search_results.is_empty() {
+                                                        current_result_index = 0;
+                                                        self.jump_to(
+                                                            search_results[current_result_index],
+                                                        );
+                                                    }
+                                                    break;
+                                                }
+                                                KeyCode::Esc => break,
+                                                KeyCode::Char(input_char) => query.push(input_char),
+                                                KeyCode::Backspace => {
+                                                    query.pop();
+                                                }
+                                                _ => {}
+                                            },
+                                            _ => {}
+                                        }
+                                    }
+                                    // update tips with search patterns
+                                    self.tips = format!("Search: {}", query);
+                                }
+                                // set tips
+                                self.tips = "Press Esc to exit search, press N or n to jump to the next match.".to_string();
+                            }
+                            KeyCode::Char('n') => {
+                                if !search_results.is_empty() {
+                                    current_result_index =
+                                        (current_result_index + 1) % search_results.len();
+                                    self.jump_to(search_results[current_result_index]);
+                                }
+                            }
+                            KeyCode::Char('N') => {
+                                if !search_results.is_empty() {
+                                    if current_result_index == 0 {
+                                        current_result_index = search_results.len() - 1;
+                                    } else {
+                                        current_result_index -= 1;
+                                    }
+                                    self.jump_to(search_results[current_result_index]);
+                                }
+                            }
+                            KeyCode::Esc => {
+                                // clear highlight
+                                self.clear_highlight();
+                                // clear search tips
+                                self.tips = String::new();
                             }
                             KeyCode::PageUp => {
                                 self.vertical_scroll = self
@@ -302,6 +361,34 @@ impl<'a> OmaPager<'a> {
         self.vertical_scroll = self.vertical_scroll.saturating_add(1);
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
         ControlFlow::Continue(())
+    }
+
+    fn search(&mut self, pattern: &str) -> Vec<usize> {
+        let mut result: Vec<usize> = Vec::new();
+
+        if let PagerInner::Finished(ref mut text) = self.inner {
+            for (i, line) in text.iter_mut().enumerate() {
+                if line.contains(pattern) {
+                    result.push(i);
+                    // highlight the pattern
+                    *line = line.replace(pattern, &format!("\x1b[47m{}\x1b[0m", pattern));
+                }
+            }
+        }
+        result
+    }
+
+    fn jump_to(&mut self, line: usize) {
+        self.vertical_scroll = line;
+        self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
+    }
+
+    fn clear_highlight(&mut self) {
+        if let PagerInner::Finished(ref mut text) = self.inner {
+            for line in text.iter_mut() {
+                *line = line.replace("\x1b[47m", "").replace("\x1b[0m", "");
+            }
+        }
     }
 
     fn ui(&mut self, f: &mut Frame) {
