@@ -11,7 +11,6 @@ use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::OmaAptError;
-use reqwest::Client;
 use tracing::info;
 use tracing::warn;
 
@@ -26,6 +25,7 @@ use crate::utils::dbus_check;
 use crate::utils::root;
 use crate::OmaArgs;
 use crate::UpgradeArgs;
+use crate::HTTP_CLIENT;
 
 use super::remove::ask_user_do_as_i_say;
 use super::utils::handle_features;
@@ -39,7 +39,6 @@ pub fn execute(
     pkgs_unparse: Vec<String>,
     args: UpgradeArgs,
     oma_args: OmaArgs,
-    client: Client,
 ) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
@@ -63,7 +62,7 @@ pub fn execute(
     let apt_config = AptConfig::new();
 
     RefreshRequest {
-        client: &client,
+        client: &HTTP_CLIENT,
         dry_run,
         no_progress,
         limit: network_thread,
@@ -173,7 +172,7 @@ pub fn execute(
             &NoProgressBar::default()
         };
 
-        match apt.commit(&client, None, progress_manager, op) {
+        match apt.commit(&HTTP_CLIENT, None, progress_manager, op) {
             Ok(()) => {
                 write_history_entry(
                     op_after,

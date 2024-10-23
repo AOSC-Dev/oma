@@ -4,11 +4,11 @@ use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     pkginfo::PkgInfo,
 };
-use reqwest::Client;
 
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},
+    HTTP_CLIENT,
 };
 use crate::{fl, OmaArgs};
 use anyhow::anyhow;
@@ -20,7 +20,6 @@ pub fn execute(
     no_refresh: bool,
     oma_args: OmaArgs,
     sysroot: String,
-    client: Client,
     no_refresh_topic: bool,
 ) -> Result<i32, OutputError> {
     root()?;
@@ -47,7 +46,7 @@ pub fn execute(
 
     if !no_refresh {
         RefreshRequest {
-            client: &client,
+            client: &HTTP_CLIENT,
             dry_run,
             no_progress,
             limit: network_thread,
@@ -138,7 +137,7 @@ pub fn execute(
         sysroot,
         fix_dpkg_status: true,
         protect_essential,
-        client: &client,
+        client: &HTTP_CLIENT,
         yes: false,
     };
 

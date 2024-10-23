@@ -4,7 +4,6 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-use reqwest::Client;
 use tracing::{info, warn};
 
 use crate::{
@@ -12,16 +11,11 @@ use crate::{
     utils::{dbus_check, root},
     RemoveArgs,
 };
-use crate::{fl, OmaArgs};
+use crate::{fl, OmaArgs, HTTP_CLIENT};
 
 use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitRequest};
 
-pub fn execute(
-    pkgs: Vec<&str>,
-    args: RemoveArgs,
-    oma_args: OmaArgs,
-    client: Client,
-) -> Result<i32, OutputError> {
+pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
@@ -81,7 +75,7 @@ pub fn execute(
         sysroot: args.sysroot,
         fix_dpkg_status: true,
         protect_essential: protect,
-        client: &client,
+        client: &HTTP_CLIENT,
         yes: args.yes,
     };
 

@@ -1,16 +1,15 @@
 use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-use reqwest::Client;
 
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},
-    OmaArgs,
+    OmaArgs, HTTP_CLIENT,
 };
 
 use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest};
 
-pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32, OutputError> {
+pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
@@ -48,7 +47,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String, client: Client) -> Result<i32
         sysroot,
         fix_dpkg_status: false,
         protect_essential,
-        client: &client,
+        client: &HTTP_CLIENT,
         yes: false,
     };
 

@@ -2,17 +2,15 @@ use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
 use oma_console::success;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-use reqwest::Client;
 
 use crate::{error::OutputError, utils::root};
-use crate::{fl, OmaArgs};
+use crate::{fl, OmaArgs, HTTP_CLIENT};
 
 use super::utils::RefreshRequest;
 
 pub fn execute(
     oma_args: OmaArgs,
     sysroot: String,
-    client: Client,
     no_refresh_topics: bool,
 ) -> Result<i32, OutputError> {
     root()?;
@@ -27,7 +25,7 @@ pub fn execute(
     let apt_config = AptConfig::new();
 
     RefreshRequest {
-        client: &client,
+        client: &HTTP_CLIENT,
         dry_run: false,
         no_progress,
         limit: network_thread,

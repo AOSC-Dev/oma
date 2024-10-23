@@ -70,6 +70,12 @@ static RT: LazyLock<Runtime> = LazyLock::new(|| {
         .build()
         .expect("Failed to init async runtime")
 });
+static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
+    Client::builder()
+        .user_agent(APP_USER_AGENT)
+        .build()
+        .unwrap()
+});
 
 #[derive(Debug, Default)]
 pub struct InstallArgs {
@@ -410,12 +416,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 sysroot,
             };
 
-            let client = Client::builder()
-                .user_agent(APP_USER_AGENT)
-                .build()
-                .unwrap();
-
-            install::execute(input, install_args, oma_args, client)?
+            install::execute(input, install_args, oma_args)?
         }
         Some(("upgrade", args)) => {
             let pkgs_unparse = pkgs_getter(args).unwrap_or_default();
@@ -430,27 +431,18 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 force_unsafe_io: args.get_flag("force_unsafe_io"),
             };
 
-            let client = Client::builder()
-                .user_agent(APP_USER_AGENT)
-                .build()
-                .unwrap();
-
-            upgrade::execute(pkgs_unparse, args, oma_args, client)?
+            upgrade::execute(pkgs_unparse, args, oma_args)?
         }
         Some(("download", args)) => {
             let keyword = pkgs_getter(args).unwrap_or_default();
             let keyword = keyword.iter().map(|x| x.as_str()).collect::<Vec<_>>();
-            let client = Client::builder()
-                .user_agent(APP_USER_AGENT)
-                .build()
-                .unwrap();
 
             let path = args
                 .get_one::<String>("path")
                 .cloned()
                 .map(|x| PathBuf::from(&x));
 
-            download::execute(keyword, path, oma_args, &client)?
+            download::execute(keyword, path, oma_args)?
         }
         Some((x, args)) if x == "remove" || x == "purge" => {
             let input = pkgs_getter(args).unwrap_or_default();
@@ -470,16 +462,10 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 force_unsafe_io: args.get_flag("force_unsafe_io"),
             };
 
-            let client = Client::builder()
-                .user_agent(APP_USER_AGENT)
-                .build()
-                .unwrap();
-
-            remove::execute(input, args, oma_args, client)?
+            remove::execute(input, args, oma_args)?
         }
         Some(("refresh", args)) => {
-            let client = Client::builder().user_agent("oma").build().unwrap();
-            refresh::execute(oma_args, sysroot, client, no_refresh_topics(&config, args))?
+            refresh::execute(oma_args, sysroot, no_refresh_topics(&config, args))?
         }
         Some(("show", args)) => {
             let input = pkgs_getter(args).unwrap_or_default();
@@ -525,26 +511,15 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             contents_find::execute(x, is_bin, pkg, no_progress, sysroot, println)?
         }
-        Some(("fix-broken", _)) => {
-            let client = Client::builder()
-                .user_agent(APP_USER_AGENT)
-                .build()
-                .unwrap();
-            fix_broken::execute(oma_args, sysroot, client)?
-        }
+        Some(("fix-broken", _)) => fix_broken::execute(oma_args, sysroot)?,
         Some(("pick", args)) => {
             let pkg_str = args.get_one::<String>("package").unwrap();
-            let client = Client::builder()
-                .user_agent(APP_USER_AGENT)
-                .build()
-                .unwrap();
 
             pick::execute(
                 pkg_str,
                 args.get_flag("no_refresh"),
                 oma_args,
                 sysroot,
-                client,
                 no_refresh_topics(&config, args),
             )?
         }
@@ -613,10 +588,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
         }
         Some(("clean", _)) => clean::execute(no_progress, sysroot, oma_args.another_apt_options)?,
         Some(("history", _)) => subcommand::history::execute_history(sysroot)?,
-        Some(("undo", _)) => {
-            let client = Client::builder().user_agent("oma").build().unwrap();
-            history::execute_undo(oma_args, sysroot, &client)?
-        }
+        Some(("undo", _)) => history::execute_undo(oma_args, sysroot)?,
         #[cfg(feature = "aosc")]
         Some(("topics", args)) => {
             let opt_in = args
@@ -654,22 +626,14 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
 
             pkgnames::execute(keyword, sysroot, filter_installed)?
         }
-        Some(("tui", _)) | None => {
-            let client = Client::builder()
-                .user_agent(APP_USER_AGENT)
-                .build()
-                .unwrap();
-
-            tui::execute(TuiArgs {
-                sysroot,
-                no_progress,
-                dry_run,
-                network_thread: oma_args.network_thread,
-                client,
-                no_check_dbus,
-                another_apt_options: oma_args.another_apt_options,
-            })?
-        }
+        Some(("tui", _)) | None => tui::execute(TuiArgs {
+            sysroot,
+            no_progress,
+            dry_run,
+            network_thread: oma_args.network_thread,
+            no_check_dbus,
+            another_apt_options: oma_args.another_apt_options,
+        })?,
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");
             let plugin = exe_dir.join(format!("oma-{}", cmd));
