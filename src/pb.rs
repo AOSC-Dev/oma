@@ -43,6 +43,10 @@ impl OmaProgressBar {
 
         Self { inner: pb }
     }
+
+    pub fn new(pb: ProgressBar) -> Self {
+        Self { inner: pb }
+    }
 }
 
 impl Writeln for OmaProgressBar {
@@ -59,8 +63,9 @@ impl Writeln for OmaProgressBar {
                 MessageType::Prefix => output.0 = Some(gen_prefix(s, 10)),
             }
 
-            if let (Some(prefix), Some(msg)) = (output.0.take(), output.1.take()) {
+            if let (Some(prefix), Some(msg)) = &output {
                 self.inner.println(format!("{prefix}{msg}"));
+                output = (None, None);
             }
         });
 

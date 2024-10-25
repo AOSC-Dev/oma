@@ -8,6 +8,10 @@ use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
 use oma_history::HistoryError;
+
+#[cfg(feature = "aosc")]
+use oma_mirror::MirrorError;
+
 use oma_pm::search::OmaSearchError;
 use oma_pm::AptErrors;
 use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
@@ -168,6 +172,42 @@ impl From<LockError> for OutputError {
         Self {
             description: "".to_string(),
             source: Some(Box::new(value)),
+        }
+    }
+}
+
+#[cfg(feature = "aosc")]
+impl From<MirrorError> for OutputError {
+    fn from(value: MirrorError) -> Self {
+        match value {
+            MirrorError::ReadFile { path, source } => Self {
+                description: fl!("failed-to-operate-path", p = path),
+                source: Some(Box::new(source)),
+            },
+            MirrorError::ParseJson { path, source } => Self {
+                description: fl!("failed-to-parse-file", p = path),
+                source: Some(Box::new(source)),
+            },
+            MirrorError::ParseYaml { path, source } => Self {
+                description: fl!("failed-to-parse-file", p = path),
+                source: Some(Box::new(source)),
+            },
+            MirrorError::MirrorNotExist { mirror_name } => Self {
+                description: fl!("mirror-not-found", mirror = mirror_name.as_ref()),
+                source: None,
+            },
+            MirrorError::SerializeJson { source } => Self {
+                description: fl!("failed-to-serialize-struct"),
+                source: Some(Box::new(source)),
+            },
+            MirrorError::WriteFile { path, source } => Self {
+                description: fl!("failed-to-write-file", p = path),
+                source: Some(Box::new(source)),
+            },
+            MirrorError::CreateFile { path, source } => Self {
+                description: fl!("failed-to-create-file", p = path),
+                source: Some(Box::new(source)),
+            },
         }
     }
 }

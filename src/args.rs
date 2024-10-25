@@ -332,7 +332,7 @@ pub fn command_builder() -> Command {
                         .num_args(0..=1)
                         .required(true),
                 )
-                .arg(no_refresh.requires("package"))
+                .arg(no_refresh.clone().requires("package"))
                 .arg(&dry_run);
 
             if cfg!(feature = "aosc") {
@@ -489,7 +489,42 @@ pub fn command_builder() -> Command {
                         .num_args(1..),
                 )
                 .arg(&dry_run)
-        );
+        ).subcommand(
+            Command::new("mirror")
+                    .visible_alias("mirrors")
+                    .about("Manage Mirrors enrollment")
+                    .arg(no_refresh_topics)
+                    .arg(no_refresh)
+                    .subcommand(Command::new("set")
+                                .about("Set mirror(s) to sources.list")
+                                .arg(
+                                    Arg::new("names")
+                                    .required(true)
+                                    .num_args(1..)
+                                    .help("Enable mirror names")
+                                    .action(ArgAction::Append)
+                                ))
+                    .subcommand(Command::new("add").about("Add mirror(s) to sources.list").arg(
+                        Arg::new("names")
+                        .num_args(1..)
+                        .help("Enable mirror names")
+                        .required(true)
+                        .action(ArgAction::Append)))
+                    .subcommand(Command::new("remove").about("Remove mirror(s) from sources.list").arg(
+                        Arg::new("names")
+                        .required(true)
+                        .num_args(1..)
+                        .help("Enable mirror names")
+                        .action(ArgAction::Append)
+                    ))
+                    .subcommand(Command::new("sort-mirrors").about("Sort mirror(s) order"))
+                    .subcommand(Command::new("speedtest").about("Speedtest mirror(s)").arg(
+                        Arg::new("set_fastest")
+                        .long("set-fastest")
+                        .help("Also set fastest as mirror")
+                        .action(ArgAction::SetTrue)
+                    ))
+                )
     }
 
     cmd

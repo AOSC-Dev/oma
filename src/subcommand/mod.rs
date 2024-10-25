@@ -8,6 +8,8 @@ pub mod history;
 pub mod install;
 pub mod list;
 pub mod mark;
+#[cfg(feature = "aosc")]
+pub mod mirror;
 pub mod pick;
 pub mod pkgnames;
 pub mod rdepends;
