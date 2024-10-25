@@ -368,7 +368,7 @@ impl<'a> Tui<'a> {
                                 .items
                                 .iter()
                                 .position(|x| {
-                                    x.name == self.install[pkg_index].raw_pkg.name()
+                                    x.name == self.remove[pkg_index].raw_pkg.name()
                                         && x.version.is_none()
                                 })
                                 .unwrap();
@@ -388,14 +388,14 @@ impl<'a> Tui<'a> {
                             if !cand.is_installed() {
                                 self.install.push(pkginfo.unwrap());
                                 let op = Operation {
-                                    name: pkg.fullname(true).to_string(),
+                                    name: pkg.fullname(true),
                                     version: Some(cand.version().to_string()),
                                 };
 
                                 self.pending_result_state.items.push(op);
                             } else {
                                 let op = Operation {
-                                    name: pkg.fullname(true).to_string(),
+                                    name: pkg.fullname(true),
                                     version: None,
                                 };
                                 self.remove.push(pkginfo.unwrap());
