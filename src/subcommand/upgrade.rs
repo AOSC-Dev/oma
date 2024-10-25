@@ -186,7 +186,7 @@ pub fn execute(
                     true,
                 )?;
 
-                let cmd = color_formatter().color_str("oma undo", Action::Foreground);
+                let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
                 success!("{}", fl!("history-tips-1"));
                 info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
 
