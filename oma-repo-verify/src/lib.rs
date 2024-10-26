@@ -120,6 +120,8 @@ impl VerificationHelper for InReleaseVerifier {
 
 /// Verify InRelease PGP signature
 pub fn verify<P: AsRef<Path>>(s: &str, signed_by: Option<&str>, rootfs: P) -> VerifyResult<String> {
+    debug!("signed_by: {:?}", signed_by);
+
     let rootfs = rootfs.as_ref();
     let mut dir = std::fs::read_dir(rootfs.join("etc/apt/trusted.gpg.d"))
         .map_err(|_| VerifyError::TrustedDirNotExist)?
@@ -138,6 +140,7 @@ pub fn verify<P: AsRef<Path>>(s: &str, signed_by: Option<&str>, rootfs: P) -> Ve
         let signed_by = signed_by.trim();
         if signed_by.starts_with("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
             deb822_inner_signed_by_str = Some(signed_by);
+            debug!(deb822_inner_signed_by_str);
         } else {
             let trust_files = signed_by.split(',');
             for file in trust_files {

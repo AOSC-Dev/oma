@@ -127,7 +127,7 @@ impl<'a> OmaSourceEntry<'a> {
             let mut map = AHashMap::new();
             for i in &self.source.options {
                 let (k, v) = i.split_once('=').unwrap_or((i, ""));
-                map.insert(k.into(), v.into());
+                map.insert(k.to_lowercase(), v.into());
             }
 
             map
