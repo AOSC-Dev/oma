@@ -118,6 +118,7 @@ pub struct OmaPager<'a> {
     theme: &'a OmaColorFormat,
     search_results: Vec<usize>,
     current_result_index: usize,
+    mode: TuiMode,
 }
 
 impl<'a> Write for OmaPager<'a> {
@@ -135,6 +136,12 @@ impl<'a> Write for OmaPager<'a> {
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
+}
+
+#[derive(PartialEq, Eq)]
+enum TuiMode {
+    Search,
+    Noemal,
 }
 
 pub enum PagerExit {
@@ -169,6 +176,7 @@ impl<'a> OmaPager<'a> {
             theme,
             search_results: Vec::new(),
             current_result_index: 0,
+            mode: TuiMode::Noemal,
         }
     }
 
@@ -195,6 +203,8 @@ impl<'a> OmaPager<'a> {
 
         self.max_width = width as u16;
         self.inner_len = text.len();
+
+        let mut query = String::new();
 
         let mut last_tick = Instant::now();
         let origin_tip = self.tips.clone();
@@ -237,46 +247,47 @@ impl<'a> OmaPager<'a> {
                                 self.vertical_scroll_state =
                                     self.vertical_scroll_state.position(self.vertical_scroll);
                             }
-                            KeyCode::Char('/') => {
-                                self.clear_highlight();
-                                let mut query = String::new();
-                                loop {
-                                    terminal.draw(|f| self.ui(f))?;
-                                    if crossterm::event::poll(Duration::from_millis(100))? {
-                                        if let Event::Key(key) = event::read()? {
-                                            match key.code {
-                                                KeyCode::Enter => {
-                                                    if query.trim().is_empty() {
-                                                        self.tips = "Search pattern cannot be empty (Press /)".to_string();
-                                                    } else {
-                                                        self.search_results = self.search(&query);
-                                                        if self.search_results.is_empty() {
-                                                            self.tips =
-                                                                "Pattern not found (Press /)"
-                                                                    .to_string();
-                                                        } else {
-                                                            self.current_result_index = 0;
-                                                            self.jump_to(
-                                                                self.search_results
-                                                                    [self.current_result_index],
-                                                            );
-                                                            self.tips = "Press Esc to exit search, press N or n to jump to the prev or next match.".to_string();
-                                                        }
-                                                    }
-                                                    break;
-                                                }
-                                                KeyCode::Esc => break,
-                                                KeyCode::Char(input_char) => query.push(input_char),
-                                                KeyCode::Backspace => {
-                                                    query.pop();
-                                                }
-                                                _ => {}
-                                            }
-                                        }
+                            KeyCode::Enter => {
+                                if self.mode != TuiMode::Search {
+                                    continue;
+                                }
+                                if query.trim().is_empty() {
+                                    self.tips =
+                                        "Search pattern cannot be empty (Press /)".to_string();
+                                } else {
+                                    self.search_results = self.search(&query);
+                                    if self.search_results.is_empty() {
+                                        self.tips = "Pattern not found (Press /)".to_string();
+                                    } else {
+                                        self.current_result_index = 0;
+                                        self.jump_to(
+                                            self.search_results[self.current_result_index],
+                                        );
+                                        self.tips = "Press Esc to exit search, press N or n to jump to the prev or next match.".to_string();
                                     }
+                                }
+                            }
+                            KeyCode::Esc => {
+                                if self.mode == TuiMode::Search {
+                                    self.mode = TuiMode::Noemal;
+                                }
+                                // clear highlight
+                                self.clear_highlight();
+                                // clear search tips
+                                self.tips = origin_tip.clone();
+                            }
+                            KeyCode::Backspace => {
+                                if self.mode == TuiMode::Search {
+                                    query.pop();
                                     // update tips with search patterns
                                     self.tips = format!("Search: {}", query);
                                 }
+                            }
+                            KeyCode::Char('/') => {
+                                self.clear_highlight();
+                                self.mode = TuiMode::Search;
+                                // update tips with search patterns
+                                self.tips = format!("Search: {}", query);
                             }
                             KeyCode::Char('n') => {
                                 if !self.search_results.is_empty() {
@@ -295,11 +306,12 @@ impl<'a> OmaPager<'a> {
                                     self.jump_to(self.search_results[self.current_result_index]);
                                 }
                             }
-                            KeyCode::Esc => {
-                                // clear highlight
-                                self.clear_highlight();
-                                // clear search tips
-                                self.tips = origin_tip.clone();
+                            KeyCode::Char(input_char) => {
+                                if self.mode == TuiMode::Search {
+                                    query.push(input_char);
+                                    // update tips with search patterns
+                                    self.tips = format!("Search: {}", query);
+                                }
                             }
                             KeyCode::PageUp => {
                                 self.vertical_scroll = self
