@@ -44,6 +44,7 @@ impl OmaProgressBar {
         Self { inner: pb }
     }
 
+    #[allow(dead_code)]
     pub fn new(pb: ProgressBar) -> Self {
         Self { inner: pb }
     }

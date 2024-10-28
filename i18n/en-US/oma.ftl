@@ -211,3 +211,7 @@ mirror-name = Mirror
 mirror-score = Score
 mirror-speedtest-start = Commencing mirror benchmark ...
 speedtest-complete = Mirror benchmark complete.
+search-tips-with-result = Press [Esc] to cancel search, [N]/[n] to jump to the previous or next match.
+search-tips-with-query = Search: { $query }
+search-tips-with-empty = The search pattern may not be empty (press [/] to retry).
+search-tips-not-found = Your search did not return any match (press [/] to retry).

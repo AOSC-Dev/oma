@@ -207,3 +207,7 @@ mirror-name = 镜像源
 mirror-score = 速度
 mirror-speedtest-start = 即将开始镜像源测速 ...
 speedtest-complete = 镜像源测速完毕。
+search-tips-with-result = 按 [Esc] 取消搜索，按 [N]/[n] 跳转至上/下一个匹配项。
+search-tips-with-query = 搜索关键字：{ $query }
+search-tips-with-empty = 搜索关键字不能为空（请按 [/] 重试搜索）。
+search-tips-not-found = 您搜索的关键字无任何匹配项（请按 [/] 重试搜索）。

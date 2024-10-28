@@ -6,7 +6,7 @@ use crate::console::style;
 use crate::error::OutputError;
 use crate::{color_formatter, fl, ALLOWCTRLC};
 use oma_console::indicatif::HumanBytes;
-use oma_console::pager::{Pager, PagerExit};
+use oma_console::pager::{Pager, PagerExit, PagerUIText};
 use oma_console::print::Action;
 use oma_console::WRITER;
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
@@ -102,18 +102,47 @@ pub fn oma_display_with_normal_output(
         ALLOWCTRLC.store(true, Ordering::Relaxed);
     }
 
-    let tips = tips(is_question);
-
     let pager = if len < WRITER.get_height().into() {
         Pager::plain()
     } else {
-        Pager::external(tips, None, color_formatter()).map_err(|e| OutputError {
+        Pager::external(
+            &OmaPagerUIText { is_question: false },
+            None,
+            color_formatter(),
+        )
+        .map_err(|e| OutputError {
             description: "Failed to get pager".to_string(),
             source: Some(Box::new(e)),
         })?
     };
 
     Ok(pager)
+}
+
+struct OmaPagerUIText {
+    is_question: bool,
+}
+
+impl PagerUIText for OmaPagerUIText {
+    fn normal_tips(&self) -> String {
+        tips(self.is_question)
+    }
+
+    fn search_tips_with_result(&self) -> String {
+        fl!("search-tips-with-result")
+    }
+
+    fn searct_tips_with_query(&self, query: &str) -> String {
+        fl!("search-tips-with-query", query = query)
+    }
+
+    fn search_tips_with_empty(&self) -> String {
+        fl!("search-tips-with-empty")
+    }
+
+    fn search_tips_not_found(&self) -> String {
+        fl!("search-tips-not-found")
+    }
 }
 
 fn tips(is_question: bool) -> String {
@@ -185,14 +214,15 @@ pub fn table_for_install_pending(
         return Ok(PagerExit::NormalExit);
     }
 
-    let tips = tips(true);
-
     let mut pager = if is_pager {
-        Pager::external(tips, Some(fl!("pending-op")), color_formatter()).map_err(|e| {
-            OutputError {
-                description: "Failed to get pager".to_string(),
-                source: Some(Box::new(e)),
-            }
+        Pager::external(
+            &OmaPagerUIText { is_question: true },
+            Some(fl!("pending-op")),
+            color_formatter(),
+        )
+        .map_err(|e| OutputError {
+            description: "Failed to get pager".to_string(),
+            source: Some(Box::new(e)),
         })?
     } else {
         Pager::plain()
@@ -235,15 +265,15 @@ pub fn table_for_history_pending(
     remove: &[RemoveEntry],
     disk_size: &(String, u64),
 ) -> Result<(), OutputError> {
-    let tips = tips(false);
-
-    let mut pager =
-        Pager::external(tips, Some(fl!("pending-op")), color_formatter()).map_err(|e| {
-            OutputError {
-                description: "Failed to get pager".to_string(),
-                source: Some(Box::new(e)),
-            }
-        })?;
+    let mut pager = Pager::external(
+        &OmaPagerUIText { is_question: false },
+        Some(fl!("pending-op")),
+        color_formatter(),
+    )
+    .map_err(|e| OutputError {
+        description: "Failed to get pager".to_string(),
+        source: Some(Box::new(e)),
+    })?;
 
     let out = pager.get_writer().map_err(|e| OutputError {
         description: "Failed to get writer".to_string(),
