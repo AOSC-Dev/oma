@@ -292,14 +292,14 @@ impl<'a> OmaPager<'a> {
                                 if self.mode == TuiMode::Search {
                                     query.pop();
                                     // update tips with search patterns
-                                    self.tips = format!("Search: {}", query);
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
                                 }
                             }
                             KeyCode::Char('/') => {
                                 self.clear_highlight();
                                 self.mode = TuiMode::Search;
                                 // update tips with search patterns
-                                self.tips = format!("Search: {}", query);
+                                self.tips = self.ui_text.searct_tips_with_query(&query);
                             }
                             KeyCode::Char('n') => {
                                 if !self.search_results.is_empty() {
@@ -322,7 +322,7 @@ impl<'a> OmaPager<'a> {
                                 if self.mode == TuiMode::Search {
                                     query.push(input_char);
                                     // update tips with search patterns
-                                    self.tips = format!("Search: {}", query);
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
                                 }
                             }
                             KeyCode::PageUp => {
