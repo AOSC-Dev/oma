@@ -211,4 +211,3 @@ search-tips-with-result = 按 [Esc] 取消搜索，按 [N]/[n] 跳转至上/下�
 search-tips-with-query = 搜索关键字：{ $query }
 search-tips-with-empty = 搜索关键字不能为空（请按 [/] 重试搜索）。
 search-tips-not-found = 您搜索的关键字无任何匹配项（请按 [/] 重试搜索）。
-oma-mirror-tips = 按 [Space]/[Enter] 开关镜像源，按 [Esc] 应用更改，按 [Ctrl-c] 退出。
