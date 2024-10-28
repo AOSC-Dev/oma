@@ -634,6 +634,81 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             no_check_dbus,
             another_apt_options: oma_args.another_apt_options,
         })?,
+        #[cfg(feature = "aosc")]
+        Some(("mirror", args)) => {
+            let subcmd = args.subcommand();
+
+            match subcmd {
+                None => mirror::tui(
+                    no_progress,
+                    !args.get_flag("no_refresh_topics"),
+                    oma_args.network_thread,
+                    args.get_flag("no_refresh"),
+                )?,
+                Some(("sort-mirrors", _)) => mirror::set_order(
+                    no_progress,
+                    !args.get_flag("no_refresh_topics"),
+                    oma_args.network_thread,
+                    args.get_flag("no_refresh"),
+                )?,
+                Some(("set", sub_args)) => {
+                    let names = sub_args
+                        .get_many::<String>("names")
+                        .unwrap()
+                        .map(|x| x.as_str())
+                        .collect::<Vec<_>>();
+
+                    mirror::operate(
+                        no_progress,
+                        !args.get_flag("no_refresh_topics"),
+                        oma_args.network_thread,
+                        args.get_flag("no_refresh"),
+                        names,
+                        mirror::Operate::Set,
+                    )?
+                }
+                Some(("add", sub_args)) => {
+                    let names = sub_args
+                        .get_many::<String>("names")
+                        .unwrap()
+                        .map(|x| x.as_str())
+                        .collect::<Vec<_>>();
+
+                    mirror::operate(
+                        no_progress,
+                        !args.get_flag("no_refresh_topics"),
+                        oma_args.network_thread,
+                        args.get_flag("no_refresh"),
+                        names,
+                        mirror::Operate::Add,
+                    )?
+                }
+                Some(("remove", sub_args)) => {
+                    let names = sub_args
+                        .get_many::<String>("names")
+                        .unwrap()
+                        .map(|x| x.as_str())
+                        .collect::<Vec<_>>();
+
+                    mirror::operate(
+                        no_progress,
+                        !args.get_flag("no_refresh_topics"),
+                        oma_args.network_thread,
+                        args.get_flag("no_refresh"),
+                        names,
+                        mirror::Operate::Remove,
+                    )?
+                }
+                Some(("speedtest", sub_args)) => mirror::speedtest(
+                    no_progress,
+                    sub_args.get_flag("set_fastest"),
+                    !args.get_flag("no_refresh_topics"),
+                    oma_args.network_thread,
+                    args.get_flag("no_refresh"),
+                )?,
+                _ => unreachable!(),
+            }
+        }
         Some((cmd, args)) => {
             let exe_dir = PathBuf::from("/usr/libexec");
             let plugin = exe_dir.join(format!("oma-{}", cmd));

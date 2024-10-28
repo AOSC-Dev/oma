@@ -40,6 +40,8 @@ which = "6.0.3"
 strsim = "0.11.1"
 ahash = "0.8.11"
 indexmap = "2.6.0"
+faster-hex = "0.10"
+sha2 = "0.10"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
@@ -51,6 +53,7 @@ oma-fetch = { path = "./oma-fetch", default-features = false }
 oma-topics = { path = "./oma-topics", optional = true, default-features = false }
 oma-history = { path = "./oma-history" }
 oma-repo-verify = { path = "./oma-repo-verify" }
+oma-mirror = { path = "./oma-mirror", optional = true }
 
 # i18n
 i18n-embed = { version = "0.15.0", features = ["fluent-system", "desktop-requester"]}
@@ -65,7 +68,7 @@ clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string"
 anyhow = "1.0.89"
 
 [features]
-aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc"]
+aosc = ["dep:oma-topics", "dep:oma-mirror", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "reqwest/blocking"]
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
 egg = ["dep:colored", "dep:image"]
@@ -76,7 +79,7 @@ generic = ["sequoia-nettle-backend", "rustls"]
 default = ["aosc", "generic"]
 
 [workspace]
-members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify"]
+members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify", "oma-mirror"]
 
 [package.metadata.deb]
 copyright = "2024, AOSC Dev <maintainers@aosc.io>"
