@@ -26,7 +26,7 @@ use crate::{print::OmaColorFormat, writer::Writer, WRITER};
 
 pub enum Pager<'a> {
     Plain,
-    External(OmaPager<'a>),
+    External(Box<OmaPager<'a>>),
 }
 
 impl<'a> Pager<'a> {
@@ -35,12 +35,12 @@ impl<'a> Pager<'a> {
     }
 
     pub fn external(
-        tips: String,
+        ui_text: &'a dyn PagerUIText,
         title: Option<String>,
         color_format: &'a OmaColorFormat,
     ) -> io::Result<Self> {
-        let app = OmaPager::new(tips, title, color_format);
-        let res = Pager::External(app);
+        let app = OmaPager::new(title, color_format, ui_text);
+        let res = Pager::External(Box::new(app));
 
         Ok(res)
     }
@@ -119,6 +119,7 @@ pub struct OmaPager<'a> {
     search_results: Vec<usize>,
     current_result_index: usize,
     mode: TuiMode,
+    ui_text: &'a dyn PagerUIText,
 }
 
 impl<'a> Write for OmaPager<'a> {
@@ -136,6 +137,14 @@ impl<'a> Write for OmaPager<'a> {
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
+}
+
+pub trait PagerUIText {
+    fn normal_tips(&self) -> String;
+    fn search_tips_with_result(&self) -> String;
+    fn searct_tips_with_query(&self, query: &str) -> String;
+    fn search_tips_with_empty(&self) -> String;
+    fn search_tips_not_found(&self) -> String;
 }
 
 #[derive(PartialEq, Eq)]
@@ -161,7 +170,11 @@ impl From<PagerExit> for i32 {
 }
 
 impl<'a> OmaPager<'a> {
-    pub fn new(tips: String, title: Option<String>, theme: &'a OmaColorFormat) -> Self {
+    pub fn new(
+        title: Option<String>,
+        theme: &'a OmaColorFormat,
+        ui_text: &'a dyn PagerUIText,
+    ) -> Self {
         Self {
             inner: PagerInner::Working(vec![]),
             vertical_scroll_state: ScrollbarState::new(0),
@@ -170,13 +183,14 @@ impl<'a> OmaPager<'a> {
             horizontal_scroll: 0,
             area_height: 0,
             max_width: 0,
-            tips,
+            tips: ui_text.normal_tips(),
             title,
             inner_len: 0,
             theme,
             search_results: Vec::new(),
             current_result_index: 0,
             mode: TuiMode::Noemal,
+            ui_text,
         }
     }
 
@@ -207,7 +221,6 @@ impl<'a> OmaPager<'a> {
         let mut query = String::new();
 
         let mut last_tick = Instant::now();
-        let origin_tip = self.tips.clone();
         loop {
             terminal.draw(|f| self.ui(f))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
@@ -252,18 +265,17 @@ impl<'a> OmaPager<'a> {
                                     continue;
                                 }
                                 if query.trim().is_empty() {
-                                    self.tips =
-                                        "Search pattern cannot be empty (Press /)".to_string();
+                                    self.tips = self.ui_text.search_tips_with_empty();
                                 } else {
                                     self.search_results = self.search(&query);
                                     if self.search_results.is_empty() {
-                                        self.tips = "Pattern not found (Press /)".to_string();
+                                        self.tips = self.ui_text.search_tips_not_found();
                                     } else {
                                         self.current_result_index = 0;
                                         self.jump_to(
                                             self.search_results[self.current_result_index],
                                         );
-                                        self.tips = "Press Esc to exit search, press N or n to jump to the prev or next match.".to_string();
+                                        self.tips = self.ui_text.search_tips_with_result();
                                     }
                                 }
                             }
@@ -274,7 +286,7 @@ impl<'a> OmaPager<'a> {
                                 // clear highlight
                                 self.clear_highlight();
                                 // clear search tips
-                                self.tips = origin_tip.clone();
+                                self.tips = self.ui_text.normal_tips();
                             }
                             KeyCode::Backspace => {
                                 if self.mode == TuiMode::Search {
