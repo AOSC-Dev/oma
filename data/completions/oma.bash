@@ -170,6 +170,57 @@ _oma() {
             oma__help,upgrade)
                 cmd="oma__help__upgrade"
                 ;;
+            oma__help__mirror,add)
+                cmd="oma__help__mirror__add"
+                ;;
+            oma__help__mirror,remove)
+                cmd="oma__help__mirror__remove"
+                ;;
+            oma__help__mirror,set)
+                cmd="oma__help__mirror__set"
+                ;;
+            oma__help__mirror,sort-mirrors)
+                cmd="oma__help__mirror__sort__mirrors"
+                ;;
+            oma__help__mirror,speedtest)
+                cmd="oma__help__mirror__speedtest"
+                ;;
+            oma__mirror,add)
+                cmd="oma__mirror__add"
+                ;;
+            oma__mirror,help)
+                cmd="oma__mirror__help"
+                ;;
+            oma__mirror,remove)
+                cmd="oma__mirror__remove"
+                ;;
+            oma__mirror,set)
+                cmd="oma__mirror__set"
+                ;;
+            oma__mirror,sort-mirrors)
+                cmd="oma__mirror__sort__mirrors"
+                ;;
+            oma__mirror,speedtest)
+                cmd="oma__mirror__speedtest"
+                ;;
+            oma__mirror__help,add)
+                cmd="oma__mirror__help__add"
+                ;;
+            oma__mirror__help,help)
+                cmd="oma__mirror__help__help"
+                ;;
+            oma__mirror__help,remove)
+                cmd="oma__mirror__help__remove"
+                ;;
+            oma__mirror__help,set)
+                cmd="oma__mirror__help__set"
+                ;;
+            oma__mirror__help,sort-mirrors)
+                cmd="oma__mirror__help__sort__mirrors"
+                ;;
+            oma__mirror__help,speedtest)
+                cmd="oma__mirror__help__speedtest"
+                ;;
             *)
                 ;;
         esac
@@ -177,7 +228,7 @@ _oma() {
 
     case "${cmd}" in
         oma)
-            opts="-v -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --help install upgrade download remove purge refresh show search files provides fix-broken pick mark list depends rdepends clean history undo mirror mirrors tui topics help"
+            opts="-v -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --apt-options --apt-options --help install upgrade download remove purge refresh show search files provides fix-broken pick mark list depends rdepends clean history undo mirror mirrors tui topics help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -205,13 +256,21 @@ _oma() {
             return 0
             ;;
         oma__depends)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help ."
+            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help ."
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -224,7 +283,7 @@ _oma() {
             return 0
             ;;
         oma__download)
-            opts="-p -h --path --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help ."
+            opts="-p -h --path --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help ."
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -242,6 +301,14 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -251,7 +318,7 @@ _oma() {
             return 0
             ;;
         oma__fix__broken)
-            opts="-h --dry-run --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --dry-run --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
 
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -259,6 +326,14 @@ _oma() {
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -550,13 +625,21 @@ _oma() {
             return 0
             ;;
         oma__history)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -568,13 +651,21 @@ _oma() {
             return 0
             ;;
         oma__install)
-            opts="-f -y -h --install-dbg --reinstall --install-recommends --install-suggests --no-install-recommends --no-install-suggests --fix-broken --no-refresh --yes --force-yes --force-confnew --dry-run --dpkg-force-all --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-f -y -h --install-dbg --reinstall --install-recommends --force-unsafe-io --install-suggests --no-install-recommends --no-install-suggests --fix-broken --no-refresh --yes --force-yes --force-confnew --dry-run --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -587,13 +678,21 @@ _oma() {
             return 0
             ;;
         oma__list)
-            opts="-a -i -u -m -h --all --installed --upgradable --manually-installed --automatic --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-a -i -u -m -h --all --installed --upgradable --manually-installed --automatic --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -606,13 +705,21 @@ _oma() {
             return 0
             ;;
         oma__files)
-            opts="-h --bin --println --no-pager --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help [package]"
+            opts="-h --bin --println --no-pager --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [package]"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -638,14 +745,280 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        oma__mirror)
+            opts="-o -h --no-refresh-topics --no-refresh --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help set add remove sort-mirrors speedtest help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+         oma__mirror__add)
+            opts="-o -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help <names>..."
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__help)
+            opts="set add remove sort-mirrors speedtest help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__help__add)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__help__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__help__remove)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__help__set)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__help__sort__mirrors)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__help__speedtest)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__remove)
+            opts="-o -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help <names>..."
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__set)
+            opts="-o -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help <names>..."
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__sort__mirrors)
+            opts="-o -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__speedtest)
+            opts="-o -h --set-fastest --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         oma__pick)
-            opts="-h --no-refresh --dry-run --dpkg-force-all --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --no-refresh --dry-run --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -658,13 +1031,21 @@ _oma() {
             return 0
             ;;
         oma__mirror)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help [COMMANDS]..."
+            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [COMMANDS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -676,13 +1057,21 @@ _oma() {
             return 0
             ;;
         oma__mirrors)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help [COMMANDS]..."
+            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [COMMANDS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -694,13 +1083,21 @@ _oma() {
             return 0
             ;;
         oma__provides)
-            opts="-h --println --no-pager --bin --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help [pattern]"
+            opts="-h --println --no-pager --bin --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [pattern]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -712,13 +1109,21 @@ _oma() {
             return 0
             ;;
         oma__purge)
-            opts="-y -h --yes --force-yes --no-autoremove --remove-config --dry-run --debug --no-color --no-progress --follow-terminal-color --no-check-dbus --sysroot --help"
+            opts="-y -h --yes --force-yes --no-autoremove --remove-config --dry-run --debug --no-color --force-unsafe-io --no-progress --follow-terminal-color --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -731,13 +1136,21 @@ _oma() {
             return 0
             ;;
         oma__rdepends)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help ."
+            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help ."
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -750,13 +1163,21 @@ _oma() {
             return 0
             ;;
         oma__refresh)
-            opts="-h --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -768,13 +1189,21 @@ _oma() {
             return 0
             ;;
         oma__remove)
-            opts="-y -h --yes --force-yes --no-autoremove --remove-config --dry-run --debug --no-color --no-progress --follow-terminal-color --no-check-dbus --sysroot --help"
+            opts="-y -h --yes --force-yes --no-autoremove --remove-config --force-unsafe-io --dry-run --debug --no-color --no-progress --follow-terminal-color --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -787,13 +1216,21 @@ _oma() {
             return 0
             ;;
         oma__search)
-            opts="-h --no-pager --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --no-pager --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -805,13 +1242,21 @@ _oma() {
             return 0
             ;;
         oma__show)
-            opts="-a -h --all --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-a -h --all --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -824,7 +1269,7 @@ _oma() {
             return 0
             ;;
         oma__topics)
-            opts="-h --opt-in --opt-out --dry-run --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --opt-in --opt-out --dry-run --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -842,6 +1287,14 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -850,13 +1303,21 @@ _oma() {
             return 0
             ;;
         oma__tui)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -868,13 +1329,21 @@ _oma() {
             return 0
             ;;
         oma__undo)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -886,13 +1355,21 @@ _oma() {
             return 0
             ;;
         oma__upgrade)
-            opts="-y -h --yes --force-yes --force-confnew --dry-run --dpkg-force-all --autoremove --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --help"
+            opts="-y -h --yes --force-yes --force-unsafe-io --force-confnew --dry-run --autoremove --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

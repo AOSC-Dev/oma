@@ -243,7 +243,8 @@ pub fn command_builder() -> Command {
                 .arg(force_yes.requires("packages"))
                 .arg(no_autoremove.requires("packages"))
                 .arg(fix_broken)
-                .arg(&dry_run),
+                .arg(&dry_run)
+                .arg(&force_unsafe_io),
         )
         .subcommand({
             let mut cmd = Command::new("refresh")
