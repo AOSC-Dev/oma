@@ -1,6 +1,10 @@
-use std::io::{self, Write};
+use std::{
+    env,
+    io::{self, Write},
+};
 
 use console::Term;
+use textwrap::WordSplitter;
 
 /// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
@@ -164,7 +168,16 @@ pub fn writeln_inner(
     let len = max_len - prefix_len as usize;
     let mut first_run = true;
 
-    for i in textwrap::wrap(msg, len) {
+    use hyphenation::{Language, Load, Standard};
+
+    let dictionary = match env::var("LANG") {
+        Ok(x) if x.starts_with("zh_") => Standard::from_embedded(Language::Chinese).unwrap(),
+        _ => Standard::from_embedded(Language::EnglishUS).unwrap(),
+    };
+
+    let options = textwrap::Options::new(len).word_splitter(WordSplitter::Hyphenation(dictionary));
+
+    for i in textwrap::wrap(msg, options) {
         if first_run {
             callback(MessageType::Prefix, prefix);
             first_run = false;
