@@ -20,7 +20,6 @@ use oma_console::indicatif::HumanBytes;
 use oma_console::indicatif::ProgressBar;
 use oma_console::indicatif::ProgressStyle;
 use oma_console::success;
-use oma_console::WRITER;
 use oma_mirror::Mirror;
 use oma_mirror::MirrorManager;
 use oma_pm::apt::AptConfig;
@@ -38,6 +37,7 @@ use crate::utils::root;
 use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;
 
+use super::utils::tui_select_list_size;
 use super::utils::RefreshRequest;
 
 const REPO_TEST_SHA256: &str = "1e2a82e7babb443b2b26b61ce5dd2bd25b06b30422b42ee709fddd2cc3ffe231";
@@ -86,12 +86,7 @@ pub fn tui(
     };
 
     // 空行（最多两行）+ tips (最多两行) + prompt（最多两行）
-    let page_size = match WRITER.get_height() {
-        0 => panic!("Terminal height must be greater than 0"),
-        1..=6 => 1,
-        x @ 7..=25 => x - 6,
-        26.. => 20,
-    };
+    let page_size = tui_select_list_size();
 
     let default = (0..enabled.len()).collect::<Vec<_>>();
 
@@ -175,9 +170,12 @@ pub fn set_order(
         .map(|x| x.as_ref())
         .collect::<Vec<_>>();
 
+    let page_size = tui_select_list_size();
+
     let sorted = Sort::with_theme(&ColorfulTheme::default())
         .with_prompt(fl!("set-mirror-order-prompt"))
         .items(&mirrors)
+        .max_length(page_size.into())
         .interact()
         .map_err(|_| anyhow!(""))?;
 

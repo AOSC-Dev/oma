@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Debug;
@@ -18,6 +19,7 @@ use crate::LOCKED;
 use crate::RT;
 use ahash::HashSet;
 use chrono::Local;
+use dialoguer::console;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Confirm;
@@ -27,6 +29,7 @@ use oma_console::pager::PagerExit;
 use oma_console::print::Action;
 use oma_console::success;
 use oma_console::writer::Writeln;
+use oma_console::WRITER;
 use oma_contents::searcher::pure_search;
 use oma_contents::searcher::ripgrep_search;
 use oma_contents::searcher::Mode;
@@ -495,4 +498,28 @@ pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
     }
 
     Ok(res)
+}
+
+pub fn tui_select_list_size() -> u16 {
+    match WRITER.get_height() {
+        0 => panic!("Terminal height must be greater than 0"),
+        1..=6 => 1,
+        x @ 7..=25 => x - 6,
+        26.. => 20,
+    }
+}
+
+pub fn select_tui_display_msg(s: &str, is_inquire: bool) -> Cow<str> {
+    let term_width = WRITER.get_length() as usize;
+
+    // 4 是 inquire 前面有四个空格缩进
+    // 2 是 dialoguer 的保留字符长度
+    let indent = if is_inquire { 4 } else { 2 };
+
+    // 3 是 ... 的长度
+    if console::measure_text_width(s) + indent > term_width {
+        console::truncate_str(s, term_width - indent - 3, "...")
+    } else {
+        s.into()
+    }
 }

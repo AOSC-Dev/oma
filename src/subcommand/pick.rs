@@ -13,7 +13,9 @@ use crate::{
 use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
-use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest};
+use super::utils::{
+    lock_oma, no_check_dbus_warn, tui_select_list_size, CommitRequest, RefreshRequest,
+};
 
 pub fn execute(
     pkg_str: &str,
@@ -113,6 +115,10 @@ pub fn execute(
     };
 
     dialoguer = dialoguer.default(pos);
+
+    let size = tui_select_list_size();
+    dialoguer = dialoguer.max_length(size.into());
+
     let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
     let version = pkg.get_version(&versions_str[sel]).unwrap();
 
