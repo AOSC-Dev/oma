@@ -210,4 +210,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Some change ([`5d16784`](https://github.com/AOSC-Dev/oma/commit/5d16784215b2c47059c335e5f03c94ffaaf63693))
     - Init ([`5cedd38`](https://github.com/AOSC-Dev/oma/commit/5cedd38dc69b89403b8f13aa8b68a6360481991b))
 </details>
-

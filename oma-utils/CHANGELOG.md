@@ -209,4 +209,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Style
 
  - <csr-id-ee45498f402ccc6a686c44b1b4f887301e9801e1/> run cargo clippy and cargo fmt to lint code
-
