@@ -1,12 +1,12 @@
 use std::path::Path;
 
-use dialoguer::console::{self, style};
+use dialoguer::console::style;
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::{writer::Writeln, WRITER};
+use oma_console::writer::Writeln;
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
@@ -24,7 +24,10 @@ use crate::{
     OmaArgs, RT,
 };
 
-use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest};
+use super::utils::{
+    lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitRequest,
+    RefreshRequest,
+};
 use crate::fl;
 use anyhow::anyhow;
 use oma_topics::{scan_closed_topic, Topic, TopicManager};
@@ -242,7 +245,6 @@ fn select_prompt(
 
     let default = (0..swap_count).collect::<Vec<_>>();
 
-    let term_width = WRITER.get_length() as usize;
     let display = all_topics
         .iter()
         .map(|x| {
@@ -255,13 +257,7 @@ fn select_prompt(
                 s += &style(&x.name).bold().to_string();
             }
 
-            // 4 是 inquire 前面有四个空格缩进
-            // 3 是 ... 的长度
-            if console::measure_text_width(&s) + 4 > term_width {
-                console::truncate_str(&s, term_width - 4 - 3, "...").to_string()
-            } else {
-                s
-            }
+            select_tui_display_msg(&s, true).to_string()
         })
         .collect::<Vec<_>>();
 
@@ -278,12 +274,7 @@ fn select_prompt(
     };
 
     // 空行（最多两行）+ tips (最多两行) + prompt（最多两行）
-    let page_size = match WRITER.get_height() {
-        0 => panic!("Terminal height must be greater than 0"),
-        1..=6 => 1,
-        x @ 7..=25 => x - 6,
-        26.. => 20,
-    };
+    let page_size = tui_select_list_size();
 
     let ans = MultiSelect::new(
         &fl!("select-topics-dialog"),
