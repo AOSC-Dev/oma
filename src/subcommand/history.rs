@@ -22,7 +22,10 @@ use crate::{
 };
 use crate::{OmaArgs, HTTP_CLIENT};
 
-use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitRequest};
+use super::utils::{
+    handle_no_result, lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size,
+    CommitRequest,
+};
 
 pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
     let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
@@ -173,9 +176,12 @@ fn dialoguer_select_history(
     display_list: &[String],
     old_selected: usize,
 ) -> Result<usize, OutputError> {
+    let page_size = tui_select_list_size();
+
     let selected = Select::with_theme(&ColorfulTheme::default())
         .items(display_list)
         .default(old_selected)
+        .max_length(page_size.into())
         .interact()
         .map_err(|_| anyhow!(""))?;
 
@@ -291,6 +297,9 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usi
                 SummaryType::Undo => format!("Undone [{date}]"),
                 SummaryType::Changes => "Change packages".to_string(),
             };
+
+            let s = select_tui_display_msg(&s, false).to_string();
+
             (s, index)
         })
         .collect::<Vec<_>>();
