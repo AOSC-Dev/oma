@@ -589,4 +589,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-583e126cd32a3ea19f11084cdcebdc50395f2975/> Refactor
  - <csr-id-3dbc72701d26037b0e569bf3ebeb01f911965313/> Add example
  - <csr-id-7475d11b51a6488cb77bae231b6a6bee95f603b0/> Add test_branch_search
-
