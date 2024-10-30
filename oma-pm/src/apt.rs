@@ -1121,7 +1121,7 @@ impl OmaApt {
         }
 
         for pkg in self.filter_pkgs(&[FilterMode::AutoRemovable])? {
-            if !remove.iter().any(|x| x.name() == pkg.name()) {
+            if !pkg.marked_delete() {
                 let ver = pkg.installed().unwrap();
                 autoremovable.0 += 1;
                 autoremovable.1 += ver.installed_size();
