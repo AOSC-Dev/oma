@@ -3072,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.37.0"
+version = "0.37.1"
 dependencies = [
  "ahash",
  "bon",
