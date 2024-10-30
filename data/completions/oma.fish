@@ -200,6 +200,7 @@ complete -c oma -n "__fish_seen_subcommand_from list" -l debug -d 'Run oma with 
 complete -c oma -n "__fish_seen_subcommand_from list" -l no-color -d 'No color output to result'
 complete -c oma -n "__fish_seen_subcommand_from list" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_seen_subcommand_from list" -l no-progress -d 'Do not display progress bar'
+complete -c oma -n "__fish_seen_subcommand_from list" -l autoremovable -d 'List only package(s) with autoremovable'
 complete -c oma -n "__fish_seen_subcommand_from list" -l no-check-dbus
 complete -c oma -n "__fish_seen_subcommand_from list" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_seen_subcommand_from depends" -lcomplete -c oma -n "__fish_seen_subcommand_from install" -l sysroot -d 'Set sysroot target directory' -r
