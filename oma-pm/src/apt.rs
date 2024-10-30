@@ -1121,9 +1121,11 @@ impl OmaApt {
         }
 
         for pkg in self.filter_pkgs(&[FilterMode::AutoRemovable])? {
-            let ver = pkg.installed().unwrap();
-            autoremovable.0 += 1;
-            autoremovable.1 += ver.installed_size();
+            if !remove.iter().any(|x| x.name() == pkg.name()) {
+                let ver = pkg.installed().unwrap();
+                autoremovable.0 += 1;
+                autoremovable.1 += ver.installed_size();
+            }
         }
 
         let disk_size = self.cache.depcache().disk_size();
