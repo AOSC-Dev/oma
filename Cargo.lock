@@ -3030,7 +3030,7 @@ dependencies = [
 
 [[package]]
 name = "oma-history"
-version = "0.4.6"
+version = "0.4.7"
 dependencies = [
  "oma-pm-operation-type",
  "rusqlite",
@@ -3072,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "ahash",
  "bon",
@@ -3100,7 +3100,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm-operation-type"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bon",
  "oma-utils 0.8.8",
