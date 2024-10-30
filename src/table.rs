@@ -206,7 +206,7 @@ impl<W: Write> PagerPrinter<W> {
 pub fn table_for_install_pending(
     install: &[InstallEntry],
     remove: &[RemoveEntry],
-    disk_size: &(String, u64),
+    disk_size: &(Box<str>, u64),
     is_pager: bool,
     dry_run: bool,
 ) -> Result<PagerExit, OutputError> {
@@ -263,7 +263,7 @@ pub fn table_for_install_pending(
 pub fn table_for_history_pending(
     install: &[InstallEntry],
     remove: &[RemoveEntry],
-    disk_size: &(String, u64),
+    disk_size: &(Box<str>, u64),
 ) -> Result<(), OutputError> {
     let mut pager = Pager::external(
         &OmaPagerUIText { is_question: false },
@@ -296,7 +296,7 @@ fn print_pending_inner<W: Write>(
     mut printer: PagerPrinter<W>,
     remove: &[RemoveEntry],
     install: &[InstallEntry],
-    disk_size: &(String, u64),
+    disk_size: &(Box<str>, u64),
 ) {
     if !remove.is_empty() {
         printer
