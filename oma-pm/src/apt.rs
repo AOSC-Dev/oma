@@ -956,6 +956,7 @@ impl OmaApt {
 
         let mut install = vec![];
         let mut remove = vec![];
+        let mut autoremovable = (0, 0);
         let changes = self.cache.get_changes(true);
 
         for pkg in changes {
@@ -1119,11 +1120,17 @@ impl OmaApt {
             }
         }
 
+        for pkg in self.filter_pkgs(&[FilterMode::AutoRemovable])? {
+            let ver = pkg.installed().unwrap();
+            autoremovable.0 += 1;
+            autoremovable.1 += ver.installed_size();
+        }
+
         let disk_size = self.cache.depcache().disk_size();
 
         let disk_size = match disk_size {
-            DiskSpace::Require(n) => ("+".to_string(), n),
-            DiskSpace::Free(n) => ("-".to_string(), n),
+            DiskSpace::Require(n) => ("+".into(), n),
+            DiskSpace::Free(n) => ("-".into(), n),
         };
 
         let total_download_size: u64 = install
@@ -1143,6 +1150,7 @@ impl OmaApt {
             remove,
             disk_size,
             total_download_size,
+            autoremovable,
         })
     }
 
@@ -1152,7 +1160,7 @@ impl OmaApt {
         let n = *n as i64;
         let download_size = op.total_download_size as i64;
 
-        let need_space = match symbol.as_str() {
+        let need_space = match symbol.as_ref() {
             "+" => download_size + n,
             "-" => download_size - n,
             _ => unreachable!(),

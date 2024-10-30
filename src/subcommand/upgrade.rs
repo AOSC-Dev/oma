@@ -144,9 +144,10 @@ pub fn execute(
         let install = &op.install;
         let remove = &op.remove;
         let disk_size = &op.disk_size;
+        let (ar_count, ar_size) = op.autoremovable;
 
         if is_nothing_to_do(install, remove) {
-            autoremovable_tips(&apt)?;
+            autoremovable_tips(ar_count, ar_size)?;
             return Ok(0);
         }
 
@@ -190,14 +191,7 @@ pub fn execute(
                 success!("{}", fl!("history-tips-1"));
                 info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
 
-                let apt = OmaApt::new(
-                    vec![],
-                    OmaAptArgs::builder().build(),
-                    false,
-                    AptConfig::new(),
-                )?;
-
-                autoremovable_tips(&apt)?;
+                autoremovable_tips(ar_count, ar_size)?;
 
                 drop(fds);
                 return Ok(0);
