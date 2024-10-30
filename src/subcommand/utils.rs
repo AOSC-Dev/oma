@@ -36,9 +36,7 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
-use oma_pm::apt::FilterMode;
 use oma_pm::apt::OmaApt;
-use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_refresh::db::HandleRefresh;
 use oma_refresh::db::OmaRefresh;
@@ -287,9 +285,10 @@ impl<'a> CommitRequest<'a> {
         let install = &op.install;
         let remove = &op.remove;
         let disk_size = &op.disk_size;
+        let (ar_count, ar_size) = op.autoremovable;
 
         if is_nothing_to_do(install, remove) {
-            autoremovable_tips(&apt)?;
+            autoremovable_tips(ar_count, ar_size)?;
             return Ok(0);
         }
 
@@ -327,14 +326,7 @@ impl<'a> CommitRequest<'a> {
                     true,
                 )?;
 
-                let apt = OmaApt::new(
-                    vec![],
-                    OmaAptArgs::builder().build(),
-                    false,
-                    AptConfig::new(),
-                )?;
-
-                autoremovable_tips(&apt)?;
+                autoremovable_tips(ar_count, ar_size)?;
 
                 Ok(0)
             }
@@ -357,46 +349,37 @@ impl<'a> CommitRequest<'a> {
     }
 }
 
-pub fn autoremovable_tips(apt: &OmaApt) -> Result<(), OutputError> {
-    let autoremovable = apt
-        .filter_pkgs(&[FilterMode::AutoRemovable])?
-        .collect::<Vec<_>>();
-    let mut total_size = 0;
-    let count = autoremovable.len();
-
-    for pkg in autoremovable {
-        let size = pkg.installed().unwrap().installed_size();
-        total_size += size;
+pub fn autoremovable_tips(count: u64, total_size: u64) -> Result<(), OutputError> {
+    if count == 0 {
+        return Ok(());
     }
 
-    if count > 0 {
-        let total_size = HumanBytes(total_size).to_string();
-        let cmd1 = color_formatter()
-            .color_str("oma list --autoremovable", Action::Emphasis)
-            .to_string();
-        let cmd2 = color_formatter()
-            .color_str("oma mark manual <packages>", Action::Note)
-            .to_string();
-        let cmd3 = color_formatter()
-            .color_str("oma autoremove", Action::Secondary)
-            .to_string();
-        let count = color_formatter()
-            .color_str(count, Action::Secondary)
-            .to_string();
-        let total_size = color_formatter()
-            .color_str(total_size, Action::Secondary)
-            .to_string();
-        info!(
-            "{}",
-            fl!(
-                "autoremove-tips-1",
-                count = count,
-                size = total_size,
-                cmd = cmd1
-            )
-        );
-        info!("{}", fl!("autoremove-tips-2", cmd1 = cmd2, cmd2 = cmd3));
-    }
+    let total_size = HumanBytes(total_size).to_string();
+    let cmd1 = color_formatter()
+        .color_str("oma list --autoremovable", Action::Emphasis)
+        .to_string();
+    let cmd2 = color_formatter()
+        .color_str("oma mark manual <packages>", Action::Note)
+        .to_string();
+    let cmd3 = color_formatter()
+        .color_str("oma autoremove", Action::Secondary)
+        .to_string();
+    let count = color_formatter()
+        .color_str(count, Action::Secondary)
+        .to_string();
+    let total_size = color_formatter()
+        .color_str(total_size, Action::Secondary)
+        .to_string();
+    info!(
+        "{}",
+        fl!(
+            "autoremove-tips-1",
+            count = count,
+            size = total_size,
+            cmd = cmd1
+        )
+    );
+    info!("{}", fl!("autoremove-tips-2", cmd1 = cmd2, cmd2 = cmd3));
 
     Ok(())
 }

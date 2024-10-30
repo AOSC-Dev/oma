@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 pub struct OmaOperation {
     pub install: Vec<InstallEntry>,
     pub remove: Vec<RemoveEntry>,
-    pub disk_size: (String, u64),
+    pub disk_size: (Box<str>, u64),
+    pub autoremovable: (u64, u64),
     pub total_download_size: u64,
 }
 

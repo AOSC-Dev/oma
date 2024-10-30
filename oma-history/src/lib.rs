@@ -126,7 +126,7 @@ pub fn write_history_entry(
         if success { 1 } else { 0 },
         serde_json::to_string(&summary.install).map_err(HistoryError::ParseError)?,
         serde_json::to_string(&summary.remove).map_err(HistoryError::ParseError)?,
-        match (summary.disk_size.0.as_str(), summary.disk_size.1) {
+        match (summary.disk_size.0.as_ref(), summary.disk_size.1) {
             ("+", x) => x as i64,
             ("-", x) => 0 - x as i64,
             _ => unreachable!()
@@ -220,9 +220,9 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
         let remove_package: Vec<RemoveEntry> =
             serde_json::from_str(&remove_packages).map_err(HistoryError::ParseError)?;
         let disk_size = if disk_size >= 0 {
-            ("+".to_string(), disk_size as u64)
+            ("+".into(), disk_size as u64)
         } else {
-            ("-".to_string(), (0 - disk_size) as u64)
+            ("-".into(), (0 - disk_size) as u64)
         };
 
         res = Some(OmaOperation {
@@ -230,6 +230,8 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
             remove: remove_package,
             disk_size,
             total_download_size,
+            // 不记录 autoremovable
+            autoremovable: (0, 0),
         });
     }
 
