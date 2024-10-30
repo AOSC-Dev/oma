@@ -10,38 +10,38 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 [dependencies]
 # Cli
-clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string"] }
-anyhow = "1.0.89"
+clap = { version = "4.5.20", features = ["cargo", "wrap_help", "color", "string"] }
+anyhow = "1.0.91"
 ctrlc = "3.4.5"
 # https://github.com/zhiburt/tabled/issues/423
-tabled = { version = "=0.15.0", features = ["ansi"] }
+tabled = { version = "=0.15", features = ["ansi"] }
 dialoguer = "0.11.0"
-tokio = "1.40.0"
+tokio = "1.41.0"
 oma-inquire = "0.1.1"
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
+serde = { version = "1.0.214", features = ["derive"] }
+serde_json = "1.0.132"
 toml = "0.8.19"
 dashmap = "6.1.0"
 chrono = "0.4.38"
-rustix = { version = "0.38.37", features = ["process"] }
+rustix = { version = "0.38.38", features = ["process"] }
 colored = { version = "2.1.0", optional = true }
-image = { version = "0.25.2", optional = true }
-libc = "0.2.159"
-reqwest = { version = "0.12.8", default-features = false }
+image = { version = "0.25.4", optional = true }
+libc = "0.2.161"
+reqwest = { version = "0.12.9", default-features = false }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 smallvec = "1.13.2"
-console-subscriber = { version = "0.4.0", optional = true }
-ratatui = "0.28.1"
+console-subscriber = { version = "0.4.1", optional = true }
+ratatui = "0.29.0"
 crossterm = "0.28.1"
-ansi-to-tui = "6.0.0"
+ansi-to-tui = "7.0.0"
 glob-match = "0.2.1"
 which = "6.0.3"
 strsim = "0.11.1"
 ahash = "0.8.11"
 indexmap = "2.6.0"
-faster-hex = "0.10"
-sha2 = "0.10"
+faster-hex = "0.10.0"
+sha2 = "0.10.8"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
@@ -56,16 +56,16 @@ oma-repo-verify = { path = "./oma-repo-verify" }
 oma-mirror = { path = "./oma-mirror", optional = true }
 
 # i18n
-i18n-embed = { version = "0.15.0", features = ["fluent-system", "desktop-requester"]}
-i18n-embed-fl = "0.9.1"
+i18n-embed = { version = "0.15.2", features = ["fluent-system", "desktop-requester"]}
+i18n-embed-fl = "0.9.2"
 rust-embed = "8.5.0"
 unic-langid = "0.9.5"
 
 [build-dependencies]
-clap_mangen = "0.2.23"
-clap_complete = "4.5.29"
-clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string"] }
-anyhow = "1.0.89"
+clap_mangen = "0.2.24"
+clap_complete = "4.5.36"
+clap = { version = "4.5.20", features = ["cargo", "wrap_help", "color", "string"] }
+anyhow = "1.0.91"
 
 [features]
 aosc = ["dep:oma-topics", "dep:oma-mirror", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "reqwest/blocking"]
