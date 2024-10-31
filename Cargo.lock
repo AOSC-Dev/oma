@@ -2930,7 +2930,7 @@ dependencies = [
  "oma-refresh",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.8",
+ "oma-utils 0.8.9",
  "ratatui",
  "reqwest",
  "rust-embed",
@@ -2973,7 +2973,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "ansi-to-tui",
  "console",
@@ -3024,7 +3024,7 @@ dependencies = [
  "indicatif",
  "md-5",
  "oma-console",
- "oma-utils 0.8.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "oma-utils 0.8.8",
  "reqwest",
  "serde",
  "sha2",
@@ -3078,7 +3078,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.37.1"
+version = "0.37.2"
 dependencies = [
  "ahash",
  "bon",
@@ -3095,7 +3095,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.8.8",
+ "oma-utils 0.8.9",
  "serde",
  "strsim",
  "thiserror",
@@ -3109,7 +3109,7 @@ name = "oma-pm-operation-type"
 version = "0.5.0"
 dependencies = [
  "bon",
- "oma-utils 0.8.8",
+ "oma-utils 0.8.9",
  "serde",
 ]
 
@@ -3133,7 +3133,7 @@ dependencies = [
  "oma-fetch",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.8.8",
+ "oma-utils 0.8.9",
  "once_cell",
  "sequoia-openpgp",
  "smallvec",
@@ -3174,6 +3174,19 @@ dependencies = [
 [[package]]
 name = "oma-utils"
 version = "0.8.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a46a9397ecf9f21f4fd9b9a557dddf4858e7e0af94de4db8f71d15b3c2b0a0f6"
+dependencies = [
+ "logind-zbus",
+ "os-release",
+ "thiserror",
+ "tracing",
+ "url-escape",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.8.9"
 dependencies = [
  "logind-zbus",
  "number_prefix",
@@ -3183,19 +3196,6 @@ dependencies = [
  "tracing",
  "url-escape",
  "zbus",
-]
-
-[[package]]
-name = "oma-utils"
-version = "0.8.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a46a9397ecf9f21f4fd9b9a557dddf4858e7e0af94de4db8f71d15b3c2b0a0f6"
-dependencies = [
- "logind-zbus",
- "os-release",
- "thiserror",
- "tracing",
- "url-escape",
 ]
 
 [[package]]
