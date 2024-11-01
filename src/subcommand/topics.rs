@@ -9,7 +9,7 @@ use inquire::{
 use oma_console::writer::Writeln;
 use oma_history::SummaryType;
 use oma_pm::{
-    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
+    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs, Upgrade},
     query::OmaDatabase,
 };
 use oma_utils::dpkg::dpkg_arch;
@@ -133,7 +133,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     }
 
     apt.install(&pkgs, false)?;
-    apt.upgrade()?;
+    apt.upgrade(Upgrade::FullUpgrade)?;
 
     let request = CommitRequest {
         apt,

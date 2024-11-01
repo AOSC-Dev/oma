@@ -200,6 +200,15 @@ pub fn command_builder() -> Command {
                 cmd = cmd.arg(&no_refresh_topics);
             }
 
+            if !cfg!(feature = "aosc") {
+                cmd = cmd.arg(
+                    Arg::new("no_remove")
+                    .long("no-remove")
+                    .help("Do not allow removal of packages during upgrade (like `apt upgrade')")
+                    .action(ArgAction::SetTrue)
+                )
+            }
+
             cmd
         }
         )

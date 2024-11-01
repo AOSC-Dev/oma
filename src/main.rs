@@ -31,6 +31,9 @@ use oma_console::print::{termbg, OmaColorFormat};
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
+
+use oma_pm::apt::Upgrade;
+
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusError};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
@@ -96,7 +99,21 @@ pub struct InstallArgs {
     remove_config: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Copy)]
+pub enum UpgradeMode {
+    Full,
+    Normal,
+}
+
+impl From<UpgradeMode> for Upgrade {
+    fn from(value: UpgradeMode) -> Self {
+        match value {
+            UpgradeMode::Full => Upgrade::FullUpgrade,
+            UpgradeMode::Normal => Upgrade::Upgrade,
+        }
+    }
+}
+
 pub struct UpgradeArgs {
     yes: bool,
     force_yes: bool,
@@ -106,6 +123,8 @@ pub struct UpgradeArgs {
     autoremove: bool,
     force_unsafe_io: bool,
     remove_config: bool,
+    #[cfg(not(feature = "aosc"))]
+    mode: UpgradeMode,
 }
 
 #[derive(Debug, Default)]
@@ -433,6 +452,14 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 autoremove: args.get_flag("autoremove"),
                 force_unsafe_io: args.get_flag("force_unsafe_io"),
                 remove_config: args.get_flag("remove_config"),
+                #[cfg(not(feature = "aosc"))]
+                mode: {
+                    if args.get_flag("no_remove") {
+                        UpgradeMode::Normal
+                    } else {
+                        UpgradeMode::Full
+                    }
+                },
             };
 
             upgrade::execute(pkgs_unparse, args, oma_args)?
