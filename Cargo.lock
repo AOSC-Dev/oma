@@ -2958,8 +2958,7 @@ dependencies = [
 [[package]]
 name = "oma-apt-sources-lists"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa867579a9ecfa0d67e966dc83b26d805516010c3060b809492af84cfdf2b3a7"
+source = "git+https://github.com/AOSC-Dev/oma-apt-sources-lists?rev=1b950ec73292d8593a8d73c102d20fa03b64adb1#1b950ec73292d8593a8d73c102d20fa03b64adb1"
 dependencies = [
  "err-derive",
  "oma-debcontrol",
@@ -3109,7 +3108,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.32.1"
+version = "0.33.0"
 dependencies = [
  "ahash",
  "aho-corasick",

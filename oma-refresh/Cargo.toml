@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.32.1"
+version = "0.33.0"
 edition = "2021"
 description = "APT repository refresh handler library"
 license = "GPL-3.0-or-later"
@@ -13,7 +13,7 @@ thiserror = "1.0"
 url = "2.3"
 tokio = { version = "1.28", default-features = false, features = ["fs", "process"] }
 futures = "0.3"
-oma-apt-sources-lists = "0.4"
+oma-apt-sources-lists = { git = "https://github.com/AOSC-Dev/oma-apt-sources-lists", rev = "1b950ec73292d8593a8d73c102d20fa03b64adb1"}
 oma-debcontrol = "0.3"
 sequoia-openpgp = { version = "1.20", default-features = false }
 anyhow = "1.0"
