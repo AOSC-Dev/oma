@@ -2973,7 +2973,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "ansi-to-tui",
  "console",
