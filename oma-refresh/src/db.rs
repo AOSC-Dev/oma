@@ -268,6 +268,8 @@ impl<'a> OmaRefresh<'a> {
             .await
             .unwrap()?;
 
+        detect_duplicate_repositories(&sourcelist)?;
+
         let is_inrelease_map = self
             .get_is_inrelease_map(&sourcelist, progress_manager)
             .await?;
@@ -639,21 +641,6 @@ impl<'a> OmaRefresh<'a> {
             // 源数据确保是存在的，所以直接 unwrap
             let ose_list = sources_map.get(&inrelease_summary.filename).unwrap();
 
-            let mut no_dups_components = HashSet::with_hasher(ahash::RandomState::new());
-
-            for i in ose_list {
-                for c in i.components() {
-                    if !no_dups_components.contains(&(c, i.is_source())) {
-                        no_dups_components.insert((c, i.is_source()));
-                    } else {
-                        return Err(RefreshError::DuplicateComponents(
-                            i.url().into(),
-                            c.to_string(),
-                        ));
-                    }
-                }
-            }
-
             for ose in ose_list {
                 debug!("Getted oma source entry: {:#?}", ose);
                 let inrelease_path = self.download_dir.join(&*inrelease_summary.filename);
@@ -746,6 +733,43 @@ impl<'a> OmaRefresh<'a> {
 
         Ok((tasks, total))
     }
+}
+
+fn detect_duplicate_repositories(sourcelist: &[OmaSourceEntry<'_>]) -> Result<()> {
+    let mut map = AHashMap::new();
+
+    for i in sourcelist {
+        if !map.contains_key(&(i.url(), i.suite())) {
+            map.insert((i.url(), i.suite()), vec![i]);
+        } else {
+            map.get_mut(&(i.url(), i.suite())).unwrap().push(i);
+        }
+    }
+
+    // 查看源配置中是否有重复的源
+    // 重复的源的定义：源地址相同 源类型相同 源 component 有重复项
+    // 比如：
+    // deb https://mirrors.bfsu.edu.cn/anthon/debs stable main
+    // deb https://mirrors.bfsu.edu.cn/anthon/debs stable main contrib
+    // 重复的项为：deb https://mirrors.bfsu.edu.cn/anthon/debs stable main
+    for ose_list in map.values() {
+        let mut no_dups_components = HashSet::with_hasher(ahash::RandomState::new());
+
+        for ose in ose_list {
+            for c in ose.components() {
+                if !no_dups_components.contains(&(c, ose.is_source())) {
+                    no_dups_components.insert((c, ose.is_source()));
+                } else {
+                    return Err(RefreshError::DuplicateComponents(
+                        ose.url().into(),
+                        c.to_string(),
+                    ));
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn get_all_need_db_from_config(
