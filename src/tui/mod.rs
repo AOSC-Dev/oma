@@ -124,6 +124,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
             protect_essential: true,
             client: &HTTP_CLIENT,
             yes: false,
+            remove_config: false,
         }
         .run()?;
     }

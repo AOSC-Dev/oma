@@ -117,6 +117,7 @@ pub fn execute(
         protect_essential,
         client: &HTTP_CLIENT,
         yes: args.yes,
+        remove_config: args.remove_config,
     };
 
     let code = request.run()?;

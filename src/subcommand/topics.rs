@@ -150,6 +150,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         protect_essential: oma_args.protect_essentials,
         client: &client,
         yes: false,
+        remove_config: false,
     };
 
     let code = request.run()?;

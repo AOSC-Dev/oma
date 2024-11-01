@@ -102,6 +102,7 @@ pub fn execute(
             dry_run,
             AptConfig::new(),
         )?;
+
         apt.upgrade()?;
 
         let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, true, false)?;
@@ -119,11 +120,11 @@ pub fn execute(
 
         handle_no_result(&args.sysroot, no_result, no_progress)?;
 
-        apt.resolve(false, true)?;
+        apt.resolve(false, true, args.remove_config)?;
 
         if args.autoremove {
             apt.autoremove(false)?;
-            apt.resolve(false, true)?;
+            apt.resolve(false, true, args.remove_config)?;
         }
 
         let op = apt.summary(

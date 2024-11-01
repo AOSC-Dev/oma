@@ -251,6 +251,7 @@ pub struct CommitRequest<'a> {
     pub protect_essential: bool,
     pub client: &'a Client,
     pub yes: bool,
+    pub remove_config: bool,
 }
 
 impl<'a> CommitRequest<'a> {
@@ -267,9 +268,10 @@ impl<'a> CommitRequest<'a> {
             protect_essential,
             client,
             yes,
+            remove_config,
         } = self;
 
-        apt.resolve(no_fixbroken, fix_dpkg_status)?;
+        apt.resolve(no_fixbroken, fix_dpkg_status, remove_config)?;
 
         let op = apt.summary(
             |pkg| {

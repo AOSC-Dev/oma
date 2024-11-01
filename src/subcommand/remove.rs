@@ -77,6 +77,7 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         protect_essential: protect,
         client: &HTTP_CLIENT,
         yes: args.yes,
+        remove_config: args.remove_config,
     };
 
     let code = request.run()?;

@@ -163,6 +163,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         protect_essential,
         client: &HTTP_CLIENT,
         yes: false,
+        remove_config: false,
     };
 
     let code = request.run()?;
