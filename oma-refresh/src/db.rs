@@ -1,10 +1,11 @@
 use std::{
     borrow::Cow,
+    collections::hash_map::Entry,
     os::fd::AsRawFd,
     path::{Path, PathBuf},
 };
 
-use ahash::AHashMap;
+use ahash::{AHashMap, HashSet};
 use aho_corasick::BuildError;
 use bon::{builder, Builder};
 use chrono::Utc;
@@ -98,6 +99,8 @@ pub enum RefreshError {
     SetLock(Errno),
     #[error("Set lock failed: process {0} ({1}) is using.")]
     SetLockWithProcess(String, i32),
+    #[error("duplicate components")]
+    DuplicateComponents(Box<str>, String),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -135,6 +138,8 @@ pub enum RefreshError {
     SetLock(Errno),
     #[error("Set lock failed: process {0} ({1}) is using.")]
     SetLockWithProcess(String, i32),
+    #[error("duplicate components")]
+    DuplicateComponents(Box<str>, String),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -161,6 +166,8 @@ enum RepoType {
     Release,
     FlatNoRelease,
 }
+
+type SourceMap<'a> = AHashMap<String, Vec<OmaSourceEntry<'a>>>;
 
 fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
     let lock_path = download_dir.join("lock");
@@ -486,9 +493,9 @@ impl<'a> OmaRefresh<'a> {
         sourcelist: &[OmaSourceEntry<'a>],
         is_inrelease_map: AHashMap<usize, RepoType>,
         replacer: &DatabaseFilenameReplacer,
-    ) -> Result<(Vec<DownloadEntry>, AHashMap<String, OmaSourceEntry>)> {
+    ) -> Result<(Vec<DownloadEntry>, SourceMap)> {
         let mut tasks = Vec::new();
-        let mut map = AHashMap::new();
+        let mut map: AHashMap<String, Vec<OmaSourceEntry<'a>>> = AHashMap::new();
 
         for (i, source_entry) in sourcelist.iter().enumerate() {
             let repo_type = is_inrelease_map.get(&i).unwrap();
@@ -530,7 +537,16 @@ impl<'a> OmaRefresh<'a> {
                 .build();
 
             debug!("oma will fetch {} InRelease", source_entry.url());
-            map.insert(task.filename.to_string(), source_entry.to_owned());
+
+            match map.entry(task.filename.to_string()) {
+                Entry::Occupied(mut occupied_entry) => {
+                    occupied_entry.get_mut().push(source_entry.to_owned());
+                }
+                Entry::Vacant(vacant_entry) => {
+                    vacant_entry.insert(vec![source_entry.to_owned()]);
+                }
+            }
+
             tasks.push(task);
         }
 
@@ -615,97 +631,117 @@ impl<'a> OmaRefresh<'a> {
         all_inrelease: Vec<Summary>,
         sourcelist: &[OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
-        sources_map: &AHashMap<String, OmaSourceEntry<'a>>,
+        sources_map: &AHashMap<String, Vec<OmaSourceEntry<'a>>>,
         config_tree: &[(String, String)],
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
         for inrelease_summary in all_inrelease {
             // 源数据确保是存在的，所以直接 unwrap
-            let ose = sources_map.get(&inrelease_summary.filename).unwrap();
+            let ose_list = sources_map.get(&inrelease_summary.filename).unwrap();
 
-            debug!("Getted oma source entry: {:#?}", ose);
-            let inrelease_path = self.download_dir.join(&*inrelease_summary.filename);
+            let mut no_dups_components = HashSet::with_hasher(ahash::RandomState::new());
 
-            let inrelease = tokio::fs::read_to_string(&inrelease_path)
-                .await
-                .map_err(|e| {
-                    RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
-                })?;
-
-            let archs = if let Some(archs) = ose.options().get("archs") {
-                archs.split(',').collect::<Vec<_>>()
-            } else {
-                vec![self.arch.as_str()]
-            };
-
-            let inrelease = verify_inrelease(
-                &inrelease,
-                ose.options().get("signed-by").map(|x| x.as_str()),
-                &self.source,
-                ose.options().get("trusted").is_some_and(|x| x == "yes"),
-            )
-            .map_err(|e| {
-                RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
-            })?;
-
-            let inrelease = InRelease::new(&inrelease).map_err(|e| {
-                RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
-            })?;
-
-            if !ose.is_flat() {
-                let now = Utc::now();
-
-                inrelease.check_date(&now).map_err(|e| {
-                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
-                })?;
-
-                inrelease.check_valid_until(&now).map_err(|e| {
-                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
-                })?;
+            for i in ose_list {
+                for c in i.components() {
+                    if !no_dups_components.contains(&(c, i.is_source())) {
+                        no_dups_components.insert((c, i.is_source()));
+                    } else {
+                        return Err(RefreshError::DuplicateComponents(
+                            i.url().into(),
+                            c.to_string(),
+                        ));
+                    }
+                }
             }
 
-            let checksums = &inrelease
-                .get_or_try_init_checksum_type_and_list()
-                .map_err(|e| {
-                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
-                })?
-                .1;
+            for ose in ose_list {
+                debug!("Getted oma source entry: {:#?}", ose);
+                let inrelease_path = self.download_dir.join(&*inrelease_summary.filename);
 
-            let mut handle = vec![];
-            let f = FilterDownloadList {
-                checksums,
-                config: self.apt_config,
-                config_tree,
-                archs: &archs,
-                components: ose.components(),
-                native_arch: &self.arch,
-                is_flat: ose.is_flat(),
-                is_source: ose.is_source(),
-            };
+                let inrelease = tokio::fs::read_to_string(&inrelease_path)
+                    .await
+                    .map_err(|e| {
+                        RefreshError::FailedToOperateDirOrFile(
+                            inrelease_path.display().to_string(),
+                            e,
+                        )
+                    })?;
 
-            let filter_checksums = fiilter_download_list(f);
+                let archs = if let Some(archs) = ose.options().get("archs") {
+                    archs.split(',').collect::<Vec<_>>()
+                } else {
+                    vec![self.arch.as_str()]
+                };
 
-            get_all_need_db_from_config(filter_checksums, &mut total, checksums, &mut handle);
-
-            for i in &self.flat_repo_no_release {
-                download_flat_repo_no_release(
-                    sourcelist.get(*i).unwrap(),
-                    &self.download_dir,
-                    &mut tasks,
-                    replacer,
-                )?;
-            }
-
-            for c in handle {
-                collect_download_task(
-                    &c,
-                    ose,
-                    &self.download_dir,
-                    &mut tasks,
+                let inrelease = verify_inrelease(
                     &inrelease,
-                    replacer,
-                )?;
+                    ose.options().get("signed-by").map(|x| x.as_str()),
+                    &self.source,
+                    ose.options().get("trusted").is_some_and(|x| x == "yes"),
+                )
+                .map_err(|e| {
+                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                })?;
+
+                let inrelease = InRelease::new(&inrelease).map_err(|e| {
+                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                })?;
+
+                if !ose.is_flat() {
+                    let now = Utc::now();
+
+                    inrelease.check_date(&now).map_err(|e| {
+                        RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                    })?;
+
+                    inrelease.check_valid_until(&now).map_err(|e| {
+                        RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                    })?;
+                }
+
+                let checksums = &inrelease
+                    .get_or_try_init_checksum_type_and_list()
+                    .map_err(|e| {
+                        RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                    })?
+                    .1;
+
+                let mut handle = vec![];
+                let f = FilterDownloadList {
+                    checksums,
+                    config: self.apt_config,
+                    config_tree,
+                    archs: &archs,
+                    components: ose.components(),
+                    native_arch: &self.arch,
+                    is_flat: ose.is_flat(),
+                    is_source: ose.is_source(),
+                };
+
+                let filter_checksums = fiilter_download_list(f);
+
+                get_all_need_db_from_config(filter_checksums, &mut total, checksums, &mut handle);
+
+                for i in &self.flat_repo_no_release {
+                    download_flat_repo_no_release(
+                        sourcelist.get(*i).unwrap(),
+                        &self.download_dir,
+                        &mut tasks,
+                        replacer,
+                    )?;
+                }
+
+                for c in handle {
+                    collect_download_task(
+                        &c,
+                        ose,
+                        &self.download_dir,
+                        &mut tasks,
+                        &inrelease,
+                        replacer,
+                    )?;
+                }
             }
         }
 

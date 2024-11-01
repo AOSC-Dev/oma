@@ -412,6 +412,10 @@ impl From<RefreshError> for OutputError {
                     fl!("oma-refresh-lock-dueto", exec = cmd, pid = pid),
                 ))),
             },
+            RefreshError::DuplicateComponents(url, component) => Self {
+                description: fl!("doplicate-component", url = url.to_string(), c = component),
+                source: None,
+            },
         }
         #[cfg(not(feature = "aosc"))]
         match value {
@@ -525,6 +529,10 @@ impl From<RefreshError> for OutputError {
                     ErrorKind::Other,
                     fl!("oma-refresh-lock-dueto", exec = cmd, pid = pid),
                 ))),
+            },
+            RefreshError::DuplicateComponents(url, component) => Self {
+                description: fl!("doplicate-component", url = url.to_string(), c = component),
+                source: None,
             },
         }
     }
