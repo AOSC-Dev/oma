@@ -544,10 +544,9 @@ impl<'a> OmaRefresh<'a> {
                 }
                 Entry::Vacant(vacant_entry) => {
                     vacant_entry.insert(vec![source_entry.to_owned()]);
+                    tasks.push(task);
                 }
             }
-
-            tasks.push(task);
         }
 
         Ok((tasks, map))
