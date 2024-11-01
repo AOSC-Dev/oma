@@ -214,3 +214,4 @@ search-tips-with-empty = 搜尋關鍵字不能為空（請按 [/] 重試搜尋�
 search-tips-not-found = 您搜尋的關鍵字未匹配到任何項目（請按 [/] 重試搜尋）。
 select-mirror-prompt = 按 [Space]/[Enter] 啟用或關閉鏡像站
 set-mirror-order-prompt = 按 [Space] 選中鏡像站，然後使用上下方向鍵修改優先順序
+doplicate-component = 軟體庫設定檔中有重複項目：{ $url } { $c }。
