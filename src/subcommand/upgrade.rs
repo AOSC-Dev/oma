@@ -11,6 +11,13 @@ use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::OmaAptError;
+
+#[cfg(feature = "aosc")]
+use oma_pm::apt::Upgrade;
+
+#[cfg(not(feature = "aosc"))]
+use tracing::debug;
+
 use tracing::info;
 use tracing::warn;
 
@@ -95,6 +102,9 @@ pub fn execute(
         .dpkg_force_unsafe_io(args.force_unsafe_io)
         .build();
 
+    #[cfg(not(feature = "aosc"))]
+    debug!("Upgrade mode is using: {:?}", args.mode);
+
     loop {
         let mut apt = OmaApt::new(
             local_debs.clone(),
@@ -103,7 +113,11 @@ pub fn execute(
             AptConfig::new(),
         )?;
 
-        apt.upgrade()?;
+        #[cfg(feature = "aosc")]
+        apt.upgrade(Upgrade::FullUpgrade)?;
+
+        #[cfg(not(feature = "aosc"))]
+        apt.upgrade(args.mode.into())?;
 
         let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, true, false)?;
 

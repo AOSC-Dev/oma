@@ -9,8 +9,10 @@ use ahash::HashSet;
 use bon::{builder, Builder};
 use chrono::Local;
 
+pub use oma_apt::cache::Upgrade;
+
 use oma_apt::{
-    cache::{Cache, PackageSort, Upgrade},
+    cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
     new_cache,
     progress::{AcquireProgress, InstallProgress},
@@ -333,8 +335,8 @@ impl OmaApt {
     }
 
     /// Set apt manager status as upgrade
-    pub fn upgrade(&self) -> OmaAptResult<()> {
-        self.cache.upgrade(Upgrade::FullUpgrade)?;
+    pub fn upgrade(&self, mode: Upgrade) -> OmaAptResult<()> {
+        self.cache.upgrade(mode)?;
 
         Ok(())
     }

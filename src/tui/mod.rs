@@ -7,7 +7,7 @@ use oma_console::{
 };
 use oma_history::SummaryType;
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{AptConfig, OmaApt, OmaAptArgs, Upgrade},
     search::IndiciumSearch,
 };
 use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
@@ -108,7 +108,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         };
 
         lock_oma()?;
-        apt.upgrade()?;
+        apt.upgrade(Upgrade::FullUpgrade)?;
         apt.install(&install, false)?;
         apt.remove(&remove, false, false)?;
 
