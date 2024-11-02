@@ -239,6 +239,10 @@ impl From<OmaDbusError> for OutputError {
                 description: "Failed to get oma status".to_string(),
                 source: Some(Box::new(e)),
             },
+            OmaDbusError::SessionState(_) => Self {
+                description: value.to_string(),
+                source: None,
+            },
         }
     }
 }
