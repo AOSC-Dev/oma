@@ -120,6 +120,7 @@ pub fn is_ssh_from_loginctl() -> bool {
     let cmd = Command::new("loginctl")
         .arg("session-status")
         .stdout(Stdio::piped())
+        .stderr(Stdio::null())
         .spawn();
 
     let Ok(out1) = cmd else {
