@@ -59,6 +59,12 @@ pub fn command_builder() -> Command {
         .action(ArgAction::SetTrue)
         .help("Set output format as JSON");
 
+    let remove_config = Arg::new("remove_config")
+        .long("remove-config")
+        .visible_alias("purge")
+        .help("Remove package(s) also remove configuration file(s), like apt purge")
+        .action(ArgAction::SetTrue);
+
     let mut cmd = command!()
         .max_term_width(100)
         .disable_version_flag(true)
@@ -168,6 +174,7 @@ pub fn command_builder() -> Command {
                 .arg(yes.clone().requires("packages"))
                 .arg(force_yes.clone().requires("packages"))
                 .arg(force_confnew.clone().requires("packages"))
+                .arg(&remove_config)
                 .arg(&dry_run);
 
             if cfg!(feature = "aosc") {
@@ -187,8 +194,8 @@ pub fn command_builder() -> Command {
                 .arg(&force_yes)
                 .arg(force_confnew)
                 .arg(&dry_run)
-                .arg(Arg::new("autoremove").long("autoremove").help("Auto remove unnecessary package(s)").action(ArgAction::SetTrue));
-
+                .arg(Arg::new("autoremove").long("autoremove").help("Auto remove unnecessary package(s)").action(ArgAction::SetTrue))
+                .arg(&remove_config);
             if cfg!(feature = "aosc") {
                 cmd = cmd.arg(&no_refresh_topics);
             }
@@ -226,12 +233,7 @@ pub fn command_builder() -> Command {
                 .arg(force_yes.clone().requires("packages"))
                 .arg(no_autoremove.clone().requires("packages"))
                 .arg(&fix_broken)
-                .arg(
-                    Arg::new("remove_config")
-                        .long("remove-config")
-                        .help("Remove package(s) also remove configuration file(s), like apt purge")
-                        .action(ArgAction::SetTrue),
-                )
+                .arg(&remove_config)
                 .arg(&dry_run),
         )
         .subcommand(

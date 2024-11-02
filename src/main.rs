@@ -93,6 +93,7 @@ pub struct InstallArgs {
     sysroot: String,
     no_refresh_topic: bool,
     force_unsafe_io: bool,
+    remove_config: bool,
 }
 
 #[derive(Debug, Default)]
@@ -104,6 +105,7 @@ pub struct UpgradeArgs {
     no_refresh_topcs: bool,
     autoremove: bool,
     force_unsafe_io: bool,
+    remove_config: bool,
 }
 
 #[derive(Debug, Default)]
@@ -413,6 +415,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 no_install_suggests: args.get_flag("no_install_recommends"),
                 no_refresh_topic: no_refresh_topics(&config, args),
                 force_unsafe_io: args.get_flag("force_unsafe_io"),
+                remove_config: args.get_flag("remove_config"),
                 sysroot,
             };
 
@@ -429,6 +432,7 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 no_refresh_topcs: no_refresh_topics(&config, args),
                 autoremove: args.get_flag("autoremove"),
                 force_unsafe_io: args.get_flag("force_unsafe_io"),
+                remove_config: args.get_flag("remove_config"),
             };
 
             upgrade::execute(pkgs_unparse, args, oma_args)?

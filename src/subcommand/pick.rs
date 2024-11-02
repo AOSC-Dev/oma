@@ -145,6 +145,7 @@ pub fn execute(
         protect_essential,
         client: &HTTP_CLIENT,
         yes: false,
+        remove_config: false,
     };
 
     let exit = request.run()?;

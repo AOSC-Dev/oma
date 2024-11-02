@@ -49,6 +49,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
         protect_essential,
         client: &HTTP_CLIENT,
         yes: false,
+        remove_config: false,
     };
 
     let code = request.run()?;
