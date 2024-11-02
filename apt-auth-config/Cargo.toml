@@ -1,0 +1,9 @@
+[package]
+name = "apt-auth-config"
+version = "0.1.0"
+edition = "2021"
+description = "APT parser auth.conf.d library"
+license = "MIT"
+
+[dependencies]
+thiserror = "1"

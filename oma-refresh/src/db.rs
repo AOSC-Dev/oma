@@ -1,12 +1,14 @@
 use std::{
     borrow::Cow,
     collections::hash_map::Entry,
+    future::Future,
     os::fd::AsRawFd,
     path::{Path, PathBuf},
 };
 
 use ahash::{AHashMap, HashSet};
 use aho_corasick::BuildError;
+use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 use chrono::Utc;
 use futures::{
@@ -159,6 +161,7 @@ pub struct OmaRefresh<'a> {
     apt_config: &'a Config,
     topic_msg: &'a str,
     progress_manager: &'a dyn HandleRefresh,
+    auth_config: &'a AuthConfig,
 }
 
 enum RepoType {
@@ -168,6 +171,7 @@ enum RepoType {
 }
 
 type SourceMap<'a> = AHashMap<String, Vec<OmaSourceEntry<'a>>>;
+type ResponseResult = std::result::Result<reqwest::Response, reqwest::Error>;
 
 fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
     let lock_path = download_dir.join("lock");
@@ -376,21 +380,24 @@ impl<'a> OmaRefresh<'a> {
         for (i, c) in sourcelist.iter().enumerate() {
             let mut tasks1 = vec![];
             let dist_path = c.dist_path();
+
+            let auth = self.auth_config.find(c.url());
+
             match c.from()? {
                 OmaSourceEntryFrom::Http => {
-                    let resp1: BoxFuture<'_, _> = Box::pin(
-                        self.client
-                            .head(format!("{}/InRelease", dist_path))
-                            .send()
-                            .map(move |x| (x.and_then(|x| x.error_for_status()), i)),
-                    );
+                    let resp1: BoxFuture<'_, _> = Box::pin(self.response(dist_path, auth, i));
 
-                    let resp2 = Box::pin(
-                        self.client
-                            .head(format!("{}/Release", dist_path))
+                    let resp2 = Box::pin({
+                        let mut client = self.client.head(format!("{}/Release", dist_path));
+
+                        if let Some(auth) = auth {
+                            client = client.basic_auth(&auth.user, Some(&auth.password))
+                        }
+
+                        client
                             .send()
-                            .map(move |x| (x.and_then(|x| x.error_for_status()), i)),
-                    );
+                            .map(move |x| (x.and_then(|x| x.error_for_status()), i))
+                    });
 
                     tasks1.push(resp1);
                     tasks1.push(resp2);
@@ -488,6 +495,24 @@ impl<'a> OmaRefresh<'a> {
         }
 
         Ok(mirrors_inrelease)
+    }
+
+    fn response(
+        &mut self,
+        dist_path: &str,
+        auth: Option<&apt_auth_config::AuthConfigEntry>,
+        i: usize,
+    ) -> futures::future::Map<
+        impl Future<Output = ResponseResult>,
+        impl FnOnce(ResponseResult) -> (ResponseResult, usize),
+    > {
+        let mut client = self.client.head(format!("{}/InRelease", dist_path));
+        if let Some(auth) = auth {
+            client = client.basic_auth(&auth.user, Some(&auth.password))
+        }
+        client
+            .send()
+            .map(move |x| (x.and_then(|x| x.error_for_status()), i))
     }
 
     fn collect_download_release_tasks(

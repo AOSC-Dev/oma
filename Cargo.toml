@@ -54,6 +54,7 @@ oma-topics = { path = "./oma-topics", optional = true, default-features = false 
 oma-history = { path = "./oma-history" }
 oma-repo-verify = { path = "./oma-repo-verify" }
 oma-mirror = { path = "./oma-mirror", optional = true }
+apt-auth-config = { path = "./apt-auth-config" }
 
 # i18n
 i18n-embed = { version = "0.15.0", features = ["fluent-system", "desktop-requester"]}
@@ -79,7 +80,7 @@ generic = ["sequoia-nettle-backend", "rustls"]
 default = ["aosc", "generic"]
 
 [workspace]
-members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify", "oma-mirror"]
+members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify", "oma-mirror", "apt-auth-config"]
 
 [package.metadata.deb]
 copyright = "2024, AOSC Dev <maintainers@aosc.io>"

@@ -18,6 +18,7 @@ use crate::table::table_for_install_pending;
 use crate::LOCKED;
 use crate::RT;
 use ahash::HashSet;
+use apt_auth_config::AuthConfig;
 use chrono::Local;
 use dialoguer::console;
 use dialoguer::console::style;
@@ -218,6 +219,8 @@ impl<'a> RefreshRequest<'a> {
 
         let arch = dpkg_arch(&sysroot)?;
 
+        let auth_config = AuthConfig::from_path(&sysroot).unwrap();
+
         let refresh = OmaRefresh::builder()
             .download_dir(sysroot.join("var/lib/apt/lists"))
             .source(sysroot)
@@ -226,6 +229,7 @@ impl<'a> RefreshRequest<'a> {
             .apt_config(config)
             .client(client)
             .progress_manager(pm)
+            .auth_config(&auth_config)
             .topic_msg(&msg);
 
         #[cfg(feature = "aosc")]
