@@ -1,3 +1,4 @@
+use apt_auth_config::AuthConfig;
 use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
@@ -30,6 +31,8 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
         no_check_dbus_warn();
     }
 
+    let auth_config = AuthConfig::system(&sysroot)?;
+
     let oma_apt_args = OmaAptArgs::builder()
         .sysroot(sysroot.clone())
         .no_progress(no_progress)
@@ -50,6 +53,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
         client: &HTTP_CLIENT,
         yes: false,
         remove_config: false,
+        auth_config: &auth_config,
     };
 
     let code = request.run()?;

@@ -6,6 +6,7 @@ use std::{
 };
 
 use thiserror::Error;
+use tracing::debug;
 
 #[derive(Debug, Error)]
 pub enum AuthConfigError {
@@ -19,12 +20,12 @@ pub enum AuthConfigError {
     MissingEntry(&'static str),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AuthConfig {
     pub inner: Vec<AuthConfigEntry>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AuthConfigEntry {
     pub host: Box<str>,
     pub user: Box<str>,
@@ -65,7 +66,7 @@ impl FromStr for AuthConfigEntry {
 
             if *c == "password" {
                 let Some(p) = entry.get(i + 1) else {
-                    return Err(AuthConfigError::MissingEntry("login"));
+                    return Err(AuthConfigError::MissingEntry("password"));
                 };
 
                 password = Some(p);
@@ -124,8 +125,38 @@ impl AuthConfig {
         Ok(Self { inner: v })
     }
 
-    pub fn find(&self, machine: &str) -> Option<&AuthConfigEntry> {
-        self.inner.iter().find(|x| x.host.as_ref() == machine)
+    pub fn find(&self, url: &str) -> Option<&AuthConfigEntry> {
+        let url = url
+            .strip_prefix("http://")
+            .or_else(|| url.strip_prefix("https://"))
+            .unwrap_or(url);
+
+        debug!("auth find url is: {}", url);
+
+        self.inner.iter().find(|x| {
+            let mut host = x.host.to_string();
+            while host.ends_with('/') {
+                host.pop();
+            }
+
+            let mut url = url.to_string();
+            while url.ends_with('/') {
+                url.pop();
+            }
+
+            host == url
+        })
+    }
+
+    pub fn find_package_url(&self, url: &str) -> Option<&AuthConfigEntry> {
+        let url = url
+            .strip_prefix("http://")
+            .or_else(|| url.strip_prefix("https://"))
+            .unwrap_or(url);
+
+        debug!("auth find package url is: {}", url);
+
+        self.inner.iter().find(|x| url.starts_with(x.host.as_ref()))
     }
 }
 

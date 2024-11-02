@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use apt_auth_config::AuthConfig;
 use oma_console::{
     indicatif::ProgressBar,
     pager::{exit_tui, prepare_create_tui},
@@ -49,6 +50,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     } = tui;
 
     let apt_config = AptConfig::new();
+    let auth_config = AuthConfig::system(&sysroot)?;
 
     RefreshRequest {
         client: &HTTP_CLIENT,
@@ -58,6 +60,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         sysroot: &sysroot,
         _refresh_topics: true,
         config: &apt_config,
+        auth_config: &auth_config,
     }
     .run()?;
 
@@ -125,6 +128,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
             client: &HTTP_CLIENT,
             yes: false,
             remove_config: false,
+            auth_config: &auth_config,
         }
         .run()?;
     }

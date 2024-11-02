@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
+use apt_auth_config::AuthConfig;
 use oma_console::{due_to, success};
 use oma_fetch::DownloadProgressControl;
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use tracing::error;
 
 use crate::pb::{NoProgressBar, OmaMultiProgressBar};
@@ -43,8 +44,11 @@ pub fn execute(
     let (success, failed) = apt.download(
         &HTTP_CLIENT,
         pkgs,
-        Some(network_thread),
-        Some(&path),
+        DownloadConfig {
+            network_thread: Some(network_thread),
+            download_dir: Some(&path),
+            auth: &AuthConfig::system("/")?,
+        },
         dry_run,
         progress_manager,
     )?;

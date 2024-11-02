@@ -1,3 +1,4 @@
+use apt_auth_config::AuthConfig;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
@@ -46,6 +47,8 @@ pub fn execute(
 
     let apt_config = AptConfig::new();
 
+    let auth_config = AuthConfig::system(&args.sysroot)?;
+
     if !args.no_refresh {
         RefreshRequest {
             client: &HTTP_CLIENT,
@@ -55,6 +58,7 @@ pub fn execute(
             sysroot: &args.sysroot,
             _refresh_topics: !args.no_refresh_topic,
             config: &apt_config,
+            auth_config: &auth_config,
         }
         .run()?;
     }
@@ -118,6 +122,7 @@ pub fn execute(
         client: &HTTP_CLIENT,
         yes: args.yes,
         remove_config: args.remove_config,
+        auth_config: &auth_config,
     };
 
     let code = request.run()?;

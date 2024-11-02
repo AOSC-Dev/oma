@@ -31,7 +31,7 @@ async fn main() -> Result<(), RefreshError> {
         .topic_msg("test")
         .refresh_topics(false)
         .progress_manager(pm.as_ref())
-        .auth_config(&AuthConfig::from_path("/").unwrap())
+        .auth_config(&AuthConfig::system("/").unwrap())
         .build()
         .start()
         .await?;

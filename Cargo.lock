@@ -158,6 +158,7 @@ name = "apt-auth-config"
 version = "0.1.0"
 dependencies = [
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -3064,6 +3065,7 @@ name = "oma-pm"
 version = "0.37.3"
 dependencies = [
  "ahash",
+ "apt-auth-config",
  "bon",
  "chrono",
  "cxx",

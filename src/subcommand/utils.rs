@@ -40,6 +40,7 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
+use oma_pm::apt::CommitDownloadConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::SummarySort;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
@@ -187,6 +188,7 @@ pub struct RefreshRequest<'a> {
     pub sysroot: &'a str,
     pub _refresh_topics: bool,
     pub config: &'a AptConfig,
+    pub auth_config: &'a AuthConfig,
 }
 
 impl<'a> RefreshRequest<'a> {
@@ -199,6 +201,7 @@ impl<'a> RefreshRequest<'a> {
             sysroot,
             _refresh_topics,
             config,
+            auth_config,
         } = self;
 
         if dry_run {
@@ -219,8 +222,6 @@ impl<'a> RefreshRequest<'a> {
 
         let arch = dpkg_arch(&sysroot)?;
 
-        let auth_config = AuthConfig::from_path(&sysroot).unwrap();
-
         let refresh = OmaRefresh::builder()
             .download_dir(sysroot.join("var/lib/apt/lists"))
             .source(sysroot)
@@ -229,7 +230,7 @@ impl<'a> RefreshRequest<'a> {
             .apt_config(config)
             .client(client)
             .progress_manager(pm)
-            .auth_config(&auth_config)
+            .auth_config(auth_config)
             .topic_msg(&msg);
 
         #[cfg(feature = "aosc")]
@@ -257,6 +258,7 @@ pub struct CommitRequest<'a> {
     pub client: &'a Client,
     pub yes: bool,
     pub remove_config: bool,
+    pub auth_config: &'a AuthConfig,
 }
 
 impl<'a> CommitRequest<'a> {
@@ -274,6 +276,7 @@ impl<'a> CommitRequest<'a> {
             client,
             yes,
             remove_config,
+            auth_config,
         } = self;
 
         apt.resolve(no_fixbroken, fix_dpkg_status, remove_config)?;
@@ -318,7 +321,15 @@ impl<'a> CommitRequest<'a> {
             Box::new(NoProgressBar::default())
         };
 
-        let res = apt.commit(client, Some(network_thread), pm.as_ref(), op);
+        let res = apt.commit(
+            client,
+            CommitDownloadConfig {
+                network_thread: Some(network_thread),
+                auth: auth_config,
+            },
+            pm.as_ref(),
+            op,
+        );
 
         match res {
             Ok(_) => {

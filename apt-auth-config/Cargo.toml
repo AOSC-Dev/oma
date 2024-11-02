@@ -7,3 +7,4 @@ license = "MIT"
 
 [dependencies]
 thiserror = "1"
+tracing = "0.1"

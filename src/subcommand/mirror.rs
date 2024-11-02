@@ -6,6 +6,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::anyhow;
+use apt_auth_config::AuthConfig;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Sort;
@@ -332,6 +333,8 @@ fn refresh(
     network_threads: usize,
     refresh_topic: bool,
 ) -> Result<(), OutputError> {
+    let auth_config = AuthConfig::system("/")?;
+
     RefreshRequest {
         client: &HTTP_CLIENT,
         dry_run: false,
@@ -340,6 +343,7 @@ fn refresh(
         sysroot: "/",
         _refresh_topics: refresh_topic,
         config: &AptConfig::new(),
+        auth_config: &auth_config,
     }
     .run()?;
 

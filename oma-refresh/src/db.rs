@@ -8,7 +8,7 @@ use std::{
 
 use ahash::{AHashMap, HashSet};
 use aho_corasick::BuildError;
-use apt_auth_config::AuthConfig;
+use apt_auth_config::{AuthConfig, AuthConfigEntry};
 use bon::{builder, Builder};
 use chrono::Utc;
 use futures::{
@@ -251,7 +251,7 @@ impl<'a> OmaRefresh<'a> {
 
     async fn update_db(
         &mut self,
-        sourcelist: Vec<OmaSourceEntry<'_>>,
+        mut sourcelist: Vec<OmaSourceEntry<'_>>,
         progress_manager: &dyn HandleRefresh,
         topic_msg: &str,
     ) -> Result<()> {
@@ -273,6 +273,8 @@ impl<'a> OmaRefresh<'a> {
             .unwrap()?;
 
         detect_duplicate_repositories(&sourcelist)?;
+
+        self.set_auth(&mut sourcelist);
 
         let is_inrelease_map = self
             .get_is_inrelease_map(&sourcelist, progress_manager)
@@ -341,6 +343,15 @@ impl<'a> OmaRefresh<'a> {
         Ok(())
     }
 
+    fn set_auth(&self, sourcelist: &mut [OmaSourceEntry<'_>]) {
+        for i in sourcelist {
+            let auth = self.auth_config.find(i.url());
+            if let Some(auth) = auth {
+                i.set_auth(auth.to_owned());
+            }
+        }
+    }
+
     async fn run_success_post_invoke(config_tree: &[(String, String)]) {
         let cmds = config_tree
             .iter()
@@ -381,34 +392,23 @@ impl<'a> OmaRefresh<'a> {
             let mut tasks1 = vec![];
             let dist_path = c.dist_path();
 
-            let auth = self.auth_config.find(c.url());
-
             match c.from()? {
                 OmaSourceEntryFrom::Http => {
-                    let resp1: BoxFuture<'_, _> = Box::pin(self.response(dist_path, auth, i));
-
-                    let resp2 = Box::pin({
-                        let mut client = self.client.head(format!("{}/Release", dist_path));
-
-                        if let Some(auth) = auth {
-                            client = client.basic_auth(&auth.user, Some(&auth.password))
-                        }
-
-                        client
-                            .send()
-                            .map(move |x| (x.and_then(|x| x.error_for_status()), i))
-                    });
+                    let resp1: BoxFuture<'_, _> =
+                        Box::pin(self.request(dist_path, "InRelease", c.auth.as_ref(), i));
+                    let resp2 = Box::pin(Box::pin(self.request(
+                        dist_path,
+                        "Release",
+                        c.auth.as_ref(),
+                        i,
+                    )));
 
                     tasks1.push(resp1);
                     tasks1.push(resp2);
 
                     if c.is_flat() {
-                        let resp3 = Box::pin(
-                            self.client
-                                .head(format!("{}/Packages", dist_path))
-                                .send()
-                                .map(move |x| (x.and_then(|x| x.error_for_status()), i)),
-                        );
+                        let resp3 =
+                            Box::pin(self.request(dist_path, "Packages", c.auth.as_ref(), i));
                         tasks1.push(resp3);
                     }
 
@@ -497,20 +497,22 @@ impl<'a> OmaRefresh<'a> {
         Ok(mirrors_inrelease)
     }
 
-    fn response(
-        &mut self,
+    fn request(
+        &self,
         dist_path: &str,
-        auth: Option<&apt_auth_config::AuthConfigEntry>,
+        file_name: &str,
+        auth: Option<&AuthConfigEntry>,
         i: usize,
     ) -> futures::future::Map<
         impl Future<Output = ResponseResult>,
         impl FnOnce(ResponseResult) -> (ResponseResult, usize),
     > {
-        let mut client = self.client.head(format!("{}/InRelease", dist_path));
+        let mut request = self.client.head(format!("{}/{}", dist_path, file_name));
         if let Some(auth) = auth {
-            client = client.basic_auth(&auth.user, Some(&auth.password))
+            request = request.basic_auth(&auth.user, Some(&auth.password))
         }
-        client
+
+        request
             .send()
             .map(move |x| (x.and_then(|x| x.error_for_status()), i))
     }
@@ -549,7 +551,12 @@ impl<'a> OmaRefresh<'a> {
             let sources = vec![DownloadSource {
                 url: uri.clone(),
                 source_type: match source_entry.from()? {
-                    OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+                    OmaSourceEntryFrom::Http => DownloadSourceType::Http {
+                        auth: source_entry
+                            .auth
+                            .as_ref()
+                            .map(|auth| (auth.user.clone(), auth.password.clone())),
+                    },
                     // 为保持与 apt 行为一致，本地源 symlink Release 文件
                     OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_entry.is_flat()),
                 },
@@ -862,7 +869,12 @@ fn download_flat_repo_no_release(
     let dist_url = source_index.dist_path();
 
     let from = match source_index.from()? {
-        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+        OmaSourceEntryFrom::Http => DownloadSourceType::Http {
+            auth: source_index
+                .auth
+                .as_ref()
+                .map(|auth| (auth.user.clone(), auth.password.clone())),
+        },
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_index.is_flat()),
     };
 
@@ -904,7 +916,12 @@ fn collect_download_task(
     let dist_url = &source_index.dist_path();
 
     let from = match source_index.from()? {
-        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+        OmaSourceEntryFrom::Http => DownloadSourceType::Http {
+            auth: source_index
+                .auth
+                .as_ref()
+                .map(|auth| (auth.user.clone(), auth.password.clone())),
+        },
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_index.is_flat()),
     };
 

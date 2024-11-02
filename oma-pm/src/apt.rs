@@ -7,6 +7,7 @@ use std::{
 };
 
 use ahash::HashSet;
+use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 use chrono::Local;
 
@@ -161,6 +162,17 @@ pub enum SummarySort {
     Names,
     Operation,
     NoSort,
+}
+
+pub struct DownloadConfig<'a> {
+    pub network_thread: Option<usize>,
+    pub download_dir: Option<&'a Path>,
+    pub auth: &'a AuthConfig,
+}
+
+pub struct CommitDownloadConfig<'a> {
+    pub network_thread: Option<usize>,
+    pub auth: &'a AuthConfig,
 }
 
 impl OmaApt {
@@ -423,11 +435,16 @@ impl OmaApt {
         &self,
         client: &Client,
         pkgs: Vec<PkgInfo>,
-        network_thread: Option<usize>,
-        download_dir: Option<&Path>,
+        config: DownloadConfig<'_>,
         dry_run: bool,
         progress_manager: &dyn DownloadProgressControl,
     ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
+        let DownloadConfig {
+            network_thread,
+            download_dir,
+            auth,
+        } = config;
+
         let mut download_list = vec![];
         for pkg in pkgs {
             let name = pkg.raw_pkg.name().to_string();
@@ -489,6 +506,7 @@ impl OmaApt {
                 network_thread,
                 download_dir.unwrap_or(Path::new(".")),
                 progress_manager,
+                auth,
             )
             .await
         })?;
@@ -556,10 +574,15 @@ impl OmaApt {
     pub fn commit(
         self,
         client: &Client,
-        network_thread: Option<usize>,
+        config: CommitDownloadConfig<'_>,
         progress_manager: &dyn DownloadProgressControl,
         op: OmaOperation,
     ) -> OmaAptResult<()> {
+        let CommitDownloadConfig {
+            network_thread,
+            auth,
+        } = config;
+
         let v = op;
         let v_str = v.to_string();
 
@@ -586,6 +609,7 @@ impl OmaApt {
                 network_thread,
                 &path,
                 progress_manager,
+                auth,
             )
             .await
         })?;
@@ -765,6 +789,7 @@ impl OmaApt {
         network_thread: Option<usize>,
         download_dir: &Path,
         progress_manager: &dyn DownloadProgressControl,
+        auth_config: &AuthConfig,
     ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
         if download_pkg_list.is_empty() {
             progress_manager.all_done();
@@ -782,7 +807,11 @@ impl OmaApt {
                     let source_type = if x.starts_with("file:") {
                         DownloadSourceType::Local(false)
                     } else {
-                        DownloadSourceType::Http
+                        let auth = auth_config.find_package_url(x);
+
+                        DownloadSourceType::Http {
+                            auth: auth.map(|x| (x.user.to_owned(), x.password.to_owned())),
+                        }
                     };
 
                     DownloadSource {
