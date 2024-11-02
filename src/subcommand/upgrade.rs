@@ -218,7 +218,9 @@ pub fn execute(
                             start_time,
                             false,
                         )?;
-                        info!("{}", fl!("history-tips-2"));
+                        let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
+                        info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+
                         return Err(OutputError::from(e));
                     }
                     warn!("{e}, retrying ...");
