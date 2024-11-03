@@ -2,7 +2,7 @@ use std::{
     env,
     fmt::Display,
     path::Path,
-    process::{exit, Command, Stdio},
+    process::{exit, Command},
     sync::atomic::Ordering,
 };
 
@@ -17,12 +17,12 @@ use oma_console::{
 };
 use oma_pm::{search::SearchResult, PackageStatus};
 use oma_utils::{
-    dbus::{create_dbus_connection, is_using_battery, take_wake_lock, Connection},
+    dbus::{create_dbus_connection, is_using_battery, session_name, take_wake_lock, Connection},
     oma::unlock_oma,
     zbus::zvariant::OwnedFd,
 };
 use rustix::process;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 type Result<T> = std::result::Result<T, OutputError>;
 
@@ -116,30 +116,16 @@ pub fn check_battery(conn: &Connection, yes: bool) {
 }
 
 pub fn is_ssh_from_loginctl() -> bool {
-    // https://unix.stackexchange.com/questions/9605/how-can-i-detect-if-the-shell-is-controlled-from-ssh
-    let cmd = Command::new("loginctl")
-        .arg("session-status")
-        .stdout(Stdio::piped())
-        .spawn();
+    let conn = RT.block_on(create_dbus_connection());
 
-    let Ok(out1) = cmd else {
-        return false;
-    };
+    if let Ok(conn) = conn {
+        let session_name = RT.block_on(session_name(&conn));
+        debug!("session_name: {:?}", session_name);
 
-    let cmd2 = Command::new("sh")
-        .arg("-c")
-        .arg("(read session_id ignored; loginctl show-session --value -p Service \"$session_id\")")
-        .stdin(out1.stdout.unwrap())
-        .output();
+        return session_name.is_ok_and(|name| name == "system-remote-login");
+    }
 
-    let Ok(out2) = cmd2 else {
-        return false;
-    };
-
-    let res = String::from_utf8_lossy(&out2.stdout);
-    let res = res.trim();
-
-    res == "sshd"
+    false
 }
 
 pub struct SearchResultDisplay<'a>(pub &'a SearchResult);

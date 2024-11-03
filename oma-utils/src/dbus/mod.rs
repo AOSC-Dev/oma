@@ -1,4 +1,7 @@
-use logind_zbus::manager::{InhibitType, ManagerProxy};
+use logind_zbus::{
+    manager::{InhibitType, ManagerProxy},
+    session::SessionProxy,
+};
 use tracing::debug;
 use zbus::{proxy, zvariant::OwnedFd, Result as zResult};
 
@@ -16,6 +19,8 @@ pub enum OmaDbusError {
     FailedGetBatteryStatus(zbus::Error),
     #[error("Failed to get another oma status")]
     FailedGetOmaStatus(zbus::Error),
+    #[error("Failed to get session state")]
+    SessionState(zbus::Error),
 }
 
 pub type OmaDbusResult<T> = Result<T, OmaDbusError>;
@@ -82,6 +87,23 @@ pub async fn take_wake_lock(
     debug!("take wake lock: {:?}", fds);
 
     Ok(fds)
+}
+
+/// Get session name
+pub async fn session_name(conn: &Connection) -> OmaDbusResult<String> {
+    let session = SessionProxy::builder(conn)
+        .path("/org/freedesktop/login1/session/auto")
+        .map_err(|e| OmaDbusError::FailedCreateProxy("login1", e))?
+        .build()
+        .await
+        .map_err(|e| OmaDbusError::FailedCreateProxy("login1", e))?;
+
+    let state = session
+        .service()
+        .await
+        .map_err(OmaDbusError::SessionState)?;
+
+    Ok(state)
 }
 
 /// Check computer is using battery (like laptop)
