@@ -40,6 +40,7 @@ use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
+use oma_pm::apt::SummarySort;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_refresh::db::HandleRefresh;
 use oma_refresh::db::OmaRefresh;
@@ -274,6 +275,7 @@ impl<'a> CommitRequest<'a> {
         apt.resolve(no_fixbroken, fix_dpkg_status, remove_config)?;
 
         let op = apt.summary(
+            SummarySort::Operation,
             |pkg| {
                 if protect_essential {
                     false

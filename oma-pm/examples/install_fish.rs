@@ -7,7 +7,7 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{reqwest::ClientBuilder, DownloadProgressControl};
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError, SummarySort};
 
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgs::builder().yes(true).build();
@@ -20,7 +20,7 @@ fn main() -> Result<(), OmaAptError> {
 
     apt.resolve(false, true, false)?;
 
-    let op = apt.summary(|_| false, |_| false)?;
+    let op = apt.summary(SummarySort::Operation, |_| false, |_| false)?;
 
     let pm = MyProgressManager::default();
 

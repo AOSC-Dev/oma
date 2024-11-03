@@ -12,6 +12,7 @@ use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::OmaAptError;
 
+use oma_pm::apt::SummarySort;
 #[cfg(feature = "aosc")]
 use oma_pm::apt::Upgrade;
 
@@ -142,6 +143,7 @@ pub fn execute(
         }
 
         let op = apt.summary(
+            SummarySort::Operation,
             |pkg| {
                 if protect_essentials {
                     false
