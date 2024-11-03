@@ -1,6 +1,5 @@
 use std::{
     io::{self, stdout, BufRead, ErrorKind, Write},
-    ops::ControlFlow,
     time::{Duration, Instant},
 };
 
@@ -150,6 +149,7 @@ pub trait PagerUIText {
 #[derive(PartialEq, Eq)]
 enum TuiMode {
     Search,
+    SearchInputText,
     Noemal,
 }
 
@@ -232,36 +232,81 @@ impl<'a> OmaPager<'a> {
                             return Ok(PagerExit::Sigint);
                         }
                         match key.code {
-                            KeyCode::Char('q') => return Ok(PagerExit::NormalExit),
-                            KeyCode::Char('j') | KeyCode::Down => {
-                                if let ControlFlow::Break(_) = self.down() {
+                            KeyCode::Char('q') => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('q');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
                                     continue;
                                 }
+                                return Ok(PagerExit::NormalExit);
                             }
-                            KeyCode::Char('k') | KeyCode::Up => {
+                            KeyCode::Down => {
+                                self.down();
+                            }
+                            KeyCode::Up => {
                                 self.up();
                             }
-                            KeyCode::Char('h') | KeyCode::Left => {
+                            KeyCode::Left => {
                                 self.left();
                             }
-                            KeyCode::Char('l') | KeyCode::Right => {
-                                if let ControlFlow::Break(_) = self.right() {
+                            KeyCode::Right => {
+                                self.right();
+                            }
+                            KeyCode::Char('j') => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('j');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
                                     continue;
                                 }
+                                self.down();
+                            }
+                            KeyCode::Char('k') => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('k');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                self.up();
+                            }
+                            KeyCode::Char('h') => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('h');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                self.left();
+                            }
+                            KeyCode::Char('l') => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('l');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                self.right();
                             }
                             KeyCode::Char('g') => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('g');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
                                 self.vertical_scroll = 0;
                                 self.vertical_scroll_state =
                                     self.vertical_scroll_state.position(self.vertical_scroll);
                             }
                             KeyCode::Char('G') => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('G');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
                                 self.vertical_scroll =
                                     self.inner_len.saturating_sub(self.area_height.into());
                                 self.vertical_scroll_state =
                                     self.vertical_scroll_state.position(self.vertical_scroll);
                             }
                             KeyCode::Enter => {
-                                if self.mode != TuiMode::Search {
+                                if self.mode != TuiMode::SearchInputText {
                                     continue;
                                 }
                                 if query.trim().is_empty() {
@@ -278,9 +323,10 @@ impl<'a> OmaPager<'a> {
                                         self.tips = self.ui_text.search_tips_with_result();
                                     }
                                 }
+                                self.mode = TuiMode::Search;
                             }
                             KeyCode::Esc => {
-                                if self.mode == TuiMode::Search {
+                                if self.mode != TuiMode::Noemal {
                                     self.mode = TuiMode::Noemal;
                                 }
                                 // clear highlight
@@ -289,37 +335,64 @@ impl<'a> OmaPager<'a> {
                                 self.tips = self.ui_text.normal_tips();
                             }
                             KeyCode::Backspace => {
-                                if self.mode == TuiMode::Search {
+                                if self.mode == TuiMode::SearchInputText {
                                     query.pop();
                                     // update tips with search patterns
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
                                 }
                             }
                             KeyCode::Char('/') => {
-                                self.clear_highlight();
-                                self.mode = TuiMode::Search;
-                                // update tips with search patterns
-                                self.tips = self.ui_text.searct_tips_with_query(&query);
-                            }
-                            KeyCode::Char('n') => {
-                                if !self.search_results.is_empty() {
-                                    self.current_result_index =
-                                        (self.current_result_index + 1) % self.search_results.len();
-                                    self.jump_to(self.search_results[self.current_result_index]);
+                                if self.mode != TuiMode::SearchInputText {
+                                    self.clear_highlight();
+                                    self.mode = TuiMode::SearchInputText;
+                                    // update tips with search patterns
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                } else {
+                                    query.push('/');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
                                 }
                             }
-                            KeyCode::Char('N') => {
-                                if !self.search_results.is_empty() {
-                                    if self.current_result_index == 0 {
-                                        self.current_result_index = self.search_results.len() - 1;
-                                    } else {
-                                        self.current_result_index -= 1;
+                            KeyCode::Char('n') => match self.mode {
+                                TuiMode::Search => {
+                                    if !self.search_results.is_empty() {
+                                        self.current_result_index = (self.current_result_index + 1)
+                                            % self.search_results.len();
+                                        self.jump_to(
+                                            self.search_results[self.current_result_index],
+                                        );
                                     }
-                                    self.jump_to(self.search_results[self.current_result_index]);
                                 }
-                            }
+                                TuiMode::SearchInputText => {
+                                    query.push('n');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                TuiMode::Noemal => continue,
+                            },
+                            KeyCode::Char('N') => match self.mode {
+                                TuiMode::Search => {
+                                    if !self.search_results.is_empty() {
+                                        if self.current_result_index == 0 {
+                                            self.current_result_index =
+                                                self.search_results.len() - 1;
+                                        } else {
+                                            self.current_result_index -= 1;
+                                        }
+                                        self.jump_to(
+                                            self.search_results[self.current_result_index],
+                                        );
+                                    }
+                                }
+                                TuiMode::SearchInputText => {
+                                    query.push('N');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                TuiMode::Noemal => continue,
+                            },
                             KeyCode::Char(input_char) => {
-                                if self.mode == TuiMode::Search {
+                                if self.mode == TuiMode::SearchInputText {
                                     query.push(input_char);
                                     // update tips with search patterns
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
@@ -356,19 +429,17 @@ impl<'a> OmaPager<'a> {
         }
     }
 
-    fn right(&mut self) -> ControlFlow<()> {
+    fn right(&mut self) {
         let width = WRITER.get_length();
 
         if self.max_width <= self.horizontal_scroll as u16 + width {
-            return ControlFlow::Break(());
+            return;
         }
 
         self.horizontal_scroll = self.horizontal_scroll.saturating_add((width / 4).into());
         self.horizontal_scroll_state = self
             .horizontal_scroll_state
             .position(self.horizontal_scroll);
-
-        ControlFlow::Continue(())
     }
 
     fn left(&mut self) {
@@ -384,17 +455,16 @@ impl<'a> OmaPager<'a> {
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
     }
 
-    fn down(&mut self) -> ControlFlow<()> {
+    fn down(&mut self) {
         if self
             .vertical_scroll
             .saturating_add(self.area_height as usize)
             >= self.inner_len
         {
-            return ControlFlow::Break(());
+            return;
         }
         self.vertical_scroll = self.vertical_scroll.saturating_add(1);
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
-        ControlFlow::Continue(())
     }
 
     fn search(&mut self, pattern: &str) -> Vec<usize> {
