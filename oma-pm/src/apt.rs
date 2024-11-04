@@ -155,6 +155,13 @@ pub enum FilterMode {
     AutoRemovable,
 }
 
+#[derive(PartialEq, Eq)]
+pub enum SummarySort {
+    Names,
+    Operation,
+    NoSort,
+}
+
 impl OmaApt {
     /// Create a new apt manager
     pub fn new(
@@ -970,6 +977,7 @@ impl OmaApt {
     /// Show changes summary
     pub fn summary(
         &self,
+        sort: SummarySort,
         how_handle_essential: impl Fn(&str) -> bool,
         how_handle_features: impl Fn(&HashSet<Box<str>>) -> bool,
     ) -> OmaAptResult<OmaOperation> {
@@ -982,7 +990,7 @@ impl OmaApt {
         let mut install = vec![];
         let mut remove = vec![];
         let mut autoremovable = (0, 0);
-        let changes = self.cache.get_changes(true);
+        let changes = self.cache.get_changes(sort == SummarySort::Names);
 
         for pkg in changes {
             if pkg.marked_install() {
@@ -1170,6 +1178,32 @@ impl OmaApt {
 
         if !features.is_empty() && !how_handle_features(&features) {
             return Err(OmaAptError::Features);
+        }
+
+        if sort == SummarySort::Operation {
+            let mut is_resolver_delete = vec![];
+            for (index, i) in remove.iter().enumerate() {
+                if i.details().contains(&RemoveTag::Resolver) {
+                    is_resolver_delete.push(index);
+                }
+            }
+
+            for i in is_resolver_delete {
+                let entry = remove.remove(i);
+                remove.insert(0, entry);
+            }
+
+            for i in &self.select_pkgs {
+                if let Some(pos) = install.iter().position(|x| x.name() == i) {
+                    let entry = install.remove(pos);
+                    install.insert(0, entry);
+                }
+
+                if let Some(pos) = remove.iter().position(|x| x.name() == i) {
+                    let entry = remove.remove(pos);
+                    remove.insert(0, entry);
+                }
+            }
         }
 
         Ok(OmaOperation {
