@@ -279,7 +279,17 @@ impl<'a> CommitRequest<'a> {
             auth_config,
         } = self;
 
+        let pb = if !no_progress {
+            OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
+        } else {
+            None
+        };
+
         apt.resolve(no_fixbroken, fix_dpkg_status, remove_config)?;
+
+        if let Some(pb) = pb {
+            pb.inner.finish_and_clear()
+        }
 
         let op = apt.summary(
             SummarySort::Operation,

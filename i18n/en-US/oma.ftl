@@ -216,3 +216,4 @@ search-tips-with-query = Search: { $query }
 search-tips-with-empty = The search pattern may not be empty (press [/] to retry).
 search-tips-not-found = Your search did not return any match (press [/] to retry).
 doplicate-component = Duplicate sources entries found in source configuration: { $url } { $c }.
+resolving-dependencies = Resolving dependencies ...
