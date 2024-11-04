@@ -2,7 +2,7 @@
 name = "apt-auth-config"
 version = "0.1.0"
 edition = "2021"
-description = "APT parser auth.conf.d library"
+description = "Library to parse APT auth.conf.d configurations"
 license = "MIT"
 
 [dependencies]
