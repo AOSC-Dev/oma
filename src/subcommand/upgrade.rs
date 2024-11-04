@@ -29,6 +29,7 @@ use crate::error::OutputError;
 use crate::fl;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
+use crate::pb::OmaProgressBar;
 use crate::subcommand::utils::autoremovable_tips;
 use crate::table::table_for_install_pending;
 use crate::utils::dbus_check;
@@ -140,11 +141,21 @@ pub fn execute(
 
         handle_no_result(&args.sysroot, no_result, no_progress)?;
 
+        let pb = if !no_progress {
+            OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
+        } else {
+            None
+        };
+
         apt.resolve(false, true, args.remove_config)?;
 
         if args.autoremove {
             apt.autoremove(false)?;
             apt.resolve(false, true, args.remove_config)?;
+        }
+
+        if let Some(pb) = pb {
+            pb.inner.finish_and_clear()
         }
 
         let op = apt.summary(

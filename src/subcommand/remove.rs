@@ -7,6 +7,7 @@ use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::{info, warn};
 
+use crate::pb::OmaProgressBar;
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},
@@ -52,7 +53,17 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
     let (pkgs, no_result) = apt.select_pkg(&pkgs, false, true, false)?;
 
+    let pb = if !no_progress {
+        OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
+    } else {
+        None
+    };
+
     let context = apt.remove(&pkgs, args.remove_config, args.no_autoremove)?;
+
+    if let Some(pb) = pb {
+        pb.inner.finish_and_clear()
+    }
 
     if !context.is_empty() {
         for c in context {
