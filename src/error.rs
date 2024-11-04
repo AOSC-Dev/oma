@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::io::{self, ErrorKind};
 
 use oma_console::due_to;
-use oma_console::writer::Writer;
+use oma_console::writer::{Writeln, Writer};
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::DownloadError;
@@ -698,48 +698,50 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
 
                     println!();
 
-                    let first_writer = Writer::new(name_len_max as u16 + 2 + 4);
-                    let mut writer = first_writer.get_writer();
+                    let first_writer = Writer::new_no_limit_length(name_len_max as u16 + 2 + 4);
+                    let second_writer =
+                        Writer::new_no_limit_length(name_len_max as u16 + 2 + 4 + 4);
 
                     let mut last_name = "";
 
                     for dep in broken_deps {
+                        let mut prefix = String::new();
                         if last_name != dep[0].name {
-                            first_writer.write_prefix(&format!("{}:", dep[0].name)).ok();
+                            prefix = format!("{}:", dep[0].name);
                             last_name = &dep[0].name;
-                        } else {
-                            first_writer.write_prefix("").ok();
                         }
 
                         let why = &dep[0].why;
-                        write!(writer, "{}: {}", why.0, why.1).ok();
+                        let mut output = format!("{}: {}", why.0, why.1);
 
                         let readson = &dep[0].reason;
 
                         if let Some(reason) = readson {
-                            write!(writer, " {}\n", reason).ok();
-                        } else {
-                            writeln!(writer).ok();
+                            output += &format!(" {}", reason);
                         }
 
                         if dep.len() > 1 {
-                            let why_len_max = dep.iter().map(|dep| dep.why.0.len()).max().unwrap();
+                            output += " or";
+                        }
 
-                            let second_writer =
-                                Writer::new(name_len_max as u16 + 2 + why_len_max as u16 + 2);
-                            for or in dep {
-                                second_writer.write_prefix(&format!("{}:", or.why.0)).ok();
-                                write!(writer, " {}", or.why.1).ok();
+                        first_writer.writeln(&prefix, &output).ok();
+
+                        if dep.len() > 1 {
+                            for or in dep.iter().skip(1) {
                                 let reason = &or.reason;
 
                                 if let Some(reason) = reason {
-                                    write!(writer, " {}\n", reason).ok();
+                                    second_writer
+                                        .writeln("", &format!("{} {}", or.why.1, reason))
+                                        .ok();
                                 } else {
-                                    writeln!(writer).ok();
+                                    second_writer.writeln("", &or.why.1).ok();
                                 }
                             }
                         }
                     }
+
+                    println!();
                 }
             }
 

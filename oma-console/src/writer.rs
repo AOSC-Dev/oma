@@ -42,6 +42,7 @@ impl Default for Writer {
         Writer {
             term: Term::stderr(),
             prefix_len: 10,
+            limit_max_len: Some(80),
         }
     }
 }
@@ -49,12 +50,21 @@ impl Default for Writer {
 pub struct Writer {
     term: Term,
     pub prefix_len: u16,
+    limit_max_len: Option<u16>,
 }
 
 impl Writer {
     pub fn new(prefix_len: u16) -> Self {
         Self {
             prefix_len,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_no_limit_length(prefix_len: u16) -> Self {
+        Self {
+            prefix_len,
+            limit_max_len: None,
             ..Default::default()
         }
     }
@@ -79,12 +89,16 @@ impl Writer {
 
     /// Get terminal max len to writer message to terminal
     pub fn get_max_len(&self) -> u16 {
-        let l = self.get_length();
+        let len = self.get_length();
 
-        if l < 80 {
-            l
+        if let Some(limit) = self.limit_max_len {
+            if len < limit {
+                len
+            } else {
+                limit
+            }
         } else {
-            80
+            len
         }
     }
 
