@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use ahash::AHashMap;
+use apt_auth_config::AuthConfigEntry;
 use oma_apt_sources_lists::{SourceEntry, SourceLine, SourceListType, SourcesLists};
 use once_cell::sync::OnceCell;
 use url::Url;
@@ -16,6 +17,7 @@ pub struct OmaSourceEntry<'a> {
     suite: OnceCell<String>,
     dist_path: OnceCell<String>,
     from: OnceCell<OmaSourceEntryFrom>,
+    pub auth: Option<AuthConfigEntry>,
 }
 
 pub fn sources_lists(
@@ -61,6 +63,7 @@ impl<'a> OmaSourceEntry<'a> {
             suite: OnceCell::new(),
             dist_path: OnceCell::new(),
             from: OnceCell::new(),
+            auth: None,
         }
     }
 
@@ -154,6 +157,10 @@ impl<'a> OmaSourceEntry<'a> {
         }
 
         Ok(s)
+    }
+
+    pub fn set_auth(&mut self, auth: AuthConfigEntry) {
+        self.auth = Some(auth);
     }
 }
 

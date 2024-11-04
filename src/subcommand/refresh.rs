@@ -1,3 +1,4 @@
+use apt_auth_config::AuthConfig;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
 use oma_console::success;
@@ -23,6 +24,7 @@ pub fn execute(
     } = oma_args;
 
     let apt_config = AptConfig::new();
+    let auth_config = AuthConfig::system(&sysroot)?;
 
     RefreshRequest {
         client: &HTTP_CLIENT,
@@ -32,6 +34,7 @@ pub fn execute(
         sysroot: &sysroot,
         _refresh_topics: !no_refresh_topics,
         config: &apt_config,
+        auth_config: &auth_config,
     }
     .run()?;
 

@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use apt_auth_config::AuthConfig;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
@@ -61,6 +62,8 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
 
     handle_no_result(&args.sysroot, no_result, no_progress)?;
 
+    let auth_config = AuthConfig::system(&args.sysroot)?;
+
     let request = CommitRequest {
         apt,
         dry_run,
@@ -78,6 +81,7 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         client: &HTTP_CLIENT,
         yes: args.yes,
         remove_config: args.remove_config,
+        auth_config: &auth_config,
     };
 
     let code = request.run()?;

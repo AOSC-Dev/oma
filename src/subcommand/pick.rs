@@ -1,3 +1,4 @@
+use apt_auth_config::AuthConfig;
 use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::SummaryType;
 use oma_pm::{
@@ -46,6 +47,8 @@ pub fn execute(
 
     let apt_config = AptConfig::new();
 
+    let auth_config = AuthConfig::system(&sysroot)?;
+
     if !no_refresh {
         RefreshRequest {
             client: &HTTP_CLIENT,
@@ -55,6 +58,7 @@ pub fn execute(
             sysroot: &sysroot,
             _refresh_topics: !no_refresh_topic,
             config: &apt_config,
+            auth_config: &auth_config,
         }
         .run()?;
     }
@@ -146,6 +150,7 @@ pub fn execute(
         client: &HTTP_CLIENT,
         yes: false,
         remove_config: false,
+        auth_config: &auth_config,
     };
 
     let exit = request.run()?;

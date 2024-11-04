@@ -1,5 +1,6 @@
 use std::{path::Path, result::Result, sync::atomic::Ordering};
 
+use apt_auth_config::AuthConfig;
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar};
 use oma_apt::config::Config;
@@ -30,6 +31,7 @@ async fn main() -> Result<(), RefreshError> {
         .topic_msg("test")
         .refresh_topics(false)
         .progress_manager(pm.as_ref())
+        .auth_config(&AuthConfig::system("/").unwrap())
         .build()
         .start()
         .await?;

@@ -37,6 +37,7 @@ strsim = "0.11.1"
 indexmap = "2"
 memchr = "2"
 serde = { version = "1", features = ["derive"] }
+apt-auth-config = { version = "0.1.0", path = "../apt-auth-config" }
 
 [dev-dependencies]
 dashmap = "6"

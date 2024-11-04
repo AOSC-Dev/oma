@@ -17,7 +17,7 @@ use tokio::io::AsyncWriteExt;
 async fn main() -> DownloadResult<()> {
     let source_1 = DownloadSource {
         url: "https://mirrors.bfsu.edu.cn/anthon/mascots/zhaxia-stickers-v1.zip".to_string(),
-        source_type: DownloadSourceType::Http,
+        source_type: DownloadSourceType::Http { auth: None },
     };
 
     let file_1 = DownloadEntry::builder()
@@ -35,7 +35,7 @@ async fn main() -> DownloadResult<()> {
 
     let source_2 = DownloadSource {
         url: "https://mirrors.bfsu.edu.cn/anthon/mascots/mascots.zip".to_string(),
-        source_type: DownloadSourceType::Http,
+        source_type: DownloadSourceType::Http { auth: None },
     };
 
     let file_2 = DownloadEntry::builder()

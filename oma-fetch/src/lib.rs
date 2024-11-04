@@ -123,7 +123,7 @@ pub struct DownloadSource {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DownloadSourceType {
-    Http,
+    Http { auth: Option<(Box<str>, Box<str>)> },
     Local(bool),
 }
 
@@ -136,12 +136,12 @@ impl PartialOrd for DownloadSourceType {
 impl Ord for DownloadSourceType {
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
-            DownloadSourceType::Http => match other {
-                DownloadSourceType::Http => Ordering::Equal,
+            DownloadSourceType::Http { .. } => match other {
+                DownloadSourceType::Http { .. } => Ordering::Equal,
                 DownloadSourceType::Local { .. } => Ordering::Less,
             },
             DownloadSourceType::Local { .. } => match other {
-                DownloadSourceType::Http => Ordering::Greater,
+                DownloadSourceType::Http { .. } => Ordering::Greater,
                 DownloadSourceType::Local { .. } => Ordering::Equal,
             },
         }

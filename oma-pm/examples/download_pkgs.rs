@@ -1,5 +1,6 @@
 use std::{path::Path, sync::atomic::Ordering};
 
+use apt_auth_config::AuthConfig;
 use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar};
 use oma_console::{
@@ -7,7 +8,7 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{reqwest::ClientBuilder, DownloadProgressControl};
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError};
+use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs, OmaAptError};
 
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgs::builder().build();
@@ -20,7 +21,17 @@ fn main() -> Result<(), OmaAptError> {
 
     let pm = MyProgressManager::default();
 
-    let res = apt.download(&client, pkgs.0, None, Some(Path::new("test")), false, &pm)?;
+    let res = apt.download(
+        &client,
+        pkgs.0,
+        DownloadConfig {
+            network_thread: None,
+            download_dir: Some(Path::new("test")),
+            auth: &AuthConfig::system("/").unwrap(),
+        },
+        false,
+        &pm,
+    )?;
 
     dbg!(res);
 

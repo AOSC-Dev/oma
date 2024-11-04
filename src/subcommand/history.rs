@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use apt_auth_config::AuthConfig;
 use chrono::{Local, LocalResult, TimeZone};
 use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::{
@@ -151,6 +152,8 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
 
     apt.install(&install, false)?;
 
+    let auth_config = AuthConfig::system(&sysroot)?;
+
     let request = CommitRequest {
         apt,
         dry_run: false,
@@ -164,6 +167,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         client: &HTTP_CLIENT,
         yes: false,
         remove_config: false,
+        auth_config: &auth_config,
     };
 
     let code = request.run()?;

@@ -11,7 +11,7 @@ use futures::{io::BufReader, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
-    Client,
+    Client, Method, RequestBuilder,
 };
 use tokio::io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt};
 
@@ -43,13 +43,13 @@ impl SingleDownloader<'_> {
         let msg = self.msg.as_deref().unwrap_or(&*self.entry.filename);
 
         for (i, c) in sources.iter().enumerate() {
-            let download_res = match c.source_type {
-                DownloadSourceType::Http => {
-                    self.try_http_download(progress_manager, global_progress, c)
+            let download_res = match &c.source_type {
+                DownloadSourceType::Http { auth } => {
+                    self.try_http_download(progress_manager, global_progress, c, auth)
                         .await
                 }
                 DownloadSourceType::Local(as_symlink) => {
-                    self.download_local(progress_manager, global_progress, c, as_symlink)
+                    self.download_local(progress_manager, global_progress, c, *as_symlink)
                         .await
                 }
             };
@@ -79,12 +79,19 @@ impl SingleDownloader<'_> {
         progress_manager: &dyn DownloadProgressControl,
         global_progress: &AtomicU64,
         source: &DownloadSource,
+        auth: &Option<(Box<str>, Box<str>)>,
     ) -> DownloadResult<Summary> {
         let mut times = 1;
         let mut allow_resume = self.entry.allow_resume;
         loop {
             match self
-                .http_download(progress_manager, global_progress, allow_resume, source)
+                .http_download(
+                    progress_manager,
+                    global_progress,
+                    allow_resume,
+                    source,
+                    auth,
+                )
                 .await
             {
                 Ok(s) => {
@@ -121,6 +128,7 @@ impl SingleDownloader<'_> {
         global_progress: &AtomicU64,
         allow_resume: bool,
         source: &DownloadSource,
+        auth: &Option<(Box<str>, Box<str>)>,
     ) -> DownloadResult<Summary> {
         let file = self.entry.dir.join(&*self.entry.filename);
         let file_exist = file.exists();
@@ -210,7 +218,9 @@ impl SingleDownloader<'_> {
         let msg = self.progress_msg();
         progress_manager.new_progress_spinner(self.download_list_index, &msg);
 
-        let resp_head = match self.client.head(&source.url).send().await {
+        let req = self.build_request_with_basic_auth(&source.url, Method::HEAD, auth);
+
+        let resp_head = match req.send().await {
             Ok(resp) => resp,
             Err(e) => {
                 progress_manager.progress_done(self.download_list_index);
@@ -247,7 +257,7 @@ impl SingleDownloader<'_> {
 
         debug!("File total size is: {total_size}");
 
-        let mut req = self.client.get(&source.url);
+        let mut req = self.build_request_with_basic_auth(&source.url, Method::GET, auth);
 
         if can_resume && allow_resume {
             // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
@@ -432,6 +442,22 @@ impl SingleDownloader<'_> {
             count: self.download_list_index,
             context: self.msg.clone(),
         })
+    }
+
+    fn build_request_with_basic_auth(
+        &self,
+        url: &str,
+        method: Method,
+        auth: &Option<(Box<str>, Box<str>)>,
+    ) -> RequestBuilder {
+        let mut req = self.client.request(method, url);
+
+        if let Some((user, password)) = auth {
+            debug!("auth user: {}", user);
+            req = req.basic_auth(user, Some(password));
+        }
+
+        req
     }
 
     fn progress_msg(&self) -> String {

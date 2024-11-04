@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::io::{self, ErrorKind};
 
+use apt_auth_config::AuthConfigError;
 use oma_console::due_to;
 use oma_console::writer::{Writeln, Writer};
 use oma_contents::OmaContentsError;
@@ -536,6 +537,29 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::DuplicateComponents(url, component) => Self {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
+                source: None,
+            },
+        }
+    }
+}
+
+impl From<AuthConfigError> for OutputError {
+    fn from(value: AuthConfigError) -> Self {
+        match value {
+            AuthConfigError::ReadDir { path, err } => Self {
+                description: format!("Failed to read dir {}", path.display()),
+                source: Some(Box::new(err)),
+            },
+            AuthConfigError::DirEntry(error) => Self {
+                description: "Failed to read dir entry".to_string(),
+                source: Some(Box::new(error)),
+            },
+            AuthConfigError::OpenFile { path, err } => Self {
+                description: format!("Failed to open file: {}", path.display()),
+                source: Some(Box::new(err)),
+            },
+            AuthConfigError::MissingEntry(field) => Self {
+                description: format!("Missing field: {field}"),
                 source: None,
             },
         }

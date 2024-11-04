@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use apt_auth_config::AuthConfig;
 use dialoguer::console::style;
 use inquire::{
     formatter::MultiOptionFormatter,
@@ -90,6 +91,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
     let apt_config = AptConfig::new();
+    let auth_config = AuthConfig::system(&sysroot)?;
 
     RefreshRequest {
         client: &client,
@@ -99,6 +101,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         sysroot: &sysroot,
         _refresh_topics: true,
         config: &apt_config,
+        auth_config: &auth_config,
     }
     .run()?;
 
@@ -151,6 +154,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         client: &client,
         yes: false,
         remove_config: false,
+        auth_config: &auth_config,
     };
 
     let code = request.run()?;

@@ -1,3 +1,4 @@
+use apt_auth_config::AuthConfig;
 use chrono::Local;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
@@ -8,6 +9,7 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
+use oma_pm::apt::CommitDownloadConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::OmaAptError;
@@ -69,6 +71,8 @@ pub fn execute(
 
     let apt_config = AptConfig::new();
 
+    let auth_config = AuthConfig::system(&args.sysroot)?;
+
     RefreshRequest {
         client: &HTTP_CLIENT,
         dry_run,
@@ -77,6 +81,7 @@ pub fn execute(
         sysroot: &args.sysroot,
         _refresh_topics: !args.no_refresh_topcs,
         config: &apt_config,
+        auth_config: &auth_config,
     }
     .run()?;
 
@@ -190,7 +195,15 @@ pub fn execute(
             &NoProgressBar::default()
         };
 
-        match apt.commit(&HTTP_CLIENT, None, progress_manager, op) {
+        match apt.commit(
+            &HTTP_CLIENT,
+            CommitDownloadConfig {
+                network_thread: Some(network_thread),
+                auth: &auth_config,
+            },
+            progress_manager,
+            op,
+        ) {
             Ok(()) => {
                 write_history_entry(
                     op_after,
