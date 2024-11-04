@@ -11,7 +11,7 @@ use futures::{io::BufReader, AsyncRead, TryStreamExt};
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
-    Client,
+    Client, Method, RequestBuilder,
 };
 use tokio::io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt};
 
@@ -218,12 +218,7 @@ impl SingleDownloader<'_> {
         let msg = self.progress_msg();
         progress_manager.new_progress_spinner(self.download_list_index, &msg);
 
-        let mut req = self.client.head(&source.url);
-
-        if let Some((user, password)) = auth {
-            debug!("auth: {}", user);
-            req = req.basic_auth(user, Some(password));
-        }
+        let req = self.build_request_with_basic_auth(&source.url, Method::HEAD, auth);
 
         let resp_head = match req.send().await {
             Ok(resp) => resp,
@@ -262,11 +257,7 @@ impl SingleDownloader<'_> {
 
         debug!("File total size is: {total_size}");
 
-        let mut req = self.client.get(&source.url);
-
-        if let Some((user, password)) = auth {
-            req = req.basic_auth(user, Some(password));
-        }
+        let mut req = self.build_request_with_basic_auth(&source.url, Method::GET, auth);
 
         if can_resume && allow_resume {
             // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
@@ -451,6 +442,22 @@ impl SingleDownloader<'_> {
             count: self.download_list_index,
             context: self.msg.clone(),
         })
+    }
+
+    fn build_request_with_basic_auth(
+        &self,
+        url: &str,
+        method: Method,
+        auth: &Option<(Box<str>, Box<str>)>,
+    ) -> RequestBuilder {
+        let mut req = self.client.request(method, url);
+
+        if let Some((user, password)) = auth {
+            debug!("auth user: {}", user);
+            req = req.basic_auth(user, Some(password));
+        }
+
+        req
     }
 
     fn progress_msg(&self) -> String {
