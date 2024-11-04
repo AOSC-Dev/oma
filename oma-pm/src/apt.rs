@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    fmt,
     io::{self, ErrorKind, Write},
     path::{Path, PathBuf},
     process::Command,
@@ -83,7 +84,7 @@ pub struct OmaApt {
     select_pkgs: Vec<String>,
     tokio: Runtime,
     connection: Option<Connection>,
-    unmet: Vec<String>,
+    unmet: Vec<Vec<BrokenPackage>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -99,7 +100,7 @@ pub enum OmaAptError {
     #[error("Failed to mark reinstall pkg: {0}")]
     MarkReinstallError(String, String),
     #[error("Find Dependency problem")]
-    DependencyIssue(Vec<String>),
+    DependencyIssue(Vec<Vec<BrokenPackage>>),
     #[error("Package: {0} is essential.")]
     PkgIsEssential(String),
     #[error("Package: {0} is no candidate.")]
@@ -722,7 +723,7 @@ impl OmaApt {
         if let Err(e) = self.cache.resolve(!no_fixbroken) {
             debug!("{e:#?}");
             for pkg in self.cache.iter() {
-                let res = show_broken_pkg(&self.cache, &pkg, false);
+                let res = broken_pkg(&self.cache, &pkg, false);
                 if !res.is_empty() {
                     self.unmet.extend(res);
                 }
@@ -1475,16 +1476,44 @@ fn also_install_recommends(ver: &Version, cache: &Cache) {
 #[cfg(not(feature = "aosc"))]
 fn also_install_recommends(_ver: &Version, _cache: &Cache) {}
 
-fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
+#[derive(Debug, Clone)]
+pub struct BrokenPackage {
+    pub name: String,
+    pub why: (String, String),
+    pub reason: Option<BrokenPackageReason>,
+}
+
+#[derive(Debug, Clone)]
+pub enum BrokenPackageReason {
+    ToBeInstall(String),
+    NotGoingToBeInstall,
+    VirtualPkg,
+    NotInstallable,
+}
+
+impl fmt::Display for BrokenPackageReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BrokenPackageReason::ToBeInstall(version) => {
+                write!(f, "but {version} is to be installed")
+            }
+            BrokenPackageReason::NotGoingToBeInstall => {
+                write!(f, "but it is not going to be installed")
+            }
+            BrokenPackageReason::VirtualPkg => write!(f, "but it is a virtual package"),
+            BrokenPackageReason::NotInstallable => write!(f, "but it is not installable"),
+        }
+    }
+}
+
+fn broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<Vec<BrokenPackage>> {
     let mut result = vec![];
     // If the package isn't broken for the state Return None
     if (now && !pkg.is_now_broken()) || (!now && !pkg.is_inst_broken()) {
         return result;
     };
 
-    let mut line = String::new();
-
-    line += &format!("{} :", pkg.fullname(true));
+    let name = pkg.fullname(true);
 
     // Pick the proper version based on now status.
     // else Return with just the package name like Apt does.
@@ -1492,16 +1521,13 @@ fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
         true => pkg.installed(),
         false => pkg.install_version(),
     }) else {
-        result.push(line);
         return result;
     };
 
-    let indent = pkg.fullname(false).len() + 3;
-    let mut first = true;
-
     // ShowBrokenDeps
     for dep in ver.depends_map().values().flatten() {
-        for (i, base_dep) in dep.iter().enumerate() {
+        let mut v = vec![];
+        for base_dep in dep.iter() {
             if !cache.depcache().is_important_dep(base_dep) {
                 continue;
             }
@@ -1516,42 +1542,41 @@ fn show_broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<String> {
                 continue;
             }
 
-            if !first {
-                line += &" ".repeat(indent);
-            }
-            first = false;
-
-            // If it's the first or Dep
-            if i > 0 {
-                line += &" ".repeat(base_dep.dep_type().as_ref().len() + 3);
-            } else {
-                line += &format!(" {}: ", base_dep.dep_type())
-            }
-
-            line += &base_dep.target_package().fullname(true);
+            let mut dep_reason = base_dep.target_package().fullname(true);
 
             if let (Ok(ver_str), Some(comp)) = (base_dep.target_ver(), base_dep.comp_type()) {
-                line += &format!(" ({comp} {ver_str})");
+                dep_reason += &format!(" ({comp} {ver_str})");
             }
+
+            let why = (base_dep.dep_type().to_string(), dep_reason);
+
+            let mut reason = None;
 
             let target = base_dep.target_package();
             if !target.has_provides() {
                 if let Some(target_ver) = target.install_version() {
-                    line += &format!(" but {target_ver} is to be installed")
+                    reason = Some(BrokenPackageReason::ToBeInstall(
+                        target_ver.version().to_string(),
+                    ));
                 } else if target.candidate().is_some() {
-                    line += " but it is not going to be installed";
+                    reason = Some(BrokenPackageReason::NotGoingToBeInstall);
                 } else if target.has_provides() {
-                    line += " but it is a virtual package";
+                    // TODO: (By upstream ???)
+                    reason = Some(BrokenPackageReason::VirtualPkg);
                 } else {
-                    line += " but it is not installable";
+                    reason = Some(BrokenPackageReason::NotInstallable);
                 }
             }
 
-            if i + 1 != dep.len() {
-                line += " or"
-            }
-            result.push(line.clone());
-            line.clear();
+            v.push(BrokenPackage {
+                name: name.to_string(),
+                why,
+                reason,
+            });
+        }
+
+        if !v.is_empty() {
+            result.push(v);
         }
     }
 

@@ -71,7 +71,7 @@ user-aborted-op = User aborted the operation.
 # formatter
 count-pkg-has-desc = { $count } package(s) will be
 dep-issue-1 = oma cannot install the specified package due to dependency issue(s).
-dep-issue-2 = Below is a full dependency report, please copy or take a screenshot of the following and report it to an AOSC OS maintainer:
+dep-issue-2 = Please copy or take a screenshot of the following and report it to an AOSC OS maintainer:
 how-to-op-with-x = Press [PgUp/Dn], arrow keys, or use the mouse wheel to scroll.
 end-review = Press [q] to end review
 cc-to-abort = Press [Ctrl-c] to abort

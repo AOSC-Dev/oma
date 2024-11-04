@@ -70,7 +70,7 @@ user-aborted-op = 用户已中止操作。
 # formatter
 count-pkg-has-desc = { $count } 个软件包将被
 dep-issue-1 = oma 发现指定软件包存在依赖问题，故无法安装。
-dep-issue-2 = 如下是该依赖问题的完整分析报告，请复制或截图如下信息并联系 AOSC OS 维护者：
+dep-issue-2 = 请复制或截图如下依赖问题报告并联系 AOSC OS 维护者：
 how-to-op-with-x = 按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。
 end-review = 按 [q] 结束审阅并应用更改
 cc-to-abort = 按 [Ctrl-c] 中止操作
