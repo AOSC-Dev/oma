@@ -1,5 +1,5 @@
 use std::{
-    io::{self, stdout, BufRead, ErrorKind, Write},
+    io::{self, stderr, stdin, stdout, BufRead, ErrorKind, IsTerminal, Write},
     time::{Duration, Instant},
 };
 
@@ -38,6 +38,10 @@ impl<'a> Pager<'a> {
         title: Option<String>,
         color_format: &'a OmaColorFormat,
     ) -> io::Result<Self> {
+        if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
+            return Ok(Pager::Plain);
+        }
+
         let app = OmaPager::new(title, color_format, ui_text);
         let res = Pager::External(Box::new(app));
 
