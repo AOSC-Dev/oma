@@ -38,10 +38,14 @@ enum Mode {
     Pending,
 }
 
-#[derive(Clone)]
-struct Operation {
-    name: String,
-    version: Option<String>,
+#[derive(Clone, PartialEq, Eq)]
+enum Operation {
+    Package {
+        name: String,
+        version: Option<String>,
+    },
+    Upgrade,
+    AutoRemove,
 }
 
 pub struct Tui<'a> {
@@ -59,14 +63,22 @@ pub struct Tui<'a> {
     install: Vec<PkgInfo>,
     remove: Vec<PkgInfo>,
     result_scroll: ScrollbarState,
+    upgrade: bool,
+    autoremove: bool,
 }
 
 impl Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(ref ver) = self.version {
-            writeln!(f, "+ {} ({})", self.name, ver)?;
-        } else {
-            writeln!(f, "- {}", self.name)?;
+        match self {
+            Operation::Package { name, version } => {
+                if let Some(ref ver) = version {
+                    writeln!(f, "+ {} ({})", name, ver)?;
+                } else {
+                    writeln!(f, "- {}", name)?;
+                }
+            }
+            Operation::Upgrade => writeln!(f, "Upgrade system")?,
+            Operation::AutoRemove => writeln!(f, "Autoremove unnecessary package(s)")?,
         }
 
         Ok(())
@@ -77,6 +89,14 @@ impl From<Operation> for ListItem<'_> {
     fn from(value: Operation) -> Self {
         Self::new(value.to_string())
     }
+}
+
+pub struct Task {
+    pub execute_apt: bool,
+    pub install: Vec<PkgInfo>,
+    pub remove: Vec<PkgInfo>,
+    pub upgrade: bool,
+    pub autoremove: bool,
 }
 
 impl<'a> Tui<'a> {
@@ -111,6 +131,8 @@ impl<'a> Tui<'a> {
             install: vec![],
             remove: vec![],
             result_scroll: ScrollbarState::new(0),
+            upgrade: false,
+            autoremove: false,
         }
     }
 
@@ -118,14 +140,59 @@ impl<'a> Tui<'a> {
         mut self,
         terminal: &mut Terminal<B>,
         tick_rate: Duration,
-    ) -> io::Result<(bool, Vec<PkgInfo>, Vec<PkgInfo>)> {
+    ) -> io::Result<Task> {
         let mut last_tick = Instant::now();
         loop {
             terminal.draw(|f| self.ui(f)).unwrap();
             if event::poll(tick_rate).unwrap_or(false) {
                 if let event::Event::Key(key) = event::read().unwrap() {
-                    if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c') {
-                        return Ok((false, vec![], vec![]));
+                    if key.modifiers == KeyModifiers::CONTROL {
+                        match key.code {
+                            KeyCode::Char('c') => {
+                                return Ok(Task {
+                                    execute_apt: false,
+                                    install: vec![],
+                                    remove: vec![],
+                                    upgrade: false,
+                                    autoremove: false,
+                                });
+                            }
+                            KeyCode::Char('u') => {
+                                self.display_pending_detail = true;
+
+                                if let Some(pos) = self
+                                    .pending_result_state
+                                    .items
+                                    .iter()
+                                    .position(|x| *x == Operation::Upgrade)
+                                {
+                                    self.upgrade = false;
+                                    self.pending_result_state.items.remove(pos);
+                                } else {
+                                    self.upgrade = true;
+                                    self.pending_result_state.items.push(Operation::Upgrade);
+                                }
+                            }
+                            KeyCode::Char('a') => {
+                                self.display_pending_detail = true;
+
+                                if let Some(pos) = self
+                                    .pending_result_state
+                                    .items
+                                    .iter()
+                                    .position(|x| *x == Operation::AutoRemove)
+                                {
+                                    self.autoremove = false;
+                                    self.pending_result_state.items.remove(pos);
+                                } else {
+                                    self.autoremove = true;
+                                    self.pending_result_state.items.push(Operation::AutoRemove);
+                                }
+                            }
+                            _ => {}
+                        }
+
+                        continue;
                     }
                     match key.code {
                         KeyCode::Up => self.handle_up(),
@@ -176,7 +243,16 @@ impl<'a> Tui<'a> {
             }
         }
 
-        Ok((true, self.install, self.remove))
+        Ok(Task {
+            execute_apt: !self.install.is_empty()
+                || !self.remove.is_empty()
+                || self.upgrade
+                || self.autoremove,
+            install: self.install,
+            remove: self.remove,
+            upgrade: self.upgrade,
+            autoremove: self.autoremove,
+        })
     }
 
     fn handle_right(&mut self) {
@@ -345,8 +421,12 @@ impl<'a> Tui<'a> {
                                 .items
                                 .iter()
                                 .position(|x| {
-                                    x.name == self.install[pkg_index].raw_pkg.fullname(true)
-                                        && x.version.is_some()
+                                    if let Operation::Package { name, version } = x {
+                                        *name == self.install[pkg_index].raw_pkg.fullname(true)
+                                            && version.is_some()
+                                    } else {
+                                        false
+                                    }
                                 })
                                 .unwrap();
 
@@ -368,8 +448,12 @@ impl<'a> Tui<'a> {
                                 .items
                                 .iter()
                                 .position(|x| {
-                                    x.name == self.remove[pkg_index].raw_pkg.fullname(true)
-                                        && x.version.is_none()
+                                    if let Operation::Package { name, version } = x {
+                                        *name == self.remove[pkg_index].raw_pkg.fullname(true)
+                                            && version.is_some()
+                                    } else {
+                                        false
+                                    }
                                 })
                                 .unwrap();
 
@@ -387,14 +471,14 @@ impl<'a> Tui<'a> {
                             let pkginfo = PkgInfo::new(&cand, &pkg);
                             if !cand.is_installed() {
                                 self.install.push(pkginfo.unwrap());
-                                let op = Operation {
+                                let op = Operation::Package {
                                     name: pkg.fullname(true),
                                     version: Some(cand.version().to_string()),
                                 };
 
                                 self.pending_result_state.items.push(op);
                             } else {
-                                let op = Operation {
+                                let op = Operation::Package {
                                     name: pkg.fullname(true),
                                     version: None,
                                 };
@@ -409,25 +493,32 @@ impl<'a> Tui<'a> {
                 let selected = self.pending_result_state.state.selected();
                 if let Some(i) = selected {
                     let removed = self.pending_result_state.items.remove(i);
-                    if removed.version.is_some() {
-                        let inst_pos = self
-                            .install
-                            .iter()
-                            .position(|x| x.raw_pkg.fullname(true) == removed.name)
-                            .unwrap();
-                        self.install.remove(inst_pos);
-                    } else {
-                        let remove_pos = self
-                            .remove
-                            .iter()
-                            .position(|x| x.raw_pkg.fullname(true) == removed.name)
-                            .unwrap();
-                        self.remove.remove(remove_pos);
-                    }
-                    if self.pending_result_state.items.is_empty() {
-                        self.pending_result_state.state.select(None);
-                    } else {
-                        self.pending_result_state.previous();
+
+                    match removed {
+                        Operation::Package { name, version } => {
+                            if version.is_some() {
+                                let inst_pos = self
+                                    .install
+                                    .iter()
+                                    .position(|x| x.raw_pkg.fullname(true) == name)
+                                    .unwrap();
+                                self.install.remove(inst_pos);
+                            } else {
+                                let remove_pos = self
+                                    .remove
+                                    .iter()
+                                    .position(|x| x.raw_pkg.fullname(true) == name)
+                                    .unwrap();
+                                self.remove.remove(remove_pos);
+                            }
+                            if self.pending_result_state.items.is_empty() {
+                                self.pending_result_state.state.select(None);
+                            } else {
+                                self.pending_result_state.previous();
+                            }
+                        }
+                        Operation::Upgrade => self.upgrade = false,
+                        Operation::AutoRemove => self.autoremove = false,
                     }
                 }
             }
@@ -600,6 +691,10 @@ fn render_tips(f: &mut Frame<'_>, main_layout: Rc<[Rect]>) {
                     Span::raw(" / "),
                     Span::styled("/", Style::new().blue()),
                     Span::raw(" / "),
+                    Span::styled("Ctrl+U", Style::new().blue()),
+                    Span::raw(" / "),
+                    Span::styled("Ctrl+A", Style::new().blue()),
+                    Span::raw(" / "),
                     Span::styled("Ctrl+C", Style::new().blue()),
                 ])),
                 main_layout[3],
@@ -618,6 +713,10 @@ fn render_tips(f: &mut Frame<'_>, main_layout: Rc<[Rect]>) {
                     Span::raw(format!(" => {}, ", fl!("tui-start-5"))),
                     Span::styled("/", Style::new().blue()),
                     Span::raw(format!(" => {}, ", fl!("tui-start-6"))),
+                    Span::styled("Ctrl+U", Style::new().blue()),
+                    Span::raw(format!(" => {}, ", fl!("tui-upgrade"))),
+                    Span::styled("Ctrl+A", Style::new().blue()),
+                    Span::raw(format!(" => {}, ", fl!("tui-autoremove"))),
                     Span::styled("Ctrl+C", Style::new().blue()),
                     Span::raw(format!(" => {}", fl!("tui-start-7"))),
                 ])),
@@ -678,6 +777,14 @@ fn show_packages(
                 Line::from(vec![
                     Span::styled("/", Style::new().blue()),
                     Span::raw(format!(" => {}", fl!("tui-start-6"))),
+                ]),
+                Line::from(vec![
+                    Span::styled("Ctrl+U", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-upgrade"))),
+                ]),
+                Line::from(vec![
+                    Span::styled("Ctrl+A", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-autoremove"))),
                 ]),
                 Line::from(vec![
                     Span::styled("Ctrl+C", Style::new().blue()),
