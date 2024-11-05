@@ -2880,7 +2880,7 @@ dependencies = [
 
 [[package]]
 name = "oma"
-version = "1.12.3"
+version = "1.12.4"
 dependencies = [
  "ahash",
  "ansi-to-tui",
@@ -2956,7 +2956,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "ansi-to-tui",
  "console",
