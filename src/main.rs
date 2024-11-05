@@ -488,7 +488,11 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .map(|x| x.map(|x| x.to_owned()).collect::<Vec<_>>())
                 .unwrap();
 
-            let no_pager = args.get_flag("no_pager");
+            let no_pager = !stdout().is_terminal()
+                || !stderr().is_terminal()
+                || !stdin().is_terminal()
+                || args.get_flag("no_pager");
+
             let json = args.get_flag("json");
 
             let engine = config.search_engine();
@@ -507,7 +511,11 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
             let arg = if x == "files" { "package" } else { "pattern" };
             let pkg = args.get_one::<String>(arg).unwrap();
             let is_bin = args.get_flag("bin");
-            let println = config.search_contents_println() || args.get_flag("no_pager");
+            let println = config.search_contents_println()
+                || !stdout().is_terminal()
+                || !stderr().is_terminal()
+                || !stdin().is_terminal()
+                || args.get_flag("no_pager");
 
             contents_find::execute(x, is_bin, pkg, no_progress, sysroot, println)?
         }
