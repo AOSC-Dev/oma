@@ -18,12 +18,12 @@ use oma_pm::{
 };
 
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     prelude::Backend,
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
+        Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
         ScrollbarState,
     },
     Frame, Terminal,
@@ -55,7 +55,7 @@ pub struct Tui<'a> {
     input_cursor_position: usize,
     display_pending_detail: bool,
     input: Rc<RefCell<String>>,
-    action: (usize, usize),
+    upgrade_and_autoremovable: (usize, usize),
     installed: usize,
     pkg_results: Rc<RefCell<Vec<SearchResult>>>,
     pkg_result_state: StatefulList<Text<'static>>,
@@ -65,6 +65,7 @@ pub struct Tui<'a> {
     result_scroll: ScrollbarState,
     upgrade: bool,
     autoremove: bool,
+    popup: Option<String>,
 }
 
 impl Display for Operation {
@@ -102,7 +103,7 @@ pub struct Task {
 impl<'a> Tui<'a> {
     pub fn new(
         apt: &'a OmaApt,
-        action: (usize, usize),
+        upgrade_and_autoremovable: (usize, usize),
         installed: usize,
         searcher: IndiciumSearch<'a>,
     ) -> Self {
@@ -123,7 +124,7 @@ impl<'a> Tui<'a> {
             input_cursor_position: 0,
             display_pending_detail: false,
             input: Rc::new(RefCell::new("".to_string())),
-            action,
+            upgrade_and_autoremovable,
             installed,
             pkg_result_state,
             pending_result_state: StatefulList::with_items(vec![]),
@@ -133,6 +134,7 @@ impl<'a> Tui<'a> {
             result_scroll: ScrollbarState::new(0),
             upgrade: false,
             autoremove: false,
+            popup: None,
         }
     }
 
@@ -158,24 +160,28 @@ impl<'a> Tui<'a> {
                                 });
                             }
                             KeyCode::Char('u') => {
-                                self.display_pending_detail = true;
-
                                 if let Some(pos) = self
                                     .pending_result_state
                                     .items
                                     .iter()
                                     .position(|x| *x == Operation::Upgrade)
                                 {
+                                    self.display_pending_detail = true;
                                     self.upgrade = false;
                                     self.pending_result_state.items.remove(pos);
                                 } else {
+                                    if self.upgrade_and_autoremovable.0 == 0 {
+                                        self.popup = Some(
+                                            "No system update available at this time.".to_string(),
+                                        );
+                                        continue;
+                                    }
+                                    self.display_pending_detail = true;
                                     self.upgrade = true;
                                     self.pending_result_state.items.push(Operation::Upgrade);
                                 }
                             }
                             KeyCode::Char('a') => {
-                                self.display_pending_detail = true;
-
                                 if let Some(pos) = self
                                     .pending_result_state
                                     .items
@@ -185,6 +191,14 @@ impl<'a> Tui<'a> {
                                     self.autoremove = false;
                                     self.pending_result_state.items.remove(pos);
                                 } else {
+                                    if self.upgrade_and_autoremovable.1 == 0 {
+                                        self.popup = Some(
+                                            "No package clean up is required at this time."
+                                                .to_string(),
+                                        );
+                                        continue;
+                                    }
+                                    self.display_pending_detail = true;
                                     self.autoremove = true;
                                     self.pending_result_state.items.push(Operation::AutoRemove);
                                 }
@@ -205,6 +219,9 @@ impl<'a> Tui<'a> {
                             }
                         }
                         KeyCode::Char('/') => self.mode = Mode::Search,
+                        KeyCode::Char('c') if self.popup.is_some() => {
+                            self.popup = None;
+                        }
                         KeyCode::Char(c) => {
                             if self.mode != Mode::Search {
                                 continue;
@@ -614,7 +631,7 @@ impl<'a> Tui<'a> {
             } else {
                 main_layout[2]
             },
-            self.action,
+            self.upgrade_and_autoremovable,
             self.installed,
         );
 
@@ -671,11 +688,27 @@ impl<'a> Tui<'a> {
             ));
         }
 
-        render_tips(f, main_layout);
+        render_tips(f, &main_layout);
+
+        if let Some(popup) = &self.popup {
+            let block = Block::bordered();
+            let area = popup_area(main_layout[2], 69, 20);
+            let inner = block.inner(area);
+            f.render_widget(Clear, area); //this clears out the background
+            f.render_widget(block, area);
+            f.render_widget(
+                Text::from(vec![
+                    Line::from(popup.as_str()),
+                    Line::from(""),
+                    Line::from("Press 'c' to continue."),
+                ]),
+                inner,
+            );
+        }
     }
 }
 
-fn render_tips(f: &mut Frame<'_>, main_layout: Rc<[Rect]>) {
+fn render_tips(f: &mut Frame<'_>, main_layout: &Rc<[Rect]>) {
     match WRITER.get_length() {
         0..=44 => {}
         45..=130 => {
@@ -867,4 +900,14 @@ fn delete_inner(input: &Rc<RefCell<String>>, before: usize, after: usize) {
     let after_char_to_delete = input.borrow().chars().skip(after).collect::<String>();
 
     *input.borrow_mut() = before_char_to_delete + &after_char_to_delete;
+}
+
+/// helper function to create a centered rect using up certain percentage of the available rect `r`
+fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
+    let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
+    let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
+    let [area] = vertical.areas(area);
+    let [area] = horizontal.areas(area);
+
+    area
 }
