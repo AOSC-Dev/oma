@@ -1,6 +1,7 @@
 use std::{
     cell::{Ref, RefCell},
     fmt::Display,
+    io,
     ops::ControlFlow,
     rc::Rc,
     time::{Duration, Instant},
@@ -27,7 +28,6 @@ use ratatui::{
     },
     Frame, Terminal,
 };
-use rustix::io;
 
 use crate::{fl, utils::SearchResultDisplay};
 
@@ -143,9 +143,9 @@ impl<'a> Tui<'a> {
     ) -> io::Result<Task> {
         let mut last_tick = Instant::now();
         loop {
-            terminal.draw(|f| self.ui(f)).unwrap();
-            if event::poll(tick_rate).unwrap_or(false) {
-                if let event::Event::Key(key) = event::read().unwrap() {
+            terminal.draw(|f| self.ui(f))?;
+            if event::poll(tick_rate)? {
+                if let event::Event::Key(key) = event::read()? {
                     if key.modifiers == KeyModifiers::CONTROL {
                         match key.code {
                             KeyCode::Char('c') => {
@@ -194,6 +194,7 @@ impl<'a> Tui<'a> {
 
                         continue;
                     }
+
                     match key.code {
                         KeyCode::Up => self.handle_up(),
                         KeyCode::Down => self.handle_down(),
