@@ -187,17 +187,26 @@ impl Display for PackageInfo {
         }
         writeln!(f, "Download-Size: {}", HumanBytes(*download_size))?;
         writeln!(f, "APT-Sources: {}", {
+            let apt_sources_without_dpkg = apt_sources
+                .iter()
+                .filter(|x| x.index_type.as_deref() != Some("Debian dpkg status file"))
+                .collect::<Vec<_>>();
+
             let mut s = String::new();
-            if apt_sources.len() > 1 {
-                s.push('\n');
-                s += &apt_sources
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<_>>()
-                    .join("\n  ");
-            } else {
-                s += &apt_sources[0].to_string();
+
+            match apt_sources_without_dpkg.len() {
+                0 => s += &apt_sources[0].to_string(),
+                1 => s += &apt_sources_without_dpkg[0].to_string(),
+                2.. => {
+                    s.push('\n');
+                    s += &apt_sources_without_dpkg
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n  ");
+                }
             }
+
             s
         })?;
         writeln!(f, "description: {}", description)?;
@@ -291,15 +300,7 @@ impl PkgInfo {
 
         let download_size = ver.size();
 
-        let pkg_files = ver
-            .package_files()
-            .filter(|x| {
-                x.index_type()
-                    .map(|x| x != "Debian dpkg status file")
-                    .unwrap_or(true)
-            })
-            .map(AptSource::from)
-            .collect::<Vec<_>>();
+        let pkg_files = ver.package_files().map(AptSource::from).collect::<Vec<_>>();
 
         let description = ver
             .description()
