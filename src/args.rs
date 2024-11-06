@@ -475,7 +475,7 @@ pub fn command_builder() -> Command {
                 vec![]
             }
         })
-        .subcommand(Command::new("tui").about("Oma tui interface"));
+        .subcommand(Command::new("tui").about("Oma tui interface").arg(&no_refresh));
 
     if locale_has_zh().unwrap_or(false) {
         cmd = cmd.after_help("本 oma 具有超级小熊猫力！");
