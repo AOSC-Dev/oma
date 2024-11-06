@@ -146,8 +146,19 @@ impl<'a> Tui<'a> {
         let mut last_tick = Instant::now();
         loop {
             terminal.draw(|f| self.ui(f))?;
+
             if event::poll(tick_rate)? {
                 if let event::Event::Key(key) = event::read()? {
+                    if self.popup.is_some() {
+                        match key.code {
+                            KeyCode::Char('c') => {
+                                self.popup = None;
+                                continue;
+                            }
+                            _ => continue,
+                        }
+                    }
+
                     if key.modifiers == KeyModifiers::CONTROL {
                         match key.code {
                             KeyCode::Char('c') => {
@@ -214,9 +225,6 @@ impl<'a> Tui<'a> {
                             }
                         }
                         KeyCode::Char('/') => self.mode = Mode::Search,
-                        KeyCode::Char('c') if self.popup.is_some() => {
-                            self.popup = None;
-                        }
                         KeyCode::Char(c) => {
                             if self.mode != Mode::Search {
                                 continue;
