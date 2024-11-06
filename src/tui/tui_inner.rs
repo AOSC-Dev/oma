@@ -171,9 +171,7 @@ impl<'a> Tui<'a> {
                                     self.pending_result_state.items.remove(pos);
                                 } else {
                                     if self.upgrade_and_autoremovable.0 == 0 {
-                                        self.popup = Some(
-                                            "No system update available at this time.".to_string(),
-                                        );
+                                        self.popup = Some(fl!("tui-no-system-update"));
                                         continue;
                                     }
                                     self.display_pending_detail = true;
@@ -192,10 +190,7 @@ impl<'a> Tui<'a> {
                                     self.pending_result_state.items.remove(pos);
                                 } else {
                                     if self.upgrade_and_autoremovable.1 == 0 {
-                                        self.popup = Some(
-                                            "No package clean up is required at this time."
-                                                .to_string(),
-                                        );
+                                        self.popup = Some(fl!("tui-no-package-clean-up"));
                                         continue;
                                     }
                                     self.display_pending_detail = true;
@@ -700,7 +695,7 @@ impl<'a> Tui<'a> {
                 Text::from(vec![
                     Line::from(popup.as_str()),
                     Line::from(""),
-                    Line::from("Press 'c' to continue."),
+                    Line::from(fl!("tui-continue-tips")),
                 ]),
                 inner,
             );
