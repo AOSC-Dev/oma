@@ -76,7 +76,7 @@ impl<'a> OmaDatabase<'a> {
                     "file:{}",
                     Path::new(i.name())
                         .canonicalize()
-                        .map_err(|_| OmaDatabaseError::NoPath(i.name().to_string()))?
+                        .map_err(|_| OmaDatabaseError::NoPath(pkg.fullname(true)))?
                         .to_str()
                         .unwrap_or(pkg.name())
                 ));
@@ -126,7 +126,7 @@ impl<'a> OmaDatabase<'a> {
             .map(|x| Package::new(self.cache, x));
 
         for pkg in pkgs {
-            debug!("Select pkg: {}", pkg.name());
+            debug!("Select pkg: {}", pkg.fullname(true));
             let versions = pkg.versions().collect::<Vec<_>>();
             let mut candidated = false;
             for ver in versions {
@@ -306,7 +306,7 @@ impl<'a> OmaDatabase<'a> {
         version: &Version,
         res: &mut Vec<PkgInfo>,
     ) -> OmaDatabaseResult<()> {
-        let dbg_pkg_name = format!("{}-dbg", pkg.name());
+        let dbg_pkg_name = format!("{}-dbg:{}", pkg.name(), version.arch());
         let dbg_pkg = self.cache.get(&dbg_pkg_name);
         let version_str = version.version();
 
@@ -331,7 +331,7 @@ impl<'a> OmaDatabase<'a> {
                     let pkginfo = PkgInfo::new(&version, &pkg)?;
                     debug!(
                         "Pkg: {} selected version: {}",
-                        pkg.name(),
+                        pkg.fullname(true),
                         version.version(),
                     );
                     return Ok(pkginfo);
@@ -355,7 +355,8 @@ pub fn real_pkg(pkg: &Package) -> Option<UniquePtr<PkgIterator>> {
 }
 
 pub fn has_dbg(cache: &Cache, pkg: &Package<'_>, ver: &Version) -> bool {
-    let dbg_pkg = cache.get(&format!("{}-dbg", pkg.name()));
+    let dbg_pkg = format!("{}-dbg:{}", pkg.name(), ver.arch());
+    let dbg_pkg = cache.get(&dbg_pkg);
 
     let has_dbg = if let Some(dbg_pkg) = dbg_pkg {
         dbg_pkg.versions().any(|x| x.version() == ver.version())

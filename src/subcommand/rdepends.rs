@@ -36,7 +36,7 @@ pub fn execute(
 
     if !json {
         for pkg in pkgs {
-            println!("{}:", pkg.raw_pkg.name());
+            println!("{}:", pkg.raw_pkg.fullname(true));
             println!("  Reverse dependencies:");
             let all_deps = pkg.get_rdeps(&apt.cache)?;
 
@@ -46,7 +46,7 @@ pub fn execute(
                         let s = if let (Some(symbol), Some(ver)) =
                             (b_dep.comp_symbol, b_dep.target_ver)
                         {
-                            Cow::Owned(format!("({} {symbol} {ver})", pkg.raw_pkg.name()))
+                            Cow::Owned(format!("({} {symbol} {ver})", pkg.raw_pkg.fullname(true)))
                         } else {
                             Cow::Borrowed("")
                         };
@@ -63,7 +63,7 @@ pub fn execute(
                 stdout,
                 "{}",
                 serde_json::json!({
-                    "name": pkg.raw_pkg.name(),
+                    "name": pkg.raw_pkg.fullname(true),
                     "rdeps": pkg.get_rdeps(&apt.cache)?,
                 })
             )

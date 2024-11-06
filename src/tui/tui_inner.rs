@@ -338,14 +338,14 @@ impl<'a> Tui<'a> {
                         if let Some(pkg_index) = self
                             .install
                             .iter()
-                            .position(|x: &PkgInfo| x.raw_pkg.name() == name)
+                            .position(|x: &PkgInfo| x.raw_pkg.fullname(true) == *name)
                         {
                             let pos = self
                                 .pending_result_state
                                 .items
                                 .iter()
                                 .position(|x| {
-                                    x.name == self.install[pkg_index].raw_pkg.name()
+                                    x.name == self.install[pkg_index].raw_pkg.fullname(true)
                                         && x.version.is_some()
                                 })
                                 .unwrap();
@@ -361,14 +361,14 @@ impl<'a> Tui<'a> {
                         if let Some(pkg_index) = self
                             .remove
                             .iter()
-                            .position(|x: &PkgInfo| x.raw_pkg.name() == name)
+                            .position(|x: &PkgInfo| x.raw_pkg.fullname(true) == *name)
                         {
                             let pos = self
                                 .pending_result_state
                                 .items
                                 .iter()
                                 .position(|x| {
-                                    x.name == self.remove[pkg_index].raw_pkg.name()
+                                    x.name == self.remove[pkg_index].raw_pkg.fullname(true)
                                         && x.version.is_none()
                                 })
                                 .unwrap();
@@ -413,14 +413,14 @@ impl<'a> Tui<'a> {
                         let inst_pos = self
                             .install
                             .iter()
-                            .position(|x| x.raw_pkg.name() == removed.name)
+                            .position(|x| x.raw_pkg.fullname(true) == removed.name)
                             .unwrap();
                         self.install.remove(inst_pos);
                     } else {
                         let remove_pos = self
                             .remove
                             .iter()
-                            .position(|x| x.raw_pkg.name() == removed.name)
+                            .position(|x| x.raw_pkg.fullname(true) == removed.name)
                             .unwrap();
                         self.remove.remove(remove_pos);
                     }

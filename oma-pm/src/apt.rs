@@ -376,21 +376,17 @@ impl OmaApt {
 
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
-                pkg.raw_pkg.name(),
+                pkg.raw_pkg.fullname(true),
                 pkg.version_raw.version()
             );
 
             if !marked_install {
                 no_marked_install.push((
-                    pkg.raw_pkg.name().to_string(),
+                    pkg.raw_pkg.fullname(true),
                     pkg.version_raw.version().to_string(),
                 ));
-            } else if !self
-                .select_pkgs
-                .contains(&pkg.raw_pkg.fullname(true).to_string())
-            {
-                self.select_pkgs
-                    .push(pkg.raw_pkg.fullname(true).to_string());
+            } else if !self.select_pkgs.contains(&pkg.raw_pkg.fullname(true)) {
+                self.select_pkgs.push(pkg.raw_pkg.fullname(true));
             }
         }
 
@@ -414,7 +410,7 @@ impl OmaApt {
             if pkg.current_state() != PkgCurrentState::Installed {
                 debug!(
                     "pkg {} current state is {:?}",
-                    pkg.name(),
+                    pkg.fullname(true),
                     pkg.current_state()
                 );
                 need = true;
@@ -447,7 +443,7 @@ impl OmaApt {
 
         let mut download_list = vec![];
         for pkg in pkgs {
-            let name = pkg.raw_pkg.name().to_string();
+            let name = pkg.raw_pkg.fullname(true);
             let ver = Version::new(pkg.version_raw, &self.cache);
             let install_size = ver.installed_size();
             if !ver.is_downloadable() {
@@ -469,7 +465,7 @@ impl OmaApt {
             }
 
             let entry = InstallEntry::builder()
-                .name(pkg.raw_pkg.fullname(true).to_string())
+                .name(pkg.raw_pkg.fullname(true))
                 .new_version(ver.version().to_string())
                 .new_size(install_size)
                 .pkg_urls(ver.uris().collect::<Vec<_>>())
@@ -525,9 +521,9 @@ impl OmaApt {
         for pkg in pkgs {
             let is_marked_delete = mark_delete(&self.cache, pkg, purge)?;
             if !is_marked_delete {
-                no_marked_remove.push(pkg.raw_pkg.name().to_string());
-            } else if !self.select_pkgs.contains(&pkg.raw_pkg.name().to_string()) {
-                self.select_pkgs.push(pkg.raw_pkg.name().to_string());
+                no_marked_remove.push(pkg.raw_pkg.fullname(true));
+            } else if !self.select_pkgs.contains(&pkg.raw_pkg.fullname(true)) {
+                self.select_pkgs.push(pkg.raw_pkg.fullname(true));
             }
         }
 
@@ -563,7 +559,7 @@ impl OmaApt {
                 pkg.mark_delete(purge);
                 pkg.protect();
 
-                self.autoremove.push(pkg.name().to_string());
+                self.autoremove.push(pkg.fullname(true));
             }
         }
 
@@ -971,25 +967,37 @@ impl OmaApt {
             let pkg = Package::new(&self.cache, pkg.raw_pkg);
 
             if !pkg.is_installed() {
-                return Err(OmaAptError::MarkPkgNotInstalled(pkg.name().to_string()));
+                return Err(OmaAptError::MarkPkgNotInstalled(pkg.fullname(true)));
             }
 
             if pkg.is_auto_installed() {
                 if auto {
-                    res.push((pkg.name().to_string(), false));
-                    debug!("pkg {} set to auto = {auto} is set = false", pkg.name());
+                    res.push((pkg.fullname(true), false));
+                    debug!(
+                        "pkg {} set to auto = {auto} is set = false",
+                        pkg.fullname(true)
+                    );
                 } else {
                     pkg.mark_auto(false);
-                    res.push((pkg.name().to_string(), true));
-                    debug!("pkg {} set to auto = {auto} is set = true", pkg.name());
+                    res.push((pkg.fullname(true), true));
+                    debug!(
+                        "pkg {} set to auto = {auto} is set = true",
+                        pkg.fullname(true)
+                    );
                 }
             } else if auto {
                 pkg.mark_auto(true);
-                res.push((pkg.name().to_string(), true));
-                debug!("pkg {} set to auto = {auto} is set = true", pkg.name());
+                res.push((pkg.fullname(true), true));
+                debug!(
+                    "pkg {} set to auto = {auto} is set = true",
+                    pkg.fullname(true)
+                );
             } else {
-                res.push((pkg.name().to_string(), false));
-                debug!("pkg {} set to auto = {auto} is set = false", pkg.name());
+                res.push((pkg.fullname(true), false));
+                debug!(
+                    "pkg {} set to auto = {auto} is set = false",
+                    pkg.fullname(true)
+                );
             }
         }
 
@@ -1027,7 +1035,7 @@ impl OmaApt {
                 let cand = pkg
                     .candidate()
                     .take()
-                    .ok_or_else(|| OmaAptError::PkgNoCandidate(pkg.name().to_string()))?;
+                    .ok_or_else(|| OmaAptError::PkgNoCandidate(pkg.fullname(true)))?;
 
                 let uri = cand.uris().collect::<Vec<_>>();
                 let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
@@ -1054,7 +1062,7 @@ impl OmaApt {
                 }
 
                 let entry = InstallEntry::builder()
-                    .name(pkg.fullname(true).to_string())
+                    .name(pkg.fullname(true))
                     .new_version(version.to_string())
                     .new_size(size)
                     .pkg_urls(uri)
@@ -1307,7 +1315,7 @@ fn mark_delete(cache: &Cache, pkg: &PkgInfo, purge: bool) -> OmaAptResult<bool> 
     if !pkg.is_installed() && !removed_but_has_config {
         debug!(
             "Package {} is not installed. No need to remove.",
-            pkg.name()
+            pkg.fullname(true)
         );
         return Ok(false);
     }
@@ -1322,7 +1330,7 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     let cand = new_pkg
         .candidate()
         .take()
-        .ok_or_else(|| OmaAptError::PkgNoCandidate(new_pkg.name().to_string()))?;
+        .ok_or_else(|| OmaAptError::PkgNoCandidate(new_pkg.fullname(true)))?;
 
     let uri = cand.uris().collect::<Vec<_>>();
     let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
@@ -1353,7 +1361,7 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
     }
 
     let install_entry = InstallEntry::builder()
-        .name(new_pkg.fullname(true).to_string())
+        .name(new_pkg.fullname(true))
         .old_version(old_version.to_string())
         .new_version(new_version.to_owned())
         .old_size(installed.installed_size())
@@ -1399,7 +1407,7 @@ fn select_pkg(
         };
 
         for i in &res {
-            debug!("{} {}", i.raw_pkg.name(), i.version_raw.version());
+            debug!("{} {}", i.raw_pkg.fullname(true), i.version_raw.version());
         }
 
         if res.is_empty() {
@@ -1442,7 +1450,7 @@ fn mark_install(
         } else if installed.version() == ver.version() && reinstall {
             if !ver.is_downloadable() {
                 return Err(OmaAptError::MarkReinstallError(
-                    pkg.name().to_string(),
+                    pkg.fullname(true),
                     ver.version().to_string(),
                 ));
             }
@@ -1466,7 +1474,7 @@ fn mark_install(
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
     debug!("marked_keep: {}", pkg.marked_keep());
-    debug!("{} will marked install", pkg.name());
+    debug!("{} will marked install", pkg.fullname(true));
 
     Ok(true)
 }
