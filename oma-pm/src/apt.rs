@@ -466,6 +466,7 @@ impl OmaApt {
 
             let entry = InstallEntry::builder()
                 .name(pkg.raw_pkg.fullname(true))
+                .name_without_arch(pkg.raw_pkg.name().to_string())
                 .new_version(ver.version().to_string())
                 .new_size(install_size)
                 .pkg_urls(ver.uris().collect::<Vec<_>>())
@@ -1063,6 +1064,7 @@ impl OmaApt {
 
                 let entry = InstallEntry::builder()
                     .name(pkg.fullname(true))
+                    .name_without_arch(pkg.name().to_string())
                     .new_version(version.to_string())
                     .new_size(size)
                     .pkg_urls(uri)
@@ -1168,6 +1170,7 @@ impl OmaApt {
 
                 let entry = InstallEntry::builder()
                     .name(pkg.fullname(true))
+                    .name_without_arch(pkg.name().to_string())
                     .new_version(version.version().to_string())
                     .old_size(version.installed_size())
                     .new_size(version.installed_size())
@@ -1362,6 +1365,7 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
 
     let install_entry = InstallEntry::builder()
         .name(new_pkg.fullname(true))
+        .name_without_arch(new_pkg.name().to_string())
         .old_version(old_version.to_string())
         .new_version(new_version.to_owned())
         .old_size(installed.installed_size())
@@ -1622,7 +1626,7 @@ fn broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<Vec<BrokenPackage>
 
 /// trans filename to apt style file name
 fn apt_style_filename(entry: &InstallEntry) -> String {
-    let package = entry.name();
+    let package = entry.name_without_arch();
     let version = entry.new_version();
     let arch = entry.arch();
 
