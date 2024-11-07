@@ -166,7 +166,6 @@ tui-start-6 = Search
 tui-start-7 = Exit
 tui-upgrade = Upgrade system
 tui-autoremove = Clean package(s)
-tui-start = OK
 tui-no-system-update = No system update available at this time.
 tui-no-package-clean-up = No package clean-up is required at this time.
 tui-continue-tips = Press [c] to continue.

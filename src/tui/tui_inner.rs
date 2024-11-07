@@ -843,7 +843,6 @@ fn show_packages(
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(fl!("tui-start"))
                     .style(highlight_window(mode, &Mode::Packages))
                     .padding(Padding::new(0, 0, area.height / 2 - 8, 0)),
             )

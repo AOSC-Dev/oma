@@ -161,7 +161,6 @@ tui-start-6 = 搜索
 tui-start-7 = 退出
 tui-upgrade = 升级系统
 tui-autoremove = 清理软件包
-tui-start = 开始使用
 tui-no-system-update = 目前无需更新系统。
 tui-no-package-clean-up = 目前无需清理无用软件包。
 tui-continue-tips = 请按 [c] 继续。
