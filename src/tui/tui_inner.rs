@@ -78,8 +78,8 @@ impl Display for Operation {
                     writeln!(f, "- {}", name)?;
                 }
             }
-            Operation::Upgrade => writeln!(f, "Upgrade system")?,
-            Operation::AutoRemove => writeln!(f, "Autoremove unnecessary package(s)")?,
+            Operation::Upgrade => writeln!(f, "{}", fl!("tui-upgrade"))?,
+            Operation::AutoRemove => writeln!(f, "{}", fl!("tui-autoremove"))?,
         }
 
         Ok(())
