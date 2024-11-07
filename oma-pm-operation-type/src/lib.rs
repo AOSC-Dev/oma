@@ -103,6 +103,7 @@ impl Display for OmaOperation {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize, Builder)]
 pub struct InstallEntry {
     name: String,
+    name_without_arch: String,
     old_version: Option<String>,
     new_version: String,
     old_size: Option<u64>,
@@ -148,6 +149,10 @@ pub enum InstallOperation {
 impl InstallEntry {
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn name_without_arch(&self) -> &str {
+        &self.name_without_arch
     }
 
     pub fn old_size(&self) -> Option<u64> {

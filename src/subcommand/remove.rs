@@ -80,7 +80,7 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         dry_run,
         request_type: SummaryType::Remove(
             pkgs.iter()
-                .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
+                .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
         no_fixbroken: !args.fix_broken,

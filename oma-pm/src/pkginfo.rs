@@ -282,7 +282,7 @@ impl PkgInfo {
     }
 
     pub fn pkg_info(&self, cache: &Cache) -> OmaAptResult<PackageInfo> {
-        let package: Box<str> = Box::from(self.raw_pkg.name());
+        let package: Box<str> = Box::from(self.raw_pkg.fullname(true));
         let version: Box<str> = Box::from(self.version_raw.version());
         let ver = Version::new(
             unsafe { self.version_raw.unique() }

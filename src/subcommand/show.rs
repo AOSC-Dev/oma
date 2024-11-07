@@ -37,7 +37,7 @@ pub fn execute(
         for pkg in pkgs {
             if !filter_pkgs
                 .iter()
-                .any(|x| pkg.raw_pkg.name() == x.raw_pkg.name())
+                .any(|x| pkg.raw_pkg.fullname(true) == x.raw_pkg.fullname(true))
             {
                 filter_pkgs.push(pkg);
             }

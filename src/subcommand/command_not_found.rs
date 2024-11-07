@@ -82,7 +82,7 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
                         })
                         .unwrap_or_else(|| "no description.".to_string());
 
-                    map.insert(pkg.name().to_string(), desc.to_string());
+                    map.insert(pkg.fullname(true), desc.to_string());
 
                     desc
                 } else {

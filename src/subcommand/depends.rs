@@ -35,7 +35,7 @@ pub fn execute(
 
     if !json {
         for pkg in pkgs {
-            println!("{}:", pkg.raw_pkg.name());
+            println!("{}:", pkg.raw_pkg.fullname(true));
             let all_deps = pkg.get_deps(&apt.cache)?;
 
             for (k, v) in all_deps {
@@ -59,7 +59,7 @@ pub fn execute(
                 stdout,
                 "{}",
                 serde_json::json!({
-                    "name": pkg.raw_pkg.name(),
+                    "name": pkg.raw_pkg.fullname(true),
                     "deps": pkg.get_deps(&apt.cache)?,
                 })
             )

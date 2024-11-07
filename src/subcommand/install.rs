@@ -110,7 +110,7 @@ pub fn execute(
         dry_run,
         request_type: SummaryType::Install(
             pkgs.iter()
-                .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
+                .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
         no_fixbroken: args.no_fixbroken,

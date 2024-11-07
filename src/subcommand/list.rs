@@ -89,7 +89,7 @@ pub fn execute(
     let mut pkg_count = 0;
 
     for pkg in filter_pkgs {
-        let name = pkg.name();
+        let name = pkg.fullname(true);
         pkg_count += 1;
         let versions = if all {
             pkg.versions().collect()
@@ -114,7 +114,7 @@ pub fn execute(
                 vec![pkg
                     .candidate()
                     .or_else(|| pkg.versions().next())
-                    .ok_or_else(|| anyhow!("Has Package {} but no version?", pkg.name()))?]
+                    .ok_or_else(|| anyhow!("Has Package {} but no version?", pkg.fullname(true)))?]
             }
         };
 
@@ -185,7 +185,7 @@ pub fn execute(
                 printer
                     .print(format!(
                         "{}/{} {} {arch} {s}",
-                        color_formatter().color_str(name, Action::Emphasis).bold(),
+                        color_formatter().color_str(&name, Action::Emphasis).bold(),
                         color_formatter().color_str(branches_str, Action::Secondary),
                         if upgradable {
                             version_str = Cow::Owned(format!(

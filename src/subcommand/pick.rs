@@ -107,7 +107,7 @@ pub fn execute(
     let theme = ColorfulTheme::default();
     let mut dialoguer = Select::with_theme(&theme)
         .items(&versions_str)
-        .with_prompt(fl!("pick-tips", pkgname = pkg.name()));
+        .with_prompt(fl!("pick-tips", pkgname = pkg.fullname(true)));
 
     let pos = if let Some(installed) = pkg.installed() {
         versions_str
@@ -138,7 +138,7 @@ pub fn execute(
         dry_run,
         request_type: SummaryType::Install(
             pkgs.iter()
-                .map(|x| format!("{} {}", x.raw_pkg.name(), x.version_raw.version()))
+                .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
                 .collect::<Vec<_>>(),
         ),
         no_fixbroken: false,

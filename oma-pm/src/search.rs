@@ -75,7 +75,7 @@ impl Debug for SearchEntry {
             .field("status", &self.status)
             .field("provides", &self.provides)
             .field("has_dbg", &self.has_dbg)
-            .field("raw_pkg", &self.raw_pkg.name())
+            .field("raw_pkg", &self.raw_pkg.fullname(true))
             .field("section_is_base", &self.section_is_base)
             .finish()
     }
@@ -301,7 +301,7 @@ impl<'a> IndiciumSearch<'a> {
         let new_version = pkg
             .candidate()
             .map(|x| x.version().to_string())
-            .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
+            .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.fullname(true)))?;
 
         let is_base = entry.section_is_base;
 
@@ -397,7 +397,7 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
             let pkg = Package::new(self.cache, pkginfo.raw_pkg);
             let cand = pkg
                 .candidate()
-                .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.name().to_string()))?;
+                .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.fullname(true)))?;
 
             let name = pkg.fullname(true);
             let is_base = name.ends_with("-base");
