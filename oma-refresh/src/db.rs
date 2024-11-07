@@ -687,10 +687,16 @@ impl<'a> OmaRefresh<'a> {
                     })?;
 
                 let archs = if let Some(archs) = ose.options().get("archs") {
-                    archs.split(',').collect::<Vec<_>>()
+                    archs.split(',').map(Cow::Borrowed).collect::<Vec<_>>()
+                } else if let Ok(f) = tokio::fs::read_to_string("/var/lib/dpkg/arch").await {
+                    f.lines()
+                        .map(|x| Cow::Owned(x.to_string()))
+                        .collect::<Vec<_>>()
                 } else {
-                    vec![self.arch.as_str()]
+                    vec![Cow::Borrowed(self.arch.as_str())]
                 };
+
+                debug!("archs: {:?}", archs);
 
                 let inrelease = verify_inrelease(
                     &inrelease,
