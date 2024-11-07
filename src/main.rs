@@ -845,7 +845,8 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
 
             if e.downcast_ref::<LockError>().is_some() {
                 unlock = false;
-                if find_another_oma().is_err() {
+                if let Err(e) = find_another_oma() {
+                    debug!("{e}");
                     error!("{}", fl!("failed-to-lock-oma"));
                 }
             }

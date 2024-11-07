@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
 use apt_auth_config::AuthConfig;
 use oma_console::{
@@ -16,7 +16,7 @@ use tui_inner::{Task, Tui};
 
 use crate::{
     error::OutputError,
-    fl,
+    find_another_oma, fl,
     subcommand::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest},
     utils::{check_battery, root},
     HTTP_CLIENT, RT,
@@ -35,6 +35,20 @@ pub struct TuiArgs {
 }
 
 pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
+    if find_another_oma().is_ok() {
+        return Err(OutputError {
+            description: "".to_string(),
+            source: None,
+        });
+    }
+
+    if Path::new("/run/lock/oma.lock").exists() {
+        return Err(OutputError {
+            description: fl!("failed-to-lock-oma"),
+            source: None,
+        });
+    }
+
     root()?;
 
     let conn = RT.block_on(create_dbus_connection())?;

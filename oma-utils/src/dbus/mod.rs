@@ -61,6 +61,8 @@ pub async fn get_another_oma_status(conn: &Connection) -> OmaDbusResult<String> 
         .await
         .map_err(OmaDbusError::FailedGetOmaStatus)?;
 
+    debug!("{}", s);
+
     Ok(s)
 }
 
