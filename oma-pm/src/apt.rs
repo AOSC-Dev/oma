@@ -195,7 +195,15 @@ impl OmaApt {
             .build()
             .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
 
-        let conn = tokio.block_on(async { Self::create_session(bus).await.ok() });
+        let conn = tokio.block_on(async {
+            match Self::create_session(bus).await {
+                Ok(conn) => Some(conn),
+                Err(e) => {
+                    debug!("Failed to create D-Bus session: {:?}", e);
+                    None
+                }
+            }
+        });
 
         Ok(Self {
             cache: new_cache!(&local_debs)?,

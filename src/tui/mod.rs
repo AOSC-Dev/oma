@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
 use apt_auth_config::AuthConfig;
 use oma_console::{
@@ -12,11 +12,11 @@ use oma_pm::{
     search::IndiciumSearch,
 };
 use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
-use tui_inner::Tui;
+use tui_inner::{Task, Tui};
 
 use crate::{
     error::OutputError,
-    fl,
+    find_another_oma, fl,
     subcommand::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest},
     utils::{check_battery, root},
     HTTP_CLIENT, RT,
@@ -35,6 +35,20 @@ pub struct TuiArgs {
 }
 
 pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
+    if find_another_oma().is_ok() {
+        return Err(OutputError {
+            description: "".to_string(),
+            source: None,
+        });
+    }
+
+    if Path::new("/run/lock/oma.lock").exists() {
+        return Err(OutputError {
+            description: fl!("failed-to-lock-oma"),
+            source: None,
+        });
+    }
+
     root()?;
 
     let conn = RT.block_on(create_dbus_connection())?;
@@ -91,8 +105,14 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     })?;
 
     let tui = Tui::new(&apt, a, installed, searcher);
-    let (execute_apt, install, remove) =
-        tui.run(&mut terminal, Duration::from_millis(250)).unwrap();
+
+    let Task {
+        execute_apt,
+        install,
+        remove,
+        upgrade,
+        autoremove,
+    } = tui.run(&mut terminal, Duration::from_millis(250)).unwrap();
 
     exit_tui(&mut terminal).map_err(|e| OutputError {
         description: "BUG: Failed to exit tui".to_string(),
@@ -111,9 +131,13 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         };
 
         lock_oma()?;
-        apt.upgrade(Upgrade::FullUpgrade)?;
+
+        if upgrade {
+            apt.upgrade(Upgrade::FullUpgrade)?;
+        }
+
         apt.install(&install, false)?;
-        apt.remove(&remove, false, false)?;
+        apt.remove(&remove, false, !autoremove)?;
 
         code = CommitRequest {
             apt,

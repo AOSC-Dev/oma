@@ -159,7 +159,6 @@ tui-start-4 = 套用更改
 tui-start-5 = 添加/移除操作條目
 tui-start-6 = 搜尋
 tui-start-7 = 結束
-tui-start = 開始使用
 oma = 小熊貓套件管理器
 another-oma-is-running = 有另一個 oma 實例正在執行中：{ $s }
 table-name = 套件名稱
