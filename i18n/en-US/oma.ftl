@@ -217,3 +217,6 @@ search-tips-with-empty = The search pattern may not be empty (press [/] to retry
 search-tips-not-found = Your search did not return any match (press [/] to retry).
 doplicate-component = Duplicate sources entries found in source configuration: { $url } { $c }.
 resolving-dependencies = Resolving dependencies ...
+auth-need-permission = The repository shipping the package(s) may require authorization. Please run oma with elevated privileges, as it needs to read the authorization configurations.
+lack-auth-config-1 = oma is unable to access the specified package(s) from the repository due to missing authorization configurations. 
+lack-auth-config-2 = Please verify if your APT authorization configurations (/etc/apt/auth.conf.d) were set up correctly.

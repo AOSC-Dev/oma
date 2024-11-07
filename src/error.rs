@@ -24,6 +24,7 @@ use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
+use reqwest::StatusCode;
 use tracing::{debug, error, info};
 
 use crate::fl;
@@ -822,6 +823,12 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 error!("{}", err.description);
                 if let Some(s) = err.source {
                     due_to!("{s}");
+                    if let Some(e) = s.downcast_ref::<reqwest::Error>() {
+                        if e.status().is_some_and(|x| x == StatusCode::UNAUTHORIZED) {
+                            info!("{}", fl!("lack-auth-config-1"));
+                            info!("{}", fl!("lack-auth-config-2"));
+                        }
+                    }
                 }
             }
             OutputError {

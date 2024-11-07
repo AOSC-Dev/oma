@@ -4,9 +4,11 @@ use apt_auth_config::AuthConfig;
 use oma_console::{due_to, success};
 use oma_fetch::DownloadProgressControl;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
-use tracing::error;
+use reqwest::StatusCode;
+use tracing::{error, info};
 
 use crate::pb::{NoProgressBar, OmaMultiProgressBar};
+use crate::utils::is_root;
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 use crate::{fl, OmaArgs, HTTP_CLIENT};
 
@@ -68,9 +70,20 @@ pub fn execute(
         let len = failed.len();
         for f in failed {
             let e = OutputError::from(f);
+
             error!("{e}");
             if let Some(s) = e.source {
                 due_to!("{s}");
+                if let Some(e) = s.downcast_ref::<reqwest::Error>() {
+                    if e.status().is_some_and(|x| x == StatusCode::UNAUTHORIZED) {
+                        if !is_root() {
+                            info!("{}", fl!("auth-need-permission"));
+                        } else {
+                            info!("{}", fl!("lack-auth-config-1"));
+                            info!("{}", fl!("lack-auth-config-2"));
+                        }
+                    }
+                }
             }
         }
 

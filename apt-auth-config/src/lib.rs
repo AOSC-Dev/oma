@@ -5,6 +5,7 @@ use std::{
     str::FromStr,
 };
 
+use rustix::process;
 use thiserror::Error;
 use tracing::debug;
 
@@ -95,7 +96,18 @@ impl FromStr for AuthConfigEntry {
 }
 
 impl AuthConfig {
+    /// Read system auth.conf.d config (/etc/apt/auth.conf.d)
+    ///
+    /// Note that this function returns empty vector if run as a non-root user.
     pub fn system(sysroot: impl AsRef<Path>) -> Result<Self, AuthConfigError> {
+        // 在 auth.conf.d 的使用惯例中
+        // 配置文件的权限一般为 600，并且所有者为 root
+        // 以普通用户身份下载文件时，会没有权限读取 auth 配置
+        // 因此，在以普通用户访问时，不读取 auth 配置
+        if !process::geteuid().is_root() {
+            return Ok(Self { inner: vec![] });
+        }
+
         let p = sysroot.as_ref().join("etc/apt/auth.conf.d");
         Self::from_path(p)
     }

@@ -27,7 +27,7 @@ use tracing::{debug, info, warn};
 type Result<T> = std::result::Result<T, OutputError>;
 
 pub fn root() -> Result<()> {
-    if process::geteuid().is_root() {
+    if is_root() {
         return Ok(());
     }
 
@@ -57,6 +57,11 @@ pub fn root() -> Result<()> {
         description: fl!("please-run-me-as-root"),
         source: None,
     })
+}
+
+#[inline]
+pub fn is_root() -> bool {
+    process::geteuid().is_root()
 }
 
 fn file_path_canonicalize(args: &mut Vec<String>) {
