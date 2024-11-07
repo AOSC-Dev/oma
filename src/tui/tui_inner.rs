@@ -695,15 +695,15 @@ impl<'a> Tui<'a> {
 
         if let Some(popup) = &self.popup {
             let block = Block::bordered();
-            let area = popup_area(main_layout[2], 69, 20);
+            let area = popup_area(main_layout[2], 45, 6);
             let inner = block.inner(area);
             f.render_widget(Clear, area); //this clears out the background
             f.render_widget(block, area);
             f.render_widget(
                 Text::from(vec![
-                    Line::from(popup.as_str()),
-                    Line::from(""),
-                    Line::from(fl!("tui-continue-tips")),
+                    Line::raw(popup),
+                    Line::raw(""),
+                    Line::raw(fl!("tui-continue-tips")),
                 ]),
                 inner,
             );
@@ -906,9 +906,9 @@ fn delete_inner(input: &Rc<RefCell<String>>, before: usize, after: usize) {
 }
 
 /// helper function to create a centered rect using up certain percentage of the available rect `r`
-fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
-    let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
-    let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
+fn popup_area(area: Rect, x: u16, y: u16) -> Rect {
+    let vertical = Layout::vertical([Constraint::Length(y)]).flex(Flex::Center);
+    let horizontal = Layout::horizontal([Constraint::Length(x)]).flex(Flex::Center);
     let [area] = vertical.areas(area);
     let [area] = horizontal.areas(area);
 
