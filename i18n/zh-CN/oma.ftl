@@ -213,3 +213,6 @@ search-tips-with-empty = 搜索关键字不能为空（请按 [/] 重试搜索�
 search-tips-not-found = 您搜索的关键字无任何匹配项（请按 [/] 重试搜索）。
 doplicate-component = 源配置文件中包含重复条目：{ $url } { $c }。
 resolving-dependencies = 正在解析依赖关系 ...
+auth-need-permission = 软件包所在的软件源可能需要访问鉴权，请使用管理员权限以允许 oma 读取鉴权配置。
+lack-auth-config-1 = 由于缺少鉴权配置，oma 无法从软件源访问指定的软件包。
+lack-auth-config-2 = 请检查您的 APT 鉴权配置 (/etc/apt/auth.conf.d)。
