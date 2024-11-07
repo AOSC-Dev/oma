@@ -10,6 +10,7 @@ use std::{
 use super::state::StatefulList;
 use ansi_to_tui::IntoText;
 use crossterm::event::{self, KeyCode, KeyModifiers};
+use dialoguer::console;
 use oma_console::WRITER;
 use oma_pm::{
     apt::OmaApt,
@@ -695,7 +696,11 @@ impl<'a> Tui<'a> {
 
         if let Some(popup) = &self.popup {
             let block = Block::bordered();
-            let area = popup_area(main_layout[2], 45, 6);
+            let area = popup_area(
+                main_layout[2],
+                console::measure_text_width(popup) as u16 + 10,
+                6,
+            );
             let inner = block.inner(area);
             f.render_widget(Clear, area); //this clears out the background
             f.render_widget(block, area);
