@@ -713,8 +713,8 @@ impl<'a> Tui<'a> {
 
 fn render_tips(f: &mut Frame<'_>, main_layout: &Rc<[Rect]>) {
     match WRITER.get_length() {
-        0..=44 => {}
-        45..=130 => {
+        0..=62 => {}
+        63..=153 => {
             f.render_widget(
                 Paragraph::new(Line::from(vec![
                     Span::raw("Quicknav: "),
@@ -737,7 +737,7 @@ fn render_tips(f: &mut Frame<'_>, main_layout: &Rc<[Rect]>) {
                 main_layout[3],
             );
         }
-        131.. => {
+        154.. => {
             f.render_widget(
                 Paragraph::new(Line::from(vec![
                     Span::styled("TAB", Style::new().blue()),
