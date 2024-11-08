@@ -10,6 +10,7 @@ use std::time::Duration;
 mod args;
 mod config;
 mod error;
+mod install_progress;
 mod lang;
 mod pb;
 mod subcommand;

@@ -27,6 +27,7 @@ use tracing::warn;
 use crate::color_formatter;
 use crate::error::OutputError;
 use crate::fl;
+use crate::install_progress::OmaInstallProgressManager;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
 use crate::pb::OmaProgressBar;
@@ -213,6 +214,7 @@ pub fn execute(
                 auth: &auth_config,
             },
             progress_manager,
+            Box::new(OmaInstallProgressManager),
             op,
         ) {
             Ok(()) => {

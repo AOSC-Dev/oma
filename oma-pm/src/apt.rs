@@ -23,6 +23,7 @@ use oma_apt::{
     util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner, DiskSpace},
     DepFlags, Package, PkgCurrentState, Version,
 };
+
 use oma_console::console::{self, style};
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
@@ -45,7 +46,7 @@ use zbus::{Connection, ConnectionBuilder};
 use crate::{
     dbus::{change_status, OmaBus, Status},
     pkginfo::{PkgInfo, PtrIsNone},
-    progress::{InstallProgressArgs, OmaAptInstallProgress},
+    progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
 };
 
@@ -580,7 +581,8 @@ impl OmaApt {
         self,
         client: &Client,
         config: CommitDownloadConfig<'_>,
-        progress_manager: &dyn DownloadProgressControl,
+        download_progress_manager: &dyn DownloadProgressControl,
+        install_progress_manager: Box<dyn InstallProgressManager>,
         op: OmaOperation,
     ) -> OmaAptResult<()> {
         let CommitDownloadConfig {
@@ -613,7 +615,7 @@ impl OmaApt {
                 download_pkg_list,
                 network_thread,
                 &path,
-                progress_manager,
+                download_progress_manager,
                 auth,
             )
             .await
@@ -653,7 +655,8 @@ impl OmaApt {
             connection: self.connection,
         };
 
-        let mut progress = InstallProgress::new(OmaAptInstallProgress::new(args));
+        let mut progress =
+            InstallProgress::new(OmaAptInstallProgress::new(args, install_progress_manager));
 
         debug!("Try to unlock apt lock inner");
 
