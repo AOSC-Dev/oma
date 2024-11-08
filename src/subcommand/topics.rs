@@ -273,6 +273,9 @@ fn select_prompt(
 
     let display = all_topics
         .iter()
+        .filter(|x| {
+            (x.description.is_some() && !x.draft.is_some_and(|x| x)) || enabled_topics.contains(x)
+        })
         .map(|x| TopicDisplay { topic: x })
         .collect::<Vec<_>>();
 
