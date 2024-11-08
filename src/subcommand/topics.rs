@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fmt::Display, path::Path};
 
 use apt_auth_config::AuthConfig;
 use dialoguer::console::style;
@@ -48,6 +48,29 @@ pub struct TopicArgs {
     pub no_progress: bool,
     pub no_check_dbus: bool,
     pub sysroot: String,
+}
+
+struct TopicDisplay<'a> {
+    topic: &'a Topic,
+}
+
+impl<'a> Display for TopicDisplay<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = String::new();
+
+        if let Some(desc) = &self.topic.description {
+            s += &style(desc).bold().to_string();
+            s += &format!(" ({})", self.topic.name);
+        } else {
+            s += &style(&self.topic.name).bold().to_string();
+        }
+
+        let s = select_tui_display_msg(&s, true);
+
+        write!(f, "{}", s)?;
+
+        Ok(())
+    }
 }
 
 pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32, OutputError> {
@@ -233,11 +256,9 @@ fn select_prompt(
 
     let mut all_topics = all_topics.to_vec();
 
-    let enabled_names = &*enabled_topics.iter().map(|x| &x.name).collect::<Vec<_>>();
-
     // 把所有已启用的源排到最前面
-    for i in enabled_names {
-        let pos = all_topics.iter().position(|x| x.name == **i);
+    for i in enabled_topics {
+        let pos = all_topics.iter().position(|x| x.name == i.name);
 
         if let Some(pos) = pos {
             let entry = all_topics.remove(pos);
@@ -252,21 +273,11 @@ fn select_prompt(
 
     let display = all_topics
         .iter()
-        .map(|x| {
-            let mut s = String::new();
-
-            if let Some(desc) = &x.description {
-                s += &style(desc).bold().to_string();
-                s += &format!(" ({})", x.name);
-            } else {
-                s += &style(&x.name).bold().to_string();
-            }
-
-            select_tui_display_msg(&s, true).to_string()
-        })
+        .map(|x| TopicDisplay { topic: x })
         .collect::<Vec<_>>();
 
-    let formatter: MultiOptionFormatter<&str> = &|a| format!("Activating {} topics", a.len());
+    let formatter: MultiOptionFormatter<TopicDisplay> =
+        &|a| format!("Activating {} topics", a.len());
     let render_config = RenderConfig {
         selected_checkbox: Styled::new("✔").with_fg(Color::LightGreen),
         help_message: StyleSheet::empty().with_fg(Color::LightBlue),
@@ -281,28 +292,24 @@ fn select_prompt(
     // 空行（最多两行）+ tips (最多两行) + prompt（最多两行）
     let page_size = tui_select_list_size();
 
-    let ans = MultiSelect::new(
-        &fl!("select-topics-dialog"),
-        display.iter().map(|x| x.as_ref()).collect(),
-    )
-    .with_help_message(&fl!("tips"))
-    .with_formatter(formatter)
-    .with_default(&default)
-    .with_page_size(page_size as usize)
-    .with_render_config(render_config)
-    .prompt()
-    .map_err(|_| anyhow!(""))?;
+    let ans = MultiSelect::new(&fl!("select-topics-dialog"), display)
+        .with_help_message(&fl!("tips"))
+        .with_formatter(formatter)
+        .with_default(&default)
+        .with_page_size(page_size as usize)
+        .with_render_config(render_config)
+        .prompt()
+        .map_err(|_| anyhow!(""))?;
 
     for i in &ans {
-        let index = display.iter().position(|x| x == i).unwrap();
-        if !enabled_names.contains(&all_names[index]) {
-            opt_in.push(all_names[index].clone());
+        if !enabled_topics.contains(i.topic) {
+            opt_in.push(i.topic.name.to_string());
         }
     }
 
-    for (i, c) in all_names.iter().enumerate() {
-        if enabled_names.contains(c) && !ans.contains(&display[i].as_str()) {
-            opt_out.push(c.to_string());
+    for i in all_names {
+        if enabled_topics.iter().any(|x| x.name == *i) && !ans.iter().any(|x| x.topic.name == *i) {
+            opt_out.push(i.to_string());
         }
     }
 
