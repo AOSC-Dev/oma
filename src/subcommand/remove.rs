@@ -49,7 +49,7 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         .build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
-    let (pkgs, no_result) = apt.select_pkg(&pkgs, false, true, false)?;
+    let (pkgs, no_result) = apt.select_pkg(&pkgs, false, false, false)?;
 
     let context = apt.remove(&pkgs, args.remove_config, args.no_autoremove)?;
 
