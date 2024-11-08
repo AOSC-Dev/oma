@@ -1214,6 +1214,10 @@ impl OmaApt {
 /// Mark package as delete.
 fn mark_delete(cache: &Cache, pkg: &PkgInfo, purge: bool) -> OmaAptResult<bool> {
     let pkg = Package::new(cache, unsafe { pkg.raw_pkg.unique() });
+    if pkg.marked_delete() {
+        return Ok(true);
+    }
+
     let removed_but_has_config = pkg.current_state() == PkgCurrentState::ConfigFiles;
     if !pkg.is_installed() && !removed_but_has_config {
         debug!(
