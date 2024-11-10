@@ -11,6 +11,7 @@ use std::sync::atomic::Ordering;
 use crate::color_formatter;
 use crate::error::OutputError;
 use crate::fl;
+use crate::install_progress::NoInstallProgressManager;
 use crate::install_progress::OmaInstallProgressManager;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
@@ -339,7 +340,11 @@ impl<'a> CommitRequest<'a> {
                 auth: auth_config,
             },
             pm.as_ref(),
-            Box::new(OmaInstallProgressManager),
+            if no_progress {
+                Box::new(NoInstallProgressManager)
+            } else {
+                Box::new(OmaInstallProgressManager)
+            },
             op,
         );
 

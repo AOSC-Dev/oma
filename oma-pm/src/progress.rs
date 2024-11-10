@@ -1,8 +1,6 @@
 use crate::{apt::AptConfig, dbus::change_status};
 use oma_apt::progress::DynInstallProgress;
-use oma_console::is_terminal;
 use tokio::runtime::Runtime;
-use tracing::debug;
 use zbus::Connection;
 
 pub use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
@@ -22,21 +20,15 @@ pub(crate) struct InstallProgressArgs {
 
 pub(crate) struct OmaAptInstallProgress {
     config: AptConfig,
-    no_progress: bool,
     tokio: Runtime,
     connection: Option<Connection>,
     pm: Box<dyn InstallProgressManager>,
 }
 
 pub trait InstallProgressManager {
-    fn status_change(
-        &self,
-        pkgname: &str,
-        steps_done: u64,
-        total_steps: u64,
-        config: &AptConfig,
-        no_progress: bool,
-    );
+    fn status_change(&self, pkgname: &str, steps_done: u64, total_steps: u64, config: &AptConfig);
+    fn no_interactive(&self) -> bool;
+    fn use_pty(&self) -> bool;
 }
 
 impl OmaAptInstallProgress {
@@ -48,18 +40,16 @@ impl OmaAptInstallProgress {
             connection,
         } = args;
 
-        let no_progress = config.bool("Oma::NoProgress", false);
-
-        debug!("Oma::NoProgress is: {}", no_progress);
-
-        if !is_terminal() || no_progress {
+        if pm.no_interactive() {
             std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
+        }
+
+        if !pm.use_pty() {
             config.set("Dpkg::Use-Pty", "false");
         }
 
         Self {
             config,
-            no_progress,
             tokio,
             connection,
             pm,
@@ -77,13 +67,8 @@ impl DynInstallProgress for OmaAptInstallProgress {
     ) {
         let conn = &self.connection;
 
-        self.pm.status_change(
-            &pkgname,
-            steps_done,
-            total_steps,
-            &self.config,
-            self.no_progress,
-        );
+        self.pm
+            .status_change(&pkgname, steps_done, total_steps, &self.config);
 
         self.tokio.block_on(async move {
             if let Some(conn) = conn {

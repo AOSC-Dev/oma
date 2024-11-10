@@ -44,7 +44,6 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
     let oma_apt_args = OmaAptArgs::builder()
         .yes(args.yes)
         .force_yes(args.force_yes)
-        .no_progress(no_progress)
         .sysroot(args.sysroot.clone())
         .another_apt_options(another_apt_options)
         .dpkg_force_unsafe_io(args.force_unsafe_io)

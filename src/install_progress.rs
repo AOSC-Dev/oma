@@ -1,6 +1,5 @@
-use std::io::Write;
+use std::io::{stderr, stdin, stdout, IsTerminal, Write};
 
-use oma_console::is_terminal;
 use oma_pm::{
     apt::AptConfig,
     progress::{get_apt_progress_string, terminal_height, terminal_width, InstallProgressManager},
@@ -9,18 +8,7 @@ use oma_pm::{
 pub struct OmaInstallProgressManager;
 
 impl InstallProgressManager for OmaInstallProgressManager {
-    fn status_change(
-        &self,
-        _pkgname: &str,
-        steps_done: u64,
-        total_steps: u64,
-        config: &AptConfig,
-        no_progress: bool,
-    ) {
-        if !is_terminal() || no_progress {
-            return;
-        }
-
+    fn status_change(&self, _pkgname: &str, steps_done: u64, total_steps: u64, config: &AptConfig) {
         // Get the terminal's width and height.
         let term_height = terminal_height();
         let term_width = terminal_width();
@@ -78,5 +66,34 @@ impl InstallProgressManager for OmaInstallProgressManager {
         // Finally, go back to the previous cursor position.
         eprint!("\x1b8");
         std::io::stderr().flush().unwrap();
+    }
+
+    fn no_interactive(&self) -> bool {
+        !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal()
+    }
+
+    fn use_pty(&self) -> bool {
+        stdout().is_terminal() && stderr().is_terminal() && stdin().is_terminal()
+    }
+}
+
+pub struct NoInstallProgressManager;
+
+impl InstallProgressManager for NoInstallProgressManager {
+    fn status_change(
+        &self,
+        _pkgname: &str,
+        _steps_done: u64,
+        _total_steps: u64,
+        _config: &AptConfig,
+    ) {
+    }
+
+    fn no_interactive(&self) -> bool {
+        true
+    }
+
+    fn use_pty(&self) -> bool {
+        false
     }
 }

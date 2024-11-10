@@ -5,7 +5,6 @@ use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar};
 use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
 use oma_console::{
-    is_terminal,
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
     writer::Writer,
 };
@@ -18,18 +17,7 @@ use oma_pm::{
 struct MyInstallProgressManager;
 
 impl InstallProgressManager for MyInstallProgressManager {
-    fn status_change(
-        &self,
-        _pkgname: &str,
-        steps_done: u64,
-        total_steps: u64,
-        config: &AptConfig,
-        no_progress: bool,
-    ) {
-        if !is_terminal() || no_progress {
-            return;
-        }
-
+    fn status_change(&self, _pkgname: &str, steps_done: u64, total_steps: u64, config: &AptConfig) {
         // Get the terminal's width and height.
         let term_height = terminal_height();
         let term_width = terminal_width();
@@ -87,6 +75,14 @@ impl InstallProgressManager for MyInstallProgressManager {
         // Finally, go back to the previous cursor position.
         eprint!("\x1b8");
         std::io::stderr().flush().unwrap();
+    }
+
+    fn no_interactive(&self) -> bool {
+        false
+    }
+
+    fn use_pty(&self) -> bool {
+        true
     }
 }
 

@@ -27,6 +27,7 @@ use tracing::warn;
 use crate::color_formatter;
 use crate::error::OutputError;
 use crate::fl;
+use crate::install_progress::NoInstallProgressManager;
 use crate::install_progress::OmaInstallProgressManager;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
@@ -105,7 +106,6 @@ pub fn execute(
         .dpkg_force_confnew(args.force_confnew)
         .force_yes(args.force_yes)
         .yes(args.yes)
-        .no_progress(no_progress)
         .another_apt_options(another_apt_options)
         .dpkg_force_unsafe_io(args.force_unsafe_io)
         .build();
@@ -214,7 +214,11 @@ pub fn execute(
                 auth: &auth_config,
             },
             progress_manager,
-            Box::new(OmaInstallProgressManager),
+            if no_progress {
+                Box::new(NoInstallProgressManager)
+            } else {
+                Box::new(OmaInstallProgressManager)
+            },
             op,
         ) {
             Ok(()) => {

@@ -106,7 +106,6 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     .run()?;
 
     let oma_apt_args = OmaAptArgs::builder()
-        .no_progress(no_progress)
         .sysroot(sysroot.clone())
         .another_apt_options(oma_args.another_apt_options)
         .build();

@@ -71,8 +71,6 @@ pub struct OmaAptArgs {
     #[builder(default)]
     dpkg_force_confnew: bool,
     #[builder(default)]
-    no_progress: bool,
-    #[builder(default)]
     dpkg_force_unsafe_io: bool,
     #[builder(default)]
     another_apt_options: Vec<String>,
@@ -241,14 +239,9 @@ impl OmaApt {
             yes,
             force_yes,
             dpkg_force_confnew,
-            no_progress,
             dpkg_force_unsafe_io,
             another_apt_options,
         } = args;
-
-        if no_progress {
-            config.set("Oma::NoProgress", "true");
-        }
 
         let sysroot = Path::new(&sysroot);
         let sysroot = sysroot
