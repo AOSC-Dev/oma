@@ -74,7 +74,7 @@ async fn enabled_mirror<P: AsRef<Path>>(rootfs: P) -> Result<Vec<String>> {
 
 const TOPICS_JSON: &str = "manifest/topics.json";
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Topic {
     pub name: String,
     pub description: Option<String>,
@@ -83,6 +83,14 @@ pub struct Topic {
     #[serde(skip_serializing)]
     arch: Option<Vec<String>>,
     pub packages: Vec<String>,
+    #[serde(skip_serializing)]
+    pub draft: Option<bool>,
+}
+
+impl PartialEq for Topic {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 #[derive(Debug)]
