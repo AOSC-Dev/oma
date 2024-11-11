@@ -1,4 +1,4 @@
-use std::{borrow::Cow, io::stdout};
+use std::io::stdout;
 
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use std::io::Write;
@@ -41,17 +41,27 @@ pub fn execute(
             let all_deps = pkg.get_rdeps(&apt.cache)?;
 
             for (k, v) in all_deps {
+                let mut uniq_dep_src = vec![];
                 for dep in v.inner() {
                     for b_dep in dep {
-                        let s = if let (Some(symbol), Some(ver)) =
-                            (b_dep.comp_symbol, b_dep.target_ver)
-                        {
-                            Cow::Owned(format!("({} {symbol} {ver})", pkg.raw_pkg.fullname(true)))
+                        if let (Some(symbol), Some(ver)) = (b_dep.comp_symbol, b_dep.target_ver) {
+                            uniq_dep_src.push((
+                                b_dep.name,
+                                format!("{} {symbol} {ver}", pkg.raw_pkg.fullname(true)),
+                            ));
                         } else {
-                            Cow::Borrowed("")
+                            uniq_dep_src.push((b_dep.name, String::new()));
                         };
+                    }
+                }
 
-                        println!("    {k}: {} {}", b_dep.name, s);
+                uniq_dep_src.sort();
+                uniq_dep_src.dedup();
+                for (name, src) in uniq_dep_src {
+                    if src.is_empty() {
+                        println!("    {k}: {}", name)
+                    } else {
+                        println!("    {k}: {} ({})", name, src);
                     }
                 }
             }
