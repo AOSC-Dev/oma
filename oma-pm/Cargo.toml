@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.38.1"
+version = "0.39.0"
 edition = "2021"
 description = "APT package manager API abstraction library"
 license = "GPL-3.0-or-later"
@@ -37,7 +37,7 @@ strsim = "0.11.1"
 indexmap = "2"
 memchr = "2"
 serde = { version = "1", features = ["derive"] }
-apt-auth-config = { version = "0.1.0", path = "../apt-auth-config" }
+apt-auth-config = { version = "0.2.0", path = "../apt-auth-config" }
 
 [dev-dependencies]
 dashmap = "6"

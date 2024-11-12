@@ -1,6 +1,6 @@
 [package]
 name = "oma-utils"
-version = "0.9.1"
+version = "0.9.2"
 edition = "2021"
 description = "General system API and utilities used by oma"
 license = "MIT"
@@ -8,7 +8,7 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0"
+thiserror = "2"
 number_prefix = { version = "0.4", optional = true }
 os-release = "0.1"
 oma-console = { version = "^0.21", path = "../oma-console", optional = true, default-features = false, features = [

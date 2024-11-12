@@ -1,11 +1,11 @@
 [package]
 name = "apt-auth-config"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Library to parse APT auth.conf.d configurations"
 license = "MIT"
 
 [dependencies]
-thiserror = "1"
+thiserror = "2"
 tracing = "0.1"
 rustix = { version = "0.38", features = ["process"] }
