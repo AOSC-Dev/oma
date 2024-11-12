@@ -14,3 +14,4 @@ tracing = "0.1"
 [features]
 sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]
 sequoia-nettle-backend = ["sequoia-openpgp/crypto-nettle"]
+default = ["sequoia-nettle-backend"]
