@@ -94,7 +94,7 @@ assets = [
     ["README.md", "usr/share/doc/oma/README", "644"],
     ["data/config/oma-debian.toml", "etc/oma.toml", "644"],
     ["data/apt.conf.d/50oma.conf", "etc/apt/apt.conf.d/50oma.conf", "644"],
-    ["data/dbus/oma-dbus.conf", "usr/share/dbus-1/oma-dbus.conf", "644"],
+    ["data/dbus/oma-dbus.conf", "usr/share/dbus-1/system.d/oma-dbus.conf", "644"],
     ["data/policykit/io.aosc.oma.apply.policy", "usr/share/polkit-1/actions/io.aosc.oma.apply.policy", "644" ],
     ["data/completions/oma.bash", "usr/share/bash-completion/completions/oma.bash", "644"],
     ["data/completions/oma.fish", "usr/share/fish/vendor_completions.d/oma.fish", "644"],
