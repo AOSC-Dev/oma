@@ -108,11 +108,6 @@ impl<'a> TopicManager<'a> {
         dry_run: bool,
     ) -> Result<Self> {
         let atm_state_path = sysroot.as_ref().join(Self::ATM_STATE_PATH_SUFFIX);
-        let atm_state_string = tokio::fs::read_to_string(&atm_state_path)
-            .await
-            .map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(atm_state_path.display().to_string(), e)
-            })?;
 
         let parent = atm_state_path
             .parent()
@@ -124,23 +119,34 @@ impl<'a> TopicManager<'a> {
             })?;
         }
 
-        if !atm_state_path.is_file() {
-            tokio::fs::File::create(&atm_state_path)
-                .await
-                .map_err(|e| {
-                    OmaTopicsError::FailedToOperateDirOrFile(
-                        atm_state_path.display().to_string(),
-                        e,
-                    )
-                })?;
-        }
+        let enabled: Vec<Topic> = if !atm_state_path.is_file() {
+            warn!("oma topics status file does not exist, a new status file will be created.");
+            create_empty_state(&atm_state_path).await?
+        } else {
+            let atm_state_string =
+                tokio::fs::read_to_string(&atm_state_path)
+                    .await
+                    .map_err(|e| {
+                        OmaTopicsError::FailedToOperateDirOrFile(
+                            atm_state_path.display().to_string(),
+                            e,
+                        )
+                    })?;
+
+            match serde_json::from_str(&atm_state_string) {
+                Ok(v) => v,
+                Err(e) => {
+                    debug!("Deserialize oma topics state JSON failed: {e}");
+                    warn!(
+                        "oma topics status file is corrupted, a new status file will be created."
+                    );
+                    create_empty_state(&atm_state_path).await?
+                }
+            }
+        };
 
         Ok(Self {
-            enabled: serde_json::from_str(&atm_state_string).unwrap_or_else(|e| {
-                debug!("Deserialize oma topics state JSON failed: {e}");
-                warn!("oma topics status file does not exist or is corrupted, a new status file will be created.");
-                vec![]
-            }),
+            enabled,
             all: vec![],
             client,
             arch,
@@ -303,6 +309,18 @@ impl<'a> TopicManager<'a> {
     async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
         check(self.client, &format!("{}/InRelease", url)).await
     }
+}
+
+async fn create_empty_state(atm_state_path: &Path) -> Result<Vec<Topic>> {
+    let v = vec![];
+
+    fs::write(atm_state_path, serde_json::to_vec(&v).unwrap())
+        .await
+        .map_err(|e| {
+            OmaTopicsError::FailedToOperateDirOrFile(atm_state_path.display().to_string(), e)
+        })?;
+
+    Ok(v)
 }
 
 async fn get<T: DeserializeOwned>(client: &Client, url: String) -> Result<T> {
