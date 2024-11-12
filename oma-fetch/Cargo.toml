@@ -8,7 +8,7 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0"
+thiserror = "2"
 reqwest = { version = "0.12", default-features = false, features = ["stream"] }
 tokio = { version = "1.28", default-features = false, features = ["fs"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -16,7 +16,7 @@ faster-hex = "0.10"
 sha2 = "0.10"
 futures = "0.3"
 async-compression = { version = "0.4", features = ["gzip", "xz", "futures-io", "bzip2", "zstd"] }
-oma-utils = { version = "^0.8", features = ["url-no-escape"] }
+oma-utils = { version = "^0.9", features = ["url-no-escape"] }
 tracing = "0.1"
 tokio-util = { version = "0.7", features = ["compat"] }
 md-5 = "0.10.6"

@@ -7,7 +7,7 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1"
-thiserror = "1"
+thiserror = "2"
 sequoia-openpgp = { version = "1.20", default-features = false }
 tracing = "0.1"
 

@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 oma-fetch = { version = "^0.17.0", path = "../oma-fetch", default-features = false }
-thiserror = "1.0"
+thiserror = "2"
 url = "2.3"
 tokio = { version = "1.28", default-features = false, features = ["fs", "process"] }
 futures = "0.3"

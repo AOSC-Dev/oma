@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 oma-apt = "0.7"
-thiserror = "1.0"
+thiserror = "2"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 glob-match = "0.2"
 indicium = "0.6"
