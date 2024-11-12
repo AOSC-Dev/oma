@@ -3072,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.37.4"
+version = "0.37.5"
 dependencies = [
  "ahash",
  "bon",
@@ -3150,7 +3150,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "futures",
  "indexmap 2.6.0",
