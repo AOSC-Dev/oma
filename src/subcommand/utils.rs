@@ -3,6 +3,10 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Debug;
 use std::io;
+use std::io::stderr;
+use std::io::stdin;
+use std::io::stdout;
+use std::io::IsTerminal;
 use std::panic;
 use std::path::Path;
 use std::path::PathBuf;
@@ -11,6 +15,8 @@ use std::sync::atomic::Ordering;
 use crate::color_formatter;
 use crate::error::OutputError;
 use crate::fl;
+use crate::install_progress::NoInstallProgressManager;
+use crate::install_progress::OmaInstallProgressManager;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
 use crate::pb::OmaProgressBar;
@@ -338,6 +344,11 @@ impl<'a> CommitRequest<'a> {
                 auth: auth_config,
             },
             pm.as_ref(),
+            if no_progress || !is_terminal() {
+                Box::new(NoInstallProgressManager)
+            } else {
+                Box::new(OmaInstallProgressManager)
+            },
             op,
         );
 
@@ -535,4 +546,10 @@ pub fn select_tui_display_msg(s: &str, is_inquire: bool) -> Cow<str> {
     } else {
         s.into()
     }
+}
+
+pub fn is_terminal() -> bool {
+    let res = stderr().is_terminal() && stdout().is_terminal() && stdin().is_terminal();
+    debug!("is terminal: {}", res);
+    res
 }

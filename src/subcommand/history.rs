@@ -96,7 +96,6 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
     let op = find_history_by_id(&conn, id)?;
 
     let oma_apt_args = OmaAptArgs::builder()
-        .no_progress(no_progress)
         .sysroot(sysroot.clone())
         .another_apt_options(another_apt_options)
         .build();

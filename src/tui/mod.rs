@@ -79,7 +79,6 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     .run()?;
 
     let oma_apt_args = OmaAptArgs::builder()
-        .no_progress(no_progress)
         .sysroot(sysroot.clone())
         .another_apt_options(another_apt_options)
         .build();

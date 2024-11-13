@@ -152,15 +152,16 @@ pub struct PtrIsNone;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PackageInfo {
-    package: Box<str>,
-    version: Box<str>,
-    section: Box<str>,
-    maintainer: String,
-    install_size: u64,
-    dep_map: HashMap<OmaDepType, OmaDependencyGroup>,
-    download_size: u64,
-    apt_sources: Vec<AptSource>,
-    description: String,
+    pub package: Box<str>,
+    pub version: Box<str>,
+    pub section: Box<str>,
+    pub maintainer: String,
+    pub install_size: u64,
+    pub dep_map: HashMap<OmaDepType, OmaDependencyGroup>,
+    pub download_size: u64,
+    pub apt_sources: Vec<AptSource>,
+    pub description: String,
+    pub short_description: String,
 }
 
 impl Display for PackageInfo {
@@ -175,6 +176,7 @@ impl Display for PackageInfo {
             download_size,
             apt_sources,
             description,
+            ..
         } = self;
 
         writeln!(f, "Package: {}", package)?;
@@ -306,6 +308,10 @@ impl PkgInfo {
             .description()
             .unwrap_or_else(|| "No description".to_string());
 
+        let short_description = ver
+            .summary()
+            .unwrap_or_else(|| "No description".to_string());
+
         Ok(PackageInfo {
             package,
             version,
@@ -316,6 +322,7 @@ impl PkgInfo {
             download_size,
             apt_sources: pkg_files,
             description,
+            short_description,
         })
     }
 

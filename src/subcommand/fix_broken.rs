@@ -35,7 +35,6 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
 
     let oma_apt_args = OmaAptArgs::builder()
         .sysroot(sysroot.clone())
-        .no_progress(no_progress)
         .another_apt_options(another_apt_options)
         .build();
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;

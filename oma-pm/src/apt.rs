@@ -23,6 +23,7 @@ use oma_apt::{
     util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner, DiskSpace},
     DepFlags, Package, PkgCurrentState, Version,
 };
+
 use oma_console::console::{self, style};
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
@@ -45,7 +46,7 @@ use zbus::{Connection, ConnectionBuilder};
 use crate::{
     dbus::{change_status, OmaBus, Status},
     pkginfo::{PkgInfo, PtrIsNone},
-    progress::{InstallProgressArgs, OmaAptInstallProgress},
+    progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
     query::{OmaDatabase, OmaDatabaseError},
 };
 
@@ -69,8 +70,6 @@ pub struct OmaAptArgs {
     force_yes: bool,
     #[builder(default)]
     dpkg_force_confnew: bool,
-    #[builder(default)]
-    no_progress: bool,
     #[builder(default)]
     dpkg_force_unsafe_io: bool,
     #[builder(default)]
@@ -98,49 +97,49 @@ pub enum OmaAptError {
     AptCxxException(#[from] cxx::Exception),
     #[error(transparent)]
     OmaDatabaseError(#[from] OmaDatabaseError),
-    #[error("Failed to mark reinstall pkg: {0}")]
+    #[error("Failed to mark package for reinstallation: {0}")]
     MarkReinstallError(String, String),
-    #[error("Find Dependency problem")]
+    #[error("Dependencies unmet")]
     DependencyIssue(Vec<Vec<BrokenPackage>>),
     #[error("Package: {0} is essential.")]
     PkgIsEssential(String),
-    #[error("Package: {0} is no candidate.")]
+    #[error("Package: {0} has no available candidate.")]
     PkgNoCandidate(String),
     #[error("Package: {0} has no SHA256 checksum.")]
     PkgNoChecksum(String),
-    #[error("Package: {0}: {1} has no mirror available.")]
+    #[error("Package: {0}: {1} is not available from any mirror.")]
     PkgUnavailable(String, String),
-    #[error("Ivaild file name: {0}")]
+    #[error("Invalid file name: {0}")]
     InvalidFileName(String),
     #[error(transparent)]
     DownloadError(#[from] DownloadError),
     #[error("Failed to create async runtime: {0}")]
     FailedCreateAsyncRuntime(std::io::Error),
-    #[error("Failed to create dir or file: {0}: {1}")]
+    #[error("Failed to create file or directory: {0}: {1}")]
     FailedOperateDirOrFile(String, std::io::Error),
-    #[error("Failed to get available space: {0}")]
+    #[error("Failed to calculate available storage space: {0}")]
     FailedGetAvailableSpace(std::io::Error),
-    #[error("Failed to run dpkg --configure -a: {0}")]
+    #[error("Failed to run `dpkg --configure -a': {0}")]
     DpkgFailedConfigure(std::io::Error),
-    #[error("Insufficient disk space: need: {0}, available: {1}")]
+    #[error("Insufficient disk space: {0} needed, but only {1} is available.")]
     DiskSpaceInsufficient(HumanBytes, HumanBytes),
-    #[error("Can not commit: {0}")]
+    #[error("Unable to commit change(s): {0}")]
     CommitErr(String),
-    #[error("Failed to mark pkg status: {0} is not installed")]
+    #[error("Failed to mark package status: {0} is not installed")]
     MarkPkgNotInstalled(String),
     #[error(transparent)]
     DpkgError(#[from] DpkgError),
-    #[error("Has {0} package failed to download.")]
+    #[error("Failed to download {0} package(s).")]
     FailedToDownload(usize, Vec<DownloadError>),
-    #[error("Failed to get path parent: {0:?}")]
+    #[error("Failed to obtain parent path: {0:?}")]
     FailedGetParentPath(PathBuf),
-    #[error("Failed to get canonicalize path: {0}")]
+    #[error("Failed to get canonicalized path: {0}")]
     FailedGetCanonicalize(String, std::io::Error),
     #[error(transparent)]
     PtrIsNone(#[from] PtrIsNone),
     #[error(transparent)]
     ChecksumError(#[from] ChecksumError),
-    #[error("Blocking install due to features")]
+    #[error("Blocking installation due to features markers.")]
     Features,
 }
 
@@ -240,14 +239,9 @@ impl OmaApt {
             yes,
             force_yes,
             dpkg_force_confnew,
-            no_progress,
             dpkg_force_unsafe_io,
             another_apt_options,
         } = args;
-
-        if no_progress {
-            config.set("Oma::NoProgress", "true");
-        }
 
         let sysroot = Path::new(&sysroot);
         let sysroot = sysroot
@@ -580,7 +574,8 @@ impl OmaApt {
         self,
         client: &Client,
         config: CommitDownloadConfig<'_>,
-        progress_manager: &dyn DownloadProgressControl,
+        download_progress_manager: &dyn DownloadProgressControl,
+        install_progress_manager: Box<dyn InstallProgressManager>,
         op: OmaOperation,
     ) -> OmaAptResult<()> {
         let CommitDownloadConfig {
@@ -613,7 +608,7 @@ impl OmaApt {
                 download_pkg_list,
                 network_thread,
                 &path,
-                progress_manager,
+                download_progress_manager,
                 auth,
             )
             .await
@@ -653,7 +648,8 @@ impl OmaApt {
             connection: self.connection,
         };
 
-        let mut progress = InstallProgress::new(OmaAptInstallProgress::new(args));
+        let mut progress =
+            InstallProgress::new(OmaAptInstallProgress::new(args, install_progress_manager));
 
         debug!("Try to unlock apt lock inner");
 
