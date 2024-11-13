@@ -109,7 +109,7 @@ pub enum OmaAptError {
     PkgNoChecksum(String),
     #[error("Package: {0}: {1} is not available from any mirror.")]
     PkgUnavailable(String, String),
-    #[error("Invaild file name: {0}")]
+    #[error("Invalid file name: {0}")]
     InvalidFileName(String),
     #[error(transparent)]
     DownloadError(#[from] DownloadError),
