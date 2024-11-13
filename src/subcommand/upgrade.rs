@@ -33,6 +33,7 @@ use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
 use crate::pb::OmaProgressBar;
 use crate::subcommand::utils::autoremovable_tips;
+use crate::subcommand::utils::is_terminal;
 use crate::table::table_for_install_pending;
 use crate::utils::dbus_check;
 use crate::utils::root;
@@ -214,7 +215,7 @@ pub fn execute(
                 auth: &auth_config,
             },
             progress_manager,
-            if no_progress {
+            if no_progress || !is_terminal() {
                 Box::new(NoInstallProgressManager)
             } else {
                 Box::new(OmaInstallProgressManager)
