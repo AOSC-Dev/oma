@@ -6,7 +6,7 @@ use std::{
     process::Command,
 };
 
-use ahash::HashSet;
+use ahash::{HashSet, RandomState};
 use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 use chrono::Local;
@@ -526,11 +526,11 @@ impl OmaApt {
         purge: bool,
         no_autoremove: bool,
     ) -> OmaAptResult<Vec<String>> {
-        let mut no_marked_remove = vec![];
+        let mut no_marked_remove = HashSet::with_hasher(RandomState::new());
         for pkg in pkgs {
             let is_marked_delete = mark_delete(&self.cache, pkg, purge)?;
             if !is_marked_delete {
-                no_marked_remove.push(pkg.raw_pkg.fullname(true));
+                no_marked_remove.insert(pkg.raw_pkg.fullname(true));
             } else if !self.select_pkgs.contains(&pkg.raw_pkg.fullname(true)) {
                 self.select_pkgs.push(pkg.raw_pkg.fullname(true));
             }
@@ -555,7 +555,7 @@ impl OmaApt {
             self.autoremove(purge)?;
         }
 
-        Ok(no_marked_remove)
+        Ok(no_marked_remove.into_iter().collect::<Vec<_>>())
     }
 
     /// find autoremove and remove it
