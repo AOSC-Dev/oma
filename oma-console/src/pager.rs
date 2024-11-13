@@ -236,9 +236,9 @@ impl<'a> OmaPager<'a> {
                             return Ok(PagerExit::Sigint);
                         }
                         match key.code {
-                            KeyCode::Char('q') => {
+                            KeyCode::Char(c) if c == 'q' || c == 'Q' => {
                                 if self.mode == TuiMode::SearchInputText {
-                                    query.push('q');
+                                    query.push(c);
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
                                     continue;
                                 }
