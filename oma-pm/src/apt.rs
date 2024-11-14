@@ -569,6 +569,10 @@ impl OmaApt {
         Ok(())
     }
 
+    pub fn get_architectures(&self) -> Vec<String> {
+        self.config.get_architectures()
+    }
+
     /// Commit changes
     pub fn commit(
         self,
