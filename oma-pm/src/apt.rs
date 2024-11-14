@@ -689,28 +689,44 @@ impl OmaApt {
         let mut need_reconfigure = false;
         let mut need_retriggers = false;
 
-        for pkg in pkgs {
-            // current_state 的定义来自 apt 的源码:
-            //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
-            //    HalfInstalled=4,ConfigFiles=5,Installed=6,
-            //    TriggersAwaited=7,TriggersPending=8};
-            if pkg.current_state() != PkgCurrentState::Installed && !changes.contains(&pkg) {
-                debug!(
-                    "pkg {} current state is {:?}",
-                    pkg.fullname(true),
-                    pkg.current_state()
-                );
-                match pkg.current_state() {
-                    PkgCurrentState::NotInstalled | PkgCurrentState::HalfInstalled => {
-                        pkg.mark_reinstall(true);
+        let dpkg_update_path =
+            Path::new(&self.config.get("Dir").unwrap_or_else(|| "/".to_string()))
+                .join("var/lib/dpkg/updates");
+
+        if dpkg_update_path
+            .read_dir()
+            .map_err(|e| {
+                OmaAptError::FailedOperateDirOrFile(dpkg_update_path.display().to_string(), e)
+            })?
+            .count()
+            != 0
+        {
+            need_reconfigure = true;
+            need_retriggers = true;
+        } else {
+            for pkg in pkgs {
+                // current_state 的定义来自 apt 的源码:
+                //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
+                //    HalfInstalled=4,ConfigFiles=5,Installed=6,
+                //    TriggersAwaited=7,TriggersPending=8};
+                if pkg.current_state() != PkgCurrentState::Installed && !changes.contains(&pkg) {
+                    debug!(
+                        "pkg {} current state is {:?}",
+                        pkg.fullname(true),
+                        pkg.current_state()
+                    );
+                    match pkg.current_state() {
+                        PkgCurrentState::NotInstalled | PkgCurrentState::HalfInstalled => {
+                            pkg.mark_reinstall(true);
+                        }
+                        PkgCurrentState::HalfConfigured | PkgCurrentState::UnPacked => {
+                            need_reconfigure = true;
+                        }
+                        PkgCurrentState::TriggersAwaited | PkgCurrentState::TriggersPending => {
+                            need_retriggers = true;
+                        }
+                        _ => continue,
                     }
-                    PkgCurrentState::HalfConfigured | PkgCurrentState::UnPacked => {
-                        need_reconfigure = true;
-                    }
-                    PkgCurrentState::TriggersAwaited | PkgCurrentState::TriggersPending => {
-                        need_retriggers = true;
-                    }
-                    _ => continue,
                 }
             }
         }

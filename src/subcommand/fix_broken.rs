@@ -47,7 +47,7 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
         network_thread,
         no_progress,
         sysroot,
-        fix_dpkg_status: false,
+        fix_dpkg_status: true,
         protect_essential,
         client: &HTTP_CLIENT,
         yes: false,
