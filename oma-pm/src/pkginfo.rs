@@ -326,6 +326,14 @@ impl PkgInfo {
         })
     }
 
+    pub fn package<'a>(&'a self, cache: &'a Cache) -> Package<'a> {
+        Package::new(&cache, unsafe { self.raw_pkg.unique() })
+    }
+
+    pub fn version<'a>(&'a self, cache: &'a Cache) -> Version<'a> {
+        Version::new(unsafe { self.version_raw.unique() }, cache)
+    }
+
     pub fn get_deps(&self, cache: &Cache) -> OmaAptResult<HashMap<OmaDepType, OmaDependencyGroup>> {
         let map = Version::new(
             unsafe { self.version_raw.unique() }
