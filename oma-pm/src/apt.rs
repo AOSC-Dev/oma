@@ -37,6 +37,7 @@ use oma_utils::{
 };
 
 pub use oma_apt::config::Config as AptConfig;
+pub use oma_apt::raw::config::get_architectures;
 use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
