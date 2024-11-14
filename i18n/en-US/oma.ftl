@@ -56,6 +56,7 @@ command-not-found-with-result = { $kw }: command not found. The following packag
 command-not-found = { $kw }: command not found.
 clean-successfully = Successfully cleaned oma database and cache.
 dpkg-configure-a-non-zero = `dpkg --configure -a' returned an error.
+dpkg-triggers-only-a-non-zero = `dpkg --triggers-only -a' returned an error.
 automatic-mode-warn = Running oma in unattended mode. If this is not intended, press Ctrl + C now to abort the operation!
 removed-as-unneed-dep = Removed as unneeded dependency
 removed-as-unmet-dep = Removed due to unmet dependency

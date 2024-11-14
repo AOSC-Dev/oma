@@ -291,7 +291,8 @@ impl<'a> CommitRequest<'a> {
             None
         };
 
-        apt.resolve(no_fixbroken, fix_dpkg_status, remove_config)?;
+        apt.fix_broken(!no_fixbroken, fix_dpkg_status)?;
+        apt.resolve(no_fixbroken, remove_config)?;
 
         if let Some(pb) = pb {
             pb.inner.finish_and_clear()

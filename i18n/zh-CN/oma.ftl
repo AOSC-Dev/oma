@@ -56,6 +56,7 @@ command-not-found-with-result = { $kw }：找不到命令。该命令可能由�
 command-not-found = { $kw }：找不到命令。
 clean-successfully = 成功清理 oma 本机数据库和缓存。
 dpkg-configure-a-non-zero = `dpkg --configure -a' 返回错误。
+dpkg-triggers-only-a-non-zero = `dpkg --triggers-only -a' 返回错误。
 automatic-mode-warn = 正以无人值守模式运行 oma。如非本人所为，请立即按 Ctrl + C 中止操作！
 removed-as-unneed-dep = 清理未使用的依赖
 purge-file = 清理配置文件

@@ -149,11 +149,11 @@ pub fn execute(
             None
         };
 
-        apt.resolve(false, true, args.remove_config)?;
+        apt.resolve(false, args.remove_config)?;
 
         if args.autoremove {
             apt.autoremove(false)?;
-            apt.resolve(false, true, args.remove_config)?;
+            apt.resolve(false, args.remove_config)?;
         }
 
         if let Some(pb) = pb {
