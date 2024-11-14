@@ -397,39 +397,6 @@ impl OmaApt {
         Ok(no_marked_install)
     }
 
-    /// Find system is broken
-    pub fn check_broken(&self) -> OmaAptResult<bool> {
-        let sort = PackageSort::default().installed();
-        let pkgs = self.cache.packages(&sort);
-
-        // let mut reinstall = vec![];
-
-        let mut need = false;
-
-        for pkg in pkgs {
-            // current_state 的定义来自 apt 的源码:
-            //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
-            //    HalfInstalled=4,ConfigFiles=5,Installed=6,
-            //    TriggersAwaited=7,TriggersPending=8};
-            if pkg.current_state() != PkgCurrentState::Installed {
-                debug!(
-                    "pkg {} current state is {:?}",
-                    pkg.fullname(true),
-                    pkg.current_state()
-                );
-                need = true;
-                match pkg.current_state() {
-                    PkgCurrentState::HalfInstalled => {
-                        pkg.mark_reinstall(true);
-                    }
-                    _ => continue,
-                }
-            }
-        }
-
-        Ok(need)
-    }
-
     /// Download packages
     pub fn download(
         &self,
