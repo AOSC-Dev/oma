@@ -14,7 +14,7 @@ use dialoguer::console;
 use oma_console::WRITER;
 use oma_pm::{
     apt::OmaApt,
-    pkginfo::PkgInfo,
+    pkginfo::OmaPackage,
     search::{IndiciumSearch, OmaSearch, SearchResult},
 };
 
@@ -61,8 +61,8 @@ pub struct Tui<'a> {
     pkg_results: Rc<RefCell<Vec<SearchResult>>>,
     pkg_result_state: StatefulList<Text<'static>>,
     pending_result_state: StatefulList<Operation>,
-    install: Vec<PkgInfo>,
-    remove: Vec<PkgInfo>,
+    install: Vec<OmaPackage>,
+    remove: Vec<OmaPackage>,
     result_scroll: ScrollbarState,
     upgrade: bool,
     autoremove: bool,
@@ -95,8 +95,8 @@ impl From<Operation> for ListItem<'_> {
 
 pub struct Task {
     pub execute_apt: bool,
-    pub install: Vec<PkgInfo>,
-    pub remove: Vec<PkgInfo>,
+    pub install: Vec<OmaPackage>,
+    pub remove: Vec<OmaPackage>,
     pub upgrade: bool,
     pub autoremove: bool,
 }
@@ -436,7 +436,7 @@ impl<'a> Tui<'a> {
                         if let Some(pkg_index) = self
                             .install
                             .iter()
-                            .position(|x: &PkgInfo| x.raw_pkg.fullname(true) == *name)
+                            .position(|x: &OmaPackage| x.raw_pkg.fullname(true) == *name)
                         {
                             let pos = self
                                 .pending_result_state
@@ -463,7 +463,7 @@ impl<'a> Tui<'a> {
                         if let Some(pkg_index) = self
                             .remove
                             .iter()
-                            .position(|x: &PkgInfo| x.raw_pkg.fullname(true) == *name)
+                            .position(|x: &OmaPackage| x.raw_pkg.fullname(true) == *name)
                         {
                             let pos = self
                                 .pending_result_state
@@ -490,7 +490,7 @@ impl<'a> Tui<'a> {
                         let cand = pkg.candidate().or(pkg.versions().next());
 
                         if let Some(cand) = cand {
-                            let pkginfo = PkgInfo::new(&cand, &pkg);
+                            let pkginfo = OmaPackage::new(&cand, &pkg);
                             if !cand.is_installed() {
                                 self.install.push(pkginfo.unwrap());
                                 let op = Operation::Package {

@@ -18,7 +18,7 @@ type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
 
 use crate::{
     format_description,
-    pkginfo::{PkgInfo, PtrIsNone},
+    pkginfo::{OmaPackage, PtrIsNone},
     query::has_dbg,
 };
 
@@ -337,7 +337,7 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
                     && !name.ends_with("-dbg")
                     && !res.contains_key(&name)
                 {
-                    let oma_pkg = PkgInfo::new(&cand, &pkg)?;
+                    let oma_pkg = OmaPackage::new(&cand, &pkg)?;
                     res.insert(
                         name.clone(),
                         (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
@@ -350,7 +350,7 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
                     && !res.contains_key(&name)
                     && !name.ends_with("-dbg")
                 {
-                    let oma_pkg = PkgInfo::new(&cand, &pkg)?;
+                    let oma_pkg = OmaPackage::new(&cand, &pkg)?;
                     res.insert(
                         name.clone(),
                         (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
@@ -365,7 +365,7 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
                 for pkg in real_pkgs {
                     let pkg = Package::new(self.cache, pkg);
                     if let Some(cand) = pkg.candidate() {
-                        let oma_pkg = PkgInfo::new(&cand, &pkg)?;
+                        let oma_pkg = OmaPackage::new(&cand, &pkg)?;
 
                         res.insert(
                             name.clone(),
@@ -451,7 +451,7 @@ impl<'a> StrSimSearch<'a> {
         Self { cache }
     }
 
-    fn pkg_score(input: &str, pkginfo: &PkgInfo, is_provide: bool) -> u16 {
+    fn pkg_score(input: &str, pkginfo: &OmaPackage, is_provide: bool) -> u16 {
         if is_provide {
             return 1000;
         }
