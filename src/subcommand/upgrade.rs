@@ -149,11 +149,11 @@ pub fn execute(
             None
         };
 
-        apt.resolve(false, true, args.remove_config)?;
+        apt.resolve(false, args.remove_config)?;
 
         if args.autoremove {
             apt.autoremove(false)?;
-            apt.resolve(false, true, args.remove_config)?;
+            apt.resolve(false, args.remove_config)?;
         }
 
         if let Some(pb) = pb {
@@ -181,7 +181,7 @@ pub fn execute(
         let disk_size = &op.disk_size;
         let (ar_count, ar_size) = op.autoremovable;
 
-        if is_nothing_to_do(install, remove) {
+        if is_nothing_to_do(install, remove, false) {
             autoremovable_tips(ar_count, ar_size)?;
             return Ok(0);
         }

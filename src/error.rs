@@ -873,6 +873,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("features-abort"),
             source: None,
         },
+        OmaAptError::DpkgTriggers(e) => OutputError {
+            description: fl!("dpkg-triggers-only-a-non-zero"),
+            source: Some(Box::new(e)),
+        },
     }
 }
 

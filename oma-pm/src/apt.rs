@@ -24,7 +24,7 @@ use oma_apt::{
     DepFlags, Package, PkgCurrentState, Version,
 };
 
-use oma_console::console::{self, style};
+use oma_console::console::{self};
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::Client,
@@ -121,6 +121,8 @@ pub enum OmaAptError {
     FailedGetAvailableSpace(std::io::Error),
     #[error("Failed to run `dpkg --configure -a': {0}")]
     DpkgFailedConfigure(std::io::Error),
+    #[error("Failed to run `dpkg --triggers-only --pending': {0}")]
+    DpkgTriggers(std::io::Error),
     #[error("Insufficient disk space: {0} needed, but only {1} is available.")]
     DiskSpaceInsufficient(HumanBytes, HumanBytes),
     #[error("Unable to commit change(s): {0}")]
@@ -395,39 +397,6 @@ impl OmaApt {
         Ok(no_marked_install)
     }
 
-    /// Find system is broken
-    pub fn check_broken(&self) -> OmaAptResult<bool> {
-        let sort = PackageSort::default().installed();
-        let pkgs = self.cache.packages(&sort);
-
-        // let mut reinstall = vec![];
-
-        let mut need = false;
-
-        for pkg in pkgs {
-            // current_state 的定义来自 apt 的源码:
-            //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
-            //    HalfInstalled=4,ConfigFiles=5,Installed=6,
-            //    TriggersAwaited=7,TriggersPending=8};
-            if pkg.current_state() != PkgCurrentState::Installed {
-                debug!(
-                    "pkg {} current state is {:?}",
-                    pkg.fullname(true),
-                    pkg.current_state()
-                );
-                need = true;
-                match pkg.current_state() {
-                    PkgCurrentState::HalfInstalled => {
-                        pkg.mark_reinstall(true);
-                    }
-                    _ => continue,
-                }
-            }
-        }
-
-        Ok(need)
-    }
-
     /// Download packages
     pub fn download(
         &self,
@@ -532,7 +501,7 @@ impl OmaApt {
 
         if purge || !no_autoremove {
             // 需要先计算依赖才知道后面多少软件包是不必要的
-            self.resolve(false, true, false)?;
+            self.resolve(false, true)?;
         }
 
         if purge {
@@ -710,27 +679,82 @@ impl OmaApt {
         Ok(())
     }
 
-    /// Resolve apt dependencies
-    pub fn resolve(
-        &mut self,
-        no_fixbroken: bool,
-        fix_dpkg_status: bool,
-        all_purge: bool,
-    ) -> OmaAptResult<()> {
-        let need_fix_dpkg_status = self.check_broken()?;
-
-        if no_fixbroken && need_fix_dpkg_status {
-            warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
-        }
-
-        if need_fix_dpkg_status && fix_dpkg_status {
-            self.run_dpkg_configure()?;
-        }
-
-        if !no_fixbroken {
+    pub fn fix_broken(&mut self, fix_resolver: bool, fix_dpkg_status: bool) -> OmaAptResult<()> {
+        if fix_resolver {
             self.cache.fix_broken();
         }
 
+        self.cache.resolve(fix_resolver)?;
+        let changes = self.cache.get_changes(false).collect::<Vec<_>>();
+
+        let sort = PackageSort::default().installed();
+        let pkgs = self.cache.packages(&sort);
+
+        let mut need_reconfigure = false;
+        let mut need_retriggers = false;
+
+        let dpkg_update_path =
+            Path::new(&self.config.get("Dir").unwrap_or_else(|| "/".to_string()))
+                .join("var/lib/dpkg/updates");
+
+        if dpkg_update_path
+            .read_dir()
+            .map_err(|e| {
+                OmaAptError::FailedOperateDirOrFile(dpkg_update_path.display().to_string(), e)
+            })?
+            .count()
+            != 0
+        {
+            need_reconfigure = true;
+            need_retriggers = true;
+        } else {
+            for pkg in pkgs {
+                // current_state 的定义来自 apt 的源码:
+                //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
+                //    HalfInstalled=4,ConfigFiles=5,Installed=6,
+                //    TriggersAwaited=7,TriggersPending=8};
+                if pkg.current_state() != PkgCurrentState::Installed && !changes.contains(&pkg) {
+                    debug!(
+                        "pkg {} current state is {:?}",
+                        pkg.fullname(true),
+                        pkg.current_state()
+                    );
+                    match pkg.current_state() {
+                        PkgCurrentState::NotInstalled | PkgCurrentState::HalfInstalled => {
+                            pkg.mark_reinstall(true);
+                        }
+                        PkgCurrentState::HalfConfigured | PkgCurrentState::UnPacked => {
+                            need_reconfigure = true;
+                        }
+                        PkgCurrentState::TriggersAwaited | PkgCurrentState::TriggersPending => {
+                            need_retriggers = true;
+                        }
+                        _ => continue,
+                    }
+                }
+            }
+        }
+
+        if !fix_dpkg_status {
+            if need_reconfigure || need_retriggers {
+                warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
+            }
+            return Ok(());
+        }
+
+        if need_reconfigure {
+            self.run_dpkg_configure()?;
+        }
+
+        if need_retriggers {
+            self.run_dpkg_triggers()?;
+        }
+
+        Ok(())
+    }
+
+    /// Resolve apt dependencies
+    pub fn resolve(&mut self, no_fixbroken: bool, all_purge: bool) -> OmaAptResult<()> {
         self.resolve_inner(no_fixbroken)?;
 
         if all_purge {
@@ -764,10 +788,7 @@ impl OmaApt {
     }
 
     fn run_dpkg_configure(&self) -> OmaAptResult<()> {
-        info!(
-            "Running {} ...",
-            style("dpkg --configure -a").green().bold()
-        );
+        info!("Running `dpkg --configure -a' ...");
 
         let cmd = Command::new("dpkg")
             .arg("--root")
@@ -779,6 +800,27 @@ impl OmaApt {
 
         if let Err(e) = cmd.wait_with_output() {
             return Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
+                ErrorKind::Other,
+                format!("dpkg return non-zero code: {:?}", e),
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn run_dpkg_triggers(&self) -> OmaAptResult<()> {
+        info!("Running `dpkg --triggers-only -a' ...");
+
+        let cmd = Command::new("dpkg")
+            .arg("--root")
+            .arg(self.config.get("Dir").unwrap_or_else(|| "/".to_owned()))
+            .arg("--triggers-only")
+            .arg("-a")
+            .spawn()
+            .map_err(OmaAptError::DpkgFailedConfigure)?;
+
+        if let Err(e) = cmd.wait_with_output() {
+            return Err(OmaAptError::DpkgTriggers(io::Error::new(
                 ErrorKind::Other,
                 format!("dpkg return non-zero code: {:?}", e),
             )));
