@@ -141,7 +141,7 @@ impl From<&DepType> for OmaDepType {
 /// PkgInfo - For storing package and version information
 ///
 /// Note: that this should be used before the apt `cache` drop, otherwise a segfault will occur.
-pub struct PkgInfo {
+pub struct OmaPackage {
     pub version_raw: UniquePtr<VerIterator>,
     pub raw_pkg: UniquePtr<PkgIterator>,
 }
@@ -271,7 +271,7 @@ impl Display for AptSource {
     }
 }
 
-impl PkgInfo {
+impl OmaPackage {
     pub fn new(version: &Version, pkg: &Package) -> Result<Self, PtrIsNone> {
         // 直接传入 &Version 会遇到 version.uris 生命周期问题，所以这里传入 RawVersion，然后就地创建 Version
         let raw_pkg = unsafe { pkg.unique() }.make_safe().ok_or(PtrIsNone)?;
@@ -280,6 +280,17 @@ impl PkgInfo {
         Ok(Self {
             version_raw,
             raw_pkg,
+        })
+    }
+
+    pub fn try_clone(&self) -> Result<Self, PtrIsNone> {
+        Ok(Self {
+            version_raw: unsafe { self.version_raw.unique() }
+                .make_safe()
+                .ok_or(PtrIsNone)?,
+            raw_pkg: unsafe { self.raw_pkg.unique() }
+                .make_safe()
+                .ok_or(PtrIsNone)?,
         })
     }
 
@@ -326,6 +337,14 @@ impl PkgInfo {
         })
     }
 
+    pub fn package<'a>(&'a self, cache: &'a Cache) -> Package<'a> {
+        Package::new(cache, unsafe { self.raw_pkg.unique() })
+    }
+
+    pub fn version<'a>(&'a self, cache: &'a Cache) -> Version<'a> {
+        Version::new(unsafe { self.version_raw.unique() }, cache)
+    }
+
     pub fn get_deps(&self, cache: &Cache) -> OmaAptResult<HashMap<OmaDepType, OmaDependencyGroup>> {
         let map = Version::new(
             unsafe { self.version_raw.unique() }
@@ -369,7 +388,7 @@ fn test_pkginfo_display() {
     let cache = new_cache!().unwrap();
     let pkg = cache.get("apt").unwrap();
     let version = pkg.candidate().unwrap();
-    let info = PkgInfo::new(&version, &pkg).unwrap();
+    let info = OmaPackage::new(&version, &pkg).unwrap();
     let info = info.pkg_info(&cache).unwrap();
     println!("{info}");
 }

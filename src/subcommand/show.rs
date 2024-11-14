@@ -2,7 +2,7 @@ use std::io::stdout;
 
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
-    pkginfo::PkgInfo,
+    pkginfo::OmaPackage,
 };
 use tracing::info;
 
@@ -32,7 +32,7 @@ pub fn execute(
     let mut stdout = stdout();
 
     if !all {
-        let mut filter_pkgs: Vec<PkgInfo> = vec![];
+        let mut filter_pkgs: Vec<OmaPackage> = vec![];
         let pkgs_len = pkgs.len();
         for pkg in pkgs {
             if !filter_pkgs

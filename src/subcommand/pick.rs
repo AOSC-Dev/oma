@@ -3,7 +3,7 @@ use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
-    pkginfo::PkgInfo,
+    pkginfo::OmaPackage,
 };
 
 use crate::{
@@ -125,7 +125,7 @@ pub fn execute(
     let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
     let version = pkg.get_version(&versions_str[sel]).unwrap();
 
-    let pkgs = vec![PkgInfo::new(&version, &pkg).map_err(|e| OutputError {
+    let pkgs = vec![OmaPackage::new(&version, &pkg).map_err(|e| OutputError {
         description: e.to_string(),
         source: None,
     })?];

@@ -9,7 +9,7 @@ use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{
     apt::{FilterMode, OmaApt},
-    pkginfo::PkgInfo,
+    pkginfo::OmaPackage,
 };
 
 use std::path::Path;
@@ -142,8 +142,8 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
                 None
             }
         })
-        .map(|(x, y)| PkgInfo::new(&y, x))
-        .collect::<Result<Vec<PkgInfo>, PtrIsNone>>()
+        .map(|(x, y)| OmaPackage::new(&y, x))
+        .collect::<Result<Vec<OmaPackage>, PtrIsNone>>()
         .map_err(|e| OutputError {
             description: e.to_string(),
             source: None,
