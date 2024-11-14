@@ -283,6 +283,17 @@ impl PkgInfo {
         })
     }
 
+    pub fn try_clone(&self) -> Result<Self, PtrIsNone> {
+        Ok(Self {
+            version_raw: unsafe { self.version_raw.unique() }
+                .make_safe()
+                .ok_or(PtrIsNone)?,
+            raw_pkg: unsafe { self.raw_pkg.unique() }
+                .make_safe()
+                .ok_or(PtrIsNone)?,
+        })
+    }
+
     pub fn pkg_info(&self, cache: &Cache) -> OmaAptResult<PackageInfo> {
         let package: Box<str> = Box::from(self.raw_pkg.fullname(true));
         let version: Box<str> = Box::from(self.version_raw.version());
