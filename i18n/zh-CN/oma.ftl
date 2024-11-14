@@ -23,7 +23,7 @@ full-match = 完整匹配
 already-installed = 软件包 { $name } ({ $version }) 已经安装。
 can-not-mark-reinstall = 无法重装软件包 { $name } ({ $version })，因为当前可用的软件源中找不到指定的软件包和版本。
 pkg-is-essential = 软件包 { $name } 是不允许删除的关键组件。
-pkg-no-checksum = 软件包 { $name } 没有校验码。
+pkg-no-checksum = oma 无法修复软件包 { $name }：找不到该本地或第三方软件包的校验和。
 pkg-unavailable = 软件源中找不到 { $ver } 版本的软件包 { $pkg }。
 # pager
 question-tips-with-gui = 按 [q] 结束审阅并应用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。

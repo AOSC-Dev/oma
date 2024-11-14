@@ -23,7 +23,7 @@ invalid-path = Invalid path: { $p }
 already-installed = { $name } ({ $version }) is already installed.
 can-not-mark-reinstall = Cannot reinstall package { $name } ({ $version }), as the specified package and version could not be found in any available repository.
 pkg-is-essential = Package { $name } is essential. Refusing to remove.
-pkg-no-checksum = Package { $name } no checksum.
+pkg-no-checksum = oma is unable to repair { $name }: unable find checksum for this local or 3rd-party package.
 pkg-unavailable = Version { $ver } of { $pkg } is not available from any configured repository.
 # pager
 question-tips-with-gui = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
