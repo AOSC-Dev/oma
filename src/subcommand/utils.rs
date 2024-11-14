@@ -318,7 +318,7 @@ impl<'a> CommitRequest<'a> {
         let disk_size = &op.disk_size;
         let (ar_count, ar_size) = op.autoremovable;
 
-        if is_nothing_to_do(install, remove) {
+        if is_nothing_to_do(install, remove, !no_fixbroken) {
             autoremovable_tips(ar_count, ar_size)?;
             return Ok(0);
         }
@@ -429,9 +429,18 @@ pub fn autoremovable_tips(count: u64, total_size: u64) -> Result<(), OutputError
     Ok(())
 }
 
-pub(crate) fn is_nothing_to_do(install: &[InstallEntry], remove: &[RemoveEntry]) -> bool {
+pub(crate) fn is_nothing_to_do(
+    install: &[InstallEntry],
+    remove: &[RemoveEntry],
+    fix_broken: bool,
+) -> bool {
     if install.is_empty() && remove.is_empty() {
-        success!("{}", fl!("no-need-to-do-anything"));
+        if fix_broken {
+            success!("{}", fl!("success"));
+        } else {
+            success!("{}", fl!("no-need-to-do-anything"));
+        }
+
         return true;
     }
 
