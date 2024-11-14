@@ -38,7 +38,7 @@ use oma_utils::{
 
 pub use oma_apt::config::Config as AptConfig;
 use tokio::runtime::Runtime;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 pub use oma_pm_operation_type::*;
 use zbus::{Connection, ConnectionBuilder};
@@ -784,7 +784,7 @@ impl OmaApt {
     }
 
     fn run_dpkg_configure(&self) -> OmaAptResult<()> {
-        debug!("Running `dpkg --configure -a' ...");
+        info!("Running `dpkg --configure -a' ...");
 
         let cmd = Command::new("dpkg")
             .arg("--root")
@@ -805,7 +805,7 @@ impl OmaApt {
     }
 
     fn run_dpkg_triggers(&self) -> OmaAptResult<()> {
-        debug!("Running `dpkg --triggers-only -a' ...");
+        info!("Running `dpkg --triggers-only -a' ...");
 
         let cmd = Command::new("dpkg")
             .arg("--root")
