@@ -1,10 +1,15 @@
-use std::{fs, io, path::PathBuf};
+use std::{
+    fs,
+    io::{self},
+    path::PathBuf,
+};
 
 use ahash::HashMap;
-use indexmap::IndexMap;
+use indexmap::{indexmap, IndexMap};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
+use tracing::debug;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Status {
@@ -23,6 +28,16 @@ struct Branch {
 pub struct Mirror {
     pub desc: Box<str>,
     pub url: Box<str>,
+}
+
+impl Default for Status {
+    fn default() -> Self {
+        Self {
+            branch: Box::from("stable"),
+            component: vec![Box::from("main")],
+            mirror: indexmap! { Box::from("origin") => Box::from("https://repo.aosc.io/") },
+        }
+    }
 }
 
 #[derive(Debug, Snafu)]
@@ -67,23 +82,20 @@ impl MirrorManager {
     pub fn new(rootfs: PathBuf) -> Result<Self, MirrorError> {
         let path = rootfs.join(Self::STATUS_FILE);
 
-        let f = if path.is_file() {
-            fs::read(&path).context(ReadFileSnafu {
+        let status: Status = if path.is_file() {
+            let f = fs::read(&path).context(ReadFileSnafu {
                 path: path.to_path_buf(),
-            })?
+            })?;
+            match serde_json::from_slice(&f) {
+                Ok(status) => status,
+                Err(e) => {
+                    debug!("{e}, creating new ...");
+                    create_default_status(path)?
+                }
+            }
         } else {
-            fs::create_dir_all(path.parent().unwrap()).context(CreateFileSnafu {
-                path: Self::STATUS_FILE,
-            })?;
-            fs::File::create(&path).context(CreateFileSnafu {
-                path: path.to_path_buf(),
-            })?;
-            vec![]
+            create_default_status(path)?
         };
-
-        let status: Status = serde_json::from_slice(&f).context(ParseJsonSnafu {
-            path: path.to_path_buf(),
-        })?;
 
         Ok(Self {
             status,
@@ -259,4 +271,20 @@ impl MirrorManager {
 
         Ok(())
     }
+}
+
+fn create_default_status(path: PathBuf) -> Result<Status, MirrorError> {
+    debug!("Creating status file ... ");
+    fs::create_dir_all(path.parent().unwrap()).context(CreateFileSnafu {
+        path: path.to_path_buf(),
+    })?;
+
+    let mut f = fs::File::create(&path).context(CreateFileSnafu {
+        path: path.to_path_buf(),
+    })?;
+
+    let status = Status::default();
+    serde_json::to_writer(&mut f, &status).unwrap();
+
+    Ok(status)
 }
