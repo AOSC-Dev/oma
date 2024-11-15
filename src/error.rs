@@ -181,15 +181,15 @@ impl From<MirrorError> for OutputError {
     fn from(value: MirrorError) -> Self {
         match value {
             MirrorError::ReadFile { path, source } => Self {
-                description: fl!("failed-to-operate-path", p = path),
+                description: fl!("failed-to-operate-path", p = path.display().to_string()),
                 source: Some(Box::new(source)),
             },
             MirrorError::ParseJson { path, source } => Self {
-                description: fl!("failed-to-parse-file", p = path),
+                description: fl!("failed-to-parse-file", p = path.display().to_string()),
                 source: Some(Box::new(source)),
             },
             MirrorError::ParseYaml { path, source } => Self {
-                description: fl!("failed-to-parse-file", p = path),
+                description: fl!("failed-to-parse-file", p = path.display().to_string()),
                 source: Some(Box::new(source)),
             },
             MirrorError::MirrorNotExist { mirror_name } => Self {
@@ -201,11 +201,11 @@ impl From<MirrorError> for OutputError {
                 source: Some(Box::new(source)),
             },
             MirrorError::WriteFile { path, source } => Self {
-                description: fl!("failed-to-write-file", p = path),
+                description: fl!("failed-to-write-file", p = path.display().to_string()),
                 source: Some(Box::new(source)),
             },
             MirrorError::CreateFile { path, source } => Self {
-                description: fl!("failed-to-create-file", p = path),
+                description: fl!("failed-to-create-file", p = path.display().to_string()),
                 source: Some(Box::new(source)),
             },
         }
@@ -594,6 +594,7 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             description: fl!("failed-to-read-file-metadata", p = s),
             source: Some(Box::new(e)),
         },
+        OmaTopicsError::MirrorError(mirror_error) => OutputError::from(mirror_error),
     }
 }
 

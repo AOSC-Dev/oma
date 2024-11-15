@@ -1,4 +1,4 @@
-use std::{fs, io, path::Path};
+use std::{fs, io, path::PathBuf};
 
 use ahash::HashMap;
 use indexmap::IndexMap;
@@ -27,19 +27,16 @@ pub struct Mirror {
 
 #[derive(Debug, Snafu)]
 pub enum MirrorError {
-    #[snafu(display("Failed to read file: {}", path))]
-    ReadFile {
-        path: &'static str,
-        source: io::Error,
-    },
-    #[snafu(display("Failed to parse file: {}", path))]
+    #[snafu(display("Failed to read file: {}", path.display()))]
+    ReadFile { path: PathBuf, source: io::Error },
+    #[snafu(display("Failed to parse file: {}", path.display()))]
     ParseJson {
-        path: &'static str,
+        path: PathBuf,
         source: serde_json::Error,
     },
-    #[snafu(display("Failed to parse file: {}", path))]
+    #[snafu(display("Failed to parse file: {}", path.display()))]
     ParseYaml {
-        path: &'static str,
+        path: PathBuf,
         source: serde_yaml::Error,
     },
     #[snafu(display("mirror does not exist in mirrors file: {mirror_name}"))]
@@ -47,15 +44,9 @@ pub enum MirrorError {
     #[snafu(display("Serialize struct failed"))]
     SerializeJson { source: serde_json::Error },
     #[snafu(display("Failed to write to file"))]
-    WriteFile {
-        path: &'static str,
-        source: io::Error,
-    },
-    #[snafu(display("Failed to create status file: {path}"))]
-    CreateFile {
-        path: &'static str,
-        source: io::Error,
-    },
+    WriteFile { path: PathBuf, source: io::Error },
+    #[snafu(display("Failed to create status file: {}", path.display()))]
+    CreateFile { path: PathBuf, source: io::Error },
 }
 
 pub struct MirrorManager {
@@ -63,34 +54,35 @@ pub struct MirrorManager {
     // branches_data: OnceCell<HashMap<Box<str>, Branch>>,
     // components_data: OnceCell<HashMap<Box<str>, Box<str>>>,
     mirrors_data: OnceCell<HashMap<Box<str>, Mirror>>,
+    rootfs: PathBuf,
 }
 
 impl MirrorManager {
-    const STATUS_FILE: &'static str = "/var/lib/apt/gen/status.json";
+    const STATUS_FILE: &'static str = "var/lib/apt/gen/status.json";
     // const BRANCHES_FILE: &'static str = "/usr/share/distro-repository-data/branches.yml";
     // const COMPS_FILE: &'static str = "/usr/share/distro-repository-data/comps.yml";
-    const MIRRORS_FILE: &'static str = "/usr/share/distro-repository-data/mirrors.yml";
-    const APT_STATUS_FILE: &'static str = "/etc/apt/sources.list";
+    const MIRRORS_FILE: &'static str = "usr/share/distro-repository-data/mirrors.yml";
+    const APT_STATUS_FILE: &'static str = "etc/apt/sources.list";
 
-    pub fn new() -> Result<Self, MirrorError> {
-        let path = Path::new(Self::STATUS_FILE);
+    pub fn new(rootfs: PathBuf) -> Result<Self, MirrorError> {
+        let path = rootfs.join(Self::STATUS_FILE);
 
         let f = if path.is_file() {
-            fs::read(Self::STATUS_FILE).context(ReadFileSnafu {
-                path: Self::STATUS_FILE,
+            fs::read(&path).context(ReadFileSnafu {
+                path: path.to_path_buf(),
             })?
         } else {
             fs::create_dir_all(path.parent().unwrap()).context(CreateFileSnafu {
                 path: Self::STATUS_FILE,
             })?;
-            fs::File::create(path).context(CreateFileSnafu {
-                path: Self::STATUS_FILE,
+            fs::File::create(&path).context(CreateFileSnafu {
+                path: path.to_path_buf(),
             })?;
             vec![]
         };
 
         let status: Status = serde_json::from_slice(&f).context(ParseJsonSnafu {
-            path: Self::STATUS_FILE,
+            path: path.to_path_buf(),
         })?;
 
         Ok(Self {
@@ -98,6 +90,7 @@ impl MirrorManager {
             // branches_data: OnceCell::new(),
             // components_data: OnceCell::new(),
             mirrors_data: OnceCell::new(),
+            rootfs,
         })
     }
 
@@ -229,13 +222,12 @@ impl MirrorManager {
     }
 
     pub fn write_status(&self, custom_mirror_tips: Option<&str>) -> Result<(), MirrorError> {
+        let p = self.rootfs.join(Self::STATUS_FILE);
         fs::write(
-            Self::STATUS_FILE,
+            &p,
             serde_json::to_vec(&self.status).context(SerializeJsonSnafu)?,
         )
-        .context(WriteFileSnafu {
-            path: Self::STATUS_FILE,
-        })?;
+        .context(WriteFileSnafu { path: p })?;
 
         let mut result = String::new();
 
@@ -259,8 +251,10 @@ impl MirrorManager {
             result.push('\n');
         }
 
-        fs::write(Self::APT_STATUS_FILE, result).context(WriteFileSnafu {
-            path: Self::APT_STATUS_FILE,
+        let apt_sources_list = self.rootfs.join(Self::APT_STATUS_FILE);
+
+        fs::write(&apt_sources_list, result).context(WriteFileSnafu {
+            path: apt_sources_list,
         })?;
 
         Ok(())
