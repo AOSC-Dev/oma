@@ -20,7 +20,7 @@ oma-utils = { version = "^0.9", features = ["url-no-escape"] }
 tracing = "0.1"
 tokio-util = { version = "0.7", features = ["compat"] }
 md-5 = "0.10.6"
-bon = "2.2"
+bon = "3"
 
 [dev-dependencies]
 tokio = { version = "1.28", default-features = false, features = ["macros", "rt-multi-thread"] }

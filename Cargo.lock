@@ -595,35 +595,12 @@ dependencies = [
 
 [[package]]
 name = "bon"
-version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97493a391b4b18ee918675fb8663e53646fd09321c58b46afa04e8ce2499c869"
-dependencies = [
- "bon-macros 2.3.0",
- "rustversion",
-]
-
-[[package]]
-name = "bon"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32649b2d94d4dae1084cffd2ce1a778165e887497e4d1d55cd3976839f76194e"
 dependencies = [
- "bon-macros 3.0.0",
+ "bon-macros",
  "rustversion",
-]
-
-[[package]]
-name = "bon-macros"
-version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a2af3eac944c12cdf4423eab70d310da0a8e5851a18ffb192c0a5e3f7ae1663"
-dependencies = [
- "darling",
- "ident_case",
- "proc-macro2",
- "quote",
- "syn 2.0.87",
 ]
 
 [[package]]
@@ -3025,7 +3002,7 @@ name = "oma-fetch"
 version = "0.17.1"
 dependencies = [
  "async-compression",
- "bon 2.3.0",
+ "bon",
  "dashmap",
  "faster-hex",
  "futures",
@@ -3090,7 +3067,7 @@ version = "0.41.0"
 dependencies = [
  "ahash",
  "apt-auth-config",
- "bon 3.0.0",
+ "bon",
  "chrono",
  "cxx",
  "dashmap",
@@ -3117,7 +3094,7 @@ dependencies = [
 name = "oma-pm-operation-type"
 version = "0.6.0"
 dependencies = [
- "bon 2.3.0",
+ "bon",
  "oma-utils 0.9.2",
  "serde",
 ]
@@ -3130,7 +3107,7 @@ dependencies = [
  "aho-corasick",
  "anyhow",
  "apt-auth-config",
- "bon 2.3.0",
+ "bon",
  "chrono",
  "dashmap",
  "futures",
