@@ -62,7 +62,7 @@ pub fn tui(
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let mut mm = MirrorManager::new()?;
+    let mut mm = MirrorManager::new("/".into())?;
     let mut mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
     let enabled = mm.enabled_mirrors();
 
@@ -128,7 +128,7 @@ pub fn operate(
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let mut mm = MirrorManager::new()?;
+    let mut mm = MirrorManager::new("/".into())?;
 
     match subcmd {
         Operate::Set => {
@@ -163,7 +163,7 @@ pub fn set_order(
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let mut mm = MirrorManager::new()?;
+    let mut mm = MirrorManager::new("/".into())?;
 
     let mirrors = mm
         .enabled_mirrors()
@@ -207,7 +207,7 @@ pub fn speedtest(
         root()?;
     }
 
-    let mut mm = MirrorManager::new()?;
+    let mut mm = MirrorManager::new("/".into())?;
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 

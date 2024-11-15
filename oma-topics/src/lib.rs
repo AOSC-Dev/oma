@@ -1,11 +1,10 @@
 use std::{
     borrow::Cow,
-    ffi::OsStr,
     io,
     path::{Path, PathBuf},
 };
 
-use indexmap::IndexMap;
+use oma_mirror::MirrorManager;
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::fs;
@@ -38,36 +37,17 @@ pub enum OmaTopicsError {
     OpenFile(String, io::Error),
     #[error("Failed to read file {0}: {1}")]
     ReadFile(String, serde_json::Error),
+    #[error(transparent)]
+    MirrorError(#[from] oma_mirror::MirrorError),
 }
 
-#[derive(Deserialize)]
-struct GenList {
-    mirror: IndexMap<String, String>,
-}
-
-async fn enabled_mirror<P: AsRef<Path>>(rootfs: P) -> Result<Vec<String>> {
-    let apt_gen_list = rootfs.as_ref().join("var/lib/apt/gen/status.json");
-    let s = tokio::fs::read_to_string(&apt_gen_list)
-        .await
-        .map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(apt_gen_list.display().to_string(), e)
-        })?;
-
-    let gen_list: GenList = serde_json::from_str(&s).map_err(|_| {
-        OmaTopicsError::BrokenFile(
-            apt_gen_list
-                .file_name()
-                .unwrap_or(OsStr::new(""))
-                .to_string_lossy()
-                .to_string(),
-        )
-    })?;
-
-    let urls = gen_list
-        .mirror
+async fn enabled_mirror(rootfs: PathBuf) -> Result<Vec<Box<str>>> {
+    let mm = MirrorManager::new(rootfs)?;
+    let urls = mm
+        .enabled_mirrors()
         .values()
         .map(|x| x.to_owned())
-        .collect::<Vec<_>>();
+        .collect::<Vec<Box<str>>>();
 
     Ok(urls)
 }
@@ -102,7 +82,7 @@ pub struct TopicManager<'a> {
     atm_state_path: PathBuf,
     atm_source_list_path: PathBuf,
     dry_run: bool,
-    enabled_mirrors: Vec<String>,
+    enabled_mirrors: Vec<Box<str>>,
 }
 
 impl<'a> TopicManager<'a> {
@@ -160,7 +140,7 @@ impl<'a> TopicManager<'a> {
             arch,
             atm_state_path,
             dry_run,
-            enabled_mirrors: enabled_mirror(&sysroot).await?,
+            enabled_mirrors: enabled_mirror(sysroot.as_ref().to_path_buf()).await?,
             atm_source_list_path: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_SUFFIX),
         })
     }

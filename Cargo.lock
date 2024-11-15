@@ -3146,9 +3146,9 @@ name = "oma-topics"
 version = "0.18.1"
 dependencies = [
  "futures",
- "indexmap 2.6.0",
  "oma-console",
  "oma-inquire",
+ "oma-mirror",
  "reqwest",
  "serde",
  "serde_json",
