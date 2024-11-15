@@ -23,7 +23,7 @@ full-match = 完全符合
 already-installed = 軟體套件 { $name } ({ $version }) 已經安裝。
 can-not-mark-reinstall = 無法重裝軟體套件 { $name } ({ $version })，因為目前可用的軟體庫中找不到指定的軟體套件和版本。
 pkg-is-essential = 軟體套件 { $name } 是不允許移除的關鍵組件。
-pkg-no-checksum = 軟體套件 { $name } 沒有雜湊值。
+pkg-no-checksum = oma 無法修復軟體套件 { $name }：找不到該本地或第三方軟體套件的雜湊值。
 pkg-unavailable = 軟體庫中找不到 { $ver } 版本的軟體套件 { $pkg }。
 # pager
 question-tips-with-x11 = 按 [q] 結束檢閱並套用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
@@ -223,3 +223,5 @@ lack-auth-config-2 = 請檢查您的 APT 授權設定 (/etc/apt/auth.conf.d)。
 tui-autoremove = 清理軟體套件
 tui-no-system-update = 目前沒有系統更新。
 tui-continue-tips = 請按 [c] 繼續。
+dpkg-triggers-only-a-non-zero = `dpkg --triggers-only -a` 返回了錯誤。
+success = 操作已成功完成。
