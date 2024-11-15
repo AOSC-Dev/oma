@@ -489,6 +489,8 @@ impl OmaApt {
         purge: bool,
         no_autoremove: bool,
     ) -> OmaAptResult<Vec<String>> {
+        debug!("is purge: {purge}");
+
         let mut no_marked_remove = HashSet::with_hasher(RandomState::new());
         for pkg in pkgs {
             let is_marked_delete = mark_delete(&self.cache, pkg, purge)?;
@@ -499,23 +501,23 @@ impl OmaApt {
             }
         }
 
-        if purge || !no_autoremove {
-            // 需要先计算依赖才知道后面多少软件包是不必要的
-            self.resolve(false, true)?;
-        }
-
-        if purge {
-            self.cache
-                .get_changes(false)
-                .filter(|pkg| pkg.marked_delete())
-                .for_each(|pkg| {
-                    pkg.mark_delete(true);
-                    pkg.protect();
-                });
-        }
-
         if !no_autoremove {
+            // 需要先计算依赖才知道后面多少软件包是不必要的
+            self.resolve(false, purge)?;
+
+            // 删除不必要的软件包
             self.autoremove(purge)?;
+
+            // 若设置了 purge 参数，则需要把解析器所有标记为已删除的包标记为 purge
+            if purge {
+                self.cache
+                    .get_changes(false)
+                    .filter(|pkg| pkg.marked_delete())
+                    .for_each(|pkg| {
+                        pkg.mark_delete(true);
+                        pkg.protect();
+                    });
+            }
         }
 
         Ok(no_marked_remove.into_iter().collect::<Vec<_>>())
@@ -1369,6 +1371,9 @@ fn mark_delete(cache: &Cache, pkg: &OmaPackage, purge: bool) -> OmaAptResult<boo
     }
 
     let removed_but_has_config = pkg.current_state() == PkgCurrentState::ConfigFiles;
+
+    debug!("removed_but_has_config: {}", removed_but_has_config);
+
     if !pkg.is_installed() && !removed_but_has_config {
         debug!(
             "Package {} is not installed. No need to remove.",
