@@ -1,7 +1,7 @@
 use std::{
     fs,
     io::{self},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use ahash::HashMap;
@@ -69,32 +69,30 @@ pub struct MirrorManager {
     // branches_data: OnceCell<HashMap<Box<str>, Branch>>,
     // components_data: OnceCell<HashMap<Box<str>, Box<str>>>,
     mirrors_data: OnceCell<HashMap<Box<str>, Mirror>>,
-    rootfs: PathBuf,
+    status_file_path: PathBuf,
+    mirrors_file_path: PathBuf,
+    apt_status_file: PathBuf,
 }
 
 impl MirrorManager {
-    const STATUS_FILE: &'static str = "var/lib/apt/gen/status.json";
-    // const BRANCHES_FILE: &'static str = "/usr/share/distro-repository-data/branches.yml";
-    // const COMPS_FILE: &'static str = "/usr/share/distro-repository-data/comps.yml";
-    const MIRRORS_FILE: &'static str = "usr/share/distro-repository-data/mirrors.yml";
-    const APT_STATUS_FILE: &'static str = "etc/apt/sources.list";
-
     pub fn new(rootfs: PathBuf) -> Result<Self, MirrorError> {
-        let path = rootfs.join(Self::STATUS_FILE);
+        let status_file_path = rootfs.join("var/lib/apt/gen/status.json");
+        let mirrors_file_path = rootfs.join("usr/share/distro-repository-data/mirrors.yml");
+        let apt_status_file = rootfs.join("etc/apt/sources.list");
 
-        let status: Status = if path.is_file() {
-            let f = fs::read(&path).context(ReadFileSnafu {
-                path: path.to_path_buf(),
+        let status: Status = if status_file_path.is_file() {
+            let f = fs::read(&status_file_path).context(ReadFileSnafu {
+                path: status_file_path.to_path_buf(),
             })?;
             match serde_json::from_slice(&f) {
                 Ok(status) => status,
                 Err(e) => {
                     debug!("{e}, creating new ...");
-                    create_default_status(path)?
+                    create_default_status(&status_file_path)?
                 }
             }
         } else {
-            create_default_status(path)?
+            create_default_status(&status_file_path)?
         };
 
         Ok(Self {
@@ -102,7 +100,9 @@ impl MirrorManager {
             // branches_data: OnceCell::new(),
             // components_data: OnceCell::new(),
             mirrors_data: OnceCell::new(),
-            rootfs,
+            status_file_path,
+            mirrors_file_path,
+            apt_status_file,
         })
     }
 
@@ -150,13 +150,13 @@ impl MirrorManager {
     fn try_mirrors(&self) -> Result<&HashMap<Box<str>, Mirror>, MirrorError> {
         self.mirrors_data
             .get_or_try_init(|| -> Result<HashMap<Box<str>, Mirror>, MirrorError> {
-                let f = fs::read(Self::MIRRORS_FILE).context(ReadFileSnafu {
-                    path: Self::MIRRORS_FILE,
+                let f = fs::read(&self.mirrors_file_path).context(ReadFileSnafu {
+                    path: self.mirrors_file_path.to_path_buf(),
                 })?;
 
                 let mirrors: HashMap<Box<str>, Mirror> =
                     serde_yaml::from_slice(&f).context(ParseYamlSnafu {
-                        path: Self::MIRRORS_FILE,
+                        path: self.mirrors_file_path.to_path_buf(),
                     })?;
 
                 Ok(mirrors)
@@ -234,12 +234,13 @@ impl MirrorManager {
     }
 
     pub fn write_status(&self, custom_mirror_tips: Option<&str>) -> Result<(), MirrorError> {
-        let p = self.rootfs.join(Self::STATUS_FILE);
         fs::write(
-            &p,
+            &self.status_file_path,
             serde_json::to_vec(&self.status).context(SerializeJsonSnafu)?,
         )
-        .context(WriteFileSnafu { path: p })?;
+        .context(WriteFileSnafu {
+            path: self.status_file_path.to_path_buf(),
+        })?;
 
         let mut result = String::new();
 
@@ -263,23 +264,21 @@ impl MirrorManager {
             result.push('\n');
         }
 
-        let apt_sources_list = self.rootfs.join(Self::APT_STATUS_FILE);
-
-        fs::write(&apt_sources_list, result).context(WriteFileSnafu {
-            path: apt_sources_list,
+        fs::write(&self.apt_status_file, result).context(WriteFileSnafu {
+            path: self.apt_status_file.to_path_buf(),
         })?;
 
         Ok(())
     }
 }
 
-fn create_default_status(path: PathBuf) -> Result<Status, MirrorError> {
+fn create_default_status(path: &Path) -> Result<Status, MirrorError> {
     debug!("Creating status file ... ");
     fs::create_dir_all(path.parent().unwrap()).context(CreateFileSnafu {
         path: path.to_path_buf(),
     })?;
 
-    let mut f = fs::File::create(&path).context(CreateFileSnafu {
+    let mut f = fs::File::create(path).context(CreateFileSnafu {
         path: path.to_path_buf(),
     })?;
 
