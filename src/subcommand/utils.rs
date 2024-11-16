@@ -24,6 +24,7 @@ use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Confirm;
 use oma_console::indicatif::HumanBytes;
+use oma_console::is_terminal;
 use oma_console::msg;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
@@ -62,7 +63,7 @@ pub(crate) fn handle_no_result(
 ) -> Result<(), OutputError> {
     let mut bin = vec![];
 
-    let pb = if !no_progress {
+    let pb = if !no_progress || is_terminal() {
         Some(OmaProgressBar::new_spinner(Some(fl!("searching"))))
     } else {
         None
@@ -96,11 +97,11 @@ pub(crate) fn handle_no_result(
                 }
             })
             .ok();
-
-            if let Some(ref pb) = pb {
-                pb.inner.finish_and_clear();
-            }
         }
+    }
+
+    if let Some(ref pb) = pb {
+        pb.inner.finish_and_clear();
     }
 
     if !bin.is_empty() {
@@ -209,7 +210,7 @@ impl<'a> RefreshRequest<'a> {
 
         let msg = fl!("do-not-edit-topic-sources-list");
 
-        let pm: &dyn HandleRefresh = if !no_progress {
+        let pm: &dyn HandleRefresh = if !no_progress || is_terminal() {
             &OmaMultiProgressBar::default()
         } else {
             &NoProgressBar::default()

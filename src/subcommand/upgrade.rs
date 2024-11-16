@@ -118,7 +118,6 @@ pub fn execute(
         }
 
         handle_no_result(&args.sysroot, no_result, no_progress)?;
-
         apt.resolve(false, true)?;
 
         if args.autoremove {
