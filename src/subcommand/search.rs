@@ -30,9 +30,6 @@ pub fn execute(
     let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
     let matcher = PackagesMatcher::builder()
         .cache(&apt.cache)
-        .filter_candidate(true)
-        .filter_downloadable_candidate(false)
-        .select_dbg(false)
         .native_arch(&arch)
         .build();
 

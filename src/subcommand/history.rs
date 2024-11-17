@@ -129,9 +129,6 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
     let arch = dpkg_arch(&sysroot)?;
     let matcher = PackagesMatcher::builder()
         .cache(&apt.cache)
-        .filter_candidate(true)
-        .filter_downloadable_candidate(false)
-        .select_dbg(false)
         .native_arch(&arch)
         .build();
 

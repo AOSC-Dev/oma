@@ -51,10 +51,12 @@ pub enum SearchEngine {
 #[derive(Builder)]
 pub struct PackagesMatcher<'a> {
     cache: &'a Cache,
+    #[builder(default = true)]
     filter_candidate: bool,
+    #[builder(default = false)]
     select_dbg: bool,
+    #[builder(default = false)]
     filter_downloadable_candidate: bool,
-    #[builder(default)]
     native_arch: &'a str,
 }
 
