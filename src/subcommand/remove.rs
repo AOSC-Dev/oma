@@ -5,6 +5,8 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::matches::PackagesMatcher;
+use oma_utils::dpkg::dpkg_arch;
 use tracing::{info, warn};
 
 use crate::pb::OmaProgressBar;
@@ -50,7 +52,16 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         .build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
-    let (pkgs, no_result) = apt.select_pkg(&pkgs, false, false, false)?;
+    let arch = dpkg_arch(&args.sysroot)?;
+    let matcher = PackagesMatcher::builder()
+        .cache(&apt.cache)
+        .filter_candidate(false)
+        .filter_downloadable_candidate(false)
+        .select_dbg(false)
+        .native_arch(&arch)
+        .build();
+
+    let (pkgs, no_result) = matcher.match_pkgs(pkgs)?;
 
     let pb = if !no_progress {
         OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()

@@ -32,7 +32,7 @@ use oma_fetch::{
     DownloadSourceType, Summary,
 };
 use oma_utils::{
-    dpkg::{dpkg_arch, is_hold, DpkgError},
+    dpkg::{is_hold, DpkgError},
     human_bytes::HumanBytes,
 };
 
@@ -45,9 +45,9 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
+    matches::PackagesMatcherError,
     pkginfo::{OmaPackage, PtrIsNone},
     progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
-    query::{OmaDatabase, OmaDatabaseError},
 };
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
@@ -96,7 +96,7 @@ pub enum OmaAptError {
     #[error(transparent)]
     AptCxxException(#[from] cxx::Exception),
     #[error(transparent)]
-    OmaDatabaseError(#[from] OmaDatabaseError),
+    OmaDatabaseError(#[from] PackagesMatcherError),
     #[error("Failed to mark package for reinstallation: {0}")]
     MarkReinstallError(String, String),
     #[error("Dependencies unmet")]
@@ -934,24 +934,6 @@ impl OmaApt {
         Ok((success, failed))
     }
 
-    /// Select packages from give some strings
-    pub fn select_pkg(
-        &mut self,
-        keywords: &[&str],
-        select_dbg: bool,
-        filter_candidate: bool,
-        available_candidate: bool,
-    ) -> OmaAptResult<(Vec<OmaPackage>, Vec<String>)> {
-        select_pkg(
-            keywords,
-            &self.cache,
-            select_dbg,
-            filter_candidate,
-            available_candidate,
-            &dpkg_arch(self.config.get("Dir").unwrap_or("/".to_string()))?,
-        )
-    }
-
     /// Get apt archive dir
     pub fn get_archive_dir(&self) -> PathBuf {
         let archives_dir = self
@@ -1439,49 +1421,6 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
         .build();
 
     Ok(install_entry)
-}
-
-/// Select pkg from give strings (inber)
-fn select_pkg(
-    keywords: &[&str],
-    cache: &Cache,
-    select_dbg: bool,
-    filter_candidate: bool,
-    available_candidate: bool,
-    native_arch: &str,
-) -> OmaAptResult<(Vec<OmaPackage>, Vec<String>)> {
-    let db = OmaDatabase::new(cache)?;
-    let mut pkgs = vec![];
-    let mut no_result = vec![];
-    for keyword in keywords {
-        let res = match keyword {
-            x if x.ends_with(".deb") => db.query_local_glob(x)?,
-            x if x.split_once('/').is_some() => {
-                db.query_from_branch(x, filter_candidate, select_dbg)?
-            }
-            x if x.split_once('=').is_some() => db.query_from_version(x, select_dbg)?,
-            x => db.query_from_glob(
-                x,
-                filter_candidate,
-                select_dbg,
-                available_candidate,
-                native_arch,
-            )?,
-        };
-
-        for i in &res {
-            debug!("{} {}", i.raw_pkg.fullname(true), i.version_raw.version());
-        }
-
-        if res.is_empty() {
-            no_result.push(keyword.to_string());
-            continue;
-        }
-
-        pkgs.extend(res);
-    }
-
-    Ok((pkgs, no_result))
 }
 
 /// Mark package as install.

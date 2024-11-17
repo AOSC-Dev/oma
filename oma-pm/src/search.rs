@@ -18,8 +18,8 @@ type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
 
 use crate::{
     format_description,
+    matches::has_dbg,
     pkginfo::{OmaPackage, PtrIsNone},
-    query::has_dbg,
 };
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]

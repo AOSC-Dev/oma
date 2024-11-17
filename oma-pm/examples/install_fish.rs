@@ -11,8 +11,10 @@ use oma_console::{
 use oma_fetch::{reqwest::ClientBuilder, DownloadProgressControl};
 use oma_pm::{
     apt::{AptConfig, CommitDownloadConfig, OmaApt, OmaAptArgs, OmaAptError, SummarySort},
+    matches::PackagesMatcher,
     progress::InstallProgressManager,
 };
+use oma_utils::dpkg::dpkg_arch;
 
 struct MyInstallProgressManager;
 
@@ -89,7 +91,17 @@ impl InstallProgressManager for MyInstallProgressManager {
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgs::builder().yes(true).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
-    let pkgs = apt.select_pkg(&vec!["fish"], false, true, true)?;
+    let arch = dpkg_arch("/").unwrap();
+
+    let matcher = PackagesMatcher::builder()
+        .cache(&apt.cache)
+        .filter_candidate(true)
+        .filter_downloadable_candidate(false)
+        .select_dbg(false)
+        .native_arch(&arch)
+        .build();
+
+    let pkgs = matcher.match_pkgs(["fish"])?;
 
     apt.install(&pkgs.0, false)?;
 

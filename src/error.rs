@@ -15,7 +15,7 @@ use oma_mirror::MirrorError;
 
 use oma_pm::search::OmaSearchError;
 use oma_pm::AptErrors;
-use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
+use oma_pm::{apt::OmaAptError, matches::PackagesMatcherError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseError;
 use oma_repo_verify::VerifyError;
@@ -295,8 +295,8 @@ impl From<AptErrors> for OutputError {
     }
 }
 
-impl From<OmaDatabaseError> for OutputError {
-    fn from(value: OmaDatabaseError) -> Self {
+impl From<PackagesMatcherError> for OutputError {
+    fn from(value: PackagesMatcherError) -> Self {
         oma_database_error(value)
     }
 }
@@ -962,35 +962,35 @@ fn oma_checksum_error(e: ChecksumError) -> OutputError {
     }
 }
 
-fn oma_database_error(e: OmaDatabaseError) -> OutputError {
+fn oma_database_error(e: PackagesMatcherError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        OmaDatabaseError::AptError(e) => OutputError {
+        PackagesMatcherError::AptError(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(e)),
         },
-        OmaDatabaseError::AptErrors(e) => OutputError::from(e),
-        OmaDatabaseError::AptCxxException(e) => OutputError {
+        PackagesMatcherError::AptErrors(e) => OutputError::from(e),
+        PackagesMatcherError::AptCxxException(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(AptErrors::from(e))),
         },
-        OmaDatabaseError::InvalidPattern(s) => OutputError {
+        PackagesMatcherError::InvalidPattern(s) => OutputError {
             description: fl!("invalid-pattern", p = s),
             source: None,
         },
-        OmaDatabaseError::NoPackage(s) => OutputError {
+        PackagesMatcherError::NoPackage(s) => OutputError {
             description: fl!("can-not-get-pkg-from-database", name = s),
             source: None,
         },
-        OmaDatabaseError::NoVersion(pkg, ver) => OutputError {
+        PackagesMatcherError::NoVersion(pkg, ver) => OutputError {
             description: fl!("pkg-unavailable", pkg = pkg, ver = ver),
             source: None,
         },
-        OmaDatabaseError::NoPath(s) => OutputError {
+        PackagesMatcherError::NoPath(s) => OutputError {
             description: fl!("invalid-path", p = s),
             source: None,
         },
-        OmaDatabaseError::OmaSearchError(e) => match e {
+        PackagesMatcherError::OmaSearchError(e) => match e {
             OmaSearchError::AptError(e) => OutputError {
                 description: fl!("apt-error"),
                 source: Some(Box::new(e)),
@@ -1013,11 +1013,11 @@ fn oma_database_error(e: OmaDatabaseError) -> OutputError {
                 source: None,
             },
         },
-        OmaDatabaseError::NoCandidate(s) => OutputError {
+        PackagesMatcherError::NoCandidate(s) => OutputError {
             description: fl!("no-candidate-ver", pkg = s),
             source: None,
         },
-        OmaDatabaseError::PtrIsNone(_) => OutputError {
+        PackagesMatcherError::PtrIsNone(_) => OutputError {
             description: e.to_string(),
             source: None,
         },

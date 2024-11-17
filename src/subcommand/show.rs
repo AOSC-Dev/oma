@@ -2,8 +2,10 @@ use std::io::stdout;
 
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
+    matches::PackagesMatcher,
     pkginfo::OmaPackage,
 };
+use oma_utils::dpkg::dpkg_arch;
 use tracing::info;
 
 use crate::error::OutputError;
@@ -25,8 +27,19 @@ pub fn execute(
         .another_apt_options(another_apt_options)
         .sysroot(sysroot.clone())
         .build();
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
-    let (pkgs, no_result) = apt.select_pkg(&input, false, false, false)?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+
+    let arch = dpkg_arch(&sysroot)?;
+    let matcher = PackagesMatcher::builder()
+        .cache(&apt.cache)
+        .filter_candidate(true)
+        .filter_downloadable_candidate(false)
+        .select_dbg(false)
+        .native_arch(&arch)
+        .build();
+
+    let (pkgs, no_result) = matcher.match_pkgs(input)?;
+
     handle_no_result(sysroot, no_result, no_progress)?;
 
     let mut stdout = stdout();

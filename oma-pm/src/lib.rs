@@ -1,7 +1,7 @@
 pub mod apt;
+pub mod matches;
 pub mod pkginfo;
 pub mod progress;
-pub mod query;
 pub mod search;
 pub use oma_apt::error::AptErrors;
 pub use oma_apt::PkgCurrentState;

@@ -3,8 +3,9 @@ use std::borrow::Cow;
 use oma_console::{indicatif::ProgressBar, pager::Pager, pb::spinner_style};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
-    query::{OmaDatabase, SearchEngine},
+    matches::{PackagesMatcher, SearchEngine},
 };
+use oma_utils::dpkg::dpkg_arch;
 use tracing::warn;
 
 use crate::{error::OutputError, table::oma_display_with_normal_output};
@@ -19,13 +20,22 @@ pub fn execute(
     json: bool,
     another_apt_options: Vec<String>,
 ) -> Result<i32, OutputError> {
+    let arch = dpkg_arch(&sysroot)?;
+
     let oma_apt_args = OmaAptArgs::builder()
         .another_apt_options(another_apt_options)
         .sysroot(sysroot)
         .build();
 
     let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
-    let db = OmaDatabase::new(&apt.cache)?;
+    let matcher = PackagesMatcher::builder()
+        .cache(&apt.cache)
+        .filter_candidate(true)
+        .filter_downloadable_candidate(false)
+        .select_dbg(false)
+        .native_arch(&arch)
+        .build();
+
     let s = args.concat();
 
     let (sty, inv) = spinner_style();
@@ -40,7 +50,7 @@ pub fn execute(
         None
     };
 
-    let res = db.search(
+    let res = matcher.search(
         &s,
         match engine.as_str() {
             "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
