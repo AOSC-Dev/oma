@@ -13,10 +13,7 @@ use oma_apt::{
 use oma_utils::url_no_escape::url_no_escape;
 use tracing::{debug, info};
 
-use crate::{
-    pkginfo::{OmaPackage, PtrIsNone},
-    search::{IndiciumSearch, OmaSearch, OmaSearchError, SearchResult, StrSimSearch, TextSearch},
-};
+use crate::pkginfo::{OmaPackage, PtrIsNone};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PackagesMatcherError {
@@ -36,8 +33,6 @@ pub enum PackagesMatcherError {
     NoCandidate(String),
     #[error("Can not find path for local package {0}")]
     NoPath(String),
-    #[error(transparent)]
-    OmaSearchError(#[from] OmaSearchError),
     #[error(transparent)]
     PtrIsNone(#[from] PtrIsNone),
 }
@@ -305,23 +300,6 @@ impl<'a> PackagesMatcher<'a> {
                 res.push(pkginfo);
             }
         }
-
-        Ok(res)
-    }
-
-    /// Smart search pkgs
-    pub fn search(
-        &self,
-        keyword: &str,
-        engine: SearchEngine,
-    ) -> PackagesMatcherResult<Vec<SearchResult>> {
-        let searcher: Box<dyn OmaSearch> = match engine {
-            SearchEngine::Indicium(f) => Box::new(IndiciumSearch::new(self.cache, f)?),
-            SearchEngine::Strsim => Box::new(StrSimSearch::new(self.cache)),
-            SearchEngine::Text => Box::new(TextSearch::new(self.cache)),
-        };
-
-        let res = searcher.search(keyword)?;
 
         Ok(res)
     }

@@ -990,29 +990,6 @@ fn oma_database_error(e: PackagesMatcherError) -> OutputError {
             description: fl!("invalid-path", p = s),
             source: None,
         },
-        PackagesMatcherError::OmaSearchError(e) => match e {
-            OmaSearchError::AptError(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(e)),
-            },
-            OmaSearchError::AptErrors(e) => OutputError::from(e),
-            OmaSearchError::AptCxxException(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(AptErrors::from(e))),
-            },
-            OmaSearchError::NoResult(e) => OutputError {
-                description: fl!("could-not-find-pkg-from-keyword", c = e),
-                source: None,
-            },
-            OmaSearchError::FailedGetCandidate(s) => OutputError {
-                description: fl!("no-candidate-ver", pkg = s),
-                source: None,
-            },
-            OmaSearchError::PtrIsNone(_) => OutputError {
-                description: e.to_string(),
-                source: None,
-            },
-        },
         PackagesMatcherError::NoCandidate(s) => OutputError {
             description: fl!("no-candidate-ver", pkg = s),
             source: None,
