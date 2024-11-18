@@ -56,7 +56,8 @@ pub struct Tui<'a> {
     input_cursor_position: usize,
     display_pending_detail: bool,
     input: Rc<RefCell<String>>,
-    upgrade_and_autoremovable: (usize, usize),
+    upgradable: usize,
+    autoremovable: usize,
     installed: usize,
     pkg_results: Rc<RefCell<Vec<SearchResult>>>,
     pkg_result_state: StatefulList<Text<'static>>,
@@ -104,8 +105,9 @@ pub struct Task {
 impl<'a> Tui<'a> {
     pub fn new(
         apt: &'a OmaApt,
-        upgrade_and_autoremovable: (usize, usize),
         installed: usize,
+        upgradable: usize,
+        autoremovable: usize,
         searcher: IndiciumSearch<'a>,
     ) -> Self {
         let pkg_results = Rc::new(RefCell::new(vec![]));
@@ -125,7 +127,8 @@ impl<'a> Tui<'a> {
             input_cursor_position: 0,
             display_pending_detail: false,
             input: Rc::new(RefCell::new("".to_string())),
-            upgrade_and_autoremovable,
+            upgradable,
+            autoremovable,
             installed,
             pkg_result_state,
             pending_result_state: StatefulList::with_items(vec![]),
@@ -182,7 +185,7 @@ impl<'a> Tui<'a> {
                                     self.upgrade = false;
                                     self.pending_result_state.items.remove(pos);
                                 } else {
-                                    if self.upgrade_and_autoremovable.0 == 0 {
+                                    if self.upgradable == 0 {
                                         self.popup = Some(fl!("tui-no-system-update"));
                                         continue;
                                     }
@@ -201,7 +204,7 @@ impl<'a> Tui<'a> {
                                     self.autoremove = false;
                                     self.pending_result_state.items.remove(pos);
                                 } else {
-                                    if self.upgrade_and_autoremovable.1 == 0 {
+                                    if self.autoremovable == 0 {
                                         self.popup = Some(fl!("tui-no-package-clean-up"));
                                         continue;
                                     }
@@ -635,7 +638,7 @@ impl<'a> Tui<'a> {
             } else {
                 main_layout[2]
             },
-            self.upgrade_and_autoremovable,
+            (self.upgradable, self.autoremovable),
             self.installed,
         );
 
@@ -774,7 +777,7 @@ fn show_packages(
     display_list: &mut StatefulList<Text<'_>>,
     mode: &Mode,
     area: Rect,
-    action: (usize, usize),
+    upgradable_and_autoremovable: (usize, usize),
     installed: usize,
 ) {
     if !result_rc.borrow().is_empty() {
@@ -785,8 +788,8 @@ fn show_packages(
                         .borders(Borders::ALL)
                         .title(fl!(
                             "tui-packages",
-                            u = action.0,
-                            r = action.1,
+                            u = upgradable_and_autoremovable.0,
+                            r = upgradable_and_autoremovable.1,
                             i = installed
                         ))
                         .style(highlight_window(mode, &Mode::Packages)),
@@ -835,8 +838,8 @@ fn show_packages(
                 Line::from(""),
                 Line::from(fl!(
                     "tui-packages",
-                    u = action.0,
-                    r = action.1,
+                    u = upgradable_and_autoremovable.0,
+                    r = upgradable_and_autoremovable.1,
                     i = installed
                 )),
             ])

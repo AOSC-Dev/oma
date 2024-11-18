@@ -336,8 +336,8 @@ impl OmaApt {
         Ok(config)
     }
 
-    /// Get upgradable and removable packages count
-    pub fn count_pending_upgradable_and_autoremovable_pkgs(&self) -> OmaAptResult<(usize, usize)> {
+    /// Get upgradable packages count
+    pub fn count_pending_upgradable_pkgs(&self) -> usize {
         let sort = PackageSort::default().upgradable();
         let dir = self.config.get("Dir").unwrap_or_else(|| "/".to_string());
         let upgradable = self
@@ -346,16 +346,21 @@ impl OmaApt {
             .filter(|x| !is_hold(x.name(), &dir).unwrap_or(false))
             .count();
 
-        let sort = PackageSort::default().auto_removable();
-        let removable = self.cache.packages(&sort).count();
-
-        Ok((upgradable, removable))
+        upgradable
     }
 
-    pub fn count_installed_packages(&self) -> OmaAptResult<usize> {
+    /// Get autoremovable packages count
+    pub fn count_pending_autoremovable_pkgs(&self) -> usize {
+        let sort = PackageSort::default().auto_removable();
+        let auto_removable = self.cache.packages(&sort).count();
+
+        auto_removable
+    }
+
+    pub fn count_installed_packages(&self) -> usize {
         let sort = PackageSort::default().installed();
 
-        Ok(self.cache.packages(&sort).count())
+        self.cache.packages(&sort).count()
     }
 
     /// Set apt manager status as upgrade

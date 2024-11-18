@@ -90,8 +90,9 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     pb.enable_steady_tick(inv);
     pb.set_message(fl!("reading-database"));
 
-    let a = apt.count_pending_upgradable_and_autoremovable_pkgs()?;
-    let installed = apt.count_installed_packages()?;
+    let upgradable = apt.count_pending_upgradable_pkgs();
+    let autoremovable = apt.count_pending_autoremovable_pkgs();
+    let installed = apt.count_installed_packages();
 
     let searcher = IndiciumSearch::new(&apt.cache, |n| {
         pb.set_message(fl!("reading-database-with-count", count = n));
@@ -103,7 +104,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         source: Some(Box::new(e)),
     })?;
 
-    let tui = Tui::new(&apt, a, installed, searcher);
+    let tui = Tui::new(&apt, installed, upgradable, autoremovable, searcher);
 
     let Task {
         execute_apt,
