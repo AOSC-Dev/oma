@@ -8,7 +8,7 @@ use oma_apt::{
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
     raw::{IntoRawIter, PkgIterator},
-    Package, Version,
+    Package,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -17,7 +17,6 @@ type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
 type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
 
 use crate::{
-    format_description,
     matches::has_dbg,
     pkginfo::{OmaPackage, PtrIsNone},
 };
@@ -185,11 +184,9 @@ impl<'a> IndiciumSearch<'a> {
                 if let Entry::Vacant(e) = pkg_map.entry(name.clone()) {
                     e.insert(SearchEntry {
                         name,
-                        description: format_description(
-                            &cand.description().unwrap_or("".to_string()),
-                        )
-                        .0
-                        .to_string(),
+                        description: cand
+                            .summary()
+                            .unwrap_or_else(|| "No description".to_string()),
                         status,
                         provides: pkg.provides().map(|x| x.to_string()).collect(),
                         has_dbg: has_dbg(cache, &pkg, &cand),
@@ -233,11 +230,9 @@ impl<'a> IndiciumSearch<'a> {
                             })
                             .or_insert(SearchEntry {
                                 name,
-                                description: format_description(
-                                    &cand.description().unwrap_or("".to_string()),
-                                )
-                                .0
-                                .to_string(),
+                                description: cand
+                                    .summary()
+                                    .unwrap_or_else(|| "No description".to_string()),
                                 status,
                                 provides: {
                                     let mut set = IndexSet::with_hasher(RandomState::new());
@@ -405,13 +400,9 @@ impl<'a> OmaSearch for StrSimSearch<'a> {
 
             v.push(SearchResult {
                 name,
-                desc: format_description(
-                    &Version::new(pkginfo.version_raw, self.cache)
-                        .description()
-                        .unwrap_or_default(),
-                )
-                .0
-                .to_owned(),
+                desc: cand
+                    .summary()
+                    .unwrap_or_else(|| "No description".to_string()),
                 old_version: {
                     if !upgrade {
                         None
@@ -490,9 +481,9 @@ impl<'a> OmaSearch for TextSearch<'a> {
                 if let Some(cand) = cand {
                     res.push(SearchResult {
                         name,
-                        desc: format_description(&cand.description().unwrap_or_default())
-                            .0
-                            .to_string(),
+                        desc: cand
+                            .summary()
+                            .unwrap_or_else(|| "No description".to_string()),
                         old_version: {
                             if !pkg.is_upgradable() {
                                 None
