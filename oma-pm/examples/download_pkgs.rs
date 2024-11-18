@@ -27,7 +27,7 @@ fn main() -> Result<(), OmaAptError> {
         .native_arch(&arch)
         .build();
 
-    let pkgs = matcher.match_pkgs(["vscodium", "go"])?;
+    let pkgs = matcher.match_pkgs_and_versions(["vscodium", "go"])?;
 
     std::fs::create_dir_all("./test").unwrap();
 

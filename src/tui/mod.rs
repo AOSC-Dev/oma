@@ -136,7 +136,13 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
         }
 
         apt.install(&install, false)?;
-        apt.remove(&remove, false, !autoremove)?;
+        apt.remove(
+            remove
+                .iter()
+                .flat_map(|x| x.into_oma_package_without_version()),
+            false,
+            !autoremove,
+        )?;
 
         code = CommitRequest {
             apt,

@@ -13,7 +13,7 @@ use oma_apt::{
 use oma_utils::url_no_escape::url_no_escape;
 use tracing::{debug, info};
 
-use crate::pkginfo::{OmaPackage, PtrIsNone};
+use crate::pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PackagesMatcherError {
@@ -58,7 +58,7 @@ pub struct PackagesMatcher<'a> {
 pub type PackagesMatcherResult<T> = Result<T, PackagesMatcherError>;
 
 impl<'a> PackagesMatcher<'a> {
-    pub fn match_pkgs(
+    pub fn match_pkgs_and_versions(
         &self,
         keywords: impl IntoIterator<Item = &'a str>,
     ) -> PackagesMatcherResult<(Vec<OmaPackage>, Vec<String>)> {
@@ -69,7 +69,7 @@ impl<'a> PackagesMatcher<'a> {
                 x if x.ends_with(".deb") => self.match_local_glob(x)?,
                 x if x.split_once('/').is_some() => self.match_from_branch(x)?,
                 x if x.split_once('=').is_some() => self.match_from_version(x)?,
-                x => self.match_from_glob(x)?,
+                x => self.match_pkgs_and_versions_from_glob(x)?,
             };
 
             for i in &res {
@@ -126,8 +126,37 @@ impl<'a> PackagesMatcher<'a> {
         Ok(res.into_iter().flatten().collect())
     }
 
-    /// Query package from give glob (like: apt*)
-    pub fn match_from_glob(&self, glob: &str) -> PackagesMatcherResult<Vec<OmaPackage>> {
+    pub fn match_pkgs_from_glob(
+        &self,
+        glob: &str,
+    ) -> PackagesMatcherResult<Vec<OmaPackageWithoutVersion>> {
+        let sort = PackageSort::default().include_virtual();
+
+        if glob == "266" {
+            info!("吃我一拳！！！");
+        }
+
+        let pkgs = self.cache.packages(&sort).filter(|x| {
+            if glob.contains(':') {
+                glob_match(glob, &x.fullname(false))
+            } else {
+                glob_match(glob, x.name()) && x.arch() == self.native_arch
+            }
+        });
+
+        let pkgs = pkgs
+            .filter_map(|pkg| real_pkg(&pkg))
+            .map(|raw_pkg| OmaPackageWithoutVersion { raw_pkg })
+            .collect::<Vec<_>>();
+
+        Ok(pkgs)
+    }
+
+    /// Query package and version from give glob (like: apt*)
+    pub fn match_pkgs_and_versions_from_glob(
+        &self,
+        glob: &str,
+    ) -> PackagesMatcherResult<Vec<OmaPackage>> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
 
@@ -381,7 +410,7 @@ mod test {
             .native_arch(&arch)
             .build();
 
-        let res_filter = matcher.match_from_glob("apt*").unwrap();
+        let res_filter = matcher.match_pkgs_and_versions_from_glob("apt*").unwrap();
 
         let matcher = PackagesMatcher::builder()
             .cache(&cache)
@@ -391,7 +420,7 @@ mod test {
             .native_arch(&arch)
             .build();
 
-        let res = matcher.match_from_glob("apt*").unwrap();
+        let res = matcher.match_pkgs_and_versions_from_glob("apt*").unwrap();
 
         for i in res_filter {
             i.pkg_info(&cache).unwrap();
@@ -418,7 +447,9 @@ mod test {
             .native_arch(&arch)
             .build();
 
-        let res_filter = matcher.match_from_glob("telegram").unwrap();
+        let res_filter = matcher
+            .match_pkgs_and_versions_from_glob("telegram")
+            .unwrap();
 
         for i in res_filter {
             i.pkg_info(&cache).unwrap();

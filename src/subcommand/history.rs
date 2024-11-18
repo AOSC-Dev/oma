@@ -103,14 +103,14 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         .build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-    let mut delete = vec![];
+    let mut glob = vec![];
     let mut install = vec![];
 
     if !op.install.is_empty() {
         for i in &op.install {
             match i.op() {
                 InstallOperation::Default | InstallOperation::Download => unreachable!(),
-                InstallOperation::Install => delete.push(i.name()),
+                InstallOperation::Install => glob.push(i.name()),
                 InstallOperation::ReInstall => continue,
                 InstallOperation::Upgrade => install.push((i.name(), i.old_version().unwrap())),
                 InstallOperation::Downgrade => install.push((i.name(), i.old_version().unwrap())),
@@ -132,10 +132,20 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         .native_arch(&arch)
         .build();
 
-    let (delete, no_result) = matcher.match_pkgs(delete)?;
+    let mut delete = vec![];
+    let mut no_result = vec![];
+    for i in glob {
+        let res = matcher.match_pkgs_from_glob(i)?;
+        if res.is_empty() {
+            no_result.push(i.to_string());
+        } else {
+            delete.extend(res);
+        }
+    }
+
     handle_no_result(&sysroot, no_result, no_progress)?;
 
-    apt.remove(&delete, false, true)?;
+    apt.remove(delete, false, true)?;
 
     let pkgs = apt.filter_pkgs(&[FilterMode::Default])?.collect::<Vec<_>>();
 

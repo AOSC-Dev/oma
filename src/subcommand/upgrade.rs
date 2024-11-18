@@ -140,7 +140,7 @@ pub fn execute(
             .native_arch(&arch)
             .build();
 
-        let (pkgs, no_result) = matcher.match_pkgs(pkgs_unparse.clone())?;
+        let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;
 
         let no_marked_install = apt.install(&pkgs, false)?;
 

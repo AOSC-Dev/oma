@@ -45,7 +45,7 @@ pub fn execute(
         .native_arch(&arch)
         .build();
 
-    let (pkgs, no_result) = matcher.match_pkgs(keyword)?;
+    let (pkgs, no_result) = matcher.match_pkgs_and_versions(keyword)?;
     handle_no_result("/", no_result, no_progress)?;
 
     let progress_manager: &dyn DownloadProgressControl = if !no_progress {

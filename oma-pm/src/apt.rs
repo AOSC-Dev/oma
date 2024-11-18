@@ -11,7 +11,6 @@ use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 use chrono::Local;
 
-use itertools::Itertools;
 pub use oma_apt::cache::Upgrade;
 
 use oma_apt::{
@@ -47,7 +46,7 @@ use zbus::{Connection, ConnectionBuilder};
 use crate::{
     dbus::{change_status, OmaBus, Status},
     matches::PackagesMatcherError,
-    pkginfo::{OmaPackage, PtrIsNone},
+    pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
 };
 
@@ -489,20 +488,15 @@ impl OmaApt {
     /// Set apt manager status as remove
     pub fn remove(
         &mut self,
-        pkgs: &[OmaPackage],
+        pkgs: impl IntoIterator<Item = OmaPackageWithoutVersion>,
         purge: bool,
         no_autoremove: bool,
     ) -> OmaAptResult<Vec<String>> {
         debug!("is purge: {purge}");
         let mut no_marked_remove = vec![];
 
-        // 删除软件包不需要在乎版本，因此把传入的数组去重
-        let pkgs = pkgs
-            .iter()
-            .map(|x| x.package(&self.cache))
-            .unique_by(|x| x.index());
-
         for pkg in pkgs {
+            let pkg = pkg.package(&self.cache);
             let is_marked_delete = mark_delete(&pkg, purge)?;
             if !is_marked_delete {
                 no_marked_remove.push(pkg.fullname(true));

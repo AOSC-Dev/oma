@@ -35,7 +35,7 @@ pub fn execute(
         .native_arch(&arch)
         .build();
 
-    let (pkgs, no_result) = matcher.match_pkgs(pkgs.iter().map(|x| x.as_str()))?;
+    let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs.iter().map(|x| x.as_str()))?;
 
     handle_no_result(sysroot, no_result, no_progress)?;
 

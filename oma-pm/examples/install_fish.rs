@@ -101,7 +101,7 @@ fn main() -> Result<(), OmaAptError> {
         .native_arch(&arch)
         .build();
 
-    let pkgs = matcher.match_pkgs(["fish"])?;
+    let pkgs = matcher.match_pkgs_and_versions(["fish"])?;
 
     apt.install(&pkgs.0, false)?;
 
