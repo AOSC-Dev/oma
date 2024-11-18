@@ -345,6 +345,12 @@ impl OmaPackage {
         Version::new(unsafe { self.version_raw.unique() }, cache)
     }
 
+    pub fn is_candidate_version(&self, cache: &Cache) -> bool {
+        self.package(cache)
+            .candidate()
+            .is_some_and(|cand| cand == self.version(cache))
+    }
+
     pub fn get_deps(&self, cache: &Cache) -> OmaAptResult<HashMap<OmaDepType, OmaDependencyGroup>> {
         let map = Version::new(
             unsafe { self.version_raw.unique() }

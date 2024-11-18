@@ -188,32 +188,20 @@ impl<'a> PackagesMatcher<'a> {
 
         // 确保数组第一个是 candidate version
         if !self.filter_candidate {
-            let mut candidate = None;
+            let candidate_list = res
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, pkg)| {
+                    if pkg.is_candidate_version(self.cache) {
+                        Some(idx)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
 
-            for (i, c) in res.iter().enumerate() {
-                let cand = Package::new(
-                    self.cache,
-                    unsafe { c.raw_pkg.unique() }
-                        .make_safe()
-                        .ok_or(PackagesMatcherError::PtrIsNone(PtrIsNone))?,
-                )
-                .candidate();
-
-                let version = unsafe { c.version_raw.unique() }
-                    .make_safe()
-                    .ok_or(PackagesMatcherError::PtrIsNone(PtrIsNone))?;
-
-                if cand
-                    .map(|x| x == Version::new(version, self.cache))
-                    .unwrap_or(false)
-                {
-                    candidate = Some(i);
-                    break;
-                }
-            }
-
-            if let Some(index) = candidate {
-                let pkg = res.remove(index);
+            for idx in candidate_list {
+                let pkg = res.remove(idx);
                 res.insert(0, pkg);
             }
         }
