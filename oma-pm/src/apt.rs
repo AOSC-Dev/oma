@@ -1258,13 +1258,7 @@ impl OmaApt {
             DiskSpace::Free(n) => ("-".into(), n),
         };
 
-        let total_download_size: u64 = install
-            .iter()
-            .filter(|x| {
-                x.op() == &InstallOperation::Install || x.op() == &InstallOperation::Upgrade
-            })
-            .map(|x| x.download_size())
-            .sum();
+        let total_download_size = self.cache.depcache().download_size();
 
         if !features.is_empty() && !how_handle_features(&features) {
             return Err(OmaAptError::Features);
