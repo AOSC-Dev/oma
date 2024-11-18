@@ -352,7 +352,7 @@ impl OmaApt {
         Ok((upgradable, removable))
     }
 
-    pub fn installed_packages(&self) -> OmaAptResult<usize> {
+    pub fn count_installed_packages(&self) -> OmaAptResult<usize> {
         let sort = PackageSort::default().installed();
 
         Ok(self.cache.packages(&sort).count())

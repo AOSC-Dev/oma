@@ -91,7 +91,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     pb.set_message(fl!("reading-database"));
 
     let a = apt.count_pending_upgradable_and_autoremovable_pkgs()?;
-    let installed = apt.installed_packages()?;
+    let installed = apt.count_installed_packages()?;
 
     let searcher = IndiciumSearch::new(&apt.cache, |n| {
         pb.set_message(fl!("reading-database-with-count", count = n));
