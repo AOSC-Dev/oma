@@ -19,7 +19,7 @@ pub fn execute(
 
     let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
     let download_dir = apt.get_archive_dir();
-    let dir = std::fs::read_dir(&download_dir).map_err(|e| OutputError {
+    let dir = std::fs::read_dir(download_dir).map_err(|e| OutputError {
         description: format!("Failed to read dir: {}", download_dir.display()),
         source: Some(Box::new(e)),
     })?;

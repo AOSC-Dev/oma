@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    cell::OnceCell,
     fmt,
     io::{self, ErrorKind, Write},
     path::{Path, PathBuf},
@@ -85,6 +86,7 @@ pub struct OmaApt {
     tokio: Runtime,
     connection: Option<Connection>,
     unmet: Vec<Vec<BrokenPackage>>,
+    archive_dir: OnceCell<PathBuf>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -215,6 +217,7 @@ impl OmaApt {
             tokio,
             connection: conn,
             unmet: vec![],
+            archive_dir: OnceCell::new(),
         })
     }
 
@@ -591,7 +594,7 @@ impl OmaApt {
                 client,
                 download_pkg_list,
                 network_thread,
-                &path,
+                path,
                 download_progress_manager,
                 auth,
             )
@@ -944,31 +947,33 @@ impl OmaApt {
     }
 
     /// Get apt archive dir
-    pub fn get_archive_dir(&self) -> PathBuf {
-        let archives_dir = self
-            .config
-            .get("Dir::Cache::Archives")
-            .unwrap_or("archives/".to_string());
-        let cache = self
-            .config
-            .get("Dir::Cache")
-            .unwrap_or("var/cache/apt".to_string());
+    pub fn get_archive_dir(&self) -> &Path {
+        self.archive_dir.get_or_init(|| {
+            let archives_dir = self
+                .config
+                .get("Dir::Cache::Archives")
+                .unwrap_or("archives/".to_string());
+            let cache = self
+                .config
+                .get("Dir::Cache")
+                .unwrap_or("var/cache/apt".to_string());
 
-        let dir = self.config.get("Dir").unwrap_or("/".to_string());
+            let dir = self.config.get("Dir").unwrap_or("/".to_string());
 
-        let archive_dir_p = PathBuf::from(archives_dir);
-        if archive_dir_p.is_absolute() {
-            return archive_dir_p;
-        }
+            let archive_dir_p = PathBuf::from(archives_dir);
+            if archive_dir_p.is_absolute() {
+                return archive_dir_p;
+            }
 
-        let cache_dir_p = PathBuf::from(cache);
-        if cache_dir_p.is_absolute() {
-            return cache_dir_p.join(archive_dir_p);
-        }
+            let cache_dir_p = PathBuf::from(cache);
+            if cache_dir_p.is_absolute() {
+                return cache_dir_p.join(archive_dir_p);
+            }
 
-        let dir_p = PathBuf::from(dir);
+            let dir_p = PathBuf::from(dir);
 
-        dir_p.join(cache_dir_p).join(archive_dir_p)
+            dir_p.join(cache_dir_p).join(archive_dir_p)
+        })
     }
 
     /// Mark version status (hold/unhold)
