@@ -6,7 +6,7 @@ use std::{
     process::Command,
 };
 
-use ahash::{HashSet, RandomState};
+use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 use chrono::Local;
@@ -490,14 +490,20 @@ impl OmaApt {
         no_autoremove: bool,
     ) -> OmaAptResult<Vec<String>> {
         debug!("is purge: {purge}");
+        let mut no_marked_remove = vec![];
 
-        let mut no_marked_remove = HashSet::with_hasher(RandomState::new());
+        // 删除软件包不需要在乎版本，因此把传入的数组去重
+        let pkgs = pkgs
+            .iter()
+            .map(|x| x.package(&self.cache))
+            .collect::<HashSet<_>>();
+
         for pkg in pkgs {
-            let is_marked_delete = mark_delete(&self.cache, pkg, purge)?;
+            let is_marked_delete = mark_delete(&pkg, purge)?;
             if !is_marked_delete {
-                no_marked_remove.insert(pkg.raw_pkg.fullname(true));
-            } else if !self.select_pkgs.contains(&pkg.raw_pkg.fullname(true)) {
-                self.select_pkgs.push(pkg.raw_pkg.fullname(true));
+                no_marked_remove.push(pkg.fullname(true));
+            } else if !self.select_pkgs.contains(&pkg.fullname(true)) {
+                self.select_pkgs.push(pkg.fullname(true));
             }
         }
 
@@ -520,7 +526,7 @@ impl OmaApt {
             }
         }
 
-        Ok(no_marked_remove.into_iter().collect::<Vec<_>>())
+        Ok(no_marked_remove)
     }
 
     /// find autoremove and remove it
@@ -1346,8 +1352,7 @@ impl OmaApt {
 }
 
 /// Mark package as delete.
-fn mark_delete(cache: &Cache, pkg: &OmaPackage, purge: bool) -> OmaAptResult<bool> {
-    let pkg = Package::new(cache, unsafe { pkg.raw_pkg.unique() });
+fn mark_delete(pkg: &Package, purge: bool) -> OmaAptResult<bool> {
     if pkg.marked_delete() {
         return Ok(true);
     }
