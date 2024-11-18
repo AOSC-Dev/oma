@@ -11,6 +11,7 @@ use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 use chrono::Local;
 
+use itertools::Itertools;
 pub use oma_apt::cache::Upgrade;
 
 use oma_apt::{
@@ -499,7 +500,7 @@ impl OmaApt {
         let pkgs = pkgs
             .iter()
             .map(|x| x.package(&self.cache))
-            .collect::<HashSet<_>>();
+            .unique_by(|x| x.index());
 
         for pkg in pkgs {
             let is_marked_delete = mark_delete(&pkg, purge)?;

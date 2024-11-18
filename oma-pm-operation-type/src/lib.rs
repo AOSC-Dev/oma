@@ -217,7 +217,7 @@ impl RemoveEntry {
         size: u64,
         details: Vec<RemoveTag>,
         arch: String,
-        index: u64
+        index: u64,
     ) -> Self {
         Self {
             name,
