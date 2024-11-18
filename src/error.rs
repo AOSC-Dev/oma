@@ -15,7 +15,7 @@ use oma_mirror::MirrorError;
 
 use oma_pm::search::OmaSearchError;
 use oma_pm::AptErrors;
-use oma_pm::{apt::OmaAptError, matches::PackagesMatcherError};
+use oma_pm::{apt::OmaAptError, matches::MatcherError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseError;
 use oma_repo_verify::VerifyError;
@@ -295,8 +295,8 @@ impl From<AptErrors> for OutputError {
     }
 }
 
-impl From<PackagesMatcherError> for OutputError {
-    fn from(value: PackagesMatcherError) -> Self {
+impl From<MatcherError> for OutputError {
+    fn from(value: MatcherError) -> Self {
         oma_database_error(value)
     }
 }
@@ -962,39 +962,39 @@ fn oma_checksum_error(e: ChecksumError) -> OutputError {
     }
 }
 
-fn oma_database_error(e: PackagesMatcherError) -> OutputError {
+fn oma_database_error(e: MatcherError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        PackagesMatcherError::AptError(e) => OutputError {
+        MatcherError::AptError(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(e)),
         },
-        PackagesMatcherError::AptErrors(e) => OutputError::from(e),
-        PackagesMatcherError::AptCxxException(e) => OutputError {
+        MatcherError::AptErrors(e) => OutputError::from(e),
+        MatcherError::AptCxxException(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(AptErrors::from(e))),
         },
-        PackagesMatcherError::InvalidPattern(s) => OutputError {
+        MatcherError::InvalidPattern(s) => OutputError {
             description: fl!("invalid-pattern", p = s),
             source: None,
         },
-        PackagesMatcherError::NoPackage(s) => OutputError {
+        MatcherError::NoPackage(s) => OutputError {
             description: fl!("can-not-get-pkg-from-database", name = s),
             source: None,
         },
-        PackagesMatcherError::NoVersion(pkg, ver) => OutputError {
+        MatcherError::NoVersion(pkg, ver) => OutputError {
             description: fl!("pkg-unavailable", pkg = pkg, ver = ver),
             source: None,
         },
-        PackagesMatcherError::NoPath(s) => OutputError {
+        MatcherError::NoPath(s) => OutputError {
             description: fl!("invalid-path", p = s),
             source: None,
         },
-        PackagesMatcherError::NoCandidate(s) => OutputError {
+        MatcherError::NoCandidate(s) => OutputError {
             description: fl!("no-candidate-ver", pkg = s),
             source: None,
         },
-        PackagesMatcherError::PtrIsNone(_) => OutputError {
+        MatcherError::PtrIsNone(_) => OutputError {
             description: e.to_string(),
             source: None,
         },

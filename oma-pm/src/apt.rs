@@ -45,7 +45,7 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
-    matches::PackagesMatcherError,
+    matches::MatcherError,
     pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
 };
@@ -96,7 +96,7 @@ pub enum OmaAptError {
     #[error(transparent)]
     AptCxxException(#[from] cxx::Exception),
     #[error(transparent)]
-    OmaDatabaseError(#[from] PackagesMatcherError),
+    OmaDatabaseError(#[from] MatcherError),
     #[error("Failed to mark package for reinstallation: {0}")]
     MarkReinstallError(String, String),
     #[error("Dependencies unmet")]

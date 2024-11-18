@@ -16,7 +16,7 @@ use tracing::{debug, info};
 use crate::pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone};
 
 #[derive(Debug, thiserror::Error)]
-pub enum PackagesMatcherError {
+pub enum MatcherError {
     #[error(transparent)]
     AptErrors(#[from] AptErrors),
     #[error(transparent)]
@@ -55,13 +55,13 @@ pub struct PackagesMatcher<'a> {
     native_arch: &'a str,
 }
 
-pub type PackagesMatcherResult<T> = Result<T, PackagesMatcherError>;
+pub type MatcherResult<T> = Result<T, MatcherError>;
 
 impl<'a> PackagesMatcher<'a> {
     pub fn match_pkgs_and_versions(
         &self,
         keywords: impl IntoIterator<Item = &'a str>,
-    ) -> PackagesMatcherResult<(Vec<OmaPackage>, Vec<String>)> {
+    ) -> MatcherResult<(Vec<OmaPackage>, Vec<String>)> {
         let mut pkgs = vec![];
         let mut no_result = vec![];
         for keyword in keywords {
@@ -88,7 +88,7 @@ impl<'a> PackagesMatcher<'a> {
     }
 
     /// Query package from give local file glob
-    pub fn match_local_glob(&self, file_glob: &str) -> PackagesMatcherResult<Vec<OmaPackage>> {
+    pub fn match_local_glob(&self, file_glob: &str) -> MatcherResult<Vec<OmaPackage>> {
         let mut res = vec![];
         let sort = PackageSort::default().only_virtual();
 
@@ -105,7 +105,7 @@ impl<'a> PackagesMatcher<'a> {
                     "file:{}",
                     Path::new(i.name())
                         .canonicalize()
-                        .map_err(|_| PackagesMatcherError::NoPath(pkg.fullname(true)))?
+                        .map_err(|_| MatcherError::NoPath(pkg.fullname(true)))?
                         .to_str()
                         .unwrap_or(pkg.name())
                 ));
@@ -126,10 +126,7 @@ impl<'a> PackagesMatcher<'a> {
         Ok(res.into_iter().flatten().collect())
     }
 
-    pub fn match_pkgs_from_glob(
-        &self,
-        glob: &str,
-    ) -> PackagesMatcherResult<Vec<OmaPackageWithoutVersion>> {
+    pub fn match_pkgs_from_glob(&self, glob: &str) -> MatcherResult<Vec<OmaPackageWithoutVersion>> {
         let sort = PackageSort::default().include_virtual();
 
         if glob == "266" {
@@ -153,10 +150,7 @@ impl<'a> PackagesMatcher<'a> {
     }
 
     /// Query package and version from give glob (like: apt*)
-    pub fn match_pkgs_and_versions_from_glob(
-        &self,
-        glob: &str,
-    ) -> PackagesMatcherResult<Vec<OmaPackage>> {
+    pub fn match_pkgs_and_versions_from_glob(&self, glob: &str) -> MatcherResult<Vec<OmaPackage>> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
 
@@ -239,19 +233,19 @@ impl<'a> PackagesMatcher<'a> {
     }
 
     /// Query package from give package and version (like: apt=2.5.4)
-    pub fn match_from_version(&self, pat: &str) -> PackagesMatcherResult<Vec<OmaPackage>> {
+    pub fn match_from_version(&self, pat: &str) -> MatcherResult<Vec<OmaPackage>> {
         let (pkgname, version_str) = pat
             .split_once('=')
-            .ok_or_else(|| PackagesMatcherError::InvalidPattern(pat.to_string()))?;
+            .ok_or_else(|| MatcherError::InvalidPattern(pat.to_string()))?;
 
         let pkg = self
             .cache
             .get(pkgname)
-            .ok_or_else(|| PackagesMatcherError::NoPackage(pat.to_string()))?;
+            .ok_or_else(|| MatcherError::NoPackage(pat.to_string()))?;
 
-        let version = pkg.get_version(version_str).ok_or_else(|| {
-            PackagesMatcherError::NoVersion(pkgname.to_string(), version_str.to_string())
-        })?;
+        let version = pkg
+            .get_version(version_str)
+            .ok_or_else(|| MatcherError::NoVersion(pkgname.to_string(), version_str.to_string()))?;
 
         let mut res = vec![];
 
@@ -268,16 +262,16 @@ impl<'a> PackagesMatcher<'a> {
     }
 
     /// Query package from give package and branch (like: apt/stable)
-    pub fn match_from_branch(&self, pat: &str) -> PackagesMatcherResult<Vec<OmaPackage>> {
+    pub fn match_from_branch(&self, pat: &str) -> MatcherResult<Vec<OmaPackage>> {
         let mut res = vec![];
         let (pkgname, branch) = pat
             .split_once('/')
-            .ok_or_else(|| PackagesMatcherError::InvalidPattern(pat.to_string()))?;
+            .ok_or_else(|| MatcherError::InvalidPattern(pat.to_string()))?;
 
         let pkg = self
             .cache
             .get(pkgname)
-            .ok_or_else(|| PackagesMatcherError::NoPackage(pat.to_string()))?;
+            .ok_or_else(|| MatcherError::NoPackage(pat.to_string()))?;
 
         let mut sort = vec![];
 
@@ -327,7 +321,7 @@ impl<'a> PackagesMatcher<'a> {
         pkg: &Package,
         version: &Version,
         res: &mut Vec<OmaPackage>,
-    ) -> PackagesMatcherResult<()> {
+    ) -> MatcherResult<()> {
         let dbg_pkg_name = format!("{}-dbg:{}", pkg.name(), version.arch());
         let dbg_pkg = self.cache.get(&dbg_pkg_name);
         let version_str = version.version();
@@ -344,7 +338,7 @@ impl<'a> PackagesMatcher<'a> {
     }
 
     /// Find mirror candidate and downloadable package version.
-    pub fn find_candidate_by_pkgname(&self, pkg: &str) -> PackagesMatcherResult<OmaPackage> {
+    pub fn find_candidate_by_pkgname(&self, pkg: &str) -> MatcherResult<OmaPackage> {
         if let Some(pkg) = self.cache.get(pkg) {
             // FIXME: candidate 版本不一定是源中能下载的版本
             // 所以要一个个版本遍历直到找到能下载的版本中最高的版本
@@ -361,7 +355,7 @@ impl<'a> PackagesMatcher<'a> {
             }
         }
 
-        Err(PackagesMatcherError::NoCandidate(pkg.to_string()))
+        Err(MatcherError::NoCandidate(pkg.to_string()))
     }
 }
 
