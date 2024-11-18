@@ -79,9 +79,9 @@ pub struct OmaAptArgs {
 pub struct OmaApt {
     pub cache: Cache,
     pub config: AptConfig,
-    autoremove: Vec<String>,
+    autoremove: HashSet<u64>,
     dry_run: bool,
-    select_pkgs: Vec<String>,
+    select_pkgs: HashSet<u64>,
     tokio: Runtime,
     connection: Option<Connection>,
     unmet: Vec<Vec<BrokenPackage>>,
@@ -209,9 +209,9 @@ impl OmaApt {
         Ok(Self {
             cache: new_cache!(&local_debs)?,
             config,
-            autoremove: vec![],
+            autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
-            select_pkgs: vec![],
+            select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
             tokio,
             connection: conn,
             unmet: vec![],
@@ -378,6 +378,8 @@ impl OmaApt {
         for pkg in pkgs {
             let marked_install = mark_install(&self.cache, pkg, reinstall, install_recommends)?;
 
+            let pkg_index = pkg.raw_pkg.index();
+
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
                 pkg.raw_pkg.fullname(true),
@@ -389,8 +391,8 @@ impl OmaApt {
                     pkg.raw_pkg.fullname(true),
                     pkg.version_raw.version().to_string(),
                 ));
-            } else if !self.select_pkgs.contains(&pkg.raw_pkg.fullname(true)) {
-                self.select_pkgs.push(pkg.raw_pkg.fullname(true));
+            } else if !self.select_pkgs.contains(&pkg_index) {
+                self.select_pkgs.insert(pkg_index);
             }
         }
 
@@ -447,6 +449,7 @@ impl OmaApt {
                 .maybe_sha256(sha256)
                 .maybe_sha512(sha512)
                 .maybe_md5(md5)
+                .index(pkg.raw_pkg.index())
                 .build();
 
             download_list.push(entry);
@@ -502,8 +505,8 @@ impl OmaApt {
             let is_marked_delete = mark_delete(&pkg, purge)?;
             if !is_marked_delete {
                 no_marked_remove.push(pkg.fullname(true));
-            } else if !self.select_pkgs.contains(&pkg.fullname(true)) {
-                self.select_pkgs.push(pkg.fullname(true));
+            } else if !self.select_pkgs.contains(&pkg.index()) {
+                self.select_pkgs.insert(pkg.index());
             }
         }
 
@@ -539,7 +542,7 @@ impl OmaApt {
                 pkg.mark_delete(purge);
                 pkg.protect();
 
-                self.autoremove.push(pkg.fullname(true));
+                self.autoremove.insert(pkg.index());
             }
         }
 
@@ -1111,10 +1114,11 @@ impl OmaApt {
                     .arch(cand.arch().to_string())
                     .download_size(cand.size())
                     .op(InstallOperation::Install)
-                    .automatic(!self.select_pkgs.contains(&pkg.fullname(true)))
+                    .automatic(self.select_pkgs.iter().all(|x| pkg.index() != *x))
                     .maybe_md5(md5)
                     .maybe_sha256(sha256)
                     .maybe_sha512(sha512)
+                    .index(pkg.index())
                     .build();
 
                 install.push(entry);
@@ -1157,11 +1161,13 @@ impl OmaApt {
                     tags.push(RemoveTag::Purge);
                 }
 
-                if self.autoremove.contains(&name) {
+                if self.autoremove.contains(&pkg.index()) {
                     tags.push(RemoveTag::AutoRemove);
                 }
 
-                if !self.autoremove.contains(&name) && !self.select_pkgs.contains(&name) {
+                if !self.autoremove.contains(&pkg.index())
+                    && !self.select_pkgs.contains(&pkg.index())
+                {
                     tags.push(RemoveTag::Resolver);
                 }
 
@@ -1177,6 +1183,7 @@ impl OmaApt {
                     installed
                         .map(|x| x.arch().to_string())
                         .unwrap_or("unknown".to_string()),
+                    pkg.index(),
                 );
 
                 remove.push(remove_entry);
@@ -1218,10 +1225,11 @@ impl OmaApt {
                     .arch(version.arch().to_string())
                     .download_size(version.size())
                     .op(InstallOperation::ReInstall)
-                    .automatic(!self.select_pkgs.contains(&pkg.fullname(true)))
+                    .automatic(self.select_pkgs.iter().all(|x| pkg.index() != *x))
                     .maybe_sha256(sha256)
                     .maybe_sha512(sha512)
                     .maybe_md5(md5)
+                    .index(pkg.index())
                     .build();
 
                 install.push(entry);
@@ -1275,12 +1283,12 @@ impl OmaApt {
             }
 
             for i in &self.select_pkgs {
-                if let Some(pos) = install.iter().position(|x| x.name() == i) {
+                if let Some(pos) = install.iter().position(|x| x.index() == *i) {
                     let entry = install.remove(pos);
                     install.insert(0, entry);
                 }
 
-                if let Some(pos) = remove.iter().position(|x| x.name() == i) {
+                if let Some(pos) = remove.iter().position(|x| x.index() == *i) {
                     let entry = remove.remove(pos);
                     remove.insert(0, entry);
                 }
@@ -1423,6 +1431,7 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
         .maybe_sha256(sha256)
         .maybe_sha512(sha512)
         .maybe_md5(md5)
+        .index(new_pkg.index())
         .build();
 
     Ok(install_entry)

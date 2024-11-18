@@ -310,6 +310,8 @@ impl<'a> CommitRequest<'a> {
             |features| handle_features(features, protect_essential).unwrap_or(false),
         )?;
 
+        debug!("{op}");
+
         apt.check_disk_size(&op)?;
 
         let op_after = op.clone();
