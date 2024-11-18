@@ -90,7 +90,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     pb.enable_steady_tick(inv);
     pb.set_message(fl!("reading-database"));
 
-    let a = apt.available_action()?;
+    let a = apt.count_pending_upgradable_and_autoremovable_pkgs()?;
     let installed = apt.installed_packages()?;
 
     let searcher = IndiciumSearch::new(&apt.cache, |n| {

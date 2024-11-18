@@ -47,7 +47,7 @@ pub fn execute(
     pb.enable_steady_tick(inv);
     pb.set_message(fl!("reading-database"));
 
-    let (upgradable, removable) = apt.available_action()?;
+    let (upgradable, removable) = apt.count_pending_upgradable_and_autoremovable_pkgs()?;
     pb.finish_and_clear();
 
     let mut s = vec![];

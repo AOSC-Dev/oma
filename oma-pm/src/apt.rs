@@ -336,8 +336,8 @@ impl OmaApt {
         Ok(config)
     }
 
-    /// Get upgradable and removable packages
-    pub fn available_action(&self) -> OmaAptResult<(usize, usize)> {
+    /// Get upgradable and removable packages count
+    pub fn count_pending_upgradable_and_autoremovable_pkgs(&self) -> OmaAptResult<(usize, usize)> {
         let sort = PackageSort::default().upgradable();
         let dir = self.config.get("Dir").unwrap_or_else(|| "/".to_string());
         let upgradable = self
