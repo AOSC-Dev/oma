@@ -1139,7 +1139,7 @@ impl OmaApt {
             if pkg.marked_delete() {
                 let name = pkg.fullname(true);
 
-                if pkg.is_essential() && !how_handle_essential(&name) {
+                if !self.dry_run && pkg.is_essential() && !how_handle_essential(&name) {
                     return Err(OmaAptError::PkgIsEssential(name));
                 }
 
@@ -1260,10 +1260,6 @@ impl OmaApt {
 
         let total_download_size = self.cache.depcache().download_size();
 
-        if !features.is_empty() && !how_handle_features(&features) {
-            return Err(OmaAptError::Features);
-        }
-
         if sort == SummarySort::Operation {
             let mut is_resolver_delete = vec![];
             for (index, i) in remove.iter().enumerate() {
@@ -1288,6 +1284,10 @@ impl OmaApt {
                     remove.insert(0, entry);
                 }
             }
+        }
+
+        if !self.dry_run && !features.is_empty() && !how_handle_features(&features) {
+            return Err(OmaAptError::Features);
         }
 
         Ok(OmaOperation {

@@ -248,8 +248,11 @@ pub fn execute(
                 )?;
 
                 let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
-                success!("{}", fl!("history-tips-1"));
-                info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+
+                if !dry_run {
+                    success!("{}", fl!("history-tips-1"));
+                    info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+                }
 
                 autoremovable_tips(ar_count, ar_size)?;
 
