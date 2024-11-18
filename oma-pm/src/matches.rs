@@ -340,7 +340,7 @@ impl<'a> PackagesMatcher<'a> {
     /// Find mirror candidate and downloadable package version.
     pub fn find_candidate_by_pkgname(&self, pkg: &str) -> MatcherResult<OmaPackage> {
         if let Some(pkg) = self.cache.get(pkg) {
-            // FIXME: candidate 版本不一定是源中能下载的版本
+            // candidate 版本不一定是源中能下载的版本
             // 所以要一个个版本遍历直到找到能下载的版本中最高的版本
             for version in pkg.versions() {
                 if version.is_downloadable() {
