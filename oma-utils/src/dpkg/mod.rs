@@ -35,16 +35,10 @@ pub fn dpkg_arch<P: AsRef<Path>>(sysroot: P) -> Result<String, DpkgError> {
     Ok(output)
 }
 
-pub fn is_hold<P: AsRef<Path>>(pkg: &str, sysroot: P) -> Result<bool, DpkgError> {
-    let list = get_selections(sysroot)?;
-
-    let status = list
-        .iter()
+pub fn is_hold(pkg: &str, list: &[(String, String)]) -> bool {
+    list.iter()
         .find(|(x, _)| x == pkg)
-        .map(|x| x.1 == "hold")
-        .unwrap_or(false);
-
-    Ok(status)
+        .is_some_and(|x| x.1 == "hold")
 }
 
 /// Mark hold/unhold status use dpkg --set-selections
@@ -102,7 +96,7 @@ pub fn mark_version_status<P: AsRef<Path>>(
     Ok(res)
 }
 
-fn get_selections<P: AsRef<Path>>(sysroot: P) -> Result<Vec<(String, String)>, DpkgError> {
+pub fn get_selections<P: AsRef<Path>>(sysroot: P) -> Result<Vec<(String, String)>, DpkgError> {
     let dpkg = Command::new("dpkg")
         .arg("--root")
         .arg(sysroot.as_ref().display().to_string())
@@ -119,7 +113,9 @@ fn get_selections<P: AsRef<Path>>(sysroot: P) -> Result<Vec<(String, String)>, D
         .and_then(|_| {
             let mut list = vec![];
             for i in selections.flatten() {
-                let (name, status) = i.split_once(|x: char| x.is_ascii_whitespace())?;
+                let mut split = i.split_ascii_whitespace();
+                let name = split.next()?;
+                let status = split.next()?;
                 list.push((name.to_string(), status.to_string()));
             }
 

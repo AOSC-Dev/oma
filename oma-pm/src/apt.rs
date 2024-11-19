@@ -33,7 +33,7 @@ use oma_fetch::{
     DownloadSourceType, Summary,
 };
 use oma_utils::{
-    dpkg::{is_hold, DpkgError},
+    dpkg::{get_selections, is_hold, DpkgError},
     human_bytes::HumanBytes,
 };
 
@@ -340,16 +340,17 @@ impl OmaApt {
     }
 
     /// Get upgradable packages count
-    pub fn count_pending_upgradable_pkgs(&self) -> usize {
+    pub fn count_pending_upgradable_pkgs(&self) -> OmaAptResult<usize> {
         let sort = PackageSort::default().upgradable();
         let dir = self.config.get("Dir").unwrap_or_else(|| "/".to_string());
+        let selection_status = get_selections(dir)?;
         let upgradable = self
             .cache
             .packages(&sort)
-            .filter(|x| !is_hold(x.name(), &dir).unwrap_or(false))
+            .filter(|pkg| !is_hold(&pkg.fullname(true), &selection_status))
             .count();
 
-        upgradable
+        Ok(upgradable)
     }
 
     /// Get autoremovable packages count

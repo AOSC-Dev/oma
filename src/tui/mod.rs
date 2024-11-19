@@ -90,7 +90,7 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
     pb.enable_steady_tick(inv);
     pb.set_message(fl!("reading-database"));
 
-    let upgradable = apt.count_pending_upgradable_pkgs();
+    let upgradable = apt.count_pending_upgradable_pkgs()?;
     let autoremovable = apt.count_pending_autoremovable_pkgs();
     let installed = apt.count_installed_packages();
 

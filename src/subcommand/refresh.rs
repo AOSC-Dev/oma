@@ -47,7 +47,7 @@ pub fn execute(
     pb.enable_steady_tick(inv);
     pb.set_message(fl!("reading-database"));
 
-    let upgradable = apt.count_pending_upgradable_pkgs();
+    let upgradable = apt.count_pending_upgradable_pkgs()?;
     let autoremovable = apt.count_pending_autoremovable_pkgs();
     pb.finish_and_clear();
 
