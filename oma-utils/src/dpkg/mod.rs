@@ -112,7 +112,7 @@ pub fn get_selections<P: AsRef<Path>>(sysroot: P) -> Result<Vec<(String, String)
     let list = Some(())
         .and_then(|_| {
             let mut list = vec![];
-            for i in selections.flatten() {
+            for i in selections.map_while(Result::ok) {
                 let mut split = i.split_ascii_whitespace();
                 let name = split.next()?;
                 let status = split.next()?;
