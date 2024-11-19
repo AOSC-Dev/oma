@@ -1,5 +1,5 @@
 use std::{
-    io::Write,
+    io::{BufRead, Write},
     path::Path,
     process::{Command, Stdio},
 };
@@ -108,21 +108,18 @@ fn get_selections<P: AsRef<Path>>(sysroot: P) -> Result<Vec<(String, String)>, D
         .arg(sysroot.as_ref().display().to_string())
         .arg("--get-selections")
         .output()?;
+
     if !dpkg.status.success() {
         return Err(DpkgError::DpkgRunError(dpkg.status.code().unwrap_or(1)));
     }
 
-    let mut selections = std::str::from_utf8(&dpkg.stdout)?.split('\n');
-    selections.nth_back(0);
+    let selections = dpkg.stdout.lines();
 
     let list = Some(())
         .and_then(|_| {
             let mut list = vec![];
-            for i in selections {
-                let mut split = i.split_whitespace();
-                let name = split.next()?;
-                let status = split.next()?;
-
+            for i in selections.flatten() {
+                let (name, status) = i.split_once(|x: char| x.is_ascii_whitespace())?;
                 list.push((name.to_string(), status.to_string()));
             }
 
