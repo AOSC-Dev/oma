@@ -1,3 +1,26 @@
+//! # oma-contents
+//!
+//! The `oma-contents` crate provides functionality to parse and search contents files from Debian repositories.
+//!
+//! ## Modules
+//!
+//! - `parser`: Functions for parsing lines from contents files, extracting file paths and associated packages.
+//! - `searcher`: Provides functions to search through contents files, supporting various compression formats and search modes.
+//!
+//! ## Features
+//!
+//! - Supports multiple compression formats: Zstandard (`.zst`), LZ4 (`.lz4`), and Gzip (`.gz`).
+//! - Provides multiple search modes:
+//!   - `Provides`: Search for packages that provide a specific file.
+//!   - `Files`: Search for files provided by a specific package.
+//!   - `ProvidesSrc`: Search source packages that provide a specific file.
+//!   - `FilesSrc`: Search for files provided by a specific source package.
+//!   - `BinProvides`: Search for binary packages that provide a specific file.
+//!   - `BinFiles`: Search for files provided by a specific binary package.
+//! - Utilizes parallel processing for efficient searching.
+//! - Supports both ripgrep-based and pure Rust search implementations.
+//!
+
 pub mod parser;
 pub mod searcher;
 
