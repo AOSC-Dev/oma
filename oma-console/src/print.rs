@@ -56,7 +56,14 @@ impl Action {
         }
     }
 }
-
+/// OmaColorFormat
+///
+/// `OmaColorFormat` is a structure that defines the color format and theme settings for the Oma application.
+///
+/// # Fields
+///
+/// * `follow` - A `StyleFollow` enum that indicates whether to follow the terminal theme or use the Oma theme.
+/// * `theme` - An optional `Theme` object that defines the color scheme for the Oma application.
 pub struct OmaColorFormat {
     follow: StyleFollow,
     pub theme: Option<Theme>,
@@ -84,7 +91,18 @@ impl OmaColorFormat {
             },
         }
     }
-
+    /// Convert input into StyledObject
+    ///
+    /// This function applies a color to the given input string based on the specified action and the current theme settings.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The input data to be styled.
+    /// * `color` - An `Action` enum value that specifies the color to be applied.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `StyledObject` that contains the styled input data.
     pub fn color_str<D>(&self, input: D, color: Action) -> StyledObject<D> {
         match self.follow {
             StyleFollow::OmaTheme => match self.theme {
@@ -116,7 +134,7 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
         Action::PendingBg => style(input).bg(Color::Blue).bold(),
     }
 }
-
+/// OmaLayer
 pub struct OmaLayer;
 
 impl<S> Layer<S> for OmaLayer
@@ -148,7 +166,7 @@ where
         }
     }
 }
-
+/// OmaRecorder
 struct OmaRecorder<'a>(BTreeMap<&'a str, String>);
 
 impl<'a> tracing::field::Visit for OmaRecorder<'a> {
