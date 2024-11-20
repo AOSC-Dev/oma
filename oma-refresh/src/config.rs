@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::{borrow::Cow, env, path::Path};
 
 use ahash::AHashMap;
 use oma_apt::config::Config;
@@ -40,7 +40,7 @@ pub struct FilterDownloadList<'a> {
     pub checksums: &'a [ChecksumItem],
     pub config: &'a Config,
     pub config_tree: &'a [(String, String)],
-    pub archs: &'a [&'a str],
+    pub archs: &'a [Cow<'a, str>],
     pub components: &'a [String],
     pub native_arch: &'a str,
     pub is_flat: bool,
@@ -65,7 +65,7 @@ pub fn fiilter_download_list(f: FilterDownloadList) -> SmallVec<[ChecksumDownloa
 
     let mut archs_contains_all = vec![];
     archs_contains_all.extend_from_slice(archs);
-    archs_contains_all.push("all");
+    archs_contains_all.push(Cow::Borrowed("all"));
 
     let components = if components.is_empty() {
         &["".to_string()]
