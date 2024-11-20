@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     collections::hash_map::Entry,
     future::Future,
-    os::fd::AsRawFd,
+    os::{fd::AsRawFd, unix::fs::PermissionsExt},
     path::{Path, PathBuf},
 };
 
@@ -256,15 +256,27 @@ impl<'a> OmaRefresh<'a> {
         topic_msg: &str,
     ) -> Result<()> {
         if !self.download_dir.is_dir() {
-            tokio::fs::create_dir_all(&self.download_dir)
-                .await
-                .map_err(|e| {
-                    RefreshError::FailedToOperateDirOrFile(
-                        self.download_dir.display().to_string(),
-                        e,
-                    )
-                })?;
+            fs::create_dir_all(&self.download_dir).await.map_err(|e| {
+                RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
+            })?;
         }
+
+        let mut perms = fs::metadata(&self.download_dir)
+            .await
+            .map_err(|e| {
+                RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
+            })?
+            .permissions();
+
+        perms.set_mode(0o755);
+
+        debug!("Setting {} permission as 0755", self.download_dir.display());
+
+        fs::set_permissions(&self.download_dir, perms)
+            .await
+            .map_err(|e| {
+                RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
+            })?;
 
         let download_dir: Box<Path> = Box::from(self.download_dir.as_path());
 
@@ -320,8 +332,9 @@ impl<'a> OmaRefresh<'a> {
         }
 
         let download_dir = self.download_dir.clone();
+        let download_list_clone = download_list.clone();
         let remove_task =
-            tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
+            tokio::spawn(async move { remove_unused_db(download_dir, download_list_clone).await });
 
         let res = DownloadManager::builder()
             .client(self.client)
@@ -334,6 +347,8 @@ impl<'a> OmaRefresh<'a> {
             .await;
 
         res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
+
+        download_list_set_permission(&self.download_dir, &download_list).await?;
 
         // Finally, run success post invoke
         let _ = remove_task.await;
@@ -677,18 +692,13 @@ impl<'a> OmaRefresh<'a> {
                 debug!("Getted oma source entry: {:#?}", ose);
                 let inrelease_path = self.download_dir.join(&*inrelease_summary.filename);
 
-                let inrelease = tokio::fs::read_to_string(&inrelease_path)
-                    .await
-                    .map_err(|e| {
-                        RefreshError::FailedToOperateDirOrFile(
-                            inrelease_path.display().to_string(),
-                            e,
-                        )
-                    })?;
+                let inrelease = fs::read_to_string(&inrelease_path).await.map_err(|e| {
+                    RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
+                })?;
 
                 let archs = if let Some(archs) = ose.options().get("archs") {
                     archs.split(',').map(Cow::Borrowed).collect::<Vec<_>>()
-                } else if let Ok(f) = tokio::fs::read_to_string("/var/lib/dpkg/arch").await {
+                } else if let Ok(f) = fs::read_to_string("/var/lib/dpkg/arch").await {
                     f.lines()
                         .map(|x| Cow::Owned(x.to_string()))
                         .collect::<Vec<_>>()
@@ -855,9 +865,37 @@ async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> 
             && x.file_name() != "lock"
         {
             debug!("Removing {:?}", x.file_name());
-            if let Err(e) = tokio::fs::remove_file(x.path()).await {
+            if let Err(e) = fs::remove_file(x.path()).await {
                 debug!("Failed to remove file {:?}: {e}", x.file_name());
             }
+        }
+    }
+
+    Ok(())
+}
+
+async fn download_list_set_permission(download_dir: &Path, download_list: &[String]) -> Result<()> {
+    let mut download_dir = fs::read_dir(&download_dir)
+        .await
+        .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
+
+    while let Ok(Some(x)) = download_dir.next_entry().await {
+        if x.path().is_file()
+            && download_list.contains(&x.file_name().to_string_lossy().to_string())
+        {
+            debug!("Setting {} permission as 0o644 ...", x.path().display());
+            let mut perms = fs::metadata(x.path())
+                .await
+                .map_err(|e| {
+                    RefreshError::FailedToOperateDirOrFile(x.path().display().to_string(), e)
+                })?
+                .permissions();
+
+            perms.set_mode(0o644);
+
+            fs::set_permissions(x.path(), perms).await.map_err(|e| {
+                RefreshError::FailedToOperateDirOrFile(x.path().display().to_string(), e)
+            })?;
         }
     }
 
