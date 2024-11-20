@@ -1,3 +1,6 @@
+//! Progress Bar
+//! pb.rs means Progress Bar.
+
 use std::{fmt::Write, time::Duration};
 
 use console::style;
@@ -24,7 +27,12 @@ const NORMAL_BAR_SMALL_TEMPLATE: &str = " {msg} {percent:>3}";
 const NORMAL_BAR_TEMPLATE: &str =
     " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>4}";
 const SPINNER_TEMPLATE: &str = " {msg:<59} {spinner}";
-
+/// Progress Bar Style
+/// Returns a 'ProgressStyle' object that defines the style of the progress bar.
+///
+/// # Arguments
+///
+/// * `writer` - A reference to a `Writer` object.
 pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
     let max_len = writer.get_length();
     let template = if max_len < 100 {
@@ -41,7 +49,12 @@ pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
             write!(w, "{:.*}%", 0, state.fraction() * 100f32).unwrap()
         })
 }
-
+/// Global Progress Bar Style
+/// Returns a 'ProgressStyle' object that defines the style of the progress bar.
+///
+/// # Arguments
+///
+/// * `writer` - A reference to a `Writer` object.
 pub fn global_progress_bar_style(writer: &Writer) -> ProgressStyle {
     let max_len = writer.get_length();
     let template = if max_len < 100 {

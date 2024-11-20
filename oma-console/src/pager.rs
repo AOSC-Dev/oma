@@ -62,6 +62,7 @@ impl<'a> Pager<'a> {
     }
 
     /// Wait pager to exit
+    /// Use this function to start the pager
     pub fn wait_for_exit(self) -> io::Result<PagerExit> {
         let success = if let Pager::External(app) = self {
             let mut terminal = prepare_create_tui()?;
@@ -106,6 +107,28 @@ enum PagerInner {
     Working(Vec<u8>),
     Finished(Vec<String>),
 }
+
+///
+/// `OmaPager` is a structure that represents a pager displaying content in a terminal UI.
+///
+/// # Fields
+///
+/// * `inner` - Represents the internal state of the pager, which can be either `Working` or `Finished`.
+/// * `vertical_scroll_state` - The state of the vertical scrollbar.
+/// * `horizontal_scroll_state` - The state of the horizontal scrollbar.
+/// * `vertical_scroll` - The current vertical scroll position.
+/// * `horizontal_scroll` - The current horizontal scroll position.
+/// * `area_height` - The height of the display area.
+/// * `max_width` - The maximum width of the display area.
+/// * `tips` - A string containing tips to be displayed in the pager at the bottom.
+/// * `title` - An optional title for the pager.
+/// * `inner_len` - The length of the inner content.
+/// * `theme` - A reference to the color format used for the pager's theme.
+/// * `search_results` - A vector containing the indices of search results.
+/// * `current_result_index` - The index of the current search result being displayed.
+/// * `mode` - The current mode of the pager, which can be either `Normal` or `Search`.
+/// * `ui_text` - A reference to a trait object that provides UI text for the pager.
+///
 
 pub struct OmaPager<'a> {
     inner: PagerInner,
@@ -197,7 +220,18 @@ impl<'a> OmaPager<'a> {
             ui_text,
         }
     }
-
+    /// Run the pager
+    ///
+    /// This function runs the pager, process the input and rendering the output in terminal ui
+    /// Note: Please use `wait_for_exit`
+    ///
+    /// # Arguments
+    /// * `terminal` - A mutable reference to a `Terminal` object that handles the terminal UI rendering.
+    /// * `tick_rate` - A `Duration` object that specifies the tick rate for the terminal updates.
+    ///
+    /// # Returns
+    ///
+    /// Returns an `io::Result` containing a `PagerExit` value that indicates the exit status of the pager.
     pub fn run<B: Backend>(
         mut self,
         terminal: &mut Terminal<B>,
@@ -225,6 +259,7 @@ impl<'a> OmaPager<'a> {
         let mut query = String::new();
 
         let mut last_tick = Instant::now();
+        // Start the loop, waiting for the keyboard interrupts.
         loop {
             terminal.draw(|f| self.ui(f))?;
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
@@ -470,7 +505,9 @@ impl<'a> OmaPager<'a> {
         self.vertical_scroll = self.vertical_scroll.saturating_add(1);
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
     }
-
+    /// Search a pattern in the whole pager
+    /// # Returns:
+    /// The lines contain this pattern (In vec<usize>)
     fn search(&mut self, pattern: &str) -> Vec<usize> {
         let mut result: Vec<usize> = Vec::new();
 
@@ -489,6 +526,7 @@ impl<'a> OmaPager<'a> {
         result
     }
 
+    /// Jump to line
     fn jump_to(&mut self, line: usize) {
         self.vertical_scroll = line;
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
@@ -504,6 +542,7 @@ impl<'a> OmaPager<'a> {
         }
     }
 
+    /// Render and fresh the UI
     fn ui(&mut self, f: &mut Frame) {
         let area = f.area();
         let mut layout = vec![Constraint::Min(0), Constraint::Length(1)];
