@@ -28,22 +28,18 @@ const GZIP_MAGIC: &[u8] = &[0x1F, 0x8B];
 ///
 /// `Mode` is an enumeration that represents different search modes for the package manager.
 /// Each variant corresponds to a specific type of search operation.
-///
-/// # Variants
-///
-/// * `Provides` - Search for packages that provide a specific capability.
-/// * `Files` - Search for files within packages.
-/// * `ProvidesSrc` - Search for source packages that provide a specific capability.
-/// * `FilesSrc` - Search for files within source packages.
-/// * `BinProvides` - Search for binary packages that provide a specific capability.
-/// * `BinFiles` - Search for files within binary packages.
-///
 pub enum Mode {
+    /// Search for packages that provide a specific capability.
     Provides,
+    /// Search for files within packages.
     Files,
+    /// Search for source packages that provide a specific capability.
     ProvidesSrc,
+    /// Search for files within source packages.
     FilesSrc,
+    /// Search for binary packages that provide a specific capability.
     BinProvides,
+    /// Search for files within binary packages.
     BinFiles,
 }
 
