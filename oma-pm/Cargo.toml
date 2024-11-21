@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.41.1"
+version = "0.42.0"
 edition = "2021"
 description = "APT package manager API abstraction library"
 license = "GPL-3.0-or-later"
@@ -13,7 +13,7 @@ thiserror = "2"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 glob-match = "0.2"
 indicium = "0.6"
-oma-utils = { version = "^0.9.0", path = "../oma-utils", features = [
+oma-utils = { version = "^0.10.0", path = "../oma-utils", features = [
     "dpkg",
     "url-no-escape",
     "human-bytes",
@@ -28,7 +28,7 @@ oma-console = { version = "^0.21.0", path = "../oma-console", default-features =
 ] }
 fs4 = "0.11"
 tracing = "0.1"
-oma-pm-operation-type = { version = "0.6", path = "../oma-pm-operation-type" }
+oma-pm-operation-type = { version = "0.7", path = "../oma-pm-operation-type" }
 zbus = { version = "4.1", features = ["tokio"] }
 cxx = "1.0.121"
 ahash = "0.8.11"

@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.35.2"
+version = "0.35.3"
 edition = "2021"
 description = "APT repository refresh handler library"
 license = "GPL-3.0-or-later"
@@ -19,7 +19,7 @@ sequoia-openpgp = { version = "1.20", default-features = false }
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.18.0", path = "../oma-topics", optional = true, default-features = false }
-oma-utils = { version = "^0.9.0", path = "../oma-utils", features = ["dpkg"] }
+oma-utils = { version = "^0.10.0", path = "../oma-utils", features = ["dpkg"] }
 tracing ="0.1"
 smallvec = "1.1"
 oma-repo-verify = { version = "^0.1.0", path = "../oma-repo-verify", default-features = false }
