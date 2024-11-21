@@ -24,6 +24,20 @@ const LZ4_MAGIC: &[u8] = &[0x04, 0x22, 0x4d, 0x18];
 const GZIP_MAGIC: &[u8] = &[0x1F, 0x8B];
 
 #[derive(Debug, Clone, Copy)]
+/// Mode
+///
+/// `Mode` is an enumeration that represents different search modes for the package manager.
+/// Each variant corresponds to a specific type of search operation.
+///
+/// # Variants
+///
+/// * `Provides` - Search for packages that provide a specific capability.
+/// * `Files` - Search for files within packages.
+/// * `ProvidesSrc` - Search for source packages that provide a specific capability.
+/// * `FilesSrc` - Search for files within source packages.
+/// * `BinProvides` - Search for binary packages that provide a specific capability.
+/// * `BinFiles` - Search for files within binary packages.
+///
 pub enum Mode {
     Provides,
     Files,
@@ -77,6 +91,21 @@ impl Mode {
     }
 }
 
+/// Perform a search using ripgrep
+///
+/// This function performs a search using the `ripgrep` command-line tool based on the specified mode and query.
+/// It processes the search results and invokes a callback function for each match found.
+///
+/// # Arguments
+///
+/// * `dir` - A reference to a `Path` that specifies the directory to search in.
+/// * `mode` - A `Mode` enum value that specifies the type of search operation to perform.
+/// * `query` - A string slice that contains the search query.
+/// * `cb` - A mutable callback function that takes a tuple of two strings (the matched line and the matched part) as its argument.
+///
+/// # Returns
+///
+/// Returns a `Result` which is `Ok(())` if the search is successful, or an `OmaContentsError` if an error occurs.
 pub fn ripgrep_search(
     dir: impl AsRef<Path>,
     mode: Mode,
@@ -164,7 +193,20 @@ fn strip_path_prefix(query: &str) -> &str {
         query
     }
 }
-
+/// Perform a pure search
+///
+/// This function performs a search directly on the file contents.
+///
+/// # Arguments
+///
+/// * `path` - A reference to a `Path` that specifies the directory or file to search in.
+/// * `mode` - A `Mode` enum value that specifies the type of search operation to perform.
+/// * `query` - A string slice that contains the search query.
+/// * `cb` - A mutable callback function that takes a tuple of two strings (the matched line and the matched part) as its argument. The callback must implement `Sync` and `Send` traits.
+///
+/// # Returns
+///
+/// Returns a `Result` which is `Ok(())` if the search is successful, or an `OmaContentsError` if an error occurs.
 pub fn pure_search(
     path: impl AsRef<Path>,
     mode: Mode,
