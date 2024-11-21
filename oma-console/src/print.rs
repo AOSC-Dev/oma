@@ -58,14 +58,11 @@ impl Action {
 }
 /// OmaColorFormat
 ///
-/// `OmaColorFormat` is a structure that defines the color format and theme settings for the Oma application.
-///
-/// # Fields
-///
-/// * `follow` - A `StyleFollow` enum that indicates whether to follow the terminal theme or use the Oma theme.
-/// * `theme` - An optional `Theme` object that defines the color scheme for the Oma application.
+/// `OmaColorFormat` is a structure that defines the color format and theme settings for oma.
 pub struct OmaColorFormat {
+    /// A `StyleFollow` enum that indicates whether to follow the terminal theme or use the oma-style theme
     follow: StyleFollow,
+    /// An optional `Theme` object that defined by oma.
     pub theme: Option<Theme>,
 }
 
