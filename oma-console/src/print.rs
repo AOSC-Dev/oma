@@ -60,7 +60,7 @@ impl Action {
 ///
 /// `OmaColorFormat` is a structure that defines the color format and theme settings for oma.
 pub struct OmaColorFormat {
-    /// A `StyleFollow` enum that indicates whether to follow the terminal theme or use the oma-style theme
+    /// A `StyleFollow` enum that indicates whether to follow the terminal theme or use the oma-defined theme.
     follow: StyleFollow,
     /// An optional `Theme` object that defined by oma.
     pub theme: Option<Theme>,
@@ -90,11 +90,11 @@ impl OmaColorFormat {
     }
     /// Convert input into StyledObject
     ///
-    /// This function applies a color to the given input string based on the specified action and the current theme settings.
+    /// This function applies a color scheme to the given input string based on the specified action and the current terminal color schemes.
     ///
     /// # Arguments
     ///
-    /// * `input` - The input data to be styled.
+    /// * `input` - The input data to be themed.
     /// * `color` - An `Action` enum value that specifies the color to be applied.
     ///
     /// # Returns
@@ -132,7 +132,7 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
     }
 }
 /// OmaLayer
-/// `OmaLayer` is used for output oma-style logs to `tracing`
+/// `OmaLayer` is used for outputting oma-style logs to `tracing`
 ///
 /// # Example:
 /// ```ignore
@@ -179,7 +179,7 @@ where
     }
 }
 /// OmaRecorder
-/// `OmaRecorder` is used for record oma-style logs.
+/// `OmaRecorder` is used for recording oma-style logs.
 ///
 /// # Example:
 /// ```ignore

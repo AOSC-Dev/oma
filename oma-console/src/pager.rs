@@ -61,7 +61,7 @@ impl<'a> Pager<'a> {
         Ok(res)
     }
 
-    /// Wait pager to exit
+    /// Wait for the pager to exit
     /// Use this function to start the pager
     pub fn wait_for_exit(self) -> io::Result<PagerExit> {
         let success = if let Pager::External(app) = self {
@@ -108,9 +108,9 @@ enum PagerInner {
     Finished(Vec<String>),
 }
 
-/// `OmaPager` is a structure that represents a pager displaying content in a terminal UI.
+/// `OmaPager` is a structure that implements a pager displaying text-based content in a terminal UI.
 pub struct OmaPager<'a> {
-    /// Represents the internal state of the pager, which can be either `Working` or `Finished`.
+    /// The internal state of the pager, which can be either `Working` or `Finished`.
     inner: PagerInner,
     /// The state of the vertical scrollbar.
     vertical_scroll_state: ScrollbarState,
@@ -216,8 +216,8 @@ impl<'a> OmaPager<'a> {
     }
     /// Run the pager
     ///
-    /// This function runs the pager, process the input and rendering the output in terminal ui
-    /// Note: Please use `wait_for_exit`
+    /// This function runs the pager, processes user/program input, and renders the output in a terminal UI.
+    /// Note: Please use `wait_for_exit` to run a pager instead of calling this function directly.
     ///
     /// # Arguments
     /// * `terminal` - A mutable reference to a `Terminal` object that handles the terminal UI rendering.
@@ -499,7 +499,7 @@ impl<'a> OmaPager<'a> {
         self.vertical_scroll = self.vertical_scroll.saturating_add(1);
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
     }
-    /// Search a pattern in the whole pager
+    /// Search for a pattern in the pager content
     /// # Returns:
     /// The lines contain this pattern (In vec<usize>)
     fn search(&mut self, pattern: &str) -> Vec<usize> {
