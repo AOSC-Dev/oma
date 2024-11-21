@@ -135,18 +135,18 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
 /// `OmaLayer` is used for outputting oma-style logs to `tracing`
 ///
 /// # Example:
-/// ```ignore
-/// if !debug {
-/// let no_i18n_embd_info: EnvFilter = "i18n_embed=off,info".parse().unwrap();
-/// tracing_subscriber::registry()
-///     .with(
-///         OmaLayer
-///             .with_filter(no_i18n_embd_info)
-///             .and_then(LevelFilter::INFO),
-///     )
-///     .init();
-/// }
 /// ```
+/// use tracing_subscriber::prelude::*;
+/// use oma_console::OmaLayer;
+/// use tracing::info;
+///
+/// tracing_subscriber::registry()
+///     .with(OmaLayer)
+///     .init();
+///
+/// info!("My name is oma!");
+/// ```
+///
 pub struct OmaLayer;
 
 impl<S> Layer<S> for OmaLayer
