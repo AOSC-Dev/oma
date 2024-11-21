@@ -21,7 +21,7 @@
 //! - Supports both ripgrep-based and pure Rust search implementations.
 //!
 
-pub mod parser;
+mod parser;
 pub mod searcher;
 
 #[derive(Debug, thiserror::Error)]
