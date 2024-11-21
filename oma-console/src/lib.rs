@@ -6,15 +6,15 @@
 //!
 //! ## Features
 //!
-//! - **Print**: Styled printing of messages with prefixes and automatic line wrapping.
+//! - **Print**: Stylized message printer with support for prefixes and automatic line wrapping.
 //! - **Pager**: Terminal pager with scrolling and searching capabilities.
 //!
 //! ## Modules
 //!
-//! - `pager`: Implements terminal pager functionality using the `crossterm` and `ratatui` crates.
-//! - `pb`: Provides progress bar styles using the `indicatif` crate.
-//! - `writer`: Utilities for writing formatted messages to the terminal.
-//! - `print`: Printing functionality with support for logging layers and color formatting.
+//! - `pager`: Implements a terminal pager with the `crossterm` and `ratatui` crates.
+//! - `pb`: Implements numerous styles of progress bars with the `indicatif` crate.
+//! - `writer`: Implements a formatted message writer to the terminal.
+//! - `print`: Implements a formatted message logger with support for different logging levels (normal, debug, error, etc.).
 //!
 
 #[cfg(feature = "pager")]

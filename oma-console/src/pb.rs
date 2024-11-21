@@ -1,5 +1,5 @@
 //! Progress Bar
-//! pb.rs means Progress Bar.
+//! pb is used as an acronym for Progress Bar
 
 use std::{fmt::Write, time::Duration};
 
