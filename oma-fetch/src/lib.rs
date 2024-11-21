@@ -161,6 +161,7 @@ pub struct DownloadManager<'a> {
     progress_manager: &'a dyn DownloadProgressControl,
     #[builder(default)]
     total_size: u64,
+    set_permission: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -211,6 +212,7 @@ impl<'a> DownloadManager<'a> {
                 .progress((i + 1, self.download_list.len()))
                 .retry_times(self.retry_times)
                 .file_type(c.file_type)
+                .maybe_set_permission(self.set_permission)
                 .build();
 
             list.push(single);

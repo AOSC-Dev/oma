@@ -1,6 +1,8 @@
 use crate::{CompressFile, DownloadProgressControl, DownloadSource};
 use std::{
+    fs::Permissions,
     io::{self, ErrorKind, SeekFrom},
+    os::unix::fs::PermissionsExt,
     path::Path,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -13,7 +15,10 @@ use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client, Method, RequestBuilder,
 };
-use tokio::io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt};
+use tokio::{
+    fs::{self, File},
+    io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
+};
 
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use tracing::debug;
@@ -29,6 +34,7 @@ pub(crate) struct SingleDownloader<'a> {
     msg: Option<String>,
     download_list_index: usize,
     file_type: CompressFile,
+    set_permission: Option<u32>,
 }
 
 impl SingleDownloader<'_> {
@@ -143,6 +149,8 @@ impl SingleDownloader<'_> {
         // 如果不存在，则继续往下走
         if file_exist {
             debug!("File: {} exists", self.entry.filename);
+
+            self.set_permission_with_path(&file).await?;
 
             if let Some(hash) = &self.entry.hash {
                 debug!("Hash exist! It is: {}", hash);
@@ -309,7 +317,7 @@ impl SingleDownloader<'_> {
                 self.entry.filename
             );
 
-            let f = match tokio::fs::File::create(&file).await {
+            let f = match File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
                     progress_manager.progress_done(self.download_list_index);
@@ -321,6 +329,8 @@ impl SingleDownloader<'_> {
                 progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
+
+            self.set_permission(&f).await?;
 
             f
         } else if let Some(dest) = dest {
@@ -337,7 +347,7 @@ impl SingleDownloader<'_> {
                 self.entry.filename
             );
 
-            let f = match tokio::fs::File::create(&file).await {
+            let f = match File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
                     progress_manager.progress_done(self.download_list_index);
@@ -349,6 +359,8 @@ impl SingleDownloader<'_> {
                 progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
+
+            self.set_permission(&f).await?;
 
             f
         };
@@ -444,6 +456,29 @@ impl SingleDownloader<'_> {
         })
     }
 
+    async fn set_permission(&self, f: &File) -> Result<(), DownloadError> {
+        if let Some(mode) = self.set_permission {
+            debug!("Setting {} permission to {:#o}", self.entry.filename, mode);
+            f.set_permissions(Permissions::from_mode(mode))
+                .await
+                .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
+        }
+
+        Ok(())
+    }
+
+    async fn set_permission_with_path(&self, path: &Path) -> Result<(), DownloadError> {
+        if let Some(mode) = self.set_permission {
+            debug!("Setting {} permission to {:#o}", self.entry.filename, mode);
+
+            fs::set_permissions(path, Permissions::from_mode(mode))
+                .await
+                .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?
+        }
+
+        Ok(())
+    }
+
     fn build_request_with_basic_auth(
         &self,
         url: &str,
@@ -522,18 +557,20 @@ impl SingleDownloader<'_> {
 
         debug!("File path is: {}", url_path.display());
 
-        let from = tokio::fs::File::open(&url_path).await.map_err(|e| {
+        let from = File::open(&url_path).await.map_err(|e| {
             DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
         })?;
         let from = tokio::io::BufReader::new(from).compat();
 
         debug!("Success open file: {}", url_path.display());
 
-        let mut to = tokio::fs::File::create(self.entry.dir.join(&*self.entry.filename))
+        let mut to = File::create(self.entry.dir.join(&*self.entry.filename))
             .await
             .map_err(|e| {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
+
+        self.set_permission(&to).await?;
 
         let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
             CompressFile::Xz => &mut XzDecoder::new(BufReader::new(from)),
