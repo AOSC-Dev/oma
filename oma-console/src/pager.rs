@@ -108,43 +108,37 @@ enum PagerInner {
     Finished(Vec<String>),
 }
 
-///
 /// `OmaPager` is a structure that represents a pager displaying content in a terminal UI.
-///
-/// # Fields
-///
-/// * `inner` - Represents the internal state of the pager, which can be either `Working` or `Finished`.
-/// * `vertical_scroll_state` - The state of the vertical scrollbar.
-/// * `horizontal_scroll_state` - The state of the horizontal scrollbar.
-/// * `vertical_scroll` - The current vertical scroll position.
-/// * `horizontal_scroll` - The current horizontal scroll position.
-/// * `area_height` - The height of the display area.
-/// * `max_width` - The maximum width of the display area.
-/// * `tips` - A string containing tips to be displayed in the pager at the bottom.
-/// * `title` - An optional title for the pager.
-/// * `inner_len` - The length of the inner content.
-/// * `theme` - A reference to the color format used for the pager's theme.
-/// * `search_results` - A vector containing the indices of search results.
-/// * `current_result_index` - The index of the current search result being displayed.
-/// * `mode` - The current mode of the pager, which can be either `Normal` or `Search`.
-/// * `ui_text` - A reference to a trait object that provides UI text for the pager.
-///
-
 pub struct OmaPager<'a> {
+    /// Represents the internal state of the pager, which can be either `Working` or `Finished`.
     inner: PagerInner,
+    /// The state of the vertical scrollbar.
     vertical_scroll_state: ScrollbarState,
+    /// The state of the horizontal scrollbar.
     horizontal_scroll_state: ScrollbarState,
+    /// The current vertical scroll position.
     vertical_scroll: usize,
+    /// The current horizontal scroll position.
     horizontal_scroll: usize,
+    /// The height of the display area.
     area_height: u16,
+    /// The maximum width of the display area.
     max_width: u16,
+    /// A string containing tips to be displayed in the pager at the bottom.
     tips: String,
+    /// An optional title for the pager.
     title: Option<String>,
+    /// The length of the inner content.
     inner_len: usize,
+    /// A reference to the color format used for the pager's theme.
     theme: &'a OmaColorFormat,
+    /// A vector containing the indices of search results.
     search_results: Vec<usize>,
+    /// The index of the current search result being displayed.
     current_result_index: usize,
+    /// The current mode of the pager, which can be either `Normal` or `Search`.
     mode: TuiMode,
+    /// A reference to a trait object that provides UI text for the pager.
     ui_text: &'a dyn PagerUIText,
 }
 
