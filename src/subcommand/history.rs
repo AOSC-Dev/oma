@@ -6,11 +6,13 @@ use oma_history::{
     connect_db, find_history_by_id, list_history, HistoryListEntry, SummaryType, DATABASE_PATH,
 };
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
+use oma_pm::matches::PackagesMatcher;
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{
     apt::{FilterMode, OmaApt},
     pkginfo::OmaPackage,
 };
+use oma_utils::dpkg::dpkg_arch;
 
 use std::path::Path;
 use std::{borrow::Cow, sync::atomic::Ordering};
@@ -101,14 +103,14 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         .build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-    let mut delete = vec![];
+    let mut glob = vec![];
     let mut install = vec![];
 
     if !op.install.is_empty() {
         for i in &op.install {
             match i.op() {
                 InstallOperation::Default | InstallOperation::Download => unreachable!(),
-                InstallOperation::Install => delete.push(i.name()),
+                InstallOperation::Install => glob.push(i.name()),
                 InstallOperation::ReInstall => continue,
                 InstallOperation::Upgrade => install.push((i.name(), i.old_version().unwrap())),
                 InstallOperation::Downgrade => install.push((i.name(), i.old_version().unwrap())),
@@ -124,10 +126,26 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         }
     }
 
-    let (delete, no_result) = apt.select_pkg(&delete, false, true, false)?;
+    let arch = dpkg_arch(&sysroot)?;
+    let matcher = PackagesMatcher::builder()
+        .cache(&apt.cache)
+        .native_arch(&arch)
+        .build();
+
+    let mut delete = vec![];
+    let mut no_result = vec![];
+    for i in glob {
+        let res = matcher.match_pkgs_from_glob(i)?;
+        if res.is_empty() {
+            no_result.push(i.to_string());
+        } else {
+            delete.extend(res);
+        }
+    }
+
     handle_no_result(&sysroot, no_result, no_progress)?;
 
-    apt.remove(&delete, false, true)?;
+    apt.remove(delete, false, true)?;
 
     let pkgs = apt.filter_pkgs(&[FilterMode::Default])?.collect::<Vec<_>>();
 

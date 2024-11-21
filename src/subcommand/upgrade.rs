@@ -18,6 +18,8 @@ use oma_pm::apt::SummarySort;
 #[cfg(feature = "aosc")]
 use oma_pm::apt::Upgrade;
 
+use oma_pm::matches::PackagesMatcher;
+use oma_utils::dpkg::dpkg_arch;
 #[cfg(not(feature = "aosc"))]
 use tracing::debug;
 
@@ -114,6 +116,8 @@ pub fn execute(
     #[cfg(not(feature = "aosc"))]
     debug!("Upgrade mode is using: {:?}", args.mode);
 
+    let arch = dpkg_arch(&args.sysroot)?;
+
     loop {
         let mut apt = OmaApt::new(
             local_debs.clone(),
@@ -128,7 +132,15 @@ pub fn execute(
         #[cfg(not(feature = "aosc"))]
         apt.upgrade(args.mode.into())?;
 
-        let (pkgs, no_result) = apt.select_pkg(&pkgs_unparse, false, true, false)?;
+        let matcher = PackagesMatcher::builder()
+            .cache(&apt.cache)
+            .filter_candidate(true)
+            .filter_downloadable_candidate(false)
+            .select_dbg(false)
+            .native_arch(&arch)
+            .build();
+
+        let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;
 
         let no_marked_install = apt.install(&pkgs, false)?;
 
@@ -236,8 +248,11 @@ pub fn execute(
                 )?;
 
                 let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
-                success!("{}", fl!("history-tips-1"));
-                info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+
+                if !dry_run {
+                    success!("{}", fl!("history-tips-1"));
+                    info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+                }
 
                 autoremovable_tips(ar_count, ar_size)?;
 

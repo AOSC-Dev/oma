@@ -146,6 +146,10 @@ pub struct OmaPackage {
     pub raw_pkg: UniquePtr<PkgIterator>,
 }
 
+pub struct OmaPackageWithoutVersion {
+    pub raw_pkg: UniquePtr<PkgIterator>,
+}
+
 #[derive(Debug, Error)]
 #[error("BUG: pointer should is some")]
 pub struct PtrIsNone;
@@ -345,6 +349,12 @@ impl OmaPackage {
         Version::new(unsafe { self.version_raw.unique() }, cache)
     }
 
+    pub fn is_candidate_version(&self, cache: &Cache) -> bool {
+        self.package(cache)
+            .candidate()
+            .is_some_and(|cand| cand == self.version(cache))
+    }
+
     pub fn get_deps(&self, cache: &Cache) -> OmaAptResult<HashMap<OmaDepType, OmaDependencyGroup>> {
         let map = Version::new(
             unsafe { self.version_raw.unique() }
@@ -376,6 +386,37 @@ impl OmaPackage {
         .collect::<HashMap<_, _>>();
 
         Ok(map)
+    }
+
+    pub fn into_oma_package_without_version(&self) -> Result<OmaPackageWithoutVersion, PtrIsNone> {
+        Ok(OmaPackageWithoutVersion {
+            raw_pkg: unsafe { self.raw_pkg.unique() }
+                .make_safe()
+                .ok_or(PtrIsNone)?,
+        })
+    }
+}
+
+impl OmaPackageWithoutVersion {
+    pub fn package<'a>(&'a self, cache: &'a Cache) -> Package<'a> {
+        Package::new(cache, unsafe { self.raw_pkg.unique() })
+    }
+
+    pub fn into_oma_package(&self, version: &Version) -> Result<OmaPackage, PtrIsNone> {
+        Ok(OmaPackage {
+            version_raw: unsafe { version.unique() }.make_safe().ok_or(PtrIsNone)?,
+            raw_pkg: unsafe { self.raw_pkg.unique() }
+                .make_safe()
+                .ok_or(PtrIsNone)?,
+        })
+    }
+}
+
+impl TryFrom<OmaPackage> for OmaPackageWithoutVersion {
+    type Error = PtrIsNone;
+
+    fn try_from(value: OmaPackage) -> Result<Self, Self::Error> {
+        value.into_oma_package_without_version()
     }
 }
 

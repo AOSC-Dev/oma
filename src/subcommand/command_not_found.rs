@@ -7,7 +7,6 @@ use oma_console::print::Action;
 use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
 use oma_contents::OmaContentsError;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-use oma_pm::format_description;
 use tracing::error;
 
 use crate::error::OutputError;
@@ -76,10 +75,7 @@ pub fn execute(query: &str) -> Result<i32, OutputError> {
                 } else if let Some(pkg) = apt.cache.get(&pkg) {
                     let desc = pkg
                         .candidate()
-                        .and_then(|x| {
-                            x.description()
-                                .map(|x| format_description(&x).0.to_string())
-                        })
+                        .and_then(|x| x.summary())
                         .unwrap_or_else(|| "no description.".to_string());
 
                     map.insert(pkg.fullname(true), desc.to_string());

@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use oma_console::{indicatif::ProgressBar, pager::Pager, pb::spinner_style};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
-    query::{OmaDatabase, SearchEngine},
+    matches::SearchEngine,
+    search::{IndiciumSearch, OmaSearch, SearchResult, StrSimSearch, TextSearch},
 };
 use tracing::warn;
 
@@ -25,7 +26,7 @@ pub fn execute(
         .build();
 
     let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
-    let db = OmaDatabase::new(&apt.cache)?;
+
     let s = args.concat();
 
     let (sty, inv) = spinner_style();
@@ -40,7 +41,8 @@ pub fn execute(
         None
     };
 
-    let res = db.search(
+    let res = search(
+        &apt,
         &s,
         match engine.as_str() {
             "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
@@ -91,4 +93,20 @@ pub fn execute(
     })?;
 
     Ok(exit.into())
+}
+
+pub fn search(
+    apt: &OmaApt,
+    keyword: &str,
+    engine: SearchEngine,
+) -> Result<Vec<SearchResult>, OutputError> {
+    let searcher: Box<dyn OmaSearch> = match engine {
+        SearchEngine::Indicium(f) => Box::new(IndiciumSearch::new(&apt.cache, f)?),
+        SearchEngine::Strsim => Box::new(StrSimSearch::new(&apt.cache)),
+        SearchEngine::Text => Box::new(TextSearch::new(&apt.cache)),
+    };
+
+    let res = searcher.search(keyword)?;
+
+    Ok(res)
 }

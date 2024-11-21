@@ -1,6 +1,10 @@
 use std::{borrow::Cow, io::stdout};
 
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::{
+    apt::{AptConfig, OmaApt, OmaAptArgs},
+    matches::PackagesMatcher,
+};
+use oma_utils::dpkg::dpkg_arch;
 use std::io::Write;
 
 use crate::error::OutputError;
@@ -23,14 +27,15 @@ pub fn execute(
         .another_apt_options(another_apt_options)
         .build();
 
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-    let (pkgs, no_result) = apt.select_pkg(
-        &pkgs.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-        false,
-        true,
-        false,
-    )?;
+    let arch = dpkg_arch(&sysroot)?;
+    let matcher = PackagesMatcher::builder()
+        .cache(&apt.cache)
+        .native_arch(&arch)
+        .build();
+
+    let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs.iter().map(|x| x.as_str()))?;
 
     handle_no_result(sysroot, no_result, no_progress)?;
 

@@ -8,13 +8,27 @@ use oma_console::{
     writer::Writer,
 };
 use oma_fetch::{reqwest::ClientBuilder, DownloadProgressControl};
-use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs, OmaAptError};
+use oma_pm::{
+    apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs, OmaAptError},
+    matches::PackagesMatcher,
+};
+use oma_utils::dpkg::dpkg_arch;
 
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgs::builder().build();
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+    let arch = dpkg_arch("/").unwrap();
 
-    let pkgs = apt.select_pkg(&vec!["vscodium", "go"], false, true, true)?;
+    let matcher = PackagesMatcher::builder()
+        .cache(&apt.cache)
+        .filter_candidate(true)
+        .filter_downloadable_candidate(false)
+        .select_dbg(false)
+        .native_arch(&arch)
+        .build();
+
+    let pkgs = matcher.match_pkgs_and_versions(["vscodium", "go"])?;
+
     std::fs::create_dir_all("./test").unwrap();
 
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();

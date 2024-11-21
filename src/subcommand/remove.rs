@@ -5,6 +5,8 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::matches::PackagesMatcher;
+use oma_utils::dpkg::dpkg_arch;
 use tracing::{info, warn};
 
 use crate::pb::OmaProgressBar;
@@ -17,7 +19,7 @@ use crate::{fl, OmaArgs, HTTP_CLIENT};
 
 use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitRequest};
 
-pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i32, OutputError> {
+pub fn execute(glob: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i32, OutputError> {
     root()?;
     lock_oma()?;
 
@@ -50,7 +52,26 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         .build();
 
     let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
-    let (pkgs, no_result) = apt.select_pkg(&pkgs, false, false, false)?;
+    let arch = dpkg_arch(&args.sysroot)?;
+    let matcher = PackagesMatcher::builder()
+        .cache(&apt.cache)
+        .filter_candidate(false)
+        .filter_downloadable_candidate(false)
+        .select_dbg(false)
+        .native_arch(&arch)
+        .build();
+
+    let mut pkgs = vec![];
+    let mut no_result = vec![];
+
+    for i in glob {
+        let res = matcher.match_pkgs_from_glob(i)?;
+        if res.is_empty() {
+            no_result.push(i.to_string());
+        } else {
+            pkgs.extend(res);
+        }
+    }
 
     let pb = if !no_progress {
         OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
@@ -58,7 +79,21 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         None
     };
 
-    let context = apt.remove(&pkgs, args.remove_config, args.no_autoremove)?;
+    let remove_str = pkgs
+        .iter()
+        .map(|x| {
+            format!(
+                "{} {}",
+                x.raw_pkg.fullname(true),
+                x.package(&apt.cache)
+                    .installed()
+                    .map(|x| x.version().to_string())
+                    .unwrap_or_default(),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let context = apt.remove(pkgs, args.remove_config, args.no_autoremove)?;
 
     if let Some(pb) = pb {
         pb.inner.finish_and_clear()
@@ -77,11 +112,7 @@ pub fn execute(pkgs: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
     let request = CommitRequest {
         apt,
         dry_run,
-        request_type: SummaryType::Remove(
-            pkgs.iter()
-                .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
-                .collect::<Vec<_>>(),
-        ),
+        request_type: SummaryType::Remove(remove_str),
         no_fixbroken: !args.fix_broken,
         network_thread,
         no_progress,

@@ -15,7 +15,7 @@ use oma_mirror::MirrorError;
 
 use oma_pm::search::OmaSearchError;
 use oma_pm::AptErrors;
-use oma_pm::{apt::OmaAptError, query::OmaDatabaseError};
+use oma_pm::{apt::OmaAptError, matches::MatcherError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseError;
 use oma_repo_verify::VerifyError;
@@ -295,8 +295,8 @@ impl From<AptErrors> for OutputError {
     }
 }
 
-impl From<OmaDatabaseError> for OutputError {
-    fn from(value: OmaDatabaseError) -> Self {
+impl From<MatcherError> for OutputError {
+    fn from(value: MatcherError) -> Self {
         oma_database_error(value)
     }
 }
@@ -962,62 +962,39 @@ fn oma_checksum_error(e: ChecksumError) -> OutputError {
     }
 }
 
-fn oma_database_error(e: OmaDatabaseError) -> OutputError {
+fn oma_database_error(e: MatcherError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        OmaDatabaseError::AptError(e) => OutputError {
+        MatcherError::AptError(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(e)),
         },
-        OmaDatabaseError::AptErrors(e) => OutputError::from(e),
-        OmaDatabaseError::AptCxxException(e) => OutputError {
+        MatcherError::AptErrors(e) => OutputError::from(e),
+        MatcherError::AptCxxException(e) => OutputError {
             description: fl!("apt-error"),
             source: Some(Box::new(AptErrors::from(e))),
         },
-        OmaDatabaseError::InvalidPattern(s) => OutputError {
+        MatcherError::InvalidPattern(s) => OutputError {
             description: fl!("invalid-pattern", p = s),
             source: None,
         },
-        OmaDatabaseError::NoPackage(s) => OutputError {
+        MatcherError::NoPackage(s) => OutputError {
             description: fl!("can-not-get-pkg-from-database", name = s),
             source: None,
         },
-        OmaDatabaseError::NoVersion(pkg, ver) => OutputError {
+        MatcherError::NoVersion(pkg, ver) => OutputError {
             description: fl!("pkg-unavailable", pkg = pkg, ver = ver),
             source: None,
         },
-        OmaDatabaseError::NoPath(s) => OutputError {
+        MatcherError::NoPath(s) => OutputError {
             description: fl!("invalid-path", p = s),
             source: None,
         },
-        OmaDatabaseError::OmaSearchError(e) => match e {
-            OmaSearchError::AptError(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(e)),
-            },
-            OmaSearchError::AptErrors(e) => OutputError::from(e),
-            OmaSearchError::AptCxxException(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(AptErrors::from(e))),
-            },
-            OmaSearchError::NoResult(e) => OutputError {
-                description: fl!("could-not-find-pkg-from-keyword", c = e),
-                source: None,
-            },
-            OmaSearchError::FailedGetCandidate(s) => OutputError {
-                description: fl!("no-candidate-ver", pkg = s),
-                source: None,
-            },
-            OmaSearchError::PtrIsNone(_) => OutputError {
-                description: e.to_string(),
-                source: None,
-            },
-        },
-        OmaDatabaseError::NoCandidate(s) => OutputError {
+        MatcherError::NoCandidate(s) => OutputError {
             description: fl!("no-candidate-ver", pkg = s),
             source: None,
         },
-        OmaDatabaseError::PtrIsNone(_) => OutputError {
+        MatcherError::PtrIsNone(_) => OutputError {
             description: e.to_string(),
             source: None,
         },

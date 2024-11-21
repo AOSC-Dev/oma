@@ -1,12 +1,13 @@
 use std::{
     borrow::Cow,
+    cell::OnceCell,
     fmt,
     io::{self, ErrorKind, Write},
     path::{Path, PathBuf},
     process::Command,
 };
 
-use ahash::{HashSet, RandomState};
+use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 use chrono::Local;
@@ -32,7 +33,7 @@ use oma_fetch::{
     DownloadSourceType, Summary,
 };
 use oma_utils::{
-    dpkg::{dpkg_arch, is_hold, DpkgError},
+    dpkg::{get_selections, is_hold, DpkgError},
     human_bytes::HumanBytes,
 };
 
@@ -45,9 +46,9 @@ use zbus::{Connection, ConnectionBuilder};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
-    pkginfo::{OmaPackage, PtrIsNone},
+    matches::MatcherError,
+    pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
-    query::{OmaDatabase, OmaDatabaseError},
 };
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
@@ -79,12 +80,13 @@ pub struct OmaAptArgs {
 pub struct OmaApt {
     pub cache: Cache,
     pub config: AptConfig,
-    autoremove: Vec<String>,
+    autoremove: HashSet<u64>,
     dry_run: bool,
-    select_pkgs: Vec<String>,
+    select_pkgs: HashSet<u64>,
     tokio: Runtime,
     connection: Option<Connection>,
     unmet: Vec<Vec<BrokenPackage>>,
+    archive_dir: OnceCell<PathBuf>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -96,7 +98,7 @@ pub enum OmaAptError {
     #[error(transparent)]
     AptCxxException(#[from] cxx::Exception),
     #[error(transparent)]
-    OmaDatabaseError(#[from] OmaDatabaseError),
+    OmaDatabaseError(#[from] MatcherError),
     #[error("Failed to mark package for reinstallation: {0}")]
     MarkReinstallError(String, String),
     #[error("Dependencies unmet")]
@@ -209,12 +211,13 @@ impl OmaApt {
         Ok(Self {
             cache: new_cache!(&local_debs)?,
             config,
-            autoremove: vec![],
+            autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
-            select_pkgs: vec![],
+            select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
             tokio,
             connection: conn,
             unmet: vec![],
+            archive_dir: OnceCell::new(),
         })
     }
 
@@ -336,26 +339,32 @@ impl OmaApt {
         Ok(config)
     }
 
-    /// Get upgradable and removable packages
-    pub fn available_action(&self) -> OmaAptResult<(usize, usize)> {
+    /// Get upgradable packages count
+    pub fn count_pending_upgradable_pkgs(&self) -> OmaAptResult<usize> {
         let sort = PackageSort::default().upgradable();
         let dir = self.config.get("Dir").unwrap_or_else(|| "/".to_string());
+        let selection_status = get_selections(dir)?;
         let upgradable = self
             .cache
             .packages(&sort)
-            .filter(|x| !is_hold(x.name(), &dir).unwrap_or(false))
+            .filter(|pkg| !is_hold(&pkg.fullname(true), &selection_status))
             .count();
 
-        let sort = PackageSort::default().auto_removable();
-        let removable = self.cache.packages(&sort).count();
-
-        Ok((upgradable, removable))
+        Ok(upgradable)
     }
 
-    pub fn installed_packages(&self) -> OmaAptResult<usize> {
+    /// Get autoremovable packages count
+    pub fn count_pending_autoremovable_pkgs(&self) -> usize {
+        let sort = PackageSort::default().auto_removable();
+        let auto_removable = self.cache.packages(&sort).count();
+
+        auto_removable
+    }
+
+    pub fn count_installed_packages(&self) -> usize {
         let sort = PackageSort::default().installed();
 
-        Ok(self.cache.packages(&sort).count())
+        self.cache.packages(&sort).count()
     }
 
     /// Set apt manager status as upgrade
@@ -378,6 +387,8 @@ impl OmaApt {
         for pkg in pkgs {
             let marked_install = mark_install(&self.cache, pkg, reinstall, install_recommends)?;
 
+            let pkg_index = pkg.raw_pkg.index();
+
             debug!(
                 "Pkg {} {} marked install: {marked_install}",
                 pkg.raw_pkg.fullname(true),
@@ -389,8 +400,8 @@ impl OmaApt {
                     pkg.raw_pkg.fullname(true),
                     pkg.version_raw.version().to_string(),
                 ));
-            } else if !self.select_pkgs.contains(&pkg.raw_pkg.fullname(true)) {
-                self.select_pkgs.push(pkg.raw_pkg.fullname(true));
+            } else if !self.select_pkgs.contains(&pkg_index) {
+                self.select_pkgs.insert(pkg_index);
             }
         }
 
@@ -447,6 +458,7 @@ impl OmaApt {
                 .maybe_sha256(sha256)
                 .maybe_sha512(sha512)
                 .maybe_md5(md5)
+                .index(pkg.raw_pkg.index())
                 .build();
 
             download_list.push(entry);
@@ -485,19 +497,20 @@ impl OmaApt {
     /// Set apt manager status as remove
     pub fn remove(
         &mut self,
-        pkgs: &[OmaPackage],
+        pkgs: impl IntoIterator<Item = OmaPackageWithoutVersion>,
         purge: bool,
         no_autoremove: bool,
     ) -> OmaAptResult<Vec<String>> {
         debug!("is purge: {purge}");
+        let mut no_marked_remove = vec![];
 
-        let mut no_marked_remove = HashSet::with_hasher(RandomState::new());
         for pkg in pkgs {
-            let is_marked_delete = mark_delete(&self.cache, pkg, purge)?;
+            let pkg = pkg.package(&self.cache);
+            let is_marked_delete = mark_delete(&pkg, purge)?;
             if !is_marked_delete {
-                no_marked_remove.insert(pkg.raw_pkg.fullname(true));
-            } else if !self.select_pkgs.contains(&pkg.raw_pkg.fullname(true)) {
-                self.select_pkgs.push(pkg.raw_pkg.fullname(true));
+                no_marked_remove.push(pkg.fullname(true));
+            } else if !self.select_pkgs.contains(&pkg.index()) {
+                self.select_pkgs.insert(pkg.index());
             }
         }
 
@@ -520,7 +533,7 @@ impl OmaApt {
             }
         }
 
-        Ok(no_marked_remove.into_iter().collect::<Vec<_>>())
+        Ok(no_marked_remove)
     }
 
     /// find autoremove and remove it
@@ -533,7 +546,7 @@ impl OmaApt {
                 pkg.mark_delete(purge);
                 pkg.protect();
 
-                self.autoremove.push(pkg.fullname(true));
+                self.autoremove.insert(pkg.index());
             }
         }
 
@@ -582,7 +595,7 @@ impl OmaApt {
                 client,
                 download_pkg_list,
                 network_thread,
-                &path,
+                path,
                 download_progress_manager,
                 auth,
             )
@@ -934,50 +947,34 @@ impl OmaApt {
         Ok((success, failed))
     }
 
-    /// Select packages from give some strings
-    pub fn select_pkg(
-        &mut self,
-        keywords: &[&str],
-        select_dbg: bool,
-        filter_candidate: bool,
-        available_candidate: bool,
-    ) -> OmaAptResult<(Vec<OmaPackage>, Vec<String>)> {
-        select_pkg(
-            keywords,
-            &self.cache,
-            select_dbg,
-            filter_candidate,
-            available_candidate,
-            &dpkg_arch(self.config.get("Dir").unwrap_or("/".to_string()))?,
-        )
-    }
-
     /// Get apt archive dir
-    pub fn get_archive_dir(&self) -> PathBuf {
-        let archives_dir = self
-            .config
-            .get("Dir::Cache::Archives")
-            .unwrap_or("archives/".to_string());
-        let cache = self
-            .config
-            .get("Dir::Cache")
-            .unwrap_or("var/cache/apt".to_string());
+    pub fn get_archive_dir(&self) -> &Path {
+        self.archive_dir.get_or_init(|| {
+            let archives_dir = self
+                .config
+                .get("Dir::Cache::Archives")
+                .unwrap_or("archives/".to_string());
+            let cache = self
+                .config
+                .get("Dir::Cache")
+                .unwrap_or("var/cache/apt".to_string());
 
-        let dir = self.config.get("Dir").unwrap_or("/".to_string());
+            let dir = self.config.get("Dir").unwrap_or("/".to_string());
 
-        let archive_dir_p = PathBuf::from(archives_dir);
-        if archive_dir_p.is_absolute() {
-            return archive_dir_p;
-        }
+            let archive_dir_p = PathBuf::from(archives_dir);
+            if archive_dir_p.is_absolute() {
+                return archive_dir_p;
+            }
 
-        let cache_dir_p = PathBuf::from(cache);
-        if cache_dir_p.is_absolute() {
-            return cache_dir_p.join(archive_dir_p);
-        }
+            let cache_dir_p = PathBuf::from(cache);
+            if cache_dir_p.is_absolute() {
+                return cache_dir_p.join(archive_dir_p);
+            }
 
-        let dir_p = PathBuf::from(dir);
+            let dir_p = PathBuf::from(dir);
 
-        dir_p.join(cache_dir_p).join(archive_dir_p)
+            dir_p.join(cache_dir_p).join(archive_dir_p)
+        })
     }
 
     /// Mark version status (hold/unhold)
@@ -1123,10 +1120,11 @@ impl OmaApt {
                     .arch(cand.arch().to_string())
                     .download_size(cand.size())
                     .op(InstallOperation::Install)
-                    .automatic(!self.select_pkgs.contains(&pkg.fullname(true)))
+                    .automatic(self.select_pkgs.iter().all(|x| pkg.index() != *x))
                     .maybe_md5(md5)
                     .maybe_sha256(sha256)
                     .maybe_sha512(sha512)
+                    .index(pkg.index())
                     .build();
 
                 install.push(entry);
@@ -1146,7 +1144,7 @@ impl OmaApt {
             if pkg.marked_delete() {
                 let name = pkg.fullname(true);
 
-                if pkg.is_essential() && !how_handle_essential(&name) {
+                if !self.dry_run && pkg.is_essential() && !how_handle_essential(&name) {
                     return Err(OmaAptError::PkgIsEssential(name));
                 }
 
@@ -1169,11 +1167,13 @@ impl OmaApt {
                     tags.push(RemoveTag::Purge);
                 }
 
-                if self.autoremove.contains(&name) {
+                if self.autoremove.contains(&pkg.index()) {
                     tags.push(RemoveTag::AutoRemove);
                 }
 
-                if !self.autoremove.contains(&name) && !self.select_pkgs.contains(&name) {
+                if !self.autoremove.contains(&pkg.index())
+                    && !self.select_pkgs.contains(&pkg.index())
+                {
                     tags.push(RemoveTag::Resolver);
                 }
 
@@ -1189,6 +1189,7 @@ impl OmaApt {
                     installed
                         .map(|x| x.arch().to_string())
                         .unwrap_or("unknown".to_string()),
+                    pkg.index(),
                 );
 
                 remove.push(remove_entry);
@@ -1230,10 +1231,11 @@ impl OmaApt {
                     .arch(version.arch().to_string())
                     .download_size(version.size())
                     .op(InstallOperation::ReInstall)
-                    .automatic(!self.select_pkgs.contains(&pkg.fullname(true)))
+                    .automatic(self.select_pkgs.iter().all(|x| pkg.index() != *x))
                     .maybe_sha256(sha256)
                     .maybe_sha512(sha512)
                     .maybe_md5(md5)
+                    .index(pkg.index())
                     .build();
 
                 install.push(entry);
@@ -1261,17 +1263,7 @@ impl OmaApt {
             DiskSpace::Free(n) => ("-".into(), n),
         };
 
-        let total_download_size: u64 = install
-            .iter()
-            .filter(|x| {
-                x.op() == &InstallOperation::Install || x.op() == &InstallOperation::Upgrade
-            })
-            .map(|x| x.download_size())
-            .sum();
-
-        if !features.is_empty() && !how_handle_features(&features) {
-            return Err(OmaAptError::Features);
-        }
+        let total_download_size = self.cache.depcache().download_size();
 
         if sort == SummarySort::Operation {
             let mut is_resolver_delete = vec![];
@@ -1287,16 +1279,20 @@ impl OmaApt {
             }
 
             for i in &self.select_pkgs {
-                if let Some(pos) = install.iter().position(|x| x.name() == i) {
+                if let Some(pos) = install.iter().position(|x| x.index() == *i) {
                     let entry = install.remove(pos);
                     install.insert(0, entry);
                 }
 
-                if let Some(pos) = remove.iter().position(|x| x.name() == i) {
+                if let Some(pos) = remove.iter().position(|x| x.index() == *i) {
                     let entry = remove.remove(pos);
                     remove.insert(0, entry);
                 }
             }
+        }
+
+        if !self.dry_run && !features.is_empty() && !how_handle_features(&features) {
+            return Err(OmaAptError::Features);
         }
 
         Ok(OmaOperation {
@@ -1364,8 +1360,7 @@ impl OmaApt {
 }
 
 /// Mark package as delete.
-fn mark_delete(cache: &Cache, pkg: &OmaPackage, purge: bool) -> OmaAptResult<bool> {
-    let pkg = Package::new(cache, unsafe { pkg.raw_pkg.unique() });
+fn mark_delete(pkg: &Package, purge: bool) -> OmaAptResult<bool> {
     if pkg.marked_delete() {
         return Ok(true);
     }
@@ -1436,52 +1431,10 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
         .maybe_sha256(sha256)
         .maybe_sha512(sha512)
         .maybe_md5(md5)
+        .index(new_pkg.index())
         .build();
 
     Ok(install_entry)
-}
-
-/// Select pkg from give strings (inber)
-fn select_pkg(
-    keywords: &[&str],
-    cache: &Cache,
-    select_dbg: bool,
-    filter_candidate: bool,
-    available_candidate: bool,
-    native_arch: &str,
-) -> OmaAptResult<(Vec<OmaPackage>, Vec<String>)> {
-    let db = OmaDatabase::new(cache)?;
-    let mut pkgs = vec![];
-    let mut no_result = vec![];
-    for keyword in keywords {
-        let res = match keyword {
-            x if x.ends_with(".deb") => db.query_local_glob(x)?,
-            x if x.split_once('/').is_some() => {
-                db.query_from_branch(x, filter_candidate, select_dbg)?
-            }
-            x if x.split_once('=').is_some() => db.query_from_version(x, select_dbg)?,
-            x => db.query_from_glob(
-                x,
-                filter_candidate,
-                select_dbg,
-                available_candidate,
-                native_arch,
-            )?,
-        };
-
-        for i in &res {
-            debug!("{} {}", i.raw_pkg.fullname(true), i.version_raw.version());
-        }
-
-        if res.is_empty() {
-            no_result.push(keyword.to_string());
-            continue;
-        }
-
-        pkgs.extend(res);
-    }
-
-    Ok((pkgs, no_result))
 }
 
 /// Mark package as install.

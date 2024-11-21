@@ -11,7 +11,7 @@ use oma_console::writer::Writeln;
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs, Upgrade},
-    query::OmaDatabase,
+    matches::PackagesMatcher,
 };
 use oma_utils::dpkg::dpkg_arch;
 use reqwest::Client;
@@ -137,7 +137,11 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
 
     let mut pkgs = vec![];
 
-    let db = OmaDatabase::new(&apt.cache)?;
+    let arch = dpkg_arch(&sysroot)?;
+    let matcher = PackagesMatcher::builder()
+        .cache(&apt.cache)
+        .native_arch(&arch)
+        .build();
 
     for pkg in downgrade_pkgs {
         let mut f = apt
@@ -150,7 +154,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
             }
 
             if pkg.is_installed() {
-                let pkginfo = db.find_candidate_by_pkgname(pkg.name())?;
+                let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
 
                 pkgs.push(pkginfo);
             }

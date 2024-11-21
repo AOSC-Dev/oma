@@ -301,14 +301,24 @@ impl<'a> CommitRequest<'a> {
         let op = apt.summary(
             SummarySort::Operation,
             |pkg| {
-                if protect_essential {
+                if dry_run {
+                    true
+                } else if protect_essential {
                     false
                 } else {
                     ask_user_do_as_i_say(pkg).unwrap_or(false)
                 }
             },
-            |features| handle_features(features, protect_essential).unwrap_or(false),
+            |features| {
+                if dry_run {
+                    true
+                } else {
+                    handle_features(features, protect_essential).unwrap_or(false)
+                }
+            },
         )?;
+
+        debug!("{op}");
 
         apt.check_disk_size(&op)?;
 
@@ -356,8 +366,12 @@ impl<'a> CommitRequest<'a> {
         match res {
             Ok(_) => {
                 let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
-                success!("{}", fl!("history-tips-1"));
-                info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+
+                if !dry_run {
+                    success!("{}", fl!("history-tips-1"));
+                    info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+                }
+
                 write_history_entry(
                     op_after,
                     typ,

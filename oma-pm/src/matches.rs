@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use bon::{builder, Builder};
 use cxx::UniquePtr;
 use glob_match::glob_match;
 use oma_apt::{
@@ -12,13 +13,10 @@ use oma_apt::{
 use oma_utils::url_no_escape::url_no_escape;
 use tracing::{debug, info};
 
-use crate::{
-    pkginfo::{OmaPackage, PtrIsNone},
-    search::{IndiciumSearch, OmaSearch, OmaSearchError, SearchResult, StrSimSearch, TextSearch},
-};
+use crate::pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone};
 
 #[derive(Debug, thiserror::Error)]
-pub enum OmaDatabaseError {
+pub enum MatcherError {
     #[error(transparent)]
     AptErrors(#[from] AptErrors),
     #[error(transparent)]
@@ -36,8 +34,6 @@ pub enum OmaDatabaseError {
     #[error("Can not find path for local package {0}")]
     NoPath(String),
     #[error(transparent)]
-    OmaSearchError(#[from] OmaSearchError),
-    #[error(transparent)]
     PtrIsNone(#[from] PtrIsNone),
 }
 
@@ -47,19 +43,52 @@ pub enum SearchEngine {
     Text,
 }
 
-pub struct OmaDatabase<'a> {
+#[derive(Builder)]
+pub struct PackagesMatcher<'a> {
     cache: &'a Cache,
+    #[builder(default = true)]
+    filter_candidate: bool,
+    #[builder(default = false)]
+    select_dbg: bool,
+    #[builder(default = false)]
+    filter_downloadable_candidate: bool,
+    native_arch: &'a str,
 }
 
-pub type OmaDatabaseResult<T> = Result<T, OmaDatabaseError>;
+pub type MatcherResult<T> = Result<T, MatcherError>;
 
-impl<'a> OmaDatabase<'a> {
-    pub fn new(cache: &'a Cache) -> OmaDatabaseResult<OmaDatabase<'a>> {
-        Ok(Self { cache })
+impl<'a> PackagesMatcher<'a> {
+    pub fn match_pkgs_and_versions(
+        &self,
+        keywords: impl IntoIterator<Item = &'a str>,
+    ) -> MatcherResult<(Vec<OmaPackage>, Vec<String>)> {
+        let mut pkgs = vec![];
+        let mut no_result = vec![];
+        for keyword in keywords {
+            let res = match keyword {
+                x if x.ends_with(".deb") => self.match_local_glob(x)?,
+                x if x.split_once('/').is_some() => self.match_from_branch(x)?,
+                x if x.split_once('=').is_some() => self.match_from_version(x)?,
+                x => self.match_pkgs_and_versions_from_glob(x)?,
+            };
+
+            for i in &res {
+                debug!("{} {}", i.raw_pkg.fullname(true), i.version_raw.version());
+            }
+
+            if res.is_empty() {
+                no_result.push(keyword.to_string());
+                continue;
+            }
+
+            pkgs.extend(res);
+        }
+
+        Ok((pkgs, no_result))
     }
 
     /// Query package from give local file glob
-    pub fn query_local_glob(&self, file_glob: &str) -> OmaDatabaseResult<Vec<OmaPackage>> {
+    pub fn match_local_glob(&self, file_glob: &str) -> MatcherResult<Vec<OmaPackage>> {
         let mut res = vec![];
         let sort = PackageSort::default().only_virtual();
 
@@ -76,7 +105,7 @@ impl<'a> OmaDatabase<'a> {
                     "file:{}",
                     Path::new(i.name())
                         .canonicalize()
-                        .map_err(|_| OmaDatabaseError::NoPath(pkg.fullname(true)))?
+                        .map_err(|_| MatcherError::NoPath(pkg.fullname(true)))?
                         .to_str()
                         .unwrap_or(pkg.name())
                 ));
@@ -97,15 +126,31 @@ impl<'a> OmaDatabase<'a> {
         Ok(res.into_iter().flatten().collect())
     }
 
-    /// Query package from give glob (like: apt*)
-    pub fn query_from_glob(
-        &self,
-        glob: &str,
-        filter_candidate: bool,
-        select_dbg: bool,
-        avail_candidate: bool,
-        native_arch: &str,
-    ) -> OmaDatabaseResult<Vec<OmaPackage>> {
+    pub fn match_pkgs_from_glob(&self, glob: &str) -> MatcherResult<Vec<OmaPackageWithoutVersion>> {
+        let sort = PackageSort::default().include_virtual();
+
+        if glob == "266" {
+            info!("吃我一拳！！！");
+        }
+
+        let pkgs = self.cache.packages(&sort).filter(|x| {
+            if glob.contains(':') {
+                glob_match(glob, &x.fullname(false))
+            } else {
+                glob_match(glob, x.name()) && x.arch() == self.native_arch
+            }
+        });
+
+        let pkgs = pkgs
+            .filter_map(|pkg| real_pkg(&pkg))
+            .map(|raw_pkg| OmaPackageWithoutVersion { raw_pkg })
+            .collect::<Vec<_>>();
+
+        Ok(pkgs)
+    }
+
+    /// Query package and version from give glob (like: apt*)
+    pub fn match_pkgs_and_versions_from_glob(&self, glob: &str) -> MatcherResult<Vec<OmaPackage>> {
         let mut res = vec![];
         let sort = PackageSort::default().include_virtual();
 
@@ -117,7 +162,7 @@ impl<'a> OmaDatabase<'a> {
             if glob.contains(':') {
                 glob_match(glob, &x.fullname(false))
             } else {
-                glob_match(glob, x.name()) && x.arch() == native_arch
+                glob_match(glob, x.name()) && x.arch() == self.native_arch
             }
         });
 
@@ -138,13 +183,14 @@ impl<'a> OmaDatabase<'a> {
 
                 debug!("version: {}, is cand: {}", ver, is_cand);
 
-                if filter_candidate && is_cand {
-                    if !avail_candidate || ver.is_downloadable() {
+                if self.filter_candidate && is_cand {
+                    if !self.filter_downloadable_candidate || ver.is_downloadable() {
                         // 存在 Packages 文件中版本相同、路径相同、内容不同的情况，因此一个包可能有两个 candidate 对象
                         // 这里只上传其中一个
                         if !candidated {
                             res.push(pkginfo);
                         }
+
                         candidated = true;
                     } else {
                         let ver = pkg.versions().find(|x| x.is_downloadable());
@@ -153,44 +199,32 @@ impl<'a> OmaDatabase<'a> {
                             res.push(OmaPackage::new(&ver, &pkg)?);
                         }
                     }
-                } else if !filter_candidate {
+                } else if !self.filter_candidate {
                     res.push(pkginfo);
                 }
 
-                if has_dbg && select_dbg && (is_cand || !filter_candidate) {
-                    self.select_dbg(&pkg, &ver, &mut res)?;
+                if has_dbg && self.select_dbg && (is_cand || !self.filter_candidate) {
+                    self.match_debug_packages(&pkg, &ver, &mut res)?;
                 }
             }
         }
 
         // 确保数组第一个是 candidate version
-        if !filter_candidate {
-            let mut candidate = None;
+        if !self.filter_candidate {
+            let candidate_list = res
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, pkg)| {
+                    if pkg.is_candidate_version(self.cache) {
+                        Some(idx)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
 
-            for (i, c) in res.iter().enumerate() {
-                let cand = Package::new(
-                    self.cache,
-                    unsafe { c.raw_pkg.unique() }
-                        .make_safe()
-                        .ok_or(OmaDatabaseError::PtrIsNone(PtrIsNone))?,
-                )
-                .candidate();
-
-                let version = unsafe { c.version_raw.unique() }
-                    .make_safe()
-                    .ok_or(OmaDatabaseError::PtrIsNone(PtrIsNone))?;
-
-                if cand
-                    .map(|x| x == Version::new(version, self.cache))
-                    .unwrap_or(false)
-                {
-                    candidate = Some(i);
-                    break;
-                }
-            }
-
-            if let Some(index) = candidate {
-                let pkg = res.remove(index);
+            for idx in candidate_list {
+                let pkg = res.remove(idx);
                 res.insert(0, pkg);
             }
         }
@@ -199,19 +233,19 @@ impl<'a> OmaDatabase<'a> {
     }
 
     /// Query package from give package and version (like: apt=2.5.4)
-    pub fn query_from_version(&self, pat: &str, dbg: bool) -> OmaDatabaseResult<Vec<OmaPackage>> {
+    pub fn match_from_version(&self, pat: &str) -> MatcherResult<Vec<OmaPackage>> {
         let (pkgname, version_str) = pat
             .split_once('=')
-            .ok_or_else(|| OmaDatabaseError::InvalidPattern(pat.to_string()))?;
+            .ok_or_else(|| MatcherError::InvalidPattern(pat.to_string()))?;
 
         let pkg = self
             .cache
             .get(pkgname)
-            .ok_or_else(|| OmaDatabaseError::NoPackage(pat.to_string()))?;
+            .ok_or_else(|| MatcherError::NoPackage(pat.to_string()))?;
 
-        let version = pkg.get_version(version_str).ok_or_else(|| {
-            OmaDatabaseError::NoVersion(pkgname.to_string(), version_str.to_string())
-        })?;
+        let version = pkg
+            .get_version(version_str)
+            .ok_or_else(|| MatcherError::NoVersion(pkgname.to_string(), version_str.to_string()))?;
 
         let mut res = vec![];
 
@@ -220,29 +254,24 @@ impl<'a> OmaDatabase<'a> {
 
         res.push(pkginfo);
 
-        if has_dbg && dbg {
-            self.select_dbg(&pkg, &version, &mut res)?;
+        if has_dbg && self.select_dbg {
+            self.match_debug_packages(&pkg, &version, &mut res)?;
         }
 
         Ok(res)
     }
 
     /// Query package from give package and branch (like: apt/stable)
-    pub fn query_from_branch(
-        &self,
-        pat: &str,
-        filter_candidate: bool,
-        select_dbg: bool,
-    ) -> OmaDatabaseResult<Vec<OmaPackage>> {
+    pub fn match_from_branch(&self, pat: &str) -> MatcherResult<Vec<OmaPackage>> {
         let mut res = vec![];
         let (pkgname, branch) = pat
             .split_once('/')
-            .ok_or_else(|| OmaDatabaseError::InvalidPattern(pat.to_string()))?;
+            .ok_or_else(|| MatcherError::InvalidPattern(pat.to_string()))?;
 
         let pkg = self
             .cache
             .get(pkgname)
-            .ok_or_else(|| OmaDatabaseError::NoPackage(pat.to_string()))?;
+            .ok_or_else(|| MatcherError::NoPackage(pat.to_string()))?;
 
         let mut sort = vec![];
 
@@ -258,14 +287,14 @@ impl<'a> OmaDatabase<'a> {
 
         sort.sort_by(|x, y| oma_apt::util::cmp_versions(x.version(), y.version()));
 
-        if filter_candidate {
+        if self.filter_candidate {
             let version = sort.last();
             if let Some(version) = version {
                 let pkginfo = OmaPackage::new(version, &pkg)?;
                 let has_dbg = has_dbg(self.cache, &pkg, version);
 
-                if has_dbg && select_dbg {
-                    self.select_dbg(&pkg, version, &mut res)?;
+                if has_dbg && self.select_dbg {
+                    self.match_debug_packages(&pkg, version, &mut res)?;
                 }
 
                 res.push(pkginfo);
@@ -275,8 +304,8 @@ impl<'a> OmaDatabase<'a> {
                 let pkginfo = OmaPackage::new(&i, &pkg)?;
                 let has_dbg = has_dbg(self.cache, &pkg, &i);
 
-                if has_dbg && select_dbg {
-                    self.select_dbg(&pkg, &i, &mut res)?;
+                if has_dbg && self.select_dbg {
+                    self.match_debug_packages(&pkg, &i, &mut res)?;
                 }
 
                 res.push(pkginfo);
@@ -286,30 +315,13 @@ impl<'a> OmaDatabase<'a> {
         Ok(res)
     }
 
-    /// Smart search pkgs
-    pub fn search(
-        &self,
-        keyword: &str,
-        engine: SearchEngine,
-    ) -> OmaDatabaseResult<Vec<SearchResult>> {
-        let searcher: Box<dyn OmaSearch> = match engine {
-            SearchEngine::Indicium(f) => Box::new(IndiciumSearch::new(self.cache, f)?),
-            SearchEngine::Strsim => Box::new(StrSimSearch::new(self.cache)),
-            SearchEngine::Text => Box::new(TextSearch::new(self.cache)),
-        };
-
-        let res = searcher.search(keyword)?;
-
-        Ok(res)
-    }
-
     /// Select -dpg package
-    fn select_dbg(
+    fn match_debug_packages(
         &self,
         pkg: &Package,
         version: &Version,
         res: &mut Vec<OmaPackage>,
-    ) -> OmaDatabaseResult<()> {
+    ) -> MatcherResult<()> {
         let dbg_pkg_name = format!("{}-dbg:{}", pkg.name(), version.arch());
         let dbg_pkg = self.cache.get(&dbg_pkg_name);
         let version_str = version.version();
@@ -326,9 +338,9 @@ impl<'a> OmaDatabase<'a> {
     }
 
     /// Find mirror candidate and downloadable package version.
-    pub fn find_candidate_by_pkgname(&self, pkg: &str) -> OmaDatabaseResult<OmaPackage> {
+    pub fn find_candidate_by_pkgname(&self, pkg: &str) -> MatcherResult<OmaPackage> {
         if let Some(pkg) = self.cache.get(pkg) {
-            // FIXME: candidate 版本不一定是源中能下载的版本
+            // candidate 版本不一定是源中能下载的版本
             // 所以要一个个版本遍历直到找到能下载的版本中最高的版本
             for version in pkg.versions() {
                 if version.is_downloadable() {
@@ -343,7 +355,7 @@ impl<'a> OmaDatabase<'a> {
             }
         }
 
-        Err(OmaDatabaseError::NoCandidate(pkg.to_string()))
+        Err(MatcherError::NoCandidate(pkg.to_string()))
     }
 }
 
@@ -375,7 +387,7 @@ pub fn has_dbg(cache: &Cache, pkg: &Package<'_>, ver: &Version) -> bool {
 mod test {
     use crate::test::TEST_LOCK;
 
-    use super::OmaDatabase;
+    use super::PackagesMatcher;
     use oma_apt::new_cache;
     use oma_utils::dpkg::dpkg_arch;
 
@@ -383,13 +395,26 @@ mod test {
     fn test_glob_search() {
         let _lock = TEST_LOCK.lock().unwrap();
         let cache = new_cache!().unwrap();
-        let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db
-            .query_from_glob("apt*", true, false, false, &dpkg_arch("/").unwrap())
-            .unwrap();
-        let res = db
-            .query_from_glob("apt*", false, false, false, &dpkg_arch("/").unwrap())
-            .unwrap();
+        let arch = dpkg_arch("/").unwrap();
+        let matcher = PackagesMatcher::builder()
+            .cache(&cache)
+            .filter_candidate(true)
+            .filter_downloadable_candidate(false)
+            .select_dbg(false)
+            .native_arch(&arch)
+            .build();
+
+        let res_filter = matcher.match_pkgs_and_versions_from_glob("apt*").unwrap();
+
+        let matcher = PackagesMatcher::builder()
+            .cache(&cache)
+            .filter_candidate(false)
+            .filter_downloadable_candidate(false)
+            .select_dbg(false)
+            .native_arch(&arch)
+            .build();
+
+        let res = matcher.match_pkgs_and_versions_from_glob("apt*").unwrap();
 
         for i in res_filter {
             i.pkg_info(&cache).unwrap();
@@ -406,9 +431,18 @@ mod test {
     fn test_virtual_pkg_search() {
         let _lock = TEST_LOCK.lock().unwrap();
         let cache = new_cache!().unwrap();
-        let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db
-            .query_from_glob("telegram", true, false, false, &dpkg_arch("/").unwrap())
+        let arch = dpkg_arch("/").unwrap();
+
+        let matcher = PackagesMatcher::builder()
+            .cache(&cache)
+            .filter_candidate(true)
+            .filter_downloadable_candidate(false)
+            .select_dbg(false)
+            .native_arch(&arch)
+            .build();
+
+        let res_filter = matcher
+            .match_pkgs_and_versions_from_glob("telegram")
             .unwrap();
 
         for i in res_filter {
@@ -420,8 +454,17 @@ mod test {
     fn test_branch_search() {
         let _lock = TEST_LOCK.lock().unwrap();
         let cache = new_cache!().unwrap();
-        let db = OmaDatabase::new(&cache).unwrap();
-        let res_filter = db.query_from_branch("apt/stable", true, false).unwrap();
+        let arch = dpkg_arch("/").unwrap();
+
+        let matcher = PackagesMatcher::builder()
+            .cache(&cache)
+            .filter_candidate(true)
+            .filter_downloadable_candidate(false)
+            .select_dbg(false)
+            .native_arch(&arch)
+            .build();
+
+        let res_filter = matcher.match_from_branch("apt/stable").unwrap();
 
         for i in res_filter {
             i.pkg_info(&cache).unwrap();
