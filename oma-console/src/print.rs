@@ -135,6 +135,21 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
     }
 }
 /// OmaLayer
+/// `OmaLayer` is used for output oma-style logs to `tracing`
+///
+/// # Example:
+/// ```ignore
+/// if !debug {
+/// let no_i18n_embd_info: EnvFilter = "i18n_embed=off,info".parse().unwrap();
+/// tracing_subscriber::registry()
+///     .with(
+///         OmaLayer
+///             .with_filter(no_i18n_embd_info)
+///             .and_then(LevelFilter::INFO),
+///     )
+///     .init();
+/// }
+/// ```
 pub struct OmaLayer;
 
 impl<S> Layer<S> for OmaLayer
@@ -167,6 +182,18 @@ where
     }
 }
 /// OmaRecorder
+/// `OmaRecorder` is used for record oma-style logs.
+///
+/// # Example:
+/// ```ignore
+/// let mut visitor = OmaRecorder(BTreeMap::new());
+/// event.record(&mut visitor);
+/// for (k, v) in visitor.0 {
+///     if k == "message" {
+///         WRITER.writeln(&prefix, &v).ok();
+///     }
+/// }
+/// ```
 struct OmaRecorder<'a>(BTreeMap<&'a str, String>);
 
 impl<'a> tracing::field::Visit for OmaRecorder<'a> {
