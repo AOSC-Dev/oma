@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.42.0"
+version = "0.42.1"
 edition = "2021"
 description = "APT package manager API abstraction library"
 license = "GPL-3.0-or-later"
@@ -18,12 +18,12 @@ oma-utils = { version = "^0.10.0", path = "../oma-utils", features = [
     "url-no-escape",
     "human-bytes",
 ] }
-oma-fetch = { version = "^0.17.0", path = "../oma-fetch" }
+oma-fetch = { version = "^0.18.0", path = "../oma-fetch" }
 tokio = { version = "1.15", default-features = false, features = [
     "fs",
     "rt-multi-thread",
 ] }
-oma-console = { version = "^0.21.0", path = "../oma-console", default-features = false, features = [
+oma-console = { version = "^0.22.0", path = "../oma-console", default-features = false, features = [
     "print",
 ] }
 fs4 = "0.11"
@@ -42,7 +42,7 @@ apt-auth-config = { version = "0.2.0", path = "../apt-auth-config" }
 [dev-dependencies]
 dashmap = "6"
 indicatif = "0.17"
-oma-console = { version = "^0.21.0", path = "../oma-console", default-features = false, features = ["progress_bar_style"] }
+oma-console = { version = "^0.22.0", path = "../oma-console", default-features = false, features = ["progress_bar_style"] }
 
 [features]
 aosc = []

@@ -2917,7 +2917,7 @@ dependencies = [
  "oma-refresh",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.10.0",
+ "oma-utils 0.10.1",
  "ratatui",
  "reqwest",
  "rust-embed",
@@ -2960,7 +2960,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.21.2"
+version = "0.22.0"
 dependencies = [
  "ansi-to-tui",
  "console",
@@ -3001,7 +3001,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.17.2"
+version = "0.18.0"
 dependencies = [
  "async-compression",
  "bon",
@@ -3065,7 +3065,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.42.0"
+version = "0.42.1"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3083,7 +3083,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.10.0",
+ "oma-utils 0.10.1",
  "serde",
  "strsim",
  "thiserror 2.0.3",
@@ -3097,13 +3097,13 @@ name = "oma-pm-operation-type"
 version = "0.7.0"
 dependencies = [
  "bon",
- "oma-utils 0.10.0",
+ "oma-utils 0.10.1",
  "serde",
 ]
 
 [[package]]
 name = "oma-refresh"
-version = "0.35.3"
+version = "0.35.4"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3122,7 +3122,7 @@ dependencies = [
  "oma-fetch",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.10.0",
+ "oma-utils 0.10.1",
  "once_cell",
  "sequoia-openpgp",
  "smallvec",
@@ -3175,7 +3175,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "logind-zbus",
  "number_prefix",
