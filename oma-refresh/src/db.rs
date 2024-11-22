@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::hash_map::Entry,
+    fs::Permissions,
     future::Future,
     os::{fd::AsRawFd, unix::fs::PermissionsExt},
     path::{Path, PathBuf},
@@ -266,18 +267,9 @@ impl<'a> OmaRefresh<'a> {
             })?;
         }
 
-        let mut perms = fs::metadata(&self.download_dir)
-            .await
-            .map_err(|e| {
-                RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
-            })?
-            .permissions();
-
-        perms.set_mode(0o755);
-
         debug!("Setting {} permission as 0755", self.download_dir.display());
 
-        fs::set_permissions(&self.download_dir, perms)
+        fs::set_permissions(&self.download_dir, Permissions::from_mode(0o755))
             .await
             .map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
