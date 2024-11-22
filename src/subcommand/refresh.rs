@@ -41,15 +41,22 @@ pub fn execute(
     let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
     let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
-    let (style, inv) = spinner_style();
-
-    let pb = ProgressBar::new_spinner().with_style(style);
-    pb.enable_steady_tick(inv);
-    pb.set_message(fl!("reading-database"));
+    let pb = if !no_progress {
+        let (style, inv) = spinner_style();
+        let pb = ProgressBar::new_spinner().with_style(style);
+        pb.enable_steady_tick(inv);
+        pb.set_message(fl!("reading-database"));
+        Some(pb)
+    } else {
+        None
+    };
 
     let upgradable = apt.count_pending_upgradable_pkgs()?;
     let autoremovable = apt.count_pending_autoremovable_pkgs();
-    pb.finish_and_clear();
+
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
 
     let mut s = vec![];
 

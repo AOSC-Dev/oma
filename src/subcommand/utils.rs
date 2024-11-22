@@ -220,7 +220,7 @@ impl<'a> RefreshRequest<'a> {
 
         let msg = fl!("do-not-edit-topic-sources-list");
 
-        let pm: &dyn HandleRefresh = if !no_progress || is_terminal() {
+        let pm: &dyn HandleRefresh = if !no_progress && is_terminal() {
             &OmaMultiProgressBar::default()
         } else {
             &NoProgressBar::default()

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::{borrow::Cow, collections::BTreeMap, time::Duration};
 
 use console::{style, Color, StyledObject};
 use termbg::Theme;
@@ -141,13 +141,36 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
 /// use tracing::info;
 ///
 /// tracing_subscriber::registry()
-///     .with(OmaLayer)
+///     .with(OmaLayer::new())
 ///     .init();
 ///
 /// info!("My name is oma!");
 /// ```
 ///
-pub struct OmaLayer;
+pub struct OmaLayer {
+    /// Display result with ansi
+    with_ansi: bool,
+}
+
+impl Default for OmaLayer {
+    fn default() -> Self {
+        Self { with_ansi: true }
+    }
+}
+
+impl OmaLayer {
+    pub fn new() -> Self {
+        OmaLayer::default()
+    }
+
+    /// Display with ANSI colors
+    ///
+    /// Set to false to disable ANSI color sequences.
+    pub fn with_ansi(mut self, with_ansi: bool) -> Self {
+        self.with_ansi = with_ansi;
+        self
+    }
+}
 
 impl<S> Layer<S> for OmaLayer
 where
@@ -160,12 +183,23 @@ where
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
         let level = *event.metadata().level();
-        let prefix = match level {
-            Level::DEBUG => console::style("DEBUG").dim().to_string(),
-            Level::INFO => console::style("INFO").blue().bold().to_string(),
-            Level::WARN => console::style("WARNING").yellow().bold().to_string(),
-            Level::ERROR => console::style("ERROR").red().bold().to_string(),
-            Level::TRACE => console::style("TRACE").dim().to_string(),
+
+        let prefix = if self.with_ansi {
+            Cow::Owned(match level {
+                Level::DEBUG => console::style("DEBUG").dim().to_string(),
+                Level::INFO => console::style("INFO").blue().bold().to_string(),
+                Level::WARN => console::style("WARNING").yellow().bold().to_string(),
+                Level::ERROR => console::style("ERROR").red().bold().to_string(),
+                Level::TRACE => console::style("TRACE").dim().to_string(),
+            })
+        } else {
+            Cow::Borrowed(match level {
+                Level::DEBUG => "DEBUG",
+                Level::INFO => "INFO",
+                Level::WARN => "WARNING",
+                Level::ERROR => "ERROR",
+                Level::TRACE => "TRACE",
+            })
         };
 
         let mut visitor = OmaRecorder(BTreeMap::new());
@@ -173,7 +207,11 @@ where
 
         for (k, v) in visitor.0 {
             if k == "message" {
-                WRITER.writeln(&prefix, &v).ok();
+                if self.with_ansi {
+                    WRITER.writeln(&prefix, &console::strip_ansi_codes(&v)).ok();
+                } else {
+                    WRITER.writeln(&prefix, &v).ok();
+                }
             }
         }
     }

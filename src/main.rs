@@ -199,6 +199,19 @@ fn main() {
         )
         || debug;
 
+    let mut no_color = false;
+
+    // --no-color option
+    if matches.get_flag("no_color")
+        || matches!(
+            matches.subcommand().map(|(_, x)| x.try_get_one("no_color")),
+            Some(Ok(Some(true)))
+        )
+    {
+        std::env::set_var("NO_COLOR", "");
+        no_color = true;
+    }
+
     #[cfg(feature = "tokio-console")]
     console_subscriber::init();
 
@@ -208,7 +221,8 @@ fn main() {
 
         tracing_subscriber::registry()
             .with(
-                OmaLayer
+                OmaLayer::new()
+                    .with_ansi(!no_color && stderr().is_terminal())
                     .with_filter(no_i18n_embd_info)
                     .and_then(LevelFilter::INFO),
             )
@@ -223,7 +237,8 @@ fn main() {
                         .event_format(
                             tracing_subscriber::fmt::format()
                                 .with_file(true)
-                                .with_line_number(true),
+                                .with_line_number(true)
+                                .with_ansi(!no_color && stderr().is_terminal()),
                         )
                         .with_filter(filter),
                 )
@@ -236,7 +251,8 @@ fn main() {
                         .event_format(
                             tracing_subscriber::fmt::format()
                                 .with_file(true)
-                                .with_line_number(true),
+                                .with_line_number(true)
+                                .with_ansi(!no_color && stderr().is_terminal()),
                         )
                         .with_filter(debug_filter),
                 )
@@ -244,7 +260,7 @@ fn main() {
         }
     }
 
-    let code = match run_subcmd(matches, dry_run, no_progress) {
+    let code = match run_subcmd(matches, dry_run, no_progress, no_color) {
         Ok(exit_code) => {
             unlock_oma().ok();
             exit_code
@@ -269,7 +285,12 @@ fn main() {
     exit(code);
 }
 
-fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i32, OutputError> {
+fn run_subcmd(
+    matches: ArgMatches,
+    dry_run: bool,
+    no_progress: bool,
+    no_color: bool,
+) -> Result<i32, OutputError> {
     // Egg
     #[cfg(feature = "egg")]
     {
@@ -314,19 +335,6 @@ fn run_subcmd(matches: ArgMatches, dry_run: bool, no_progress: bool) -> Result<i
                 .map(|(_, x)| x.try_get_one("follow_terminal_color")),
             Some(Ok(Some(true)))
         );
-
-    let mut no_color = false;
-
-    // --no-color option
-    if matches.get_flag("no_color")
-        || matches!(
-            matches.subcommand().map(|(_, x)| x.try_get_one("no_color")),
-            Some(Ok(Some(true)))
-        )
-    {
-        std::env::set_var("NO_COLOR", "");
-        no_color = true;
-    }
 
     COLOR_FORMATTER.get_or_init(|| {
         // FIXME: Marking latency limits for oma's terminal color queries (via
