@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::hash_map::Entry,
+    fs::Permissions,
     future::Future,
     os::{fd::AsRawFd, unix::fs::PermissionsExt},
     path::{Path, PathBuf},
@@ -47,7 +48,11 @@ use reqwest::StatusCode;
 
 use smallvec::SmallVec;
 use sysinfo::{Pid, System};
-use tokio::{fs, process::Command, task::spawn_blocking};
+use tokio::{
+    fs::{self},
+    process::Command,
+    task::spawn_blocking,
+};
 use tracing::{debug, warn};
 
 use crate::{
@@ -241,6 +246,7 @@ pub trait HandleTopicsControl {
 impl<'a> OmaRefresh<'a> {
     pub async fn start(mut self) -> Result<()> {
         let arch = dpkg_arch(&self.source)?;
+
         self.update_db(
             sources_lists(&self.source, &arch)?,
             self.progress_manager,
@@ -261,18 +267,9 @@ impl<'a> OmaRefresh<'a> {
             })?;
         }
 
-        let mut perms = fs::metadata(&self.download_dir)
-            .await
-            .map_err(|e| {
-                RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
-            })?
-            .permissions();
-
-        perms.set_mode(0o755);
-
         debug!("Setting {} permission as 0755", self.download_dir.display());
 
-        fs::set_permissions(&self.download_dir, perms)
+        fs::set_permissions(&self.download_dir, Permissions::from_mode(0o755))
             .await
             .map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
@@ -307,6 +304,7 @@ impl<'a> OmaRefresh<'a> {
             .threads(self.threads)
             .download_list(tasks)
             .progress_manager(progress_manager.as_download_progress_control())
+            .set_permission(0o644)
             .build()
             .start_download()
             .await;
@@ -332,15 +330,15 @@ impl<'a> OmaRefresh<'a> {
         }
 
         let download_dir = self.download_dir.clone();
-        let download_list_clone = download_list.clone();
         let remove_task =
-            tokio::spawn(async move { remove_unused_db(download_dir, download_list_clone).await });
+            tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
 
         let res = DownloadManager::builder()
             .client(self.client)
             .download_list(tasks)
             .threads(self.threads)
             .progress_manager(progress_manager.as_download_progress_control())
+            .set_permission(0o644)
             .total_size(total)
             .build()
             .start_download()
@@ -348,10 +346,9 @@ impl<'a> OmaRefresh<'a> {
 
         res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
 
-        download_list_set_permission(&self.download_dir, &download_list).await?;
-
         // Finally, run success post invoke
         let _ = remove_task.await;
+
         progress_manager.run_invoke_script();
         Self::run_success_post_invoke(&config_tree).await;
 
@@ -868,34 +865,6 @@ async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> 
             if let Err(e) = fs::remove_file(x.path()).await {
                 debug!("Failed to remove file {:?}: {e}", x.file_name());
             }
-        }
-    }
-
-    Ok(())
-}
-
-async fn download_list_set_permission(download_dir: &Path, download_list: &[String]) -> Result<()> {
-    let mut download_dir = fs::read_dir(&download_dir)
-        .await
-        .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
-
-    while let Ok(Some(x)) = download_dir.next_entry().await {
-        if x.path().is_file()
-            && download_list.contains(&x.file_name().to_string_lossy().to_string())
-        {
-            debug!("Setting {} permission as 0o644 ...", x.path().display());
-            let mut perms = fs::metadata(x.path())
-                .await
-                .map_err(|e| {
-                    RefreshError::FailedToOperateDirOrFile(x.path().display().to_string(), e)
-                })?
-                .permissions();
-
-            perms.set_mode(0o644);
-
-            fs::set_permissions(x.path(), perms).await.map_err(|e| {
-                RefreshError::FailedToOperateDirOrFile(x.path().display().to_string(), e)
-            })?;
         }
     }
 
