@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ahash::RandomState;
+use ahash::{HashMap, RandomState};
 use oma_console::{
     console::style,
     indicatif::{MultiProgress, ProgressBar},
@@ -23,8 +23,6 @@ use oma_utils::human_bytes::HumanBytes;
 use tracing::{error, info, warn};
 
 use crate::fl;
-
-type DashMap<K, V> = dashmap::DashMap<K, V, ahash::random_state::RandomState>;
 
 pub struct OmaProgressBar {
     pub inner: ProgressBar,
@@ -76,14 +74,14 @@ impl Writeln for OmaProgressBar {
 
 pub struct OmaMultiProgressBar {
     mb: MultiProgress,
-    pb_map: DashMap<usize, ProgressBar>,
+    pb_map: RwLock<HashMap<usize, ProgressBar>>,
 }
 
 impl Default for OmaMultiProgressBar {
     fn default() -> Self {
         Self {
             mb: MultiProgress::new(),
-            pb_map: DashMap::with_hasher(RandomState::new()),
+            pb_map: RwLock::new(HashMap::with_hasher(RandomState::new())),
         }
     }
 }
@@ -124,13 +122,13 @@ impl DownloadProgressControl for OmaMultiProgressBar {
     }
 
     fn global_progress_set(&self, num: &AtomicU64) {
-        if let Some(gpb) = &self.pb_map.get(&0) {
+        if let Some(gpb) = self.pb_map.read().unwrap().get(&0) {
             gpb.set_position(num.load(Ordering::SeqCst));
         }
     }
 
     fn progress_done(&self, index: usize) {
-        if let Some(pb) = self.pb_map.get(&(index + 1)) {
+        if let Some(pb) = self.pb_map.read().unwrap().get(&(index + 1)) {
             pb.finish_and_clear();
         }
     }
@@ -142,7 +140,7 @@ impl DownloadProgressControl for OmaMultiProgressBar {
             .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
         pb.set_message(msg.to_string());
         pb.enable_steady_tick(inv);
-        self.pb_map.insert(index + 1, pb);
+        self.pb_map.write().unwrap().insert(index + 1, pb);
     }
 
     fn new_progress_bar(&self, index: usize, msg: &str, size: u64) {
@@ -151,17 +149,17 @@ impl DownloadProgressControl for OmaMultiProgressBar {
             .mb
             .insert(index + 1, ProgressBar::new(size).with_style(sty));
         pb.set_message(msg.to_string());
-        self.pb_map.insert(index + 1, pb);
+        self.pb_map.write().unwrap().insert(index + 1, pb);
     }
 
     fn progress_inc(&self, index: usize, num: u64) {
-        if let Some(pb) = self.pb_map.get(&(index + 1)) {
+        if let Some(pb) = self.pb_map.read().unwrap().get(&(index + 1)) {
             pb.inc(num);
         }
     }
 
     fn progress_set(&self, index: usize, num: u64) {
-        if let Some(pb) = self.pb_map.get(&(index + 1)) {
+        if let Some(pb) = self.pb_map.read().unwrap().get(&(index + 1)) {
             pb.set_position(num);
         }
     }
@@ -179,7 +177,7 @@ impl DownloadProgressControl for OmaMultiProgressBar {
     }
 
     fn all_done(&self) {
-        if let Some(gpb) = &self.pb_map.get(&0) {
+        if let Some(gpb) = &self.pb_map.read().unwrap().get(&0) {
             gpb.finish_and_clear();
         }
     }
@@ -189,7 +187,7 @@ impl DownloadProgressControl for OmaMultiProgressBar {
         let pb = self
             .mb
             .insert(0, ProgressBar::new(total_size).with_style(sty));
-        self.pb_map.insert(0, pb);
+        self.pb_map.write().unwrap().insert(0, pb);
     }
 }
 
@@ -201,7 +199,7 @@ impl HandleTopicsControl for OmaMultiProgressBar {
             .insert(1, ProgressBar::new_spinner().with_style(sty));
         pb.set_message(fl!("refreshing-topic-metadata"));
         pb.enable_steady_tick(inv);
-        self.pb_map.insert(1, pb);
+        self.pb_map.write().unwrap().insert(1, pb);
     }
 
     fn closing_topic(&self, topic: &str) {
@@ -234,7 +232,7 @@ impl HandleRefresh for OmaMultiProgressBar {
             .insert(1, ProgressBar::new_spinner().with_style(sty));
         pb.set_message(fl!("oma-refresh-success-invoke"));
         pb.enable_steady_tick(inv);
-        self.pb_map.insert(1, pb);
+        self.pb_map.write().unwrap().insert(1, pb);
     }
 }
 

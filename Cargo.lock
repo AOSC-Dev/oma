@@ -2910,7 +2910,6 @@ dependencies = [
  "console-subscriber",
  "crossterm 0.28.1",
  "ctrlc",
- "dashmap",
  "dialoguer",
  "faster-hex",
  "glob-match",
