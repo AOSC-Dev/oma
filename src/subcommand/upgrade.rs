@@ -142,6 +142,8 @@ pub fn execute(
 
         let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;
 
+        handle_no_result(&args.sysroot, no_result, no_progress)?;
+
         let no_marked_install = apt.install(&pkgs, false)?;
 
         if !no_marked_install.is_empty() {
@@ -152,8 +154,6 @@ pub fn execute(
                 );
             }
         }
-
-        handle_no_result(&args.sysroot, no_result, no_progress)?;
 
         let pb = if !no_progress || is_terminal() {
             OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
