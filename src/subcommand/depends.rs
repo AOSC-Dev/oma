@@ -4,7 +4,6 @@ use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::PackagesMatcher,
 };
-use oma_utils::dpkg::dpkg_arch;
 
 use crate::error::OutputError;
 
@@ -28,11 +27,7 @@ pub fn execute(
         .build();
     let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
-    let arch = dpkg_arch(&sysroot)?;
-    let matcher = PackagesMatcher::builder()
-        .cache(&apt.cache)
-        .native_arch(&arch)
-        .build();
+    let matcher = PackagesMatcher::builder().cache(&apt.cache).build();
 
     let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs.iter().map(|x| x.as_str()))?;
 

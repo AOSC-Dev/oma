@@ -5,7 +5,6 @@ use oma_console::{due_to, success};
 use oma_fetch::DownloadProgressControl;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
-use oma_utils::dpkg::dpkg_arch;
 use reqwest::StatusCode;
 use tracing::{error, info};
 
@@ -36,13 +35,11 @@ pub fn execute(
     let apt_config = AptConfig::new();
     let oma_apt_args = OmaAptArgs::builder().build();
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
-    let arch = dpkg_arch("/")?;
     let matcher = PackagesMatcher::builder()
         .cache(&apt.cache)
         .filter_candidate(true)
         .filter_downloadable_candidate(true)
         .select_dbg(false)
-        .native_arch(&arch)
         .build();
 
     let (pkgs, no_result) = matcher.match_pkgs_and_versions(keyword)?;

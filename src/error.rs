@@ -998,6 +998,7 @@ fn oma_database_error(e: MatcherError) -> OutputError {
             description: e.to_string(),
             source: None,
         },
+        MatcherError::DpkgError(dpkg_error) => OutputError::from(dpkg_error),
     }
 }
 
