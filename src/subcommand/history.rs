@@ -137,7 +137,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
     for i in glob {
         let res = matcher.match_pkgs_from_glob(i)?;
         if res.is_empty() {
-            no_result.push(i.to_string());
+            no_result.push(i);
         } else {
             delete.extend(res);
         }

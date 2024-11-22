@@ -66,9 +66,13 @@ use super::remove::ask_user_do_as_i_say;
 
 pub(crate) fn handle_no_result(
     sysroot: impl AsRef<Path>,
-    no_result: Vec<String>,
+    no_result: Vec<&str>,
     no_progress: bool,
 ) -> Result<(), OutputError> {
+    if no_result.is_empty() {
+        return Ok(());
+    }
+
     let mut bin = vec![];
 
     let pb = if !no_progress || is_terminal() {
@@ -77,7 +81,7 @@ pub(crate) fn handle_no_result(
         None
     };
 
-    for word in &no_result {
+    for word in no_result {
         if word == "266" {
             if let Some(ref pb) = pb {
                 pb.writeln(
@@ -130,14 +134,10 @@ pub(crate) fn handle_no_result(
         }
     }
 
-    if no_result.is_empty() {
-        Ok(())
-    } else {
-        Err(OutputError {
-            description: fl!("has-error-on-top"),
-            source: None,
-        })
-    }
+    Err(OutputError {
+        description: fl!("has-error-on-top"),
+        source: None,
+    })
 }
 
 pub fn contents_search(
