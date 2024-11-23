@@ -1,3 +1,5 @@
+use std::env;
+
 use crate::{apt::AptConfig, dbus::change_status};
 use oma_apt::progress::DynInstallProgress;
 use tokio::runtime::Runtime;
@@ -40,7 +42,10 @@ impl OmaAptInstallProgress {
             connection,
         } = args;
 
-        if pm.no_interactive() {
+        // FIXME: 目前 oma 没有很好的根据 yes 来传参的方式
+        // 所以先在其他地方判断 DEBIAN_FRONTEND 这个变量是否存在
+        // 再设定 DEBIAN_FRONTEND
+        if env::var("DEBIAN_FRONTEND").is_err() && pm.no_interactive() {
             std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
         }
 
