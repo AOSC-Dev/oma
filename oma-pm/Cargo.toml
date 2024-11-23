@@ -38,11 +38,7 @@ indexmap = "2"
 memchr = "2"
 serde = { version = "1", features = ["derive"] }
 apt-auth-config = { version = "0.2.0", path = "../apt-auth-config" }
-
-[dev-dependencies]
-dashmap = "6"
-indicatif = "0.17"
-oma-console = { version = "^0.24.0", path = "../oma-console", default-features = false, features = ["progress_bar_style"] }
+flume = "0.11"
 
 [features]
 aosc = []

@@ -42,6 +42,7 @@ indexmap = "2.6.0"
 faster-hex = "0.10"
 sha2 = "0.10"
 bon = "3"
+flume = "0.11"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }

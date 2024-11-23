@@ -32,8 +32,8 @@ use oma_apt_sources_lists::SourceError;
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::{self, Client},
-    CompressFile, DownloadEntry, DownloadManager, DownloadProgressControl, DownloadResult,
-    DownloadSource, DownloadSourceType, Summary,
+    CompressFile, DownloadEntry, DownloadManager, DownloadResult, DownloadSource,
+    DownloadSourceType, Summary,
 };
 
 #[cfg(feature = "aosc")]
@@ -51,7 +51,7 @@ use sysinfo::{Pid, System};
 use tokio::{
     fs::{self},
     process::Command,
-    task::spawn_blocking,
+    task::{spawn_blocking, JoinHandle},
 };
 use tracing::{debug, warn};
 
@@ -64,10 +64,6 @@ use crate::{
     sourceslist::{sources_lists, OmaSourceEntry, OmaSourceEntryFrom},
     util::DatabaseFilenameReplacer,
 };
-
-pub trait HandleRefresh: DownloadProgressControl + HandleTopicsControl {
-    fn run_invoke_script(&self);
-}
 
 #[cfg(feature = "aosc")]
 #[derive(Debug, thiserror::Error)]
@@ -108,6 +104,8 @@ pub enum RefreshError {
     SetLockWithProcess(String, i32),
     #[error("duplicate components")]
     DuplicateComponents(Box<str>, String),
+    #[error(transparent)]
+    SendErr(#[from] flume::SendError<Event>),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -147,6 +145,8 @@ pub enum RefreshError {
     SetLockWithProcess(String, i32),
     #[error("duplicate components")]
     DuplicateComponents(Box<str>, String),
+    #[error(transparent)]
+    SendErr(#[from] flume::SendError<Event>),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -165,8 +165,9 @@ pub struct OmaRefresh<'a> {
     refresh_topics: bool,
     apt_config: &'a Config,
     topic_msg: &'a str,
-    progress_manager: &'a dyn HandleRefresh,
     auth_config: &'a AuthConfig,
+    #[builder(skip = flume::unbounded())]
+    progress_channel: (flume::Sender<Event>, flume::Receiver<Event>),
 }
 
 enum RepoType {
@@ -243,22 +244,31 @@ pub trait HandleTopicsControl {
     fn topic_not_in_mirror(&self, topic: &str, mirror: &str);
 }
 
+#[derive(Debug)]
+pub enum Event {
+    DownloadEvent(oma_fetch::Event),
+    ScanningTopic,
+    ClosingTopic(String),
+    TopicNotInMirror { topic: String, mirror: String },
+    RunInvokeScript,
+    Done,
+}
+
 impl<'a> OmaRefresh<'a> {
+    pub fn get_recviver(&self) -> &flume::Receiver<Event> {
+        &self.progress_channel.1
+    }
+
     pub async fn start(mut self) -> Result<()> {
         let arch = dpkg_arch(&self.source)?;
 
-        self.update_db(
-            sources_lists(&self.source, &arch)?,
-            self.progress_manager,
-            self.topic_msg,
-        )
-        .await
+        self.update_db(sources_lists(&self.source, &arch)?, self.topic_msg)
+            .await
     }
 
     async fn update_db(
         &mut self,
         mut sourcelist: Vec<OmaSourceEntry<'_>>,
-        progress_manager: &dyn HandleRefresh,
         topic_msg: &str,
     ) -> Result<()> {
         if !self.download_dir.is_dir() {
@@ -285,9 +295,7 @@ impl<'a> OmaRefresh<'a> {
 
         self.set_auth(&mut sourcelist);
 
-        let is_inrelease_map = self
-            .get_is_inrelease_map(&sourcelist, progress_manager)
-            .await?;
+        let is_inrelease_map = self.get_is_inrelease_map(&sourcelist).await?;
 
         let mut download_list = vec![];
 
@@ -299,18 +307,20 @@ impl<'a> OmaRefresh<'a> {
             download_list.push(i.filename.to_string());
         }
 
-        let release_results = DownloadManager::builder()
+        let dm = DownloadManager::builder()
             .client(self.client)
             .threads(self.threads)
             .download_list(tasks)
-            .progress_manager(progress_manager.as_download_progress_control())
             .set_permission(0o644)
-            .build()
-            .start_download()
-            .await;
+            .build();
+
+        let event_worker = self.event_worker(&dm);
+
+        let release_results = dm.start_download().await;
+        let _ = event_worker.await;
 
         let all_inrelease = self
-            .handle_downloaded_release_result(release_results, progress_manager, topic_msg)
+            .handle_downloaded_release_result(release_results, topic_msg)
             .await?;
 
         let config_tree = get_config(self.apt_config);
@@ -333,26 +343,60 @@ impl<'a> OmaRefresh<'a> {
         let remove_task =
             tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
 
-        let res = DownloadManager::builder()
+        let dm = DownloadManager::builder()
             .client(self.client)
             .download_list(tasks)
             .threads(self.threads)
-            .progress_manager(progress_manager.as_download_progress_control())
             .set_permission(0o644)
             .total_size(total)
-            .build()
-            .start_download()
-            .await;
+            .build();
+
+        let event_worker = self.event_worker(&dm);
+
+        let res = dm.start_download().await;
 
         res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
+        let _ = event_worker.await;
 
         // Finally, run success post invoke
         let _ = remove_task.await;
 
-        progress_manager.run_invoke_script();
+        self.progress_channel
+            .0
+            .send_async(Event::RunInvokeScript)
+            .await?;
         Self::run_success_post_invoke(&config_tree).await;
+        self.progress_channel.0.send_async(Event::Done).await?;
 
         Ok(())
+    }
+
+    fn event_worker(&self, dm: &DownloadManager<'_>) -> JoinHandle<()> {
+        let download_recviver = dm.get_recviver().clone();
+
+        let tx = self.progress_channel.0.clone();
+
+        tokio::spawn(async move {
+            loop {
+                match download_recviver.recv_async().await {
+                    Ok(event) => {
+                        let is_done = event == oma_fetch::Event::AllDone;
+
+                        if let Err(e) = tx.send_async(Event::DownloadEvent(event)).await {
+                            debug!("Recviver got error: {e}");
+                        }
+
+                        if is_done {
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        debug!("Recviver got error: {e}");
+                        break;
+                    }
+                }
+            }
+        })
     }
 
     fn set_auth(&self, sourcelist: &mut [OmaSourceEntry<'_>]) {
@@ -394,7 +438,6 @@ impl<'a> OmaRefresh<'a> {
     async fn get_is_inrelease_map(
         &mut self,
         sourcelist: &[OmaSourceEntry<'_>],
-        progress_manager: &dyn HandleRefresh,
     ) -> Result<AHashMap<usize, RepoType>> {
         let mut tasks = vec![];
 
@@ -403,6 +446,7 @@ impl<'a> OmaRefresh<'a> {
         for (i, c) in sourcelist.iter().enumerate() {
             let mut tasks1 = vec![];
             let dist_path = c.dist_path();
+            let tx = &self.progress_channel.0;
 
             match c.from()? {
                 OmaSourceEntryFrom::Http => {
@@ -426,13 +470,26 @@ impl<'a> OmaRefresh<'a> {
 
                     let s = c.get_human_download_url(None)?;
 
+                    let txc = tx.clone();
                     let task = async move {
-                        progress_manager.new_progress_spinner(
-                            i,
-                            &format!("({}/{}) {}", i + 1, sourcelist.len(), s),
-                        );
+                        if let Err(e) = txc
+                            .send_async(Event::DownloadEvent(
+                                oma_fetch::Event::NewProgressSpinner {
+                                    index: i,
+                                    msg: format!("({}/{}) {}", i + 1, sourcelist.len(), s),
+                                },
+                            ))
+                            .await
+                        {
+                            debug!("{e}");
+                        }
                         let res = join_all(tasks1).await;
-                        progress_manager.progress_done(i);
+                        if let Err(e) = txc
+                            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(i)))
+                            .await
+                        {
+                            debug!("{e}");
+                        }
                         res
                     };
 
@@ -446,7 +503,15 @@ impl<'a> OmaRefresh<'a> {
                         c.get_human_download_url(None)?
                     );
 
-                    progress_manager.new_progress_spinner(i, &msg);
+                    if let Err(e) = tx
+                        .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+                            index: i,
+                            msg,
+                        }))
+                        .await
+                    {
+                        debug!("{e}");
+                    }
 
                     let dist_path = dist_path.strip_prefix("file:").unwrap_or(dist_path);
 
@@ -463,7 +528,14 @@ impl<'a> OmaRefresh<'a> {
                         mirrors_inrelease.insert(i, RepoType::FlatNoRelease);
                         continue;
                     } else {
-                        progress_manager.progress_done(i);
+                        if let Err(e) = self
+                            .progress_channel
+                            .0
+                            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(i)))
+                            .await
+                        {
+                            debug!("{e}");
+                        }
                         #[cfg(feature = "aosc")]
                         // FIXME: 为了能让 oma refresh 正确关闭 topic，这里先忽略错误
                         mirrors_inrelease.insert(i, RepoType::InRelease);
@@ -471,7 +543,14 @@ impl<'a> OmaRefresh<'a> {
                         return Err(RefreshError::NoInReleaseFile(c.dist_path().to_string()));
                     }
 
-                    progress_manager.progress_done(i);
+                    if let Err(e) = self
+                        .progress_channel
+                        .0
+                        .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(i)))
+                        .await
+                    {
+                        debug!("{e}");
+                    }
                 }
             }
         }
@@ -601,7 +680,6 @@ impl<'a> OmaRefresh<'a> {
     async fn handle_downloaded_release_result(
         &self,
         res: Vec<DownloadResult<Summary>>,
-        _progress_manager: &dyn HandleRefresh,
         _handle_topic_msg: &str,
     ) -> Result<Vec<Summary>> {
         let mut all_inrelease = vec![];
@@ -644,12 +722,23 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(feature = "aosc")]
         {
             if self.refresh_topics {
-                _progress_manager.scanning_topic();
+                // _progress_manager.scanning_topic();
+                self.progress_channel
+                    .0
+                    .send_async(Event::ScanningTopic)
+                    .await?;
                 let mut tm =
                     TopicManager::new(self.client, &self.source, &self.arch, false).await?;
                 let removed_suites =
                     oma_topics::scan_closed_topic(&mut tm, _handle_topic_msg, |topic, mirror| {
-                        _progress_manager.topic_not_in_mirror(topic, mirror)
+                        // TODO
+                        self.progress_channel
+                            .0
+                            .send(Event::TopicNotInMirror {
+                                topic: topic.to_string(),
+                                mirror: mirror.to_string(),
+                            })
+                            .ok();
                     })
                     .await?;
 
@@ -663,7 +752,11 @@ impl<'a> OmaRefresh<'a> {
                         return Err(RefreshError::NoInReleaseFile(url.to_string()));
                     }
 
-                    _progress_manager.closing_topic(&suite);
+                    // _progress_manager.closing_topic(&suite);
+                    self.progress_channel
+                        .0
+                        .send_async(Event::ClosingTopic(suite))
+                        .await?;
                 }
             }
         }

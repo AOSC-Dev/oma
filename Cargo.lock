@@ -1445,6 +1445,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "flume"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da0e4dd2a88388a1f4ccc7c9ce104604dab68d9f408dc34cd45823d5a9069095"
+dependencies = [
+ "futures-core",
+ "futures-sink",
+ "nanorand",
+ "spin",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2693,6 +2705,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nanorand"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
+dependencies = [
+ "getrandom",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2912,6 +2933,7 @@ dependencies = [
  "ctrlc",
  "dialoguer",
  "faster-hex",
+ "flume",
  "glob-match",
  "i18n-embed",
  "i18n-embed-fl",
@@ -3016,12 +3038,10 @@ version = "0.20.0"
 dependencies = [
  "async-compression",
  "bon",
- "dashmap",
  "faster-hex",
+ "flume",
  "futures",
- "indicatif",
  "md-5",
- "oma-console",
  "oma-utils 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
@@ -3083,11 +3103,10 @@ dependencies = [
  "bon",
  "chrono",
  "cxx",
- "dashmap",
+ "flume",
  "fs4",
  "glob-match",
  "indexmap 2.6.0",
- "indicatif",
  "indicium",
  "memchr",
  "oma-apt",
@@ -3123,6 +3142,7 @@ dependencies = [
  "bon",
  "chrono",
  "dashmap",
+ "flume",
  "futures",
  "indicatif",
  "nix",
@@ -4403,6 +4423,9 @@ name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+dependencies = [
+ "lock_api",
+]
 
 [[package]]
 name = "stable_deref_trait"
