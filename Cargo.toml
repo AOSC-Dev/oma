@@ -10,7 +10,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 [dependencies]
 # Cli
-clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string"] }
+clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string", "derive"] }
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
 # https://github.com/zhiburt/tabled/issues/423
@@ -43,6 +43,7 @@ faster-hex = "0.10"
 sha2 = "0.10"
 bon = "3"
 flume = "0.11"
+enum_dispatch = "0.3"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
@@ -66,8 +67,8 @@ unic-langid = "0.9.5"
 [build-dependencies]
 clap_mangen = "0.2.23"
 clap_complete = "4.5.29"
-clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string"] }
-anyhow = "1.0.89"
+clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string", "derive"] }
+enum_dispatch = "0.3"
 
 [features]
 aosc = ["dep:oma-topics", "dep:oma-mirror", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "reqwest/blocking"]

@@ -1,5 +1,6 @@
-use std::{borrow::Cow, io::stdout};
+use std::{borrow::Cow, io::stdout, path::PathBuf};
 
+use clap::Args;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::PackagesMatcher,
@@ -7,74 +8,99 @@ use oma_pm::{
 use oma_utils::dpkg::dpkg_arch;
 use std::io::Write;
 
-use crate::error::OutputError;
+use crate::{config::Config, error::OutputError};
 
 use super::utils::{check_unsupported_stmt, handle_no_result};
 
-pub fn execute(
-    pkgs: Vec<String>,
-    sysroot: String,
+use crate::args_v2::CliExecuter;
+
+#[derive(Debug, Args)]
+pub struct Rdepends {
+    /// Package(s) to query dependency(ies) for
+    #[arg(required = true)]
+    packages: Vec<String>,
+    /// Set output format as JSON
+    #[arg(long)]
     json: bool,
-    another_apt_options: Vec<String>,
-    no_progress: bool,
-) -> Result<i32, OutputError> {
-    for pkg in &pkgs {
-        check_unsupported_stmt(pkg);
-    }
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+    /// Set apt options
+    #[arg(from_global)]
+    apt_options: Vec<String>,
+}
 
-    let oma_apt_args = OmaAptArgs::builder()
-        .sysroot(sysroot.clone())
-        .another_apt_options(another_apt_options)
-        .build();
+impl CliExecuter for Rdepends {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        let Rdepends {
+            packages,
+            json,
+            sysroot,
+            apt_options,
+        } = self;
 
-    let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+        for pkg in &packages {
+            check_unsupported_stmt(pkg);
+        }
 
-    let arch = dpkg_arch(&sysroot)?;
-    let matcher = PackagesMatcher::builder()
-        .cache(&apt.cache)
-        .native_arch(&arch)
-        .build();
+        let oma_apt_args = OmaAptArgs::builder()
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .another_apt_options(apt_options)
+            .build();
 
-    let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs.iter().map(|x| x.as_str()))?;
+        let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-    handle_no_result(sysroot, no_result, no_progress)?;
+        let arch = dpkg_arch(&sysroot)?;
+        let matcher = PackagesMatcher::builder()
+            .cache(&apt.cache)
+            .native_arch(&arch)
+            .build();
 
-    if !json {
-        for pkg in pkgs {
-            println!("{}:", pkg.raw_pkg.fullname(true));
-            println!("  Reverse dependencies:");
-            let all_deps = pkg.get_rdeps(&apt.cache)?;
+        let (pkgs, no_result) =
+            matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
 
-            for (k, v) in all_deps {
-                for dep in v.inner() {
-                    for b_dep in dep {
-                        let s = if let (Some(symbol), Some(ver)) =
-                            (b_dep.comp_symbol, b_dep.target_ver)
-                        {
-                            Cow::Owned(format!("({} {symbol} {ver})", pkg.raw_pkg.fullname(true)))
-                        } else {
-                            Cow::Borrowed("")
-                        };
+        handle_no_result(sysroot, no_result, no_progress)?;
 
-                        println!("    {k}: {} {}", b_dep.name, s);
+        if !json {
+            for pkg in pkgs {
+                println!("{}:", pkg.raw_pkg.fullname(true));
+                println!("  Reverse dependencies:");
+                let all_deps = pkg.get_rdeps(&apt.cache)?;
+
+                for (k, v) in all_deps {
+                    for dep in v.inner() {
+                        for b_dep in dep {
+                            let s = if let (Some(symbol), Some(ver)) =
+                                (b_dep.comp_symbol, b_dep.target_ver)
+                            {
+                                Cow::Owned(format!(
+                                    "({} {symbol} {ver})",
+                                    pkg.raw_pkg.fullname(true)
+                                ))
+                            } else {
+                                Cow::Borrowed("")
+                            };
+
+                            println!("    {k}: {} {}", b_dep.name, s);
+                        }
                     }
                 }
             }
+        } else {
+            let mut stdout = stdout();
+            for pkg in pkgs {
+                writeln!(
+                    stdout,
+                    "{}",
+                    serde_json::json!({
+                        "name": pkg.raw_pkg.fullname(true),
+                        "rdeps": pkg.get_rdeps(&apt.cache)?,
+                    })
+                )
+                .ok();
+            }
         }
-    } else {
-        let mut stdout = stdout();
-        for pkg in pkgs {
-            writeln!(
-                stdout,
-                "{}",
-                serde_json::json!({
-                    "name": pkg.raw_pkg.fullname(true),
-                    "rdeps": pkg.get_rdeps(&apt.cache)?,
-                })
-            )
-            .ok();
-        }
-    }
 
-    Ok(0)
+        Ok(0)
+    }
 }

@@ -2,6 +2,7 @@ use std::error::Error;
 use std::io::stdout;
 
 use ahash::AHashMap;
+use clap::Args;
 use oma_console::due_to;
 use oma_console::print::Action;
 use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
@@ -9,127 +10,144 @@ use oma_contents::OmaContentsError;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::error;
 
+use crate::config::Config;
 use crate::error::OutputError;
 use crate::table::PagerPrinter;
 use crate::{color_formatter, fl};
+
+use crate::args_v2::CliExecuter;
 
 const FILTER_JARO_NUM: u8 = 204;
 const APT_LIST_PATH: &str = "/var/lib/apt/lists";
 
 type IndexSet<T> = indexmap::IndexSet<T, ahash::RandomState>;
 
-pub fn execute(query: &str) -> Result<i32, OutputError> {
-    let mut res = IndexSet::with_hasher(ahash::RandomState::new());
+#[derive(Debug, Args)]
+pub struct CommandNotFound {
+    /// Package to query command-not-found
+    #[arg(required = true)]
+    keyword: String,
+}
 
-    let cb = |line| {
-        if !res.contains(&line) {
-            res.insert(line);
-        }
-    };
+impl CliExecuter for CommandNotFound {
+    fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
+        let CommandNotFound { keyword } = self;
 
-    let search_res = if which::which("rg").is_ok() {
-        ripgrep_search(APT_LIST_PATH, Mode::BinProvides, query, cb)
-    } else {
-        pure_search(APT_LIST_PATH, Mode::BinProvides, query, cb)
-    };
+        let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
-    match search_res {
-        Ok(()) if res.is_empty() => {
-            error!("{}", fl!("command-not-found", kw = query));
-        }
-        Ok(()) => {
-            let apt_config = AptConfig::new();
-            let oma_apt_args = OmaAptArgs::builder().build();
-            let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
-
-            let mut jaro = jaro_nums(res, query);
-
-            let all_match = jaro
-                .iter()
-                .filter(|x| x.2 == u8::MAX)
-                .map(|x| x.to_owned())
-                .collect::<Vec<_>>();
-
-            if !all_match.is_empty() {
-                jaro = all_match;
+        let cb = |line| {
+            if !res.contains(&line) {
+                res.insert(line);
             }
+        };
 
-            let mut res = vec![];
+        let search_res = if which::which("rg").is_ok() {
+            ripgrep_search(APT_LIST_PATH, Mode::BinProvides, &keyword, cb)
+        } else {
+            pure_search(APT_LIST_PATH, Mode::BinProvides, &keyword, cb)
+        };
 
-            let mut too_many = false;
+        match search_res {
+            Ok(()) if res.is_empty() => {
+                error!("{}", fl!("command-not-found", kw = keyword));
+            }
+            Ok(()) => {
+                let apt_config = AptConfig::new();
+                let oma_apt_args = OmaAptArgs::builder().build();
+                let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
-            let mut map: AHashMap<String, String> = AHashMap::new();
+                let mut jaro = jaro_nums(res, &keyword);
 
-            for (pkg, file, jaro) in jaro {
-                if res.len() == 10 {
-                    too_many = true;
-                    break;
+                let all_match = jaro
+                    .iter()
+                    .filter(|x| x.2 == u8::MAX)
+                    .map(|x| x.to_owned())
+                    .collect::<Vec<_>>();
+
+                if !all_match.is_empty() {
+                    jaro = all_match;
                 }
 
-                if jaro < FILTER_JARO_NUM {
-                    break;
+                let mut res = vec![];
+
+                let mut too_many = false;
+
+                let mut map: AHashMap<String, String> = AHashMap::new();
+
+                for (pkg, file, jaro) in jaro {
+                    if res.len() == 10 {
+                        too_many = true;
+                        break;
+                    }
+
+                    if jaro < FILTER_JARO_NUM {
+                        break;
+                    }
+
+                    let desc = if let Some(desc) = map.get(&pkg) {
+                        desc.to_string()
+                    } else if let Some(pkg) = apt.cache.get(&pkg) {
+                        let desc = pkg
+                            .candidate()
+                            .and_then(|x| x.summary())
+                            .unwrap_or_else(|| "no description.".to_string());
+
+                        map.insert(pkg.fullname(true), desc.to_string());
+
+                        desc
+                    } else {
+                        continue;
+                    };
+
+                    let entry = (
+                        color_formatter()
+                            .color_str(pkg, Action::Emphasis)
+                            .bold()
+                            .to_string(),
+                        color_formatter()
+                            .color_str(file, Action::Secondary)
+                            .to_string(),
+                        desc,
+                    );
+
+                    res.push(entry);
                 }
 
-                let desc = if let Some(desc) = map.get(&pkg) {
-                    desc.to_string()
-                } else if let Some(pkg) = apt.cache.get(&pkg) {
-                    let desc = pkg
-                        .candidate()
-                        .and_then(|x| x.summary())
-                        .unwrap_or_else(|| "no description.".to_string());
-
-                    map.insert(pkg.fullname(true), desc.to_string());
-
-                    desc
+                if res.is_empty() {
+                    error!("{}", fl!("command-not-found", kw = keyword));
                 } else {
-                    continue;
-                };
+                    println!(
+                        "{}\n",
+                        fl!("command-not-found-with-result", kw = keyword.as_str())
+                    );
+                    let mut printer = PagerPrinter::new(stdout());
+                    printer
+                        .print_table(res, vec!["Name", "Path", "Description"])
+                        .ok();
 
-                let entry = (
-                    color_formatter()
-                        .color_str(pkg, Action::Emphasis)
-                        .bold()
-                        .to_string(),
-                    color_formatter()
-                        .color_str(file, Action::Secondary)
-                        .to_string(),
-                    desc,
-                );
-
-                res.push(entry);
-            }
-
-            if res.is_empty() {
-                error!("{}", fl!("command-not-found", kw = query));
-            } else {
-                println!("{}\n", fl!("command-not-found-with-result", kw = query));
-                let mut printer = PagerPrinter::new(stdout());
-                printer
-                    .print_table(res, vec!["Name", "Path", "Description"])
-                    .ok();
-
-                if too_many {
-                    println!("\n{}", fl!("cnf-too-many-query"));
-                    println!("{}", fl!("cnf-too-many-query-2", query = query));
+                    if too_many {
+                        println!("\n{}", fl!("cnf-too-many-query"));
+                        println!("{}", fl!("cnf-too-many-query-2", query = keyword));
+                    }
                 }
             }
-        }
-        Err(e) => {
-            if let OmaContentsError::NoResult = e {
-                error!("{}", fl!("command-not-found", kw = query));
-            } else {
-                let err = OutputError::from(e);
-                if !err.to_string().is_empty() {
-                    error!("{err}");
-                    if let Some(source) = err.source() {
-                        due_to!("{source}");
+            Err(e) => {
+                if let OmaContentsError::NoResult = e {
+                    error!("{}", fl!("command-not-found", kw = keyword));
+                } else {
+                    let err = OutputError::from(e);
+                    if !err.to_string().is_empty() {
+                        error!("{err}");
+                        if let Some(source) = err.source() {
+                            due_to!("{source}");
+                        }
                     }
                 }
             }
         }
-    }
 
-    Ok(127)
+        Ok(127)
+    }
 }
 
 fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, String, u8)> {

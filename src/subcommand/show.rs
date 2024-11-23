@@ -1,5 +1,6 @@
-use std::io::stdout;
+use std::{io::stdout, path::PathBuf};
 
+use clap::Args;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::PackagesMatcher,
@@ -8,101 +9,130 @@ use oma_pm::{
 use oma_utils::dpkg::dpkg_arch;
 use tracing::info;
 
-use crate::error::OutputError;
+use crate::{config::Config, error::OutputError};
 
 use super::utils::handle_no_result;
+use crate::args_v2::CliExecuter;
 use crate::fl;
 
 use std::io::Write;
 
-pub fn execute(
+#[derive(Debug, Args)]
+pub struct Show {
+    /// how information on all available version(s) of (a) package(s) from all repository(ies)
+    #[arg(short, long)]
     all: bool,
-    input: Vec<&str>,
-    sysroot: String,
+    /// Set output format as JSON
+    #[arg(long)]
     json: bool,
-    another_apt_options: Vec<String>,
-    no_progress: bool,
-) -> Result<i32, OutputError> {
-    let oma_apt_args = OmaAptArgs::builder()
-        .another_apt_options(another_apt_options)
-        .sysroot(sysroot.clone())
-        .build();
-    let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+    /// Package(s) to show
+    #[arg(required = true)]
+    packages: Vec<String>,
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+    /// Set apt options
+    #[arg(from_global)]
+    apt_options: Vec<String>,
+}
 
-    let arch = dpkg_arch(&sysroot)?;
-    let matcher = PackagesMatcher::builder()
-        .cache(&apt.cache)
-        .native_arch(&arch)
-        .build();
+impl CliExecuter for Show {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        let Show {
+            all,
+            json,
+            packages,
+            sysroot,
+            apt_options,
+        } = self;
 
-    let (pkgs, no_result) = matcher.match_pkgs_and_versions(input)?;
+        let oma_apt_args = OmaAptArgs::builder()
+            .another_apt_options(apt_options)
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .build();
 
-    handle_no_result(sysroot, no_result, no_progress)?;
+        let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-    let mut stdout = stdout();
+        let arch = dpkg_arch(&sysroot)?;
+        let matcher = PackagesMatcher::builder()
+            .cache(&apt.cache)
+            .native_arch(&arch)
+            .build();
 
-    if !all {
-        let mut filter_pkgs: Vec<OmaPackage> = vec![];
-        let pkgs_len = pkgs.len();
-        for pkg in pkgs {
-            if !filter_pkgs
-                .iter()
-                .any(|x| pkg.raw_pkg.fullname(true) == x.raw_pkg.fullname(true))
-            {
-                filter_pkgs.push(pkg);
+        let (pkgs, no_result) =
+            matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
+
+        handle_no_result(sysroot, no_result, no_progress)?;
+
+        let mut stdout = stdout();
+
+        if !all {
+            let mut filter_pkgs: Vec<OmaPackage> = vec![];
+            let pkgs_len = pkgs.len();
+            for pkg in pkgs {
+                if !filter_pkgs
+                    .iter()
+                    .any(|x| pkg.raw_pkg.fullname(true) == x.raw_pkg.fullname(true))
+                {
+                    filter_pkgs.push(pkg);
+                }
             }
-        }
 
-        if filter_pkgs.is_empty() {
-            return Ok(1);
-        }
+            if filter_pkgs.is_empty() {
+                return Ok(1);
+            }
 
-        for (i, pkg) in filter_pkgs.iter().enumerate() {
-            if json {
-                writeln!(
-                    stdout,
-                    "{}",
-                    serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| OutputError {
-                        description: e.to_string(),
-                        source: None
-                    })?
-                )
-                .ok();
-            } else {
-                writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
-                if i != filter_pkgs.len() - 1 {
+            for (i, pkg) in filter_pkgs.iter().enumerate() {
+                if json {
+                    writeln!(
+                        stdout,
+                        "{}",
+                        serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| {
+                            OutputError {
+                                description: e.to_string(),
+                                source: None,
+                            }
+                        })?
+                    )
+                    .ok();
+                } else {
+                    writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
+                    if i != filter_pkgs.len() - 1 {
+                        writeln!(stdout).ok();
+                    }
+                }
+            }
+
+            if filter_pkgs.len() == 1 && !json {
+                let other_version = pkgs_len - 1;
+
+                if other_version > 0 {
+                    info!("{}", fl!("additional-version", len = other_version));
+                }
+            }
+        } else {
+            for (i, pkg) in pkgs.iter().enumerate() {
+                if json {
+                    writeln!(
+                        stdout,
+                        "{}",
+                        serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| {
+                            OutputError {
+                                description: e.to_string(),
+                                source: None,
+                            }
+                        })?
+                    )
+                    .ok();
+                } else if i != pkgs.len() - 1 {
+                    writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
                     writeln!(stdout).ok();
+                } else {
+                    writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
                 }
             }
         }
 
-        if filter_pkgs.len() == 1 && !json {
-            let other_version = pkgs_len - 1;
-
-            if other_version > 0 {
-                info!("{}", fl!("additional-version", len = other_version));
-            }
-        }
-    } else {
-        for (i, pkg) in pkgs.iter().enumerate() {
-            if json {
-                writeln!(
-                    stdout,
-                    "{}",
-                    serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| OutputError {
-                        description: e.to_string(),
-                        source: None
-                    })?
-                )
-                .ok();
-            } else if i != pkgs.len() - 1 {
-                writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
-                writeln!(stdout).ok();
-            } else {
-                writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
-            }
-        }
+        Ok(0)
     }
-
-    Ok(0)
 }

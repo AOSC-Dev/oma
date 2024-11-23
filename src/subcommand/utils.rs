@@ -282,6 +282,8 @@ pub(crate) struct CommitChanges<'a> {
     yes: bool,
     #[builder(default)]
     remove_config: bool,
+    #[builder(default)]
+    autoremove: bool,
     auth_config: &'a AuthConfig,
 }
 
@@ -300,6 +302,7 @@ impl CommitChanges<'_> {
             client,
             yes,
             remove_config,
+            autoremove,
             auth_config,
         } = self;
 
@@ -308,6 +311,10 @@ impl CommitChanges<'_> {
         } else {
             None
         };
+
+        if autoremove {
+            apt.autoremove(remove_config)?;
+        }
 
         apt.fix_broken(!no_fixbroken, fix_dpkg_status)?;
         apt.resolve(no_fixbroken, remove_config)?;
@@ -382,7 +389,7 @@ impl CommitChanges<'_> {
                 Box::new(OmaInstallProgressManager)
             },
             tx,
-            op,
+            &op,
         );
 
         match res {

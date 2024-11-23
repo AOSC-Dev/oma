@@ -1,6 +1,10 @@
-use std::{fmt::Display, path::Path};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
 use apt_auth_config::AuthConfig;
+use clap::{ArgAction, Args};
 use dialoguer::console::style;
 use inquire::{
     formatter::MultiOptionFormatter,
@@ -19,35 +23,69 @@ use tokio::task::spawn_blocking;
 use tracing::warn;
 
 use crate::{
+    config::Config,
     error::OutputError,
     pb::OmaProgressBar,
     utils::{dbus_check, root},
-    OmaArgs, RT,
+    HTTP_CLIENT, RT,
 };
 
 use super::utils::{
     lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitChanges,
     RefreshRequest,
 };
+
+use crate::args_v2::CliExecuter;
+
 use crate::fl;
 use anyhow::anyhow;
 use oma_topics::{scan_closed_topic, Topic, TopicManager};
+
+#[derive(Debug, Args)]
+pub struct Topics {
+    /// Enroll in one or more topic(s), delimited by space
+    #[arg(long, action = ArgAction::Append)]
+    opt_in: Vec<String>,
+    /// Withdraw from one or more topic(s) and rollback to stable versions, delimited by space
+    #[arg(long, action = ArgAction::Append)]
+    opt_out: Vec<String>,
+    /// Fix apt broken status
+    #[arg(short, long)]
+    no_fixbroken: bool,
+    /// Install package(s) without fsync(2)
+    #[arg(long)]
+    force_unsafe_io: bool,
+    /// Ignore repository and package dependency issues
+    #[arg(long)]
+    force_yes: bool,
+    /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
+    #[arg(long)]
+    force_confnew: bool,
+    /// Auto remove unnecessary package(s)
+    #[arg(long)]
+    autoremove: bool,
+    /// Remove package(s) also remove configuration file(s), like apt purge
+    #[arg(long, visible_alias = "purge")]
+    remove_config: bool,
+    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    #[arg(from_global)]
+    dry_run: bool,
+    /// Run oma do not check dbus
+    #[arg(from_global)]
+    no_check_dbus: bool,
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+    /// Set apt options
+    #[arg(from_global)]
+    apt_options: Vec<String>,
+}
 
 struct TopicChanged {
     opt_in: Vec<String>,
     opt_out: Vec<String>,
     enabled_pkgs: Vec<String>,
     downgrade_pkgs: Vec<String>,
-}
-
-pub struct TopicArgs {
-    pub opt_in: Vec<String>,
-    pub opt_out: Vec<String>,
-    pub dry_run: bool,
-    pub network_thread: usize,
-    pub no_progress: bool,
-    pub no_check_dbus: bool,
-    pub sysroot: String,
 }
 
 struct TopicDisplay<'a> {
@@ -73,116 +111,125 @@ impl Display for TopicDisplay<'_> {
     }
 }
 
-pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32, OutputError> {
-    root()?;
-    lock_oma()?;
+impl CliExecuter for Topics {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        root()?;
+        lock_oma()?;
 
-    let TopicArgs {
-        opt_in,
-        opt_out,
-        dry_run,
-        network_thread,
-        no_progress,
-        sysroot,
-        no_check_dbus,
-    } = args;
-
-    let _fds = if !no_check_dbus {
-        Some(dbus_check(false)?)
-    } else {
-        no_check_dbus_warn();
-        None
-    };
-
-    let sysroot_ref = &sysroot;
-    let client_ref = &client;
-
-    let topics_changed = RT.block_on(async move {
-        topics_inner(
+        let Topics {
             opt_in,
             opt_out,
+            no_fixbroken,
+            force_unsafe_io,
+            force_yes,
+            force_confnew,
+            autoremove,
+            remove_config,
+            dry_run,
+            no_check_dbus,
+            sysroot,
+            apt_options,
+        } = self;
+
+        let _fds = if !no_check_dbus && !config.no_check_dbus() {
+            Some(dbus_check(false)?)
+        } else {
+            no_check_dbus_warn();
+            None
+        };
+
+        let sysroot_ref = &sysroot;
+        let topics_changed = RT.block_on(async move {
+            topics_inner(
+                opt_in,
+                opt_out,
+                dry_run,
+                no_progress,
+                sysroot_ref,
+                &fl!("do-not-edit-topic-sources-list"),
+                &HTTP_CLIENT,
+            )
+            .await
+        })?;
+
+        let enabled_pkgs = topics_changed.enabled_pkgs;
+        let downgrade_pkgs = topics_changed.downgrade_pkgs;
+
+        let apt_config = AptConfig::new();
+        let auth_config = AuthConfig::system(&sysroot)?;
+
+        RefreshRequest {
+            client: &HTTP_CLIENT,
             dry_run,
             no_progress,
-            sysroot_ref,
-            &fl!("do-not-edit-topic-sources-list"),
-            client_ref,
-        )
-        .await
-    })?;
+            limit: config.network_thread(),
+            sysroot: &sysroot.to_string_lossy(),
+            _refresh_topics: true,
+            config: &apt_config,
+            auth_config: &auth_config,
+        }
+        .run()?;
 
-    let enabled_pkgs = topics_changed.enabled_pkgs;
-    let downgrade_pkgs = topics_changed.downgrade_pkgs;
+        let oma_apt_args = OmaAptArgs::builder()
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .another_apt_options(apt_options)
+            .dpkg_force_unsafe_io(force_unsafe_io)
+            .dpkg_force_confnew(force_confnew)
+            .force_yes(force_yes)
+            .build();
 
-    let apt_config = AptConfig::new();
-    let auth_config = AuthConfig::system(&sysroot)?;
+        let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
-    RefreshRequest {
-        client: &client,
-        dry_run,
-        no_progress,
-        limit: network_thread,
-        sysroot: &sysroot,
-        _refresh_topics: true,
-        config: &apt_config,
-        auth_config: &auth_config,
-    }
-    .run()?;
+        let mut pkgs = vec![];
 
-    let oma_apt_args = OmaAptArgs::builder()
-        .sysroot(sysroot.clone())
-        .another_apt_options(oma_args.another_apt_options)
-        .build();
+        let arch = dpkg_arch(&sysroot)?;
+        let matcher = PackagesMatcher::builder()
+            .cache(&apt.cache)
+            .native_arch(&arch)
+            .build();
 
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+        for pkg in downgrade_pkgs {
+            let mut f = apt
+                .filter_pkgs(&[FilterMode::Default])?
+                .filter(|x| x.name() == pkg);
 
-    let mut pkgs = vec![];
+            if let Some(pkg) = f.next() {
+                if enabled_pkgs.contains(&pkg.name().to_string()) {
+                    continue;
+                }
 
-    let arch = dpkg_arch(&sysroot)?;
-    let matcher = PackagesMatcher::builder()
-        .cache(&apt.cache)
-        .native_arch(&arch)
-        .build();
+                if pkg.is_installed() {
+                    let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
 
-    for pkg in downgrade_pkgs {
-        let mut f = apt
-            .filter_pkgs(&[FilterMode::Default])?
-            .filter(|x| x.name() == pkg);
-
-        if let Some(pkg) = f.next() {
-            if enabled_pkgs.contains(&pkg.name().to_string()) {
-                continue;
-            }
-
-            if pkg.is_installed() {
-                let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
-
-                pkgs.push(pkginfo);
+                    pkgs.push(pkginfo);
+                }
             }
         }
+
+        apt.install(&pkgs, false)?;
+        apt.upgrade(Upgrade::FullUpgrade)?;
+
+        CommitChanges::builder()
+            .apt(apt)
+            .dry_run(dry_run)
+            .request_type(SummaryType::TopicsChanged {
+                add: topics_changed.opt_in,
+                remove: topics_changed.opt_out,
+            })
+            .no_fixbroken(!no_fixbroken)
+            .network_thread(config.network_thread())
+            .no_progress(no_progress)
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .fix_dpkg_status(true)
+            .protect_essential(config.protect_essentials())
+            .client(&HTTP_CLIENT)
+            .yes(false)
+            .remove_config(remove_config)
+            .auth_config(&auth_config)
+            .autoremove(autoremove)
+            .build()
+            .run()
     }
-
-    apt.install(&pkgs, false)?;
-    apt.upgrade(Upgrade::FullUpgrade)?;
-
-    CommitChanges::builder()
-        .apt(apt)
-        .dry_run(dry_run)
-        .request_type(SummaryType::TopicsChanged {
-            add: topics_changed.opt_in,
-            remove: topics_changed.opt_out,
-        })
-        .no_fixbroken(false)
-        .network_thread(network_thread)
-        .no_progress(no_progress)
-        .sysroot(sysroot)
-        .fix_dpkg_status(true)
-        .protect_essential(oma_args.protect_essentials)
-        .client(&client)
-        .yes(false)
-        .remove_config(false)
-        .auth_config(&auth_config)
-        .build()
-        .run()
 }
 
 async fn topics_inner(
