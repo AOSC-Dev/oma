@@ -4,7 +4,7 @@
 
 repos:
     - repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v3.2.0
+      rev: v5.0.0
       hooks:
           - id: trailing-whitespace
           - id: end-of-file-fixer
@@ -33,7 +33,7 @@ repos:
           - id: rust-clippy
             name: Rust clippy
             description: Run cargo clippy on files included in the commit. clippy should be installed before-hand.
-            entry: cargo clippy -- -D warnings
+            entry: cargo clippy --examples -- -D warnings
             # strict check uncomment this
             # entry: cargo clippy --all-targets --all-features -- -Dclippy::all
             pass_filenames: false
@@ -41,7 +41,7 @@ repos:
             language: system
 
     - repo: https://github.com/crate-ci/typos
-      rev: v1.26.8
+      rev: typos-dict-v0.11.35
       hooks:
           - id: typos
             name: Typo Check
