@@ -1,75 +1,157 @@
-# oma
+# oma - Oh My Ailurus 🐼
+**Package Manager for AOSC OS**
 
-oma（Oh My Ailurus, 小熊猫包管理）is a package manager frontend for `libapt-pkg`. oma is the default package manager interface for AOSC OS.
+`oma` (**Oh My Ailurus**) is a sleek, modern package management interface designed for AOSC OS. Built on top of `libapt-pkg`, `oma` brings enhanced usability and smart features to elevate your package management experience.
 
-Although it is based on apt, we did quite a bit of extra work, the goal of this project is to make apt with better user interaction (especially for AOSC OS users), you can get a feel for the differences between oma and apt with the following examples:
+The goal of this project is to make apt with better user interaction (especially for AOSC OS users). Above apt we made a lot of features to enhance its usability, efficiency, and overall user experience.
 
-### Pending Operations
+### Also available for other dpkg-based OS!
+See [Build and Install](#-build-and-install)
 
-![](screenshot/image.png)
+---
 
-### Multi-threaded Downloads
+## 🌟 Features
 
-[multi-thread-download.webm](https://github.com/AOSC-Dev/oma/assets/19554922/e857a946-b6c5-4c22-8d56-398b2ce0a624)
+### 🚀 Pending Operations
+Preview and manage upcoming changes with an intuitive interface.
+<img src="screenshot/image.png" width=70% alt="Pending Operations">
 
-### Smart Search
+---
 
-[oma-search.webm](https://github.com/AOSC-Dev/oma/assets/19554922/eed6d992-6464-48eb-8b4f-075ea378bd0c)
+### 🌐 Multi-threaded Downloads
+Experience faster downloads with built-in multi-threading.
 
-### Undo
-[undo.webm](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
+[Multi-threaded Downloads](https://github.com/AOSC-Dev/oma/assets/19554922/e857a946-b6c5-4c22-8d56-398b2ce0a624)
 
-...and more.
+---
 
-## Dependencies
+### 🔍 Smart Search
+Search with precision and speed using context-aware smart search.
 
-- libapt-pkg
-- Glibc
-- Ripgrep binary (optional, accelerates `oma provides` `oma files` and `oma command-not-found`)
-- LLVM/Clang Compile
-- OpenSSL
-- Rustc with Cargo
-- nettle
-- pkg-config
+[Smart Search](https://github.com/AOSC-Dev/oma/assets/19554922/eed6d992-6464-48eb-8b4f-075ea378bd0c)
 
-## Build & install
+---
 
+### ⏪ Undo Changes Effortlessly
+Accidentally made changes? Roll back operations with a single command.
+
+[Undo Feature](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
+
+
+---
+
+## 🛠️ Dependencies
+
+To build and use `oma`, ensure the following dependencies are installed:
+
+- `libapt-pkg`
+- `glibc`
+- `ripgrep` (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
+- `LLVM/Clang`
+- `OpenSSL`
+- `Rustc` with `Cargo`
+- `nettle`
+- `pkg-config`
+
+---
+
+## 📦 Build and Install
+
+`Oma` now available for AOSC OS, Debian, Ubuntu, Deepin and more dpkg-based OS.
+
+### Script Installation
 ```bash
-cargo build --release
-cp ./target/release/oma /usr/local/bin/oma
+curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
 ```
 
-## Usage
+### Manually Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/AOSC-Dev/oma.git
+   cd oma
+   ```
+
+2. Build the binary:
+   ```bash
+   cargo build --release
+   ```
+
+3. Install the binary:
+   ```bash
+   sudo cp ./target/release/oma /usr/local/bin/oma
+   ```
+
+---
+
+## 📖 Usage
+
+### Enter interavtive package manager:
+```bash
+oma # without arguments
+```
+
+### Example Commands:
+- Install a package:
+  ```bash
+  oma install <package_name>
+  ```
+- Search for a package:
+  ```bash
+  oma search <keyword>
+  ```
+- Remove a package:
+  ```bash
+  oma remove <package_name>
+  ```
+- Refresh repository metadata:
+  ```bash
+  oma refresh
+  ```
+
+For a full list of commands, run:
 
 ```bash
-saki@Magputer [ aoscpt@master ] $ oma
-oma (oma) - Package management interface for AOSC OS
-
-Usage: oma [OPTIONS] [COMMAND]
-
-Commands:
-  install     Install package(s) from the repository
-  upgrade     Upgrade packages installed on the system
-  download    Download package(s) from the repository
-  remove      Remove the specified package(s)
-  refresh     Refresh repository metadata/catalog
-  show        Show information on the specified package(s)
-  search      Search for package(s) available from the repository
-  files  List files in the specified package
-  provides    Search for package(s) that provide(s) certain patterns in a path
-  fix-broken  Resolve broken system dependencies in the system
-  pick        Install specific version of a package
-  mark        Mark status for one or multiple package(s)
-  list        List package(s) available from the repository
-  depends     Lists dependencies of one or multiple packages
-  rdepends    List reverse dependency(ies) for the specified package(s)
-  clean       Clear downloaded package cache
-  history     Show a history/log of package changes in the system
-  help        Print this message or the help of the given subcommand(s)
-
-Options:
-      --debug    Run oma with debug mode
-  -h, --help     Print help (see more with '--help')
-  -V, --version  Print version
-
+oma help
 ```
+
+---
+
+## #>? Full Command Reference
+
+| Command       | Description                                                  |
+|---------------|--------------------------------------------------------------|
+| `install`     | Install package(s) from the repository                       |
+| `upgrade`     | Upgrade all installed packages                               |
+| `download`    | Download package(s) without installing                       |
+| `remove`      | Remove specified package(s)                                  |
+| `refresh`     | Refresh repository metadata                                  |
+| `search`      | Search for package(s) in the repository                      |
+| `show`        | Show detailed information for a package                      |
+| `files`       | List files in the specified package                          |
+| `provides`    | Find packages providing specific patterns                    |
+| `fix-broken`  | Fix broken dependencies                                      |
+| `pick`        | Install a specific version of package(s)                     |
+| `mark`        | Mark package(s) with a specific status                       |
+| `list`        | List all available packages                                  |
+| `depends`     | Show dependencies for package(s)                             |
+| `rdepends`    | Show reverse dependencies for package(s)                     |
+| `clean`       | Clear downloaded package cache                               |
+| `history`     | Show package history or change logs                          |
+| `help`        | Show help of oma or the given subcommand(s)                  |
+
+---
+
+## 🤝 Contributing
+
+**Contributions are welcome!**
+
+Please feel free to submit issues or pull requests to help make `oma` even better.
+
+**Please see [CONTRIBUTING](./CONTRIBUTING.md) for more details.**
+
+---
+
+## 📜 License
+
+`oma` is licensed under the GNU General Public License v3.0. See the [COPYING](./COPYING) file for details.
