@@ -27,7 +27,7 @@ use crate::{OmaArgs, HTTP_CLIENT};
 
 use super::utils::{
     handle_no_result, lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size,
-    CommitRequest,
+    CommitChanges,
 };
 
 pub fn execute_history(sysroot: String) -> Result<i32, OutputError> {
@@ -64,7 +64,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
     lock_oma()?;
 
     let OmaArgs {
-        dry_run: _,
+        dry_run,
         network_thread,
         no_progress,
         no_check_dbus,
@@ -73,7 +73,7 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
         ..
     } = oma_args;
 
-    let fds = if !no_check_dbus {
+    let _fds = if !no_check_dbus {
         Some(dbus_check(false)?)
     } else {
         no_check_dbus_warn();
@@ -171,27 +171,22 @@ pub fn execute_undo(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputErr
 
     let auth_config = AuthConfig::system(&sysroot)?;
 
-    let request = CommitRequest {
-        apt,
-        dry_run: false,
-        request_type: SummaryType::Undo,
-        no_fixbroken: false,
-        network_thread,
-        no_progress,
-        sysroot,
-        fix_dpkg_status: true,
-        protect_essential,
-        client: &HTTP_CLIENT,
-        yes: false,
-        remove_config: false,
-        auth_config: &auth_config,
-    };
-
-    let code = request.run()?;
-
-    drop(fds);
-
-    Ok(code)
+    CommitChanges::builder()
+        .apt(apt)
+        .dry_run(dry_run)
+        .request_type(SummaryType::Undo)
+        .no_fixbroken(false)
+        .network_thread(network_thread)
+        .no_progress(no_progress)
+        .sysroot(sysroot)
+        .fix_dpkg_status(true)
+        .protect_essential(protect_essential)
+        .client(&HTTP_CLIENT)
+        .yes(false)
+        .remove_config(false)
+        .auth_config(&auth_config)
+        .build()
+        .run()
 }
 
 fn dialoguer_select_history(

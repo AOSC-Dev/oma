@@ -25,6 +25,8 @@ use crate::LOCKED;
 use crate::RT;
 use ahash::HashSet;
 use apt_auth_config::AuthConfig;
+use bon::builder;
+use bon::Builder;
 use chrono::Local;
 use dialoguer::console;
 use dialoguer::console::style;
@@ -251,25 +253,35 @@ impl<'a> RefreshRequest<'a> {
     }
 }
 
-pub struct CommitRequest<'a> {
-    pub apt: OmaApt,
-    pub dry_run: bool,
-    pub request_type: SummaryType,
-    pub no_fixbroken: bool,
-    pub network_thread: usize,
-    pub no_progress: bool,
-    pub sysroot: String,
-    pub fix_dpkg_status: bool,
-    pub protect_essential: bool,
-    pub client: &'a Client,
-    pub yes: bool,
-    pub remove_config: bool,
-    pub auth_config: &'a AuthConfig,
+#[derive(Builder)]
+pub(crate) struct CommitChanges<'a> {
+    apt: OmaApt,
+    #[builder(default = true)]
+    dry_run: bool,
+    request_type: SummaryType,
+    #[builder(default = true)]
+    no_fixbroken: bool,
+    #[builder(default = 4)]
+    network_thread: usize,
+    #[builder(default)]
+    no_progress: bool,
+    #[builder(default = "/".into())]
+    sysroot: String,
+    #[builder(default)]
+    fix_dpkg_status: bool,
+    #[builder(default = true)]
+    protect_essential: bool,
+    client: &'a Client,
+    #[builder(default)]
+    yes: bool,
+    #[builder(default)]
+    remove_config: bool,
+    auth_config: &'a AuthConfig,
 }
 
-impl<'a> CommitRequest<'a> {
+impl<'a> CommitChanges<'a> {
     pub fn run(self) -> Result<i32, OutputError> {
-        let CommitRequest {
+        let CommitChanges {
             mut apt,
             dry_run,
             request_type: typ,
