@@ -128,6 +128,51 @@ pub struct GlobalOptions {
 }
 
 fn main() {
+    init_localizer();
+
+    ctrlc::set_handler(single_handler).expect(
+        "Oma could not initialize SIGINT handler. Please restart your installation environment.",
+    );
+
+    let oma = OhManagerAilurus::parse();
+
+    if oma.global.version {
+        println!("{} {}", crate_name!(), crate_version!());
+        exit(0);
+    }
+
+    #[cfg(feature = "tokio-console")]
+    console_subscriber::init();
+
+    #[cfg(not(feature = "tokio-console"))]
+    init_logger(&oma);
+
+    let code = match run_subcmd(oma) {
+        Ok(exit_code) => {
+            unlock_oma().ok();
+            exit_code
+        }
+        Err(e) => {
+            match display_error_and_can_unlock(e) {
+                Ok(true) => {
+                    unlock_oma().ok();
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    eprintln!("Failed to display error, kind: {e}");
+                }
+            }
+
+            1
+        }
+    };
+
+    terminal_ring();
+
+    exit(code);
+}
+
+fn init_localizer() {
     let localizer = crate::lang::localizer();
     let requested_languages = DesktopLanguageRequester::requested_languages();
 
@@ -139,24 +184,10 @@ fn main() {
     // This is a temporary workaround for https://github.com/microsoft/terminal/issues/16574
     // TODO: this might break BiDi text, though we don't support any writing system depends on that.
     LANGUAGE_LOADER.set_use_isolating(false);
+}
 
-    ctrlc::set_handler(single_handler).expect(
-        "Oma could not initialize SIGINT handler.\n\nPlease restart your installation environment.",
-    );
-
-    let oma = OhManagerAilurus::parse();
-
-    if oma.global.version {
-        println!("{} {}", crate_name!(), crate_version!());
-        exit(0);
-    }
-
+fn init_logger(oma: &OhManagerAilurus) {
     let debug = oma.global.debug;
-
-    #[cfg(feature = "tokio-console")]
-    console_subscriber::init();
-
-    #[cfg(not(feature = "tokio-console"))]
     if !debug {
         let no_i18n_embd_info: EnvFilter = "i18n_embed=off,info".parse().unwrap();
 
@@ -206,30 +237,6 @@ fn main() {
                 .init();
         }
     }
-
-    let code = match run_subcmd(oma) {
-        Ok(exit_code) => {
-            unlock_oma().ok();
-            exit_code
-        }
-        Err(e) => {
-            match display_error_and_can_unlock(e) {
-                Ok(true) => {
-                    unlock_oma().ok();
-                }
-                Ok(false) => {}
-                Err(e) => {
-                    eprintln!("Failed to display error, kind: {e}");
-                }
-            }
-
-            1
-        }
-    };
-
-    terminal_ring();
-
-    exit(code);
 }
 
 fn run_subcmd(oma: OhManagerAilurus) -> Result<i32, OutputError> {
