@@ -129,7 +129,7 @@ fn main() {
     #[cfg(not(feature = "tokio-console"))]
     init_logger(&oma);
 
-    let code = match run_subcmd(oma) {
+    let code = match try_main(oma) {
         Ok(exit_code) => {
             unlock_oma().ok();
             exit_code
@@ -221,7 +221,7 @@ fn init_logger(oma: &OhManagerAilurus) {
     }
 }
 
-fn run_subcmd(oma: OhManagerAilurus) -> Result<i32, OutputError> {
+fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
     // Egg
     #[cfg(feature = "egg")]
     {
