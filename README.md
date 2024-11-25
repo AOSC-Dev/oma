@@ -1,46 +1,51 @@
-# oma - Oh My Ailurus 🐼
+
+<img src="https://github.com/AOSC-Dev/logo/blob/master/aosc.svg" width="100px" align="left">
+
+# oma - Oh My Ailurus
 **Package Manager for AOSC OS**
 
-`oma` (**Oh My Ailurus**) is a sleek, modern package management interface designed for AOSC OS. Built on top of `libapt-pkg`, `oma` brings enhanced usability and smart features to elevate your package management experience.
+All efforts are focused on solving existing issues with APT, reducing user difficulties, and enhancing functionality.
 
-The goal of this project is to make apt with better user interaction (especially for AOSC OS users). Above apt we made a lot of features to enhance its usability, efficiency, and overall user experience.
 
-### Also available for other dpkg-based OS!
-See [Build and Install](#-build-and-install)
+The goal of this project is to make apt with better user interaction (especially for AOSC OS users). Above apt we made a lot of features to enhance its usability. See [features](#Features).
+
+### oma is also available for other dpkg-based OS.
+Please See [Build and Install](#-build-and-install)
 
 ---
 
-## 🌟 Features
+## Features
 
-### 🚀 Pending Operations
-Preview and manage upcoming changes with an intuitive interface.
+### Pending Operations
+Preview and manage upcoming changes with an interactive interface.
+
 <img src="screenshot/image.png" width=70% alt="Pending Operations">
 
 ---
 
-### 🌐 Multi-threaded Downloads
+### Multi-threaded Downloads
 Experience faster downloads with built-in multi-threading.
 
 [Multi-threaded Downloads](https://github.com/AOSC-Dev/oma/assets/19554922/e857a946-b6c5-4c22-8d56-398b2ce0a624)
 
 ---
 
-### 🔍 Smart Search
-Search with precision and speed using context-aware smart search.
+### Smart Search
+Filter out key information and present the most useful parts.
 
 [Smart Search](https://github.com/AOSC-Dev/oma/assets/19554922/eed6d992-6464-48eb-8b4f-075ea378bd0c)
 
 ---
 
-### ⏪ Undo Changes Effortlessly
-Accidentally made changes? Roll back operations with a single command.
+### Undo Changes
+Roll back operations with just a single command.
 
 [Undo Feature](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
 
 
 ---
 
-## 🛠️ Dependencies
+## Dependencies
 
 To build and use `oma`, ensure the following dependencies are installed:
 
@@ -55,9 +60,9 @@ To build and use `oma`, ensure the following dependencies are installed:
 
 ---
 
-## 📦 Build and Install
+## Build and Install
 
-`Oma` now available for AOSC OS, Debian, Ubuntu, Deepin and more dpkg-based OS.
+`oma` now available for AOSC OS, Debian, Ubuntu, Deepin and more dpkg-based OS.
 
 ### Script Installation
 ```bash
@@ -84,7 +89,7 @@ curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
 
 ---
 
-## 📖 Usage
+## Usage
 
 ### Enter interavtive package manager:
 ```bash
@@ -142,7 +147,7 @@ oma help
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 **Contributions are welcome!**
 
@@ -152,6 +157,6 @@ Please feel free to submit issues or pull requests to help make `oma` even bette
 
 ---
 
-## 📜 License
+## License
 
 `oma` is licensed under the GNU General Public License v3.0. See the [COPYING](./COPYING) file for details.
