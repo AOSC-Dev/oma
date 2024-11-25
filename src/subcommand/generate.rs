@@ -1,6 +1,11 @@
-use std::{io::stdout, path::PathBuf};
+use std::path::PathBuf;
 
 use clap::{Args, Command, CommandFactory, Subcommand};
+
+#[cfg(not(feature = "generate-completion"))]
+use clap::builder::PossibleValue;
+
+#[cfg(feature = "generate-completion")]
 use clap_complete::Shell;
 use clap_mangen::Man;
 
@@ -14,6 +19,33 @@ use crate::{
 pub struct Generate {
     #[command(subcommand)]
     subcmd: Subcmd,
+}
+
+#[cfg(not(feature = "generate-completion"))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Shell {
+    Bash,
+    Fish,
+}
+
+#[cfg(not(feature = "generate-completion"))]
+const BASH_COMPLETION: &str = include_str!("../../data/completions/oma.bash");
+
+#[cfg(not(feature = "generate-completion"))]
+const FISH_COMPLETION: &str = include_str!("../../data/completions/oma.fish");
+
+#[cfg(not(feature = "generate-completion"))]
+impl clap::ValueEnum for Shell {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Bash, Self::Fish]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        Some(match self {
+            Shell::Bash => PossibleValue::new("bash"),
+            Shell::Fish => PossibleValue::new("fish"),
+        })
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -39,8 +71,19 @@ impl CliExecuter for Generate {
     }
 }
 
+#[cfg(feature = "generate-completion")]
 fn generate_shell(cmd: &mut Command, shell: Shell) -> Result<i32, OutputError> {
-    clap_complete::generate(shell, cmd, "oma", &mut stdout());
+    clap_complete::generate(shell, cmd, "oma", &mut std::io::stdout());
+    Ok(0)
+}
+
+#[cfg(not(feature = "generate-completion"))]
+fn generate_shell(_cmd: &mut Command, shell: Shell) -> Result<i32, OutputError> {
+    match shell {
+        Shell::Bash => println!("{}", BASH_COMPLETION),
+        Shell::Fish => println!("{}", FISH_COMPLETION),
+    }
+
     Ok(0)
 }
 
