@@ -110,6 +110,12 @@ pub struct GlobalOptions {
 }
 
 fn main() {
+    // 使系统错误使用系统 locale 语言输出
+    unsafe {
+        let s = CString::new("").unwrap();
+        libc::setlocale(libc::LC_ALL, s.as_ptr());
+    }
+
     init_localizer();
 
     ctrlc::set_handler(single_handler).expect(
@@ -128,6 +134,9 @@ fn main() {
 
     #[cfg(not(feature = "tokio-console"))]
     init_logger(&oma);
+
+    debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
+    debug!("OS: {:?}", OsRelease::new());
 
     let code = match try_main(oma) {
         Ok(exit_code) => {
@@ -236,20 +245,22 @@ fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
         }
     }
 
-    // 使系统错误使用系统 locale 语言输出
-    unsafe {
-        let s = CString::new("").unwrap();
-        libc::setlocale(libc::LC_ALL, s.as_ptr());
-    }
-
-    debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
-    debug!("OS: {:?}", OsRelease::new());
-
     // Init config file
     let config = Config::read()?;
+
+    init_color_formatter(&oma, &config);
+
+    let no_progress = oma.global.no_progress || !is_terminal() || oma.global.debug;
+
+    match oma.subcmd {
+        Some(subcmd) => subcmd.execute(&config, no_progress),
+        None => Tui::default().execute(&config, no_progress),
+    }
+}
+
+fn init_color_formatter(oma: &OhManagerAilurus, config: &Config) {
     let mut follow_term_color = oma.global.follow_terminal_color || config.follow_terminal_color();
     let no_color = oma.global.color == ColorChoice::Never;
-    let no_progress = oma.global.no_progress || !is_terminal() || oma.global.debug;
 
     if no_color {
         env::set_var("NO_COLOR", "1");
@@ -312,11 +323,6 @@ fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
 
         OmaColorFormat::new(follow_term_color, timeout)
     });
-
-    match oma.subcmd {
-        Some(subcmd) => subcmd.execute(&config, no_progress),
-        None => Tui::default().execute(&config, no_progress),
-    }
 }
 
 #[inline]
