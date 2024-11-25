@@ -20,11 +20,20 @@ _oma() {
             ",$1")
                 cmd="oma"
                 ;;
+            oma,add)
+                cmd="oma__install"
+                ;;
             oma,clean)
                 cmd="oma__clean"
                 ;;
             oma,command-not-found)
                 cmd="oma__command__not__found"
+                ;;
+            oma,del)
+                cmd="oma__remove"
+                ;;
+            oma,dep)
+                cmd="oma__depends"
                 ;;
             oma,depends)
                 cmd="oma__depends"
@@ -38,17 +47,29 @@ _oma() {
             oma,fix-broken)
                 cmd="oma__fix__broken"
                 ;;
+            oma,full-upgrade)
+                cmd="oma__upgrade"
+                ;;
+            oma,generate)
+                cmd="oma__generate"
+                ;;
             oma,help)
                 cmd="oma__help"
                 ;;
             oma,history)
                 cmd="oma__history"
                 ;;
+            oma,info)
+                cmd="oma__show"
+                ;;
             oma,install)
                 cmd="oma__install"
                 ;;
             oma,list)
                 cmd="oma__list"
+                ;;
+            oma,log)
+                cmd="oma__history"
                 ;;
             oma,mark)
                 cmd="oma__mark"
@@ -57,7 +78,7 @@ _oma() {
                 cmd="oma__mirror"
                 ;;
             oma,mirrors)
-                cmd="oma__mirrors"
+                cmd="oma__mirror"
                 ;;
             oma,pick)
                 cmd="oma__pick"
@@ -65,11 +86,14 @@ _oma() {
             oma,pkgnames)
                 cmd="oma__pkgnames"
                 ;;
-            oma,provides)
-                cmd="oma__provides"
+            oma,prvides)
+                cmd="oma__prvides"
                 ;;
             oma,purge)
                 cmd="oma__purge"
+                ;;
+            oma,rdep)
+                cmd="oma__rdepends"
                 ;;
             oma,rdepends)
                 cmd="oma__rdepends"
@@ -80,11 +104,17 @@ _oma() {
             oma,remove)
                 cmd="oma__remove"
                 ;;
+            oma,rm)
+                cmd="oma__remove"
+                ;;
             oma,search)
                 cmd="oma__search"
                 ;;
             oma,show)
                 cmd="oma__show"
+                ;;
+            oma,topic)
+                cmd="oma__topics"
                 ;;
             oma,topics)
                 cmd="oma__topics"
@@ -98,8 +128,29 @@ _oma() {
             oma,upgrade)
                 cmd="oma__upgrade"
                 ;;
+            oma__generate,help)
+                cmd="oma__generate__help"
+                ;;
+            oma__generate,man)
+                cmd="oma__generate__man"
+                ;;
+            oma__generate,shell)
+                cmd="oma__generate__shell"
+                ;;
+            oma__generate__help,help)
+                cmd="oma__generate__help__help"
+                ;;
+            oma__generate__help,man)
+                cmd="oma__generate__help__man"
+                ;;
+            oma__generate__help,shell)
+                cmd="oma__generate__help__shell"
+                ;;
             oma__help,clean)
                 cmd="oma__help__clean"
+                ;;
+            oma__help,command-not-found)
+                cmd="oma__help__command__not__found"
                 ;;
             oma__help,depends)
                 cmd="oma__help__depends"
@@ -112,6 +163,9 @@ _oma() {
                 ;;
             oma__help,fix-broken)
                 cmd="oma__help__fix__broken"
+                ;;
+            oma__help,generate)
+                cmd="oma__help__generate"
                 ;;
             oma__help,help)
                 cmd="oma__help__help"
@@ -131,14 +185,14 @@ _oma() {
             oma__help,mirror)
                 cmd="oma__help__mirror"
                 ;;
-            oma__help,mirrors)
-                cmd="oma__help__mirrors"
-                ;;
             oma__help,pick)
                 cmd="oma__help__pick"
                 ;;
-            oma__help,provides)
-                cmd="oma__help__provides"
+            oma__help,pkgnames)
+                cmd="oma__help__pkgnames"
+                ;;
+            oma__help,prvides)
+                cmd="oma__help__prvides"
                 ;;
             oma__help,purge)
                 cmd="oma__help__purge"
@@ -169,6 +223,12 @@ _oma() {
                 ;;
             oma__help,upgrade)
                 cmd="oma__help__upgrade"
+                ;;
+            oma__help__generate,man)
+                cmd="oma__help__generate__man"
+                ;;
+            oma__help__generate,shell)
+                cmd="oma__help__generate__shell"
                 ;;
             oma__help__mirror,add)
                 cmd="oma__help__mirror__add"
@@ -228,40 +288,16 @@ _oma() {
 
     case "${cmd}" in
         oma)
-            opts="-v -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --apt-options --apt-options --help install upgrade download remove purge refresh show search files provides fix-broken pick mark list depends rdepends clean history undo mirror mirrors tui topics help"
+            opts="-v -h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --apt-options --help install add upgrade full-upgrade download remove del rm refresh show info search files prvides fix-broken pick mark list depends dep rdepends rdep clean history log undo tui topics topic mirror mirrors purge command-not-found pkgnames generate help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                *)
-                    COMPREPLY=()
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
                     ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        oma__clean)
-            opts="-h --debug --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        oma__depends)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help ."
-            if [[ ${cur} == -* ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -270,7 +306,108 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__clean)
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__command__not__found)
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <KEYWORD>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__depends)
+            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            if [[ ${cur} == -* ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages "${cur}"
+            return 0
+            ;;
+        oma__depends)
+            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            if [[ ${cur} == -* ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -283,7 +420,7 @@ _oma() {
             return 0
             ;;
         oma__download)
-            opts="-p -h --path --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help ."
+            opts="-p -h --path --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -297,6 +434,10 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -305,7 +446,30 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages "${cur}"
+            return 0
+            ;;
+        oma__files)
+            opts="-h --bin --println --no-pager --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <PACKAGE>"
+            if [[ ${cur} == -* ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -318,13 +482,16 @@ _oma() {
             return 0
             ;;
         oma__fix__broken)
-            opts="-h --dry-run --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
-
+            opts="-h --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -333,7 +500,145 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__generate)
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help shell man help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__generate__help)
+            opts="shell man help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__generate__help__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__generate__help__man)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__generate__help__shell)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__generate__man)
+            opts="-p -h --path --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --path)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__generate__shell)
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help bash elvish fish powershell zsh"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -345,7 +650,7 @@ _oma() {
             return 0
             ;;
         oma__help)
-            opts="install upgrade download remove purge refresh show search files provides fix-broken pick mark command-not-found list depends rdepends clean history undo pkgnames mirror mirrors tui topics help"
+            opts="install upgrade download remove refresh show search files prvides fix-broken pick mark list depends rdepends clean history undo tui topics mirror purge command-not-found pkgnames generate help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -359,6 +664,20 @@ _oma() {
             return 0
             ;;
         oma__help__clean)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__command__not__found)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -400,9 +719,65 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        oma__help__files)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         oma__help__fix__broken)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__generate)
+            opts="shell man"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__generate__man)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__generate__shell)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -470,7 +845,7 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        oma__help__list__files)
+        oma__help__mark)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -484,9 +859,79 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        oma__help__mark)
-            opts=""
+        oma__help__mirror)
+            opts="set add remove sort-mirrors speedtest"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__mirror__add)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__mirror__remove)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__mirror__set)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__mirror__sort__mirrors)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__mirror__speedtest)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -512,7 +957,35 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        oma__help__provides)
+        oma__help__pkgnames)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__prvides)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__purge)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -610,6 +1083,34 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        oma__help__tui)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__help__undo)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         oma__help__upgrade)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -625,12 +1126,16 @@ _oma() {
             return 0
             ;;
         oma__history)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -639,7 +1144,29 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__history)
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -651,12 +1178,16 @@ _oma() {
             return 0
             ;;
         oma__install)
-            opts="-f -y -h --install-dbg --reinstall --install-recommends --force-unsafe-io --install-suggests --no-install-recommends --no-install-suggests --fix-broken --no-refresh --yes --force-yes --force-confnew --dry-run --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-y -f -h --install-recommends --reinstall --install-suggests --no-install-recommends --no-install-suggests --yes --install-dbg --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -665,7 +1196,30 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages "${cur}"
+            return 0
+            ;;
+        oma__install)
+            opts="-y -f -h --install-recommends --reinstall --install-suggests --no-install-recommends --no-install-suggests --yes --install-dbg --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            if [[ ${cur} == -* ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -678,12 +1232,16 @@ _oma() {
             return 0
             ;;
         oma__list)
-            opts="-a -i -u -m -h --all --installed --upgradable --manually-installed --automatic --debug --no-color --follow-terminal-color --autoremovable --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-a -i -u -m -a -a -h --all --installed --upgradable --manually-installed --automatic --autoremovable --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -692,52 +1250,33 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
                 *)
                     COMPREPLY=()
                     ;;
             esac
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            _oma_packages "${cur}"
-            return 0
-            ;;
-        oma__files)
-            opts="-h --bin --println --no-pager --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [package]"
-            if [[ ${cur} == -* ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --sysroot)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            _oma_packages "${cur}"
+             _oma_packages "${cur}"
             return 0
             ;;
         oma__mark)
-            opts="-h --dry-run --debug --no-color --follow-terminal-color --help hold unhold manual auto"
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help hold unhold manual auto"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -746,25 +1285,21 @@ _oma() {
             return 0
             ;;
         oma__mirror)
-            opts="-o -h --no-refresh-topics --no-refresh --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help set add remove sort-mirrors speedtest help"
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help set add remove sort-mirrors speedtest help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -775,13 +1310,17 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-         oma__mirror__add)
-            opts="-o -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help <names>..."
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+        oma__mirror)
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help set add remove sort-mirrors speedtest help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -790,7 +1329,29 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__mirror__add)
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <NAMES>..."
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -900,21 +1461,21 @@ _oma() {
             return 0
             ;;
         oma__mirror__remove)
-            opts="-o -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help <names>..."
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <NAMES>..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -926,21 +1487,21 @@ _oma() {
             return 0
             ;;
         oma__mirror__set)
-            opts="-o -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help <names>..."
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <NAMES>..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -952,21 +1513,21 @@ _oma() {
             return 0
             ;;
         oma__mirror__sort__mirrors)
-            opts="-o -h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help"
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -978,21 +1539,21 @@ _oma() {
             return 0
             ;;
         oma__mirror__speedtest)
-            opts="-o -h --set-fastest --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --apt-options --help"
+            opts="-h --set-fastest --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1004,21 +1565,21 @@ _oma() {
             return 0
             ;;
         oma__pick)
-            opts="-h --no-refresh --dry-run --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-f -h --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <PACKAGE>"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1030,22 +1591,22 @@ _oma() {
             _oma_packages "${cur}"
             return 0
             ;;
-        oma__mirror)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [COMMANDS]..."
+        oma__pkgnames)
+            opts="-h --installed --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [KEYWORD]"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1056,48 +1617,22 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        oma__mirrors)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [COMMANDS]..."
+        oma__prvides)
+            opts="-h --bin --println --no-pager --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <PATTERN>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        oma__provides)
-            opts="-h --println --no-pager --bin --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [pattern]"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --sysroot)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1109,21 +1644,21 @@ _oma() {
             return 0
             ;;
         oma__purge)
-            opts="-y -h --yes --force-yes --no-autoremove --remove-config --dry-run --debug --no-color --force-unsafe-io --no-progress --follow-terminal-color --no-check-dbus --sysroot --apt-options --help"
+            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --autoremove --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1132,16 +1667,20 @@ _oma() {
                     ;;
             esac
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            _oma_packages_installed "${cur}"
+             _oma_packages_installed "${cur}"
             return 0
             ;;
         oma__rdepends)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help ."
+            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -1150,7 +1689,30 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages "${cur}"
+            return 0
+            ;;
+        oma__rdepends)
+            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            if [[ ${cur} == -* ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1163,21 +1725,21 @@ _oma() {
             return 0
             ;;
         oma__refresh)
-            opts="-h --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --no-refresh-topics --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1189,12 +1751,16 @@ _oma() {
             return 0
             ;;
         oma__remove)
-            opts="-y -h --yes --force-yes --no-autoremove --remove-config --force-unsafe-io --dry-run --debug --no-color --no-progress --follow-terminal-color --no-check-dbus --sysroot --apt-options --help"
+            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -1203,7 +1769,57 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages_installed "${cur}"
+            return 0
+            ;;
+        oma__remove)
+            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            if [[ ${cur} == -* ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages_installed "${cur}"
+            return 0
+            ;;
+        oma__remove)
+            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            if [[ ${cur} == -* ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1216,21 +1832,21 @@ _oma() {
             return 0
             ;;
         oma__search)
-            opts="-h --no-pager --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            opts="-h --no-pager --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <PATTERN>"
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1239,15 +1855,20 @@ _oma() {
                     ;;
             esac
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages "${cur}"
             return 0
             ;;
         oma__show)
-            opts="-a -h --all --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-a -h --all --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -1256,7 +1877,30 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages "${cur}"
+            return 0
+            ;;
+        oma__show)
+            opts="-a -h --all --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            if [[ ${cur} == -* ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1269,7 +1913,7 @@ _oma() {
             return 0
             ;;
         oma__topics)
-            opts="-h --opt-in --opt-out --dry-run --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-n -h --opt-in --opt-out --no-fixbroken --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1283,6 +1927,10 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -1291,7 +1939,37 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        oma__topics)
+            opts="-n -h --opt-in --opt-out --no-fixbroken --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --opt-in)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --opt-out)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1303,21 +1981,21 @@ _oma() {
             return 0
             ;;
         oma__tui)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-f -h --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1329,21 +2007,21 @@ _oma() {
             return 0
             ;;
         oma__undo)
-            opts="-h --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-n -h --no-fixbroken --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1355,12 +2033,16 @@ _oma() {
             return 0
             ;;
         oma__upgrade)
-            opts="-y -h --yes --force-yes --force-unsafe-io --force-confnew --dry-run --autoremove --no-refresh-topics --debug --no-color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+            opts="-n -y -h --no-fixbroken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --yes --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
                 --sysroot)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -1369,7 +2051,30 @@ _oma() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                -o)
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages "${cur}"
+            return 0
+            ;;
+        oma__upgrade)
+            opts="-n -y -h --no-fixbroken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --yes --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            if [[ ${cur} == -* ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --color)
+                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
+                    return 0
+                    ;;
+                --sysroot)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --apt-options)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1378,9 +2083,14 @@ _oma() {
                     ;;
             esac
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            _oma_packages "${cur}"
             return 0
             ;;
     esac
 }
 
-complete -F _oma -o bashdefault -o default oma
+if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
+    complete -F _oma -o nosort -o bashdefault -o default oma
+else
+    complete -F _oma -o bashdefault -o default oma
+fi
