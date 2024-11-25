@@ -1,7 +1,8 @@
 
 <img src="https://github.com/AOSC-Dev/logo/blob/master/aosc.svg" width="100px" align="left">
 
-# oma - Oh My Ailurus
+### oma - Oh My Ailurus
+
 **Package Manager for AOSC OS**
 
 All efforts are focused on solving existing issues with APT, reducing user difficulties, and enhancing functionality.
