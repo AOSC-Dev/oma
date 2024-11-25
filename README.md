@@ -1,5 +1,5 @@
 
-<img src="https://github.com/AOSC-Dev/logo/blob/master/aosc.svg" width="100px" align="left">
+<img src="https://github.com/AOSC-Dev/logo/blob/master/oma.svg" width="80px" align="left">
 
 ### oma - Oh My Ailurus
 
