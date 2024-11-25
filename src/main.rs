@@ -22,7 +22,7 @@ mod utils;
 mod egg;
 
 use args::{CliExecuter, OhManagerAilurus};
-use clap::{ArgAction, Args, ColorChoice, Parser};
+use clap::{crate_name, crate_version, ArgAction, Args, ColorChoice, Parser};
 use error::OutputError;
 use i18n_embed::DesktopLanguageRequester;
 use lang::LANGUAGE_LOADER;
@@ -116,7 +116,8 @@ pub struct GlobalOptions {
     #[arg(long, global = true)]
     no_check_dbus: bool,
     /// Print version
-    #[arg(short, long, action = ArgAction::Version)]
+    // FIXME: ArgAcrion::Version buggy
+    #[arg(short, long)]
     version: bool,
     /// Set sysroot target directory
     #[arg(long, global = true, default_value = "/")]
@@ -144,6 +145,12 @@ fn main() {
     );
 
     let oma = OhManagerAilurus::parse();
+
+    if oma.global.version {
+        println!("{} {}", crate_name!(), crate_version!());
+        exit(0);
+    }
+
     let debug = oma.global.debug;
 
     #[cfg(feature = "tokio-console")]
