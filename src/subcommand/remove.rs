@@ -17,7 +17,7 @@ use crate::{
 };
 use crate::{fl, OmaArgs, HTTP_CLIENT};
 
-use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitRequest};
+use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitChanges};
 
 pub fn execute(glob: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i32, OutputError> {
     root()?;
@@ -32,7 +32,7 @@ pub fn execute(glob: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
         another_apt_options,
     } = oma_args;
 
-    let fds = if !no_check_dbus {
+    let _fds = if !no_check_dbus {
         Some(dbus_check(args.yes))
     } else {
         no_check_dbus_warn();
@@ -109,27 +109,22 @@ pub fn execute(glob: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i
 
     let auth_config = AuthConfig::system(&args.sysroot)?;
 
-    let request = CommitRequest {
-        apt,
-        dry_run,
-        request_type: SummaryType::Remove(remove_str),
-        no_fixbroken: !args.fix_broken,
-        network_thread,
-        no_progress,
-        sysroot: args.sysroot,
-        fix_dpkg_status: true,
-        protect_essential: protect,
-        client: &HTTP_CLIENT,
-        yes: args.yes,
-        remove_config: args.remove_config,
-        auth_config: &auth_config,
-    };
-
-    let code = request.run()?;
-
-    drop(fds);
-
-    Ok(code)
+    CommitChanges::builder()
+        .apt(apt)
+        .dry_run(dry_run)
+        .request_type(SummaryType::Remove(remove_str))
+        .no_fixbroken(!args.fix_broken)
+        .network_thread(network_thread)
+        .no_progress(no_progress)
+        .sysroot(args.sysroot)
+        .fix_dpkg_status(true)
+        .protect_essential(protect)
+        .client(&HTTP_CLIENT)
+        .yes(args.yes)
+        .remove_config(args.remove_config)
+        .auth_config(&auth_config)
+        .build()
+        .run()
 }
 
 /// "Yes Do as I say" steps

@@ -17,7 +17,7 @@ use tui_inner::{Task, Tui};
 use crate::{
     error::OutputError,
     find_another_oma, fl,
-    subcommand::utils::{lock_oma, no_check_dbus_warn, CommitRequest, RefreshRequest},
+    subcommand::utils::{lock_oma, no_check_dbus_warn, CommitChanges, RefreshRequest},
     utils::{check_battery, root},
     HTTP_CLIENT, RT,
 };
@@ -145,22 +145,22 @@ pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
             !autoremove,
         )?;
 
-        code = CommitRequest {
-            apt,
-            dry_run,
-            request_type: SummaryType::Changes,
-            no_fixbroken: false,
-            network_thread,
-            no_progress,
-            sysroot,
-            fix_dpkg_status: true,
-            protect_essential: true,
-            client: &HTTP_CLIENT,
-            yes: false,
-            remove_config: false,
-            auth_config: &auth_config,
-        }
-        .run()?;
+        code = CommitChanges::builder()
+            .apt(apt)
+            .dry_run(dry_run)
+            .request_type(SummaryType::Changes)
+            .no_fixbroken(false)
+            .network_thread(network_thread)
+            .no_progress(no_progress)
+            .sysroot(sysroot)
+            .fix_dpkg_status(true)
+            .protect_essential(true)
+            .client(&HTTP_CLIENT)
+            .yes(false)
+            .remove_config(false)
+            .auth_config(&auth_config)
+            .build()
+            .run()?;
     }
 
     Ok(code)

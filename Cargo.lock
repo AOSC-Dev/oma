@@ -2890,6 +2890,7 @@ dependencies = [
  "ansi-to-tui",
  "anyhow",
  "apt-auth-config",
+ "bon",
  "chrono",
  "clap",
  "clap_complete",

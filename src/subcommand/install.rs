@@ -19,7 +19,7 @@ use crate::HTTP_CLIENT;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
-use super::utils::CommitRequest;
+use super::utils::CommitChanges;
 use super::utils::RefreshRequest;
 
 pub fn execute(
@@ -40,7 +40,7 @@ pub fn execute(
         ..
     } = oma_args;
 
-    let fds = if !no_check_dbus {
+    let _fds = if !no_check_dbus {
         Some(dbus_check(args.yes)?)
     } else {
         no_check_dbus_warn();
@@ -115,29 +115,24 @@ pub fn execute(
         }
     }
 
-    let request = CommitRequest {
-        apt,
-        dry_run,
-        request_type: SummaryType::Install(
+    CommitChanges::builder()
+        .apt(apt)
+        .dry_run(dry_run)
+        .request_type(SummaryType::Install(
             pkgs.iter()
                 .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
                 .collect::<Vec<_>>(),
-        ),
-        no_fixbroken: args.no_fixbroken,
-        network_thread,
-        no_progress,
-        sysroot: args.sysroot,
-        fix_dpkg_status: true,
-        protect_essential,
-        client: &HTTP_CLIENT,
-        yes: args.yes,
-        remove_config: args.remove_config,
-        auth_config: &auth_config,
-    };
-
-    let code = request.run()?;
-
-    drop(fds);
-
-    Ok(code)
+        ))
+        .no_fixbroken(args.no_fixbroken)
+        .network_thread(network_thread)
+        .no_progress(no_progress)
+        .sysroot(args.sysroot)
+        .fix_dpkg_status(true)
+        .protect_essential(protect_essential)
+        .client(&HTTP_CLIENT)
+        .yes(args.yes)
+        .remove_config(args.remove_config)
+        .auth_config(&auth_config)
+        .build()
+        .run()
 }
