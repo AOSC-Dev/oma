@@ -5,7 +5,9 @@
 
 **Package Manager for AOSC OS**
 
-All efforts are focused on solving existing issues with APT, reducing user difficulties, and enhancing functionality.
+---
+
+All our efforts are focused on solving existing issues with APT, reducing user difficulties, and enhancing functionality.
 
 
 The goal of this project is to make apt with better user interaction (especially for AOSC OS users). Above apt we made a lot of features to enhance its usability. See [features](#Features).
