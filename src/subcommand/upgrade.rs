@@ -207,7 +207,7 @@ impl CliExecuter for Upgrade {
 
             #[cfg(not(feature = "aosc"))]
             let mode = if no_remove {
-                AptUpgrade::SafeUpgrade
+                AptUpgrade::Upgrade
             } else {
                 AptUpgrade::FullUpgrade
             };

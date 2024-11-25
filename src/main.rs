@@ -30,9 +30,6 @@ use oma_console::print::{termbg, OmaColorFormat};
 use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::WRITER;
 use oma_console::{due_to, OmaLayer};
-
-use oma_pm::apt::Upgrade;
-
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusError};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
@@ -75,21 +72,6 @@ static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
         .build()
         .unwrap()
 });
-
-#[derive(Debug, Clone, Copy)]
-pub enum UpgradeMode {
-    Full,
-    Normal,
-}
-
-impl From<UpgradeMode> for Upgrade {
-    fn from(value: UpgradeMode) -> Self {
-        match value {
-            UpgradeMode::Full => Upgrade::FullUpgrade,
-            UpgradeMode::Normal => Upgrade::Upgrade,
-        }
-    }
-}
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {
