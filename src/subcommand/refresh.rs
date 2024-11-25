@@ -12,7 +12,7 @@ use crate::{error::OutputError, utils::root};
 use crate::{fl, HTTP_CLIENT};
 
 use super::utils::RefreshRequest;
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct Refresh {

@@ -21,7 +21,7 @@ use anyhow::anyhow;
 use super::utils::{
     lock_oma, no_check_dbus_warn, tui_select_list_size, CommitChanges, RefreshRequest,
 };
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct Pick {

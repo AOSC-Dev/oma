@@ -5,7 +5,7 @@ use oma_pm::apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs};
 
 use crate::{config::Config, error::OutputError};
 
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct Pkgnames {

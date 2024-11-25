@@ -21,3 +21,4 @@ pub mod show;
 pub mod topics;
 pub mod upgrade;
 pub mod utils;
+pub mod generate;

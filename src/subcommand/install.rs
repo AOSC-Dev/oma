@@ -23,7 +23,7 @@ use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
 use super::utils::CommitChanges;
 use super::utils::RefreshRequest;
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct Install {

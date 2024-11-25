@@ -12,7 +12,7 @@ use tracing::info;
 use crate::{config::Config, error::OutputError};
 
 use super::utils::handle_no_result;
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 use crate::fl;
 
 use std::io::Write;

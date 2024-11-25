@@ -7,7 +7,7 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
 use crate::{error::OutputError, utils::root};
 
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct Clean {

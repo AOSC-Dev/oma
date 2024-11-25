@@ -10,6 +10,7 @@ use crate::{
     download::Download,
     error::OutputError,
     fix_broken::FixBroken,
+    generate::Generate,
     history::{History, Undo},
     install::Install,
     list::List,
@@ -111,6 +112,9 @@ pub enum SubCmd {
     #[command(hide = true)]
     /// Pkgnames (used for completion)
     Pkgnames(Pkgnames),
+    #[command(hide = true)]
+    /// Generate shell completions and manpages
+    Generate(Generate),
 }
 
 #[test]

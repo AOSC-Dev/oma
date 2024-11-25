@@ -15,7 +15,7 @@ use crate::{config::Config, error::OutputError};
 
 use super::utils::{check_unsupported_stmt, handle_no_result};
 
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct Depends {

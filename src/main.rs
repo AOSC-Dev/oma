@@ -7,7 +7,7 @@ use std::process::exit;
 use std::sync::{LazyLock, OnceLock};
 use std::time::Duration;
 
-mod args_v2;
+mod args;
 mod config;
 mod error;
 mod install_progress;
@@ -21,7 +21,7 @@ mod utils;
 #[cfg(feature = "egg")]
 mod egg;
 
-use args_v2::{CliExecuter, OhManagerAilurus};
+use args::{CliExecuter, OhManagerAilurus};
 use clap::{ArgAction, Args, ColorChoice, Parser};
 use error::OutputError;
 use i18n_embed::DesktopLanguageRequester;

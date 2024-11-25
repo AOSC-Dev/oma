@@ -31,7 +31,7 @@ use super::utils::{
     handle_no_result, lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size,
     CommitChanges,
 };
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct History {

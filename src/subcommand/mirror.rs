@@ -44,7 +44,7 @@ use crate::HTTP_CLIENT;
 
 use super::utils::tui_select_list_size;
 use super::utils::RefreshRequest;
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 const REPO_TEST_SHA256: &str = "1e2a82e7babb443b2b26b61ce5dd2bd25b06b30422b42ee709fddd2cc3ffe231";
 const TEST_FILE_PREFIX: &str = ".repotest";

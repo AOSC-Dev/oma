@@ -15,7 +15,7 @@ use crate::error::OutputError;
 use crate::table::PagerPrinter;
 use crate::{color_formatter, fl};
 
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 const FILTER_JARO_NUM: u8 = 204;
 const APT_LIST_PATH: &str = "/var/lib/apt/lists";

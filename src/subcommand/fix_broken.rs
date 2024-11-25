@@ -13,7 +13,7 @@ use crate::{
 };
 
 use super::utils::{lock_oma, no_check_dbus_warn, CommitChanges};
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct FixBroken {

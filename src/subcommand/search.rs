@@ -12,7 +12,7 @@ use tracing::warn;
 use crate::{config::Config, error::OutputError, table::oma_display_with_normal_output};
 use crate::{fl, utils::SearchResultDisplay};
 
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct Search {

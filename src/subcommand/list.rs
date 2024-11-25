@@ -13,7 +13,7 @@ use crate::{fl, ALLOWCTRLC};
 use anyhow::anyhow;
 use smallvec::{smallvec, SmallVec};
 
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct List {

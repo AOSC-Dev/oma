@@ -18,7 +18,7 @@ use oma_pm::{
 use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
 use tui_inner::{Task, Tui as TuiInner};
 
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 use crate::{
     config::Config,
     error::OutputError,

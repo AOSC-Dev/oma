@@ -54,7 +54,7 @@ use super::utils::is_nothing_to_do;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
 use super::utils::RefreshRequest;
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub(crate) struct Upgrade {

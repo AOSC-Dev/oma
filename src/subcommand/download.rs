@@ -17,7 +17,7 @@ use crate::utils::is_root;
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 use crate::{fl, HTTP_CLIENT};
 
-use crate::args_v2::CliExecuter;
+use crate::args::CliExecuter;
 
 use super::utils::is_terminal;
 
