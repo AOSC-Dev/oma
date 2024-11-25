@@ -269,6 +269,10 @@ fn run_subcmd(oma: OhManagerAilurus) -> Result<i32, OutputError> {
     let no_color = oma.global.color == ColorChoice::Never;
     let no_progress = oma.global.no_progress || !is_terminal() || oma.global.debug;
 
+    if no_color {
+        env::set_var("NO_COLOR", "1");
+    }
+
     COLOR_FORMATTER.get_or_init(|| {
         // FIXME: Marking latency limits for oma's terminal color queries (via
         // termbg). On slower terminals - i.e., SSH and unaccelerated
