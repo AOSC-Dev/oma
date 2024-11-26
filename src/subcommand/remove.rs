@@ -54,9 +54,9 @@ pub struct Remove {
     /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
     #[arg(long)]
     force_confnew: bool,
-    /// Auto remove unnecessary package(s)
-    #[arg(long, default_value_t = true)]
-    autoremove: bool,
+    /// Do not auto remove unnecessary package(s)
+    #[arg(long)]
+    no_autoremove: bool,
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge")]
     remove_config: bool,
@@ -93,9 +93,9 @@ pub struct Purge {
     /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
     #[arg(long)]
     force_confnew: bool,
-    /// Auto remove unnecessary package(s)
-    #[arg(long, default_value_t = true)]
-    autoremove: bool,
+    /// Do not auto remove unnecessary package(s)
+    #[arg(long)]
+    no_autoremove: bool,
 }
 
 impl From<Purge> for Remove {
@@ -111,7 +111,7 @@ impl From<Purge> for Remove {
             force_unsafe_io,
             force_yes,
             force_confnew,
-            autoremove,
+            no_autoremove,
         } = value;
 
         Self {
@@ -125,7 +125,7 @@ impl From<Purge> for Remove {
             force_unsafe_io,
             force_yes,
             force_confnew,
-            autoremove,
+            no_autoremove,
             remove_config: true,
         }
     }
@@ -154,7 +154,7 @@ impl CliExecuter for Remove {
             force_unsafe_io,
             force_yes,
             force_confnew,
-            autoremove,
+            no_autoremove,
             remove_config,
         } = self;
 
@@ -220,7 +220,7 @@ impl CliExecuter for Remove {
             })
             .collect::<Vec<_>>();
 
-        let context = apt.remove(pkgs, remove_config, !autoremove)?;
+        let context = apt.remove(pkgs, remove_config, no_autoremove)?;
 
         if let Some(pb) = pb {
             pb.inner.finish_and_clear()
@@ -250,6 +250,7 @@ impl CliExecuter for Remove {
             .yes(yes)
             .remove_config(remove_config)
             .auth_config(&auth_config)
+            .autoremove(!no_autoremove)
             .build()
             .run()
     }
