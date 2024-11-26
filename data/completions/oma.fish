@@ -230,6 +230,22 @@ complete -c oma -n "__fish_oma_using_subcommand refresh" -l follow-terminal-colo
 complete -c oma -n "__fish_oma_using_subcommand refresh" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand refresh" -l no-check-dbus -d 'Run oma do not check dbus'
 complete -c oma -n "__fish_oma_using_subcommand refresh" -s h -l help -d 'Print help (see more with \'--help\')'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l sysroot -d 'Set sysroot target directory' -r -F
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l apt-options -d 'Set apt options' -r
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -s y -l yes -d 'Bypass confirmation prompts'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -s f -l fix-broken -d 'Fix apt broken status'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l force-unsafe-io -d 'Install package(s) without fsync(2)'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l force-yes -d 'Ignore repository and package dependency issues'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l force-confnew -d 'Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l no-autoremove -d 'Do not auto remove unnecessary package(s)'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l remove-config -l purge -d 'Remove package(s) also remove configuration file(s), like apt purge'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l dry-run -d 'Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l debug -d 'Run oma with debug output'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l follow-terminal-color -d 'Output result with terminal theme color'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l no-progress -d 'Do not display progress bar'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l no-check-dbus -d 'Run oma do not check dbus'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand show" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand show" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand show" -l apt-options -d 'Set apt options' -r
