@@ -28,11 +28,17 @@ pub enum Shell {
     Fish,
 }
 
-#[cfg(not(feature = "generate-completion"))]
+#[cfg(all(not(feature = "generate-completion"), feature = "aosc"))]
 const BASH_COMPLETION: &str = include_str!("../../data/completions/oma.bash");
 
-#[cfg(not(feature = "generate-completion"))]
+#[cfg(all(not(feature = "generate-completion"), feature = "aosc"))]
 const FISH_COMPLETION: &str = include_str!("../../data/completions/oma.fish");
+
+#[cfg(all(not(feature = "generate-completion"), not(feature = "aosc")))]
+const BASH_COMPLETION: &str = include_str!("../../data/completions/oma.bash.debian");
+
+#[cfg(all(not(feature = "generate-completion"), not(feature = "aosc")))]
+const FISH_COMPLETION: &str = include_str!("../../data/completions/oma.fish.debian");
 
 #[cfg(not(feature = "generate-completion"))]
 impl clap::ValueEnum for Shell {
