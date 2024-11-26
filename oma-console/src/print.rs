@@ -208,9 +208,9 @@ where
         for (k, v) in visitor.0 {
             if k == "message" {
                 if self.with_ansi {
-                    WRITER.writeln(&prefix, &console::strip_ansi_codes(&v)).ok();
-                } else {
                     WRITER.writeln(&prefix, &v).ok();
+                } else {
+                    WRITER.writeln(&prefix, &console::strip_ansi_codes(&v)).ok();
                 }
             }
         }
