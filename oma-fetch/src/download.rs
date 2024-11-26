@@ -231,11 +231,18 @@ impl SingleDownloader<'_> {
 
         let req = self.build_request_with_basic_auth(&source.url, Method::HEAD, auth);
 
-        let resp_head = match req.send().await {
-            Ok(resp) => resp,
-            Err(e) => {
+        let resp_head = match timeout(self.timeout, req.send()).await {
+            Ok(Ok(resp)) => resp,
+            Ok(Err(e)) => {
                 progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::ReqwestError(e));
+            }
+            Err(e) => {
+                progress_manager.progress_done(self.download_list_index);
+                return Err(DownloadError::IOError(
+                    self.entry.filename.to_string(),
+                    io::Error::new(ErrorKind::TimedOut, e),
+                ));
             }
         };
 
@@ -400,6 +407,7 @@ impl SingleDownloader<'_> {
             let size = timeout(self.timeout, reader.read(&mut buf[..]))
                 .await
                 .map_err(|e| {
+                    progress_manager.progress_done(self.download_list_index);
                     DownloadError::IOError(
                         self.entry.filename.to_string(),
                         io::Error::new(ErrorKind::TimedOut, e),
