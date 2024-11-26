@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, path::PathBuf, sync::atomic::AtomicU64};
+use std::{cmp::Ordering, path::PathBuf, sync::atomic::AtomicU64, time::Duration};
 
 use bon::{builder, Builder};
 use checksum::Checksum;
@@ -162,6 +162,8 @@ pub struct DownloadManager<'a> {
     #[builder(default)]
     total_size: u64,
     set_permission: Option<u32>,
+    #[builder(default = Duration::from_secs(15))]
+    timeout: Duration,
 }
 
 #[derive(Debug)]
@@ -213,6 +215,7 @@ impl<'a> DownloadManager<'a> {
                 .retry_times(self.retry_times)
                 .file_type(c.file_type)
                 .maybe_set_permission(self.set_permission)
+                .timeout(self.timeout)
                 .build();
 
             list.push(single);
