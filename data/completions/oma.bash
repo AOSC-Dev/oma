@@ -107,6 +107,9 @@ _oma() {
             oma,rm)
                 cmd="oma__remove"
                 ;;
+            oma,autoremove)
+                cmd="oma__remove"
+                ;;
             oma,search)
                 cmd="oma__search"
                 ;;
@@ -288,7 +291,7 @@ _oma() {
 
     case "${cmd}" in
         oma)
-            opts="-v -h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --apt-options --help install add upgrade full-upgrade download remove del rm refresh show info search files prvides fix-broken pick mark list depends dep rdepends rdep clean history log undo tui topics topic mirror mirrors purge command-not-found pkgnames generate help"
+            opts="-v -h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --apt-options --help install add autoremove upgrade full-upgrade download remove del rm refresh show info search files prvides fix-broken pick mark list depends dep rdepends rdep clean history log undo tui topics topic mirror mirrors purge command-not-found pkgnames generate help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1644,7 +1647,7 @@ _oma() {
             return 0
             ;;
         oma__purge)
-            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --autoremove --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --no-autoremove --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1751,61 +1754,7 @@ _oma() {
             return 0
             ;;
         oma__remove)
-            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
-            if [[ ${cur} == -* ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --color)
-                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
-                    return 0
-                    ;;
-                --sysroot)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            _oma_packages_installed "${cur}"
-            return 0
-            ;;
-        oma__remove)
-            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
-            if [[ ${cur} == -* ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --color)
-                    COMPREPLY=($(compgen -W "auto always never" -- "${cur}"))
-                    return 0
-                    ;;
-                --sysroot)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --apt-options)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            _oma_packages_installed "${cur}"
-            return 0
-            ;;
-        oma__remove)
-            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            opts="-y -f -h --yes --fix-broken --force-unsafe-io --force-yes --force-confnew --no-autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
