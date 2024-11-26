@@ -1,9 +1,11 @@
 
-<img src="https://github.com/AOSC-Dev/logo/blob/master/oma.svg" width="80px" align="left">
+<img src="https://github.com/AOSC-Dev/logo/blob/master/oma.svg" width="90px" align="left">
 
 ### oma - Oh My Ailurus
 
 **Package Manager for AOSC OS**
+
+[Features](#features) | [Install](#install) | [Contribute](#contributing)
 
 ---
 
@@ -63,7 +65,7 @@ To build and use `oma`, ensure the following dependencies are installed:
 
 ---
 
-## Build and Install
+## Install
 
 `oma` now available for AOSC OS, Debian, Ubuntu, Deepin and more dpkg-based OS.
 
