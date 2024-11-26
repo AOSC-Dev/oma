@@ -59,7 +59,11 @@ pub enum SubCmd {
     /// Download package(s) from the repository
     Download(Download),
     /// Remove the specified package(s)
-    #[command(visible_alias = "del", visible_alias = "rm")]
+    #[command(
+        visible_alias = "del",
+        visible_alias = "rm",
+        visible_alias = "autoremove"
+    )]
     Remove(Remove),
     /// Refresh repository metadata/catalog
     Refresh(Refresh),
