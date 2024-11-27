@@ -1,5 +1,5 @@
 
-<img src="https://github.com/AOSC-Dev/logo/blob/master/oma.svg" width="90px" align="left">
+<img src="https://github.com/AOSC-Dev/logo/blob/master/oma.svg" width="105px" align="left">
 
 ### oma - Oh My Ailurus
 
@@ -9,41 +9,45 @@
 
 ---
 
-All our efforts are focused on solving existing issues with APT, reducing user difficulties, and enhancing functionality.
+oma is an attempt at reworking APT's interface, making it more user-friendly, more robust against common user errors, and more performant during package downloads. oma also integrates closely with AOSC OS's various system management functions, from mirror configuration, topic (testing) repository enrollment, to system feature protection.
 
-
-The goal of this project is to make apt with better user interaction (especially for AOSC OS users). Above apt we made a lot of features to enhance its usability. See [features](#Features).
+For a more detailed overview on oma's features, see [features](#Features).
 
 ### oma is also available for other dpkg-based OS.
-Please See [Build and Install](#-build-and-install)
+
+Please see [Build and Install](#-build-and-install).
 
 ---
 
 ## Features
 
 ### Pending Operations
+
 Preview and manage upcoming changes with an interactive interface.
 
 <img src="screenshot/image.png" width=70% alt="Pending Operations">
 
 ---
 
-### Multi-threaded Downloads
-Experience faster downloads with built-in multi-threading.
+### Faster Downloads
 
-[Multi-threaded Downloads](https://github.com/AOSC-Dev/oma/assets/19554922/e857a946-b6c5-4c22-8d56-398b2ce0a624)
+Faster package downloads, powered by the performant [reqwest](https://crates.io/crates/reqwest) HTTP and multi-threaded downloads.
+
+[Faster Downloads](https://github.com/AOSC-Dev/oma/assets/19554922/e857a946-b6c5-4c22-8d56-398b2ce0a624)
 
 ---
 
 ### Smart Search
-Filter out key information and present the most useful parts.
+
+Leveraging the [indicium](https://crates.io/crates/indicium) search engine for more relevant package search results.
 
 [Smart Search](https://github.com/AOSC-Dev/oma/assets/19554922/eed6d992-6464-48eb-8b4f-075ea378bd0c)
 
 ---
 
 ### Undo Changes
-Roll back operations with just a single command.
+
+Roll back operations with a simple command.
 
 [Undo Feature](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
 
@@ -52,74 +56,83 @@ Roll back operations with just a single command.
 
 ## Dependencies
 
-To build and use `oma`, ensure the following dependencies are installed:
+To build `oma`, ensure the following dependencies are installed:
 
-- `libapt-pkg`
-- `glibc`
-- `ripgrep` (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
-- `LLVM/Clang`
-- `OpenSSL`
-- `Rustc` with `Cargo`
-- `nettle`
-- `pkg-config`
+- libapt-pkg (part of [APT](https://salsa.debian.org/apt-team/apt.git))
+- [LLVM and Clang](https://llvm.org/)
+- [OpenSSL](https://openssl.org/) (recommended) or [Nettle](https://www.lysator.liu.se/~nisse/nettle/)
+- [Rustc](https://www.rust-lang.org/) and [Cargo](https://crates.io/)
+- [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) or [pkgconf](http://pkgconf.org/)
+
+During runtime, oma requires or recommends the following:
+
+- [ripgrep](https://github.com/BurntSushi/ripgrep) (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
 
 ---
 
 ## Install
 
-`oma` now available for AOSC OS, Debian, Ubuntu, Deepin and more dpkg-based OS.
+oma is pre-installed with AOSC OS. It is also available for Debian, Ubuntu, Deepin, openKylin, and more dpkg-based OS.
 
-### Script Installation
+### Automatic Installation
+
 ```bash
 curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
 ```
 
-### Manually Installation
+### Building from Source
 
 1. Clone the repository:
+   
    ```bash
    git clone https://github.com/AOSC-Dev/oma.git
    cd oma
    ```
 
-2. Build the binary:
+2. Build the binary as an installable .deb package:
+   
    ```bash
-   cargo build --release
+   cargo deb -Z xz
    ```
 
-3. Install the binary:
-   ```bash
-   sudo cp ./target/release/oma /usr/local/bin/oma
-   ```
+3. Install and profit!
 
 ---
 
 ## Usage
 
-### Enter interavtive package manager:
+### Entering the interactive package management interface
+
 ```bash
 oma # without arguments
 ```
 
-### Example Commands:
-- Install a package:
+### Example Commands
+
+- Installing a package:
+  
   ```bash
   oma install <package_name>
   ```
-- Search for a package:
+
+- Searching for a package:
+  
   ```bash
   oma search <keyword>
   ```
-- Remove a package:
+- Removing a package:
+  
   ```bash
   oma remove <package_name>
   ```
-- Refresh repository metadata:
+  
+- Refreshing repository metadata (done automatically before `oma install` and `oma upgrade`):
+  
   ```bash
   oma refresh
   ```
 
-For a full list of commands, run:
+For a full list of available sub-commands and arguments, run:
 
 ```bash
 oma help
@@ -127,7 +140,7 @@ oma help
 
 ---
 
-## #>? Full Command Reference
+## Command Reference
 
 | Command       | Description                                                  |
 |---------------|--------------------------------------------------------------|
@@ -156,9 +169,9 @@ oma help
 
 **Contributions are welcome!**
 
-Please feel free to submit issues or pull requests to help make `oma` even better.
+Please feel free to file issues or pull requests to help improve oma.
 
-**Please see [CONTRIBUTING](./CONTRIBUTING.md) for more details.**
+**Please see [CONTRIBUTING](./CONTRIBUTING.md) for detailed instructions.**
 
 ---
 
