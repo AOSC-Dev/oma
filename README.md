@@ -1,13 +1,8 @@
+![oma banner: header](https://github.com/user-attachments/assets/f68316e1-d007-4586-a3e0-3d9a56c2dea4)
 
-<img src="https://github.com/AOSC-Dev/logo/blob/master/oma.svg" width="105px" align="left">
-
-### oma - Oh My Ailurus
-
-**Package Manager for AOSC OS**
+### oma - Oh My Ailurus / Package Manager for AOSC OS
 
 [Features](#features) | [Install](#install) | [Contribute](#contributing)
-
----
 
 oma is an attempt at reworking APT's interface, making it more user-friendly, more robust against common user errors, and more performant during package downloads. oma also integrates closely with AOSC OS's various system management functions, from mirror configuration, topic (testing) repository enrollment, to system feature protection.
 
@@ -16,8 +11,6 @@ For a more detailed overview on oma's features, see [features](#Features).
 ### oma is also available for other dpkg-based OS.
 
 Please see [Install](#install).
-
----
 
 ## Features
 
@@ -30,8 +23,6 @@ Please see [Install](#install).
 Roll back operations with a simple command.
 
 [Undo Feature](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
-
----
 
 ## Dependencies
 
@@ -47,9 +38,7 @@ During runtime, oma requires or recommends the following:
 
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
 
----
-
-## Install
+## Installation
 
 oma is pre-installed with AOSC OS. It is also available for Debian, Ubuntu, Deepin, openKylin, and more dpkg-based OS.
 
@@ -75,8 +64,6 @@ curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
    ```
 
 3. Install and profit!
-
----
 
 ## Usage
 
@@ -117,8 +104,6 @@ For a full list of available sub-commands and arguments, run:
 oma help
 ```
 
----
-
 ## Command Reference
 
 | Command      | Description                                 |
@@ -140,9 +125,7 @@ oma help
 | `rdepends`   | Show reverse dependencies for package(s)    |
 | `clean`      | Clear downloaded package cache              |
 | `history`    | Show package history or change logs         |
-| `help`       | Show help of oma or the given subcommand(s) |
-
----
+| `help`       | Show help of oma or the given subcommand(s) 
 
 ## Contributing
 
@@ -152,8 +135,8 @@ Please feel free to file issues or pull requests to help improve oma.
 
 **Please see [CONTRIBUTING](./CONTRIBUTING.md) for detailed instructions.**
 
----
-
 ## License
 
 oma is licensed under the GNU General Public License v3.0. See the [COPYING](./COPYING) file for details.
+
+![oma banner: footer](https://github.com/user-attachments/assets/9bf0b9ed-6969-4bf8-b67e-3835925ce8c0)
