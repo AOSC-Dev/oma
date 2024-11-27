@@ -1,6 +1,6 @@
 use std::{borrow::Cow, path::PathBuf};
 
-use clap::{builder::PossibleValue, Args, ValueEnum};
+use clap::{Args, ValueEnum};
 use oma_console::{print::Action, success};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
@@ -15,7 +15,7 @@ use super::utils::handle_no_result;
 use crate::args::CliExecuter;
 use crate::fl;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum MarkAction {
     /// Lock package version(s), this will prevent the specified package(s) from being updated or downgraded
     Hold,
@@ -27,24 +27,13 @@ pub enum MarkAction {
     Auto,
 }
 
-impl ValueEnum for MarkAction {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Hold, Self::Unhold, Self::Manual, Self::Auto]
-    }
-
-    fn to_possible_value(&self) -> Option<PossibleValue> {
-        Some(match self {
-            Self::Hold => PossibleValue::new("hold"),
-            Self::Unhold => PossibleValue::new("unhold"),
-            Self::Manual => PossibleValue::new("manual"),
-            Self::Auto => PossibleValue::new("auto"),
-        })
-    }
-}
-
 #[derive(Debug, Args)]
 pub struct Mark {
-    #[arg(required = true)]
+    /// Mark status for one or multiple package(s)
+    #[arg(
+        required = true,
+        long_help = "Mark status for one or multiple package(s), oma will resolve dependencies in accordance with the marked status(es) of the specified package(s)"
+    )]
     action: MarkAction,
     /// Package(s) to mark status for
     #[arg(required = true)]

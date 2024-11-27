@@ -75,8 +75,12 @@ static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {
-    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
-    #[arg(long, global = true)]
+    /// Run oma in “dry-run” mode
+    #[arg(
+        long,
+        global = true,
+        long_help = "Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system"
+    )]
     dry_run: bool,
     /// Run oma with debug output
     #[arg(

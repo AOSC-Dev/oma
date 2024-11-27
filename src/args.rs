@@ -39,7 +39,7 @@ pub(crate) trait CliExecuter {
 }
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None, disable_version_flag = true)]
+#[command(version, about, long_about = None, disable_version_flag = true, max_term_width = 80)]
 pub struct OhManagerAilurus {
     #[command(flatten)]
     pub global: GlobalOptions,
