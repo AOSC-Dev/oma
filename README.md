@@ -30,7 +30,7 @@ To build oma, ensure the following dependencies are installed:
 
 - libapt-pkg (part of [APT](https://salsa.debian.org/apt-team/apt.git))
 - [LLVM and Clang](https://llvm.org/)
-- [OpenSSL](https://openssl.org/) (recommended) or [Nettle](https://www.lysator.liu.se/~nisse/nettle/)
+- [Nettle](https://www.lysator.liu.se/~nisse/nettle/) (recommended) or [OpenSSL](https://openssl.org/)
 - [Rustc](https://www.rust-lang.org/) and [Cargo](https://crates.io/)
 - [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) or [pkgconf](http://pkgconf.org/)
 
