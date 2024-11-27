@@ -15,42 +15,30 @@ For a more detailed overview on oma's features, see [features](#Features).
 
 ### oma is also available for other dpkg-based OS.
 
-Please see [Build and Install](#-build-and-install).
+Please see [Install](#install).
 
 ---
+
+### Why not APT
+- apt can easily damages the system (eg: remove a package also remove its system dependencies)
+- apt subcommands can easily cause confusion or be misleading (eg: apt update/upgrade/full-upgrade)
+- apt search often fails to provide useful information.
+
+oma solved all the problems above.
+
+And AOSC OS is not a ubuntu/debian distribution. apt is not suitable for AOSC OS's Design Philosophy.
 
 ## Features
 
-### Pending Operations
-
-Preview and manage upcoming changes with an interactive interface.
-
-<img src="screenshot/image.png" width=70% alt="Pending Operations">
-
----
-
-### Faster Downloads
-
-Faster package downloads, powered by the performant [reqwest](https://crates.io/crates/reqwest) HTTP and multi-threaded downloads.
-
-[Faster Downloads](https://github.com/AOSC-Dev/oma/assets/19554922/e857a946-b6c5-4c22-8d56-398b2ce0a624)
-
----
-
-### Smart Search
-
-Leveraging the [indicium](https://crates.io/crates/indicium) search engine for more relevant package search results.
-
-[Smart Search](https://github.com/AOSC-Dev/oma/assets/19554922/eed6d992-6464-48eb-8b4f-075ea378bd0c)
-
----
+- Pending Operations: Preview and manage upcoming changes with an interactive interface.
+- Faster Downloads: Faster package downloads, powered by the performant [reqwest](https://crates.io/crates/reqwest) HTTP and multi-threaded downloads.
+- Smart Search: Leveraging the [indicium](https://crates.io/crates/indicium) search engine for more relevant package search results.
 
 ### Undo Changes
 
 Roll back operations with a simple command.
 
 [Undo Feature](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
-
 
 ---
 
@@ -83,14 +71,14 @@ curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
 ### Building from Source
 
 1. Clone the repository:
-   
+
    ```bash
    git clone https://github.com/AOSC-Dev/oma.git
    cd oma
    ```
 
 2. Build the binary as an installable .deb package:
-   
+
    ```bash
    cargo deb -Z xz
    ```
@@ -110,24 +98,24 @@ oma # without arguments
 ### Example Commands
 
 - Installing a package:
-  
+
   ```bash
   oma install <package_name>
   ```
 
 - Searching for a package:
-  
+
   ```bash
   oma search <keyword>
   ```
 - Removing a package:
-  
+
   ```bash
   oma remove <package_name>
   ```
-  
+
 - Refreshing repository metadata (done automatically before `oma install` and `oma upgrade`):
-  
+
   ```bash
   oma refresh
   ```
@@ -142,26 +130,26 @@ oma help
 
 ## Command Reference
 
-| Command       | Description                                                  |
-|---------------|--------------------------------------------------------------|
-| `install`     | Install package(s) from the repository                       |
-| `upgrade`     | Upgrade all installed packages                               |
-| `download`    | Download package(s) without installing                       |
-| `remove`      | Remove specified package(s)                                  |
-| `refresh`     | Refresh repository metadata                                  |
-| `search`      | Search for package(s) in the repository                      |
-| `show`        | Show detailed information for a package                      |
-| `files`       | List files in the specified package                          |
-| `provides`    | Find packages providing specific patterns                    |
-| `fix-broken`  | Fix broken dependencies                                      |
-| `pick`        | Install a specific version of package(s)                     |
-| `mark`        | Mark package(s) with a specific status                       |
-| `list`        | List all available packages                                  |
-| `depends`     | Show dependencies for package(s)                             |
-| `rdepends`    | Show reverse dependencies for package(s)                     |
-| `clean`       | Clear downloaded package cache                               |
-| `history`     | Show package history or change logs                          |
-| `help`        | Show help of oma or the given subcommand(s)                  |
+| Command      | Description                                 |
+| ------------ | ------------------------------------------- |
+| `install`    | Install package(s) from the repository      |
+| `upgrade`    | Upgrade all installed packages              |
+| `download`   | Download package(s) without installing      |
+| `remove`     | Remove specified package(s)                 |
+| `refresh`    | Refresh repository metadata                 |
+| `search`     | Search for package(s) in the repository     |
+| `show`       | Show detailed information for a package     |
+| `files`      | List files in the specified package         |
+| `provides`   | Find packages providing specific patterns   |
+| `fix-broken` | Fix broken dependencies                     |
+| `pick`       | Install a specific version of package(s)    |
+| `mark`       | Mark package(s) with a specific status      |
+| `list`       | List all available packages                 |
+| `depends`    | Show dependencies for package(s)            |
+| `rdepends`   | Show reverse dependencies for package(s)    |
+| `clean`      | Clear downloaded package cache              |
+| `history`    | Show package history or change logs         |
+| `help`       | Show help of oma or the given subcommand(s) |
 
 ---
 
