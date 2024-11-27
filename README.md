@@ -56,7 +56,7 @@ Roll back operations with a simple command.
 
 ## Dependencies
 
-To build `oma`, ensure the following dependencies are installed:
+To build oma, ensure the following dependencies are installed:
 
 - libapt-pkg (part of [APT](https://salsa.debian.org/apt-team/apt.git))
 - [LLVM and Clang](https://llvm.org/)
@@ -177,4 +177,4 @@ Please feel free to file issues or pull requests to help improve oma.
 
 ## License
 
-`oma` is licensed under the GNU General Public License v3.0. See the [COPYING](./COPYING) file for details.
+oma is licensed under the GNU General Public License v3.0. See the [COPYING](./COPYING) file for details.
