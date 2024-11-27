@@ -19,15 +19,6 @@ Please see [Install](#install).
 
 ---
 
-### Why not APT
-- apt can easily damages the system (eg: remove a package also remove its system dependencies)
-- apt subcommands can easily cause confusion or be misleading (eg: apt update/upgrade/full-upgrade)
-- apt search often fails to provide useful information.
-
-oma solved all the problems above.
-
-And AOSC OS is not a ubuntu/debian distribution. apt is not suitable for AOSC OS's Design Philosophy.
-
 ## Features
 
 - Pending Operations: Preview and manage upcoming changes with an interactive interface.
