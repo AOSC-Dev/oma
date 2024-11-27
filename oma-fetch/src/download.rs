@@ -5,6 +5,7 @@ use std::{
     os::unix::fs::PermissionsExt,
     path::Path,
     sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
 };
 
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
@@ -18,6 +19,7 @@ use reqwest::{
 use tokio::{
     fs::{self, File},
     io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
+    time::timeout,
 };
 
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
@@ -35,6 +37,7 @@ pub(crate) struct SingleDownloader<'a> {
     download_list_index: usize,
     file_type: CompressFile,
     set_permission: Option<u32>,
+    timeout: Duration,
 }
 
 impl SingleDownloader<'_> {
@@ -228,11 +231,18 @@ impl SingleDownloader<'_> {
 
         let req = self.build_request_with_basic_auth(&source.url, Method::HEAD, auth);
 
-        let resp_head = match req.send().await {
-            Ok(resp) => resp,
-            Err(e) => {
+        let resp_head = match timeout(self.timeout, req.send()).await {
+            Ok(Ok(resp)) => resp,
+            Ok(Err(e)) => {
                 progress_manager.progress_done(self.download_list_index);
                 return Err(DownloadError::ReqwestError(e));
+            }
+            Err(e) => {
+                progress_manager.progress_done(self.download_list_index);
+                return Err(DownloadError::IOError(
+                    self.entry.filename.to_string(),
+                    io::Error::new(ErrorKind::TimedOut, e),
+                ));
             }
         };
 
@@ -394,10 +404,16 @@ impl SingleDownloader<'_> {
         let mut buf = vec![0u8; 8 * 1024];
 
         loop {
-            let size = reader.read(&mut buf[..]).await.map_err(|e| {
-                progress_manager.progress_done(self.download_list_index);
-                DownloadError::IOError(self.entry.filename.to_string(), e)
-            })?;
+            let size = timeout(self.timeout, reader.read(&mut buf[..]))
+                .await
+                .map_err(|e| {
+                    progress_manager.progress_done(self.download_list_index);
+                    DownloadError::IOError(
+                        self.entry.filename.to_string(),
+                        io::Error::new(ErrorKind::TimedOut, e),
+                    )
+                })?
+                .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
 
             if size == 0 {
                 break;
