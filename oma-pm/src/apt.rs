@@ -1081,7 +1081,7 @@ impl OmaApt {
         let changes = self.cache.get_changes(sort == SummarySort::Names);
 
         for pkg in changes {
-            if pkg.marked_install() {
+            if pkg.marked_new_install() {
                 let cand = pkg
                     .candidate()
                     .take()
@@ -1486,7 +1486,7 @@ fn mark_install(
 
     mark_install_inner(&pkg);
 
-    debug!("marked_install: {}", pkg.marked_install());
+    debug!("marked_install: {}", pkg.marked_new_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
     debug!("marked_keep: {}", pkg.marked_keep());
