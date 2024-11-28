@@ -195,8 +195,8 @@ impl<W: Write> PagerPrinter<W> {
             .with(Style::psql())
             .with(
                 Width::wrap(WRITER.get_length() as usize)
-                    .priority::<PriorityMax>()
-                    .keep_words(),
+                    .priority(PriorityMax::left())
+                    .keep_words(true),
             );
 
         writeln!(self.writer, "{table}")
