@@ -14,10 +14,10 @@ os-release = "0.1"
 oma-console = { version = "^0.24", path = "../oma-console", optional = true, default-features = false, features = [
     "print",
 ] }
-zbus = { version = "4.1", optional = true }
+zbus = { version = "5.1", optional = true }
 url-escape = { version = "0.1", optional = true }
 tracing = "0.1"
-logind-zbus = "4.0.3"
+logind-zbus = "5.1"
 
 [features]
 dpkg = []

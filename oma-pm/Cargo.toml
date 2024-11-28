@@ -29,7 +29,7 @@ oma-console = { version = "^0.24.0", path = "../oma-console", default-features =
 fs4 = "0.11"
 tracing = "0.1"
 oma-pm-operation-type = { version = "0.7", path = "../oma-pm-operation-type" }
-zbus = { version = "4.1", features = ["tokio"] }
+zbus = { version = "5.1", features = ["tokio"] }
 cxx = "1.0.121"
 ahash = "0.8.11"
 bon = "3"

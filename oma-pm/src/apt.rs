@@ -42,7 +42,7 @@ use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
 pub use oma_pm_operation_type::*;
-use zbus::{Connection, ConnectionBuilder};
+use zbus::{connection, Connection};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
@@ -222,7 +222,7 @@ impl OmaApt {
     }
 
     async fn create_session(bus: OmaBus) -> Result<Connection, zbus::Error> {
-        let conn = ConnectionBuilder::system()?
+        let conn = connection::Builder::system()?
             .name("io.aosc.Oma")?
             .serve_at("/io/aosc/Oma", bus)?
             .build()
@@ -1081,7 +1081,7 @@ impl OmaApt {
         let changes = self.cache.get_changes(sort == SummarySort::Names);
 
         for pkg in changes {
-            if pkg.marked_install() {
+            if pkg.marked_new_install() {
                 let cand = pkg
                     .candidate()
                     .take()
@@ -1486,7 +1486,7 @@ fn mark_install(
 
     mark_install_inner(&pkg);
 
-    debug!("marked_install: {}", pkg.marked_install());
+    debug!("marked_install: {}", pkg.marked_new_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
     debug!("marked_keep: {}", pkg.marked_keep());
