@@ -42,7 +42,7 @@ use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
 pub use oma_pm_operation_type::*;
-use zbus::{Connection, ConnectionBuilder};
+use zbus::{connection, Connection};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
@@ -222,7 +222,7 @@ impl OmaApt {
     }
 
     async fn create_session(bus: OmaBus) -> Result<Connection, zbus::Error> {
-        let conn = ConnectionBuilder::system()?
+        let conn = connection::Builder::system()?
             .name("io.aosc.Oma")?
             .serve_at("/io/aosc/Oma", bus)?
             .build()
