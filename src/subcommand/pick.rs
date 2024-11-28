@@ -15,7 +15,8 @@ use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
 use super::utils::{
-    lock_oma, no_check_dbus_warn, tui_select_list_size, CommitChanges, RefreshRequest,
+    lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitChanges,
+    RefreshRequest,
 };
 
 pub fn execute(
@@ -76,7 +77,7 @@ pub fn execute(
     let versions = pkg.versions().collect::<Vec<_>>();
     let versions_str = versions
         .iter()
-        .map(|x| x.version().to_string())
+        .map(|x| select_tui_display_msg(x.version(), false).to_string())
         .collect::<Vec<_>>();
 
     let mut v = vec![];
@@ -95,11 +96,15 @@ pub fn execute(
     let mut version_str_display = versions_str.clone();
     for (a, b) in v {
         if let Some(uri) = versions[a].uris().next() {
-            version_str_display[a] = format!("{} (from: {uri})", versions_str[a]);
+            version_str_display[a] =
+                select_tui_display_msg(&format!("{} (from: {uri})", versions_str[a]), false)
+                    .to_string()
         }
 
         if let Some(uri) = versions[b].uris().next() {
-            version_str_display[b] = format!("{} (from: {uri})", versions_str[b]);
+            version_str_display[b] =
+                select_tui_display_msg(&format!("{} (from: {uri})", versions_str[b]), false)
+                    .to_string()
         }
     }
 
