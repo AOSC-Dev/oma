@@ -17,6 +17,12 @@ Please see [Install](#install).
 - Pending Operations: Preview and manage upcoming changes with an interactive interface.
 - Faster Downloads: Faster package downloads, powered by the performant [reqwest](https://crates.io/crates/reqwest) HTTP and multi-threaded downloads.
 - Smart Search: Leveraging the [indicium](https://crates.io/crates/indicium) search engine for more relevant package search results.
+- Poka-yoke (Error-Proofing) Mechanisms: Clear guidance and features like operation undo, we help prevent system failures caused by carelessness or errors.
+  - Protect system packages: **(Only for AOSC OS)** Prevent users from uninstalling critical system components.
+- Compatibility with dpkg-based OS: Supports major dpkg-based distributions like Debian, Ubuntu, and Deepin, making package management more user-friendly.
+- Mirror management: Provide a mirror management tools, includeing speedtest and sort.
+
+More Features and Preview, please see [LATEST RELEASE NOTE](https://hackmd.io/cccNjfuZQo24Ys8SW7yNUQ)
 
 ### Undo Changes
 
@@ -125,7 +131,7 @@ oma help
 | `rdepends`   | Show reverse dependencies for package(s)    |
 | `clean`      | Clear downloaded package cache              |
 | `history`    | Show package history or change logs         |
-| `help`       | Show help of oma or the given subcommand(s) 
+| `help`       | Show help of oma or the given subcommand(s)
 
 ## Contributing
 
