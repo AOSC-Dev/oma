@@ -613,7 +613,7 @@ impl<'a> OmaRefresh<'a> {
         sourcelist: &[OmaSourceEntry<'a>],
         is_inrelease_map: AHashMap<usize, RepoType>,
         replacer: &DatabaseFilenameReplacer,
-    ) -> Result<(Vec<DownloadEntry>, SourceMap)> {
+    ) -> Result<(Vec<DownloadEntry>, SourceMap<'a>)> {
         let mut tasks = Vec::new();
         let mut map: AHashMap<String, Vec<OmaSourceEntry<'a>>> = AHashMap::new();
 

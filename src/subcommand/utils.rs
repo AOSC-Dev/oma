@@ -201,7 +201,7 @@ pub struct RefreshRequest<'a> {
     pub auth_config: &'a AuthConfig,
 }
 
-impl<'a> RefreshRequest<'a> {
+impl RefreshRequest<'_> {
     pub(crate) fn run(self) -> Result<(), OutputError> {
         let RefreshRequest {
             client,
@@ -285,7 +285,7 @@ pub(crate) struct CommitChanges<'a> {
     auth_config: &'a AuthConfig,
 }
 
-impl<'a> CommitChanges<'a> {
+impl CommitChanges<'_> {
     pub fn run(self) -> Result<i32, OutputError> {
         let CommitChanges {
             mut apt,
