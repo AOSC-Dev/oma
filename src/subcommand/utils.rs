@@ -11,6 +11,7 @@ use std::panic;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
+use std::thread;
 
 use crate::color_formatter;
 use crate::error::OutputError;
@@ -20,6 +21,8 @@ use crate::install_progress::OmaInstallProgressManager;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
 use crate::pb::OmaProgressBar;
+use crate::pb::RenderDownloadProgress;
+use crate::pb::RenderRefreshProgress;
 use crate::table::table_for_install_pending;
 use crate::LOCKED;
 use crate::RT;
@@ -32,6 +35,7 @@ use dialoguer::console;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Confirm;
+use flume::unbounded;
 use oma_console::indicatif::HumanBytes;
 use oma_console::msg;
 use oma_console::pager::PagerExit;
@@ -42,7 +46,6 @@ use oma_console::WRITER;
 use oma_contents::searcher::pure_search;
 use oma_contents::searcher::ripgrep_search;
 use oma_contents::searcher::Mode;
-use oma_fetch::DownloadProgressControl;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
@@ -52,7 +55,6 @@ use oma_pm::apt::CommitDownloadConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::SummarySort;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
-use oma_refresh::db::HandleRefresh;
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg::dpkg_arch;
 use oma_utils::oma::lock_oma_inner;
@@ -199,7 +201,7 @@ pub struct RefreshRequest<'a> {
     pub auth_config: &'a AuthConfig,
 }
 
-impl<'a> RefreshRequest<'a> {
+impl RefreshRequest<'_> {
     pub(crate) fn run(self) -> Result<(), OutputError> {
         let RefreshRequest {
             client,
@@ -222,12 +224,6 @@ impl<'a> RefreshRequest<'a> {
 
         let msg = fl!("do-not-edit-topic-sources-list");
 
-        let pm: &dyn HandleRefresh = if !no_progress && is_terminal() {
-            &OmaMultiProgressBar::default()
-        } else {
-            &NoProgressBar::default()
-        };
-
         let arch = dpkg_arch(&sysroot)?;
 
         let refresh = OmaRefresh::builder()
@@ -237,7 +233,6 @@ impl<'a> RefreshRequest<'a> {
             .arch(arch)
             .apt_config(config)
             .client(client)
-            .progress_manager(pm)
             .auth_config(auth_config)
             .topic_msg(&msg);
 
@@ -246,6 +241,17 @@ impl<'a> RefreshRequest<'a> {
 
         #[cfg(not(feature = "aosc"))]
         let refresh = refresh.build();
+
+        let rx = refresh.get_recviver().clone();
+
+        thread::spawn(move || {
+            let mut pb: Box<dyn RenderRefreshProgress> = if no_progress || !is_terminal() {
+                Box::new(NoProgressBar::default())
+            } else {
+                Box::new(OmaMultiProgressBar::default())
+            };
+            pb.render_refresh_progress(&rx);
+        });
 
         RT.block_on(async move { refresh.start().await })?;
 
@@ -279,7 +285,7 @@ pub(crate) struct CommitChanges<'a> {
     auth_config: &'a AuthConfig,
 }
 
-impl<'a> CommitChanges<'a> {
+impl CommitChanges<'_> {
     pub fn run(self) -> Result<i32, OutputError> {
         let CommitChanges {
             mut apt,
@@ -353,12 +359,16 @@ impl<'a> CommitChanges<'a> {
 
         let start_time = Local::now().timestamp();
 
-        let pm: Box<dyn DownloadProgressControl> = if !no_progress {
-            let pb = OmaMultiProgressBar::default();
-            Box::new(pb)
-        } else {
-            Box::new(NoProgressBar::default())
-        };
+        let (tx, rx) = unbounded();
+
+        thread::spawn(move || {
+            let mut pb: Box<dyn RenderDownloadProgress> = if no_progress || !is_terminal() {
+                Box::new(NoProgressBar::default())
+            } else {
+                Box::new(OmaMultiProgressBar::default())
+            };
+            pb.render_progress(&rx);
+        });
 
         let res = apt.commit(
             client,
@@ -366,12 +376,12 @@ impl<'a> CommitChanges<'a> {
                 network_thread: Some(network_thread),
                 auth: auth_config,
             },
-            pm.as_ref(),
             if no_progress || !is_terminal() {
                 Box::new(NoInstallProgressManager)
             } else {
                 Box::new(OmaInstallProgressManager)
             },
+            tx,
             op,
         );
 

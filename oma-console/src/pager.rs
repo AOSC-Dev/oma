@@ -142,7 +142,7 @@ pub struct OmaPager<'a> {
     ui_text: &'a dyn PagerUIText,
 }
 
-impl<'a> Write for OmaPager<'a> {
+impl Write for OmaPager<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self.inner {
             PagerInner::Working(ref mut v) => v.extend_from_slice(buf),

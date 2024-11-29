@@ -135,7 +135,7 @@ pub fn is_ssh_from_loginctl() -> bool {
 
 pub struct SearchResultDisplay<'a>(pub &'a SearchResult);
 
-impl<'a> Display for SearchResultDisplay<'a> {
+impl Display for SearchResultDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let i = self.0;
         let mut pkg_info_line = if i.is_base {

@@ -54,7 +54,7 @@ struct TopicDisplay<'a> {
     topic: &'a Topic,
 }
 
-impl<'a> Display for TopicDisplay<'a> {
+impl Display for TopicDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut s = String::new();
 
