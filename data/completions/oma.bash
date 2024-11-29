@@ -86,8 +86,8 @@ _oma() {
             oma,pkgnames)
                 cmd="oma__pkgnames"
                 ;;
-            oma,prvides)
-                cmd="oma__prvides"
+            oma,provides)
+                cmd="oma__provides"
                 ;;
             oma,purge)
                 cmd="oma__purge"
@@ -194,8 +194,8 @@ _oma() {
             oma__help,pkgnames)
                 cmd="oma__help__pkgnames"
                 ;;
-            oma__help,prvides)
-                cmd="oma__help__prvides"
+            oma__help,provides)
+                cmd="oma__help__provides"
                 ;;
             oma__help,purge)
                 cmd="oma__help__purge"
@@ -291,7 +291,7 @@ _oma() {
 
     case "${cmd}" in
         oma)
-            opts="-v -h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --apt-options --help install add autoremove upgrade full-upgrade download remove del rm refresh show info search files prvides fix-broken pick mark list depends dep rdepends rdep clean history log undo tui topics topic mirror mirrors purge command-not-found pkgnames generate help"
+            opts="-v -h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --apt-options --help install add autoremove upgrade full-upgrade download remove del rm refresh show info search files provides fix-broken pick mark list depends dep rdepends rdep clean history log undo tui topics topic mirror mirrors purge command-not-found pkgnames generate help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -653,7 +653,7 @@ _oma() {
             return 0
             ;;
         oma__help)
-            opts="install upgrade download remove refresh show search files prvides fix-broken pick mark list depends rdepends clean history undo tui topics mirror purge command-not-found pkgnames generate help"
+            opts="install upgrade download remove refresh show search files provides fix-broken pick mark list depends rdepends clean history undo tui topics mirror purge command-not-found pkgnames generate help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -974,7 +974,7 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        oma__help__prvides)
+        oma__help__provides)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -1620,7 +1620,7 @@ _oma() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        oma__prvides)
+        oma__provides)
             opts="-h --bin --println --no-pager --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <PATTERN>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
