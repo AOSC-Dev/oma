@@ -14,21 +14,14 @@ Please see [Install](#install).
 
 ## Features
 
-- Pending Operations: Preview and manage upcoming changes with an interactive interface.
-- Faster Downloads: Faster package downloads, powered by the performant [reqwest](https://crates.io/crates/reqwest) HTTP and multi-threaded downloads.
-- Smart Search: Leveraging the [indicium](https://crates.io/crates/indicium) search engine for more relevant package search results.
-- Poka-yoke (Error-Proofing) Mechanisms: Clear guidance and features like operation undo, we help prevent system failures caused by carelessness or errors.
-  - Protect system packages: **(Only for AOSC OS)** Prevent users from uninstalling critical system components.
-- Compatibility with dpkg-based OS: Supports major dpkg-based distributions like Debian, Ubuntu, and Deepin, making package management more user-friendly.
-- Mirror management: Provide a mirror management tools, includeing speedtest and sort.
-
-More Features and Preview, please see [LATEST RELEASE NOTE](https://hackmd.io/cccNjfuZQo24Ys8SW7yNUQ)
-
-### Undo Changes
-
-Roll back operations with a simple command.
-
-[Undo Feature](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
+- **Clear-and-Simple Interface:** Colorful and TUI-heavy interface, with clear marking for key information and simplified commands for common operations.
+- **Faster Downloads:** Faster package downloads, powered by the performant [reqwest](https://crates.io/crates/reqwest) HTTP and multi-threaded downloads.
+- **Smart Search:** Leveraging the [indicium](https://crates.io/crates/indicium) search engine for more relevant package search results.
+- **Fool-Proofing Mechanisms:** Protection against system failures through a combination of mechanisms - active prevention against removal of essential packages, clear marking for potentially dangerous operations, and a disaster recovery mechanism through `undo` command.
+- **System Feature Protection:** Informing and advising against uninstalling critical system components by detecting [System Feature Markers](https://wiki.aosc.io/developer/packaging/feature-marking-guidelines/) in key component packages (AOSC OS only).
+- **System Status Integration:** Integration with system daemons, allowing oma warn against performing package management operations on battery power, as well as actively inhibiting accidental reboots and suspends.
+- **Compatibility with Other dpkg-based OS:** Bringing a more friendly package management experience to major dpkg-based distributions like Debian, Ubuntu, deepin, and openKylin.
+- **Distro-specific Integration:** Supporting not only AOSC OS-specific features such as topic repository enrollment and mirror management, but also distro-specific services such as Ubuntu Pro.
 
 ## Dependencies
 
