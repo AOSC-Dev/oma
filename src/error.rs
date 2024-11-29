@@ -422,6 +422,10 @@ impl From<RefreshError> for OutputError {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
                 source: None,
             },
+            RefreshError::SendErr(send_error) => Self {
+                description: send_error.to_string(),
+                source: None,
+            },
         }
         #[cfg(not(feature = "aosc"))]
         match value {
@@ -538,6 +542,10 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::DuplicateComponents(url, component) => Self {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
+                source: None,
+            },
+            RefreshError::SendErr(send_error) => Self {
+                description: send_error.to_string(),
                 source: None,
             },
         }
@@ -935,6 +943,10 @@ fn oma_download_error(e: DownloadError) -> OutputError {
         },
         DownloadError::EmptySources => OutputError {
             description: e.to_string(),
+            source: None,
+        },
+        DownloadError::SendErr(send_error) => OutputError {
+            description: send_error.to_string(),
             source: None,
         },
     }

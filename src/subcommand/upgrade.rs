@@ -1,9 +1,12 @@
+use std::thread;
+
+use crate::pb::RenderDownloadProgress;
 use apt_auth_config::AuthConfig;
 use chrono::Local;
+use flume::unbounded;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
 use oma_console::success;
-use oma_fetch::DownloadProgressControl;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
@@ -140,6 +143,8 @@ pub fn execute(
 
         let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;
 
+        handle_no_result(&args.sysroot, no_result, no_progress)?;
+
         let no_marked_install = apt.install(&pkgs, false)?;
 
         if !no_marked_install.is_empty() {
@@ -150,8 +155,6 @@ pub fn execute(
                 );
             }
         }
-
-        handle_no_result(&args.sysroot, no_result, no_progress)?;
 
         let pb = if !no_progress || is_terminal() {
             OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
@@ -212,11 +215,17 @@ pub fn execute(
 
         let start_time = Local::now().timestamp();
 
-        let progress_manager: &dyn DownloadProgressControl = if !no_progress {
-            &OmaMultiProgressBar::default()
-        } else {
-            &NoProgressBar::default()
-        };
+        let (tx, rx) = unbounded();
+
+        thread::spawn(move || {
+            let mut pb: Box<dyn RenderDownloadProgress> = if oma_args.no_progress || !is_terminal()
+            {
+                Box::new(NoProgressBar::default())
+            } else {
+                Box::new(OmaMultiProgressBar::default())
+            };
+            pb.render_progress(&rx);
+        });
 
         match apt.commit(
             &HTTP_CLIENT,
@@ -224,12 +233,12 @@ pub fn execute(
                 network_thread: Some(network_thread),
                 auth: &auth_config,
             },
-            progress_manager,
             if no_progress || !is_terminal() {
                 Box::new(NoInstallProgressManager)
             } else {
                 Box::new(OmaInstallProgressManager)
             },
+            tx,
             op,
         ) {
             Ok(()) => {

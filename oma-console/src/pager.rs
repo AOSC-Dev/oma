@@ -142,7 +142,7 @@ pub struct OmaPager<'a> {
     ui_text: &'a dyn PagerUIText,
 }
 
-impl<'a> Write for OmaPager<'a> {
+impl Write for OmaPager<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self.inner {
             PagerInner::Working(ref mut v) => v.extend_from_slice(buf),
@@ -424,6 +424,22 @@ impl<'a> OmaPager<'a> {
                                 }
                                 TuiMode::Noemal => continue,
                             },
+                            KeyCode::Char(c) if c == 'u' || c == 'U' => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push(c);
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                self.page_up();
+                            }
+                            KeyCode::Char(c) if c == 'd' || c == 'D' => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push(c);
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                self.page_down();
+                            }
                             KeyCode::Char(input_char) => {
                                 if self.mode == TuiMode::SearchInputText {
                                     query.push(input_char);
@@ -432,23 +448,10 @@ impl<'a> OmaPager<'a> {
                                 }
                             }
                             KeyCode::PageUp => {
-                                self.vertical_scroll = self
-                                    .vertical_scroll
-                                    .saturating_sub(self.area_height as usize);
-                                self.vertical_scroll_state =
-                                    self.vertical_scroll_state.position(self.vertical_scroll);
+                                self.page_up();
                             }
                             KeyCode::PageDown => {
-                                let pos = self
-                                    .vertical_scroll
-                                    .saturating_add(self.area_height as usize);
-                                if pos <= self.inner_len {
-                                    self.vertical_scroll = pos;
-                                } else {
-                                    continue;
-                                }
-                                self.vertical_scroll_state =
-                                    self.vertical_scroll_state.position(self.vertical_scroll);
+                                self.page_down();
                             }
                             _ => {}
                         }
@@ -460,6 +463,25 @@ impl<'a> OmaPager<'a> {
                 last_tick = Instant::now();
             }
         }
+    }
+
+    fn page_down(&mut self) {
+        let pos = self
+            .vertical_scroll
+            .saturating_add(self.area_height as usize);
+        if pos <= self.inner_len {
+            self.vertical_scroll = pos;
+        } else {
+            return;
+        }
+        self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
+    }
+
+    fn page_up(&mut self) {
+        self.vertical_scroll = self
+            .vertical_scroll
+            .saturating_sub(self.area_height as usize);
+        self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
     }
 
     fn right(&mut self) {

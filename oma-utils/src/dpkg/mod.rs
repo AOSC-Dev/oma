@@ -121,7 +121,7 @@ pub fn get_selections<P: AsRef<Path>>(sysroot: P) -> Result<Vec<(String, String)
 
             Some(list)
         })
-        .ok_or_else(|| DpkgError::FailedToQueryDpkgDatabase)?;
+        .ok_or(DpkgError::FailedToQueryDpkgDatabase)?;
 
     Ok(list)
 }

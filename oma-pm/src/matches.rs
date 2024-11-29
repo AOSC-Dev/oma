@@ -76,7 +76,7 @@ impl<'a> PackagesMatcher<'a> {
     pub fn match_pkgs_and_versions(
         &self,
         keywords: impl IntoIterator<Item = &'a str>,
-    ) -> MatcherResult<(Vec<OmaPackage>, Vec<String>)> {
+    ) -> MatcherResult<(Vec<OmaPackage>, Vec<&'a str>)> {
         let mut pkgs = vec![];
         let mut no_result = vec![];
         for keyword in keywords {
@@ -92,7 +92,7 @@ impl<'a> PackagesMatcher<'a> {
             }
 
             if res.is_empty() {
-                no_result.push(keyword.to_string());
+                no_result.push(keyword);
                 continue;
             }
 

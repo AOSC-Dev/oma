@@ -26,7 +26,7 @@ use crate::{
 };
 
 use super::utils::{
-    lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitRequest,
+    lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitChanges,
     RefreshRequest,
 };
 use crate::fl;
@@ -54,7 +54,7 @@ struct TopicDisplay<'a> {
     topic: &'a Topic,
 }
 
-impl<'a> Display for TopicDisplay<'a> {
+impl Display for TopicDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut s = String::new();
 
@@ -87,7 +87,7 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
         no_check_dbus,
     } = args;
 
-    let fds = if !no_check_dbus {
+    let _fds = if !no_check_dbus {
         Some(dbus_check(false)?)
     } else {
         no_check_dbus_warn();
@@ -163,30 +163,25 @@ pub fn execute(args: TopicArgs, client: Client, oma_args: OmaArgs) -> Result<i32
     apt.install(&pkgs, false)?;
     apt.upgrade(Upgrade::FullUpgrade)?;
 
-    let request = CommitRequest {
-        apt,
-        dry_run,
-        request_type: SummaryType::TopicsChanged {
+    CommitChanges::builder()
+        .apt(apt)
+        .dry_run(dry_run)
+        .request_type(SummaryType::TopicsChanged {
             add: topics_changed.opt_in,
             remove: topics_changed.opt_out,
-        },
-        no_fixbroken: false,
-        network_thread,
-        no_progress,
-        sysroot,
-        fix_dpkg_status: true,
-        protect_essential: oma_args.protect_essentials,
-        client: &client,
-        yes: false,
-        remove_config: false,
-        auth_config: &auth_config,
-    };
-
-    let code = request.run()?;
-
-    drop(fds);
-
-    Ok(code)
+        })
+        .no_fixbroken(false)
+        .network_thread(network_thread)
+        .no_progress(no_progress)
+        .sysroot(sysroot)
+        .fix_dpkg_status(true)
+        .protect_essential(oma_args.protect_essentials)
+        .client(&client)
+        .yes(false)
+        .remove_config(false)
+        .auth_config(&auth_config)
+        .build()
+        .run()
 }
 
 async fn topics_inner(

@@ -35,7 +35,7 @@ pub fn execute(
 
     let (pkgs, no_result) = matcher.match_pkgs_and_versions(input)?;
 
-    handle_no_result(sysroot, no_result, no_progress)?;
+    handle_no_result(&sysroot, no_result, no_progress)?;
 
     let mut stdout = stdout();
 

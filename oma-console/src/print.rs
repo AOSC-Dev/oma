@@ -208,9 +208,9 @@ where
         for (k, v) in visitor.0 {
             if k == "message" {
                 if self.with_ansi {
-                    WRITER.writeln(&prefix, &console::strip_ansi_codes(&v)).ok();
-                } else {
                     WRITER.writeln(&prefix, &v).ok();
+                } else {
+                    WRITER.writeln(&prefix, &console::strip_ansi_codes(&v)).ok();
                 }
             }
         }
@@ -231,7 +231,7 @@ where
 /// ```
 struct OmaRecorder<'a>(BTreeMap<&'a str, String>);
 
-impl<'a> tracing::field::Visit for OmaRecorder<'a> {
+impl tracing::field::Visit for OmaRecorder<'_> {
     fn record_f64(&mut self, field: &Field, value: f64) {
         self.0.insert(field.name(), value.to_string());
     }

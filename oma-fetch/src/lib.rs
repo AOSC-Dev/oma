@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, path::PathBuf, sync::atomic::AtomicU64};
+use std::{cmp::Ordering, path::PathBuf, sync::atomic::AtomicU64, time::Duration};
 
 use bon::{builder, Builder};
 use checksum::Checksum;
@@ -28,6 +28,8 @@ pub enum DownloadError {
     InvalidURL(String),
     #[error("download source list is empty")]
     EmptySources,
+    #[error(transparent)]
+    SendErr(#[from] flume::SendError<Event>),
 }
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
@@ -148,6 +150,40 @@ impl Ord for DownloadSourceType {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Event {
+    ChecksumMismatch {
+        index: usize,
+        filename: String,
+        times: usize,
+    },
+    GlobalProgressSet(u64),
+    ProgressDone(usize),
+    NewProgressSpinner {
+        index: usize,
+        msg: String,
+    },
+    NewProgressBar {
+        index: usize,
+        msg: String,
+        size: u64,
+    },
+    ProgressInc {
+        index: usize,
+        size: u64,
+    },
+    NextUrl {
+        index: usize,
+        err: String,
+    },
+    DownloadDone {
+        index: usize,
+        msg: Box<str>,
+    },
+    AllDone,
+    NewGlobalProgressBar(u64),
+}
+
 #[derive(Builder)]
 pub struct DownloadManager<'a> {
     client: &'a Client,
@@ -158,10 +194,13 @@ pub struct DownloadManager<'a> {
     retry_times: usize,
     #[builder(skip = AtomicU64::new(0))]
     global_progress: AtomicU64,
-    progress_manager: &'a dyn DownloadProgressControl,
     #[builder(default)]
     total_size: u64,
     set_permission: Option<u32>,
+    #[builder(default = Duration::from_secs(15))]
+    timeout: Duration,
+    #[builder(skip = flume::unbounded())]
+    progress_channel: (flume::Sender<Event>, flume::Receiver<Event>),
 }
 
 #[derive(Debug)]
@@ -172,32 +211,11 @@ pub struct Summary {
     pub context: Option<String>,
 }
 
-pub trait DownloadProgressControl: AsDownloadProgressControl {
-    fn checksum_mismatch_retry(&self, index: usize, filename: &str, times: usize);
-    fn global_progress_set(&self, num: &AtomicU64);
-    fn progress_done(&self, index: usize);
-    fn new_progress_spinner(&self, index: usize, msg: &str);
-    fn new_progress_bar(&self, index: usize, msg: &str, size: u64);
-    fn progress_inc(&self, index: usize, num: u64);
-    fn progress_set(&self, index: usize, num: u64);
-    fn failed_to_get_source_next_url(&self, index: usize, err: &str);
-    fn download_done(&self, index: usize, msg: &str);
-    fn all_done(&self);
-    fn new_global_progress_bar(&self, total_size: u64);
-}
-
-// https://stackoverflow.com/questions/28632968/why-doesnt-rust-support-trait-object-upcasting
-pub trait AsDownloadProgressControl {
-    fn as_download_progress_control(&self) -> &dyn DownloadProgressControl;
-}
-
-impl<T: DownloadProgressControl> AsDownloadProgressControl for T {
-    fn as_download_progress_control(&self) -> &dyn DownloadProgressControl {
-        self
-    }
-}
-
 impl<'a> DownloadManager<'a> {
+    pub fn get_recviver(&self) -> &flume::Receiver<Event> {
+        &self.progress_channel.1
+    }
+
     /// Start download
     pub async fn start_download(&self) -> Vec<DownloadResult<Summary>> {
         let mut tasks = Vec::new();
@@ -213,6 +231,8 @@ impl<'a> DownloadManager<'a> {
                 .retry_times(self.retry_times)
                 .file_type(c.file_type)
                 .maybe_set_permission(self.set_permission)
+                .timeout(self.timeout)
+                .sender(&self.progress_channel.0)
                 .build();
 
             list.push(single);
@@ -231,7 +251,7 @@ impl<'a> DownloadManager<'a> {
         let http_download_source = list.len() - file_download_source;
 
         for single in list {
-            tasks.push(single.try_download(&self.global_progress, self.progress_manager));
+            tasks.push(single.try_download(&self.global_progress));
         }
 
         let thread = if file_download_source >= http_download_source {
@@ -241,13 +261,20 @@ impl<'a> DownloadManager<'a> {
         };
 
         if self.total_size != 0 {
-            self.progress_manager
-                .new_global_progress_bar(self.total_size);
+            self.progress_channel
+                .0
+                .send_async(Event::NewGlobalProgressBar(self.total_size))
+                .await
+                .ok();
         }
 
         let stream = futures::stream::iter(tasks).buffer_unordered(thread);
         let res = stream.collect::<Vec<_>>().await;
-        self.progress_manager.all_done();
+        self.progress_channel
+            .0
+            .send_async(Event::AllDone)
+            .await
+            .ok();
 
         res
     }

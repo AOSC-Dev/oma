@@ -8,7 +8,7 @@ use crate::{
     OmaArgs, HTTP_CLIENT,
 };
 
-use super::utils::{lock_oma, no_check_dbus_warn, CommitRequest};
+use super::utils::{lock_oma, no_check_dbus_warn, CommitChanges};
 
 pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
     root()?;
@@ -39,23 +39,22 @@ pub fn execute(oma_args: OmaArgs, sysroot: String) -> Result<i32, OutputError> {
         .build();
     let apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
 
-    let request = CommitRequest {
-        apt,
-        dry_run,
-        request_type: SummaryType::FixBroken,
-        no_fixbroken: false,
-        network_thread,
-        no_progress,
-        sysroot,
-        fix_dpkg_status: true,
-        protect_essential,
-        client: &HTTP_CLIENT,
-        yes: false,
-        remove_config: false,
-        auth_config: &auth_config,
-    };
-
-    let code = request.run()?;
+    let code = CommitChanges::builder()
+        .apt(apt)
+        .dry_run(dry_run)
+        .request_type(SummaryType::FixBroken)
+        .no_fixbroken(false)
+        .network_thread(network_thread)
+        .no_progress(no_progress)
+        .sysroot(sysroot)
+        .fix_dpkg_status(true)
+        .protect_essential(protect_essential)
+        .client(&HTTP_CLIENT)
+        .yes(false)
+        .remove_config(false)
+        .auth_config(&auth_config)
+        .build()
+        .run()?;
 
     drop(fds);
 

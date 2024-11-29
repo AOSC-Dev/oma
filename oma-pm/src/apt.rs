@@ -12,6 +12,7 @@ use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 use chrono::Local;
 
+use flume::Sender;
 pub use oma_apt::cache::Upgrade;
 
 use oma_apt::{
@@ -29,8 +30,8 @@ use oma_console::console::{self};
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::Client,
-    DownloadEntry, DownloadError, DownloadManager, DownloadProgressControl, DownloadSource,
-    DownloadSourceType, Summary,
+    DownloadEntry, DownloadError, DownloadManager, DownloadSource, DownloadSourceType, Event,
+    Summary,
 };
 use oma_utils::{
     dpkg::{get_selections, is_hold, DpkgError},
@@ -42,7 +43,7 @@ use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
 pub use oma_pm_operation_type::*;
-use zbus::{Connection, ConnectionBuilder};
+use zbus::{connection, Connection};
 
 use crate::{
     dbus::{change_status, OmaBus, Status},
@@ -222,7 +223,7 @@ impl OmaApt {
     }
 
     async fn create_session(bus: OmaBus) -> Result<Connection, zbus::Error> {
-        let conn = ConnectionBuilder::system()?
+        let conn = connection::Builder::system()?
             .name("io.aosc.Oma")?
             .serve_at("/io/aosc/Oma", bus)?
             .build()
@@ -414,8 +415,8 @@ impl OmaApt {
         client: &Client,
         pkgs: Vec<OmaPackage>,
         config: DownloadConfig<'_>,
+        tx: flume::Sender<Event>,
         dry_run: bool,
-        progress_manager: &dyn DownloadProgressControl,
     ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
         let DownloadConfig {
             network_thread,
@@ -485,8 +486,8 @@ impl OmaApt {
                 download_list,
                 network_thread,
                 download_dir.unwrap_or(Path::new(".")),
-                progress_manager,
                 auth,
+                tx,
             )
             .await
         })?;
@@ -562,8 +563,8 @@ impl OmaApt {
         self,
         client: &Client,
         config: CommitDownloadConfig<'_>,
-        download_progress_manager: &dyn DownloadProgressControl,
         install_progress_manager: Box<dyn InstallProgressManager>,
+        tx: Sender<Event>,
         op: OmaOperation,
     ) -> OmaAptResult<()> {
         let CommitDownloadConfig {
@@ -591,15 +592,7 @@ impl OmaApt {
                 change_status(&conn, "Downloading").await.ok();
             }
 
-            Self::download_pkgs(
-                client,
-                download_pkg_list,
-                network_thread,
-                path,
-                download_progress_manager,
-                auth,
-            )
-            .await
+            Self::download_pkgs(client, download_pkg_list, network_thread, path, auth, tx).await
         })?;
 
         if !failed.is_empty() {
@@ -850,11 +843,10 @@ impl OmaApt {
         download_pkg_list: Vec<InstallEntry>,
         network_thread: Option<usize>,
         download_dir: &Path,
-        progress_manager: &dyn DownloadProgressControl,
         auth_config: &AuthConfig,
+        sender: flume::Sender<Event>,
     ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
         if download_pkg_list.is_empty() {
-            progress_manager.all_done();
             return Ok((vec![], vec![]));
         }
 
@@ -929,11 +921,33 @@ impl OmaApt {
             .client(client)
             .download_list(download_list)
             .maybe_threads(network_thread)
-            .progress_manager(progress_manager)
             .total_size(total_size)
             .build();
 
+        let recv = downloader.get_recviver().clone();
+
+        let event_worker = tokio::spawn(async move {
+            loop {
+                match recv.recv_async().await {
+                    Ok(v) => {
+                        if let Err(e) = sender.send_async(v.clone()).await {
+                            debug!("{e}");
+                        }
+
+                        if let Event::AllDone = v {
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        debug!("{e}");
+                        break;
+                    }
+                }
+            }
+        });
+
         let res = downloader.start_download().await;
+        let _ = event_worker.await;
 
         let (mut success, mut failed) = (vec![], vec![]);
 
@@ -1081,7 +1095,7 @@ impl OmaApt {
         let changes = self.cache.get_changes(sort == SummarySort::Names);
 
         for pkg in changes {
-            if pkg.marked_install() {
+            if pkg.marked_new_install() {
                 let cand = pkg
                     .candidate()
                     .take()
@@ -1486,7 +1500,7 @@ fn mark_install(
 
     mark_install_inner(&pkg);
 
-    debug!("marked_install: {}", pkg.marked_install());
+    debug!("marked_install: {}", pkg.marked_new_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
     debug!("marked_keep: {}", pkg.marked_keep());

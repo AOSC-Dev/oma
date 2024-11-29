@@ -129,7 +129,7 @@ pub trait OmaSearch {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>>;
 }
 
-impl<'a> OmaSearch for IndiciumSearch<'a> {
+impl OmaSearch for IndiciumSearch<'_> {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let mut search_res = vec![];
         let query = query.to_lowercase();
@@ -317,7 +317,7 @@ pub struct StrSimSearch<'a> {
     cache: &'a Cache,
 }
 
-impl<'a> OmaSearch for StrSimSearch<'a> {
+impl OmaSearch for StrSimSearch<'_> {
     fn search(&self, query: &str) -> Result<Vec<SearchResult>, OmaSearchError> {
         let pkgs = self
             .cache
@@ -461,7 +461,7 @@ impl<'a> TextSearch<'a> {
     }
 }
 
-impl<'a> OmaSearch for TextSearch<'a> {
+impl OmaSearch for TextSearch<'_> {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let mut res = vec![];
         let pkgs = self.cache.packages(&PackageSort::default());

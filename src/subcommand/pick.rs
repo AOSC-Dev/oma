@@ -15,7 +15,8 @@ use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
 use super::utils::{
-    lock_oma, no_check_dbus_warn, tui_select_list_size, CommitRequest, RefreshRequest,
+    lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitChanges,
+    RefreshRequest,
 };
 
 pub fn execute(
@@ -38,7 +39,7 @@ pub fn execute(
         ..
     } = oma_args;
 
-    let fds = if !no_check_dbus {
+    let _fds = if !no_check_dbus {
         Some(dbus_check(false)?)
     } else {
         no_check_dbus_warn();
@@ -76,7 +77,7 @@ pub fn execute(
     let versions = pkg.versions().collect::<Vec<_>>();
     let versions_str = versions
         .iter()
-        .map(|x| x.version().to_string())
+        .map(|x| select_tui_display_msg(x.version(), false).to_string())
         .collect::<Vec<_>>();
 
     let mut v = vec![];
@@ -95,11 +96,15 @@ pub fn execute(
     let mut version_str_display = versions_str.clone();
     for (a, b) in v {
         if let Some(uri) = versions[a].uris().next() {
-            version_str_display[a] = format!("{} (from: {uri})", versions_str[a]);
+            version_str_display[a] =
+                select_tui_display_msg(&format!("{} (from: {uri})", versions_str[a]), false)
+                    .to_string()
         }
 
         if let Some(uri) = versions[b].uris().next() {
-            version_str_display[b] = format!("{} (from: {uri})", versions_str[b]);
+            version_str_display[b] =
+                select_tui_display_msg(&format!("{} (from: {uri})", versions_str[b]), false)
+                    .to_string()
         }
     }
 
@@ -132,29 +137,24 @@ pub fn execute(
 
     apt.install(&pkgs, false)?;
 
-    let request = CommitRequest {
-        apt,
-        dry_run,
-        request_type: SummaryType::Install(
+    CommitChanges::builder()
+        .apt(apt)
+        .dry_run(dry_run)
+        .request_type(SummaryType::Remove(
             pkgs.iter()
                 .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
                 .collect::<Vec<_>>(),
-        ),
-        no_fixbroken: false,
-        network_thread,
-        no_progress,
-        sysroot,
-        fix_dpkg_status: true,
-        protect_essential,
-        client: &HTTP_CLIENT,
-        yes: false,
-        remove_config: false,
-        auth_config: &auth_config,
-    };
-
-    let exit = request.run()?;
-
-    drop(fds);
-
-    Ok(exit)
+        ))
+        .no_fixbroken(false)
+        .network_thread(network_thread)
+        .no_progress(no_progress)
+        .sysroot(sysroot)
+        .fix_dpkg_status(true)
+        .protect_essential(protect_essential)
+        .client(&HTTP_CLIENT)
+        .yes(false)
+        .remove_config(false)
+        .auth_config(&auth_config)
+        .build()
+        .run()
 }

@@ -1,17 +1,20 @@
 use std::path::PathBuf;
+use std::thread;
 
 use apt_auth_config::AuthConfig;
+use flume::unbounded;
 use oma_console::{due_to, success};
-use oma_fetch::DownloadProgressControl;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
 use reqwest::StatusCode;
 use tracing::{error, info};
 
-use crate::pb::{NoProgressBar, OmaMultiProgressBar};
+use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderDownloadProgress};
 use crate::utils::is_root;
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 use crate::{fl, OmaArgs, HTTP_CLIENT};
+
+use super::utils::is_terminal;
 
 pub fn execute(
     keyword: Vec<&str>,
@@ -45,11 +48,16 @@ pub fn execute(
     let (pkgs, no_result) = matcher.match_pkgs_and_versions(keyword)?;
     handle_no_result("/", no_result, no_progress)?;
 
-    let progress_manager: &dyn DownloadProgressControl = if !no_progress {
-        &OmaMultiProgressBar::default()
-    } else {
-        &NoProgressBar::default()
-    };
+    let (tx, rx) = unbounded();
+
+    thread::spawn(move || {
+        let mut pb: Box<dyn RenderDownloadProgress> = if oma_args.no_progress || !is_terminal() {
+            Box::new(NoProgressBar::default())
+        } else {
+            Box::new(OmaMultiProgressBar::default())
+        };
+        pb.render_progress(&rx);
+    });
 
     let (success, failed) = apt.download(
         &HTTP_CLIENT,
@@ -59,8 +67,8 @@ pub fn execute(
             download_dir: Some(&path),
             auth: &AuthConfig::system("/")?,
         },
+        tx,
         dry_run,
-        progress_manager,
     )?;
 
     if !success.is_empty() {

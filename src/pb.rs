@@ -1,14 +1,10 @@
 use std::{
     borrow::Cow,
     cell::OnceCell,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        RwLock,
-    },
     time::{Duration, Instant},
 };
 
-use ahash::RandomState;
+use ahash::{HashMap, RandomState};
 use oma_console::{
     console::style,
     indicatif::{MultiProgress, ProgressBar},
@@ -17,14 +13,20 @@ use oma_console::{
     writer::{gen_prefix, writeln_inner, MessageType, Writeln},
     WRITER,
 };
-use oma_fetch::DownloadProgressControl;
-use oma_refresh::db::{HandleRefresh, HandleTopicsControl};
+use oma_fetch::Event;
+
+use crate::fl;
+use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
 use tracing::{error, info, warn};
 
-use crate::fl;
+pub trait RenderDownloadProgress {
+    fn render_progress(&mut self, rx: &flume::Receiver<Event>);
+}
 
-type DashMap<K, V> = dashmap::DashMap<K, V, ahash::random_state::RandomState>;
+pub trait RenderRefreshProgress {
+    fn render_refresh_progress(&mut self, rx: &flume::Receiver<RefreshEvent>);
+}
 
 pub struct OmaProgressBar {
     pub inner: ProgressBar,
@@ -76,14 +78,14 @@ impl Writeln for OmaProgressBar {
 
 pub struct OmaMultiProgressBar {
     mb: MultiProgress,
-    pb_map: DashMap<usize, ProgressBar>,
+    pb_map: HashMap<usize, ProgressBar>,
 }
 
 impl Default for OmaMultiProgressBar {
     fn default() -> Self {
         Self {
             mb: MultiProgress::new(),
-            pb_map: DashMap::with_hasher(RandomState::new()),
+            pb_map: HashMap::with_hasher(RandomState::new()),
         }
     }
 }
@@ -114,222 +116,240 @@ impl Writeln for OmaMultiProgressBar {
     }
 }
 
-impl DownloadProgressControl for OmaMultiProgressBar {
-    fn checksum_mismatch_retry(&self, _index: usize, filename: &str, times: usize) {
-        self.writeln(
-            &style("ERROR").red().bold().to_string(),
-            &fl!("checksum-mismatch-retry", c = filename, retry = times),
-        )
-        .ok();
-    }
-
-    fn global_progress_set(&self, num: &AtomicU64) {
-        if let Some(gpb) = &self.pb_map.get(&0) {
-            gpb.set_position(num.load(Ordering::SeqCst));
+impl RenderRefreshProgress for OmaMultiProgressBar {
+    fn render_refresh_progress(&mut self, rx: &flume::Receiver<RefreshEvent>) {
+        while let Ok(event) = rx.recv() {
+            match event {
+                RefreshEvent::DownloadEvent(event) => {
+                    self.download_event(event);
+                }
+                RefreshEvent::ScanningTopic => {
+                    let (sty, inv) = spinner_style();
+                    let pb = self
+                        .mb
+                        .insert(1, ProgressBar::new_spinner().with_style(sty));
+                    pb.set_message(fl!("refreshing-topic-metadata"));
+                    pb.enable_steady_tick(inv);
+                    self.pb_map.insert(1, pb);
+                }
+                RefreshEvent::ClosingTopic(topic) => {
+                    self.writeln(
+                        &style("INFO").blue().bold().to_string(),
+                        &fl!("scan-topic-is-removed", name = topic),
+                    )
+                    .ok();
+                }
+                RefreshEvent::TopicNotInMirror { topic, mirror } => {
+                    self.writeln(
+                        &style("WARNING").yellow().bold().to_string(),
+                        &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
+                    )
+                    .ok();
+                    self.writeln(
+                        &style("WARNING").yellow().bold().to_string(),
+                        &fl!("skip-write-mirror"),
+                    )
+                    .ok();
+                }
+                RefreshEvent::RunInvokeScript => {
+                    let (sty, inv) = spinner_style();
+                    let pb = self
+                        .mb
+                        .insert(1, ProgressBar::new_spinner().with_style(sty));
+                    pb.set_message(fl!("oma-refresh-success-invoke"));
+                    pb.enable_steady_tick(inv);
+                    self.pb_map.insert(1, pb);
+                }
+                RefreshEvent::Done => break,
+            }
         }
-    }
-
-    fn progress_done(&self, index: usize) {
-        if let Some(pb) = self.pb_map.get(&(index + 1)) {
-            pb.finish_and_clear();
-        }
-    }
-
-    fn new_progress_spinner(&self, index: usize, msg: &str) {
-        let (sty, inv) = spinner_style();
-        let pb = self
-            .mb
-            .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
-        pb.set_message(msg.to_string());
-        pb.enable_steady_tick(inv);
-        self.pb_map.insert(index + 1, pb);
-    }
-
-    fn new_progress_bar(&self, index: usize, msg: &str, size: u64) {
-        let sty = progress_bar_style(&WRITER);
-        let pb = self
-            .mb
-            .insert(index + 1, ProgressBar::new(size).with_style(sty));
-        pb.set_message(msg.to_string());
-        self.pb_map.insert(index + 1, pb);
-    }
-
-    fn progress_inc(&self, index: usize, num: u64) {
-        if let Some(pb) = self.pb_map.get(&(index + 1)) {
-            pb.inc(num);
-        }
-    }
-
-    fn progress_set(&self, index: usize, num: u64) {
-        if let Some(pb) = self.pb_map.get(&(index + 1)) {
-            pb.set_position(num);
-        }
-    }
-
-    fn failed_to_get_source_next_url(&self, _index: usize, err: &str) {
-        self.writeln(
-            &style("ERROR").red().bold().to_string(),
-            &fl!("can-not-get-source-next-url", e = err.to_string()),
-        )
-        .ok();
-    }
-
-    fn download_done(&self, _index: usize, msg: &str) {
-        tracing::debug!("Downloaded {msg}");
-    }
-
-    fn all_done(&self) {
-        if let Some(gpb) = &self.pb_map.get(&0) {
-            gpb.finish_and_clear();
-        }
-    }
-
-    fn new_global_progress_bar(&self, total_size: u64) {
-        let sty = global_progress_bar_style(&WRITER);
-        let pb = self
-            .mb
-            .insert(0, ProgressBar::new(total_size).with_style(sty));
-        self.pb_map.insert(0, pb);
     }
 }
 
-impl HandleTopicsControl for OmaMultiProgressBar {
-    fn scanning_topic(&self) {
-        let (sty, inv) = spinner_style();
-        let pb = self
-            .mb
-            .insert(1, ProgressBar::new_spinner().with_style(sty));
-        pb.set_message(fl!("refreshing-topic-metadata"));
-        pb.enable_steady_tick(inv);
-        self.pb_map.insert(1, pb);
-    }
-
-    fn closing_topic(&self, topic: &str) {
-        self.writeln(
-            &style("INFO").blue().bold().to_string(),
-            &fl!("scan-topic-is-removed", name = topic),
-        )
-        .ok();
-    }
-
-    fn topic_not_in_mirror(&self, topic: &str, mirror: &str) {
-        self.writeln(
-            &style("WARNING").yellow().bold().to_string(),
-            &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
-        )
-        .ok();
-        self.writeln(
-            &style("WARNING").yellow().bold().to_string(),
-            &fl!("skip-write-mirror"),
-        )
-        .ok();
+impl RenderDownloadProgress for OmaMultiProgressBar {
+    fn render_progress(&mut self, rx: &flume::Receiver<Event>) {
+        while let Ok(event) = rx.recv() {
+            if self.download_event(event) {
+                break;
+            }
+        }
     }
 }
 
-impl HandleRefresh for OmaMultiProgressBar {
-    fn run_invoke_script(&self) {
-        let (sty, inv) = spinner_style();
-        let pb = self
-            .mb
-            .insert(1, ProgressBar::new_spinner().with_style(sty));
-        pb.set_message(fl!("oma-refresh-success-invoke"));
-        pb.enable_steady_tick(inv);
-        self.pb_map.insert(1, pb);
+impl OmaMultiProgressBar {
+    fn download_event(&mut self, event: Event) -> bool {
+        match event {
+            Event::ChecksumMismatch {
+                index: _,
+                filename,
+                times,
+            } => {
+                self.writeln(
+                    &style("ERROR").red().bold().to_string(),
+                    &fl!("checksum-mismatch-retry", c = filename, retry = times),
+                )
+                .ok();
+            }
+            Event::GlobalProgressSet(num) => {
+                if let Some(gpb) = self.pb_map.get(&0) {
+                    gpb.set_position(num);
+                }
+            }
+            Event::ProgressDone(index) => {
+                if let Some(pb) = self.pb_map.get(&(index + 1)) {
+                    pb.finish_and_clear();
+                }
+            }
+            Event::NewProgressSpinner { index, msg } => {
+                let (sty, inv) = spinner_style();
+                let pb = self
+                    .mb
+                    .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
+                pb.set_message(msg.to_string());
+                pb.enable_steady_tick(inv);
+                self.pb_map.insert(index + 1, pb);
+            }
+            Event::NewProgressBar { index, msg, size } => {
+                let sty = progress_bar_style(&WRITER);
+                let pb = self
+                    .mb
+                    .insert(index + 1, ProgressBar::new(size).with_style(sty));
+                pb.set_message(msg.to_string());
+                self.pb_map.insert(index + 1, pb);
+            }
+            Event::ProgressInc { index, size } => {
+                if let Some(pb) = self.pb_map.get(&(index + 1)) {
+                    pb.inc(size);
+                }
+            }
+            Event::NextUrl { index: _, err } => {
+                self.writeln(
+                    &style("ERROR").red().bold().to_string(),
+                    &fl!("can-not-get-source-next-url", e = err.to_string()),
+                )
+                .ok();
+            }
+            Event::DownloadDone { index: _, msg } => {
+                tracing::debug!("Downloaded {msg}");
+            }
+            Event::AllDone => {
+                if let Some(gpb) = &self.pb_map.get(&0) {
+                    gpb.finish_and_clear();
+                }
+                return true;
+            }
+            Event::NewGlobalProgressBar(total_size) => {
+                let sty = global_progress_bar_style(&WRITER);
+                let pb = self
+                    .mb
+                    .insert(0, ProgressBar::new(total_size).with_style(sty));
+                self.pb_map.insert(0, pb);
+            }
+        };
+
+        false
     }
 }
 
 impl Default for NoProgressBar {
     fn default() -> Self {
         Self {
-            timer: RwLock::new(Instant::now()),
+            timer: Instant::now(),
             total_size: OnceCell::new(),
-            old_downloaded: AtomicU64::new(0),
+            old_downloaded: 0,
         }
     }
 }
 
 pub struct NoProgressBar {
-    timer: RwLock<Instant>,
+    timer: Instant,
     total_size: OnceCell<u64>,
-    old_downloaded: AtomicU64,
+    old_downloaded: u64,
 }
 
-impl DownloadProgressControl for NoProgressBar {
-    fn checksum_mismatch_retry(&self, _index: usize, filename: &str, times: usize) {
-        error!(
-            "{}",
-            fl!("checksum-mismatch-retry", c = filename, retry = times)
-        );
-    }
-
-    fn global_progress_set(&self, num: &AtomicU64) {
-        let elapsed = self.timer.read().unwrap().elapsed();
-        if elapsed >= Duration::from_secs(3) {
-            let downloaded = num.load(Ordering::SeqCst);
-            if let Some(total_size) = self.total_size.get() {
-                msg!(
-                    "{} / {} ({}/s)",
-                    HumanBytes(downloaded),
-                    HumanBytes(*total_size),
-                    HumanBytes(
-                        (downloaded - self.old_downloaded.load(Ordering::SeqCst))
-                            / elapsed.as_secs()
-                    )
-                );
-                self.old_downloaded.store(downloaded, Ordering::SeqCst);
-            } else {
-                msg!("Downloaded {}", HumanBytes(downloaded));
+impl RenderDownloadProgress for NoProgressBar {
+    fn render_progress(&mut self, rx: &flume::Receiver<Event>) {
+        while let Ok(event) = rx.recv() {
+            if self.download_event(event) {
+                break;
             }
-            *self.timer.write().unwrap() = Instant::now();
         }
     }
+}
 
-    fn progress_done(&self, _index: usize) {}
-
-    fn new_progress_spinner(&self, _index: usize, _msg: &str) {}
-
-    fn new_progress_bar(&self, _index: usize, _msg: &str, _size: u64) {}
-
-    fn progress_inc(&self, _index: usize, _num: u64) {}
-
-    fn progress_set(&self, _index: usize, _num: u64) {}
-
-    fn failed_to_get_source_next_url(&self, _index: usize, err: &str) {
-        error!(
-            "{}",
-            fl!("can-not-get-source-next-url", e = err.to_string())
-        );
-    }
-
-    fn download_done(&self, _index: usize, msg: &str) {
-        WRITER.writeln("DONE", msg).ok();
-    }
-
-    fn all_done(&self) {}
-
-    fn new_global_progress_bar(&self, total_size: u64) {
-        self.total_size.get_or_init(|| total_size);
+impl RenderRefreshProgress for NoProgressBar {
+    fn render_refresh_progress(&mut self, rx: &flume::Receiver<RefreshEvent>) {
+        while let Ok(event) = rx.recv() {
+            match event {
+                RefreshEvent::DownloadEvent(event) => {
+                    self.download_event(event);
+                }
+                RefreshEvent::ClosingTopic(topic) => {
+                    info!("{}", fl!("scan-topic-is-removed", name = topic));
+                }
+                RefreshEvent::TopicNotInMirror { topic, mirror } => {
+                    warn!(
+                        "{}",
+                        fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                    );
+                    warn!("{}", fl!("skip-write-mirror"));
+                }
+                RefreshEvent::RunInvokeScript => {
+                    info!("{}", fl!("oma-refresh-success-invoke"));
+                }
+                RefreshEvent::Done => break,
+                _ => {}
+            }
+        }
     }
 }
 
-impl HandleTopicsControl for NoProgressBar {
-    fn scanning_topic(&self) {}
+impl NoProgressBar {
+    fn download_event(&mut self, event: Event) -> bool {
+        match event {
+            Event::ChecksumMismatch {
+                index: _,
+                filename,
+                times,
+            } => {
+                error!(
+                    "{}",
+                    fl!("checksum-mismatch-retry", c = filename, retry = times)
+                );
+            }
+            Event::GlobalProgressSet(downloaded) => {
+                let elapsed = self.timer.elapsed();
+                if elapsed >= Duration::from_secs(3) {
+                    if let Some(total_size) = self.total_size.get() {
+                        msg!(
+                            "{} / {} ({}/s)",
+                            HumanBytes(downloaded),
+                            HumanBytes(*total_size),
+                            HumanBytes(downloaded - self.old_downloaded / elapsed.as_secs())
+                        );
+                        self.old_downloaded = downloaded;
+                    } else {
+                        msg!("Downloaded {}", HumanBytes(downloaded));
+                    }
+                    self.timer = Instant::now();
+                }
+            }
+            Event::NextUrl { index: _, err } => {
+                error!(
+                    "{}",
+                    fl!("can-not-get-source-next-url", e = err.to_string())
+                );
+            }
+            Event::DownloadDone { index: _, msg } => {
+                WRITER.writeln("DONE", &msg).ok();
+            }
+            Event::AllDone => return true,
+            Event::NewGlobalProgressBar(total_size) => {
+                self.total_size.get_or_init(|| total_size);
+            }
+            _ => {}
+        };
 
-    fn closing_topic(&self, topic: &str) {
-        info!("{}", fl!("scan-topic-is-removed", name = topic));
-    }
-
-    fn topic_not_in_mirror(&self, topic: &str, mirror: &str) {
-        warn!(
-            "{}",
-            fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
-        );
-        warn!("{}", fl!("skip-write-mirror"));
-    }
-}
-
-impl HandleRefresh for NoProgressBar {
-    fn run_invoke_script(&self) {
-        info!("{}", fl!("oma-refresh-success-invoke"));
+        false
     }
 }
