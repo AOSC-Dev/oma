@@ -19,7 +19,7 @@ Please see [Install](#install).
 - **Smart Search:** Leveraging the [indicium](https://crates.io/crates/indicium) search engine for more relevant package search results.
 - **Fool-Proofing Mechanisms:** Protection against system failures through a combination of mechanisms - active prevention against removal of essential packages, clear marking for potentially dangerous operations, and a disaster recovery mechanism through `undo` command.
 - **System Feature Protection:** Informing and advising against uninstalling critical system components by detecting [System Feature Markers](https://wiki.aosc.io/developer/packaging/feature-marking-guidelines/) in key component packages (AOSC OS only).
-- **System Status Integration:** Integration with system daemons, allowing oma warn against performing package management operations on battery power, as well as actively inhibiting accidental reboots and suspends.
+- **System Status Integration:** Integration with system daemons, allowing oma to warn against performing package management operations on battery power, as well as actively inhibiting accidental reboots and suspends.
 - **Compatibility with Other dpkg-based OS:** Bringing a more friendly package management experience to major dpkg-based distributions like Debian, Ubuntu, deepin, and openKylin.
 - **Distro-specific Integration:** Supporting not only AOSC OS-specific features such as topic repository enrollment and mirror management, but also distro-specific services such as Ubuntu Pro.
 
