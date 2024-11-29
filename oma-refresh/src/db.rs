@@ -415,10 +415,9 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
-        let tasks = sourcelist
-            .iter()
-            .enumerate()
-            .map(|(index, source)| self.get_release_file(source, replacer, index));
+        let tasks = sourcelist.iter().enumerate().map(|(index, source)| {
+            self.get_release_file(source, replacer, index, sourcelist.len())
+        });
 
         let results = futures::stream::iter(tasks)
             .buffer_unordered(self.threads)
@@ -513,6 +512,7 @@ impl<'a> OmaRefresh<'a> {
         source_index: &OmaSourceEntry<'_>,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
+        total: usize,
     ) -> Result<(Option<String>, usize)> {
         match source_index.from()? {
             OmaSourceEntryFrom::Http => {
@@ -528,7 +528,7 @@ impl<'a> OmaRefresh<'a> {
                     .0
                     .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
                         index,
-                        msg,
+                        msg: format!("({}/{}) {}", index, total, msg),
                     }))
                     .await?;
 
@@ -574,7 +574,7 @@ impl<'a> OmaRefresh<'a> {
                 let url = u.unwrap();
                 let file_name = replacer.replace(&url)?;
 
-                self.download_file(&file_name, resp, source_index, index, total_size)
+                self.download_file(&file_name, resp, source_index, index, total, total_size)
                     .await?;
 
                 if is_release
@@ -595,7 +595,7 @@ impl<'a> OmaRefresh<'a> {
 
                     let total_size = content_length(&resp);
 
-                    self.download_file(&file_name, resp, source_index, index, total_size)
+                    self.download_file(&file_name, resp, source_index, index, total, total_size)
                         .await?;
                 }
 
@@ -616,7 +616,7 @@ impl<'a> OmaRefresh<'a> {
                     .0
                     .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
                         index,
-                        msg,
+                        msg: format!("({}/{}) {}", index, total, msg),
                     }))
                     .await?;
 
@@ -727,13 +727,19 @@ impl<'a> OmaRefresh<'a> {
         mut resp: Response,
         source_index: &OmaSourceEntry<'_>,
         index: usize,
+        total: usize,
         total_size: u64,
     ) -> Result<()> {
         self.progress_channel
             .0
             .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
                 index,
-                msg: source_index.get_human_download_url(Some(file_name))?,
+                msg: format!(
+                    "({}/{}) {}",
+                    index,
+                    total,
+                    source_index.get_human_download_url(Some(file_name))?
+                ),
                 size: total_size,
             }))
             .await?;
@@ -786,6 +792,7 @@ impl<'a> OmaRefresh<'a> {
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
+        debug!("all_inrelease: {:?}", all_inrelease);
         for file_name in all_inrelease {
             // 源数据确保是存在的，所以直接 unwrap
             let ose_list = sources_map.get(&file_name).unwrap();
@@ -814,6 +821,7 @@ impl<'a> OmaRefresh<'a> {
                     &inrelease,
                     ose.options().get("signed-by").map(|x| x.as_str()),
                     &self.source,
+                    &inrelease_path,
                     ose.options().get("trusted").is_some_and(|x| x == "yes"),
                 )
                 .map_err(|e| {
