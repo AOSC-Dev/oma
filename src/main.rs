@@ -183,7 +183,8 @@ fn init_localizer() {
 
 fn init_logger(oma: &OhManagerAilurus) {
     let debug = oma.global.debug;
-    if !debug {
+    let dry_run = oma.global.dry_run;
+    if !debug && !dry_run {
         let no_i18n_embd_info: EnvFilter = "i18n_embed=off,info".parse().unwrap();
 
         tracing_subscriber::registry()
@@ -254,7 +255,8 @@ fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
 
     init_color_formatter(&oma, &config);
 
-    let no_progress = oma.global.no_progress || !is_terminal() || oma.global.debug;
+    let no_progress =
+        oma.global.no_progress || !is_terminal() || oma.global.debug || oma.global.dry_run;
 
     match oma.subcmd {
         Some(subcmd) => subcmd.execute(&config, no_progress),
