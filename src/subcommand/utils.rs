@@ -306,7 +306,7 @@ impl CommitChanges<'_> {
             auth_config,
         } = self;
 
-        let pb = if !no_progress || is_terminal() {
+        let pb = if !no_progress {
             OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
         } else {
             None
