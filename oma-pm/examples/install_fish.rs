@@ -124,12 +124,8 @@ fn main() -> Result<(), OmaAptError> {
             auth: &AuthConfig::system("/").unwrap(),
         },
         Box::new(MyInstallProgressManager),
-<<<<<<< HEAD
         tx,
-        op,
-=======
         &op,
->>>>>>> 392f328b (refactor!: switch to clap derive)
     )?;
 
     Ok(())
