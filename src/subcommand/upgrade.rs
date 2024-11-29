@@ -21,8 +21,8 @@ use oma_pm::apt::SummarySort;
 #[cfg(feature = "aosc")]
 use oma_pm::apt::Upgrade;
 
+use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
-use oma_utils::dpkg::dpkg_arch;
 #[cfg(not(feature = "aosc"))]
 use tracing::debug;
 
@@ -119,8 +119,6 @@ pub fn execute(
     #[cfg(not(feature = "aosc"))]
     debug!("Upgrade mode is using: {:?}", args.mode);
 
-    let arch = dpkg_arch(&args.sysroot)?;
-
     loop {
         let mut apt = OmaApt::new(
             local_debs.clone(),
@@ -140,7 +138,7 @@ pub fn execute(
             .filter_candidate(true)
             .filter_downloadable_candidate(false)
             .select_dbg(false)
-            .native_arch(&arch)
+            .native_arch(GetArchMethod::SpecifySysroot(&args.sysroot))
             .build();
 
         let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;

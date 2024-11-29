@@ -3114,6 +3114,7 @@ dependencies = [
  "oma-fetch",
  "oma-pm-operation-type",
  "oma-utils 0.10.3",
+ "once_cell",
  "serde",
  "strsim",
  "thiserror 2.0.3",

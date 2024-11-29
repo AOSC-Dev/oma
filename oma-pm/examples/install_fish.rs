@@ -9,7 +9,6 @@ use oma_pm::{
     matches::PackagesMatcher,
     progress::InstallProgressManager,
 };
-use oma_utils::dpkg::dpkg_arch;
 
 struct MyInstallProgressManager;
 
@@ -86,14 +85,12 @@ impl InstallProgressManager for MyInstallProgressManager {
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgs::builder().yes(true).build();
     let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
-    let arch = dpkg_arch("/").unwrap();
 
     let matcher = PackagesMatcher::builder()
         .cache(&apt.cache)
         .filter_candidate(true)
         .filter_downloadable_candidate(false)
         .select_dbg(false)
-        .native_arch(&arch)
         .build();
 
     let pkgs = matcher.match_pkgs_and_versions(["fish"])?;

@@ -3,8 +3,8 @@ use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
+use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
-use oma_utils::dpkg::dpkg_arch;
 use tracing::info;
 use tracing::warn;
 
@@ -91,13 +91,12 @@ pub fn execute(
         .build();
 
     let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, apt_config)?;
-    let arch = dpkg_arch(&args.sysroot)?;
     let matcher = PackagesMatcher::builder()
         .cache(&apt.cache)
         .filter_candidate(true)
         .filter_downloadable_candidate(false)
         .select_dbg(args.install_dbg)
-        .native_arch(&arch)
+        .native_arch(GetArchMethod::SpecifySysroot(&args.sysroot))
         .build();
 
     let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse)?;

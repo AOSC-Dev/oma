@@ -3,9 +3,8 @@ use std::borrow::Cow;
 use oma_console::{print::Action, success};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
-    matches::PackagesMatcher,
+    matches::{GetArchMethod, PackagesMatcher},
 };
-use oma_utils::dpkg::dpkg_arch;
 use tracing::info;
 
 use crate::{color_formatter, error::OutputError, utils::root};
@@ -37,16 +36,15 @@ pub fn execute(
             .map(|(x, y)| (Cow::Borrowed(x), y))
             .collect::<Vec<_>>(),
         "auto" | "manual" => {
-            let arch = dpkg_arch(&sysroot)?;
             let matcher = PackagesMatcher::builder()
                 .cache(&apt.cache)
-                .native_arch(&arch)
+                .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
                 .build();
 
             let (pkgs, no_result) =
                 matcher.match_pkgs_and_versions(pkgs.iter().map(|x| x.as_str()))?;
 
-            handle_no_result(sysroot, no_result, no_progress)?;
+            handle_no_result(&sysroot, no_result, no_progress)?;
 
             apt.mark_install_status(pkgs, op == "auto", dry_run)?
                 .into_iter()
