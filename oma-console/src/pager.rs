@@ -3,6 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use aho_corasick::{AhoCorasick, BuildError};
 use ansi_to_tui::IntoText;
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
@@ -531,17 +532,22 @@ impl<'a> OmaPager<'a> {
         let mut result: Vec<usize> = Vec::new();
 
         if let PagerInner::Finished(ref mut text) = self.inner {
-            for (i, line) in text.iter_mut().enumerate() {
-                if line.contains(pattern) {
-                    result.push(i);
-                    // highlight the pattern
-                    *line = line.replace(
-                        pattern,
-                        &format!("\x1b[47m{}\x1b[49m", pattern), // only reset bg color
-                    );
+            match Highlight::new(pattern) {
+                Ok(highlight) => {
+                    for (i, line) in text.iter_mut().enumerate() {
+                        if line.contains(pattern) {
+                            result.push(i);
+                            // highlight the pattern
+                            *line = highlight.replace(line);
+                        }
+                    }
+                }
+                Err(e) => {
+                    debug!("{e}");
                 }
             }
         }
+
         result
     }
 
@@ -553,9 +559,10 @@ impl<'a> OmaPager<'a> {
 
     fn clear_highlight(&mut self) {
         if let PagerInner::Finished(ref mut text) = self.inner {
-            for &line_index in &self.search_results {
-                if let Some(line) = text.get_mut(line_index) {
-                    *line = line.replace("\x1b[47m", "").replace("\x1b[49m", "");
+            let clear_highlighter = ClearHighlight::new();
+            for line_index in &self.search_results {
+                if let Some(line) = text.get_mut(*line_index) {
+                    *line = clear_highlighter.replace(line);
                 }
             }
         }
@@ -663,5 +670,36 @@ impl<'a> OmaPager<'a> {
             ),
             if has_title { chunks[2] } else { chunks[1] },
         );
+    }
+}
+
+struct Highlight<'a> {
+    pattern: &'a str,
+    ac: AhoCorasick,
+}
+
+impl<'a> Highlight<'a> {
+    fn new(pattern: &'a str) -> Result<Self, BuildError> {
+        Ok(Self {
+            ac: AhoCorasick::new([pattern])?,
+            pattern,
+        })
+    }
+
+    fn replace(&self, input: &str) -> String {
+        self.ac
+            .replace_all(input, &[format!("\x1b[47m{}\x1b[49m", self.pattern)])
+    }
+}
+
+struct ClearHighlight(AhoCorasick);
+
+impl ClearHighlight {
+    fn new() -> Self {
+        Self(AhoCorasick::new(["\x1b[47m", "\x1b[49m"]).unwrap())
+    }
+
+    fn replace(&self, input: &str) -> String {
+        self.0.replace_all(input, &["", ""])
     }
 }
