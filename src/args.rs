@@ -1,4 +1,6 @@
-use clap::{Parser, Subcommand};
+use std::env;
+
+use clap::{crate_name, crate_version, Args, Parser, Subcommand};
 use enum_dispatch::enum_dispatch;
 
 use crate::{
@@ -39,7 +41,7 @@ pub(crate) trait CliExecuter {
 }
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None, disable_version_flag = true, max_term_width = 80)]
+#[command(version, about, long_about = None, disable_version_flag = true, max_term_width = 80, after_help = after_help())]
 pub struct OhManagerAilurus {
     #[command(flatten)]
     pub global: GlobalOptions,
@@ -99,6 +101,8 @@ pub enum SubCmd {
     Undo(Undo),
     /// Oma tui interface
     Tui(Tui),
+    /// Print version
+    Version(Version),
     #[cfg(feature = "aosc")]
     /// Manage testing topics enrollment
     #[command(visible_alias = "topic")]
@@ -119,6 +123,33 @@ pub enum SubCmd {
     #[command(hide = true)]
     /// Generate shell completions and manpages
     Generate(Generate),
+}
+
+#[derive(Debug, Args)]
+pub struct Version;
+
+impl CliExecuter for Version {
+    fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
+        print_version();
+        Ok(0)
+    }
+}
+
+#[inline]
+pub fn print_version() {
+    println!("{} {}", crate_name!(), crate_version!());
+}
+
+fn after_help() -> &'static str {
+    let Ok(lang) = env::var("LANG") else {
+        return "";
+    };
+
+    if lang.starts_with("zh") {
+        "本 oma 具有超级小熊猫力！"
+    } else {
+        ""
+    }
 }
 
 #[test]

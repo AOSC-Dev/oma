@@ -21,8 +21,8 @@ mod utils;
 #[cfg(feature = "egg")]
 mod egg;
 
-use args::{CliExecuter, OhManagerAilurus};
-use clap::{crate_name, crate_version, ArgAction, Args, ColorChoice, Parser};
+use args::{print_version, CliExecuter, OhManagerAilurus};
+use clap::{ArgAction, Args, ColorChoice, Parser};
 use error::OutputError;
 use i18n_embed::DesktopLanguageRequester;
 use lang::LANGUAGE_LOADER;
@@ -129,7 +129,7 @@ fn main() {
     let oma = OhManagerAilurus::parse();
 
     if oma.global.version {
-        println!("{} {}", crate_name!(), crate_version!());
+        print_version();
         exit(0);
     }
 
