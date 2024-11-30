@@ -43,8 +43,3 @@ use writer::Writer;
 
 #[cfg(feature = "print")]
 pub static WRITER: std::sync::LazyLock<Writer> = std::sync::LazyLock::new(writer::Writer::default);
-
-#[cfg(feature = "print")]
-pub fn is_terminal() -> bool {
-    WRITER.is_terminal()
-}
