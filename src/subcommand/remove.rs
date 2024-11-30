@@ -8,8 +8,7 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-use oma_pm::matches::PackagesMatcher;
-use oma_utils::dpkg::dpkg_arch;
+use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use tracing::{info, warn};
 
 use crate::config::Config;
@@ -179,13 +178,12 @@ impl CliExecuter for Remove {
             .build();
 
         let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
-        let arch = dpkg_arch(&sysroot)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .filter_candidate(false)
             .filter_downloadable_candidate(false)
             .select_dbg(false)
-            .native_arch(&arch)
+            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
             .build();
 
         let mut pkgs = vec![];

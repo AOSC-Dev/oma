@@ -1,11 +1,16 @@
-use std::{io::Read, path::Path, str::FromStr};
+use std::{
+    io::Read,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use anyhow::bail;
 use sequoia_openpgp::{
     cert::CertParser,
     parse::{
         stream::{
-            MessageLayer, MessageStructure, VerificationError, VerificationHelper, VerifierBuilder,
+            DetachedVerifierBuilder, MessageLayer, MessageStructure, VerificationError,
+            VerificationHelper, VerifierBuilder,
         },
         PacketParserBuilder, Parse,
     },
@@ -119,10 +124,76 @@ impl VerificationHelper for InReleaseVerifier {
 }
 
 /// Verify InRelease PGP signature
-pub fn verify<P: AsRef<Path>>(s: &str, signed_by: Option<&str>, rootfs: P) -> VerifyResult<String> {
+pub fn verify_inrelease(
+    inrelease: &str,
+    signed_by: Option<&str>,
+    rootfs: impl AsRef<Path>,
+) -> VerifyResult<String> {
     debug!("signed_by: {:?}", signed_by);
 
+    let (certs, deb822_inner_signed_by_str) = find_certs(rootfs, signed_by)?;
+
+    let p = policy();
+
+    let mut v = VerifierBuilder::from_bytes(inrelease.as_bytes())?.with_policy(
+        &p,
+        None,
+        if let Some(deb822_inner_signed_by_str) = deb822_inner_signed_by_str {
+            // 这个点存在只是表示换行，因此把它替换掉
+            let signed_by_str = deb822_inner_signed_by_str.replace('.', "");
+            InReleaseVerifier::from_str(&signed_by_str)?
+        } else {
+            InReleaseVerifier::from_paths(&certs)?
+        },
+    )?;
+
+    let mut res = String::new();
+    v.read_to_string(&mut res)
+        .map_err(VerifyError::FailedToReadInRelease)?;
+
+    Ok(res)
+}
+
+fn policy() -> StandardPolicy<'static> {
+    // Derive p to allow configuring sequoia_openpgp's StandardPolicy.
+    let mut p = StandardPolicy::new();
+    // Allow SHA-1 (considering it safe, whereas sequoia_openpgp's standard
+    // policy forbids it), as many third party APT repositories still uses
+    // SHA-1 to sign their repository metadata (such as InRelease).
+    p.accept_hash(HashAlgorithm::SHA1);
+
+    // Allow RSA-1024
+    p.accept_asymmetric_algo(AsymmetricAlgorithm::RSA1024);
+
+    p
+}
+
+pub fn verify_release(
+    release: &str,
+    detached: &[u8],
+    signed_by: Option<&str>,
+    rootfs: impl AsRef<Path>,
+) -> VerifyResult<()> {
+    let (certs, _) = find_certs(rootfs, signed_by)?;
+    let p = policy();
+
+    let mut v = DetachedVerifierBuilder::from_bytes(detached)?.with_policy(
+        &p,
+        None,
+        InReleaseVerifier::from_paths(&certs)?,
+    )?;
+
+    v.verify_bytes(release)?;
+
+    Ok(())
+}
+
+fn find_certs(
+    rootfs: impl AsRef<Path>,
+    signed_by: Option<&str>,
+) -> VerifyResult<(Vec<PathBuf>, Option<&str>)> {
     let rootfs = rootfs.as_ref();
+
     let mut dir = std::fs::read_dir(rootfs.join("etc/apt/trusted.gpg.d"))
         .map_err(|_| VerifyError::TrustedDirNotExist)?
         .collect::<Vec<_>>();
@@ -134,8 +205,8 @@ pub fn verify<P: AsRef<Path>>(s: &str, signed_by: Option<&str>, rootfs: P) -> Ve
     }
 
     let mut certs = vec![];
-
     let mut deb822_inner_signed_by_str = None;
+
     if let Some(signed_by) = signed_by {
         let signed_by = signed_by.trim();
         if signed_by.starts_with("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
@@ -168,31 +239,5 @@ pub fn verify<P: AsRef<Path>>(s: &str, signed_by: Option<&str>, rootfs: P) -> Ve
         }
     }
 
-    // Derive p to allow configuring sequoia_openpgp's StandardPolicy.
-    let mut p = StandardPolicy::new();
-    // Allow SHA-1 (considering it safe, whereas sequoia_openpgp's standard
-    // policy forbids it), as many third party APT repositories still uses
-    // SHA-1 to sign their repository metadata (such as InRelease).
-    p.accept_hash(HashAlgorithm::SHA1);
-
-    // Allow RSA-1024
-    p.accept_asymmetric_algo(AsymmetricAlgorithm::RSA1024);
-
-    let mut v = VerifierBuilder::from_bytes(s.as_bytes())?.with_policy(
-        &p,
-        None,
-        if let Some(deb822_inner_signed_by_str) = deb822_inner_signed_by_str {
-            // 这个点存在只是表示换行，因此把它替换掉
-            let signed_by_str = deb822_inner_signed_by_str.replace('.', "");
-            InReleaseVerifier::from_str(&signed_by_str)?
-        } else {
-            InReleaseVerifier::from_paths(&certs)?
-        },
-    )?;
-
-    let mut res = String::new();
-    v.read_to_string(&mut res)
-        .map_err(VerifyError::FailedToReadInRelease)?;
-
-    Ok(res)
+    Ok((certs, deb822_inner_signed_by_str))
 }

@@ -4,9 +4,8 @@ use clap::{Args, ValueEnum};
 use oma_console::{print::Action, success};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
-    matches::PackagesMatcher,
+    matches::{GetArchMethod, PackagesMatcher},
 };
-use oma_utils::dpkg::dpkg_arch;
 use tracing::info;
 
 use crate::{color_formatter, config::Config, error::OutputError, utils::root};
@@ -75,16 +74,15 @@ impl CliExecuter for Mark {
                 .map(|(x, y)| (Cow::Borrowed(x), y))
                 .collect::<Vec<_>>(),
             MarkAction::Auto | MarkAction::Manual => {
-                let arch = dpkg_arch(&sysroot)?;
                 let matcher = PackagesMatcher::builder()
                     .cache(&apt.cache)
-                    .native_arch(&arch)
+                    .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
                     .build();
 
                 let (pkgs, no_result) =
                     matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
 
-                handle_no_result(sysroot, no_result, no_progress)?;
+                handle_no_result(&sysroot, no_result, no_progress)?;
 
                 apt.mark_install_status(pkgs, action == MarkAction::Auto, dry_run)?
                     .into_iter()

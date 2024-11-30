@@ -384,6 +384,10 @@ impl From<RefreshError> for OutputError {
                     description: fl!("inrelease-checksum-can-not-parse", p = path),
                     source: None,
                 },
+                InReleaseError::ReadGPG(error, file_name) => Self {
+                    description: fl!("failed-to-parse-file", p = file_name),
+                    source: Some(Box::new(error)),
+                },
             },
             RefreshError::DpkgArchError(e) => OutputError::from(e),
             RefreshError::JoinError(e) => Self {
@@ -505,6 +509,10 @@ impl From<RefreshError> for OutputError {
                 InReleaseError::BrokenInRelease => Self {
                     description: fl!("inrelease-checksum-can-not-parse", p = p),
                     source: None,
+                },
+                InReleaseError::ReadGPG(error, file_name) => Self {
+                    description: fl!("failed-to-parse-file", p = file_name),
+                    source: Some(Box::new(error)),
                 },
             },
             RefreshError::DpkgArchError(e) => OutputError::from(e),
@@ -1010,6 +1018,7 @@ fn oma_database_error(e: MatcherError) -> OutputError {
             description: e.to_string(),
             source: None,
         },
+        MatcherError::DpkgError(dpkg_error) => OutputError::from(dpkg_error),
     }
 }
 

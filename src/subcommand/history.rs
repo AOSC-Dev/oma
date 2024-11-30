@@ -7,13 +7,12 @@ use oma_history::{
     connect_db, find_history_by_id, list_history, HistoryListEntry, SummaryType, DATABASE_PATH,
 };
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
-use oma_pm::matches::PackagesMatcher;
+use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{
     apt::{FilterMode, OmaApt},
     pkginfo::OmaPackage,
 };
-use oma_utils::dpkg::dpkg_arch;
 
 use std::path::{Path, PathBuf};
 use std::{borrow::Cow, sync::atomic::Ordering};
@@ -183,10 +182,9 @@ impl CliExecuter for Undo {
             }
         }
 
-        let arch = dpkg_arch(&sysroot)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
-            .native_arch(&arch)
+            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
             .build();
 
         let mut delete = vec![];

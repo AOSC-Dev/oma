@@ -23,8 +23,8 @@ use oma_pm::apt::OmaAptError;
 use oma_pm::apt::SummarySort;
 use oma_pm::apt::Upgrade as AptUpgrade;
 
+use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
-use oma_utils::dpkg::dpkg_arch;
 #[cfg(not(feature = "aosc"))]
 use tracing::debug;
 
@@ -192,8 +192,6 @@ impl CliExecuter for Upgrade {
             .dpkg_force_unsafe_io(force_unsafe_io)
             .build();
 
-        let arch = dpkg_arch(&sysroot)?;
-
         loop {
             let mut apt = OmaApt::new(
                 local_debs.clone(),
@@ -220,7 +218,7 @@ impl CliExecuter for Upgrade {
                 .filter_candidate(true)
                 .filter_downloadable_candidate(false)
                 .select_dbg(false)
-                .native_arch(&arch)
+                .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
                 .build();
 
             let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;

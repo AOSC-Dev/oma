@@ -3,9 +3,8 @@ use std::{borrow::Cow, io::stdout, path::PathBuf};
 use clap::Args;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
-    matches::PackagesMatcher,
+    matches::{GetArchMethod, PackagesMatcher},
 };
-use oma_utils::dpkg::dpkg_arch;
 use std::io::Write;
 
 use crate::{config::Config, error::OutputError};
@@ -50,16 +49,15 @@ impl CliExecuter for Rdepends {
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-        let arch = dpkg_arch(&sysroot)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
-            .native_arch(&arch)
+            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
             .build();
 
         let (pkgs, no_result) =
             matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
 
-        handle_no_result(sysroot, no_result, no_progress)?;
+        handle_no_result(&sysroot, no_result, no_progress)?;
 
         if !json {
             for pkg in pkgs {

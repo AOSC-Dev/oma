@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{borrow::Cow, path::Path};
 
 use bon::{builder, Builder};
 use cxx::UniquePtr;
@@ -10,7 +10,11 @@ use oma_apt::{
     records::RecordField,
     Package, Version,
 };
-use oma_utils::url_no_escape::url_no_escape;
+use oma_utils::{
+    dpkg::{dpkg_arch, DpkgError},
+    url_no_escape::url_no_escape,
+};
+use once_cell::sync::OnceCell;
 use tracing::{debug, info};
 
 use crate::pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone};
@@ -35,12 +39,20 @@ pub enum MatcherError {
     NoPath(String),
     #[error(transparent)]
     PtrIsNone(#[from] PtrIsNone),
+    #[error(transparent)]
+    DpkgError(#[from] DpkgError),
 }
 
 pub enum SearchEngine {
     Indicium(Box<dyn Fn(usize)>),
     Strsim,
     Text,
+}
+
+pub enum GetArchMethod<'a> {
+    SpecifySysroot(&'a Path),
+    SpecifyArch(&'a str),
+    DirectRoot,
 }
 
 #[derive(Builder)]
@@ -52,7 +64,10 @@ pub struct PackagesMatcher<'a> {
     select_dbg: bool,
     #[builder(default = false)]
     filter_downloadable_candidate: bool,
-    native_arch: &'a str,
+    #[builder(default = GetArchMethod::DirectRoot)]
+    native_arch: GetArchMethod<'a>,
+    #[builder(skip)]
+    arch: OnceCell<Cow<'a, str>>,
 }
 
 pub type MatcherResult<T> = Result<T, MatcherError>;
@@ -133,11 +148,13 @@ impl<'a> PackagesMatcher<'a> {
             info!("吃我一拳！！！");
         }
 
+        let native_arch = self.get_native_arch()?;
+
         let pkgs = self.cache.packages(&sort).filter(|x| {
             if glob.contains(':') {
                 glob_match(glob, &x.fullname(false))
             } else {
-                glob_match(glob, x.name()) && x.arch() == self.native_arch
+                glob_match(glob, x.name()) && x.arch() == native_arch
             }
         });
 
@@ -149,6 +166,16 @@ impl<'a> PackagesMatcher<'a> {
         Ok(pkgs)
     }
 
+    fn get_native_arch(&self) -> MatcherResult<&str> {
+        Ok(self.arch.get_or_try_init(|| -> MatcherResult<Cow<str>> {
+            match self.native_arch {
+                GetArchMethod::SpecifySysroot(sysroot) => Ok(Cow::Owned(dpkg_arch(sysroot)?)),
+                GetArchMethod::SpecifyArch(arch) => Ok(Cow::Borrowed(arch)),
+                GetArchMethod::DirectRoot => Ok(Cow::Owned(dpkg_arch("/")?)),
+            }
+        })?)
+    }
+
     /// Query package and version from give glob (like: apt*)
     pub fn match_pkgs_and_versions_from_glob(&self, glob: &str) -> MatcherResult<Vec<OmaPackage>> {
         let mut res = vec![];
@@ -158,11 +185,13 @@ impl<'a> PackagesMatcher<'a> {
             info!("吃我一拳！！！");
         }
 
+        let arch = self.get_native_arch()?;
+
         let pkgs = self.cache.packages(&sort).filter(|x| {
             if glob.contains(':') {
                 glob_match(glob, &x.fullname(false))
             } else {
-                glob_match(glob, x.name()) && x.arch() == self.native_arch
+                glob_match(glob, x.name()) && x.arch() == arch
             }
         });
 
@@ -385,23 +414,21 @@ pub fn has_dbg(cache: &Cache, pkg: &Package<'_>, ver: &Version) -> bool {
 
 #[cfg(test)]
 mod test {
-    use crate::test::TEST_LOCK;
+    use crate::{matches::GetArchMethod, test::TEST_LOCK};
 
     use super::PackagesMatcher;
     use oma_apt::new_cache;
-    use oma_utils::dpkg::dpkg_arch;
 
     #[test]
     fn test_glob_search() {
         let _lock = TEST_LOCK.lock().unwrap();
         let cache = new_cache!().unwrap();
-        let arch = dpkg_arch("/").unwrap();
         let matcher = PackagesMatcher::builder()
             .cache(&cache)
             .filter_candidate(true)
             .filter_downloadable_candidate(false)
             .select_dbg(false)
-            .native_arch(&arch)
+            .native_arch(GetArchMethod::DirectRoot)
             .build();
 
         let res_filter = matcher.match_pkgs_and_versions_from_glob("apt*").unwrap();
@@ -411,7 +438,7 @@ mod test {
             .filter_candidate(false)
             .filter_downloadable_candidate(false)
             .select_dbg(false)
-            .native_arch(&arch)
+            .native_arch(GetArchMethod::DirectRoot)
             .build();
 
         let res = matcher.match_pkgs_and_versions_from_glob("apt*").unwrap();
@@ -431,14 +458,13 @@ mod test {
     fn test_virtual_pkg_search() {
         let _lock = TEST_LOCK.lock().unwrap();
         let cache = new_cache!().unwrap();
-        let arch = dpkg_arch("/").unwrap();
 
         let matcher = PackagesMatcher::builder()
             .cache(&cache)
             .filter_candidate(true)
             .filter_downloadable_candidate(false)
             .select_dbg(false)
-            .native_arch(&arch)
+            .native_arch(GetArchMethod::DirectRoot)
             .build();
 
         let res_filter = matcher
@@ -454,14 +480,13 @@ mod test {
     fn test_branch_search() {
         let _lock = TEST_LOCK.lock().unwrap();
         let cache = new_cache!().unwrap();
-        let arch = dpkg_arch("/").unwrap();
 
         let matcher = PackagesMatcher::builder()
             .cache(&cache)
             .filter_candidate(true)
             .filter_downloadable_candidate(false)
             .select_dbg(false)
-            .native_arch(&arch)
+            .native_arch(GetArchMethod::DirectRoot)
             .build();
 
         let res_filter = matcher.match_from_branch("apt/stable").unwrap();

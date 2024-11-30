@@ -15,7 +15,7 @@ use oma_console::writer::Writeln;
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs, Upgrade},
-    matches::PackagesMatcher,
+    matches::{GetArchMethod, PackagesMatcher},
 };
 use oma_utils::dpkg::dpkg_arch;
 use reqwest::Client;
@@ -182,10 +182,9 @@ impl CliExecuter for Topics {
 
         let mut pkgs = vec![];
 
-        let arch = dpkg_arch(&sysroot)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
-            .native_arch(&arch)
+            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
             .build();
 
         for pkg in downgrade_pkgs {
