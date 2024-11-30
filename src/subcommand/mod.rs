@@ -4,6 +4,7 @@ pub mod contents_find;
 pub mod depends;
 pub mod download;
 pub mod fix_broken;
+pub mod generate;
 pub mod history;
 pub mod install;
 pub mod list;

@@ -2,11 +2,14 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::stdout;
+use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::anyhow;
 use apt_auth_config::AuthConfig;
+use clap::Args;
+use clap::Subcommand;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Sort;
@@ -30,6 +33,7 @@ use sha2::Sha256;
 use tabled::Tabled;
 use tracing::{error, info};
 
+use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
 use crate::pb::OmaProgressBar;
@@ -40,6 +44,7 @@ use crate::HTTP_CLIENT;
 
 use super::utils::tui_select_list_size;
 use super::utils::RefreshRequest;
+use crate::args::CliExecuter;
 
 const REPO_TEST_SHA256: &str = "1e2a82e7babb443b2b26b61ce5dd2bd25b06b30422b42ee709fddd2cc3ffe231";
 const TEST_FILE_PREFIX: &str = ".repotest";
@@ -51,6 +56,173 @@ impl Display for MirrorDisplay {
         write!(f, "{} ({})", self.0 .1.desc, self.0 .0)?;
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct CliMirror {
+    #[command(subcommand)]
+    mirror_subcmd: Option<MirrorSubCmd>,
+    /// Do not refresh topics manifest.json file
+    #[arg(long)]
+    no_refresh_topics: bool,
+    /// Do not refresh repository metadata
+    #[arg(long)]
+    no_refresh: bool,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum MirrorSubCmd {
+    /// Set mirror(s) to sources.list
+    Set {
+        /// Enable mirror name(s)
+        #[arg(required = true)]
+        names: Vec<String>,
+        /// Set sysroot target directory
+        #[arg(from_global)]
+        sysroot: PathBuf,
+        /// Do not refresh topics manifest.json file
+        #[arg(long)]
+        no_refresh_topics: bool,
+        /// Do not refresh repository metadata
+        #[arg(long)]
+        no_refresh: bool,
+    },
+    /// Add mirror(s) to sources.list
+    Add {
+        /// Add mirror name(s)
+        #[arg(required = true)]
+        names: Vec<String>,
+        /// Set sysroot target directory
+        #[arg(from_global)]
+        sysroot: PathBuf,
+        /// Do not refresh topics manifest.json file
+        #[arg(long)]
+        no_refresh_topics: bool,
+        /// Do not refresh repository metadata
+        #[arg(long)]
+        no_refresh: bool,
+    },
+    /// Remove mirror(s) from sources.list
+    Remove {
+        /// Remove mirror name(s)
+        #[arg(required = true)]
+        names: Vec<String>,
+        /// Set sysroot target directory
+        #[arg(from_global)]
+        sysroot: PathBuf,
+        /// Do not refresh topics manifest.json file
+        #[arg(long)]
+        no_refresh_topics: bool,
+        /// Do not refresh repository metadata
+        #[arg(long)]
+        no_refresh: bool,
+    },
+    /// Sort mirror(s) order
+    SortMirrors {
+        /// Do not refresh topics manifest.json file
+        #[arg(long)]
+        no_refresh_topics: bool,
+        /// Do not refresh repository metadata
+        #[arg(long)]
+        no_refresh: bool,
+    },
+    /// Speedtest mirror(s)
+    Speedtest {
+        /// Also set fastest as mirror
+        #[arg(long)]
+        set_fastest: bool,
+        /// Do not refresh topics manifest.json file
+        #[arg(long)]
+        no_refresh_topics: bool,
+        /// Do not refresh repository metadata
+        #[arg(long)]
+        no_refresh: bool,
+    },
+}
+
+impl CliExecuter for CliMirror {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        let CliMirror {
+            mirror_subcmd,
+            no_refresh_topics,
+            no_refresh,
+        } = self;
+
+        if let Some(subcmd) = mirror_subcmd {
+            match subcmd {
+                MirrorSubCmd::Set {
+                    names,
+                    sysroot,
+                    no_refresh_topics,
+                    no_refresh,
+                } => operate(
+                    no_progress,
+                    !no_refresh_topics && !config.no_refresh_topics(),
+                    config.network_thread(),
+                    no_refresh,
+                    names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
+                    sysroot,
+                    Operate::Set,
+                ),
+                MirrorSubCmd::Speedtest {
+                    set_fastest,
+                    #[cfg(feature = "aosc")]
+                    no_refresh_topics,
+                    no_refresh,
+                } => speedtest(
+                    no_progress,
+                    set_fastest,
+                    !no_refresh_topics && !config.no_refresh_topics(),
+                    config.network_thread(),
+                    no_refresh,
+                ),
+                MirrorSubCmd::Add {
+                    names,
+                    sysroot,
+                    no_refresh_topics,
+                    no_refresh,
+                } => operate(
+                    no_progress,
+                    !no_refresh_topics && !config.no_refresh_topics(),
+                    config.network_thread(),
+                    no_refresh,
+                    names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
+                    sysroot,
+                    Operate::Add,
+                ),
+                MirrorSubCmd::Remove {
+                    names,
+                    sysroot,
+                    no_refresh_topics,
+                    no_refresh,
+                } => operate(
+                    no_progress,
+                    !no_refresh_topics && !config.no_refresh_topics(),
+                    config.network_thread(),
+                    no_refresh,
+                    names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
+                    sysroot,
+                    Operate::Remove,
+                ),
+                MirrorSubCmd::SortMirrors {
+                    no_refresh_topics,
+                    no_refresh,
+                } => set_order(
+                    no_progress,
+                    !no_refresh_topics && !config.no_refresh_topics(),
+                    config.network_thread(),
+                    no_refresh,
+                ),
+            }
+        } else {
+            tui(
+                no_progress,
+                !no_refresh_topics && !config.no_refresh_topics(),
+                config.network_thread(),
+                no_refresh,
+            )
+        }
     }
 }
 
@@ -124,11 +296,12 @@ pub fn operate(
     network_threads: usize,
     no_refresh: bool,
     args: Vec<&str>,
+    sysroot: PathBuf,
     subcmd: Operate,
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let mut mm = MirrorManager::new("/".into())?;
+    let mut mm = MirrorManager::new(sysroot)?;
 
     match subcmd {
         Operate::Set => {
@@ -341,7 +514,10 @@ fn refresh(
         no_progress,
         limit: network_threads,
         sysroot: "/",
+        #[cfg(feature = "aosc")]
         _refresh_topics: refresh_topic,
+        #[cfg(not(feature = "aosc"))]
+        _refresh_topics: false,
         config: &AptConfig::new(),
         auth_config: &auth_config,
     }

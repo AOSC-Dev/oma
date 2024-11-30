@@ -122,7 +122,7 @@ fn main() -> Result<(), OmaAptError> {
         },
         Box::new(MyInstallProgressManager),
         tx,
-        op,
+        &op,
     )?;
 
     Ok(())

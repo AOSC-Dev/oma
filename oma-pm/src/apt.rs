@@ -483,7 +483,7 @@ impl OmaApt {
         let res = tokio.block_on(async move {
             Self::download_pkgs(
                 client,
-                download_list,
+                &download_list,
                 network_thread,
                 download_dir.unwrap_or(Path::new(".")),
                 auth,
@@ -565,7 +565,7 @@ impl OmaApt {
         config: CommitDownloadConfig<'_>,
         install_progress_manager: Box<dyn InstallProgressManager>,
         tx: Sender<Event>,
-        op: OmaOperation,
+        op: &OmaOperation,
     ) -> OmaAptResult<()> {
         let CommitDownloadConfig {
             network_thread,
@@ -582,7 +582,7 @@ impl OmaApt {
             return Ok(());
         }
 
-        let download_pkg_list = v.install;
+        let download_pkg_list = &v.install;
 
         let path = self.get_archive_dir();
 
@@ -840,7 +840,7 @@ impl OmaApt {
     /// Download packages (inner)
     async fn download_pkgs(
         client: &Client,
-        download_pkg_list: Vec<InstallEntry>,
+        download_pkg_list: &[InstallEntry],
         network_thread: Option<usize>,
         download_dir: &Path,
         auth_config: &AuthConfig,
@@ -895,7 +895,7 @@ impl OmaApt {
 
             let download_entry = DownloadEntry::builder()
                 .source(sources)
-                .filename(apt_style_filename(&entry))
+                .filename(apt_style_filename(entry))
                 .dir(download_dir.to_path_buf())
                 .allow_resume(true)
                 .msg(msg)

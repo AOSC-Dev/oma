@@ -1,6 +1,10 @@
-use std::{path::Path, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use apt_auth_config::AuthConfig;
+use clap::Args;
 use oma_console::{
     indicatif::ProgressBar,
     pager::{exit_tui, prepare_create_tui},
@@ -12,9 +16,11 @@ use oma_pm::{
     search::IndiciumSearch,
 };
 use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
-use tui_inner::{Task, Tui};
+use tui_inner::{Task, Tui as TuiInner};
 
+use crate::args::CliExecuter;
 use crate::{
+    config::Config,
     error::OutputError,
     find_another_oma, fl,
     subcommand::utils::{lock_oma, no_check_dbus_warn, CommitChanges, RefreshRequest},
@@ -25,143 +31,218 @@ use crate::{
 mod state;
 mod tui_inner;
 
-pub struct TuiArgs {
-    pub sysroot: String,
-    pub no_progress: bool,
-    pub dry_run: bool,
-    pub network_thread: usize,
-    pub no_check_dbus: bool,
-    pub another_apt_options: Vec<String>,
+#[derive(Debug, Args)]
+pub struct Tui {
+    /// Fix apt broken status
+    #[arg(short, long)]
+    fix_broken: bool,
+    /// Install package(s) without fsync(2)
+    #[arg(long)]
+    force_unsafe_io: bool,
+    /// Do not refresh repository metadata
+    #[arg(long)]
+    no_refresh: bool,
+    /// Ignore repository and package dependency issues
+    #[arg(long)]
+    force_yes: bool,
+    /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
+    #[arg(long)]
+    force_confnew: bool,
+    #[cfg(feature = "aosc")]
+    /// Do not refresh topics manifest.json file
+    #[arg(long)]
+    no_refresh_topics: bool,
+    /// Remove package(s) also remove configuration file(s), like apt purge
+    #[arg(long, visible_alias = "purge")]
+    remove_config: bool,
+    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    #[arg(from_global)]
+    dry_run: bool,
+    /// Run oma do not check dbus
+    #[arg(from_global)]
+    no_check_dbus: bool,
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+    /// Set apt options
+    #[arg(from_global)]
+    apt_options: Vec<String>,
 }
 
-pub fn execute(tui: TuiArgs) -> Result<i32, OutputError> {
-    if find_another_oma().is_ok() {
-        return Err(OutputError {
-            description: "".to_string(),
-            source: None,
-        });
+impl Default for Tui {
+    fn default() -> Self {
+        Self {
+            fix_broken: Default::default(),
+            force_unsafe_io: Default::default(),
+            no_refresh: Default::default(),
+            force_yes: Default::default(),
+            force_confnew: Default::default(),
+            #[cfg(feature = "aosc")]
+            no_refresh_topics: Default::default(),
+            remove_config: Default::default(),
+            dry_run: Default::default(),
+            no_check_dbus: Default::default(),
+            sysroot: "/".into(),
+            apt_options: Default::default(),
+        }
     }
+}
 
-    if Path::new("/run/lock/oma.lock").exists() {
-        return Err(OutputError {
-            description: fl!("failed-to-lock-oma"),
-            source: None,
-        });
-    }
-
-    root()?;
-
-    let conn = RT.block_on(create_dbus_connection())?;
-    check_battery(&conn, false);
-
-    let TuiArgs {
-        sysroot,
-        no_progress,
-        dry_run,
-        network_thread,
-        no_check_dbus,
-        another_apt_options,
-    } = tui;
-
-    let apt_config = AptConfig::new();
-    let auth_config = AuthConfig::system(&sysroot)?;
-
-    RefreshRequest {
-        client: &HTTP_CLIENT,
-        dry_run,
-        no_progress,
-        limit: network_thread,
-        sysroot: &sysroot,
-        _refresh_topics: true,
-        config: &apt_config,
-        auth_config: &auth_config,
-    }
-    .run()?;
-
-    let oma_apt_args = OmaAptArgs::builder()
-        .sysroot(sysroot.clone())
-        .another_apt_options(another_apt_options)
-        .build();
-
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
-
-    let (sty, inv) = spinner_style();
-    let pb = ProgressBar::new_spinner().with_style(sty);
-    pb.enable_steady_tick(inv);
-    pb.set_message(fl!("reading-database"));
-
-    let upgradable = apt.count_pending_upgradable_pkgs()?;
-    let autoremovable = apt.count_pending_autoremovable_pkgs();
-    let installed = apt.count_installed_packages();
-
-    let searcher = IndiciumSearch::new(&apt.cache, |n| {
-        pb.set_message(fl!("reading-database-with-count", count = n));
-    })?;
-    pb.finish_and_clear();
-
-    let mut terminal = prepare_create_tui().map_err(|e| OutputError {
-        description: "BUG: Failed to create crossterm instance".to_string(),
-        source: Some(Box::new(e)),
-    })?;
-
-    let tui = Tui::new(&apt, installed, upgradable, autoremovable, searcher);
-
-    let Task {
-        execute_apt,
-        install,
-        remove,
-        upgrade,
-        autoremove,
-    } = tui.run(&mut terminal, Duration::from_millis(250)).unwrap();
-
-    exit_tui(&mut terminal).map_err(|e| OutputError {
-        description: "BUG: Failed to exit tui".to_string(),
-        source: Some(Box::new(e)),
-    })?;
-
-    let mut code = 0;
-
-    if execute_apt {
-        let _fds = if !no_check_dbus {
-            let fds = RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
-            Some(fds)
-        } else {
-            no_check_dbus_warn();
-            None
-        };
-
-        lock_oma()?;
-
-        if upgrade {
-            apt.upgrade(Upgrade::FullUpgrade)?;
+impl CliExecuter for Tui {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        if find_another_oma().is_ok() {
+            return Err(OutputError {
+                description: "".to_string(),
+                source: None,
+            });
         }
 
-        apt.install(&install, false)?;
-        apt.remove(
-            remove
-                .iter()
-                .flat_map(|x| x.into_oma_package_without_version()),
-            false,
-            !autoremove,
-        )?;
+        if Path::new("/run/lock/oma.lock").exists() {
+            return Err(OutputError {
+                description: fl!("failed-to-lock-oma"),
+                source: None,
+            });
+        }
 
-        code = CommitChanges::builder()
-            .apt(apt)
-            .dry_run(dry_run)
-            .request_type(SummaryType::Changes)
-            .no_fixbroken(false)
-            .network_thread(network_thread)
-            .no_progress(no_progress)
-            .sysroot(sysroot)
-            .fix_dpkg_status(true)
-            .protect_essential(true)
-            .client(&HTTP_CLIENT)
-            .yes(false)
-            .remove_config(false)
-            .auth_config(&auth_config)
-            .build()
+        root()?;
+
+        let conn = RT.block_on(create_dbus_connection())?;
+        check_battery(&conn, false);
+
+        let Tui {
+            fix_broken,
+            force_unsafe_io,
+            no_refresh,
+            force_yes,
+            force_confnew,
+            #[cfg(feature = "aosc")]
+            no_refresh_topics,
+            remove_config,
+            dry_run,
+            no_check_dbus,
+            sysroot,
+            apt_options,
+        } = self;
+
+        let apt_config = AptConfig::new();
+        let auth_config = AuthConfig::system(&sysroot)?;
+
+        if !no_refresh {
+            RefreshRequest {
+                client: &HTTP_CLIENT,
+                dry_run,
+                no_progress,
+                limit: config.network_thread(),
+                sysroot: &sysroot.to_string_lossy(),
+                #[cfg(feature = "aosc")]
+                _refresh_topics: !no_refresh_topics && !config.no_refresh_topics(),
+                #[cfg(not(feature = "aosc"))]
+                _refresh_topics: false,
+                config: &apt_config,
+                auth_config: &auth_config,
+            }
             .run()?;
-    }
+        }
 
-    Ok(code)
+        let oma_apt_args = OmaAptArgs::builder()
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .another_apt_options(apt_options)
+            .dpkg_force_confnew(force_confnew)
+            .dpkg_force_unsafe_io(force_unsafe_io)
+            .force_yes(force_yes)
+            .build();
+
+        let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+
+        let (sty, inv) = spinner_style();
+        let pb = if no_progress {
+            None
+        } else {
+            let pb = ProgressBar::new_spinner().with_style(sty);
+            pb.enable_steady_tick(inv);
+            pb.set_message(fl!("reading-database"));
+            Some(pb)
+        };
+
+        let upgradable = apt.count_pending_upgradable_pkgs()?;
+        let autoremovable = apt.count_pending_autoremovable_pkgs();
+        let installed = apt.count_installed_packages();
+
+        let searcher = IndiciumSearch::new(&apt.cache, |n| {
+            if let Some(ref pb) = pb {
+                pb.set_message(fl!("reading-database-with-count", count = n));
+            }
+        })?;
+
+        if let Some(pb) = pb {
+            pb.finish_and_clear();
+        }
+
+        let mut terminal = prepare_create_tui().map_err(|e| OutputError {
+            description: "BUG: Failed to create crossterm instance".to_string(),
+            source: Some(Box::new(e)),
+        })?;
+
+        let tui = TuiInner::new(&apt, installed, upgradable, autoremovable, searcher);
+
+        let Task {
+            execute_apt,
+            install,
+            remove,
+            upgrade,
+            autoremove,
+        } = tui.run(&mut terminal, Duration::from_millis(250)).unwrap();
+
+        exit_tui(&mut terminal).map_err(|e| OutputError {
+            description: "BUG: Failed to exit tui".to_string(),
+            source: Some(Box::new(e)),
+        })?;
+
+        let mut code = 0;
+
+        if execute_apt {
+            let _fds = if !no_check_dbus && !config.no_check_dbus() {
+                let fds = RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+                Some(fds)
+            } else {
+                no_check_dbus_warn();
+                None
+            };
+
+            lock_oma()?;
+
+            if upgrade {
+                apt.upgrade(Upgrade::FullUpgrade)?;
+            }
+
+            apt.install(&install, false)?;
+            apt.remove(
+                remove
+                    .iter()
+                    .flat_map(|x| x.into_oma_package_without_version()),
+                false,
+                !autoremove,
+            )?;
+
+            code = CommitChanges::builder()
+                .apt(apt)
+                .dry_run(dry_run)
+                .request_type(SummaryType::Changes)
+                .no_fixbroken(!fix_broken)
+                .network_thread(config.network_thread())
+                .no_progress(no_progress)
+                .sysroot(sysroot.to_string_lossy().to_string())
+                .fix_dpkg_status(true)
+                .protect_essential(config.protect_essentials())
+                .client(&HTTP_CLIENT)
+                .yes(false)
+                .remove_config(remove_config)
+                .auth_config(&auth_config)
+                .autoremove(autoremove)
+                .build()
+                .run()?;
+        }
+
+        Ok(code)
+    }
 }

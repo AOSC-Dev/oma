@@ -1,5 +1,8 @@
+use std::path::PathBuf;
+
 use anyhow::anyhow;
 use apt_auth_config::AuthConfig;
+use clap::Args;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
@@ -8,121 +11,247 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use tracing::{info, warn};
 
+use crate::config::Config;
 use crate::pb::OmaProgressBar;
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},
-    RemoveArgs,
 };
-use crate::{fl, OmaArgs, HTTP_CLIENT};
+use crate::{fl, HTTP_CLIENT};
 
 use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitChanges};
+use crate::args::CliExecuter;
 
-pub fn execute(glob: Vec<&str>, args: RemoveArgs, oma_args: OmaArgs) -> Result<i32, OutputError> {
-    root()?;
-    lock_oma()?;
+#[derive(Debug, Args)]
+pub struct Remove {
+    /// Package(s) to remove
+    packages: Vec<String>,
+    /// Bypass confirmation prompts
+    #[arg(short, long)]
+    yes: bool,
+    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    #[arg(from_global)]
+    dry_run: bool,
+    /// Run oma do not check dbus
+    #[arg(from_global)]
+    no_check_dbus: bool,
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+    /// Set apt options
+    #[arg(from_global)]
+    apt_options: Vec<String>,
+    /// Fix apt broken status
+    #[arg(short, long)]
+    fix_broken: bool,
+    /// Install package(s) without fsync(2)
+    #[arg(long)]
+    force_unsafe_io: bool,
+    /// Ignore repository and package dependency issues
+    #[arg(long)]
+    force_yes: bool,
+    /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
+    #[arg(long)]
+    force_confnew: bool,
+    /// Do not auto remove unnecessary package(s)
+    #[arg(long)]
+    no_autoremove: bool,
+    /// Remove package(s) also remove configuration file(s), like apt purge
+    #[arg(long, visible_alias = "purge")]
+    remove_config: bool,
+}
 
-    let OmaArgs {
-        dry_run,
-        network_thread,
-        no_progress,
-        no_check_dbus,
-        protect_essentials: protect,
-        another_apt_options,
-    } = oma_args;
+#[derive(Debug, Args)]
+pub struct Purge {
+    /// Package(s) to remove
+    packages: Vec<String>,
+    /// Bypass confirmation prompts
+    #[arg(short, long)]
+    yes: bool,
+    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    #[arg(from_global)]
+    dry_run: bool,
+    /// Run oma do not check dbus
+    #[arg(from_global)]
+    no_check_dbus: bool,
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+    /// Set apt options
+    #[arg(from_global)]
+    apt_options: Vec<String>,
+    /// Fix apt broken status
+    #[arg(short, long)]
+    fix_broken: bool,
+    /// Install package(s) without fsync(2)
+    #[arg(long)]
+    force_unsafe_io: bool,
+    /// Ignore repository and package dependency issues
+    #[arg(long)]
+    force_yes: bool,
+    /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
+    #[arg(long)]
+    force_confnew: bool,
+    /// Do not auto remove unnecessary package(s)
+    #[arg(long)]
+    no_autoremove: bool,
+}
 
-    let _fds = if !no_check_dbus {
-        Some(dbus_check(args.yes))
-    } else {
-        no_check_dbus_warn();
-        None
-    };
+impl From<Purge> for Remove {
+    fn from(value: Purge) -> Self {
+        let Purge {
+            packages,
+            yes,
+            dry_run,
+            no_check_dbus,
+            sysroot,
+            apt_options,
+            fix_broken,
+            force_unsafe_io,
+            force_yes,
+            force_confnew,
+            no_autoremove,
+        } = value;
 
-    if args.yes {
-        warn!("{}", fl!("automatic-mode-warn"));
+        Self {
+            packages,
+            yes,
+            dry_run,
+            no_check_dbus,
+            sysroot,
+            apt_options,
+            fix_broken,
+            force_unsafe_io,
+            force_yes,
+            force_confnew,
+            no_autoremove,
+            remove_config: true,
+        }
     }
+}
 
-    let oma_apt_args = OmaAptArgs::builder()
-        .yes(args.yes)
-        .force_yes(args.force_yes)
-        .sysroot(args.sysroot.clone())
-        .another_apt_options(another_apt_options)
-        .dpkg_force_unsafe_io(args.force_unsafe_io)
-        .build();
+impl CliExecuter for Purge {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        let remove = Remove::from(self);
+        remove.execute(config, no_progress)
+    }
+}
 
-    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
-    let matcher = PackagesMatcher::builder()
-        .cache(&apt.cache)
-        .filter_candidate(false)
-        .filter_downloadable_candidate(false)
-        .select_dbg(false)
-        .native_arch(GetArchMethod::SpecifySysroot(&args.sysroot))
-        .build();
+impl CliExecuter for Remove {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        root()?;
+        lock_oma()?;
 
-    let mut pkgs = vec![];
-    let mut no_result = vec![];
+        let Remove {
+            packages,
+            yes,
+            dry_run,
+            no_check_dbus,
+            sysroot,
+            apt_options,
+            fix_broken,
+            force_unsafe_io,
+            force_yes,
+            force_confnew,
+            no_autoremove,
+            remove_config,
+        } = self;
 
-    for i in glob {
-        let res = matcher.match_pkgs_from_glob(i)?;
-        if res.is_empty() {
-            no_result.push(i);
+        let _fds = if !no_check_dbus && !config.no_check_dbus() {
+            Some(dbus_check(yes))
         } else {
-            pkgs.extend(res);
+            no_check_dbus_warn();
+            None
+        };
+
+        if yes {
+            warn!("{}", fl!("automatic-mode-warn"));
         }
-    }
 
-    let pb = if !no_progress {
-        OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
-    } else {
-        None
-    };
+        let oma_apt_args = OmaAptArgs::builder()
+            .yes(yes)
+            .force_yes(force_yes)
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .another_apt_options(apt_options)
+            .dpkg_force_unsafe_io(force_unsafe_io)
+            .dpkg_force_confnew(force_confnew)
+            .build();
 
-    let remove_str = pkgs
-        .iter()
-        .map(|x| {
-            format!(
-                "{} {}",
-                x.raw_pkg.fullname(true),
-                x.package(&apt.cache)
-                    .installed()
-                    .map(|x| x.version().to_string())
-                    .unwrap_or_default(),
-            )
-        })
-        .collect::<Vec<_>>();
+        let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
+        let matcher = PackagesMatcher::builder()
+            .cache(&apt.cache)
+            .filter_candidate(false)
+            .filter_downloadable_candidate(false)
+            .select_dbg(false)
+            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+            .build();
 
-    let context = apt.remove(pkgs, args.remove_config, args.no_autoremove)?;
+        let mut pkgs = vec![];
+        let mut no_result = vec![];
 
-    if let Some(pb) = pb {
-        pb.inner.finish_and_clear()
-    }
-
-    if !context.is_empty() {
-        for c in context {
-            info!("{}", fl!("no-need-to-remove", name = c));
+        for i in &packages {
+            let res = matcher.match_pkgs_from_glob(i)?;
+            if res.is_empty() {
+                no_result.push(i.as_str());
+            } else {
+                pkgs.extend(res);
+            }
         }
+
+        let pb = if !no_progress {
+            OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
+        } else {
+            None
+        };
+
+        let remove_str = pkgs
+            .iter()
+            .map(|x| {
+                format!(
+                    "{} {}",
+                    x.raw_pkg.fullname(true),
+                    x.package(&apt.cache)
+                        .installed()
+                        .map(|x| x.version().to_string())
+                        .unwrap_or_default(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let context = apt.remove(pkgs, remove_config, no_autoremove)?;
+
+        if let Some(pb) = pb {
+            pb.inner.finish_and_clear()
+        }
+
+        if !context.is_empty() {
+            for c in context {
+                info!("{}", fl!("no-need-to-remove", name = c));
+            }
+        }
+
+        handle_no_result(&sysroot, no_result, no_progress)?;
+
+        let auth_config = AuthConfig::system(&sysroot)?;
+
+        CommitChanges::builder()
+            .apt(apt)
+            .dry_run(dry_run)
+            .request_type(SummaryType::Remove(remove_str))
+            .no_fixbroken(!fix_broken)
+            .network_thread(config.network_thread())
+            .no_progress(no_progress)
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .fix_dpkg_status(true)
+            .protect_essential(config.protect_essentials())
+            .client(&HTTP_CLIENT)
+            .yes(yes)
+            .remove_config(remove_config)
+            .auth_config(&auth_config)
+            .autoremove(!no_autoremove)
+            .build()
+            .run()
     }
-
-    handle_no_result(&args.sysroot, no_result, no_progress)?;
-
-    let auth_config = AuthConfig::system(&args.sysroot)?;
-
-    CommitChanges::builder()
-        .apt(apt)
-        .dry_run(dry_run)
-        .request_type(SummaryType::Remove(remove_str))
-        .no_fixbroken(!args.fix_broken)
-        .network_thread(network_thread)
-        .no_progress(no_progress)
-        .sysroot(args.sysroot)
-        .fix_dpkg_status(true)
-        .protect_essential(protect)
-        .client(&HTTP_CLIENT)
-        .yes(args.yes)
-        .remove_config(args.remove_config)
-        .auth_config(&auth_config)
-        .build()
-        .run()
 }
 
 /// "Yes Do as I say" steps

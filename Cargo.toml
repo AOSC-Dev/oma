@@ -10,7 +10,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 [dependencies]
 # Cli
-clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string"] }
+clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "derive"] }
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
 # https://github.com/zhiburt/tabled/issues/423
@@ -43,6 +43,9 @@ faster-hex = "0.10"
 sha2 = "0.10"
 bon = "3"
 flume = "0.11"
+enum_dispatch = "0.3"
+clap_mangen = "0.2.23"
+clap_complete = { version = "4.5.29", optional = true }
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
@@ -63,12 +66,6 @@ i18n-embed-fl = "0.9.1"
 rust-embed = "8.5.0"
 unic-langid = "0.9.5"
 
-[build-dependencies]
-clap_mangen = "0.2.23"
-clap_complete = "4.5.29"
-clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "string"] }
-anyhow = "1.0.89"
-
 [features]
 aosc = ["dep:oma-topics", "dep:oma-mirror", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "reqwest/blocking"]
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
@@ -78,6 +75,7 @@ tokio-console = ["dep:console-subscriber"]
 rustls = ["reqwest/rustls-tls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-topics/rustls", "oma-repo-verify/sequoia-nettle-backend"]
 openssl = ["reqwest/native-tls", "oma-fetch/native-tls", "oma-refresh/native-tls", "oma-topics/native-tls", "oma-repo-verify/sequoia-openssl-backend"]
 generic = ["sequoia-nettle-backend", "rustls"]
+generate-completion = ["dep:clap_complete"]
 default = ["aosc", "generic"]
 
 [workspace]
@@ -98,8 +96,8 @@ assets = [
     ["data/apt.conf.d/50oma.conf", "etc/apt/apt.conf.d/50oma.conf", "644"],
     ["data/dbus/oma-dbus.conf", "usr/share/dbus-1/system.d/oma-dbus.conf", "644"],
     ["data/policykit/io.aosc.oma.apply.policy", "usr/share/polkit-1/actions/io.aosc.oma.apply.policy", "644" ],
-    ["data/completions/oma.bash", "usr/share/bash-completion/completions/oma.bash", "644"],
-    ["data/completions/oma.fish", "usr/share/fish/vendor_completions.d/oma.fish", "644"],
+    ["data/completions/oma.bash.debian", "usr/share/bash-completion/completions/oma.bash", "644"],
+    ["data/completions/oma.fish.debian", "usr/share/fish/vendor_completions.d/oma.fish", "644"],
     ["man/*.1", "usr/share/man/man1/", "644"]
 ]
 features = ["generic"]

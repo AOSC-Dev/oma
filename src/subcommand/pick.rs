@@ -1,4 +1,7 @@
+use std::path::PathBuf;
+
 use apt_auth_config::AuthConfig;
+use clap::Args;
 use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::SummaryType;
 use oma_pm::{
@@ -6,155 +9,207 @@ use oma_pm::{
     pkginfo::OmaPackage,
 };
 
+use crate::fl;
 use crate::{
+    config::Config,
     error::OutputError,
     utils::{dbus_check, root},
     HTTP_CLIENT,
 };
-use crate::{fl, OmaArgs};
 use anyhow::anyhow;
 
 use super::utils::{
-    lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitChanges,
-    RefreshRequest,
+    lock_oma, no_check_dbus_warn, tui_select_list_size, CommitChanges, RefreshRequest,
 };
+use crate::args::CliExecuter;
 
-pub fn execute(
-    pkg_str: &str,
+#[derive(Debug, Args)]
+pub struct Pick {
+    /// Package to pick specific version for
+    #[arg(required = true)]
+    package: String,
+    /// Fix apt broken status
+    #[arg(short, long)]
+    fix_broken: bool,
+    /// Install package(s) without fsync(2)
+    #[arg(long)]
+    force_unsafe_io: bool,
+    /// Do not refresh repository metadata
+    #[arg(long)]
     no_refresh: bool,
-    oma_args: OmaArgs,
-    sysroot: String,
-    no_refresh_topic: bool,
-) -> Result<i32, OutputError> {
-    root()?;
-    lock_oma()?;
+    /// Ignore repository and package dependency issues
+    #[arg(long)]
+    force_yes: bool,
+    /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
+    #[arg(long)]
+    force_confnew: bool,
+    #[cfg(feature = "aosc")]
+    /// Do not refresh topics manifest.json file
+    #[arg(long)]
+    no_refresh_topics: bool,
+    /// Auto remove unnecessary package(s)
+    #[arg(long)]
+    autoremove: bool,
+    /// Remove package(s) also remove configuration file(s), like apt purge
+    #[arg(long, visible_alias = "purge")]
+    remove_config: bool,
+    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    #[arg(from_global)]
+    dry_run: bool,
+    /// Run oma do not check dbus
+    #[arg(from_global)]
+    no_check_dbus: bool,
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+    /// Set apt options
+    #[arg(from_global)]
+    apt_options: Vec<String>,
+}
 
-    let OmaArgs {
-        dry_run,
-        network_thread,
-        no_progress,
-        no_check_dbus,
-        protect_essentials: protect_essential,
-        another_apt_options,
-        ..
-    } = oma_args;
+impl CliExecuter for Pick {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        root()?;
+        lock_oma()?;
 
-    let _fds = if !no_check_dbus {
-        Some(dbus_check(false)?)
-    } else {
-        no_check_dbus_warn();
-        None
-    };
-
-    let apt_config = AptConfig::new();
-
-    let auth_config = AuthConfig::system(&sysroot)?;
-
-    if !no_refresh {
-        RefreshRequest {
-            client: &HTTP_CLIENT,
+        let Pick {
+            package,
+            fix_broken,
+            force_unsafe_io,
+            no_refresh,
+            force_yes,
+            force_confnew,
+            #[cfg(feature = "aosc")]
+            no_refresh_topics,
+            autoremove,
+            remove_config,
             dry_run,
-            no_progress,
-            limit: network_thread,
-            sysroot: &sysroot,
-            _refresh_topics: !no_refresh_topic,
-            config: &apt_config,
-            auth_config: &auth_config,
-        }
-        .run()?;
-    }
+            no_check_dbus,
+            sysroot,
+            apt_options,
+        } = self;
 
-    let oma_apt_args = OmaAptArgs::builder()
-        .sysroot(sysroot.clone())
-        .another_apt_options(another_apt_options)
-        .build();
-    let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
-    let pkg = apt
-        .cache
-        .get(pkg_str)
-        .ok_or_else(|| anyhow!(fl!("can-not-get-pkg-from-database", name = pkg_str)))?;
+        let _fds = if !no_check_dbus && !config.no_check_dbus() {
+            Some(dbus_check(false)?)
+        } else {
+            no_check_dbus_warn();
+            None
+        };
 
-    let versions = pkg.versions().collect::<Vec<_>>();
-    let versions_str = versions
-        .iter()
-        .map(|x| select_tui_display_msg(x.version(), false).to_string())
-        .collect::<Vec<_>>();
+        let apt_config = AptConfig::new();
 
-    let mut v = vec![];
-    for i in 0..versions.len() {
-        for j in 1..versions.len() {
-            if i == j {
-                continue;
+        let auth_config = AuthConfig::system(&sysroot)?;
+
+        if !no_refresh {
+            RefreshRequest {
+                client: &HTTP_CLIENT,
+                dry_run,
+                no_progress,
+                limit: config.network_thread(),
+                sysroot: &sysroot.to_string_lossy(),
+                #[cfg(feature = "aosc")]
+                _refresh_topics: !no_refresh_topics && !config.no_refresh_topics(),
+                #[cfg(not(feature = "aosc"))]
+                _refresh_topics: false,
+                config: &apt_config,
+                auth_config: &auth_config,
             }
-
-            if versions_str[i] == versions_str[j] {
-                v.push((i, j));
-            }
-        }
-    }
-
-    let mut version_str_display = versions_str.clone();
-    for (a, b) in v {
-        if let Some(uri) = versions[a].uris().next() {
-            version_str_display[a] =
-                select_tui_display_msg(&format!("{} (from: {uri})", versions_str[a]), false)
-                    .to_string()
+            .run()?;
         }
 
-        if let Some(uri) = versions[b].uris().next() {
-            version_str_display[b] =
-                select_tui_display_msg(&format!("{} (from: {uri})", versions_str[b]), false)
-                    .to_string()
-        }
-    }
+        let oma_apt_args = OmaAptArgs::builder()
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .another_apt_options(apt_options)
+            .dpkg_force_confnew(force_confnew)
+            .dpkg_force_unsafe_io(force_unsafe_io)
+            .force_yes(force_yes)
+            .build();
+        let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
 
-    let theme = ColorfulTheme::default();
-    let mut dialoguer = Select::with_theme(&theme)
-        .items(&versions_str)
-        .with_prompt(fl!("pick-tips", pkgname = pkg.fullname(true)));
+        let pkg = apt
+            .cache
+            .get(&package)
+            .ok_or_else(|| anyhow!(fl!("can-not-get-pkg-from-database", name = package)))?;
 
-    let pos = if let Some(installed) = pkg.installed() {
-        versions_str
+        let versions = pkg.versions().collect::<Vec<_>>();
+        let versions_str = versions
             .iter()
-            .position(|x| x == installed.version())
-            .unwrap_or(0)
-    } else {
-        0
-    };
+            .map(|x| x.version().to_string())
+            .collect::<Vec<_>>();
 
-    dialoguer = dialoguer.default(pos);
+        let mut v = vec![];
+        for i in 0..versions.len() {
+            for j in 1..versions.len() {
+                if i == j {
+                    continue;
+                }
 
-    let size = tui_select_list_size();
-    dialoguer = dialoguer.max_length(size.into());
+                if versions_str[i] == versions_str[j] {
+                    v.push((i, j));
+                }
+            }
+        }
 
-    let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
-    let version = pkg.get_version(&versions_str[sel]).unwrap();
+        let mut version_str_display = versions_str.clone();
+        for (a, b) in v {
+            if let Some(uri) = versions[a].uris().next() {
+                version_str_display[a] = format!("{} (from: {uri})", versions_str[a]);
+            }
 
-    let pkgs = vec![OmaPackage::new(&version, &pkg).map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?];
+            if let Some(uri) = versions[b].uris().next() {
+                version_str_display[b] = format!("{} (from: {uri})", versions_str[b]);
+            }
+        }
 
-    apt.install(&pkgs, false)?;
+        let theme = ColorfulTheme::default();
+        let mut dialoguer = Select::with_theme(&theme)
+            .items(&versions_str)
+            .with_prompt(fl!("pick-tips", pkgname = pkg.fullname(true)));
 
-    CommitChanges::builder()
-        .apt(apt)
-        .dry_run(dry_run)
-        .request_type(SummaryType::Remove(
-            pkgs.iter()
-                .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
-                .collect::<Vec<_>>(),
-        ))
-        .no_fixbroken(false)
-        .network_thread(network_thread)
-        .no_progress(no_progress)
-        .sysroot(sysroot)
-        .fix_dpkg_status(true)
-        .protect_essential(protect_essential)
-        .client(&HTTP_CLIENT)
-        .yes(false)
-        .remove_config(false)
-        .auth_config(&auth_config)
-        .build()
-        .run()
+        let pos = if let Some(installed) = pkg.installed() {
+            versions_str
+                .iter()
+                .position(|x| x == installed.version())
+                .unwrap_or(0)
+        } else {
+            0
+        };
+
+        dialoguer = dialoguer.default(pos);
+
+        let size = tui_select_list_size();
+        dialoguer = dialoguer.max_length(size.into());
+
+        let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
+        let version = pkg.get_version(&versions_str[sel]).unwrap();
+
+        let pkgs = vec![OmaPackage::new(&version, &pkg).map_err(|e| OutputError {
+            description: e.to_string(),
+            source: None,
+        })?];
+
+        apt.install(&pkgs, false)?;
+
+        CommitChanges::builder()
+            .apt(apt)
+            .dry_run(dry_run)
+            .request_type(SummaryType::Remove(
+                pkgs.iter()
+                    .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
+                    .collect::<Vec<_>>(),
+            ))
+            .no_fixbroken(fix_broken)
+            .network_thread(config.network_thread())
+            .no_progress(no_progress)
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .fix_dpkg_status(true)
+            .protect_essential(config.protect_essentials())
+            .client(&HTTP_CLIENT)
+            .yes(false)
+            .remove_config(remove_config)
+            .autoremove(autoremove)
+            .auth_config(&auth_config)
+            .build()
+            .run()
+    }
 }

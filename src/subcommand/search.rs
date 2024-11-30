@@ -1,5 +1,6 @@
-use std::borrow::Cow;
+use std::path::PathBuf;
 
+use clap::Args;
 use oma_console::{indicatif::ProgressBar, pager::Pager, pb::spinner_style};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
@@ -8,91 +9,114 @@ use oma_pm::{
 };
 use tracing::warn;
 
-use crate::{error::OutputError, table::oma_display_with_normal_output};
+use crate::{config::Config, error::OutputError, table::oma_display_with_normal_output};
 use crate::{fl, utils::SearchResultDisplay};
 
-pub fn execute(
-    args: &[String],
-    no_progress: bool,
-    sysroot: String,
-    engine: Cow<String>,
+use crate::args::CliExecuter;
+
+#[derive(Debug, Args)]
+pub struct Search {
+    /// Keywords to search
+    #[arg(required = true)]
+    pattern: String,
+    /// Output result to stdout, not pager
+    #[arg(long)]
     no_pager: bool,
+    /// Set output format as JSON
+    #[arg(long)]
     json: bool,
-    another_apt_options: Vec<String>,
-) -> Result<i32, OutputError> {
-    let oma_apt_args = OmaAptArgs::builder()
-        .another_apt_options(another_apt_options)
-        .sysroot(sysroot)
-        .build();
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+    /// Set apt options
+    #[arg(from_global)]
+    apt_options: Vec<String>,
+}
 
-    let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+impl CliExecuter for Search {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        let Search {
+            pattern,
+            no_pager,
+            json,
+            sysroot,
+            apt_options,
+        } = self;
 
-    let s = args.concat();
+        let no_pager = no_pager || config.search_contents_println();
 
-    let (sty, inv) = spinner_style();
+        let oma_apt_args = OmaAptArgs::builder()
+            .another_apt_options(apt_options)
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .build();
 
-    let pb = if !no_progress && !json {
-        let pb = ProgressBar::new_spinner().with_style(sty);
-        pb.enable_steady_tick(inv);
-        pb.set_message(fl!("searching"));
+        let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-        Some(pb)
-    } else {
-        None
-    };
+        let (sty, inv) = spinner_style();
 
-    let res = search(
-        &apt,
-        &s,
-        match engine.as_str() {
-            "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
-            "strsim" => SearchEngine::Strsim,
-            "text" => SearchEngine::Text,
-            x => {
-                warn!("Unsupported mode: {x}, fallback to indicium ...");
-                SearchEngine::Indicium(Box::new(|_| {}))
-            }
-        },
-    )?;
+        let pb = if !no_progress && !json {
+            let pb = ProgressBar::new_spinner().with_style(sty);
+            pb.enable_steady_tick(inv);
+            pb.set_message(fl!("searching"));
 
-    if let Some(pb) = pb {
-        pb.finish_and_clear();
-    }
+            Some(pb)
+        } else {
+            None
+        };
 
-    let mut pager = if !no_pager && !json {
-        oma_display_with_normal_output(false, res.len() * 2)?
-    } else {
-        Pager::plain()
-    };
+        let res = search(
+            &apt,
+            &pattern,
+            match config.search_engine().as_str() {
+                "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
+                "strsim" => SearchEngine::Strsim,
+                "text" => SearchEngine::Text,
+                x => {
+                    warn!("Unsupported mode: {x}, fallback to indicium ...");
+                    SearchEngine::Indicium(Box::new(|_| {}))
+                }
+            },
+        )?;
 
-    let mut writer = pager.get_writer().map_err(|e| OutputError {
-        description: "Failed to get writer".to_string(),
-        source: Some(Box::new(e)),
-    })?;
-
-    if !json {
-        for i in res {
-            write!(writer, "{}", SearchResultDisplay(&i)).ok();
+        if let Some(pb) = pb {
+            pb.finish_and_clear();
         }
-    } else {
-        writeln!(
-            writer,
-            "{}",
-            serde_json::to_string(&res).map_err(|e| OutputError {
-                description: e.to_string(),
-                source: None,
-            })?
-        )
-        .ok();
+
+        let mut pager = if !no_pager && !json {
+            oma_display_with_normal_output(false, res.len() * 2)?
+        } else {
+            Pager::plain()
+        };
+
+        let mut writer = pager.get_writer().map_err(|e| OutputError {
+            description: "Failed to get writer".to_string(),
+            source: Some(Box::new(e)),
+        })?;
+
+        if !json {
+            for i in res {
+                write!(writer, "{}", SearchResultDisplay(&i)).ok();
+            }
+        } else {
+            writeln!(
+                writer,
+                "{}",
+                serde_json::to_string(&res).map_err(|e| OutputError {
+                    description: e.to_string(),
+                    source: None,
+                })?
+            )
+            .ok();
+        }
+
+        drop(writer);
+        let exit = pager.wait_for_exit().map_err(|e| OutputError {
+            description: "Failed to wait exit".to_string(),
+            source: Some(Box::new(e)),
+        })?;
+
+        Ok(exit.into())
     }
-
-    drop(writer);
-    let exit = pager.wait_for_exit().map_err(|e| OutputError {
-        description: "Failed to wait exit".to_string(),
-        source: Some(Box::new(e)),
-    })?;
-
-    Ok(exit.into())
 }
 
 pub fn search(

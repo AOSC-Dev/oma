@@ -1,79 +1,97 @@
+use std::path::PathBuf;
+
 use apt_auth_config::AuthConfig;
+use clap::Args;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
 use oma_console::success;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
+use crate::config::Config;
 use crate::{error::OutputError, utils::root};
-use crate::{fl, OmaArgs, HTTP_CLIENT};
+use crate::{fl, HTTP_CLIENT};
 
 use super::utils::RefreshRequest;
+use crate::args::CliExecuter;
 
-pub fn execute(
-    oma_args: OmaArgs,
-    sysroot: String,
+#[derive(Debug, Args)]
+pub struct Refresh {
+    #[cfg(feature = "aosc")]
+    /// Do not refresh topics manifest.json file
+    #[arg(long)]
     no_refresh_topics: bool,
-) -> Result<i32, OutputError> {
-    root()?;
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+}
 
-    let OmaArgs {
-        dry_run: _,
-        network_thread,
-        no_progress,
-        ..
-    } = oma_args;
+impl CliExecuter for Refresh {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        root()?;
 
-    let apt_config = AptConfig::new();
-    let auth_config = AuthConfig::system(&sysroot)?;
+        let Refresh {
+            #[cfg(feature = "aosc")]
+            no_refresh_topics,
+            sysroot,
+        } = self;
 
-    RefreshRequest {
-        client: &HTTP_CLIENT,
-        dry_run: false,
-        no_progress,
-        limit: network_thread,
-        sysroot: &sysroot,
-        _refresh_topics: !no_refresh_topics,
-        config: &apt_config,
-        auth_config: &auth_config,
+        let apt_config = AptConfig::new();
+        let auth_config = AuthConfig::system(&sysroot)?;
+
+        RefreshRequest {
+            client: &HTTP_CLIENT,
+            dry_run: false,
+            no_progress,
+            limit: config.network_thread(),
+            sysroot: &sysroot.to_string_lossy(),
+            #[cfg(feature = "aosc")]
+            _refresh_topics: !no_refresh_topics && !config.no_refresh_topics(),
+            #[cfg(not(feature = "aosc"))]
+            _refresh_topics: false,
+            config: &apt_config,
+            auth_config: &auth_config,
+        }
+        .run()?;
+
+        let oma_apt_args = OmaAptArgs::builder()
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .build();
+        let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+
+        let pb = if !no_progress {
+            let (style, inv) = spinner_style();
+            let pb = ProgressBar::new_spinner().with_style(style);
+            pb.enable_steady_tick(inv);
+            pb.set_message(fl!("reading-database"));
+            Some(pb)
+        } else {
+            None
+        };
+
+        let upgradable = apt.count_pending_upgradable_pkgs()?;
+        let autoremovable = apt.count_pending_autoremovable_pkgs();
+
+        if let Some(pb) = pb {
+            pb.finish_and_clear();
+        }
+
+        let mut s = vec![];
+
+        if upgradable != 0 {
+            s.push(fl!("packages-can-be-upgrade", len = upgradable));
+        }
+
+        if autoremovable != 0 {
+            s.push(fl!("packages-can-be-removed", len = autoremovable));
+        }
+
+        if s.is_empty() {
+            success!("{}", fl!("successfully-refresh"));
+        } else {
+            let s = s.join(&fl!("comma"));
+            success!("{}", fl!("successfully-refresh-with-tips", s = s));
+        }
+
+        Ok(0)
     }
-    .run()?;
-
-    let oma_apt_args = OmaAptArgs::builder().sysroot(sysroot).build();
-    let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
-
-    let pb = if !no_progress {
-        let (style, inv) = spinner_style();
-        let pb = ProgressBar::new_spinner().with_style(style);
-        pb.enable_steady_tick(inv);
-        pb.set_message(fl!("reading-database"));
-        Some(pb)
-    } else {
-        None
-    };
-
-    let upgradable = apt.count_pending_upgradable_pkgs()?;
-    let autoremovable = apt.count_pending_autoremovable_pkgs();
-
-    if let Some(pb) = pb {
-        pb.finish_and_clear();
-    }
-
-    let mut s = vec![];
-
-    if upgradable != 0 {
-        s.push(fl!("packages-can-be-upgrade", len = upgradable));
-    }
-
-    if autoremovable != 0 {
-        s.push(fl!("packages-can-be-removed", len = autoremovable));
-    }
-
-    if s.is_empty() {
-        success!("{}", fl!("successfully-refresh"));
-    } else {
-        let s = s.join(&fl!("comma"));
-        success!("{}", fl!("successfully-refresh-with-tips", s = s));
-    }
-
-    Ok(0)
 }

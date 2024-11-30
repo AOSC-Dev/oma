@@ -88,6 +88,13 @@ impl Config {
         })
     }
 
+    pub fn protect_essentials(&self) -> bool {
+        self.general
+            .as_ref()
+            .map(|x| x.protect_essentials)
+            .unwrap_or_else(GeneralConfig::default_protect_essentials)
+    }
+
     pub fn network_thread(&self) -> usize {
         self.network
             .as_ref()
@@ -102,6 +109,7 @@ impl Config {
             .unwrap_or_else(GeneralConfig::default_no_check_dbus)
     }
 
+    #[cfg(feature = "aosc")]
     pub fn no_refresh_topics(&self) -> bool {
         self.general
             .as_ref()

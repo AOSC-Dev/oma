@@ -50,7 +50,7 @@ pub enum SearchEngine {
 }
 
 pub enum GetArchMethod<'a> {
-    SpecifySysroot(&'a str),
+    SpecifySysroot(&'a Path),
     SpecifyArch(&'a str),
     DirectRoot,
 }
