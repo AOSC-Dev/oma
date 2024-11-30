@@ -1,7 +1,15 @@
 use ahash::AHashMap;
 use chrono::{DateTime, FixedOffset, ParseError, Utc};
+use oma_repo_verify::verify_release;
 use once_cell::sync::OnceCell;
-use std::{borrow::Cow, num::ParseIntError, path::Path, str::FromStr};
+use std::{
+    borrow::Cow,
+    fs,
+    io::{self, ErrorKind},
+    num::ParseIntError,
+    path::Path,
+    str::FromStr,
+};
 use thiserror::Error;
 use tracing::debug;
 
@@ -34,6 +42,8 @@ pub enum InReleaseError {
     ParseIntError(ParseIntError),
     #[error("InRelease is broken")]
     BrokenInRelease,
+    #[error("Failed to read release.gpg file: {1}")]
+    ReadGPG(std::io::Error, String),
 }
 
 pub type InReleaseParserResult<T> = Result<T, InReleaseError>;
@@ -189,16 +199,43 @@ pub fn verify_inrelease<'a>(
     inrelease: &'a str,
     signed_by: Option<&'a str>,
     rootfs: impl AsRef<Path>,
+    file: impl AsRef<Path>,
     trusted: bool,
 ) -> Result<Cow<'a, str>, InReleaseError> {
     if inrelease.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
-        Ok(Cow::Owned(oma_repo_verify::verify(
+        Ok(Cow::Owned(oma_repo_verify::verify_inrelease(
             inrelease, signed_by, rootfs,
         )?))
     } else {
-        if !trusted {
-            return Err(InReleaseError::NotTrusted);
+        if trusted {
+            return Ok(Cow::Borrowed(inrelease));
         }
+
+        let inrelease_path = file.as_ref();
+
+        let mut file_name = inrelease_path
+            .file_name()
+            .map(|x| x.to_string_lossy().to_string())
+            .ok_or_else(|| {
+                InReleaseError::ReadGPG(
+                    io::Error::new(ErrorKind::InvalidInput, "Failed to get file name"),
+                    inrelease_path.display().to_string(),
+                )
+            })?;
+
+        file_name.push_str(".gpg");
+
+        let pub_file = inrelease_path.with_file_name(&file_name);
+
+        debug!("Read GPG file: {}", pub_file.display());
+        let bytes =
+            fs::read(pub_file).map_err(|e| InReleaseError::ReadGPG(e, file_name.to_string()))?;
+
+        verify_release(inrelease, &bytes, signed_by, rootfs).map_err(|e| {
+            debug!("{e}");
+            InReleaseError::NotTrusted
+        })?;
+
         Ok(Cow::Borrowed(inrelease))
     }
 }
