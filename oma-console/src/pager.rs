@@ -137,7 +137,7 @@ pub struct OmaPager<'a> {
     search_results: Vec<usize>,
     /// The index of the current search result being displayed.
     current_result_index: usize,
-    /// The current mode of the pager, which can be either `Normal` or `Search`.
+    /// The current mode of the pager, which can be either `Normal`, `Search` and `SearchInputText`.
     mode: TuiMode,
     /// A reference to a trait object that provides UI text for the pager.
     ui_text: &'a dyn PagerUIText,
