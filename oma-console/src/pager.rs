@@ -21,7 +21,7 @@ use ratatui::{
 use termbg::Theme;
 use tracing::debug;
 
-use crate::{print::OmaColorFormat, writer::Writer, WRITER};
+use crate::{print::OmaColorFormat, writer::Writer};
 
 pub enum Pager<'a> {
     Plain,
@@ -140,6 +140,8 @@ pub struct OmaPager<'a> {
     mode: TuiMode,
     /// A reference to a trait object that provides UI text for the pager.
     ui_text: &'a dyn PagerUIText,
+    /// A terminal writer to print oma-style message
+    writer: Writer,
 }
 
 impl Write for OmaPager<'_> {
@@ -212,6 +214,7 @@ impl<'a> OmaPager<'a> {
             current_result_index: 0,
             mode: TuiMode::Noemal,
             ui_text,
+            writer: Writer::default(),
         }
     }
     /// Run the pager
@@ -485,7 +488,7 @@ impl<'a> OmaPager<'a> {
     }
 
     fn right(&mut self) {
-        let width = WRITER.get_length();
+        let width = self.writer.get_length();
 
         if self.max_width <= self.horizontal_scroll as u16 + width {
             return;
@@ -498,7 +501,7 @@ impl<'a> OmaPager<'a> {
     }
 
     fn left(&mut self) {
-        let width = WRITER.get_length();
+        let width = self.writer.get_length();
         self.horizontal_scroll = self.horizontal_scroll.saturating_sub((width / 4).into());
         self.horizontal_scroll_state = self
             .horizontal_scroll_state
@@ -601,7 +604,7 @@ impl<'a> OmaPager<'a> {
             chunks[0].height
         };
 
-        let width = if self.max_width <= WRITER.get_length() {
+        let width = if self.max_width <= self.writer.get_length() {
             0
         } else {
             self.max_width

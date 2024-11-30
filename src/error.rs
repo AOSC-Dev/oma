@@ -3,7 +3,6 @@ use std::fmt::Display;
 use std::io::{self, ErrorKind};
 
 use apt_auth_config::AuthConfigError;
-use oma_console::due_to;
 use oma_console::writer::{Writeln, Writer};
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
@@ -27,8 +26,8 @@ use oma_topics::OmaTopicsError;
 use reqwest::StatusCode;
 use tracing::{debug, error, info};
 
-use crate::fl;
 use crate::subcommand::utils::LockError;
+use crate::{due_to, fl};
 
 use self::ChainState::*;
 

@@ -1,4 +1,4 @@
-use oma_console::{due_to, success, OmaLayer};
+use oma_console::OmaLayer;
 use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
 
 fn main() {
@@ -8,6 +8,4 @@ fn main() {
     tracing::info!("I'am fine");
     tracing::warn!("Thank you");
     tracing::error!("and you?");
-    due_to!("QAQ");
-    success!("PAP");
 }

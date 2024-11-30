@@ -28,8 +28,7 @@ use i18n_embed::DesktopLanguageRequester;
 use lang::LANGUAGE_LOADER;
 use oma_console::print::{termbg, OmaColorFormat};
 use oma_console::writer::{writeln_inner, MessageType, Writer};
-use oma_console::WRITER;
-use oma_console::{due_to, OmaLayer};
+use oma_console::OmaLayer;
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusError};
 use oma_utils::oma::{terminal_ring, unlock_oma};
 use oma_utils::OsRelease;
@@ -72,6 +71,7 @@ static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
         .build()
         .unwrap()
 });
+static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {

@@ -4,12 +4,11 @@ use apt_auth_config::AuthConfig;
 use clap::Args;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
-use oma_console::success;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
 use crate::config::Config;
 use crate::{error::OutputError, utils::root};
-use crate::{fl, HTTP_CLIENT};
+use crate::{fl, success, HTTP_CLIENT};
 
 use super::utils::RefreshRequest;
 use crate::args::CliExecuter;
