@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
+use crate::success;
 use crate::{config::Config, fl};
 use clap::Args;
-use oma_console::{indicatif::ProgressBar, pb::spinner_style, success};
+use oma_console::{indicatif::ProgressBar, pb::spinner_style};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
 use crate::{error::OutputError, utils::root};

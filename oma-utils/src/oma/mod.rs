@@ -1,6 +1,5 @@
-use oma_console::is_terminal;
 use std::{
-    io::{Error, ErrorKind},
+    io::{stderr, stdin, stdout, Error, ErrorKind, IsTerminal},
     path::PathBuf,
     sync::LazyLock,
 };
@@ -30,7 +29,7 @@ pub fn unlock_oma() -> IOResult<()> {
 
 /// terminal bell character
 pub fn terminal_ring() {
-    if !is_terminal() {
+    if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
         return;
     }
 

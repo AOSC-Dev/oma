@@ -7,7 +7,7 @@ use tracing_subscriber::Layer;
 
 pub use termbg;
 
-use crate::{writer::Writeln, WRITER};
+use crate::writer::{Writeln, Writer};
 
 #[derive(Clone)]
 enum StyleFollow {
@@ -150,11 +150,16 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
 pub struct OmaLayer {
     /// Display result with ansi
     with_ansi: bool,
+    /// A Terminal writer to print oma-style message
+    writer: Writer,
 }
 
 impl Default for OmaLayer {
     fn default() -> Self {
-        Self { with_ansi: true }
+        Self {
+            with_ansi: true,
+            writer: Writer::default(),
+        }
     }
 }
 
@@ -208,9 +213,11 @@ where
         for (k, v) in visitor.0 {
             if k == "message" {
                 if self.with_ansi {
-                    WRITER.writeln(&prefix, &v).ok();
+                    self.writer.writeln(&prefix, &v).ok();
                 } else {
-                    WRITER.writeln(&prefix, &console::strip_ansi_codes(&v)).ok();
+                    self.writer
+                        .writeln(&prefix, &console::strip_ansi_codes(&v))
+                        .ok();
                 }
             }
         }
@@ -225,7 +232,7 @@ where
 /// event.record(&mut visitor);
 /// for (k, v) in visitor.0 {
 ///     if k == "message" {
-///         WRITER.writeln(&prefix, &v).ok();
+///         self.writer.writeln(&prefix, &v).ok();
 ///     }
 /// }
 /// ```
@@ -259,31 +266,4 @@ impl tracing::field::Visit for OmaRecorder<'_> {
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
         self.0.insert(field.name(), format!("{value:#?}"));
     }
-}
-
-/// oma display normal message
-#[macro_export]
-macro_rules! msg {
-    ($($arg:tt)+) => {
-        use oma_console::writer::Writeln as _;
-        oma_console::WRITER.writeln("", &format!($($arg)+)).ok();
-    };
-}
-
-/// oma display success message
-#[macro_export]
-macro_rules! success {
-    ($($arg:tt)+) => {
-        use oma_console::writer::Writeln as _;
-        oma_console::WRITER.writeln(&oma_console::console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+)).ok();
-    };
-}
-
-/// oma display due_to message
-#[macro_export]
-macro_rules! due_to {
-    ($($arg:tt)+) => {
-        use oma_console::writer::Writeln as _;
-        oma_console::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
-    };
 }

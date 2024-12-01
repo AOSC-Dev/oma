@@ -8,14 +8,12 @@ use ahash::{HashMap, RandomState};
 use oma_console::{
     console::style,
     indicatif::{MultiProgress, ProgressBar},
-    msg,
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
     writer::{gen_prefix, writeln_inner, MessageType, Writeln},
-    WRITER,
 };
 use oma_fetch::Event;
 
-use crate::fl;
+use crate::{fl, msg, WRITER};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
 use tracing::{error, info, warn};

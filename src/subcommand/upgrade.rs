@@ -1,6 +1,7 @@
 use std::thread;
 
 use crate::pb::RenderDownloadProgress;
+use crate::success;
 use flume::unbounded;
 use std::path::PathBuf;
 
@@ -9,7 +10,6 @@ use chrono::Local;
 use clap::Args;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
-use oma_console::success;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;

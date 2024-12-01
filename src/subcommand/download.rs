@@ -4,7 +4,6 @@ use std::thread;
 use apt_auth_config::AuthConfig;
 use clap::Args;
 use flume::unbounded;
-use oma_console::{due_to, success};
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
 use reqwest::StatusCode;
@@ -13,8 +12,8 @@ use tracing::{error, info};
 use crate::config::Config;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderDownloadProgress};
 use crate::utils::is_root;
+use crate::{due_to, fl, success, HTTP_CLIENT};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
-use crate::{fl, HTTP_CLIENT};
 
 use crate::args::CliExecuter;
 

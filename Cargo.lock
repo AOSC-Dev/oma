@@ -3021,6 +3021,7 @@ dependencies = [
 name = "oma-console"
 version = "0.24.0"
 dependencies = [
+ "aho-corasick",
  "ansi-to-tui",
  "console",
  "crossterm 0.28.1",

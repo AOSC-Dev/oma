@@ -3,7 +3,6 @@ use std::io::stdout;
 
 use ahash::AHashMap;
 use clap::Args;
-use oma_console::due_to;
 use oma_console::print::Action;
 use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
 use oma_contents::OmaContentsError;
@@ -13,7 +12,7 @@ use tracing::error;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::table::PagerPrinter;
-use crate::{color_formatter, fl};
+use crate::{color_formatter, due_to, fl};
 
 use crate::args::CliExecuter;
 

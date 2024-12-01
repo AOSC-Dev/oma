@@ -4,11 +4,10 @@ use std::sync::atomic::Ordering;
 
 use crate::console::style;
 use crate::error::OutputError;
-use crate::{color_formatter, fl, ALLOWCTRLC};
+use crate::{color_formatter, fl, ALLOWCTRLC, WRITER};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{Pager, PagerExit, PagerUIText};
 use oma_console::print::Action;
-use oma_console::WRITER;
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 use tabled::settings::object::Columns;
 use tabled::settings::peaker::PriorityMax;

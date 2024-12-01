@@ -6,14 +6,13 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use crate::{color_formatter, fl, RT};
+use crate::{color_formatter, fl, RT, WRITER};
 use crate::{error::OutputError, SPAWN_NEW_OMA};
 use anyhow::anyhow;
 use dialoguer::{console::style, theme::ColorfulTheme, Confirm};
 use oma_console::{
     print::Action,
     writer::{gen_prefix, writeln_inner, MessageType},
-    WRITER,
 };
 use oma_pm::{search::SearchResult, PackageStatus};
 use oma_utils::{
@@ -218,4 +217,31 @@ impl Display for SearchResultDisplay<'_> {
 
         Ok(())
     }
+}
+
+/// oma display normal message
+#[macro_export]
+macro_rules! msg {
+    ($($arg:tt)+) => {
+        use oma_console::writer::Writeln as _;
+        $crate::WRITER.writeln("", &format!($($arg)+)).ok();
+    };
+}
+
+/// oma display success message
+#[macro_export]
+macro_rules! success {
+    ($($arg:tt)+) => {
+        use oma_console::writer::Writeln as _;
+        $crate::WRITER.writeln(&oma_console::console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+)).ok();
+    };
+}
+
+/// oma display due_to message
+#[macro_export]
+macro_rules! due_to {
+    ($($arg:tt)+) => {
+        use oma_console::writer::Writeln as _;
+        $crate::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
+    };
 }

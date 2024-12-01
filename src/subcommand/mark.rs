@@ -1,14 +1,14 @@
 use std::{borrow::Cow, path::PathBuf};
 
 use clap::{Args, ValueEnum};
-use oma_console::{print::Action, success};
+use oma_console::print::Action;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
 use tracing::info;
 
-use crate::{color_formatter, config::Config, error::OutputError, utils::root};
+use crate::{color_formatter, config::Config, error::OutputError, success, utils::root};
 
 use super::utils::handle_no_result;
 use crate::args::CliExecuter;

@@ -3,6 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use aho_corasick::{AhoCorasick, BuildError};
 use ansi_to_tui::IntoText;
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
@@ -21,7 +22,7 @@ use ratatui::{
 use termbg::Theme;
 use tracing::debug;
 
-use crate::{print::OmaColorFormat, writer::Writer, WRITER};
+use crate::{print::OmaColorFormat, writer::Writer};
 
 pub enum Pager<'a> {
     Plain,
@@ -136,10 +137,12 @@ pub struct OmaPager<'a> {
     search_results: Vec<usize>,
     /// The index of the current search result being displayed.
     current_result_index: usize,
-    /// The current mode of the pager, which can be either `Normal` or `Search`.
+    /// The current mode of the pager, which can be either `Normal`, `Search` and `SearchInputText`.
     mode: TuiMode,
     /// A reference to a trait object that provides UI text for the pager.
     ui_text: &'a dyn PagerUIText,
+    /// A terminal writer to print oma-style message
+    writer: Writer,
 }
 
 impl Write for OmaPager<'_> {
@@ -212,6 +215,7 @@ impl<'a> OmaPager<'a> {
             current_result_index: 0,
             mode: TuiMode::Noemal,
             ui_text,
+            writer: Writer::default(),
         }
     }
     /// Run the pager
@@ -485,7 +489,7 @@ impl<'a> OmaPager<'a> {
     }
 
     fn right(&mut self) {
-        let width = WRITER.get_length();
+        let width = self.writer.get_length();
 
         if self.max_width <= self.horizontal_scroll as u16 + width {
             return;
@@ -498,7 +502,7 @@ impl<'a> OmaPager<'a> {
     }
 
     fn left(&mut self) {
-        let width = WRITER.get_length();
+        let width = self.writer.get_length();
         self.horizontal_scroll = self.horizontal_scroll.saturating_sub((width / 4).into());
         self.horizontal_scroll_state = self
             .horizontal_scroll_state
@@ -528,17 +532,22 @@ impl<'a> OmaPager<'a> {
         let mut result: Vec<usize> = Vec::new();
 
         if let PagerInner::Finished(ref mut text) = self.inner {
-            for (i, line) in text.iter_mut().enumerate() {
-                if line.contains(pattern) {
-                    result.push(i);
-                    // highlight the pattern
-                    *line = line.replace(
-                        pattern,
-                        &format!("\x1b[47m{}\x1b[49m", pattern), // only reset bg color
-                    );
+            match Highlight::new(pattern) {
+                Ok(highlight) => {
+                    for (i, line) in text.iter_mut().enumerate() {
+                        if line.contains(pattern) {
+                            result.push(i);
+                            // highlight the pattern
+                            *line = highlight.replace(line);
+                        }
+                    }
+                }
+                Err(e) => {
+                    debug!("{e}");
                 }
             }
         }
+
         result
     }
 
@@ -550,9 +559,10 @@ impl<'a> OmaPager<'a> {
 
     fn clear_highlight(&mut self) {
         if let PagerInner::Finished(ref mut text) = self.inner {
-            for &line_index in &self.search_results {
-                if let Some(line) = text.get_mut(line_index) {
-                    *line = line.replace("\x1b[47m", "").replace("\x1b[49m", "");
+            let clear_highlighter = ClearHighlight::new();
+            for line_index in &self.search_results {
+                if let Some(line) = text.get_mut(*line_index) {
+                    *line = clear_highlighter.replace(line);
                 }
             }
         }
@@ -601,7 +611,7 @@ impl<'a> OmaPager<'a> {
             chunks[0].height
         };
 
-        let width = if self.max_width <= WRITER.get_length() {
+        let width = if self.max_width <= self.writer.get_length() {
             0
         } else {
             self.max_width
@@ -660,5 +670,36 @@ impl<'a> OmaPager<'a> {
             ),
             if has_title { chunks[2] } else { chunks[1] },
         );
+    }
+}
+
+struct Highlight<'a> {
+    pattern: &'a str,
+    ac: AhoCorasick,
+}
+
+impl<'a> Highlight<'a> {
+    fn new(pattern: &'a str) -> Result<Self, BuildError> {
+        Ok(Self {
+            ac: AhoCorasick::new([pattern])?,
+            pattern,
+        })
+    }
+
+    fn replace(&self, input: &str) -> String {
+        self.ac
+            .replace_all(input, &[format!("\x1b[47m{}\x1b[49m", self.pattern)])
+    }
+}
+
+struct ClearHighlight(AhoCorasick);
+
+impl ClearHighlight {
+    fn new() -> Self {
+        Self(AhoCorasick::new(["\x1b[47m", "\x1b[49m"]).unwrap())
+    }
+
+    fn replace(&self, input: &str) -> String {
+        self.0.replace_all(input, &["", ""])
     }
 }

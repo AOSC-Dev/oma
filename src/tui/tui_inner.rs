@@ -11,7 +11,6 @@ use super::state::StatefulList;
 use ansi_to_tui::IntoText;
 use crossterm::event::{self, KeyCode, KeyModifiers};
 use dialoguer::console;
-use oma_console::WRITER;
 use oma_pm::{
     apt::OmaApt,
     pkginfo::OmaPackage,
@@ -30,7 +29,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
-use crate::{fl, utils::SearchResultDisplay};
+use crate::{fl, utils::SearchResultDisplay, WRITER};
 
 #[derive(PartialEq, Eq)]
 enum Mode {
