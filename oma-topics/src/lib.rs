@@ -89,6 +89,19 @@ impl<'a> TopicManager<'a> {
     const ATM_STATE_PATH_SUFFIX: &'a str = "var/lib/atm/state";
     const ATM_SOURCE_LIST_PATH_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.list";
 
+    pub fn new_blocking(
+        client: &'a Client,
+        sysroot: impl AsRef<Path>,
+        arch: &'a str,
+        dry_run: bool,
+    ) -> Result<Self> {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(Self::new(client, sysroot, arch, dry_run))
+    }
+
     pub async fn new(
         client: &'a Client,
         sysroot: impl AsRef<Path>,
