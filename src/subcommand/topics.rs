@@ -178,7 +178,7 @@ impl CliExecuter for Topics {
             .force_yes(force_yes)
             .build();
 
-        let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+        let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
 
         let mut pkgs = vec![];
 
