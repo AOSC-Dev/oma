@@ -38,10 +38,10 @@ pub struct Install {
     /// Install suggested package(s)
     #[arg(long)]
     install_suggests: bool,
-    /// Do not install recommend package(s)
+    /// Do not install recommended package(s)
     #[arg(long, conflicts_with = "install_recommends")]
     no_install_recommends: bool,
-    /// Do not install suggest package(s)
+    /// Do not install suggested package(s)
     #[arg(long, conflicts_with = "install_suggests")]
     no_install_suggests: bool,
     /// Bypass confirmation prompts
