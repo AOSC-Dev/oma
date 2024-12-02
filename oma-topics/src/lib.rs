@@ -83,6 +83,7 @@ pub struct TopicManager<'a> {
     atm_source_list_path: PathBuf,
     dry_run: bool,
     enabled_mirrors: Vec<Box<str>>,
+    old_enabled: Vec<Topic>,
 }
 
 impl<'a> TopicManager<'a> {
@@ -147,7 +148,7 @@ impl<'a> TopicManager<'a> {
         };
 
         Ok(Self {
-            enabled,
+            enabled: enabled.clone(),
             all: vec![],
             client,
             arch,
@@ -155,6 +156,7 @@ impl<'a> TopicManager<'a> {
             dry_run,
             enabled_mirrors: enabled_mirror(sysroot.as_ref().to_path_buf()).await?,
             atm_source_list_path: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_SUFFIX),
+            old_enabled: enabled,
         })
     }
 
@@ -258,6 +260,7 @@ impl<'a> TopicManager<'a> {
     pub async fn write_sources_list(
         &self,
         source_list_comment: &str,
+        revert: bool,
         message_cb: impl Fn(&str, &str),
     ) -> Result<()> {
         if self.dry_run {
@@ -271,7 +274,13 @@ impl<'a> TopicManager<'a> {
 
         new_source_list.push_str(&format!("{}\n", source_list_comment));
 
-        for i in &self.enabled {
+        let write_source = if revert {
+            &self.old_enabled
+        } else {
+            &self.enabled
+        };
+
+        for i in write_source {
             new_source_list.push_str(&format!("# Topic `{}`\n", i.name));
 
             let mut tasks = vec![];
@@ -438,7 +447,7 @@ pub async fn scan_closed_topic(
 
     if !res.is_empty() {
         tm.write_enabled().await?;
-        tm.write_sources_list(comment, message_cb).await?;
+        tm.write_sources_list(comment, false, message_cb).await?;
     }
 
     Ok(res)

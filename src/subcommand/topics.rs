@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    path::{Path, PathBuf},
-};
+use std::{fmt::Display, path::PathBuf};
 
 use apt_auth_config::AuthConfig;
 use clap::{ArgAction, Args};
@@ -18,7 +15,6 @@ use oma_pm::{
     matches::{GetArchMethod, PackagesMatcher},
 };
 use oma_utils::dpkg::dpkg_arch;
-use reqwest::Client;
 use tokio::task::spawn_blocking;
 use tracing::warn;
 
@@ -82,8 +78,6 @@ pub struct Topics {
 }
 
 struct TopicChanged {
-    opt_in: Vec<String>,
-    opt_out: Vec<String>,
     enabled_pkgs: Vec<String>,
     downgrade_pkgs: Vec<String>,
 }
@@ -117,8 +111,8 @@ impl CliExecuter for Topics {
         lock_oma()?;
 
         let Topics {
-            opt_in,
-            opt_out,
+            mut opt_in,
+            mut opt_out,
             no_fixbroken,
             force_unsafe_io,
             force_yes,
@@ -138,22 +132,32 @@ impl CliExecuter for Topics {
             None
         };
 
-        let sysroot_ref = &sysroot;
-        let topics_changed = RT.block_on(async move {
-            topics_inner(
-                opt_in,
-                opt_out,
-                dry_run,
-                no_progress,
-                sysroot_ref,
-                &fl!("do-not-edit-topic-sources-list"),
-                &HTTP_CLIENT,
-            )
-            .await
-        })?;
+        let dpkg_arch = dpkg_arch(&sysroot)?;
+        let mut tm = TopicManager::new_blocking(&HTTP_CLIENT, &sysroot, &dpkg_arch, dry_run)?;
+
+        let topics_changed = RT.block_on(topics_inner(
+            &mut opt_in,
+            &mut opt_out,
+            no_progress,
+            &mut tm,
+        ))?;
 
         let enabled_pkgs = topics_changed.enabled_pkgs;
         let downgrade_pkgs = topics_changed.downgrade_pkgs;
+
+        if !opt_in.is_empty() || !opt_out.is_empty() {
+            RT.block_on(tm.write_sources_list(
+                &fl!("do-not-edit-topic-sources-list"),
+                false,
+                |topic, mirror| {
+                    warn!(
+                        "{}",
+                        fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                    );
+                    warn!("{}", fl!("skip-write-mirror"));
+                },
+            ))?;
+        }
 
         let apt_config = AptConfig::new();
         let auth_config = AuthConfig::system(&sysroot)?;
@@ -208,12 +212,12 @@ impl CliExecuter for Topics {
         apt.install(&pkgs, false)?;
         apt.upgrade(Upgrade::FullUpgrade)?;
 
-        CommitChanges::builder()
+        let code = CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
             .request_type(SummaryType::TopicsChanged {
-                add: topics_changed.opt_in,
-                remove: topics_changed.opt_out,
+                add: opt_in,
+                remove: opt_out,
             })
             .no_fixbroken(!no_fixbroken)
             .network_thread(config.network_thread())
@@ -227,53 +231,53 @@ impl CliExecuter for Topics {
             .auth_config(&auth_config)
             .autoremove(autoremove)
             .build()
-            .run()
+            .run()?;
+
+        if code == 0 {
+            RT.block_on(tm.write_enabled())?;
+        } else {
+            RT.block_on(tm.write_sources_list(
+                &fl!("do-not-edit-topic-sources-list"),
+                true,
+                |topic, mirror| {
+                    warn!(
+                        "{}",
+                        fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                    );
+                    warn!("{}", fl!("skip-write-mirror"));
+                },
+            ))?;
+        }
+
+        Ok(code)
     }
 }
 
 async fn topics_inner(
-    mut opt_in: Vec<String>,
-    mut opt_out: Vec<String>,
-    dry_run: bool,
+    opt_in: &mut Vec<String>,
+    opt_out: &mut Vec<String>,
     no_progress: bool,
-    sysroot: impl AsRef<Path>,
-    topic_msg: &str,
-    client: &Client,
+    tm: &mut TopicManager<'_>,
 ) -> Result<TopicChanged, OutputError> {
-    let dpkg_arch = dpkg_arch(&sysroot)?;
-    let mut tm = TopicManager::new(client, sysroot, &dpkg_arch, dry_run).await?;
-
-    refresh_topics(no_progress, &mut tm).await?;
+    refresh_topics(no_progress, tm).await?;
 
     let all_topics = Box::from(tm.all_topics());
     let enabled_topics = Box::from(tm.enabled_topics());
 
     if opt_in.is_empty() && opt_out.is_empty() {
-        (opt_in, opt_out) = spawn_blocking(move || select_prompt(&all_topics, &enabled_topics))
+        (*opt_in, *opt_out) = spawn_blocking(move || select_prompt(&all_topics, &enabled_topics))
             .await
             .unwrap()?;
     }
 
-    for i in &opt_in {
+    for i in opt_in {
         tm.add(i)?;
     }
 
     let mut downgrade_pkgs = vec![];
-    for i in &opt_out {
+    for i in opt_out {
         let removed_topic = tm.remove(i)?;
         downgrade_pkgs.extend(removed_topic.packages);
-    }
-
-    if !opt_in.is_empty() || !opt_out.is_empty() {
-        tm.write_enabled().await?;
-        tm.write_sources_list(topic_msg, |topic, mirror| {
-            warn!(
-                "{}",
-                fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
-            );
-            warn!("{}", fl!("skip-write-mirror"));
-        })
-        .await?;
     }
 
     let enabled_pkgs = tm
@@ -283,8 +287,6 @@ async fn topics_inner(
         .collect::<Vec<_>>();
 
     Ok(TopicChanged {
-        opt_in,
-        opt_out,
         enabled_pkgs,
         downgrade_pkgs,
     })
