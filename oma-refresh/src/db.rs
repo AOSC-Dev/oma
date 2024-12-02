@@ -231,12 +231,6 @@ fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-pub trait HandleTopicsControl {
-    fn scanning_topic(&self);
-    fn closing_topic(&self, topic: &str);
-    fn topic_not_in_mirror(&self, topic: &str, mirror: &str);
-}
-
 #[derive(Debug)]
 pub enum Event {
     DownloadEvent(oma_fetch::Event),
