@@ -265,7 +265,8 @@ async fn topics_inner(
     }
 
     if !opt_in.is_empty() || !opt_out.is_empty() {
-        tm.write_enabled(topic_msg, |topic, mirror| {
+        tm.write_enabled().await?;
+        tm.write_sources_list(topic_msg, |topic, mirror| {
             warn!(
                 "{}",
                 fl!("topic-not-in-mirror", topic = topic, mirror = mirror)

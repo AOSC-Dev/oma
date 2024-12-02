@@ -89,6 +89,19 @@ impl<'a> TopicManager<'a> {
     const ATM_STATE_PATH_SUFFIX: &'a str = "var/lib/atm/state";
     const ATM_SOURCE_LIST_PATH_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.list";
 
+    pub fn new_blocking(
+        client: &'a Client,
+        sysroot: impl AsRef<Path>,
+        arch: &'a str,
+        dry_run: bool,
+    ) -> Result<Self> {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(Self::new(client, sysroot, arch, dry_run))
+    }
+
     pub async fn new(
         client: &'a Client,
         sysroot: impl AsRef<Path>,
@@ -222,13 +235,34 @@ impl<'a> TopicManager<'a> {
     }
 
     /// Write topic changes to mirror list
-    pub async fn write_enabled(
+    pub async fn write_enabled(&self) -> Result<()> {
+        let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
+
+        if self.dry_run {
+            debug!("ATM State:\n{}", String::from_utf8_lossy(&s));
+            return Ok(());
+        }
+
+        tokio::fs::write(&self.atm_state_path, s)
+            .await
+            .map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(
+                    self.atm_state_path.display().to_string(),
+                    e,
+                )
+            })?;
+
+        Ok(())
+    }
+
+    pub async fn write_sources_list(
         &self,
         source_list_comment: &str,
         message_cb: impl Fn(&str, &str),
     ) -> Result<()> {
         if self.dry_run {
             debug!("enabled: {:?}", self.enabled);
+            return Ok(());
         }
 
         let mirrors = &self.enabled_mirrors;
@@ -264,23 +298,6 @@ impl<'a> TopicManager<'a> {
                 ));
             }
         }
-
-        let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
-
-        if self.dry_run {
-            debug!("ATM State:\n{}", String::from_utf8_lossy(&s));
-            debug!("atm.list:\n{}", new_source_list);
-            return Ok(());
-        }
-
-        tokio::fs::write(&self.atm_state_path, s)
-            .await
-            .map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(
-                    self.atm_state_path.display().to_string(),
-                    e,
-                )
-            })?;
 
         tokio::fs::write(&self.atm_source_list_path, new_source_list)
             .await
@@ -420,7 +437,8 @@ pub async fn scan_closed_topic(
     }
 
     if !res.is_empty() {
-        tm.write_enabled(comment, message_cb).await?;
+        tm.write_enabled().await?;
+        tm.write_sources_list(comment, message_cb).await?;
     }
 
     Ok(res)
