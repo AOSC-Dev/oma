@@ -159,98 +159,110 @@ impl CliExecuter for Topics {
             ))?;
         }
 
-        let apt_config = AptConfig::new();
-        let auth_config = AuthConfig::system(&sysroot)?;
+        let code = Ok(()).and_then(|_| -> Result<i32, OutputError> {
+            let apt_config = AptConfig::new();
+            let auth_config = AuthConfig::system(&sysroot)?;
 
-        RefreshRequest {
-            client: &HTTP_CLIENT,
-            dry_run,
-            no_progress,
-            limit: config.network_thread(),
-            sysroot: &sysroot.to_string_lossy(),
-            _refresh_topics: true,
-            config: &apt_config,
-            auth_config: &auth_config,
-        }
-        .run()?;
-
-        let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .another_apt_options(apt_options)
-            .dpkg_force_unsafe_io(force_unsafe_io)
-            .dpkg_force_confnew(force_confnew)
-            .force_yes(force_yes)
-            .build();
-
-        let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
-
-        let mut pkgs = vec![];
-
-        let matcher = PackagesMatcher::builder()
-            .cache(&apt.cache)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
-            .build();
-
-        for pkg in downgrade_pkgs {
-            let mut f = apt
-                .filter_pkgs(&[FilterMode::Default])?
-                .filter(|x| x.name() == pkg);
-
-            if let Some(pkg) = f.next() {
-                if enabled_pkgs.contains(&pkg.name().to_string()) {
-                    continue;
-                }
-
-                if pkg.is_installed() {
-                    let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
-
-                    pkgs.push(pkginfo);
-                }
+            RefreshRequest {
+                client: &HTTP_CLIENT,
+                dry_run,
+                no_progress,
+                limit: config.network_thread(),
+                sysroot: &sysroot.to_string_lossy(),
+                _refresh_topics: true,
+                config: &apt_config,
+                auth_config: &auth_config,
             }
-        }
-
-        apt.install(&pkgs, false)?;
-        apt.upgrade(Upgrade::FullUpgrade)?;
-
-        let code = CommitChanges::builder()
-            .apt(apt)
-            .dry_run(dry_run)
-            .request_type(SummaryType::TopicsChanged {
-                add: opt_in,
-                remove: opt_out,
-            })
-            .no_fixbroken(!no_fixbroken)
-            .network_thread(config.network_thread())
-            .no_progress(no_progress)
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .fix_dpkg_status(true)
-            .protect_essential(config.protect_essentials())
-            .client(&HTTP_CLIENT)
-            .yes(false)
-            .remove_config(remove_config)
-            .auth_config(&auth_config)
-            .autoremove(autoremove)
-            .build()
             .run()?;
 
-        if code == 0 {
-            RT.block_on(tm.write_enabled())?;
-        } else {
-            RT.block_on(tm.write_sources_list(
-                &fl!("do-not-edit-topic-sources-list"),
-                true,
-                |topic, mirror| {
-                    warn!(
-                        "{}",
-                        fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
-                    );
-                    warn!("{}", fl!("skip-write-mirror"));
-                },
-            ))?;
-        }
+            let oma_apt_args = OmaAptArgs::builder()
+                .sysroot(sysroot.to_string_lossy().to_string())
+                .another_apt_options(apt_options)
+                .dpkg_force_unsafe_io(force_unsafe_io)
+                .dpkg_force_confnew(force_confnew)
+                .force_yes(force_yes)
+                .build();
 
-        Ok(code)
+            let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+
+            let mut pkgs = vec![];
+
+            let matcher = PackagesMatcher::builder()
+                .cache(&apt.cache)
+                .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+                .build();
+
+            for pkg in downgrade_pkgs {
+                let mut f = apt
+                    .filter_pkgs(&[FilterMode::Default])?
+                    .filter(|x| x.name() == pkg);
+
+                if let Some(pkg) = f.next() {
+                    if enabled_pkgs.contains(&pkg.name().to_string()) {
+                        continue;
+                    }
+
+                    if pkg.is_installed() {
+                        let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
+
+                        pkgs.push(pkginfo);
+                    }
+                }
+            }
+
+            apt.install(&pkgs, false)?;
+            apt.upgrade(Upgrade::FullUpgrade)?;
+
+            let code = CommitChanges::builder()
+                .apt(apt)
+                .dry_run(dry_run)
+                .request_type(SummaryType::TopicsChanged {
+                    add: opt_in,
+                    remove: opt_out,
+                })
+                .no_fixbroken(!no_fixbroken)
+                .network_thread(config.network_thread())
+                .no_progress(no_progress)
+                .sysroot(sysroot.to_string_lossy().to_string())
+                .fix_dpkg_status(true)
+                .protect_essential(config.protect_essentials())
+                .client(&HTTP_CLIENT)
+                .yes(false)
+                .remove_config(remove_config)
+                .auth_config(&auth_config)
+                .autoremove(autoremove)
+                .build()
+                .run()?;
+
+            Ok(code)
+        });
+
+        match code {
+            Ok(0) => RT.block_on(tm.write_enabled())?,
+            Ok(_) => revert_sources_list(&tm)?,
+            Err(e) => {
+                revert_sources_list(&tm)?;
+                return Err(e);
+            }
+        };
+
+        code
     }
+}
+
+fn revert_sources_list(tm: &TopicManager<'_>) -> Result<(), OutputError> {
+    RT.block_on(tm.write_sources_list(
+        &fl!("do-not-edit-topic-sources-list"),
+        true,
+        |topic, mirror| {
+            warn!(
+                "{}",
+                fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+            );
+            warn!("{}", fl!("skip-write-mirror"));
+        },
+    ))?;
+    Ok(())
 }
 
 async fn topics_inner(
