@@ -226,3 +226,4 @@ auth-need-permission = The repository shipping the package(s) may require author
 lack-auth-config-1 = oma is unable to access the specified package(s) from the repository due to missing authorization configurations. 
 lack-auth-config-2 = Please verify if your APT authorization configurations (/etc/apt/auth.conf.d) were set up correctly.
 success = The operation was completed successfully.
+topics-unchanged = oma was unable complete topic opt-out operation(s) and has kept the topic status unchanged.

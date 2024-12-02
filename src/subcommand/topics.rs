@@ -16,7 +16,7 @@ use oma_pm::{
 };
 use oma_utils::dpkg::dpkg_arch;
 use tokio::task::spawn_blocking;
-use tracing::warn;
+use tracing::{error, warn};
 
 use crate::{
     config::Config,
@@ -239,8 +239,12 @@ impl CliExecuter for Topics {
 
         match code {
             Ok(0) => RT.block_on(tm.write_enabled())?,
-            Ok(_) => revert_sources_list(&tm)?,
+            Ok(_) => {
+                error!("{}", fl!("topics-unchanged"));
+                revert_sources_list(&tm)?
+            }
             Err(e) => {
+                error!("{}", fl!("topics-unchanged"));
                 revert_sources_list(&tm)?;
                 return Err(e);
             }
