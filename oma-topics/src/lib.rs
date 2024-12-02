@@ -83,11 +83,25 @@ pub struct TopicManager<'a> {
     atm_source_list_path: PathBuf,
     dry_run: bool,
     enabled_mirrors: Vec<Box<str>>,
+    old_enabled: Vec<Topic>,
 }
 
 impl<'a> TopicManager<'a> {
     const ATM_STATE_PATH_SUFFIX: &'a str = "var/lib/atm/state";
     const ATM_SOURCE_LIST_PATH_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.list";
+
+    pub fn new_blocking(
+        client: &'a Client,
+        sysroot: impl AsRef<Path>,
+        arch: &'a str,
+        dry_run: bool,
+    ) -> Result<Self> {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(Self::new(client, sysroot, arch, dry_run))
+    }
 
     pub async fn new(
         client: &'a Client,
@@ -134,7 +148,7 @@ impl<'a> TopicManager<'a> {
         };
 
         Ok(Self {
-            enabled,
+            enabled: enabled.clone(),
             all: vec![],
             client,
             arch,
@@ -142,6 +156,7 @@ impl<'a> TopicManager<'a> {
             dry_run,
             enabled_mirrors: enabled_mirror(sysroot.as_ref().to_path_buf()).await?,
             atm_source_list_path: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_SUFFIX),
+            old_enabled: enabled,
         })
     }
 
@@ -222,13 +237,35 @@ impl<'a> TopicManager<'a> {
     }
 
     /// Write topic changes to mirror list
-    pub async fn write_enabled(
+    pub async fn write_enabled(&self) -> Result<()> {
+        let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
+
+        if self.dry_run {
+            debug!("ATM State:\n{}", String::from_utf8_lossy(&s));
+            return Ok(());
+        }
+
+        tokio::fs::write(&self.atm_state_path, s)
+            .await
+            .map_err(|e| {
+                OmaTopicsError::FailedToOperateDirOrFile(
+                    self.atm_state_path.display().to_string(),
+                    e,
+                )
+            })?;
+
+        Ok(())
+    }
+
+    pub async fn write_sources_list(
         &self,
         source_list_comment: &str,
+        revert: bool,
         message_cb: impl Fn(&str, &str),
     ) -> Result<()> {
         if self.dry_run {
             debug!("enabled: {:?}", self.enabled);
+            return Ok(());
         }
 
         let mirrors = &self.enabled_mirrors;
@@ -237,7 +274,13 @@ impl<'a> TopicManager<'a> {
 
         new_source_list.push_str(&format!("{}\n", source_list_comment));
 
-        for i in &self.enabled {
+        let write_source = if revert {
+            &self.old_enabled
+        } else {
+            &self.enabled
+        };
+
+        for i in write_source {
             new_source_list.push_str(&format!("# Topic `{}`\n", i.name));
 
             let mut tasks = vec![];
@@ -264,23 +307,6 @@ impl<'a> TopicManager<'a> {
                 ));
             }
         }
-
-        let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
-
-        if self.dry_run {
-            debug!("ATM State:\n{}", String::from_utf8_lossy(&s));
-            debug!("atm.list:\n{}", new_source_list);
-            return Ok(());
-        }
-
-        tokio::fs::write(&self.atm_state_path, s)
-            .await
-            .map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(
-                    self.atm_state_path.display().to_string(),
-                    e,
-                )
-            })?;
 
         tokio::fs::write(&self.atm_source_list_path, new_source_list)
             .await
@@ -420,7 +446,8 @@ pub async fn scan_closed_topic(
     }
 
     if !res.is_empty() {
-        tm.write_enabled(comment, message_cb).await?;
+        tm.write_enabled().await?;
+        tm.write_sources_list(comment, false, message_cb).await?;
     }
 
     Ok(res)
