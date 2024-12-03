@@ -21,7 +21,6 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.19.0", path = "../oma-topics", optional = true, default-features = false }
 oma-utils = { version = "^0.10.0", path = "../oma-utils", features = ["dpkg"] }
 tracing ="0.1"
-smallvec = "1.1"
 oma-repo-verify = { version = "^0.2.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
 oma-apt = "0.8.0"

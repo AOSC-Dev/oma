@@ -429,6 +429,10 @@ impl From<RefreshError> for OutputError {
                 description: send_error.to_string(),
                 source: None,
             },
+            RefreshError::WrongConfigEntry(_) => Self {
+                description: value.to_string(),
+                source: None,
+            },
         }
         #[cfg(not(feature = "aosc"))]
         match value {
@@ -553,6 +557,10 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::SendErr(send_error) => Self {
                 description: send_error.to_string(),
+                source: None,
+            },
+            RefreshError::WrongConfigEntry(_) => Self {
+                description: value.to_string(),
                 source: None,
             },
         }
