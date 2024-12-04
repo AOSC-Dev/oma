@@ -12,6 +12,8 @@ For a more detailed overview on oma's features, see [features](#Features).
 
 Please see [Install](#install).
 
+![A simple tour of oma](/demo/tour.avif)
+
 ## Features
 
 - **Clear-and-Simple Interface:** Colorful and TUI-heavy interface, with clear marking for key information and simplified commands for common operations.
