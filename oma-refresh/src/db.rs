@@ -55,7 +55,7 @@ use tokio::{
 use tracing::{debug, warn};
 
 use crate::{
-    config::{get_download_list, ChecksumDownloadEntry},
+    config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
         file_is_compress, split_ext_and_filename, verify_inrelease, ChecksumItem, InRelease,
         InReleaseChecksum, InReleaseError,
@@ -787,6 +787,9 @@ impl<'a> OmaRefresh<'a> {
         let mut total = 0;
         let mut tasks = vec![];
         debug!("all_inrelease: {:?}", all_inrelease);
+
+        let index_target_config = IndexTargetConfig::new(self.apt_config, &self.arch);
+
         for file_name in all_inrelease {
             // 源数据确保是存在的，所以直接 unwrap
             let ose_list = sources_map.get(&file_name).unwrap();
@@ -847,14 +850,12 @@ impl<'a> OmaRefresh<'a> {
 
                 let mut handle = vec![];
 
-                let download_list = get_download_list(
+                let download_list = index_target_config.get_download_list(
                     checksums,
                     ose.is_source(),
                     ose.is_flat(),
-                    &self.arch,
                     &archs,
                     ose.components(),
-                    self.apt_config,
                 )?;
 
                 get_all_need_db_from_config(download_list, &mut total, checksums, &mut handle);

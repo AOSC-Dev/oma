@@ -9,7 +9,6 @@ use ahash::AHashMap;
 use aho_corasick::AhoCorasick;
 use oma_apt::config::{Config, ConfigTree};
 use oma_fetch::CompressFile;
-use tracing::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
 
@@ -62,112 +61,130 @@ pub fn get_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, Stri
     res.into_iter().collect::<Vec<_>>()
 }
 
-pub fn get_download_list(
-    checksums: &[ChecksumItem],
-    is_source: bool,
-    is_flat: bool,
-    native_arch: &str,
-    archs: &[Cow<str>],
-    components: &[String],
-    config: &Config,
-) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
-    let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
-    let mut tree = get_tree(config, "Acquire::IndexTargets::deb");
+pub struct IndexTargetConfig<'a> {
+    deb: Vec<(String, HashMap<String, String>)>,
+    deb_src: Vec<(String, HashMap<String, String>)>,
+    replacer: AhoCorasick,
+    native_arch: &'a str,
+}
 
-    debug!("tree (1/2): {:?}", tree);
-
-    if is_source {
-        tree.extend(get_tree(config, "Acquire::IndexTargets::deb-src"));
+impl<'a> IndexTargetConfig<'a> {
+    pub fn new(config: &Config, native_arch: &'a str) -> Self {
+        Self {
+            deb: get_index_target_tree(config, "Acquire::IndexTargets::deb"),
+            deb_src: get_index_target_tree(config, "Acquire::IndexTargets::deb-src"),
+            replacer: AhoCorasick::new([
+                "$(ARCHITECTURE)",
+                "$(COMPONENT)",
+                "$(LANGUAGE)",
+                "$(NATIVE_ARCHITECTURE)",
+            ])
+            .unwrap(),
+            native_arch,
+        }
     }
 
-    debug!("tree (2/2): {:?}", tree);
+    pub fn get_download_list(
+        &self,
+        checksums: &[ChecksumItem],
+        is_source: bool,
+        is_flat: bool,
+        archs: &[Cow<str>],
+        components: &[String],
+    ) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
+        let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
+        let lang = env::var("LANG").map(Cow::Owned).unwrap_or("C".into());
+        let langs = get_matches_language(&lang);
 
-    let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
-    let lang = env::var("LANG").map(Cow::Owned).unwrap_or("C".into());
-    let langs = get_matches_language(&lang);
+        let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
 
-    let ac = AhoCorasick::new([
-        "$(ARCHITECTURE)",
-        "$(COMPONENT)",
-        "$(LANGUAGE)",
-        "$(NATIVE_ARCHITECTURE)",
-    ])
-    .unwrap();
+        let mut tree_list = vec![&self.deb];
 
-    for c in checksums {
-        for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
-            let template =
-                template.ok_or_else(|| RefreshError::WrongConfigEntry(key.to_string()))?;
+        if is_source {
+            tree_list.push(&self.deb_src);
+        }
 
-            if !config
-                .get("DefaultEnabled")
-                .and_then(|x| x.parse::<bool>().ok())
-                .unwrap_or(true)
-            {
-                debug!("{template} DefaultEnabled is false, so continue");
-                continue;
-            }
+        for c in checksums {
+            for tree in &tree_list {
+                for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
+                    let template =
+                        template.ok_or_else(|| RefreshError::WrongConfigEntry(key.to_string()))?;
 
-            for a in archs {
-                for comp in components {
-                    for l in &langs {
-                        if template_is_match(template, &c.name, a, comp, l, native_arch) {
-                            let name_without_ext = Path::new(&c.name).with_extension("");
-                            let name_without_ext = name_without_ext.to_string_lossy().to_string();
-                            res_map.entry(name_without_ext).or_default().push(
-                                ChecksumDownloadEntry {
-                                    item: c.to_owned(),
-                                    keep_compress: config
-                                        .get("KeepCompressed")
-                                        .and_then(|x| x.parse::<bool>().ok())
-                                        .unwrap_or(false),
-                                    msg: config
-                                        .get("ShortDescription")
-                                        .map(|x| {
-                                            ac.replace_all(x, &[a.as_ref(), comp, l, native_arch])
-                                        })
-                                        .unwrap_or_else(|| "Other".to_string()),
-                                },
-                            );
+                    for a in archs {
+                        for comp in components {
+                            for l in &langs {
+                                if self.template_is_match(template, &c.name, a, comp, l) {
+                                    let name_without_ext = Path::new(&c.name).with_extension("");
+                                    let name_without_ext =
+                                        name_without_ext.to_string_lossy().to_string();
+                                    res_map.entry(name_without_ext).or_default().push(
+                                        ChecksumDownloadEntry {
+                                            item: c.to_owned(),
+                                            keep_compress: config
+                                                .get("KeepCompressed")
+                                                .and_then(|x| x.parse::<bool>().ok())
+                                                .unwrap_or(false),
+                                            msg: config
+                                                .get("ShortDescription")
+                                                .map(|x| {
+                                                    self.replacer.replace_all(
+                                                        x,
+                                                        &[a.as_ref(), comp, l, self.native_arch],
+                                                    )
+                                                })
+                                                .unwrap_or_else(|| "Other".to_string()),
+                                        },
+                                    );
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-    }
 
-    let mut res = vec![];
+        let mut res = vec![];
 
-    for (_, v) in &mut res_map {
-        v.sort_unstable_by(|a, b| compress_file(&a.item.name).cmp(&compress_file(&b.item.name)));
-        if v[0].item.size == 0 {
-            continue;
+        for (_, v) in &mut res_map {
+            v.sort_unstable_by(|a, b| {
+                compress_file(&a.item.name).cmp(&compress_file(&b.item.name))
+            });
+            if v[0].item.size == 0 {
+                continue;
+            }
+            res.push(v.last().unwrap().to_owned());
         }
-        res.push(v.last().unwrap().to_owned());
+
+        Ok(res)
     }
 
-    Ok(res)
+    fn template_is_match(
+        &self,
+        template: &str,
+        target: &str,
+        arch: &str,
+        component: &str,
+        lang: &str,
+    ) -> bool {
+        let target_without_ext = Path::new(target).with_extension("");
+        let target_without_ext = target_without_ext.to_string_lossy();
+
+        target_without_ext
+            == self
+                .replacer
+                .replace_all(template, &[arch, component, lang, self.native_arch])
+    }
 }
 
-fn template_is_match(
-    template: &str,
-    target: &str,
-    arch: &str,
-    component: &str,
-    lang: &str,
-    native_arch: &str,
-) -> bool {
-    let ac = AhoCorasick::new([
-        "$(ARCHITECTURE)",
-        "$(COMPONENT)",
-        "$(LANGUAGE)",
-        "$(NATIVE_ARCHITECTURE)",
-    ])
-    .unwrap();
-    let target_without_ext = Path::new(target).with_extension("");
-    let target_without_ext = target_without_ext.to_string_lossy();
-
-    target_without_ext == ac.replace_all(template, &[arch, component, lang, native_arch])
+fn get_index_target_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
+    get_tree(config, key)
+        .into_iter()
+        .filter(|x| {
+            x.1.get("DefaultEnabled")
+                .and_then(|x| x.parse::<bool>().ok())
+                .unwrap_or(true)
+        })
+        .collect::<Vec<_>>()
 }
 
 #[derive(Debug, Clone)]
