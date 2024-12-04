@@ -21,9 +21,14 @@ fn modify_result(
     let mut stack = VecDeque::new();
     stack.push_back((tree, root_path));
 
+    let mut first = true;
+
     while let Some((node, tree_path)) = stack.pop_back() {
-        if let Some(entry) = node.sibling() {
-            stack.push_back((entry, tree_path.clone()));
+        // 跳过要遍历根节点的相邻节点
+        if !first {
+            if let Some(entry) = node.sibling() {
+                stack.push_back((entry, tree_path.clone()));
+            }
         }
 
         if let Some(entry) = node.child() {
@@ -33,6 +38,8 @@ fn modify_result(
         if let Some((k, v)) = node.tag().zip(node.value()) {
             res.entry(tree_path).or_default().insert(k, v);
         }
+
+        first = false;
     }
 }
 
@@ -44,7 +51,13 @@ pub fn get_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, Stri
         return vec![];
     };
 
-    modify_result(tree, &mut res, key.to_string());
+    modify_result(
+        tree,
+        &mut res,
+        key.rsplit_once("::")
+            .map(|x| x.0.to_string())
+            .unwrap_or_else(|| key.to_string()),
+    );
 
     res.into_iter().collect::<Vec<_>>()
 }
@@ -61,9 +74,13 @@ pub fn get_download_list(
     let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
     let mut tree = get_tree(config, "Acquire::IndexTargets::deb");
 
+    debug!("tree (1/2): {:?}", tree);
+
     if is_source {
         tree.extend(get_tree(config, "Acquire::IndexTargets::deb-src"));
     }
+
+    debug!("tree (2/2): {:?}", tree);
 
     let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
     let lang = env::var("LANG").map(Cow::Owned).unwrap_or("C".into());
@@ -192,4 +209,11 @@ fn test_get_matches_language() {
     assert_eq!(get_matches_language("C"), vec!["en"]);
     assert_eq!(get_matches_language("zh_CN.UTF-8"), vec!["zh_CN", "zh"]);
     assert_eq!(get_matches_language("en_US.UTF-8"), vec!["en_US", "en"]);
+}
+
+#[test]
+fn test_get_tree() {
+    let t = get_tree(&Config::new(), "Acquire::IndexTargets::deb");
+    assert!(t.iter().any(|x| x.0.contains("::deb::")));
+    assert!(t.iter().all(|x| !x.0.contains("::deb-src::")))
 }
