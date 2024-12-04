@@ -98,44 +98,38 @@ impl<'a> IndexTargetConfig<'a> {
 
         let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
 
-        let mut tree_list = vec![&self.deb];
-
-        if is_source {
-            tree_list.push(&self.deb_src);
-        }
+        let tree = if is_source { &self.deb_src } else { &self.deb };
 
         for c in checksums {
-            for tree in &tree_list {
-                for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
-                    let template =
-                        template.ok_or_else(|| RefreshError::WrongConfigEntry(key.to_string()))?;
+            for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
+                let template =
+                    template.ok_or_else(|| RefreshError::WrongConfigEntry(key.to_string()))?;
 
-                    for a in archs {
-                        for comp in components {
-                            for l in &langs {
-                                if self.template_is_match(template, &c.name, a, comp, l) {
-                                    let name_without_ext = Path::new(&c.name).with_extension("");
-                                    let name_without_ext =
-                                        name_without_ext.to_string_lossy().to_string();
-                                    res_map.entry(name_without_ext).or_default().push(
-                                        ChecksumDownloadEntry {
-                                            item: c.to_owned(),
-                                            keep_compress: config
-                                                .get("KeepCompressed")
-                                                .and_then(|x| x.parse::<bool>().ok())
-                                                .unwrap_or(false),
-                                            msg: config
-                                                .get("ShortDescription")
-                                                .map(|x| {
-                                                    self.replacer.replace_all(
-                                                        x,
-                                                        &[a.as_ref(), comp, l, self.native_arch],
-                                                    )
-                                                })
-                                                .unwrap_or_else(|| "Other".to_string()),
-                                        },
-                                    );
-                                }
+                for a in archs {
+                    for comp in components {
+                        for l in &langs {
+                            if self.template_is_match(template, &c.name, a, comp, l) {
+                                let name_without_ext = Path::new(&c.name).with_extension("");
+                                let name_without_ext =
+                                    name_without_ext.to_string_lossy().to_string();
+                                res_map.entry(name_without_ext).or_default().push(
+                                    ChecksumDownloadEntry {
+                                        item: c.to_owned(),
+                                        keep_compress: config
+                                            .get("KeepCompressed")
+                                            .and_then(|x| x.parse::<bool>().ok())
+                                            .unwrap_or(false),
+                                        msg: config
+                                            .get("ShortDescription")
+                                            .map(|x| {
+                                                self.replacer.replace_all(
+                                                    x,
+                                                    &[a.as_ref(), comp, l, self.native_arch],
+                                                )
+                                            })
+                                            .unwrap_or_else(|| "Other".to_string()),
+                                    },
+                                );
                             }
                         }
                     }
