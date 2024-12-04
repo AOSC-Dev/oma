@@ -89,7 +89,7 @@ impl<'a> IndexTargetConfig<'a> {
         checksums: &[ChecksumItem],
         is_source: bool,
         is_flat: bool,
-        archs: &mut Vec<Cow<str>>,
+        archs: &mut Vec<&str>,
         components: &[String],
     ) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
         let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
@@ -100,8 +100,8 @@ impl<'a> IndexTargetConfig<'a> {
 
         let tree = if is_source { &self.deb_src } else { &self.deb };
 
-        if archs.iter().all(|x| x != "all") {
-            archs.push("all".into());
+        if !archs.contains(&"all") {
+            archs.push("all");
         }
 
         for c in checksums {
@@ -128,7 +128,7 @@ impl<'a> IndexTargetConfig<'a> {
                                             .map(|x| {
                                                 self.replacer.replace_all(
                                                     x,
-                                                    &[a.as_ref(), comp, l, self.native_arch],
+                                                    &[*a, comp, l, self.native_arch],
                                                 )
                                             })
                                             .unwrap_or_else(|| "Other".to_string()),
