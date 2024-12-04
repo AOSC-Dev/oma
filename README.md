@@ -1,75 +1,143 @@
-# oma
+![oma banner: header](https://github.com/user-attachments/assets/f68316e1-d007-4586-a3e0-3d9a56c2dea4)
 
-oma（Oh My Ailurus, 小熊猫包管理）is a package manager frontend for `libapt-pkg`. oma is the default package manager interface for AOSC OS.
+### oma - Oh My Ailurus / Package Manager for AOSC OS
 
-Although it is based on apt, we did quite a bit of extra work, the goal of this project is to make apt with better user interaction (especially for AOSC OS users), you can get a feel for the differences between oma and apt with the following examples:
+[Features](#features) | [Install](#install) | [Contribute](#contributing)
 
-### Pending Operations
+oma is an attempt at reworking APT's interface, making it more user-friendly, more robust against common user errors, and more performant during package downloads. oma also integrates closely with AOSC OS's various system management functions, from mirror configuration, topic (testing) repository enrollment, to system feature protection.
 
-![](screenshot/image.png)
+For a more detailed overview on oma's features, see [features](#Features).
 
-### Multi-threaded Downloads
+### oma is also available for other dpkg-based OS.
 
-[multi-thread-download.webm](https://github.com/AOSC-Dev/oma/assets/19554922/e857a946-b6c5-4c22-8d56-398b2ce0a624)
+Please see [Install](#install).
 
-### Smart Search
+![A simple tour of oma](/demo/tour.avif)
 
-[oma-search.webm](https://github.com/AOSC-Dev/oma/assets/19554922/eed6d992-6464-48eb-8b4f-075ea378bd0c)
+## Features
 
-### Undo
-[undo.webm](https://github.com/AOSC-Dev/oma/assets/19554922/f971313b-15bd-4a8e-9b33-aa5c4645e46b)
-
-...and more.
+- **Clear-and-Simple Interface:** Colorful and TUI-heavy interface, with clear marking for key information and simplified commands for common operations.
+- **Faster Downloads:** Faster package downloads, powered by the performant [reqwest](https://crates.io/crates/reqwest) HTTP and multi-threaded downloads.
+- **Smart Search:** Leveraging the [indicium](https://crates.io/crates/indicium) search engine for more relevant package search results.
+- **Fool-Proofing Mechanisms:** Protection against system failures through a combination of mechanisms - active prevention against removal of essential packages, clear marking for potentially dangerous operations, and a disaster recovery mechanism through `undo` command.
+- **System Feature Protection:** Informing and advising against uninstalling critical system components by detecting [System Feature Markers](https://wiki.aosc.io/developer/packaging/feature-marking-guidelines/) in key component packages (AOSC OS only).
+- **System Status Integration:** Integration with system daemons, allowing oma to warn against performing package management operations on battery power, as well as actively inhibiting accidental reboots and suspends.
+- **Compatibility with Other dpkg-based OS:** Bringing a more friendly package management experience to major dpkg-based distributions like Debian, Ubuntu, deepin, and openKylin.
+- **Distro-specific Integration:** Supporting not only AOSC OS-specific features such as topic repository enrollment and mirror management, but also distro-specific services such as Ubuntu Pro.
 
 ## Dependencies
 
-- libapt-pkg
-- Glibc
-- Ripgrep binary (optional, accelerates `oma provides` `oma files` and `oma command-not-found`)
-- LLVM/Clang Compile
-- OpenSSL
-- Rustc with Cargo
-- nettle
-- pkg-config
+To build oma, ensure the following dependencies are installed:
 
-## Build & install
+- libapt-pkg (part of [APT](https://salsa.debian.org/apt-team/apt.git))
+- [LLVM and Clang](https://llvm.org/)
+- [Nettle](https://www.lysator.liu.se/~nisse/nettle/) (recommended) or [OpenSSL](https://openssl.org/)
+- [Rustc](https://www.rust-lang.org/) and [Cargo](https://crates.io/)
+- [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) or [pkgconf](http://pkgconf.org/)
+
+During runtime, oma requires or recommends the following:
+
+- [ripgrep](https://github.com/BurntSushi/ripgrep) (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
+
+## Installation
+
+oma is pre-installed with AOSC OS. It is also available for Debian, Ubuntu, Deepin, openKylin, and more dpkg-based OS.
+
+### Automatic Installation
 
 ```bash
-cargo build --release
-cp ./target/release/oma /usr/local/bin/oma
+curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
 ```
+
+### Building from Source
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/AOSC-Dev/oma.git
+   cd oma
+   ```
+
+2. Build the binary as an installable .deb package:
+
+   ```bash
+   cargo deb -Z xz
+   ```
+
+3. Install and profit!
 
 ## Usage
 
+### Entering the interactive package management interface
+
 ```bash
-saki@Magputer [ aoscpt@master ] $ oma
-oma (oma) - Package management interface for AOSC OS
-
-Usage: oma [OPTIONS] [COMMAND]
-
-Commands:
-  install     Install package(s) from the repository
-  upgrade     Upgrade packages installed on the system
-  download    Download package(s) from the repository
-  remove      Remove the specified package(s)
-  refresh     Refresh repository metadata/catalog
-  show        Show information on the specified package(s)
-  search      Search for package(s) available from the repository
-  files  List files in the specified package
-  provides    Search for package(s) that provide(s) certain patterns in a path
-  fix-broken  Resolve broken system dependencies in the system
-  pick        Install specific version of a package
-  mark        Mark status for one or multiple package(s)
-  list        List package(s) available from the repository
-  depends     Lists dependencies of one or multiple packages
-  rdepends    List reverse dependency(ies) for the specified package(s)
-  clean       Clear downloaded package cache
-  history     Show a history/log of package changes in the system
-  help        Print this message or the help of the given subcommand(s)
-
-Options:
-      --debug    Run oma with debug mode
-  -h, --help     Print help (see more with '--help')
-  -V, --version  Print version
-
+oma # without arguments
 ```
+
+### Example Commands
+
+- Installing a package:
+
+  ```bash
+  oma install <package_name>
+  ```
+
+- Searching for a package:
+
+  ```bash
+  oma search <keyword>
+  ```
+- Removing a package:
+
+  ```bash
+  oma remove <package_name>
+  ```
+
+- Refreshing repository metadata (done automatically before `oma install` and `oma upgrade`):
+
+  ```bash
+  oma refresh
+  ```
+
+For a full list of available sub-commands and arguments, run:
+
+```bash
+oma help
+```
+
+## Command Reference
+
+| Command      | Description                                 |
+| ------------ | ------------------------------------------- |
+| `install`    | Install package(s) from the repository      |
+| `upgrade`    | Upgrade all installed packages              |
+| `download`   | Download package(s) without installing      |
+| `remove`     | Remove specified package(s)                 |
+| `refresh`    | Refresh repository metadata                 |
+| `search`     | Search for package(s) in the repository     |
+| `show`       | Show detailed information for a package     |
+| `files`      | List files in the specified package         |
+| `provides`   | Find packages providing specific patterns   |
+| `fix-broken` | Fix broken dependencies                     |
+| `pick`       | Install a specific version of package(s)    |
+| `mark`       | Mark package(s) with a specific status      |
+| `list`       | List all available packages                 |
+| `depends`    | Show dependencies for package(s)            |
+| `rdepends`   | Show reverse dependencies for package(s)    |
+| `clean`      | Clear downloaded package cache              |
+| `history`    | Show package history or change logs         |
+| `help`       | Show help of oma or the given subcommand(s)
+
+## Contributing
+
+**Contributions are welcome!**
+
+Please feel free to file issues or pull requests to help improve oma.
+
+**Please see [CONTRIBUTING](./CONTRIBUTING.md) for detailed instructions.**
+
+## License
+
+oma is licensed under the GNU General Public License v3.0. See the [COPYING](./COPYING) file for details.
+
+![oma banner: footer](https://github.com/user-attachments/assets/9bf0b9ed-6969-4bf8-b67e-3835925ce8c0)
