@@ -89,7 +89,7 @@ impl<'a> IndexTargetConfig<'a> {
         checksums: &[ChecksumItem],
         is_source: bool,
         is_flat: bool,
-        archs: &[Cow<str>],
+        archs: &mut Vec<Cow<str>>,
         components: &[String],
     ) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
         let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
@@ -100,12 +100,16 @@ impl<'a> IndexTargetConfig<'a> {
 
         let tree = if is_source { &self.deb_src } else { &self.deb };
 
+        if archs.iter().all(|x| x != "all") {
+            archs.push("all".into());
+        }
+
         for c in checksums {
             for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
                 let template =
                     template.ok_or_else(|| RefreshError::WrongConfigEntry(key.to_string()))?;
 
-                for a in archs {
+                for a in &*archs {
                     for comp in components {
                         for l in &langs {
                             if self.template_is_match(template, &c.name, a, comp, l) {

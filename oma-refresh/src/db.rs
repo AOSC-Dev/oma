@@ -784,6 +784,8 @@ impl<'a> OmaRefresh<'a> {
 
         let index_target_config = IndexTargetConfig::new(self.apt_config, &self.arch);
 
+        let archs_file = fs::read_to_string("/var/lib/dpkg/arch").await;
+
         for file_name in all_inrelease {
             // 源数据确保是存在的，所以直接 unwrap
             let ose_list = sources_map.get(&file_name).unwrap();
@@ -796,9 +798,9 @@ impl<'a> OmaRefresh<'a> {
                     RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
                 })?;
 
-                let archs = if let Some(archs) = ose.options().get("archs") {
+                let mut archs = if let Some(archs) = ose.options().get("archs") {
                     archs.split(',').map(Cow::Borrowed).collect::<Vec<_>>()
-                } else if let Ok(f) = fs::read_to_string("/var/lib/dpkg/arch").await {
+                } else if let Ok(ref f) = archs_file {
                     f.lines()
                         .map(|x| Cow::Owned(x.to_string()))
                         .collect::<Vec<_>>()
@@ -848,7 +850,7 @@ impl<'a> OmaRefresh<'a> {
                     checksums,
                     ose.is_source(),
                     ose.is_flat(),
-                    &archs,
+                    &mut archs,
                     ose.components(),
                 )?;
 
