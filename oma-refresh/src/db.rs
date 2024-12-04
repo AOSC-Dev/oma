@@ -796,7 +796,7 @@ impl<'a> OmaRefresh<'a> {
                     RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
                 })?;
 
-                let archs = if let Some(archs) = ose.options().get("archs") {
+                let mut archs = if let Some(archs) = ose.options().get("archs") {
                     archs.split(',').map(Cow::Borrowed).collect::<Vec<_>>()
                 } else if let Ok(f) = fs::read_to_string("/var/lib/dpkg/arch").await {
                     f.lines()
@@ -848,7 +848,7 @@ impl<'a> OmaRefresh<'a> {
                     checksums,
                     ose.is_source(),
                     ose.is_flat(),
-                    &archs,
+                    &mut archs,
                     ose.components(),
                 )?;
 
