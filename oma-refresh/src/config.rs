@@ -1,205 +1,191 @@
-use std::{borrow::Cow, env, path::Path};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, VecDeque},
+    env,
+    path::Path,
+};
 
 use ahash::AHashMap;
-use oma_apt::config::Config;
+use aho_corasick::AhoCorasick;
+use oma_apt::config::{Config, ConfigTree};
 use oma_fetch::CompressFile;
-use smallvec::{smallvec, SmallVec};
-use tracing::debug;
 
-use crate::inrelease::ChecksumItem;
+use crate::{db::RefreshError, inrelease::ChecksumItem};
 
-pub fn get_config(config: &Config) -> Vec<(String, String)> {
-    config
-        .dump()
-        .lines()
-        .filter_map(|x| x.split_once(|c: char| c.is_ascii_whitespace()))
-        .map(|(k, v)| {
-            let mut v = v.to_string();
+fn modify_result(
+    tree: ConfigTree,
+    res: &mut HashMap<String, HashMap<String, String>>,
+    root_path: String,
+) {
+    let mut stack = VecDeque::new();
+    stack.push_back((tree, root_path));
 
-            while v.ends_with(";") || v.ends_with("\"") {
-                v.pop();
+    let mut first = true;
+
+    while let Some((node, tree_path)) = stack.pop_back() {
+        // 跳过要遍历根节点的相邻节点
+        if !first {
+            if let Some(entry) = node.sibling() {
+                stack.push_back((entry, tree_path.clone()));
             }
+        }
 
-            while v.starts_with("\"") {
-                v.remove(0);
-            }
+        if let Some(entry) = node.child() {
+            stack.push_back((entry, format!("{}::{}", tree_path, node.tag().unwrap())));
+        }
 
-            (k.to_string(), v)
-        })
-        .collect()
+        if let Some((k, v)) = node.tag().zip(node.value()) {
+            res.entry(tree_path).or_default().insert(k, v);
+        }
+
+        first = false;
+    }
 }
 
-#[derive(Debug)]
+pub fn get_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
+    let mut res = HashMap::new();
+    let tree = config.tree(key);
+
+    let Some(tree) = tree else {
+        return vec![];
+    };
+
+    modify_result(
+        tree,
+        &mut res,
+        key.rsplit_once("::")
+            .map(|x| x.0.to_string())
+            .unwrap_or_else(|| key.to_string()),
+    );
+
+    res.into_iter().collect::<Vec<_>>()
+}
+
+pub struct IndexTargetConfig<'a> {
+    deb: Vec<(String, HashMap<String, String>)>,
+    deb_src: Vec<(String, HashMap<String, String>)>,
+    replacer: AhoCorasick,
+    native_arch: &'a str,
+}
+
+impl<'a> IndexTargetConfig<'a> {
+    pub fn new(config: &Config, native_arch: &'a str) -> Self {
+        Self {
+            deb: get_index_target_tree(config, "Acquire::IndexTargets::deb"),
+            deb_src: get_index_target_tree(config, "Acquire::IndexTargets::deb-src"),
+            replacer: AhoCorasick::new([
+                "$(ARCHITECTURE)",
+                "$(COMPONENT)",
+                "$(LANGUAGE)",
+                "$(NATIVE_ARCHITECTURE)",
+            ])
+            .unwrap(),
+            native_arch,
+        }
+    }
+
+    pub fn get_download_list(
+        &self,
+        checksums: &[ChecksumItem],
+        is_source: bool,
+        is_flat: bool,
+        archs: &[Cow<str>],
+        components: &[String],
+    ) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
+        let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
+        let lang = env::var("LANG").map(Cow::Owned).unwrap_or("C".into());
+        let langs = get_matches_language(&lang);
+
+        let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
+
+        let tree = if is_source { &self.deb_src } else { &self.deb };
+
+        for c in checksums {
+            for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
+                let template =
+                    template.ok_or_else(|| RefreshError::WrongConfigEntry(key.to_string()))?;
+
+                for a in archs {
+                    for comp in components {
+                        for l in &langs {
+                            if self.template_is_match(template, &c.name, a, comp, l) {
+                                let name_without_ext = Path::new(&c.name).with_extension("");
+                                let name_without_ext =
+                                    name_without_ext.to_string_lossy().to_string();
+                                res_map.entry(name_without_ext).or_default().push(
+                                    ChecksumDownloadEntry {
+                                        item: c.to_owned(),
+                                        keep_compress: config
+                                            .get("KeepCompressed")
+                                            .and_then(|x| x.parse::<bool>().ok())
+                                            .unwrap_or(false),
+                                        msg: config
+                                            .get("ShortDescription")
+                                            .map(|x| {
+                                                self.replacer.replace_all(
+                                                    x,
+                                                    &[a.as_ref(), comp, l, self.native_arch],
+                                                )
+                                            })
+                                            .unwrap_or_else(|| "Other".to_string()),
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut res = vec![];
+
+        for (_, v) in &mut res_map {
+            v.sort_unstable_by(|a, b| {
+                compress_file(&a.item.name).cmp(&compress_file(&b.item.name))
+            });
+            if v[0].item.size == 0 {
+                continue;
+            }
+            res.push(v.last().unwrap().to_owned());
+        }
+
+        Ok(res)
+    }
+
+    fn template_is_match(
+        &self,
+        template: &str,
+        target: &str,
+        arch: &str,
+        component: &str,
+        lang: &str,
+    ) -> bool {
+        let target_without_ext = Path::new(target).with_extension("");
+        let target_without_ext = target_without_ext.to_string_lossy();
+
+        target_without_ext
+            == self
+                .replacer
+                .replace_all(template, &[arch, component, lang, self.native_arch])
+    }
+}
+
+fn get_index_target_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
+    get_tree(config, key)
+        .into_iter()
+        .filter(|x| {
+            x.1.get("DefaultEnabled")
+                .and_then(|x| x.parse::<bool>().ok())
+                .unwrap_or(true)
+        })
+        .collect::<Vec<_>>()
+}
+
+#[derive(Debug, Clone)]
 pub struct ChecksumDownloadEntry {
     pub item: ChecksumItem,
     pub keep_compress: bool,
     pub msg: String,
-}
-
-pub struct FilterDownloadList<'a> {
-    pub checksums: &'a [ChecksumItem],
-    pub config: &'a Config,
-    pub config_tree: &'a [(String, String)],
-    pub archs: &'a [Cow<'a, str>],
-    pub components: &'a [String],
-    pub native_arch: &'a str,
-    pub is_flat: bool,
-    pub is_source: bool,
-}
-
-pub fn fiilter_download_list(f: FilterDownloadList) -> SmallVec<[ChecksumDownloadEntry; 32]> {
-    let FilterDownloadList {
-        checksums,
-        config,
-        config_tree,
-        archs,
-        components,
-        native_arch,
-        is_flat,
-        is_source,
-    } = f;
-
-    let mut v = smallvec![];
-
-    let mut filter_entry = vec![];
-
-    let mut archs_contains_all = vec![];
-    archs_contains_all.extend_from_slice(archs);
-    archs_contains_all.push(Cow::Borrowed("all"));
-
-    let components = if components.is_empty() {
-        &["".to_string()]
-    } else {
-        components
-    };
-
-    let metakey = if !is_flat {
-        "::MetaKey"
-    } else {
-        "::flatMetaKey"
-    };
-
-    for (k, v) in config_tree {
-        if is_match(is_source, k, metakey) {
-            for a in &archs_contains_all {
-                for c in components {
-                    let s = replace_arch_and_component(v, c, a, native_arch);
-                    let e = k
-                        .strip_prefix("APT::")
-                        .unwrap_or(k)
-                        .strip_suffix(metakey)
-                        .unwrap();
-
-                    let keep_compress = config.bool(&format!("{e}::KeepCompressed"), false);
-                    let default_enabled = config.bool(&format!("{e}::DefaultEnabled"), true);
-
-                    if !default_enabled {
-                        debug!("{e}::DefaultEnabled is false, so continue");
-                        continue;
-                    }
-
-                    debug!("{e} keep compress: {}", keep_compress);
-
-                    let msg = if let Some(match_msg) = config.get(&format!("{e}::ShortDescription"))
-                    {
-                        let mut s = replace_arch_and_component(&match_msg, c, a, native_arch);
-
-                        if let Ok(env_lang) = env::var("LANG") {
-                            let langs = get_matches_language(&env_lang);
-
-                            if !langs.is_empty() {
-                                s = s.replace("$(LANGUAGE)", langs[0]);
-                            }
-                        }
-
-                        s
-                    } else {
-                        "Other".to_string()
-                    };
-
-                    let mut list = vec![];
-
-                    if v.contains("$(LANGUAGE)") {
-                        if let Ok(env_lang) = env::var("LANG") {
-                            let langs = get_matches_language(&env_lang);
-
-                            for i in langs {
-                                list.push((
-                                    s.replace("$(LANGUAGE)", i),
-                                    keep_compress,
-                                    msg.clone(),
-                                ));
-                            }
-                        }
-                    }
-
-                    if list.is_empty() {
-                        filter_entry.push((s, keep_compress, msg.clone()));
-                    } else {
-                        filter_entry.extend(list);
-                    }
-                }
-            }
-        }
-    }
-
-    debug!("{:?}", filter_entry);
-
-    let mut map: AHashMap<&str, ChecksumDownloadEntry> = AHashMap::new();
-
-    for i in checksums {
-        if let Some(x) = filter_entry.iter().find(|x| {
-            let path = Path::new(&i.name);
-            let path = path.with_extension("");
-            let path = path.to_string_lossy();
-            path == x.0
-        }) {
-            if let Some(y) = map.get_mut(x.0.as_str()) {
-                if compress_file(&y.item.name) > compress_file(&i.name) {
-                    continue;
-                } else {
-                    *y = ChecksumDownloadEntry {
-                        item: i.clone(),
-                        keep_compress: x.1,
-                        msg: x.2.clone(),
-                    }
-                }
-            } else {
-                map.insert(
-                    &x.0,
-                    ChecksumDownloadEntry {
-                        item: i.clone(),
-                        keep_compress: x.1,
-                        msg: x.2.clone(),
-                    },
-                );
-            }
-        }
-    }
-
-    for (_, i) in map {
-        v.push(i);
-    }
-
-    debug!("{:?}", v);
-
-    v
-}
-
-fn is_match(is_source: bool, key: &str, metakey: &str) -> bool {
-    let deb = (key.starts_with("APT::Acquire::IndexTargets::deb::")
-        || key.starts_with("Acquire::IndexTargets::deb::"))
-        && key.ends_with(metakey);
-
-    let deb_src = (key.starts_with("APT::Acquire::IndexTargets::deb-src::")
-        || key.starts_with("Acquire::IndexTargets::deb-src::"))
-        && key.ends_with(metakey);
-
-    if is_source {
-        deb || deb_src
-    } else {
-        deb
-    }
 }
 
 fn get_matches_language(env_lang: &str) -> Vec<&str> {
@@ -218,23 +204,6 @@ fn get_matches_language(env_lang: &str) -> Vec<&str> {
     langs
 }
 
-fn replace_arch_and_component(
-    input: &str,
-    component: &str,
-    arch: &str,
-    native_arch: &str,
-) -> String {
-    let mut output = input
-        .replace("$(COMPONENT)", component)
-        .replace("$(ARCHITECTURE)", arch);
-
-    if arch == native_arch {
-        output = output.replace("$(NATIVE_ARCHITECTURE)", arch);
-    }
-
-    output
-}
-
 fn compress_file(name: &str) -> CompressFile {
     CompressFile::from(
         Path::new(name)
@@ -247,39 +216,15 @@ fn compress_file(name: &str) -> CompressFile {
 }
 
 #[test]
-fn test() {
-    let map = get_config(&Config::new());
-    dbg!(map);
-}
-
-#[test]
-fn test_replace_arch_and_component() {
-    let input = "$(COMPONENT)/Contents-$(ARCHITECTURE)";
-    assert_eq!(
-        replace_arch_and_component(input, "main", "amd64", "amd64"),
-        "main/Contents-amd64"
-    );
-
-    let input = "Contents-$(ARCHITECTURE)";
-    assert_eq!(
-        replace_arch_and_component(input, "main", "amd64", "amd64"),
-        "Contents-amd64"
-    );
-
-    let input = "$(COMPONENT)/dep11/Components-$(NATIVE_ARCHITECTURE).yml";
-    assert_eq!(
-        replace_arch_and_component(input, "main", "amd64", "amd64"),
-        "main/dep11/Components-amd64.yml"
-    );
-    assert_eq!(
-        replace_arch_and_component(input, "main", "amd64", "arm64"),
-        "main/dep11/Components-$(NATIVE_ARCHITECTURE).yml"
-    );
-}
-
-#[test]
 fn test_get_matches_language() {
     assert_eq!(get_matches_language("C"), vec!["en"]);
     assert_eq!(get_matches_language("zh_CN.UTF-8"), vec!["zh_CN", "zh"]);
     assert_eq!(get_matches_language("en_US.UTF-8"), vec!["en_US", "en"]);
+}
+
+#[test]
+fn test_get_tree() {
+    let t = get_tree(&Config::new(), "Acquire::IndexTargets::deb");
+    assert!(t.iter().any(|x| x.0.contains("::deb::")));
+    assert!(t.iter().all(|x| !x.0.contains("::deb-src::")))
 }

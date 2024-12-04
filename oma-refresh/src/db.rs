@@ -45,7 +45,6 @@ use oma_utils::dpkg::dpkg_arch;
 #[cfg(feature = "aosc")]
 use reqwest::StatusCode;
 
-use smallvec::SmallVec;
 use sysinfo::{Pid, System};
 use tokio::{
     fs::{self, File},
@@ -56,7 +55,7 @@ use tokio::{
 use tracing::{debug, warn};
 
 use crate::{
-    config::{fiilter_download_list, get_config, ChecksumDownloadEntry, FilterDownloadList},
+    config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
         file_is_compress, split_ext_and_filename, verify_inrelease, ChecksumItem, InRelease,
         InReleaseChecksum, InReleaseError,
@@ -106,6 +105,8 @@ pub enum RefreshError {
     DuplicateComponents(Box<str>, String),
     #[error(transparent)]
     SendErr(#[from] flume::SendError<Event>),
+    #[error("config entry has no key '{0}'")]
+    WrongConfigEntry(String),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -147,6 +148,8 @@ pub enum RefreshError {
     DuplicateComponents(Box<str>, String),
     #[error(transparent)]
     SendErr(#[from] flume::SendError<Event>),
+    #[error("config entry has no key '{0}'")]
+    WrongConfigEntry(String),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -286,16 +289,8 @@ impl<'a> OmaRefresh<'a> {
 
         download_list.extend(release_results.iter().map(|x| x.to_string()));
 
-        let config_tree = get_config(self.apt_config);
-
         let (tasks, total) = self
-            .collect_all_release_entry(
-                release_results,
-                &sourcelist,
-                &replacer,
-                &source_map,
-                &config_tree,
-            )
+            .collect_all_release_entry(release_results, &sourcelist, &replacer, &source_map)
             .await?;
 
         for i in &tasks {
@@ -328,7 +323,7 @@ impl<'a> OmaRefresh<'a> {
             .0
             .send_async(Event::RunInvokeScript)
             .await?;
-        Self::run_success_post_invoke(&config_tree).await;
+        self.run_success_post_invoke().await;
         self.progress_channel.0.send_async(Event::Done).await?;
 
         Ok(())
@@ -371,12 +366,12 @@ impl<'a> OmaRefresh<'a> {
         }
     }
 
-    async fn run_success_post_invoke(config_tree: &[(String, String)]) {
-        let cmds = config_tree
-            .iter()
-            .filter(|x| x.0 == "APT::Update::Post-Invoke-Success::");
+    async fn run_success_post_invoke(&self) {
+        let cmds = self
+            .apt_config
+            .find_vector("APT::Update::Post-Invoke-Success");
 
-        for (_, cmd) in cmds {
+        for cmd in &cmds {
             debug!("Running post-invoke script: {cmd}");
             let output = Command::new("sh").arg("-c").arg(cmd).output().await;
 
@@ -782,11 +777,13 @@ impl<'a> OmaRefresh<'a> {
         sourcelist: &[OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
         sources_map: &AHashMap<String, Vec<OmaSourceEntry<'a>>>,
-        config_tree: &[(String, String)],
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
         debug!("all_inrelease: {:?}", all_inrelease);
+
+        let index_target_config = IndexTargetConfig::new(self.apt_config, &self.arch);
+
         for file_name in all_inrelease {
             // 源数据确保是存在的，所以直接 unwrap
             let ose_list = sources_map.get(&file_name).unwrap();
@@ -846,20 +843,16 @@ impl<'a> OmaRefresh<'a> {
                     .1;
 
                 let mut handle = vec![];
-                let f = FilterDownloadList {
+
+                let download_list = index_target_config.get_download_list(
                     checksums,
-                    config: self.apt_config,
-                    config_tree,
-                    archs: &archs,
-                    components: ose.components(),
-                    native_arch: &self.arch,
-                    is_flat: ose.is_flat(),
-                    is_source: ose.is_source(),
-                };
+                    ose.is_source(),
+                    ose.is_flat(),
+                    &archs,
+                    ose.components(),
+                )?;
 
-                let filter_checksums = fiilter_download_list(f);
-
-                get_all_need_db_from_config(filter_checksums, &mut total, checksums, &mut handle);
+                get_all_need_db_from_config(download_list, &mut total, checksums, &mut handle);
 
                 for i in &self.flat_repo_no_release {
                     download_flat_repo_no_release(
@@ -941,7 +934,7 @@ fn detect_duplicate_repositories(sourcelist: &[OmaSourceEntry<'_>]) -> Result<()
 }
 
 fn get_all_need_db_from_config(
-    filter_checksums: SmallVec<[ChecksumDownloadEntry; 32]>,
+    filter_checksums: Vec<ChecksumDownloadEntry>,
     total: &mut u64,
     checksums: &[ChecksumItem],
     handle: &mut Vec<ChecksumDownloadEntry>,
