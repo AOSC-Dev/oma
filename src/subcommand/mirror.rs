@@ -43,7 +43,7 @@ use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;
 
 use super::utils::tui_select_list_size;
-use super::utils::RefreshRequest;
+use super::utils::Refresh;
 use crate::args::CliExecuter;
 
 const REPO_TEST_SHA256: &str = "1e2a82e7babb443b2b26b61ce5dd2bd25b06b30422b42ee709fddd2cc3ffe231";
@@ -508,20 +508,16 @@ fn refresh(
 ) -> Result<(), OutputError> {
     let auth_config = AuthConfig::system("/")?;
 
-    RefreshRequest {
-        client: &HTTP_CLIENT,
-        dry_run: false,
-        no_progress,
-        limit: network_threads,
-        sysroot: "/",
-        #[cfg(feature = "aosc")]
-        _refresh_topics: refresh_topic,
-        #[cfg(not(feature = "aosc"))]
-        _refresh_topics: false,
-        config: &AptConfig::new(),
-        auth_config: &auth_config,
-    }
-    .run()?;
+    Refresh::builder()
+        .client(&HTTP_CLIENT)
+        .dry_run(false)
+        .no_progress(no_progress)
+        .network_thread(network_threads)
+        .refresh_topics(refresh_topic)
+        .config(&AptConfig::new())
+        .auth_config(&auth_config)
+        .build()
+        .run()?;
 
     Ok(())
 }

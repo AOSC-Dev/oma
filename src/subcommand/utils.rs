@@ -190,29 +190,38 @@ pub(crate) fn lock_oma() -> Result<(), LockError> {
     Ok(())
 }
 
-pub struct RefreshRequest<'a> {
-    pub client: &'a Client,
-    pub dry_run: bool,
-    pub no_progress: bool,
-    pub limit: usize,
-    pub sysroot: &'a str,
-    pub _refresh_topics: bool,
-    pub config: &'a AptConfig,
-    pub auth_config: &'a AuthConfig,
+#[derive(Debug, Builder)]
+pub struct Refresh<'a> {
+    client: &'a Client,
+    #[builder(default)]
+    dry_run: bool,
+    #[builder(default)]
+    no_progress: bool,
+    #[builder(default = 4)]
+    network_thread: usize,
+    #[builder(default = "/")]
+    sysroot: &'a str,
+    #[builder(default = true)]
+    refresh_topics: bool,
+    config: &'a AptConfig,
+    auth_config: &'a AuthConfig,
 }
 
-impl RefreshRequest<'_> {
+impl Refresh<'_> {
     pub(crate) fn run(self) -> Result<(), OutputError> {
-        let RefreshRequest {
+        let Refresh {
             client,
             dry_run,
             no_progress,
-            limit,
+            network_thread,
             sysroot,
-            _refresh_topics,
+            refresh_topics,
             config,
             auth_config,
         } = self;
+
+        #[cfg(not(feature = "aosc"))]
+        let _ = refresh_topics;
 
         if dry_run {
             return Ok(());
@@ -229,7 +238,7 @@ impl RefreshRequest<'_> {
         let refresh = OmaRefresh::builder()
             .download_dir(sysroot.join("var/lib/apt/lists"))
             .source(sysroot)
-            .threads(limit)
+            .threads(network_thread)
             .arch(arch)
             .apt_config(config)
             .client(client)
@@ -237,7 +246,7 @@ impl RefreshRequest<'_> {
             .topic_msg(&msg);
 
         #[cfg(feature = "aosc")]
-        let refresh = refresh.refresh_topics(_refresh_topics).build();
+        let refresh = refresh.refresh_topics(refresh_topics).build();
 
         #[cfg(not(feature = "aosc"))]
         let refresh = refresh.build();

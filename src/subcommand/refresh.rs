@@ -10,7 +10,7 @@ use crate::config::Config;
 use crate::{error::OutputError, utils::root};
 use crate::{fl, success, HTTP_CLIENT};
 
-use super::utils::RefreshRequest;
+use super::utils::Refresh as RefreshInner;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -37,24 +37,30 @@ impl CliExecuter for Refresh {
         let apt_config = AptConfig::new();
         let auth_config = AuthConfig::system(&sysroot)?;
 
-        RefreshRequest {
-            client: &HTTP_CLIENT,
-            dry_run: false,
-            no_progress,
-            limit: config.network_thread(),
-            sysroot: &sysroot.to_string_lossy(),
-            #[cfg(feature = "aosc")]
-            _refresh_topics: !no_refresh_topics && !config.no_refresh_topics(),
-            #[cfg(not(feature = "aosc"))]
-            _refresh_topics: false,
-            config: &apt_config,
-            auth_config: &auth_config,
-        }
-        .run()?;
+        let sysroot_str = sysroot.to_string_lossy();
+        let builder = RefreshInner::builder()
+            .client(&HTTP_CLIENT)
+            .dry_run(false)
+            .no_progress(no_progress)
+            .network_thread(config.network_thread())
+            .sysroot(&sysroot_str)
+            .config(&apt_config)
+            .auth_config(&auth_config);
+
+        #[cfg(feature = "aosc")]
+        let refresh = builder
+            .refresh_topics(!no_refresh_topics && !config.no_refresh_topics())
+            .build();
+
+        #[cfg(not(feature = "aosc"))]
+        let refresh = builder.build();
+
+        refresh.run()?;
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
             .build();
+
         let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
         let pb = if !no_progress {

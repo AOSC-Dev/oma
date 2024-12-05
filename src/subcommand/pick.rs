@@ -18,9 +18,7 @@ use crate::{
 };
 use anyhow::anyhow;
 
-use super::utils::{
-    lock_oma, no_check_dbus_warn, tui_select_list_size, CommitChanges, RefreshRequest,
-};
+use super::utils::{lock_oma, no_check_dbus_warn, tui_select_list_size, CommitChanges, Refresh};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -101,20 +99,25 @@ impl CliExecuter for Pick {
         let auth_config = AuthConfig::system(&sysroot)?;
 
         if !no_refresh {
-            RefreshRequest {
-                client: &HTTP_CLIENT,
-                dry_run,
-                no_progress,
-                limit: config.network_thread(),
-                sysroot: &sysroot.to_string_lossy(),
-                #[cfg(feature = "aosc")]
-                _refresh_topics: !no_refresh_topics && !config.no_refresh_topics(),
-                #[cfg(not(feature = "aosc"))]
-                _refresh_topics: false,
-                config: &apt_config,
-                auth_config: &auth_config,
-            }
-            .run()?;
+            let sysroot = sysroot.to_string_lossy();
+            let builder = Refresh::builder()
+                .client(&HTTP_CLIENT)
+                .dry_run(dry_run)
+                .no_progress(no_progress)
+                .network_thread(config.network_thread())
+                .sysroot(&sysroot)
+                .config(&apt_config)
+                .auth_config(&auth_config);
+
+            #[cfg(feature = "aosc")]
+            let refresh = builder
+                .refresh_topics(!no_refresh_topics && !config.no_refresh_topics())
+                .build();
+
+            #[cfg(not(feature = "aosc"))]
+            let refresh = builder.build();
+
+            refresh.run()?;
         }
 
         let oma_apt_args = OmaAptArgs::builder()
