@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use apt_auth_config::AuthConfig;
+use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
 use dialoguer::{theme::ColorfulTheme, Select};
@@ -369,7 +370,7 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usi
                     )
                 }
                 SummaryType::Undo => format!("Undone [{date}]"),
-                SummaryType::Changes => "Change packages".to_string(),
+                SummaryType::Changes => format!("Change packages [{date}]"),
             };
 
             let s = select_tui_display_msg(&s, false).to_string();
@@ -381,15 +382,13 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usi
     display_list
 }
 
-fn format_date(date: i64) -> String {
+fn format_date(date: i64) -> DelayedFormat<StrftimeItems<'static>> {
     let dt = match Local.timestamp_opt(date, 0) {
         LocalResult::None => Local.timestamp_opt(0, 0).unwrap(),
         x => x.unwrap(),
     };
 
-    let s = dt.format("%H:%M:%S on %Y-%m-%d").to_string();
-
-    s
+    dt.format("%H:%M:%S on %Y-%m-%d")
 }
 
 fn format_success(is_success: bool) -> &'static str {
