@@ -28,7 +28,7 @@ use crate::{
 
 use super::utils::{
     lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitChanges,
-    RefreshRequest,
+    Refresh,
 };
 
 use crate::args::CliExecuter;
@@ -163,17 +163,17 @@ impl CliExecuter for Topics {
             let apt_config = AptConfig::new();
             let auth_config = AuthConfig::system(&sysroot)?;
 
-            RefreshRequest {
-                client: &HTTP_CLIENT,
-                dry_run,
-                no_progress,
-                limit: config.network_thread(),
-                sysroot: &sysroot.to_string_lossy(),
-                _refresh_topics: true,
-                config: &apt_config,
-                auth_config: &auth_config,
-            }
-            .run()?;
+            Refresh::builder()
+                .client(&HTTP_CLIENT)
+                .dry_run(dry_run)
+                .no_progress(no_progress)
+                .network_thread(config.network_thread())
+                .sysroot(&sysroot.to_string_lossy())
+                .refresh_topics(true)
+                .config(&apt_config)
+                .auth_config(&auth_config)
+                .build()
+                .run()?;
 
             let oma_apt_args = OmaAptArgs::builder()
                 .sysroot(sysroot.to_string_lossy().to_string())
