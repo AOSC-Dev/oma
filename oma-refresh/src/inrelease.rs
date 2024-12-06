@@ -1,5 +1,5 @@
-use ahash::AHashMap;
 use chrono::{DateTime, FixedOffset, ParseError, Utc};
+use deb822_lossless::{FromDeb822, FromDeb822Paragraph, Paragraph};
 use oma_repo_verify::verify_release;
 use once_cell::sync::OnceCell;
 use std::{
@@ -57,26 +57,36 @@ pub enum InReleaseChecksum {
 
 const COMPRESS: &[&str] = &[".gz", ".xz", ".zst", ".bz2"];
 
-pub struct InRelease<'a> {
-    source: AHashMap<&'a str, String>,
+pub struct InRelease {
+    source: InReleaseEntry,
     acquire_by_hash: OnceCell<bool>,
     checksum_type_and_list: OnceCell<(InReleaseChecksum, Vec<ChecksumItem>)>,
 }
 
-impl<'a> InRelease<'a> {
-    pub fn new(input: &'a str) -> Result<Self, InReleaseError> {
-        let mut map = AHashMap::new();
-        let debcontrol =
-            oma_debcontrol::parse_str(input).map_err(|_| InReleaseError::InReleaseSyntaxError)?;
+#[derive(Debug, FromDeb822)]
+struct InReleaseEntry {
+    #[deb822(field = "Date")]
+    date: Option<String>,
+    #[deb822(field = "Valid-Until")]
+    valid_until: Option<String>,
+    #[deb822(field = "Acquire-By-Hash")]
+    acquire_by_hash: Option<String>,
+    #[deb822(field = "MD5Sum")]
+    md5sum: Option<String>,
+    #[deb822(field = "SHA256")]
+    sha256: Option<String>,
+    #[deb822(field = "SHA512")]
+    sha512: Option<String>,
+}
 
-        let inrelease = debcontrol.first().ok_or(InReleaseError::BrokenInRelease)?;
-
-        for i in &inrelease.fields {
-            map.insert(i.name, i.value.to_string());
-        }
+impl InRelease {
+    pub fn new(input: &str) -> Result<Self, InReleaseError> {
+        let source: Paragraph = input.parse().map_err(|_| InReleaseError::BrokenInRelease)?;
+        let source: InReleaseEntry = FromDeb822Paragraph::from_paragraph(&source)
+            .map_err(|_| InReleaseError::BrokenInRelease)?;
 
         Ok(Self {
-            source: map,
+            source,
             acquire_by_hash: OnceCell::new(),
             checksum_type_and_list: OnceCell::new(),
         })
@@ -85,16 +95,12 @@ impl<'a> InRelease<'a> {
     pub fn get_or_try_init_checksum_type_and_list(
         &self,
     ) -> Result<&(InReleaseChecksum, Vec<ChecksumItem>), InReleaseError> {
-        let sha256 = self.source.get("SHA256");
-        let sha512 = self.source.get("SHA512");
-        let md5 = self.source.get("MD5Sum");
-
         self.checksum_type_and_list.get_or_try_init(|| {
-            let (checksum_type, checksums) = if let Some(sha256) = sha256 {
+            let (checksum_type, checksums) = if let Some(sha256) = &self.source.sha256 {
                 (InReleaseChecksum::Sha256, get_checksums_inner(sha256)?)
-            } else if let Some(sha512) = sha512 {
+            } else if let Some(sha512) = &self.source.sha512 {
                 (InReleaseChecksum::Sha512, get_checksums_inner(sha512)?)
-            } else if let Some(md5) = md5 {
+            } else if let Some(md5) = &self.source.md5sum {
                 (InReleaseChecksum::Md5, get_checksums_inner(md5)?)
             } else {
                 return Err(InReleaseError::BrokenInRelease);
@@ -112,7 +118,8 @@ impl<'a> InRelease<'a> {
     pub fn acquire_by_hash(&self) -> bool {
         *self.acquire_by_hash.get_or_init(|| {
             self.source
-                .get("Acquire-By-Hash")
+                .acquire_by_hash
+                .as_ref()
                 .map(|x| x.to_lowercase() == "yes")
                 .unwrap_or(false)
         })
@@ -121,7 +128,8 @@ impl<'a> InRelease<'a> {
     pub fn check_date(&self, now: &DateTime<Utc>) -> Result<(), InReleaseError> {
         let date = self
             .source
-            .get("Date")
+            .date
+            .as_ref()
             .ok_or(InReleaseError::BadInReleaseData)?;
 
         let date = parse_date(date).map_err(|e| {
@@ -138,7 +146,7 @@ impl<'a> InRelease<'a> {
 
     pub fn check_valid_until(&self, now: &DateTime<Utc>) -> Result<(), InReleaseError> {
         // Check if the `Valid-Until` field is valid only when it is defined.
-        if let Some(valid_until_date) = self.source.get("Valid-Until") {
+        if let Some(valid_until_date) = &self.source.valid_until {
             let valid_until = parse_date(valid_until_date).map_err(|e| {
                 debug!("Parse valid_until failed: {}", e);
                 InReleaseError::BadInReleaseValidUntil
