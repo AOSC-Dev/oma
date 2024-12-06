@@ -1,5 +1,4 @@
 use std::{
-    cell::{Ref, RefCell},
     fmt::Display,
     io,
     ops::ControlFlow,
@@ -54,11 +53,11 @@ pub struct Tui<'a> {
     mode: Mode,
     input_cursor_position: usize,
     display_pending_detail: bool,
-    input: Rc<RefCell<String>>,
+    input: String,
     upgradable: usize,
     autoremovable: usize,
     installed: usize,
-    pkg_results: Rc<RefCell<Vec<SearchResult>>>,
+    pkg_results: Vec<SearchResult>,
     pkg_result_state: StatefulList<Text<'static>>,
     pending_result_state: StatefulList<Operation>,
     install: Vec<OmaPackage>,
@@ -109,15 +108,8 @@ impl<'a> Tui<'a> {
         autoremovable: usize,
         searcher: IndiciumSearch<'a>,
     ) -> Self {
-        let pkg_results = Rc::new(RefCell::new(vec![]));
-        let pkg_result_state = StatefulList::with_items(
-            pkg_results
-                .borrow()
-                .clone()
-                .into_iter()
-                .filter_map(|x| SearchResultDisplay(&x).to_string().into_text().ok())
-                .collect(),
-        );
+        let pkg_results = vec![];
+        let pkg_result_state = StatefulList::with_items(vec![]);
 
         Self {
             apt,
@@ -125,7 +117,7 @@ impl<'a> Tui<'a> {
             mode: Mode::Search,
             input_cursor_position: 0,
             display_pending_detail: false,
-            input: Rc::new(RefCell::new("".to_string())),
+            input: String::new(),
             upgradable,
             autoremovable,
             installed,
@@ -282,7 +274,7 @@ impl<'a> Tui<'a> {
     fn handle_right(&mut self) {
         match self.mode {
             Mode::Search => {
-                if self.input_cursor_position < self.input.borrow().len() {
+                if self.input_cursor_position < self.input.len() {
                     self.input_cursor_position += 1;
                 }
             }
@@ -310,23 +302,21 @@ impl<'a> Tui<'a> {
     }
 
     fn handle_input_delete(&mut self) -> ControlFlow<()> {
-        if self.input_cursor_position > self.input.borrow().len() - 1 {
+        if self.input_cursor_position > self.input.len() - 1 {
             return ControlFlow::Break(());
         }
 
         delete_inner(
-            &self.input,
+            &mut self.input,
             self.input_cursor_position,
             self.input_cursor_position + 1,
         );
 
-        let s = self.input.borrow();
-
         update_search_result(
             &self.searcher,
-            s,
+            &self.input,
             &mut self.pkg_result_state,
-            &self.pkg_results,
+            &mut self.pkg_results,
         );
 
         self.result_scroll = self
@@ -338,27 +328,25 @@ impl<'a> Tui<'a> {
 
     fn handle_input_backspace(&mut self) -> ControlFlow<()> {
         if self.input_cursor_position == 0 {
-            self.pkg_results.replace(vec![]);
+            self.pkg_results = vec![];
             return ControlFlow::Break(());
         }
 
         let from_left_to_current_index = self.input_cursor_position - 1;
 
         delete_inner(
-            &self.input,
+            &mut self.input,
             from_left_to_current_index,
             self.input_cursor_position,
         );
 
         self.input_cursor_position = self.input_cursor_position.saturating_sub(1);
 
-        let s = self.input.borrow();
-
         update_search_result(
             &self.searcher,
-            s,
+            &self.input,
             &mut self.pkg_result_state,
-            &self.pkg_results,
+            &mut self.pkg_results,
         );
 
         self.result_scroll = self
@@ -397,17 +385,16 @@ impl<'a> Tui<'a> {
     fn handle_input_text(&mut self, c: char) {
         let byte_index = self
             .input
-            .borrow()
             .char_indices()
             .map(|(i, _)| i)
             .nth(self.input_cursor_position)
-            .unwrap_or(self.input.borrow().len());
+            .unwrap_or(self.input.len());
 
-        self.input.borrow_mut().insert(byte_index, c);
+        self.input.insert(byte_index, c);
         self.input_cursor_position = self.input_cursor_position.saturating_add(1);
 
-        let s = self.input.borrow();
-        let res = self.searcher.search(&s);
+        let s = &self.input;
+        let res = self.searcher.search(s);
 
         if let Ok(res) = res {
             let res_display = res
@@ -415,14 +402,14 @@ impl<'a> Tui<'a> {
                 .filter_map(|x| SearchResultDisplay(x).to_string().into_text().ok())
                 .collect::<Vec<_>>();
             self.pkg_result_state = StatefulList::with_items(res_display);
-            self.pkg_results.replace(res);
+            self.pkg_results = res;
 
             self.result_scroll = self
                 .result_scroll
                 .content_length(self.pkg_result_state.items.len());
         } else {
             self.pkg_result_state = StatefulList::with_items(vec![]);
-            self.pkg_results.borrow_mut().clear();
+            self.pkg_results.clear();
         }
     }
 
@@ -433,7 +420,7 @@ impl<'a> Tui<'a> {
                 let selected = self.pkg_result_state.state.selected();
                 if let Some(i) = selected {
                     self.display_pending_detail = true;
-                    let name = &self.pkg_results.borrow()[i].name;
+                    let name = &self.pkg_results[i].name;
                     if let Some(pkg) = self.apt.cache.get(name) {
                         if let Some(pkg_index) = self
                             .install
@@ -673,14 +660,12 @@ impl<'a> Tui<'a> {
         }
 
         f.render_widget(
-            Paragraph::new(input.as_ref().to_owned().into_inner())
-                .style(Style::default())
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .title(fl!("tui-search"))
-                        .style(highlight_window(&self.mode, &Mode::Search)),
-                ),
+            Paragraph::new(input).style(Style::default()).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(fl!("tui-search"))
+                    .style(highlight_window(&self.mode, &Mode::Search)),
+            ),
             main_layout[1],
         );
 
@@ -771,7 +756,7 @@ fn render_tips(f: &mut Frame<'_>, main_layout: &Rc<[Rect]>) {
 }
 
 fn show_packages(
-    result_rc: &Rc<RefCell<Vec<SearchResult>>>,
+    result: &[SearchResult],
     frame: &mut Frame<'_>,
     display_list: &mut StatefulList<Text<'_>>,
     mode: &Mode,
@@ -779,7 +764,7 @@ fn show_packages(
     upgradable_and_autoremovable: (usize, usize),
     installed: usize,
 ) {
-    if !result_rc.borrow().is_empty() {
+    if !result.is_empty() {
         frame.render_stateful_widget(
             List::new(display_list.items.clone())
                 .block(
@@ -878,11 +863,11 @@ fn change_to_pending_window(mode: &mut Mode, pending_display_list: &mut Stateful
 
 fn update_search_result(
     searcher: &IndiciumSearch<'_>,
-    s: Ref<'_, String>,
+    s: &str,
     display_list: &mut StatefulList<Text<'_>>,
-    result_rc: &Rc<RefCell<Vec<SearchResult>>>,
+    result: &mut Vec<SearchResult>,
 ) {
-    let res = searcher.search(&s);
+    let res = searcher.search(s);
 
     if let Ok(res) = res {
         let res_display = res
@@ -891,24 +876,24 @@ fn update_search_result(
             .collect::<Vec<_>>();
 
         *display_list = StatefulList::with_items(res_display);
-        result_rc.replace(res);
+        *result = res;
     } else {
         *display_list = StatefulList::with_items(vec![]);
-        result_rc.borrow_mut().clear();
+        result.clear();
     }
 }
 
-fn delete_inner(input: &Rc<RefCell<String>>, before: usize, after: usize) {
+fn delete_inner(input: &mut String, before: usize, after: usize) {
     // Method "remove" is not used on the saved text for deleting the selected char.
     // Reason: Using remove on String works on bytes instead of the chars.
     // Using remove would require special care because of char boundaries.
     // Getting all characters before the selected character.
-    let before_char_to_delete = input.borrow().chars().take(before).collect::<String>();
+    let before_char_to_delete = input.chars().take(before).collect::<String>();
 
     // Getting all characters after selected character.
-    let after_char_to_delete = input.borrow().chars().skip(after).collect::<String>();
+    let after_char_to_delete = input.chars().skip(after).collect::<String>();
 
-    *input.borrow_mut() = before_char_to_delete + &after_char_to_delete;
+    *input = before_char_to_delete + &after_char_to_delete;
 }
 
 /// helper function to create a centered rect using up certain percentage of the available rect `r`
