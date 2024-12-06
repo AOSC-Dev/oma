@@ -1,5 +1,6 @@
 use chrono::{DateTime, FixedOffset, ParseError, Utc};
 use deb822_lossless::{FromDeb822, FromDeb822Paragraph, Paragraph};
+use oma_apt_sources_lists::Signature;
 use oma_repo_verify::verify_release;
 use once_cell::sync::OnceCell;
 use std::{
@@ -205,7 +206,7 @@ fn get_checksums_inner(checksum_str: &str) -> Result<Vec<ChecksumItem>, InReleas
 
 pub fn verify_inrelease<'a>(
     inrelease: &'a str,
-    signed_by: Option<&'a str>,
+    signed_by: &Option<Signature>,
     rootfs: impl AsRef<Path>,
     file: impl AsRef<Path>,
     trusted: bool,

@@ -566,12 +566,7 @@ impl<'a> OmaRefresh<'a> {
                 self.download_file(&file_name, resp, source_index, index, total, total_size)
                     .await?;
 
-                if is_release
-                    && source_index
-                        .options()
-                        .get("trusted")
-                        .is_none_or(|v| v != "yes")
-                {
+                if is_release && !source_index.trusted() {
                     let url = format!("{}/{}", dist_path, "Release.gpg");
 
                     let request = self.request_get_builder(&url, source_index);
@@ -800,8 +795,8 @@ impl<'a> OmaRefresh<'a> {
                     RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
                 })?;
 
-                let mut archs = if let Some(archs) = ose.options().get("archs") {
-                    archs.split(',').collect::<Vec<_>>()
+                let mut archs = if let Some(archs) = ose.archs() {
+                    archs.iter().map(|x| x.as_str()).collect::<Vec<_>>()
                 } else if let Ok(ref f) = archs_from_file {
                     f.iter().map(|x| x.as_str()).collect::<Vec<_>>()
                 } else {
@@ -812,10 +807,10 @@ impl<'a> OmaRefresh<'a> {
 
                 let inrelease = verify_inrelease(
                     &inrelease,
-                    ose.options().get("signed-by").map(|x| x.as_str()),
+                    ose.signed_by(),
                     &self.source,
                     &inrelease_path,
-                    ose.options().get("trusted").is_some_and(|x| x == "yes"),
+                    ose.trusted(),
                 )
                 .map_err(|e| {
                     RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
