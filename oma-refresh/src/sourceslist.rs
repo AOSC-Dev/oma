@@ -1,8 +1,7 @@
 use std::path::Path;
 
-use ahash::AHashMap;
 use apt_auth_config::AuthConfigEntry;
-use oma_apt_sources_lists::{SourceEntry, SourceLine, SourceListType, SourcesLists};
+use oma_apt_sources_lists::{Signature, SourceEntry, SourceLine, SourceListType, SourcesLists};
 use once_cell::sync::OnceCell;
 use url::Url;
 
@@ -11,7 +10,6 @@ use crate::db::RefreshError;
 #[derive(Debug, Clone)]
 pub struct OmaSourceEntry<'a> {
     source: SourceEntry,
-    options: OnceCell<AHashMap<String, String>>,
     arch: &'a str,
     url: OnceCell<String>,
     suite: OnceCell<String>,
@@ -57,7 +55,6 @@ impl<'a> OmaSourceEntry<'a> {
     pub fn new(source: SourceEntry, arch: &'a str) -> Self {
         Self {
             source,
-            options: OnceCell::new(),
             arch,
             url: OnceCell::new(),
             suite: OnceCell::new(),
@@ -82,6 +79,18 @@ impl<'a> OmaSourceEntry<'a> {
 
     pub fn components(&self) -> &[String] {
         &self.source.components
+    }
+
+    pub fn archs(&self) -> &Option<Vec<String>> {
+        &self.source.archs
+    }
+
+    pub fn trusted(&self) -> bool {
+        self.source.trusted
+    }
+
+    pub fn signed_by(&self) -> &Option<Signature> {
+        &self.source.signed_by
     }
 
     pub fn url(&self) -> &str {
@@ -122,18 +131,6 @@ impl<'a> OmaSourceEntry<'a> {
             } else {
                 self.source.dist_path()
             }
-        })
-    }
-
-    pub fn options(&self) -> &AHashMap<String, String> {
-        self.options.get_or_init(|| {
-            let mut map = AHashMap::new();
-            for i in &self.source.options {
-                let (k, v) = i.split_once('=').unwrap_or((i, ""));
-                map.insert(k.to_lowercase(), v.into());
-            }
-
-            map
         })
     }
 
@@ -178,6 +175,9 @@ fn test_ose() {
         suite: "/".to_string(),
         components: vec![],
         is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
     };
 
     let arch = dpkg_arch("/").unwrap();
@@ -194,6 +194,9 @@ fn test_ose() {
         suite: "./".to_string(),
         components: vec![],
         is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
     };
 
     let arch = dpkg_arch("/").unwrap();
@@ -210,6 +213,9 @@ fn test_ose() {
         suite: "/".to_string(),
         components: vec![],
         is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
     };
 
     let arch = dpkg_arch("/").unwrap();
@@ -228,6 +234,9 @@ fn test_ose() {
         suite: "/".to_string(),
         components: vec![],
         is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
     };
 
     let arch = dpkg_arch("/").unwrap();
@@ -244,6 +253,9 @@ fn test_ose() {
         suite: "./././".to_string(),
         components: vec![],
         is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
     };
 
     let arch = dpkg_arch("/").unwrap();
@@ -264,6 +276,9 @@ fn test_ose() {
         suite: ".//".to_string(),
         components: vec![],
         is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
     };
 
     let arch = dpkg_arch("/").unwrap();
@@ -284,6 +299,9 @@ fn test_ose() {
         suite: "//".to_string(),
         components: vec![],
         is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
     };
 
     let arch = dpkg_arch("/").unwrap();
@@ -300,6 +318,9 @@ fn test_ose() {
         suite: "./".to_string(),
         components: vec![],
         is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
     };
 
     let arch = dpkg_arch("/").unwrap();
@@ -316,6 +337,9 @@ fn test_ose() {
         suite: "./".to_string(),
         components: vec![],
         is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
     };
 
     let arch = dpkg_arch("/").unwrap();
