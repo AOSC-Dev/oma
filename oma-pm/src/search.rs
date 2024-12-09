@@ -21,6 +21,7 @@ use crate::{
     pkginfo::{OmaPackage, PtrIsNone},
 };
 
+/// Represent the status of a package.
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PackageStatus {
     Avail,
@@ -56,13 +57,20 @@ impl Ord for PackageStatus {
     }
 }
 
+/// Represents an entry in the package search results.
 pub struct SearchEntry {
+    /// The name of this package
     name: String,
+    /// The description of this package
     description: String,
+    /// The status of this package. See [`PackageStatus`]
     status: PackageStatus,
+    /// Alias of this package. eg: `telegram-desktop` provides `telegram`.
     provides: IndexSet<String>,
+    /// Whether this package has debug or not.
     has_dbg: bool,
     raw_pkg: UniquePtr<PkgIterator>,
+    /// Whether this package is a part of system base packages.
     section_is_base: bool,
 }
 
