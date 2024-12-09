@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::bail;
+use oma_apt_sources_lists::Signature;
 use sequoia_openpgp::{
     cert::CertParser,
     parse::{
@@ -126,7 +127,7 @@ impl VerificationHelper for InReleaseVerifier {
 /// Verify InRelease PGP signature
 pub fn verify_inrelease(
     inrelease: &str,
-    signed_by: Option<&str>,
+    signed_by: &Option<Signature>,
     rootfs: impl AsRef<Path>,
 ) -> VerifyResult<String> {
     debug!("signed_by: {:?}", signed_by);
@@ -171,7 +172,7 @@ fn policy() -> StandardPolicy<'static> {
 pub fn verify_release(
     release: &str,
     detached: &[u8],
-    signed_by: Option<&str>,
+    signed_by: &Option<Signature>,
     rootfs: impl AsRef<Path>,
 ) -> VerifyResult<()> {
     let (certs, _) = find_certs(rootfs, signed_by)?;
@@ -190,7 +191,7 @@ pub fn verify_release(
 
 fn find_certs(
     rootfs: impl AsRef<Path>,
-    signed_by: Option<&str>,
+    signed_by: &Option<Signature>,
 ) -> VerifyResult<(Vec<PathBuf>, Option<&str>)> {
     let rootfs = rootfs.as_ref();
 
@@ -208,18 +209,18 @@ fn find_certs(
     let mut deb822_inner_signed_by_str = None;
 
     if let Some(signed_by) = signed_by {
-        let signed_by = signed_by.trim();
-        if signed_by.starts_with("-----BEGIN PGP PUBLIC KEY BLOCK-----") {
-            deb822_inner_signed_by_str = Some(signed_by);
-            debug!(deb822_inner_signed_by_str);
-        } else {
-            let trust_files = signed_by.split(',');
-            for file in trust_files {
-                let p = Path::new(file);
-                if p.is_absolute() {
-                    certs.push(p.to_path_buf());
-                } else {
-                    certs.push(rootfs.join("etc/apt/trusted.gpg.d").join(file))
+        match signed_by {
+            Signature::KeyBlock(block) => {
+                deb822_inner_signed_by_str = Some(block.as_str());
+                debug!(deb822_inner_signed_by_str);
+            }
+            Signature::KeyPath(paths) => {
+                for p in paths {
+                    if p.is_absolute() {
+                        certs.push(p.to_path_buf());
+                    } else {
+                        certs.push(rootfs.join("etc/apt/trusted.gpg.d").join(p))
+                    }
                 }
             }
         }
