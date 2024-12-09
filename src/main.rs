@@ -24,7 +24,7 @@ mod egg;
 use args::{print_version, CliExecuter, OhManagerAilurus};
 use clap::{ArgAction, Args, ColorChoice, Parser};
 use error::OutputError;
-use i18n_embed::DesktopLanguageRequester;
+use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
 use oma_console::print::{termbg, OmaColorFormat};
 use oma_console::writer::{writeln_inner, MessageType, Writer};
