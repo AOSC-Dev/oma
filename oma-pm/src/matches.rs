@@ -43,12 +43,14 @@ pub enum MatcherError {
     DpkgError(#[from] DpkgError),
 }
 
+/// Represent the type of package search engine.
 pub enum SearchEngine {
     Indicium(Box<dyn Fn(usize)>),
     Strsim,
     Text,
 }
 
+/// Represent the method of getting platform arch.
 pub enum GetArchMethod<'a> {
     SpecifySysroot(&'a Path),
     SpecifyArch(&'a str),
@@ -56,15 +58,25 @@ pub enum GetArchMethod<'a> {
 }
 
 #[derive(Builder)]
+
 pub struct PackagesMatcher<'a> {
+    /// The summary of all the apt operations in rust-apt
     cache: &'a Cache,
     #[builder(default = true)]
+    /// If true, filters the packages to only include candidated packages.
+    /// Defaults to true.
     filter_candidate: bool,
     #[builder(default = false)]
+    /// If true, display all the debug packages.
+    /// Defaults to false
     select_dbg: bool,
     #[builder(default = false)]
+    ///If true, filters the packages to only include downloadable candidated packages.
+    /// Defaults to false
     filter_downloadable_candidate: bool,
     #[builder(default = GetArchMethod::DirectRoot)]
+    /// The method used to determine the native arch.
+    /// Defaults to `GetArchMethod::DirectRoot`.
     native_arch: GetArchMethod<'a>,
     #[builder(skip)]
     arch: OnceCell<Cow<'a, str>>,
