@@ -79,14 +79,24 @@ pub struct OmaAptArgs {
 }
 
 pub struct OmaApt {
+    /// The summary of all the apt operations in rust-apt
     pub cache: Cache,
+    /// Config for apt, See Document for `AptConfig`.
     pub config: AptConfig,
+    /// The hash of packages that will be autoremoved.
     autoremove: HashSet<u64>,
+    /// Whether dry-run or not.
     dry_run: bool,
+    /// The hash of packages that have been selected.
     select_pkgs: HashSet<u64>,
+    /// The Tokio runtime used for asynchronous operations.
+    /// It is required for any async operations within `OmaApt`
     tokio: Runtime,
     connection: Option<Connection>,
+    /// A list of lists containing broken packages that have unmet dependencies.
+    /// Each inner vector represents a group of packages with unmet dependencies.
     unmet: Vec<Vec<BrokenPackage>>,
+    /// The path for archive.
     archive_dir: OnceCell<PathBuf>,
 }
 
@@ -150,6 +160,7 @@ pub enum OmaAptError {
 
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
 
+/// Represent the mode of filter.
 #[derive(Debug)]
 pub enum FilterMode {
     Default,
@@ -161,6 +172,7 @@ pub enum FilterMode {
     AutoRemovable,
 }
 
+/// Represent the sort methods of summary.
 #[derive(PartialEq, Eq)]
 pub enum SummarySort {
     Names,
@@ -169,22 +181,31 @@ pub enum SummarySort {
 }
 
 pub struct DownloadConfig<'a> {
+    /// Represent how many thread will be used in downloading
     pub network_thread: Option<usize>,
+    /// The directory which stores downloaded files
     pub download_dir: Option<&'a Path>,
+    /// The config for authorization
     pub auth: &'a AuthConfig,
 }
 
 pub struct CommitDownloadConfig<'a> {
+    /// Represent how many thread will be used in downloading
     pub network_thread: Option<usize>,
+    /// The config for authorization
     pub auth: &'a AuthConfig,
 }
 
 impl OmaApt {
     /// Create a new apt manager
     pub fn new(
+        /// Path for local deb package files
         local_debs: Vec<String>,
+        /// Config for oma, See Document for `OmaAptArgs`
         args: OmaAptArgs,
+        /// Whether dry-run or not
         dry_run: bool,
+        /// Config for apt, See Document for `AptConfig`
         config: AptConfig,
     ) -> OmaAptResult<Self> {
         let config = Self::init_config(config, args)?;
@@ -1543,6 +1564,7 @@ fn also_install_recommends(ver: &Version, cache: &Cache) {
 #[cfg(not(feature = "aosc"))]
 fn also_install_recommends(_ver: &Version, _cache: &Cache) {}
 
+/// Represent a broken package, including the name and reason.
 #[derive(Debug, Clone)]
 pub struct BrokenPackage {
     pub name: String,
