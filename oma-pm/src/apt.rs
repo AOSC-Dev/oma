@@ -183,14 +183,17 @@ pub struct DownloadConfig<'a> {
 
 impl OmaApt {
     /// Create a new apt manager
+    ///
+    /// ### Parameters:
+    ///
+    /// `local_debs`: Path for local deb package files
+    /// `args`: Config for oma, See Document for `OmaAptArgs`
+    /// `dry_run`: Whether dry-run or not
+    /// `config`: Config for apt, See Document for `AptConfig`
     pub fn new(
-        /// Path for local deb package files
         local_debs: Vec<String>,
-        /// Config for oma, See Document for `OmaAptArgs`
         args: OmaAptArgs,
-        /// Whether dry-run or not
         dry_run: bool,
-        /// Config for apt, See Document for `AptConfig`
         config: AptConfig,
     ) -> OmaAptResult<Self> {
         let config = Self::init_config(config, args)?;
