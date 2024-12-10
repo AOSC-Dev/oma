@@ -5,6 +5,7 @@ use clap::Args;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use tracing::info;
 
 use crate::config::Config;
 use crate::{error::OutputError, utils::root};
@@ -22,17 +23,26 @@ pub struct Refresh {
     /// Set sysroot target directory
     #[arg(from_global)]
     sysroot: PathBuf,
+    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    #[arg(from_global)]
+    dry_run: bool,
 }
 
 impl CliExecuter for Refresh {
     fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
-        root()?;
-
         let Refresh {
             #[cfg(feature = "aosc")]
             no_refresh_topics,
             sysroot,
+            dry_run,
         } = self;
+
+        if dry_run {
+            info!("Running in dry-run mode, Exit.");
+            return Ok(0);
+        }
+
+        root()?;
 
         let apt_config = AptConfig::new();
         let auth_config = AuthConfig::system(&sysroot)?;

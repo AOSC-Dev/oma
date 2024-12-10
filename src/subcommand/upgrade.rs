@@ -108,9 +108,6 @@ pub(crate) struct Upgrade {
 
 impl CliExecuter for Upgrade {
     fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
-        root()?;
-        lock_oma()?;
-
         let Upgrade {
             no_fixbroken,
             force_unsafe_io,
@@ -130,6 +127,11 @@ impl CliExecuter for Upgrade {
             #[cfg(not(feature = "aosc"))]
             no_remove,
         } = self;
+
+        if !dry_run {
+            root()?;
+            lock_oma()?;
+        }
 
         let fds = if !no_check_dbus && !config.no_check_dbus() {
             Some(dbus_check(yes)?)

@@ -3027,7 +3027,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94c8749e71ded33cb91efaa664007bb8fdd88f1bda5e53d36903f0c825a18719"
 dependencies = [
  "deb822-lossless",
- "thiserror 2.0.4",
+ "thiserror 2.0.6",
  "url",
 ]
 

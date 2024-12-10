@@ -50,8 +50,6 @@ pub struct Mark {
 
 impl CliExecuter for Mark {
     fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
-        root()?;
-
         let Mark {
             action,
             packages,
@@ -59,6 +57,10 @@ impl CliExecuter for Mark {
             sysroot,
             apt_options,
         } = self;
+
+        if !dry_run {
+            root()?;
+        }
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())

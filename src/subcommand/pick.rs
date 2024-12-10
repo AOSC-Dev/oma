@@ -67,9 +67,6 @@ pub struct Pick {
 
 impl CliExecuter for Pick {
     fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
-        root()?;
-        lock_oma()?;
-
         let Pick {
             package,
             fix_broken,
@@ -86,6 +83,11 @@ impl CliExecuter for Pick {
             sysroot,
             apt_options,
         } = self;
+
+        if !dry_run {
+            root()?;
+            lock_oma()?;
+        }
 
         let _fds = if !no_check_dbus && !config.no_check_dbus() {
             Some(dbus_check(false)?)

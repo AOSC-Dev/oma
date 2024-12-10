@@ -107,9 +107,6 @@ impl Display for TopicDisplay<'_> {
 
 impl CliExecuter for Topics {
     fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
-        root()?;
-        lock_oma()?;
-
         let Topics {
             mut opt_in,
             mut opt_out,
@@ -124,6 +121,11 @@ impl CliExecuter for Topics {
             sysroot,
             apt_options,
         } = self;
+
+        if !dry_run {
+            root()?;
+            lock_oma()?;
+        }
 
         let _fds = if !no_check_dbus && !config.no_check_dbus() {
             Some(dbus_check(false)?)

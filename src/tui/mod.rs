@@ -16,9 +16,10 @@ use oma_pm::{
     search::IndiciumSearch,
 };
 use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
+use tracing::info;
 use tui_inner::{Task, Tui as TuiInner};
 
-use crate::args::CliExecuter;
+use crate::{args::CliExecuter, GlobalOptions};
 use crate::{
     config::Config,
     error::OutputError,
@@ -88,8 +89,47 @@ impl Default for Tui {
     }
 }
 
+impl From<&GlobalOptions> for Tui {
+    fn from(value: &GlobalOptions) -> Self {
+        Self {
+            fix_broken: Default::default(),
+            force_unsafe_io: Default::default(),
+            no_refresh: Default::default(),
+            force_yes: Default::default(),
+            force_confnew: Default::default(),
+            #[cfg(feature = "aosc")]
+            no_refresh_topics: Default::default(),
+            remove_config: Default::default(),
+            dry_run: value.dry_run,
+            no_check_dbus: value.no_check_dbus,
+            sysroot: value.sysroot.clone(),
+            apt_options: value.apt_options.clone(),
+        }
+    }
+}
+
 impl CliExecuter for Tui {
     fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        let Tui {
+            fix_broken,
+            force_unsafe_io,
+            no_refresh,
+            force_yes,
+            force_confnew,
+            #[cfg(feature = "aosc")]
+            no_refresh_topics,
+            remove_config,
+            dry_run,
+            no_check_dbus,
+            sysroot,
+            apt_options,
+        } = self;
+
+        if dry_run {
+            info!("Running in dry-run mode, Exit.");
+            return Ok(0);
+        }
+
         if find_another_oma().is_ok() {
             return Err(OutputError {
                 description: "".to_string(),
@@ -108,21 +148,6 @@ impl CliExecuter for Tui {
 
         let conn = RT.block_on(create_dbus_connection())?;
         check_battery(&conn, false);
-
-        let Tui {
-            fix_broken,
-            force_unsafe_io,
-            no_refresh,
-            force_yes,
-            force_confnew,
-            #[cfg(feature = "aosc")]
-            no_refresh_topics,
-            remove_config,
-            dry_run,
-            no_check_dbus,
-            sysroot,
-            apt_options,
-        } = self;
 
         let apt_config = AptConfig::new();
         let auth_config = AuthConfig::system(&sysroot)?;

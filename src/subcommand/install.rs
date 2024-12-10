@@ -91,9 +91,6 @@ pub struct Install {
 
 impl CliExecuter for Install {
     fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
-        root()?;
-        lock_oma()?;
-
         let Install {
             packages,
             install_recommends,
@@ -117,6 +114,11 @@ impl CliExecuter for Install {
             autoremove,
             remove_config,
         } = self;
+
+        if !dry_run {
+            root()?;
+            lock_oma()?;
+        }
 
         let _fds = if !no_check_dbus && !config.no_check_dbus() {
             Some(dbus_check(yes)?)

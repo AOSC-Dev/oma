@@ -5,6 +5,7 @@ use crate::{config::Config, fl};
 use clap::Args;
 use oma_console::{indicatif::ProgressBar, pb::spinner_style};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use tracing::info;
 
 use crate::{error::OutputError, utils::root};
 
@@ -18,6 +19,9 @@ pub struct Clean {
     /// Set apt options
     #[arg(from_global)]
     apt_options: Vec<String>,
+    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    #[arg(from_global)]
+    dry_run: bool,
 }
 
 impl CliExecuter for Clean {
@@ -25,7 +29,14 @@ impl CliExecuter for Clean {
         let Clean {
             sysroot,
             apt_options,
+            dry_run,
         } = self;
+
+        if dry_run {
+            info!("Running in dry-run mode, Exit.");
+            return Ok(0);
+        }
+
         root()?;
 
         let apt_config = AptConfig::new();
