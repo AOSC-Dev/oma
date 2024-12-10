@@ -260,7 +260,7 @@ fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
 
     match oma.subcmd {
         Some(subcmd) => subcmd.execute(&config, no_progress),
-        None => Tui::default().execute(&config, no_progress),
+        None => Tui::from(&oma.global).execute(&config, no_progress),
     }
 }
 

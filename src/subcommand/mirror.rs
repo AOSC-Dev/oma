@@ -69,6 +69,9 @@ pub struct CliMirror {
     /// Do not refresh repository metadata
     #[arg(long)]
     no_refresh: bool,
+    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    #[arg(from_global)]
+    dry_run: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -147,7 +150,13 @@ impl CliExecuter for CliMirror {
             mirror_subcmd,
             no_refresh_topics,
             no_refresh,
+            dry_run,
         } = self;
+
+        if dry_run {
+            info!("Running in dry-run mode, Exit.");
+            return Ok(0);
+        }
 
         if let Some(subcmd) = mirror_subcmd {
             match subcmd {

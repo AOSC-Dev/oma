@@ -139,9 +139,6 @@ impl CliExecuter for Purge {
 
 impl CliExecuter for Remove {
     fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
-        root()?;
-        lock_oma()?;
-
         let Remove {
             packages,
             yes,
@@ -157,7 +154,12 @@ impl CliExecuter for Remove {
             remove_config,
         } = self;
 
-        let _fds = if !no_check_dbus && !config.no_check_dbus() {
+        if !dry_run {
+            root()?;
+            lock_oma()?;
+        }
+
+        let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
             Some(dbus_check(yes))
         } else {
             no_check_dbus_warn();
