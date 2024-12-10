@@ -133,7 +133,7 @@ impl CliExecuter for Upgrade {
             lock_oma()?;
         }
 
-        let fds = if !no_check_dbus && !config.no_check_dbus() {
+        let fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
             Some(dbus_check(yes)?)
         } else {
             no_check_dbus_warn();

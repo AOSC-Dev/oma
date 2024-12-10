@@ -124,7 +124,7 @@ impl CliExecuter for Undo {
             apt_options,
         } = self;
 
-        let _fds = if !no_check_dbus && !config.no_check_dbus() {
+        let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
             Some(dbus_check(false)?)
         } else {
             no_check_dbus_warn();

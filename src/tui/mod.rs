@@ -231,7 +231,7 @@ impl CliExecuter for Tui {
         let mut code = 0;
 
         if execute_apt {
-            let _fds = if !no_check_dbus && !config.no_check_dbus() {
+            let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
                 let fds = RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
                 Some(fds)
             } else {

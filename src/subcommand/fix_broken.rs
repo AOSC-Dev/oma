@@ -65,7 +65,7 @@ impl CliExecuter for FixBroken {
 
         let mut _fds = None;
 
-        if !no_check_dbus && !config.no_check_dbus() {
+        if !no_check_dbus && !config.no_check_dbus() && !dry_run {
             _fds = Some(dbus_check(false)?);
         } else {
             no_check_dbus_warn();
