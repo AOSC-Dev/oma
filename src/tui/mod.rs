@@ -146,8 +146,13 @@ impl CliExecuter for Tui {
 
         root()?;
 
-        let conn = RT.block_on(create_dbus_connection())?;
-        check_battery(&conn, false);
+        let conn = if !no_check_dbus {
+            let conn = RT.block_on(create_dbus_connection())?;
+            check_battery(&conn, false);
+            Some(conn)
+        } else {
+            None
+        };
 
         let apt_config = AptConfig::new();
         let auth_config = AuthConfig::system(&sysroot)?;
@@ -232,7 +237,11 @@ impl CliExecuter for Tui {
 
         if execute_apt {
             let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-                let fds = RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+                let fds = RT.block_on(take_wake_lock(
+                    &conn.unwrap(),
+                    &fl!("changing-system"),
+                    "oma",
+                ))?;
                 Some(fds)
             } else {
                 no_check_dbus_warn();
