@@ -433,7 +433,7 @@ impl<'a> OmaRefresh<'a> {
                 Err(e) => {
                     #[cfg(feature = "aosc")]
                     match e {
-                        RefreshError::FetcherError(DownloadError::ReqwestError(e))
+                        RefreshError::ReqwestError(e)
                             if e.status()
                                 .map(|x| x == StatusCode::NOT_FOUND)
                                 .unwrap_or(false)
@@ -530,33 +530,29 @@ impl<'a> OmaRefresh<'a> {
                         .await
                         .and_then(|resp| resp.error_for_status());
 
-                    match resp {
-                        Ok(resp) => {
-                            r = Some(resp);
-                            u = Some(url);
-                            if index == 1 {
-                                is_release = true;
-                            }
+                    r = Some(resp);
 
-                            break;
+                    if r.as_ref().unwrap().is_ok() {
+                        u = Some(url);
+                        if index == 1 {
+                            is_release = true;
                         }
-                        Err(e) => {
-                            debug!("{e}");
-                        }
+                        break;
                     }
                 }
+
+                let r = r.unwrap();
 
                 self.progress_channel
                     .0
                     .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
                     .await?;
 
-                if r.is_none() && source_index.is_flat() {
+                if r.is_err() && source_index.is_flat() {
                     return Ok((None, index));
                 }
 
-                let resp =
-                    r.ok_or_else(|| RefreshError::NoInReleaseFile(source_index.url().to_string()))?;
+                let resp = r?;
 
                 let total_size = content_length(&resp);
 
