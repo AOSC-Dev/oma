@@ -278,6 +278,7 @@ impl CliExecuter for Tui {
                 .remove_config(remove_config)
                 .auth_config(&auth_config)
                 .autoremove(autoremove)
+                .check_update(upgrade)
                 .build()
                 .run()?;
         }
