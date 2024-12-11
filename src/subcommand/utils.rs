@@ -27,6 +27,8 @@ use crate::pb::RenderDownloadProgress;
 use crate::pb::RenderRefreshProgress;
 use crate::success;
 use crate::table::table_for_install_pending;
+use crate::upgrade::get_matches_tum;
+use crate::upgrade::get_tum;
 use crate::HTTP_CLIENT;
 use crate::LOCKED;
 use crate::RT;
@@ -294,6 +296,8 @@ pub(crate) struct CommitChanges<'a> {
     autoremove: bool,
     auth_config: &'a AuthConfig,
     network_thread: usize,
+    #[builder(default)]
+    check_update: bool,
 }
 
 impl CommitChanges<'_> {
@@ -312,6 +316,7 @@ impl CommitChanges<'_> {
             autoremove,
             auth_config,
             network_thread,
+            check_update,
         } = self;
 
         let pb = if !no_progress {
@@ -379,10 +384,28 @@ impl CommitChanges<'_> {
             return Ok(0);
         }
 
-        match table_for_install_pending(install, remove, disk_size, !yes, dry_run)? {
-            PagerExit::NormalExit => {}
-            x @ PagerExit::Sigint => return Ok(x.into()),
-            x @ PagerExit::DryRun => return Ok(x.into()),
+        if check_update {
+            let tum = get_tum(Path::new(&sysroot))?;
+            let matches_tum = get_matches_tum(tum, &op);
+
+            match table_for_install_pending(
+                install,
+                remove,
+                disk_size,
+                Some(matches_tum),
+                !yes,
+                dry_run,
+            )? {
+                PagerExit::NormalExit => {}
+                x @ PagerExit::Sigint => return Ok(x.into()),
+                x @ PagerExit::DryRun => return Ok(x.into()),
+            }
+        } else {
+            match table_for_install_pending(install, remove, disk_size, None, !yes, dry_run)? {
+                PagerExit::NormalExit => {}
+                x @ PagerExit::Sigint => return Ok(x.into()),
+                x @ PagerExit::DryRun => return Ok(x.into()),
+            }
         }
 
         let start_time = Local::now().timestamp();

@@ -1,4 +1,5 @@
 use std::cmp::Ordering as CmpOrdering;
+use std::env;
 use std::fmt::Display;
 use std::io::Write;
 use std::sync::atomic::Ordering;
@@ -6,7 +7,9 @@ use std::sync::LazyLock;
 
 use crate::console::style;
 use crate::error::OutputError;
+use crate::upgrade::TopicUpdateEntry;
 use crate::{color_formatter, fl, ALLOWCTRLC, WRITER};
+use ahash::HashMap;
 use ahash::HashSet;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{Pager, PagerExit, PagerUIText};
@@ -227,6 +230,7 @@ pub fn table_for_install_pending(
     install: &[InstallEntry],
     remove: &[RemoveEntry],
     disk_size: &(Box<str>, u64),
+    tum: Option<HashMap<String, TopicUpdateEntry>>,
     is_pager: bool,
     dry_run: bool,
 ) -> Result<PagerExit, OutputError> {
@@ -258,7 +262,7 @@ pub fn table_for_install_pending(
         review_msg(&mut printer);
     }
 
-    print_pending_inner(printer, remove, install, disk_size);
+    print_pending_inner(printer, remove, install, disk_size, tum);
     let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
@@ -273,7 +277,7 @@ pub fn table_for_install_pending(
             })?;
             let mut printer = PagerPrinter::new(out);
             printer.print("").ok();
-            print_pending_inner(printer, remove, install, disk_size);
+            print_pending_inner(printer, remove, install, disk_size, None);
             Ok(exit)
         }
         _ => Ok(exit),
@@ -303,7 +307,7 @@ pub fn table_for_history_pending(
 
     printer.print("\n\n").ok();
 
-    print_pending_inner(printer, remove, install, disk_size);
+    print_pending_inner(printer, remove, install, disk_size, None);
     pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
@@ -312,12 +316,71 @@ pub fn table_for_history_pending(
     Ok(())
 }
 
+#[derive(Debug, Tabled)]
+struct TumDisplay {
+    name: String,
+    affected: usize,
+}
+
 fn print_pending_inner<W: Write>(
     mut printer: PagerPrinter<W>,
     remove: &[RemoveEntry],
     install: &[InstallEntry],
     disk_size: &(Box<str>, u64),
+    tum: Option<HashMap<String, TopicUpdateEntry>>,
 ) {
+    if let Some(tum) = tum {
+        let tum = tum.into_iter().collect::<Vec<_>>();
+
+        let lang = env::var("LANG").unwrap_or("en_US".into());
+        let (lang, _) = lang.split_once('.').unwrap_or(("en_US", ""));
+        let lang = if lang == "en_US" { "default" } else { lang };
+
+        let mut tum_display = vec![];
+
+        if !tum.is_empty() {
+            printer.print(format!("{}\n", fl!("update-available"))).ok();
+            printer
+                .print(format!("{}\n", fl!("update-available-2")))
+                .ok();
+
+            for (_, entry) in tum {
+                match entry {
+                    TopicUpdateEntry::Conventional { name, packages, .. } => {
+                        let name = name
+                            .get(lang)
+                            .unwrap_or_else(|| name.get("default").unwrap());
+
+                        tum_display.push(TumDisplay {
+                            name: name.to_string(),
+                            affected: packages.len(),
+                        });
+                    }
+                    TopicUpdateEntry::Cumulative {
+                        name,
+                        count_packages_changed,
+                        ..
+                    } => {
+                        let name = name
+                            .get(lang)
+                            .unwrap_or_else(|| name.get("default").unwrap());
+
+                        tum_display.push(TumDisplay {
+                            name: name.to_string(),
+                            affected: count_packages_changed.unwrap(),
+                        });
+                    }
+                }
+            }
+
+            printer
+                .print_table(tum_display, vec!["Name", "Package(s) affected"])
+                .ok();
+
+            printer.print("\n").ok();
+        }
+    }
+
     if !remove.is_empty() {
         printer
             .print(format!(

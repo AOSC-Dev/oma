@@ -1,10 +1,17 @@
+use std::fs;
+use std::fs::read_dir;
+use std::path::Path;
 use std::thread;
 
 use crate::pb::RenderDownloadProgress;
 use crate::subcommand::utils::write_oma_installed_status;
 use crate::success;
+use ahash::HashMap;
 use flume::unbounded;
+use oma_pm::apt::OmaOperation;
 use oma_pm::CommitNetworkConfig;
+use serde::Deserialize;
+use serde::Serialize;
 use std::path::PathBuf;
 use tracing::error;
 
@@ -307,7 +314,17 @@ impl CliExecuter for Upgrade {
             }
 
             if retry_times == 1 {
-                match table_for_install_pending(install, remove, disk_size, !yes, dry_run)? {
+                let tum = get_tum(&sysroot)?;
+                let matches_tum = get_matches_tum(tum, &op);
+
+                match table_for_install_pending(
+                    install,
+                    remove,
+                    disk_size,
+                    Some(matches_tum),
+                    !yes,
+                    dry_run,
+                )? {
                     PagerExit::NormalExit => {}
                     x @ PagerExit::Sigint => return Ok(x.into()),
                     x @ PagerExit::DryRun => return Ok(x.into()),
@@ -408,4 +425,169 @@ impl CliExecuter for Upgrade {
             }
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type")]
+pub enum TopicUpdateEntry {
+    #[serde(rename = "conventional")]
+    Conventional {
+        security: bool,
+        packages: HashMap<String, Option<String>>,
+        name: HashMap<String, String>,
+        caution: HashMap<String, String>,
+    },
+    #[serde(rename = "cumulative")]
+    Cumulative {
+        name: HashMap<String, String>,
+        caution: HashMap<String, String>,
+        topics: Vec<String>,
+        count_packages_changed: Option<usize>,
+        security: Option<bool>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TopicUpdateManifest {
+    #[serde(flatten)]
+    entries: HashMap<String, TopicUpdateEntry>,
+}
+
+pub fn get_tum(sysroot: &Path) -> Result<Vec<TopicUpdateManifest>, OutputError> {
+    let mut entries = vec![];
+
+    for i in read_dir(sysroot.join("var/lib/apt/lists")).map_err(|e| OutputError {
+        description: fl!("failed-to-operate-path"),
+        source: Some(Box::new(e)),
+    })? {
+        let i = i.map_err(|e| OutputError {
+            description: fl!("failed-to-operate-path"),
+            source: Some(Box::new(e)),
+        })?;
+
+        if i.path()
+            .file_name()
+            .is_some_and(|x| x.to_string_lossy().ends_with("updates.json"))
+        {
+            let f = fs::read(i.path()).map_err(|e| OutputError {
+                description: fl!("failed-to-operate-path"),
+                source: Some(Box::new(e)),
+            })?;
+
+            let entry: TopicUpdateManifest = match serde_json::from_slice(&f) {
+                Ok(entry) => entry,
+                Err(e) => {
+                    warn!("Parse {} got error: {}", i.path().display(), e);
+                    continue;
+                }
+            };
+
+            entries.push(entry);
+        }
+    }
+
+    Ok(entries)
+}
+
+pub fn get_matches_tum(
+    mut tum: Vec<TopicUpdateManifest>,
+    op: &OmaOperation,
+) -> HashMap<String, TopicUpdateEntry> {
+    let mut matches = HashMap::with_hasher(ahash::RandomState::new());
+
+    for i in &tum {
+        'a: for (name, entry) in &i.entries {
+            if let TopicUpdateEntry::Conventional { packages, .. } = entry {
+                for (pkg_name, version) in packages {
+                    if !install_pkg_on_topic(op, pkg_name, version)
+                        && !remove_pkg_on_topic(op, pkg_name, version)
+                    {
+                        continue 'a;
+                    }
+                }
+                matches.insert(name.to_string(), entry.to_owned());
+            }
+        }
+    }
+
+    for i in &mut tum {
+        for (name, entry) in &mut i.entries {
+            if let TopicUpdateEntry::Cumulative {
+                topics,
+                count_packages_changed,
+                security,
+                ..
+            } = entry
+            {
+                if topics.iter().all(|x| matches.contains_key(x)) {
+                    let mut count_packages_changed_tmp = 0;
+                    let mut is_security = false;
+
+                    for t in topics {
+                        let t = matches.remove(t).unwrap();
+
+                        let TopicUpdateEntry::Conventional {
+                            security, packages, ..
+                        } = t
+                        else {
+                            unreachable!()
+                        };
+
+                        count_packages_changed_tmp += packages.len();
+                        if !is_security && security {
+                            is_security = true;
+                        }
+                    }
+
+                    *count_packages_changed = Some(count_packages_changed_tmp);
+                    *security = Some(is_security);
+                    matches.insert(name.to_string(), entry.to_owned());
+                }
+            }
+        }
+    }
+
+    matches
+}
+
+fn install_pkg_on_topic(op: &OmaOperation, pkg_name: &str, version: &Option<String>) -> bool {
+    op.install.iter().any(|install_pkg| {
+        install_pkg.name_without_arch() == pkg_name
+            && version.as_ref().is_some_and(|version| {
+                if let Some((prefix, suffix)) = install_pkg.new_version().rsplit_once("~pre") {
+                    if is_topic_preversion(suffix) {
+                        version == prefix
+                    } else {
+                        version == install_pkg.new_version()
+                    }
+                } else {
+                    version == install_pkg.new_version()
+                }
+            })
+    })
+}
+
+fn is_topic_preversion(suffix: &str) -> bool {
+    if suffix.len() < 16 {
+        return false;
+    }
+
+    for (idx, c) in suffix.chars().enumerate() {
+        if idx == 8 && c != 'T' {
+            return false;
+        } else if idx == 15 {
+            if c != 'Z' {
+                return false;
+            }
+            break;
+        } else if !c.is_ascii_digit() && idx != 8 {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn remove_pkg_on_topic(op: &OmaOperation, pkg_name: &str, version: &Option<String>) -> bool {
+    version.is_none() && op.remove.iter().any(|x| x.name() == pkg_name)
 }
