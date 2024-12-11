@@ -7,10 +7,12 @@
 //!
 //! ## Features
 //!
-//! 1. **PackageInfo**: Provides definitions of package information and handle them to `rust-apt`.
+//! 1. **PackageInfo**: Provides definitions of package information and handle them to `oma-apt`.
 //! 2. **Progress**: Tracks the progress of package management operations.
 //! 3. **Search Result**: Defines the structure and handling of search results.
-//! 4. **Communication with rust-apt**: Communicate with `rust-apt`.
+//! 4. **Communication with rust-apt**: Communicate with `oma-apt`.
+//!
+//! NOTE: `oma-apt` is another fork of `rust-apt` maintained by AOSC-Dev
 //!
 //! ## Modules
 //!
