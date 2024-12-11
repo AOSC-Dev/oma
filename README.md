@@ -2,7 +2,7 @@
 
 ### oma - Oh My Ailurus / Package Manager for AOSC OS
 
-[Features](#features) | [Install](#install) | [Contribute](#contributing)
+[Features](#features) | [Install](#installation) | [Contribute](#contributing)
 
 oma is an attempt at reworking APT's interface, making it more user-friendly, more robust against common user errors, and more performant during package downloads. oma also integrates closely with AOSC OS's various system management functions, from mirror configuration, topic (testing) repository enrollment, to system feature protection.
 
@@ -10,7 +10,7 @@ For a more detailed overview on oma's features, see [features](#Features).
 
 ### oma is also available for other dpkg-based OS.
 
-Please see [Install](#install).
+Please see [Install](#installation).
 
 ![A simple tour of oma](/demo/tour.avif)
 
