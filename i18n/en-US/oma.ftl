@@ -230,3 +230,5 @@ topics-unchanged = oma was unable complete topic opt-out operation(s) and has ke
 status-pending = Pending
 status-downloading = Downloading
 status-package = Processing package { $pkg }
+update-available = System Update(s) Available
+update-available-2 = oma has found the following updates are available for your system:
