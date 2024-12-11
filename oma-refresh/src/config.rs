@@ -117,9 +117,8 @@ impl<'a> IndexTargetConfig<'a> {
                     for comp in components {
                         for l in &langs {
                             if self.template_is_match(template, &c.name, a, comp, l) {
-                                let name_without_ext = Path::new(&c.name).with_extension("");
-                                let name_without_ext =
-                                    name_without_ext.to_string_lossy().to_string();
+                                let name_without_ext = uncompress_file_name(&c.name).to_string();
+
                                 res_map.entry(name_without_ext).or_default().push(
                                     ChecksumDownloadEntry {
                                         item: c.to_owned(),
@@ -168,14 +167,24 @@ impl<'a> IndexTargetConfig<'a> {
         component: &str,
         lang: &str,
     ) -> bool {
-        let target_without_ext = Path::new(target).with_extension("");
-        let target_without_ext = target_without_ext.to_string_lossy();
+        let name = uncompress_file_name(target);
 
-        target_without_ext
-            == self
-                .replacer
-                .replace_all(template, &[arch, component, lang, self.native_arch])
+        name == self
+            .replacer
+            .replace_all(template, &[arch, component, lang, self.native_arch])
     }
+}
+
+fn uncompress_file_name(target: &str) -> Cow<'_, str> {
+    let name = if compress_file(target) == CompressFile::Nothing {
+        Cow::Borrowed(target)
+    } else {
+        let compress_target_without_ext = Path::new(target).with_extension("");
+        let compress_target_without_ext = compress_target_without_ext.to_string_lossy().to_string();
+        compress_target_without_ext.into()
+    };
+
+    name
 }
 
 fn get_index_target_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
