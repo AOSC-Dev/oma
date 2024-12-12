@@ -604,15 +604,21 @@ fn install_pkg_on_topic(
     pkg_name: &str,
     tum_version: &Option<String>,
 ) -> bool {
-    if let Some(install_ver) = install_map.get(pkg_name) {
-        if let Some(tum_version) = tum_version {
-            if let Some((prefix, suffix)) = install_ver.rsplit_once("~pre") {
-                if is_topic_preversion(suffix) {
-                    return tum_version == prefix;
-                } else {
-                    return tum_version == install_ver;
-                }
-            }
+    let install_ver = match install_map.get(pkg_name) {
+        Some(v) => v,
+        None => return false,
+    };
+
+    let tum_version = match tum_version {
+        Some(v) => v,
+        None => return false,
+    };
+
+    if let Some((prefix, suffix)) = install_ver.rsplit_once("~pre") {
+        if is_topic_preversion(suffix) {
+            return tum_version == prefix;
+        } else {
+            return tum_version == install_ver;
         }
     }
 
