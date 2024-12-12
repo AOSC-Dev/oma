@@ -10,7 +10,6 @@ use ahash::HashSet;
 use flume::unbounded;
 use oma_pm::apt::OmaOperation;
 use serde::Deserialize;
-use serde::Serialize;
 use std::path::PathBuf;
 
 use apt_auth_config::AuthConfig;
@@ -403,7 +402,13 @@ impl CliExecuter for Upgrade {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug)]
+pub struct TopicUpdateManifest {
+    #[serde(flatten)]
+    entries: HashMap<String, TopicUpdateEntry>,
+}
+
+#[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 enum TopicUpdateEntry {
     #[serde(rename = "conventional")]
@@ -467,12 +472,6 @@ impl<'a> From<&'a TopicUpdateEntry> for TopicUpdateEntryRef<'a> {
             },
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TopicUpdateManifest {
-    #[serde(flatten)]
-    entries: HashMap<String, TopicUpdateEntry>,
 }
 
 pub fn get_tum(sysroot: &Path) -> Result<Vec<TopicUpdateManifest>, OutputError> {
