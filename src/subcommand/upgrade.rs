@@ -458,7 +458,7 @@ pub enum TopicUpdateEntryRef<'a> {
     Cumulative {
         name: &'a HashMap<String, String>,
         caution: &'a HashMap<String, String>,
-        topics: &'a [String],
+        _topics: &'a [String],
         count_packages_changed: usize,
         security: bool,
     },
@@ -486,7 +486,7 @@ impl<'a> From<&'a TopicUpdateEntry> for TopicUpdateEntryRef<'a> {
             } => TopicUpdateEntryRef::Cumulative {
                 name,
                 caution,
-                topics,
+                _topics: &topics,
                 count_packages_changed: 0,
                 security: *security,
             },
