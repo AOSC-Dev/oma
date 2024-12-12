@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use crate::console::style;
 use crate::error::OutputError;
-use crate::upgrade::TopicUpdateEntry;
+use crate::upgrade::TopicUpdateEntryRef;
 use crate::{color_formatter, fl, ALLOWCTRLC, WRITER};
 use ahash::HashMap;
 use ahash::HashSet;
@@ -230,7 +230,7 @@ pub fn table_for_install_pending(
     install: &[InstallEntry],
     remove: &[RemoveEntry],
     disk_size: &(Box<str>, u64),
-    tum: Option<HashMap<String, TopicUpdateEntry>>,
+    tum: Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
     is_pager: bool,
     dry_run: bool,
 ) -> Result<PagerExit, OutputError> {
@@ -327,7 +327,7 @@ fn print_pending_inner<W: Write>(
     remove: &[RemoveEntry],
     install: &[InstallEntry],
     disk_size: &(Box<str>, u64),
-    tum: Option<HashMap<String, TopicUpdateEntry>>,
+    tum: Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
 ) {
     if let Some(tum) = tum {
         let tum = tum.into_iter().collect::<Vec<_>>();
@@ -346,7 +346,7 @@ fn print_pending_inner<W: Write>(
 
             for (_, entry) in tum {
                 match entry {
-                    TopicUpdateEntry::Conventional { name, packages, .. } => {
+                    TopicUpdateEntryRef::Conventional { name, packages, .. } => {
                         let name = name
                             .get(lang)
                             .unwrap_or_else(|| name.get("default").unwrap());
@@ -356,7 +356,7 @@ fn print_pending_inner<W: Write>(
                             affected: packages.len(),
                         });
                     }
-                    TopicUpdateEntry::Cumulative {
+                    TopicUpdateEntryRef::Cumulative {
                         name,
                         count_packages_changed,
                         ..
@@ -367,7 +367,7 @@ fn print_pending_inner<W: Write>(
 
                         tum_display.push(TumDisplay {
                             name: name.to_string(),
-                            affected: count_packages_changed.unwrap(),
+                            affected: count_packages_changed,
                         });
                     }
                 }

@@ -1,5 +1,6 @@
 use std::fs;
 use std::fs::read_dir;
+use std::ops::Deref;
 use std::path::Path;
 use std::thread;
 
@@ -315,7 +316,7 @@ impl CliExecuter for Upgrade {
 
             if retry_times == 1 {
                 let tum = get_tum(&sysroot)?;
-                let matches_tum = get_matches_tum(tum, &op);
+                let matches_tum = get_matches_tum(&tum, &op);
 
                 match table_for_install_pending(
                     install,
@@ -429,7 +430,7 @@ impl CliExecuter for Upgrade {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
-pub enum TopicUpdateEntry {
+enum TopicUpdateEntry {
     #[serde(rename = "conventional")]
     Conventional {
         security: bool,
@@ -442,9 +443,55 @@ pub enum TopicUpdateEntry {
         name: HashMap<String, String>,
         caution: HashMap<String, String>,
         topics: Vec<String>,
-        count_packages_changed: Option<usize>,
-        security: Option<bool>,
+        #[serde(default)]
+        security: bool,
     },
+}
+
+pub enum TopicUpdateEntryRef<'a> {
+    Conventional {
+        security: bool,
+        packages: &'a HashMap<String, Option<String>>,
+        name: &'a HashMap<String, String>,
+        caution: &'a HashMap<String, String>,
+    },
+    Cumulative {
+        name: &'a HashMap<String, String>,
+        caution: &'a HashMap<String, String>,
+        topics: &'a [String],
+        count_packages_changed: usize,
+        security: bool,
+    },
+}
+
+impl<'a> From<&'a TopicUpdateEntry> for TopicUpdateEntryRef<'a> {
+    fn from(value: &'a TopicUpdateEntry) -> Self {
+        match value {
+            TopicUpdateEntry::Conventional {
+                security,
+                packages,
+                name,
+                caution,
+            } => TopicUpdateEntryRef::Conventional {
+                security: *security,
+                packages,
+                name,
+                caution,
+            },
+            TopicUpdateEntry::Cumulative {
+                name,
+                caution,
+                topics,
+                security,
+            } => TopicUpdateEntryRef::Cumulative {
+                name,
+                caution,
+                topics,
+                count_packages_changed: 0,
+                security: *security,
+            },
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -489,13 +536,13 @@ pub fn get_tum(sysroot: &Path) -> Result<Vec<TopicUpdateManifest>, OutputError> 
     Ok(entries)
 }
 
-pub fn get_matches_tum(
-    mut tum: Vec<TopicUpdateManifest>,
+pub fn get_matches_tum<'a>(
+    tum: &'a [TopicUpdateManifest],
     op: &OmaOperation,
-) -> HashMap<String, TopicUpdateEntry> {
+) -> HashMap<&'a str, TopicUpdateEntryRef<'a>> {
     let mut matches = HashMap::with_hasher(ahash::RandomState::new());
 
-    for i in &tum {
+    for i in tum {
         'a: for (name, entry) in &i.entries {
             if let TopicUpdateEntry::Conventional { packages, .. } = entry {
                 for (pkg_name, version) in packages {
@@ -505,43 +552,39 @@ pub fn get_matches_tum(
                         continue 'a;
                     }
                 }
-                matches.insert(name.to_string(), entry.to_owned());
+                matches.insert(name.as_str(), TopicUpdateEntryRef::from(entry));
             }
         }
     }
 
-    for i in &mut tum {
-        for (name, entry) in &mut i.entries {
-            if let TopicUpdateEntry::Cumulative {
-                topics,
-                count_packages_changed,
-                security,
-                ..
-            } = entry
-            {
-                if topics.iter().all(|x| matches.contains_key(x)) {
+    for i in tum {
+        for (name, entry) in &i.entries {
+            if let TopicUpdateEntry::Cumulative { topics, .. } = entry {
+                if topics.iter().all(|x| matches.contains_key(x.as_str())) {
                     let mut count_packages_changed_tmp = 0;
-                    let mut is_security = false;
 
                     for t in topics {
-                        let t = matches.remove(t).unwrap();
+                        let t = matches.remove(t.as_str()).unwrap();
 
-                        let TopicUpdateEntry::Conventional {
-                            security, packages, ..
-                        } = t
-                        else {
+                        let TopicUpdateEntryRef::Conventional { packages, .. } = t else {
                             unreachable!()
                         };
 
                         count_packages_changed_tmp += packages.len();
-                        if !is_security && security {
-                            is_security = true;
-                        }
                     }
 
-                    *count_packages_changed = Some(count_packages_changed_tmp);
-                    *security = Some(is_security);
-                    matches.insert(name.to_string(), entry.to_owned());
+                    let mut entry = TopicUpdateEntryRef::from(entry);
+
+                    let TopicUpdateEntryRef::Cumulative {
+                        count_packages_changed,
+                        ..
+                    } = &mut entry
+                    else {
+                        unreachable!()
+                    };
+
+                    *count_packages_changed = count_packages_changed_tmp;
+                    matches.insert(name.as_str(), entry);
                 }
             }
         }

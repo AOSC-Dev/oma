@@ -386,7 +386,7 @@ impl CommitChanges<'_> {
 
         if check_update {
             let tum = get_tum(Path::new(&sysroot))?;
-            let matches_tum = get_matches_tum(tum, &op);
+            let matches_tum = get_matches_tum(&tum, &op);
 
             match table_for_install_pending(
                 install,
