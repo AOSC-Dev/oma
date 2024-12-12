@@ -486,7 +486,7 @@ impl<'a> From<&'a TopicUpdateEntry> for TopicUpdateEntryRef<'a> {
             } => TopicUpdateEntryRef::Cumulative {
                 name,
                 caution,
-                _topics: &topics,
+                _topics: topics,
                 count_packages_changed: 0,
                 security: *security,
             },
