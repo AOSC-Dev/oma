@@ -320,6 +320,7 @@ pub fn table_for_history_pending(
 struct TumDisplay {
     name: String,
     affected: usize,
+    caution: String,
 }
 
 fn print_pending_inner<W: Write>(
@@ -346,35 +347,68 @@ fn print_pending_inner<W: Write>(
 
             for (_, entry) in tum {
                 match entry {
-                    TopicUpdateEntryRef::Conventional { name, packages, .. } => {
+                    TopicUpdateEntryRef::Conventional {
+                        name,
+                        packages,
+                        security,
+                        caution,
+                    } => {
                         let name = name
                             .get(lang)
                             .unwrap_or_else(|| name.get("default").unwrap());
 
+                        let name = if security {
+                            color_formatter()
+                                .color_str(name, Action::Emphasis)
+                                .to_string()
+                        } else {
+                            name.to_string()
+                        };
+
+                        let caution = caution
+                            .get(lang)
+                            .unwrap_or_else(|| caution.get("default").unwrap());
+
                         tum_display.push(TumDisplay {
-                            name: name.to_string(),
+                            name,
                             affected: packages.len(),
+                            caution: caution.to_string(),
                         });
                     }
                     TopicUpdateEntryRef::Cumulative {
                         name,
                         count_packages_changed,
+                        security,
+                        caution,
                         ..
                     } => {
                         let name = name
                             .get(lang)
                             .unwrap_or_else(|| name.get("default").unwrap());
 
+                        let name = if security {
+                            color_formatter()
+                                .color_str(name, Action::Emphasis)
+                                .to_string()
+                        } else {
+                            name.to_string()
+                        };
+
+                        let caution = caution
+                            .get(lang)
+                            .unwrap_or_else(|| caution.get("default").unwrap());
+
                         tum_display.push(TumDisplay {
-                            name: name.to_string(),
+                            name,
                             affected: count_packages_changed,
+                            caution: caution.to_string(),
                         });
                     }
                 }
             }
 
             printer
-                .print_table(tum_display, vec!["Name", "Package(s) affected"])
+                .print_table(tum_display, vec!["Name", "Package(s) affected", "Caution"])
                 .ok();
 
             printer.print("\n").ok();
