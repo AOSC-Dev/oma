@@ -1,12 +1,12 @@
 use std::fs;
 use std::fs::read_dir;
-use std::ops::Deref;
 use std::path::Path;
 use std::thread;
 
 use crate::pb::RenderDownloadProgress;
 use crate::success;
 use ahash::HashMap;
+use ahash::HashSet;
 use flume::unbounded;
 use oma_pm::apt::OmaOperation;
 use oma_pm::CommitNetworkConfig;
@@ -540,12 +540,20 @@ pub fn get_matches_tum<'a>(
 ) -> HashMap<&'a str, TopicUpdateEntryRef<'a>> {
     let mut matches = HashMap::with_hasher(ahash::RandomState::new());
 
+    let install_map = &op
+        .install
+        .iter()
+        .map(|x| (x.name_without_arch(), x.new_version()))
+        .collect::<HashMap<_, _>>();
+
+    let remove_map = &op.remove.iter().map(|x| (x.name())).collect::<HashSet<_>>();
+
     for i in tum {
         'a: for (name, entry) in &i.entries {
             if let TopicUpdateEntry::Conventional { packages, .. } = entry {
                 for (pkg_name, version) in packages {
-                    if !install_pkg_on_topic(op, pkg_name, version)
-                        && !remove_pkg_on_topic(op, pkg_name, version)
+                    if !install_pkg_on_topic(install_map, pkg_name, version)
+                        && !remove_pkg_on_topic(remove_map, pkg_name, version)
                     {
                         continue 'a;
                     }
@@ -591,21 +599,24 @@ pub fn get_matches_tum<'a>(
     matches
 }
 
-fn install_pkg_on_topic(op: &OmaOperation, pkg_name: &str, version: &Option<String>) -> bool {
-    op.install.iter().any(|install_pkg| {
-        install_pkg.name_without_arch() == pkg_name
-            && version.as_ref().is_some_and(|version| {
-                if let Some((prefix, suffix)) = install_pkg.new_version().rsplit_once("~pre") {
-                    if is_topic_preversion(suffix) {
-                        version == prefix
-                    } else {
-                        version == install_pkg.new_version()
-                    }
+fn install_pkg_on_topic(
+    install_map: &HashMap<&str, &str>,
+    pkg_name: &str,
+    tum_version: &Option<String>,
+) -> bool {
+    if let Some(install_ver) = install_map.get(pkg_name) {
+        if let Some(tum_version) = tum_version {
+            if let Some((prefix, suffix)) = install_ver.rsplit_once("~pre") {
+                if is_topic_preversion(suffix) {
+                    return tum_version == prefix;
                 } else {
-                    version == install_pkg.new_version()
+                    return tum_version == install_ver;
                 }
-            })
-    })
+            }
+        }
+    }
+
+    false
 }
 
 fn is_topic_preversion(suffix: &str) -> bool {
@@ -629,6 +640,10 @@ fn is_topic_preversion(suffix: &str) -> bool {
     true
 }
 
-fn remove_pkg_on_topic(op: &OmaOperation, pkg_name: &str, version: &Option<String>) -> bool {
-    version.is_none() && op.remove.iter().any(|x| x.name() == pkg_name)
+fn remove_pkg_on_topic(
+    remove_map: &HashSet<&str>,
+    pkg_name: &str,
+    version: &Option<String>,
+) -> bool {
+    version.is_none() && remove_map.contains(pkg_name)
 }
