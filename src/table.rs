@@ -388,9 +388,7 @@ fn print_pending_inner<W: Write>(
                             .unwrap_or_else(|| name.get("default").unwrap());
 
                         let name = if security {
-                            color_formatter()
-                                .color_str(name, Action::Emphasis)
-                                .to_string()
+                            style(name).red().bold().to_string()
                         } else {
                             name.to_string()
                         };
