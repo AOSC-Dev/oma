@@ -60,6 +60,9 @@ pub struct Topics {
     /// Auto remove unnecessary package(s)
     #[arg(long)]
     autoremove: bool,
+    /// Display all topics on list (include draft status topics)
+    #[arg(long)]
+    all: bool,
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge")]
     remove_config: bool,
@@ -120,6 +123,7 @@ impl CliExecuter for Topics {
             no_check_dbus,
             sysroot,
             apt_options,
+            all,
         } = self;
 
         if !dry_run {
@@ -142,6 +146,7 @@ impl CliExecuter for Topics {
             &mut opt_out,
             no_progress,
             &mut tm,
+            all,
         ))?;
 
         let enabled_pkgs = topics_changed.enabled_pkgs;
@@ -276,6 +281,7 @@ async fn topics_inner(
     opt_out: &mut Vec<String>,
     no_progress: bool,
     tm: &mut TopicManager<'_>,
+    all: bool,
 ) -> Result<TopicChanged, OutputError> {
     refresh_topics(no_progress, tm).await?;
 
@@ -283,9 +289,10 @@ async fn topics_inner(
     let enabled_topics = Box::from(tm.enabled_topics());
 
     if opt_in.is_empty() && opt_out.is_empty() {
-        (*opt_in, *opt_out) = spawn_blocking(move || select_prompt(&all_topics, &enabled_topics))
-            .await
-            .unwrap()?;
+        (*opt_in, *opt_out) =
+            spawn_blocking(move || select_prompt(&all_topics, &enabled_topics, all))
+                .await
+                .unwrap()?;
     }
 
     for i in opt_in {
@@ -313,6 +320,7 @@ async fn topics_inner(
 fn select_prompt(
     all_topics: &[Topic],
     enabled_topics: &[Topic],
+    all: bool,
 ) -> anyhow::Result<(Vec<String>, Vec<String>)> {
     let mut opt_in = vec![];
     let mut opt_out = vec![];
@@ -339,7 +347,8 @@ fn select_prompt(
     let display = all_topics
         .iter()
         .filter(|x| {
-            (x.description.is_some() && !x.draft.is_some_and(|x| x)) || enabled_topics.contains(x)
+            all || ((x.description.is_some() && !x.draft.is_some_and(|x| x))
+                || enabled_topics.contains(x))
         })
         .map(|x| TopicDisplay { topic: x })
         .collect::<Vec<_>>();
