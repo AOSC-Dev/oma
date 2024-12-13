@@ -654,3 +654,10 @@ fn remove_pkg_on_topic(
 ) -> bool {
     version.is_none() && remove_map.contains(pkg_name)
 }
+
+#[test]
+fn test_is_topic_preversion() {
+    let suffix = "20241213T090405Z";
+    let res = is_topic_preversion(suffix);
+    assert!(res);
+}

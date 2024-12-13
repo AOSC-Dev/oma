@@ -319,8 +319,9 @@ pub fn table_for_history_pending(
 #[derive(Debug, Tabled)]
 struct TumDisplay {
     name: String,
-    affected: usize,
     caution: String,
+    #[tabled(skip)]
+    security: bool,
 }
 
 fn print_pending_inner<W: Write>(
@@ -350,18 +351,16 @@ fn print_pending_inner<W: Write>(
                 match entry {
                     TopicUpdateEntryRef::Conventional {
                         name,
-                        packages,
                         security,
                         caution,
+                        ..
                     } => {
                         let name = name
                             .get(lang)
                             .unwrap_or_else(|| name.get("default").unwrap());
 
                         let name = if security {
-                            color_formatter()
-                                .color_str(name, Action::Emphasis)
-                                .to_string()
+                            style(name).red().to_string()
                         } else {
                             name.to_string()
                         };
@@ -372,13 +371,12 @@ fn print_pending_inner<W: Write>(
 
                         tum_display.push(TumDisplay {
                             name,
-                            affected: packages.len(),
                             caution: caution.to_string(),
+                            security,
                         });
                     }
                     TopicUpdateEntryRef::Cumulative {
                         name,
-                        count_packages_changed,
                         security,
                         caution,
                         ..
@@ -399,16 +397,15 @@ fn print_pending_inner<W: Write>(
 
                         tum_display.push(TumDisplay {
                             name,
-                            affected: count_packages_changed,
                             caution: caution.to_string(),
+                            security,
                         });
                     }
                 }
             }
 
-            printer
-                .print_table(tum_display, vec!["Name", "Package(s) affected", "Caution"])
-                .ok();
+            tum_display.sort_by(|a, b| b.security.cmp(&a.security));
+            printer.print_table(tum_display, vec!["Name", "Notes"]).ok();
 
             printer.print("\n").ok();
         }
