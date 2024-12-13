@@ -245,6 +245,7 @@ impl CliExecuter for Topics {
                 .autoremove(autoremove)
                 .network_thread(config.network_thread())
                 .auth_config(&auth_config)
+                .check_update(true)
                 .build()
                 .run()?;
 
