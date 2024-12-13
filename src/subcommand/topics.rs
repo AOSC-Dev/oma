@@ -242,6 +242,7 @@ impl CliExecuter for Topics {
                 .remove_config(remove_config)
                 .auth_config(&auth_config)
                 .autoremove(autoremove)
+                .check_update(true)
                 .build()
                 .run()?;
 
