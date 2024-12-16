@@ -467,6 +467,26 @@ pub enum TopicUpdateEntryRef<'a> {
     },
 }
 
+impl TopicUpdateEntryRef<'_> {
+    pub fn is_security(&self) -> bool {
+        match self {
+            TopicUpdateEntryRef::Conventional { security, .. } => *security,
+            TopicUpdateEntryRef::Cumulative { security, .. } => *security,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn count_packages(&self) -> usize {
+        match self {
+            TopicUpdateEntryRef::Conventional { packages, .. } => packages.len(),
+            TopicUpdateEntryRef::Cumulative {
+                count_packages_changed,
+                ..
+            } => *count_packages_changed,
+        }
+    }
+}
+
 impl<'a> From<&'a TopicUpdateEntry> for TopicUpdateEntryRef<'a> {
     fn from(value: &'a TopicUpdateEntry) -> Self {
         match value {

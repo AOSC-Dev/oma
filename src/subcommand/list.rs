@@ -211,7 +211,7 @@ impl CliExecuter for List {
                     let branches_str = branches.join(",");
 
                     printer
-                        .print(format!(
+                        .println(format!(
                             "{}/{} {} {arch} {s}",
                             color_formatter().color_str(&name, Action::Emphasis).bold(),
                             color_formatter().color_str(branches_str, Action::Secondary),
@@ -229,7 +229,7 @@ impl CliExecuter for List {
                         .ok();
                 } else {
                     printer
-                        .print(serde_json::json!(
+                        .println(serde_json::json!(
                             {
                                 "name": name,
                                 "branches": branches,
