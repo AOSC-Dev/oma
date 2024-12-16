@@ -332,7 +332,7 @@ fn print_pending_inner<W: Write>(
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
 ) {
     if let Some(tum) = tum {
-        let mut tum = tum.into_iter().collect::<Vec<_>>();
+        let mut tum = tum.iter().collect::<Vec<_>>();
         tum.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
         let lang = env::var("LANG").unwrap_or("en_US".into());
