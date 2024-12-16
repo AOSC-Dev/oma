@@ -254,9 +254,9 @@ impl CliExecuter for Topics {
                 if x != 0 && !always_write_status {
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
+                } else {
+                    RT.block_on(tm.write_enabled())?;
                 }
-
-                RT.block_on(tm.write_enabled())?;
             }
             Err(e) => {
                 error!("{}", fl!("topics-unchanged"));
