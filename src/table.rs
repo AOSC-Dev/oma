@@ -423,7 +423,14 @@ fn print_pending_inner<W: Write>(
         tum_display.sort_by(|a, b| b.security.cmp(&a.security));
         printer.print_table(tum_display, vec!["Name", "Notes"]).ok();
         printer.println("").ok();
-        printer.println(fl!("tum-3")).ok();
+        printer.println(format!("{}", "═".repeat(WRITER.get_length().into()))).ok();
+        printer
+            .println(format!(
+                "{:<400}",
+                style(fl!("tum-3")).bold(),
+            ))
+            .ok();
+        printer.println(fl!("tum-4")).ok();
         printer.println("").ok();
     }
 
