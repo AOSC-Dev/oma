@@ -195,7 +195,7 @@ impl<W: Write> PagerPrinter<W> {
         PagerPrinter { writer }
     }
 
-    pub fn print<D: Display>(&mut self, d: D) -> std::io::Result<()> {
+    pub fn println<D: Display>(&mut self, d: D) -> std::io::Result<()> {
         writeln!(self.writer, "{d}")
     }
 
@@ -262,7 +262,7 @@ pub fn table_for_install_pending(
         review_msg(&mut printer);
     }
 
-    print_pending_inner(printer, remove, install, disk_size, tum);
+    print_pending_inner(printer, remove, install, disk_size, &tum);
     let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
@@ -276,8 +276,8 @@ pub fn table_for_install_pending(
                 source: Some(Box::new(e)),
             })?;
             let mut printer = PagerPrinter::new(out);
-            printer.print("").ok();
-            print_pending_inner(printer, remove, install, disk_size, None);
+            printer.println("").ok();
+            print_pending_inner(printer, remove, install, disk_size, &tum);
             Ok(exit)
         }
         _ => Ok(exit),
@@ -305,9 +305,9 @@ pub fn table_for_history_pending(
     })?;
     let mut printer = PagerPrinter::new(out);
 
-    printer.print("\n\n").ok();
+    printer.println("\n\n").ok();
 
-    print_pending_inner(printer, remove, install, disk_size, None);
+    print_pending_inner(printer, remove, install, disk_size, &None);
     pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
@@ -329,7 +329,7 @@ fn print_pending_inner<W: Write>(
     remove: &[RemoveEntry],
     install: &[InstallEntry],
     disk_size: &(Box<str>, u64),
-    tum: Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
+    tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
 ) {
     if let Some(tum) = tum {
         let mut tum = tum.into_iter().collect::<Vec<_>>();
@@ -341,11 +341,26 @@ fn print_pending_inner<W: Write>(
 
         let mut tum_display = vec![];
 
+        let security_count = tum.iter().filter(|x| x.1.is_security()).count();
+
         if !tum.is_empty() {
-            printer.print(format!("{}\n", fl!("update-available"))).ok();
-            printer
-                .print(format!("{}\n", fl!("update-available-2")))
-                .ok();
+            if security_count == 0 {
+                printer
+                    .println(format!("{}\n", fl!("tum-1", updates = tum.len())))
+                    .ok();
+            } else {
+                printer
+                    .println(format!(
+                        "{}\n",
+                        fl!(
+                            "tum-1-with-security",
+                            updates = tum.len(),
+                            security = security_count,
+                            security_str = style(fl!("security")).red().bold().to_string()
+                        )
+                    ))
+                    .ok();
+            }
 
             for (_, entry) in tum {
                 match entry {
@@ -359,7 +374,7 @@ fn print_pending_inner<W: Write>(
                             .get(lang)
                             .unwrap_or_else(|| name.get("default").unwrap());
 
-                        let name = if security {
+                        let name = if *security {
                             style(name).red().to_string()
                         } else {
                             name.to_string()
@@ -372,7 +387,7 @@ fn print_pending_inner<W: Write>(
                         tum_display.push(TumDisplay {
                             name,
                             caution: caution.to_string(),
-                            security,
+                            security: *security,
                         });
                     }
                     TopicUpdateEntryRef::Cumulative {
@@ -385,7 +400,7 @@ fn print_pending_inner<W: Write>(
                             .get(lang)
                             .unwrap_or_else(|| name.get("default").unwrap());
 
-                        let name = if security {
+                        let name = if *security {
                             style(name).red().bold().to_string()
                         } else {
                             name.to_string()
@@ -398,22 +413,23 @@ fn print_pending_inner<W: Write>(
                         tum_display.push(TumDisplay {
                             name,
                             caution: caution.to_string(),
-                            security,
+                            security: *security,
                         });
                     }
                 }
             }
-
-            tum_display.sort_by(|a, b| b.security.cmp(&a.security));
-            printer.print_table(tum_display, vec!["Name", "Notes"]).ok();
-
-            printer.print("\n").ok();
         }
+
+        tum_display.sort_by(|a, b| b.security.cmp(&a.security));
+        printer.print_table(tum_display, vec!["Name", "Notes"]).ok();
+        printer.println("").ok();
+        printer.println(fl!("tum-3")).ok();
+        printer.println("").ok();
     }
 
     if !remove.is_empty() {
         printer
-            .print(format!(
+            .println(format!(
                 "{} {}{}\n",
                 fl!("count-pkg-has-desc", count = remove.len()),
                 style(fl!("removed")).red().bold(),
@@ -436,7 +452,7 @@ fn print_pending_inner<W: Write>(
                 ],
             )
             .ok();
-        printer.print("\n").ok();
+        printer.println("\n").ok();
     }
 
     let total_download_size: u64 = install
@@ -454,7 +470,7 @@ fn print_pending_inner<W: Write>(
 
         if !install_e_display.is_empty() {
             printer
-                .print(format!(
+                .println(format!(
                     "{} {}{}\n",
                     fl!("count-pkg-has-desc", count = install_e_display.len()),
                     style(fl!("installed")).green().bold(),
@@ -472,7 +488,7 @@ fn print_pending_inner<W: Write>(
                     ],
                 )
                 .ok();
-            printer.print("\n").ok();
+            printer.println("\n").ok();
         }
 
         let update = install
@@ -483,7 +499,7 @@ fn print_pending_inner<W: Write>(
 
         if !update_display.is_empty() {
             printer
-                .print(format!(
+                .println(format!(
                     "{} {}{}\n",
                     fl!("count-pkg-has-desc", count = update_display.len()),
                     color_formatter().color_str(fl!("upgraded"), Action::UpgradeTips),
@@ -501,7 +517,7 @@ fn print_pending_inner<W: Write>(
                     ],
                 )
                 .ok();
-            printer.print("\n").ok();
+            printer.println("\n").ok();
         }
 
         let downgrade = install
@@ -512,7 +528,7 @@ fn print_pending_inner<W: Write>(
 
         if !downgrade_display.is_empty() {
             printer
-                .print(format!(
+                .println(format!(
                     "{} {}{}\n",
                     fl!("count-pkg-has-desc", count = downgrade_display.len()),
                     style(fl!("downgraded")).yellow().bold(),
@@ -530,7 +546,7 @@ fn print_pending_inner<W: Write>(
                     ],
                 )
                 .ok();
-            printer.print("\n").ok();
+            printer.println("\n").ok();
         }
 
         let reinstall = install
@@ -541,7 +557,7 @@ fn print_pending_inner<W: Write>(
 
         if !reinstall_display.is_empty() {
             printer
-                .print(format!(
+                .println(format!(
                     "{} {}{}\n",
                     fl!("count-pkg-has-desc", count = reinstall_display.len()),
                     style(fl!("reinstalled")).blue().bold(),
@@ -559,12 +575,12 @@ fn print_pending_inner<W: Write>(
                     ],
                 )
                 .ok();
-            printer.print("\n").ok();
+            printer.println("\n").ok();
         }
     }
 
     printer
-        .print(format!(
+        .println(format!(
             "{}{}",
             style(fl!("total-download-size")).bold(),
             HumanBytes(total_download_size)
@@ -574,21 +590,21 @@ fn print_pending_inner<W: Write>(
     let (symbol, abs_install_size_change) = disk_size;
 
     printer
-        .print(format!(
+        .println(format!(
             "{}{}{}",
             style(fl!("change-storage-usage")).bold(),
             symbol,
             HumanBytes(*abs_install_size_change)
         ))
         .ok();
-    printer.print("").ok();
+    printer.println("").ok();
 }
 
 fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
-    printer.print("").ok();
-    printer.print(format!("{}\n", fl!("review-msg"))).ok();
+    printer.println("").ok();
+    printer.println(format!("{}\n", fl!("review-msg"))).ok();
     printer
-        .print(format!(
+        .println(format!(
             "{}\n",
             fl!(
                 "oma-may",
@@ -611,15 +627,15 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
     if has_x11.is_ok() {
         let line3 = format!("    {}\n\n", fl!("how-to-op-with-x"));
 
-        printer.print(format!("{}", style(line1).bold())).ok();
-        printer.print(format!("{}", style(line2).bold())).ok();
-        printer.print(format!("{}", style(line3).bold())).ok();
+        printer.println(format!("{}", style(line1).bold())).ok();
+        printer.println(format!("{}", style(line2).bold())).ok();
+        printer.println(format!("{}", style(line3).bold())).ok();
     } else {
         let line3 = format!("    {}\n\n", fl!("how-to-op"));
 
-        printer.print(format!("{}", style(line1).bold())).ok();
-        printer.print(format!("{}", style(line2).bold())).ok();
-        printer.print(format!("{}", style(line3).bold())).ok();
+        printer.println(format!("{}", style(line1).bold())).ok();
+        printer.println(format!("{}", style(line2).bold())).ok();
+        printer.println(format!("{}", style(line3).bold())).ok();
     }
 }
 
