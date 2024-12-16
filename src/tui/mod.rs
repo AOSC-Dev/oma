@@ -146,7 +146,7 @@ impl CliExecuter for Tui {
 
         root()?;
 
-        let conn = if !no_check_dbus {
+        let conn = if !no_check_dbus && !config.no_check_dbus() {
             let conn = RT.block_on(create_dbus_connection())?;
             check_battery(&conn, false);
             Some(conn)
