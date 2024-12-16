@@ -43,8 +43,7 @@ use oma_console::indicatif::HumanBytes;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
 use oma_console::writer::Writeln;
-use oma_contents::searcher::pure_search;
-use oma_contents::searcher::ripgrep_search;
+use oma_contents::searcher::search;
 use oma_contents::searcher::Mode;
 use oma_history::connect_db;
 use oma_history::create_db_file;
@@ -107,11 +106,16 @@ pub(crate) fn handle_no_result(
                 error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
             }
 
-            contents_search(&sysroot, Mode::BinProvides, word, |(pkg, file)| {
-                if file == format!("/usr/bin/{}", word) {
-                    bin.push((pkg, word));
-                }
-            })
+            search(
+                sysroot.as_ref().join("var/lib/apt/lists"),
+                Mode::BinProvides,
+                word,
+                |(pkg, file)| {
+                    if file == format!("/usr/bin/{}", word) {
+                        bin.push((pkg, word));
+                    }
+                },
+            )
             .ok();
         }
     }
@@ -142,21 +146,6 @@ pub(crate) fn handle_no_result(
         description: fl!("has-error-on-top"),
         source: None,
     })
-}
-
-pub fn contents_search(
-    sysroot: impl AsRef<Path>,
-    mode: Mode,
-    input: &str,
-    cb: impl FnMut((String, String)) + Send + Sync,
-) -> Result<(), OutputError> {
-    if which::which("rg").is_ok() {
-        ripgrep_search(sysroot.as_ref().join("var/lib/apt/lists"), mode, input, cb)?;
-    } else {
-        pure_search(sysroot.as_ref().join("var/lib/apt/lists"), mode, input, cb)?;
-    };
-
-    Ok(())
 }
 
 #[derive(Debug)]

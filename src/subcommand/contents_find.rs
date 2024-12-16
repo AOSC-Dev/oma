@@ -5,11 +5,9 @@ use clap::Args;
 use indexmap::IndexSet;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
-use oma_contents::searcher::Mode;
+use oma_contents::searcher::{search, Mode};
 use std::io::{stdout, Write};
-use std::path::PathBuf;
-
-use super::utils::contents_search;
+use std::path::{Path, PathBuf};
 
 use crate::args::CliExecuter;
 
@@ -128,7 +126,12 @@ fn execute(
         }
     };
 
-    contents_search(sysroot, mode, input, cb)?;
+    search(
+        Path::new(&sysroot).join("var/lib/apt/lists"),
+        mode,
+        input,
+        cb,
+    )?;
 
     if let Some(pb) = &pb {
         pb.finish_and_clear();

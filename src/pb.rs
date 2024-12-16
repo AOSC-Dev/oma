@@ -203,7 +203,7 @@ impl OmaMultiProgressBar {
                 let pb = self
                     .mb
                     .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
-                pb.set_message(msg.to_string());
+                pb.set_message(msg);
                 pb.enable_steady_tick(inv);
                 self.pb_map.insert(index + 1, pb);
             }
@@ -212,7 +212,7 @@ impl OmaMultiProgressBar {
                 let pb = self
                     .mb
                     .insert(index + 1, ProgressBar::new(size).with_style(sty));
-                pb.set_message(msg.to_string());
+                pb.set_message(msg);
                 self.pb_map.insert(index + 1, pb);
             }
             Event::ProgressInc { index, size } => {
@@ -223,7 +223,7 @@ impl OmaMultiProgressBar {
             Event::NextUrl { index: _, err } => {
                 self.writeln(
                     &style("ERROR").red().bold().to_string(),
-                    &fl!("can-not-get-source-next-url", e = err.to_string()),
+                    &fl!("can-not-get-source-next-url", e = err),
                 )
                 .ok();
             }
