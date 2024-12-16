@@ -228,5 +228,6 @@ status-downloading = 正在下载软件包
 status-package = 正在处理软件包 { $pkg }
 tum-1 = oma 找到了 { $updates } 个可用系统更新。
 tum-1-with-security = oma 找到了 { $updates } 个可用系统更新（含 { $security } 个 { $security_str })。
-tum-3 = 具体组件变更列表如下：
+tum-3 = 变更详情
+tum-4 = 本次操作的组件变更详情如下。
 security = 安全更新
