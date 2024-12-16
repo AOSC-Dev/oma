@@ -331,108 +331,7 @@ fn print_pending_inner<W: Write>(
     disk_size: &(Box<str>, u64),
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
 ) {
-    if let Some(tum) = tum {
-        let mut tum = tum.iter().collect::<Vec<_>>();
-        tum.sort_unstable_by(|a, b| a.0.cmp(b.0));
-
-        let lang = env::var("LANG").unwrap_or("en_US".into());
-        let (lang, _) = lang.split_once('.').unwrap_or(("en_US", ""));
-        let lang = if lang == "en_US" { "default" } else { lang };
-
-        let mut tum_display = vec![];
-
-        let security_count = tum.iter().filter(|x| x.1.is_security()).count();
-
-        if !tum.is_empty() {
-            if security_count == 0 {
-                printer
-                    .println(format!("{}\n", fl!("tum-1", updates = tum.len())))
-                    .ok();
-            } else {
-                printer
-                    .println(format!(
-                        "{}\n",
-                        fl!(
-                            "tum-1-with-security",
-                            updates = tum.len(),
-                            security = security_count,
-                            security_str = style(fl!("security")).red().bold().to_string()
-                        )
-                    ))
-                    .ok();
-            }
-
-            for (_, entry) in tum {
-                match entry {
-                    TopicUpdateEntryRef::Conventional {
-                        name,
-                        security,
-                        caution,
-                        ..
-                    } => {
-                        let name = name
-                            .get(lang)
-                            .unwrap_or_else(|| name.get("default").unwrap());
-
-                        let name = if *security {
-                            style(name).red().to_string()
-                        } else {
-                            name.to_string()
-                        };
-
-                        let caution = caution
-                            .get(lang)
-                            .unwrap_or_else(|| caution.get("default").unwrap());
-
-                        tum_display.push(TumDisplay {
-                            name,
-                            caution: caution.to_string(),
-                            security: *security,
-                        });
-                    }
-                    TopicUpdateEntryRef::Cumulative {
-                        name,
-                        security,
-                        caution,
-                        ..
-                    } => {
-                        let name = name
-                            .get(lang)
-                            .unwrap_or_else(|| name.get("default").unwrap());
-
-                        let name = if *security {
-                            style(name).red().bold().to_string()
-                        } else {
-                            name.to_string()
-                        };
-
-                        let caution = caution
-                            .get(lang)
-                            .unwrap_or_else(|| caution.get("default").unwrap());
-
-                        tum_display.push(TumDisplay {
-                            name,
-                            caution: caution.to_string(),
-                            security: *security,
-                        });
-                    }
-                }
-            }
-        }
-
-        tum_display.sort_by(|a, b| b.security.cmp(&a.security));
-        printer.print_table(tum_display, vec!["Name", "Notes"]).ok();
-        printer.println("").ok();
-        printer.println(format!("{}", "═".repeat(WRITER.get_length().into()))).ok();
-        printer
-            .println(format!(
-                "{:<400}",
-                style(fl!("tum-3")).bold(),
-            ))
-            .ok();
-        printer.println(fl!("tum-4")).ok();
-        printer.println("").ok();
-    }
+    print_tum(&mut printer, tum);
 
     if !remove.is_empty() {
         printer
@@ -605,6 +504,115 @@ fn print_pending_inner<W: Write>(
         ))
         .ok();
     printer.println("").ok();
+}
+
+fn print_tum(
+    printer: &mut PagerPrinter<impl Write>,
+    tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
+) {
+    if let Some(tum) = tum {
+        if tum.is_empty() {
+            return;
+        }
+
+        let mut tum = tum.iter().collect::<Vec<_>>();
+
+        tum.sort_unstable_by(|a, b| a.0.cmp(b.0));
+
+        let lang = env::var("LANG").unwrap_or("en_US".into());
+        let (lang, _) = lang.split_once('.').unwrap_or(("en_US", ""));
+        let lang = if lang == "en_US" { "default" } else { lang };
+
+        let mut tum_display = vec![];
+
+        let security_count = tum.iter().filter(|x| x.1.is_security()).count();
+        if security_count == 0 {
+            printer
+                .println(format!("{}\n", fl!("tum-1", updates = tum.len())))
+                .ok();
+        } else {
+            printer
+                .println(format!(
+                    "{}\n",
+                    fl!(
+                        "tum-1-with-security",
+                        updates = tum.len(),
+                        security = security_count,
+                        security_str = style(fl!("security")).red().bold().to_string()
+                    )
+                ))
+                .ok();
+        }
+
+        for (_, entry) in tum {
+            match entry {
+                TopicUpdateEntryRef::Conventional {
+                    name,
+                    security,
+                    caution,
+                    ..
+                } => {
+                    let name = name
+                        .get(lang)
+                        .unwrap_or_else(|| name.get("default").unwrap());
+
+                    let name = if *security {
+                        style(name).red().to_string()
+                    } else {
+                        name.to_string()
+                    };
+
+                    let caution = caution
+                        .get(lang)
+                        .unwrap_or_else(|| caution.get("default").unwrap());
+
+                    tum_display.push(TumDisplay {
+                        name,
+                        caution: caution.to_string(),
+                        security: *security,
+                    });
+                }
+                TopicUpdateEntryRef::Cumulative {
+                    name,
+                    security,
+                    caution,
+                    ..
+                } => {
+                    let name = name
+                        .get(lang)
+                        .unwrap_or_else(|| name.get("default").unwrap());
+
+                    let name = if *security {
+                        style(name).red().bold().to_string()
+                    } else {
+                        name.to_string()
+                    };
+
+                    let caution = caution
+                        .get(lang)
+                        .unwrap_or_else(|| caution.get("default").unwrap());
+
+                    tum_display.push(TumDisplay {
+                        name,
+                        caution: caution.to_string(),
+                        security: *security,
+                    });
+                }
+            }
+        }
+
+        tum_display.sort_by(|a, b| b.security.cmp(&a.security));
+        printer.print_table(tum_display, vec!["Name", "Notes"]).ok();
+        printer.println("").ok();
+        printer
+            .println(format!("{}", "═".repeat(WRITER.get_length().into())))
+            .ok();
+        printer
+            .println(format!("{:<400}", style(fl!("tum-3")).bold(),))
+            .ok();
+        printer.println(fl!("tum-4")).ok();
+        printer.println("").ok();
+    }
 }
 
 fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
