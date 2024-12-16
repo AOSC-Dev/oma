@@ -87,21 +87,21 @@ impl Mode {
     }
 }
 
-/// Automatically selects a search method based on whether or not the `rg` binary is used.
+/// Automatically selects a search method based on whether or not the `rg` binary is available.
 ///
-/// If the `rg` binary exists, the `rg` search is called, and if it doesn't, the fallback
-/// is to a search method that doesn't depend on a binary.
+/// If the `rg` binary exists, oma calls `rg` for string search,
+/// otherwise, an internal string search method is used.
 ///
 /// # Arguments
 ///
-/// * `dir` - A reference to a `Path` that specifies the directory to search in.
-/// * `mode` - A `Mode` enum value that specifies the type of search operation to perform.
-/// * `query` - A string slice that contains the search query.
-/// * `cb` - A mutable callback function that takes a tuple of two strings (the matched line and the matched part) as its argument.
+/// * `dir` - Path reference that specifies the directory to search in.
+/// * `mode` - `Mode` enum that specifies the type of search operation to perform.
+/// * `query` - `String` that contains the search query.
+/// * `cb` - Mutable callback function that takes the tuple of two strings (the matched line and the matched part) as its argument.
 ///
 /// # Returns
 ///
-/// Returns a `Result` which is `Ok(())` if the search is successful, or an `OmaContentsError` if an error occurs.
+/// Returns a `Result` - `Ok(())` if the search is successful, `OmaContentsError` if not.
 pub fn search(
     dir: impl AsRef<Path>,
     mode: Mode,
@@ -124,14 +124,14 @@ pub fn search(
 ///
 /// # Arguments
 ///
-/// * `dir` - A reference to a `Path` that specifies the directory to search in.
-/// * `mode` - A `Mode` enum value that specifies the type of search operation to perform.
-/// * `query` - A string slice that contains the search query.
-/// * `cb` - A mutable callback function that takes a tuple of two strings (the matched line and the matched part) as its argument.
+/// * `dir` - Path reference that specifies the directory to search in.
+/// * `mode` - `Mode` enum that specifies the type of search operation to perform.
+/// * `query` - `String` that contains the search query.
+/// * `cb` - Mutable callback function that takes the tuple of two strings (the matched line and the matched part) as its argument.
 ///
 /// # Returns
 ///
-/// Returns a `Result` which is `Ok(())` if the search is successful, or an `OmaContentsError` if an error occurs.
+/// Returns a `Result` - `Ok(())` if the search is successful, `OmaContentsError` if not.
 pub fn ripgrep_search(
     dir: impl AsRef<Path>,
     mode: Mode,
@@ -225,14 +225,14 @@ fn strip_path_prefix(query: &str) -> &str {
 ///
 /// # Arguments
 ///
-/// * `path` - A reference to a `Path` that specifies the directory or file to search in.
-/// * `mode` - A `Mode` enum value that specifies the type of search operation to perform.
-/// * `query` - A string slice that contains the search query.
-/// * `cb` - A mutable callback function that takes a tuple of two strings (the matched line and the matched part) as its argument. The callback must implement `Sync` and `Send` traits.
+/// * `path` - Path reference that specifies the directory to search in.
+/// * `mode` - `Mode` enum that specifies the type of search operation to perform.
+/// * `query` - `String` that contains the search query.
+/// * `cb` - Mutable callback function that takes the tuple of two strings (the matched line and the matched part) as its argument. The callback must implement `Sync` and `Send` traits.
 ///
 /// # Returns
 ///
-/// Returns a `Result` which is `Ok(())` if the search is successful, or an `OmaContentsError` if an error occurs.
+/// Returns a `Result` - `Ok(())` if the search is successful, `OmaContentsError` if not.
 pub fn pure_search(
     path: impl AsRef<Path>,
     mode: Mode,
