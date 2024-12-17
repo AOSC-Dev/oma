@@ -225,3 +225,4 @@ tui-no-system-update = 目前沒有系統更新。
 tui-continue-tips = 請按 [c] 繼續。
 dpkg-triggers-only-a-non-zero = `dpkg --triggers-only -a` 返回了錯誤。
 success = 操作已成功完成。
+topics-unchanged = oma 在退出測試庫時遇到錯誤，因此未儲存測試庫設定狀態。
