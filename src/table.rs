@@ -565,6 +565,7 @@ fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<
 }
 
 fn version_diff_equal_length(old_version: &str, new_version: &str) -> Option<usize> {
+    assert_eq!(old_version.len(), new_version.len());
     // Debian version format, see https://www.debian.org/doc/debian-policy/ch-controlfields.html#version
     // for more information
     //
