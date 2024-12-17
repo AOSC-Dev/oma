@@ -565,11 +565,21 @@ fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<
 }
 
 fn version_diff_equal_length(old_version: &str, new_version: &str) -> Option<usize> {
+    // Debian version format, see https://www.debian.org/doc/debian-policy/ch-controlfields.html#version
+    // for more information
+    //
+    // Omitting ':' here as we have a preversion filter in `version_diff()`
+    let boundaries = ['.', '-', '~', '+'];
+    let mut boundary_pos = None;
     let new_version_chars = new_version.chars().collect::<Vec<_>>();
     for (i, c) in old_version.chars().enumerate() {
+        // find version boundaries to get the position for small chunks of the version string
+        if boundaries.contains(&c) {
+            boundary_pos = Some(i + 1);
+        }
         let c2 = new_version_chars[i];
         if c != c2 {
-            return Some(i);
+            return boundary_pos.or(Some(0));
         }
     }
 
@@ -605,4 +615,10 @@ fn test_version_diff() {
 
     let diff = version_diff(ver1, ver2);
     assert_eq!(diff, (None, None));
+
+    let ver1 = "1.21";
+    let ver2 = "1.22";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (Some(2), Some(2)));
 }
