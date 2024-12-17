@@ -384,7 +384,7 @@ impl CommitChanges<'_> {
             if no_progress || !is_terminal() {
                 Box::new(NoInstallProgressManager)
             } else {
-                Box::new(OmaInstallProgressManager)
+                Box::new(OmaInstallProgressManager::new(yes))
             },
             tx,
             &op,
