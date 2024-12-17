@@ -1,3 +1,4 @@
+use std::cmp::Ordering as CmpOrdering;
 use std::fmt::Display;
 use std::io::Write;
 use std::sync::atomic::Ordering;
@@ -68,7 +69,18 @@ impl From<&InstallEntry> for InstallEntryDisplay {
         };
 
         let version_delta = if let Some(old_version) = value.old_version() {
-            format!("{old_version} -> {}", value.new_version())
+            let mut new_version = value.new_version().to_string();
+            let (old, new) = version_diff(old_version, value.new_version());
+            let mut old_version = old_version.to_string();
+            if let Some(old) = old {
+                old_version.replace_range(old.., &style(&old_version[old..]).red().to_string());
+            }
+
+            if let Some(new) = new {
+                new_version.replace_range(new.., &style(&new_version[new..]).green().to_string());
+            }
+
+            format!("{} -> {}", old_version, new_version)
         } else {
             value.new_version().to_string()
         };
@@ -507,4 +519,90 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
         printer.print(format!("{}", style(line2).bold())).ok();
         printer.print(format!("{}", style(line3).bold())).ok();
     }
+}
+
+fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<usize>) {
+    let old_version_is_preversion = old_version.contains(':');
+    let new_version_is_preversion = new_version.contains(':');
+
+    if (old_version_is_preversion || new_version_is_preversion)
+        && !(old_version_is_preversion && new_version_is_preversion)
+    {
+        return (Some(0), Some(0));
+    }
+
+    match old_version.len().cmp(&new_version.len()) {
+        CmpOrdering::Less => {
+            if old_version == &new_version[..old_version.len()] {
+                return (None, Some(old_version.len()));
+            }
+
+            let diff =
+                version_diff_equal_length(old_version, &new_version[..old_version.len()]).unwrap();
+
+            (Some(diff), Some(diff))
+        }
+        CmpOrdering::Equal => {
+            let diff = version_diff_equal_length(old_version, &new_version[..old_version.len()]);
+
+            let Some(diff) = diff else {
+                return (None, None);
+            };
+
+            (Some(diff), Some(diff))
+        }
+        CmpOrdering::Greater => {
+            if &old_version[..new_version.len()] == new_version {
+                return (Some(new_version.len()), None);
+            }
+
+            let diff =
+                version_diff_equal_length(&old_version[..new_version.len()], new_version).unwrap();
+
+            (Some(diff), Some(diff))
+        }
+    }
+}
+
+fn version_diff_equal_length(old_version: &str, new_version: &str) -> Option<usize> {
+    let new_version_chars = new_version.chars().collect::<Vec<_>>();
+    for (i, c) in old_version.chars().enumerate() {
+        let c2 = new_version_chars[i];
+        if c != c2 {
+            return Some(i);
+        }
+    }
+
+    None
+}
+
+#[test]
+fn test_version_diff() {
+    let ver1 = "1.2";
+    let ver2 = "1.2-1";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (None, Some(3)));
+    assert_eq!(&ver2[diff.1.unwrap()..], "-1");
+
+    let diff = version_diff(ver2, ver1);
+    assert_eq!(diff, (Some(3), None));
+
+    let ver1 = "1:1.2";
+    let ver2 = "1.2";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (Some(0), Some(0)));
+
+    let ver1 = "1.2";
+    let ver2 = "1:1.2";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (Some(0), Some(0)));
+
+    let ver1 = "1.2";
+    let ver2 = "1.2";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (None, None));
 }
