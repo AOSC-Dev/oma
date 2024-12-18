@@ -1,6 +1,7 @@
 use std::thread;
 
 use crate::pb::RenderDownloadProgress;
+use crate::subcommand::utils::write_oma_installed_status;
 use crate::success;
 use flume::unbounded;
 use oma_pm::CommitNetworkConfig;
@@ -351,6 +352,7 @@ impl CliExecuter for Upgrade {
                         start_time,
                         true,
                     )?;
+                    write_oma_installed_status()?;
 
                     let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
 
