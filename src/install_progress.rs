@@ -1,11 +1,25 @@
-use std::io::{stderr, stdin, stdout, IsTerminal, Write};
+use std::io::Write;
 
 use oma_pm::{
     apt::AptConfig,
     progress::{get_apt_progress_string, terminal_height, terminal_width, InstallProgressManager},
 };
 
-pub struct OmaInstallProgressManager;
+use crate::subcommand::utils::is_terminal;
+
+pub struct OmaInstallProgressManager {
+    yes: bool,
+}
+
+impl OmaInstallProgressManager {
+    // The length of "Progress: [100%] ".
+    const PROGRESS_STR_LEN: usize = 17;
+    const BG_COLOR_RESET: &str = "\x1b[49m";
+    const FG_COLOR_RESET: &str = "\x1b[39m";
+    pub fn new(yes: bool) -> Self {
+        Self { yes }
+    }
+}
 
 impl InstallProgressManager for OmaInstallProgressManager {
     fn status_change(&self, _pkgname: &str, steps_done: u64, total_steps: u64, config: &AptConfig) {
@@ -40,13 +54,12 @@ impl InstallProgressManager for OmaInstallProgressManager {
         // and the same the other way around.
         let bg_color = config.find("Dpkg::Progress-Fancy::Progress-fg", "\x1b[42m");
         let fg_color = config.find("Dpkg::Progress-Fancy::Progress-bg", "\x1b[30m");
-        const BG_COLOR_RESET: &str = "\x1b[49m";
-        const FG_COLOR_RESET: &str = "\x1b[39m";
 
-        eprint!("{bg_color}{fg_color}Progress: [{percent_str}%]{BG_COLOR_RESET}{FG_COLOR_RESET} ");
-
-        // The length of "Progress: [100%] ".
-        const PROGRESS_STR_LEN: usize = 17;
+        eprint!(
+            "{bg_color}{fg_color}Progress: [{percent_str}%]{}{} ",
+            Self::BG_COLOR_RESET,
+            Self::FG_COLOR_RESET
+        );
 
         // Print the progress bar.
         // We should safely be able to convert the `usize`.try_into() into the `u32`
@@ -54,7 +67,10 @@ impl InstallProgressManager for OmaInstallProgressManager {
         // 64-bit processor.
         eprint!(
             "{}",
-            get_apt_progress_string(percent, (term_width - PROGRESS_STR_LEN).try_into().unwrap())
+            get_apt_progress_string(
+                percent,
+                (term_width - Self::PROGRESS_STR_LEN).try_into().unwrap()
+            )
         );
         std::io::stderr().flush().unwrap();
 
@@ -69,11 +85,11 @@ impl InstallProgressManager for OmaInstallProgressManager {
     }
 
     fn no_interactive(&self) -> bool {
-        !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal()
+        !is_terminal() || self.yes
     }
 
     fn use_pty(&self) -> bool {
-        stdout().is_terminal() && stderr().is_terminal() && stdin().is_terminal()
+        is_terminal()
     }
 }
 
