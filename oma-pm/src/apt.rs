@@ -561,7 +561,7 @@ impl OmaApt {
             self.cache.fix_broken();
         }
 
-        self.cache.resolve(fix_resolver)?;
+        self.resolve(false, false)?;
         let changes = self.cache.get_changes(false).collect::<Vec<_>>();
 
         let sort = PackageSort::default().installed();

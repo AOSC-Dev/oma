@@ -52,6 +52,7 @@ use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
+use oma_pm::apt::OmaAptError;
 use oma_pm::apt::SummarySort;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_pm::CommitNetworkConfig;
@@ -316,16 +317,22 @@ impl CommitChanges<'_> {
             None
         };
 
-        if autoremove {
-            apt.autoremove(remove_config)?;
-        }
+        let res = Ok(()).and_then(|_| -> Result<(), OmaAptError> {
+            if autoremove {
+                apt.autoremove(remove_config)?;
+            }
 
-        apt.fix_broken(!no_fixbroken, fix_dpkg_status)?;
-        apt.resolve(no_fixbroken, remove_config)?;
+            apt.fix_broken(!no_fixbroken, fix_dpkg_status)?;
+            apt.resolve(no_fixbroken, remove_config)?;
+
+            Ok(())
+        });
 
         if let Some(pb) = pb {
-            pb.inner.finish_and_clear()
+            pb.inner.finish_and_clear();
         }
+
+        res?;
 
         let op = apt.summary(
             SummarySort::Operation,
