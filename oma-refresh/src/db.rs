@@ -313,17 +313,25 @@ impl<'a> OmaRefresh<'a> {
 
         let res = dm.start_download().await;
 
-        res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
+        let res = res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
+
+        // 有元数据更新才执行 success invoke
+        let should_run_invoke = res.iter().any(|x| x.wrote);
+
         let _ = event_worker.await;
 
         // Finally, run success post invoke
         let _ = remove_task.await;
 
-        self.progress_channel
-            .0
-            .send_async(Event::RunInvokeScript)
-            .await?;
-        self.run_success_post_invoke().await;
+        if should_run_invoke {
+            self.progress_channel
+                .0
+                .send_async(Event::RunInvokeScript)
+                .await?;
+
+            self.run_success_post_invoke().await;
+        }
+
         self.progress_channel.0.send_async(Event::Done).await?;
 
         Ok(())
