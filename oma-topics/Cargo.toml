@@ -19,7 +19,7 @@ url = "2.5"
 oma-mirror = { version = "0.2.0", path = "../oma-mirror" }
 
 [dev-dependencies]
-oma-inquire = "0.1"
+oma-inquire = "0.2"
 oma-console = { path = "../oma-console" }
 tokio = { version = "1.28", default-features = false, features = ["macros", "rt-multi-thread"] }
 
