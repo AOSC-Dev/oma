@@ -30,8 +30,12 @@ fn modify_result(
             }
         }
 
+        let Some(tag) = node.tag() else {
+            continue;
+        };
+
         if let Some(entry) = node.child() {
-            stack.push_back((entry, format!("{}::{}", tree_path, node.tag().unwrap())));
+            stack.push_back((entry, format!("{}::{}", tree_path, tag)));
         }
 
         if let Some((k, v)) = node.tag().zip(node.value()) {
