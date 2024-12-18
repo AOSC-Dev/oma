@@ -26,6 +26,7 @@ use crate::pb::RenderDownloadProgress;
 use crate::pb::RenderRefreshProgress;
 use crate::success;
 use crate::table::table_for_install_pending;
+use crate::HTTP_CLIENT;
 use crate::LOCKED;
 use crate::RT;
 use crate::WRITER;
@@ -50,10 +51,10 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
-use oma_pm::apt::CommitDownloadConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::SummarySort;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
+use oma_pm::CommitNetworkConfig;
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg::dpkg_arch;
 use oma_utils::oma::lock_oma_inner;
@@ -273,8 +274,6 @@ pub(crate) struct CommitChanges<'a> {
     request_type: SummaryType,
     #[builder(default = true)]
     no_fixbroken: bool,
-    #[builder(default = 4)]
-    network_thread: usize,
     #[builder(default)]
     no_progress: bool,
     #[builder(default = "/".into())]
@@ -283,7 +282,6 @@ pub(crate) struct CommitChanges<'a> {
     fix_dpkg_status: bool,
     #[builder(default = true)]
     protect_essential: bool,
-    client: &'a Client,
     #[builder(default)]
     yes: bool,
     #[builder(default)]
@@ -291,6 +289,7 @@ pub(crate) struct CommitChanges<'a> {
     #[builder(default)]
     autoremove: bool,
     auth_config: &'a AuthConfig,
+    network_thread: usize,
 }
 
 impl CommitChanges<'_> {
@@ -300,16 +299,15 @@ impl CommitChanges<'_> {
             dry_run,
             request_type: typ,
             no_fixbroken,
-            network_thread,
             no_progress,
             sysroot,
             fix_dpkg_status,
             protect_essential,
-            client,
             yes,
             remove_config,
             autoremove,
             auth_config,
+            network_thread,
         } = self;
 
         let pb = if !no_progress {
@@ -384,17 +382,17 @@ impl CommitChanges<'_> {
         });
 
         let res = apt.commit(
-            client,
-            CommitDownloadConfig {
-                network_thread: Some(network_thread),
-                auth: auth_config,
-            },
             if no_progress || !is_terminal() {
                 Box::new(NoInstallProgressManager)
             } else {
                 Box::new(OmaInstallProgressManager::new(yes))
             },
             &op,
+            &HTTP_CLIENT,
+            CommitNetworkConfig {
+                network_thread: Some(network_thread),
+                auth_config,
+            },
             |event| async {
                 if let Err(e) = tx.send_async(event).await {
                     error!("{}", e);

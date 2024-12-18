@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     cell::OnceCell,
     fmt,
-    io::{self, ErrorKind, Write},
+    io::{self, ErrorKind},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -10,7 +10,6 @@ use std::{
 use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
-use chrono::Local;
 pub use oma_apt::cache::Upgrade;
 use std::future::Future;
 
@@ -21,7 +20,7 @@ use oma_apt::{
     progress::{AcquireProgress, InstallProgress},
     raw::IntoRawIter,
     records::RecordField,
-    util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner, DiskSpace},
+    util::DiskSpace,
     DepFlags, Package, PkgCurrentState, Version,
 };
 
@@ -38,20 +37,16 @@ use oma_utils::{
 };
 
 pub use oma_apt::config::Config as AptConfig;
-use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
 pub use oma_pm_operation_type::*;
-use zbus::{connection, Connection};
 
 use crate::{
-    dbus::{change_status, OmaBus, Status},
+    commit::{CommitNetworkConfig, DoInstall},
     matches::MatcherError,
     pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
-    progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
+    progress::InstallProgressManager,
 };
-
-const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
 #[derive(Debug, Clone, Builder)]
 pub struct OmaAptArgs {
@@ -83,8 +78,6 @@ pub struct OmaApt {
     autoremove: HashSet<u64>,
     dry_run: bool,
     select_pkgs: HashSet<u64>,
-    tokio: Runtime,
-    connection: Option<Connection>,
     unmet: Vec<Vec<BrokenPackage>>,
     archive_dir: OnceCell<PathBuf>,
 }
@@ -173,11 +166,6 @@ pub struct DownloadConfig<'a> {
     pub auth: &'a AuthConfig,
 }
 
-pub struct CommitDownloadConfig<'a> {
-    pub network_thread: Option<usize>,
-    pub auth: &'a AuthConfig,
-}
-
 impl OmaApt {
     /// Create a new apt manager
     pub fn new(
@@ -188,49 +176,15 @@ impl OmaApt {
     ) -> OmaAptResult<Self> {
         let config = Self::init_config(config, args)?;
 
-        let bus = OmaBus {
-            status: Status::Configing,
-        };
-
-        let tokio = tokio::runtime::Builder::new_multi_thread()
-            .enable_time()
-            .enable_io()
-            .build()
-            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
-
-        let conn = tokio.block_on(async {
-            match Self::create_session(bus).await {
-                Ok(conn) => Some(conn),
-                Err(e) => {
-                    debug!("Failed to create D-Bus session: {:?}", e);
-                    None
-                }
-            }
-        });
-
         Ok(Self {
             cache: new_cache!(&local_debs)?,
             config,
             autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
             select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
-            tokio,
-            connection: conn,
             unmet: vec![],
             archive_dir: OnceCell::new(),
         })
-    }
-
-    async fn create_session(bus: OmaBus) -> Result<Connection, zbus::Error> {
-        let conn = connection::Builder::system()?
-            .name("io.aosc.Oma")?
-            .serve_at("/io/aosc/Oma", bus)?
-            .build()
-            .await?;
-
-        debug!("zbus session created");
-
-        Ok(conn)
     }
 
     /// Init apt config (before create new apt manager)
@@ -421,12 +375,6 @@ impl OmaApt {
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
-        let DownloadConfig {
-            network_thread,
-            download_dir,
-            auth,
-        } = config;
-
         let mut download_list = vec![];
         for pkg in pkgs {
             let name = pkg.raw_pkg.fullname(true);
@@ -468,11 +416,6 @@ impl OmaApt {
             download_list.push(entry);
         }
 
-        debug!(
-            "Download list: {download_list:?}, download to: {}",
-            download_dir.unwrap_or(Path::new(".")).display()
-        );
-
         if dry_run {
             return Ok((vec![], vec![]));
         }
@@ -484,15 +427,7 @@ impl OmaApt {
             .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
 
         let res = tokio.block_on(async move {
-            Self::download_pkgs(
-                client,
-                &download_list,
-                network_thread,
-                download_dir.unwrap_or(Path::new(".")),
-                auth,
-                callback,
-            )
-            .await
+            Self::download_pkgs(client, &download_list, config, callback).await
         })?;
 
         Ok(res)
@@ -564,140 +499,25 @@ impl OmaApt {
     /// Commit changes
     pub fn commit<F, Fut>(
         self,
-        client: &Client,
-        config: CommitDownloadConfig<'_>,
         install_progress_manager: Box<dyn InstallProgressManager>,
         op: &OmaOperation,
+        client: &Client,
+        config: CommitNetworkConfig,
         callback: F,
     ) -> OmaAptResult<()>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
-        let CommitDownloadConfig {
-            network_thread,
-            auth,
-        } = config;
-
-        let v = op;
-        let v_str = v.to_string();
-
         let sysroot = self.config.get("Dir").unwrap_or("/".to_string());
 
         if self.dry_run {
-            debug!("op: {v:?}");
+            debug!("op: {op:?}");
             return Ok(());
         }
 
-        let download_pkg_list = &v.install;
-
-        let path = self.get_archive_dir();
-
-        let conn = self.connection.clone();
-        let (success, failed) = self.tokio.block_on(async move {
-            if let Some(conn) = conn {
-                change_status(&conn, "Downloading").await.ok();
-            }
-
-            Self::download_pkgs(
-                client,
-                download_pkg_list,
-                network_thread,
-                path,
-                auth,
-                callback,
-            )
-            .await
-        })?;
-
-        if !failed.is_empty() {
-            return Err(OmaAptError::FailedToDownload(failed.len(), failed));
-        }
-
-        debug!("Success: {success:?}");
-
-        let mut no_progress = AcquireProgress::quiet();
-
-        debug!("Try to lock apt");
-
-        if let Err(e) = apt_lock() {
-            let e_str = e.to_string();
-            if e_str.contains("dpkg --configure -a") {
-                self.run_dpkg_configure()?;
-
-                apt_lock()?;
-            } else {
-                return Err(e.into());
-            }
-        }
-
-        debug!("Try to get apt archives");
-
-        self.cache.get_archives(&mut no_progress).inspect_err(|e| {
-            debug!("Get exception: {e}. Try to unlock apt lock");
-            apt_unlock();
-        })?;
-
-        let args = InstallProgressArgs {
-            config: self.config,
-            tokio: self.tokio,
-            connection: self.connection,
-        };
-
-        let mut progress =
-            InstallProgress::new(OmaAptInstallProgress::new(args, install_progress_manager));
-
-        debug!("Try to unlock apt lock inner");
-
-        apt_unlock_inner();
-
-        debug!("Do install");
-
-        self.cache.do_install(&mut progress).inspect_err(|e| {
-            debug!("do_install got except: {e}");
-            apt_lock_inner().ok();
-            apt_unlock();
-        })?;
-
-        debug!("Try to unlock apt lock");
-
-        apt_unlock();
-
-        let end_time = Local::now().format(TIME_FORMAT).to_string();
-
-        let sysroot = Path::new(&sysroot);
-        let history = sysroot.join("var/log/oma/history");
-        let parent = history
-            .parent()
-            .ok_or_else(|| OmaAptError::FailedGetParentPath(history.clone()))?;
-
-        std::fs::create_dir_all(parent)
-            .map_err(|e| OmaAptError::FailedOperateDirOrFile(parent.display().to_string(), e))?;
-
-        let mut log = std::fs::OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&history)
-            .map_err(|e| OmaAptError::FailedOperateDirOrFile(history.display().to_string(), e))?;
-
-        let start_time = Local::now();
-        writeln!(log, "Start-Date: {start_time}").ok();
-
-        let args = std::env::args().collect::<Vec<_>>().join(" ");
-
-        if !args.is_empty() {
-            writeln!(log, "Commandline: {args}").ok();
-        }
-
-        if let Some((user, uid)) = std::env::var("SUDO_USER")
-            .ok()
-            .zip(std::env::var("SUDO_UID").ok())
-        {
-            writeln!(log, "Requested-By: {user} ({uid})").ok();
-        }
-
-        write!(log, "{v_str}").ok();
-        writeln!(log, "End-Date: {end_time}\n").ok();
+        let commit = DoInstall::new(self, client, &sysroot, config)?;
+        commit.commit(op, install_progress_manager, callback)?;
 
         Ok(())
     }
@@ -810,7 +630,7 @@ impl OmaApt {
         Ok(())
     }
 
-    fn run_dpkg_configure(&self) -> OmaAptResult<()> {
+    pub(crate) fn run_dpkg_configure(&self) -> OmaAptResult<()> {
         info!("Running `dpkg --configure -a' ...");
 
         let cmd = Command::new("dpkg")
@@ -831,7 +651,7 @@ impl OmaApt {
         Ok(())
     }
 
-    fn run_dpkg_triggers(&self) -> OmaAptResult<()> {
+    pub(crate) fn run_dpkg_triggers(&self) -> OmaAptResult<()> {
         info!("Running `dpkg --triggers-only -a' ...");
 
         let cmd = Command::new("dpkg")
@@ -853,18 +673,27 @@ impl OmaApt {
     }
 
     /// Download packages (inner)
-    async fn download_pkgs<F, Fut>(
+    pub(crate) async fn download_pkgs<F, Fut>(
         client: &Client,
         download_pkg_list: &[InstallEntry],
-        network_thread: Option<usize>,
-        download_dir: &Path,
-        auth_config: &AuthConfig,
+        config: DownloadConfig<'_>,
         callback: F,
     ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
+        let DownloadConfig {
+            network_thread,
+            download_dir,
+            auth,
+        } = config;
+
+        debug!(
+            "Download list: {download_pkg_list:?}, download to: {}",
+            download_dir.unwrap_or(Path::new(".")).display()
+        );
+
         if download_pkg_list.is_empty() {
             return Ok((vec![], vec![]));
         }
@@ -880,7 +709,7 @@ impl OmaApt {
                     let source_type = if x.starts_with("file:") {
                         DownloadSourceType::Local(false)
                     } else {
-                        let auth = auth_config.find_package_url(x);
+                        let auth = auth.find_package_url(x);
 
                         DownloadSourceType::Http {
                             auth: auth.map(|x| (x.user.to_owned(), x.password.to_owned())),
@@ -915,7 +744,11 @@ impl OmaApt {
             let download_entry = DownloadEntry::builder()
                 .source(sources)
                 .filename(apt_style_filename(entry))
-                .dir(download_dir.to_path_buf())
+                .dir(
+                    download_dir
+                        .map(|x| x.to_path_buf())
+                        .unwrap_or_else(|| ".".into()),
+                )
                 .allow_resume(true)
                 .msg(msg)
                 .maybe_hash({

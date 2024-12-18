@@ -6,7 +6,9 @@ pub mod search;
 pub use oma_apt::error::AptErrors;
 pub use oma_apt::PkgCurrentState;
 pub use search::PackageStatus;
+mod commit;
 mod dbus;
+pub use commit::CommitNetworkConfig;
 
 #[cfg(test)]
 mod test {

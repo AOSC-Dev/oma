@@ -19,7 +19,6 @@ use std::path::{Path, PathBuf};
 use std::{borrow::Cow, sync::atomic::Ordering};
 
 use crate::config::Config;
-use crate::HTTP_CLIENT;
 use crate::{
     error::OutputError,
     table::table_for_history_pending,
@@ -232,16 +231,15 @@ impl CliExecuter for Undo {
             .dry_run(dry_run)
             .request_type(SummaryType::Undo)
             .no_fixbroken(no_fixbroken)
-            .network_thread(config.network_thread())
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())
             .fix_dpkg_status(true)
             .protect_essential(config.protect_essentials())
-            .client(&HTTP_CLIENT)
             .yes(false)
             .remove_config(remove_config)
-            .auth_config(&auth_config)
             .autoremove(autoremove)
+            .network_thread(config.network_thread())
+            .auth_config(&auth_config)
             .build()
             .run()
     }

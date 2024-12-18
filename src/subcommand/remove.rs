@@ -12,12 +12,12 @@ use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use tracing::{info, warn};
 
 use crate::config::Config;
+use crate::fl;
 use crate::pb::OmaProgressBar;
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},
 };
-use crate::{fl, HTTP_CLIENT};
 
 use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitChanges};
 use crate::args::CliExecuter;
@@ -234,23 +234,22 @@ impl CliExecuter for Remove {
 
         handle_no_result(&sysroot, no_result, no_progress)?;
 
-        let auth_config = AuthConfig::system(&sysroot)?;
+        let auth = AuthConfig::system(&sysroot)?;
 
         CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
             .request_type(SummaryType::Remove(remove_str))
             .no_fixbroken(!fix_broken)
-            .network_thread(config.network_thread())
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())
             .fix_dpkg_status(true)
             .protect_essential(config.protect_essentials())
-            .client(&HTTP_CLIENT)
             .yes(yes)
             .remove_config(remove_config)
-            .auth_config(&auth_config)
             .autoremove(!no_autoremove)
+            .network_thread(config.network_thread())
+            .auth_config(&auth)
             .build()
             .run()
     }

@@ -5,9 +5,10 @@ use flume::unbounded;
 use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
 use oma_fetch::{reqwest::ClientBuilder, Event};
 use oma_pm::{
-    apt::{AptConfig, CommitDownloadConfig, OmaApt, OmaAptArgs, OmaAptError, SummarySort},
+    apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError, SummarySort},
     matches::PackagesMatcher,
     progress::InstallProgressManager,
+    CommitNetworkConfig,
 };
 
 struct MyInstallProgressManager;
@@ -115,13 +116,13 @@ fn main() -> Result<(), OmaAptError> {
     });
 
     apt.commit(
-        &client,
-        CommitDownloadConfig {
-            network_thread: None,
-            auth: &AuthConfig::system("/").unwrap(),
-        },
         Box::new(MyInstallProgressManager),
         &op,
+        &client,
+        CommitNetworkConfig {
+            network_thread: None,
+            auth_config: &AuthConfig::system("/").unwrap(),
+        },
         |event| async {
             if let Err(e) = tx.send_async(event).await {
                 eprintln!("{:#?}", e);
