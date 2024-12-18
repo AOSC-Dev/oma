@@ -62,9 +62,12 @@ pub struct Install {
     /// Set apt options
     #[arg(from_global)]
     apt_options: Vec<String>,
-    /// Fix apt broken status
+    /// Fix apt resolver broken status
     #[arg(short, long)]
     fix_broken: bool,
+    /// Do not fix dpkg broken status
+    #[arg(short, long)]
+    no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(long)]
     force_unsafe_io: bool,
@@ -113,6 +116,7 @@ impl CliExecuter for Install {
             no_refresh_topics,
             autoremove,
             remove_config,
+            no_fix_dpkg_status,
         } = self;
 
         if !dry_run {
@@ -213,13 +217,13 @@ impl CliExecuter for Install {
             .no_fixbroken(!fix_broken)
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())
-            .fix_dpkg_status(true)
             .protect_essential(config.protect_essentials())
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(autoremove)
             .network_thread(config.network_thread())
             .auth_config(&auth_config)
+            .fix_dpkg_status(!no_fix_dpkg_status)
             .build()
             .run()
     }

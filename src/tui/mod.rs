@@ -37,6 +37,9 @@ pub struct Tui {
     /// Fix apt broken status
     #[arg(short, long)]
     fix_broken: bool,
+    /// Do not fix dpkg broken status
+    #[arg(short, long)]
+    no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(long)]
     force_unsafe_io: bool,
@@ -70,25 +73,6 @@ pub struct Tui {
     apt_options: Vec<String>,
 }
 
-impl Default for Tui {
-    fn default() -> Self {
-        Self {
-            fix_broken: Default::default(),
-            force_unsafe_io: Default::default(),
-            no_refresh: Default::default(),
-            force_yes: Default::default(),
-            force_confnew: Default::default(),
-            #[cfg(feature = "aosc")]
-            no_refresh_topics: Default::default(),
-            remove_config: Default::default(),
-            dry_run: Default::default(),
-            no_check_dbus: Default::default(),
-            sysroot: "/".into(),
-            apt_options: Default::default(),
-        }
-    }
-}
-
 impl From<&GlobalOptions> for Tui {
     fn from(value: &GlobalOptions) -> Self {
         Self {
@@ -100,6 +84,7 @@ impl From<&GlobalOptions> for Tui {
             #[cfg(feature = "aosc")]
             no_refresh_topics: Default::default(),
             remove_config: Default::default(),
+            no_fix_dpkg_status: Default::default(),
             dry_run: value.dry_run,
             no_check_dbus: value.no_check_dbus,
             sysroot: value.sysroot.clone(),
@@ -123,6 +108,7 @@ impl CliExecuter for Tui {
             no_check_dbus,
             sysroot,
             apt_options,
+            no_fix_dpkg_status,
         } = self;
 
         if dry_run {
@@ -270,7 +256,7 @@ impl CliExecuter for Tui {
                 .no_fixbroken(!fix_broken)
                 .no_progress(no_progress)
                 .sysroot(sysroot.to_string_lossy().to_string())
-                .fix_dpkg_status(true)
+                .fix_dpkg_status(!no_fix_dpkg_status)
                 .protect_essential(config.protect_essentials())
                 .yes(false)
                 .remove_config(remove_config)

@@ -279,7 +279,7 @@ pub(crate) struct CommitChanges<'a> {
     no_progress: bool,
     #[builder(default = "/".into())]
     sysroot: String,
-    #[builder(default)]
+    #[builder(default = true)]
     fix_dpkg_status: bool,
     #[builder(default = true)]
     protect_essential: bool,
@@ -322,7 +322,14 @@ impl CommitChanges<'_> {
                 apt.autoremove(remove_config)?;
             }
 
-            apt.fix_broken(!no_fixbroken, fix_dpkg_status)?;
+            if !no_fixbroken {
+                apt.fix_resolver_broken();
+            }
+
+            if fix_dpkg_status {
+                apt.fix_dpkg_status()?;
+            }
+
             apt.resolve(no_fixbroken, remove_config)?;
 
             Ok(())

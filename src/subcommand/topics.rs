@@ -48,6 +48,9 @@ pub struct Topics {
     /// Fix apt broken status
     #[arg(short, long)]
     no_fixbroken: bool,
+    /// Do not fix dpkg broken status
+    #[arg(short, long)]
+    no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(long)]
     force_unsafe_io: bool,
@@ -124,6 +127,7 @@ impl CliExecuter for Topics {
             sysroot,
             apt_options,
             all,
+            no_fix_dpkg_status,
         } = self;
 
         if !dry_run {
@@ -230,7 +234,7 @@ impl CliExecuter for Topics {
                 .no_fixbroken(!no_fixbroken)
                 .no_progress(no_progress)
                 .sysroot(sysroot.to_string_lossy().to_string())
-                .fix_dpkg_status(true)
+                .fix_dpkg_status(!no_fix_dpkg_status)
                 .protect_essential(config.protect_essentials())
                 .yes(false)
                 .remove_config(remove_config)

@@ -556,14 +556,11 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn fix_broken(&mut self, fix_resolver: bool, fix_dpkg_status: bool) -> OmaAptResult<()> {
-        if fix_resolver {
-            self.cache.fix_broken();
-        }
+    pub fn fix_resolver_broken(&self) {
+        self.cache.fix_broken();
+    }
 
-        self.resolve(false, false)?;
-        let changes = self.cache.get_changes(false).collect::<Vec<_>>();
-
+    pub fn fix_dpkg_status(&self) -> OmaAptResult<()> {
         let sort = PackageSort::default().installed();
         let pkgs = self.cache.packages(&sort);
 
@@ -586,38 +583,34 @@ impl OmaApt {
             need_retriggers = true;
         } else {
             for pkg in pkgs {
-                // current_state 的定义来自 apt 的源码:
-                //    enum PkgCurrentState {NotInstalled=0,UnPacked=1,HalfConfigured=2,
-                //    HalfInstalled=4,ConfigFiles=5,Installed=6,
-                //    TriggersAwaited=7,TriggersPending=8};
-                if pkg.current_state() != PkgCurrentState::Installed && !changes.contains(&pkg) {
-                    debug!(
-                        "pkg {} current state is {:?}",
-                        pkg.fullname(true),
-                        pkg.current_state()
-                    );
-                    match pkg.current_state() {
-                        PkgCurrentState::NotInstalled | PkgCurrentState::HalfInstalled => {
-                            pkg.mark_reinstall(true);
-                        }
-                        PkgCurrentState::HalfConfigured | PkgCurrentState::UnPacked => {
-                            need_reconfigure = true;
-                        }
-                        PkgCurrentState::TriggersAwaited | PkgCurrentState::TriggersPending => {
-                            need_retriggers = true;
-                        }
-                        _ => continue,
+                if pkg.current_state() == PkgCurrentState::Installed {
+                    continue;
+                }
+
+                debug!(
+                    "pkg {} current state is {:?}",
+                    pkg.fullname(true),
+                    pkg.current_state()
+                );
+                match pkg.current_state() {
+                    PkgCurrentState::NotInstalled | PkgCurrentState::HalfInstalled => {
+                        pkg.mark_reinstall(true);
                     }
+                    PkgCurrentState::HalfConfigured | PkgCurrentState::UnPacked => {
+                        need_reconfigure = true;
+                    }
+                    PkgCurrentState::TriggersAwaited | PkgCurrentState::TriggersPending => {
+                        need_retriggers = true;
+                    }
+                    _ => continue,
                 }
             }
         }
 
-        if !fix_dpkg_status {
-            if need_reconfigure || need_retriggers {
-                warn!("Your system has broken status, Please run `oma fix-broken' to fix it.");
-            }
-            return Ok(());
-        }
+        debug!(
+            "need_reconfigure: {} need_retriggers: {}",
+            need_reconfigure, need_retriggers
+        );
 
         if need_reconfigure {
             self.run_dpkg_configure()?;
