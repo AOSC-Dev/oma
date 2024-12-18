@@ -15,6 +15,12 @@ use tabled::settings::peaker::PriorityMax;
 use tabled::settings::{Alignment, Padding, Style, Width};
 use tabled::{Table, Tabled};
 
+/// Debian version format, see https://www.debian.org/doc/debian-policy/ch-controlfields.html#version
+/// for more information
+///
+/// Omitting ':' here as we have a preversion filter in `version_diff()`
+const BOUNDARIES: &[char] = &['.', '-', '~', '+'];
+
 #[derive(Debug, Tabled)]
 struct InstallEntryDisplay {
     name: String,
@@ -574,17 +580,14 @@ fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<
 }
 
 fn version_diff_equal_length(old_version: &str, new_version: &str) -> Option<usize> {
+    // 此处不能出现版本长度不一致的情况，否则是逻辑错误
     assert_eq!(old_version.len(), new_version.len());
-    // Debian version format, see https://www.debian.org/doc/debian-policy/ch-controlfields.html#version
-    // for more information
-    //
-    // Omitting ':' here as we have a preversion filter in `version_diff()`
-    let boundaries = ['.', '-', '~', '+'];
+
     let mut boundary_pos = None;
     let new_version_chars = new_version.chars().collect::<Vec<_>>();
     for (i, c) in old_version.chars().enumerate() {
         // find version boundaries to get the position for small chunks of the version string
-        if boundaries.contains(&c) {
+        if BOUNDARIES.contains(&c) {
             boundary_pos = Some(i + 1);
         }
         let c2 = new_version_chars[i];
