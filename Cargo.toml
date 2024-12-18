@@ -13,7 +13,6 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "derive"] }
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
-# https://github.com/zhiburt/tabled/issues/423
 tabled = { version = "0.17.0", features = ["ansi"] }
 dialoguer = "0.11.0"
 tokio = "1.40.0"
