@@ -522,11 +522,20 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
 }
 
 fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<usize>) {
-    let old_version_is_preversion = old_version.contains(':');
-    let new_version_is_preversion = new_version.contains(':');
+    let old_version_has_epoch = old_version.contains(':');
+    let new_version_has_epoch = new_version.contains(':');
 
-    if (old_version_is_preversion || new_version_is_preversion)
-        && !(old_version_is_preversion && new_version_is_preversion)
+    if (old_version_has_epoch || new_version_has_epoch)
+        && !(old_version_has_epoch && new_version_has_epoch)
+    {
+        return (Some(0), Some(0));
+    }
+
+    if old_version_has_epoch
+        && new_version_has_epoch
+        && old_version
+            .split_once(':')
+            .is_some_and(|x| new_version.split_once(':').is_some_and(|y| x.0 != y.0))
     {
         return (Some(0), Some(0));
     }
