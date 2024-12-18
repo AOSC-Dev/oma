@@ -78,6 +78,9 @@ pub struct Topics {
     /// Set apt options
     #[arg(from_global)]
     apt_options: Vec<String>,
+    /// Always write status to atm file and sources.list
+    #[arg(long)]
+    always_write_status: bool,
 }
 
 struct TopicChanged {
@@ -124,6 +127,7 @@ impl CliExecuter for Topics {
             sysroot,
             apt_options,
             all,
+            always_write_status,
         } = self;
 
         if !dry_run {
@@ -238,6 +242,7 @@ impl CliExecuter for Topics {
                 .remove_config(remove_config)
                 .auth_config(&auth_config)
                 .autoremove(autoremove)
+                .check_update(true)
                 .build()
                 .run()?;
 
@@ -245,10 +250,13 @@ impl CliExecuter for Topics {
         });
 
         match code {
-            Ok(0) => RT.block_on(tm.write_enabled())?,
-            Ok(_) => {
-                error!("{}", fl!("topics-unchanged"));
-                revert_sources_list(&tm)?
+            Ok(x) => {
+                if x != 0 && !always_write_status {
+                    error!("{}", fl!("topics-unchanged"));
+                    revert_sources_list(&tm)?;
+                } else {
+                    RT.block_on(tm.write_enabled())?;
+                }
             }
             Err(e) => {
                 error!("{}", fl!("topics-unchanged"));

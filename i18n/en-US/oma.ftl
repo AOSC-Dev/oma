@@ -227,3 +227,7 @@ lack-auth-config-1 = oma is unable to access the specified package(s) from the r
 lack-auth-config-2 = Please verify if your APT authorization configurations (/etc/apt/auth.conf.d) were set up correctly.
 success = The operation was completed successfully.
 topics-unchanged = oma was unable complete topic opt-out operation(s) and has kept the topic status unchanged.
+tum-1 = oma has found { $updates } updates available for your system.
+tum-1-with-security =  oma has found { $updates } updates available for your system ({ $security } security updates are marked in { $security_str }).
+tum-2 = In order to fulfill the operations you specified, oma will need to perform the following changes to your system components. The details are as follows.Details of the component changes for this operation are as follows.
+security = security update(s)
