@@ -17,6 +17,9 @@ use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct FixBroken {
+    /// Do not fix dpkg broken status
+    #[arg(short, long)]
+    no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(long)]
     force_unsafe_io: bool,
@@ -61,6 +64,7 @@ impl CliExecuter for FixBroken {
             no_check_dbus,
             sysroot,
             apt_options,
+            no_fix_dpkg_status,
         } = self;
 
         let mut _fds = None;
@@ -90,7 +94,7 @@ impl CliExecuter for FixBroken {
             .network_thread(config.network_thread())
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())
-            .fix_dpkg_status(true)
+            .fix_dpkg_status(!no_fix_dpkg_status)
             .protect_essential(config.protect_essentials())
             .client(&HTTP_CLIENT)
             .yes(false)
