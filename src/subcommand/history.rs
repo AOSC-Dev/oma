@@ -76,6 +76,9 @@ pub struct Undo {
     /// Do not fix apt broken status
     #[arg(short, long)]
     no_fixbroken: bool,
+    /// Do not fix dpkg broken status
+    #[arg(short, long)]
+    no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(long)]
     force_unsafe_io: bool,
@@ -121,6 +124,7 @@ impl CliExecuter for Undo {
             no_check_dbus,
             sysroot,
             apt_options,
+            no_fix_dpkg_status,
         } = self;
 
         let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
@@ -233,7 +237,7 @@ impl CliExecuter for Undo {
             .no_fixbroken(no_fixbroken)
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())
-            .fix_dpkg_status(true)
+            .fix_dpkg_status(!no_fix_dpkg_status)
             .protect_essential(config.protect_essentials())
             .yes(false)
             .remove_config(remove_config)

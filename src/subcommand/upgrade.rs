@@ -62,6 +62,9 @@ pub(crate) struct Upgrade {
     /// Do not fix apt broken status
     #[arg(short, long)]
     no_fixbroken: bool,
+    /// Do not fix dpkg broken status
+    #[arg(short, long)]
+    no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(long)]
     force_unsafe_io: bool,
@@ -127,6 +130,7 @@ impl CliExecuter for Upgrade {
             apt_options,
             #[cfg(not(feature = "aosc"))]
             no_remove,
+            no_fix_dpkg_status,
         } = self;
 
         if !dry_run {
@@ -250,16 +254,30 @@ impl CliExecuter for Upgrade {
                 None
             };
 
-            apt.resolve(no_fixbroken, remove_config)?;
+            let res = Ok(()).and_then(|_| -> Result<(), OutputError> {
+                if !no_fixbroken {
+                    apt.fix_resolver_broken();
+                }
 
-            if autoremove {
-                apt.autoremove(false)?;
-                apt.resolve(false, remove_config)?;
-            }
+                if !no_fix_dpkg_status {
+                    apt.fix_dpkg_status()?;
+                }
+
+                apt.resolve(no_fixbroken, remove_config)?;
+
+                if autoremove {
+                    apt.autoremove(remove_config)?;
+                    apt.resolve(false, remove_config)?;
+                }
+
+                Ok(())
+            });
 
             if let Some(pb) = pb {
                 pb.inner.finish_and_clear()
             }
+
+            res?;
 
             let op = apt.summary(
                 SummarySort::Operation,
