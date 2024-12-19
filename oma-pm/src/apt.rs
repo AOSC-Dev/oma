@@ -10,8 +10,8 @@ use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 pub use oma_apt::cache::Upgrade;
-use tokio::runtime::Runtime;
 use std::future::Future;
+use tokio::runtime::Runtime;
 use zbus::Connection;
 
 use oma_apt::{

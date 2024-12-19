@@ -71,9 +71,7 @@ impl DynInstallProgress for OmaAptInstallProgress {
 
         self.tokio.block_on(async move {
             if let Some(conn) = conn {
-                change_status(conn, &format!("i {pkgname}"))
-                    .await
-                    .ok();
+                change_status(conn, &format!("i {pkgname}")).await.ok();
             }
         });
     }
