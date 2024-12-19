@@ -10,7 +10,9 @@ use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 pub use oma_apt::cache::Upgrade;
+use tokio::runtime::Runtime;
 use std::future::Future;
+use zbus::Connection;
 
 use oma_apt::{
     cache::{Cache, PackageSort},
@@ -36,6 +38,7 @@ pub use oma_pm_operation_type::*;
 
 use crate::{
     commit::{CommitNetworkConfig, DoInstall},
+    dbus::{OmaBus, Status},
     download::download_pkgs,
     matches::MatcherError,
     pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
@@ -74,6 +77,8 @@ pub struct OmaApt {
     select_pkgs: HashSet<u64>,
     unmet: Vec<Vec<BrokenPackage>>,
     archive_dir: OnceCell<PathBuf>,
+    pub(crate) tokio: Runtime,
+    pub(crate) conn: Option<Connection>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -170,6 +175,22 @@ impl OmaApt {
     ) -> OmaAptResult<Self> {
         let config = Self::init_config(config, args)?;
 
+        let tokio = tokio::runtime::Builder::new_multi_thread()
+            .enable_time()
+            .enable_io()
+            .build()
+            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
+
+        let conn = tokio.block_on(async {
+            match Self::create_session().await {
+                Ok(conn) => Some(conn),
+                Err(e) => {
+                    debug!("Failed to create D-Bus session: {:?}", e);
+                    None
+                }
+            }
+        });
+
         Ok(Self {
             cache: new_cache!(&local_debs)?,
             config,
@@ -178,7 +199,26 @@ impl OmaApt {
             select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
             unmet: vec![],
             archive_dir: OnceCell::new(),
+            tokio,
+            conn,
         })
+    }
+
+    async fn create_session() -> Result<Connection, zbus::Error> {
+        let conn = zbus::connection::Builder::system()?
+            .name("io.aosc.Oma")?
+            .serve_at(
+                "/io/aosc/Oma",
+                OmaBus {
+                    status: Status::Pending,
+                },
+            )?
+            .build()
+            .await?;
+
+        debug!("zbus session created");
+
+        Ok(conn)
     }
 
     /// Init apt config (before create new apt manager)

@@ -9,13 +9,11 @@ use oma_apt::{
 use oma_fetch::{reqwest::Client, DownloadError, Event, Summary};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
 use std::io::Write;
-use tokio::runtime::Runtime;
 use tracing::debug;
-use zbus::Connection;
 
 use crate::{
     apt::{DownloadConfig, OmaApt, OmaAptError, OmaAptResult},
-    dbus::{change_status, OmaBus, Status},
+    dbus::change_status,
     download::download_pkgs,
     progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
 };
@@ -31,8 +29,6 @@ pub struct DoInstall<'a> {
     apt: OmaApt,
     client: &'a Client,
     sysroot: &'a str,
-    tokio: Runtime,
-    conn: Option<Connection>,
     config: CommitNetworkConfig<'a>,
 }
 
@@ -43,47 +39,12 @@ impl<'a> DoInstall<'a> {
         sysroot: &'a str,
         config: CommitNetworkConfig<'a>,
     ) -> Result<Self, OmaAptError> {
-        let tokio = tokio::runtime::Builder::new_multi_thread()
-            .enable_time()
-            .enable_io()
-            .build()
-            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
-
-        let conn = tokio.block_on(async {
-            match Self::create_session().await {
-                Ok(conn) => Some(conn),
-                Err(e) => {
-                    debug!("Failed to create D-Bus session: {:?}", e);
-                    None
-                }
-            }
-        });
-
         Ok(Self {
             apt,
             sysroot,
-            tokio,
-            conn,
             client,
             config,
         })
-    }
-
-    async fn create_session() -> Result<Connection, zbus::Error> {
-        let conn = zbus::connection::Builder::system()?
-            .name("io.aosc.Oma")?
-            .serve_at(
-                "/io/aosc/Oma",
-                OmaBus {
-                    status: Status::Configing,
-                },
-            )?
-            .build()
-            .await?;
-
-        debug!("zbus session created");
-
-        Ok(conn)
     }
 
     pub fn commit<F, Fut>(
@@ -97,7 +58,6 @@ impl<'a> DoInstall<'a> {
         Fut: std::future::Future<Output = ()>,
     {
         self.download_pkgs(&op.install, callback)?;
-
         self.do_install(install_progress_manager, op)?;
 
         Ok(())
@@ -114,8 +74,8 @@ impl<'a> DoInstall<'a> {
     {
         let path = self.apt.get_archive_dir();
 
-        self.tokio.block_on(async {
-            if let Some(conn) = &self.conn {
+        self.apt.tokio.block_on(async {
+            if let Some(conn) = &self.apt.conn {
                 change_status(conn, "Downloading").await.ok();
             }
 
@@ -148,8 +108,8 @@ impl<'a> DoInstall<'a> {
 
         let args = InstallProgressArgs {
             config: self.apt.config,
-            tokio: self.tokio,
-            connection: self.conn,
+            tokio: self.apt.tokio,
+            connection: self.apt.conn,
         };
 
         let mut progress =

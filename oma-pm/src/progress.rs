@@ -32,7 +32,6 @@ pub trait InstallProgressManager {
 }
 
 impl OmaAptInstallProgress {
-    #[allow(dead_code)]
     pub fn new(args: InstallProgressArgs, pm: Box<dyn InstallProgressManager>) -> Self {
         let InstallProgressArgs {
             config,
@@ -72,7 +71,7 @@ impl DynInstallProgress for OmaAptInstallProgress {
 
         self.tokio.block_on(async move {
             if let Some(conn) = conn {
-                change_status(conn, &format!("Changing package {pkgname}"))
+                change_status(conn, &format!("i {pkgname}"))
                     .await
                     .ok();
             }
