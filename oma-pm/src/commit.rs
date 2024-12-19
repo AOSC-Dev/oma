@@ -134,16 +134,7 @@ impl<'a> DoInstall<'a> {
         install_progress_manager: Box<dyn InstallProgressManager>,
         op: &OmaOperation,
     ) -> OmaAptResult<()> {
-        if let Err(e) = apt_lock() {
-            let e_str = e.to_string();
-            if e_str.contains("dpkg --configure -a") {
-                self.apt.run_dpkg_configure()?;
-
-                apt_lock()?;
-            } else {
-                return Err(e.into());
-            }
-        }
+        apt_lock()?;
 
         debug!("Try to get apt archives");
 
