@@ -16,7 +16,7 @@ impl OmaBus {
         match &self.status {
             Status::Pending => "Pending".to_string(),
             Status::Downloading => "Downloading".to_string(),
-            Status::Working(pkg) => format!("Processing package {pkg}"),
+            Status::Working(pkg) => pkg.to_string(),
         }
     }
 
