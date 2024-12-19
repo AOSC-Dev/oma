@@ -415,6 +415,13 @@ fn find_another_oma() -> Result<(), OutputError> {
 async fn find_another_oma_inner() -> Result<(), OutputError> {
     let conn = create_dbus_connection().await?;
     let status = get_another_oma_status(&conn).await?;
+
+    let status = match status.as_str() {
+        "Pending" => fl!("status-pending"),
+        "Downloading" => fl!("status-downloading"),
+        pkg => fl!("status-package", pkg = pkg),
+    };
+
     error!("{}", fl!("another-oma-is-running", s = status));
 
     Ok(())

@@ -223,3 +223,6 @@ lack-auth-config-1 = 由于缺少鉴权配置，oma 无法从软件源访问指�
 lack-auth-config-2 = 请检查您的 APT 鉴权配置 (/etc/apt/auth.conf.d)。
 success = 操作已成功完成。
 topics-unchanged = oma 在退出测试源时遇到错误，因此未保存测试源配置状态。
+status-pending = 等待操作中
+status-downloading = 正在下载软件包
+status-package = 正在处理软件包 { $pkg }

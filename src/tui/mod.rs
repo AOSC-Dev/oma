@@ -268,16 +268,15 @@ impl CliExecuter for Tui {
                 .dry_run(dry_run)
                 .request_type(SummaryType::Changes)
                 .no_fixbroken(!fix_broken)
-                .network_thread(config.network_thread())
                 .no_progress(no_progress)
                 .sysroot(sysroot.to_string_lossy().to_string())
                 .fix_dpkg_status(true)
                 .protect_essential(config.protect_essentials())
-                .client(&HTTP_CLIENT)
                 .yes(false)
                 .remove_config(remove_config)
-                .auth_config(&auth_config)
                 .autoremove(autoremove)
+                .auth_config(&auth_config)
+                .network_thread(config.network_thread())
                 .build()
                 .run()?;
         }
