@@ -156,7 +156,7 @@ impl CliExecuter for Topics {
             RT.block_on(tm.write_sources_list(
                 &fl!("do-not-edit-topic-sources-list"),
                 false,
-                |topic, mirror| {
+                |topic, mirror| async {
                     warn!(
                         "{}",
                         fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
@@ -265,7 +265,7 @@ fn revert_sources_list(tm: &TopicManager<'_>) -> Result<(), OutputError> {
     RT.block_on(tm.write_sources_list(
         &fl!("do-not-edit-topic-sources-list"),
         true,
-        |topic, mirror| {
+        |topic, mirror| async {
             warn!(
                 "{}",
                 fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
@@ -407,7 +407,7 @@ async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<
     scan_closed_topic(
         tm,
         &fl!("do-not-edit-topic-sources-list"),
-        |topic, mirror| {
+        |topic, mirror| async {
             if let Some(pb) = &pb {
                 pb.writeln(
                     &style("WARNING").yellow().bold().to_string(),

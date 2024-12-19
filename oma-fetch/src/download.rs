@@ -1,6 +1,7 @@
 use crate::{CompressFile, DownloadSource, Event};
 use std::{
     fs::Permissions,
+    future::Future,
     io::{self, ErrorKind, SeekFrom},
     os::unix::fs::PermissionsExt,
     path::Path,
@@ -27,7 +28,7 @@ use tracing::debug;
 
 use crate::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Summary};
 
-#[derive(Debug, Builder)]
+#[derive(Builder)]
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
     pub entry: &'a DownloadEntry,
@@ -38,11 +39,18 @@ pub(crate) struct SingleDownloader<'a> {
     file_type: CompressFile,
     set_permission: Option<u32>,
     timeout: Duration,
-    sender: &'a flume::Sender<Event>,
 }
 
 impl<'a> SingleDownloader<'a> {
-    pub(crate) async fn try_download(self, global_progress: &AtomicU64) -> DownloadResult<Summary> {
+    pub(crate) async fn try_download<F, Fut>(
+        self,
+        global_progress: &AtomicU64,
+        callback: &F,
+    ) -> DownloadResult<Summary>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         let mut sources = self.entry.source.clone();
         sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
 
@@ -51,21 +59,23 @@ impl<'a> SingleDownloader<'a> {
         for (i, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
                 DownloadSourceType::Http { auth } => {
-                    self.try_http_download(global_progress, c, auth).await
+                    self.try_http_download(global_progress, c, auth, callback)
+                        .await
                 }
                 DownloadSourceType::Local(as_symlink) => {
-                    self.download_local(global_progress, c, *as_symlink).await
+                    self.download_local(global_progress, c, *as_symlink, callback)
+                        .await
                 }
             };
 
             match download_res {
                 Ok(download_res) => {
-                    self.sender
-                        .send_async(Event::DownloadDone {
-                            index: self.download_list_index,
-                            msg: msg.into(),
-                        })
-                        .await?;
+                    callback(Event::DownloadDone {
+                        index: self.download_list_index,
+                        msg: msg.into(),
+                    })
+                    .await;
+
                     return Ok(download_res);
                 }
                 Err(e) => {
@@ -73,12 +83,12 @@ impl<'a> SingleDownloader<'a> {
                         return Err(e);
                     }
                     debug!("{c:?} download failed {e}, trying next url.");
-                    self.sender
-                        .send_async(Event::NextUrl {
-                            index: self.download_list_index,
-                            err: e.to_string(),
-                        })
-                        .await?;
+
+                    callback(Event::NextUrl {
+                        index: self.download_list_index,
+                        err: e.to_string(),
+                    })
+                    .await;
                 }
             }
         }
@@ -87,17 +97,22 @@ impl<'a> SingleDownloader<'a> {
     }
 
     /// Download file with retry (http)
-    async fn try_http_download(
+    async fn try_http_download<F, Fut>(
         &self,
         global_progress: &AtomicU64,
         source: &DownloadSource,
         auth: &Option<(Box<str>, Box<str>)>,
-    ) -> DownloadResult<Summary> {
+        callback: &F,
+    ) -> DownloadResult<Summary>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         let mut times = 1;
         let mut allow_resume = self.entry.allow_resume;
         loop {
             match self
-                .http_download(global_progress, allow_resume, source, auth)
+                .http_download(global_progress, allow_resume, source, auth, callback)
                 .await
             {
                 Ok(s) => {
@@ -110,13 +125,12 @@ impl<'a> SingleDownloader<'a> {
                         }
 
                         if times > 1 {
-                            self.sender
-                                .send_async(Event::ChecksumMismatch {
-                                    index: self.download_list_index,
-                                    filename: filename.into(),
-                                    times,
-                                })
-                                .await?;
+                            callback(Event::ChecksumMismatch {
+                                index: self.download_list_index,
+                                filename: filename.into(),
+                                times,
+                            })
+                            .await;
                         }
 
                         times += 1;
@@ -130,13 +144,18 @@ impl<'a> SingleDownloader<'a> {
         }
     }
 
-    async fn http_download(
+    async fn http_download<F, Fut>(
         &self,
         global_progress: &AtomicU64,
         allow_resume: bool,
         source: &DownloadSource,
         auth: &Option<(Box<str>, Box<str>)>,
-    ) -> DownloadResult<Summary> {
+        callback: &F,
+    ) -> DownloadResult<Summary>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         let file = self.entry.dir.join(&*self.entry.filename);
         let file_exist = file.exists();
         let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
@@ -188,11 +207,10 @@ impl<'a> SingleDownloader<'a> {
                     v.update(&buf[..read_count]);
 
                     global_progress.fetch_add(read_count as u64, Ordering::SeqCst);
-                    self.sender
-                        .send_async(Event::GlobalProgressSet(
-                            global_progress.load(Ordering::SeqCst),
-                        ))
-                        .await?;
+                    callback(Event::GlobalProgressSet(
+                        global_progress.load(Ordering::SeqCst),
+                    ))
+                    .await;
 
                     read += read_count as u64;
                 }
@@ -203,9 +221,7 @@ impl<'a> SingleDownloader<'a> {
                         self.entry.filename
                     );
 
-                    self.sender
-                        .send_async(Event::ProgressDone(self.download_list_index))
-                        .await?;
+                    callback(Event::ProgressDone(self.download_list_index)).await;
 
                     return Ok(Summary {
                         filename: self.entry.filename.clone(),
@@ -222,11 +238,10 @@ impl<'a> SingleDownloader<'a> {
 
                 if !allow_resume {
                     global_progress.fetch_sub(read, Ordering::SeqCst);
-                    self.sender
-                        .send_async(Event::GlobalProgressSet(
-                            global_progress.load(Ordering::SeqCst),
-                        ))
-                        .await?;
+                    callback(Event::GlobalProgressSet(
+                        global_progress.load(Ordering::SeqCst),
+                    ))
+                    .await;
                 } else {
                     dest = Some(f);
                     validator = Some(v);
@@ -235,27 +250,22 @@ impl<'a> SingleDownloader<'a> {
         }
 
         let msg = self.progress_msg();
-        self.sender
-            .send_async(Event::NewProgressSpinner {
-                index: self.download_list_index,
-                msg: msg.clone(),
-            })
-            .await?;
+        callback(Event::NewProgressSpinner {
+            index: self.download_list_index,
+            msg: msg.clone(),
+        })
+        .await;
 
         let req = self.build_request_with_basic_auth(&source.url, Method::HEAD, auth);
 
         let resp_head = match timeout(self.timeout, req.send()).await {
             Ok(Ok(resp)) => resp,
             Ok(Err(e)) => {
-                self.sender
-                    .send_async(Event::ProgressDone(self.download_list_index))
-                    .await?;
+                callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(DownloadError::ReqwestError(e));
             }
             Err(e) => {
-                self.sender
-                    .send_async(Event::ProgressDone(self.download_list_index))
-                    .await?;
+                callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(DownloadError::IOError(
                     self.entry.filename.to_string(),
                     io::Error::new(ErrorKind::TimedOut, e),
@@ -301,11 +311,10 @@ impl<'a> SingleDownloader<'a> {
                 debug!("Exist file size is reset to 0, because total size <= exist file size");
                 let gp = global_progress.load(Ordering::SeqCst);
                 global_progress.store(gp.saturating_sub(file_size), Ordering::SeqCst);
-                self.sender
-                    .send_async(Event::GlobalProgressSet(
-                        global_progress.load(Ordering::SeqCst),
-                    ))
-                    .await?;
+                callback(Event::GlobalProgressSet(
+                    global_progress.load(Ordering::SeqCst),
+                ))
+                .await;
                 file_size = 0;
                 can_resume = false;
             }
@@ -320,23 +329,18 @@ impl<'a> SingleDownloader<'a> {
         let resp = req.send().await.map_err(DownloadError::ReqwestError)?;
 
         if let Err(e) = resp.error_for_status_ref() {
-            self.sender
-                .send_async(Event::ProgressDone(self.download_list_index))
-                .await?;
+            callback(Event::ProgressDone(self.download_list_index)).await;
             return Err(DownloadError::ReqwestError(e));
         } else {
-            self.sender
-                .send_async(Event::ProgressDone(self.download_list_index))
-                .await?;
+            callback(Event::ProgressDone(self.download_list_index)).await;
         }
 
-        self.sender
-            .send_async(Event::NewProgressBar {
-                index: self.download_list_index,
-                msg,
-                size: total_size,
-            })
-            .await?;
+        callback(Event::NewProgressBar {
+            index: self.download_list_index,
+            msg,
+            size: total_size,
+        })
+        .await;
 
         let source = resp;
 
@@ -344,12 +348,12 @@ impl<'a> SingleDownloader<'a> {
         // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
         let hash = &self.entry.hash;
         let mut validator = if let Some(v) = validator {
-            self.sender
-                .send_async(Event::ProgressInc {
-                    index: self.download_list_index,
-                    size: file_size,
-                })
-                .await?;
+            callback(Event::ProgressInc {
+                index: self.download_list_index,
+                size: file_size,
+            })
+            .await;
+
             Some(v)
         } else {
             hash.as_ref().map(|hash| hash.get_validator())
@@ -366,17 +370,13 @@ impl<'a> SingleDownloader<'a> {
             let f = match File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
-                    self.sender
-                        .send_async(Event::ProgressDone(self.download_list_index))
-                        .await?;
+                    callback(Event::ProgressDone(self.download_list_index)).await;
                     return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
                 }
             };
 
             if let Err(e) = f.set_len(0).await {
-                self.sender
-                    .send_async(Event::ProgressDone(self.download_list_index))
-                    .await?;
+                callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
 
@@ -400,17 +400,13 @@ impl<'a> SingleDownloader<'a> {
             let f = match File::create(&file).await {
                 Ok(f) => f,
                 Err(e) => {
-                    self.sender
-                        .send_async(Event::ProgressDone(self.download_list_index))
-                        .await?;
+                    callback(Event::ProgressDone(self.download_list_index)).await;
                     return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
                 }
             };
 
             if let Err(e) = f.set_len(0).await {
-                self.sender
-                    .send_async(Event::ProgressDone(self.download_list_index))
-                    .await?;
+                callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
 
@@ -423,9 +419,7 @@ impl<'a> SingleDownloader<'a> {
             // 把文件指针移动到末尾
             debug!("oma will seek file: {} to end", self.entry.filename);
             if let Err(e) = dest.seek(SeekFrom::End(0)).await {
-                self.sender
-                    .send_async(Event::ProgressDone(self.download_list_index))
-                    .await?;
+                callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
         }
@@ -453,18 +447,14 @@ impl<'a> SingleDownloader<'a> {
             let size = match timeout(self.timeout, reader.read(&mut buf[..])).await {
                 Ok(Ok(size)) => size,
                 Ok(Err(e)) => {
-                    self.sender
-                        .send_async(Event::ProgressDone(self.download_list_index))
-                        .await?;
+                    callback(Event::ProgressDone(self.download_list_index)).await;
                     return Err(DownloadError::IOError(
                         self.entry.filename.to_string(),
                         io::Error::new(ErrorKind::BrokenPipe, e),
                     ));
                 }
                 Err(e) => {
-                    self.sender
-                        .send_async(Event::ProgressDone(self.download_list_index))
-                        .await?;
+                    callback(Event::ProgressDone(self.download_list_index)).await;
                     return Err(DownloadError::IOError(
                         self.entry.filename.to_string(),
                         io::Error::new(ErrorKind::TimedOut, e),
@@ -477,27 +467,23 @@ impl<'a> SingleDownloader<'a> {
             }
 
             if let Err(e) = dest.write_all(&buf[..size]).await {
-                self.sender
-                    .send_async(Event::ProgressDone(self.download_list_index))
-                    .await?;
+                callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
             }
 
-            self.sender
-                .send_async(Event::ProgressInc {
-                    index: self.download_list_index,
-                    size: size as u64,
-                })
-                .await?;
+            callback(Event::ProgressInc {
+                index: self.download_list_index,
+                size: size as u64,
+            })
+            .await;
 
             self_progress += size as u64;
 
             global_progress.fetch_add(size as u64, Ordering::SeqCst);
-            self.sender
-                .send_async(Event::GlobalProgressSet(
-                    global_progress.load(Ordering::SeqCst),
-                ))
-                .await?;
+            callback(Event::GlobalProgressSet(
+                global_progress.load(Ordering::SeqCst),
+            ))
+            .await;
 
             if let Some(ref mut v) = validator {
                 v.update(&buf[..size]);
@@ -507,9 +493,7 @@ impl<'a> SingleDownloader<'a> {
         // 下载完成，告诉内核不再写这个文件了
         debug!("Download complete! shutting down dest file stream ...");
         if let Err(e) = dest.shutdown().await {
-            self.sender
-                .send_async(Event::ProgressDone(self.download_list_index))
-                .await?;
+            callback(Event::ProgressDone(self.download_list_index)).await;
             return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
         }
 
@@ -522,14 +506,11 @@ impl<'a> SingleDownloader<'a> {
 
                 global_progress.fetch_sub(self_progress, Ordering::SeqCst);
 
-                self.sender
-                    .send_async(Event::GlobalProgressSet(
-                        global_progress.load(Ordering::SeqCst),
-                    ))
-                    .await?;
-                self.sender
-                    .send_async(Event::ProgressDone(self.download_list_index))
-                    .await?;
+                callback(Event::GlobalProgressSet(
+                    global_progress.load(Ordering::SeqCst),
+                ))
+                .await;
+                callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(DownloadError::ChecksumMismatch(
                     self.entry.filename.to_string(),
                 ));
@@ -538,9 +519,7 @@ impl<'a> SingleDownloader<'a> {
             debug!("checksum success: {}", self.entry.filename);
         }
 
-        self.sender
-            .send_async(Event::ProgressDone(self.download_list_index))
-            .await?;
+        callback(Event::ProgressDone(self.download_list_index)).await;
 
         Ok(Summary {
             filename: self.entry.filename.clone(),
@@ -598,12 +577,17 @@ impl<'a> SingleDownloader<'a> {
     }
 
     /// Download local source file
-    async fn download_local(
+    async fn download_local<F, Fut>(
         &self,
         global_progress: &AtomicU64,
         source: &DownloadSource,
         as_symlink: bool,
-    ) -> DownloadResult<Summary> {
+        callback: &F,
+    ) -> DownloadResult<Summary>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         debug!("{:?}", self.entry);
         let msg = self.progress_msg();
 
@@ -622,13 +606,12 @@ impl<'a> SingleDownloader<'a> {
             })?
             .len();
 
-        self.sender
-            .send_async(Event::NewProgressBar {
-                index: self.download_list_index,
-                msg,
-                size: total_size,
-            })
-            .await?;
+        callback(Event::NewProgressBar {
+            index: self.download_list_index,
+            msg,
+            size: total_size,
+        })
+        .await;
 
         if as_symlink {
             let symlink = self.entry.dir.join(&*self.entry.filename);
@@ -643,14 +626,11 @@ impl<'a> SingleDownloader<'a> {
             })?;
 
             global_progress.fetch_add(total_size as u64, Ordering::SeqCst);
-            self.sender
-                .send_async(Event::GlobalProgressSet(
-                    global_progress.load(Ordering::SeqCst),
-                ))
-                .await?;
-            self.sender
-                .send_async(Event::ProgressDone(self.download_list_index))
-                .await?;
+            callback(Event::GlobalProgressSet(
+                global_progress.load(Ordering::SeqCst),
+            ))
+            .await;
+            callback(Event::ProgressDone(self.download_list_index)).await;
 
             return Ok(Summary {
                 filename: self.entry.filename.clone(),
@@ -707,22 +687,19 @@ impl<'a> SingleDownloader<'a> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
-            self.sender
-                .send_async(Event::ProgressInc {
-                    index: self.download_list_index,
-                    size: size as u64,
-                })
-                .await?;
-            self.sender
-                .send_async(Event::GlobalProgressSet(
-                    global_progress.load(Ordering::SeqCst),
-                ))
-                .await?;
+            callback(Event::ProgressInc {
+                index: self.download_list_index,
+                size: size as u64,
+            })
+            .await;
+
+            callback(Event::GlobalProgressSet(
+                global_progress.load(Ordering::SeqCst),
+            ))
+            .await;
         }
 
-        self.sender
-            .send_async(Event::ProgressDone(self.download_list_index))
-            .await?;
+        callback(Event::ProgressDone(self.download_list_index)).await;
 
         Ok(Summary {
             filename: self.entry.filename.clone(),

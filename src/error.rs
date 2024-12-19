@@ -425,10 +425,6 @@ impl From<RefreshError> for OutputError {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
                 source: None,
             },
-            RefreshError::SendErr(send_error) => Self {
-                description: send_error.to_string(),
-                source: None,
-            },
             RefreshError::WrongConfigEntry(_) => Self {
                 description: value.to_string(),
                 source: None,
@@ -553,10 +549,6 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::DuplicateComponents(url, component) => Self {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
-                source: None,
-            },
-            RefreshError::SendErr(send_error) => Self {
-                description: send_error.to_string(),
                 source: None,
             },
             RefreshError::WrongConfigEntry(_) => Self {
@@ -958,10 +950,6 @@ fn oma_download_error(e: DownloadError) -> OutputError {
         },
         DownloadError::EmptySources => OutputError {
             description: e.to_string(),
-            source: None,
-        },
-        DownloadError::SendErr(send_error) => OutputError {
-            description: send_error.to_string(),
             source: None,
         },
     }

@@ -31,7 +31,6 @@ sysinfo = "0.33"
 bon = "3"
 once_cell = "1.19"
 apt-auth-config = { version = "0.2.0", path = "../apt-auth-config" }
-flume = "0.11.1"
 deb822-lossless = { version = "0.2", features = ["derive"] }
 
 [features]
@@ -44,6 +43,4 @@ default = ["aosc", "sequoia-nettle-backend", "rustls"]
 
 [dev-dependencies]
 tokio = { version = "1.28", default-features = false, features = ["macros", "rt-multi-thread"] }
-indicatif = "0.17"
-dashmap = "6"
-oma-console = { path = "../oma-console" }
+flume = "0.11.1"

@@ -15,6 +15,9 @@ async fn main() -> Result<(), RefreshError> {
     let apt_config = Config::new();
 
     let auth = AuthConfig::system("/").unwrap();
+
+    let (tx, rx) = flume::unbounded();
+
     let refresh = OmaRefresh::builder()
         .client(&client)
         .apt_config(&apt_config)
@@ -26,10 +29,8 @@ async fn main() -> Result<(), RefreshError> {
         .auth_config(&auth)
         .build();
 
-    let recv = refresh.get_recviver().clone();
-
     tokio::spawn(async move {
-        while let Ok(event) = recv.recv_async().await {
+        while let Ok(event) = rx.recv_async().await {
             println!("{:#?}", event);
             if let Event::Done = event {
                 break;
@@ -37,7 +38,13 @@ async fn main() -> Result<(), RefreshError> {
         }
     });
 
-    refresh.start().await?;
+    refresh
+        .start(|event| async {
+            if let Err(e) = tx.send_async(event).await {
+                eprintln!("{:#?}", e);
+            }
+        })
+        .await?;
 
     Ok(())
 }
