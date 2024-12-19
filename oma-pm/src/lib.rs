@@ -8,6 +8,7 @@ pub use oma_apt::PkgCurrentState;
 pub use search::PackageStatus;
 mod commit;
 mod dbus;
+mod download;
 pub use commit::CommitNetworkConfig;
 
 #[cfg(test)]

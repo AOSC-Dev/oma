@@ -16,6 +16,7 @@ use zbus::Connection;
 use crate::{
     apt::{DownloadConfig, OmaApt, OmaAptError, OmaAptResult},
     dbus::{change_status, OmaBus, Status},
+    download::download_pkgs,
     progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
 };
 
@@ -120,11 +121,11 @@ impl<'a> DoInstall<'a> {
 
             let config = DownloadConfig {
                 network_thread: self.config.network_thread,
-                download_dir: Some(&path),
+                download_dir: Some(path),
                 auth: self.config.auth_config,
             };
 
-            OmaApt::download_pkgs(&self.client, download_pkg_list, config, callback).await
+            download_pkgs(self.client, download_pkg_list, config, callback).await
         })
     }
 
