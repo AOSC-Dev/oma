@@ -1,3 +1,4 @@
+use std::cmp::Ordering as CmpOrdering;
 use std::fmt::Display;
 use std::io::Write;
 use std::sync::atomic::Ordering;
@@ -13,6 +14,12 @@ use tabled::settings::object::Columns;
 use tabled::settings::peaker::PriorityMax;
 use tabled::settings::{Alignment, Padding, Style, Width};
 use tabled::{Table, Tabled};
+
+/// Debian version format, see https://www.debian.org/doc/debian-policy/ch-controlfields.html#version
+/// for more information
+///
+/// Omitting ':' here as we have a preversion filter in `version_diff()`
+const BOUNDARIES: &[char] = &['.', '-', '~', '+'];
 
 #[derive(Debug, Tabled)]
 struct InstallEntryDisplay {
@@ -68,7 +75,18 @@ impl From<&InstallEntry> for InstallEntryDisplay {
         };
 
         let version_delta = if let Some(old_version) = value.old_version() {
-            format!("{old_version} -> {}", value.new_version())
+            let mut new_version = value.new_version().to_string();
+            let (old, new) = version_diff(old_version, value.new_version());
+            let mut old_version = old_version.to_string();
+            if let Some(old) = old {
+                old_version.replace_range(old.., &style(&old_version[old..]).red().to_string());
+            }
+
+            if let Some(new) = new {
+                new_version.replace_range(new.., &style(&new_version[new..]).green().to_string());
+            }
+
+            format!("{} -> {}", old_version, new_version)
         } else {
             value.new_version().to_string()
         };
@@ -507,4 +525,113 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
         printer.print(format!("{}", style(line2).bold())).ok();
         printer.print(format!("{}", style(line3).bold())).ok();
     }
+}
+
+fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<usize>) {
+    let old_version_has_epoch = old_version.contains(':');
+    let new_version_has_epoch = new_version.contains(':');
+
+    if (old_version_has_epoch || new_version_has_epoch)
+        && !(old_version_has_epoch && new_version_has_epoch)
+    {
+        return (Some(0), Some(0));
+    }
+
+    if old_version_has_epoch
+        && new_version_has_epoch
+        && old_version
+            .split_once(':')
+            .is_some_and(|x| new_version.split_once(':').is_some_and(|y| x.0 != y.0))
+    {
+        return (Some(0), Some(0));
+    }
+
+    match old_version.len().cmp(&new_version.len()) {
+        CmpOrdering::Less => {
+            if old_version == &new_version[..old_version.len()] {
+                return (None, Some(old_version.len()));
+            }
+
+            let diff =
+                version_diff_equal_length(old_version, &new_version[..old_version.len()]).unwrap();
+
+            (Some(diff), Some(diff))
+        }
+        CmpOrdering::Equal => {
+            let diff = version_diff_equal_length(old_version, &new_version[..old_version.len()]);
+
+            let Some(diff) = diff else {
+                return (None, None);
+            };
+
+            (Some(diff), Some(diff))
+        }
+        CmpOrdering::Greater => {
+            if &old_version[..new_version.len()] == new_version {
+                return (Some(new_version.len()), None);
+            }
+
+            let diff =
+                version_diff_equal_length(&old_version[..new_version.len()], new_version).unwrap();
+
+            (Some(diff), Some(diff))
+        }
+    }
+}
+
+fn version_diff_equal_length(old_version: &str, new_version: &str) -> Option<usize> {
+    // 此处不能出现版本长度不一致的情况，否则是逻辑错误
+    assert_eq!(old_version.len(), new_version.len());
+
+    let mut boundary_pos = None;
+    let new_version_chars = new_version.chars().collect::<Vec<_>>();
+    for (i, c) in old_version.chars().enumerate() {
+        // find version boundaries to get the position for small chunks of the version string
+        if BOUNDARIES.contains(&c) {
+            boundary_pos = Some(i + 1);
+        }
+        let c2 = new_version_chars[i];
+        if c != c2 {
+            return boundary_pos.or(Some(0));
+        }
+    }
+
+    None
+}
+
+#[test]
+fn test_version_diff() {
+    let ver1 = "1.2";
+    let ver2 = "1.2-1";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (None, Some(3)));
+    assert_eq!(&ver2[diff.1.unwrap()..], "-1");
+
+    let diff = version_diff(ver2, ver1);
+    assert_eq!(diff, (Some(3), None));
+
+    let ver1 = "1:1.2";
+    let ver2 = "1.2";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (Some(0), Some(0)));
+
+    let ver1 = "1.2";
+    let ver2 = "1:1.2";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (Some(0), Some(0)));
+
+    let ver1 = "1.2";
+    let ver2 = "1.2";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (None, None));
+
+    let ver1 = "1.21";
+    let ver2 = "1.22";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (Some(2), Some(2)));
 }
