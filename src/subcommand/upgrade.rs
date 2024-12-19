@@ -3,6 +3,7 @@ use std::thread;
 use crate::pb::RenderDownloadProgress;
 use crate::success;
 use flume::unbounded;
+use oma_pm::CommitNetworkConfig;
 use std::path::PathBuf;
 use tracing::error;
 
@@ -16,7 +17,6 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
-use oma_pm::apt::CommitDownloadConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::OmaAptError;
@@ -304,17 +304,17 @@ impl CliExecuter for Upgrade {
             let start_time = Local::now().timestamp();
 
             match apt.commit(
-                &HTTP_CLIENT,
-                CommitDownloadConfig {
-                    network_thread: Some(config.network_thread()),
-                    auth: &auth_config,
-                },
                 if no_progress || !is_terminal() {
                     Box::new(NoInstallProgressManager)
                 } else {
                     Box::new(OmaInstallProgressManager::new(yes))
                 },
                 &op,
+                &HTTP_CLIENT,
+                CommitNetworkConfig {
+                    network_thread: Some(config.network_thread()),
+                    auth_config: &auth_config,
+                },
                 |event| async {
                     if let Err(e) = tx.send_async(event).await {
                         error!("{}", e);

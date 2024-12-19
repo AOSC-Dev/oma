@@ -228,16 +228,15 @@ impl CliExecuter for Topics {
                     remove: opt_out,
                 })
                 .no_fixbroken(!no_fixbroken)
-                .network_thread(config.network_thread())
                 .no_progress(no_progress)
                 .sysroot(sysroot.to_string_lossy().to_string())
                 .fix_dpkg_status(true)
                 .protect_essential(config.protect_essentials())
-                .client(&HTTP_CLIENT)
                 .yes(false)
                 .remove_config(remove_config)
-                .auth_config(&auth_config)
                 .autoremove(autoremove)
+                .network_thread(config.network_thread())
+                .auth_config(&auth_config)
                 .build()
                 .run()?;
 

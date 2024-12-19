@@ -9,7 +9,6 @@ use crate::{
     config::Config,
     error::OutputError,
     utils::{dbus_check, root},
-    HTTP_CLIENT,
 };
 
 use super::utils::{lock_oma, no_check_dbus_warn, CommitChanges};
@@ -87,16 +86,15 @@ impl CliExecuter for FixBroken {
             .dry_run(dry_run)
             .request_type(SummaryType::FixBroken)
             .no_fixbroken(false)
-            .network_thread(config.network_thread())
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())
             .fix_dpkg_status(true)
             .protect_essential(config.protect_essentials())
-            .client(&HTTP_CLIENT)
             .yes(false)
-            .auth_config(&auth_config)
             .autoremove(autoremove)
             .remove_config(remove_config)
+            .auth_config(&auth_config)
+            .network_thread(config.network_thread())
             .build()
             .run()
     }

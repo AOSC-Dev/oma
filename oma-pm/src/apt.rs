@@ -1,8 +1,7 @@
 use std::{
-    borrow::Cow,
     cell::OnceCell,
     fmt,
-    io::{self, ErrorKind, Write},
+    io::{self, ErrorKind},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -10,9 +9,10 @@ use std::{
 use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
-use chrono::Local;
 pub use oma_apt::cache::Upgrade;
 use std::future::Future;
+use tokio::runtime::Runtime;
+use zbus::Connection;
 
 use oma_apt::{
     cache::{Cache, PackageSort},
@@ -21,37 +21,29 @@ use oma_apt::{
     progress::{AcquireProgress, InstallProgress},
     raw::IntoRawIter,
     records::RecordField,
-    util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner, DiskSpace},
+    util::DiskSpace,
     DepFlags, Package, PkgCurrentState, Version,
 };
 
-use oma_console::console::{self};
-use oma_fetch::{
-    checksum::{Checksum, ChecksumError},
-    reqwest::Client,
-    DownloadEntry, DownloadError, DownloadManager, DownloadSource, DownloadSourceType, Event,
-    Summary,
-};
+use oma_fetch::{checksum::ChecksumError, reqwest::Client, DownloadError, Event, Summary};
 use oma_utils::{
     dpkg::{get_selections, is_hold, DpkgError},
     human_bytes::HumanBytes,
 };
 
 pub use oma_apt::config::Config as AptConfig;
-use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
 pub use oma_pm_operation_type::*;
-use zbus::{connection, Connection};
 
 use crate::{
-    dbus::{change_status, OmaBus, Status},
+    commit::{CommitNetworkConfig, DoInstall},
+    dbus::{OmaBus, Status},
+    download::download_pkgs,
     matches::MatcherError,
     pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
-    progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
+    progress::InstallProgressManager,
 };
-
-const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
 #[derive(Debug, Clone, Builder)]
 pub struct OmaAptArgs {
@@ -83,10 +75,10 @@ pub struct OmaApt {
     autoremove: HashSet<u64>,
     dry_run: bool,
     select_pkgs: HashSet<u64>,
-    tokio: Runtime,
-    connection: Option<Connection>,
     unmet: Vec<Vec<BrokenPackage>>,
     archive_dir: OnceCell<PathBuf>,
+    pub(crate) tokio: Runtime,
+    pub(crate) conn: Option<Connection>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -173,11 +165,6 @@ pub struct DownloadConfig<'a> {
     pub auth: &'a AuthConfig,
 }
 
-pub struct CommitDownloadConfig<'a> {
-    pub network_thread: Option<usize>,
-    pub auth: &'a AuthConfig,
-}
-
 impl OmaApt {
     /// Create a new apt manager
     pub fn new(
@@ -188,10 +175,6 @@ impl OmaApt {
     ) -> OmaAptResult<Self> {
         let config = Self::init_config(config, args)?;
 
-        let bus = OmaBus {
-            status: Status::Configing,
-        };
-
         let tokio = tokio::runtime::Builder::new_multi_thread()
             .enable_time()
             .enable_io()
@@ -199,7 +182,7 @@ impl OmaApt {
             .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
 
         let conn = tokio.block_on(async {
-            match Self::create_session(bus).await {
+            match Self::create_session().await {
                 Ok(conn) => Some(conn),
                 Err(e) => {
                     debug!("Failed to create D-Bus session: {:?}", e);
@@ -214,17 +197,22 @@ impl OmaApt {
             autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
             select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
-            tokio,
-            connection: conn,
             unmet: vec![],
             archive_dir: OnceCell::new(),
+            tokio,
+            conn,
         })
     }
 
-    async fn create_session(bus: OmaBus) -> Result<Connection, zbus::Error> {
-        let conn = connection::Builder::system()?
+    async fn create_session() -> Result<Connection, zbus::Error> {
+        let conn = zbus::connection::Builder::system()?
             .name("io.aosc.Oma")?
-            .serve_at("/io/aosc/Oma", bus)?
+            .serve_at(
+                "/io/aosc/Oma",
+                OmaBus {
+                    status: Status::Pending,
+                },
+            )?
             .build()
             .await?;
 
@@ -421,12 +409,6 @@ impl OmaApt {
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
-        let DownloadConfig {
-            network_thread,
-            download_dir,
-            auth,
-        } = config;
-
         let mut download_list = vec![];
         for pkg in pkgs {
             let name = pkg.raw_pkg.fullname(true);
@@ -468,11 +450,6 @@ impl OmaApt {
             download_list.push(entry);
         }
 
-        debug!(
-            "Download list: {download_list:?}, download to: {}",
-            download_dir.unwrap_or(Path::new(".")).display()
-        );
-
         if dry_run {
             return Ok((vec![], vec![]));
         }
@@ -484,15 +461,7 @@ impl OmaApt {
             .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
 
         let res = tokio.block_on(async move {
-            Self::download_pkgs(
-                client,
-                &download_list,
-                network_thread,
-                download_dir.unwrap_or(Path::new(".")),
-                auth,
-                callback,
-            )
-            .await
+            download_pkgs(client, &download_list, config, callback).await
         })?;
 
         Ok(res)
@@ -564,140 +533,25 @@ impl OmaApt {
     /// Commit changes
     pub fn commit<F, Fut>(
         self,
-        client: &Client,
-        config: CommitDownloadConfig<'_>,
         install_progress_manager: Box<dyn InstallProgressManager>,
         op: &OmaOperation,
+        client: &Client,
+        config: CommitNetworkConfig,
         callback: F,
     ) -> OmaAptResult<()>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
-        let CommitDownloadConfig {
-            network_thread,
-            auth,
-        } = config;
-
-        let v = op;
-        let v_str = v.to_string();
-
         let sysroot = self.config.get("Dir").unwrap_or("/".to_string());
 
         if self.dry_run {
-            debug!("op: {v:?}");
+            debug!("op: {op:?}");
             return Ok(());
         }
 
-        let download_pkg_list = &v.install;
-
-        let path = self.get_archive_dir();
-
-        let conn = self.connection.clone();
-        let (success, failed) = self.tokio.block_on(async move {
-            if let Some(conn) = conn {
-                change_status(&conn, "Downloading").await.ok();
-            }
-
-            Self::download_pkgs(
-                client,
-                download_pkg_list,
-                network_thread,
-                path,
-                auth,
-                callback,
-            )
-            .await
-        })?;
-
-        if !failed.is_empty() {
-            return Err(OmaAptError::FailedToDownload(failed.len(), failed));
-        }
-
-        debug!("Success: {success:?}");
-
-        let mut no_progress = AcquireProgress::quiet();
-
-        debug!("Try to lock apt");
-
-        if let Err(e) = apt_lock() {
-            let e_str = e.to_string();
-            if e_str.contains("dpkg --configure -a") {
-                self.run_dpkg_configure()?;
-
-                apt_lock()?;
-            } else {
-                return Err(e.into());
-            }
-        }
-
-        debug!("Try to get apt archives");
-
-        self.cache.get_archives(&mut no_progress).inspect_err(|e| {
-            debug!("Get exception: {e}. Try to unlock apt lock");
-            apt_unlock();
-        })?;
-
-        let args = InstallProgressArgs {
-            config: self.config,
-            tokio: self.tokio,
-            connection: self.connection,
-        };
-
-        let mut progress =
-            InstallProgress::new(OmaAptInstallProgress::new(args, install_progress_manager));
-
-        debug!("Try to unlock apt lock inner");
-
-        apt_unlock_inner();
-
-        debug!("Do install");
-
-        self.cache.do_install(&mut progress).inspect_err(|e| {
-            debug!("do_install got except: {e}");
-            apt_lock_inner().ok();
-            apt_unlock();
-        })?;
-
-        debug!("Try to unlock apt lock");
-
-        apt_unlock();
-
-        let end_time = Local::now().format(TIME_FORMAT).to_string();
-
-        let sysroot = Path::new(&sysroot);
-        let history = sysroot.join("var/log/oma/history");
-        let parent = history
-            .parent()
-            .ok_or_else(|| OmaAptError::FailedGetParentPath(history.clone()))?;
-
-        std::fs::create_dir_all(parent)
-            .map_err(|e| OmaAptError::FailedOperateDirOrFile(parent.display().to_string(), e))?;
-
-        let mut log = std::fs::OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&history)
-            .map_err(|e| OmaAptError::FailedOperateDirOrFile(history.display().to_string(), e))?;
-
-        let start_time = Local::now();
-        writeln!(log, "Start-Date: {start_time}").ok();
-
-        let args = std::env::args().collect::<Vec<_>>().join(" ");
-
-        if !args.is_empty() {
-            writeln!(log, "Commandline: {args}").ok();
-        }
-
-        if let Some((user, uid)) = std::env::var("SUDO_USER")
-            .ok()
-            .zip(std::env::var("SUDO_UID").ok())
-        {
-            writeln!(log, "Requested-By: {user} ({uid})").ok();
-        }
-
-        write!(log, "{v_str}").ok();
-        writeln!(log, "End-Date: {end_time}\n").ok();
+        let commit = DoInstall::new(self, client, &sysroot, config)?;
+        commit.commit(op, install_progress_manager, callback)?;
 
         Ok(())
     }
@@ -810,7 +664,7 @@ impl OmaApt {
         Ok(())
     }
 
-    fn run_dpkg_configure(&self) -> OmaAptResult<()> {
+    pub(crate) fn run_dpkg_configure(&self) -> OmaAptResult<()> {
         info!("Running `dpkg --configure -a' ...");
 
         let cmd = Command::new("dpkg")
@@ -831,7 +685,7 @@ impl OmaApt {
         Ok(())
     }
 
-    fn run_dpkg_triggers(&self) -> OmaAptResult<()> {
+    pub(crate) fn run_dpkg_triggers(&self) -> OmaAptResult<()> {
         info!("Running `dpkg --triggers-only -a' ...");
 
         let cmd = Command::new("dpkg")
@@ -850,115 +704,6 @@ impl OmaApt {
         }
 
         Ok(())
-    }
-
-    /// Download packages (inner)
-    async fn download_pkgs<F, Fut>(
-        client: &Client,
-        download_pkg_list: &[InstallEntry],
-        network_thread: Option<usize>,
-        download_dir: &Path,
-        auth_config: &AuthConfig,
-        callback: F,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
-        if download_pkg_list.is_empty() {
-            return Ok((vec![], vec![]));
-        }
-
-        let mut download_list = vec![];
-        let mut total_size = 0;
-
-        for entry in download_pkg_list {
-            let uris = entry.pkg_urls();
-            let sources = uris
-                .iter()
-                .map(|x| {
-                    let source_type = if x.starts_with("file:") {
-                        DownloadSourceType::Local(false)
-                    } else {
-                        let auth = auth_config.find_package_url(x);
-
-                        DownloadSourceType::Http {
-                            auth: auth.map(|x| (x.user.to_owned(), x.password.to_owned())),
-                        }
-                    };
-
-                    DownloadSource {
-                        url: x.to_string(),
-                        source_type,
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            debug!("Sources is: {:?}", sources);
-
-            let filename = uris
-                .first()
-                .and_then(|x| x.split('/').last())
-                .take()
-                .ok_or_else(|| OmaAptError::InvalidFileName(entry.name().to_string()))?;
-
-            debug!("filename is: {}", filename);
-
-            let new_version = if console::measure_text_width(entry.new_version()) > 25 {
-                console::truncate_str(entry.new_version(), 25, "...")
-            } else {
-                Cow::Borrowed(entry.new_version())
-            };
-
-            let msg = format!("{} {new_version} ({})", entry.name(), entry.arch());
-
-            let download_entry = DownloadEntry::builder()
-                .source(sources)
-                .filename(apt_style_filename(entry))
-                .dir(download_dir.to_path_buf())
-                .allow_resume(true)
-                .msg(msg)
-                .maybe_hash({
-                    if let Some(checksum) = entry.sha256() {
-                        Some(Checksum::from_sha256_str(checksum)?)
-                    } else if let Some(checksum) = entry.sha512() {
-                        Some(Checksum::from_sha512_str(checksum)?)
-                    } else if let Some(checksum) = entry.md5() {
-                        Some(Checksum::from_md5_str(checksum)?)
-                    } else {
-                        None
-                    }
-                })
-                .build();
-
-            total_size += entry.download_size();
-
-            download_list.push(download_entry);
-        }
-
-        let downloader = DownloadManager::builder()
-            .client(client)
-            .download_list(download_list)
-            .maybe_threads(network_thread)
-            .total_size(total_size)
-            .build();
-
-        let res = downloader
-            .start_download(|event| async {
-                callback(event).await;
-            })
-            .await;
-
-        let (mut success, mut failed) = (vec![], vec![]);
-
-        for i in res {
-            match i {
-                Ok(s) => success.push(s),
-                Err(e) => failed.push(e),
-            }
-        }
-
-        Ok((success, failed))
     }
 
     /// Get apt archive dir
@@ -1648,15 +1393,4 @@ fn broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<Vec<BrokenPackage>
     }
 
     result
-}
-
-/// trans filename to apt style file name
-fn apt_style_filename(entry: &InstallEntry) -> String {
-    let package = entry.name_without_arch();
-    let version = entry.new_version();
-    let arch = entry.arch();
-
-    let version = version.replace(':', "%3a");
-
-    format!("{package}_{version}_{arch}.deb").replace("%2b", "+")
 }
