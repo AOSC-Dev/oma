@@ -3,7 +3,7 @@ use std::{cmp::Ordering, path::PathBuf, sync::atomic::AtomicU64, time::Duration}
 use bon::{builder, Builder};
 use checksum::Checksum;
 use download::SingleDownloader;
-use futures::StreamExt;
+use futures::{Future, StreamExt};
 
 use reqwest::Client;
 
@@ -28,8 +28,6 @@ pub enum DownloadError {
     InvalidURL(String),
     #[error("download source list is empty")]
     EmptySources,
-    #[error(transparent)]
-    SendErr(#[from] flume::SendError<Event>),
 }
 
 pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
@@ -199,8 +197,6 @@ pub struct DownloadManager<'a> {
     set_permission: Option<u32>,
     #[builder(default = Duration::from_secs(15))]
     timeout: Duration,
-    #[builder(skip = flume::unbounded())]
-    progress_channel: (flume::Sender<Event>, flume::Receiver<Event>),
 }
 
 #[derive(Debug)]
@@ -212,12 +208,12 @@ pub struct Summary {
 }
 
 impl<'a> DownloadManager<'a> {
-    pub fn get_recviver(&self) -> &flume::Receiver<Event> {
-        &self.progress_channel.1
-    }
-
     /// Start download
-    pub async fn start_download(&self) -> Vec<DownloadResult<Summary>> {
+    pub async fn start_download<F, Fut>(&self, callback: F) -> Vec<DownloadResult<Summary>>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         let mut tasks = Vec::new();
         let mut list = vec![];
         for (i, c) in self.download_list.iter().enumerate() {
@@ -232,7 +228,6 @@ impl<'a> DownloadManager<'a> {
                 .file_type(c.file_type)
                 .maybe_set_permission(self.set_permission)
                 .timeout(self.timeout)
-                .sender(&self.progress_channel.0)
                 .build();
 
             list.push(single);
@@ -251,7 +246,7 @@ impl<'a> DownloadManager<'a> {
         let http_download_source = list.len() - file_download_source;
 
         for single in list {
-            tasks.push(single.try_download(&self.global_progress));
+            tasks.push(single.try_download(&self.global_progress, &callback));
         }
 
         let thread = if file_download_source >= http_download_source {
@@ -261,20 +256,12 @@ impl<'a> DownloadManager<'a> {
         };
 
         if self.total_size != 0 {
-            self.progress_channel
-                .0
-                .send_async(Event::NewGlobalProgressBar(self.total_size))
-                .await
-                .ok();
+            callback(Event::NewGlobalProgressBar(self.total_size)).await;
         }
 
         let stream = futures::stream::iter(tasks).buffer_unordered(thread);
         let res = stream.collect::<Vec<_>>().await;
-        self.progress_channel
-            .0
-            .send_async(Event::AllDone)
-            .await
-            .ok();
+        callback(Event::AllDone).await;
 
         res
     }

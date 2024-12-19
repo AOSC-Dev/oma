@@ -78,8 +78,12 @@ impl CliExecuter for Download {
                 download_dir: Some(&path),
                 auth: &AuthConfig::system("/")?,
             },
-            tx,
             dry_run,
+            |event| async {
+                if let Err(e) = tx.send_async(event).await {
+                    error!("{}", e);
+                }
+            },
         )?;
 
         if !success.is_empty() {

@@ -11,9 +11,8 @@ use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::{builder, Builder};
 use chrono::Local;
-
-use flume::Sender;
 pub use oma_apt::cache::Upgrade;
+use std::future::Future;
 
 use oma_apt::{
     cache::{Cache, PackageSort},
@@ -410,14 +409,18 @@ impl OmaApt {
     }
 
     /// Download packages
-    pub fn download(
+    pub fn download<F, Fut>(
         &self,
         client: &Client,
         pkgs: Vec<OmaPackage>,
         config: DownloadConfig<'_>,
-        tx: flume::Sender<Event>,
         dry_run: bool,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
+        callback: F,
+    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         let DownloadConfig {
             network_thread,
             download_dir,
@@ -487,7 +490,7 @@ impl OmaApt {
                 network_thread,
                 download_dir.unwrap_or(Path::new(".")),
                 auth,
-                tx,
+                callback,
             )
             .await
         })?;
@@ -559,14 +562,18 @@ impl OmaApt {
     }
 
     /// Commit changes
-    pub fn commit(
+    pub fn commit<F, Fut>(
         self,
         client: &Client,
         config: CommitDownloadConfig<'_>,
         install_progress_manager: Box<dyn InstallProgressManager>,
-        tx: Sender<Event>,
         op: &OmaOperation,
-    ) -> OmaAptResult<()> {
+        callback: F,
+    ) -> OmaAptResult<()>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         let CommitDownloadConfig {
             network_thread,
             auth,
@@ -592,7 +599,15 @@ impl OmaApt {
                 change_status(&conn, "Downloading").await.ok();
             }
 
-            Self::download_pkgs(client, download_pkg_list, network_thread, path, auth, tx).await
+            Self::download_pkgs(
+                client,
+                download_pkg_list,
+                network_thread,
+                path,
+                auth,
+                callback,
+            )
+            .await
         })?;
 
         if !failed.is_empty() {
@@ -838,14 +853,18 @@ impl OmaApt {
     }
 
     /// Download packages (inner)
-    async fn download_pkgs(
+    async fn download_pkgs<F, Fut>(
         client: &Client,
         download_pkg_list: &[InstallEntry],
         network_thread: Option<usize>,
         download_dir: &Path,
         auth_config: &AuthConfig,
-        sender: flume::Sender<Event>,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)> {
+        callback: F,
+    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         if download_pkg_list.is_empty() {
             return Ok((vec![], vec![]));
         }
@@ -924,30 +943,11 @@ impl OmaApt {
             .total_size(total_size)
             .build();
 
-        let recv = downloader.get_recviver().clone();
-
-        let event_worker = tokio::spawn(async move {
-            loop {
-                match recv.recv_async().await {
-                    Ok(v) => {
-                        if let Err(e) = sender.send_async(v.clone()).await {
-                            debug!("{e}");
-                        }
-
-                        if let Event::AllDone = v {
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        debug!("{e}");
-                        break;
-                    }
-                }
-            }
-        });
-
-        let res = downloader.start_download().await;
-        let _ = event_worker.await;
+        let res = downloader
+            .start_download(|event| async {
+                callback(event).await;
+            })
+            .await;
 
         let (mut success, mut failed) = (vec![], vec![]);
 

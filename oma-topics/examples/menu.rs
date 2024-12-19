@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
 
     tm.write_enabled().await?;
 
-    tm.write_sources_list("test", false, |topic, mirror| {
+    tm.write_sources_list("test", false, |topic, mirror| async move {
         println!("{topic} not in {mirror}");
     })
     .await?;

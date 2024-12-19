@@ -121,8 +121,12 @@ fn main() -> Result<(), OmaAptError> {
             auth: &AuthConfig::system("/").unwrap(),
         },
         Box::new(MyInstallProgressManager),
-        tx,
         &op,
+        |event| async {
+            if let Err(e) = tx.send_async(event).await {
+                eprintln!("{:#?}", e);
+            }
+        },
     )?;
 
     Ok(())

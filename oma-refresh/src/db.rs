@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::{
     borrow::Cow,
     collections::hash_map::Entry,
@@ -50,7 +51,7 @@ use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
     process::Command,
-    task::{spawn_blocking, JoinHandle},
+    task::spawn_blocking,
 };
 use tracing::{debug, warn};
 
@@ -103,8 +104,6 @@ pub enum RefreshError {
     SetLockWithProcess(String, i32),
     #[error("duplicate components")]
     DuplicateComponents(Box<str>, String),
-    #[error(transparent)]
-    SendErr(#[from] flume::SendError<Event>),
     #[error("config entry has no key '{0}'")]
     WrongConfigEntry(String),
 }
@@ -146,8 +145,6 @@ pub enum RefreshError {
     SetLockWithProcess(String, i32),
     #[error("duplicate components")]
     DuplicateComponents(Box<str>, String),
-    #[error(transparent)]
-    SendErr(#[from] flume::SendError<Event>),
     #[error("config entry has no key '{0}'")]
     WrongConfigEntry(String),
 }
@@ -169,8 +166,6 @@ pub struct OmaRefresh<'a> {
     apt_config: &'a Config,
     topic_msg: &'a str,
     auth_config: &'a AuthConfig,
-    #[builder(skip = flume::unbounded())]
-    progress_channel: (flume::Sender<Event>, flume::Receiver<Event>),
 }
 
 type SourceMap<'a> = AHashMap<String, Vec<OmaSourceEntry<'a>>>;
@@ -245,17 +240,26 @@ pub enum Event {
 }
 
 impl<'a> OmaRefresh<'a> {
-    pub fn get_recviver(&self) -> &flume::Receiver<Event> {
-        &self.progress_channel.1
-    }
-
-    pub async fn start(mut self) -> Result<()> {
+    pub async fn start<F, Fut>(mut self, callback: F) -> Result<()>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         let arch = dpkg_arch(&self.source)?;
 
-        self.update_db(sources_lists(&self.source, &arch)?).await
+        self.update_db(sources_lists(&self.source, &arch)?, callback)
+            .await
     }
 
-    async fn update_db(&mut self, mut sourcelist: Vec<OmaSourceEntry<'_>>) -> Result<()> {
+    async fn update_db<F, Fut>(
+        &mut self,
+        mut sourcelist: Vec<OmaSourceEntry<'_>>,
+        callback: F,
+    ) -> Result<()>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         if !self.download_dir.is_dir() {
             fs::create_dir_all(&self.download_dir).await.map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
@@ -283,7 +287,9 @@ impl<'a> OmaRefresh<'a> {
         let mut download_list = vec![];
 
         let replacer = DatabaseFilenameReplacer::new()?;
-        let (release_results, source_map) = self.download_releases(&sourcelist, &replacer).await?;
+        let (release_results, source_map) = self
+            .download_releases(&sourcelist, &replacer, &callback)
+            .await?;
 
         debug!("release_results: {:?}", release_results);
 
@@ -309,60 +315,28 @@ impl<'a> OmaRefresh<'a> {
             .total_size(total)
             .build();
 
-        let event_worker = self.event_worker(&dm);
-
-        let res = dm.start_download().await;
+        let res = dm
+            .start_download(|event| async {
+                callback(Event::DownloadEvent(event)).await;
+            })
+            .await;
 
         let res = res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
 
         // 有元数据更新才执行 success invoke
         let should_run_invoke = res.iter().any(|x| x.wrote);
 
-        let _ = event_worker.await;
-
         // Finally, run success post invoke
         let _ = remove_task.await;
 
         if should_run_invoke {
-            self.progress_channel
-                .0
-                .send_async(Event::RunInvokeScript)
-                .await?;
-
+            callback(Event::RunInvokeScript).await;
             self.run_success_post_invoke().await;
         }
 
-        self.progress_channel.0.send_async(Event::Done).await?;
+        callback(Event::Done).await;
 
         Ok(())
-    }
-
-    fn event_worker(&self, dm: &DownloadManager<'_>) -> JoinHandle<()> {
-        let download_recviver = dm.get_recviver().clone();
-
-        let tx = self.progress_channel.0.clone();
-
-        tokio::spawn(async move {
-            loop {
-                match download_recviver.recv_async().await {
-                    Ok(event) => {
-                        let is_done = event == oma_fetch::Event::AllDone;
-
-                        if let Err(e) = tx.send_async(Event::DownloadEvent(event)).await {
-                            debug!("Recviver got error: {e}");
-                        }
-
-                        if is_done {
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        debug!("Recviver got error: {e}");
-                        break;
-                    }
-                }
-            }
-        })
     }
 
     fn set_auth(&self, sourcelist: &mut [OmaSourceEntry<'_>]) {
@@ -401,11 +375,16 @@ impl<'a> OmaRefresh<'a> {
         }
     }
 
-    async fn download_releases<'b>(
+    async fn download_releases<'b, F, Fut>(
         &mut self,
         sourcelist: &[OmaSourceEntry<'b>],
         replacer: &DatabaseFilenameReplacer,
-    ) -> Result<(Vec<String>, SourceMap<'b>)> {
+        callback: &F,
+    ) -> Result<(Vec<String>, SourceMap<'b>)>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         let mut source_map = SourceMap::new();
         let mut file_names = vec![];
 
@@ -413,7 +392,7 @@ impl<'a> OmaRefresh<'a> {
         let mut not_found = vec![];
 
         let tasks = sourcelist.iter().enumerate().map(|(index, source)| {
-            self.get_release_file(source, replacer, index, sourcelist.len())
+            self.get_release_file(source, replacer, index, sourcelist.len(), callback)
         });
 
         let results = futures::stream::iter(tasks)
@@ -464,24 +443,21 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(feature = "aosc")]
         {
             if self.refresh_topics {
-                self.progress_channel
-                    .0
-                    .send_async(Event::ScanningTopic)
-                    .await?;
+                callback(Event::ScanningTopic).await;
                 let mut tm =
                     TopicManager::new(self.client, &self.source, &self.arch, false).await?;
-                let removed_suites =
-                    oma_topics::scan_closed_topic(&mut tm, self.topic_msg, |topic, mirror| {
-                        // TODO
-                        self.progress_channel
-                            .0
-                            .send(Event::TopicNotInMirror {
-                                topic: topic.to_string(),
-                                mirror: mirror.to_string(),
-                            })
-                            .ok();
-                    })
-                    .await?;
+                let removed_suites = oma_topics::scan_closed_topic(
+                    &mut tm,
+                    self.topic_msg,
+                    |topic, mirror| async move {
+                        callback(Event::TopicNotInMirror {
+                            topic: topic.to_string(),
+                            mirror: mirror.to_string(),
+                        })
+                        .await
+                    },
+                )
+                .await?;
 
                 for url in not_found {
                     let suite = url
@@ -493,10 +469,7 @@ impl<'a> OmaRefresh<'a> {
                         return Err(RefreshError::NoInReleaseFile(url.to_string()));
                     }
 
-                    self.progress_channel
-                        .0
-                        .send_async(Event::ClosingTopic(suite))
-                        .await?;
+                    callback(Event::ClosingTopic(suite)).await;
                 }
             }
         }
@@ -504,13 +477,18 @@ impl<'a> OmaRefresh<'a> {
         Ok((file_names, source_map))
     }
 
-    async fn get_release_file(
+    async fn get_release_file<F, Fut>(
         &self,
         source_index: &OmaSourceEntry<'_>,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
-    ) -> Result<(Option<String>, usize)> {
+        callback: &F,
+    ) -> Result<(Option<String>, usize)>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         match source_index.from()? {
             OmaSourceEntryFrom::Http => {
                 let dist_path = source_index.dist_path();
@@ -521,13 +499,11 @@ impl<'a> OmaRefresh<'a> {
 
                 let msg = source_index.get_human_download_url(None)?;
 
-                self.progress_channel
-                    .0
-                    .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-                        index,
-                        msg: format!("({}/{}) {}", index, total, msg),
-                    }))
-                    .await?;
+                callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+                    index,
+                    msg: format!("({}/{}) {}", index, total, msg),
+                }))
+                .await;
 
                 for (index, file_name) in ["InRelease", "Release"].iter().enumerate() {
                     let url = format!("{}/{}", dist_path, file_name);
@@ -551,10 +527,7 @@ impl<'a> OmaRefresh<'a> {
 
                 let r = r.unwrap();
 
-                self.progress_channel
-                    .0
-                    .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
-                    .await?;
+                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
                 if r.is_err() && source_index.is_flat() {
                     return Ok((None, index));
@@ -562,12 +535,10 @@ impl<'a> OmaRefresh<'a> {
 
                 let resp = r?;
 
-                let total_size = content_length(&resp);
-
                 let url = u.unwrap();
                 let file_name = replacer.replace(&url)?;
 
-                self.download_file(&file_name, resp, source_index, index, total, total_size)
+                self.download_file(&file_name, resp, source_index, index, total, &callback)
                     .await?;
 
                 if is_release && !source_index.trusted() {
@@ -581,9 +552,7 @@ impl<'a> OmaRefresh<'a> {
 
                     let file_name = replacer.replace(&url)?;
 
-                    let total_size = content_length(&resp);
-
-                    self.download_file(&file_name, resp, source_index, index, total, total_size)
+                    self.download_file(&file_name, resp, source_index, index, total, &callback)
                         .await?;
                 }
 
@@ -600,13 +569,11 @@ impl<'a> OmaRefresh<'a> {
 
                 let msg = source_index.get_human_download_url(None)?;
 
-                self.progress_channel
-                    .0
-                    .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-                        index,
-                        msg: format!("({}/{}) {}", index, total, msg),
-                    }))
-                    .await?;
+                callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+                    index,
+                    msg: format!("({}/{}) {}", index, total, msg),
+                }))
+                .await;
 
                 let mut is_release = false;
 
@@ -683,10 +650,7 @@ impl<'a> OmaRefresh<'a> {
                     }
                 }
 
-                self.progress_channel
-                    .0
-                    .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
-                    .await?;
+                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
                 let name = name
                     .ok_or_else(|| RefreshError::NoInReleaseFile(source_index.url().to_string()))?;
@@ -709,28 +673,31 @@ impl<'a> OmaRefresh<'a> {
         request
     }
 
-    async fn download_file(
+    async fn download_file<F, Fut>(
         &self,
         file_name: &str,
         mut resp: Response,
         source_index: &OmaSourceEntry<'_>,
         index: usize,
         total: usize,
-        total_size: u64,
-    ) -> Result<()> {
-        self.progress_channel
-            .0
-            .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
+        callback: &F,
+    ) -> Result<()>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        let total_size = content_length(&resp);
+
+        callback(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
+            index,
+            msg: format!(
+                "({}/{}) {}",
                 index,
-                msg: format!(
-                    "({}/{}) {}",
-                    index,
-                    total,
-                    source_index.get_human_download_url(Some(file_name))?
-                ),
-                size: total_size,
-            }))
-            .await?;
+                total,
+                source_index.get_human_download_url(Some(file_name))?
+            ),
+            size: total_size,
+        }));
 
         let mut f = File::create(self.download_dir.join(file_name))
             .await
@@ -744,14 +711,12 @@ impl<'a> OmaRefresh<'a> {
                 RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
             })?;
 
-        let tx = &self.progress_channel.0;
-
         while let Some(chunk) = resp.chunk().await? {
-            tx.send_async(Event::DownloadEvent(oma_fetch::Event::ProgressInc {
+            callback(Event::DownloadEvent(oma_fetch::Event::ProgressInc {
                 index,
                 size: chunk.len() as u64,
             }))
-            .await?;
+            .await;
 
             f.write_all(&chunk).await.map_err(|e| {
                 RefreshError::FetcherError(DownloadError::IOError(file_name.to_string(), e))
@@ -762,10 +727,7 @@ impl<'a> OmaRefresh<'a> {
             RefreshError::FetcherError(DownloadError::IOError(file_name.to_string(), e))
         })?;
 
-        self.progress_channel
-            .0
-            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
-            .await?;
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
         Ok(())
     }

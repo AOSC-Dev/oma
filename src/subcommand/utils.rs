@@ -240,7 +240,7 @@ impl Refresh<'_> {
         #[cfg(not(feature = "aosc"))]
         let refresh = refresh.build();
 
-        let rx = refresh.get_recviver().clone();
+        let (tx, rx) = unbounded();
 
         thread::spawn(move || {
             let mut pb: Box<dyn RenderRefreshProgress> = if no_progress || !is_terminal() {
@@ -251,7 +251,15 @@ impl Refresh<'_> {
             pb.render_refresh_progress(&rx);
         });
 
-        RT.block_on(async move { refresh.start().await })?;
+        RT.block_on(async move {
+            refresh
+                .start(|event| async {
+                    if let Err(e) = tx.send_async(event).await {
+                        error!("{}", e);
+                    }
+                })
+                .await
+        })?;
 
         Ok(())
     }
@@ -386,8 +394,12 @@ impl CommitChanges<'_> {
             } else {
                 Box::new(OmaInstallProgressManager::new(yes))
             },
-            tx,
             &op,
+            |event| async {
+                if let Err(e) = tx.send_async(event).await {
+                    error!("{}", e);
+                }
+            },
         );
 
         match res {

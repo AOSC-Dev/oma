@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    future::Future,
     io,
     path::{Path, PathBuf},
 };
@@ -257,12 +258,16 @@ impl<'a> TopicManager<'a> {
         Ok(())
     }
 
-    pub async fn write_sources_list(
+    pub async fn write_sources_list<F, Fut>(
         &self,
         source_list_comment: &str,
         revert: bool,
-        message_cb: impl Fn(&str, &str),
-    ) -> Result<()> {
+        message_cb: F,
+    ) -> Result<()>
+    where
+        F: Fn(String, String) -> Fut,
+        Fut: Future<Output = ()>,
+    {
         if self.dry_run {
             debug!("enabled: {:?}", self.enabled);
             return Ok(());
@@ -296,7 +301,7 @@ impl<'a> TopicManager<'a> {
 
             for (index, c) in is_exists.into_iter().enumerate() {
                 if !c.unwrap_or(false) {
-                    message_cb(&i.name, &mirrors[index]);
+                    message_cb(i.name.to_string(), mirrors[index].to_string()).await;
                     continue;
                 }
 
@@ -427,11 +432,15 @@ async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Resul
 }
 
 /// Scan all close topics from upstream and disable it
-pub async fn scan_closed_topic(
+pub async fn scan_closed_topic<F, Fut>(
     tm: &mut TopicManager<'_>,
     comment: &str,
-    message_cb: impl Fn(&str, &str),
-) -> Result<Vec<String>> {
+    message_cb: F,
+) -> Result<Vec<String>>
+where
+    F: Fn(String, String) -> Fut,
+    Fut: Future<Output = ()>,
+{
     tm.refresh().await?;
     let all: Box<[Topic]> = Box::from(tm.all_topics());
     let enabled: Box<[Topic]> = Box::from(tm.enabled_topics());

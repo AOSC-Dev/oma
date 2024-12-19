@@ -43,15 +43,15 @@ async fn main() -> DownloadResult<()> {
 
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();
 
+    let (tx, rx) = flume::unbounded();
+
     let download_manager = DownloadManager::builder()
         .client(&client)
         .download_list(vec![file_1, file_2])
         .build();
 
-    let recv = download_manager.get_recviver().clone();
-
     let event_worker = tokio::spawn(async move {
-        while let Ok(event) = recv.recv_async().await {
+        while let Ok(event) = rx.recv_async().await {
             println!("{:?}", event);
             if let Event::AllDone = event {
                 break;
@@ -64,7 +64,11 @@ async fn main() -> DownloadResult<()> {
         .unwrap();
 
     download_manager
-        .start_download()
+        .start_download(|event| async {
+            if let Err(e) = tx.send_async(event).await {
+                eprintln!("Got Error: {:#?}", e);
+            }
+        })
         .await
         .into_iter()
         .collect::<Result<Vec<Summary>, DownloadError>>()?;

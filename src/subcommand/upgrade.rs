@@ -4,6 +4,7 @@ use crate::pb::RenderDownloadProgress;
 use crate::success;
 use flume::unbounded;
 use std::path::PathBuf;
+use tracing::error;
 
 use apt_auth_config::AuthConfig;
 use chrono::Local;
@@ -313,8 +314,12 @@ impl CliExecuter for Upgrade {
                 } else {
                     Box::new(OmaInstallProgressManager::new(yes))
                 },
-                tx.clone(),
                 &op,
+                |event| async {
+                    if let Err(e) = tx.send_async(event).await {
+                        error!("{}", e);
+                    }
+                },
             ) {
                 Ok(()) => {
                     write_history_entry(
