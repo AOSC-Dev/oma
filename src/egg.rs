@@ -1,8 +1,9 @@
 use anyhow::{bail, Result};
 use colored::{ColoredString, Colorize};
 use image::{DynamicImage, GenericImageView};
-use oma_console::WRITER;
 use std::io::{self, BufWriter, Write};
+
+use crate::WRITER;
 
 // The illustration, presented in ASCII form in this Easter Egg,
 // was originally created by Asiki, entitled "兔年艾露露: 插画及服设."
@@ -8724,11 +8725,12 @@ fn get_character(
 
 pub fn ailurus() -> Result<()> {
     let img = image::load_from_memory(AIL)?;
+
     let term_width = match WRITER.get_length() {
-        0..=80 => {
+        0..=79 => {
             bail!("你的画面太小了容不下艾露露")
         }
-        x @ 81..=175 => x - 25,
+        x @ 80..=175 => x - 25,
         176.. => 150,
     };
     generate_ascii(

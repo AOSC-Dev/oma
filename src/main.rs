@@ -47,6 +47,8 @@ use utils::is_ssh_from_loginctl;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
+#[cfg(feature = "egg")]
+use oma_console::pb::AILURUS;
 
 use crate::config::Config;
 #[cfg(feature = "egg")]
@@ -111,6 +113,10 @@ pub struct GlobalOptions {
     /// Set apt options
     #[arg(long, global = true, action = ArgAction::Append)]
     apt_options: Vec<String>,
+
+    #[cfg(feature = "egg")]
+    #[arg(long, global = true, hide = true, action = ArgAction::Count)]
+    ailurus: u8,
 }
 
 fn main() {
@@ -239,10 +245,9 @@ fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
     // Egg
     #[cfg(feature = "egg")]
     {
-        let a = matches.get_count("ailurus");
-        if a != 0 {
+        if oma.global.ailurus > 0 {
             ailurus()?;
-            if a == 3 {
+            if oma.global.ailurus == 3 {
                 AILURUS.store(true, Ordering::Relaxed);
             } else {
                 return Ok(3);
