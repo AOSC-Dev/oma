@@ -32,7 +32,10 @@ use oma_utils::{
 };
 
 pub use oma_apt::config::Config as AptConfig;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
+
+#[cfg(feature = "aosc")]
+use tracing::warn;
 
 pub use oma_pm_operation_type::*;
 
