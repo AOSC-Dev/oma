@@ -74,10 +74,10 @@ impl CliExecuter for History {
 #[derive(Debug, Args)]
 pub struct Undo {
     /// Do not fix apt broken status
-    #[arg(short, long)]
+    #[arg(long)]
     no_fixbroken: bool,
     /// Do not fix dpkg broken status
-    #[arg(short, long)]
+    #[arg(long)]
     no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(long)]

@@ -32,10 +32,10 @@ pub struct List {
     #[arg(short, long)]
     manually_installed: bool,
     /// List only package(s) with automatic installed
-    #[arg(short, long)]
+    #[arg(long)]
     automatic: bool,
     /// List only package(s) with autoremovable
-    #[arg(short, long)]
+    #[arg(long)]
     autoremovable: bool,
     /// Set output format as JSON
     #[arg(long)]
