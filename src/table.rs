@@ -531,20 +531,14 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
 }
 
 fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<usize>) {
-    let old_version_has_epoch = old_version.contains(':');
-    let new_version_has_epoch = new_version.contains(':');
+    let old_epoch = old_version.split_once(':').map(|x| x.0);
+    let new_epoch = new_version.split_once(':').map(|x| x.0);
+    let and = old_epoch.zip(new_epoch);
+    let or = old_epoch.or(new_epoch);
 
-    if (old_version_has_epoch || new_version_has_epoch)
-        && !(old_version_has_epoch && new_version_has_epoch)
-    {
-        return (Some(0), Some(0));
-    }
-
-    if old_version_has_epoch
-        && new_version_has_epoch
-        && old_version
-            .split_once(':')
-            .is_some_and(|x| new_version.split_once(':').is_some_and(|y| x.0 != y.0))
+    if (and.is_none() && or.is_some()) // only one has epoch, the other does not
+        // or they have different epoch
+        || and.is_some_and(|(old_epoch, new_epoch)| old_epoch != new_epoch)
     {
         return (Some(0), Some(0));
     }
@@ -561,7 +555,7 @@ fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<
             (Some(diff), Some(diff))
         }
         CmpOrdering::Equal => {
-            let diff = version_diff_equal_length(old_version, &new_version[..old_version.len()]);
+            let diff = version_diff_equal_length(old_version, new_version);
 
             let Some(diff) = diff else {
                 return (None, None);
