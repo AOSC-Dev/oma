@@ -2,10 +2,12 @@ use std::cmp::Ordering as CmpOrdering;
 use std::fmt::Display;
 use std::io::Write;
 use std::sync::atomic::Ordering;
+use std::sync::LazyLock;
 
 use crate::console::style;
 use crate::error::OutputError;
 use crate::{color_formatter, fl, ALLOWCTRLC, WRITER};
+use ahash::HashSet;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{Pager, PagerExit, PagerUIText};
 use oma_console::print::Action;
@@ -19,7 +21,8 @@ use tabled::{Table, Tabled};
 /// for more information
 ///
 /// Omitting ':' here as we have a preversion filter in `version_diff()`
-const BOUNDARIES: &[char] = &['.', '-', '~', '+'];
+static BOUNDARIES: LazyLock<HashSet<char>> =
+    LazyLock::new(|| ['.', '-', '~', '+'].into_iter().collect::<HashSet<_>>());
 
 #[derive(Debug, Tabled)]
 struct InstallEntryDisplay {
