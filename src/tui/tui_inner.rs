@@ -1,4 +1,5 @@
 use std::{
+    cmp::max,
     fmt::Display,
     io,
     ops::ControlFlow,
@@ -831,7 +832,7 @@ fn show_packages(
                 Block::default()
                     .borders(Borders::ALL)
                     .style(highlight_window(mode, &Mode::Packages))
-                    .padding(Padding::new(0, 0, area.height / 2 - 8, 0)),
+                    .padding(Padding::new(0, 0, max(area.height / 2, 8) - 8, 0)),
             )
             .alignment(Alignment::Center),
             area,
