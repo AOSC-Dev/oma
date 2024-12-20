@@ -508,6 +508,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.68.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3125,6 +3134,7 @@ version = "0.45.5"
 dependencies = [
  "ahash",
  "apt-auth-config",
+ "bincode",
  "bon",
  "chrono",
  "cxx",

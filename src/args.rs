@@ -12,6 +12,7 @@ use crate::{
     download::Download,
     error::OutputError,
     fix_broken::FixBroken,
+    gencache::GenCache,
     generate::Generate,
     history::{History, Undo},
     install::Install,
@@ -123,6 +124,9 @@ pub enum SubCmd {
     #[command(hide = true)]
     /// Generate shell completions and manpages
     Generate(Generate),
+    #[command(hide = true)]
+    /// Generate search index cache
+    Gencache(GenCache),
 }
 
 #[derive(Debug, Args)]

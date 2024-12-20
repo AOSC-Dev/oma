@@ -1,5 +1,4 @@
 use ahash::{AHashMap, RandomState};
-use cxx::UniquePtr;
 use glob_match::glob_match;
 use indexmap::map::Entry;
 use indicium::simple::{Indexable, SearchIndex};
@@ -7,11 +6,16 @@ use memchr::memmem;
 use oma_apt::{
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
-    raw::{IntoRawIter, PkgIterator},
+    raw::IntoRawIter,
     Package,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    fs,
+    io::{self, BufReader, ErrorKind},
+};
+use tracing::warn;
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
 type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
@@ -56,13 +60,13 @@ impl Ord for PackageStatus {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct SearchEntry {
     name: String,
     description: String,
-    status: PackageStatus,
     provides: IndexSet<String>,
     has_dbg: bool,
-    raw_pkg: UniquePtr<PkgIterator>,
+    #[cfg(feature = "aosc")]
     section_is_base: bool,
 }
 
@@ -71,11 +75,8 @@ impl Debug for SearchEntry {
         f.debug_struct("SearchEntry")
             .field("pkgname", &self.name)
             .field("description", &self.description)
-            .field("status", &self.status)
             .field("provides", &self.provides)
             .field("has_dbg", &self.has_dbg)
-            .field("raw_pkg", &self.raw_pkg.fullname(true))
-            .field("section_is_base", &self.section_is_base)
             .finish()
     }
 }
@@ -116,6 +117,7 @@ pub struct SearchResult {
     pub full_match: bool,
     pub dbg_package: bool,
     pub status: PackageStatus,
+    #[cfg(feature = "aosc")]
     pub is_base: bool,
 }
 
@@ -140,7 +142,9 @@ impl OmaSearch for IndiciumSearch<'_> {
         }
 
         for i in res {
-            let entry = self.search_result(i, Some(&query))?;
+            let Some(entry) = self.search_result(i, Some(&query))? else {
+                continue;
+            };
             search_res.push(entry);
         }
 
@@ -159,132 +163,56 @@ impl OmaSearch for IndiciumSearch<'_> {
 
 impl<'a> IndiciumSearch<'a> {
     pub fn new(cache: &'a Cache, progress: impl Fn(usize)) -> OmaSearchResult<Self> {
-        let sort = PackageSort::default().include_virtual();
-        let packages = cache.packages(&sort);
+        let f: Option<IndexMap<String, SearchEntry>> =
+            fs::File::open("/var/cache/oma/search_index_cache")
+                .ok()
+                .map(BufReader::new)
+                .and_then(|reader| bincode::deserialize_from(reader).ok());
 
-        let mut pkg_map = IndexMap::with_hasher(RandomState::new());
+        if let Some(f) = f {
+            let mut search_index: SearchIndex<String> = SearchIndex::default();
 
-        for (i, pkg) in packages.enumerate() {
-            let name = pkg.fullname(true);
-            progress(i);
+            f.iter().enumerate().for_each(|(index, (key, value))| {
+                search_index.insert(key, value);
+                progress(index);
+            });
 
-            if name.contains("-dbg") {
-                continue;
-            }
-
-            let status = if pkg.is_upgradable() {
-                PackageStatus::Upgrade
-            } else if pkg.is_installed() {
-                PackageStatus::Installed
-            } else {
-                PackageStatus::Avail
-            };
-
-            if let Some(cand) = pkg.candidate() {
-                if let Entry::Vacant(e) = pkg_map.entry(name.clone()) {
-                    e.insert(SearchEntry {
-                        name,
-                        description: cand
-                            .summary()
-                            .unwrap_or_else(|| "No description".to_string()),
-                        status,
-                        provides: pkg.provides().map(|x| x.to_string()).collect(),
-                        has_dbg: has_dbg(cache, &pkg, &cand),
-                        raw_pkg: unsafe { pkg.unique() }
-                            .make_safe()
-                            .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
-                        section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
-                    });
-                }
-            } else {
-                // Provides
-                let mut real_pkgs = vec![];
-                for i in pkg.provides() {
-                    real_pkgs.push((
-                        i.name().to_string(),
-                        unsafe { i.target_pkg() }
-                            .make_safe()
-                            .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
-                    ));
-                }
-
-                for (provide, i) in real_pkgs {
-                    let pkg = Package::new(cache, i);
-                    let name = pkg.fullname(true);
-
-                    let status = if pkg.is_upgradable() {
-                        PackageStatus::Upgrade
-                    } else if pkg.is_installed() {
-                        PackageStatus::Installed
-                    } else {
-                        PackageStatus::Avail
-                    };
-
-                    if let Some(cand) = pkg.candidate() {
-                        pkg_map
-                            .entry(name.clone())
-                            .and_modify(|x| {
-                                if !x.provides.contains(&provide) {
-                                    x.provides.insert(provide.clone());
-                                }
-                            })
-                            .or_insert(SearchEntry {
-                                name,
-                                description: cand
-                                    .summary()
-                                    .unwrap_or_else(|| "No description".to_string()),
-                                status,
-                                provides: {
-                                    let mut set = IndexSet::with_hasher(RandomState::new());
-                                    set.insert(provide.clone());
-                                    set
-                                },
-                                has_dbg: has_dbg(cache, &pkg, &cand),
-                                raw_pkg: unsafe { pkg.unique() }
-                                    .make_safe()
-                                    .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
-                                section_is_base: cand
-                                    .section()
-                                    .map(|x| x == "Bases")
-                                    .unwrap_or(false),
-                            });
-                    }
-                }
-            }
+            Ok(Self {
+                cache,
+                pkg_map: f,
+                index: search_index,
+            })
+        } else {
+            make_search_cache(cache, progress)
         }
-
-        let mut search_index: SearchIndex<String> = SearchIndex::default();
-
-        pkg_map
-            .iter()
-            .for_each(|(key, value)| search_index.insert(key, value));
-
-        Ok(Self {
-            cache,
-            pkg_map,
-            index: search_index,
-        })
     }
 
     pub fn search_result(
         &self,
         i: &str,
         query: Option<&str>,
-    ) -> Result<SearchResult, OmaSearchError> {
+    ) -> Result<Option<SearchResult>, OmaSearchError> {
         let entry = self.pkg_map.get(i).unwrap();
         let search_name = entry.name.clone();
         let desc = entry.description.clone();
-        let status = entry.status;
         let has_dbg = entry.has_dbg;
-        let pkg = unsafe { entry.raw_pkg.unique() }
-            .make_safe()
-            .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?;
-        let pkg = Package::new(self.cache, pkg);
+
+        let Some(pkg) = self.cache.get(&search_name) else {
+            return Ok(None);
+        };
 
         let full_match = if let Some(query) = query {
             query == search_name || entry.provides.iter().any(|x| x == query)
         } else {
             false
+        };
+
+        let status = if pkg.is_upgradable() {
+            PackageStatus::Upgrade
+        } else if pkg.is_installed() {
+            PackageStatus::Installed
+        } else {
+            PackageStatus::Avail
         };
 
         let old_version = if status != PackageStatus::Upgrade {
@@ -298,9 +226,10 @@ impl<'a> IndiciumSearch<'a> {
             .map(|x| x.version().to_string())
             .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.fullname(true)))?;
 
+        #[cfg(feature = "aosc")]
         let is_base = entry.section_is_base;
 
-        Ok(SearchResult {
+        Ok(Some(SearchResult {
             name: pkg.fullname(true),
             desc,
             old_version,
@@ -308,9 +237,108 @@ impl<'a> IndiciumSearch<'a> {
             full_match,
             dbg_package: has_dbg,
             status,
+            #[cfg(feature = "aosc")]
             is_base,
-        })
+        }))
     }
+}
+
+pub fn make_search_cache(
+    cache: &Cache,
+    progress: impl Fn(usize),
+) -> Result<IndiciumSearch<'_>, OmaSearchError> {
+    let sort = PackageSort::default().include_virtual();
+    let packages = cache.packages(&sort);
+
+    let mut pkg_map = IndexMap::with_hasher(RandomState::new());
+
+    for (i, pkg) in packages.enumerate() {
+        let name = pkg.fullname(true);
+        progress(i);
+
+        if name.contains("-dbg") {
+            continue;
+        }
+
+        if let Some(cand) = pkg.candidate() {
+            if let Entry::Vacant(e) = pkg_map.entry(name.clone()) {
+                e.insert(SearchEntry {
+                    name,
+                    description: cand
+                        .summary()
+                        .unwrap_or_else(|| "No description".to_string()),
+                    provides: pkg.provides().map(|x| x.to_string()).collect(),
+                    has_dbg: has_dbg(cache, &pkg, &cand),
+                    #[cfg(feature = "aosc")]
+                    section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
+                });
+            }
+        } else {
+            // Provides
+            let mut real_pkgs = vec![];
+            for i in pkg.provides() {
+                real_pkgs.push((
+                    i.name().to_string(),
+                    unsafe { i.target_pkg() }
+                        .make_safe()
+                        .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
+                ));
+            }
+
+            for (provide, i) in real_pkgs {
+                let pkg = Package::new(cache, i);
+                let name = pkg.fullname(true);
+
+                if let Some(cand) = pkg.candidate() {
+                    pkg_map
+                        .entry(name.clone())
+                        .and_modify(|x| {
+                            if !x.provides.contains(&provide) {
+                                x.provides.insert(provide.clone());
+                            }
+                        })
+                        .or_insert(SearchEntry {
+                            name,
+                            description: cand
+                                .summary()
+                                .unwrap_or_else(|| "No description".to_string()),
+                            provides: {
+                                let mut set = IndexSet::with_hasher(RandomState::new());
+                                set.insert(provide.clone());
+                                set
+                            },
+                            has_dbg: has_dbg(cache, &pkg, &cand),
+                            #[cfg(feature = "aosc")]
+                            section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
+                        });
+                }
+            }
+        }
+    }
+
+    let mut search_index: SearchIndex<String> = SearchIndex::default();
+
+    pkg_map
+        .iter()
+        .for_each(|(key, value)| search_index.insert(key, value));
+
+    let ty = Ok(()).and_then(|_| -> io::Result<()> {
+        let pkg_map_cache =
+            bincode::serialize(&pkg_map).map_err(|e| io::Error::new(ErrorKind::Other, e))?;
+        fs::create_dir_all("/var/cache/oma/")?;
+        fs::write("/var/cache/oma/search_index_cache", &pkg_map_cache)?;
+        Ok(())
+    });
+
+    if let Err(e) = ty {
+        warn!("Failed to write search index to cache: {e}");
+    }
+
+    Ok(IndiciumSearch {
+        cache,
+        pkg_map,
+        index: search_index,
+    })
 }
 
 pub struct StrSimSearch<'a> {
@@ -395,7 +423,10 @@ impl OmaSearch for StrSimSearch<'_> {
                 .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.fullname(true)))?;
 
             let name = pkg.fullname(true);
+
+            #[cfg(feature = "aosc")]
             let is_base = name.ends_with("-base");
+
             let full_match = query == name;
 
             v.push(SearchResult {
@@ -420,6 +451,7 @@ impl OmaSearch for StrSimSearch<'_> {
                 } else {
                     PackageStatus::Avail
                 },
+                #[cfg(feature = "aosc")]
                 is_base,
             });
         }
@@ -475,7 +507,10 @@ impl OmaSearch for TextSearch<'_> {
                 && !name.ends_with("-dbg")
             {
                 let full_match = query == name;
+
+                #[cfg(feature = "aosc")]
                 let is_base = name.ends_with("-base");
+
                 let upgrade = pkg.is_upgradable();
                 let installed = pkg.is_installed();
                 if let Some(cand) = cand {
@@ -501,6 +536,7 @@ impl OmaSearch for TextSearch<'_> {
                         } else {
                             PackageStatus::Avail
                         },
+                        #[cfg(feature = "aosc")]
                         is_base,
                     })
                 }
