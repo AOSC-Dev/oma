@@ -25,14 +25,15 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          if [[ "$${TARGET_DISTRO}" = "linuxdeepin/deepin:beige-arm64-v1.4.0" ]]; then
+          echo 
+          if [[ "${TARGET_DISTRO}" = "linuxdeepin/deepin:beige-arm64-v1.4.0" ]]; then
             sed -e 's|https://community-packages.deepin.com|https://mirrors.bfsu.edu.cn/deepin|g' -i /etc/apt/sources.list;
           fi
 
           apt-get update
           env DEBIAN_FRONTEND=noninteractive apt-get install -y curl
 
-          if [[ "$${TARGET_DISTRO}" != "chenchongbiao/openkylin:nile-arm64" ]]; then
+          if [[ "${TARGET_DISTRO}" != "chenchongbiao/openkylin:nile-arm64" ]]; then
             curl -fsSL https://deb.nodesource.com/setup_22.x | bash;
           fi
 
