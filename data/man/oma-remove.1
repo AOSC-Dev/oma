@@ -1,0 +1,40 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-remove 1  "remove " 
+.SH NAME
+remove \- Remove the specified package(s)
+.SH SYNOPSIS
+\fBremove\fR [\fB\-y\fR|\fB\-\-yes\fR] [\fB\-f\fR|\fB\-\-fix\-broken\fR] [\fB\-n\fR|\fB\-\-no\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-no\-autoremove\fR] [\fB\-\-remove\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPACKAGES\fR] 
+.SH DESCRIPTION
+Remove the specified package(s)
+.SH OPTIONS
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+Bypass confirmation prompts
+.TP
+\fB\-f\fR, \fB\-\-fix\-broken\fR
+Fix apt resolver broken status
+.TP
+\fB\-n\fR, \fB\-\-no\-fix\-dpkg\-status\fR
+Do not fix dpkg broken status
+.TP
+\fB\-\-force\-unsafe\-io\fR
+Install package(s) without fsync(2)
+.TP
+\fB\-\-force\-yes\fR
+Ignore repository and package dependency issues
+.TP
+\fB\-\-force\-confnew\fR
+Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg \-\-force\-confnew`)
+.TP
+\fB\-\-no\-autoremove\fR
+Do not auto remove unnecessary package(s)
+.TP
+\fB\-\-remove\-config\fR
+Remove package(s) also remove configuration file(s), like apt purge
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIPACKAGES\fR]
+Package(s) to remove

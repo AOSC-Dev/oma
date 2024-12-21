@@ -6,29 +6,42 @@ on:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    runs-on: arm64
     strategy:
       matrix:
         target:
           [
-            "ubuntu:20.04",
-            "ubuntu:22.04",
-            "ubuntu:24.04",
-            "debian:11",
-            "debian:12",
-            "linuxdeepin/deepin",
-            "chenchongbiao/openkylin",
+            "arm64v8/ubuntu:20.04",
+            "arm64v8/ubuntu:22.04",
+            "arm64v8/ubuntu:24.04",
+            "arm64v8/debian:11",
+            "arm64v8/debian:12",
+            "linuxdeepin/deepin:beige-arm64-v1.4.0",
+            "chenchongbiao/openkylin:nile-arm64",
           ]
     container:
       image: "${{ matrix.target }}"
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
       - name: Install Dependencies
         shell: bash
+        env:
+          TARGET_DISTRO: "${{ matrix.target }}"
         run: |
+          echo "${TARGET_DISTRO}"
+          if [[ "${TARGET_DISTRO}" = "linuxdeepin/deepin:beige-arm64-v1.4.0" ]]; then
+            sed -e 's|https://community-packages.deepin.com|https://mirrors.bfsu.edu.cn/deepin|g' -i /etc/apt/sources.list;
+          fi
+
           apt-get update
-          apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync
+          env DEBIAN_FRONTEND=noninteractive apt-get install -y curl
+
+          if [[ "${TARGET_DISTRO}" != "chenchongbiao/openkylin:nile-arm64" ]]; then
+            curl -fsSL https://deb.nodesource.com/setup_22.x | bash;
+          fi
+
+          env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync nodejs
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
@@ -45,26 +58,26 @@ jobs:
           VER_SUFFIX="${TARGET_DISTRO/:/}"
           VER_SUFFIX="${VER_SUFFIX##*\/}"
           case "${TARGET_DISTRO}" in
-              'debian:11')
+              'arm64v8/debian:11')
                   CODENAME='bullseye'
                   ;;
-              'debian:12')
+              'arm64v8/debian:12')
                   CODENAME='bookworm'
                   ;;
-              'ubuntu:20.04')
+              'arm64v8/ubuntu:20.04')
                   CODENAME='focal'
                   ;;
-              'ubuntu:22.04')
+              'arm64v8/ubuntu:22.04')
                   CODENAME='jammy'
                   ;;
-              'ubuntu:24.04')
+              'arm64v8/ubuntu:24.04')
                   CODENAME='noble'
                   ;;
-              'linuxdeepin/deepin')
+              'linuxdeepin/deepin:beige-arm64-v1.4.0')
                   CODENAME='beige'
-                  VER_SUFFIX="${VER_SUFFIX}23"
+                  VER_SUFFIX="deepin23"
                   ;;
-              'chenchongbiao/openkylin')
+              'chenchongbiao/openkylin:nile-arm64')
                   CODENAME='nile'
                   VER_SUFFIX="${VER_SUFFIX}2.0"
                   ;;
