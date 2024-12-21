@@ -1,0 +1,22 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-files 1  "files " 
+.SH NAME
+files \- List files in the specified package
+.SH SYNOPSIS
+\fBfiles\fR [\fB\-\-bin\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGE\fR> 
+.SH DESCRIPTION
+List files in the specified package
+.SH OPTIONS
+.TP
+\fB\-\-bin\fR
+Search binary of package(s)
+.TP
+\fB\-\-no\-pager\fR
+Output result to stdout, not pager
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+<\fIPACKAGE\fR>
+Package to display a list files of

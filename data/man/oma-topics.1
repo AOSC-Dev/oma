@@ -1,0 +1,43 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-topics 1  "topics " 
+.SH NAME
+topics \- Manage testing topics enrollment
+.SH SYNOPSIS
+\fBtopics\fR [\fB\-\-opt\-in\fR] [\fB\-\-opt\-out\fR] [\fB\-n\fR|\fB\-\-no\-fixbroken\fR] [\fB\-n\fR|\fB\-\-no\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-autoremove\fR] [\fB\-\-all\fR] [\fB\-\-remove\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Manage testing topics enrollment
+.SH OPTIONS
+.TP
+\fB\-\-opt\-in\fR=\fIOPT_IN\fR
+Enroll in one or more topic(s), delimited by space
+.TP
+\fB\-\-opt\-out\fR=\fIOPT_OUT\fR
+Withdraw from one or more topic(s) and rollback to stable versions, delimited by space
+.TP
+\fB\-n\fR, \fB\-\-no\-fixbroken\fR
+Fix apt broken status
+.TP
+\fB\-n\fR, \fB\-\-no\-fix\-dpkg\-status\fR
+Do not fix dpkg broken status
+.TP
+\fB\-\-force\-unsafe\-io\fR
+Install package(s) without fsync(2)
+.TP
+\fB\-\-force\-yes\fR
+Ignore repository and package dependency issues
+.TP
+\fB\-\-force\-confnew\fR
+Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg \-\-force\-confnew`)
+.TP
+\fB\-\-autoremove\fR
+Auto remove unnecessary package(s)
+.TP
+\fB\-\-all\fR
+Display all topics on list (include draft status topics)
+.TP
+\fB\-\-remove\-config\fR
+Remove package(s) also remove configuration file(s), like apt purge
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help

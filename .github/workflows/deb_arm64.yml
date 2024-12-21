@@ -55,7 +55,7 @@ jobs:
               'ubuntu:22.04')
                   CODENAME='jammy'
                   ;;
-              'ubuntu:24.04')
+              'arm64v8/ubuntu:24.04')
                   CODENAME='noble'
                   ;;
               'linuxdeepin/deepin')
