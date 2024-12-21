@@ -17,7 +17,7 @@ jobs:
             # "arm64v8/debian:11",
             # "arm64v8/debian:12",
             "linuxdeepin/deepin:beige-arm64-v1.4.0",
-            # "chenchongbiao/openkylin:nile-arm64", # Not a Debian-base system
+            "chenchongbiao/openkylin:nile-arm64",
           ]
     container:
       image: "${{ matrix.target }}"
@@ -25,9 +25,17 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
+          if [[ "$${TARGET_DISTRO}" = "linuxdeepin/deepin:beige-arm64-v1.4.0" ]]; do
+            sed -e 's|https://community-packages.deepin.com|https://mirrors.bfsu.edu.cn/deepin|g' -i /etc/apt/sources.list;
+          fi
+
           apt-get update
           env DEBIAN_FRONTEND=noninteractive apt-get install -y curl
-          curl -fsSL https://deb.nodesource.com/setup_22.x | bash
+
+          if [[ "$${TARGET_DISTRO}" != "chenchongbiao/openkylin:nile-arm64" ]]; do
+            curl -fsSL https://deb.nodesource.com/setup_22.x | bash;
+          fi
+
           env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync nodejs
       - name: Checkout repository
         uses: actions/checkout@v4
