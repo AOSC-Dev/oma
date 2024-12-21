@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Install Dependencies
         shell: bash
+        env:
+          TARGET_DISTRO: "${{ matrix.target }}"
         run: |
           echo "${TARGET_DISTRO}"
           if [[ "${TARGET_DISTRO}" = "linuxdeepin/deepin:beige-arm64-v1.4.0" ]]; then
