@@ -20,13 +20,13 @@ jobs:
     container:
       image: "${{ matrix.target }}"
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
       - name: Install Dependencies
         shell: bash
         run: |
           apt-get update
-          apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync
+          apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync nodejs
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
