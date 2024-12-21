@@ -1,12 +1,18 @@
 //! Progress Bar
 //! pb is used as an acronym for Progress Bar
 
-use std::{fmt::Write, time::Duration};
+use std::{
+    fmt::Write,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
 
 use console::style;
 use indicatif::{HumanBytes, ProgressState, ProgressStyle};
 
 use crate::writer::Writer;
+
+pub static AILURUS: AtomicBool = AtomicBool::new(false);
 
 const SPINNER_ANIME: &[&str] = &[
     "( ●    )",
@@ -19,6 +25,11 @@ const SPINNER_ANIME: &[&str] = &[
     "(  ●   )",
     "( ●    )",
     "(●     )",
+];
+
+const SPINNER_ANIME_EGG: &[&str] = &[
+    "☀️ ", "☀️ ", "☀️ ", "🌤 ", "⛅️ ", "🌥 ", "☁️ ", "🌧 ", "🌨 ", "🌧 ", "🌨 ", "🌧 ", "🌨 ", "⛈ ", "🌨 ",
+    "🌧 ", "🌨 ", "☁️ ", "🌥 ", "⛅️ ", "🌤 ", "☀️ ", "☀️ ",
 ];
 const GLOBAL_BAR_SMALL_TEMPLATE: &str = " {progress_msg:<59}";
 const GLOBAL_BAR_TEMPLATE: &str =
@@ -101,7 +112,13 @@ fn oma_global_bar_template(state: &ProgressState, w: &mut dyn Write) {
 }
 
 pub fn spinner_style() -> (ProgressStyle, Duration) {
-    let (template, inv) = (SPINNER_ANIME, 80);
+    let anime = if AILURUS.load(Ordering::Relaxed) {
+        SPINNER_ANIME_EGG
+    } else {
+        SPINNER_ANIME
+    };
+
+    let (template, inv) = (anime, 80);
 
     let style = ProgressStyle::with_template(SPINNER_TEMPLATE)
         .unwrap()
