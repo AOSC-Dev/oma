@@ -25,7 +25,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          echo 
+          echo "${TARGET_DISTRO}"
           if [[ "${TARGET_DISTRO}" = "linuxdeepin/deepin:beige-arm64-v1.4.0" ]]; then
             sed -e 's|https://community-packages.deepin.com|https://mirrors.bfsu.edu.cn/deepin|g' -i /etc/apt/sources.list;
           fi
