@@ -19,7 +19,12 @@ jobs:
     steps:
       - name: Install Dependencies
         shell: bash
+        env:
+          TARGET_DISTRO: "${{ matrix.target }}"
         run: |
+          if [[ "${TARGET_DISTRO}" = "linuxdeepin/deepin:beige-loong64-v1.4.0" ]]; then
+            sed -e 's|https://community-packages.deepin.com|https://mirrors.bfsu.edu.cn/deepin|g' -i /etc/apt/sources.list;
+          fi
           apt-get update
           env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync nodejs
       - name: Checkout repository
