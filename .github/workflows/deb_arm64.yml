@@ -20,13 +20,16 @@ jobs:
     container:
       image: "${{ matrix.target }}"
     steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Install Dependencies
         shell: bash
         run: |
+          wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
           apt-get update
-          env DEBIAN_FRONTEND=noninteractive apt-get install -y curl
-          curl -fsSL https://deb.nodesource.com/setup_22.x | sh
-          env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync nodejs
+          env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync
       - name: Checkout repository
         uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
