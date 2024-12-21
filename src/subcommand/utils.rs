@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Debug;
+use std::fs;
 use std::io;
 use std::io::stderr;
 use std::io::stdin;
@@ -51,7 +52,9 @@ use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
+use oma_pm::apt::FilterMode;
 use oma_pm::apt::OmaApt;
+use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::OmaAptError;
 use oma_pm::apt::SummarySort;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
@@ -435,6 +438,8 @@ impl CommitChanges<'_> {
                     true,
                 )?;
 
+                write_oma_installed_status()?;
+
                 autoremovable_tips(ar_count, ar_size)?;
 
                 Ok(0)
@@ -597,6 +602,46 @@ pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
     }
 
     Ok(res)
+}
+
+pub fn write_oma_installed_status() -> anyhow::Result<()> {
+    let status_file = Path::new("/var/lib/oma/installed");
+    let status_file_manual = Path::new("/var/lib/oma/installed-manual");
+    let parent = status_file.parent().unwrap();
+
+    if !parent.is_dir() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let apt = OmaApt::new(
+        vec![],
+        OmaAptArgs::builder().build(),
+        false,
+        AptConfig::new(),
+    )?;
+
+    let pkgs = apt
+        .filter_pkgs(&[FilterMode::Installed])?
+        .map(|x| x.fullname(false))
+        .collect::<Vec<_>>();
+
+    let manual_pkgs = apt
+        .filter_pkgs(&[FilterMode::Installed, FilterMode::Manual])?
+        .map(|x| x.fullname(false))
+        .collect::<Vec<_>>();
+
+    if status_file.exists() {
+        fs::copy(status_file, parent.join("installed-old"))?;
+    }
+
+    if status_file_manual.exists() {
+        fs::copy(status_file, parent.join("installed-manual-old"))?;
+    }
+
+    fs::write(status_file, pkgs.join("\n"))?;
+    fs::write(status_file_manual, manual_pkgs.join("\n"))?;
+
+    Ok(())
 }
 
 pub fn tui_select_list_size() -> u16 {
