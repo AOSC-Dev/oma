@@ -831,7 +831,7 @@ fn show_packages(
                 Block::default()
                     .borders(Borders::ALL)
                     .style(highlight_window(mode, &Mode::Packages))
-                    .padding(Padding::new(0, 0, area.height / 2 - 8, 0)),
+                    .padding(Padding::new(0, 0, (area.height / 2).saturating_sub(8), 0)),
             )
             .alignment(Alignment::Center),
             area,
