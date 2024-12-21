@@ -101,7 +101,7 @@ complete -c oma -n "__fish_oma_using_subcommand install" -l debug -d 'Run oma wi
 complete -c oma -n "__fish_oma_using_subcommand install" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand install" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand install" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand install" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand install" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand install" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand add" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand add" -l sysroot -d 'Set sysroot target directory' -r -F
@@ -126,12 +126,12 @@ complete -c oma -n "__fish_oma_using_subcommand add" -l debug -d 'Run oma with d
 complete -c oma -n "__fish_oma_using_subcommand add" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand add" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand add" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand add" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand add" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand add" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -l apt-options -d 'Set apt options' -r
-complete -c oma -n "__fish_oma_using_subcommand upgrade" -s n -l no-fixbroken -d 'Do not fix apt broken status'
+complete -c oma -n "__fish_oma_using_subcommand upgrade" -l no-fixbroken -d 'Do not fix apt broken status'
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -l force-unsafe-io -d 'Install package(s) without fsync(2)'
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -l no-refresh -d 'Do not refresh repository metadata'
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -l force-yes -d 'Ignore repository and package dependency issues'
@@ -145,12 +145,12 @@ complete -c oma -n "__fish_oma_using_subcommand upgrade" -l debug -d 'Run oma wi
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand upgrade" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand upgrade" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand upgrade" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l apt-options -d 'Set apt options' -r
-complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -s n -l no-fixbroken -d 'Do not fix apt broken status'
+complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l no-fixbroken -d 'Do not fix apt broken status'
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l force-unsafe-io -d 'Install package(s) without fsync(2)'
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l no-refresh -d 'Do not refresh repository metadata'
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l force-yes -d 'Ignore repository and package dependency issues'
@@ -164,7 +164,7 @@ complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l debug -d 'Run o
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand full-upgrade" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand download" -s p -l path -d 'The path where package(s) should be downloaded to' -r -F
 complete -c oma -n "__fish_oma_using_subcommand download" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
@@ -191,7 +191,7 @@ complete -c oma -n "__fish_oma_using_subcommand remove" -l debug -d 'Run oma wit
 complete -c oma -n "__fish_oma_using_subcommand remove" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand remove" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand remove" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand remove" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand remove" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand remove" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand del" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand del" -l sysroot -d 'Set sysroot target directory' -r -F
@@ -208,7 +208,7 @@ complete -c oma -n "__fish_oma_using_subcommand del" -l debug -d 'Run oma with d
 complete -c oma -n "__fish_oma_using_subcommand del" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand del" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand del" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand del" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand del" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand del" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand rm" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand rm" -l sysroot -d 'Set sysroot target directory' -r -F
@@ -224,7 +224,7 @@ complete -c oma -n "__fish_oma_using_subcommand rm" -l dry-run -d 'Run oma in �
 complete -c oma -n "__fish_oma_using_subcommand rm" -l debug -d 'Run oma with debug output'
 complete -c oma -n "__fish_oma_using_subcommand rm" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand rm" -l no-progress -d 'Do not display progress bar'
-complete -c oma -n "__fish_oma_using_subcommand rm" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand rm" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand rm" -l no-check-dbus -d 'Run oma do not check dbus'
 complete -c oma -n "__fish_oma_using_subcommand rm" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand refresh" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
@@ -252,7 +252,7 @@ complete -c oma -n "__fish_oma_using_subcommand autoremove" -l debug -d 'Run oma
 complete -c oma -n "__fish_oma_using_subcommand autoremove" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand autoremove" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand autoremove" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand autoremove" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand autoremove" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand autoremove" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand show" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand show" -l sysroot -d 'Set sysroot target directory' -r -F
@@ -323,7 +323,7 @@ complete -c oma -n "__fish_oma_using_subcommand fix-broken" -l follow-terminal-c
 complete -c oma -n "__fish_oma_using_subcommand fix-broken" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand fix-broken" -l no-check-dbus -d 'Run oma do not check dbus'
 complete -c oma -n "__fish_oma_using_subcommand fix-broken" -s h -l help -d 'Print help (see more with \'--help\')'
-complete -c oma -n "__fish_oma_using_subcommand fix-broken" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand fix-broken" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand pick" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand pick" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand pick" -l apt-options -d 'Set apt options' -r
@@ -340,7 +340,7 @@ complete -c oma -n "__fish_oma_using_subcommand pick" -l debug -d 'Run oma with 
 complete -c oma -n "__fish_oma_using_subcommand pick" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand pick" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand pick" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand pick" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand pick" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand pick" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand mark" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand mark" -l sysroot -d 'Set sysroot target directory' -r -F
@@ -354,12 +354,9 @@ complete -c oma -n "__fish_oma_using_subcommand mark" -s h -l help -d 'Print hel
 complete -c oma -n "__fish_oma_using_subcommand list" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand list" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand list" -l apt-options -d 'Set apt options' -r
-complete -c oma -n "__fish_oma_using_subcommand list" -s a -l all -d 'List all available version(s) of (a) package(s) from all repository(ies)'
 complete -c oma -n "__fish_oma_using_subcommand list" -s i -l installed -d 'List only package(s) currently installed on the system'
 complete -c oma -n "__fish_oma_using_subcommand list" -s u -l upgradable -d 'List only package(s) with update(s) available'
 complete -c oma -n "__fish_oma_using_subcommand list" -s m -l manually-installed -d 'List only package(s) with manually installed'
-complete -c oma -n "__fish_oma_using_subcommand list" -s a -l automatic -d 'List only package(s) with automatic installed'
-complete -c oma -n "__fish_oma_using_subcommand list" -s a -l autoremovable -d 'List only package(s) with autoremovable'
 complete -c oma -n "__fish_oma_using_subcommand list" -l json -d 'Set output format as JSON'
 complete -c oma -n "__fish_oma_using_subcommand list" -l dry-run -d 'Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system'
 complete -c oma -n "__fish_oma_using_subcommand list" -l debug -d 'Run oma with debug output'
@@ -437,7 +434,7 @@ complete -c oma -n "__fish_oma_using_subcommand log" -s h -l help -d 'Print help
 complete -c oma -n "__fish_oma_using_subcommand undo" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand undo" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand undo" -l apt-options -d 'Set apt options' -r
-complete -c oma -n "__fish_oma_using_subcommand undo" -s n -l no-fixbroken -d 'Do not fix apt broken status'
+complete -c oma -n "__fish_oma_using_subcommand undo" -l no-fixbroken -d 'Do not fix apt broken status'
 complete -c oma -n "__fish_oma_using_subcommand undo" -l force-unsafe-io -d 'Install package(s) without fsync(2)'
 complete -c oma -n "__fish_oma_using_subcommand undo" -l force-yes -d 'Ignore repository and package dependency issues'
 complete -c oma -n "__fish_oma_using_subcommand undo" -l force-confnew -d 'Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)'
@@ -448,7 +445,7 @@ complete -c oma -n "__fish_oma_using_subcommand undo" -l debug -d 'Run oma with 
 complete -c oma -n "__fish_oma_using_subcommand undo" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand undo" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand undo" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand undo" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand undo" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand undo" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand tui" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand tui" -l sysroot -d 'Set sysroot target directory' -r -F
@@ -465,14 +462,14 @@ complete -c oma -n "__fish_oma_using_subcommand tui" -l debug -d 'Run oma with d
 complete -c oma -n "__fish_oma_using_subcommand tui" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand tui" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand tui" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand tui" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand tui" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand tui" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l opt-in -d 'Enroll in one or more topic(s), delimited by space' -r
 complete -c oma -n "__fish_oma_using_subcommand topics" -l opt-out -d 'Withdraw from one or more topic(s) and rollback to stable versions, delimited by space' -r
 complete -c oma -n "__fish_oma_using_subcommand topics" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand topics" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand topics" -l apt-options -d 'Set apt options' -r
-complete -c oma -n "__fish_oma_using_subcommand topics" -s n -l no-fixbroken -d 'Fix apt broken status'
+complete -c oma -n "__fish_oma_using_subcommand topics" -l no-fixbroken -d 'Fix apt broken status'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l force-unsafe-io -d 'Install package(s) without fsync(2)'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l force-yes -d 'Ignore repository and package dependency issues'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l force-confnew -d 'Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)'
@@ -484,14 +481,14 @@ complete -c oma -n "__fish_oma_using_subcommand topics" -l debug -d 'Run oma wit
 complete -c oma -n "__fish_oma_using_subcommand topics" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand topics" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand topics" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand topics" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand topic" -l opt-in -d 'Enroll in one or more topic(s), delimited by space' -r
 complete -c oma -n "__fish_oma_using_subcommand topic" -l opt-out -d 'Withdraw from one or more topic(s) and rollback to stable versions, delimited by space' -r
 complete -c oma -n "__fish_oma_using_subcommand topic" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand topic" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand topic" -l apt-options -d 'Set apt options' -r
-complete -c oma -n "__fish_oma_using_subcommand topic" -s n -l no-fixbroken -d 'Fix apt broken status'
+complete -c oma -n "__fish_oma_using_subcommand topic" -l no-fixbroken -d 'Fix apt broken status'
 complete -c oma -n "__fish_oma_using_subcommand topic" -l force-unsafe-io -d 'Install package(s) without fsync(2)'
 complete -c oma -n "__fish_oma_using_subcommand topic" -l force-yes -d 'Ignore repository and package dependency issues'
 complete -c oma -n "__fish_oma_using_subcommand topic" -l force-confnew -d 'Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)'
@@ -503,7 +500,7 @@ complete -c oma -n "__fish_oma_using_subcommand topic" -l debug -d 'Run oma with
 complete -c oma -n "__fish_oma_using_subcommand topic" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand topic" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand topic" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand topic" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand topic" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand topic" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand mirror; and not __fish_seen_subcommand_from set add remove sort-mirrors speedtest help" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand mirror; and not __fish_seen_subcommand_from set add remove sort-mirrors speedtest help" -l sysroot -d 'Set sysroot target directory' -r -F
@@ -677,7 +674,7 @@ complete -c oma -n "__fish_oma_using_subcommand purge" -l debug -d 'Run oma with
 complete -c oma -n "__fish_oma_using_subcommand purge" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand purge" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand purge" -l no-check-dbus -d 'Run oma do not check dbus'
-complete -c oma -n "__fish_oma_using_subcommand purge" -s n -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
+complete -c oma -n "__fish_oma_using_subcommand purge" -l no-fix-dpkg-status -d 'Do not fix dpkg broken status'
 complete -c oma -n "__fish_oma_using_subcommand purge" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand command-not-found" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand command-not-found" -l sysroot -d 'Set sysroot target directory' -r -F
