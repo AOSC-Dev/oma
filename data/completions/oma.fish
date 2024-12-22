@@ -474,6 +474,7 @@ complete -c oma -n "__fish_oma_using_subcommand topics" -l force-unsafe-io -d 'I
 complete -c oma -n "__fish_oma_using_subcommand topics" -l force-yes -d 'Ignore repository and package dependency issues'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l force-confnew -d 'Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l autoremove -d 'Auto remove unnecessary package(s)'
+complete -c oma -n "__fish_oma_using_subcommand topics" -l always-write-status -d 'Always write status to atm file and sources.list'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l all -d 'Display all topics on list (include draft status topics)'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l remove-config -l purge -d 'Remove package(s) also remove configuration file(s), like apt purge'
 complete -c oma -n "__fish_oma_using_subcommand topics" -l dry-run -d 'Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system'
@@ -488,6 +489,7 @@ complete -c oma -n "__fish_oma_using_subcommand topic" -l opt-out -d 'Withdraw f
 complete -c oma -n "__fish_oma_using_subcommand topic" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand topic" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand topic" -l apt-options -d 'Set apt options' -r
+complete -c oma -n "__fish_oma_using_subcommand topic" -l always-write-status -d 'Always write status to atm file and sources.list'
 complete -c oma -n "__fish_oma_using_subcommand topic" -l no-fixbroken -d 'Fix apt broken status'
 complete -c oma -n "__fish_oma_using_subcommand topic" -l force-unsafe-io -d 'Install package(s) without fsync(2)'
 complete -c oma -n "__fish_oma_using_subcommand topic" -l force-yes -d 'Ignore repository and package dependency issues'

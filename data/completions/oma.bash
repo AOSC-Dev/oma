@@ -1862,7 +1862,7 @@ _oma() {
             return 0
             ;;
         oma__topics)
-            opts="-h --opt-in --no-fix-dpkg-status --opt-out --no-fixbroken --force-unsafe-io --force-yes --force-confnew --autoremove --all --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --opt-in --no-fix-dpkg-status --opt-out --no-fixbroken --force-unsafe-io --force-yes --force-confnew --autoremove --always-write-status --all --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
