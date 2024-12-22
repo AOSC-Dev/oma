@@ -707,7 +707,7 @@ fn version_diff_equal_length(old_version: &str, new_version: &str) -> Option<usi
         }
         let c2 = new_version_chars[i];
         if c != c2 {
-            return boundary_pos.or(Some(0));
+            return boundary_pos.or(Some(i));
         }
     }
 
