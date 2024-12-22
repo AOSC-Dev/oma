@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - <csr-id-0a0fca5caa6799ef30cde4092bad3671ce3fd506/> Fix space in file
  - <csr-id-abc85d9598597f4664ef1c600064bebf5d6eae79/> Wrong Querymode match
- - <csr-id-a748a92e7b195f73e8f1175916eb089f16f886fb/> No result retutn error
+ - <csr-id-a748a92e7b195f73e8f1175916eb089f16f886fb/> No result return error
 
 ### Refactor
 
@@ -104,7 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Oma provides is back ([`bdb3ee1`](https://github.com/AOSC-Dev/oma/commit/bdb3ee11da1a1b1149d852adfb4bad84c20f7922))
     - Wrong Querymode match ([`abc85d9`](https://github.com/AOSC-Dev/oma/commit/abc85d9598597f4664ef1c600064bebf5d6eae79))
     - Redesign api ([`898a178`](https://github.com/AOSC-Dev/oma/commit/898a17812a0a9d7cfe72768a491e7d0999917764))
-    - No result retutn error ([`a748a92`](https://github.com/AOSC-Dev/oma/commit/a748a92e7b195f73e8f1175916eb089f16f886fb))
+    - No result return error ([`a748a92`](https://github.com/AOSC-Dev/oma/commit/a748a92e7b195f73e8f1175916eb089f16f886fb))
     - Use cargo-fmt to format code ([`28aab97`](https://github.com/AOSC-Dev/oma/commit/28aab97554694d122e41d963443c3af96d3d28c6))
     - Done for contents.rs to oma-contents crate ([`ced5b05`](https://github.com/AOSC-Dev/oma/commit/ced5b0533ac32c7473ef95d4dac1d4d9f7744ebe))
     - Init ([`49ba1f3`](https://github.com/AOSC-Dev/oma/commit/49ba1f381b98f785f5e8721a404ec1c596a54a63))

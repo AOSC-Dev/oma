@@ -892,7 +892,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
-- Do not display useless `covert to AptErrors` message
+- Do not display useless `convert to AptErrors` message
 - *(oma-refresh)* Fix callback wrong uncompress file size
 - Fix a typo
 
@@ -2338,7 +2338,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
-- *(oma-contents)* No result retutn error
+- *(oma-contents)* No result return error
 - *(oma-refresh)* Clear decompress progress bar
 - *(oma-refresh)* Do not fetch repeatedly source
 - *(oma-refresh)* Do not always decompress contents every refresh
@@ -2449,7 +2449,7 @@ All notable changes to this project will be documented in this file.
 - Drop useless error enum
 - *(oma-topics)* Do not display duplicate topic entries
 - *(oma-ferch)* Fix fetch local source position
-- *(subcmd/topics)* If terminal heigh < 4, page size must be 1
+- *(subcmd/topics)* If terminal height < 4, page size must be 1
 - Fix find unmet dep pending ui display
 - *(table)* Fix print table to less and stderr conflict issue
 - *(oma-pm)* Add `OmaAptError::PkgUnavailable` to handle if package:version unavailable
