@@ -497,7 +497,7 @@ impl<'a> SingleDownloader<'a> {
             return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
         }
 
-        // 最后看看 chekcsum 验证是否通过
+        // 最后看看 checksum 验证是否通过
         if let Some(v) = validator {
             if !v.finish() {
                 debug!("checksum fail: {}", self.entry.filename);
