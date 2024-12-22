@@ -16,6 +16,7 @@ jobs:
             "ubuntu:24.04",
             "debian:11",
             "debian:12",
+            "debian:trixie",
             "linuxdeepin/deepin",
             "chenchongbiao/openkylin",
           ]
@@ -50,6 +51,10 @@ jobs:
                   ;;
               'debian:12')
                   CODENAME='bookworm'
+                  ;;
+              'debian:trixie')
+                  CODENAME='trixie'
+                  VER_SUFFIX='debian13'
                   ;;
               'ubuntu:20.04')
                   CODENAME='focal'

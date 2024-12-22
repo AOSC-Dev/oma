@@ -16,6 +16,7 @@ jobs:
             "arm64v8/ubuntu:24.04",
             "arm64v8/debian:11",
             "arm64v8/debian:12",
+            "arm64v8/debian:trixie",
             "linuxdeepin/deepin:beige-arm64-v1.4.0",
             "chenchongbiao/openkylin:nile-arm64",
           ]
@@ -63,6 +64,10 @@ jobs:
                   ;;
               'arm64v8/debian:12')
                   CODENAME='bookworm'
+                  ;;
+              'arm64v8/debian:trixie')
+                  CODENAME='trixie'
+                  VER_SUFFIX='debian13'
                   ;;
               'arm64v8/ubuntu:20.04')
                   CODENAME='focal'

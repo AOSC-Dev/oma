@@ -28,14 +28,21 @@ _parse_os_release() {
 		_oma_codename='bullseye'
 		echo "
 >>> 探测到 Debian ${VERSION_ID} ...
->>>Detected Debian ${VERSION_ID} ...
+>>> Detected Debian ${VERSION_ID} ...
 "
 	elif [ "$ID" = 'debian' -a \
 	       "$VERSION_ID" = '12' ]; then
 		_oma_codename='bookworm'
 		echo "
 >>> 探测到 Debian ${VERSION_ID} ...
->>> Detected Debian ${VERSION_ID} (${_oma_codename}) ...
+>>> Detected Debian ${VERSION_ID} ...
+"
+	elif [ "$ID" = 'debian' -a \
+	       "$VERSION_CODENAME" = 'trixie' ]; then
+		_oma_codename='trixie'
+		echo "
+>>> 探测到 Debian Testing/Unstable (${VERSION_CODENAME}) ...
+>>> Detected Debian Testing/Unstable (${VERSION_CODENAME}) ...
 "
 	# For Ubuntu:
 	#
@@ -115,6 +122,36 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 		echo "
 >>> 探测到 openKylin ${VERSION_ID} ...
 >>> Detected openKylin ${VERSION_ID} ...
+"
+	# For Linux Mint:
+	#
+	# Both Ubuntu- and Debian-derived editions share the same
+	# distribution ID, so detect and reverse-match from codenames.
+	elif [ "${ID}" = 'linuxmint' ]; then
+		if [ "$VERSION_CODENAME" = 'faye' ]; then
+			_oma_codename='bookworm'
+		elif [ "$VERSION_CODENAME" = 'ulyana' -o \
+		       "$VERSION_CODENAME" = 'ulyssa' -o \
+		       "$VERSION_CODENAME" = 'uma' -o \
+		       "$VERSION_CODENAME" = 'una' ]; then
+			_oma_codename='focal'
+		elif [ "$VERSION_CODENAME" = 'vanessa' -o \
+		       "$VERSION_CODENAME" = 'vera' -o \
+		       "$VERSION_CODENAME" = 'victoria' -o \
+		       "$VERSION_CODENAME" = 'virginia' ]; then
+			_oma_codename='jammy'
+		elif [ "$VERSION_CODENAME" = 'wilma' ]; then
+			_oma_codename='noble'
+		else
+			echo "
+>>> oma 暂不支持 Linux Mint/LMDE ${VERSION}，抱歉！
+>>> oma does not yet support Linux Mint/LMDE ${VERSION}, sorry!
+"
+			exit 1
+		fi
+		echo "
+>>> 探测到 Linux Mint/LMDE ${VERSION} ...
+>>> Detected Linux Mint/LMDE ${VERSION} ...
 "
 	elif [ "${ID}" = "aosc" -o \
 	       "${ID}" = "afterglow" ]; then

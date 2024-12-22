@@ -46,7 +46,8 @@ jobs:
           VER_SUFFIX="${VER_SUFFIX##*\/}"
           case "${TARGET_DISTRO}" in
               'lcr.loongnix.cn/library/debian')
-                  CODENAME='sid'
+                  CODENAME='trixie'
+                  VER_SUFFIX='debian13'
                   ;;
               'linuxdeepin/deepin:beige-loong64-v1.4.0')
                   CODENAME='beige'
