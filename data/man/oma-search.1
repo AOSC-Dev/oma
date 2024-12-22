@@ -1,0 +1,22 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-search 1  "search " 
+.SH NAME
+search \- Search for package(s) available from the repository
+.SH SYNOPSIS
+\fBsearch\fR [\fB\-\-no\-pager\fR] [\fB\-\-json\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPATTERN\fR> 
+.SH DESCRIPTION
+Search for package(s) available from the repository
+.SH OPTIONS
+.TP
+\fB\-\-no\-pager\fR
+Output result to stdout, not pager
+.TP
+\fB\-\-json\fR
+Set output format as JSON
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+<\fIPATTERN\fR>
+Keywords to search

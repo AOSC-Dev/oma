@@ -1,0 +1,118 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma 1  "oma 1.12.9" 
+.SH NAME
+oma \- User\-friendly and performant package manager for APT repositories
+.SH SYNOPSIS
+\fBoma\fR [\fB\-\-dry\-run\fR] [\fB\-\-debug\fR] [\fB\-\-color\fR] [\fB\-\-follow\-terminal\-color\fR] [\fB\-\-no\-progress\fR] [\fB\-\-no\-check\-dbus\fR] [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-sysroot\fR] [\fB\-\-apt\-options\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIsubcommands\fR]
+.SH DESCRIPTION
+User\-friendly and performant package manager for APT repositories
+.SH OPTIONS
+.TP
+\fB\-\-dry\-run\fR
+Run oma in “dry\-run” mode. Useful for testing changes and operations without making changes to the system
+.TP
+\fB\-\-debug\fR
+Run oma with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues
+.TP
+\fB\-\-color\fR=\fICOLOR\fR [default: auto]
+Represents the color preferences for program output
+.br
+
+.br
+[\fIpossible values: \fRauto, always, never]
+.TP
+\fB\-\-follow\-terminal\-color\fR
+Output result with terminal theme color
+.TP
+\fB\-\-no\-progress\fR
+Do not display progress bar
+.TP
+\fB\-\-no\-check\-dbus\fR
+Run oma do not check dbus
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+Print version
+.TP
+\fB\-\-sysroot\fR=\fISYSROOT\fR [default: /]
+Set sysroot target directory
+.TP
+\fB\-\-apt\-options\fR=\fIAPT_OPTIONS\fR
+Set apt options
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.SH SUBCOMMANDS
+.TP
+oma\-install(1)
+Install package(s) from the repository
+.TP
+oma\-upgrade(1)
+Upgrade packages installed on the system
+.TP
+oma\-download(1)
+Download package(s) from the repository
+.TP
+oma\-remove(1)
+Remove the specified package(s)
+.TP
+oma\-refresh(1)
+Refresh repository metadata/catalog
+.TP
+oma\-show(1)
+Show information on the specified package(s)
+.TP
+oma\-search(1)
+Search for package(s) available from the repository
+.TP
+oma\-files(1)
+List files in the specified package
+.TP
+oma\-provides(1)
+Search for package(s) that provide(s) certain patterns in a path
+.TP
+oma\-fix\-broken(1)
+Resolve broken system dependencies in the system
+.TP
+oma\-pick(1)
+Install specific version of a package
+.TP
+oma\-mark(1)
+Mark status for one or multiple package(s)
+.TP
+oma\-list(1)
+List package(s) available from the repository
+.TP
+oma\-depends(1)
+Lists dependencies of one or multiple packages
+.TP
+oma\-rdepends(1)
+List reverse dependency(ies) for the specified package(s)
+.TP
+oma\-clean(1)
+Clear downloaded package cache
+.TP
+oma\-history(1)
+Show a history/log of package changes in the system
+.TP
+oma\-undo(1)
+Undo system changes operation
+.TP
+oma\-tui(1)
+Oma tui interface
+.TP
+oma\-version(1)
+Print version
+.TP
+oma\-topics(1)
+Manage testing topics enrollment
+.TP
+oma\-mirror(1)
+Manage Mirrors enrollment
+.TP
+oma\-help(1)
+Print this message or the help of the given subcommand(s)
+.SH EXTRA
+本 oma 具有超级小熊猫力！
+.SH VERSION
+v1.12.9
