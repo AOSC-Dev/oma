@@ -84,7 +84,7 @@ jobs:
                   ;;
               'chenchongbiao/openkylin:nile-arm64')
                   CODENAME='nile'
-                  VER_SUFFIX="${VER_SUFFIX}2.0"
+                  VER_SUFFIX="openkylin2.0"
                   ;;
           esac
           for i in target/debian/*.deb; do
