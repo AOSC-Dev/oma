@@ -1,10 +1,12 @@
 #!/bin/bash
 
 _detect_arch() {
-	if [ $(uname -m) != 'x86_64' ]; then
+	if [ $(uname -m) != 'x86_64' -a \
+	     $(uname -m) != 'aarch64' -a \
+	     $(uname -m) != 'loongarch64' ]; then
 		echo "
->>> oma 暂不支持在您设备的处理器架构 $(uname -a) 上运行，抱歉！
->>> oma does not yet provide binaries for $(uname -a), sorry!
+>>> oma 暂不支持在您设备的处理器架构 $(uname -m) 上运行，抱歉！
+>>> oma does not yet provide binaries for $(uname -m), sorry!
 "
 		exit 1
 	fi
@@ -152,6 +154,21 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 		echo "
 >>> 探测到 Linux Mint/LMDE ${VERSION} ...
 >>> Detected Linux Mint/LMDE ${VERSION} ...
+"
+	# Loongnix 25 is a Debian Trixie derivative.
+	elif [ "${ID}" = 'Loongnix' ]; then
+		if [ "$VERSION_ID" = '25' ]; then
+			_oma_codename='trixie'
+		else
+			echo "
+>>> oma 暂不支持 Loongnix ${VERSION_ID}，抱歉！
+>>> oma does not yet support Loongnix ${VERSION_ID}, sorry!
+"
+			exit 1
+		fi
+		echo "
+>>> 探测到 Loongnix ${VERSION_ID} ...
+>>> Detected Loongnix ${VERSION_ID} ...
 "
 	elif [ "${ID}" = "aosc" -o \
 	       "${ID}" = "afterglow" ]; then
