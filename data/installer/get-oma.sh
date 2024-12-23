@@ -1,10 +1,12 @@
 #!/bin/bash
 
 _detect_arch() {
-	if [ $(uname -m) != 'x86_64' ]; then
+	if [ $(uname -m) != 'x86_64' -a \
+	     $(uname -m) != 'aarch64' -a \
+	     $(uname -m) != 'loongarch64' ]; then
 		echo "
->>> oma 暂不支持在您设备的处理器架构 $(uname -a) 上运行，抱歉！
->>> oma does not yet provide binaries for $(uname -a), sorry!
+>>> oma 暂不支持在您设备的处理器架构 $(uname -m) 上运行，抱歉！
+>>> oma does not yet provide binaries for $(uname -m), sorry!
 "
 		exit 1
 	fi
