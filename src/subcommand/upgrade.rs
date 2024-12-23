@@ -256,7 +256,7 @@ impl CliExecuter for Upgrade {
                 }
             }
 
-            let pb = if !no_progress || is_terminal() {
+            let pb = if !no_progress && is_terminal() {
                 OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
             } else {
                 None
