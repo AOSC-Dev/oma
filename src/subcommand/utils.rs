@@ -373,7 +373,6 @@ impl CommitChanges<'_> {
 
         apt.check_disk_size(&op)?;
 
-        let op_after = op.clone();
         let install = &op.install;
         let remove = &op.remove;
         let disk_size = &op.disk_size;
@@ -450,7 +449,7 @@ impl CommitChanges<'_> {
                 }
 
                 write_history_entry(
-                    op_after,
+                    op,
                     typ,
                     {
                         let db = create_db_file(sysroot)?;
@@ -471,7 +470,7 @@ impl CommitChanges<'_> {
                 let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
                 info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
                 write_history_entry(
-                    op_after,
+                    op,
                     typ,
                     {
                         let db = create_db_file(sysroot)?;
