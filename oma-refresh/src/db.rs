@@ -65,7 +65,6 @@ use crate::{
     util::DatabaseFilenameReplacer,
 };
 
-#[cfg(feature = "aosc")]
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
     #[error("Invalid URL: {0}")]
@@ -78,6 +77,7 @@ pub enum RefreshError {
     FetcherError(#[from] oma_fetch::DownloadError),
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
+    #[cfg(feature = "aosc")]
     #[error(transparent)]
     TopicsError(#[from] oma_topics::OmaTopicsError),
     #[error("Failed to download InRelease from URL {0}: Remote file not found (HTTP 404).")]
@@ -91,46 +91,7 @@ pub enum RefreshError {
     #[error("Failed to operate dir or file {0}: {1}")]
     FailedToOperateDirOrFile(String, tokio::io::Error),
     #[error("Failed to parse InRelease file: {0}")]
-    InReleaseParseError(String, InReleaseError),
-    #[error("Failed to read download dir: {0}")]
-    ReadDownloadDir(String, std::io::Error),
-    #[error(transparent)]
-    AhoCorasickBuilder(#[from] BuildError),
-    #[error("stream_replace_all failed")]
-    ReplaceAll(std::io::Error),
-    #[error("Set lock failed")]
-    SetLock(Errno),
-    #[error("Set lock failed: process {0} ({1}) is using.")]
-    SetLockWithProcess(String, i32),
-    #[error("duplicate components")]
-    DuplicateComponents(Box<str>, String),
-}
-
-#[cfg(not(feature = "aosc"))]
-#[derive(Debug, thiserror::Error)]
-pub enum RefreshError {
-    #[error("Invalid URL: {0}")]
-    InvalidUrl(String),
-    #[error("Scan sources.list failed: {0}")]
-    ScanSourceError(SourceError),
-    #[error("Unsupported Protocol: {0}")]
-    UnsupportedProtocol(String),
-    #[error(transparent)]
-    FetcherError(#[from] oma_fetch::DownloadError),
-    #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
-    #[error("Failed to download InRelease from URL {0}: Remote file not found (HTTP 404).")]
-    NoInReleaseFile(String),
-    #[error(transparent)]
-    DpkgArchError(#[from] oma_utils::dpkg::DpkgError),
-    #[error(transparent)]
-    JoinError(#[from] tokio::task::JoinError),
-    #[error(transparent)]
-    ChecksumError(#[from] ChecksumError),
-    #[error("Failed to operate dir or file {0}: {1}")]
-    FailedToOperateDirOrFile(String, tokio::io::Error),
-    #[error("Failed to parse InRelease file: {0}")]
-    InReleaseParseError(String, InReleaseError),
+    InReleaseParseError(PathBuf, InReleaseError),
     #[error("Failed to read download dir: {0}")]
     ReadDownloadDir(String, std::io::Error),
     #[error(transparent)]
@@ -776,30 +737,28 @@ impl<'a> OmaRefresh<'a> {
                     &inrelease_path,
                     ose.trusted(),
                 )
-                .map_err(|e| {
-                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
-                })?;
+                .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
 
                 let inrelease = InRelease::new(&inrelease).map_err(|e| {
-                    RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                    RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
                 })?;
 
                 if !ose.is_flat() {
                     let now = Utc::now();
 
                     inrelease.check_date(&now).map_err(|e| {
-                        RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                        RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
                     })?;
 
                     inrelease.check_valid_until(&now).map_err(|e| {
-                        RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                        RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
                     })?;
                 }
 
                 let checksums = &inrelease
                     .get_or_try_init_checksum_type_and_list()
                     .map_err(|e| {
-                        RefreshError::InReleaseParseError(inrelease_path.display().to_string(), e)
+                        RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
                     })?
                     .1;
 

@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt::Display;
 use std::io::{self, ErrorKind};
+use std::path::Path;
 
 use apt_auth_config::AuthConfigError;
 use oma_console::writer::{Writeln, Writer};
@@ -303,7 +304,6 @@ impl From<MatcherError> for OutputError {
 impl From<RefreshError> for OutputError {
     fn from(value: RefreshError) -> Self {
         debug!("{:?}", value);
-        #[cfg(feature = "aosc")]
         match value {
             RefreshError::InvalidUrl(_) => Self {
                 description: fl!("invalid-url"),
@@ -319,6 +319,7 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::FetcherError(e) => oma_download_error(e),
             RefreshError::ReqwestError(e) => OutputError::from(e),
+            #[cfg(feature = "aosc")]
             RefreshError::TopicsError(e) => oma_topics_error(e),
             RefreshError::NoInReleaseFile(s) => Self {
                 description: fl!("not-found", url = s),
@@ -339,7 +340,7 @@ impl From<RefreshError> for OutputError {
                         source: None,
                     },
                     VerifyError::Anyhow(e) => Self {
-                        description: fl!("verify-error", p = path),
+                        description: fl!("verify-error", p = file_name(&path)),
                         source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
                     },
                     VerifyError::FailedToReadInRelease(e) => Self {
@@ -356,15 +357,15 @@ impl From<RefreshError> for OutputError {
                     source: None,
                 },
                 InReleaseError::EarlierSignature => Self {
-                    description: fl!("earlier-signature", filename = path),
+                    description: fl!("earlier-signature", filename = file_name(&path)),
                     source: None,
                 },
                 InReleaseError::ExpiredSignature => Self {
-                    description: fl!("expired-signature", filename = path),
+                    description: fl!("expired-signature", filename = file_name(&path)),
                     source: None,
                 },
                 InReleaseError::InReleaseSyntaxError => Self {
-                    description: fl!("inrelease-syntax-error", path = path),
+                    description: fl!("inrelease-syntax-error", path = file_name(&path)),
                     source: None,
                 },
                 InReleaseError::UnsupportedFileType => Self {
@@ -376,136 +377,14 @@ impl From<RefreshError> for OutputError {
                     source: None,
                 },
                 InReleaseError::NotTrusted => Self {
-                    description: fl!("mirror-is-not-trusted", mirror = path),
+                    description: fl!("mirror-is-not-trusted", mirror = file_name(&path)),
                     source: None,
                 },
                 InReleaseError::BrokenInRelease => Self {
-                    description: fl!("inrelease-checksum-can-not-parse", p = path),
+                    description: fl!("inrelease-checksum-can-not-parse", p = file_name(&path)),
                     source: None,
                 },
-                InReleaseError::ReadGPG(error, file_name) => Self {
-                    description: fl!("failed-to-parse-file", p = file_name),
-                    source: Some(Box::new(error)),
-                },
-            },
-            RefreshError::DpkgArchError(e) => OutputError::from(e),
-            RefreshError::JoinError(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
-            RefreshError::ChecksumError(e) => oma_checksum_error(e),
-            RefreshError::FailedToOperateDirOrFile(path, e) => Self {
-                description: fl!("failed-to-operate-path", p = path),
-                source: Some(Box::new(e)),
-            },
-            RefreshError::ReadDownloadDir(_, e) => Self {
-                description: e.to_string(),
-                source: Some(Box::new(e)),
-            },
-            RefreshError::AhoCorasickBuilder(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
-            RefreshError::ReplaceAll(e) => Self {
-                description: e.to_string(),
-                source: Some(Box::new(e)),
-            },
-            RefreshError::SetLock(errno) => Self {
-                description: fl!("oma-refresh-lock"),
-                source: Some(Box::new(errno)),
-            },
-            RefreshError::SetLockWithProcess(cmd, pid) => Self {
-                description: fl!("oma-refresh-lock"),
-                source: Some(Box::new(io::Error::new(
-                    ErrorKind::Other,
-                    fl!("oma-refresh-lock-dueto", exec = cmd, pid = pid),
-                ))),
-            },
-            RefreshError::DuplicateComponents(url, component) => Self {
-                description: fl!("doplicate-component", url = url.to_string(), c = component),
-                source: None,
-            },
-        }
-        #[cfg(not(feature = "aosc"))]
-        match value {
-            RefreshError::InvalidUrl(_) => Self {
-                description: fl!("invalid-url"),
-                source: None,
-            },
-            RefreshError::ScanSourceError(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
-            RefreshError::UnsupportedProtocol(s) => Self {
-                description: fl!("unsupported-protocol", url = s),
-                source: None,
-            },
-            RefreshError::FetcherError(e) => oma_download_error(e),
-            RefreshError::ReqwestError(e) => OutputError::from(e),
-            RefreshError::NoInReleaseFile(s) => Self {
-                description: fl!("not-found", url = s),
-                source: None,
-            },
-            RefreshError::InReleaseParseError(p, e) => match e {
-                InReleaseError::VerifyError(e) => match e {
-                    VerifyError::CertParseFileError(p, e) => Self {
-                        description: fl!("fail-load-certs-from-file", path = p),
-                        source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
-                    },
-                    VerifyError::BadCertFile(p, e) => Self {
-                        description: fl!("cert-file-is-bad", path = p),
-                        source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
-                    },
-                    VerifyError::TrustedDirNotExist => Self {
-                        description: e.to_string(),
-                        source: None,
-                    },
-                    VerifyError::Anyhow(e) => Self {
-                        description: e.to_string(),
-                        source: None,
-                    },
-                    VerifyError::FailedToReadInRelease(e) => Self {
-                        description: fl!("failed-to-read-decode-inrelease"),
-                        source: Some(Box::new(e)),
-                    },
-                },
-                InReleaseError::BadInReleaseData => Self {
-                    description: fl!("can-not-parse-date"),
-                    source: None,
-                },
-                InReleaseError::BadInReleaseValidUntil => Self {
-                    description: fl!("can-not-parse-valid-until"),
-                    source: None,
-                },
-                InReleaseError::EarlierSignature => Self {
-                    description: fl!("earlier-signature", filename = p),
-                    source: None,
-                },
-                InReleaseError::ExpiredSignature => Self {
-                    description: fl!("expired-signature", filename = p),
-                    source: None,
-                },
-                InReleaseError::InReleaseSyntaxError => Self {
-                    description: fl!("inrelease-syntax-error", path = p),
-                    source: None,
-                },
-                InReleaseError::UnsupportedFileType => Self {
-                    description: fl!("inrelease-parse-unsupported-file-type"),
-                    source: None,
-                },
-                InReleaseError::ParseIntError(e) => Self {
-                    description: e.to_string(),
-                    source: None,
-                },
-                InReleaseError::NotTrusted => Self {
-                    description: fl!("mirror-is-not-trusted", mirror = p),
-                    source: None,
-                },
-                InReleaseError::BrokenInRelease => Self {
-                    description: fl!("inrelease-checksum-can-not-parse", p = p),
-                    source: None,
-                },
-                InReleaseError::ReadGPG(error, file_name) => Self {
+                InReleaseError::ReadGPGFileName(error, file_name) => Self {
                     description: fl!("failed-to-parse-file", p = file_name),
                     source: Some(Box::new(error)),
                 },
@@ -1047,4 +926,10 @@ impl From<HistoryError> for OutputError {
             },
         }
     }
+}
+
+fn file_name(p: &Path) -> String {
+    p.file_name()
+        .map(|x| x.to_string_lossy().to_string())
+        .unwrap_or_else(|| "..".into())
 }
