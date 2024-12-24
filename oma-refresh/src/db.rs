@@ -104,8 +104,6 @@ pub enum RefreshError {
     SetLockWithProcess(String, i32),
     #[error("duplicate components")]
     DuplicateComponents(Box<str>, String),
-    #[error("config entry has no key '{0}'")]
-    WrongConfigEntry(String),
 }
 
 #[cfg(not(feature = "aosc"))]
@@ -145,8 +143,6 @@ pub enum RefreshError {
     SetLockWithProcess(String, i32),
     #[error("duplicate components")]
     DuplicateComponents(Box<str>, String),
-    #[error("config entry has no key '{0}'")]
-    WrongConfigEntry(String),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
