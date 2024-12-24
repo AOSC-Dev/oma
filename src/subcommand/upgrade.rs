@@ -13,6 +13,7 @@ use oma_pm::apt::OmaOperation;
 use oma_pm::CommitNetworkConfig;
 use serde::Deserialize;
 use std::path::PathBuf;
+use tracing::debug;
 use tracing::error;
 
 use apt_auth_config::AuthConfig;
@@ -34,8 +35,6 @@ use oma_pm::apt::Upgrade as AptUpgrade;
 
 use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
-#[cfg(not(feature = "aosc"))]
-use tracing::debug;
 
 use tracing::info;
 use tracing::warn;
@@ -221,7 +220,7 @@ impl CliExecuter for Upgrade {
             )?;
 
             #[cfg(feature = "aosc")]
-            apt.upgrade(AptUpgrade::FullUpgrade)?;
+            let mode = AptUpgrade::FullUpgrade;
 
             #[cfg(not(feature = "aosc"))]
             let mode = if no_remove {
@@ -230,8 +229,8 @@ impl CliExecuter for Upgrade {
                 AptUpgrade::FullUpgrade
             };
 
-            #[cfg(not(feature = "aosc"))]
             debug!("Upgrade mode is using: {:?}", mode);
+            apt.upgrade(mode)?;
 
             let matcher = PackagesMatcher::builder()
                 .cache(&apt.cache)
@@ -301,8 +300,6 @@ impl CliExecuter for Upgrade {
 
             apt.check_disk_size(&op)?;
 
-            let op_after = op.clone();
-
             let install = &op.install;
             let remove = &op.remove;
             let disk_size = &op.disk_size;
@@ -359,7 +356,7 @@ impl CliExecuter for Upgrade {
             ) {
                 Ok(()) => {
                     write_history_entry(
-                        op_after,
+                        op,
                         typ,
                         {
                             let db = create_db_file(sysroot)?;
@@ -389,7 +386,7 @@ impl CliExecuter for Upgrade {
                     | OmaAptError::AptCxxException(_) => {
                         if retry_times == 3 {
                             write_history_entry(
-                                op_after,
+                                op,
                                 SummaryType::Upgrade(
                                     pkgs.iter()
                                         .map(|x| {
