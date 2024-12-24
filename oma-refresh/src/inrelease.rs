@@ -44,7 +44,7 @@ pub enum InReleaseError {
     #[error("InRelease is broken")]
     BrokenInRelease,
     #[error("Failed to read release.gpg file: {1}")]
-    ReadGPG(std::io::Error, String),
+    ReadGPGFileName(std::io::Error, String),
 }
 
 pub type InReleaseParserResult<T> = Result<T, InReleaseError>;
@@ -226,7 +226,7 @@ pub fn verify_inrelease<'a>(
             .file_name()
             .map(|x| x.to_string_lossy().to_string())
             .ok_or_else(|| {
-                InReleaseError::ReadGPG(
+                InReleaseError::ReadGPGFileName(
                     io::Error::new(ErrorKind::InvalidInput, "Failed to get file name"),
                     inrelease_path.display().to_string(),
                 )
@@ -237,8 +237,8 @@ pub fn verify_inrelease<'a>(
         let pub_file = inrelease_path.with_file_name(&file_name);
 
         debug!("Read GPG file: {}", pub_file.display());
-        let bytes =
-            fs::read(pub_file).map_err(|e| InReleaseError::ReadGPG(e, file_name.to_string()))?;
+        let bytes = fs::read(pub_file)
+            .map_err(|e| InReleaseError::ReadGPGFileName(e, file_name.to_string()))?;
 
         verify_release(inrelease, &bytes, signed_by, rootfs).map_err(|e| {
             debug!("{e}");
