@@ -425,10 +425,6 @@ impl From<RefreshError> for OutputError {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
                 source: None,
             },
-            RefreshError::WrongConfigEntry(_) => Self {
-                description: value.to_string(),
-                source: None,
-            },
         }
         #[cfg(not(feature = "aosc"))]
         match value {
@@ -549,10 +545,6 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::DuplicateComponents(url, component) => Self {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
-                source: None,
-            },
-            RefreshError::WrongConfigEntry(_) => Self {
-                description: value.to_string(),
                 source: None,
             },
         }

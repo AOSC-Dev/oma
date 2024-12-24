@@ -9,6 +9,7 @@ use ahash::AHashMap;
 use aho_corasick::AhoCorasick;
 use oma_apt::config::{Config, ConfigTree};
 use oma_fetch::CompressFile;
+use tracing::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
 
@@ -110,8 +111,10 @@ impl<'a> IndexTargetConfig<'a> {
 
         for c in checksums {
             for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
-                let template =
-                    template.ok_or_else(|| RefreshError::WrongConfigEntry(key.to_string()))?;
+                let Some(template) = template else {
+                    debug!("{:?} config has no key: {}", config, key);
+                    continue;
+                };
 
                 for a in &*archs {
                     for comp in components {
