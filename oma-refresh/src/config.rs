@@ -71,10 +71,17 @@ pub struct IndexTargetConfig<'a> {
     deb_src: Vec<(String, HashMap<String, String>)>,
     replacer: AhoCorasick,
     native_arch: &'a str,
+    langs: Vec<Box<str>>,
 }
 
 impl<'a> IndexTargetConfig<'a> {
     pub fn new(config: &Config, native_arch: &'a str) -> Self {
+        let lang = env::var("LANG").map(Cow::Owned).unwrap_or("C".into());
+        let langs = get_matches_language(&lang)
+            .into_iter()
+            .map(Box::from)
+            .collect::<Vec<_>>();
+
         Self {
             deb: get_index_target_tree(config, "Acquire::IndexTargets::deb"),
             deb_src: get_index_target_tree(config, "Acquire::IndexTargets::deb-src"),
@@ -86,6 +93,7 @@ impl<'a> IndexTargetConfig<'a> {
             ])
             .unwrap(),
             native_arch,
+            langs,
         }
     }
 
@@ -98,11 +106,7 @@ impl<'a> IndexTargetConfig<'a> {
         components: &[String],
     ) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
         let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
-        let lang = env::var("LANG").map(Cow::Owned).unwrap_or("C".into());
-        let langs = get_matches_language(&lang);
-
         let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
-
         let tree = if is_source { &self.deb_src } else { &self.deb };
 
         if !archs.contains(&"all") {
@@ -110,39 +114,16 @@ impl<'a> IndexTargetConfig<'a> {
         }
 
         for c in checksums {
-            for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
+            'a: for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
                 let Some(template) = template else {
                     debug!("{:?} config has no key: {}", config, key);
-                    continue;
+                    continue 'a;
                 };
 
-                for a in &*archs {
-                    for comp in components {
-                        for l in &langs {
-                            if self.template_is_match(template, &c.name, a, comp, l) {
-                                let name_without_ext = uncompress_file_name(&c.name).to_string();
-
-                                res_map.entry(name_without_ext).or_default().push(
-                                    ChecksumDownloadEntry {
-                                        item: c.to_owned(),
-                                        keep_compress: config
-                                            .get("KeepCompressed")
-                                            .and_then(|x| x.parse::<bool>().ok())
-                                            .unwrap_or(false),
-                                        msg: config
-                                            .get("ShortDescription")
-                                            .map(|x| {
-                                                self.replacer.replace_all(
-                                                    x,
-                                                    &[*a, comp, l, self.native_arch],
-                                                )
-                                            })
-                                            .unwrap_or_else(|| "Other".to_string()),
-                                    },
-                                );
-                            }
-                        }
-                    }
+                if is_flat {
+                    flat_repo_template_match(&mut res_map, c, config, template);
+                } else {
+                    self.normal_repo_match(archs, components, &mut res_map, c, config, template);
                 }
             }
         }
@@ -162,6 +143,44 @@ impl<'a> IndexTargetConfig<'a> {
         Ok(res)
     }
 
+    fn normal_repo_match(
+        &self,
+        archs: &[&str],
+        components: &[String],
+        res_map: &mut AHashMap<String, Vec<ChecksumDownloadEntry>>,
+        c: &ChecksumItem,
+        config: &HashMap<String, String>,
+        template: &str,
+    ) {
+        for a in archs {
+            for comp in components {
+                for l in &self.langs {
+                    if self.template_is_match(template, &c.name, a, comp, l) {
+                        let name_without_ext = uncompress_file_name(&c.name).to_string();
+
+                        res_map
+                            .entry(name_without_ext)
+                            .or_default()
+                            .push(ChecksumDownloadEntry {
+                                item: c.to_owned(),
+                                keep_compress: config
+                                    .get("KeepCompressed")
+                                    .and_then(|x| x.parse::<bool>().ok())
+                                    .unwrap_or(false),
+                                msg: config
+                                    .get("ShortDescription")
+                                    .map(|x| {
+                                        self.replacer
+                                            .replace_all(x, &[*a, comp, l, self.native_arch])
+                                    })
+                                    .unwrap_or_else(|| "Other".to_string()),
+                            });
+                    }
+                }
+            }
+        }
+    }
+
     fn template_is_match(
         &self,
         template: &str,
@@ -175,6 +194,31 @@ impl<'a> IndexTargetConfig<'a> {
         name == self
             .replacer
             .replace_all(template, &[arch, component, lang, self.native_arch])
+    }
+}
+
+fn flat_repo_template_match(
+    res_map: &mut AHashMap<String, Vec<ChecksumDownloadEntry>>,
+    c: &ChecksumItem,
+    config: &HashMap<String, String>,
+    template: &str,
+) {
+    let name_without_ext = uncompress_file_name(&c.name).to_string();
+    if *template == name_without_ext {
+        res_map
+            .entry(name_without_ext)
+            .or_default()
+            .push(ChecksumDownloadEntry {
+                item: c.to_owned(),
+                keep_compress: config
+                    .get("KeepCompressed")
+                    .and_then(|x| x.parse::<bool>().ok())
+                    .unwrap_or(false),
+                msg: config
+                    .get("ShortDescription")
+                    .map(|x| x.to_owned())
+                    .unwrap_or_else(|| "Other".to_string()),
+            });
     }
 }
 
