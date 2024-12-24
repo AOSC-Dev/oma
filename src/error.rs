@@ -339,8 +339,8 @@ impl From<RefreshError> for OutputError {
                         source: None,
                     },
                     VerifyError::Anyhow(e) => Self {
-                        description: e.to_string(),
-                        source: None,
+                        description: fl!("verify-error", p = path),
+                        source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
                     },
                     VerifyError::FailedToReadInRelease(e) => Self {
                         description: fl!("failed-to-read-decode-inrelease"),

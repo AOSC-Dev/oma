@@ -467,6 +467,8 @@ impl<'a> OmaRefresh<'a> {
 
                     callback(Event::ClosingTopic(suite)).await;
                 }
+
+                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1))).await;
             }
         }
 
