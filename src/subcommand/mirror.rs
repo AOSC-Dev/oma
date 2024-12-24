@@ -414,7 +414,13 @@ pub fn speedtest(
 
     let mut score_map = HashMap::new();
 
-    info!("{}", fl!("mirror-speedtest-start"));
+    if let Some(ref pb) = pb {
+        pb.writeln(
+            &style("INFO").blue().bold().to_string(),
+            &fl!("mirror-speedtest-start"),
+        )
+        .ok();
+    }
 
     for (name, mirror) in mirrors {
         let mut sha256 = Sha256::new();
