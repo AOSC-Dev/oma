@@ -17,7 +17,7 @@ use reqwest::StatusCode;
 use crate::{error::Chain, fl, msg, utils::is_root, WRITER};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub trait RenderDownloadProgress {
     fn render_progress(&mut self, rx: &flume::Receiver<Event>);
@@ -245,11 +245,24 @@ impl OmaMultiProgressBar {
                 self.pb_map.insert(0, pb);
             }
             Event::Failed { file_name, error } => {
-                self.writeln(
-                    &style("ERROR").red().bold().to_string(),
-                    &fl!("download-failed", filename = file_name),
-                )
-                .ok();
+                let cause = Chain::new(&error).collect::<Vec<_>>();
+                let last_cause = cause.last();
+
+                if let Some(cause) = last_cause {
+                    self.writeln(
+                        &style("ERROR").red().bold().to_string(),
+                        &fl!("download-package-failed-with-reason", filename = file_name, reason = cause.to_string() ),
+                    )
+                    .ok();
+                } else {
+                    self.writeln(
+                        &style("ERROR").red().bold().to_string(),
+                        &fl!("download-failed", filename = file_name),
+                    )
+                    .ok();
+                }
+
+                debug!("{:#?}", cause);
 
                 if let SingleDownloadError::ReqwestError { ref source } = error {
                     if source
@@ -275,13 +288,6 @@ impl OmaMultiProgressBar {
                             .ok();
                         }
                     }
-                }
-
-                let cause = Chain::new(&error);
-
-                for c in cause {
-                    self.writeln(&style("DUE_TO").yellow().bold().to_string(), &c.to_string())
-                        .ok();
                 }
             }
         };

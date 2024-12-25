@@ -128,6 +128,7 @@ config-invalid = oma 配置文件 (/etc/oma.toml) 似乎已损坏！将使用默
 cleaning = 正在清理本地软件包缓存 ...
 download-failed-with-len = { $len } 个软件包下载失败。
 download-failed = 下载 { $filename } 文件失败！
+download-package-failed-with-reason = 下载软件包 { $filename } 失败，原因：{ $reason }。
 download-failed-no-name = 下载文件失败！
 need-more-size = 存储空间不足：{ $a } 可用，但需要 { $n }。
 successfully-download-to-path = 已下载 { $len } 个软件包到该路径：{ $path }。
