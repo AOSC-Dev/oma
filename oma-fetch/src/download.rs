@@ -29,9 +29,22 @@ use tracing::debug;
 
 use crate::{DownloadEntry, DownloadSourceType};
 
+#[derive(Snafu, Debug)]
+#[snafu(display("source list is empty"))]
+pub struct EmptySource {
+    file_name: String,
+}
+
 #[derive(Builder)]
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
+    #[builder(with = |entry: &'a DownloadEntry| -> Result<_, EmptySource> {
+        if entry.source.is_empty() {
+            return Err(EmptySource { file_name: entry.filename.to_string() });
+        } else {
+            return Ok(entry);
+        }
+    })]
     pub entry: &'a DownloadEntry,
     progress: (usize, usize),
     retry_times: usize,
@@ -51,8 +64,6 @@ pub struct Summary {
 
 #[derive(Debug, Snafu)]
 pub enum SingleDownloadError {
-    #[snafu(display("Sources list is empty"))]
-    EmptySource,
     #[snafu(display("Failed to set permission"))]
     SetPermission { source: io::Error },
     #[snafu(display("Failed to open file"))]
@@ -94,8 +105,6 @@ impl<'a> SingleDownloader<'a> {
         Fut: Future<Output = ()>,
     {
         let mut sources = self.entry.source.clone();
-
-        // 输入的 sources 为空应该 panic
         assert!(!sources.is_empty());
 
         sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));

@@ -2,7 +2,7 @@ use std::{cmp::Ordering, path::PathBuf, sync::atomic::AtomicU64, time::Duration}
 
 use bon::{builder, Builder};
 use checksum::Checksum;
-use download::SingleDownloader;
+use download::{EmptySource, SingleDownloader};
 use futures::{Future, StreamExt};
 
 use reqwest::Client;
@@ -186,7 +186,7 @@ pub struct DownloadManager<'a> {
 
 impl<'a> DownloadManager<'a> {
     /// Start download
-    pub async fn start_download<F, Fut>(&self, callback: F) -> Vec<Summary>
+    pub async fn start_download<F, Fut>(&self, callback: F) -> Result<Vec<Summary>, EmptySource>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -199,7 +199,7 @@ impl<'a> DownloadManager<'a> {
                 .client(self.client)
                 .maybe_msg(msg)
                 .download_list_index(i)
-                .entry(c)
+                .entry(c)?
                 .progress((i + 1, self.download_list.len()))
                 .retry_times(self.retry_times)
                 .file_type(c.file_type)
@@ -240,6 +240,6 @@ impl<'a> DownloadManager<'a> {
         let res = stream.collect::<Vec<_>>().await;
         callback(Event::AllDone).await;
 
-        res
+        Ok(res)
     }
 }

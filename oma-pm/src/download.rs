@@ -118,7 +118,8 @@ where
         .start_download(|event| async {
             callback(event).await;
         })
-        .await;
+        .await
+        .unwrap();
 
     let failed_len = res.iter().filter(|x| x.wrote.is_none()).count();
 

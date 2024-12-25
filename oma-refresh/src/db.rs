@@ -273,7 +273,8 @@ impl<'a> OmaRefresh<'a> {
             .start_download(|event| async {
                 callback(Event::DownloadEvent(event)).await;
             })
-            .await;
+            .await
+            .unwrap();
 
         let is_download_failed = res.iter().any(|x| x.wrote.is_none());
 
