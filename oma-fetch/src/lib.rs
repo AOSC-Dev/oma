@@ -129,7 +129,7 @@ impl Ord for DownloadSourceType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Event {
     ChecksumMismatch {
         index: usize,
@@ -158,6 +158,10 @@ pub enum Event {
     DownloadDone {
         index: usize,
         msg: Box<str>,
+    },
+    Failed {
+        file_name: String,
+        error: SingleDownloadError,
     },
     AllDone,
     NewGlobalProgressBar(u64),

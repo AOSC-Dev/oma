@@ -40,7 +40,7 @@ impl ChecksumValidator {
 #[derive(Debug, snafu::Snafu)]
 pub enum ChecksumError {
     #[snafu(display("Failed to open file"))]
-    OpenFile { source: io::Error },
+    OpenFile { source: io::Error, path: Box<Path> },
     #[snafu(display("Failed to checksum file"))]
     Copy { source: io::Error },
     #[snafu(display("Bad Length"))]
@@ -53,7 +53,9 @@ pub type Result<T> = std::result::Result<T, ChecksumError>;
 
 impl Checksum {
     pub fn from_file_sha256(path: &Path) -> Result<Self> {
-        let mut file = File::open(path).context(OpenFileSnafu)?;
+        let mut file = File::open(path).context(OpenFileSnafu {
+            path: Box::from(path),
+        })?;
 
         let mut hasher = Sha256::new();
         io::copy(&mut file, &mut hasher).context(CopySnafu)?;
@@ -136,7 +138,9 @@ impl Checksum {
     }
 
     pub fn cmp_file(&self, path: &Path) -> Result<bool> {
-        let file = File::open(path).context(OpenFileSnafu)?;
+        let file = File::open(path).context(OpenFileSnafu {
+            path: Box::from(path),
+        })?;
 
         self.cmp_read(Box::new(file) as Box<dyn std::io::Read>)
     }

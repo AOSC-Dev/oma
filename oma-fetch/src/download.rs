@@ -46,7 +46,7 @@ pub(crate) struct SingleDownloader<'a> {
 pub struct Summary {
     pub file_name: String,
     pub index: usize,
-    pub result: Result<bool, SingleDownloadError>,
+    pub wrote: Option<bool>,
 }
 
 #[derive(Debug, Snafu)]
@@ -115,7 +115,7 @@ impl<'a> SingleDownloader<'a> {
             };
 
             match download_res {
-                Ok(_) => {
+                Ok(b) => {
                     callback(Event::DownloadDone {
                         index: self.download_list_index,
                         msg: msg.into(),
@@ -125,16 +125,22 @@ impl<'a> SingleDownloader<'a> {
                     return Summary {
                         file_name: self.entry.filename.clone(),
                         index,
-                        result: download_res,
-                    }
+                        wrote: Some(b),
+                    };
                 }
-                Err(ref e) => {
+                Err(e) => {
                     if index == sources.len() - 1 {
+                        callback(Event::Failed {
+                            file_name: self.entry.filename.clone(),
+                            error: e,
+                        })
+                        .await;
+
                         return Summary {
                             file_name: self.entry.filename.clone(),
                             index,
-                            result: download_res,
-                        }
+                            wrote: None,
+                        };
                     }
 
                     callback(Event::NextUrl {
@@ -640,7 +646,9 @@ impl<'a> SingleDownloader<'a> {
         if as_symlink {
             let symlink = self.entry.dir.join(&*self.entry.filename);
             if symlink.exists() {
-                tokio::fs::remove_file(&symlink).await.context(RemoveSnafu)?;
+                tokio::fs::remove_file(&symlink)
+                    .await
+                    .context(RemoveSnafu)?;
             }
 
             tokio::fs::symlink(url_path, symlink)

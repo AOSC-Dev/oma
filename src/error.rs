@@ -23,11 +23,11 @@ use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
-use reqwest::StatusCode;
+// use reqwest::StatusCode;
 use tracing::{debug, error, info};
 
+use crate::fl;
 use crate::subcommand::utils::LockError;
-use crate::{due_to, fl};
 
 use self::ChainState::*;
 
@@ -424,9 +424,9 @@ impl From<RefreshError> for OutputError {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
                 source: None,
             },
-            RefreshError::DownloadFile { file_name, err } => Self {
-                description: format!("Failed to download file {}", file_name),
-                source: Some(Box::new(err)),
+            RefreshError::DownloadFailed => Self {
+                description: value.to_string(),
+                source: None,
             },
         }
     }
@@ -699,25 +699,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("pkg-unavailable", pkg = pkg, ver = ver),
             source: None,
         },
-        // OmaAptError::FailedToDownload(size, errs) => {
-        //     for i in errs {
-        //         let err = oma_download_error(i);
-        //         error!("{}", err.description);
-        //         if let Some(s) = err.source {
-        //             due_to!("{s}");
-        //             if let Some(e) = s.downcast_ref::<reqwest::Error>() {
-        //                 if e.status().is_some_and(|x| x == StatusCode::UNAUTHORIZED) {
-        //                     info!("{}", fl!("lack-auth-config-1"));
-        //                     info!("{}", fl!("lack-auth-config-2"));
-        //                 }
-        //             }
-        //         }
-        //     }
-        //     OutputError {
-        //         description: fl!("download-failed-with-len", len = size),
-        //         source: None,
-        //     }
-        // }
         OmaAptError::FailedCreateAsyncRuntime(e) => OutputError {
             description: "Failed to create async runtime".to_string(),
             source: Some(Box::new(e)),
@@ -759,6 +740,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("dpkg-triggers-only-a-non-zero"),
             source: Some(Box::new(e)),
         },
+        OmaAptError::FailedToDownload(len) => OutputError {
+            description: fl!("download-failed-with-len", len = len),
+            source: None,
+        },
     }
 }
 
@@ -796,8 +781,11 @@ impl From<reqwest::Error> for OutputError {
 fn oma_checksum_error(e: ChecksumError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        ChecksumError::OpenFile { source } => OutputError {
-            description: fl!("failed-to-open-to-checksum"),
+        ChecksumError::OpenFile { source, path } => OutputError {
+            description: fl!(
+                "failed-to-open-to-checksum",
+                path = path.display().to_string()
+            ),
             source: Some(Box::new(source)),
         },
         ChecksumError::Copy { source } => OutputError {

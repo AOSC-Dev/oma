@@ -4,17 +4,14 @@ use std::thread;
 use apt_auth_config::AuthConfig;
 use clap::Args;
 use flume::unbounded;
-use oma_fetch::SingleDownloadError;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
-use reqwest::StatusCode;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::config::Config;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderDownloadProgress};
-use crate::utils::is_root;
-use crate::{fl, success, HTTP_CLIENT};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
+use crate::{fl, success, HTTP_CLIENT};
 
 use crate::args::CliExecuter;
 
@@ -89,11 +86,11 @@ impl CliExecuter for Download {
 
         let success = summary
             .iter()
-            .filter(|s| s.result.is_ok())
+            .filter(|s| s.wrote.is_some())
             .collect::<Vec<_>>();
         let failed = summary
             .iter()
-            .filter(|s| s.result.is_err())
+            .filter(|s| s.wrote.is_none())
             .collect::<Vec<_>>();
 
         if !success.is_empty() {
@@ -109,23 +106,6 @@ impl CliExecuter for Download {
 
         if !failed.is_empty() {
             let len = failed.len();
-            for f in failed {
-                let err = f.result.as_ref().unwrap_err();
-                error!("{}", err);
-                if let SingleDownloadError::ReqwestError { source } = err {
-                    if source
-                        .status()
-                        .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
-                    {
-                        if !is_root() {
-                            info!("{}", fl!("auth-need-permission"));
-                        } else {
-                            info!("{}", fl!("lack-auth-config-1"));
-                            info!("{}", fl!("lack-auth-config-2"));
-                        }
-                    }
-                }
-            }
 
             return Err(OutputError {
                 description: fl!("download-failed-with-len", len = len),

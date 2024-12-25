@@ -36,8 +36,6 @@ use oma_fetch::{
     CompressFile, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
 };
 
-use oma_fetch::SingleDownloadError;
-
 #[cfg(feature = "aosc")]
 use oma_topics::TopicManager;
 
@@ -72,11 +70,8 @@ pub enum RefreshError {
     ScanSourceError(SourceError),
     #[error("Unsupported Protocol: {0}")]
     UnsupportedProtocol(String),
-    #[error("Failed to download file {}", file_name)]
-    DownloadFile {
-        file_name: String,
-        err: SingleDownloadError,
-    },
+    #[error("Failed to download some metadata")]
+    DownloadFailed,
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
     #[cfg(feature = "aosc")]
@@ -280,24 +275,14 @@ impl<'a> OmaRefresh<'a> {
             })
             .await;
 
-        // 有元数据更新才执行 success invoke
-        let mut should_run_invoke = false;
+        let is_download_failed = res.iter().any(|x| x.wrote.is_none());
 
-        for i in res {
-            match i.result {
-                Ok(b) => {
-                    if !should_run_invoke {
-                        should_run_invoke = b;
-                    }
-                }
-                Err(e) => {
-                    return Err(RefreshError::DownloadFile {
-                        file_name: i.file_name,
-                        err: e,
-                    });
-                }
-            }
+        if is_download_failed {
+            return Err(RefreshError::DownloadFailed);
         }
+
+        // 有元数据更新才执行 success invoke
+        let should_run_invoke = res.iter().any(|x| x.wrote.is_some_and(|x| x));
 
         // Finally, run success post invoke
         let _ = remove_task.await;
@@ -568,21 +553,15 @@ impl<'a> OmaRefresh<'a> {
                     if p.exists() {
                         if dst.exists() {
                             debug!("get_release_file: Removing {}", dst.display());
-                            fs::remove_file(&dst).await.map_err(|e| {
-                                RefreshError::DownloadFile {
-                                    file_name: entry.to_string(),
-                                    err: SingleDownloadError::Remove { source: e },
-                                }
-                            })?;
+                            fs::remove_file(&dst)
+                                .await
+                                .map_err(|_| RefreshError::DownloadFailed)?;
                         }
 
                         debug!("get_release_file: Symlink {}", dst.display());
                         fs::symlink(p, dst)
                             .await
-                            .map_err(|e| RefreshError::DownloadFile {
-                                file_name: entry.to_string(),
-                                err: SingleDownloadError::CreateSymlink { source: e },
-                            })?;
+                            .map_err(|_| RefreshError::DownloadFailed)?;
 
                         if index == 1 {
                             is_release = true;
@@ -609,20 +588,14 @@ impl<'a> OmaRefresh<'a> {
 
                     if p.exists() {
                         if dst.exists() {
-                            fs::remove_file(&dst).await.map_err(|e| {
-                                RefreshError::DownloadFile {
-                                    file_name: entry.to_string(),
-                                    err: SingleDownloadError::Remove { source: e },
-                                }
-                            })?;
+                            fs::remove_file(&dst)
+                                .await
+                                .map_err(|_| RefreshError::DownloadFailed)?;
                         }
 
                         fs::symlink(p, dst)
                             .await
-                            .map_err(|e| RefreshError::DownloadFile {
-                                file_name: entry.to_string(),
-                                err: SingleDownloadError::CreateSymlink { source: e },
-                            })?;
+                            .map_err(|_| RefreshError::DownloadFailed)?;
                     }
                 }
 
@@ -677,10 +650,7 @@ impl<'a> OmaRefresh<'a> {
 
         let mut f = File::create(self.download_dir.join(file_name))
             .await
-            .map_err(|e| RefreshError::DownloadFile {
-                file_name: file_name.to_owned(),
-                err: SingleDownloadError::Create { source: e },
-            })?;
+            .map_err(|_| RefreshError::DownloadFailed)?;
 
         f.set_permissions(Permissions::from_mode(0o644))
             .await
@@ -697,16 +667,12 @@ impl<'a> OmaRefresh<'a> {
 
             f.write_all(&chunk)
                 .await
-                .map_err(|e| RefreshError::DownloadFile {
-                    file_name: file_name.to_owned(),
-                    err: SingleDownloadError::Write { source: e },
-                })?;
+                .map_err(|_| RefreshError::DownloadFailed)?;
         }
 
-        f.shutdown().await.map_err(|e| RefreshError::DownloadFile {
-            file_name: file_name.to_owned(),
-            err: SingleDownloadError::Flush { source: e },
-        })?;
+        f.shutdown()
+            .await
+            .map_err(|_| RefreshError::DownloadFailed)?;
 
         callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 

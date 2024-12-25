@@ -2,8 +2,8 @@ use std::{borrow::Cow, future::Future, path::Path};
 
 use oma_console::console;
 use oma_fetch::{
-    checksum::Checksum, reqwest::Client, DownloadEntry, DownloadManager,
-    DownloadSource, DownloadSourceType, Event, Summary,
+    checksum::Checksum, reqwest::Client, DownloadEntry, DownloadManager, DownloadSource,
+    DownloadSourceType, Event, Summary,
 };
 use oma_pm_operation_type::InstallEntry;
 use tracing::debug;
@@ -120,6 +120,11 @@ where
         })
         .await;
 
+    let failed_len = res.iter().filter(|x| x.wrote.is_none()).count();
+
+    if failed_len != 0 {
+        return Err(OmaAptError::FailedToDownload(failed_len));
+    }
 
     Ok(res)
 }

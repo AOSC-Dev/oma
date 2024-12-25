@@ -126,8 +126,8 @@ pub enum OmaAptError {
     MarkPkgNotInstalled(String),
     #[error(transparent)]
     DpkgError(#[from] DpkgError),
-    // #[error("Failed to download {0} package(s).")]
-    // FailedToDownload(usize, Vec<DownloadError>),
+    #[error("Failed to download {0} package(s).")]
+    FailedToDownload(usize),
     #[error("Failed to obtain parent path: {0:?}")]
     FailedGetParentPath(PathBuf),
     #[error("Failed to get canonicalized path: {0}")]
