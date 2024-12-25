@@ -84,28 +84,19 @@ impl CliExecuter for Download {
             },
         )?;
 
-        let success = summary
-            .iter()
-            .filter(|s| s.wrote.is_some())
-            .collect::<Vec<_>>();
-        let failed = summary
-            .iter()
-            .filter(|s| s.wrote.is_none())
-            .collect::<Vec<_>>();
-
-        if !success.is_empty() {
+        if !summary.success.is_empty() {
             success!(
                 "{}",
                 fl!(
                     "successfully-download-to-path",
-                    len = success.len(),
+                    len = summary.success.len(),
                     path = path.display().to_string()
                 )
             );
         }
 
-        if !failed.is_empty() {
-            let len = failed.len();
+        if !summary.is_download_success() {
+            let len = summary.failed.len();
 
             return Err(OutputError {
                 description: fl!("download-failed-with-len", len = len),

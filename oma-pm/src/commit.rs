@@ -67,7 +67,7 @@ impl<'a> DoInstall<'a> {
         &self,
         download_pkg_list: &[InstallEntry],
         callback: F,
-    ) -> OmaAptResult<Vec<Summary>>
+    ) -> OmaAptResult<Summary>
     where
         F: Fn(Event) -> Fut,
         Fut: std::future::Future<Output = ()>,

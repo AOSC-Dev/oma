@@ -16,7 +16,7 @@ pub async fn download_pkgs<F, Fut>(
     download_pkg_list: &[InstallEntry],
     config: DownloadConfig<'_>,
     callback: F,
-) -> OmaAptResult<Vec<Summary>>
+) -> OmaAptResult<Summary>
 where
     F: Fn(Event) -> Fut,
     Fut: Future<Output = ()>,
@@ -33,7 +33,10 @@ where
     );
 
     if download_pkg_list.is_empty() {
-        return Ok(vec![]);
+        return Ok(Summary {
+            success: vec![],
+            failed: vec![],
+        });
     }
 
     let mut download_list = vec![];
@@ -121,10 +124,8 @@ where
         .await
         .unwrap();
 
-    let failed_len = res.iter().filter(|x| x.wrote.is_none()).count();
-
-    if failed_len != 0 {
-        return Err(OmaAptError::FailedToDownload(failed_len));
+    if !res.is_download_success() {
+        return Err(OmaAptError::FailedToDownload(res.failed.len()));
     }
 
     Ok(res)

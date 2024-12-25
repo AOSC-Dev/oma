@@ -405,7 +405,7 @@ impl OmaApt {
         config: DownloadConfig<'_>,
         dry_run: bool,
         callback: F,
-    ) -> OmaAptResult<Vec<Summary>>
+    ) -> OmaAptResult<Summary>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -452,7 +452,10 @@ impl OmaApt {
         }
 
         if dry_run {
-            return Ok(vec![]);
+            return Ok(Summary {
+                success: vec![],
+                failed: vec![],
+            });
         }
 
         let tokio = tokio::runtime::Builder::new_multi_thread()

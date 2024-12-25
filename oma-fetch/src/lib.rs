@@ -2,14 +2,14 @@ use std::{cmp::Ordering, path::PathBuf, sync::atomic::AtomicU64, time::Duration}
 
 use bon::{builder, Builder};
 use checksum::Checksum;
-use download::{EmptySource, SingleDownloader};
+use download::{EmptySource, SingleDownloader, SuccessSummary};
 use futures::{Future, StreamExt};
 
 use reqwest::Client;
 
 pub mod checksum;
 mod download;
-pub use crate::download::{SingleDownloadError, Summary};
+pub use crate::download::SingleDownloadError;
 
 pub use reqwest;
 
@@ -184,9 +184,25 @@ pub struct DownloadManager<'a> {
     timeout: Duration,
 }
 
+#[derive(Debug)]
+pub struct Summary {
+    pub success: Vec<SuccessSummary>,
+    pub failed: Vec<String>,
+}
+
+impl Summary {
+    pub fn is_download_success(&self) -> bool {
+        self.failed.is_empty()
+    }
+
+    pub fn has_wrote(&self) -> bool {
+        self.success.iter().any(|x| x.wrote)
+    }
+}
+
 impl<'a> DownloadManager<'a> {
     /// Start download
-    pub async fn start_download<F, Fut>(&self, callback: F) -> Result<Vec<Summary>, EmptySource>
+    pub async fn start_download<F, Fut>(&self, callback: F) -> Result<Summary, EmptySource>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -240,6 +256,19 @@ impl<'a> DownloadManager<'a> {
         let res = stream.collect::<Vec<_>>().await;
         callback(Event::AllDone).await;
 
-        Ok(res)
+        let (mut success, mut failed) = (vec![], vec![]);
+
+        for i in res {
+            match i {
+                download::DownloadResult::Success(success_summary) => {
+                    success.push(success_summary);
+                }
+                download::DownloadResult::Failed { file_name } => {
+                    failed.push(file_name);
+                }
+            }
+        }
+
+        Ok(Summary { success, failed })
     }
 }

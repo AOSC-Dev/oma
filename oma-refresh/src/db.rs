@@ -276,14 +276,12 @@ impl<'a> OmaRefresh<'a> {
             .await
             .unwrap();
 
-        let is_download_failed = res.iter().any(|x| x.wrote.is_none());
-
-        if is_download_failed {
+        if !res.is_download_success() {
             return Err(RefreshError::DownloadFailed);
         }
 
         // 有元数据更新才执行 success invoke
-        let should_run_invoke = res.iter().any(|x| x.wrote.is_some_and(|x| x));
+        let should_run_invoke = res.has_wrote();
 
         // Finally, run success post invoke
         let _ = remove_task.await;

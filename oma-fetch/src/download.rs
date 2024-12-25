@@ -55,11 +55,16 @@ pub(crate) struct SingleDownloader<'a> {
     timeout: Duration,
 }
 
+pub enum DownloadResult {
+    Success(SuccessSummary),
+    Failed { file_name: String },
+}
+
 #[derive(Debug)]
-pub struct Summary {
+pub struct SuccessSummary {
     pub file_name: String,
     pub index: usize,
-    pub wrote: Option<bool>,
+    pub wrote: bool,
 }
 
 #[derive(Debug, Snafu)]
@@ -99,7 +104,7 @@ impl<'a> SingleDownloader<'a> {
         self,
         global_progress: &AtomicU64,
         callback: &F,
-    ) -> Summary
+    ) -> DownloadResult
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -131,11 +136,11 @@ impl<'a> SingleDownloader<'a> {
                     })
                     .await;
 
-                    return Summary {
-                        file_name: self.entry.filename.clone(),
-                        index,
-                        wrote: Some(b),
-                    };
+                    return DownloadResult::Success(SuccessSummary {
+                        file_name: self.entry.filename.to_string(),
+                        index: self.download_list_index,
+                        wrote: b,
+                    });
                 }
                 Err(e) => {
                     if index == sources.len() - 1 {
@@ -145,10 +150,8 @@ impl<'a> SingleDownloader<'a> {
                         })
                         .await;
 
-                        return Summary {
-                            file_name: self.entry.filename.clone(),
-                            index,
-                            wrote: None,
+                        return DownloadResult::Failed {
+                            file_name: self.entry.filename.to_string(),
                         };
                     }
 
