@@ -4,6 +4,7 @@ use std::thread;
 use apt_auth_config::AuthConfig;
 use clap::Args;
 use flume::unbounded;
+use oma_fetch::SingleDownloadError;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
 use reqwest::StatusCode;
@@ -12,7 +13,7 @@ use tracing::{error, info};
 use crate::config::Config;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderDownloadProgress};
 use crate::utils::is_root;
-use crate::{due_to, fl, success, HTTP_CLIENT};
+use crate::{fl, success, HTTP_CLIENT};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 
 use crate::args::CliExecuter;
@@ -70,7 +71,7 @@ impl CliExecuter for Download {
             pb.render_progress(&rx);
         });
 
-        let (success, failed) = apt.download(
+        let summary = apt.download(
             &HTTP_CLIENT,
             pkgs,
             DownloadConfig {
@@ -86,6 +87,15 @@ impl CliExecuter for Download {
             },
         )?;
 
+        let success = summary
+            .iter()
+            .filter(|s| s.result.is_ok())
+            .collect::<Vec<_>>();
+        let failed = summary
+            .iter()
+            .filter(|s| s.result.is_err())
+            .collect::<Vec<_>>();
+
         if !success.is_empty() {
             success!(
                 "{}",
@@ -100,19 +110,18 @@ impl CliExecuter for Download {
         if !failed.is_empty() {
             let len = failed.len();
             for f in failed {
-                let e = OutputError::from(f);
-
-                error!("{e}");
-                if let Some(s) = e.source {
-                    due_to!("{s}");
-                    if let Some(e) = s.downcast_ref::<reqwest::Error>() {
-                        if e.status().is_some_and(|x| x == StatusCode::UNAUTHORIZED) {
-                            if !is_root() {
-                                info!("{}", fl!("auth-need-permission"));
-                            } else {
-                                info!("{}", fl!("lack-auth-config-1"));
-                                info!("{}", fl!("lack-auth-config-2"));
-                            }
+                let err = f.result.as_ref().unwrap_err();
+                error!("{}", err);
+                if let SingleDownloadError::ReqwestError { source } = err {
+                    if source
+                        .status()
+                        .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
+                    {
+                        if !is_root() {
+                            info!("{}", fl!("auth-need-permission"));
+                        } else {
+                            info!("{}", fl!("lack-auth-config-1"));
+                            info!("{}", fl!("lack-auth-config-2"));
                         }
                     }
                 }

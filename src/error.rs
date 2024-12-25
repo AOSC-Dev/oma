@@ -7,7 +7,6 @@ use apt_auth_config::AuthConfigError;
 use oma_console::writer::{Writeln, Writer};
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
-use oma_fetch::DownloadError;
 use oma_history::HistoryError;
 
 #[cfg(feature = "aosc")]
@@ -317,7 +316,6 @@ impl From<RefreshError> for OutputError {
                 description: fl!("unsupported-protocol", url = s),
                 source: None,
             },
-            RefreshError::FetcherError(e) => oma_download_error(e),
             RefreshError::ReqwestError(e) => OutputError::from(e),
             #[cfg(feature = "aosc")]
             RefreshError::TopicsError(e) => oma_topics_error(e),
@@ -426,6 +424,10 @@ impl From<RefreshError> for OutputError {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
                 source: None,
             },
+            RefreshError::DownloadFile { file_name, err } => Self {
+                description: format!("Failed to download file {}", file_name),
+                source: Some(Box::new(err)),
+            },
         }
     }
 }
@@ -516,12 +518,6 @@ impl From<DpkgError> for OutputError {
             description: fl!("can-not-run-dpkg-print-arch"),
             source: Some(Box::new(value)),
         }
-    }
-}
-
-impl From<DownloadError> for OutputError {
-    fn from(value: DownloadError) -> Self {
-        oma_download_error(value)
     }
 }
 
@@ -678,7 +674,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("invalid-filename", name = s),
             source: None,
         },
-        OmaAptError::DownloadError(e) => oma_download_error(e),
         OmaAptError::DpkgFailedConfigure(e) => OutputError {
             description: fl!("dpkg-configure-a-non-zero"),
             source: Some(Box::new(e)),
@@ -704,25 +699,25 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("pkg-unavailable", pkg = pkg, ver = ver),
             source: None,
         },
-        OmaAptError::FailedToDownload(size, errs) => {
-            for i in errs {
-                let err = oma_download_error(i);
-                error!("{}", err.description);
-                if let Some(s) = err.source {
-                    due_to!("{s}");
-                    if let Some(e) = s.downcast_ref::<reqwest::Error>() {
-                        if e.status().is_some_and(|x| x == StatusCode::UNAUTHORIZED) {
-                            info!("{}", fl!("lack-auth-config-1"));
-                            info!("{}", fl!("lack-auth-config-2"));
-                        }
-                    }
-                }
-            }
-            OutputError {
-                description: fl!("download-failed-with-len", len = size),
-                source: None,
-            }
-        }
+        // OmaAptError::FailedToDownload(size, errs) => {
+        //     for i in errs {
+        //         let err = oma_download_error(i);
+        //         error!("{}", err.description);
+        //         if let Some(s) = err.source {
+        //             due_to!("{s}");
+        //             if let Some(e) = s.downcast_ref::<reqwest::Error>() {
+        //                 if e.status().is_some_and(|x| x == StatusCode::UNAUTHORIZED) {
+        //                     info!("{}", fl!("lack-auth-config-1"));
+        //                     info!("{}", fl!("lack-auth-config-2"));
+        //                 }
+        //             }
+        //         }
+        //     }
+        //     OutputError {
+        //         description: fl!("download-failed-with-len", len = size),
+        //         source: None,
+        //     }
+        // }
         OmaAptError::FailedCreateAsyncRuntime(e) => OutputError {
             description: "Failed to create async runtime".to_string(),
             source: Some(Box::new(e)),
@@ -798,52 +793,24 @@ impl From<reqwest::Error> for OutputError {
     }
 }
 
-fn oma_download_error(e: DownloadError) -> OutputError {
-    debug!("{:?}", e);
-    match e {
-        DownloadError::ChecksumMismatch(filename) => OutputError {
-            description: fl!("checksum-mismatch", filename = filename),
-            source: None,
-        },
-        DownloadError::IOError(s, e) => OutputError {
-            description: fl!("download-failed", filename = s),
-            source: Some(Box::new(e)),
-        },
-        DownloadError::ReqwestError(e) => OutputError::from(e),
-        DownloadError::ChecksumError(e) => oma_checksum_error(e),
-        DownloadError::FailedOpenLocalSourceFile(path, e) => OutputError {
-            description: fl!("can-not-parse-sources-list", path = path.to_string()),
-            source: Some(Box::new(e)),
-        },
-        DownloadError::InvalidURL(s) => OutputError {
-            description: fl!("invalid-url", url = s),
-            source: None,
-        },
-        DownloadError::EmptySources => OutputError {
-            description: e.to_string(),
-            source: None,
-        },
-    }
-}
-
 fn oma_checksum_error(e: ChecksumError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        ChecksumError::FailedToOpenFile(s, e) => OutputError {
-            description: fl!("failed-to-open-to-checksum", path = s),
-            source: Some(Box::new(e)),
+        ChecksumError::OpenFile { source } => OutputError {
+            description: fl!("failed-to-open-to-checksum"),
+            source: Some(Box::new(source)),
         },
-        ChecksumError::ChecksumIOError(e) => OutputError {
+        ChecksumError::Copy { source } => OutputError {
             description: fl!("can-not-checksum"),
-            source: Some(Box::new(e)),
+            source: Some(Box::new(source)),
         },
         ChecksumError::BadLength => OutputError {
             description: fl!("sha256-bad-length"),
             source: None,
         },
-        ChecksumError::HexError(e) => OutputError {
+        ChecksumError::Decode { source } => OutputError {
             description: e.to_string(),
-            source: None,
+            source: Some(Box::new(source)),
         },
     }
 }

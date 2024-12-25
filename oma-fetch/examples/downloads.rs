@@ -1,13 +1,12 @@
 use std::path::PathBuf;
 
 use oma_fetch::{
-    checksum::Checksum, DownloadEntry, DownloadError, DownloadManager, DownloadResult,
-    DownloadSource, DownloadSourceType, Event, Summary,
+    checksum::Checksum, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event,
 };
 use reqwest::ClientBuilder;
 
 #[tokio::main]
-async fn main() -> DownloadResult<()> {
+async fn main() {
     let source_1 = DownloadSource {
         url: "https://mirrors.bfsu.edu.cn/anthon/mascots/zhaxia-stickers-v1.zip".to_string(),
         source_type: DownloadSourceType::Http { auth: None },
@@ -63,17 +62,15 @@ async fn main() -> DownloadResult<()> {
         .await
         .unwrap();
 
-    download_manager
+    let summary = download_manager
         .start_download(|event| async {
             if let Err(e) = tx.send_async(event).await {
                 eprintln!("Got Error: {:#?}", e);
             }
         })
-        .await
-        .into_iter()
-        .collect::<Result<Vec<Summary>, DownloadError>>()?;
+        .await;
 
     let _ = event_worker.await;
 
-    Ok(())
+    println!("{:#?}", summary);
 }

@@ -9,28 +9,9 @@ use reqwest::Client;
 
 pub mod checksum;
 mod download;
+pub use crate::download::{SingleDownloadError, Summary};
 
 pub use reqwest;
-
-#[derive(thiserror::Error, Debug)]
-pub enum DownloadError {
-    #[error("checksum mismatch {0}")]
-    ChecksumMismatch(String),
-    #[error("Failed to download file: {0}, kind: {1}")]
-    IOError(String, std::io::Error),
-    #[error(transparent)]
-    ReqwestError(reqwest::Error),
-    #[error(transparent)]
-    ChecksumError(#[from] crate::checksum::ChecksumError),
-    #[error("Failed to open local source file {0}: {1}")]
-    FailedOpenLocalSourceFile(String, tokio::io::Error),
-    #[error("Invalid URL: {0}")]
-    InvalidURL(String),
-    #[error("download source list is empty")]
-    EmptySources,
-}
-
-pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 
 #[derive(Debug, Clone, Default, Builder)]
 pub struct DownloadEntry {
@@ -199,17 +180,9 @@ pub struct DownloadManager<'a> {
     timeout: Duration,
 }
 
-#[derive(Debug)]
-pub struct Summary {
-    pub filename: String,
-    pub wrote: bool,
-    pub count: usize,
-    pub context: Option<String>,
-}
-
 impl<'a> DownloadManager<'a> {
     /// Start download
-    pub async fn start_download<F, Fut>(&self, callback: F) -> Vec<DownloadResult<Summary>>
+    pub async fn start_download<F, Fut>(&self, callback: F) -> Vec<Summary>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,

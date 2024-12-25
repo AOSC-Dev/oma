@@ -2,7 +2,7 @@ use std::{borrow::Cow, future::Future, path::Path};
 
 use oma_console::console;
 use oma_fetch::{
-    checksum::Checksum, reqwest::Client, DownloadEntry, DownloadError, DownloadManager,
+    checksum::Checksum, reqwest::Client, DownloadEntry, DownloadManager,
     DownloadSource, DownloadSourceType, Event, Summary,
 };
 use oma_pm_operation_type::InstallEntry;
@@ -16,7 +16,7 @@ pub async fn download_pkgs<F, Fut>(
     download_pkg_list: &[InstallEntry],
     config: DownloadConfig<'_>,
     callback: F,
-) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
+) -> OmaAptResult<Vec<Summary>>
 where
     F: Fn(Event) -> Fut,
     Fut: Future<Output = ()>,
@@ -33,7 +33,7 @@ where
     );
 
     if download_pkg_list.is_empty() {
-        return Ok((vec![], vec![]));
+        return Ok(vec![]);
     }
 
     let mut download_list = vec![];
@@ -120,16 +120,8 @@ where
         })
         .await;
 
-    let (mut success, mut failed) = (vec![], vec![]);
 
-    for i in res {
-        match i {
-            Ok(s) => success.push(s),
-            Err(e) => failed.push(e),
-        }
-    }
-
-    Ok((success, failed))
+    Ok(res)
 }
 
 /// Get apt style file name

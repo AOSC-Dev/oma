@@ -25,7 +25,7 @@ use oma_apt::{
     DepFlags, Package, PkgCurrentState, Version,
 };
 
-use oma_fetch::{checksum::ChecksumError, reqwest::Client, DownloadError, Event, Summary};
+use oma_fetch::{checksum::ChecksumError, reqwest::Client, Event, Summary};
 use oma_utils::{
     dpkg::{get_selections, is_hold, DpkgError},
     human_bytes::HumanBytes,
@@ -108,8 +108,6 @@ pub enum OmaAptError {
     PkgUnavailable(String, String),
     #[error("Invalid file name: {0}")]
     InvalidFileName(String),
-    #[error(transparent)]
-    DownloadError(#[from] DownloadError),
     #[error("Failed to create async runtime: {0}")]
     FailedCreateAsyncRuntime(std::io::Error),
     #[error("Failed to create file or directory: {0}: {1}")]
@@ -128,8 +126,8 @@ pub enum OmaAptError {
     MarkPkgNotInstalled(String),
     #[error(transparent)]
     DpkgError(#[from] DpkgError),
-    #[error("Failed to download {0} package(s).")]
-    FailedToDownload(usize, Vec<DownloadError>),
+    // #[error("Failed to download {0} package(s).")]
+    // FailedToDownload(usize, Vec<DownloadError>),
     #[error("Failed to obtain parent path: {0:?}")]
     FailedGetParentPath(PathBuf),
     #[error("Failed to get canonicalized path: {0}")]
@@ -407,7 +405,7 @@ impl OmaApt {
         config: DownloadConfig<'_>,
         dry_run: bool,
         callback: F,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
+    ) -> OmaAptResult<Vec<Summary>>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -454,7 +452,7 @@ impl OmaApt {
         }
 
         if dry_run {
-            return Ok((vec![], vec![]));
+            return Ok(vec![]);
         }
 
         let tokio = tokio::runtime::Builder::new_multi_thread()

@@ -6,7 +6,7 @@ use oma_apt::{
     progress::{AcquireProgress, InstallProgress},
     util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner},
 };
-use oma_fetch::{reqwest::Client, DownloadError, Event, Summary};
+use oma_fetch::{reqwest::Client, Event, Summary};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
 use std::io::Write;
 use tracing::debug;
@@ -67,7 +67,7 @@ impl<'a> DoInstall<'a> {
         &self,
         download_pkg_list: &[InstallEntry],
         callback: F,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
+    ) -> OmaAptResult<Vec<Summary>>
     where
         F: Fn(Event) -> Fut,
         Fut: std::future::Future<Output = ()>,
