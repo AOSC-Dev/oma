@@ -1199,10 +1199,10 @@ fn mark_install(
 ) -> OmaAptResult<bool> {
     let pkg = unsafe { pkginfo.raw_pkg.unique() }
         .make_safe()
-        .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?;
+        .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?;
     let version = unsafe { pkginfo.version_raw.unique() }
         .make_safe()
-        .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?;
+        .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?;
     let ver = Version::new(version, cache);
     let pkg = Package::new(cache, pkg);
     ver.set_candidate();
