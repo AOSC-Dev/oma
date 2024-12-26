@@ -391,10 +391,16 @@ impl<'a> SingleDownloader<'a> {
 
         debug!("Can resume? {can_resume}");
 
-        let resp = req.send().await.and_then(|resp| resp.error_for_status());
+        let resp = timeout(self.timeout, req.send()).await;
+
         callback(Event::ProgressDone(self.download_list_index)).await;
 
-        let resp = resp.context(ReqwestSnafu)?;
+        let resp = match resp {
+            Ok(resp) => resp
+                .and_then(|resp| resp.error_for_status())
+                .context(ReqwestSnafu)?,
+            Err(e) => return Err(SingleDownloadError::SendRequestTimeout { source: e }),
+        };
 
         callback(Event::NewProgressBar {
             index: self.download_list_index,
