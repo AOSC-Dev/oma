@@ -457,15 +457,9 @@ impl OmaApt {
             return Ok((vec![], vec![]));
         }
 
-        let tokio = tokio::runtime::Builder::new_multi_thread()
-            .enable_io()
-            .enable_time()
-            .build()
-            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
-
-        let res = tokio.block_on(async move {
-            download_pkgs(client, &download_list, config, callback).await
-        })?;
+        let res = self
+            .tokio
+            .block_on(download_pkgs(client, &download_list, config, callback))?;
 
         Ok(res)
     }
