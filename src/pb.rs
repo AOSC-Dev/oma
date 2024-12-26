@@ -251,7 +251,11 @@ impl OmaMultiProgressBar {
                 if let Some(cause) = last_cause {
                     self.writeln(
                         &style("ERROR").red().bold().to_string(),
-                        &fl!("download-package-failed-with-reason", filename = file_name, reason = cause.to_string() ),
+                        &fl!(
+                            "download-package-failed-with-reason",
+                            filename = file_name,
+                            reason = cause.to_string()
+                        ),
                     )
                     .ok();
                 } else {
