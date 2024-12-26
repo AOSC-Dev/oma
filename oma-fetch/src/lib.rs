@@ -185,7 +185,7 @@ pub enum Event {
 #[derive(Builder)]
 pub struct DownloadManager<'a> {
     client: &'a Client,
-    download_list: Vec<DownloadEntry>,
+    download_list: &'a [DownloadEntry],
     #[builder(default = 4)]
     threads: usize,
     #[builder(default = 3)]

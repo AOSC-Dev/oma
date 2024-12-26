@@ -45,9 +45,10 @@ async fn main() -> DownloadResult<()> {
 
     let (tx, rx) = flume::unbounded();
 
+    let binding = [file_1, file_2];
     let download_manager = DownloadManager::builder()
         .client(&client)
-        .download_list(vec![file_1, file_2])
+        .download_list(&binding)
         .build();
 
     let event_worker = tokio::spawn(async move {
