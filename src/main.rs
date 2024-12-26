@@ -111,6 +111,9 @@ pub struct GlobalOptions {
     /// Set apt options
     #[arg(long, global = true, action = ArgAction::Append)]
     apt_options: Vec<String>,
+    /// Don't ring if oma completes the transaction
+    #[arg(long, global = true)]
+    no_bell: bool,
 }
 
 fn main() {
@@ -142,6 +145,8 @@ fn main() {
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
 
+    let no_bell = oma.global.no_bell;
+
     let code = match try_main(oma) {
         Ok(exit_code) => {
             unlock_oma().ok();
@@ -162,7 +167,9 @@ fn main() {
         }
     };
 
-    terminal_ring();
+    if !no_bell {
+        terminal_ring();
+    }
 
     exit(code);
 }
