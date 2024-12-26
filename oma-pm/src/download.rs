@@ -109,7 +109,7 @@ where
 
     let downloader = DownloadManager::builder()
         .client(client)
-        .download_list(download_list)
+        .download_list(&download_list)
         .maybe_threads(network_thread)
         .total_size(total_size)
         .build();

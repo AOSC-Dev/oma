@@ -1,7 +1,6 @@
 use std::future::Future;
 use std::{
     borrow::Cow,
-    collections::hash_map::Entry,
     fs::Permissions,
     os::{fd::AsRawFd, unix::fs::PermissionsExt},
     path::{Path, PathBuf},
@@ -37,7 +36,7 @@ use oma_fetch::{
     DownloadSourceType,
 };
 
-use oma_fetch::DownloadError;
+use oma_fetch::{DownloadError, Summary};
 
 #[cfg(feature = "aosc")]
 use oma_topics::TopicManager;
@@ -125,7 +124,7 @@ pub struct OmaRefresh<'a> {
     auth_config: &'a AuthConfig,
 }
 
-type SourceMap<'a> = AHashMap<String, Vec<OmaSourceEntry<'a>>>;
+type SourceMap<'a> = AHashMap<String, Vec<&'a OmaSourceEntry<'a>>>;
 
 fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
     let lock_path = download_dir.join("lock");
@@ -244,26 +243,50 @@ impl<'a> OmaRefresh<'a> {
         let mut download_list = vec![];
 
         let replacer = DatabaseFilenameReplacer::new()?;
-        let (release_results, source_map) = self
+        let source_map = self
             .download_releases(&sourcelist, &replacer, &callback)
             .await?;
 
-        debug!("release_results: {:?}", release_results);
-
-        download_list.extend(release_results.iter().map(|x| x.to_string()));
+        download_list.extend(source_map.keys().map(|x| x.as_str()));
 
         let (tasks, total) = self
-            .collect_all_release_entry(release_results, &sourcelist, &replacer, &source_map)
+            .collect_all_release_entry(&sourcelist, &replacer, &source_map)
             .await?;
 
         for i in &tasks {
-            download_list.push(i.filename.to_string());
+            download_list.push(i.filename.as_str());
         }
 
         let download_dir = self.download_dir.clone();
-        let remove_task =
-            tokio::spawn(async move { remove_unused_db(download_dir, download_list).await });
 
+        let (_, res) = tokio::join!(
+            remove_unused_db(&download_dir, download_list),
+            self.download_release_data(&callback, &tasks, total)
+        );
+
+        // 有元数据更新才执行 success invoke
+        let should_run_invoke = res?.iter().any(|x| x.wrote);
+
+        if should_run_invoke {
+            callback(Event::RunInvokeScript).await;
+            self.run_success_post_invoke().await;
+        }
+
+        callback(Event::Done).await;
+
+        Ok(())
+    }
+
+    async fn download_release_data<F, Fut>(
+        &self,
+        callback: &F,
+        tasks: &[DownloadEntry],
+        total: u64,
+    ) -> Result<Vec<Summary>>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: futures::Future,
+    {
         let dm = DownloadManager::builder()
             .client(self.client)
             .download_list(tasks)
@@ -280,20 +303,7 @@ impl<'a> OmaRefresh<'a> {
 
         let res = res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
 
-        // 有元数据更新才执行 success invoke
-        let should_run_invoke = res.iter().any(|x| x.wrote);
-
-        // Finally, run success post invoke
-        let _ = remove_task.await;
-
-        if should_run_invoke {
-            callback(Event::RunInvokeScript).await;
-            self.run_success_post_invoke().await;
-        }
-
-        callback(Event::Done).await;
-
-        Ok(())
+        Ok(res)
     }
 
     fn set_auth(&self, sourcelist: &mut [OmaSourceEntry<'_>]) {
@@ -334,16 +344,15 @@ impl<'a> OmaRefresh<'a> {
 
     async fn download_releases<'b, F, Fut>(
         &mut self,
-        sourcelist: &[OmaSourceEntry<'b>],
+        sourcelist: &'b [OmaSourceEntry<'b>],
         replacer: &DatabaseFilenameReplacer,
         callback: &F,
-    ) -> Result<(Vec<String>, SourceMap<'b>)>
+    ) -> Result<SourceMap<'b>>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
         let mut source_map = SourceMap::new();
-        let mut file_names = vec![];
 
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
@@ -363,15 +372,7 @@ impl<'a> OmaRefresh<'a> {
             match result {
                 Ok((Some(file_name), index)) => {
                     let source = sourcelist.get(index).unwrap();
-                    match source_map.entry(file_name.to_string()) {
-                        Entry::Occupied(mut occupied_entry) => {
-                            occupied_entry.get_mut().push(source.to_owned());
-                        }
-                        Entry::Vacant(vacant_entry) => {
-                            vacant_entry.insert(vec![source.to_owned()]);
-                            file_names.push(file_name);
-                        }
-                    }
+                    source_map.entry(file_name).or_default().push(source);
                 }
                 Ok((None, index)) => self.flat_repo_no_release.push(index),
                 Err(e) => {
@@ -433,7 +434,7 @@ impl<'a> OmaRefresh<'a> {
             }
         }
 
-        Ok((file_names, source_map))
+        Ok(source_map)
     }
 
     async fn get_release_file<F, Fut>(
@@ -693,14 +694,12 @@ impl<'a> OmaRefresh<'a> {
 
     async fn collect_all_release_entry(
         &self,
-        all_inrelease: Vec<String>,
         sourcelist: &[OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
-        sources_map: &AHashMap<String, Vec<OmaSourceEntry<'a>>>,
+        sources_map: &AHashMap<String, Vec<&'a OmaSourceEntry<'a>>>,
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
-        debug!("all_inrelease: {:?}", all_inrelease);
 
         let index_target_config = IndexTargetConfig::new(self.apt_config, &self.arch);
 
@@ -708,13 +707,10 @@ impl<'a> OmaRefresh<'a> {
             .await
             .map(|f| f.lines().map(|x| x.to_string()).collect::<Vec<_>>());
 
-        for file_name in all_inrelease {
-            // 源数据确保是存在的，所以直接 unwrap
-            let ose_list = sources_map.get(&file_name).unwrap();
-
+        for (file_name, ose_list) in sources_map {
             for ose in ose_list {
                 debug!("Getted oma source entry: {:#?}", ose);
-                let inrelease_path = self.download_dir.join(&*file_name);
+                let inrelease_path = self.download_dir.join(file_name);
 
                 let inrelease = fs::read_to_string(&inrelease_path).await.map_err(|e| {
                     RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
@@ -887,14 +883,14 @@ fn get_all_need_db_from_config(
     }
 }
 
-async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> Result<()> {
+async fn remove_unused_db(download_dir: &Path, download_list: Vec<&str>) -> Result<()> {
     let mut download_dir = fs::read_dir(&download_dir)
         .await
         .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
 
     while let Ok(Some(x)) = download_dir.next_entry().await {
         if x.path().is_file()
-            && !download_list.contains(&x.file_name().to_string_lossy().to_string())
+            && !download_list.contains(&&*x.file_name().to_string_lossy())
             && x.file_name() != "lock"
         {
             debug!("Removing {:?}", x.file_name());
