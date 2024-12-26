@@ -449,6 +449,10 @@ impl From<AuthConfigError> for OutputError {
                 description: format!("Missing field: {field}"),
                 source: None,
             },
+            AuthConfigError::ParseError(field) => Self {
+                description: format!("Unknown input: {field}"),
+                source: None,
+            },
         }
     }
 }

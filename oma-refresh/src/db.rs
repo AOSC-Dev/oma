@@ -686,7 +686,7 @@ impl<'a> OmaRefresh<'a> {
         source_index: &OmaSourceEntry<'_>,
     ) -> reqwest::RequestBuilder {
         let mut request = self.client.get(url);
-        if let Some(auth) = &source_index.auth {
+        if let Some(auth) = &source_index.auth.as_ref().and_then(|x| x.entry.as_ref()) {
             request = request.basic_auth(&auth.user, Some(&auth.password))
         }
 
@@ -986,6 +986,7 @@ fn download_flat_repo_no_release(
             auth: source_index
                 .auth
                 .as_ref()
+                .and_then(|auth| auth.entry.as_ref())
                 .map(|auth| (auth.user.clone(), auth.password.clone())),
         },
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_index.is_flat()),
@@ -1033,6 +1034,7 @@ fn collect_download_task(
             auth: source_index
                 .auth
                 .as_ref()
+                .and_then(|auth| auth.entry.as_ref())
                 .map(|auth| (auth.user.clone(), auth.password.clone())),
         },
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_index.is_flat()),

@@ -1,3 +1,5 @@
+mod parser;
+
 use std::{
     fs::{self, read_dir},
     io::{self},
@@ -5,7 +7,7 @@ use std::{
     str::FromStr,
 };
 
-use rustix::process;
+use parser::{line, multiline};
 use thiserror::Error;
 use tracing::debug;
 
@@ -19,6 +21,8 @@ pub enum AuthConfigError {
     OpenFile { path: PathBuf, err: io::Error },
     #[error("Auth config file missing entry: {0}")]
     MissingEntry(&'static str),
+    #[error("Parse failed, unknown line: {0}")]
+    ParseError(String),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -37,77 +41,53 @@ impl FromStr for AuthConfigEntry {
     type Err = AuthConfigError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let entry = s
-            .split_ascii_whitespace()
-            .filter(|x| !x.starts_with("#"))
-            .collect::<Vec<_>>();
+        let mut s = s;
+        let parse = line(&mut s).map_err(|e| AuthConfigError::ParseError(e.to_string()))?;
 
-        let mut host = None;
-        let mut login = None;
-        let mut password = None;
+        Ok(parse_entry_inner(parse))
+    }
+}
 
-        for (i, c) in entry.iter().enumerate() {
-            if *c == "machine" {
-                let Some(h) = entry.get(i + 1) else {
-                    return Err(AuthConfigError::MissingEntry("machine"));
-                };
+impl FromStr for AuthConfig {
+    type Err = AuthConfigError;
 
-                host = Some(h);
-                continue;
-            }
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut s = s;
+        let parse = multiline(&mut s).map_err(|e| AuthConfigError::ParseError(e.to_string()))?;
+        let mut res = vec![];
 
-            if *c == "login" {
-                let Some(l) = entry.get(i + 1) else {
-                    return Err(AuthConfigError::MissingEntry("login"));
-                };
-
-                login = Some(l);
-                continue;
-            }
-
-            if *c == "password" {
-                let Some(p) = entry.get(i + 1) else {
-                    return Err(AuthConfigError::MissingEntry("password"));
-                };
-
-                password = Some(p);
-                continue;
-            }
+        for r in parse {
+            res.push(parse_entry_inner(r));
         }
 
-        let Some(host) = host else {
-            return Err(AuthConfigError::MissingEntry("machine"));
-        };
+        Ok(AuthConfig { inner: res })
+    }
+}
 
-        let Some(login) = login else {
-            return Err(AuthConfigError::MissingEntry("login"));
-        };
+fn parse_entry_inner(input: Vec<(&str, &str)>) -> AuthConfigEntry {
+    let mut machine = None;
+    let mut login = None;
+    let mut password = None;
 
-        let Some(password) = password else {
-            return Err(AuthConfigError::MissingEntry("password"));
-        };
+    for i in input {
+        match i.0 {
+            "machine" => machine = Some(i.1),
+            "login" => login = Some(i.1),
+            "password" => password = Some(i.1),
+            x => panic!("unexcept {x}"),
+        }
+    }
 
-        Ok(Self {
-            host: (*host).into(),
-            user: (*login).into(),
-            password: (*password).into(),
-        })
+    AuthConfigEntry {
+        host: machine.unwrap().into(),
+        user: login.unwrap().into(),
+        password: password.unwrap().into(),
     }
 }
 
 impl AuthConfig {
     /// Read system auth.conf.d config (/etc/apt/auth.conf.d)
-    ///
-    /// Note that this function returns empty vector if run as a non-root user.
     pub fn system(sysroot: impl AsRef<Path>) -> Result<Self, AuthConfigError> {
-        // 在 auth.conf.d 的使用惯例中
-        // 配置文件的权限一般为 600，并且所有者为 root
-        // 以普通用户身份下载文件时，会没有权限读取 auth 配置
-        // 因此，在以普通用户访问时，不读取 auth 配置
-        if !process::geteuid().is_root() {
-            return Ok(Self { inner: vec![] });
-        }
-
         let p = sysroot.as_ref().join("etc/apt/auth.conf.d");
         Self::from_path(p)
     }
@@ -130,7 +110,7 @@ impl AuthConfig {
                 err: e,
             })?;
 
-            let config = AuthConfig::from_str(&s)?;
+            let config: AuthConfig = s.parse()?;
             v.extend(config.inner);
         }
 
@@ -145,7 +125,7 @@ impl AuthConfig {
 
         debug!("auth find url is: {}", url);
 
-        self.inner.iter().find(|x| {
+        self.inner.iter().find_map(|x| {
             let mut host = x.host.to_string();
             while host.ends_with('/') {
                 host.pop();
@@ -156,7 +136,11 @@ impl AuthConfig {
                 url.pop();
             }
 
-            host == url
+            if host == url {
+                Some(x)
+            } else {
+                None
+            }
         })
     }
 
@@ -168,48 +152,12 @@ impl AuthConfig {
 
         debug!("auth find package url is: {}", url);
 
-        self.inner.iter().find(|x| url.starts_with(x.host.as_ref()))
+        self.inner.iter().find_map(|x| {
+            if url.starts_with(x.host.as_ref()) {
+                Some(x)
+            } else {
+                None
+            }
+        })
     }
-}
-
-impl FromStr for AuthConfig {
-    type Err = AuthConfigError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut v = vec![];
-
-        for i in s.lines().filter(|x| !x.starts_with('#')) {
-            let entry = AuthConfigEntry::from_str(i)?;
-            v.push(entry);
-        }
-
-        Ok(Self { inner: v })
-    }
-}
-
-#[test]
-fn test_config_parser() {
-    let config = r#"machine esm.ubuntu.com/apps/ubuntu/ login bearer password qaq  # ubuntu-pro-client
-machine esm.ubuntu.com/infra/ubuntu/ login bearer password qaq  # ubuntu-pro-client
-"#;
-
-    let config = AuthConfig::from_str(config).unwrap();
-
-    assert_eq!(
-        config,
-        AuthConfig {
-            inner: vec![
-                AuthConfigEntry {
-                    host: "esm.ubuntu.com/apps/ubuntu/".into(),
-                    user: "bearer".into(),
-                    password: "qaq".into(),
-                },
-                AuthConfigEntry {
-                    host: "esm.ubuntu.com/infra/ubuntu/".into(),
-                    user: "bearer".into(),
-                    password: "qaq".into(),
-                },
-            ]
-        }
-    );
 }

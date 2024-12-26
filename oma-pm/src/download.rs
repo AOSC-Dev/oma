@@ -50,7 +50,7 @@ where
                     let auth = auth.find_package_url(x);
 
                     DownloadSourceType::Http {
-                        auth: auth.map(|x| (x.user.to_owned(), x.password.to_owned())),
+                        auth: auth.map(|x| (x.host.to_owned(), x.password.to_owned())),
                     }
                 };
 
