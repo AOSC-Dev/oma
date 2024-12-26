@@ -29,6 +29,8 @@ pub struct GeneralConfig {
     pub follow_terminal_color: bool,
     #[serde(default = "GeneralConfig::default_search_contents_println")]
     pub search_contents_println: bool,
+    #[serde(default = "GeneralConfig::default_bell")]
+    pub bell: bool,
     #[serde(default = "GeneralConfig::default_search_engine")]
     pub search_engine: String,
 }
@@ -64,6 +66,10 @@ impl GeneralConfig {
 
     pub const fn default_search_contents_println() -> bool {
         false
+    }
+
+    pub const fn default_bell() -> bool {
+        true
     }
 
     pub fn default_search_engine() -> String {
@@ -136,5 +142,12 @@ impl Config {
             .as_ref()
             .map(|x| Cow::Borrowed(&x.search_engine))
             .unwrap_or_else(|| Cow::Owned(GeneralConfig::default_search_engine()))
+    }
+
+    pub fn bell(&self) -> bool {
+        self.general
+            .as_ref()
+            .map(|x| x.bell)
+            .unwrap_or_else(GeneralConfig::default_bell)
     }
 }

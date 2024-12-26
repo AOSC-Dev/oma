@@ -154,8 +154,6 @@ fn main() {
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
 
-    let no_bell = oma.global.no_bell;
-
     let code = match try_main(oma) {
         Ok(exit_code) => {
             unlock_oma().ok();
@@ -175,10 +173,6 @@ fn main() {
             1
         }
     };
-
-    if !no_bell {
-        terminal_ring();
-    }
 
     exit(code);
 }
@@ -274,10 +268,16 @@ fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
     let no_progress =
         oma.global.no_progress || !is_terminal() || oma.global.debug || oma.global.dry_run;
 
-    match oma.subcmd {
+    let code = match oma.subcmd {
         Some(subcmd) => subcmd.execute(&config, no_progress),
         None => Tui::from(&oma.global).execute(&config, no_progress),
+    };
+
+    if !oma.global.no_bell && config.bell() {
+        terminal_ring();
     }
+
+    code
 }
 
 fn init_color_formatter(oma: &OhManagerAilurus, config: &Config) {
