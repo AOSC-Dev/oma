@@ -137,6 +137,7 @@ pub struct SearchResultDisplay<'a>(pub &'a SearchResult);
 impl Display for SearchResultDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let i = self.0;
+        #[cfg(feature = "aosc")]
         let mut pkg_info_line = if i.is_base {
             color_formatter()
                 .color_str(&i.name, Action::Purple)
@@ -148,6 +149,12 @@ impl Display for SearchResultDisplay<'_> {
                 .bold()
                 .to_string()
         };
+
+        #[cfg(not(feature = "aosc"))]
+        let mut pkg_info_line = color_formatter()
+            .color_str(&i.name, Action::Emphasis)
+            .bold()
+            .to_string();
 
         pkg_info_line.push(' ');
 
