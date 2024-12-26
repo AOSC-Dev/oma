@@ -71,12 +71,12 @@ pub struct SuccessSummary {
 pub enum SingleDownloadError {
     #[snafu(display("Failed to set permission"))]
     SetPermission { source: io::Error },
+    #[snafu(display("Failed to open file as rw mode"))]
+    OpenAsWriteMode { source: io::Error },
     #[snafu(display("Failed to open file"))]
     Open { source: io::Error },
     #[snafu(display("Failed to create file"))]
     Create { source: io::Error },
-    #[snafu(display("Failed to read file"))]
-    Read { source: io::Error },
     #[snafu(display("Failed to seek file"))]
     Seek { source: io::Error },
     #[snafu(display("Failed to write file"))]
@@ -251,7 +251,7 @@ impl<'a> SingleDownloader<'a> {
                     .read(true)
                     .open(&file)
                     .await
-                    .context(OpenSnafu)?;
+                    .context(OpenAsWriteModeSnafu)?;
 
                 debug!(
                     "oma opened file: {} with write and read mode",
@@ -270,7 +270,10 @@ impl<'a> SingleDownloader<'a> {
                         break;
                     }
 
-                    let read_count = f.read(&mut buf[..]).await.context(ReadSnafu)?;
+                    let Ok(read_count) = f.read(&mut buf[..]).await else {
+                        debug!("Read file get get fk, so re-download it");
+                        break;
+                    };
 
                     v.update(&buf[..read_count]);
 
