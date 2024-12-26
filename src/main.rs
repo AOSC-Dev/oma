@@ -22,6 +22,7 @@ mod utils;
 mod egg;
 
 use args::{print_version, CliExecuter, OhManagerAilurus};
+use clap::builder::FalseyValueParser;
 use clap::{ArgAction, Args, ColorChoice, Parser};
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
@@ -79,40 +80,48 @@ pub struct GlobalOptions {
     #[arg(
         long,
         global = true,
-        long_help = "Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system"
+        long_help = "Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system",
+        env = "OMA_DRY_RUN",
+        value_parser = FalseyValueParser::new()
     )]
     dry_run: bool,
     /// Run oma with debug output
     #[arg(
         long,
         global = true,
-        long_help = "Run oma with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues"
+        long_help = "Run oma with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues",
+        env = "OMA_DEBUG",
+        value_parser = FalseyValueParser::new()
     )]
     debug: bool,
     /// Represents the color preferences for program output
     #[arg(long, global = true, default_value = "auto")]
     color: ColorChoice,
     /// Output result with terminal theme color
-    #[arg(long, global = true)]
+    #[arg(long, global = true, env = "OMA_FOLLOW_TERMINAL_COLOR", value_parser = FalseyValueParser::new()
+)]
     follow_terminal_color: bool,
     /// Do not display progress bar
-    #[arg(long, global = true)]
+    #[arg(long, global = true, env = "OMA_NO_PROGRESS", value_parser = FalseyValueParser::new()
+)]
     no_progress: bool,
     /// Run oma do not check dbus
-    #[arg(long, global = true)]
+    #[arg(long, global = true, env = "OMA_NO_CHECK_DBUS", value_parser = FalseyValueParser::new()
+)]
     no_check_dbus: bool,
     /// Print version
     // FIXME: ArgAcrion::Version buggy
     #[arg(short, long)]
     version: bool,
     /// Set sysroot target directory
-    #[arg(long, global = true, default_value = "/")]
+    #[arg(long, global = true, default_value = "/", env = "OMA_SYSROOT")]
     sysroot: PathBuf,
     /// Set apt options
     #[arg(long, global = true, action = ArgAction::Append)]
     apt_options: Vec<String>,
     /// Don't ring if oma completes the transaction
-    #[arg(long, global = true)]
+    #[arg(long, global = true, env = "OMA_NO_BELL", value_parser = FalseyValueParser::new()
+)]
     no_bell: bool,
 }
 
