@@ -363,6 +363,9 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
+        #[cfg(not(feature = "aosc"))]
+        let not_found = vec![];
+
         let mut mirror_ose_map: AHashMap<String, Vec<(&OmaSourceEntry, usize)>> = AHashMap::new();
 
         for (i, c) in sourcelist.iter().enumerate() {
@@ -428,46 +431,62 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(not(feature = "aosc"))]
         let _ = self.topic_msg;
 
-        #[cfg(feature = "aosc")]
-        {
-            if self.refresh_topics {
-                callback(Event::ScanningTopic).await;
-                let mut tm =
-                    TopicManager::new(self.client, &self.source, &self.arch, false).await?;
-                let removed_suites = tm.remove_closed_topics()?;
-
-                for url in &not_found {
-                    let suite = url
-                        .path_segments()
-                        .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
-                        .ok_or_else(|| RefreshError::InvalidUrl(url.to_string()))?;
-
-                    if !removed_suites.contains(&suite)
-                        && !tm.enabled_topics().iter().any(|x| x.name == suite)
-                    {
-                        return Err(RefreshError::NoInReleaseFile(url.to_string()));
-                    }
-
-                    callback(Event::ClosingTopic(suite)).await;
-                }
-
-                if !not_found.is_empty() {
-                    tm.write_enabled().await?;
-                    tm.write_sources_list(self.topic_msg, false, |topic, mirror| async move {
-                        callback(Event::TopicNotInMirror {
-                            topic: topic.to_string(),
-                            mirror: mirror.to_string(),
-                        })
-                        .await
-                    })
-                    .await?;
-                }
-
-                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1))).await;
-            }
-        }
+        self.refresh_topics(callback, not_found).await?;
 
         Ok(source_map)
+    }
+
+    #[cfg(feature = "aosc")]
+    async fn refresh_topics<F, Fut>(&self, callback: &F, not_found: Vec<url::Url>) -> Result<()>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        if !self.refresh_topics || not_found.is_empty() {
+            return Ok(());
+        }
+
+        callback(Event::ScanningTopic).await;
+        let mut tm = TopicManager::new(self.client, &self.source, &self.arch, false).await?;
+        let removed_suites = tm.remove_closed_topics()?;
+
+        for url in not_found {
+            let suite = url
+                .path_segments()
+                .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
+                .ok_or_else(|| RefreshError::InvalidUrl(url.to_string()))?;
+
+            if !removed_suites.contains(&suite)
+                && !tm.enabled_topics().iter().any(|x| x.name == suite)
+            {
+                return Err(RefreshError::NoInReleaseFile(url.to_string()));
+            }
+
+            callback(Event::ClosingTopic(suite)).await;
+        }
+
+        tm.write_enabled().await?;
+        tm.write_sources_list(self.topic_msg, false, |topic, mirror| async move {
+            callback(Event::TopicNotInMirror {
+                topic: topic.to_string(),
+                mirror: mirror.to_string(),
+            })
+            .await
+        })
+        .await?;
+
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1))).await;
+
+        Ok(())
+    }
+
+    #[cfg(not(feature = "aosc"))]
+    async fn refresh_topics<F, Fut>(&self, _callback: &F, _not_found: Vec<url::Url>) -> Result<()>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        Ok(())
     }
 
     async fn get_release_file<'b, F, Fut>(

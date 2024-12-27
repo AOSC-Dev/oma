@@ -155,7 +155,7 @@ impl<'a> TopicManager<'a> {
             dry_run,
             atm_source_list_path: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_SUFFIX),
             old_enabled: enabled,
-            mm: tokio::task::spawn_blocking(move || MirrorManager::new(&sysroot_box))
+            mm: tokio::task::spawn_blocking(move || MirrorManager::new(sysroot_box))
                 .await
                 .unwrap()?,
         })
