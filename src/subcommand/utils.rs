@@ -43,6 +43,7 @@ use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Confirm;
 use flume::unbounded;
+use indexmap::IndexSet;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
@@ -83,7 +84,7 @@ pub(crate) fn handle_no_result(
         return Ok(());
     }
 
-    let mut bin = vec![];
+    let mut bin = IndexSet::with_hasher(ahash::RandomState::new());
 
     let pb = if !no_progress || is_terminal() {
         Some(OmaProgressBar::new_spinner(Some(fl!("searching"))))
@@ -119,7 +120,7 @@ pub(crate) fn handle_no_result(
                 word,
                 |(pkg, file)| {
                     if file == format!("/usr/bin/{}", word) {
-                        bin.push((pkg, word));
+                        bin.insert((pkg, word));
                     }
                 },
             )
