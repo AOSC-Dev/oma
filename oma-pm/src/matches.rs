@@ -85,6 +85,7 @@ pub struct PackagesMatcher<'a> {
 pub type MatcherResult<T> = Result<T, MatcherError>;
 
 impl<'a> PackagesMatcher<'a> {
+    /// Matches packages and versions based on the provided keywords.
     pub fn match_pkgs_and_versions(
         &self,
         keywords: impl IntoIterator<Item = &'a str>,
@@ -153,6 +154,7 @@ impl<'a> PackagesMatcher<'a> {
         Ok(res.into_iter().flatten().collect())
     }
 
+    /// Query package from given glob (without matching version)
     pub fn match_pkgs_from_glob(&self, glob: &str) -> MatcherResult<Vec<OmaPackageWithoutVersion>> {
         let sort = PackageSort::default().include_virtual();
 
@@ -399,6 +401,7 @@ pub fn real_pkg(pkg: &Package) -> Option<UniquePtr<PkgIterator>> {
     unsafe { pkg.unique() }.make_safe()
 }
 
+/// return whether this package has debug version or not.
 pub fn has_dbg(cache: &Cache, pkg: &Package<'_>, ver: &Version) -> bool {
     let dbg_pkg = format!("{}-dbg:{}", pkg.name(), ver.arch());
     let dbg_pkg = cache.get(&dbg_pkg);
