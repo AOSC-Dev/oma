@@ -3176,7 +3176,9 @@ dependencies = [
 name = "oma-topics"
 version = "0.20.0"
 dependencies = [
+ "ahash",
  "futures",
+ "itertools 0.13.0",
  "oma-console",
  "oma-inquire",
  "oma-mirror",

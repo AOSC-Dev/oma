@@ -434,30 +434,33 @@ impl<'a> OmaRefresh<'a> {
                 callback(Event::ScanningTopic).await;
                 let mut tm =
                     TopicManager::new(self.client, &self.source, &self.arch, false).await?;
-                let removed_suites = oma_topics::scan_closed_topic(
-                    &mut tm,
-                    self.topic_msg,
-                    |topic, mirror| async move {
-                        callback(Event::TopicNotInMirror {
-                            topic: topic.to_string(),
-                            mirror: mirror.to_string(),
-                        })
-                        .await
-                    },
-                )
-                .await?;
+                let removed_suites = tm.remove_closed_topics()?;
 
-                for url in not_found {
+                for url in &not_found {
                     let suite = url
                         .path_segments()
                         .and_then(|mut x| x.nth_back(1).map(|x| x.to_string()))
                         .ok_or_else(|| RefreshError::InvalidUrl(url.to_string()))?;
 
-                    if !removed_suites.contains(&suite) {
+                    if !removed_suites.contains(&suite)
+                        && !tm.enabled_topics().iter().any(|x| x.name == suite)
+                    {
                         return Err(RefreshError::NoInReleaseFile(url.to_string()));
                     }
 
                     callback(Event::ClosingTopic(suite)).await;
+                }
+
+                if !not_found.is_empty() {
+                    tm.write_enabled().await?;
+                    tm.write_sources_list(self.topic_msg, false, |topic, mirror| async move {
+                        callback(Event::TopicNotInMirror {
+                            topic: topic.to_string(),
+                            mirror: mirror.to_string(),
+                        })
+                        .await
+                    })
+                    .await?;
                 }
 
                 callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1))).await;

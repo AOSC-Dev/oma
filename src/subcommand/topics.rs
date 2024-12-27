@@ -8,7 +8,6 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_console::writer::Writeln;
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs, Upgrade},
@@ -35,7 +34,7 @@ use crate::args::CliExecuter;
 
 use crate::fl;
 use anyhow::anyhow;
-use oma_topics::{scan_closed_topic, Topic, TopicManager};
+use oma_topics::{Topic, TopicManager};
 
 #[derive(Debug, Args)]
 pub struct Topics {
@@ -296,12 +295,12 @@ async fn topics_inner(
 ) -> Result<TopicChanged, OutputError> {
     refresh_topics(no_progress, tm).await?;
 
-    let all_topics = Box::from(tm.all_topics());
+    let all_topics = tm.all_topics().map(|x| x.to_owned()).collect::<Vec<_>>();
     let enabled_topics = Box::from(tm.enabled_topics());
 
     if opt_in.is_empty() && opt_out.is_empty() {
         (*opt_in, *opt_out) =
-            spawn_blocking(move || select_prompt(&all_topics, &enabled_topics, all))
+            spawn_blocking(move || select_prompt(all_topics, &enabled_topics, all))
                 .await
                 .unwrap()?;
     }
@@ -329,7 +328,7 @@ async fn topics_inner(
 }
 
 fn select_prompt(
-    all_topics: &[Topic],
+    all_topics: Vec<Topic>,
     enabled_topics: &[Topic],
     all: bool,
 ) -> anyhow::Result<(Vec<String>, Vec<String>)> {
@@ -414,32 +413,7 @@ async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<
     };
 
     tm.refresh().await?;
-
-    scan_closed_topic(
-        tm,
-        &fl!("do-not-edit-topic-sources-list"),
-        |topic, mirror| async {
-            if let Some(pb) = &pb {
-                pb.writeln(
-                    &style("WARNING").yellow().bold().to_string(),
-                    &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
-                )
-                .ok();
-                pb.writeln(
-                    &style("WARNING").yellow().bold().to_string(),
-                    &fl!("skip-write-mirror"),
-                )
-                .ok();
-            } else {
-                warn!(
-                    "{}",
-                    fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
-                );
-                warn!("{}", fl!("skip-write-mirror"));
-            }
-        },
-    )
-    .await?;
+    tm.remove_closed_topics()?;
 
     if let Some(pb) = pb {
         pb.inner.finish_and_clear();
