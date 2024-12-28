@@ -127,7 +127,7 @@ impl VerificationHelper for InReleaseVerifier {
 /// Verify InRelease PGP signature
 pub fn verify_inrelease(
     inrelease: &str,
-    signed_by: &Option<Signature>,
+    signed_by: Option<&Signature>,
     rootfs: impl AsRef<Path>,
 ) -> VerifyResult<String> {
     debug!("signed_by: {:?}", signed_by);
@@ -172,7 +172,7 @@ fn policy() -> StandardPolicy<'static> {
 pub fn verify_release(
     release: &str,
     detached: &[u8],
-    signed_by: &Option<Signature>,
+    signed_by: Option<&Signature>,
     rootfs: impl AsRef<Path>,
 ) -> VerifyResult<()> {
     let (certs, _) = find_certs(rootfs, signed_by)?;
@@ -191,7 +191,7 @@ pub fn verify_release(
 
 fn find_certs(
     rootfs: impl AsRef<Path>,
-    signed_by: &Option<Signature>,
+    signed_by: Option<&Signature>,
 ) -> VerifyResult<(Vec<PathBuf>, Option<&str>)> {
     let rootfs = rootfs.as_ref();
 
