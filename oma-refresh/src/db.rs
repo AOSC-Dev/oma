@@ -1027,9 +1027,16 @@ fn collect_download_task(
         Cow::Owned(format!("{}/{}", dist_url, not_compress_filename_before))
     };
 
+    let file_name = replacer.replace(&file_path)?;
+
+    if tasks.iter().any(|x| x.filename == file_name) {
+        debug!("Continue repetition repo metadata: {:#?}", c);
+        return Ok(());
+    }
+
     let task = DownloadEntry::builder()
         .source(sources)
-        .filename(replacer.replace(&file_path)?)
+        .filename(file_name)
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
         .msg(msg)
