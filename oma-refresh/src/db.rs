@@ -195,6 +195,12 @@ pub enum Event {
     Done,
 }
 
+#[derive(Debug)]
+enum KeyOrIndex<'a> {
+    Key(&'a str),
+    Index(usize),
+}
+
 impl<'a> OmaRefresh<'a> {
     pub async fn start<F, Fut>(mut self, callback: F) -> Result<()>
     where
@@ -357,8 +363,15 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
-        let tasks = sourcelist.iter().enumerate().map(|(index, source)| {
-            self.get_release_file(source, replacer, index, sourcelist.len(), callback)
+        let mut mirror_ose_map: AHashMap<String, Vec<(&OmaSourceEntry, usize)>> = AHashMap::new();
+
+        for (i, c) in sourcelist.iter().enumerate() {
+            let name = replacer.replace(c.dist_path())?;
+            mirror_ose_map.entry(name).or_default().push((c, i));
+        }
+
+        let tasks = mirror_ose_map.iter().enumerate().map(|(index, (k, v))| {
+            self.get_release_file(v[0], replacer, index, mirror_ose_map.len(), k, callback)
         });
 
         let results = futures::stream::iter(tasks)
@@ -370,11 +383,28 @@ impl<'a> OmaRefresh<'a> {
 
         for result in results {
             match result {
-                Ok((Some(file_name), index)) => {
-                    let source = sourcelist.get(index).unwrap();
-                    source_map.entry(file_name).or_default().push(source);
+                Ok((Some(file_name), key_or_index)) => {
+                    let KeyOrIndex::Key(key) = key_or_index else {
+                        unreachable!()
+                    };
+
+                    source_map.insert(
+                        file_name,
+                        mirror_ose_map
+                            .get(key)
+                            .unwrap()
+                            .iter()
+                            .map(|x| x.0)
+                            .collect::<Vec<_>>(),
+                    );
                 }
-                Ok((None, index)) => self.flat_repo_no_release.push(index),
+                Ok((None, key_or_index)) => {
+                    let KeyOrIndex::Index(index) = key_or_index else {
+                        unreachable!()
+                    };
+
+                    self.flat_repo_no_release.push(index)
+                }
                 Err(e) => {
                     #[cfg(feature = "aosc")]
                     match e {
@@ -437,37 +467,39 @@ impl<'a> OmaRefresh<'a> {
         Ok(source_map)
     }
 
-    async fn get_release_file<F, Fut>(
+    async fn get_release_file<'b, F, Fut>(
         &self,
-        source_index: &OmaSourceEntry<'_>,
+        entry: (&OmaSourceEntry<'_>, usize),
         replacer: &DatabaseFilenameReplacer,
-        index: usize,
+        progress_index: usize,
         total: usize,
+        key: &'b str,
         callback: &F,
-    ) -> Result<(Option<String>, usize)>
+    ) -> Result<(Option<String>, KeyOrIndex<'b>)>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
-        match source_index.from()? {
+        let (entry, index) = entry;
+        match entry.from()? {
             OmaSourceEntryFrom::Http => {
-                let dist_path = source_index.dist_path();
+                let dist_path = entry.dist_path();
 
                 let mut r = None;
                 let mut u = None;
                 let mut is_release = false;
 
-                let msg = source_index.get_human_download_url(None)?;
+                let msg = entry.get_human_download_url(None)?;
 
                 callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-                    index,
-                    msg: format!("({}/{}) {}", index, total, msg),
+                    index: progress_index,
+                    msg: format!("({}/{}) {}", progress_index, total, msg),
                 }))
                 .await;
 
                 for (index, file_name) in ["InRelease", "Release"].iter().enumerate() {
                     let url = format!("{}/{}", dist_path, file_name);
-                    let request = self.request_get_builder(&url, source_index);
+                    let request = self.request_get_builder(&url, entry);
 
                     let resp = request
                         .send()
@@ -487,10 +519,13 @@ impl<'a> OmaRefresh<'a> {
 
                 let r = r.unwrap();
 
-                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(
+                    progress_index,
+                )))
+                .await;
 
-                if r.is_err() && source_index.is_flat() {
-                    return Ok((None, index));
+                if r.is_err() && entry.is_flat() {
+                    return Ok((None, KeyOrIndex::Index(index)));
                 }
 
                 let resp = r?;
@@ -498,13 +533,13 @@ impl<'a> OmaRefresh<'a> {
                 let url = u.unwrap();
                 let file_name = replacer.replace(&url)?;
 
-                self.download_file(&file_name, resp, source_index, index, total, &callback)
+                self.download_file(&file_name, resp, entry, progress_index, total, &callback)
                     .await?;
 
-                if is_release && !source_index.trusted() {
+                if is_release && !entry.trusted() {
                     let url = format!("{}/{}", dist_path, "Release.gpg");
 
-                    let request = self.request_get_builder(&url, source_index);
+                    let request = self.request_get_builder(&url, entry);
                     let resp = request
                         .send()
                         .await
@@ -512,14 +547,14 @@ impl<'a> OmaRefresh<'a> {
 
                     let file_name = replacer.replace(&url)?;
 
-                    self.download_file(&file_name, resp, source_index, index, total, &callback)
+                    self.download_file(&file_name, resp, entry, progress_index, total, &callback)
                         .await?;
                 }
 
-                Ok((Some(file_name), index))
+                Ok((Some(file_name), KeyOrIndex::Key(key)))
             }
             OmaSourceEntryFrom::Local => {
-                let dist_path_with_protocol = source_index.dist_path();
+                let dist_path_with_protocol = entry.dist_path();
                 let dist_path = dist_path_with_protocol
                     .strip_prefix("file:")
                     .unwrap_or(dist_path_with_protocol);
@@ -527,11 +562,11 @@ impl<'a> OmaRefresh<'a> {
 
                 let mut name = None;
 
-                let msg = source_index.get_human_download_url(None)?;
+                let msg = entry.get_human_download_url(None)?;
 
                 callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-                    index,
-                    msg: format!("({}/{}) {}", index, total, msg),
+                    index: progress_index,
+                    msg: format!("({}/{}) {}", progress_index, total, msg),
                 }))
                 .await;
 
@@ -610,12 +645,15 @@ impl<'a> OmaRefresh<'a> {
                     }
                 }
 
-                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(
+                    progress_index,
+                )))
+                .await;
 
-                let name = name
-                    .ok_or_else(|| RefreshError::NoInReleaseFile(source_index.url().to_string()))?;
+                let name =
+                    name.ok_or_else(|| RefreshError::NoInReleaseFile(entry.url().to_string()))?;
 
-                Ok((Some(name), index))
+                Ok((Some(name), KeyOrIndex::Key(key)))
             }
         }
     }
