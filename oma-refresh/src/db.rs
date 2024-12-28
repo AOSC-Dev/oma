@@ -746,13 +746,49 @@ impl<'a> OmaRefresh<'a> {
             .map(|f| f.lines().map(|x| x.to_string()).collect::<Vec<_>>());
 
         for (file_name, ose_list) in sources_map {
+            let inrelease_path = self.download_dir.join(file_name);
+
+            let inrelease = fs::read_to_string(&inrelease_path).await.map_err(|e| {
+                RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
+            })?;
+
+            let inrelease = verify_inrelease(
+                &inrelease,
+                ose_list.iter().find_map(|x| {
+                    if let Some(x) = x.signed_by() {
+                        Some(x)
+                    } else {
+                        None
+                    }
+                }),
+                &self.source,
+                &inrelease_path,
+                ose_list.iter().any(|x| x.trusted()),
+            )
+            .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
+
+            let inrelease = InRelease::new(&inrelease)
+                .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
+
+            if ose_list[0].is_flat() {
+                let now = Utc::now();
+
+                inrelease.check_date(&now).map_err(|e| {
+                    RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
+                })?;
+
+                inrelease.check_valid_until(&now).map_err(|e| {
+                    RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
+                })?;
+            }
+
+            let checksums = &inrelease
+                .get_or_try_init_checksum_type_and_list()
+                .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?
+                .1;
+
             for ose in ose_list {
                 debug!("Getted oma source entry: {:#?}", ose);
-                let inrelease_path = self.download_dir.join(file_name);
-
-                let inrelease = fs::read_to_string(&inrelease_path).await.map_err(|e| {
-                    RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
-                })?;
 
                 let mut archs = if let Some(archs) = ose.archs() {
                     archs.iter().map(|x| x.as_str()).collect::<Vec<_>>()
@@ -763,38 +799,6 @@ impl<'a> OmaRefresh<'a> {
                 };
 
                 debug!("archs: {:?}", archs);
-
-                let inrelease = verify_inrelease(
-                    &inrelease,
-                    ose.signed_by(),
-                    &self.source,
-                    &inrelease_path,
-                    ose.trusted(),
-                )
-                .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
-
-                let inrelease = InRelease::new(&inrelease).map_err(|e| {
-                    RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
-                })?;
-
-                if !ose.is_flat() {
-                    let now = Utc::now();
-
-                    inrelease.check_date(&now).map_err(|e| {
-                        RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
-                    })?;
-
-                    inrelease.check_valid_until(&now).map_err(|e| {
-                        RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
-                    })?;
-                }
-
-                let checksums = &inrelease
-                    .get_or_try_init_checksum_type_and_list()
-                    .map_err(|e| {
-                        RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
-                    })?
-                    .1;
 
                 let mut handle = vec![];
 
@@ -1065,6 +1069,7 @@ fn collect_download_task(
 
     if tasks.iter().any(|x| x.filename == file_name) {
         debug!("Continue repetition repo metadata: {:#?}", c);
+
         return Ok(());
     }
 
