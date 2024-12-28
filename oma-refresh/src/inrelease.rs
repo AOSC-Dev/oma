@@ -14,7 +14,7 @@ use std::{
 use thiserror::Error;
 use tracing::debug;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChecksumItem {
     pub name: String,
     pub size: u64,

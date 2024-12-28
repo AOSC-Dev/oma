@@ -748,6 +748,8 @@ impl<'a> OmaRefresh<'a> {
         for (file_name, ose_list) in sources_map {
             let inrelease_path = self.download_dir.join(file_name);
 
+            let mut handle = HashSet::with_hasher(ahash::RandomState::new());
+
             let inrelease = fs::read_to_string(&inrelease_path).await.map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
             })?;
@@ -800,8 +802,6 @@ impl<'a> OmaRefresh<'a> {
 
                 debug!("archs: {:?}", archs);
 
-                let mut handle = vec![];
-
                 let download_list = index_target_config.get_download_list(
                     checksums,
                     ose.is_source(),
@@ -820,17 +820,17 @@ impl<'a> OmaRefresh<'a> {
                         replacer,
                     )?;
                 }
+            }
 
-                for c in handle {
-                    collect_download_task(
-                        &c,
-                        ose,
-                        &self.download_dir,
-                        &mut tasks,
-                        &inrelease,
-                        replacer,
-                    )?;
-                }
+            for c in &handle {
+                collect_download_task(
+                    c,
+                    ose_list[0],
+                    &self.download_dir,
+                    &mut tasks,
+                    &inrelease,
+                    replacer,
+                )?;
             }
         }
 
@@ -895,9 +895,13 @@ fn get_all_need_db_from_config(
     filter_checksums: Vec<ChecksumDownloadEntry>,
     total: &mut u64,
     checksums: &[ChecksumItem],
-    handle: &mut Vec<ChecksumDownloadEntry>,
+    handle: &mut HashSet<ChecksumDownloadEntry>,
 ) {
     for i in filter_checksums {
+        if handle.contains(&i) {
+            continue;
+        }
+
         if i.keep_compress {
             *total += i.item.size;
         } else {
@@ -921,7 +925,7 @@ fn get_all_need_db_from_config(
             *total += size;
         }
 
-        handle.push(i);
+        handle.insert(i);
     }
 }
 
@@ -1066,12 +1070,6 @@ fn collect_download_task(
     };
 
     let file_name = replacer.replace(&file_path)?;
-
-    if tasks.iter().any(|x| x.filename == file_name) {
-        debug!("Continue repetition repo metadata: {:#?}", c);
-
-        return Ok(());
-    }
 
     let task = DownloadEntry::builder()
         .source(sources)
