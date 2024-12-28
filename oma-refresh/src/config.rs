@@ -245,7 +245,7 @@ fn get_index_target_tree(config: &Config, key: &str) -> Vec<(String, HashMap<Str
         .collect::<Vec<_>>()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChecksumDownloadEntry {
     pub item: ChecksumItem,
     pub keep_compress: bool,
