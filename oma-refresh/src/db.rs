@@ -271,7 +271,7 @@ impl<'a> OmaRefresh<'a> {
 
         let dm = DownloadManager::builder()
             .client(self.client)
-            .download_list(&tasks)
+            .download_list(tasks)
             .threads(self.threads)
             .set_permission(0o644)
             .total_size(total)
@@ -818,7 +818,7 @@ impl<'a> OmaRefresh<'a> {
             for c in &handle {
                 collect_download_task(
                     c,
-                    ose_list[0],
+                    &ose_list[0],
                     &self.download_dir,
                     &mut tasks,
                     &inrelease,
