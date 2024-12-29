@@ -37,6 +37,22 @@ curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
 
 ### Building from Source
 
+#### Dependencies
+
+To build oma, ensure the following dependencies are installed:
+
+- libapt-pkg (part of [APT](https://salsa.debian.org/apt-team/apt.git))
+- [LLVM and Clang](https://llvm.org/)
+- [Nettle](https://www.lysator.liu.se/~nisse/nettle/) (recommended) or [OpenSSL](https://openssl.org/)
+- [Rustc](https://www.rust-lang.org/) and [Cargo](https://crates.io/)
+- [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) or [pkgconf](http://pkgconf.org/)
+
+During runtime, oma requires or recommends the following:
+
+- [ripgrep](https://github.com/BurntSushi/ripgrep) (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
+
+#### Build Procedure
+
 1. Clone the repository:
 
    ```bash
@@ -51,20 +67,6 @@ curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
    ```
 
 3. Install and profit!
-
-## Dependencies
-
-To build oma, ensure the following dependencies are installed:
-
-- libapt-pkg (part of [APT](https://salsa.debian.org/apt-team/apt.git))
-- [LLVM and Clang](https://llvm.org/)
-- [Nettle](https://www.lysator.liu.se/~nisse/nettle/) (recommended) or [OpenSSL](https://openssl.org/)
-- [Rustc](https://www.rust-lang.org/) and [Cargo](https://crates.io/)
-- [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) or [pkgconf](http://pkgconf.org/)
-
-During runtime, oma requires or recommends the following:
-
-- [ripgrep](https://github.com/BurntSushi/ripgrep) (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
 
 ## Usage
 
