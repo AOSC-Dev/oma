@@ -25,20 +25,6 @@ Please see [Install](#installation).
 - **Compatibility with Other dpkg-based OS:** Bringing a more friendly package management experience to major dpkg-based distributions like Debian, Ubuntu, deepin, and openKylin.
 - **Distro-specific Integration:** Supporting not only AOSC OS-specific features such as topic repository enrollment and mirror management, but also distro-specific services such as Ubuntu Pro.
 
-## Dependencies
-
-To build oma, ensure the following dependencies are installed:
-
-- libapt-pkg (part of [APT](https://salsa.debian.org/apt-team/apt.git))
-- [LLVM and Clang](https://llvm.org/)
-- [Nettle](https://www.lysator.liu.se/~nisse/nettle/) (recommended) or [OpenSSL](https://openssl.org/)
-- [Rustc](https://www.rust-lang.org/) and [Cargo](https://crates.io/)
-- [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) or [pkgconf](http://pkgconf.org/)
-
-During runtime, oma requires or recommends the following:
-
-- [ripgrep](https://github.com/BurntSushi/ripgrep) (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
-
 ## Installation
 
 oma is pre-installed with AOSC OS. It is also available for Debian, Ubuntu, Deepin, openKylin, and more dpkg-based OS.
@@ -65,6 +51,20 @@ curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
    ```
 
 3. Install and profit!
+
+## Dependencies
+
+To build oma, ensure the following dependencies are installed:
+
+- libapt-pkg (part of [APT](https://salsa.debian.org/apt-team/apt.git))
+- [LLVM and Clang](https://llvm.org/)
+- [Nettle](https://www.lysator.liu.se/~nisse/nettle/) (recommended) or [OpenSSL](https://openssl.org/)
+- [Rustc](https://www.rust-lang.org/) and [Cargo](https://crates.io/)
+- [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) or [pkgconf](http://pkgconf.org/)
+
+During runtime, oma requires or recommends the following:
+
+- [ripgrep](https://github.com/BurntSushi/ripgrep) (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
 
 ## Usage
 
