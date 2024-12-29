@@ -14,7 +14,7 @@ use std::{
 use thiserror::Error;
 use tracing::debug;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChecksumItem {
     pub name: String,
     pub size: u64,
@@ -206,7 +206,7 @@ fn get_checksums_inner(checksum_str: &str) -> Result<Vec<ChecksumItem>, InReleas
 
 pub fn verify_inrelease<'a>(
     inrelease: &'a str,
-    signed_by: &Option<Signature>,
+    signed_by: Option<&Signature>,
     rootfs: impl AsRef<Path>,
     file: impl AsRef<Path>,
     trusted: bool,
