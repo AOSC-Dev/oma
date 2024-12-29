@@ -1,6 +1,6 @@
 [package]
 name = "oma-fetch"
-version = "0.23.0"
+version = "0.24.0"
 edition = "2021"
 description = "APT repository download routines library"
 license = "MIT"
