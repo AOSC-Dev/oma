@@ -3134,7 +3134,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.39.1"
+version = "0.39.2"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3163,7 +3163,7 @@ dependencies = [
 
 [[package]]
 name = "oma-repo-verify"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "oma-apt-sources-lists",
