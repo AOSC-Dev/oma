@@ -426,6 +426,10 @@ impl From<RefreshError> for OutputError {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
                 source: None,
             },
+            RefreshError::SourceListsEmpty => Self {
+                description: "Source list is empty".to_string(),
+                source: None,
+            },
         }
     }
 }
