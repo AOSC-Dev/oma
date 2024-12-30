@@ -520,6 +520,12 @@ impl<'a> OmaRefresh<'a> {
                 .await;
 
                 for (index, file_name) in ["InRelease", "Release"].iter().enumerate() {
+                    // trusted=yes 的情况下没法解签名 InRelease
+                    // 跳过并尝试下载可以不解签名的 Release 文件
+                    if index == 0 && entry.trusted() {
+                        continue;
+                    }
+
                     let url = format!("{}/{}", dist_path, file_name);
                     let request = self.request_get_builder(&url, entry);
 
