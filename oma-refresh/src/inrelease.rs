@@ -213,7 +213,7 @@ pub fn verify_inrelease<'a>(
 ) -> Result<Cow<'a, str>, InReleaseError> {
     if inrelease.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
         Ok(Cow::Owned(oma_repo_verify::verify_inrelease(
-            inrelease, signed_by, rootfs,
+            inrelease, signed_by, rootfs, trusted,
         )?))
     } else {
         if trusted {
@@ -240,7 +240,7 @@ pub fn verify_inrelease<'a>(
         let bytes = fs::read(pub_file)
             .map_err(|e| InReleaseError::ReadGPGFileName(e, file_name.to_string()))?;
 
-        verify_release(inrelease, &bytes, signed_by, rootfs).map_err(|e| {
+        verify_release(inrelease, &bytes, signed_by, rootfs, trusted).map_err(|e| {
             debug!("{e}");
             InReleaseError::NotTrusted
         })?;
