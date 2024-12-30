@@ -243,7 +243,7 @@ pub fn tui(
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let mut mm = MirrorManager::new("/".into())?;
+    let mut mm = MirrorManager::new("/")?;
     let mut mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
     let enabled = mm.enabled_mirrors();
 
@@ -345,7 +345,7 @@ pub fn set_order(
 ) -> Result<i32, OutputError> {
     root()?;
 
-    let mut mm = MirrorManager::new("/".into())?;
+    let mut mm = MirrorManager::new("/")?;
 
     let mirrors = mm
         .enabled_mirrors()
@@ -389,7 +389,7 @@ pub fn speedtest(
         root()?;
     }
 
-    let mut mm = MirrorManager::new("/".into())?;
+    let mut mm = MirrorManager::new("/")?;
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 

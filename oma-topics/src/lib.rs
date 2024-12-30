@@ -1,10 +1,14 @@
 use std::{
     borrow::Cow,
     future::Future,
+    hash::Hash,
     io,
     path::{Path, PathBuf},
 };
 
+use ahash::{HashMap, HashSet};
+use futures::future::try_join_all;
+use itertools::Itertools;
 use oma_mirror::MirrorManager;
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -42,20 +46,7 @@ pub enum OmaTopicsError {
     MirrorError(#[from] oma_mirror::MirrorError),
 }
 
-async fn enabled_mirror(rootfs: PathBuf) -> Result<Vec<Box<str>>> {
-    let mm = MirrorManager::new(rootfs)?;
-    let urls = mm
-        .enabled_mirrors()
-        .values()
-        .map(|x| x.to_owned())
-        .collect::<Vec<Box<str>>>();
-
-    Ok(urls)
-}
-
-const TOPICS_JSON: &str = "manifest/topics.json";
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Eq)]
 pub struct Topic {
     pub name: String,
     pub description: Option<String>,
@@ -74,17 +65,22 @@ impl PartialEq for Topic {
     }
 }
 
-#[derive(Debug)]
+impl Hash for Topic {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
 pub struct TopicManager<'a> {
     enabled: Vec<Topic>,
-    all: Vec<Topic>,
+    all: HashMap<Box<str>, Vec<Topic>>,
     client: &'a Client,
     arch: &'a str,
     atm_state_path: PathBuf,
     atm_source_list_path: PathBuf,
     dry_run: bool,
-    enabled_mirrors: Vec<Box<str>>,
     old_enabled: Vec<Topic>,
+    mm: MirrorManager,
 }
 
 impl<'a> TopicManager<'a> {
@@ -148,21 +144,25 @@ impl<'a> TopicManager<'a> {
             }
         };
 
+        let sysroot_box: Box<Path> = Box::from(sysroot.as_ref());
+
         Ok(Self {
             enabled: enabled.clone(),
-            all: vec![],
+            all: HashMap::with_hasher(ahash::RandomState::new()),
             client,
             arch,
             atm_state_path,
             dry_run,
-            enabled_mirrors: enabled_mirror(sysroot.as_ref().to_path_buf()).await?,
             atm_source_list_path: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_SUFFIX),
             old_enabled: enabled,
+            mm: tokio::task::spawn_blocking(move || MirrorManager::new(sysroot_box))
+                .await
+                .unwrap()?,
         })
     }
 
-    pub fn all_topics(&self) -> &[Topic] {
-        &self.all
+    pub fn all_topics(&self) -> impl Iterator<Item = &Topic> {
+        self.all.values().flatten().unique()
     }
 
     pub fn enabled_topics(&self) -> &[Topic] {
@@ -171,19 +171,18 @@ impl<'a> TopicManager<'a> {
 
     /// Get all new topics
     pub async fn refresh(&mut self) -> Result<()> {
-        let urls = self
-            .enabled_mirrors
+        let enabled_mirrors = self.mm.enabled_mirrors();
+        let tasks = enabled_mirrors
             .iter()
-            .map(|x| {
-                if x.ends_with('/') {
-                    format!("{}debs/{TOPICS_JSON}", x)
-                } else {
-                    format!("{}/debs/{TOPICS_JSON}", x)
-                }
-            })
-            .collect::<Vec<_>>();
+            .map(|x| refresh_innter(self.client, x.1, self.arch));
 
-        self.all = refresh_innter(self.client, urls, self.arch).await?;
+        let res = try_join_all(tasks).await?;
+        let res = res
+            .into_iter()
+            .map(|(x, y)| (Box::from(x), y))
+            .collect::<HashMap<Box<str>, _>>();
+
+        self.all = res;
 
         Ok(())
     }
@@ -192,12 +191,8 @@ impl<'a> TopicManager<'a> {
     pub fn add(&mut self, topic: &str) -> Result<()> {
         debug!("oma will opt_in: {}", topic);
 
-        let all = &self.all;
-
-        debug!("all topic: {all:?}");
-
-        let index = all
-            .iter()
+        let index = self
+            .all_topics()
             .find(|x| x.name.to_ascii_lowercase() == topic.to_ascii_lowercase());
 
         let enabled_names = self.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
@@ -273,8 +268,6 @@ impl<'a> TopicManager<'a> {
             return Ok(());
         }
 
-        let mirrors = &self.enabled_mirrors;
-
         let mut new_source_list = String::new();
 
         new_source_list.push_str(&format!("{}\n", source_list_comment));
@@ -287,27 +280,15 @@ impl<'a> TopicManager<'a> {
 
         for i in write_source {
             new_source_list.push_str(&format!("# Topic `{}`\n", i.name));
-
-            let mut tasks = vec![];
-            for mirror in mirrors {
-                tasks.push(self.mirror_topic_is_exist(format!(
-                    "{}debs/dists/{}",
-                    url_with_suffix(mirror),
-                    i.name
-                )))
-            }
-
-            let is_exists = futures::future::join_all(tasks).await;
-
-            for (index, c) in is_exists.into_iter().enumerate() {
-                if !c.unwrap_or(false) {
-                    message_cb(i.name.to_string(), mirrors[index].to_string()).await;
+            for (_, mirror) in self.mm.enabled_mirrors() {
+                if !self.all.get(mirror).is_some_and(|x| x.contains(i)) {
+                    message_cb(i.name.to_string(), mirror.to_string()).await;
                     continue;
                 }
 
                 new_source_list.push_str(&format!(
                     "deb {}debs {} main\n",
-                    url_with_suffix(&mirrors[index]),
+                    url_with_suffix(mirror),
                     i.name
                 ));
             }
@@ -325,8 +306,34 @@ impl<'a> TopicManager<'a> {
         Ok(())
     }
 
-    async fn mirror_topic_is_exist(&self, url: String) -> Result<bool> {
-        check(self.client, &format!("{}/InRelease", url)).await
+    pub fn remove_closed_topics(&mut self) -> Result<Vec<String>> {
+        let all = self
+            .all_topics()
+            .map(|x| x.to_owned())
+            .collect::<HashSet<_>>();
+
+        let enabled: Box<[Topic]> = Box::from(self.enabled_topics());
+
+        let mut res = vec![];
+
+        for i in enabled {
+            if !all.contains(&i) {
+                let d = self.remove(&i.name)?;
+                res.push(d.name);
+            }
+        }
+
+        Ok(res)
+    }
+
+    pub fn url_is_enabled_topic(&self, url: &str) -> bool {
+        let enabled = self.enabled_topics();
+
+        let Some(suite) = url.split('/').nth_back(1) else {
+            return false;
+        };
+
+        enabled.iter().any(|x| x.name == suite)
     }
 }
 
@@ -342,9 +349,7 @@ async fn create_empty_state(atm_state_path: &Path) -> Result<Vec<Topic>> {
     Ok(v)
 }
 
-async fn get<T: DeserializeOwned>(client: &Client, url: String) -> Result<T> {
-    let url = Url::parse(&url).map_err(OmaTopicsError::ParseUrl)?;
-
+async fn get<T: DeserializeOwned>(client: &Client, url: Url) -> Result<T> {
     let schema = url.scheme();
 
     match schema {
@@ -370,18 +375,6 @@ async fn get<T: DeserializeOwned>(client: &Client, url: String) -> Result<T> {
     }
 }
 
-async fn check(client: &Client, url: &str) -> Result<bool> {
-    let url = Url::parse(url).map_err(OmaTopicsError::ParseUrl)?;
-
-    let schema = url.scheme();
-
-    match schema {
-        "file" => Ok(Path::new(url.path()).exists()),
-        x if x.starts_with("http") => Ok(client.head(url).send().await?.error_for_status().is_ok()),
-        _ => Err(OmaTopicsError::UnsupportedProtocol(url.to_string())),
-    }
-}
-
 fn url_with_suffix(url: &str) -> Cow<str> {
     if url.ends_with('/') {
         Cow::Borrowed(url)
@@ -390,74 +383,24 @@ fn url_with_suffix(url: &str) -> Cow<str> {
     }
 }
 
-async fn refresh_innter(client: &Client, urls: Vec<String>, arch: &str) -> Result<Vec<Topic>> {
-    let mut json: Vec<Topic> = vec![];
-    let mut tasks = vec![];
+async fn refresh_innter<'a>(
+    client: &'a Client,
+    url: &'a str,
+    arch: &'a str,
+) -> Result<(&'a str, Vec<Topic>)> {
+    let topics_metadata_url = Url::parse(url)
+        .and_then(|url| url.join("debs/manifest/topics.json"))
+        .map_err(OmaTopicsError::ParseUrl)?;
 
-    for url in urls {
-        let v = get::<Vec<Topic>>(client, url);
-        tasks.push(v);
-    }
-
-    let res = futures::future::try_join_all(tasks).await?;
-
-    for i in res {
-        for j in i {
-            match json.iter().position(|x| x.name == j.name) {
-                Some(index) => {
-                    if j.update_date > json[index].update_date {
-                        json[index] = j.clone();
-                    }
-                }
-                None => {
-                    json.push(j);
-                }
-            }
-        }
-    }
-
-    json.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-
+    let json: Vec<Topic> = get(client, topics_metadata_url).await?;
     let json = json
         .into_iter()
         .filter(|x| {
             x.arch
                 .as_ref()
-                .map(|x| x.contains(&arch.to_string()) || x.contains(&"all".to_string()))
-                .unwrap_or(false)
+                .is_some_and(|x| x.contains(&arch.to_string()) || x.contains(&"all".to_string()))
         })
         .collect::<Vec<_>>();
 
-    Ok(json)
-}
-
-/// Scan all close topics from upstream and disable it
-pub async fn scan_closed_topic<F, Fut>(
-    tm: &mut TopicManager<'_>,
-    comment: &str,
-    message_cb: F,
-) -> Result<Vec<String>>
-where
-    F: Fn(String, String) -> Fut,
-    Fut: Future<Output = ()>,
-{
-    tm.refresh().await?;
-    let all: Box<[Topic]> = Box::from(tm.all_topics());
-    let enabled: Box<[Topic]> = Box::from(tm.enabled_topics());
-
-    let mut res = vec![];
-
-    for i in enabled {
-        if all.iter().all(|x| x.name != i.name) {
-            let d = tm.remove(&i.name)?;
-            res.push(d.name);
-        }
-    }
-
-    if !res.is_empty() {
-        tm.write_enabled().await?;
-        tm.write_sources_list(comment, false, message_cb).await?;
-    }
-
-    Ok(res)
+    Ok((url, json))
 }
