@@ -57,8 +57,8 @@ use tracing::{debug, warn};
 use crate::{
     config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
-        file_is_compress, split_ext_and_filename, verify_inrelease, ChecksumItem, InRelease,
-        InReleaseChecksum, InReleaseError,
+        file_is_compress, split_ext_and_filename, verify_inrelease, ChecksumItem,
+        InReleaseChecksum, InReleaseError, Release,
     },
     sourceslist::{sources_lists, OmaSourceEntry, OmaSourceEntryFrom},
     util::DatabaseFilenameReplacer,
@@ -791,7 +791,8 @@ impl<'a> OmaRefresh<'a> {
             )
             .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
 
-            let inrelease = InRelease::new(&inrelease)
+            let inrelease: Release = inrelease
+                .parse()
                 .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
 
             if ose_list[0].is_flat() {
@@ -835,7 +836,7 @@ impl<'a> OmaRefresh<'a> {
                 get_all_need_db_from_config(download_list, &mut total, checksums, &mut handle);
 
                 for i in &self.flat_repo_no_release {
-                    download_flat_repo_no_release(
+                    collect_flat_repo_no_release(
                         sourcelist.get(*i).unwrap(),
                         &self.download_dir,
                         &mut tasks,
@@ -971,7 +972,7 @@ async fn remove_unused_db(download_dir: &Path, download_list: Vec<&str>) -> Resu
     Ok(())
 }
 
-fn download_flat_repo_no_release(
+fn collect_flat_repo_no_release(
     source_index: &OmaSourceEntry,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
@@ -1020,7 +1021,7 @@ fn collect_download_task(
     source_index: &OmaSourceEntry,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
-    inrelease: &InRelease,
+    inrelease: &Release,
     replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
     let file_type = &c.msg;

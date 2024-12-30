@@ -58,7 +58,7 @@ pub enum InReleaseChecksum {
 
 const COMPRESS: &[&str] = &[".gz", ".xz", ".zst", ".bz2"];
 
-pub struct InRelease {
+pub struct Release {
     source: InReleaseEntry,
     acquire_by_hash: OnceCell<bool>,
     checksum_type_and_list: OnceCell<(InReleaseChecksum, Vec<ChecksumItem>)>,
@@ -80,8 +80,10 @@ struct InReleaseEntry {
     sha512: Option<String>,
 }
 
-impl InRelease {
-    pub fn new(input: &str) -> Result<Self, InReleaseError> {
+impl FromStr for Release {
+    type Err = InReleaseError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let source: Paragraph = input.parse().map_err(|_| InReleaseError::BrokenInRelease)?;
         let source: InReleaseEntry = FromDeb822Paragraph::from_paragraph(&source)
             .map_err(|_| InReleaseError::BrokenInRelease)?;
@@ -92,7 +94,9 @@ impl InRelease {
             checksum_type_and_list: OnceCell::new(),
         })
     }
+}
 
+impl Release {
     pub fn get_or_try_init_checksum_type_and_list(
         &self,
     ) -> Result<&(InReleaseChecksum, Vec<ChecksumItem>), InReleaseError> {
