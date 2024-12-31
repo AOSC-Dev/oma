@@ -54,11 +54,12 @@ use tokio::{
 };
 use tracing::{debug, warn};
 
+use crate::sourceslist::{MirrorSource, MirrorSources};
 use crate::{
     config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
-        file_is_compress, split_ext_and_filename, verify_inrelease, ChecksumItem, InRelease,
-        InReleaseChecksum, InReleaseError,
+        file_is_compress, split_ext_and_filename, verify_inrelease, ChecksumItem,
+        InReleaseChecksum, InReleaseError, Release,
     },
     sourceslist::{sources_lists, OmaSourceEntry, OmaSourceEntryFrom},
     util::DatabaseFilenameReplacer,
@@ -103,6 +104,8 @@ pub enum RefreshError {
     SetLockWithProcess(String, i32),
     #[error("duplicate components")]
     DuplicateComponents(Box<str>, String),
+    #[error("sources.list is empty")]
+    SourceListsEmpty,
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -115,8 +118,6 @@ pub struct OmaRefresh<'a> {
     arch: String,
     download_dir: PathBuf,
     client: &'a Client,
-    #[builder(skip)]
-    flat_repo_no_release: Vec<usize>,
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
     apt_config: &'a Config,
@@ -124,8 +125,7 @@ pub struct OmaRefresh<'a> {
     auth_config: &'a AuthConfig,
 }
 
-type SourceMap<'a> = AHashMap<String, Vec<&'a OmaSourceEntry<'a>>>;
-
+/// Create `apt update` file lock
 fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
     let lock_path = download_dir.join("lock");
 
@@ -195,12 +195,6 @@ pub enum Event {
     Done,
 }
 
-#[derive(Debug)]
-enum KeyOrIndex<'a> {
-    Key(&'a str),
-    Index(usize),
-}
-
 impl<'a> OmaRefresh<'a> {
     pub async fn start<F, Fut>(mut self, callback: F) -> Result<()>
     where
@@ -249,14 +243,14 @@ impl<'a> OmaRefresh<'a> {
         let mut download_list = vec![];
 
         let replacer = DatabaseFilenameReplacer::new()?;
-        let source_map = self
+        let mirror_sources = self
             .download_releases(&sourcelist, &replacer, &callback)
             .await?;
 
-        download_list.extend(source_map.keys().map(|x| x.as_str()));
+        download_list.extend(mirror_sources.0.iter().flat_map(|x| x.file_name()));
 
         let (tasks, total) = self
-            .collect_all_release_entry(&sourcelist, &replacer, &source_map)
+            .collect_all_release_entry(&replacer, &mirror_sources)
             .await?;
 
         for i in &tasks {
@@ -353,28 +347,21 @@ impl<'a> OmaRefresh<'a> {
         sourcelist: &'b [OmaSourceEntry<'b>],
         replacer: &DatabaseFilenameReplacer,
         callback: &F,
-    ) -> Result<SourceMap<'b>>
+    ) -> Result<MirrorSources<'b>>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
-        let mut source_map = SourceMap::new();
-
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
         #[cfg(not(feature = "aosc"))]
         let not_found = vec![];
 
-        let mut mirror_ose_map: AHashMap<String, Vec<(&OmaSourceEntry, usize)>> = AHashMap::new();
+        let mirror_sources = MirrorSources::from_sourcelist(sourcelist, replacer)?;
 
-        for (i, c) in sourcelist.iter().enumerate() {
-            let name = replacer.replace(c.dist_path())?;
-            mirror_ose_map.entry(name).or_default().push((c, i));
-        }
-
-        let tasks = mirror_ose_map.iter().enumerate().map(|(index, (k, v))| {
-            self.get_release_file(v[0], replacer, index, mirror_ose_map.len(), k, callback)
+        let tasks = mirror_sources.0.iter().enumerate().map(|(index, m)| {
+            self.get_release_file(m, replacer, index, mirror_sources.0.len(), callback)
         });
 
         let results = futures::stream::iter(tasks)
@@ -384,48 +371,22 @@ impl<'a> OmaRefresh<'a> {
 
         debug!("download_releases: results: {:?}", results);
 
-        for result in results {
-            match result {
-                Ok((Some(file_name), key_or_index)) => {
-                    let KeyOrIndex::Key(key) = key_or_index else {
-                        unreachable!()
-                    };
-
-                    source_map.insert(
-                        file_name,
-                        mirror_ose_map
-                            .get(key)
-                            .unwrap()
-                            .iter()
-                            .map(|x| x.0)
-                            .collect::<Vec<_>>(),
-                    );
+        if let Err(e) = results.into_iter().collect::<Result<()>>() {
+            #[cfg(feature = "aosc")]
+            match e {
+                RefreshError::ReqwestError(e)
+                    if e.status()
+                        .map(|x| x == StatusCode::NOT_FOUND)
+                        .unwrap_or(false)
+                        && self.refresh_topics =>
+                {
+                    let url = e.url().map(|x| x.to_owned());
+                    not_found.push(url.unwrap());
                 }
-                Ok((None, key_or_index)) => {
-                    let KeyOrIndex::Index(index) = key_or_index else {
-                        unreachable!()
-                    };
-
-                    self.flat_repo_no_release.push(index)
-                }
-                Err(e) => {
-                    #[cfg(feature = "aosc")]
-                    match e {
-                        RefreshError::ReqwestError(e)
-                            if e.status()
-                                .map(|x| x == StatusCode::NOT_FOUND)
-                                .unwrap_or(false)
-                                && self.refresh_topics =>
-                        {
-                            let url = e.url().map(|x| x.to_owned());
-                            not_found.push(url.unwrap());
-                        }
-                        _ => return Err(e),
-                    }
-                    #[cfg(not(feature = "aosc"))]
-                    return Err(e.into());
-                }
+                _ => return Err(e),
             }
+            #[cfg(not(feature = "aosc"))]
+            return Err(e.into());
         }
 
         #[cfg(not(feature = "aosc"))]
@@ -433,7 +394,7 @@ impl<'a> OmaRefresh<'a> {
 
         self.refresh_topics(callback, not_found).await?;
 
-        Ok(source_map)
+        Ok(mirror_sources)
     }
 
     #[cfg(feature = "aosc")]
@@ -491,202 +452,230 @@ impl<'a> OmaRefresh<'a> {
 
     async fn get_release_file<'b, F, Fut>(
         &self,
-        entry: (&OmaSourceEntry<'_>, usize),
+        entry: &MirrorSource<'_>,
         replacer: &DatabaseFilenameReplacer,
         progress_index: usize,
         total: usize,
-        key: &'b str,
         callback: &F,
-    ) -> Result<(Option<String>, KeyOrIndex<'b>)>
+    ) -> Result<()>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
-        let (entry, index) = entry;
         match entry.from()? {
             OmaSourceEntryFrom::Http => {
-                let dist_path = entry.dist_path();
-
-                let mut r = None;
-                let mut u = None;
-                let mut is_release = false;
-
-                let msg = entry.get_human_download_url(None)?;
-
-                callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-                    index: progress_index,
-                    msg: format!("({}/{}) {}", progress_index, total, msg),
-                }))
-                .await;
-
-                for (index, file_name) in ["InRelease", "Release"].iter().enumerate() {
-                    let url = format!("{}/{}", dist_path, file_name);
-                    let request = self.request_get_builder(&url, entry);
-
-                    let resp = request
-                        .send()
-                        .await
-                        .and_then(|resp| resp.error_for_status());
-
-                    r = Some(resp);
-
-                    if r.as_ref().unwrap().is_ok() {
-                        u = Some(url);
-                        if index == 1 {
-                            is_release = true;
-                        }
-                        break;
-                    }
-                }
-
-                let r = r.unwrap();
-
-                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(
-                    progress_index,
-                )))
-                .await;
-
-                if r.is_err() && entry.is_flat() {
-                    return Ok((None, KeyOrIndex::Index(index)));
-                }
-
-                let resp = r?;
-
-                let url = u.unwrap();
-                let file_name = replacer.replace(&url)?;
-
-                self.download_file(&file_name, resp, entry, progress_index, total, &callback)
-                    .await?;
-
-                if is_release && !entry.trusted() {
-                    let url = format!("{}/{}", dist_path, "Release.gpg");
-
-                    let request = self.request_get_builder(&url, entry);
-                    let resp = request
-                        .send()
-                        .await
-                        .and_then(|resp| resp.error_for_status())?;
-
-                    let file_name = replacer.replace(&url)?;
-
-                    self.download_file(&file_name, resp, entry, progress_index, total, &callback)
-                        .await?;
-                }
-
-                Ok((Some(file_name), KeyOrIndex::Key(key)))
+                self.download_http_release(entry, replacer, progress_index, total, callback)
+                    .await
             }
             OmaSourceEntryFrom::Local => {
-                let dist_path_with_protocol = entry.dist_path();
-                let dist_path = dist_path_with_protocol
-                    .strip_prefix("file:")
-                    .unwrap_or(dist_path_with_protocol);
-                let dist_path = Path::new(dist_path);
-
-                let mut name = None;
-
-                let msg = entry.get_human_download_url(None)?;
-
-                callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-                    index: progress_index,
-                    msg: format!("({}/{}) {}", progress_index, total, msg),
-                }))
-                .await;
-
-                let mut is_release = false;
-
-                for (index, entry) in ["InRelease", "Release"].iter().enumerate() {
-                    let p = dist_path.join(entry);
-
-                    let dst = if dist_path_with_protocol.ends_with('/') {
-                        format!("{}{}", dist_path_with_protocol, entry)
-                    } else {
-                        format!("{}/{}", dist_path_with_protocol, entry)
-                    };
-
-                    let file_name = replacer.replace(&dst)?;
-
-                    let dst = self.download_dir.join(&file_name);
-
-                    if p.exists() {
-                        if dst.exists() {
-                            debug!("get_release_file: Removing {}", dst.display());
-                            fs::remove_file(&dst).await.map_err(|e| {
-                                RefreshError::FetcherError(DownloadError::IOError(
-                                    entry.to_string(),
-                                    e,
-                                ))
-                            })?;
-                        }
-
-                        debug!("get_release_file: Symlink {}", dst.display());
-                        fs::symlink(p, dst).await.map_err(|e| {
-                            RefreshError::FetcherError(DownloadError::IOError(entry.to_string(), e))
-                        })?;
-
-                        if index == 1 {
-                            is_release = true;
-                        }
-
-                        name = Some(file_name);
-                        break;
-                    }
-                }
-
-                if is_release {
-                    let p = dist_path.join("Release.gpg");
-                    let entry = "Release.gpg";
-
-                    let dst = if dist_path_with_protocol.ends_with('/') {
-                        format!("{}{}", dist_path_with_protocol, entry)
-                    } else {
-                        format!("{}/{}", dist_path_with_protocol, entry)
-                    };
-
-                    let file_name = replacer.replace(&dst)?;
-
-                    let dst = self.download_dir.join(&file_name);
-
-                    if p.exists() {
-                        if dst.exists() {
-                            fs::remove_file(&dst).await.map_err(|e| {
-                                RefreshError::FetcherError(DownloadError::IOError(
-                                    entry.to_string(),
-                                    e,
-                                ))
-                            })?;
-                        }
-
-                        fs::symlink(p, self.download_dir.join(file_name))
-                            .await
-                            .map_err(|e| {
-                                RefreshError::FetcherError(DownloadError::IOError(
-                                    entry.to_string(),
-                                    e,
-                                ))
-                            })?;
-                    }
-                }
-
-                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(
-                    progress_index,
-                )))
-                .await;
-
-                let name =
-                    name.ok_or_else(|| RefreshError::NoInReleaseFile(entry.url().to_string()))?;
-
-                Ok((Some(name), KeyOrIndex::Key(key)))
+                self.download_local_release(entry, replacer, progress_index, total, callback)
+                    .await
             }
         }
+    }
+
+    async fn download_local_release<F, Fut>(
+        &self,
+        entry: &MirrorSource<'_>,
+        replacer: &DatabaseFilenameReplacer,
+        progress_index: usize,
+        total: usize,
+        callback: &F,
+    ) -> Result<()>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        let dist_path_with_protocol = entry.dist_path();
+        let dist_path = dist_path_with_protocol
+            .strip_prefix("file:")
+            .unwrap_or(dist_path_with_protocol);
+        let dist_path = Path::new(dist_path);
+
+        let mut name = None;
+
+        let msg = entry.get_human_download_url(None)?;
+
+        callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+            index: progress_index,
+            msg: format!("({}/{}) {}", progress_index, total, msg),
+        }))
+        .await;
+
+        let mut is_release = false;
+
+        for (index, entry) in ["InRelease", "Release"].iter().enumerate() {
+            let p = dist_path.join(entry);
+
+            let dst = if dist_path_with_protocol.ends_with('/') {
+                format!("{}{}", dist_path_with_protocol, entry)
+            } else {
+                format!("{}/{}", dist_path_with_protocol, entry)
+            };
+
+            let file_name = replacer.replace(&dst)?;
+
+            let dst = self.download_dir.join(&file_name);
+
+            if p.exists() {
+                if dst.exists() {
+                    debug!("get_release_file: Removing {}", dst.display());
+                    fs::remove_file(&dst).await.map_err(|e| {
+                        RefreshError::FetcherError(DownloadError::IOError(entry.to_string(), e))
+                    })?;
+                }
+
+                debug!("get_release_file: Symlink {}", dst.display());
+                fs::symlink(p, dst).await.map_err(|e| {
+                    RefreshError::FetcherError(DownloadError::IOError(entry.to_string(), e))
+                })?;
+
+                if index == 1 {
+                    is_release = true;
+                }
+
+                name = Some(file_name);
+                break;
+            }
+        }
+
+        if name.is_none() && entry.is_flat() {
+            // Flat repo no release
+            return Ok(());
+        }
+
+        if is_release {
+            let p = dist_path.join("Release.gpg");
+            let entry = "Release.gpg";
+
+            let dst = if dist_path_with_protocol.ends_with('/') {
+                format!("{}{}", dist_path_with_protocol, entry)
+            } else {
+                format!("{}/{}", dist_path_with_protocol, entry)
+            };
+
+            let file_name = replacer.replace(&dst)?;
+
+            let dst = self.download_dir.join(&file_name);
+
+            if p.exists() {
+                if dst.exists() {
+                    fs::remove_file(&dst).await.map_err(|e| {
+                        RefreshError::FetcherError(DownloadError::IOError(entry.to_string(), e))
+                    })?;
+                }
+
+                fs::symlink(p, self.download_dir.join(file_name))
+                    .await
+                    .map_err(|e| {
+                        RefreshError::FetcherError(DownloadError::IOError(entry.to_string(), e))
+                    })?;
+            }
+        }
+
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(
+            progress_index,
+        )))
+        .await;
+
+        let name = name.ok_or_else(|| RefreshError::NoInReleaseFile(entry.url().to_string()))?;
+        entry.set_release_file_name(name);
+
+        Ok(())
+    }
+
+    async fn download_http_release<F, Fut>(
+        &self,
+        entry: &MirrorSource<'_>,
+        replacer: &DatabaseFilenameReplacer,
+        progress_index: usize,
+        total: usize,
+        callback: &F,
+    ) -> Result<()>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        let dist_path = entry.dist_path();
+
+        let mut r = None;
+        let mut u = None;
+        let mut is_release = false;
+
+        let msg = entry.get_human_download_url(None)?;
+
+        callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+            index: progress_index,
+            msg: format!("({}/{}) {}", progress_index, total, msg),
+        }))
+        .await;
+
+        for (index, file_name) in ["InRelease", "Release"].iter().enumerate() {
+            let url = format!("{}/{}", dist_path, file_name);
+            let request = self.request_get_builder(&url, entry);
+
+            let resp = request
+                .send()
+                .await
+                .and_then(|resp| resp.error_for_status());
+
+            r = Some(resp);
+
+            if r.as_ref().unwrap().is_ok() {
+                u = Some(url);
+                if index == 1 {
+                    is_release = true;
+                }
+                break;
+            }
+        }
+
+        let r = r.unwrap();
+
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(
+            progress_index,
+        )))
+        .await;
+
+        if r.is_err() && entry.is_flat() {
+            // Flat repo no release
+            return Ok(());
+        }
+
+        let resp = r?;
+
+        let url = u.unwrap();
+        let file_name = replacer.replace(&url)?;
+
+        self.download_file(&file_name, resp, entry, progress_index, total, &callback)
+            .await?;
+        entry.set_release_file_name(file_name);
+
+        if is_release && !entry.trusted() {
+            let url = format!("{}/{}", dist_path, "Release.gpg");
+
+            let request = self.request_get_builder(&url, entry);
+            let resp = request
+                .send()
+                .await
+                .and_then(|resp| resp.error_for_status())?;
+
+            let file_name = replacer.replace(&url)?;
+
+            self.download_file(&file_name, resp, entry, progress_index, total, &callback)
+                .await?;
+        }
+
+        Ok(())
     }
 
     fn request_get_builder(
         &self,
         url: &str,
-        source_index: &OmaSourceEntry<'_>,
+        source_index: &MirrorSource<'_>,
     ) -> reqwest::RequestBuilder {
         let mut request = self.client.get(url);
-        if let Some(auth) = &source_index.auth {
+        if let Some(auth) = source_index.auth() {
             request = request.basic_auth(&auth.user, Some(&auth.password))
         }
 
@@ -697,7 +686,7 @@ impl<'a> OmaRefresh<'a> {
         &self,
         file_name: &str,
         mut resp: Response,
-        source_index: &OmaSourceEntry<'_>,
+        source_index: &MirrorSource<'_>,
         index: usize,
         total: usize,
         callback: &F,
@@ -754,9 +743,8 @@ impl<'a> OmaRefresh<'a> {
 
     async fn collect_all_release_entry(
         &self,
-        sourcelist: &[OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
-        sources_map: &AHashMap<String, Vec<&'a OmaSourceEntry<'a>>>,
+        mirror_sources: &MirrorSources<'a>,
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
@@ -767,7 +755,17 @@ impl<'a> OmaRefresh<'a> {
             .await
             .map(|f| f.lines().map(|x| x.to_string()).collect::<Vec<_>>());
 
-        for (file_name, ose_list) in sources_map {
+        let mut flat_repo_no_release = vec![];
+
+        for m in &mirror_sources.0 {
+            let file_name = match m.file_name() {
+                Some(name) => name,
+                None => {
+                    flat_repo_no_release.push(m);
+                    continue;
+                }
+            };
+
             let inrelease_path = self.download_dir.join(file_name);
 
             let mut handle = HashSet::with_hasher(ahash::RandomState::new());
@@ -778,40 +776,35 @@ impl<'a> OmaRefresh<'a> {
 
             let inrelease = verify_inrelease(
                 &inrelease,
-                ose_list.iter().find_map(|x| {
-                    if let Some(x) = x.signed_by() {
-                        Some(x)
-                    } else {
-                        None
-                    }
-                }),
+                m.signed_by(),
                 &self.source,
                 &inrelease_path,
-                ose_list.iter().any(|x| x.trusted()),
+                m.trusted(),
             )
             .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
 
-            let inrelease = InRelease::new(&inrelease)
+            let release: Release = inrelease
+                .parse()
                 .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
 
-            if ose_list[0].is_flat() {
+            if m.is_flat() {
                 let now = Utc::now();
 
-                inrelease.check_date(&now).map_err(|e| {
+                release.check_date(&now).map_err(|e| {
                     RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
                 })?;
 
-                inrelease.check_valid_until(&now).map_err(|e| {
+                release.check_valid_until(&now).map_err(|e| {
                     RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
                 })?;
             }
 
-            let checksums = &inrelease
+            let checksums = &release
                 .get_or_try_init_checksum_type_and_list()
                 .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?
                 .1;
 
-            for ose in ose_list {
+            for ose in &m.sources {
                 debug!("Getted oma source entry: {:#?}", ose);
 
                 let mut archs = if let Some(archs) = ose.archs() {
@@ -833,26 +826,14 @@ impl<'a> OmaRefresh<'a> {
                 )?;
 
                 get_all_need_db_from_config(download_list, &mut total, checksums, &mut handle);
+            }
 
-                for i in &self.flat_repo_no_release {
-                    download_flat_repo_no_release(
-                        sourcelist.get(*i).unwrap(),
-                        &self.download_dir,
-                        &mut tasks,
-                        replacer,
-                    )?;
-                }
+            for i in &flat_repo_no_release {
+                collect_flat_repo_no_release(i, &self.download_dir, &mut tasks, replacer)?;
             }
 
             for c in &handle {
-                collect_download_task(
-                    c,
-                    ose_list[0],
-                    &self.download_dir,
-                    &mut tasks,
-                    &inrelease,
-                    replacer,
-                )?;
+                collect_download_task(c, m, &self.download_dir, &mut tasks, &release, replacer)?;
             }
         }
 
@@ -971,24 +952,24 @@ async fn remove_unused_db(download_dir: &Path, download_list: Vec<&str>) -> Resu
     Ok(())
 }
 
-fn download_flat_repo_no_release(
-    source_index: &OmaSourceEntry,
+fn collect_flat_repo_no_release(
+    mirror_source: &MirrorSource,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
-    let msg = source_index.get_human_download_url(Some("Packages"))?;
+    let msg = mirror_source.get_human_download_url(Some("Packages"))?;
 
-    let dist_url = source_index.dist_path();
+    let dist_url = mirror_source.dist_path();
 
-    let from = match source_index.from()? {
+    let from = match mirror_source.from()? {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http {
-            auth: source_index
-                .auth
+            auth: mirror_source
+                .auth()
                 .as_ref()
                 .map(|auth| (auth.user.clone(), auth.password.clone())),
         },
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_index.is_flat()),
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
     };
 
     let download_url = format!("{}/Packages", dist_url);
@@ -1016,26 +997,26 @@ fn download_flat_repo_no_release(
 
 fn collect_download_task(
     c: &ChecksumDownloadEntry,
-    source_index: &OmaSourceEntry,
+    mirror_source: &MirrorSource<'_>,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
-    inrelease: &InRelease,
+    release: &Release,
     replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
     let file_type = &c.msg;
 
-    let msg = source_index.get_human_download_url(Some(file_type))?;
+    let msg = mirror_source.get_human_download_url(Some(file_type))?;
 
-    let dist_url = &source_index.dist_path();
+    let dist_url = &mirror_source.dist_path();
 
-    let from = match source_index.from()? {
+    let from = match mirror_source.from()? {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http {
-            auth: source_index
-                .auth
+            auth: mirror_source
+                .auth()
                 .as_ref()
                 .map(|auth| (auth.user.clone(), auth.password.clone())),
         },
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local(source_index.is_flat()),
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
     };
 
     let not_compress_filename_before = if file_is_compress(&c.item.name) {
@@ -1047,7 +1028,7 @@ fn collect_download_task(
     let checksum = if c.keep_compress {
         Some(&c.item.checksum)
     } else {
-        inrelease
+        release
             .checksum_type_and_list()
             .1
             .iter()
@@ -1056,10 +1037,10 @@ fn collect_download_task(
             .map(|c| &c.checksum)
     };
 
-    let download_url = if inrelease.acquire_by_hash() {
+    let download_url = if release.acquire_by_hash() {
         let path = Path::new(&c.item.name);
         let parent = path.parent().unwrap_or(path);
-        let dir = match inrelease.checksum_type_and_list().0 {
+        let dir = match release.checksum_type_and_list().0 {
             InReleaseChecksum::Sha256 => "SHA256",
             InReleaseChecksum::Sha512 => "SHA512",
             InReleaseChecksum::Md5 => "MD5Sum",
@@ -1080,7 +1061,7 @@ fn collect_download_task(
     }];
 
     let file_path = if c.keep_compress {
-        if inrelease.acquire_by_hash() {
+        if release.acquire_by_hash() {
             Cow::Owned(format!("{}/{}", dist_url, c.item.name))
         } else {
             Cow::Borrowed(&download_url)
@@ -1113,7 +1094,7 @@ fn collect_download_task(
             }
         })
         .maybe_hash(if let Some(checksum) = checksum {
-            match inrelease.checksum_type_and_list().0 {
+            match release.checksum_type_and_list().0 {
                 InReleaseChecksum::Sha256 => Some(Checksum::from_sha256_str(checksum)?),
                 InReleaseChecksum::Sha512 => Some(Checksum::from_sha512_str(checksum)?),
                 InReleaseChecksum::Md5 => Some(Checksum::from_md5_str(checksum)?),

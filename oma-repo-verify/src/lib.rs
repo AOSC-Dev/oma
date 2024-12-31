@@ -61,6 +61,8 @@ impl InReleaseVerifier {
     }
 
     pub fn from_key_block(block: &str, trusted: bool) -> VerifyResult<Self> {
+        // 这个点存在只是表示换行，因此把它替换掉
+        let block = block.replace('.', "");
         let mut certs: Vec<Cert> = Vec::new();
         let ppr = PacketParserBuilder::from_bytes(block.as_bytes())?.build()?;
         let cert = CertParser::from(ppr);
@@ -141,9 +143,7 @@ pub fn verify_inrelease(
         &p,
         None,
         if let Some(deb822_inner_signed_by_str) = deb822_inner_signed_by_str {
-            // 这个点存在只是表示换行，因此把它替换掉
-            let signed_by_str = deb822_inner_signed_by_str.replace('.', "");
-            InReleaseVerifier::from_key_block(&signed_by_str, trusted)?
+            InReleaseVerifier::from_key_block(deb822_inner_signed_by_str, trusted)?
         } else {
             InReleaseVerifier::from_paths(&certs, trusted)?
         },
