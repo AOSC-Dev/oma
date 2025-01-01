@@ -7,9 +7,10 @@ use std::{
     str::FromStr,
 };
 
+use ahash::HashMap;
 use parser::{line, multiline};
 use thiserror::Error;
-use tracing::debug;
+use url::Url;
 
 #[derive(Debug, Error)]
 pub enum AuthConfigError {
@@ -26,9 +27,7 @@ pub enum AuthConfigError {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct AuthConfig {
-    pub inner: Vec<AuthConfigEntry>,
-}
+pub struct AuthConfig(pub HashMap<Box<str>, AuthConfigEntry>);
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AuthConfigEntry {
@@ -44,7 +43,7 @@ impl FromStr for AuthConfigEntry {
         let mut s = s;
         let parse = line(&mut s).map_err(|e| AuthConfigError::ParseError(e.to_string()))?;
 
-        Ok(parse_entry_inner(parse))
+        Ok(parse_entry_inner(parse).1)
     }
 }
 
@@ -54,17 +53,18 @@ impl FromStr for AuthConfig {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut s = s;
         let parse = multiline(&mut s).map_err(|e| AuthConfigError::ParseError(e.to_string()))?;
-        let mut res = vec![];
+        let mut res = HashMap::with_hasher(ahash::RandomState::new());
 
         for r in parse {
-            res.push(parse_entry_inner(r));
+            let (k, v) = parse_entry_inner(r);
+            res.insert(k, v);
         }
 
-        Ok(AuthConfig { inner: res })
+        Ok(AuthConfig(res))
     }
 }
 
-fn parse_entry_inner(input: Vec<(&str, &str)>) -> AuthConfigEntry {
+fn parse_entry_inner(input: Vec<(&str, &str)>) -> (Box<str>, AuthConfigEntry) {
     let mut machine = None;
     let mut login = None;
     let mut password = None;
@@ -78,11 +78,16 @@ fn parse_entry_inner(input: Vec<(&str, &str)>) -> AuthConfigEntry {
         }
     }
 
-    AuthConfigEntry {
-        host: machine.unwrap().into(),
-        user: login.unwrap().into(),
-        password: password.unwrap().into(),
-    }
+    let machine: Box<str> = machine.unwrap().into();
+
+    (
+        machine.clone(),
+        AuthConfigEntry {
+            host: machine,
+            user: login.unwrap().into(),
+            password: password.unwrap().into(),
+        },
+    )
 }
 
 impl AuthConfig {
@@ -93,7 +98,7 @@ impl AuthConfig {
     }
 
     pub fn from_path(p: impl AsRef<Path>) -> Result<Self, AuthConfigError> {
-        let mut v = vec![];
+        let mut v = HashMap::with_hasher(ahash::RandomState::new());
 
         for i in read_dir(p.as_ref()).map_err(|e| AuthConfigError::ReadDir {
             path: p.as_ref().to_path_buf(),
@@ -111,53 +116,19 @@ impl AuthConfig {
             })?;
 
             let config: AuthConfig = s.parse()?;
-            v.extend(config.inner);
+            v.extend(config.0);
         }
 
-        Ok(Self { inner: v })
+        Ok(Self(v))
     }
 
-    pub fn find(&self, url: &str) -> Option<&AuthConfigEntry> {
-        let url = url
-            .strip_prefix("http://")
-            .or_else(|| url.strip_prefix("https://"))
-            .unwrap_or(url);
+    pub fn get_match_auth(&self, url: Url) -> Option<&AuthConfigEntry> {
+        let host = url.host_str()?;
+        let path = url.path();
+        let url_without_schema = [host, path].concat();
 
-        debug!("auth find url is: {}", url);
-
-        self.inner.iter().find_map(|x| {
-            let mut host = x.host.to_string();
-            while host.ends_with('/') {
-                host.pop();
-            }
-
-            let mut url = url.to_string();
-            while url.ends_with('/') {
-                url.pop();
-            }
-
-            if host == url {
-                Some(x)
-            } else {
-                None
-            }
-        })
-    }
-
-    pub fn find_package_url(&self, url: &str) -> Option<&AuthConfigEntry> {
-        let url = url
-            .strip_prefix("http://")
-            .or_else(|| url.strip_prefix("https://"))
-            .unwrap_or(url);
-
-        debug!("auth find package url is: {}", url);
-
-        self.inner.iter().find_map(|x| {
-            if url.starts_with(x.host.as_ref()) {
-                Some(x)
-            } else {
-                None
-            }
-        })
+        self.0
+            .values()
+            .find(|x| url_without_schema.starts_with(&*x.host))
     }
 }

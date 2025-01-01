@@ -9,3 +9,5 @@ license = "MIT"
 thiserror = "2"
 tracing = "0.1"
 winnow = { version = "0.6.20" }
+url = "2.5"
+ahash = "0.8.11"

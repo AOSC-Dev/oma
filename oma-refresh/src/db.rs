@@ -53,6 +53,7 @@ use tokio::{
     task::spawn_blocking,
 };
 use tracing::{debug, warn};
+use url::Url;
 
 use crate::sourceslist::{MirrorSource, MirrorSources};
 use crate::{
@@ -306,13 +307,18 @@ impl<'a> OmaRefresh<'a> {
         Ok(res)
     }
 
-    fn set_auth(&self, sourcelist: &mut [OmaSourceEntry<'_>]) {
+    fn set_auth(&self, sourcelist: &mut [OmaSourceEntry<'_>]) -> Result<()> {
         for i in sourcelist {
-            let auth = self.auth_config.find(i.url());
+            let auth = self.auth_config.get_match_auth(
+                Url::parse(i.url()).map_err(|_| RefreshError::InvalidUrl(i.url().to_string()))?,
+            );
+
             if let Some(auth) = auth {
                 i.set_auth(auth.to_owned());
             }
         }
+
+        Ok(())
     }
 
     async fn run_success_post_invoke(&self) {
@@ -358,7 +364,7 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(not(feature = "aosc"))]
         let not_found = vec![];
 
-        let mirror_sources = MirrorSources::from_sourcelist(sourcelist, replacer)?;
+        let mirror_sources = MirrorSources::from_sourcelist(sourcelist, replacer, self.auth_config)?;
 
         let tasks = mirror_sources.0.iter().enumerate().map(|(index, m)| {
             self.get_release_file(m, replacer, index, mirror_sources.0.len(), callback)

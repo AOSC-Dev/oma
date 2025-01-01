@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use ahash::HashMap;
-use apt_auth_config::AuthConfigEntry;
+use apt_auth_config::{AuthConfig, AuthConfigEntry};
 use oma_apt_sources_lists::{Signature, SourceEntry, SourceLine, SourceListType, SourcesLists};
 use once_cell::sync::OnceCell;
 use url::Url;
@@ -233,6 +233,7 @@ impl<'a> MirrorSources<'a> {
     pub(crate) fn from_sourcelist(
         sourcelist: &'a [OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
+        auth_config: &AuthConfig,
     ) -> Result<Self, RefreshError> {
         let mut map: HashMap<String, Vec<&OmaSourceEntry>> =
             HashMap::with_hasher(ahash::RandomState::new());
