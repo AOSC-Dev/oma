@@ -10,7 +10,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 [dependencies]
 # Cli
-clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "derive"] }
+clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "derive", "env"] }
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
 tabled = { version = "0.17.0", features = ["ansi"] }
