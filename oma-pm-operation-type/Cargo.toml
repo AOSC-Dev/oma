@@ -13,3 +13,7 @@ oma-utils = { version = "^0.10.0", path = "../oma-utils", features = [
     "human-bytes",
 ] }
 bon = "3"
+
+[features]
+aosc = []
+default = ["aosc"]

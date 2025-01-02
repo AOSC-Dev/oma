@@ -103,7 +103,8 @@ impl Display for OmaOperation {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize, Builder)]
 pub struct InstallEntry {
     name: String,
-    name_without_arch: String,
+    // Workaround: 为保证数据库兼容性，这里为 Option
+    name_without_arch: Option<String>,
     old_version: Option<String>,
     new_version: String,
     old_size: Option<u64>,
@@ -153,8 +154,18 @@ impl InstallEntry {
         &self.name
     }
 
+    #[cfg(feature = "aosc")]
     pub fn name_without_arch(&self) -> &str {
-        &self.name_without_arch
+        self.name_without_arch
+            .as_deref()
+            .unwrap_or(self.name.as_str())
+    }
+
+    #[cfg(not(feature = "aosc"))]
+    pub fn name_without_arch(&self) -> &str {
+        self.name_without_arch
+            .as_ref()
+            .expect("Unable to get earlier history")
     }
 
     pub fn old_size(&self) -> Option<u64> {
