@@ -203,7 +203,7 @@ impl<'a> OmaRefresh<'a> {
         Fut: Future<Output = ()>,
     {
         let arch = dpkg_arch(&self.source)?;
-        let mut sourcelist = sources_lists(&self.source, &arch, &callback)
+        let sourcelist = sources_lists(&self.source, &arch, &callback)
             .await
             .map_err(RefreshError::ScanSourceError)?;
 
@@ -228,8 +228,6 @@ impl<'a> OmaRefresh<'a> {
             .unwrap()?;
 
         detect_duplicate_repositories(&sourcelist)?;
-
-        self.set_auth(&mut sourcelist);
 
         let mut download_list = vec![];
 
@@ -297,15 +295,6 @@ impl<'a> OmaRefresh<'a> {
         Ok(res)
     }
 
-    fn set_auth(&self, sourcelist: &mut [OmaSourceEntry<'_>]) {
-        for i in sourcelist {
-            let auth = self.auth_config.find(i.url());
-            if let Some(auth) = auth {
-                i.set_auth(auth.to_owned());
-            }
-        }
-    }
-
     async fn run_success_post_invoke(&self) {
         let cmds = self
             .apt_config
@@ -338,7 +327,7 @@ impl<'a> OmaRefresh<'a> {
         sourcelist: &'b [OmaSourceEntry<'b>],
         replacer: &DatabaseFilenameReplacer,
         callback: &F,
-    ) -> Result<MirrorSources<'b>>
+    ) -> Result<MirrorSources<'b, 'a>>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -349,7 +338,8 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(not(feature = "aosc"))]
         let not_found = vec![];
 
-        let mut mirror_sources = MirrorSources::from_sourcelist(sourcelist, replacer)?;
+        let mut mirror_sources =
+            MirrorSources::from_sourcelist(sourcelist, replacer, self.auth_config)?;
 
         let tasks = mirror_sources.0.iter().enumerate().map(|(index, m)| {
             self.get_release_file(m, replacer, index, mirror_sources.0.len(), callback)
@@ -390,11 +380,11 @@ impl<'a> OmaRefresh<'a> {
     }
 
     #[cfg(feature = "aosc")]
-    async fn refresh_topics<F, Fut>(
+    async fn refresh_topics<'b, F, Fut>(
         &self,
         callback: &F,
         not_found: Vec<url::Url>,
-        sources: &mut MirrorSources<'_>,
+        sources: &mut MirrorSources<'b, 'a>,
     ) -> Result<()>
     where
         F: Fn(Event) -> Fut,
@@ -445,11 +435,11 @@ impl<'a> OmaRefresh<'a> {
     }
 
     #[cfg(not(feature = "aosc"))]
-    async fn refresh_topics<F, Fut>(
+    async fn refresh_topics<'b, F, Fut>(
         &self,
         _callback: &F,
         _not_found: Vec<url::Url>,
-        _sources: &mut MirrorSources<'_>,
+        _sources: &mut MirrorSources<'b, 'a>,
     ) -> Result<()>
     where
         F: Fn(Event) -> Fut,
@@ -460,7 +450,7 @@ impl<'a> OmaRefresh<'a> {
 
     async fn get_release_file<'b, F, Fut>(
         &self,
-        entry: &MirrorSource<'_>,
+        entry: &MirrorSource<'b, 'a>,
         replacer: &DatabaseFilenameReplacer,
         progress_index: usize,
         total: usize,
@@ -482,9 +472,9 @@ impl<'a> OmaRefresh<'a> {
         }
     }
 
-    async fn download_local_release<F, Fut>(
+    async fn download_local_release<'b, F, Fut>(
         &self,
-        entry: &MirrorSource<'_>,
+        entry: &MirrorSource<'b, 'a>,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
@@ -589,9 +579,9 @@ impl<'a> OmaRefresh<'a> {
         Ok(())
     }
 
-    async fn download_http_release<F, Fut>(
+    async fn download_http_release<'b, F, Fut>(
         &self,
-        entry: &MirrorSource<'_>,
+        entry: &MirrorSource<'b, 'a>,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
@@ -671,24 +661,24 @@ impl<'a> OmaRefresh<'a> {
         Ok(())
     }
 
-    fn request_get_builder(
+    fn request_get_builder<'b>(
         &self,
         url: &str,
-        source_index: &MirrorSource<'_>,
+        source_index: &MirrorSource<'b, 'a>,
     ) -> reqwest::RequestBuilder {
         let mut request = self.client.get(url);
         if let Some(auth) = source_index.auth() {
-            request = request.basic_auth(&auth.user, Some(&auth.password))
+            request = request.basic_auth(&auth.login, Some(&auth.password))
         }
 
         request
     }
 
-    async fn download_file<F, Fut>(
+    async fn download_file<'b, F, Fut>(
         &self,
         file_name: &str,
         mut resp: Response,
-        source_index: &MirrorSource<'_>,
+        source_index: &MirrorSource<'b, 'a>,
         index: usize,
         total: usize,
         callback: &F,
@@ -743,10 +733,10 @@ impl<'a> OmaRefresh<'a> {
         Ok(())
     }
 
-    async fn collect_all_release_entry(
+    async fn collect_all_release_entry<'b>(
         &self,
         replacer: &DatabaseFilenameReplacer,
-        mirror_sources: &MirrorSources<'a>,
+        mirror_sources: &MirrorSources<'b, 'a>,
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
@@ -969,7 +959,7 @@ fn collect_flat_repo_no_release(
             auth: mirror_source
                 .auth()
                 .as_ref()
-                .map(|auth| (auth.user.clone(), auth.password.clone())),
+                .map(|auth| (auth.login.clone(), auth.password.clone())),
         },
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
     };
@@ -999,7 +989,7 @@ fn collect_flat_repo_no_release(
 
 fn collect_download_task(
     c: &ChecksumDownloadEntry,
-    mirror_source: &MirrorSource<'_>,
+    mirror_source: &MirrorSource<'_, '_>,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     release: &Release,
@@ -1016,7 +1006,7 @@ fn collect_download_task(
             auth: mirror_source
                 .auth()
                 .as_ref()
-                .map(|auth| (auth.user.clone(), auth.password.clone())),
+                .map(|auth| (auth.login.clone(), auth.password.clone())),
         },
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
     };

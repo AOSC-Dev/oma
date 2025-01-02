@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use ahash::HashMap;
-use apt_auth_config::AuthConfigEntry;
+use apt_auth_config::{AuthConfig, Authenticator};
 use oma_apt_sources_lists::{
     Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
 };
@@ -22,7 +22,6 @@ pub struct OmaSourceEntry<'a> {
     suite: OnceCell<String>,
     dist_path: OnceCell<String>,
     from: OnceCell<OmaSourceEntryFrom>,
-    pub auth: Option<AuthConfigEntry>,
 }
 
 pub async fn sources_lists<F, Fut>(
@@ -97,7 +96,6 @@ impl<'a> OmaSourceEntry<'a> {
             suite: OnceCell::new(),
             dist_path: OnceCell::new(),
             from: OnceCell::new(),
-            auth: None,
         }
     }
 
@@ -192,22 +190,19 @@ impl<'a> OmaSourceEntry<'a> {
 
         Ok(s)
     }
-
-    pub fn set_auth(&mut self, auth: AuthConfigEntry) {
-        self.auth = Some(auth);
-    }
 }
 
 #[derive(Debug)]
-pub(crate) struct MirrorSources<'a>(pub Vec<MirrorSource<'a>>);
+pub(crate) struct MirrorSources<'a, 'b>(pub Vec<MirrorSource<'a, 'b>>);
 
 #[derive(Debug)]
-pub(crate) struct MirrorSource<'a> {
+pub(crate) struct MirrorSource<'a, 'b> {
     pub(crate) sources: Vec<&'a OmaSourceEntry<'a>>,
     release_file_name: OnceCell<String>,
+    auth: Option<&'b Authenticator>,
 }
 
-impl MirrorSource<'_> {
+impl MirrorSource<'_, '_> {
     pub(crate) fn set_release_file_name(&self, file_name: String) {
         self.release_file_name
             .set(file_name)
@@ -218,6 +213,7 @@ impl MirrorSource<'_> {
         self.sources.first().unwrap().dist_path()
     }
 
+    #[cfg(feature = "aosc")]
     pub(crate) fn suite(&self) -> &str {
         self.sources.first().unwrap().suite()
     }
@@ -234,12 +230,6 @@ impl MirrorSource<'_> {
             .first()
             .unwrap()
             .get_human_download_url(file_name)
-    }
-
-    pub(crate) fn auth(&self) -> Option<&AuthConfigEntry> {
-        self.sources
-            .iter()
-            .find_map(|x| if let Some(x) = &x.auth { Some(x) } else { None })
     }
 
     pub(crate) fn signed_by(&self) -> Option<&Signature> {
@@ -267,12 +257,17 @@ impl MirrorSource<'_> {
     pub(crate) fn file_name(&self) -> Option<&str> {
         self.release_file_name.get().map(|x| x.as_str())
     }
+
+    pub(crate) fn auth(&self) -> Option<&Authenticator> {
+        self.auth
+    }
 }
 
-impl<'a> MirrorSources<'a> {
+impl<'a, 'b> MirrorSources<'a, 'b> {
     pub(crate) fn from_sourcelist(
         sourcelist: &'a [OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
+        auth_config: &'b AuthConfig,
     ) -> Result<Self, RefreshError> {
         let mut map: HashMap<String, Vec<&OmaSourceEntry>> =
             HashMap::with_hasher(ahash::RandomState::new());
@@ -291,9 +286,13 @@ impl<'a> MirrorSources<'a> {
         let mut res = vec![];
 
         for (_, v) in map {
+            let url = v[0].url();
+            let auth = auth_config.find(url);
+
             res.push(MirrorSource {
                 sources: v,
                 release_file_name: OnceCell::new(),
+                auth,
             });
         }
 
