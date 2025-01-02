@@ -75,10 +75,12 @@ pub struct MirrorManager {
 }
 
 impl MirrorManager {
-    pub fn new(rootfs: PathBuf) -> Result<Self, MirrorError> {
-        let status_file_path = rootfs.join("var/lib/apt/gen/status.json");
-        let mirrors_file_path = rootfs.join("usr/share/distro-repository-data/mirrors.yml");
-        let apt_status_file = rootfs.join("etc/apt/sources.list");
+    pub fn new(rootfs: impl AsRef<Path>) -> Result<Self, MirrorError> {
+        let status_file_path = rootfs.as_ref().join("var/lib/apt/gen/status.json");
+        let mirrors_file_path = rootfs
+            .as_ref()
+            .join("usr/share/distro-repository-data/mirrors.yml");
+        let apt_status_file = rootfs.as_ref().join("etc/apt/sources.list");
 
         let status: Status = if status_file_path.is_file() {
             let f = fs::read(&status_file_path).context(ReadFileSnafu {

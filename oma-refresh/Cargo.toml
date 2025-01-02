@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.38.3"
+version = "0.39.3"
 edition = "2021"
 description = "APT repository refresh handler library"
 license = "GPL-3.0-or-later"
@@ -8,10 +8,10 @@ license = "GPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-oma-fetch = { version = "^0.22.0", path = "../oma-fetch", default-features = false }
+oma-fetch = { version = "^0.24.0", path = "../oma-fetch", default-features = false }
 thiserror = "2"
 url = "2.3"
-tokio = { version = "1.28", default-features = false, features = ["fs", "process"] }
+tokio = { version = "1.28", default-features = false, features = ["fs", "process", "macros"] }
 futures = "0.3"
 oma-apt-sources-lists = "0.8"
 sequoia-openpgp = { version = "1.20", default-features = false }
@@ -20,7 +20,7 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.20.0", path = "../oma-topics", optional = true, default-features = false }
 oma-utils = { version = "^0.10.0", path = "../oma-utils", features = ["dpkg"] }
 tracing ="0.1"
-oma-repo-verify = { version = "^0.3.0", path = "../oma-repo-verify", default-features = false }
+oma-repo-verify = { version = "^0.4.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
 oma-apt = "0.8.0"
 aho-corasick = "1.1.3"
@@ -42,5 +42,5 @@ native-tls = ["oma-fetch/native-tls", "oma-topics/native-tls"]
 default = ["aosc", "sequoia-nettle-backend", "rustls"]
 
 [dev-dependencies]
-tokio = { version = "1.28", default-features = false, features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.28", default-features = false, features = ["rt-multi-thread"] }
 flume = "0.11.1"

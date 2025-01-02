@@ -192,29 +192,23 @@ impl Display for PackageInfo {
             writeln!(f, "{k}: {v}")?;
         }
         writeln!(f, "Download-Size: {}", HumanBytes(*download_size))?;
-        writeln!(f, "APT-Sources: {}", {
-            let apt_sources_without_dpkg = apt_sources
-                .iter()
-                .filter(|x| x.index_type.as_deref() != Some("Debian dpkg status file"))
-                .collect::<Vec<_>>();
+        write!(f, "APT-Sources:")?;
+        let apt_sources_without_dpkg = apt_sources
+            .iter()
+            .filter(|x| x.index_type.as_deref() != Some("Debian dpkg status file"))
+            .collect::<Vec<_>>();
 
-            let mut s = String::new();
-
-            match apt_sources_without_dpkg.len() {
-                0 => s += &apt_sources[0].to_string(),
-                1 => s += &apt_sources_without_dpkg[0].to_string(),
-                2.. => {
-                    s.push('\n');
-                    s += &apt_sources_without_dpkg
-                        .iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n  ");
+        match apt_sources_without_dpkg.len() {
+            0 => writeln!(f, " {}", &apt_sources[0])?,
+            1 => writeln!(f, " {}", &apt_sources_without_dpkg[0])?,
+            2.. => {
+                writeln!(f)?;
+                for i in apt_sources_without_dpkg {
+                    writeln!(f, "  {}", i)?;
                 }
             }
+        }
 
-            s
-        })?;
         writeln!(f, "description: {}", description)?;
 
         Ok(())

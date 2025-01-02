@@ -14,7 +14,7 @@ use std::{
 use thiserror::Error;
 use tracing::debug;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChecksumItem {
     pub name: String,
     pub size: u64,
@@ -58,7 +58,7 @@ pub enum InReleaseChecksum {
 
 const COMPRESS: &[&str] = &[".gz", ".xz", ".zst", ".bz2"];
 
-pub struct InRelease {
+pub struct Release {
     source: InReleaseEntry,
     acquire_by_hash: OnceCell<bool>,
     checksum_type_and_list: OnceCell<(InReleaseChecksum, Vec<ChecksumItem>)>,
@@ -80,8 +80,10 @@ struct InReleaseEntry {
     sha512: Option<String>,
 }
 
-impl InRelease {
-    pub fn new(input: &str) -> Result<Self, InReleaseError> {
+impl FromStr for Release {
+    type Err = InReleaseError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let source: Paragraph = input.parse().map_err(|_| InReleaseError::BrokenInRelease)?;
         let source: InReleaseEntry = FromDeb822Paragraph::from_paragraph(&source)
             .map_err(|_| InReleaseError::BrokenInRelease)?;
@@ -92,7 +94,9 @@ impl InRelease {
             checksum_type_and_list: OnceCell::new(),
         })
     }
+}
 
+impl Release {
     pub fn get_or_try_init_checksum_type_and_list(
         &self,
     ) -> Result<&(InReleaseChecksum, Vec<ChecksumItem>), InReleaseError> {
@@ -206,14 +210,14 @@ fn get_checksums_inner(checksum_str: &str) -> Result<Vec<ChecksumItem>, InReleas
 
 pub fn verify_inrelease<'a>(
     inrelease: &'a str,
-    signed_by: &Option<Signature>,
+    signed_by: Option<&Signature>,
     rootfs: impl AsRef<Path>,
     file: impl AsRef<Path>,
     trusted: bool,
 ) -> Result<Cow<'a, str>, InReleaseError> {
     if inrelease.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
         Ok(Cow::Owned(oma_repo_verify::verify_inrelease(
-            inrelease, signed_by, rootfs,
+            inrelease, signed_by, rootfs, trusted,
         )?))
     } else {
         if trusted {
@@ -240,7 +244,7 @@ pub fn verify_inrelease<'a>(
         let bytes = fs::read(pub_file)
             .map_err(|e| InReleaseError::ReadGPGFileName(e, file_name.to_string()))?;
 
-        verify_release(inrelease, &bytes, signed_by, rootfs).map_err(|e| {
+        verify_release(inrelease, &bytes, signed_by, rootfs, trusted).map_err(|e| {
             debug!("{e}");
             InReleaseError::NotTrusted
         })?;

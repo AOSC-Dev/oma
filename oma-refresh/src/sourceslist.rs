@@ -1,11 +1,12 @@
 use std::path::Path;
 
+use ahash::HashMap;
 use apt_auth_config::AuthConfigEntry;
 use oma_apt_sources_lists::{Signature, SourceEntry, SourceLine, SourceListType, SourcesLists};
 use once_cell::sync::OnceCell;
 use url::Url;
 
-use crate::db::RefreshError;
+use crate::{db::RefreshError, util::DatabaseFilenameReplacer};
 
 #[derive(Debug, Clone)]
 pub struct OmaSourceEntry<'a> {
@@ -158,6 +159,105 @@ impl<'a> OmaSourceEntry<'a> {
 
     pub fn set_auth(&mut self, auth: AuthConfigEntry) {
         self.auth = Some(auth);
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct MirrorSources<'a>(pub Vec<MirrorSource<'a>>);
+
+#[derive(Debug)]
+pub(crate) struct MirrorSource<'a> {
+    pub(crate) sources: Vec<&'a OmaSourceEntry<'a>>,
+    release_file_name: OnceCell<String>,
+}
+
+impl MirrorSource<'_> {
+    pub(crate) fn set_release_file_name(&self, file_name: String) {
+        self.release_file_name
+            .set(file_name)
+            .expect("Release file name was init");
+    }
+
+    pub(crate) fn dist_path(&self) -> &str {
+        self.sources.first().unwrap().dist_path()
+    }
+
+    pub(crate) fn from(&self) -> Result<&OmaSourceEntryFrom, RefreshError> {
+        self.sources.first().unwrap().from()
+    }
+
+    pub(crate) fn get_human_download_url(
+        &self,
+        file_name: Option<&str>,
+    ) -> Result<String, RefreshError> {
+        self.sources
+            .first()
+            .unwrap()
+            .get_human_download_url(file_name)
+    }
+
+    pub(crate) fn auth(&self) -> Option<&AuthConfigEntry> {
+        self.sources
+            .iter()
+            .find_map(|x| if let Some(x) = &x.auth { Some(x) } else { None })
+    }
+
+    pub(crate) fn signed_by(&self) -> Option<&Signature> {
+        self.sources.iter().find_map(|x| {
+            if let Some(x) = &x.signed_by() {
+                Some(x)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub(crate) fn url(&self) -> &str {
+        self.sources.first().unwrap().url()
+    }
+
+    pub(crate) fn is_flat(&self) -> bool {
+        self.sources.first().unwrap().is_flat()
+    }
+
+    pub(crate) fn trusted(&self) -> bool {
+        self.sources.iter().any(|x| x.trusted())
+    }
+
+    pub(crate) fn file_name(&self) -> Option<&str> {
+        self.release_file_name.get().map(|x| x.as_str())
+    }
+}
+
+impl<'a> MirrorSources<'a> {
+    pub(crate) fn from_sourcelist(
+        sourcelist: &'a [OmaSourceEntry<'a>],
+        replacer: &DatabaseFilenameReplacer,
+    ) -> Result<Self, RefreshError> {
+        let mut map: HashMap<String, Vec<&OmaSourceEntry>> =
+            HashMap::with_hasher(ahash::RandomState::new());
+
+        if sourcelist.is_empty() {
+            return Err(RefreshError::SourceListsEmpty);
+        }
+
+        for source in sourcelist {
+            let dist_path = source.dist_path();
+            let name = replacer.replace(dist_path)?;
+
+            map.entry(name).or_default().push(source);
+        }
+
+        let mut res = vec![];
+
+        for (_, v) in map {
+            res.push(MirrorSource {
+                sources: v,
+                release_file_name: OnceCell::new(),
+            });
+        }
+
+        Ok(Self(res))
     }
 }
 

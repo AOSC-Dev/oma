@@ -458,15 +458,9 @@ impl OmaApt {
             });
         }
 
-        let tokio = tokio::runtime::Builder::new_multi_thread()
-            .enable_io()
-            .enable_time()
-            .build()
-            .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
-
-        let res = tokio.block_on(async move {
-            download_pkgs(client, &download_list, config, callback).await
-        })?;
+        let res = self
+            .tokio
+            .block_on(download_pkgs(client, &download_list, config, callback))?;
 
         Ok(res)
     }
@@ -876,7 +870,7 @@ impl OmaApt {
                     .arch(cand.arch().to_string())
                     .download_size(cand.size())
                     .op(InstallOperation::Install)
-                    .automatic(self.select_pkgs.iter().all(|x| pkg.index() != *x))
+                    .automatic(!self.select_pkgs.contains(&pkg.index()))
                     .maybe_md5(md5)
                     .maybe_sha256(sha256)
                     .maybe_sha512(sha512)
@@ -987,7 +981,7 @@ impl OmaApt {
                     .arch(version.arch().to_string())
                     .download_size(version.size())
                     .op(InstallOperation::ReInstall)
-                    .automatic(self.select_pkgs.iter().all(|x| pkg.index() != *x))
+                    .automatic(!self.select_pkgs.contains(&pkg.index()))
                     .maybe_sha256(sha256)
                     .maybe_sha512(sha512)
                     .maybe_md5(md5)

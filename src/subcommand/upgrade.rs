@@ -640,7 +640,7 @@ fn install_pkg_on_topic(
         }
     }
 
-    false
+    tum_version == install_ver
 }
 
 fn is_topic_preversion(suffix: &str) -> bool {

@@ -25,7 +25,19 @@ Please see [Install](#installation).
 - **Compatibility with Other dpkg-based OS:** Bringing a more friendly package management experience to major dpkg-based distributions like Debian, Ubuntu, deepin, and openKylin.
 - **Distro-specific Integration:** Supporting not only AOSC OS-specific features such as topic repository enrollment and mirror management, but also distro-specific services such as Ubuntu Pro.
 
-## Dependencies
+## Installation
+
+oma is pre-installed with AOSC OS. It is also available for Debian, Ubuntu, Deepin, openKylin, and more dpkg-based OS.
+
+### Automatic Installation
+
+```bash
+curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
+```
+
+### Building from Source
+
+#### Dependencies
 
 To build oma, ensure the following dependencies are installed:
 
@@ -39,17 +51,7 @@ During runtime, oma requires or recommends the following:
 
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
 
-## Installation
-
-oma is pre-installed with AOSC OS. It is also available for Debian, Ubuntu, Deepin, openKylin, and more dpkg-based OS.
-
-### Automatic Installation
-
-```bash
-curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
-```
-
-### Building from Source
+#### Build Procedure
 
 1. Clone the repository:
 
@@ -58,9 +60,11 @@ curl -sSf https://repo.aosc.io/get-oma.sh | sudo sh
    cd oma
    ```
 
-2. Build the binary as an installable .deb package:
+2. Build the binary as an installable .deb package (Ubuntu/Debian):
 
    ```bash
+   apt install build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang libbz2-dev liblzma-dev
+   cargo install cargo-deb
    cargo deb -Z xz
    ```
 

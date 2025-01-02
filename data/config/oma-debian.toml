@@ -20,7 +20,8 @@ search_contents_println = false
 # - text:     Simple character-based search with support for globs and no
 #             relevance sorting, most rudimentary but the fastest.
 search_engine = "strsim"
-
+# Ring the terminal bell when oma completes a transaction.
+bell = true
 
 [network]
 # Number of network threads to use when downloading metadata and packages.
