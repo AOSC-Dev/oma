@@ -26,10 +26,13 @@ use oma_console::indicatif::ProgressStyle;
 use oma_mirror::Mirror;
 use oma_mirror::MirrorManager;
 use oma_pm::apt::AptConfig;
+use oma_topics::TopicManager;
+use oma_utils::dpkg::dpkg_arch;
 use reqwest::blocking;
 use sha2::Digest;
 use sha2::Sha256;
 use tabled::Tabled;
+use tracing::warn;
 use tracing::{error, info};
 
 use crate::config::Config;
@@ -41,6 +44,7 @@ use crate::table::PagerPrinter;
 use crate::utils::root;
 use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;
+use crate::RT;
 
 use super::utils::tui_select_list_size;
 use super::utils::Refresh;
@@ -287,6 +291,7 @@ pub fn tui(
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
+        refresh_enabled_topics_sources_list(no_progress)?;
         refresh(no_progress, network_threads, refresh_topic)?;
     }
 
@@ -331,6 +336,7 @@ pub fn operate(
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
+        refresh_enabled_topics_sources_list(no_progress)?;
         refresh(no_progress, network_threads, refresh_topic)?;
     }
 
@@ -366,6 +372,7 @@ pub fn set_order(
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
+        refresh_enabled_topics_sources_list(no_progress)?;
         refresh(no_progress, network_threads, refresh_topic)?;
     }
 
@@ -509,6 +516,7 @@ pub fn speedtest(
         mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
         if !no_refresh {
+            refresh_enabled_topics_sources_list(no_progress)?;
             refresh(no_progress, network_threads, refresh_topic)?;
         }
     }
@@ -547,6 +555,43 @@ fn sort_mirrors(mirrors: &mut [(&str, &Mirror)], enabled: &indexmap::IndexMap<Bo
             a.0.cmp(b.0)
         }
     });
+}
+
+fn refresh_enabled_topics_sources_list(no_progress: bool) -> Result<(), OutputError> {
+    let pb = if !no_progress {
+        let pb = OmaProgressBar::new_spinner(Some(fl!("refreshing-topic-metadata")));
+
+        Some(pb)
+    } else {
+        None
+    };
+
+    let try_refresh = Ok(()).and_then(|_| -> Result<(), OutputError> {
+        let arch = dpkg_arch("/")?;
+        let mut tm = TopicManager::new_blocking(&HTTP_CLIENT, "/", &arch, false)?;
+        RT.block_on(tm.refresh())?;
+        tm.remove_closed_topics()?;
+        RT.block_on(tm.write_sources_list(
+            &fl!("do-not-edit-topic-sources-list"),
+            false,
+            |topic, mirror| async {
+                warn!(
+                    "{}",
+                    fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                );
+                warn!("{}", fl!("skip-write-mirror"));
+            },
+        ))?;
+        Ok(())
+    });
+
+    if let Some(pb) = pb {
+        pb.inner.finish_and_clear();
+    }
+
+    try_refresh?;
+
+    Ok(())
 }
 
 #[test]
