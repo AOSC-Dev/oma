@@ -43,12 +43,14 @@ pub enum MatcherError {
     DpkgError(#[from] DpkgError),
 }
 
+/// Represent the type of package search engine.
 pub enum SearchEngine {
     Indicium(Box<dyn Fn(usize)>),
     Strsim,
     Text,
 }
 
+/// Represent the method of getting platform arch.
 pub enum GetArchMethod<'a> {
     SpecifySysroot(&'a Path),
     SpecifyArch(&'a str),
@@ -56,15 +58,25 @@ pub enum GetArchMethod<'a> {
 }
 
 #[derive(Builder)]
+
 pub struct PackagesMatcher<'a> {
+    /// The summary of all the apt operations in rust-apt
     cache: &'a Cache,
     #[builder(default = true)]
+    /// If true, filters the packages to only include candidated packages.
+    /// Defaults to true.
     filter_candidate: bool,
     #[builder(default = false)]
+    /// If true, display all the debug packages.
+    /// Defaults to false
     select_dbg: bool,
     #[builder(default = false)]
+    ///If true, filters the packages to only include downloadable candidated packages.
+    /// Defaults to false
     filter_downloadable_candidate: bool,
     #[builder(default = GetArchMethod::DirectRoot)]
+    /// The method used to determine the native arch.
+    /// Defaults to `GetArchMethod::DirectRoot`.
     native_arch: GetArchMethod<'a>,
     #[builder(skip)]
     arch: OnceCell<Cow<'a, str>>,
@@ -73,6 +85,7 @@ pub struct PackagesMatcher<'a> {
 pub type MatcherResult<T> = Result<T, MatcherError>;
 
 impl<'a> PackagesMatcher<'a> {
+    /// Matches packages and versions based on the provided keywords.
     pub fn match_pkgs_and_versions(
         &self,
         keywords: impl IntoIterator<Item = &'a str>,
@@ -141,6 +154,7 @@ impl<'a> PackagesMatcher<'a> {
         Ok(res.into_iter().flatten().collect())
     }
 
+    /// Query package from given glob (without matching version)
     pub fn match_pkgs_from_glob(&self, glob: &str) -> MatcherResult<Vec<OmaPackageWithoutVersion>> {
         let sort = PackageSort::default().include_virtual();
 
@@ -399,6 +413,7 @@ pub fn real_pkg(pkg: &Package) -> Option<UniquePtr<PkgIterator>> {
     unsafe { pkg.unique() }.make_safe()
 }
 
+/// return whether this package has debug version or not.
 pub fn has_dbg(cache: &Cache, pkg: &Package<'_>, ver: &Version) -> bool {
     let dbg_pkg = format!("{}-dbg:{}", pkg.name(), ver.arch());
     let dbg_pkg = cache.get(&dbg_pkg);
