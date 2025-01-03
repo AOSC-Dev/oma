@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
+use crate::subcommand::utils::create_progress_spinner;
 use crate::success;
 use crate::{config::Config, fl};
 use clap::Args;
-use oma_console::{indicatif::ProgressBar, pb::spinner_style};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::info;
 
@@ -52,16 +52,7 @@ impl CliExecuter for Clean {
             source: Some(Box::new(e)),
         })?;
 
-        let pb = if no_progress {
-            let (sty, inv) = spinner_style();
-            let pb = ProgressBar::new_spinner().with_style(sty);
-            pb.enable_steady_tick(inv);
-            pb.set_message(fl!("cleaning"));
-
-            Some(pb)
-        } else {
-            None
-        };
+        let pb = create_progress_spinner(no_progress, fl!("cleaning"));
 
         for i in dir.flatten() {
             if i.path().extension().and_then(|x| x.to_str()) == Some("deb") {
@@ -70,7 +61,7 @@ impl CliExecuter for Clean {
         }
 
         if let Some(pb) = pb {
-            pb.finish_and_clear();
+            pb.inner.finish_and_clear();
         }
 
         success!("{}", fl!("clean-successfully"));
