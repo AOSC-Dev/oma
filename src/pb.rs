@@ -11,12 +11,13 @@ use oma_console::{
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
     writer::{gen_prefix, writeln_inner, MessageType, Writeln},
 };
-use oma_fetch::Event;
+use oma_fetch::{Event, SingleDownloadError};
+use reqwest::StatusCode;
 
-use crate::{fl, msg, WRITER};
+use crate::{error::Chain, fl, msg, utils::is_root, WRITER};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub trait RenderDownloadProgress {
     fn render_progress(&mut self, rx: &flume::Receiver<Event>);
@@ -242,6 +243,56 @@ impl OmaMultiProgressBar {
                     .mb
                     .insert(0, ProgressBar::new(total_size).with_style(sty));
                 self.pb_map.insert(0, pb);
+            }
+            Event::Failed { file_name, error } => {
+                let cause = Chain::new(&error).collect::<Vec<_>>();
+                let last_cause = cause.last();
+
+                if let Some(cause) = last_cause {
+                    self.writeln(
+                        &style("ERROR").red().bold().to_string(),
+                        &fl!(
+                            "download-package-failed-with-reason",
+                            filename = file_name,
+                            reason = cause.to_string()
+                        ),
+                    )
+                    .ok();
+                } else {
+                    self.writeln(
+                        &style("ERROR").red().bold().to_string(),
+                        &fl!("download-failed", filename = file_name),
+                    )
+                    .ok();
+                }
+
+                debug!("{:#?}", cause);
+
+                if let SingleDownloadError::ReqwestError { ref source } = error {
+                    if source
+                        .status()
+                        .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
+                    {
+                        if !is_root() {
+                            self.writeln(
+                                &style("INFO").blue().bold().to_string(),
+                                &fl!("auth-need-permission"),
+                            )
+                            .ok();
+                        } else {
+                            self.writeln(
+                                &style("INFO").blue().bold().to_string(),
+                                &fl!("lack-auth-config-1"),
+                            )
+                            .ok();
+                            self.writeln(
+                                &style("INFO").blue().bold().to_string(),
+                                &fl!("lack-auth-config-2"),
+                            )
+                            .ok();
+                        }
+                    }
+                }
             }
         };
 

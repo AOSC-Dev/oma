@@ -298,7 +298,7 @@ impl OmaPackage {
         let ver = Version::new(
             unsafe { self.version_raw.unique() }
                 .make_safe()
-                .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?,
+                .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?,
             cache,
         );
         let section: Box<str> = Box::from(ver.section().unwrap_or("unknown"));
@@ -353,7 +353,7 @@ impl OmaPackage {
         let map = Version::new(
             unsafe { self.version_raw.unique() }
                 .make_safe()
-                .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?,
+                .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?,
             cache,
         )
         .depends_map()
@@ -372,7 +372,7 @@ impl OmaPackage {
             cache,
             unsafe { self.raw_pkg.unique() }
                 .make_safe()
-                .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?,
+                .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?,
         )
         .rdepends()
         .iter()
