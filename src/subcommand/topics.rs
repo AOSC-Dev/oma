@@ -20,14 +20,13 @@ use tracing::{error, warn};
 use crate::{
     config::Config,
     error::OutputError,
-    pb::OmaProgressBar,
     utils::{dbus_check, root},
     HTTP_CLIENT, RT,
 };
 
 use super::utils::{
-    lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitChanges,
-    Refresh,
+    create_progress_spinner, lock_oma, no_check_dbus_warn, select_tui_display_msg,
+    tui_select_list_size, CommitChanges, Refresh,
 };
 
 use crate::args::CliExecuter;
@@ -404,13 +403,7 @@ fn select_prompt(
 }
 
 async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
-    let pb = if !no_progress {
-        let pb = OmaProgressBar::new_spinner(Some(fl!("refreshing-topic-metadata")));
-
-        Some(pb)
-    } else {
-        None
-    };
+    let pb = create_progress_spinner(no_progress, fl!("refreshing-topic-metadata"));
 
     tm.refresh().await?;
     tm.remove_closed_topics()?;

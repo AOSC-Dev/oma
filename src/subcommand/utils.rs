@@ -86,11 +86,7 @@ pub(crate) fn handle_no_result(
 
     let mut bin = IndexSet::with_hasher(ahash::RandomState::new());
 
-    let pb = if !no_progress || is_terminal() {
-        Some(OmaProgressBar::new_spinner(Some(fl!("searching"))))
-    } else {
-        None
-    };
+    let pb = create_progress_spinner(no_progress, fl!("searching"));
 
     for word in no_result {
         if word == "266" {
@@ -251,7 +247,7 @@ impl Refresh<'_> {
         let (tx, rx) = unbounded();
 
         thread::spawn(move || {
-            let mut pb: Box<dyn RenderRefreshProgress> = if no_progress || !is_terminal() {
+            let mut pb: Box<dyn RenderRefreshProgress> = if no_progress {
                 Box::new(NoProgressBar::default())
             } else {
                 Box::new(OmaMultiProgressBar::default())
@@ -320,11 +316,7 @@ impl CommitChanges<'_> {
             check_update,
         } = self;
 
-        let pb = if !no_progress && is_terminal() {
-            OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
-        } else {
-            None
-        };
+        let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
 
         let res = Ok(()).and_then(|_| -> Result<(), OmaAptError> {
             if autoremove {
@@ -413,7 +405,7 @@ impl CommitChanges<'_> {
         let (tx, rx) = unbounded();
 
         thread::spawn(move || {
-            let mut pb: Box<dyn RenderDownloadProgress> = if no_progress || !is_terminal() {
+            let mut pb: Box<dyn RenderDownloadProgress> = if no_progress {
                 Box::new(NoProgressBar::default())
             } else {
                 Box::new(OmaMultiProgressBar::default())
@@ -422,7 +414,7 @@ impl CommitChanges<'_> {
         });
 
         let res = apt.commit(
-            if no_progress || !is_terminal() {
+            if no_progress {
                 Box::new(NoInstallProgressManager)
             } else {
                 Box::new(OmaInstallProgressManager::new(yes))
@@ -484,6 +476,14 @@ impl CommitChanges<'_> {
                 Err(e.into())
             }
         }
+    }
+}
+
+pub fn create_progress_spinner(no_progress: bool, msg: String) -> Option<OmaProgressBar> {
+    if !no_progress {
+        OmaProgressBar::new_spinner(Some(msg)).into()
+    } else {
+        None
     }
 }
 
