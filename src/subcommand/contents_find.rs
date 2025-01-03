@@ -3,13 +3,13 @@ use crate::table::oma_display_with_normal_output;
 use crate::{config::Config, error::OutputError};
 use clap::Args;
 use indexmap::IndexSet;
-use oma_console::indicatif::ProgressBar;
-use oma_console::pb::spinner_style;
 use oma_contents::searcher::{search, Mode};
 use std::io::{stdout, Write};
 use std::path::{Path, PathBuf};
 
 use crate::args::CliExecuter;
+
+use super::utils::create_progress_spinner;
 
 enum CliMode {
     Provides,
@@ -92,18 +92,7 @@ fn execute(
     sysroot: String,
     no_pager: bool,
 ) -> Result<i32, OutputError> {
-    let pb = if !no_progress && !no_pager {
-        let pb = ProgressBar::new_spinner();
-        let (style, inv) = spinner_style();
-        pb.set_style(style);
-        pb.enable_steady_tick(inv);
-        pb.set_message(fl!("searching"));
-
-        Some(pb)
-    } else {
-        None
-    };
-
+    let pb = create_progress_spinner(no_progress || no_pager, fl!("searching"));
     let mode = match mode {
         CliMode::Provides if is_bin => Mode::BinProvides,
         CliMode::Provides => Mode::Provides,
@@ -121,7 +110,8 @@ fn execute(
             res.insert(line);
             count += 1;
             if let Some(pb) = &pb {
-                pb.set_message(fl!("search-with-result-count", count = count));
+                pb.inner
+                    .set_message(fl!("search-with-result-count", count = count));
             }
         }
     };
@@ -134,7 +124,7 @@ fn execute(
     )?;
 
     if let Some(pb) = &pb {
-        pb.finish_and_clear();
+        pb.inner.finish_and_clear();
     }
 
     if no_pager {

@@ -12,13 +12,15 @@ use tracing::{info, warn};
 
 use crate::config::Config;
 use crate::fl;
-use crate::pb::OmaProgressBar;
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},
 };
 
-use super::utils::{auth_config, handle_no_result, lock_oma, no_check_dbus_warn, CommitChanges};
+use super::utils::{
+    auth_config, create_progress_spinner, handle_no_result, lock_oma, no_check_dbus_warn,
+    CommitChanges,
+};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -208,11 +210,7 @@ impl CliExecuter for Remove {
             }
         }
 
-        let pb = if !no_progress {
-            OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
-        } else {
-            None
-        };
+        let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
 
         let remove_str = pkgs
             .iter()
