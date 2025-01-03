@@ -104,6 +104,8 @@ pub enum RefreshError {
     DuplicateComponents(Box<str>, String),
     #[error("sources.list is empty")]
     SourceListsEmpty,
+    #[error("Failed to operate file: {0}")]
+    OperateFile(PathBuf, std::io::Error),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -533,13 +535,13 @@ impl<'a> OmaRefresh<'a> {
                     debug!("get_release_file: Removing {}", dst.display());
                     fs::remove_file(&dst)
                         .await
-                        .map_err(|e| RefreshError::DownloadFailed)?;
+                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
                 }
 
                 debug!("get_release_file: Symlink {}", dst.display());
-                fs::symlink(p, dst)
+                fs::symlink(p, &dst)
                     .await
-                    .map_err(|e| RefreshError::DownloadFailed)?;
+                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
 
                 if index == 1 {
                     is_release = true;
@@ -573,12 +575,12 @@ impl<'a> OmaRefresh<'a> {
                 if dst.exists() {
                     fs::remove_file(&dst)
                         .await
-                        .map_err(|e| RefreshError::DownloadFailed)?;
+                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
                 }
 
                 fs::symlink(p, self.download_dir.join(file_name))
                     .await
-                    .map_err(|e| RefreshError::DownloadFailed)?;
+                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
             }
         }
 

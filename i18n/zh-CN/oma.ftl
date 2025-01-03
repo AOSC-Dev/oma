@@ -232,3 +232,5 @@ tum-1-with-security = oma 找到了 { $updates } 个关键系统更新（含 { $
 tum-2 = 根据您指定的操作，oma 还需要对系统组件执行若干变更，变更详情如下。
 security = 安全更新
 verify-error = 在验证 { $p } 的签名时遇到错误。
+sources-list-empty = 软件源配置为空。
+failed-refresh = 无法刷新软件源数据，

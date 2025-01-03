@@ -238,3 +238,5 @@ tum-1-with-security =  oma has found { $updates } updates available for your sys
 tum-2 = In order to fulfill the operations you specified, oma will need to perform the following changes to your system components. The details are as follows.Details of the component changes for this operation are as follows.
 security = security update(s)
 verify-error = An error occurred while verifying the signature for { $p }.
+sources-list-empty = Mirror source configuration is empty.
+failed-refresh = Failed to refresh repository metadata.

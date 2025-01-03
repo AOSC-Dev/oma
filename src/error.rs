@@ -425,12 +425,16 @@ impl From<RefreshError> for OutputError {
                 source: None,
             },
             RefreshError::SourceListsEmpty => Self {
-                description: "Source list is empty".to_string(),
+                description: fl!("sources-list-empty"),
                 source: None,
             },
             RefreshError::DownloadFailed => Self {
-                description: "Refresh download failed".to_string(),
+                description: fl!("failed-refresh"),
                 source: None,
+            },
+            RefreshError::OperateFile(path, error) => Self {
+                description: fl!("failed-to-operate-path", p = path.display().to_string()),
+                source: Some(Box::new(error)),
             },
         }
     }
