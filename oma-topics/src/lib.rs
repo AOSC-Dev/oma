@@ -46,7 +46,7 @@ pub enum OmaTopicsError {
     MirrorError(#[from] oma_mirror::MirrorError),
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Eq)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Topic {
     pub name: String,
     pub description: Option<String>,
@@ -64,6 +64,8 @@ impl PartialEq for Topic {
         self.name == other.name
     }
 }
+
+impl Eq for Topic {}
 
 impl Hash for Topic {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -161,7 +163,7 @@ impl<'a> TopicManager<'a> {
         })
     }
 
-    pub fn all_topics(&self) -> impl Iterator<Item = &Topic> {
+    pub fn available_topics(&self) -> impl Iterator<Item = &Topic> {
         self.all.values().flatten().unique()
     }
 
@@ -169,7 +171,7 @@ impl<'a> TopicManager<'a> {
         &self.enabled
     }
 
-    /// Get all new topics
+    /// Get all topics
     pub async fn refresh(&mut self) -> Result<()> {
         let enabled_mirrors = self.mm.enabled_mirrors();
         let tasks = enabled_mirrors
@@ -192,7 +194,7 @@ impl<'a> TopicManager<'a> {
         debug!("oma will opt_in: {}", topic);
 
         let index = self
-            .all_topics()
+            .available_topics()
             .find(|x| x.name.to_ascii_lowercase() == topic.to_ascii_lowercase());
 
         let enabled_names = self.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
@@ -308,7 +310,7 @@ impl<'a> TopicManager<'a> {
 
     pub fn remove_closed_topics(&mut self) -> Result<Vec<String>> {
         let all = self
-            .all_topics()
+            .available_topics()
             .map(|x| x.to_owned())
             .collect::<HashSet<_>>();
 
@@ -318,6 +320,7 @@ impl<'a> TopicManager<'a> {
 
         for i in enabled {
             if !all.contains(&i) {
+                debug!("removing closed topic {} ...", i.name);
                 let d = self.remove(&i.name)?;
                 res.push(d.name);
             }

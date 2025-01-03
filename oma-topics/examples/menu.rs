@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
 
     tm.refresh().await?;
 
-    let all_names = tm.all_topics().map(|x| &x.name).collect::<Vec<_>>();
+    let all_names = tm.available_topics().map(|x| &x.name).collect::<Vec<_>>();
 
     let mut default = vec![];
 
