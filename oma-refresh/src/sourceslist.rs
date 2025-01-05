@@ -182,6 +182,10 @@ impl MirrorSource<'_> {
         self.sources.first().unwrap().dist_path()
     }
 
+    pub(crate) fn suite(&self) -> &str {
+        self.sources.first().unwrap().suite()
+    }
+
     pub(crate) fn from(&self) -> Result<&OmaSourceEntryFrom, RefreshError> {
         self.sources.first().unwrap().from()
     }
