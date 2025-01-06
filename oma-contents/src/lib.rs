@@ -21,7 +21,7 @@
 //! - Supports both ripgrep-based and pure Rust search implementations.
 //!
 
-mod parser;
+pub mod parser;
 pub mod searcher;
 
 #[derive(Debug, thiserror::Error)]
@@ -48,4 +48,6 @@ pub enum OmaContentsError {
     NoResult,
     #[error("Illegal file: {0}")]
     IllegalFile(String),
+    #[error("Invaild contents")]
+    InvaildContents,
 }

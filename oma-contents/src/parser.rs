@@ -1,9 +1,20 @@
 use winnow::{combinator::separated, token::take_till, PResult, Parser};
 
+use crate::OmaContentsError;
+
+/// Parse Contents file from input
+pub fn parse_contetns(input: &str) -> Result<Vec<(&str, Vec<&str>)>, OmaContentsError> {
+    input
+        .lines()
+        .map(single_line)
+        .collect::<Option<Vec<_>>>()
+        .ok_or(OmaContentsError::InvaildContents)
+}
+
 pub(crate) fn single_line(input: &str) -> Option<(&str, Vec<&str>)> {
     // https://wiki.debian.org/DebianRepository/Format#A.22Contents.22_indices
-    let (file, pkgs) = input.rsplit_once(|c: char| c.is_whitespace() && c != '\n')?;
     // 最后一个空格是分隔符
+    let (file, pkgs) = input.rsplit_once(|c: char| c.is_whitespace() && c != '\n')?;
     let file = file.trim();
     let mut pkgs = pkgs.trim();
     let pkgs = multi_packages(&mut pkgs).ok()?;
