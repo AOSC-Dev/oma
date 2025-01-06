@@ -6,20 +6,32 @@ use crate::OmaContentsError;
 pub fn parse_contetns(input: &str) -> Result<Vec<(&str, Vec<&str>)>, OmaContentsError> {
     input
         .lines()
-        .map(single_line)
-        .collect::<Option<Vec<_>>>()
-        .ok_or(OmaContentsError::InvaildContents)
+        .enumerate()
+        .map(|x| match single_line(x.1) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(OmaContentsError::InvalidContentsWithLine(
+                e.to_string(),
+                x.0,
+            )),
+        })
+        .collect::<Result<Vec<_>, OmaContentsError>>()
 }
 
-pub(crate) fn single_line(input: &str) -> Option<(&str, Vec<&str>)> {
+pub(crate) fn single_line(input: &str) -> Result<(&str, Vec<&str>), OmaContentsError> {
     // https://wiki.debian.org/DebianRepository/Format#A.22Contents.22_indices
     // 最后一个空格是分隔符
-    let (file, pkgs) = input.rsplit_once(|c: char| c.is_whitespace() && c != '\n')?;
+    let (file, pkgs) = input
+        .rsplit_once(|c: char| c.is_whitespace() && c != '\n')
+        .ok_or(OmaContentsError::InvalidContents(
+            "Failed to get last space".to_string(),
+        ))?;
+
     let file = file.trim();
     let mut pkgs = pkgs.trim();
-    let pkgs = multi_packages(&mut pkgs).ok()?;
+    let pkgs = multi_packages(&mut pkgs)
+        .map_err(|e| OmaContentsError::InvalidContents(format!("Failed to get packages: {e}")))?;
 
-    Some((file, pkgs))
+    Ok((file, pkgs))
 }
 
 #[inline]
@@ -38,8 +50,8 @@ fn test_single_line() {
     let res = single_line(s);
 
     assert_eq!(
-        res,
-        Some(("etc/dpkg/dpkg.cfg.d/pk4", vec!["universe/utils/pk4"]))
+        res.unwrap(),
+        ("etc/dpkg/dpkg.cfg.d/pk4", vec!["universe/utils/pk4"])
     )
 }
 
@@ -49,8 +61,8 @@ fn test_single_line_multi_packages() {
     let res = single_line(s);
 
     assert_eq!(
-        res,
-        Some((
+        res.unwrap(),
+        (
             "opt/32/libexec",
             vec![
                 "devel/gcc+32",
@@ -58,7 +70,7 @@ fn test_single_line_multi_packages() {
                 "gnome/gconf+32",
                 "libs/gdk-pixbuf+32"
             ]
-        ))
+        )
     )
 }
 
@@ -67,5 +79,8 @@ fn test_single_line_file_multi_space() {
     let s = "/etc/i have multi space foo/bar/abc\n";
     let res = single_line(s);
 
-    assert_eq!(res, Some(("/etc/i have multi space", vec!["foo/bar/abc"])))
+    assert_eq!(
+        res.unwrap(),
+        ("/etc/i have multi space", vec!["foo/bar/abc"])
+    )
 }

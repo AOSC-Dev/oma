@@ -182,17 +182,15 @@ pub fn ripgrep_search(
     };
 
     while stdout_reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
-        if let Some(lines) = rg_filter_line(&buffer, is_list, query) {
-            for i in lines {
-                #[cfg(not(feature = "aosc"))]
-                if is_bin(&i.1) {
-                    buffer.clear();
-                    continue;
-                }
-
-                cb(i);
+        let lines = rg_filter_line(&buffer, is_list, query)?;
+        for i in lines {
+            #[cfg(not(feature = "aosc"))]
+            if is_bin(&i.1) {
+                buffer.clear();
+                continue;
             }
             has_result = true;
+            cb(i);
         }
         buffer.clear();
     }
@@ -316,7 +314,7 @@ fn pure_search_contents_from_path(
         }
     };
 
-    pure_search_foreach_result(can_next, reader, query, tx);
+    pure_search_foreach_result(can_next, reader, query, tx)?;
 
     Ok(())
 }
@@ -339,14 +337,11 @@ fn pure_search_foreach_result(
     mut reader: BufReader<&mut dyn Read>,
     query: &str,
     tx: &Sender<(String, String)>,
-) {
+) -> Result<(), OmaContentsError> {
     let mut buffer = String::new();
 
     while reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
-        let (file, pkgs) = match single_line(&buffer) {
-            Some(line) => line,
-            None => continue,
-        };
+        let (file, pkgs) = single_line(&buffer)?;
 
         for pkg in pkgs {
             if let Some(pkg) = pkg_name(pkg) {
@@ -360,9 +355,15 @@ fn pure_search_foreach_result(
 
         buffer.clear();
     }
+
+    Ok(())
 }
 
-fn rg_filter_line(line: &str, is_list: bool, query: &str) -> Option<Vec<(String, String)>> {
+fn rg_filter_line(
+    line: &str,
+    is_list: bool,
+    query: &str,
+) -> Result<Vec<(String, String)>, OmaContentsError> {
     let (file, pkgs) = single_line(line)?;
 
     debug!("file: {file}, pkgs: {pkgs:?}");
@@ -370,24 +371,21 @@ fn rg_filter_line(line: &str, is_list: bool, query: &str) -> Option<Vec<(String,
     if pkgs.len() != 1 {
         let mut res = vec![];
         for pkg in pkgs {
-            let Some(pkg) = pkg_name(pkg) else {
-                continue;
-            };
-
+            let pkg = pkg_name(pkg).unwrap_or(pkg);
             if pkg == query || !is_list {
                 let file = prefix(file);
                 res.push((pkg.to_string(), file));
             }
         }
 
-        Some(res)
+        Ok(res)
     } else {
         // 比如 /usr/bin/apt admin/apt
         let pkg = pkgs[0];
-        let pkg = pkg_name(pkg)?;
+        let pkg = pkg_name(pkg).unwrap_or(pkg);
         let file = prefix(file);
 
-        Some(vec![(pkg.to_string(), file)])
+        Ok(vec![(pkg.to_string(), file)])
     }
 }
 
@@ -409,23 +407,23 @@ fn test_rg_filter_line() {
     let s = "usr/bin/yakuake   Trinity/yakuake-trinity,utils/yakuake";
     let res = rg_filter_line(s, false, "yakuake");
     assert_eq!(
-        res,
-        Some(vec![
+        res.unwrap(),
+        vec![
             (
                 "yakuake-trinity".to_string(),
                 "/usr/bin/yakuake".to_string()
             ),
             ("yakuake".to_string(), "/usr/bin/yakuake".to_string())
-        ])
+        ]
     );
 
     let s = "usr/bin/yakuake   Trinity/yakuake-trinity";
     let res = rg_filter_line(s, false, "yakuake");
     assert_eq!(
-        res,
-        Some(vec![(
+        res.unwrap(),
+        vec![(
             "yakuake-trinity".to_string(),
             "/usr/bin/yakuake".to_string()
-        )])
+        )]
     );
 }

@@ -48,6 +48,8 @@ pub enum OmaContentsError {
     NoResult,
     #[error("Illegal file: {0}")]
     IllegalFile(String),
-    #[error("Invaild contents")]
-    InvaildContents,
+    #[error("Invalid contents: {0}")]
+    InvalidContents(String),
+    #[error("Invalid contents: {0} on line position: {1}")]
+    InvalidContentsWithLine(String, usize),
 }
