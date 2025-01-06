@@ -17,7 +17,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::debug;
 use zstd::Decoder;
 
-use crate::{parser::single_line, OmaContentsError};
+use crate::{parser::parse_contents_single_line, OmaContentsError};
 
 const ZSTD_MAGIC: &[u8] = &[40, 181, 47, 253];
 const LZ4_MAGIC: &[u8] = &[0x04, 0x22, 0x4d, 0x18];
@@ -341,7 +341,7 @@ fn pure_search_foreach_result(
     let mut buffer = String::new();
 
     while reader.read_line(&mut buffer).is_ok_and(|x| x > 0) {
-        let (file, pkgs) = single_line(&buffer)?;
+        let (file, pkgs) = parse_contents_single_line(&buffer)?;
 
         for pkg in pkgs {
             if let Some(pkg) = pkg_name(pkg) {
@@ -364,7 +364,7 @@ fn rg_filter_line(
     is_list: bool,
     query: &str,
 ) -> Result<Vec<(String, String)>, OmaContentsError> {
-    let (file, pkgs) = single_line(line)?;
+    let (file, pkgs) = parse_contents_single_line(line)?;
 
     debug!("file: {file}, pkgs: {pkgs:?}");
 
