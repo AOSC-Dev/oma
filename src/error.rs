@@ -576,6 +576,11 @@ impl From<OmaContentsError> for OutputError {
                 description: format!("Illegal file: {path}"),
                 source: None,
             },
+            OmaContentsError::InvalidContents(_) => Self {
+                description: value.to_string(),
+                source: None,
+            },
+            OmaContentsError::InvalidContentsWithLine(_, _) => unreachable!(),
         }
     }
 }
