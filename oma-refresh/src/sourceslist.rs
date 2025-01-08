@@ -28,7 +28,7 @@ pub fn sources_lists(
     for file in list.iter() {
         match file.entries {
             SourceListType::SourceLine(ref lines) => {
-                for i in lines {
+                for i in &lines.0 {
                     if let SourceLine::Entry(entry) = i {
                         res.push(OmaSourceEntry::new(entry.clone(), arch));
                     }

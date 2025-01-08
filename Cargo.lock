@@ -2991,9 +2991,9 @@ dependencies = [
 
 [[package]]
 name = "oma-apt-sources-lists"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94c8749e71ded33cb91efaa664007bb8fdd88f1bda5e53d36903f0c825a18719"
+checksum = "f0fa5b7816e83092d46bcbc9c79aa6f8b009ce0e096c1bf1a35c497baf2ecb9d"
 dependencies = [
  "deb822-lossless",
  "thiserror 2.0.9",
