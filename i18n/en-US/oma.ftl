@@ -237,4 +237,4 @@ tum-1-with-security =  oma has found { $updates } updates available for your sys
 tum-2 = In order to fulfill the operations you specified, oma will need to perform the following changes to your system components. The details are as follows.Details of the component changes for this operation are as follows.
 security = security update(s)
 verify-error = An error occurred while verifying the signature for { $p }.
-unsupported-sources-list = Unsupported source list files: { $p }, oma only line style sources list (.list) and deb822 style source list (.sources) are supported.
+unsupported-sources-list = Unsupported APT repository configuration files: { $p }. Only line-style (.list) and DEB822-formatted (.sources) configuration files are supported.
