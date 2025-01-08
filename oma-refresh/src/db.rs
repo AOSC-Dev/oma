@@ -203,8 +203,11 @@ impl<'a> OmaRefresh<'a> {
     {
         let arch = dpkg_arch(&self.source)?;
 
-        self.update_db(sources_lists(&self.source, &arch)?, callback)
-            .await
+        self.update_db(
+            sources_lists(&self.source, &arch).map_err(RefreshError::ScanSourceError)?,
+            callback,
+        )
+        .await
     }
 
     async fn update_db<F, Fut>(

@@ -2,8 +2,11 @@ use std::path::Path;
 
 use ahash::HashMap;
 use apt_auth_config::AuthConfigEntry;
-use oma_apt_sources_lists::{Signature, SourceEntry, SourceLine, SourceListType, SourcesLists};
+use oma_apt_sources_lists::{
+    Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
+};
 use once_cell::sync::OnceCell;
+use tracing::warn;
 use url::Url;
 
 use crate::{db::RefreshError, util::DatabaseFilenameReplacer};
@@ -22,24 +25,49 @@ pub struct OmaSourceEntry<'a> {
 pub fn sources_lists(
     sysroot: impl AsRef<Path>,
     arch: &str,
-) -> Result<Vec<OmaSourceEntry<'_>>, RefreshError> {
+) -> Result<Vec<OmaSourceEntry<'_>>, SourcesListError> {
     let mut res = Vec::new();
-    let list = SourcesLists::scan_from_root(&sysroot).map_err(RefreshError::ScanSourceError)?;
+    let mut paths = vec![];
+    let default = sysroot.as_ref().join("etc/apt/sources.list");
 
-    for file in list.iter() {
-        match file.entries {
-            SourceListType::SourceLine(ref lines) => {
-                for i in &lines.0 {
-                    if let SourceLine::Entry(entry) = i {
-                        res.push(OmaSourceEntry::new(entry.clone(), arch));
+    if default.exists() {
+        paths.push(default);
+    }
+
+    if sysroot.as_ref().join("etc/apt/sources.list.d/").exists() {
+        for entry in std::fs::read_dir(sysroot.as_ref().join("etc/apt/sources.list.d/"))? {
+            let entry = entry?;
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+
+            paths.push(path);
+        }
+    }
+
+    for p in paths {
+        match SourcesList::new(p) {
+            Ok(s) => match s.entries {
+                SourceListType::SourceLine(source_list_line_style) => {
+                    for i in source_list_line_style.0 {
+                        if let SourceLine::Entry(entry) = i {
+                            res.push(OmaSourceEntry::new(entry, arch));
+                        }
                     }
                 }
-            }
-            SourceListType::Deb822(ref e) => {
-                for i in &e.entries {
-                    res.push(OmaSourceEntry::new(i.clone(), arch));
+                SourceListType::Deb822(source_list_deb822) => {
+                    for i in source_list_deb822.entries {
+                        res.push(OmaSourceEntry::new(i, arch));
+                    }
                 }
-            }
+            },
+            Err(e) => match e {
+                SourcesListError::UnknownFile { path } => {
+                    warn!("Unsupported file: {}, oma only support line style sources list (.list) and deb822 style sources list (.sources)", path.display());
+                }
+                e => return Err(e),
+            },
         }
     }
 
