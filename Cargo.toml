@@ -1,6 +1,6 @@
 [package]
 name = "oma"
-version = "1.13.4"
+version = "1.13.5"
 edition = "2021"
 description = "User-friendly and performant package manager for APT repositories"
 license = "GPL-3.0-or-later"
