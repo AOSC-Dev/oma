@@ -825,7 +825,7 @@ impl<'a> OmaRefresh<'a> {
             for c in &handle {
                 collect_download_task(
                     c,
-                    &ose_list[0],
+                    ose_list[0],
                     &self.download_dir,
                     &mut tasks,
                     &inrelease,
