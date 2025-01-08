@@ -2,11 +2,17 @@ use std::path::Path;
 
 use ahash::HashMap;
 use apt_auth_config::AuthConfigEntry;
-use oma_apt_sources_lists::{Signature, SourceEntry, SourceLine, SourceListType, SourcesLists};
+use oma_apt_sources_lists::{
+    Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
+};
 use once_cell::sync::OnceCell;
 use url::Url;
 
-use crate::{db::RefreshError, util::DatabaseFilenameReplacer};
+use crate::{
+    db::{Event, RefreshError},
+    util::DatabaseFilenameReplacer,
+};
+use std::future::Future;
 
 #[derive(Debug, Clone)]
 pub struct OmaSourceEntry<'a> {
@@ -19,27 +25,57 @@ pub struct OmaSourceEntry<'a> {
     pub auth: Option<AuthConfigEntry>,
 }
 
-pub fn sources_lists(
+pub async fn sources_lists<F, Fut>(
     sysroot: impl AsRef<Path>,
     arch: &str,
-) -> Result<Vec<OmaSourceEntry<'_>>, RefreshError> {
+    cb: F,
+) -> Result<Vec<OmaSourceEntry<'_>>, SourcesListError>
+where
+    F: Fn(Event) -> Fut,
+    Fut: Future<Output = ()>,
+{
     let mut res = Vec::new();
-    let list = SourcesLists::scan_from_root(&sysroot).map_err(RefreshError::ScanSourceError)?;
+    let mut paths = vec![];
+    let default = sysroot.as_ref().join("etc/apt/sources.list");
 
-    for file in list.iter() {
-        match file.entries {
-            SourceListType::SourceLine(ref lines) => {
-                for i in &lines.0 {
-                    if let SourceLine::Entry(entry) = i {
-                        res.push(OmaSourceEntry::new(entry.clone(), arch));
+    if default.exists() {
+        paths.push(default);
+    }
+
+    if sysroot.as_ref().join("etc/apt/sources.list.d/").exists() {
+        let mut dir = tokio::fs::read_dir(sysroot.as_ref().join("etc/apt/sources.list.d/")).await?;
+        while let Some(entry) = dir.next_entry().await? {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+
+            paths.push(path);
+        }
+    }
+
+    for p in paths {
+        match SourcesList::new(p) {
+            Ok(s) => match s.entries {
+                SourceListType::SourceLine(source_list_line_style) => {
+                    for i in source_list_line_style.0 {
+                        if let SourceLine::Entry(entry) = i {
+                            res.push(OmaSourceEntry::new(entry, arch));
+                        }
                     }
                 }
-            }
-            SourceListType::Deb822(ref e) => {
-                for i in &e.entries {
-                    res.push(OmaSourceEntry::new(i.clone(), arch));
+                SourceListType::Deb822(source_list_deb822) => {
+                    for i in source_list_deb822.entries {
+                        res.push(OmaSourceEntry::new(i, arch));
+                    }
                 }
-            }
+            },
+            Err(e) => match e {
+                SourcesListError::UnknownFile { path } => {
+                    cb(Event::SourceListFileNotSupport { path }).await;
+                }
+                e => return Err(e),
+            },
         }
     }
 
