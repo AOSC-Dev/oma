@@ -6,10 +6,13 @@ use oma_apt_sources_lists::{
     Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
 };
 use once_cell::sync::OnceCell;
-use tracing::warn;
 use url::Url;
 
-use crate::{db::RefreshError, util::DatabaseFilenameReplacer};
+use crate::{
+    db::{Event, RefreshError},
+    util::DatabaseFilenameReplacer,
+};
+use std::future::Future;
 
 #[derive(Debug, Clone)]
 pub struct OmaSourceEntry<'a> {
@@ -22,10 +25,15 @@ pub struct OmaSourceEntry<'a> {
     pub auth: Option<AuthConfigEntry>,
 }
 
-pub fn sources_lists(
+pub async fn sources_lists<F, Fut>(
     sysroot: impl AsRef<Path>,
     arch: &str,
-) -> Result<Vec<OmaSourceEntry<'_>>, SourcesListError> {
+    cb: F,
+) -> Result<Vec<OmaSourceEntry<'_>>, SourcesListError>
+where
+    F: Fn(Event) -> Fut,
+    Fut: Future<Output = ()>,
+{
     let mut res = Vec::new();
     let mut paths = vec![];
     let default = sysroot.as_ref().join("etc/apt/sources.list");
@@ -35,8 +43,8 @@ pub fn sources_lists(
     }
 
     if sysroot.as_ref().join("etc/apt/sources.list.d/").exists() {
-        for entry in std::fs::read_dir(sysroot.as_ref().join("etc/apt/sources.list.d/"))? {
-            let entry = entry?;
+        let mut dir = tokio::fs::read_dir(sysroot.as_ref().join("etc/apt/sources.list.d/")).await?;
+        while let Some(entry) = dir.next_entry().await? {
             let path = entry.path();
             if !path.is_file() {
                 continue;
@@ -64,7 +72,7 @@ pub fn sources_lists(
             },
             Err(e) => match e {
                 SourcesListError::UnknownFile { path } => {
-                    warn!("Unsupported file: {}, oma only support line style sources list (.list) and deb822 style sources list (.sources)", path.display());
+                    cb(Event::SourceListFileNotSupport { path }).await;
                 }
                 e => return Err(e),
             },

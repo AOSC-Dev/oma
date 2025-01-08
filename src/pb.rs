@@ -159,6 +159,16 @@ impl RenderRefreshProgress for OmaMultiProgressBar {
                     self.pb_map.insert(1, pb);
                 }
                 RefreshEvent::Done => break,
+                RefreshEvent::SourceListFileNotSupport { path } => {
+                    self.writeln(
+                        &style("WARNING").yellow().bold().to_string(),
+                        &fl!(
+                            "unsupported-sources-list",
+                            p = path.to_string_lossy().to_string()
+                        ),
+                    )
+                    .ok();
+                }
             }
         }
     }

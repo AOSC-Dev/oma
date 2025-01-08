@@ -231,3 +231,4 @@ tum-1-with-security = oma 找到了 { $updates } 个关键系统更新（含 { $
 tum-2 = 根据您指定的操作，oma 还需要对系统组件执行若干变更，变更详情如下。
 security = 安全更新
 verify-error = 在验证 { $p } 的签名时遇到错误。
+unsupported-sources-list = 不支持的源列表文件：{ $p }，oma 仅支持 line style sources list (.list) 和 deb822 style source list (.sources)

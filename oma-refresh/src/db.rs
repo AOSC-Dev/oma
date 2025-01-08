@@ -192,6 +192,7 @@ pub enum Event {
     ClosingTopic(String),
     TopicNotInMirror { topic: String, mirror: String },
     RunInvokeScript,
+    SourceListFileNotSupport { path: PathBuf },
     Done,
 }
 
@@ -202,23 +203,10 @@ impl<'a> OmaRefresh<'a> {
         Fut: Future<Output = ()>,
     {
         let arch = dpkg_arch(&self.source)?;
+        let mut sourcelist = sources_lists(&self.source, &arch, &callback)
+            .await
+            .map_err(RefreshError::ScanSourceError)?;
 
-        self.update_db(
-            sources_lists(&self.source, &arch).map_err(RefreshError::ScanSourceError)?,
-            callback,
-        )
-        .await
-    }
-
-    async fn update_db<F, Fut>(
-        &mut self,
-        mut sourcelist: Vec<OmaSourceEntry<'_>>,
-        callback: F,
-    ) -> Result<()>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
         if !self.download_dir.is_dir() {
             fs::create_dir_all(&self.download_dir).await.map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
