@@ -9,11 +9,12 @@ use oma_console::{
     console::style,
     indicatif::{MultiProgress, ProgressBar},
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
+    print::Action,
     writer::{gen_prefix, writeln_inner, MessageType, Writeln},
 };
 use oma_fetch::Event;
 
-use crate::{fl, msg, WRITER};
+use crate::{color_formatter, fl, msg, WRITER};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
 use tracing::{error, info, warn};
@@ -164,7 +165,15 @@ impl RenderRefreshProgress for OmaMultiProgressBar {
                         &style("WARNING").yellow().bold().to_string(),
                         &fl!(
                             "unsupported-sources-list",
-                            p = path.to_string_lossy().to_string()
+                            p = color_formatter()
+                                .color_str(path.to_string_lossy(), Action::Emphasis)
+                                .to_string(),
+                            list = color_formatter()
+                                .color_str(".list", Action::Secondary)
+                                .to_string(),
+                            sources = color_formatter()
+                                .color_str(".sources", Action::Secondary)
+                                .to_string()
                         ),
                     )
                     .ok();
