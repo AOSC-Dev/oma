@@ -10,7 +10,7 @@ anyhow = "1"
 thiserror = "2"
 sequoia-openpgp = { version = "1.20", default-features = false }
 tracing = "0.1"
-oma-apt-sources-lists = "0.8"
+oma-apt-sources-lists = "0.9"
 
 [features]
 sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]

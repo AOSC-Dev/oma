@@ -24,7 +24,7 @@ use nix::{
     unistd::close,
 };
 use oma_apt::config::Config;
-use oma_apt_sources_lists::SourceError;
+use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::{
@@ -70,7 +70,7 @@ pub enum RefreshError {
     #[error("Invalid URL: {0}")]
     InvalidUrl(String),
     #[error("Scan sources.list failed: {0}")]
-    ScanSourceError(SourceError),
+    ScanSourceError(SourcesListError),
     #[error("Unsupported Protocol: {0}")]
     UnsupportedProtocol(String),
     #[error(transparent)]
