@@ -95,8 +95,8 @@ pub struct AuthConfig(pub Vec<(AuthUrl, Authenticator)>);
 
 impl AuthConfig {
     /// Read system auth.conf.d config (/etc/apt/auth.conf.d)
-    pub fn system(etc_apt_dir: impl AsRef<Path>) -> Result<Self, AuthConfigError> {
-        Self::from_path(etc_apt_dir)
+    pub fn system(sysroot: impl AsRef<Path>) -> Result<Self, AuthConfigError> {
+        Self::from_path(sysroot.as_ref().join("etc/apt"))
     }
 
     pub fn from_path(p: impl AsRef<Path>) -> Result<Self, AuthConfigError> {
