@@ -275,6 +275,7 @@ impl Refresh<'_> {
 
 pub fn auth_config(sysroot: impl AsRef<Path>) -> Option<AuthConfig> {
     AuthConfig::system(sysroot.as_ref().join("etc/apt"))
+        .inspect(|res| debug!("Auth config: {res:#?}"))
         .inspect_err(|e| debug!("Couldn't read auth config: {e}"))
         .ok()
 }

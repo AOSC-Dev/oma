@@ -112,7 +112,7 @@ impl AuthConfig {
         let auth_conf_d = p.as_ref().join("auth.conf.d");
 
         if auth_conf_d.exists() {
-            for i in read_dir(p.as_ref()).map_err(|e| AuthConfigError::ReadDir {
+            for i in read_dir(auth_conf_d).map_err(|e| AuthConfigError::ReadDir {
                 path: p.as_ref().to_path_buf(),
                 err: e,
             })? {
