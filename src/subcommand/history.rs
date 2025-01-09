@@ -26,7 +26,8 @@ use crate::{
 };
 
 use super::utils::{
-    auth_config, handle_no_result, lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitChanges
+    auth_config, handle_no_result, lock_oma, no_check_dbus_warn, select_tui_display_msg,
+    tui_select_list_size, CommitChanges,
 };
 use crate::args::CliExecuter;
 
