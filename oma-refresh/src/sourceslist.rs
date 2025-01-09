@@ -267,7 +267,7 @@ impl<'a, 'b> MirrorSources<'a, 'b> {
     pub(crate) fn from_sourcelist(
         sourcelist: &'a [OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
-        auth_config: &'b AuthConfig,
+        auth_config: Option<&'b AuthConfig>,
     ) -> Result<Self, RefreshError> {
         let mut map: HashMap<String, Vec<&OmaSourceEntry>> =
             HashMap::with_hasher(ahash::RandomState::new());
@@ -287,7 +287,7 @@ impl<'a, 'b> MirrorSources<'a, 'b> {
 
         for (_, v) in map {
             let url = v[0].url();
-            let auth = auth_config.find(url);
+            let auth = auth_config.and_then(|auth| auth.find(url));
 
             res.push(MirrorSource {
                 sources: v,

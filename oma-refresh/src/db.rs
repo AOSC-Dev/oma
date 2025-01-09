@@ -122,7 +122,7 @@ pub struct OmaRefresh<'a> {
     refresh_topics: bool,
     apt_config: &'a Config,
     topic_msg: &'a str,
-    auth_config: &'a AuthConfig,
+    auth_config: Option<&'a AuthConfig>,
 }
 
 /// Create `apt update` file lock

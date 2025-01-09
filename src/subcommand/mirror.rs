@@ -7,7 +7,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use anyhow::anyhow;
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use clap::Subcommand;
 use dialoguer::console::style;
@@ -46,6 +45,7 @@ use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;
 use crate::RT;
 
+use super::utils::auth_config;
 use super::utils::tui_select_list_size;
 use super::utils::Refresh;
 use crate::args::CliExecuter;
@@ -529,7 +529,8 @@ fn refresh(
     network_threads: usize,
     refresh_topic: bool,
 ) -> Result<(), OutputError> {
-    let auth_config = AuthConfig::system("/")?;
+    let auth_config = auth_config("/");
+    let auth_config = auth_config.as_ref();
 
     Refresh::builder()
         .client(&HTTP_CLIENT)
@@ -538,7 +539,7 @@ fn refresh(
         .network_thread(network_threads)
         .refresh_topics(refresh_topic)
         .config(&AptConfig::new())
-        .auth_config(&auth_config)
+        .maybe_auth_config(auth_config)
         .build()
         .run()?;
 

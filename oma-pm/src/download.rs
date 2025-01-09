@@ -47,7 +47,7 @@ where
                 let source_type = if x.index_url.starts_with("file:") {
                     DownloadSourceType::Local(false)
                 } else {
-                    let auth = auth.find(&x.index_url);
+                    let auth = auth.and_then(|auth| auth.find(&x.index_url));
 
                     DownloadSourceType::Http {
                         auth: auth.map(|x| (x.login.to_owned(), x.password.to_owned())),

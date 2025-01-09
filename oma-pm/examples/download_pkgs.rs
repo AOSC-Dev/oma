@@ -42,7 +42,7 @@ fn main() -> Result<(), OmaAptError> {
         DownloadConfig {
             network_thread: None,
             download_dir: Some(Path::new("test")),
-            auth: &AuthConfig::system("/").unwrap(),
+            auth: Some(&AuthConfig::system("/").unwrap()),
         },
         false,
         |event| async {

@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
@@ -18,6 +17,7 @@ use crate::utils::dbus_check;
 use crate::utils::root;
 use crate::HTTP_CLIENT;
 
+use super::utils::auth_config;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
@@ -133,7 +133,8 @@ impl CliExecuter for Install {
 
         let apt_config = AptConfig::new();
 
-        let auth_config = AuthConfig::system(&sysroot)?;
+        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config.as_ref();
 
         if !no_refresh {
             let sysroot = sysroot.to_string_lossy();
@@ -144,7 +145,7 @@ impl CliExecuter for Install {
                 .network_thread(config.network_thread())
                 .sysroot(&sysroot)
                 .config(&apt_config)
-                .auth_config(&auth_config);
+                .maybe_auth_config(auth_config);
 
             #[cfg(feature = "aosc")]
             let refresh = builder
@@ -222,7 +223,7 @@ impl CliExecuter for Install {
             .remove_config(remove_config)
             .autoremove(autoremove)
             .network_thread(config.network_thread())
-            .auth_config(&auth_config)
+            .maybe_auth_config(auth_config)
             .fix_dpkg_status(!no_fix_dpkg_status)
             .build()
             .run()

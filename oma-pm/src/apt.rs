@@ -165,7 +165,7 @@ pub enum SummarySort {
 pub struct DownloadConfig<'a> {
     pub network_thread: Option<usize>,
     pub download_dir: Option<&'a Path>,
-    pub auth: &'a AuthConfig,
+    pub auth: Option<&'a AuthConfig>,
 }
 
 impl OmaApt {
