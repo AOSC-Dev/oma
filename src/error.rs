@@ -901,15 +901,15 @@ impl From<SingleDownloadError> for OutputError {
         match value {
             SingleDownloadError::SetPermission { source } => Self {
                 description: fl!("set-permission"),
-                source: Some(Box::new(source))
+                source: Some(Box::new(source)),
             },
             SingleDownloadError::OpenAsWriteMode { source } => Self {
                 description: fl!("open-file-as-write-mode"),
-                source: Some(Box::new(source))
+                source: Some(Box::new(source)),
             },
-            SingleDownloadError::Open { source } => Self { 
-                description: fl!("open-err"), 
-                source: Some(Box::new(source))
+            SingleDownloadError::Open { source } => Self {
+                description: fl!("open-err"),
+                source: Some(Box::new(source)),
             },
             SingleDownloadError::Create { source } => Self {
                 description: fl!("create-err"),
@@ -919,23 +919,42 @@ impl From<SingleDownloadError> for OutputError {
                 description: fl!("seek-err"),
                 source: Some(Box::new(source)),
             },
-            SingleDownloadError::Write { source } => Self { description: fl!("write-err"), source:  Some(Box::new(source)), },
-            SingleDownloadError::Flush { source } => Self { description: fl!("flush-err"), source: Some(Box::new(source))},
-            SingleDownloadError::Remove { source } => Self { description: fl!("remove-err"), source: Some(Box::new(source)) },
-            SingleDownloadError::CreateSymlink { source } => Self { description: fl!("create-symlink-err"), source: Some(Box::new(source))},
-            SingleDownloadError::ReqwestError { source } => Self { description: fl!("reqwest-err"), source: Some(Box::new(source)) },
-            SingleDownloadError::BrokenPipe { source } => Self { description: fl!("broken-pipe-err"), source: Some(Box::new(source)) },
+            SingleDownloadError::Write { source } => Self {
+                description: fl!("write-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::Flush { source } => Self {
+                description: fl!("flush-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::Remove { source } => Self {
+                description: fl!("remove-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::CreateSymlink { source } => Self {
+                description: fl!("create-symlink-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::ReqwestError { source } => Self {
+                description: fl!("reqwest-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::BrokenPipe { source } => Self {
+                description: fl!("broken-pipe-err"),
+                source: Some(Box::new(source)),
+            },
             SingleDownloadError::SendRequestTimeout { source } => Self {
                 description: fl!("send-request-timeout"),
-                source: Some(Box::new(source))
+                source: Some(Box::new(source)),
             },
-            SingleDownloadError::DownloadTimeout { source } => Self { description: fl!("download-timeout"), source: Some(Box::new(source)) },
-            SingleDownloadError::ChecksumMismatch => {
-                Self {
-                    description: fl!("checksum-mismatch-download-err"),
-                    source: None,
-                }
-            }
+            SingleDownloadError::DownloadTimeout { source } => Self {
+                description: fl!("download-timeout"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::ChecksumMismatch => Self {
+                description: fl!("checksum-mismatch-download-err"),
+                source: None,
+            },
         }
     }
 }
