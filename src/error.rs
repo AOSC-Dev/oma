@@ -943,13 +943,13 @@ impl From<SingleDownloadError> for OutputError {
                 description: fl!("broken-pipe-err"),
                 source: Some(Box::new(source)),
             },
-            SingleDownloadError::SendRequestTimeout { source } => Self {
+            SingleDownloadError::SendRequestTimeout => Self {
                 description: fl!("send-request-timeout"),
-                source: Some(Box::new(source)),
+                source: None,
             },
-            SingleDownloadError::DownloadTimeout { source } => Self {
+            SingleDownloadError::DownloadTimeout => Self {
                 description: fl!("download-timeout"),
-                source: Some(Box::new(source)),
+                source: None,
             },
             SingleDownloadError::ChecksumMismatch => Self {
                 description: fl!("checksum-mismatch-download-err"),

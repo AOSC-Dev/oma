@@ -21,7 +21,7 @@ use snafu::{ResultExt, Snafu};
 use tokio::{
     fs::{self, File},
     io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
-    time::{error::Elapsed, timeout},
+    time::timeout,
 };
 
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
@@ -92,9 +92,9 @@ pub enum SingleDownloadError {
     #[snafu(display("Broken pipe"))]
     BrokenPipe { source: io::Error },
     #[snafu(display("Send request timeout"))]
-    SendRequestTimeout { source: Elapsed },
+    SendRequestTimeout,
     #[snafu(display("Download file timeout"))]
-    DownloadTimeout { source: Elapsed },
+    DownloadTimeout,
     #[snafu(display("checksum mismatch"))]
     ChecksumMismatch,
 }
@@ -334,8 +334,8 @@ impl SingleDownloader<'_> {
             Ok(Err(e)) => {
                 return Err(SingleDownloadError::ReqwestError { source: e });
             }
-            Err(e) => {
-                return Err(SingleDownloadError::SendRequestTimeout { source: e });
+            Err(_) => {
+                return Err(SingleDownloadError::SendRequestTimeout);
             }
         };
 
@@ -400,7 +400,7 @@ impl SingleDownloader<'_> {
             Ok(resp) => resp
                 .and_then(|resp| resp.error_for_status())
                 .context(ReqwestSnafu)?,
-            Err(e) => return Err(SingleDownloadError::SendRequestTimeout { source: e }),
+            Err(_) => return Err(SingleDownloadError::SendRequestTimeout),
         };
 
         callback(Event::NewProgressBar {
@@ -518,9 +518,9 @@ impl SingleDownloader<'_> {
                     callback(Event::ProgressDone(self.download_list_index)).await;
                     return Err(SingleDownloadError::BrokenPipe { source: e });
                 }
-                Err(e) => {
+                Err(_) => {
                     callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(SingleDownloadError::DownloadTimeout { source: e });
+                    return Err(SingleDownloadError::DownloadTimeout);
                 }
             };
 
