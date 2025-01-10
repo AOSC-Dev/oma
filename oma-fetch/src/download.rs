@@ -99,7 +99,7 @@ pub enum SingleDownloadError {
     ChecksumMismatch,
 }
 
-impl<'a> SingleDownloader<'a> {
+impl SingleDownloader<'_> {
     pub(crate) async fn try_download<F, Fut>(
         self,
         global_progress: &AtomicU64,
