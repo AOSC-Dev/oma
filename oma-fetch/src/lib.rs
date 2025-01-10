@@ -207,7 +207,7 @@ pub struct Summary {
     pub context: Option<String>,
 }
 
-impl<'a> DownloadManager<'a> {
+impl DownloadManager<'_> {
     /// Start download
     pub async fn start_download<F, Fut>(&self, callback: F) -> Vec<DownloadResult<Summary>>
     where

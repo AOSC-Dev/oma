@@ -458,7 +458,7 @@ impl<'a> OmaRefresh<'a> {
         Ok(())
     }
 
-    async fn get_release_file<'b, F, Fut>(
+    async fn get_release_file<F, Fut>(
         &self,
         entry: &MirrorSource<'_>,
         replacer: &DatabaseFilenameReplacer,
