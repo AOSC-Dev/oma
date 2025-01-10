@@ -14,6 +14,7 @@ use ahash::HashSet;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{Pager, PagerExit, PagerUIText};
 use oma_console::print::Action;
+use oma_history::{InstallHistoryEntry, RemoveHistoryEntry};
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 use tabled::settings::object::Columns;
 use tabled::settings::peaker::PriorityMax;
@@ -32,6 +33,8 @@ struct InstallEntryDisplay {
     name: String,
     version_delta: String,
     size_delta: String,
+    #[tabled(skip)]
+    operation: InstallOperation,
 }
 
 #[derive(Debug, Tabled)]
@@ -39,6 +42,84 @@ struct RemoveEntryDisplay {
     name: String,
     size: String,
     detail: String,
+}
+
+impl From<&InstallHistoryEntry> for InstallEntryDisplay {
+    fn from(value: &InstallHistoryEntry) -> Self {
+        let name = match value.operation {
+            InstallOperation::Install => style(&value.pkg_name).green().to_string(),
+            InstallOperation::ReInstall => style(&value.pkg_name).blue().to_string(),
+            InstallOperation::Upgrade => color_formatter()
+                .color_str(&value.pkg_name, Action::UpgradeTips)
+                .to_string(),
+            InstallOperation::Downgrade => style(&value.pkg_name).yellow().to_string(),
+            InstallOperation::Download => value.pkg_name.to_string(),
+            InstallOperation::Default => unreachable!(),
+        };
+
+        let version_delta = if let Some(ref old_version) = value.old_version {
+            let mut new_version = value.new_version.to_string();
+            let (old, new) = version_diff(old_version, &new_version);
+            let mut old_version = old_version.to_string();
+
+            if let Some(old) = old {
+                old_version.replace_range(old.., &style(&old_version[old..]).red().to_string());
+            }
+
+            if let Some(new) = new {
+                new_version.replace_range(new.., &style(&new_version[new..]).green().to_string());
+            }
+
+            format!("{} -> {}", old_version, new_version)
+        } else {
+            value.new_version.to_string()
+        };
+
+        let size_delta = if let Some(old_size) = value.old_size {
+            value.new_size - old_size
+        } else {
+            value.new_size
+        };
+
+        let size_delta = if size_delta >= 0 {
+            format!("+{}", HumanBytes(size_delta.unsigned_abs()))
+        } else {
+            format!("-{}", HumanBytes(size_delta.unsigned_abs()))
+        };
+
+        Self {
+            name,
+            version_delta,
+            size_delta,
+            operation: value.operation,
+        }
+    }
+}
+
+impl From<&RemoveHistoryEntry> for RemoveEntryDisplay {
+    fn from(value: &RemoveHistoryEntry) -> Self {
+        let name = style(&value.pkg_name).red().bold().to_string();
+        let mut detail = vec![];
+        for i in &value.tags {
+            match i {
+                RemoveTag::Purge => detail.push(fl!("purge-file")),
+                RemoveTag::AutoRemove => detail.push(fl!("removed-as-unneed-dep")),
+                RemoveTag::Resolver => detail.push(fl!("removed-as-unmet-dep")),
+            }
+        }
+
+        let mut detail = detail.join(&fl!("semicolon"));
+
+        // 首字大小写转换
+        detail.get_mut(0..1).map(|s| {
+            s.make_ascii_uppercase();
+            &*s
+        });
+
+        let size = format!("-{}", HumanBytes(value.size as u64));
+
+        Self { name, detail, size }
+    }
 }
 
 impl From<&RemoveEntry> for RemoveEntryDisplay {
@@ -113,6 +194,7 @@ impl From<&InstallEntry> for InstallEntryDisplay {
             name,
             version_delta,
             size_delta,
+            operation: *value.op(),
         }
     }
 }
@@ -262,7 +344,23 @@ pub fn table_for_install_pending(
         review_msg(&mut printer);
     }
 
-    print_pending_inner(printer, remove, install, disk_size, &tum);
+    let total_download_size = install
+        .iter()
+        .filter(|x| x.op() == &InstallOperation::Install || x.op() == &InstallOperation::Upgrade)
+        .map(|x| x.download_size())
+        .sum();
+
+    let install = install.iter().map(|x| x.into()).collect::<Vec<_>>();
+    let remove = remove.iter().map(|x| x.into()).collect::<Vec<_>>();
+
+    print_pending_inner(
+        printer,
+        &remove,
+        &install,
+        disk_size,
+        total_download_size,
+        &tum,
+    );
     let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
@@ -277,7 +375,14 @@ pub fn table_for_install_pending(
             })?;
             let mut printer = PagerPrinter::new(out);
             printer.println("").ok();
-            print_pending_inner(printer, remove, install, disk_size, &tum);
+            print_pending_inner(
+                printer,
+                &remove,
+                &install,
+                disk_size,
+                total_download_size,
+                &tum,
+            );
             Ok(exit)
         }
         _ => Ok(exit),
@@ -285,8 +390,8 @@ pub fn table_for_install_pending(
 }
 
 pub fn table_for_history_pending(
-    install: &[InstallEntry],
-    remove: &[RemoveEntry],
+    install: &[InstallHistoryEntry],
+    remove: &[RemoveHistoryEntry],
     disk_size: &(Box<str>, u64),
 ) -> Result<(), OutputError> {
     let mut pager = Pager::external(
@@ -307,7 +412,25 @@ pub fn table_for_history_pending(
 
     printer.println("\n\n").ok();
 
-    print_pending_inner(printer, remove, install, disk_size, &None);
+    let total_download_size = install
+        .iter()
+        .filter(|x| {
+            x.operation == InstallOperation::Install || x.operation == InstallOperation::Upgrade
+        })
+        .map(|x| x.download_size as u64)
+        .sum();
+
+    let install = install.iter().map(|x| x.into()).collect::<Vec<_>>();
+    let remove = remove.iter().map(|x| x.into()).collect::<Vec<_>>();
+
+    print_pending_inner(
+        printer,
+        &remove,
+        &install,
+        disk_size,
+        total_download_size,
+        &None,
+    );
     pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
@@ -326,9 +449,10 @@ struct TumDisplay {
 
 fn print_pending_inner<W: Write>(
     mut printer: PagerPrinter<W>,
-    remove: &[RemoveEntry],
-    install: &[InstallEntry],
+    remove: &[RemoveEntryDisplay],
+    install: &[InstallEntryDisplay],
     disk_size: &(Box<str>, u64),
+    total_download_size: u64,
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
 ) {
     print_tum(&mut printer, tum);
@@ -343,14 +467,9 @@ fn print_pending_inner<W: Write>(
             ))
             .ok();
 
-        let remove_display = remove
-            .iter()
-            .map(RemoveEntryDisplay::from)
-            .collect::<Vec<_>>();
-
         printer
             .print_table(
-                remove_display,
+                remove,
                 vec![
                     fl!("table-name").as_str(),
                     fl!("table-size").as_str(),
@@ -361,24 +480,17 @@ fn print_pending_inner<W: Write>(
         printer.println("\n").ok();
     }
 
-    let total_download_size: u64 = install
-        .iter()
-        .filter(|x| x.op() == &InstallOperation::Install || x.op() == &InstallOperation::Upgrade)
-        .map(|x| x.download_size())
-        .sum();
-
     if !install.is_empty() {
-        let install_e = install
+        let install_e: Vec<_> = install
             .iter()
-            .filter(|x| x.op() == &InstallOperation::Install);
+            .filter(|x| x.operation == InstallOperation::Install)
+            .collect();
 
-        let install_e_display = install_e.map(InstallEntryDisplay::from).collect::<Vec<_>>();
-
-        if !install_e_display.is_empty() {
+        if !install_e.is_empty() {
             printer
                 .println(format!(
                     "{} {}{}\n",
-                    fl!("count-pkg-has-desc", count = install_e_display.len()),
+                    fl!("count-pkg-has-desc", count = install_e.len()),
                     style(fl!("installed")).green().bold(),
                     fl!("colon")
                 ))
@@ -386,7 +498,7 @@ fn print_pending_inner<W: Write>(
 
             printer
                 .print_table(
-                    install_e_display,
+                    install_e,
                     vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
@@ -399,15 +511,14 @@ fn print_pending_inner<W: Write>(
 
         let update = install
             .iter()
-            .filter(|x| x.op() == &InstallOperation::Upgrade);
+            .filter(|x| x.operation == InstallOperation::Upgrade)
+            .collect::<Vec<_>>();
 
-        let update_display = update.map(InstallEntryDisplay::from).collect::<Vec<_>>();
-
-        if !update_display.is_empty() {
+        if !update.is_empty() {
             printer
                 .println(format!(
                     "{} {}{}\n",
-                    fl!("count-pkg-has-desc", count = update_display.len()),
+                    fl!("count-pkg-has-desc", count = update.len()),
                     color_formatter().color_str(fl!("upgraded"), Action::UpgradeTips),
                     fl!("colon")
                 ))
@@ -415,7 +526,7 @@ fn print_pending_inner<W: Write>(
 
             printer
                 .print_table(
-                    update_display,
+                    update,
                     vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
@@ -428,15 +539,14 @@ fn print_pending_inner<W: Write>(
 
         let downgrade = install
             .iter()
-            .filter(|x| x.op() == &InstallOperation::Downgrade);
+            .filter(|x| x.operation == InstallOperation::Downgrade)
+            .collect::<Vec<_>>();
 
-        let downgrade_display = downgrade.map(InstallEntryDisplay::from).collect::<Vec<_>>();
-
-        if !downgrade_display.is_empty() {
+        if !downgrade.is_empty() {
             printer
                 .println(format!(
                     "{} {}{}\n",
-                    fl!("count-pkg-has-desc", count = downgrade_display.len()),
+                    fl!("count-pkg-has-desc", count = downgrade.len()),
                     style(fl!("downgraded")).yellow().bold(),
                     fl!("colon")
                 ))
@@ -444,7 +554,7 @@ fn print_pending_inner<W: Write>(
 
             printer
                 .print_table(
-                    downgrade_display,
+                    downgrade,
                     vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),
@@ -457,15 +567,14 @@ fn print_pending_inner<W: Write>(
 
         let reinstall = install
             .iter()
-            .filter(|x| x.op() == &InstallOperation::ReInstall);
+            .filter(|x| x.operation == InstallOperation::ReInstall)
+            .collect::<Vec<_>>();
 
-        let reinstall_display = reinstall.map(InstallEntryDisplay::from).collect::<Vec<_>>();
-
-        if !reinstall_display.is_empty() {
+        if !reinstall.is_empty() {
             printer
                 .println(format!(
                     "{} {}{}\n",
-                    fl!("count-pkg-has-desc", count = reinstall_display.len()),
+                    fl!("count-pkg-has-desc", count = reinstall.len()),
                     style(fl!("reinstalled")).blue().bold(),
                     fl!("colon"),
                 ))
@@ -473,7 +582,7 @@ fn print_pending_inner<W: Write>(
 
             printer
                 .print_table(
-                    reinstall_display,
+                    reinstall,
                     vec![
                         fl!("table-name").as_str(),
                         fl!("table-version").as_str(),

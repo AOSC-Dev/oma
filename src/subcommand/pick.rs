@@ -204,11 +204,7 @@ impl CliExecuter for Pick {
         CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
-            .request_type(SummaryType::Remove(
-                pkgs.iter()
-                    .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
-                    .collect::<Vec<_>>(),
-            ))
+            .request_type(SummaryType::Install)
             .no_fixbroken(fix_broken)
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())

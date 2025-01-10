@@ -245,7 +245,7 @@ impl CliExecuter for Tui {
             code = CommitChanges::builder()
                 .apt(apt)
                 .dry_run(dry_run)
-                .request_type(SummaryType::Changes)
+                .request_type(SummaryType::Install)
                 .no_fixbroken(!fix_broken)
                 .no_progress(no_progress)
                 .sysroot(sysroot.to_string_lossy().to_string())

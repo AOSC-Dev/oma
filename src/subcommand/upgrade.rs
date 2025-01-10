@@ -324,12 +324,6 @@ impl CliExecuter for Upgrade {
                 }
             }
 
-            let typ = SummaryType::Upgrade(
-                pkgs.iter()
-                    .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
-                    .collect::<Vec<_>>(),
-            );
-
             let start_time = Local::now().timestamp();
 
             match apt.commit(
@@ -356,7 +350,7 @@ impl CliExecuter for Upgrade {
 
                     write_history_entry(
                         &op,
-                        typ,
+                        SummaryType::Upgrade,
                         {
                             let db = create_db_file(sysroot)?;
                             connect_db(db, true)?
@@ -379,17 +373,7 @@ impl CliExecuter for Upgrade {
                         if retry_times == 3 {
                             write_history_entry(
                                 &op,
-                                SummaryType::Upgrade(
-                                    pkgs.iter()
-                                        .map(|x| {
-                                            format!(
-                                                "{} {}",
-                                                x.raw_pkg.fullname(true),
-                                                x.version_raw.version()
-                                            )
-                                        })
-                                        .collect::<Vec<_>>(),
-                                ),
+                                SummaryType::Upgrade,
                                 {
                                     let db = create_db_file(sysroot)?;
                                     connect_db(db, true)?

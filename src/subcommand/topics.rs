@@ -229,10 +229,7 @@ impl CliExecuter for Topics {
             let code = CommitChanges::builder()
                 .apt(apt)
                 .dry_run(dry_run)
-                .request_type(SummaryType::TopicsChanged {
-                    add: opt_in,
-                    remove: opt_out,
-                })
+                .request_type(SummaryType::Install)
                 .no_fixbroken(!no_fixbroken)
                 .no_progress(no_progress)
                 .sysroot(sysroot.to_string_lossy().to_string())

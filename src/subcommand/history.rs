@@ -15,7 +15,7 @@ use oma_pm::{
 };
 
 use std::path::{Path, PathBuf};
-use std::{borrow::Cow, sync::atomic::Ordering};
+use std::sync::atomic::Ordering;
 
 use crate::config::Config;
 use crate::{
@@ -165,13 +165,15 @@ impl CliExecuter for Undo {
 
         if !op.install.is_empty() {
             for i in &op.install {
-                match i.op() {
+                match i.operation {
                     InstallOperation::Default | InstallOperation::Download => unreachable!(),
-                    InstallOperation::Install => glob.push(i.name()),
+                    InstallOperation::Install => glob.push(&i.pkg_name),
                     InstallOperation::ReInstall => continue,
-                    InstallOperation::Upgrade => install.push((i.name(), i.old_version().unwrap())),
+                    InstallOperation::Upgrade => {
+                        install.push((i.pkg_name.clone(), i.old_version.clone().unwrap()))
+                    }
                     InstallOperation::Downgrade => {
-                        install.push((i.name(), i.old_version().unwrap()))
+                        install.push((i.pkg_name.clone(), i.old_version.clone().unwrap()))
                     }
                 }
             }
@@ -179,9 +181,7 @@ impl CliExecuter for Undo {
 
         if !op.remove.is_empty() {
             for i in &op.remove {
-                if let Some(ver) = i.version() {
-                    install.push((i.name(), ver));
-                }
+                install.push((i.pkg_name.clone(), i.version.clone()));
             }
         }
 
@@ -195,7 +195,7 @@ impl CliExecuter for Undo {
         for i in glob {
             let res = matcher.match_pkgs_from_glob(i)?;
             if res.is_empty() {
-                no_result.push(i);
+                no_result.push(i.as_str());
             } else {
                 delete.extend(res);
             }
@@ -210,7 +210,7 @@ impl CliExecuter for Undo {
         let install = install
             .iter()
             .filter_map(|(pkg, ver)| {
-                let pkg = pkgs.iter().find(move |y| &y.name() == pkg);
+                let pkg = pkgs.iter().find(move |y| y.name() == pkg);
 
                 if let Some(pkg) = pkg {
                     Some((pkg, pkg.get_version(ver)?))
@@ -271,108 +271,21 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usi
         .enumerate()
         .filter(|(_, log)| {
             if undo {
-                log.t != SummaryType::FixBroken && log.t != SummaryType::Undo
+                log.summary_type != SummaryType::FixBroken && log.summary_type != SummaryType::Undo
             } else {
                 true
             }
         })
         .map(|(index, log)| {
             let date = format_date(log.time);
-            let s = match &log.t {
-                SummaryType::Install(v) if v.len() > 3 => format!(
-                    "{}Installed {} ... (and {} more) [{}]",
-                    format_success(log.is_success),
-                    v[..3].join(" "),
-                    v.len() - 3,
-                    date
-                ),
-                SummaryType::Install(v) => format!(
-                    "{}Installed {} [{date}]",
-                    format_success(log.is_success),
-                    v.join(" "),
-                ),
-                SummaryType::Upgrade(v) if v.is_empty() => {
-                    format!("Upgraded system [{date}]")
-                }
-                SummaryType::Upgrade(v) if v.len() > 3 => format!(
-                    "{}Upgraded system and installed {}... (and {} more) [{date}]",
-                    format_success(log.is_success),
-                    v[..3].join(" "),
-                    v.len() - 3
-                ),
-                SummaryType::Upgrade(v) => format!(
-                    "{}Upgraded system and install {} [{date}]",
-                    format_success(log.is_success),
-                    v.join(" "),
-                ),
-                SummaryType::Remove(v) if v.len() > 3 => format!(
-                    "{}Removed {} ... (and {} more)",
-                    format_success(log.is_success),
-                    v[..3].join(" "),
-                    v.len() - 3
-                ),
-                SummaryType::Remove(v) => format!("Removed {} [{date}]", v.join(" ")),
-                SummaryType::FixBroken => format!("Attempted to fix broken dependencies [{date}]"),
-                SummaryType::TopicsChanged { add, remove } if remove.is_empty() => {
-                    format!(
-                        "{}Topics changed: enabled {}{} [{date}]",
-                        format_success(log.is_success),
-                        if add.len() <= 3 {
-                            add.join(" ")
-                        } else {
-                            add[..3].join(" ")
-                        },
-                        if add.len() <= 3 {
-                            Cow::Borrowed("")
-                        } else {
-                            Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
-                        }
-                    )
-                }
-                SummaryType::TopicsChanged { add, remove } if add.is_empty() => {
-                    format!(
-                        "{}Topics changed: disabled {}{} [{date}]",
-                        format_success(log.is_success),
-                        if remove.len() <= 3 {
-                            add.join(" ")
-                        } else {
-                            remove[..3].join(" ")
-                        },
-                        if remove.len() <= 3 {
-                            Cow::Borrowed("")
-                        } else {
-                            Cow::Owned(format!(" ... (and {} more)", remove.len() - 3))
-                        }
-                    )
-                }
-                SummaryType::TopicsChanged { add, remove } => {
-                    format!(
-                        "{}Topics changed: enabled {}{}, disabled {}{} [{date}]",
-                        format_success(log.is_success),
-                        if add.len() <= 3 {
-                            add.join(" ")
-                        } else {
-                            add[..3].join(" ")
-                        },
-                        if add.len() <= 3 {
-                            Cow::Borrowed("")
-                        } else {
-                            Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
-                        },
-                        if remove.len() <= 3 {
-                            remove.join(" ")
-                        } else {
-                            remove[..3].join(" ")
-                        },
-                        if remove.len() <= 3 {
-                            Cow::Borrowed("")
-                        } else {
-                            Cow::Owned(format!(" ... (and {} more)", add.len() - 3))
-                        },
-                    )
-                }
-                SummaryType::Undo => format!("Undone [{date}]"),
-                SummaryType::Changes => format!("Change packages [{date}]"),
+
+            // TODO
+            let s = match &log.summary_type {
+                SummaryType::Install => format!("{}Install pkg", format_success(log.is_success)),
+                SummaryType::Upgrade => format!("{}Upgrade pkg", format_success(log.is_success)),
+                SummaryType::Remove => format!("{}Remove pkg", format_success(log.is_success)),
+                SummaryType::FixBroken => format!("{}Fix broken", format_success(log.is_success)),
+                SummaryType::Undo => format!("{}Undo", format_success(log.is_success)),
             };
 
             let s = select_tui_display_msg(&s, false).to_string();

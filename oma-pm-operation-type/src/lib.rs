@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use bon::{builder, Builder};
+use num_enum::{FromPrimitive, IntoPrimitive};
 use oma_utils::human_bytes::HumanBytes;
 use serde::{Deserialize, Serialize};
 
@@ -145,10 +146,23 @@ pub enum RemoveTag {
     Resolver,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Clone,
+    Default,
+    Serialize,
+    Deserialize,
+    IntoPrimitive,
+    FromPrimitive,
+    Copy,
+)]
+#[repr(u8)]
 pub enum InstallOperation {
     #[default]
-    Default,
+    Default = 0,
     Install,
     ReInstall,
     Upgrade,
