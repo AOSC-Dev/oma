@@ -15,7 +15,7 @@ use oma_console::{
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
-use crate::color_formatter;
+use crate::{color_formatter, error::OutputError};
 use crate::{error::Chain, fl, msg, utils::is_root, WRITER};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
@@ -241,10 +241,15 @@ impl OmaMultiProgressBar {
                     pb.inc(size);
                 }
             }
-            Event::NextUrl { index: _, err } => {
+            Event::NextUrl {
+                index: _,
+                file_name,
+                err,
+            } => {
+                self.handle_download_err(file_name, err);
                 self.writeln(
-                    &style("ERROR").red().bold().to_string(),
-                    &fl!("can-not-get-source-next-url", e = err),
+                    &style("INFO").blue().bold().to_string(),
+                    &fl!("can-not-get-source-next-url"),
                 )
                 .ok();
             }
@@ -265,58 +270,65 @@ impl OmaMultiProgressBar {
                 self.pb_map.insert(0, pb);
             }
             Event::Failed { file_name, error } => {
-                let cause = Chain::new(&error).collect::<Vec<_>>();
-                let last_cause = cause.last();
-
-                if let Some(cause) = last_cause {
-                    self.writeln(
-                        &style("ERROR").red().bold().to_string(),
-                        &fl!(
-                            "download-package-failed-with-reason",
-                            filename = file_name,
-                            reason = cause.to_string()
-                        ),
-                    )
-                    .ok();
-                } else {
-                    self.writeln(
-                        &style("ERROR").red().bold().to_string(),
-                        &fl!("download-failed", filename = file_name),
-                    )
-                    .ok();
-                }
-
-                debug!("{:#?}", cause);
-
-                if let SingleDownloadError::ReqwestError { ref source } = error {
-                    if source
-                        .status()
-                        .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
-                    {
-                        if !is_root() {
-                            self.writeln(
-                                &style("INFO").blue().bold().to_string(),
-                                &fl!("auth-need-permission"),
-                            )
-                            .ok();
-                        } else {
-                            self.writeln(
-                                &style("INFO").blue().bold().to_string(),
-                                &fl!("lack-auth-config-1"),
-                            )
-                            .ok();
-                            self.writeln(
-                                &style("INFO").blue().bold().to_string(),
-                                &fl!("lack-auth-config-2"),
-                            )
-                            .ok();
-                        }
-                    }
-                }
+                self.handle_download_err(file_name, error);
             }
         };
 
         false
+    }
+
+    fn handle_download_err(&mut self, file_name: String, error: SingleDownloadError) {
+        if let SingleDownloadError::ReqwestError { ref source } = error {
+            if source
+                .status()
+                .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
+            {
+                if !is_root() {
+                    self.writeln(
+                        &style("INFO").blue().bold().to_string(),
+                        &fl!("auth-need-permission"),
+                    )
+                    .ok();
+                } else {
+                    self.writeln(
+                        &style("INFO").blue().bold().to_string(),
+                        &fl!("lack-auth-config-1"),
+                    )
+                    .ok();
+                    self.writeln(
+                        &style("INFO").blue().bold().to_string(),
+                        &fl!("lack-auth-config-2"),
+                    )
+                    .ok();
+                }
+            }
+
+            let err = OutputError::from(error);
+            let errs = Chain::new(&err).collect::<Vec<_>>();
+            let first_cause = errs.first().unwrap().to_string();
+            let last = errs.iter().skip(1).last();
+
+            if let Some(last_cause) = last {
+                let reason = format!("{}: {}", first_cause, last_cause);
+                self.writeln(
+                    &style("ERROR").red().bold().to_string(),
+                    &fl!(
+                        "download-package-failed-with-reason",
+                        filename = file_name,
+                        reason = reason
+                    ),
+                )
+                .ok();
+            } else {
+                self.writeln(
+                    &style("ERROR").red().bold().to_string(),
+                    &fl!("download-failed", filename = file_name),
+                )
+                .ok();
+            }
+
+            debug!("{:#?}", errs);
+        }
     }
 }
 
@@ -403,11 +415,13 @@ impl NoProgressBar {
                     self.timer = Instant::now();
                 }
             }
-            Event::NextUrl { index: _, err } => {
-                error!(
-                    "{}",
-                    fl!("can-not-get-source-next-url", e = err.to_string())
-                );
+            Event::NextUrl {
+                index: _,
+                file_name,
+                err,
+            } => {
+                handle_no_pb_download_error(file_name, err);
+                info!("{}", fl!("can-not-get-source-next-url"));
             }
             Event::DownloadDone { index: _, msg } => {
                 WRITER.writeln("DONE", &msg).ok();
@@ -416,9 +430,47 @@ impl NoProgressBar {
             Event::NewGlobalProgressBar(total_size) => {
                 self.total_size.get_or_init(|| total_size);
             }
+            Event::Failed { file_name, error } => {
+                handle_no_pb_download_error(file_name, error);
+            }
             _ => {}
         };
 
         false
+    }
+}
+
+fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
+    if let SingleDownloadError::ReqwestError { ref source } = error {
+        if source
+            .status()
+            .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
+        {
+            if !is_root() {
+                info!("{}", fl!("auth-need-permission"));
+            } else {
+                info!("{}", fl!("lack-auth-config-1"));
+                info!("{}", fl!("lack-auth-config-2"));
+            }
+        }
+    }
+
+    let err = OutputError::from(error);
+    let errs = Chain::new(&err).collect::<Vec<_>>();
+    let first_cause = errs.first().unwrap().to_string();
+    let last = errs.iter().skip(1).last();
+
+    if let Some(last_cause) = last {
+        let reason = format!("{}: {}", first_cause, last_cause);
+        error!(
+            "{}",
+            fl!(
+                "download-package-failed-with-reason",
+                filename = file_name,
+                reason = reason
+            )
+        );
+    } else {
+        error!("{}", fl!("download-failed", filename = file_name));
     }
 }

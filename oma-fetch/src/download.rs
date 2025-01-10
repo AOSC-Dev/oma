@@ -157,7 +157,8 @@ impl SingleDownloader<'_> {
 
                     callback(Event::NextUrl {
                         index: self.download_list_index,
-                        err: e.to_string(),
+                        file_name: self.entry.filename.to_string(),
+                        err: e,
                     })
                     .await;
                 }

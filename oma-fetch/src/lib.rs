@@ -153,7 +153,8 @@ pub enum Event {
     },
     NextUrl {
         index: usize,
-        err: String,
+        file_name: String,
+        err: SingleDownloadError,
     },
     DownloadDone {
         index: usize,

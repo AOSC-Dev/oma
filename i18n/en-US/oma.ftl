@@ -97,7 +97,7 @@ colon = :
 # download
 invalid-filename = Invalid file name: { $name }.
 checksum-mismatch-retry = Checksum verification failed for { $c }. Retrying { $retry } times ...
-can-not-get-source-next-url = Failed to download { $e }. Retrying using the next available mirror ...
+can-not-get-source-next-url = Retrying using the next available mirror ...
 checksum-mismatch = Checksum verification failed for file { $filename }.
 # db
 invalid-url = Invalid URL { $url }.
@@ -241,3 +241,17 @@ verify-error = An error occurred while verifying the signature for { $p }.
 sources-list-empty = Mirror source configuration is empty.
 failed-refresh = Failed to refresh repository metadata.
 unsupported-sources-list = Unsupported APT repository configuration files: { $p }. Only line-style ({ $list }) and DEB822-formatted ({ $sources }) configuration files are supported.
+set-permission = Failed to set permissions
+open-file-as-write-mode = Unable to open file in write mode
+open-err = Unable to open the file
+create-err = Unable to create file
+seek-err = Unable to read the file
+write-err = Unable to write to file
+flush-err = Unable to save unwritten cache to hard disk
+remove-err = Unable to delete file
+create-symlink-err = Unable to create a symlink
+reqwest-err = Failed to send a network request
+broken-pipe-err = Broken pipe
+send-request-timeout = Send network request timeout
+download-timeout = Download file timeout
+checksum-mismatch-download-err = Checksum mismatch

@@ -94,7 +94,7 @@ colon = ：
 # download
 invalid-filename = 文件名 { $name } 无效。
 checksum-mismatch-retry = 文件 { $c } 完整性验证失败，正在重试第 { $retry } 次 ...
-can-not-get-source-next-url = 无法下载文件：{ $e }，将使用下一个镜像源重试 ...
+can-not-get-source-next-url = 将使用下一个镜像源重试 ...
 checksum-mismatch = 文件 { $filename } 完整性验证失败。
 # db
 invalid-url = URL { $url } 无效。
@@ -235,3 +235,17 @@ verify-error = 在验证 { $p } 的签名时遇到错误。
 sources-list-empty = 软件源配置为空。
 failed-refresh = 无法刷新软件源数据，
 unsupported-sources-list = APT 软件源配置文件 { $p } 不受支持：仅支持单行 ({ $list }) 及 DEB822 ({ $sources }) 格式的配置文件。
+set-permission = 设置权限失败。
+open-file-as-write-mode = 无法打开文件为写模式。
+open-err = 无法打开文件
+create-err = 无法创建文件
+seek-err = 无法读取文件
+write-err = 无法写入文件
+flush-err = 无法将未写入的缓存保存至硬盘中
+remove-err = 无法删除文件
+create-symlink-err = 无法创建软链接
+reqwest-err = 发送网络请求失败
+broken-pipe-err = 管道传送错误
+send-request-timeout = 发送网络请求超时
+download-timeout = 下载文件超时
+checksum-mismatch = 校验文件失败
