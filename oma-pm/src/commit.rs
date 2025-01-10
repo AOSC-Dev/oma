@@ -57,7 +57,12 @@ impl<'a> DoInstall<'a> {
         F: Fn(Event) -> Fut,
         Fut: std::future::Future<Output = ()>,
     {
-        self.download_pkgs(&op.install, callback)?;
+        let summary = self.download_pkgs(&op.install, callback)?;
+
+        if !summary.failed.is_empty() {
+            return Err(OmaAptError::FailedToDownload(summary.failed.len()));
+        }
+
         self.do_install(install_progress_manager, op)?;
 
         Ok(())

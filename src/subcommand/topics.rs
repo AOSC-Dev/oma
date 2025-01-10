@@ -295,7 +295,10 @@ async fn topics_inner(
 ) -> Result<TopicChanged, OutputError> {
     refresh_topics(no_progress, tm).await?;
 
-    let all_topics = tm.all_topics().map(|x| x.to_owned()).collect::<Vec<_>>();
+    let all_topics = tm
+        .available_topics()
+        .map(|x| x.to_owned())
+        .collect::<Vec<_>>();
     let enabled_topics = Box::from(tm.enabled_topics());
 
     if opt_in.is_empty() && opt_out.is_empty() {

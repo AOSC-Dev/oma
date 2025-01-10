@@ -2991,9 +2991,9 @@ dependencies = [
 
 [[package]]
 name = "oma-apt-sources-lists"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94c8749e71ded33cb91efaa664007bb8fdd88f1bda5e53d36903f0c825a18719"
+checksum = "f0fa5b7816e83092d46bcbc9c79aa6f8b009ce0e096c1bf1a35c497baf2ecb9d"
 dependencies = [
  "deb822-lossless",
  "thiserror 2.0.9",
@@ -3018,7 +3018,7 @@ dependencies = [
 
 [[package]]
 name = "oma-contents"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "chrono",
  "flate2",
@@ -3097,7 +3097,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.45.3"
+version = "0.45.4"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3135,7 +3135,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.39.3"
+version = "0.40.0"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3164,7 +3164,7 @@ dependencies = [
 
 [[package]]
 name = "oma-repo-verify"
-version = "0.4.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "oma-apt-sources-lists",
@@ -5588,9 +5588,9 @@ dependencies = [
 
 [[package]]
 name = "xxhash-rust"
-version = "0.8.14"
+version = "0.8.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7d48f1b18be023c95e7b75f481cac649d74be7c507ff4a407c55cfb957f7934"
+checksum = "fdd20c5420375476fbd4394763288da7eb0cc0b8c11deed431a91562af7335d3"
 
 [[package]]
 name = "xz2"

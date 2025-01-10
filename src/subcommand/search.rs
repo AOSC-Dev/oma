@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::Args;
+use clap::{ArgAction, Args};
 use oma_console::{indicatif::ProgressBar, pager::Pager, pb::spinner_style};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
@@ -17,8 +17,8 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Search {
     /// Keywords to search
-    #[arg(required = true)]
-    pattern: String,
+    #[arg(required = true, action = ArgAction::Append)]
+    pattern: Vec<String>,
     /// Output result to stdout, not pager
     #[arg(long)]
     no_pager: bool,
@@ -66,7 +66,7 @@ impl CliExecuter for Search {
 
         let res = search(
             &apt,
-            &pattern,
+            &pattern.join(" "),
             match config.search_engine().as_str() {
                 "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
                 "strsim" => SearchEngine::Strsim,

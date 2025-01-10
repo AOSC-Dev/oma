@@ -9,11 +9,13 @@ use oma_console::{
     console::style,
     indicatif::{MultiProgress, ProgressBar},
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
+    print::Action,
     writer::{gen_prefix, writeln_inner, MessageType, Writeln},
 };
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
+use crate::color_formatter;
 use crate::{error::Chain, fl, msg, utils::is_root, WRITER};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
@@ -160,6 +162,24 @@ impl RenderRefreshProgress for OmaMultiProgressBar {
                     self.pb_map.insert(1, pb);
                 }
                 RefreshEvent::Done => break,
+                RefreshEvent::SourceListFileNotSupport { path } => {
+                    self.writeln(
+                        &style("WARNING").yellow().bold().to_string(),
+                        &fl!(
+                            "unsupported-sources-list",
+                            p = color_formatter()
+                                .color_str(path.to_string_lossy(), Action::Emphasis)
+                                .to_string(),
+                            list = color_formatter()
+                                .color_str(".list", Action::Secondary)
+                                .to_string(),
+                            sources = color_formatter()
+                                .color_str(".sources", Action::Secondary)
+                                .to_string()
+                        ),
+                    )
+                    .ok();
+                }
             }
         }
     }

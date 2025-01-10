@@ -24,7 +24,7 @@ use nix::{
     unistd::close,
 };
 use oma_apt::config::Config;
-use oma_apt_sources_lists::SourceError;
+use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::{
@@ -68,7 +68,7 @@ pub enum RefreshError {
     #[error("Invalid URL: {0}")]
     InvalidUrl(String),
     #[error("Scan sources.list failed: {0}")]
-    ScanSourceError(SourceError),
+    ScanSourceError(SourcesListError),
     #[error("Unsupported Protocol: {0}")]
     UnsupportedProtocol(String),
     #[error("Failed to download some metadata")]
@@ -192,6 +192,7 @@ pub enum Event {
     ClosingTopic(String),
     TopicNotInMirror { topic: String, mirror: String },
     RunInvokeScript,
+    SourceListFileNotSupport { path: PathBuf },
     Done,
 }
 
@@ -202,20 +203,10 @@ impl<'a> OmaRefresh<'a> {
         Fut: Future<Output = ()>,
     {
         let arch = dpkg_arch(&self.source)?;
-
-        self.update_db(sources_lists(&self.source, &arch)?, callback)
+        let mut sourcelist = sources_lists(&self.source, &arch, &callback)
             .await
-    }
+            .map_err(RefreshError::ScanSourceError)?;
 
-    async fn update_db<F, Fut>(
-        &mut self,
-        mut sourcelist: Vec<OmaSourceEntry<'_>>,
-        callback: F,
-    ) -> Result<()>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
         if !self.download_dir.is_dir() {
             fs::create_dir_all(&self.download_dir).await.map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
@@ -371,7 +362,7 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(not(feature = "aosc"))]
         let not_found = vec![];
 
-        let mirror_sources = MirrorSources::from_sourcelist(sourcelist, replacer)?;
+        let mut mirror_sources = MirrorSources::from_sourcelist(sourcelist, replacer)?;
 
         let tasks = mirror_sources.0.iter().enumerate().map(|(index, m)| {
             self.get_release_file(m, replacer, index, mirror_sources.0.len(), callback)
@@ -405,13 +396,19 @@ impl<'a> OmaRefresh<'a> {
         #[cfg(not(feature = "aosc"))]
         let _ = self.topic_msg;
 
-        self.refresh_topics(callback, not_found).await?;
+        self.refresh_topics(callback, not_found, &mut mirror_sources)
+            .await?;
 
         Ok(mirror_sources)
     }
 
     #[cfg(feature = "aosc")]
-    async fn refresh_topics<F, Fut>(&self, callback: &F, not_found: Vec<url::Url>) -> Result<()>
+    async fn refresh_topics<F, Fut>(
+        &self,
+        callback: &F,
+        not_found: Vec<url::Url>,
+        sources: &mut MirrorSources<'_>,
+    ) -> Result<()>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -422,7 +419,10 @@ impl<'a> OmaRefresh<'a> {
 
         callback(Event::ScanningTopic).await;
         let mut tm = TopicManager::new(self.client, &self.source, &self.arch, false).await?;
+        tm.refresh().await?;
         let removed_suites = tm.remove_closed_topics()?;
+
+        debug!("removed suites: {:?}", removed_suites);
 
         for url in not_found {
             let suite = url
@@ -435,6 +435,9 @@ impl<'a> OmaRefresh<'a> {
             {
                 return Err(RefreshError::NoInReleaseFile(url.to_string()));
             }
+
+            let pos = sources.0.iter().position(|x| x.suite() == suite).unwrap();
+            sources.0.remove(pos);
 
             callback(Event::ClosingTopic(suite)).await;
         }
@@ -455,7 +458,12 @@ impl<'a> OmaRefresh<'a> {
     }
 
     #[cfg(not(feature = "aosc"))]
-    async fn refresh_topics<F, Fut>(&self, _callback: &F, _not_found: Vec<url::Url>) -> Result<()>
+    async fn refresh_topics<F, Fut>(
+        &self,
+        _callback: &F,
+        _not_found: Vec<url::Url>,
+        _sources: &mut MirrorSources<'_>,
+    ) -> Result<()>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -491,7 +499,7 @@ impl<'a> OmaRefresh<'a> {
         &self,
         entry: &MirrorSource<'_>,
         replacer: &DatabaseFilenameReplacer,
-        progress_index: usize,
+        index: usize,
         total: usize,
         callback: &F,
     ) -> Result<()>
@@ -510,8 +518,8 @@ impl<'a> OmaRefresh<'a> {
         let msg = entry.get_human_download_url(None)?;
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-            index: progress_index,
-            msg: format!("({}/{}) {}", progress_index, total, msg),
+            index,
+            msg: format!("({}/{}) {}", index, total, msg),
         }))
         .await;
 
@@ -584,10 +592,7 @@ impl<'a> OmaRefresh<'a> {
             }
         }
 
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(
-            progress_index,
-        )))
-        .await;
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
         let name = name.ok_or_else(|| RefreshError::NoInReleaseFile(entry.url().to_string()))?;
         entry.set_release_file_name(name);
@@ -599,10 +604,10 @@ impl<'a> OmaRefresh<'a> {
         &self,
         entry: &MirrorSource<'_>,
         replacer: &DatabaseFilenameReplacer,
-        progress_index: usize,
+        index: usize,
         total: usize,
         callback: &F,
-    ) -> Result<()>
+    ) -> std::result::Result<(), RefreshError>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -616,8 +621,8 @@ impl<'a> OmaRefresh<'a> {
         let msg = entry.get_human_download_url(None)?;
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-            index: progress_index,
-            msg: format!("({}/{}) {}", progress_index, total, msg),
+            index,
+            msg: format!("({}/{}) {}", index, total, msg),
         }))
         .await;
 
@@ -643,10 +648,7 @@ impl<'a> OmaRefresh<'a> {
 
         let r = r.unwrap();
 
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(
-            progress_index,
-        )))
-        .await;
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
         if r.is_err() && entry.is_flat() {
             // Flat repo no release
@@ -658,7 +660,7 @@ impl<'a> OmaRefresh<'a> {
         let url = u.unwrap();
         let file_name = replacer.replace(&url)?;
 
-        self.download_file(&file_name, resp, entry, progress_index, total, &callback)
+        self.download_file(&file_name, resp, entry, index, total, &callback)
             .await?;
         entry.set_release_file_name(file_name);
 
@@ -673,7 +675,7 @@ impl<'a> OmaRefresh<'a> {
 
             let file_name = replacer.replace(&url)?;
 
-            self.download_file(&file_name, resp, entry, progress_index, total, &callback)
+            self.download_file(&file_name, resp, entry, index, total, &callback)
                 .await?;
         }
 
