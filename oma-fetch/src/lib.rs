@@ -123,7 +123,7 @@ pub struct DownloadSource {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DownloadSourceType {
-    Http { auth: Option<(Box<str>, Box<str>)> },
+    Http { auth: Option<(String, String)> },
     Local(bool),
 }
 

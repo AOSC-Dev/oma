@@ -1,13 +1,13 @@
 use std::{
-    fs::{self, read_dir},
+    fs::read_dir,
     io::{self},
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
-use rustix::process;
+pub use netrc::Authenticator;
+use netrc::Netrc;
 use thiserror::Error;
-use tracing::debug;
+use url::Url;
 
 #[derive(Debug, Error)]
 pub enum AuthConfigError {
@@ -17,199 +17,129 @@ pub enum AuthConfigError {
     DirEntry(std::io::Error),
     #[error("Failed to open file: {path}")]
     OpenFile { path: PathBuf, err: io::Error },
-    #[error("Auth config file missing entry: {0}")]
-    MissingEntry(&'static str),
+    #[error(transparent)]
+    ParseError(#[from] netrc::Error),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct AuthConfig {
-    pub inner: Vec<AuthConfigEntry>,
+#[derive(Debug, Eq)]
+pub struct AuthUrl {
+    schema: Option<String>,
+    host_and_path: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct AuthConfigEntry {
-    pub host: Box<str>,
-    pub user: Box<str>,
-    pub password: Box<str>,
-}
+impl AuthUrl {
+    fn drop_suffix(&self) -> &str {
+        let mut res = self.host_and_path.as_str();
 
-impl FromStr for AuthConfigEntry {
-    type Err = AuthConfigError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let entry = s
-            .split_ascii_whitespace()
-            .filter(|x| !x.starts_with("#"))
-            .collect::<Vec<_>>();
-
-        let mut host = None;
-        let mut login = None;
-        let mut password = None;
-
-        for (i, c) in entry.iter().enumerate() {
-            if *c == "machine" {
-                let Some(h) = entry.get(i + 1) else {
-                    return Err(AuthConfigError::MissingEntry("machine"));
-                };
-
-                host = Some(h);
-                continue;
-            }
-
-            if *c == "login" {
-                let Some(l) = entry.get(i + 1) else {
-                    return Err(AuthConfigError::MissingEntry("login"));
-                };
-
-                login = Some(l);
-                continue;
-            }
-
-            if *c == "password" {
-                let Some(p) = entry.get(i + 1) else {
-                    return Err(AuthConfigError::MissingEntry("password"));
-                };
-
-                password = Some(p);
-                continue;
-            }
+        while let Some(x) = res.strip_suffix('/') {
+            res = x;
         }
 
-        let Some(host) = host else {
-            return Err(AuthConfigError::MissingEntry("machine"));
-        };
-
-        let Some(login) = login else {
-            return Err(AuthConfigError::MissingEntry("login"));
-        };
-
-        let Some(password) = password else {
-            return Err(AuthConfigError::MissingEntry("password"));
-        };
-
-        Ok(Self {
-            host: (*host).into(),
-            user: (*login).into(),
-            password: (*password).into(),
-        })
+        res
     }
 }
 
-impl AuthConfig {
-    /// Read system auth.conf.d config (/etc/apt/auth.conf.d)
-    ///
-    /// Note that this function returns empty vector if run as a non-root user.
-    pub fn system(sysroot: impl AsRef<Path>) -> Result<Self, AuthConfigError> {
-        // 在 auth.conf.d 的使用惯例中
-        // 配置文件的权限一般为 600，并且所有者为 root
-        // 以普通用户身份下载文件时，会没有权限读取 auth 配置
-        // 因此，在以普通用户访问时，不读取 auth 配置
-        if !process::geteuid().is_root() {
-            return Ok(Self { inner: vec![] });
+impl From<&str> for AuthUrl {
+    fn from(value: &str) -> Self {
+        if let Ok(url) = Url::parse(value) {
+            AuthUrl {
+                schema: Some(url.scheme().to_string()),
+                host_and_path: {
+                    let mut s = String::new();
+                    if let Some(host) = url.host_str() {
+                        s.push_str(host);
+                    }
+                    s.push_str(url.path());
+                    s
+                },
+            }
+        } else {
+            AuthUrl {
+                schema: None,
+                host_and_path: value.to_string(),
+            }
+        }
+    }
+}
+
+impl From<&Url> for AuthUrl {
+    fn from(value: &Url) -> Self {
+        let mut host_and_path = String::new();
+        let schema = value.scheme().to_string();
+
+        if let Some(host) = value.host_str() {
+            host_and_path.push_str(host);
         }
 
-        let p = sysroot.as_ref().join("etc/apt/auth.conf.d");
-        Self::from_path(p)
+        host_and_path.push_str(value.path());
+
+        AuthUrl {
+            schema: Some(schema),
+            host_and_path,
+        }
+    }
+}
+
+impl PartialEq for AuthUrl {
+    fn eq(&self, other: &Self) -> bool {
+        if let Some((a, b)) = self.schema.as_ref().zip(other.schema.as_ref()) {
+            return a == b && self.drop_suffix() == other.drop_suffix();
+        }
+
+        self.drop_suffix() == other.drop_suffix()
+    }
+}
+
+#[derive(Debug)]
+pub struct AuthConfig(pub Vec<(AuthUrl, Authenticator)>);
+
+impl AuthConfig {
+    /// Read system auth.conf.d config (/etc/apt/auth.conf.d)
+    pub fn system(sysroot: impl AsRef<Path>) -> Result<Self, AuthConfigError> {
+        Self::from_path(sysroot.as_ref().join("etc/apt"))
     }
 
     pub fn from_path(p: impl AsRef<Path>) -> Result<Self, AuthConfigError> {
         let mut v = vec![];
 
-        for i in read_dir(p.as_ref()).map_err(|e| AuthConfigError::ReadDir {
-            path: p.as_ref().to_path_buf(),
-            err: e,
-        })? {
-            let i = i.map_err(AuthConfigError::DirEntry)?;
+        let auth_conf = p.as_ref().join("auth.conf");
 
-            if !i.path().is_file() {
-                continue;
-            }
+        if auth_conf.exists() {
+            let config = Netrc::from_file(&auth_conf)?;
+            v.push(config);
+        }
 
-            let s = fs::read_to_string(i.path()).map_err(|e| AuthConfigError::OpenFile {
-                path: i.path().to_path_buf(),
+        let auth_conf_d = p.as_ref().join("auth.conf.d");
+
+        if auth_conf_d.exists() {
+            for i in read_dir(auth_conf_d).map_err(|e| AuthConfigError::ReadDir {
+                path: p.as_ref().to_path_buf(),
                 err: e,
-            })?;
+            })? {
+                let i = i.map_err(AuthConfigError::DirEntry)?;
 
-            let config = AuthConfig::from_str(&s)?;
-            v.extend(config.inner);
-        }
+                if !i.path().is_file() {
+                    continue;
+                }
 
-        Ok(Self { inner: v })
-    }
-
-    pub fn find(&self, url: &str) -> Option<&AuthConfigEntry> {
-        let url = url
-            .strip_prefix("http://")
-            .or_else(|| url.strip_prefix("https://"))
-            .unwrap_or(url);
-
-        debug!("auth find url is: {}", url);
-
-        self.inner.iter().find(|x| {
-            let mut host = x.host.to_string();
-            while host.ends_with('/') {
-                host.pop();
+                let config = Netrc::from_file(&i.path())?;
+                v.push(config);
             }
-
-            let mut url = url.to_string();
-            while url.ends_with('/') {
-                url.pop();
-            }
-
-            host == url
-        })
-    }
-
-    pub fn find_package_url(&self, url: &str) -> Option<&AuthConfigEntry> {
-        let url = url
-            .strip_prefix("http://")
-            .or_else(|| url.strip_prefix("https://"))
-            .unwrap_or(url);
-
-        debug!("auth find package url is: {}", url);
-
-        self.inner.iter().find(|x| url.starts_with(x.host.as_ref()))
-    }
-}
-
-impl FromStr for AuthConfig {
-    type Err = AuthConfigError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut v = vec![];
-
-        for i in s.lines().filter(|x| !x.starts_with('#')) {
-            let entry = AuthConfigEntry::from_str(i)?;
-            v.push(entry);
         }
 
-        Ok(Self { inner: v })
+        let v = v
+            .into_iter()
+            .flat_map(|x| x.hosts)
+            .map(|x| (AuthUrl::from(x.0.as_str()), x.1))
+            .collect::<Vec<_>>();
+
+        Ok(Self(v))
     }
-}
 
-#[test]
-fn test_config_parser() {
-    let config = r#"machine esm.ubuntu.com/apps/ubuntu/ login bearer password qaq  # ubuntu-pro-client
-machine esm.ubuntu.com/infra/ubuntu/ login bearer password qaq  # ubuntu-pro-client
-"#;
-
-    let config = AuthConfig::from_str(config).unwrap();
-
-    assert_eq!(
-        config,
-        AuthConfig {
-            inner: vec![
-                AuthConfigEntry {
-                    host: "esm.ubuntu.com/apps/ubuntu/".into(),
-                    user: "bearer".into(),
-                    password: "qaq".into(),
-                },
-                AuthConfigEntry {
-                    host: "esm.ubuntu.com/infra/ubuntu/".into(),
-                    user: "bearer".into(),
-                    password: "qaq".into(),
-                },
-            ]
-        }
-    );
+    pub fn find(&self, url: &str) -> Option<&Authenticator> {
+        self.0
+            .iter()
+            .find(|x| AuthUrl::from(url) == x.0)
+            .map(|x| &x.1)
+    }
 }

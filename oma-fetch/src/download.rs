@@ -101,7 +101,7 @@ impl SingleDownloader<'_> {
         &self,
         global_progress: &AtomicU64,
         source: &DownloadSource,
-        auth: &Option<(Box<str>, Box<str>)>,
+        auth: &Option<(String, String)>,
         callback: &F,
     ) -> DownloadResult<Summary>
     where
@@ -149,7 +149,7 @@ impl SingleDownloader<'_> {
         global_progress: &AtomicU64,
         allow_resume: bool,
         source: &DownloadSource,
-        auth: &Option<(Box<str>, Box<str>)>,
+        auth: &Option<(String, String)>,
         callback: &F,
     ) -> DownloadResult<Summary>
     where
@@ -556,7 +556,7 @@ impl SingleDownloader<'_> {
         &self,
         url: &str,
         method: Method,
-        auth: &Option<(Box<str>, Box<str>)>,
+        auth: &Option<(String, String)>,
     ) -> RequestBuilder {
         let mut req = self.client.request(method, url);
 

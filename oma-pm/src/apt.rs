@@ -165,7 +165,7 @@ pub enum SummarySort {
 pub struct DownloadConfig<'a> {
     pub network_thread: Option<usize>,
     pub download_dir: Option<&'a Path>,
-    pub auth: &'a AuthConfig,
+    pub auth: Option<&'a AuthConfig>,
 }
 
 impl OmaApt {
@@ -440,7 +440,7 @@ impl OmaApt {
                 .name_without_arch(pkg.raw_pkg.name().to_string())
                 .new_version(ver.version().to_string())
                 .new_size(install_size)
-                .pkg_urls(ver.uris().collect::<Vec<_>>())
+                .pkg_urls(get_package_url(&ver))
                 .arch(ver.arch().to_string())
                 .download_size(ver.size())
                 .op(InstallOperation::Download)
@@ -836,8 +836,9 @@ impl OmaApt {
                     .take()
                     .ok_or_else(|| OmaAptError::PkgNoCandidate(pkg.fullname(true)))?;
 
-                let uri = cand.uris().collect::<Vec<_>>();
-                let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
+                let uri = get_package_url(&cand);
+
+                let not_local_source = uri.iter().all(|x| !x.index_url.starts_with("file:"));
                 let version = cand.version();
                 let size = cand.installed_size();
 
@@ -976,7 +977,7 @@ impl OmaApt {
                     .new_version(version.version().to_string())
                     .old_size(version.installed_size())
                     .new_size(version.installed_size())
-                    .pkg_urls(uri)
+                    .pkg_urls(get_package_url(&version))
                     .arch(version.arch().to_string())
                     .download_size(version.size())
                     .op(InstallOperation::ReInstall)
@@ -1108,6 +1109,24 @@ impl OmaApt {
     }
 }
 
+fn get_package_url(cand: &Version<'_>) -> Vec<PackageUrl> {
+    let uri = cand
+        .version_files()
+        .filter_map(|v| {
+            let pkg_file = v.package_file();
+            if !pkg_file.is_downloadable() {
+                return None;
+            }
+
+            Some(PackageUrl {
+                download_url: pkg_file.index_file().archive_uri(&v.lookup().filename()),
+                index_url: pkg_file.index_file().archive_uri(""),
+            })
+        })
+        .collect::<Vec<_>>();
+    uri
+}
+
 /// Mark package as delete.
 fn mark_delete(pkg: &Package, purge: bool) -> OmaAptResult<bool> {
     if pkg.marked_delete() {
@@ -1173,7 +1192,7 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
         .new_version(new_version.to_owned())
         .old_size(installed.installed_size())
         .new_size(cand.installed_size())
-        .pkg_urls(cand.uris().collect::<Vec<_>>())
+        .pkg_urls(get_package_url(&cand))
         .arch(cand.arch().to_string())
         .download_size(cand.size())
         .op(op)

@@ -201,7 +201,7 @@ pub struct Refresh<'a> {
     #[builder(default = true)]
     refresh_topics: bool,
     config: &'a AptConfig,
-    auth_config: &'a AuthConfig,
+    auth_config: Option<&'a AuthConfig>,
 }
 
 impl Refresh<'_> {
@@ -239,7 +239,7 @@ impl Refresh<'_> {
             .arch(arch)
             .apt_config(config)
             .client(client)
-            .auth_config(auth_config)
+            .maybe_auth_config(auth_config)
             .topic_msg(&msg);
 
         #[cfg(feature = "aosc")]
@@ -273,6 +273,13 @@ impl Refresh<'_> {
     }
 }
 
+pub fn auth_config(sysroot: impl AsRef<Path>) -> Option<AuthConfig> {
+    AuthConfig::system(sysroot)
+        .inspect(|res| debug!("Auth config: {res:#?}"))
+        .inspect_err(|e| debug!("Couldn't read auth config: {e}"))
+        .ok()
+}
+
 #[derive(Builder)]
 pub(crate) struct CommitChanges<'a> {
     apt: OmaApt,
@@ -295,7 +302,7 @@ pub(crate) struct CommitChanges<'a> {
     remove_config: bool,
     #[builder(default)]
     autoremove: bool,
-    auth_config: &'a AuthConfig,
+    auth_config: Option<&'a AuthConfig>,
     network_thread: usize,
     #[builder(default)]
     check_update: bool,

@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-use apt_auth_config::AuthConfig;
 use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
@@ -27,8 +26,8 @@ use crate::{
 };
 
 use super::utils::{
-    handle_no_result, lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size,
-    CommitChanges,
+    auth_config, handle_no_result, lock_oma, no_check_dbus_warn, select_tui_display_msg,
+    tui_select_list_size, CommitChanges,
 };
 use crate::args::CliExecuter;
 
@@ -228,7 +227,8 @@ impl CliExecuter for Undo {
 
         apt.install(&install, false)?;
 
-        let auth_config = AuthConfig::system(&sysroot)?;
+        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config.as_ref();
 
         CommitChanges::builder()
             .apt(apt)
@@ -243,7 +243,7 @@ impl CliExecuter for Undo {
             .remove_config(remove_config)
             .autoremove(autoremove)
             .network_thread(config.network_thread())
-            .auth_config(&auth_config)
+            .maybe_auth_config(auth_config)
             .build()
             .run()
     }

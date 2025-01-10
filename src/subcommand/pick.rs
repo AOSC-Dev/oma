@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::SummaryType;
@@ -18,7 +17,9 @@ use crate::{
 };
 use anyhow::anyhow;
 
-use super::utils::{lock_oma, no_check_dbus_warn, tui_select_list_size, CommitChanges, Refresh};
+use super::utils::{
+    auth_config, lock_oma, no_check_dbus_warn, tui_select_list_size, CommitChanges, Refresh,
+};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -102,7 +103,8 @@ impl CliExecuter for Pick {
 
         let apt_config = AptConfig::new();
 
-        let auth_config = AuthConfig::system(&sysroot)?;
+        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config.as_ref();
 
         if !no_refresh {
             let sysroot = sysroot.to_string_lossy();
@@ -113,7 +115,7 @@ impl CliExecuter for Pick {
                 .network_thread(config.network_thread())
                 .sysroot(&sysroot)
                 .config(&apt_config)
-                .auth_config(&auth_config);
+                .maybe_auth_config(auth_config);
 
             #[cfg(feature = "aosc")]
             let refresh = builder
@@ -216,7 +218,7 @@ impl CliExecuter for Pick {
             .remove_config(remove_config)
             .autoremove(autoremove)
             .network_thread(config.network_thread())
-            .auth_config(&auth_config)
+            .maybe_auth_config(auth_config)
             .build()
             .run()
     }

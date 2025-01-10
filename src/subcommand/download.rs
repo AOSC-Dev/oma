@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::thread;
 
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use flume::unbounded;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
@@ -17,7 +16,7 @@ use crate::{error::OutputError, subcommand::utils::handle_no_result};
 
 use crate::args::CliExecuter;
 
-use super::utils::is_terminal;
+use super::utils::{auth_config, is_terminal};
 
 #[derive(Debug, Args)]
 pub struct Download {
@@ -76,7 +75,7 @@ impl CliExecuter for Download {
             DownloadConfig {
                 network_thread: Some(config.network_thread()),
                 download_dir: Some(&path),
-                auth: &AuthConfig::system("/")?,
+                auth: auth_config("/").as_ref(),
             },
             dry_run,
             |event| async {

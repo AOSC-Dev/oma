@@ -346,7 +346,7 @@ impl CliExecuter for Upgrade {
                 &HTTP_CLIENT,
                 CommitNetworkConfig {
                     network_thread: Some(config.network_thread()),
-                    auth_config: &auth_config,
+                    auth_config: Some(&auth_config),
                 },
                 |event| async {
                     if let Err(e) = tx.send_async(event).await {
