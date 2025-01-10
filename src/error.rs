@@ -455,9 +455,9 @@ impl From<AuthConfigError> for OutputError {
                 description: format!("Failed to open file: {}", path.display()),
                 source: Some(Box::new(err)),
             },
-            AuthConfigError::MissingEntry(field) => Self {
-                description: format!("Missing field: {field}"),
-                source: None,
+            AuthConfigError::ParseError(error) => Self {
+                description: "Parse auth file got error".to_string(),
+                source: Some(Box::new(error)),
             },
         }
     }

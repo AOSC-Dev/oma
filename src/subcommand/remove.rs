@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
@@ -19,7 +18,7 @@ use crate::{
     utils::{dbus_check, root},
 };
 
-use super::utils::{handle_no_result, lock_oma, no_check_dbus_warn, CommitChanges};
+use super::utils::{auth_config, handle_no_result, lock_oma, no_check_dbus_warn, CommitChanges};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -243,7 +242,8 @@ impl CliExecuter for Remove {
 
         handle_no_result(&sysroot, no_result, no_progress)?;
 
-        let auth = AuthConfig::system(&sysroot)?;
+        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config.as_ref();
 
         CommitChanges::builder()
             .apt(apt)
@@ -257,7 +257,7 @@ impl CliExecuter for Remove {
             .remove_config(remove_config)
             .autoremove(!no_autoremove)
             .network_thread(config.network_thread())
-            .auth_config(&auth)
+            .maybe_auth_config(auth_config)
             .fix_dpkg_status(!no_fix_dpkg_status)
             .build()
             .run()

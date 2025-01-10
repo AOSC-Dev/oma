@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
@@ -11,7 +10,7 @@ use crate::{
     utils::{dbus_check, root},
 };
 
-use super::utils::{lock_oma, no_check_dbus_warn, CommitChanges};
+use super::utils::{auth_config, lock_oma, no_check_dbus_warn, CommitChanges};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -74,7 +73,8 @@ impl CliExecuter for FixBroken {
             no_check_dbus_warn();
         }
 
-        let auth_config = AuthConfig::system(&sysroot)?;
+        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config.as_ref();
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
@@ -97,7 +97,7 @@ impl CliExecuter for FixBroken {
             .yes(false)
             .autoremove(autoremove)
             .remove_config(remove_config)
-            .auth_config(&auth_config)
+            .maybe_auth_config(auth_config)
             .network_thread(config.network_thread())
             .build()
             .run()

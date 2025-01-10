@@ -121,7 +121,7 @@ fn main() -> Result<(), OmaAptError> {
         &client,
         CommitNetworkConfig {
             network_thread: None,
-            auth_config: &AuthConfig::system("/").unwrap(),
+            auth_config: Some(&AuthConfig::system("/").unwrap()),
         },
         |event| async {
             if let Err(e) = tx.send_async(event).await {

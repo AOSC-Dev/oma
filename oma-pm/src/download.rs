@@ -47,32 +47,24 @@ where
         let sources = uris
             .iter()
             .map(|x| {
-                let source_type = if x.starts_with("file:") {
+                let source_type = if x.index_url.starts_with("file:") {
                     DownloadSourceType::Local(false)
                 } else {
-                    let auth = auth.find_package_url(x);
+                    let auth = auth.and_then(|auth| auth.find(&x.index_url));
 
                     DownloadSourceType::Http {
-                        auth: auth.map(|x| (x.user.to_owned(), x.password.to_owned())),
+                        auth: auth.map(|x| (x.login.to_owned(), x.password.to_owned())),
                     }
                 };
 
                 DownloadSource {
-                    url: x.to_string(),
+                    url: x.download_url.clone(),
                     source_type,
                 }
             })
             .collect::<Vec<_>>();
 
         debug!("Sources is: {:?}", sources);
-
-        let filename = uris
-            .first()
-            .and_then(|x| x.split('/').last())
-            .take()
-            .ok_or_else(|| OmaAptError::InvalidFileName(entry.name().to_string()))?;
-
-        debug!("filename is: {}", filename);
 
         let new_version = if console::measure_text_width(entry.new_version()) > 25 {
             console::truncate_str(entry.new_version(), 25, "...")

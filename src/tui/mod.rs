@@ -3,7 +3,6 @@ use std::{
     time::Duration,
 };
 
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use oma_console::{
     indicatif::ProgressBar,
@@ -19,7 +18,7 @@ use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
 use tracing::info;
 use tui_inner::{Task, Tui as TuiInner};
 
-use crate::{args::CliExecuter, GlobalOptions};
+use crate::{args::CliExecuter, subcommand::utils::auth_config, GlobalOptions};
 use crate::{
     config::Config,
     error::OutputError,
@@ -141,7 +140,8 @@ impl CliExecuter for Tui {
         };
 
         let apt_config = AptConfig::new();
-        let auth_config = AuthConfig::system(&sysroot)?;
+        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config.as_ref();
 
         if !no_refresh {
             let sysroot = sysroot.to_string_lossy();
@@ -152,7 +152,7 @@ impl CliExecuter for Tui {
                 .network_thread(config.network_thread())
                 .sysroot(&sysroot)
                 .config(&apt_config)
-                .auth_config(&auth_config);
+                .maybe_auth_config(auth_config);
 
             #[cfg(feature = "aosc")]
             let refresh = builder
@@ -261,7 +261,7 @@ impl CliExecuter for Tui {
                 .yes(false)
                 .remove_config(remove_config)
                 .autoremove(autoremove)
-                .auth_config(&auth_config)
+                .maybe_auth_config(auth_config)
                 .network_thread(config.network_thread())
                 .check_update(upgrade)
                 .build()

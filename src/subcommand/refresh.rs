@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use oma_console::indicatif::ProgressBar;
 use oma_console::pb::spinner_style;
@@ -11,7 +10,7 @@ use crate::config::Config;
 use crate::{error::OutputError, utils::root};
 use crate::{fl, success, HTTP_CLIENT};
 
-use super::utils::Refresh as RefreshInner;
+use super::utils::{auth_config, Refresh as RefreshInner};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -45,7 +44,8 @@ impl CliExecuter for Refresh {
         root()?;
 
         let apt_config = AptConfig::new();
-        let auth_config = AuthConfig::system(&sysroot)?;
+        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config.as_ref();
 
         let sysroot_str = sysroot.to_string_lossy();
         let builder = RefreshInner::builder()
@@ -55,7 +55,7 @@ impl CliExecuter for Refresh {
             .network_thread(config.network_thread())
             .sysroot(&sysroot_str)
             .config(&apt_config)
-            .auth_config(&auth_config);
+            .maybe_auth_config(auth_config);
 
         #[cfg(feature = "aosc")]
         let refresh = builder

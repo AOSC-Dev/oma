@@ -108,7 +108,7 @@ pub struct InstallEntry {
     new_version: String,
     old_size: Option<u64>,
     new_size: u64,
-    pkg_urls: Vec<String>,
+    pkg_urls: Vec<PackageUrl>,
     sha256: Option<String>,
     md5: Option<String>,
     sha512: Option<String>,
@@ -118,6 +118,12 @@ pub struct InstallEntry {
     #[builder(default)]
     automatic: bool,
     index: u64,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize, Builder)]
+pub struct PackageUrl {
+    pub download_url: String,
+    pub index_url: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -173,7 +179,7 @@ impl InstallEntry {
         &self.new_version
     }
 
-    pub fn pkg_urls(&self) -> &[String] {
+    pub fn pkg_urls(&self) -> &[PackageUrl] {
         &self.pkg_urls
     }
 

@@ -8,4 +8,5 @@ license = "MIT"
 [dependencies]
 thiserror = "2"
 tracing = "0.1"
-rustix = { version = "0.38", features = ["process"] }
+rust-netrc = "0.1"
+url = "2.5"

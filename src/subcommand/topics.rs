@@ -1,6 +1,5 @@
 use std::{fmt::Display, path::PathBuf};
 
-use apt_auth_config::AuthConfig;
 use clap::{ArgAction, Args};
 use dialoguer::console::style;
 use inquire::{
@@ -26,8 +25,8 @@ use crate::{
 };
 
 use super::utils::{
-    lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size, CommitChanges,
-    Refresh,
+    auth_config, lock_oma, no_check_dbus_warn, select_tui_display_msg, tui_select_list_size,
+    CommitChanges, Refresh,
 };
 
 use crate::args::CliExecuter;
@@ -175,7 +174,8 @@ impl CliExecuter for Topics {
 
         let code = Ok(()).and_then(|_| -> Result<i32, OutputError> {
             let apt_config = AptConfig::new();
-            let auth_config = AuthConfig::system(&sysroot)?;
+            let auth_config = auth_config(&sysroot);
+            let auth_config = auth_config.as_ref();
 
             Refresh::builder()
                 .client(&HTTP_CLIENT)
@@ -185,7 +185,7 @@ impl CliExecuter for Topics {
                 .sysroot(&sysroot.to_string_lossy())
                 .refresh_topics(true)
                 .config(&apt_config)
-                .auth_config(&auth_config)
+                .maybe_auth_config(auth_config)
                 .build()
                 .run()?;
 
@@ -243,7 +243,7 @@ impl CliExecuter for Topics {
                 .remove_config(remove_config)
                 .autoremove(autoremove)
                 .network_thread(config.network_thread())
-                .auth_config(&auth_config)
+                .maybe_auth_config(auth_config)
                 .check_update(true)
                 .build()
                 .run()?;

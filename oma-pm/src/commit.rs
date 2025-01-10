@@ -22,7 +22,7 @@ const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
 pub struct CommitNetworkConfig<'a> {
     pub network_thread: Option<usize>,
-    pub auth_config: &'a AuthConfig,
+    pub auth_config: Option<&'a AuthConfig>,
 }
 
 pub struct DoInstall<'a> {
