@@ -236,3 +236,4 @@ tum-1-with-security = 您的系統有 { $updates } 個重要更新（含 { $secu
 tum-2 = 根據您指定的操作，oma 需要對系統組件進行若干變更，詳情如下。
 security = 安全更新
 verify-error = 在驗證 { $p } 的簽章時遇到錯誤。
+unsupported-sources-list = APT 軟體庫設定檔 { $p } 不受支援：僅支援單列 ({ $list }) 及 DEB822 ({ $sources }) 格式的設定檔。
