@@ -263,7 +263,7 @@ impl Refresh<'_> {
             refresh
                 .start(|event| async {
                     if let Err(e) = tx.send_async(event).await {
-                        error!("{}", e);
+                        debug!("{}", e);
                     }
                 })
                 .await
@@ -435,7 +435,7 @@ impl CommitChanges<'_> {
             },
             |event| async {
                 if let Err(e) = tx.send_async(event).await {
-                    error!("{}", e);
+                    debug!("Send progress channel got error: {}; maybe check archive work still in progress", e);
                 }
             },
         );
