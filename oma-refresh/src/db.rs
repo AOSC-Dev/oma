@@ -413,8 +413,9 @@ impl<'a> OmaRefresh<'a> {
                 return Err(RefreshError::NoInReleaseFile(url.to_string()));
             }
 
-            let pos = sources.0.iter().position(|x| x.suite() == suite).unwrap();
-            sources.0.remove(pos);
+            while let Some(pos) = sources.0.iter().position(|x| x.suite() == suite) {
+                sources.0.remove(pos);
+            }
 
             callback(Event::ClosingTopic(suite)).await;
         }
