@@ -196,9 +196,7 @@ impl<'a> TopicManager<'a> {
 
         debug!("all topic: {all:?}");
 
-        let index = all
-            .iter()
-            .find(|x| x.name.to_ascii_lowercase() == topic.to_ascii_lowercase());
+        let index = all.iter().find(|x| x.name.eq_ignore_ascii_case(topic));
 
         let enabled_names = self.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
 
@@ -222,7 +220,7 @@ impl<'a> TopicManager<'a> {
         let index = self
             .enabled
             .iter()
-            .position(|x| x.name.to_ascii_lowercase() == topic.to_ascii_lowercase());
+            .position(|x| x.name.eq_ignore_ascii_case(topic));
 
         debug!("oma will opt_out: {}", topic);
         debug!("index is: {index:?}");
