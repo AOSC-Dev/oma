@@ -207,9 +207,15 @@ impl OmaMultiProgressBar {
                 )
                 .ok();
             }
-            Event::GlobalProgressSet(num) => {
+            Event::GlobalProgressAdd(num) => {
                 if let Some(gpb) = self.pb_map.get(&0) {
-                    gpb.set_position(num);
+                    gpb.inc(num);
+                }
+            }
+            Event::GlobalProgressSub(num) => {
+                if let Some(gpb) = self.pb_map.get(&0) {
+                    let position = gpb.position();
+                    gpb.set_position(position.saturating_sub(num));
                 }
             }
             Event::ProgressDone(index) => {
@@ -274,6 +280,7 @@ impl Default for NoProgressBar {
             timer: Instant::now(),
             total_size: OnceCell::new(),
             old_downloaded: 0,
+            progress: 0,
         }
     }
 }
@@ -282,6 +289,7 @@ pub struct NoProgressBar {
     timer: Instant,
     total_size: OnceCell<u64>,
     old_downloaded: u64,
+    progress: u64,
 }
 
 impl RenderDownloadProgress for NoProgressBar {
@@ -334,22 +342,13 @@ impl NoProgressBar {
                     fl!("checksum-mismatch-retry", c = filename, retry = times)
                 );
             }
-            Event::GlobalProgressSet(downloaded) => {
-                let elapsed = self.timer.elapsed();
-                if elapsed >= Duration::from_secs(3) {
-                    if let Some(total_size) = self.total_size.get() {
-                        msg!(
-                            "{} / {} ({}/s)",
-                            HumanBytes(downloaded),
-                            HumanBytes(*total_size),
-                            HumanBytes(downloaded - self.old_downloaded / elapsed.as_secs())
-                        );
-                        self.old_downloaded = downloaded;
-                    } else {
-                        msg!("Downloaded {}", HumanBytes(downloaded));
-                    }
-                    self.timer = Instant::now();
-                }
+            Event::GlobalProgressAdd(inc) => {
+                self.progress += inc;
+                self.print_progress();
+            }
+            Event::GlobalProgressSub(num) => {
+                self.progress = self.progress.saturating_sub(num);
+                self.print_progress();
             }
             Event::NextUrl { index: _, err } => {
                 error!(
@@ -368,5 +367,23 @@ impl NoProgressBar {
         };
 
         false
+    }
+
+    fn print_progress(&mut self) {
+        let elapsed = self.timer.elapsed();
+        if elapsed >= Duration::from_secs(3) {
+            if let Some(total_size) = self.total_size.get() {
+                msg!(
+                    "{} / {} ({}/s)",
+                    HumanBytes(self.progress),
+                    HumanBytes(*total_size),
+                    HumanBytes(self.progress - self.old_downloaded / elapsed.as_secs())
+                );
+                self.old_downloaded = self.progress;
+            } else {
+                msg!("Downloaded {}", HumanBytes(self.progress));
+            }
+            self.timer = Instant::now();
+        }
     }
 }

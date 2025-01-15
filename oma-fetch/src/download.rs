@@ -5,7 +5,6 @@ use std::{
     io::{self, ErrorKind, SeekFrom},
     os::unix::fs::PermissionsExt,
     path::Path,
-    sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
 
@@ -42,11 +41,7 @@ pub(crate) struct SingleDownloader<'a> {
 }
 
 impl SingleDownloader<'_> {
-    pub(crate) async fn try_download<F, Fut>(
-        self,
-        global_progress: &AtomicU64,
-        callback: &F,
-    ) -> DownloadResult<Summary>
+    pub(crate) async fn try_download<F, Fut>(self, callback: &F) -> DownloadResult<Summary>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -59,12 +54,10 @@ impl SingleDownloader<'_> {
         for (i, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
                 DownloadSourceType::Http { auth } => {
-                    self.try_http_download(global_progress, c, auth, callback)
-                        .await
+                    self.try_http_download(c, auth, callback).await
                 }
                 DownloadSourceType::Local(as_symlink) => {
-                    self.download_local(global_progress, c, *as_symlink, callback)
-                        .await
+                    self.download_local(c, *as_symlink, callback).await
                 }
             };
 
@@ -99,7 +92,6 @@ impl SingleDownloader<'_> {
     /// Download file with retry (http)
     async fn try_http_download<F, Fut>(
         &self,
-        global_progress: &AtomicU64,
         source: &DownloadSource,
         auth: &Option<(String, String)>,
         callback: &F,
@@ -112,7 +104,7 @@ impl SingleDownloader<'_> {
         let mut allow_resume = self.entry.allow_resume;
         loop {
             match self
-                .http_download(global_progress, allow_resume, source, auth, callback)
+                .http_download(allow_resume, source, auth, callback)
                 .await
             {
                 Ok(s) => {
@@ -146,7 +138,6 @@ impl SingleDownloader<'_> {
 
     async fn http_download<F, Fut>(
         &self,
-        global_progress: &AtomicU64,
         allow_resume: bool,
         source: &DownloadSource,
         auth: &Option<(String, String)>,
@@ -206,11 +197,7 @@ impl SingleDownloader<'_> {
 
                     v.update(&buf[..read_count]);
 
-                    global_progress.fetch_add(read_count as u64, Ordering::SeqCst);
-                    callback(Event::GlobalProgressSet(
-                        global_progress.load(Ordering::SeqCst),
-                    ))
-                    .await;
+                    callback(Event::GlobalProgressAdd(read_count as u64)).await;
 
                     read += read_count as u64;
                 }
@@ -237,11 +224,7 @@ impl SingleDownloader<'_> {
                 );
 
                 if !allow_resume {
-                    global_progress.fetch_sub(read, Ordering::SeqCst);
-                    callback(Event::GlobalProgressSet(
-                        global_progress.load(Ordering::SeqCst),
-                    ))
-                    .await;
+                    callback(Event::GlobalProgressSub(read)).await;
                 } else {
                     dest = Some(f);
                     validator = Some(v);
@@ -309,12 +292,7 @@ impl SingleDownloader<'_> {
             // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
             if total_size <= file_size {
                 debug!("Exist file size is reset to 0, because total size <= exist file size");
-                let gp = global_progress.load(Ordering::SeqCst);
-                global_progress.store(gp.saturating_sub(file_size), Ordering::SeqCst);
-                callback(Event::GlobalProgressSet(
-                    global_progress.load(Ordering::SeqCst),
-                ))
-                .await;
+                callback(Event::GlobalProgressSub(file_size)).await;
                 file_size = 0;
                 can_resume = false;
             }
@@ -479,11 +457,7 @@ impl SingleDownloader<'_> {
 
             self_progress += size as u64;
 
-            global_progress.fetch_add(size as u64, Ordering::SeqCst);
-            callback(Event::GlobalProgressSet(
-                global_progress.load(Ordering::SeqCst),
-            ))
-            .await;
+            callback(Event::GlobalProgressAdd(size as u64)).await;
 
             if let Some(ref mut v) = validator {
                 v.update(&buf[..size]);
@@ -501,15 +475,9 @@ impl SingleDownloader<'_> {
         if let Some(v) = validator {
             if !v.finish() {
                 debug!("checksum fail: {}", self.entry.filename);
-                debug!("{global_progress:?}");
                 debug!("{self_progress}");
 
-                global_progress.fetch_sub(self_progress, Ordering::SeqCst);
-
-                callback(Event::GlobalProgressSet(
-                    global_progress.load(Ordering::SeqCst),
-                ))
-                .await;
+                callback(Event::GlobalProgressSub(self_progress)).await;
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(DownloadError::ChecksumMismatch(
                     self.entry.filename.to_string(),
@@ -579,7 +547,6 @@ impl SingleDownloader<'_> {
     /// Download local source file
     async fn download_local<F, Fut>(
         &self,
-        global_progress: &AtomicU64,
         source: &DownloadSource,
         as_symlink: bool,
         callback: &F,
@@ -625,11 +592,7 @@ impl SingleDownloader<'_> {
                 DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
             })?;
 
-            global_progress.fetch_add(total_size as u64, Ordering::SeqCst);
-            callback(Event::GlobalProgressSet(
-                global_progress.load(Ordering::SeqCst),
-            ))
-            .await;
+            callback(Event::GlobalProgressAdd(total_size as u64)).await;
             callback(Event::ProgressDone(self.download_list_index)).await;
 
             return Ok(Summary {
@@ -693,10 +656,7 @@ impl SingleDownloader<'_> {
             })
             .await;
 
-            callback(Event::GlobalProgressSet(
-                global_progress.load(Ordering::SeqCst),
-            ))
-            .await;
+            callback(Event::GlobalProgressAdd(size as u64)).await;
         }
 
         callback(Event::ProgressDone(self.download_list_index)).await;
