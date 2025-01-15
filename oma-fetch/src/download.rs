@@ -28,9 +28,9 @@ use tracing::debug;
 use crate::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Summary};
 
 #[derive(Builder)]
-pub(crate) struct SingleDownloader<'a> {
+pub struct SingleDownloader<'a> {
     client: &'a Client,
-    pub entry: &'a DownloadEntry,
+    pub(crate) entry: &'a DownloadEntry,
     progress: (usize, usize),
     retry_times: usize,
     msg: Option<String>,
@@ -136,7 +136,7 @@ impl SingleDownloader<'_> {
         }
     }
 
-    async fn http_download<F, Fut>(
+    pub async fn http_download<F, Fut>(
         &self,
         allow_resume: bool,
         source: &DownloadSource,
@@ -545,7 +545,7 @@ impl SingleDownloader<'_> {
     }
 
     /// Download local source file
-    async fn download_local<F, Fut>(
+    pub async fn download_local<F, Fut>(
         &self,
         source: &DownloadSource,
         as_symlink: bool,
