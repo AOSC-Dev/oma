@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, path::PathBuf, sync::atomic::AtomicU64, time::Duration};
+use std::{cmp::Ordering, path::PathBuf, time::Duration};
 
 use bon::{builder, Builder};
 use checksum::Checksum;
@@ -155,7 +155,8 @@ pub enum Event {
         filename: String,
         times: usize,
     },
-    GlobalProgressSet(u64),
+    GlobalProgressAdd(u64),
+    GlobalProgressSub(u64),
     ProgressDone(usize),
     NewProgressSpinner {
         index: usize,
@@ -190,8 +191,6 @@ pub struct DownloadManager<'a> {
     threads: usize,
     #[builder(default = 3)]
     retry_times: usize,
-    #[builder(skip = AtomicU64::new(0))]
-    global_progress: AtomicU64,
     #[builder(default)]
     total_size: u64,
     set_permission: Option<u32>,
@@ -246,7 +245,7 @@ impl DownloadManager<'_> {
         let http_download_source = list.len() - file_download_source;
 
         for single in list {
-            tasks.push(single.try_download(&self.global_progress, &callback));
+            tasks.push(single.try_download(&callback));
         }
 
         let thread = if file_download_source >= http_download_source {
