@@ -3071,6 +3071,7 @@ dependencies = [
  "reqwest",
  "serde",
  "sha2",
+ "snafu",
  "thiserror 2.0.10",
  "tokio",
  "tokio-util",

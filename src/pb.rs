@@ -12,12 +12,14 @@ use oma_console::{
     print::Action,
     writer::{gen_prefix, writeln_inner, MessageType, Writeln},
 };
-use oma_fetch::Event;
+use oma_fetch::{Event, SingleDownloadError};
+use reqwest::StatusCode;
 
-use crate::{color_formatter, fl, msg, WRITER};
+use crate::{color_formatter, error::OutputError};
+use crate::{error::Chain, fl, msg, utils::is_root, WRITER};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub trait RenderDownloadProgress {
     fn render_progress(&mut self, rx: &flume::Receiver<Event>);
@@ -25,6 +27,12 @@ pub trait RenderDownloadProgress {
 
 pub trait RenderRefreshProgress {
     fn render_refresh_progress(&mut self, rx: &flume::Receiver<RefreshEvent>);
+}
+
+trait Print {
+    fn info(&self, msg: &str);
+    fn warn(&self, msg: &str);
+    fn error(&self, msg: &str);
 }
 
 pub struct OmaProgressBar {
@@ -89,6 +97,26 @@ impl Default for OmaMultiProgressBar {
     }
 }
 
+impl Print for OmaMultiProgressBar {
+    #[inline]
+    fn info(&self, msg: &str) {
+        self.writeln(&style("INFO").blue().bold().to_string(), msg)
+            .ok();
+    }
+
+    #[inline]
+    fn warn(&self, msg: &str) {
+        self.writeln(&style("WARNING").yellow().bold().to_string(), msg)
+            .ok();
+    }
+
+    #[inline]
+    fn error(&self, msg: &str) {
+        self.writeln(&style("ERROR").red().bold().to_string(), msg)
+            .ok();
+    }
+}
+
 impl Writeln for OmaMultiProgressBar {
     fn writeln(&self, prefix: &str, msg: &str) -> std::io::Result<()> {
         let max_len = WRITER.get_max_len();
@@ -132,23 +160,11 @@ impl RenderRefreshProgress for OmaMultiProgressBar {
                     self.pb_map.insert(1, pb);
                 }
                 RefreshEvent::ClosingTopic(topic) => {
-                    self.writeln(
-                        &style("INFO").blue().bold().to_string(),
-                        &fl!("scan-topic-is-removed", name = topic),
-                    )
-                    .ok();
+                    self.info(&fl!("scan-topic-is-removed", name = topic));
                 }
                 RefreshEvent::TopicNotInMirror { topic, mirror } => {
-                    self.writeln(
-                        &style("WARNING").yellow().bold().to_string(),
-                        &fl!("topic-not-in-mirror", topic = topic, mirror = mirror),
-                    )
-                    .ok();
-                    self.writeln(
-                        &style("WARNING").yellow().bold().to_string(),
-                        &fl!("skip-write-mirror"),
-                    )
-                    .ok();
+                    self.warn(&fl!("topic-not-in-mirror", topic = topic, mirror = mirror));
+                    self.warn(&fl!("skip-write-mirror"));
                 }
                 RefreshEvent::RunInvokeScript => {
                     let (sty, inv) = spinner_style();
@@ -161,22 +177,18 @@ impl RenderRefreshProgress for OmaMultiProgressBar {
                 }
                 RefreshEvent::Done => break,
                 RefreshEvent::SourceListFileNotSupport { path } => {
-                    self.writeln(
-                        &style("WARNING").yellow().bold().to_string(),
-                        &fl!(
-                            "unsupported-sources-list",
-                            p = color_formatter()
-                                .color_str(path.to_string_lossy(), Action::Emphasis)
-                                .to_string(),
-                            list = color_formatter()
-                                .color_str(".list", Action::Secondary)
-                                .to_string(),
-                            sources = color_formatter()
-                                .color_str(".sources", Action::Secondary)
-                                .to_string()
-                        ),
-                    )
-                    .ok();
+                    self.warn(&fl!(
+                        "unsupported-sources-list",
+                        p = color_formatter()
+                            .color_str(path.to_string_lossy(), Action::Emphasis)
+                            .to_string(),
+                        list = color_formatter()
+                            .color_str(".list", Action::Secondary)
+                            .to_string(),
+                        sources = color_formatter()
+                            .color_str(".sources", Action::Secondary)
+                            .to_string()
+                    ));
                 }
             }
         }
@@ -201,11 +213,7 @@ impl OmaMultiProgressBar {
                 filename,
                 times,
             } => {
-                self.writeln(
-                    &style("ERROR").red().bold().to_string(),
-                    &fl!("checksum-mismatch-retry", c = filename, retry = times),
-                )
-                .ok();
+                self.error(&fl!("checksum-mismatch-retry", c = filename, retry = times));
             }
             Event::GlobalProgressAdd(num) => {
                 if let Some(gpb) = self.pb_map.get(&0) {
@@ -245,12 +253,13 @@ impl OmaMultiProgressBar {
                     pb.inc(size);
                 }
             }
-            Event::NextUrl { index: _, err } => {
-                self.writeln(
-                    &style("ERROR").red().bold().to_string(),
-                    &fl!("can-not-get-source-next-url", e = err),
-                )
-                .ok();
+            Event::NextUrl {
+                index: _,
+                file_name,
+                err,
+            } => {
+                self.handle_download_err(file_name, err);
+                self.info(&fl!("can-not-get-source-next-url"));
             }
             Event::DownloadDone { index: _, msg } => {
                 tracing::debug!("Downloaded {msg}");
@@ -268,9 +277,46 @@ impl OmaMultiProgressBar {
                     .insert(0, ProgressBar::new(total_size).with_style(sty));
                 self.pb_map.insert(0, pb);
             }
+            Event::Failed { file_name, error } => {
+                self.handle_download_err(file_name, error);
+            }
         };
 
         false
+    }
+
+    fn handle_download_err(&mut self, file_name: String, error: SingleDownloadError) {
+        if let SingleDownloadError::ReqwestError { ref source } = error {
+            if source
+                .status()
+                .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
+            {
+                if !is_root() {
+                    self.info(&fl!("auth-need-permission"));
+                } else {
+                    self.info(&fl!("lack-auth-config-1"));
+                    self.info(&fl!("lack-auth-config-2"));
+                }
+            }
+
+            let err = OutputError::from(error);
+            let errs = Chain::new(&err).collect::<Vec<_>>();
+            let first_cause = errs.first().unwrap().to_string();
+            let last = errs.iter().skip(1).last();
+
+            if let Some(last_cause) = last {
+                let reason = format!("{}: {}", first_cause, last_cause);
+                self.error(&fl!(
+                    "download-package-failed-with-reason",
+                    filename = file_name,
+                    reason = reason
+                ));
+            } else {
+                self.error(&fl!("download-failed", filename = file_name));
+            }
+
+            debug!("{:#?}", errs);
+        }
     }
 }
 
@@ -350,11 +396,13 @@ impl NoProgressBar {
                 self.progress = self.progress.saturating_sub(num);
                 self.print_progress();
             }
-            Event::NextUrl { index: _, err } => {
-                error!(
-                    "{}",
-                    fl!("can-not-get-source-next-url", e = err.to_string())
-                );
+            Event::NextUrl {
+                index: _,
+                file_name,
+                err,
+            } => {
+                handle_no_pb_download_error(file_name, err);
+                info!("{}", fl!("can-not-get-source-next-url"));
             }
             Event::DownloadDone { index: _, msg } => {
                 WRITER.writeln("DONE", &msg).ok();
@@ -362,6 +410,9 @@ impl NoProgressBar {
             Event::AllDone => return true,
             Event::NewGlobalProgressBar(total_size) => {
                 self.total_size.get_or_init(|| total_size);
+            }
+            Event::Failed { file_name, error } => {
+                handle_no_pb_download_error(file_name, error);
             }
             _ => {}
         };
@@ -385,5 +436,40 @@ impl NoProgressBar {
             }
             self.timer = Instant::now();
         }
+    }
+}
+
+fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
+    if let SingleDownloadError::ReqwestError { ref source } = error {
+        if source
+            .status()
+            .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
+        {
+            if !is_root() {
+                info!("{}", fl!("auth-need-permission"));
+            } else {
+                info!("{}", fl!("lack-auth-config-1"));
+                info!("{}", fl!("lack-auth-config-2"));
+            }
+        }
+    }
+
+    let err = OutputError::from(error);
+    let errs = Chain::new(&err).collect::<Vec<_>>();
+    let first_cause = errs.first().unwrap().to_string();
+    let last = errs.iter().skip(1).last();
+
+    if let Some(last_cause) = last {
+        let reason = format!("{}: {}", first_cause, last_cause);
+        error!(
+            "{}",
+            fl!(
+                "download-package-failed-with-reason",
+                filename = file_name,
+                reason = reason
+            )
+        );
+    } else {
+        error!("{}", fl!("download-failed", filename = file_name));
     }
 }

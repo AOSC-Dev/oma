@@ -32,12 +32,10 @@ use oma_fetch::{
         header::{HeaderValue, CONTENT_LENGTH},
         Client, Response,
     },
-    CompressFile, DownloadEntry, DownloadManager, DownloadResult, DownloadSource,
-    DownloadSourceType,
+    CompressFile, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
 };
 
-use oma_fetch::{DownloadError, Summary};
-
+use oma_fetch::Summary;
 #[cfg(feature = "aosc")]
 use oma_topics::TopicManager;
 
@@ -73,8 +71,8 @@ pub enum RefreshError {
     ScanSourceError(SourcesListError),
     #[error("Unsupported Protocol: {0}")]
     UnsupportedProtocol(String),
-    #[error(transparent)]
-    FetcherError(#[from] oma_fetch::DownloadError),
+    #[error("Failed to download some metadata")]
+    DownloadFailed,
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
     #[cfg(feature = "aosc")]
@@ -106,6 +104,8 @@ pub enum RefreshError {
     DuplicateComponents(Box<str>, String),
     #[error("sources.list is empty")]
     SourceListsEmpty,
+    #[error("Failed to operate file: {0}")]
+    OperateFile(PathBuf, std::io::Error),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -254,7 +254,7 @@ impl<'a> OmaRefresh<'a> {
         );
 
         // 有元数据更新才执行 success invoke
-        let should_run_invoke = res?.iter().any(|x| x.wrote);
+        let should_run_invoke = res?.has_wrote();
 
         if should_run_invoke {
             callback(Event::RunInvokeScript).await;
@@ -271,7 +271,7 @@ impl<'a> OmaRefresh<'a> {
         callback: &F,
         tasks: &[DownloadEntry],
         total: u64,
-    ) -> Result<Vec<Summary>>
+    ) -> Result<Summary>
     where
         F: Fn(Event) -> Fut,
         Fut: futures::Future,
@@ -288,9 +288,22 @@ impl<'a> OmaRefresh<'a> {
             .start_download(|event| async {
                 callback(Event::DownloadEvent(event)).await;
             })
-            .await;
+            .await
+            .unwrap();
 
-        let res = res.into_iter().collect::<DownloadResult<Vec<_>>>()?;
+        if !res.is_download_success() {
+            return Err(RefreshError::DownloadFailed);
+        }
+
+        // 有元数据更新才执行 success invoke
+        let should_run_invoke = res.has_wrote();
+
+        if should_run_invoke {
+            callback(Event::RunInvokeScript).await;
+            self.run_success_post_invoke().await;
+        }
+
+        callback(Event::Done).await;
 
         Ok(res)
     }
@@ -518,15 +531,15 @@ impl<'a> OmaRefresh<'a> {
             if p.exists() {
                 if dst.exists() {
                     debug!("get_release_file: Removing {}", dst.display());
-                    fs::remove_file(&dst).await.map_err(|e| {
-                        RefreshError::FetcherError(DownloadError::IOError(entry.to_string(), e))
-                    })?;
+                    fs::remove_file(&dst)
+                        .await
+                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
                 }
 
                 debug!("get_release_file: Symlink {}", dst.display());
-                fs::symlink(p, dst).await.map_err(|e| {
-                    RefreshError::FetcherError(DownloadError::IOError(entry.to_string(), e))
-                })?;
+                fs::symlink(p, &dst)
+                    .await
+                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
 
                 if index == 1 {
                     is_release = true;
@@ -558,16 +571,14 @@ impl<'a> OmaRefresh<'a> {
 
             if p.exists() {
                 if dst.exists() {
-                    fs::remove_file(&dst).await.map_err(|e| {
-                        RefreshError::FetcherError(DownloadError::IOError(entry.to_string(), e))
-                    })?;
+                    fs::remove_file(&dst)
+                        .await
+                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
                 }
 
                 fs::symlink(p, self.download_dir.join(file_name))
                     .await
-                    .map_err(|e| {
-                        RefreshError::FetcherError(DownloadError::IOError(entry.to_string(), e))
-                    })?;
+                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
             }
         }
 
@@ -702,9 +713,7 @@ impl<'a> OmaRefresh<'a> {
 
         let mut f = File::create(self.download_dir.join(file_name))
             .await
-            .map_err(|e| {
-                RefreshError::FetcherError(DownloadError::IOError(file_name.to_string(), e))
-            })?;
+            .map_err(|_| RefreshError::DownloadFailed)?;
 
         f.set_permissions(Permissions::from_mode(0o644))
             .await
@@ -719,14 +728,14 @@ impl<'a> OmaRefresh<'a> {
             }))
             .await;
 
-            f.write_all(&chunk).await.map_err(|e| {
-                RefreshError::FetcherError(DownloadError::IOError(file_name.to_string(), e))
-            })?;
+            f.write_all(&chunk)
+                .await
+                .map_err(|_| RefreshError::DownloadFailed)?;
         }
 
-        f.shutdown().await.map_err(|e| {
-            RefreshError::FetcherError(DownloadError::IOError(file_name.to_string(), e))
-        })?;
+        f.shutdown()
+            .await
+            .map_err(|_| RefreshError::DownloadFailed)?;
 
         callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 

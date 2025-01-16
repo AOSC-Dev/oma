@@ -5,14 +5,12 @@ use clap::Args;
 use flume::unbounded;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
-use reqwest::StatusCode;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::config::Config;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderDownloadProgress};
-use crate::utils::is_root;
-use crate::{due_to, fl, success, HTTP_CLIENT};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
+use crate::{fl, success, HTTP_CLIENT};
 
 use crate::args::CliExecuter;
 
@@ -69,7 +67,7 @@ impl CliExecuter for Download {
             pb.render_progress(&rx);
         });
 
-        let (success, failed) = apt.download(
+        let summary = apt.download(
             &HTTP_CLIENT,
             pkgs,
             DownloadConfig {
@@ -85,37 +83,19 @@ impl CliExecuter for Download {
             },
         )?;
 
-        if !success.is_empty() {
+        if !summary.success.is_empty() {
             success!(
                 "{}",
                 fl!(
                     "successfully-download-to-path",
-                    len = success.len(),
+                    len = summary.success.len(),
                     path = path.display().to_string()
                 )
             );
         }
 
-        if !failed.is_empty() {
-            let len = failed.len();
-            for f in failed {
-                let e = OutputError::from(f);
-
-                error!("{e}");
-                if let Some(s) = e.source {
-                    due_to!("{s}");
-                    if let Some(e) = s.downcast_ref::<reqwest::Error>() {
-                        if e.status().is_some_and(|x| x == StatusCode::UNAUTHORIZED) {
-                            if !is_root() {
-                                info!("{}", fl!("auth-need-permission"));
-                            } else {
-                                info!("{}", fl!("lack-auth-config-1"));
-                                info!("{}", fl!("lack-auth-config-2"));
-                            }
-                        }
-                    }
-                }
-            }
+        if !summary.is_download_success() {
+            let len = summary.failed.len();
 
             return Err(OutputError {
                 description: fl!("download-failed-with-len", len = len),

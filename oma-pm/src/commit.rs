@@ -6,7 +6,7 @@ use oma_apt::{
     progress::{AcquireProgress, InstallProgress},
     util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner},
 };
-use oma_fetch::{reqwest::Client, DownloadError, Event, Summary};
+use oma_fetch::{reqwest::Client, Event, Summary};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
 use std::io::Write;
 use tracing::debug;
@@ -57,10 +57,10 @@ impl<'a> DoInstall<'a> {
         F: Fn(Event) -> Fut,
         Fut: std::future::Future<Output = ()>,
     {
-        let (_, failed) = self.download_pkgs(&op.install, callback)?;
+        let summary = self.download_pkgs(&op.install, callback)?;
 
-        if !failed.is_empty() {
-            return Err(OmaAptError::FailedToDownload(failed.len(), failed));
+        if !summary.failed.is_empty() {
+            return Err(OmaAptError::FailedToDownload(summary.failed.len()));
         }
 
         self.do_install(install_progress_manager, op)?;
@@ -72,7 +72,7 @@ impl<'a> DoInstall<'a> {
         &self,
         download_pkg_list: &[InstallEntry],
         callback: F,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
+    ) -> OmaAptResult<Summary>
     where
         F: Fn(Event) -> Fut,
         Fut: std::future::Future<Output = ()>,

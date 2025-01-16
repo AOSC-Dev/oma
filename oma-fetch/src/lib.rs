@@ -2,35 +2,16 @@ use std::{cmp::Ordering, path::PathBuf, time::Duration};
 
 use bon::{builder, Builder};
 use checksum::Checksum;
-use download::SingleDownloader;
+use download::{EmptySource, SingleDownloader, SuccessSummary};
 use futures::{Future, StreamExt};
 
 use reqwest::Client;
 
 pub mod checksum;
 mod download;
+pub use crate::download::SingleDownloadError;
 
 pub use reqwest;
-
-#[derive(thiserror::Error, Debug)]
-pub enum DownloadError {
-    #[error("checksum mismatch {0}")]
-    ChecksumMismatch(String),
-    #[error("Failed to download file: {0}, kind: {1}")]
-    IOError(String, std::io::Error),
-    #[error(transparent)]
-    ReqwestError(reqwest::Error),
-    #[error(transparent)]
-    ChecksumError(#[from] crate::checksum::ChecksumError),
-    #[error("Failed to open local source file {0}: {1}")]
-    FailedOpenLocalSourceFile(String, tokio::io::Error),
-    #[error("Invalid URL: {0}")]
-    InvalidURL(String),
-    #[error("download source list is empty")]
-    EmptySources,
-}
-
-pub type DownloadResult<T> = std::result::Result<T, DownloadError>;
 
 #[derive(Debug, Clone, Default, Builder)]
 pub struct DownloadEntry {
@@ -148,7 +129,7 @@ impl Ord for DownloadSourceType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Event {
     ChecksumMismatch {
         index: usize,
@@ -173,11 +154,16 @@ pub enum Event {
     },
     NextUrl {
         index: usize,
-        err: String,
+        file_name: String,
+        err: SingleDownloadError,
     },
     DownloadDone {
         index: usize,
         msg: Box<str>,
+    },
+    Failed {
+        file_name: String,
+        error: SingleDownloadError,
     },
     AllDone,
     NewGlobalProgressBar(u64),
@@ -200,15 +186,23 @@ pub struct DownloadManager<'a> {
 
 #[derive(Debug)]
 pub struct Summary {
-    pub filename: String,
-    pub wrote: bool,
-    pub count: usize,
-    pub context: Option<String>,
+    pub success: Vec<SuccessSummary>,
+    pub failed: Vec<String>,
+}
+
+impl Summary {
+    pub fn is_download_success(&self) -> bool {
+        self.failed.is_empty()
+    }
+
+    pub fn has_wrote(&self) -> bool {
+        self.success.iter().any(|x| x.wrote)
+    }
 }
 
 impl DownloadManager<'_> {
     /// Start download
-    pub async fn start_download<F, Fut>(&self, callback: F) -> Vec<DownloadResult<Summary>>
+    pub async fn start_download<F, Fut>(&self, callback: F) -> Result<Summary, EmptySource>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -221,7 +215,7 @@ impl DownloadManager<'_> {
                 .client(self.client)
                 .maybe_msg(msg)
                 .download_list_index(i)
-                .entry(c)
+                .entry(c)?
                 .progress((i + 1, self.download_list.len()))
                 .retry_times(self.retry_times)
                 .file_type(c.file_type)
@@ -262,6 +256,19 @@ impl DownloadManager<'_> {
         let res = stream.collect::<Vec<_>>().await;
         callback(Event::AllDone).await;
 
-        res
+        let (mut success, mut failed) = (vec![], vec![]);
+
+        for i in res {
+            match i {
+                download::DownloadResult::Success(success_summary) => {
+                    success.push(success_summary);
+                }
+                download::DownloadResult::Failed { file_name } => {
+                    failed.push(file_name);
+                }
+            }
+        }
+
+        Ok(Summary { success, failed })
     }
 }

@@ -7,7 +7,7 @@ use apt_auth_config::AuthConfigError;
 use oma_console::writer::{Writeln, Writer};
 use oma_contents::OmaContentsError;
 use oma_fetch::checksum::ChecksumError;
-use oma_fetch::DownloadError;
+use oma_fetch::SingleDownloadError;
 use oma_history::HistoryError;
 
 #[cfg(feature = "aosc")]
@@ -24,11 +24,10 @@ use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
-use reqwest::StatusCode;
 use tracing::{debug, error, info};
 
+use crate::fl;
 use crate::subcommand::utils::LockError;
-use crate::{due_to, fl};
 
 use self::ChainState::*;
 
@@ -317,7 +316,6 @@ impl From<RefreshError> for OutputError {
                 description: fl!("unsupported-protocol", url = s),
                 source: None,
             },
-            RefreshError::FetcherError(e) => oma_download_error(e),
             RefreshError::ReqwestError(e) => OutputError::from(e),
             #[cfg(feature = "aosc")]
             RefreshError::TopicsError(e) => oma_topics_error(e),
@@ -427,8 +425,16 @@ impl From<RefreshError> for OutputError {
                 source: None,
             },
             RefreshError::SourceListsEmpty => Self {
-                description: "Source list is empty".to_string(),
+                description: fl!("sources-list-empty"),
                 source: None,
+            },
+            RefreshError::DownloadFailed => Self {
+                description: fl!("failed-refresh"),
+                source: None,
+            },
+            RefreshError::OperateFile(path, error) => Self {
+                description: fl!("failed-to-operate-path", p = path.display().to_string()),
+                source: Some(Box::new(error)),
             },
         }
     }
@@ -520,12 +526,6 @@ impl From<DpkgError> for OutputError {
             description: fl!("can-not-run-dpkg-print-arch"),
             source: Some(Box::new(value)),
         }
-    }
-}
-
-impl From<DownloadError> for OutputError {
-    fn from(value: DownloadError) -> Self {
-        oma_download_error(value)
     }
 }
 
@@ -687,7 +687,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("invalid-filename", name = s),
             source: None,
         },
-        OmaAptError::DownloadError(e) => oma_download_error(e),
         OmaAptError::DpkgFailedConfigure(e) => OutputError {
             description: fl!("dpkg-configure-a-non-zero"),
             source: Some(Box::new(e)),
@@ -713,25 +712,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("pkg-unavailable", pkg = pkg, ver = ver),
             source: None,
         },
-        OmaAptError::FailedToDownload(size, errs) => {
-            for i in errs {
-                let err = oma_download_error(i);
-                error!("{}", err.description);
-                if let Some(s) = err.source {
-                    due_to!("{s}");
-                    if let Some(e) = s.downcast_ref::<reqwest::Error>() {
-                        if e.status().is_some_and(|x| x == StatusCode::UNAUTHORIZED) {
-                            info!("{}", fl!("lack-auth-config-1"));
-                            info!("{}", fl!("lack-auth-config-2"));
-                        }
-                    }
-                }
-            }
-            OutputError {
-                description: fl!("download-failed-with-len", len = size),
-                source: None,
-            }
-        }
         OmaAptError::FailedCreateAsyncRuntime(e) => OutputError {
             description: "Failed to create async runtime".to_string(),
             source: Some(Box::new(e)),
@@ -773,6 +753,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("dpkg-triggers-only-a-non-zero"),
             source: Some(Box::new(e)),
         },
+        OmaAptError::FailedToDownload(len) => OutputError {
+            description: fl!("download-failed-with-len", len = len),
+            source: None,
+        },
     }
 }
 
@@ -807,52 +791,27 @@ impl From<reqwest::Error> for OutputError {
     }
 }
 
-fn oma_download_error(e: DownloadError) -> OutputError {
-    debug!("{:?}", e);
-    match e {
-        DownloadError::ChecksumMismatch(filename) => OutputError {
-            description: fl!("checksum-mismatch", filename = filename),
-            source: None,
-        },
-        DownloadError::IOError(s, e) => OutputError {
-            description: fl!("download-failed", filename = s),
-            source: Some(Box::new(e)),
-        },
-        DownloadError::ReqwestError(e) => OutputError::from(e),
-        DownloadError::ChecksumError(e) => oma_checksum_error(e),
-        DownloadError::FailedOpenLocalSourceFile(path, e) => OutputError {
-            description: fl!("can-not-parse-sources-list", path = path.to_string()),
-            source: Some(Box::new(e)),
-        },
-        DownloadError::InvalidURL(s) => OutputError {
-            description: fl!("invalid-url", url = s),
-            source: None,
-        },
-        DownloadError::EmptySources => OutputError {
-            description: e.to_string(),
-            source: None,
-        },
-    }
-}
-
 fn oma_checksum_error(e: ChecksumError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        ChecksumError::FailedToOpenFile(s, e) => OutputError {
-            description: fl!("failed-to-open-to-checksum", path = s),
-            source: Some(Box::new(e)),
+        ChecksumError::OpenFile { source, path } => OutputError {
+            description: fl!(
+                "failed-to-open-to-checksum",
+                path = path.display().to_string()
+            ),
+            source: Some(Box::new(source)),
         },
-        ChecksumError::ChecksumIOError(e) => OutputError {
+        ChecksumError::Copy { source } => OutputError {
             description: fl!("can-not-checksum"),
-            source: Some(Box::new(e)),
+            source: Some(Box::new(source)),
         },
         ChecksumError::BadLength => OutputError {
             description: fl!("sha256-bad-length"),
             source: None,
         },
-        ChecksumError::HexError(e) => OutputError {
+        ChecksumError::Decode { source } => OutputError {
             description: e.to_string(),
-            source: None,
+            source: Some(Box::new(source)),
         },
     }
 }
@@ -931,6 +890,69 @@ impl From<HistoryError> for OutputError {
             },
             HistoryError::FailedParentPath(p) => Self {
                 description: fl!("failed-to-get-parent-path", p = p),
+                source: None,
+            },
+        }
+    }
+}
+
+impl From<SingleDownloadError> for OutputError {
+    fn from(value: SingleDownloadError) -> Self {
+        match value {
+            SingleDownloadError::SetPermission { source } => Self {
+                description: fl!("set-permission"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::OpenAsWriteMode { source } => Self {
+                description: fl!("open-file-as-write-mode"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::Open { source } => Self {
+                description: fl!("open-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::Create { source } => Self {
+                description: fl!("create-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::Seek { source } => Self {
+                description: fl!("seek-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::Write { source } => Self {
+                description: fl!("write-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::Flush { source } => Self {
+                description: fl!("flush-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::Remove { source } => Self {
+                description: fl!("remove-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::CreateSymlink { source } => Self {
+                description: fl!("create-symlink-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::ReqwestError { source } => Self {
+                description: fl!("reqwest-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::BrokenPipe { source } => Self {
+                description: fl!("broken-pipe-err"),
+                source: Some(Box::new(source)),
+            },
+            SingleDownloadError::SendRequestTimeout => Self {
+                description: fl!("send-request-timeout"),
+                source: None,
+            },
+            SingleDownloadError::DownloadTimeout => Self {
+                description: fl!("download-timeout"),
+                source: None,
+            },
+            SingleDownloadError::ChecksumMismatch => Self {
+                description: fl!("checksum-mismatch-download-err"),
                 source: None,
             },
         }

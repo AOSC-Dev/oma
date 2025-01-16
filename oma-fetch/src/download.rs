@@ -16,6 +16,7 @@ use reqwest::{
     header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client, Method, RequestBuilder,
 };
+use snafu::{ResultExt, Snafu};
 use tokio::{
     fs::{self, File},
     io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
@@ -25,11 +26,24 @@ use tokio::{
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use tracing::debug;
 
-use crate::{DownloadEntry, DownloadError, DownloadResult, DownloadSourceType, Summary};
+use crate::{DownloadEntry, DownloadSourceType};
+
+#[derive(Snafu, Debug)]
+#[snafu(display("source list is empty"))]
+pub struct EmptySource {
+    file_name: String,
+}
 
 #[derive(Builder)]
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
+    #[builder(with = |entry: &'a DownloadEntry| -> Result<_, EmptySource> {
+        if entry.source.is_empty() {
+            return Err(EmptySource { file_name: entry.filename.to_string() });
+        } else {
+            return Ok(entry);
+        }
+    })]
     pub entry: &'a DownloadEntry,
     progress: (usize, usize),
     retry_times: usize,
@@ -40,18 +54,64 @@ pub(crate) struct SingleDownloader<'a> {
     timeout: Duration,
 }
 
+pub enum DownloadResult {
+    Success(SuccessSummary),
+    Failed { file_name: String },
+}
+
+#[derive(Debug)]
+pub struct SuccessSummary {
+    pub file_name: String,
+    pub index: usize,
+    pub wrote: bool,
+}
+
+#[derive(Debug, Snafu)]
+pub enum SingleDownloadError {
+    #[snafu(display("Failed to set permission"))]
+    SetPermission { source: io::Error },
+    #[snafu(display("Failed to open file as rw mode"))]
+    OpenAsWriteMode { source: io::Error },
+    #[snafu(display("Failed to open file"))]
+    Open { source: io::Error },
+    #[snafu(display("Failed to create file"))]
+    Create { source: io::Error },
+    #[snafu(display("Failed to seek file"))]
+    Seek { source: io::Error },
+    #[snafu(display("Failed to write file"))]
+    Write { source: io::Error },
+    #[snafu(display("Failed to flush file"))]
+    Flush { source: io::Error },
+    #[snafu(display("Failed to Remove file"))]
+    Remove { source: io::Error },
+    #[snafu(display("Failed to create symlink"))]
+    CreateSymlink { source: io::Error },
+    #[snafu(display("Request Error"))]
+    ReqwestError { source: reqwest::Error },
+    #[snafu(display("Broken pipe"))]
+    BrokenPipe { source: io::Error },
+    #[snafu(display("Send request timeout"))]
+    SendRequestTimeout,
+    #[snafu(display("Download file timeout"))]
+    DownloadTimeout,
+    #[snafu(display("checksum mismatch"))]
+    ChecksumMismatch,
+}
+
 impl SingleDownloader<'_> {
-    pub(crate) async fn try_download<F, Fut>(self, callback: &F) -> DownloadResult<Summary>
+    pub(crate) async fn try_download<F, Fut>(self, callback: &F) -> DownloadResult
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
         let mut sources = self.entry.source.clone();
+        assert!(!sources.is_empty());
+
         sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
 
         let msg = self.msg.as_deref().unwrap_or(&*self.entry.filename);
 
-        for (i, c) in sources.iter().enumerate() {
+        for (index, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
                 DownloadSourceType::Http { auth } => {
                     self.try_http_download(c, auth, callback).await
@@ -62,31 +122,43 @@ impl SingleDownloader<'_> {
             };
 
             match download_res {
-                Ok(download_res) => {
+                Ok(b) => {
                     callback(Event::DownloadDone {
                         index: self.download_list_index,
                         msg: msg.into(),
                     })
                     .await;
 
-                    return Ok(download_res);
+                    return DownloadResult::Success(SuccessSummary {
+                        file_name: self.entry.filename.to_string(),
+                        index: self.download_list_index,
+                        wrote: b,
+                    });
                 }
                 Err(e) => {
-                    if i == sources.len() - 1 {
-                        return Err(e);
+                    if index == sources.len() - 1 {
+                        callback(Event::Failed {
+                            file_name: self.entry.filename.clone(),
+                            error: e,
+                        })
+                        .await;
+
+                        return DownloadResult::Failed {
+                            file_name: self.entry.filename.to_string(),
+                        };
                     }
-                    debug!("{c:?} download failed {e}, trying next url.");
 
                     callback(Event::NextUrl {
                         index: self.download_list_index,
-                        err: e.to_string(),
+                        file_name: self.entry.filename.to_string(),
+                        err: e,
                     })
                     .await;
                 }
             }
         }
 
-        Err(DownloadError::EmptySources)
+        unreachable!()
     }
 
     /// Download file with retry (http)
@@ -95,7 +167,7 @@ impl SingleDownloader<'_> {
         source: &DownloadSource,
         auth: &Option<(String, String)>,
         callback: &F,
-    ) -> DownloadResult<Summary>
+    ) -> Result<bool, SingleDownloadError>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -111,7 +183,7 @@ impl SingleDownloader<'_> {
                     return Ok(s);
                 }
                 Err(e) => match e {
-                    DownloadError::ChecksumMismatch(ref filename) => {
+                    SingleDownloadError::ChecksumMismatch => {
                         if self.retry_times == times {
                             return Err(e);
                         }
@@ -119,7 +191,7 @@ impl SingleDownloader<'_> {
                         if times > 1 {
                             callback(Event::ChecksumMismatch {
                                 index: self.download_list_index,
-                                filename: filename.into(),
+                                filename: self.entry.filename.to_string(),
                                 times,
                             })
                             .await;
@@ -142,7 +214,7 @@ impl SingleDownloader<'_> {
         source: &DownloadSource,
         auth: &Option<(String, String)>,
         callback: &F,
-    ) -> DownloadResult<Summary>
+    ) -> Result<bool, SingleDownloadError>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -171,7 +243,7 @@ impl SingleDownloader<'_> {
                     .read(true)
                     .open(&file)
                     .await
-                    .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
+                    .context(OpenAsWriteModeSnafu)?;
 
                 debug!(
                     "oma opened file: {} with write and read mode",
@@ -190,10 +262,10 @@ impl SingleDownloader<'_> {
                         break;
                     }
 
-                    let read_count = f
-                        .read(&mut buf[..])
-                        .await
-                        .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
+                    let Ok(read_count) = f.read(&mut buf[..]).await else {
+                        debug!("Read file get get fk, so re-download it");
+                        break;
+                    };
 
                     v.update(&buf[..read_count]);
 
@@ -210,12 +282,7 @@ impl SingleDownloader<'_> {
 
                     callback(Event::ProgressDone(self.download_list_index)).await;
 
-                    return Ok(Summary {
-                        filename: self.entry.filename.clone(),
-                        wrote: false,
-                        count: self.download_list_index,
-                        context: self.msg.clone(),
-                    });
+                    return Ok(false);
                 }
 
                 debug!(
@@ -241,18 +308,17 @@ impl SingleDownloader<'_> {
 
         let req = self.build_request_with_basic_auth(&source.url, Method::HEAD, auth);
 
-        let resp_head = match timeout(self.timeout, req.send()).await {
+        let resp_head = timeout(self.timeout, req.send()).await;
+
+        callback(Event::ProgressDone(self.download_list_index)).await;
+
+        let resp_head = match resp_head {
             Ok(Ok(resp)) => resp,
             Ok(Err(e)) => {
-                callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(DownloadError::ReqwestError(e));
+                return Err(SingleDownloadError::ReqwestError { source: e });
             }
-            Err(e) => {
-                callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(DownloadError::IOError(
-                    self.entry.filename.to_string(),
-                    io::Error::new(ErrorKind::TimedOut, e),
-                ));
+            Err(_) => {
+                return Err(SingleDownloadError::SendRequestTimeout);
             }
         };
 
@@ -304,14 +370,16 @@ impl SingleDownloader<'_> {
 
         debug!("Can resume? {can_resume}");
 
-        let resp = req.send().await.map_err(DownloadError::ReqwestError)?;
+        let resp = timeout(self.timeout, req.send()).await;
 
-        if let Err(e) = resp.error_for_status_ref() {
-            callback(Event::ProgressDone(self.download_list_index)).await;
-            return Err(DownloadError::ReqwestError(e));
-        } else {
-            callback(Event::ProgressDone(self.download_list_index)).await;
-        }
+        callback(Event::ProgressDone(self.download_list_index)).await;
+
+        let resp = match resp {
+            Ok(resp) => resp
+                .and_then(|resp| resp.error_for_status())
+                .context(ReqwestSnafu)?,
+            Err(_) => return Err(SingleDownloadError::SendRequestTimeout),
+        };
 
         callback(Event::NewProgressBar {
             index: self.download_list_index,
@@ -349,13 +417,13 @@ impl SingleDownloader<'_> {
                 Ok(f) => f,
                 Err(e) => {
                     callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
+                    return Err(SingleDownloadError::Create { source: e });
                 }
             };
 
             if let Err(e) = f.set_len(0).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
+                return Err(SingleDownloadError::Create { source: e });
             }
 
             self.set_permission(&f).await?;
@@ -379,13 +447,13 @@ impl SingleDownloader<'_> {
                 Ok(f) => f,
                 Err(e) => {
                     callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
+                    return Err(SingleDownloadError::Create { source: e });
                 }
             };
 
             if let Err(e) = f.set_len(0).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
+                return Err(SingleDownloadError::Create { source: e });
             }
 
             self.set_permission(&f).await?;
@@ -398,7 +466,7 @@ impl SingleDownloader<'_> {
             debug!("oma will seek file: {} to end", self.entry.filename);
             if let Err(e) = dest.seek(SeekFrom::End(0)).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
+                return Err(SingleDownloadError::Seek { source: e });
             }
         }
         // 下载！
@@ -426,17 +494,11 @@ impl SingleDownloader<'_> {
                 Ok(Ok(size)) => size,
                 Ok(Err(e)) => {
                     callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(DownloadError::IOError(
-                        self.entry.filename.to_string(),
-                        io::Error::new(ErrorKind::BrokenPipe, e),
-                    ));
+                    return Err(SingleDownloadError::BrokenPipe { source: e });
                 }
-                Err(e) => {
+                Err(_) => {
                     callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(DownloadError::IOError(
-                        self.entry.filename.to_string(),
-                        io::Error::new(ErrorKind::TimedOut, e),
-                    ));
+                    return Err(SingleDownloadError::DownloadTimeout);
                 }
             };
 
@@ -446,7 +508,7 @@ impl SingleDownloader<'_> {
 
             if let Err(e) = dest.write_all(&buf[..size]).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
+                return Err(SingleDownloadError::Write { source: e });
             }
 
             callback(Event::ProgressInc {
@@ -464,11 +526,11 @@ impl SingleDownloader<'_> {
             }
         }
 
-        // 下载完成，告诉内核不再写这个文件了
+        // 下载完成，告诉运行时不再写这个文件了
         debug!("Download complete! shutting down dest file stream ...");
         if let Err(e) = dest.shutdown().await {
             callback(Event::ProgressDone(self.download_list_index)).await;
-            return Err(DownloadError::IOError(self.entry.filename.to_string(), e));
+            return Err(SingleDownloadError::Flush { source: e });
         }
 
         // 最后看看 checksum 验证是否通过
@@ -479,9 +541,7 @@ impl SingleDownloader<'_> {
 
                 callback(Event::GlobalProgressSub(self_progress)).await;
                 callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(DownloadError::ChecksumMismatch(
-                    self.entry.filename.to_string(),
-                ));
+                return Err(SingleDownloadError::ChecksumMismatch);
             }
 
             debug!("checksum success: {}", self.entry.filename);
@@ -489,32 +549,27 @@ impl SingleDownloader<'_> {
 
         callback(Event::ProgressDone(self.download_list_index)).await;
 
-        Ok(Summary {
-            filename: self.entry.filename.clone(),
-            wrote: true,
-            count: self.download_list_index,
-            context: self.msg.clone(),
-        })
+        Ok(true)
     }
 
-    async fn set_permission(&self, f: &File) -> Result<(), DownloadError> {
+    async fn set_permission(&self, f: &File) -> Result<(), SingleDownloadError> {
         if let Some(mode) = self.set_permission {
             debug!("Setting {} permission to {:#o}", self.entry.filename, mode);
             f.set_permissions(Permissions::from_mode(mode))
                 .await
-                .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?;
+                .context(SetPermissionSnafu)?;
         }
 
         Ok(())
     }
 
-    async fn set_permission_with_path(&self, path: &Path) -> Result<(), DownloadError> {
+    async fn set_permission_with_path(&self, path: &Path) -> Result<(), SingleDownloadError> {
         if let Some(mode) = self.set_permission {
             debug!("Setting {} permission to {:#o}", self.entry.filename, mode);
 
             fs::set_permissions(path, Permissions::from_mode(mode))
                 .await
-                .map_err(|e| DownloadError::IOError(self.entry.filename.to_string(), e))?
+                .context(SetPermissionSnafu)?;
         }
 
         Ok(())
@@ -550,7 +605,7 @@ impl SingleDownloader<'_> {
         source: &DownloadSource,
         as_symlink: bool,
         callback: &F,
-    ) -> DownloadResult<Summary>
+    ) -> Result<bool, SingleDownloadError>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -559,18 +614,15 @@ impl SingleDownloader<'_> {
         let msg = self.progress_msg();
 
         let url = &source.url;
-        let url_path = url_no_escape(
-            url.strip_prefix("file:")
-                .ok_or_else(|| DownloadError::InvalidURL(url.to_string()))?,
-        );
+
+        // 传入的参数不对，应该 panic
+        let url_path = url_no_escape(url.strip_prefix("file:").unwrap());
 
         let url_path = Path::new(&url_path);
 
         let total_size = tokio::fs::metadata(url_path)
             .await
-            .map_err(|e| {
-                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-            })?
+            .context(OpenSnafu)?
             .len();
 
         callback(Event::NewProgressBar {
@@ -583,40 +635,31 @@ impl SingleDownloader<'_> {
         if as_symlink {
             let symlink = self.entry.dir.join(&*self.entry.filename);
             if symlink.exists() {
-                tokio::fs::remove_file(&symlink).await.map_err(|e| {
-                    DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-                })?;
+                tokio::fs::remove_file(&symlink)
+                    .await
+                    .context(RemoveSnafu)?;
             }
 
-            tokio::fs::symlink(url_path, symlink).await.map_err(|e| {
-                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-            })?;
+            tokio::fs::symlink(url_path, symlink)
+                .await
+                .context(CreateSymlinkSnafu)?;
 
             callback(Event::GlobalProgressAdd(total_size as u64)).await;
             callback(Event::ProgressDone(self.download_list_index)).await;
 
-            return Ok(Summary {
-                filename: self.entry.filename.clone(),
-                wrote: true,
-                count: self.download_list_index,
-                context: self.msg.clone(),
-            });
+            return Ok(true);
         }
 
         debug!("File path is: {}", url_path.display());
 
-        let from = File::open(&url_path).await.map_err(|e| {
-            DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-        })?;
+        let from = File::open(&url_path).await.context(CreateSnafu)?;
         let from = tokio::io::BufReader::new(from).compat();
 
         debug!("Success open file: {}", url_path.display());
 
         let mut to = File::create(self.entry.dir.join(&*self.entry.filename))
             .await
-            .map_err(|e| {
-                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-            })?;
+            .context(CreateSnafu)?;
 
         self.set_permission(&to).await?;
 
@@ -638,17 +681,13 @@ impl SingleDownloader<'_> {
         let mut buf = vec![0u8; 8 * 1024];
 
         loop {
-            let size = reader.read(&mut buf[..]).await.map_err(|e| {
-                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-            })?;
+            let size = reader.read(&mut buf[..]).await.context(BrokenPipeSnafu)?;
 
             if size == 0 {
                 break;
             }
 
-            to.write_all(&buf[..size]).await.map_err(|e| {
-                DownloadError::FailedOpenLocalSourceFile(self.entry.filename.to_string(), e)
-            })?;
+            to.write_all(&buf[..size]).await.context(WriteSnafu)?;
 
             callback(Event::ProgressInc {
                 index: self.download_list_index,
@@ -661,11 +700,6 @@ impl SingleDownloader<'_> {
 
         callback(Event::ProgressDone(self.download_list_index)).await;
 
-        Ok(Summary {
-            filename: self.entry.filename.clone(),
-            wrote: true,
-            count: self.download_list_index,
-            context: self.msg.clone(),
-        })
+        Ok(true)
     }
 }

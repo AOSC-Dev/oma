@@ -2,6 +2,7 @@ use faster_hex::{hex_decode, hex_string};
 use md5::Md5;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
+use snafu::ResultExt;
 use std::{fmt::Display, fs::File, io, path::Path};
 
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
@@ -36,27 +37,28 @@ impl ChecksumValidator {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, snafu::Snafu)]
 pub enum ChecksumError {
-    #[error("Failed to open file {0} for checking checksum, kind: {1}")]
-    FailedToOpenFile(String, std::io::Error),
-    #[error("Can not checksum file: {0}")]
-    ChecksumIOError(std::io::Error),
-    #[error("Sha256 bad length")]
+    #[snafu(display("Failed to open file"))]
+    OpenFile { source: io::Error, path: Box<Path> },
+    #[snafu(display("Failed to checksum file"))]
+    Copy { source: io::Error },
+    #[snafu(display("Bad Length"))]
     BadLength,
-    #[error(transparent)]
-    HexError(#[from] faster_hex::Error),
+    #[snafu(display("Failed to verify data"))]
+    Decode { source: faster_hex::Error },
 }
 
 pub type Result<T> = std::result::Result<T, ChecksumError>;
 
 impl Checksum {
     pub fn from_file_sha256(path: &Path) -> Result<Self> {
-        let mut file = File::open(path)
-            .map_err(|e| ChecksumError::FailedToOpenFile(path.display().to_string(), e))?;
+        let mut file = File::open(path).context(OpenFileSnafu {
+            path: Box::from(path),
+        })?;
 
         let mut hasher = Sha256::new();
-        io::copy(&mut file, &mut hasher).map_err(ChecksumError::ChecksumIOError)?;
+        io::copy(&mut file, &mut hasher).context(CopySnafu)?;
         let hash = hasher.finalize().to_vec();
 
         Ok(Self::Sha256(hash))
@@ -71,7 +73,7 @@ impl Checksum {
         let from = s.as_bytes();
         // dst 的长度必须是 src 的一半
         let mut dst = vec![0; from.len() / 2];
-        hex_decode(from, &mut dst)?;
+        hex_decode(from, &mut dst).context(DecodeSnafu)?;
 
         Ok(Checksum::Sha256(dst))
     }
@@ -85,7 +87,7 @@ impl Checksum {
         let from = s.as_bytes();
         // dst 的长度必须是 src 的一半
         let mut dst = vec![0; from.len() / 2];
-        hex_decode(from, &mut dst)?;
+        hex_decode(from, &mut dst).context(DecodeSnafu)?;
 
         Ok(Checksum::Sha512(dst))
     }
@@ -99,7 +101,7 @@ impl Checksum {
         let from = s.as_bytes();
         // dst 的长度必须是 src 的一半
         let mut dst = vec![0; from.len() / 2];
-        hex_decode(from, &mut dst)?;
+        hex_decode(from, &mut dst).context(DecodeSnafu)?;
 
         Ok(Checksum::Md5(dst))
     }
@@ -116,19 +118,19 @@ impl Checksum {
         match self {
             Checksum::Sha256(hex) => {
                 let mut hasher = Sha256::new();
-                io::copy(&mut r, &mut hasher).map_err(ChecksumError::ChecksumIOError)?;
+                io::copy(&mut r, &mut hasher).context(CopySnafu)?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Sha512(hex) => {
                 let mut hasher = Sha512::new();
-                io::copy(&mut r, &mut hasher).map_err(ChecksumError::ChecksumIOError)?;
+                io::copy(&mut r, &mut hasher).context(CopySnafu)?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Md5(hex) => {
                 let mut hasher = Md5::new();
-                io::copy(&mut r, &mut hasher).map_err(ChecksumError::ChecksumIOError)?;
+                io::copy(&mut r, &mut hasher).context(CopySnafu)?;
                 let hash = hasher.finalize().to_vec();
                 Ok(hex == &hash)
             }
@@ -136,8 +138,9 @@ impl Checksum {
     }
 
     pub fn cmp_file(&self, path: &Path) -> Result<bool> {
-        let file = File::open(path)
-            .map_err(|e| ChecksumError::FailedToOpenFile(path.display().to_string(), e))?;
+        let file = File::open(path).context(OpenFileSnafu {
+            path: Box::from(path),
+        })?;
 
         self.cmp_read(Box::new(file) as Box<dyn std::io::Read>)
     }

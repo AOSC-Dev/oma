@@ -25,7 +25,7 @@ use oma_apt::{
     DepFlags, Package, PkgCurrentState, Version,
 };
 
-use oma_fetch::{checksum::ChecksumError, reqwest::Client, DownloadError, Event, Summary};
+use oma_fetch::{checksum::ChecksumError, reqwest::Client, Event, Summary};
 use oma_utils::{
     dpkg::{get_selections, is_hold, DpkgError},
     human_bytes::HumanBytes,
@@ -108,8 +108,6 @@ pub enum OmaAptError {
     PkgUnavailable(String, String),
     #[error("Invalid file name: {0}")]
     InvalidFileName(String),
-    #[error(transparent)]
-    DownloadError(#[from] DownloadError),
     #[error("Failed to create async runtime: {0}")]
     FailedCreateAsyncRuntime(std::io::Error),
     #[error("Failed to create file or directory: {0}: {1}")]
@@ -129,7 +127,7 @@ pub enum OmaAptError {
     #[error(transparent)]
     DpkgError(#[from] DpkgError),
     #[error("Failed to download {0} package(s).")]
-    FailedToDownload(usize, Vec<DownloadError>),
+    FailedToDownload(usize),
     #[error("Failed to obtain parent path: {0:?}")]
     FailedGetParentPath(PathBuf),
     #[error("Failed to get canonicalized path: {0}")]
@@ -407,7 +405,7 @@ impl OmaApt {
         config: DownloadConfig<'_>,
         dry_run: bool,
         callback: F,
-    ) -> OmaAptResult<(Vec<Summary>, Vec<DownloadError>)>
+    ) -> OmaAptResult<Summary>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -454,7 +452,10 @@ impl OmaApt {
         }
 
         if dry_run {
-            return Ok((vec![], vec![]));
+            return Ok(Summary {
+                success: vec![],
+                failed: vec![],
+            });
         }
 
         let res = self
@@ -1219,10 +1220,10 @@ fn mark_install(
 ) -> OmaAptResult<bool> {
     let pkg = unsafe { pkginfo.raw_pkg.unique() }
         .make_safe()
-        .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?;
+        .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?;
     let version = unsafe { pkginfo.version_raw.unique() }
         .make_safe()
-        .ok_or_else(|| OmaAptError::PtrIsNone(PtrIsNone))?;
+        .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?;
     let ver = Version::new(version, cache);
     let pkg = Package::new(cache, pkg);
     ver.set_candidate();
