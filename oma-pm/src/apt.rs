@@ -1001,7 +1001,12 @@ impl OmaApt {
 
         for pkg in self.filter_pkgs(&[FilterMode::AutoRemovable])? {
             if !pkg.marked_delete() {
-                let ver = pkg.installed().unwrap();
+                let ver = pkg.installed().unwrap_or_else(|| {
+                    // 有可能存在操作之后立即是孤包的情况
+                    // 我们需要拿取将要安装的版本
+                    // 也许，搜寻自动删除的逻辑应该在操作完成之后？
+                    pkg.candidate().unwrap()
+                });
                 autoremovable.0 += 1;
                 autoremovable.1 += ver.installed_size();
             }
