@@ -5,6 +5,7 @@ use url::Url;
 
 use crate::db::RefreshError;
 
+#[derive(Debug)]
 pub(crate) struct DatabaseFilenameReplacer {
     ac: AhoCorasick,
 }
