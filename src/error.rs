@@ -427,10 +427,19 @@ impl From<RefreshError> for OutputError {
                 description: fl!("sources-list-empty"),
                 source: None,
             },
-            RefreshError::DownloadFailed(_) => Self {
-                description: fl!("failed-refresh"),
-                source: None,
-            },
+            RefreshError::DownloadFailed(err) => {
+                if let Some(err) = err {
+                    Self {
+                        description: fl!("failed-refresh"),
+                        source: Some(Box::new(OutputError::from(err))),
+                    }
+                } else {
+                    Self {
+                        description: fl!("failed-refresh"),
+                        source: None,
+                    }
+                }
+            }
             RefreshError::OperateFile(path, error) => Self {
                 description: fl!("failed-to-operate-path", p = path.display().to_string()),
                 source: Some(Box::new(error)),

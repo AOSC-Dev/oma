@@ -352,7 +352,7 @@ impl<'a> OmaRefresh<'a> {
 
         let results = mirror_sources
             .fetch_all_release(
-                &self.client,
+                self.client,
                 replacer,
                 &self.download_dir,
                 self.threads,
@@ -680,7 +680,7 @@ fn collect_flat_repo_no_release(
     tasks: &mut Vec<DownloadEntry>,
     replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
-    let msg = mirror_source.get_human_download_url(Some("Packages"))?;
+    let msg = mirror_source.get_human_download_message(Some("Packages"))?;
 
     let dist_url = mirror_source.dist_path();
 
@@ -727,7 +727,7 @@ fn collect_download_task(
 ) -> Result<()> {
     let file_type = &c.msg;
 
-    let msg = mirror_source.get_human_download_url(Some(file_type))?;
+    let msg = mirror_source.get_human_download_message(Some(file_type))?;
 
     let dist_url = &mirror_source.dist_path();
 

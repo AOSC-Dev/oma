@@ -233,7 +233,7 @@ impl MirrorSource<'_, '_> {
         self.sources.first().unwrap().from()
     }
 
-    pub fn get_human_download_url(
+    pub fn get_human_download_message(
         &self,
         file_name: Option<&str>,
     ) -> Result<String, RefreshError> {
@@ -313,11 +313,7 @@ impl MirrorSource<'_, '_> {
     {
         let dist_path = self.dist_path();
 
-        let mut r = None;
-        let mut u = None;
-        let mut is_release = false;
-
-        let msg = self.get_human_download_url(None)?;
+        let msg = self.get_human_download_message(None)?;
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
             index,
@@ -325,47 +321,33 @@ impl MirrorSource<'_, '_> {
         }))
         .await;
 
-        for (index, file_name) in ["InRelease", "Release"].iter().enumerate() {
-            let url = format!("{}/{}", dist_path, file_name);
-            let request = build_request_with_basic_auth(
-                client,
-                Method::GET,
-                &self
-                    .auth()
-                    .map(|x| (x.login.to_string(), x.password.to_string())),
-                &url,
-            );
+        let mut url = format!("{}/InRelease", dist_path);
+        let mut is_release = false;
 
-            let resp = request
-                .send()
-                .await
-                .and_then(|resp| resp.error_for_status());
+        let resp = match self.send_request(client, &url, Method::GET).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                debug!("{e}");
+                url = format!("{}/Release", dist_path);
+                let resp = self.send_request(client, &url, Method::GET).await;
 
-            r = Some(resp);
-
-            if r.as_ref().unwrap().is_ok() {
-                u = Some(url);
-                if index == 1 {
-                    is_release = true;
+                if resp.is_err() && self.is_flat() {
+                    // Flat repo no release
+                    callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+                    return Ok(());
                 }
-                break;
-            }
-        }
 
-        let r = r.unwrap();
+                is_release = true;
+
+                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+
+                resp.map_err(|e| SingleDownloadError::ReqwestError { source: e })
+                    .map_err(|e| RefreshError::DownloadFailed(Some(e)))?
+            }
+        };
 
         callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
-        if r.is_err() && self.is_flat() {
-            // Flat repo no release
-            return Ok(());
-        }
-
-        let resp = r
-            .map_err(|e| SingleDownloadError::ReqwestError { source: e })
-            .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
-
-        let url = u.unwrap();
         let file_name = replacer.replace(&url)?;
 
         self.download_file(&file_name, resp, index, total, download_dir, &callback)
@@ -403,6 +385,27 @@ impl MirrorSource<'_, '_> {
         Ok(())
     }
 
+    async fn send_request(
+        &self,
+        client: &Client,
+        url: &str,
+        method: Method,
+    ) -> Result<Response, oma_fetch::reqwest::Error> {
+        let request = build_request_with_basic_auth(
+            client,
+            method,
+            &self
+                .auth()
+                .map(|x| (x.login.to_string(), x.password.to_string())),
+            url,
+        );
+
+        request
+            .send()
+            .await
+            .and_then(|resp| resp.error_for_status())
+    }
+
     async fn download_file<F, Fut>(
         &self,
         file_name: &str,
@@ -424,7 +427,7 @@ impl MirrorSource<'_, '_> {
                 "({}/{}) {}",
                 index,
                 total,
-                self.get_human_download_url(Some(file_name)).unwrap(),
+                self.get_human_download_message(Some(file_name)).unwrap(),
             ),
             size: total_size,
         }));
@@ -482,7 +485,7 @@ impl MirrorSource<'_, '_> {
 
         let mut name = None;
 
-        let msg = self.get_human_download_url(None)?;
+        let msg = self.get_human_download_message(None)?;
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
             index,
