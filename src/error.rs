@@ -316,7 +316,6 @@ impl From<RefreshError> for OutputError {
                 description: fl!("unsupported-protocol", url = s),
                 source: None,
             },
-            RefreshError::ReqwestError(e) => OutputError::from(e),
             #[cfg(feature = "aosc")]
             RefreshError::TopicsError(e) => oma_topics_error(e),
             RefreshError::NoInReleaseFile(s) => Self {
@@ -428,7 +427,7 @@ impl From<RefreshError> for OutputError {
                 description: fl!("sources-list-empty"),
                 source: None,
             },
-            RefreshError::DownloadFailed => Self {
+            RefreshError::DownloadFailed(_) => Self {
                 description: fl!("failed-refresh"),
                 source: None,
             },

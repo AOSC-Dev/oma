@@ -35,7 +35,7 @@ use oma_fetch::{
     CompressFile, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
 };
 
-use oma_fetch::Summary;
+use oma_fetch::{SingleDownloadError, Summary};
 #[cfg(feature = "aosc")]
 use oma_topics::TopicManager;
 
@@ -72,9 +72,7 @@ pub enum RefreshError {
     #[error("Unsupported Protocol: {0}")]
     UnsupportedProtocol(String),
     #[error("Failed to download some metadata")]
-    DownloadFailed,
-    #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
+    DownloadFailed(Option<SingleDownloadError>),
     #[cfg(feature = "aosc")]
     #[error(transparent)]
     TopicsError(#[from] oma_topics::OmaTopicsError),
@@ -292,7 +290,7 @@ impl<'a> OmaRefresh<'a> {
             .unwrap();
 
         if !res.is_download_success() {
-            return Err(RefreshError::DownloadFailed);
+            return Err(RefreshError::DownloadFailed(None));
         }
 
         // 有元数据更新才执行 success invoke
@@ -369,13 +367,15 @@ impl<'a> OmaRefresh<'a> {
         for result in results {
             if let Err(e) = result {
                 match e {
-                    RefreshError::ReqwestError(e)
-                        if e.status()
-                            .map(|x| x == StatusCode::NOT_FOUND)
-                            .unwrap_or(false)
-                            && self.refresh_topics =>
+                    RefreshError::DownloadFailed(Some(SingleDownloadError::ReqwestError {
+                        source,
+                    })) if source
+                        .status()
+                        .map(|x| x == StatusCode::NOT_FOUND)
+                        .unwrap_or(false)
+                        && self.refresh_topics =>
                     {
-                        let url = e.url().map(|x| x.to_owned());
+                        let url = source.url().map(|x| x.to_owned());
                         not_found.push(url.unwrap());
                     }
                     _ => return Err(e),
@@ -648,13 +648,17 @@ impl<'a> OmaRefresh<'a> {
             return Ok(());
         }
 
-        let resp = r?;
+        let resp = r
+            .map_err(|e| SingleDownloadError::ReqwestError { source: e })
+            .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
         let url = u.unwrap();
         let file_name = replacer.replace(&url)?;
 
         self.download_file(&file_name, resp, entry, index, total, &callback)
-            .await?;
+            .await
+            .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+
         entry.set_release_file_name(file_name);
 
         if is_release && !entry.trusted() {
@@ -664,12 +668,15 @@ impl<'a> OmaRefresh<'a> {
             let resp = request
                 .send()
                 .await
-                .and_then(|resp| resp.error_for_status())?;
+                .and_then(|resp| resp.error_for_status())
+                .map_err(|e| SingleDownloadError::ReqwestError { source: e })
+                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
             let file_name = replacer.replace(&url)?;
 
             self.download_file(&file_name, resp, entry, index, total, &callback)
-                .await?;
+                .await
+                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
         }
 
         Ok(())
@@ -696,7 +703,7 @@ impl<'a> OmaRefresh<'a> {
         index: usize,
         total: usize,
         callback: &F,
-    ) -> Result<()>
+    ) -> std::result::Result<(), SingleDownloadError>
     where
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
@@ -709,22 +716,26 @@ impl<'a> OmaRefresh<'a> {
                 "({}/{}) {}",
                 index,
                 total,
-                source_index.get_human_download_url(Some(file_name))?
+                source_index
+                    .get_human_download_url(Some(file_name))
+                    .unwrap(),
             ),
             size: total_size,
         }));
 
         let mut f = File::create(self.download_dir.join(file_name))
             .await
-            .map_err(|_| RefreshError::DownloadFailed)?;
+            .map_err(|e| SingleDownloadError::Create { source: e })?;
 
         f.set_permissions(Permissions::from_mode(0o644))
             .await
-            .map_err(|e| {
-                RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
-            })?;
+            .map_err(|e| SingleDownloadError::SetPermission { source: e })?;
 
-        while let Some(chunk) = resp.chunk().await? {
+        while let Some(chunk) = resp
+            .chunk()
+            .await
+            .map_err(|e| SingleDownloadError::ReqwestError { source: e })?
+        {
             callback(Event::DownloadEvent(oma_fetch::Event::ProgressInc {
                 index,
                 size: chunk.len() as u64,
@@ -733,12 +744,12 @@ impl<'a> OmaRefresh<'a> {
 
             f.write_all(&chunk)
                 .await
-                .map_err(|_| RefreshError::DownloadFailed)?;
+                .map_err(|e| SingleDownloadError::Write { source: e })?;
         }
 
         f.shutdown()
             .await
-            .map_err(|_| RefreshError::DownloadFailed)?;
+            .map_err(|e| SingleDownloadError::Flush { source: e })?;
 
         callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
