@@ -101,13 +101,13 @@ impl<'a> OmaSourceEntry<'a> {
 
     pub fn from(&self) -> Result<&OmaSourceEntryFrom, RefreshError> {
         self.from.get_or_try_init(|| {
-            let url = self.source.url();
-            if url.starts_with("http") {
-                Ok(OmaSourceEntryFrom::Http)
-            } else if url.starts_with("file") {
-                Ok(OmaSourceEntryFrom::Local)
-            } else {
-                return Err(RefreshError::UnsupportedProtocol(url.to_string()));
+            let url = Url::parse(self.url())
+                .map_err(|_| RefreshError::InvalidUrl(self.url().to_string()))?;
+
+            match url.scheme() {
+                "file" => Ok(OmaSourceEntryFrom::Local),
+                "http" | "https" => Ok(OmaSourceEntryFrom::Http),
+                x => Err(RefreshError::UnsupportedProtocol(x.to_string())),
             }
         })
     }
