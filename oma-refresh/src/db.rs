@@ -365,23 +365,26 @@ impl<'a> OmaRefresh<'a> {
 
         debug!("download_releases: results: {:?}", results);
 
-        if let Err(e) = results.into_iter().collect::<Result<()>>() {
-            #[cfg(feature = "aosc")]
-            match e {
-                RefreshError::ReqwestError(e)
-                    if e.status()
-                        .map(|x| x == StatusCode::NOT_FOUND)
-                        .unwrap_or(false)
-                        && self.refresh_topics =>
-                {
-                    let url = e.url().map(|x| x.to_owned());
-                    not_found.push(url.unwrap());
+        #[cfg(feature = "aosc")]
+        for result in results {
+            if let Err(e) = result {
+                match e {
+                    RefreshError::ReqwestError(e)
+                        if e.status()
+                            .map(|x| x == StatusCode::NOT_FOUND)
+                            .unwrap_or(false)
+                            && self.refresh_topics =>
+                    {
+                        let url = e.url().map(|x| x.to_owned());
+                        not_found.push(url.unwrap());
+                    }
+                    _ => return Err(e),
                 }
-                _ => return Err(e),
             }
-            #[cfg(not(feature = "aosc"))]
-            return Err(e.into());
         }
+
+        #[cfg(not(feature = "aosc"))]
+        results.into_iter().collect::<Result<Vec<_>>>()?;
 
         #[cfg(not(feature = "aosc"))]
         let _ = self.topic_msg;
