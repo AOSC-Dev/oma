@@ -22,7 +22,7 @@ use oma_apt::{
     raw::IntoRawIter,
     records::RecordField,
     util::DiskSpace,
-    DepFlags, Package, PkgCurrentState, Version,
+    DepFlags, Dependency, Package, PkgCurrentState, Version,
 };
 
 use oma_fetch::{checksum::ChecksumError, reqwest::Client, Event, Summary};
@@ -44,7 +44,7 @@ use crate::{
     dbus::{OmaBus, Status},
     download::download_pkgs,
     matches::MatcherError,
-    pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
+    pkginfo::{OmaDependency, OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::InstallProgressManager,
 };
 
@@ -830,6 +830,9 @@ impl OmaApt {
         let mut autoremovable = (0, 0);
         let changes = self.cache.get_changes(sort == SummarySort::Names);
 
+        let mut suggest = vec![];
+        let mut recommend = vec![];
+
         for pkg in changes {
             if pkg.marked_new_install() {
                 let cand = pkg
@@ -862,6 +865,8 @@ impl OmaApt {
                     }
                 }
 
+                collect_recommends_and_suggests(&self.cache, &mut suggest, &mut recommend, &cand);
+
                 let entry = InstallEntry::builder()
                     .name(pkg.fullname(true))
                     .name_without_arch(pkg.name().to_string())
@@ -887,7 +892,13 @@ impl OmaApt {
             }
 
             if pkg.marked_upgrade() {
-                let install_entry = pkg_delta(&pkg, InstallOperation::Upgrade)?;
+                let install_entry = pkg_delta(
+                    &pkg,
+                    InstallOperation::Upgrade,
+                    &self.cache,
+                    &mut suggest,
+                    &mut recommend,
+                )?;
 
                 install.push(install_entry);
             }
@@ -972,6 +983,13 @@ impl OmaApt {
                     }
                 }
 
+                collect_recommends_and_suggests(
+                    &self.cache,
+                    &mut suggest,
+                    &mut recommend,
+                    &version,
+                );
+
                 let entry = InstallEntry::builder()
                     .name(pkg.fullname(true))
                     .name_without_arch(pkg.name().to_string())
@@ -993,7 +1011,13 @@ impl OmaApt {
             }
 
             if pkg.marked_downgrade() {
-                let install_entry = pkg_delta(&pkg, InstallOperation::Downgrade)?;
+                let install_entry = pkg_delta(
+                    &pkg,
+                    InstallOperation::Downgrade,
+                    &self.cache,
+                    &mut suggest,
+                    &mut recommend,
+                )?;
 
                 install.push(install_entry);
             }
@@ -1057,6 +1081,8 @@ impl OmaApt {
             disk_size,
             total_download_size,
             autoremovable,
+            suggest,
+            recommend,
         })
     }
 
@@ -1133,6 +1159,73 @@ fn get_package_url(cand: &Version<'_>) -> Vec<PackageUrl> {
     uri
 }
 
+fn collect_recommends_and_suggests(
+    cache: &Cache,
+    suggest: &mut Vec<(String, String)>,
+    recommend: &mut Vec<(String, String)>,
+    version: &Version<'_>,
+) {
+    if let Some(s) = version.depends_map().get(&oma_apt::DepType::Suggests) {
+        collect_suggest(cache, suggest, s);
+    }
+
+    if let Some(r) = version.depends_map().get(&oma_apt::DepType::Recommends) {
+        collect_suggest(cache, recommend, r);
+    }
+}
+
+fn collect_suggest(
+    cache: &Cache,
+    suggest: &mut Vec<(String, String)>,
+    packages: &[Dependency<'_>],
+) {
+    for deps in OmaDependency::map_deps(packages).inner() {
+        if deps.len() == 1 {
+            let suggest_package = deps.first().unwrap();
+            let name = &suggest_package.name;
+            let pkg = cache.get(name);
+
+            let Some(pkg) = pkg else {
+                continue;
+            };
+
+            if !pkg.marked_install() {
+                let Some(cand) = pkg.candidate() else {
+                    continue;
+                };
+
+                let Some(desc) = cand.summary() else {
+                    continue;
+                };
+
+                suggest.push((pkg.fullname(true), desc));
+            }
+        } else {
+            let pkgs = deps
+                .iter()
+                .map(|x| &x.name)
+                .flat_map(|pkg| cache.get(pkg))
+                .collect::<Vec<_>>();
+
+            let all_not_marked_install = pkgs.iter().all(|pkg| !pkg.marked_install());
+
+            if all_not_marked_install {
+                for pkg in pkgs {
+                    let Some(cand) = pkg.candidate() else {
+                        continue;
+                    };
+
+                    let Some(desc) = cand.summary() else {
+                        continue;
+                    };
+
+                    suggest.push((pkg.fullname(true), desc));
+                }
+            }
+        }
+    }
+}
+
 /// Mark package as delete.
 fn mark_delete(pkg: &Package, purge: bool) -> OmaAptResult<bool> {
     if pkg.marked_delete() {
@@ -1157,7 +1250,13 @@ fn mark_delete(pkg: &Package, purge: bool) -> OmaAptResult<bool> {
     Ok(true)
 }
 
-fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEntry> {
+fn pkg_delta(
+    new_pkg: &Package,
+    op: InstallOperation,
+    cache: &Cache,
+    suggest: &mut Vec<(String, String)>,
+    recommend: &mut Vec<(String, String)>,
+) -> OmaAptResult<InstallEntry> {
     let cand = new_pkg
         .candidate()
         .take()
@@ -1190,6 +1289,8 @@ fn pkg_delta(new_pkg: &Package, op: InstallOperation) -> OmaAptResult<InstallEnt
             return Err(OmaAptError::PkgNoChecksum(new_pkg.to_string()));
         }
     }
+
+    collect_recommends_and_suggests(cache, suggest, recommend, &cand);
 
     let install_entry = InstallEntry::builder()
         .name(new_pkg.fullname(true))
