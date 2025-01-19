@@ -53,7 +53,6 @@ impl CliExecuter for Rdepends {
             .cache(&apt.cache)
             .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
             .build();
-
         let (pkgs, no_result) =
             matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
 

@@ -249,3 +249,4 @@ broken-pipe-err = 管道传送错误
 send-request-timeout = 发送网络请求超时
 download-timeout = 下载文件超时
 checksum-mismatch = 校验文件失败
+suggest = 建议安装如下软件包，可增强您安装的软件包的功能：

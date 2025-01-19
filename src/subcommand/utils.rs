@@ -385,6 +385,7 @@ impl CommitChanges<'_> {
         let remove = &op.remove;
         let disk_size = &op.disk_size;
         let (ar_count, ar_size) = op.autoremovable;
+        let (suggest, recommend) = (&op.suggest, &op.recommend);
 
         if is_nothing_to_do(install, remove, !no_fixbroken) {
             autoremovable_tips(ar_count, ar_size)?;
@@ -449,15 +450,11 @@ impl CommitChanges<'_> {
 
         match res {
             Ok(_) => {
-                let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
-
-                if !dry_run {
-                    success!("{}", fl!("history-tips-1"));
-                    info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
-                }
+                write_oma_installed_status()?;
+                autoremovable_tips(ar_count, ar_size)?;
 
                 write_history_entry(
-                    op,
+                    &op,
                     typ,
                     {
                         let db = create_db_file(sysroot)?;
@@ -468,17 +465,15 @@ impl CommitChanges<'_> {
                     true,
                 )?;
 
-                write_oma_installed_status()?;
-
-                autoremovable_tips(ar_count, ar_size)?;
+                history_success_tips(dry_run);
+                display_suggest_tips(suggest, recommend);
 
                 Ok(0)
             }
             Err(e) => {
-                let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
-                info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+                undo_tips();
                 write_history_entry(
-                    op,
+                    &op,
                     typ,
                     {
                         let db = create_db_file(sysroot)?;
@@ -492,6 +487,29 @@ impl CommitChanges<'_> {
             }
         }
     }
+}
+
+pub fn display_suggest_tips(suggest: &[(String, String)], recommend: &[(String, String)]) {
+    let suggest_and_recommends = suggest.iter().chain(recommend).collect::<Vec<_>>();
+
+    if !suggest_and_recommends.is_empty() {
+        info!("{}", fl!("suggest"));
+        for (pkg, desc) in suggest_and_recommends {
+            msg!("{}: {}", pkg, desc);
+        }
+    }
+}
+
+pub fn history_success_tips(dry_run: bool) {
+    if !dry_run {
+        success!("{}", fl!("history-tips-1"));
+        undo_tips();
+    }
+}
+
+pub fn undo_tips() {
+    let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
+    info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
 }
 
 pub fn autoremovable_tips(count: u64, total_size: u64) -> Result<(), OutputError> {

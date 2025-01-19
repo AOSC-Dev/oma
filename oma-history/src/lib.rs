@@ -107,7 +107,7 @@ pub fn create_db_file<P: AsRef<Path>>(sysroot: P) -> HistoryResult<PathBuf> {
 }
 
 pub fn write_history_entry(
-    summary: OmaOperation,
+    summary: &OmaOperation,
     typ: SummaryType,
     conn: Connection,
     dry_run: bool,
@@ -232,6 +232,8 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<OmaOperat
             total_download_size,
             // 不记录 autoremovable
             autoremovable: (0, 0),
+            suggest: vec![],
+            recommend: vec![],
         });
     }
 

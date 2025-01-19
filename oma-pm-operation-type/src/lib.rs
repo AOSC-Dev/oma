@@ -11,6 +11,8 @@ pub struct OmaOperation {
     pub disk_size: (Box<str>, u64),
     pub autoremovable: (u64, u64),
     pub total_download_size: u64,
+    pub suggest: Vec<(String, String)>,
+    pub recommend: Vec<(String, String)>,
 }
 
 impl Display for OmaOperation {

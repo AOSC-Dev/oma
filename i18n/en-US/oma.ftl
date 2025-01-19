@@ -255,3 +255,4 @@ broken-pipe-err = Broken pipe
 send-request-timeout = Send network request timeout
 download-timeout = Download file timeout
 checksum-mismatch-download-err = Checksum mismatch
+suggest = The following packages are recommended to enhance the functionality of the packages you have installed:

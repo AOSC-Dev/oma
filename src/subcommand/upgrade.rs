@@ -4,8 +4,10 @@ use std::path::Path;
 use std::thread;
 
 use crate::pb::RenderDownloadProgress;
+use crate::subcommand::utils::display_suggest_tips;
+use crate::subcommand::utils::history_success_tips;
+use crate::subcommand::utils::undo_tips;
 use crate::subcommand::utils::write_oma_installed_status;
-use crate::success;
 use ahash::HashMap;
 use ahash::HashSet;
 use flume::unbounded;
@@ -20,7 +22,6 @@ use apt_auth_config::AuthConfig;
 use chrono::Local;
 use clap::Args;
 use oma_console::pager::PagerExit;
-use oma_console::print::Action;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
@@ -39,7 +40,6 @@ use oma_pm::matches::PackagesMatcher;
 use tracing::info;
 use tracing::warn;
 
-use crate::color_formatter;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
@@ -304,6 +304,7 @@ impl CliExecuter for Upgrade {
             let remove = &op.remove;
             let disk_size = &op.disk_size;
             let (ar_count, ar_size) = op.autoremovable;
+            let (suggest, recommend) = (&op.suggest, &op.recommend);
 
             if is_nothing_to_do(install, remove, !no_fixbroken) {
                 autoremovable_tips(ar_count, ar_size)?;
@@ -355,8 +356,11 @@ impl CliExecuter for Upgrade {
                 },
             ) {
                 Ok(()) => {
+                    write_oma_installed_status()?;
+                    autoremovable_tips(ar_count, ar_size)?;
+
                     write_history_entry(
-                        op,
+                        &op,
                         typ,
                         {
                             let db = create_db_file(sysroot)?;
@@ -366,16 +370,9 @@ impl CliExecuter for Upgrade {
                         start_time,
                         true,
                     )?;
-                    write_oma_installed_status()?;
 
-                    let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
-
-                    if !dry_run {
-                        success!("{}", fl!("history-tips-1"));
-                        info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
-                    }
-
-                    autoremovable_tips(ar_count, ar_size)?;
+                    history_success_tips(dry_run);
+                    display_suggest_tips(suggest, recommend);
 
                     drop(fds);
                     return Ok(0);
@@ -386,7 +383,7 @@ impl CliExecuter for Upgrade {
                     | OmaAptError::AptCxxException(_) => {
                         if retry_times == 3 {
                             write_history_entry(
-                                op,
+                                &op,
                                 SummaryType::Upgrade(
                                     pkgs.iter()
                                         .map(|x| {
@@ -406,8 +403,7 @@ impl CliExecuter for Upgrade {
                                 start_time,
                                 false,
                             )?;
-                            let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
-                            info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+                            undo_tips();
 
                             return Err(OutputError::from(e));
                         }
