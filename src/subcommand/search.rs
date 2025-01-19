@@ -66,7 +66,7 @@ impl CliExecuter for Search {
 
         let res = search(
             &apt,
-            &pattern.join(" "),
+            &pattern,
             match config.search_engine().as_str() {
                 "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
                 "strsim" => SearchEngine::Strsim,
@@ -121,16 +121,32 @@ impl CliExecuter for Search {
 
 pub fn search(
     apt: &OmaApt,
-    keyword: &str,
+    keywords: &[String],
     engine: SearchEngine,
 ) -> Result<Vec<SearchResult>, OutputError> {
-    let searcher: Box<dyn OmaSearch> = match engine {
-        SearchEngine::Indicium(f) => Box::new(IndiciumSearch::new(&apt.cache, f)?),
-        SearchEngine::Strsim => Box::new(StrSimSearch::new(&apt.cache)),
-        SearchEngine::Text => Box::new(TextSearch::new(&apt.cache)),
-    };
+    match engine {
+        SearchEngine::Indicium(f) => {
+            let searcher = IndiciumSearch::new(&apt.cache, f)?;
+            Ok(searcher.search(&keywords.join(" "))?)
+        }
+        SearchEngine::Strsim => {
+            let searcher = StrSimSearch::new(&apt.cache);
+            Ok(searcher.search(&keywords.join(" "))?)
+        }
+        SearchEngine::Text => {
+            let searcher = TextSearch::new(&apt.cache);
+            let mut result = vec![];
+            for keyword in keywords {
+                let res = searcher.search(keyword)?;
+                result.extend(res);
+            }
 
-    let res = searcher.search(keyword)?;
+            if keywords.len() > 1 {
+                result.sort_by(|a, b| b.status.cmp(&a.status));
+                result.sort_by(|a, b| b.full_match.cmp(&a.full_match));
+            }
 
-    Ok(res)
+            Ok(result)
+        }
+    }
 }
