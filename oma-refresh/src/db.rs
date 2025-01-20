@@ -741,9 +741,19 @@ impl<'a> OmaRefresh<'a> {
 
         let index_target_config = IndexTargetConfig::new(self.apt_config, &self.arch);
 
-        let archs_from_file = fs::read_to_string("/var/lib/dpkg/arch")
-            .await
-            .map(|f| f.lines().map(|x| x.to_string()).collect::<Vec<_>>());
+        let archs_from_file = fs::read_to_string("/var/lib/dpkg/arch").await;
+
+        let archs_from_file = if let Ok(file) = archs_from_file {
+            let res = file.lines().map(|x| x.to_string()).collect::<Vec<_>>();
+
+            if res.is_empty() {
+                None
+            } else {
+                Some(res)
+            }
+        } else {
+            None
+        };
 
         for (file_name, ose_list) in sources_map {
             let inrelease_path = self.download_dir.join(file_name);
@@ -794,7 +804,7 @@ impl<'a> OmaRefresh<'a> {
 
                 let mut archs = if let Some(archs) = ose.archs() {
                     archs.iter().map(|x| x.as_str()).collect::<Vec<_>>()
-                } else if let Ok(ref f) = archs_from_file {
+                } else if let Some(ref f) = archs_from_file {
                     f.iter().map(|x| x.as_str()).collect::<Vec<_>>()
                 } else {
                     vec![self.arch.as_str()]
