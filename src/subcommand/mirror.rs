@@ -46,6 +46,7 @@ use crate::HTTP_CLIENT;
 use crate::RT;
 
 use super::utils::auth_config;
+use super::utils::select_tui_display_msg;
 use super::utils::tui_select_list_size;
 use super::utils::Refresh;
 use crate::args::CliExecuter;
@@ -57,7 +58,11 @@ struct MirrorDisplay((Box<str>, Mirror));
 
 impl Display for MirrorDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ({})", self.0 .1.desc, self.0 .0)?;
+        write!(
+            f,
+            "{}",
+            select_tui_display_msg(&format!("{} ({})", self.0 .1.desc, self.0 .0), true)
+        )?;
 
         Ok(())
     }
