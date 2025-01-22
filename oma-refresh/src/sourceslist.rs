@@ -1,15 +1,26 @@
-use std::path::Path;
+use std::{fs::Permissions, os::unix::fs::PermissionsExt, path::Path};
 
 use ahash::HashMap;
 use apt_auth_config::{AuthConfig, Authenticator};
+use futures::StreamExt;
 use oma_apt_sources_lists::{
     Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
 };
+use oma_fetch::{
+    build_request_with_basic_auth,
+    reqwest::{Client, Method, Response},
+    SingleDownloadError,
+};
 use once_cell::sync::OnceCell;
+use tokio::{
+    fs::{self, File},
+    io::AsyncWriteExt,
+};
+use tracing::debug;
 use url::Url;
 
 use crate::{
-    db::{Event, RefreshError},
+    db::{content_length, Event, RefreshError},
     util::DatabaseFilenameReplacer,
 };
 use std::future::Future;
@@ -101,13 +112,13 @@ impl<'a> OmaSourceEntry<'a> {
 
     pub fn from(&self) -> Result<&OmaSourceEntryFrom, RefreshError> {
         self.from.get_or_try_init(|| {
-            let url = self.source.url();
-            if url.starts_with("http") {
-                Ok(OmaSourceEntryFrom::Http)
-            } else if url.starts_with("file") {
-                Ok(OmaSourceEntryFrom::Local)
-            } else {
-                return Err(RefreshError::UnsupportedProtocol(url.to_string()));
+            let url = Url::parse(self.url())
+                .map_err(|_| RefreshError::InvalidUrl(self.url().to_string()))?;
+
+            match url.scheme() {
+                "file" => Ok(OmaSourceEntryFrom::Local),
+                "http" | "https" => Ok(OmaSourceEntryFrom::Http),
+                x => Err(RefreshError::UnsupportedProtocol(x.to_string())),
             }
         })
     }
@@ -193,36 +204,36 @@ impl<'a> OmaSourceEntry<'a> {
 }
 
 #[derive(Debug)]
-pub(crate) struct MirrorSources<'a, 'b>(pub Vec<MirrorSource<'a, 'b>>);
+pub struct MirrorSources<'a, 'b>(pub Vec<MirrorSource<'a, 'b>>);
 
 #[derive(Debug)]
-pub(crate) struct MirrorSource<'a, 'b> {
-    pub(crate) sources: Vec<&'a OmaSourceEntry<'a>>,
+pub struct MirrorSource<'a, 'b> {
+    pub sources: Vec<&'a OmaSourceEntry<'a>>,
     release_file_name: OnceCell<String>,
     auth: Option<&'b Authenticator>,
 }
 
 impl MirrorSource<'_, '_> {
-    pub(crate) fn set_release_file_name(&self, file_name: String) {
+    pub fn set_release_file_name(&self, file_name: String) {
         self.release_file_name
             .set(file_name)
             .expect("Release file name was init");
     }
 
-    pub(crate) fn dist_path(&self) -> &str {
+    pub fn dist_path(&self) -> &str {
         self.sources.first().unwrap().dist_path()
     }
 
     #[cfg(feature = "aosc")]
-    pub(crate) fn suite(&self) -> &str {
+    pub fn suite(&self) -> &str {
         self.sources.first().unwrap().suite()
     }
 
-    pub(crate) fn from(&self) -> Result<&OmaSourceEntryFrom, RefreshError> {
+    pub fn from(&self) -> Result<&OmaSourceEntryFrom, RefreshError> {
         self.sources.first().unwrap().from()
     }
 
-    pub(crate) fn get_human_download_url(
+    pub fn get_human_download_message(
         &self,
         file_name: Option<&str>,
     ) -> Result<String, RefreshError> {
@@ -232,7 +243,7 @@ impl MirrorSource<'_, '_> {
             .get_human_download_url(file_name)
     }
 
-    pub(crate) fn signed_by(&self) -> Option<&Signature> {
+    pub fn signed_by(&self) -> Option<&Signature> {
         self.sources.iter().find_map(|x| {
             if let Some(x) = &x.signed_by() {
                 Some(x)
@@ -242,29 +253,326 @@ impl MirrorSource<'_, '_> {
         })
     }
 
-    pub(crate) fn url(&self) -> &str {
+    pub fn url(&self) -> &str {
         self.sources.first().unwrap().url()
     }
 
-    pub(crate) fn is_flat(&self) -> bool {
+    pub fn is_flat(&self) -> bool {
         self.sources.first().unwrap().is_flat()
     }
 
-    pub(crate) fn trusted(&self) -> bool {
+    pub fn trusted(&self) -> bool {
         self.sources.iter().any(|x| x.trusted())
     }
 
-    pub(crate) fn file_name(&self) -> Option<&str> {
+    pub fn file_name(&self) -> Option<&str> {
         self.release_file_name.get().map(|x| x.as_str())
     }
 
-    pub(crate) fn auth(&self) -> Option<&Authenticator> {
+    pub fn auth(&self) -> Option<&Authenticator> {
         self.auth
+    }
+
+    pub async fn fetch<F, Fut>(
+        &self,
+        client: &Client,
+        replacer: &DatabaseFilenameReplacer,
+        index: usize,
+        total: usize,
+        download_dir: &Path,
+        callback: &F,
+    ) -> Result<(), RefreshError>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        match self.from()? {
+            OmaSourceEntryFrom::Http => {
+                self.fetch_http_release(client, replacer, index, total, download_dir, callback)
+                    .await
+            }
+            OmaSourceEntryFrom::Local => {
+                self.fetch_local_release(replacer, index, total, download_dir, callback)
+                    .await
+            }
+        }
+    }
+
+    async fn fetch_http_release<F, Fut>(
+        &self,
+        client: &Client,
+        replacer: &DatabaseFilenameReplacer,
+        index: usize,
+        total: usize,
+        download_dir: &Path,
+        callback: F,
+    ) -> Result<(), RefreshError>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        let dist_path = self.dist_path();
+
+        let msg = self.get_human_download_message(None)?;
+
+        callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+            index,
+            msg: format!("({}/{}) {}", index, total, msg),
+        }))
+        .await;
+
+        let mut url = format!("{}/InRelease", dist_path);
+        let mut is_release = false;
+
+        let resp = match self.send_request(client, &url, Method::GET).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                debug!("{e}");
+                url = format!("{}/Release", dist_path);
+                let resp = self.send_request(client, &url, Method::GET).await;
+
+                if resp.is_err() && self.is_flat() {
+                    // Flat repo no release
+                    callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+                    return Ok(());
+                }
+
+                is_release = true;
+
+                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+
+                resp.map_err(|e| SingleDownloadError::ReqwestError { source: e })
+                    .map_err(|e| RefreshError::DownloadFailed(Some(e)))?
+            }
+        };
+
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+
+        let file_name = replacer.replace(&url)?;
+
+        self.download_file(&file_name, resp, index, total, download_dir, &callback)
+            .await
+            .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+
+        self.set_release_file_name(file_name);
+
+        if is_release && !self.trusted() {
+            let url = format!("{}/{}", dist_path, "Release.gpg");
+
+            let request = build_request_with_basic_auth(
+                client,
+                Method::GET,
+                &self
+                    .auth()
+                    .map(|x| (x.login.to_string(), x.password.to_string())),
+                &url,
+            );
+
+            let resp = request
+                .send()
+                .await
+                .and_then(|resp| resp.error_for_status())
+                .map_err(|e| SingleDownloadError::ReqwestError { source: e })
+                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+
+            let file_name = replacer.replace(&url)?;
+
+            self.download_file(&file_name, resp, index, total, download_dir, &callback)
+                .await
+                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+        }
+
+        Ok(())
+    }
+
+    async fn send_request(
+        &self,
+        client: &Client,
+        url: &str,
+        method: Method,
+    ) -> Result<Response, oma_fetch::reqwest::Error> {
+        let request = build_request_with_basic_auth(
+            client,
+            method,
+            &self
+                .auth()
+                .map(|x| (x.login.to_string(), x.password.to_string())),
+            url,
+        );
+
+        request
+            .send()
+            .await
+            .and_then(|resp| resp.error_for_status())
+    }
+
+    async fn download_file<F, Fut>(
+        &self,
+        file_name: &str,
+        mut resp: Response,
+        index: usize,
+        total: usize,
+        download_dir: &Path,
+        callback: F,
+    ) -> std::result::Result<(), SingleDownloadError>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        let total_size = content_length(&resp);
+
+        callback(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
+            index,
+            msg: format!(
+                "({}/{}) {}",
+                index,
+                total,
+                self.get_human_download_message(Some(file_name)).unwrap(),
+            ),
+            size: total_size,
+        }));
+
+        let mut f = File::create(download_dir.join(file_name))
+            .await
+            .map_err(|e| SingleDownloadError::Create { source: e })?;
+
+        f.set_permissions(Permissions::from_mode(0o644))
+            .await
+            .map_err(|e| SingleDownloadError::SetPermission { source: e })?;
+
+        while let Some(chunk) = resp
+            .chunk()
+            .await
+            .map_err(|e| SingleDownloadError::ReqwestError { source: e })?
+        {
+            callback(Event::DownloadEvent(oma_fetch::Event::ProgressInc {
+                index,
+                size: chunk.len() as u64,
+            }))
+            .await;
+
+            f.write_all(&chunk)
+                .await
+                .map_err(|e| SingleDownloadError::Write { source: e })?;
+        }
+
+        f.shutdown()
+            .await
+            .map_err(|e| SingleDownloadError::Flush { source: e })?;
+
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+
+        Ok(())
+    }
+
+    async fn fetch_local_release<F, Fut>(
+        &self,
+        replacer: &DatabaseFilenameReplacer,
+        index: usize,
+        total: usize,
+        download_dir: &Path,
+        callback: F,
+    ) -> Result<(), RefreshError>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        let dist_path_with_protocol = self.dist_path();
+        let dist_path = dist_path_with_protocol
+            .strip_prefix("file:")
+            .unwrap_or(dist_path_with_protocol);
+        let dist_path = Path::new(dist_path);
+
+        let mut name = None;
+
+        let msg = self.get_human_download_message(None)?;
+
+        callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+            index,
+            msg: format!("({}/{}) {}", index, total, msg),
+        }))
+        .await;
+
+        let mut is_release = false;
+
+        for (index, entry) in ["InRelease", "Release"].iter().enumerate() {
+            let p = dist_path.join(entry);
+
+            let dst = if dist_path_with_protocol.ends_with('/') {
+                format!("{}{}", dist_path_with_protocol, entry)
+            } else {
+                format!("{}/{}", dist_path_with_protocol, entry)
+            };
+
+            let file_name = replacer.replace(&dst)?;
+
+            let dst = download_dir.join(&file_name);
+
+            if p.exists() {
+                if dst.exists() {
+                    debug!("get_release_file: Removing {}", dst.display());
+                    fs::remove_file(&dst)
+                        .await
+                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                }
+
+                debug!("get_release_file: Symlink {}", dst.display());
+                fs::symlink(p, &dst)
+                    .await
+                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+
+                if index == 1 {
+                    is_release = true;
+                }
+
+                name = Some(file_name);
+                break;
+            }
+        }
+
+        if name.is_none() && self.is_flat() {
+            // Flat repo no release
+            return Ok(());
+        }
+
+        if is_release {
+            let p = dist_path.join("Release.gpg");
+            let entry = "Release.gpg";
+
+            let dst = if dist_path_with_protocol.ends_with('/') {
+                format!("{}{}", dist_path_with_protocol, entry)
+            } else {
+                format!("{}/{}", dist_path_with_protocol, entry)
+            };
+
+            let file_name = replacer.replace(&dst)?;
+
+            let dst = download_dir.join(&file_name);
+
+            if p.exists() {
+                if dst.exists() {
+                    fs::remove_file(&dst)
+                        .await
+                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                }
+
+                fs::symlink(p, download_dir.join(file_name))
+                    .await
+                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+            }
+        }
+
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+
+        let name = name.ok_or_else(|| RefreshError::NoInReleaseFile(self.url().to_string()))?;
+        self.set_release_file_name(name);
+
+        Ok(())
     }
 }
 
 impl<'a, 'b> MirrorSources<'a, 'b> {
-    pub(crate) fn from_sourcelist(
+    pub fn from_sourcelist(
         sourcelist: &'a [OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
         auth_config: Option<&'b AuthConfig>,
@@ -297,6 +605,35 @@ impl<'a, 'b> MirrorSources<'a, 'b> {
         }
 
         Ok(Self(res))
+    }
+
+    pub async fn fetch_all_release<F, Fut>(
+        &self,
+        client: &Client,
+        replacer: &DatabaseFilenameReplacer,
+        download_dir: &Path,
+        threads: usize,
+        callback: F,
+    ) -> Vec<Result<(), RefreshError>>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        let tasks = self.0.iter().enumerate().map(|(index, m)| {
+            m.fetch(
+                client,
+                replacer,
+                index,
+                self.0.len(),
+                download_dir,
+                &callback,
+            )
+        });
+
+        futures::stream::iter(tasks)
+            .buffer_unordered(threads)
+            .collect::<Vec<_>>()
+            .await
     }
 }
 

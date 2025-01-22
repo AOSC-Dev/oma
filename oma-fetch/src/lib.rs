@@ -5,7 +5,8 @@ use checksum::Checksum;
 use download::{EmptySource, SingleDownloader, SuccessSummary};
 use futures::{Future, StreamExt};
 
-use reqwest::Client;
+use reqwest::{Client, Method, RequestBuilder};
+use tracing::debug;
 
 pub mod checksum;
 mod download;
@@ -271,4 +272,20 @@ impl DownloadManager<'_> {
 
         Ok(Summary { success, failed })
     }
+}
+
+pub fn build_request_with_basic_auth(
+    client: &Client,
+    method: Method,
+    auth: &Option<(String, String)>,
+    url: &str,
+) -> RequestBuilder {
+    let mut req = client.request(method, url);
+
+    if let Some((user, password)) = auth {
+        debug!("auth user: {}", user);
+        req = req.basic_auth(user, Some(password));
+    }
+
+    req
 }

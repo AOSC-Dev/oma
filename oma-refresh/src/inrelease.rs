@@ -192,6 +192,10 @@ impl FromStr for ChecksumItem {
             .ok_or(InReleaseError::BrokenInRelease)?
             .to_string();
 
+        if line.next().is_some() {
+            return Err(InReleaseError::BrokenInRelease);
+        }
+
         Ok(Self {
             name,
             size,
