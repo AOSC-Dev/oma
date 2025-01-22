@@ -240,22 +240,10 @@ impl<'a> PackagesMatcher<'a> {
 
         // 确保数组第一个是 candidate version
         if !self.filter_candidate {
-            let candidate_list = res
-                .iter()
-                .enumerate()
-                .filter_map(|(idx, pkg)| {
-                    if pkg.is_candidate_version(self.cache) {
-                        Some(idx)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            for idx in candidate_list {
-                let pkg = res.remove(idx);
-                res.insert(0, pkg);
-            }
+            res.sort_by(|a, b| {
+                b.is_candidate_version(self.cache)
+                    .cmp(&a.is_candidate_version(self.cache))
+            });
         }
 
         Ok(res)
