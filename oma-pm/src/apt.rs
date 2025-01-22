@@ -1189,7 +1189,7 @@ fn collect_suggest(
                 continue;
             };
 
-            if !pkg.marked_install() {
+            if !pkg.marked_install() && !pkg.is_installed() {
                 let Some(cand) = pkg.candidate() else {
                     continue;
                 };
