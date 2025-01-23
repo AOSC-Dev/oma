@@ -327,9 +327,7 @@ impl<'a> OmaPager<'a> {
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
                                     continue;
                                 }
-                                self.vertical_scroll = 0;
-                                self.vertical_scroll_state =
-                                    self.vertical_scroll_state.position(self.vertical_scroll);
+                                self.goto_begin();
                             }
                             KeyCode::Char('G') => {
                                 if self.mode == TuiMode::SearchInputText {
@@ -337,10 +335,7 @@ impl<'a> OmaPager<'a> {
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
                                     continue;
                                 }
-                                self.vertical_scroll =
-                                    self.inner_len.saturating_sub(self.area_height.into());
-                                self.vertical_scroll_state =
-                                    self.vertical_scroll_state.position(self.vertical_scroll);
+                                self.goto_end();
                             }
                             KeyCode::Enter => {
                                 if self.mode != TuiMode::SearchInputText {
@@ -457,6 +452,12 @@ impl<'a> OmaPager<'a> {
                             KeyCode::PageDown => {
                                 self.page_down();
                             }
+                            KeyCode::End => {
+                                self.goto_end();
+                            }
+                            KeyCode::Home => {
+                                self.goto_begin();
+                            }
                             _ => {}
                         }
                     }
@@ -473,7 +474,7 @@ impl<'a> OmaPager<'a> {
         let pos = self
             .vertical_scroll
             .saturating_add(self.area_height as usize);
-        if pos <= self.inner_len {
+        if pos < self.inner_len {
             self.vertical_scroll = pos;
         } else {
             return;
@@ -486,6 +487,16 @@ impl<'a> OmaPager<'a> {
             .vertical_scroll
             .saturating_sub(self.area_height as usize);
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
+    }
+
+    fn goto_end(&mut self) {
+        self.vertical_scroll = self.inner_len.saturating_sub(self.area_height.into());
+        self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
+    }
+
+    fn goto_begin(&mut self) {
+        self.vertical_scroll = 0;
+        self.vertical_scroll_state = self.vertical_scroll_state.position(0);
     }
 
     fn right(&mut self) {
