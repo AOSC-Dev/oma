@@ -215,12 +215,9 @@ impl CliExecuter for List {
                             "{}/{} {} {arch} {s}",
                             color_formatter().color_str(&name, Action::Emphasis).bold(),
                             color_formatter().color_str(branches_str, Action::Secondary),
-                            if upgradable {
-                                version_str = Cow::Owned(format!(
-                                    "{} -> {}",
-                                    version_str,
-                                    new_version.as_ref().unwrap(),
-                                ));
+                            if let Some(new_version) = new_version {
+                                version_str =
+                                    Cow::Owned(format!("{} -> {}", version_str, new_version));
                                 color_formatter().color_str(version_str, Action::WARN)
                             } else {
                                 color_formatter().color_str(version_str, Action::EmphasisSecondary)
