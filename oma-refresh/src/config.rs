@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     collections::{HashMap, VecDeque},
-    env,
     path::Path,
 };
 
@@ -71,16 +70,13 @@ pub struct IndexTargetConfig<'a> {
     deb_src: Vec<(String, HashMap<String, String>)>,
     replacer: AhoCorasick,
     native_arch: &'a str,
-    langs: Vec<Box<str>>,
+    langs: Vec<String>,
 }
 
 impl<'a> IndexTargetConfig<'a> {
     pub fn new(config: &Config, native_arch: &'a str) -> Self {
-        let lang = env::var("LANG").map(Cow::Owned).unwrap_or("C".into());
-        let langs = get_matches_language(&lang)
-            .into_iter()
-            .map(Box::from)
-            .collect::<Vec<_>>();
+        let locales = sys_locale::get_locales();
+        let langs = get_matches_language(locales);
 
         Self {
             deb: get_index_target_tree(config, "Acquire::IndexTargets::deb"),
@@ -252,17 +248,23 @@ pub struct ChecksumDownloadEntry {
     pub msg: String,
 }
 
-fn get_matches_language(env_lang: &str) -> Vec<&str> {
+fn get_matches_language(locales: impl IntoIterator<Item = String>) -> Vec<String> {
     let mut langs = vec![];
-    let env_lang = env_lang.split_once('.').map(|x| x.0).unwrap_or(env_lang);
 
-    let lang = if env_lang == "C" { "en" } else { env_lang };
+    for locale in locales {
+        if locale.eq_ignore_ascii_case("c") {
+            langs.push("en".to_string());
+            continue;
+        }
 
-    langs.push(lang);
+        // apt 数据库使用下划线来设置 translation 文件名
+        let locale = locale.replace("-", "_");
 
-    // en_US.UTF-8 => en
-    if let Some((a, _)) = lang.split_once('_') {
-        langs.push(a);
+        if let Some((lang, _)) = locale.split_once("_") {
+            langs.push(lang.to_lowercase());
+        }
+
+        langs.push(locale);
     }
 
     langs
@@ -281,9 +283,15 @@ fn compress_file(name: &str) -> CompressFile {
 
 #[test]
 fn test_get_matches_language() {
-    assert_eq!(get_matches_language("C"), vec!["en"]);
-    assert_eq!(get_matches_language("zh_CN.UTF-8"), vec!["zh_CN", "zh"]);
-    assert_eq!(get_matches_language("en_US.UTF-8"), vec!["en_US", "en"]);
+    assert_eq!(get_matches_language(vec!["C".to_string()]), vec!["en"]);
+    assert_eq!(
+        get_matches_language(vec!["zh-CN".to_string()]),
+        vec!["zh", "zh_CN"]
+    );
+    assert_eq!(
+        get_matches_language(vec!["en-US".to_string()]),
+        vec!["en", "en_US"]
+    );
 }
 
 #[test]

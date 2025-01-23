@@ -64,6 +64,7 @@ i18n-embed = { version = "0.15.0", features = ["fluent-system", "desktop-request
 i18n-embed-fl = "0.9.1"
 rust-embed = "8.5.0"
 unic-langid = "0.9.5"
+sys-locale = "0.3"
 
 [features]
 aosc = ["dep:oma-topics", "dep:oma-mirror", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "reqwest/blocking"]

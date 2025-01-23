@@ -141,7 +141,7 @@ pub fn print_version() {
 }
 
 fn after_help() -> &'static str {
-    let Ok(lang) = env::var("LANG") else {
+    let Some(lang) = sys_locale::get_locale() else {
         return "";
     };
 
