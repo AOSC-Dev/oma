@@ -837,7 +837,6 @@ impl OmaApt {
             if pkg.marked_new_install() {
                 let cand = pkg
                     .candidate()
-                    .take()
                     .ok_or_else(|| OmaAptError::PkgNoCandidate(pkg.fullname(true)))?;
 
                 let uri = get_package_url(&cand);
@@ -1259,7 +1258,6 @@ fn pkg_delta(
 ) -> OmaAptResult<InstallEntry> {
     let cand = new_pkg
         .candidate()
-        .take()
         .ok_or_else(|| OmaAptError::PkgNoCandidate(new_pkg.fullname(true)))?;
 
     let uri = cand.uris().collect::<Vec<_>>();
