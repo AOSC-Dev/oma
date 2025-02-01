@@ -774,7 +774,7 @@ impl From<reqwest::Error> for OutputError {
         let filename = &e
             .url()
             .and_then(|x| x.path_segments())
-            .and_then(|x| x.last());
+            .and_then(|mut x| x.next_back());
 
         if e.is_builder() {
             return Self {

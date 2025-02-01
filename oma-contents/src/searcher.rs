@@ -390,7 +390,7 @@ fn rg_filter_line(
 }
 
 fn pkg_name(pkg: &str) -> Option<&str> {
-    pkg.split('/').last()
+    pkg.split('/').next_back()
 }
 
 #[inline]
