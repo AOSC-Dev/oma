@@ -278,15 +278,18 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usi
         })
         .map(|(index, log)| {
             let date = format_date(log.time);
+            let command = &log.command;
 
             // TODO
-            let s = match &log.summary_type {
-                SummaryType::Install => format!("{}Install pkg", format_success(log.is_success)),
-                SummaryType::Upgrade => format!("{}Upgrade pkg", format_success(log.is_success)),
-                SummaryType::Remove => format!("{}Remove pkg", format_success(log.is_success)),
-                SummaryType::FixBroken => format!("{}Fix broken", format_success(log.is_success)),
-                SummaryType::Undo => format!("{}Undo", format_success(log.is_success)),
-            };
+            // let s = match &log.summary_type {
+            //     SummaryType::Install => format!("{}Install pkg", format_success(log.is_success)),
+            //     SummaryType::Upgrade => format!("{}Upgrade pkg", format_success(log.is_success)),
+            //     SummaryType::Remove => format!("{}Remove pkg", format_success(log.is_success)),
+            //     SummaryType::FixBroken => format!("{}Fix broken", format_success(log.is_success)),
+            //     SummaryType::Undo => format!("{}Undo", format_success(log.is_success)),
+            // };
+
+            let s = format!("{}[{}] {}", format_success(log.is_success), date, command);
 
             let s = select_tui_display_msg(&s, false).to_string();
 

@@ -230,6 +230,7 @@ pub struct HistoryListEntry {
     pub id: i64,
     pub summary_type: SummaryType,
     pub time: i64,
+    pub command: String,
     pub is_success: bool,
 }
 
@@ -262,7 +263,7 @@ pub struct RemoveHistoryEntry {
 pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
     let mut res = vec![];
     let stmt = conn.prepare(
-        "SELECT id, install_type, time, is_success FROM \"history_oma_1.14\" ORDER BY id DESC",
+        "SELECT id, command, install_type, time, is_success FROM \"history_oma_1.14\" ORDER BY id DESC",
     );
 
     let mut stmt = match stmt {
@@ -278,21 +279,23 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
     let res_iter = stmt
         .query_map([], |row| {
             let id: i64 = row.get(0)?;
-            let t: i64 = row.get(1)?;
-            let time: i64 = row.get(2)?;
-            let is_success: i64 = row.get(3)?;
+            let command: String = row.get(1)?;
+            let t: i64 = row.get(2)?;
+            let time: i64 = row.get(3)?;
+            let is_success: i64 = row.get(4)?;
 
-            Ok((id, t, time, is_success))
+            Ok((id, command, t, time, is_success))
         })
         .map_err(HistoryError::ExecuteError)?;
 
     for i in res_iter {
-        let (id, t, time, is_success) = i.map_err(HistoryError::ParseDbError)?;
+        let (id, command, t, time, is_success) = i.map_err(HistoryError::ParseDbError)?;
 
         let install_type: SummaryType = t.try_into().unwrap();
 
         res.push(HistoryListEntry {
             id,
+            command,
             summary_type: install_type,
             time,
             is_success: is_success == 1,
