@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    env::args,
     fs,
     path::{Path, PathBuf},
 };
@@ -74,6 +75,7 @@ pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Conn
         conn.execute(
             "CREATE TABLE IF NOT EXISTS \"history_oma_1.14\" (
                 id INTEGER PRIMARY KEY,
+                command TEXT,
                 install_type INTEGER NOT NULL,
                 time INTEGER NOT NULL,
                 is_success INTEGER NOT NULL,
@@ -162,11 +164,19 @@ pub fn write_history_entry(
 
     let install_type: i64 = install_type.into();
 
+    let command = args().collect::<Vec<_>>().join(" ");
+
     let id: i64 = conn.query_row(
-        r#"INSERT INTO "history_oma_1.14" (install_type, time, is_success, disk_size, total_download_size)
-                VALUES (?1, ?2, ?3, ?4, ?5)
+        r#"INSERT INTO "history_oma_1.14" (command, install_type, time, is_success, disk_size, total_download_size)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                 RETURNING id;"#,
-        (install_type,
+        (
+        if command.is_empty() {
+            None
+        } else {
+            Some(command)
+        },
+        install_type,
         start_time,
         if success { 1 } else { 0 },
         match (summary.disk_size.0.as_ref(), summary.disk_size.1) {
