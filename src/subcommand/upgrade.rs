@@ -12,6 +12,7 @@ use crate::subcommand::utils::write_oma_installed_status;
 use ahash::HashMap;
 use ahash::HashSet;
 use flume::unbounded;
+use oma_history::HistoryInfo;
 use oma_pm::apt::OmaOperation;
 use oma_pm::CommitNetworkConfig;
 use serde::Deserialize;
@@ -348,16 +349,20 @@ impl CliExecuter for Upgrade {
                     autoremovable_tips(ar_count, ar_size)?;
 
                     write_history_entry(
-                        &op,
                         {
                             let db = create_db_file(sysroot)?;
                             connect_db(db, true)?
                         },
                         dry_run,
-                        start_time,
-                        true,
-                        false,
-                        false,
+                        HistoryInfo {
+                            summary: &op,
+                            start_time,
+                            success: true,
+                            is_fix_broken: false,
+                            is_undo: false,
+                            topics_enabled: vec![],
+                            topics_disabled: vec![],
+                        },
                     )?;
 
                     history_success_tips(dry_run);
@@ -372,16 +377,20 @@ impl CliExecuter for Upgrade {
                     | OmaAptError::AptCxxException(_) => {
                         if retry_times == 3 {
                             write_history_entry(
-                                &op,
                                 {
                                     let db = create_db_file(sysroot)?;
                                     connect_db(db, true)?
                                 },
                                 dry_run,
-                                start_time,
-                                false,
-                                false,
-                                false,
+                                HistoryInfo {
+                                    summary: &op,
+                                    start_time,
+                                    success: false,
+                                    is_fix_broken: false,
+                                    is_undo: false,
+                                    topics_enabled: vec![],
+                                    topics_disabled: vec![],
+                                },
                             )?;
                             undo_tips();
 

@@ -119,6 +119,16 @@ pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Conn
             (),
         )
         .map_err(HistoryError::ExecuteError)?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS \"history_topic_oma_1.14\" (
+            history_id INTEGER NOT NULL,
+            topic_name TEXT NOT NULL,
+            enable INTEGER NOT NULL
+        )",
+            (),
+        )
+        .map_err(HistoryError::ExecuteError)?;
     }
 
     Ok(conn)
@@ -143,15 +153,31 @@ pub fn create_db_file<P: AsRef<Path>>(sysroot: P) -> HistoryResult<PathBuf> {
     Ok(db_path)
 }
 
+pub struct HistoryInfo<'a> {
+    pub summary: &'a OmaOperation,
+    pub start_time: i64,
+    pub success: bool,
+    pub is_fix_broken: bool,
+    pub is_undo: bool,
+    pub topics_enabled: Vec<String>,
+    pub topics_disabled: Vec<String>,
+}
+
 pub fn write_history_entry(
-    summary: &OmaOperation,
     conn: Connection,
     dry_run: bool,
-    start_time: i64,
-    success: bool,
-    is_fix_broken: bool,
-    is_undo: bool,
+    info: HistoryInfo<'_>,
 ) -> HistoryResult<()> {
+    let HistoryInfo {
+        summary,
+        start_time,
+        success,
+        is_fix_broken,
+        is_undo,
+        topics_enabled,
+        topics_disabled,
+    } = info;
+
     if dry_run {
         debug!("In dry-run mode, oma will not write history entries");
         return Ok(());
@@ -221,6 +247,26 @@ pub fn write_history_entry(
                 if i.details().contains(&RemoveTag::Resolver) { 1 } else { 0 }
             ),
         ).map_err(HistoryError::ExecuteError)?;
+    }
+
+    if !topics_enabled.is_empty() || !topics_disabled.is_empty() {
+        for i in topics_enabled {
+            conn.execute(
+                r#"INSERT INTO "history_topic_oma_1.14" (history_id, topic_name, enable)
+                        VALUES (?1, ?2, ?3)"#,
+                (id, i, 1),
+            )
+            .map_err(HistoryError::ExecuteError)?;
+        }
+
+        for i in topics_disabled {
+            conn.execute(
+                r#"INSERT INTO "history_topic_oma_1.14" (history_id, topic_name, enable)
+                        VALUES (?1, ?2, ?3)"#,
+                (id, i, 0),
+            )
+            .map_err(HistoryError::ExecuteError)?;
+        }
     }
 
     Ok(())

@@ -3,9 +3,7 @@ use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
 use dialoguer::{theme::ColorfulTheme, Select};
-use oma_history::{
-    connect_db, find_history_by_id, list_history, HistoryListEntry, DATABASE_PATH,
-};
+use oma_history::{connect_db, find_history_by_id, list_history, HistoryListEntry, DATABASE_PATH};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::pkginfo::PtrIsNone;
@@ -281,7 +279,6 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usi
             let command = &log.command;
 
             let s = format!("{}[{}] {}", format_success(log.is_success), date, command);
-
             let s = select_tui_display_msg(&s, false).to_string();
 
             (s, index)

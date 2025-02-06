@@ -53,6 +53,7 @@ use oma_contents::searcher::Mode;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
+use oma_history::HistoryInfo;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::FilterMode;
 use oma_pm::apt::OmaApt;
@@ -304,6 +305,10 @@ pub(crate) struct CommitChanges<'a> {
     network_thread: usize,
     #[builder(default)]
     check_update: bool,
+    #[builder(default)]
+    topics_enabled: Vec<String>,
+    #[builder(default)]
+    topics_disabled: Vec<String>,
 }
 
 impl CommitChanges<'_> {
@@ -324,6 +329,8 @@ impl CommitChanges<'_> {
             auth_config,
             network_thread,
             check_update,
+            topics_enabled,
+            topics_disabled,
         } = self;
 
         let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
@@ -449,16 +456,20 @@ impl CommitChanges<'_> {
                 autoremovable_tips(ar_count, ar_size)?;
 
                 write_history_entry(
-                    &op,
                     {
                         let db = create_db_file(sysroot)?;
                         connect_db(db, true)?
                     },
                     dry_run,
-                    start_time,
-                    true,
-                    is_fixbroken,
-                    is_undo
+                    HistoryInfo {
+                        summary: &op,
+                        start_time,
+                        success: true,
+                        is_fix_broken: is_fixbroken,
+                        is_undo,
+                        topics_enabled,
+                        topics_disabled,
+                    },
                 )?;
 
                 history_success_tips(dry_run);
@@ -469,16 +480,20 @@ impl CommitChanges<'_> {
             Err(e) => {
                 undo_tips();
                 write_history_entry(
-                    &op,
                     {
                         let db = create_db_file(sysroot)?;
                         connect_db(db, true)?
                     },
                     dry_run,
-                    start_time,
-                    false,
-                    is_fixbroken,
-                    is_undo,
+                    HistoryInfo {
+                        summary: &op,
+                        start_time,
+                        success: false,
+                        is_fix_broken: is_fixbroken,
+                        is_undo,
+                        topics_enabled,
+                        topics_disabled,
+                    },
                 )?;
                 Err(e.into())
             }

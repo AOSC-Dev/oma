@@ -239,6 +239,8 @@ impl CliExecuter for Topics {
                 .network_thread(config.network_thread())
                 .maybe_auth_config(auth_config)
                 .check_update(true)
+                .topics_enabled(opt_in)
+                .topics_disabled(opt_out)
                 .build()
                 .run()?;
 
