@@ -7,7 +7,6 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs, Upgrade},
     matches::{GetArchMethod, PackagesMatcher},
@@ -229,7 +228,6 @@ impl CliExecuter for Topics {
             let code = CommitChanges::builder()
                 .apt(apt)
                 .dry_run(dry_run)
-                .request_type(SummaryType::Install)
                 .no_fixbroken(!no_fixbroken)
                 .no_progress(no_progress)
                 .sysroot(sysroot.to_string_lossy().to_string())

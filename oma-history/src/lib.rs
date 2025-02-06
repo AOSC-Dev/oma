@@ -5,21 +5,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 use oma_pm_operation_type::{InstallOperation, OmaOperation, RemoveTag};
 use rusqlite::{Connection, Error, Result};
 use thiserror::Error;
 use tracing::debug;
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, IntoPrimitive, TryFromPrimitive)]
-#[repr(i64)]
-pub enum SummaryType {
-    Install = 1,
-    Upgrade = 2,
-    Remove = 3,
-    FixBroken = 4,
-    Undo = 5,
-}
 
 pub struct HistoryEntry {
     pub install: Vec<InstallHistoryEntry>,
@@ -31,7 +20,6 @@ pub struct HistoryEntry {
 
 #[derive(Debug)]
 pub struct SummaryLog {
-    pub typ: SummaryType,
     pub op: OmaOperation,
     pub is_success: bool,
 }
@@ -76,7 +64,6 @@ pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Conn
             "CREATE TABLE IF NOT EXISTS \"history_oma_1.14\" (
                 id INTEGER PRIMARY KEY,
                 command TEXT,
-                install_type INTEGER NOT NULL,
                 time INTEGER NOT NULL,
                 is_success INTEGER NOT NULL,
                 disk_size INTEGER NOT NULL,
@@ -85,7 +72,9 @@ pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Conn
                 remove_count INTEGER NOT NULL,
                 upgrade_count INTEGER NOT NULL,
                 downgrade_count INTEGER NOT NULL,
-                reinstall_count INTEGER NOT NULL
+                reinstall_count INTEGER NOT NULL,
+                is_fixbroken INTEGER NOT NULL,
+                is_undo INTEGER NOT NULL
             )",
             (), // empty list of parameters.
         )
@@ -156,24 +145,23 @@ pub fn create_db_file<P: AsRef<Path>>(sysroot: P) -> HistoryResult<PathBuf> {
 
 pub fn write_history_entry(
     summary: &OmaOperation,
-    install_type: SummaryType,
     conn: Connection,
     dry_run: bool,
     start_time: i64,
     success: bool,
+    is_fix_broken: bool,
+    is_undo: bool,
 ) -> HistoryResult<()> {
     if dry_run {
         debug!("In dry-run mode, oma will not write history entries");
         return Ok(());
     }
 
-    let install_type: i64 = install_type.into();
-
     let command = args().collect::<Vec<_>>().join(" ");
 
     let id: i64 = conn.query_row(
-        r#"INSERT INTO "history_oma_1.14" (command, install_type, time, is_success, disk_size, total_download_size, install_count, remove_count, upgrade_count, downgrade_count, reinstall_count)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+        r#"INSERT INTO "history_oma_1.14" (command, time, is_success, disk_size, total_download_size, install_count, remove_count, upgrade_count, downgrade_count, reinstall_count, is_fixbroken, is_undo)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
                 RETURNING id;"#,
         (
         if command.is_empty() {
@@ -181,7 +169,6 @@ pub fn write_history_entry(
         } else {
             Some(command)
         },
-        install_type,
         start_time,
         if success { 1 } else { 0 },
         match (summary.disk_size.0.as_ref(), summary.disk_size.1) {
@@ -195,6 +182,8 @@ pub fn write_history_entry(
         summary.install.iter().filter(|x| x.op() == &InstallOperation::Upgrade).count(),
         summary.install.iter().filter(|x| x.op() == &InstallOperation::Downgrade).count(),
         summary.install.iter().filter(|x| x.op() == &InstallOperation::ReInstall).count(),
+        if is_fix_broken { 1 } else { 0 },
+        if is_undo { 1 } else { 0 }
     ),
         |row| row.get(0)
     )
@@ -239,7 +228,6 @@ pub fn write_history_entry(
 
 pub struct HistoryListEntry {
     pub id: i64,
-    pub summary_type: SummaryType,
     pub time: i64,
     pub command: String,
     pub is_success: bool,
@@ -248,6 +236,8 @@ pub struct HistoryListEntry {
     pub upgrade_count: i64,
     pub downgrade_count: i64,
     pub reinstall_count: i64,
+    pub is_fixbroken: bool,
+    pub is_undo: bool,
 }
 
 pub struct InstallHistoryEntry {
@@ -279,7 +269,7 @@ pub struct RemoveHistoryEntry {
 pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
     let mut res = vec![];
     let stmt = conn.prepare(
-        r#"SELECT id, command, install_type, time, is_success, install_count, remove_count, upgrade_count, downgrade_count, reinstall_count
+        r#"SELECT id, command, time, is_success, install_count, remove_count, upgrade_count, downgrade_count, reinstall_count, is_fixbroken, is_undo
         FROM "history_oma_1.14"
         ORDER BY id DESC"#,
     );
@@ -298,19 +288,19 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
         .query_map([], |row| {
             let id: i64 = row.get(0)?;
             let command: String = row.get(1)?;
-            let t: i64 = row.get(2)?;
-            let time: i64 = row.get(3)?;
-            let is_success: i64 = row.get(4)?;
-            let install_count: i64 = row.get(5)?;
-            let remove_count: i64 = row.get(6)?;
-            let upgrade_count: i64 = row.get(7)?;
-            let downgrade_count: i64 = row.get(8)?;
-            let reinstall_count: i64 = row.get(9)?;
+            let time: i64 = row.get(2)?;
+            let is_success: i64 = row.get(3)?;
+            let install_count: i64 = row.get(4)?;
+            let remove_count: i64 = row.get(5)?;
+            let upgrade_count: i64 = row.get(6)?;
+            let downgrade_count: i64 = row.get(7)?;
+            let reinstall_count: i64 = row.get(8)?;
+            let is_fixbroken: i64 = row.get(9)?;
+            let is_undo: i64 = row.get(10)?;
 
             Ok((
                 id,
                 command,
-                t,
                 time,
                 is_success,
                 install_count,
@@ -318,6 +308,8 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
                 upgrade_count,
                 downgrade_count,
                 reinstall_count,
+                is_fixbroken,
+                is_undo,
             ))
         })
         .map_err(HistoryError::ExecuteError)?;
@@ -326,7 +318,6 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
         let (
             id,
             command,
-            t,
             time,
             is_success,
             install_count,
@@ -334,14 +325,13 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
             upgrade_count,
             downgrade_count,
             reinstall_count,
+            is_fixbroken,
+            is_undo,
         ) = i.map_err(HistoryError::ParseDbError)?;
-
-        let install_type: SummaryType = t.try_into().unwrap();
 
         res.push(HistoryListEntry {
             id,
             command,
-            summary_type: install_type,
             time,
             is_success: is_success == 1,
             install_count,
@@ -349,6 +339,8 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
             upgrade_count,
             downgrade_count,
             reinstall_count,
+            is_fixbroken: is_fixbroken == 1,
+            is_undo: is_undo == 1,
         });
     }
 

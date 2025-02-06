@@ -53,7 +53,6 @@ use oma_contents::searcher::Mode;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
-use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::FilterMode;
 use oma_pm::apt::OmaApt;
@@ -281,7 +280,10 @@ pub(crate) struct CommitChanges<'a> {
     apt: OmaApt,
     #[builder(default = true)]
     dry_run: bool,
-    request_type: SummaryType,
+    #[builder(default)]
+    is_fixbroken: bool,
+    #[builder(default)]
+    is_undo: bool,
     #[builder(default = true)]
     no_fixbroken: bool,
     #[builder(default)]
@@ -309,7 +311,8 @@ impl CommitChanges<'_> {
         let CommitChanges {
             mut apt,
             dry_run,
-            request_type: typ,
+            is_fixbroken,
+            is_undo,
             no_fixbroken,
             no_progress,
             sysroot,
@@ -447,7 +450,6 @@ impl CommitChanges<'_> {
 
                 write_history_entry(
                     &op,
-                    typ,
                     {
                         let db = create_db_file(sysroot)?;
                         connect_db(db, true)?
@@ -455,6 +457,8 @@ impl CommitChanges<'_> {
                     dry_run,
                     start_time,
                     true,
+                    is_fixbroken,
+                    is_undo
                 )?;
 
                 history_success_tips(dry_run);
@@ -466,7 +470,6 @@ impl CommitChanges<'_> {
                 undo_tips();
                 write_history_entry(
                     &op,
-                    typ,
                     {
                         let db = create_db_file(sysroot)?;
                         connect_db(db, true)?
@@ -474,6 +477,8 @@ impl CommitChanges<'_> {
                     dry_run,
                     start_time,
                     false,
+                    is_fixbroken,
+                    is_undo,
                 )?;
                 Err(e.into())
             }

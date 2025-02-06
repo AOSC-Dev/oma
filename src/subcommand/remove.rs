@@ -5,7 +5,6 @@ use clap::Args;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
-use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use tracing::{info, warn};
@@ -232,7 +231,6 @@ impl CliExecuter for Remove {
         CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
-            .request_type(SummaryType::Remove)
             .no_fixbroken(!fix_broken)
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())

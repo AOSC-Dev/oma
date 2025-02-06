@@ -4,7 +4,7 @@ use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
 use dialoguer::{theme::ColorfulTheme, Select};
 use oma_history::{
-    connect_db, find_history_by_id, list_history, HistoryListEntry, SummaryType, DATABASE_PATH,
+    connect_db, find_history_by_id, list_history, HistoryListEntry, DATABASE_PATH,
 };
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
@@ -233,7 +233,7 @@ impl CliExecuter for Undo {
         CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
-            .request_type(SummaryType::Undo)
+            .is_undo(true)
             .no_fixbroken(no_fixbroken)
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())
@@ -271,7 +271,7 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usi
         .enumerate()
         .filter(|(_, log)| {
             if undo {
-                log.summary_type != SummaryType::FixBroken && log.summary_type != SummaryType::Undo
+                !log.is_fixbroken && !log.is_undo
             } else {
                 true
             }
@@ -279,15 +279,6 @@ fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usi
         .map(|(index, log)| {
             let date = format_date(log.time);
             let command = &log.command;
-
-            // TODO
-            // let s = match &log.summary_type {
-            //     SummaryType::Install => format!("{}Install pkg", format_success(log.is_success)),
-            //     SummaryType::Upgrade => format!("{}Upgrade pkg", format_success(log.is_success)),
-            //     SummaryType::Remove => format!("{}Remove pkg", format_success(log.is_success)),
-            //     SummaryType::FixBroken => format!("{}Fix broken", format_success(log.is_success)),
-            //     SummaryType::Undo => format!("{}Undo", format_success(log.is_success)),
-            // };
 
             let s = format!("{}[{}] {}", format_success(log.is_success), date, command);
 

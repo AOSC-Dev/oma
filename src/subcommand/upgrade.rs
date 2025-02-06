@@ -26,7 +26,6 @@ use oma_console::pager::PagerExit;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
-use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
@@ -350,7 +349,6 @@ impl CliExecuter for Upgrade {
 
                     write_history_entry(
                         &op,
-                        SummaryType::Upgrade,
                         {
                             let db = create_db_file(sysroot)?;
                             connect_db(db, true)?
@@ -358,6 +356,8 @@ impl CliExecuter for Upgrade {
                         dry_run,
                         start_time,
                         true,
+                        false,
+                        false,
                     )?;
 
                     history_success_tips(dry_run);
@@ -373,13 +373,14 @@ impl CliExecuter for Upgrade {
                         if retry_times == 3 {
                             write_history_entry(
                                 &op,
-                                SummaryType::Upgrade,
                                 {
                                     let db = create_db_file(sysroot)?;
                                     connect_db(db, true)?
                                 },
                                 dry_run,
                                 start_time,
+                                false,
+                                false,
                                 false,
                             )?;
                             undo_tips();

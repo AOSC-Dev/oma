@@ -4,8 +4,11 @@ use std::{
 };
 
 use clap::Args;
-use oma_console::pager::{exit_tui, prepare_create_tui};
-use oma_history::SummaryType;
+use oma_console::{
+    indicatif::ProgressBar,
+    pager::{exit_tui, prepare_create_tui},
+    pb::spinner_style,
+};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs, Upgrade},
     search::IndiciumSearch,
@@ -245,7 +248,6 @@ impl CliExecuter for Tui {
             code = CommitChanges::builder()
                 .apt(apt)
                 .dry_run(dry_run)
-                .request_type(SummaryType::Install)
                 .no_fixbroken(!fix_broken)
                 .no_progress(no_progress)
                 .sysroot(sysroot.to_string_lossy().to_string())
