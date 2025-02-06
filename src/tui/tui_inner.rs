@@ -459,9 +459,8 @@ impl<'a> Tui<'a> {
                                 .items
                                 .iter()
                                 .position(|x| {
-                                    if let Operation::Package { name, version } = x {
+                                    if let Operation::Package { name, .. } = x {
                                         *name == self.remove[pkg_index].raw_pkg.fullname(true)
-                                            && version.is_some()
                                     } else {
                                         false
                                     }
