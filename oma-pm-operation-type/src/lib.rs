@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct OmaOperation {
     pub install: Vec<InstallEntry>,
     pub remove: Vec<RemoveEntry>,
-    pub disk_size: (Box<str>, u64),
+    pub disk_size_delta: i64,
     pub autoremovable: (u64, u64),
     pub total_download_size: u64,
     pub suggest: Vec<(String, String)>,
@@ -96,7 +96,12 @@ impl Display for OmaOperation {
             writeln!(f, "Purge: {}", purge.join(", "))?;
         }
 
-        let (symbol, n) = &self.disk_size;
+        let (symbol, n) = if self.disk_size_delta >= 0 {
+            ("+", self.disk_size_delta as u64)
+        } else {
+            ("-", (0 - self.disk_size_delta) as u64)
+        };
+
         writeln!(f, "Size-delta: {symbol}{}", HumanBytes(n.to_owned()))?;
 
         Ok(())

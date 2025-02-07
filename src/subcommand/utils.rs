@@ -385,7 +385,7 @@ impl CommitChanges<'_> {
 
         let install = &op.install;
         let remove = &op.remove;
-        let disk_size = &op.disk_size;
+        let disk_size = &op.disk_size_delta;
         let (ar_count, ar_size) = op.autoremovable;
         let (suggest, recommend) = (&op.suggest, &op.recommend);
 
@@ -401,7 +401,7 @@ impl CommitChanges<'_> {
             match table_for_install_pending(
                 install,
                 remove,
-                disk_size,
+                *disk_size,
                 Some(matches_tum),
                 !yes,
                 dry_run,
@@ -411,7 +411,7 @@ impl CommitChanges<'_> {
                 x @ PagerExit::DryRun => return Ok(x.into()),
             }
         } else {
-            match table_for_install_pending(install, remove, disk_size, None, !yes, dry_run)? {
+            match table_for_install_pending(install, remove, *disk_size, None, !yes, dry_run)? {
                 PagerExit::NormalExit => {}
                 x @ PagerExit::Sigint => return Ok(x.into()),
                 x @ PagerExit::DryRun => return Ok(x.into()),

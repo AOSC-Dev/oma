@@ -311,7 +311,7 @@ impl<W: Write> PagerPrinter<W> {
 pub fn table_for_install_pending(
     install: &[InstallEntry],
     remove: &[RemoveEntry],
-    disk_size: &(Box<str>, u64),
+    disk_size: i64,
     tum: Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
     is_pager: bool,
     dry_run: bool,
@@ -392,7 +392,7 @@ pub fn table_for_install_pending(
 pub fn table_for_history_pending(
     install: &[InstallHistoryEntry],
     remove: &[RemoveHistoryEntry],
-    disk_size: &(Box<str>, u64),
+    disk_size: i64,
 ) -> Result<(), OutputError> {
     let mut pager = Pager::external(
         &OmaPagerUIText { is_question: false },
@@ -451,7 +451,7 @@ fn print_pending_inner<W: Write>(
     mut printer: PagerPrinter<W>,
     remove: &[RemoveEntryDisplay],
     install: &[InstallEntryDisplay],
-    disk_size: &(Box<str>, u64),
+    disk_size: i64,
     total_download_size: u64,
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
 ) {
@@ -602,14 +602,18 @@ fn print_pending_inner<W: Write>(
         ))
         .ok();
 
-    let (symbol, abs_install_size_change) = disk_size;
+    let (symbol, abs_install_size_change) = if disk_size >= 0 {
+        ("+", disk_size as u64)
+    } else {
+        ("-", (0 - disk_size) as u64)
+    };
 
     printer
         .println(format!(
             "{}{}{}",
             style(fl!("change-storage-usage")).bold(),
             symbol,
-            HumanBytes(*abs_install_size_change)
+            HumanBytes(abs_install_size_change)
         ))
         .ok();
     printer.println("").ok();

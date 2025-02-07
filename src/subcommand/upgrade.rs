@@ -297,7 +297,7 @@ impl CliExecuter for Upgrade {
 
             let install = &op.install;
             let remove = &op.remove;
-            let disk_size = &op.disk_size;
+            let disk_size = &op.disk_size_delta;
             let (ar_count, ar_size) = op.autoremovable;
             let (suggest, recommend) = (&op.suggest, &op.recommend);
 
@@ -313,7 +313,7 @@ impl CliExecuter for Upgrade {
                 match table_for_install_pending(
                     install,
                     remove,
-                    disk_size,
+                    *disk_size,
                     Some(matches_tum),
                     !yes,
                     dry_run,

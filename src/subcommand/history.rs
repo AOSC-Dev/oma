@@ -3,7 +3,7 @@ use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
 use dialoguer::{theme::ColorfulTheme, Select};
-use oma_history::{connect_db, find_history_by_id, list_history, HistoryListEntry, DATABASE_PATH};
+use oma_history::{connect_db, find_history_by_id, list_history, HistoryEntry, DATABASE_PATH};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::pkginfo::PtrIsNone;
@@ -61,7 +61,7 @@ impl CliExecuter for History {
             let op = find_history_by_id(&conn, id)?;
             let install = &op.install;
             let remove = &op.remove;
-            let disk_size = &op.disk_size;
+            let disk_size = op.disk_size;
 
             table_for_history_pending(install, remove, disk_size)?;
         }
@@ -263,7 +263,7 @@ fn dialoguer_select_history(
     Ok(selected)
 }
 
-fn format_summary_log(list: &[HistoryListEntry], undo: bool) -> Vec<(String, usize)> {
+fn format_summary_log(list: &[HistoryEntry], undo: bool) -> Vec<(String, usize)> {
     let display_list = list
         .iter()
         .enumerate()

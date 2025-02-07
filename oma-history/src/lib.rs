@@ -1,3 +1,5 @@
+mod migrations;
+
 use std::{
     collections::HashMap,
     env::args,
@@ -5,22 +7,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use migrations::create_and_maybe_migration_from_oma_db_v2;
 use oma_pm_operation_type::{InstallOperation, OmaOperation, RemoveTag};
 use rusqlite::{Connection, Error, Result};
+use serde::Deserialize;
 use thiserror::Error;
 use tracing::debug;
 
-pub struct HistoryEntry {
+pub struct HistoryEntryInner {
     pub install: Vec<InstallHistoryEntry>,
     pub remove: Vec<RemoveHistoryEntry>,
-    pub disk_size: (Box<str>, u64),
+    pub disk_size: i64,
     pub total_download_size: u64,
-    pub is_success: bool,
-}
-
-#[derive(Debug)]
-pub struct SummaryLog {
-    pub op: OmaOperation,
     pub is_success: bool,
 }
 
@@ -45,6 +43,15 @@ pub enum HistoryError {
 }
 
 pub const DATABASE_PATH: &str = "var/lib/oma/history.db";
+pub(crate) const INSERT_NEW_MAIN_TABLE: &str = r#"INSERT INTO "history_oma_1.14" (command, time, is_success, disk_size, total_download_size, install_count, remove_count, upgrade_count, downgrade_count, reinstall_count, is_fixbroken, is_undo)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+    RETURNING id;"#;
+pub(crate) const INSERT_INSTALL_TABLE: &str = r#"INSERT INTO "history_install_package_oma_1.14" (history_id, package_name, old_version, new_version, old_size, new_size, download_size, arch, operation)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#;
+pub(crate) const INSERT_REMOVE_TABLE: &str = r#"INSERT INTO "history_remove_package_oma_1.14" (history_id, package_name, version, size, arch)
+    VALUES (?1, ?2, ?3, ?4, ?5)"#;
+pub(crate) const INSERT_REMOVE_DETAIL_TABLE: &str = r#"INSERT INTO "history_remove_package_detail_oma_1.14" (history_id, package_name, autoremove, purge, resolver)
+    VALUES (?1, ?2, ?3, ?4, ?5)"#;
 
 pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Connection> {
     let conn = Connection::open(db_path);
@@ -60,75 +67,7 @@ pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Conn
     };
 
     if write {
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS \"history_oma_1.14\" (
-                id INTEGER PRIMARY KEY,
-                command TEXT,
-                time INTEGER NOT NULL,
-                is_success INTEGER NOT NULL,
-                disk_size INTEGER NOT NULL,
-                total_download_size INTEGER,
-                install_count INTEGER NOT NULL,
-                remove_count INTEGER NOT NULL,
-                upgrade_count INTEGER NOT NULL,
-                downgrade_count INTEGER NOT NULL,
-                reinstall_count INTEGER NOT NULL,
-                is_fixbroken INTEGER NOT NULL,
-                is_undo INTEGER NOT NULL
-            )",
-            (), // empty list of parameters.
-        )
-        .map_err(HistoryError::ExecuteError)?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS \"history_install_package_oma_1.14\" (
-            history_id INTEGER NOT NULL,
-            package_name TEXT NOT NULL,
-            old_version TEXT,
-            new_version TEXT NOT NULL,
-            old_size INTEGER,
-            new_size INTEGER NOT NULL,
-            download_size INTEGER NOT NULL,
-            arch TEXT NOT NULL,
-            operation INTEGER NOT NULL
-        )",
-            (),
-        )
-        .map_err(HistoryError::ExecuteError)?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS \"history_remove_package_oma_1.14\" (
-            history_id INTEGER NOT NULL,
-            package_name TEXT NOT NULL,
-            version TEXT NOT NULL,
-            size INTEGER NOT NULL,
-            arch TEXT NOT NULL
-        )",
-            (),
-        )
-        .map_err(HistoryError::ExecuteError)?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS \"history_remove_package_detail_oma_1.14\" (
-            history_id INTEGER NOT NULL,
-            package_name TEXT NOT NULL,
-            autoremove INTEGER NOT NULL,
-            purge INTEGER NOT NULL,
-            resolver INTEGER NOT NULL
-        )",
-            (),
-        )
-        .map_err(HistoryError::ExecuteError)?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS \"history_topic_oma_1.14\" (
-            history_id INTEGER NOT NULL,
-            topic_name TEXT NOT NULL,
-            enable INTEGER NOT NULL
-        )",
-            (),
-        )
-        .map_err(HistoryError::ExecuteError)?;
+        create_and_maybe_migration_from_oma_db_v2(&conn)?;
     }
 
     Ok(conn)
@@ -185,44 +124,66 @@ pub fn write_history_entry(
 
     let command = args().collect::<Vec<_>>().join(" ");
 
-    let id: i64 = conn.query_row(
-        r#"INSERT INTO "history_oma_1.14" (command, time, is_success, disk_size, total_download_size, install_count, remove_count, upgrade_count, downgrade_count, reinstall_count, is_fixbroken, is_undo)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
-                RETURNING id;"#,
-        (
-        if command.is_empty() {
-            None
-        } else {
-            Some(command)
-        },
-        start_time,
-        if success { 1 } else { 0 },
-        match (summary.disk_size.0.as_ref(), summary.disk_size.1) {
-            ("+", x) => x as i64,
-            ("-", x) => 0 - x as i64,
-            _ => unreachable!()
-        },
-        summary.total_download_size,
-        summary.install.iter().filter(|x| x.op() == &InstallOperation::Install).count(),
-        summary.remove.len(),
-        summary.install.iter().filter(|x| x.op() == &InstallOperation::Upgrade).count(),
-        summary.install.iter().filter(|x| x.op() == &InstallOperation::Downgrade).count(),
-        summary.install.iter().filter(|x| x.op() == &InstallOperation::ReInstall).count(),
-        if is_fix_broken { 1 } else { 0 },
-        if is_undo { 1 } else { 0 }
-    ),
-        |row| row.get(0)
-    )
-    .map_err(HistoryError::ExecuteError)?;
+    let id: i64 = conn
+        .query_row(
+            INSERT_NEW_MAIN_TABLE,
+            (
+                if command.is_empty() {
+                    None
+                } else {
+                    Some(command)
+                },
+                start_time,
+                if success { 1 } else { 0 },
+                summary.disk_size_delta,
+                summary.total_download_size,
+                summary
+                    .install
+                    .iter()
+                    .filter(|x| x.op() == &InstallOperation::Install)
+                    .count(),
+                summary.remove.len(),
+                summary
+                    .install
+                    .iter()
+                    .filter(|x| x.op() == &InstallOperation::Upgrade)
+                    .count(),
+                summary
+                    .install
+                    .iter()
+                    .filter(|x| x.op() == &InstallOperation::Downgrade)
+                    .count(),
+                summary
+                    .install
+                    .iter()
+                    .filter(|x| x.op() == &InstallOperation::ReInstall)
+                    .count(),
+                if is_fix_broken { 1 } else { 0 },
+                if is_undo { 1 } else { 0 },
+            ),
+            |row| row.get(0),
+        )
+        .map_err(HistoryError::ExecuteError)?;
 
     for i in &summary.install {
         let op: u8 = (*i.op()).into();
         let op = op as i64;
+
         conn.execute(
-            r#"INSERT INTO "history_install_package_oma_1.14" (history_id, package_name, old_version, new_version, old_size, new_size, download_size, arch, operation)
-                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
-            (id, i.name(), i.old_version(), i.new_version(), i.old_size(), i.new_size(), i.download_size(), i.arch(), op),
-        ).map_err(HistoryError::ExecuteError)?;
+            INSERT_INSTALL_TABLE,
+            (
+                id,
+                i.name(),
+                i.old_version(),
+                i.new_version(),
+                i.old_size(),
+                i.new_size(),
+                i.download_size(),
+                i.arch(),
+                op,
+            ),
+        )
+        .map_err(HistoryError::ExecuteError)?;
     }
 
     for i in &summary.remove {
@@ -232,21 +193,34 @@ pub fn write_history_entry(
         };
 
         conn.execute(
-            r#"INSERT INTO "history_remove_package_oma_1.14" (history_id, package_name, version, size, arch)
-                    VALUES (?1, ?2, ?3, ?4, ?5)"#,
+            INSERT_REMOVE_TABLE,
             (id, i.name(), version, i.size(), i.arch()),
-        ).map_err(HistoryError::ExecuteError)?;
+        )
+        .map_err(HistoryError::ExecuteError)?;
 
         conn.execute(
-            r#"INSERT INTO "history_remove_package_detail_oma_1.14" (history_id, package_name, autoremove, purge, resolver)
-                    VALUES (?1, ?2, ?3, ?4, ?5)"#,
-            (id,
+            INSERT_REMOVE_DETAIL_TABLE,
+            (
+                id,
                 i.name(),
-                if i.details().contains(&RemoveTag::AutoRemove) { 1 } else { 0 },
-                if i.details().contains(&RemoveTag::Purge) { 1 } else { 0 },
-                if i.details().contains(&RemoveTag::Resolver) { 1 } else { 0 }
+                if i.details().contains(&RemoveTag::AutoRemove) {
+                    1
+                } else {
+                    0
+                },
+                if i.details().contains(&RemoveTag::Purge) {
+                    1
+                } else {
+                    0
+                },
+                if i.details().contains(&RemoveTag::Resolver) {
+                    1
+                } else {
+                    0
+                },
             ),
-        ).map_err(HistoryError::ExecuteError)?;
+        )
+        .map_err(HistoryError::ExecuteError)?;
     }
 
     if !topics_enabled.is_empty() || !topics_disabled.is_empty() {
@@ -272,7 +246,7 @@ pub fn write_history_entry(
     Ok(())
 }
 
-pub struct HistoryListEntry {
+pub struct HistoryEntry {
     pub id: i64,
     pub time: i64,
     pub command: String,
@@ -286,7 +260,9 @@ pub struct HistoryListEntry {
     pub is_undo: bool,
 }
 
+#[derive(Deserialize)]
 pub struct InstallHistoryEntry {
+    #[serde(rename = "name")]
     pub pkg_name: String,
     pub old_version: Option<String>,
     pub new_version: String,
@@ -294,6 +270,7 @@ pub struct InstallHistoryEntry {
     pub new_size: i64,
     pub download_size: i64,
     pub arch: String,
+    #[serde(rename = "op")]
     pub operation: InstallOperation,
 }
 
@@ -304,15 +281,18 @@ pub struct RemoveHistoryEntryTmp {
     pub arch: String,
 }
 
+#[derive(Deserialize)]
 pub struct RemoveHistoryEntry {
+    #[serde(rename = "name")]
     pub pkg_name: String,
     pub version: String,
     pub size: i64,
     pub arch: String,
+    #[serde(rename = "details")]
     pub tags: Vec<RemoveTag>,
 }
 
-pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
+pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryEntry>> {
     let mut res = vec![];
     let stmt = conn.prepare(
         r#"SELECT id, command, time, is_success, install_count, remove_count, upgrade_count, downgrade_count, reinstall_count, is_fixbroken, is_undo
@@ -375,7 +355,7 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
             is_undo,
         ) = i.map_err(HistoryError::ParseDbError)?;
 
-        res.push(HistoryListEntry {
+        res.push(HistoryEntry {
             id,
             command,
             time,
@@ -397,7 +377,7 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryListEntry>> {
     Ok(res)
 }
 
-pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<HistoryEntry> {
+pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<HistoryEntryInner> {
     let mut query_history_table = conn
         .prepare("SELECT is_success, disk_size, total_download_size FROM \"history_oma_1.14\" WHERE id = (?1)")
         .map_err(HistoryError::ExecuteError)?;
@@ -504,12 +484,6 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<HistoryEn
 
         let is_success = is_success == 1;
 
-        let disk_size: (Box<str>, u64) = if disk_size >= 0 {
-            ("+".into(), disk_size as u64)
-        } else {
-            ("-".into(), (0 - disk_size) as u64)
-        };
-
         let mut install = vec![];
         let mut remove = vec![];
 
@@ -538,7 +512,7 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<HistoryEn
             });
         }
 
-        res = Some(HistoryEntry {
+        res = Some(HistoryEntryInner {
             install,
             remove,
             disk_size,
