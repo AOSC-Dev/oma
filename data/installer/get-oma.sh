@@ -142,7 +142,8 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 		       "$VERSION_CODENAME" = 'victoria' -o \
 		       "$VERSION_CODENAME" = 'virginia' ]; then
 			_oma_codename='jammy'
-		elif [ "$VERSION_CODENAME" = 'wilma' ]; then
+		elif [ "$VERSION_CODENAME" = 'wilma' -o \
+		       "$VERSION_CODENAME" = 'xia' ]; then
 			_oma_codename='noble'
 		else
 			echo "
