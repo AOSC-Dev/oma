@@ -157,25 +157,25 @@ pub struct PtrIsNone;
 #[derive(Debug, Deserialize, Serialize)]
 /// Represents information about a software package.
 pub struct PackageInfo {
-    /// The name of the package.
+    /// Name of the package.
     pub package: Box<str>,
-    /// The version of the package.
+    /// Version of the package.
     pub version: Box<str>,
-    /// The section or category of the package.
+    /// Section or category of the package.
     pub section: Box<str>,
-    /// The maintainer of the package.
+    /// Maintainer of the package.
     pub maintainer: String,
-    /// The size of the package after installation, in bytes.
+    /// Size of the package after installation(in bytes).
     pub install_size: u64,
-    /// A map of dependencies for the package.
+    /// Dependency map for the package.
     pub dep_map: HashMap<OmaDepType, OmaDependencyGroup>,
-    /// The size of the package download from the internet, in bytes.
+    /// Download size of the package (in bytes).
     pub download_size: u64,
-    /// The APT sources from which the package can be downloaded.
+    /// APT sources from which the package will be downloaded.
     pub apt_sources: Vec<AptSource>,
-    /// A detailed description of the package.
+    /// Detailed description of the package.
     pub description: String,
-    /// A brief description of the package.
+    /// Brief description of the package.
     pub short_description: String,
 }
 
