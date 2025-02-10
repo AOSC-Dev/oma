@@ -73,23 +73,21 @@ pub struct OmaAptArgs {
 }
 
 pub struct OmaApt {
-    /// The summary of all the apt operations in rust-apt
+    /// Summary of all the apt operations in rust-apt.
     pub cache: Cache,
-    /// Config for apt, See Document for `AptConfig`.
+    /// See Document for `AptConfig`.
     pub config: AptConfig,
-    /// The hash of packages that will be autoremoved.
+    /// The set of packages to be autoremoved.
     autoremove: HashSet<u64>,
-    /// Whether dry-run or not.
+    /// Toggle for dry-run mode.
     dry_run: bool,
-    /// The hash of packages that have been selected.
+    /// The set of selected packages.
     select_pkgs: HashSet<u64>,
-    /// A list of lists containing broken packages that have unmet dependencies.
+    /// A set of lists containing broken packages that have unmet dependencies.
     /// Each inner vector represents a group of packages with unmet dependencies.
     unmet: Vec<Vec<BrokenPackage>>,
     /// The path for archive.
     archive_dir: OnceCell<PathBuf>,
-    /// The Tokio runtime used for asynchronous operations.
-    /// It is required for any async operations within `OmaApt`
     pub(crate) tokio: Runtime,
     pub(crate) conn: Option<Connection>,
 }
@@ -152,7 +150,7 @@ pub enum OmaAptError {
 
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
 
-/// Represent the mode of filter.
+/// Modes of the result filter.
 #[derive(Debug)]
 pub enum FilterMode {
     Default,
@@ -164,7 +162,7 @@ pub enum FilterMode {
     AutoRemovable,
 }
 
-/// Represent the sort methods of summary.
+/// Keys for sorting results in the summary view.
 #[derive(PartialEq, Eq)]
 pub enum SummarySort {
     Names,
@@ -173,11 +171,11 @@ pub enum SummarySort {
 }
 
 pub struct DownloadConfig<'a> {
-    /// Represent how many thread will be used in downloading
+    /// The number of threads to be used for downloads.
     pub network_thread: Option<usize>,
-    /// The directory which stores downloaded files
+    /// Path to downloaded files/archives.
     pub download_dir: Option<&'a Path>,
-    /// The config for authorization
+    /// Configuration for repository authorization.
     pub auth: Option<&'a AuthConfig>,
 }
 
@@ -186,10 +184,10 @@ impl OmaApt {
     ///
     /// ### Parameters:
     ///
-    /// `local_debs`: Path for local deb package files
-    /// `args`: Config for oma, See Document for `OmaAptArgs`
-    /// `dry_run`: Whether dry-run or not
-    /// `config`: Config for apt, See Document for `AptConfig`
+    /// `local_debs`: Path to local deb packages
+    /// `args`: Configuration for oma, see documentation for `OmaAptArgs`
+    /// `dry_run`: Toggle for dry-run mode
+    /// `config`: Configuration for apt, see documentation for `AptConfig`
     pub fn new(
         local_debs: Vec<String>,
         args: OmaAptArgs,
@@ -1424,7 +1422,7 @@ fn also_install_recommends(ver: &Version, cache: &Cache) {
 #[cfg(not(feature = "aosc"))]
 fn also_install_recommends(_ver: &Version, _cache: &Cache) {}
 
-/// Represent a broken package, including the name and reason.
+/// Broken package, struct contains its name and cause for broken status.
 #[derive(Debug, Clone)]
 pub struct BrokenPackage {
     pub name: String,

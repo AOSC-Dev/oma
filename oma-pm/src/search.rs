@@ -1,7 +1,7 @@
 //! oma provides these searching methods:
-//! - IndiciumSearch
-//! - StrSimSearch
-//! - TextSearch
+//! - IndiciumSearch: Index search based on `indicium`.
+//! - StrSimSearch: Search method based on similarly score, using `strsim`.
+//! - TextSearch: Text match search based on `memmem`
 use ahash::{AHashMap, RandomState};
 use cxx::UniquePtr;
 use glob_match::glob_match;
@@ -25,7 +25,7 @@ use crate::{
     pkginfo::{OmaPackage, PtrIsNone},
 };
 
-/// Represent the status of a package.
+/// Status of the package.
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PackageStatus {
     Avail,
@@ -61,20 +61,20 @@ impl Ord for PackageStatus {
     }
 }
 
-/// Represents an entry in the package search results.
+/// Entry in the package search results.
 pub struct SearchEntry {
-    /// The name of this package
+    /// The name of the package
     name: String,
-    /// The description of this package
+    /// The description of the package
     description: String,
-    /// The status of this package. See [`PackageStatus`]
+    /// The status of the package. See [`PackageStatus`]
     status: PackageStatus,
-    /// Alias of this package. eg: `telegram-desktop` provides `telegram`.
+    /// Alias of the package. eg: `telegram-desktop` provides `telegram`.
     provides: IndexSet<String>,
-    /// Whether this package has debug or not.
+    /// Whether the package provides a matching package for debug symbols.
     has_dbg: bool,
     raw_pkg: UniquePtr<PkgIterator>,
-    /// Whether this package is a part of system base packages.
+    /// Whether the package is an AOSC OS metapackage (-base package).
     section_is_base: bool,
 }
 
@@ -120,32 +120,33 @@ pub enum OmaSearchError {
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-/// Represents the result of a searching process.
+/// Result of a search process.
 pub struct SearchResult {
-    /// A string contains the name of a package to search for.
+    /// String contains the name of a package to search for.
     pub name: String,
-    /// A string contains the description of a package.
+    /// String contains the description of a package.
     pub desc: String,
-    /// A optional string contains the old_version(s) of a package
+    /// Optional string contains the old_version(s) of a package
     pub old_version: Option<String>,
-    /// A string contains the new_version(s) of a package
+    /// String contains the new_version(s) of a package
     pub new_version: String,
-    /// A boolean indicating whether this result is a full match or not.
+    /// Boolean indicating whether this result is a full match or not.
     pub full_match: bool,
-    /// A boolean indicating whether this result has debug version or not.
+    /// Boolean indicating whether this result has a matching package for debug symbols.
     pub dbg_package: bool,
-    /// A `PackageStatus` instance which provides the status of the package.
+    /// `PackageStatus` instance which reports the status of the package.
     pub status: PackageStatus,
-    /// A boolean indicating whether this package is a base package or not.
+    /// Boolean indicating whether the package is an AOSC OS metapackage (-base package).
     pub is_base: bool,
 }
 
+/// Index search based on `indicium`.
 pub struct IndiciumSearch<'a> {
-    /// The Cache from oma-apt (rust-apt), which contains the summary of all the apt operations.
+    /// Locally cached index.
     cache: &'a Cache,
-    /// A map contains package names and their corresponding search entries.
+    /// Map contains package names and their corresponding search entries.
     pkg_map: IndexMap<String, SearchEntry>,
-    /// The index used to perform search operations.
+    /// Index used to perform search operations.
     index: SearchIndex<String>,
 }
 
@@ -181,17 +182,7 @@ impl OmaSearch for IndiciumSearch<'_> {
     }
 }
 
-/// One of the searching method provided by oma.
-/// A struct which used for performing feature searches in the data returned from oma-apt (The `Cache`)
 impl<'a> IndiciumSearch<'a> {
-    /// Create a new instance of `IndiciumSearch`
-    ///
-    /// # Arguments
-    /// * `cache` - The Cache from oma-apt (rust-apt), which contains the summary of all the apt operations.
-    /// * `progress` - A function to report porgress.
-    ///
-    /// # Returns
-    /// A `OmaSearchResult` which contains the instance of IndiciumSearch
     pub fn new(cache: &'a Cache, progress: impl Fn(usize)) -> OmaSearchResult<Self> {
         let sort = PackageSort::default().include_virtual();
         let packages = cache.packages(&sort);
@@ -304,12 +295,12 @@ impl<'a> IndiciumSearch<'a> {
     ///
     /// # Arguments
     ///
-    /// * `i` - A string that holds the name of the package to search.
-    /// * `query` - An optional string that holds the query to match the package name.
+    /// * `i` - A string holds the name of the package to search.
+    /// * `query` - An optional string that holds the search query (or pattern).
     ///
     /// # Returns
     ///
-    /// * `Ok(SearchResult)` - If the package is found, returns a `SearchResult` containing the package details.
+    /// * `Ok(SearchResult)` - If a match is found, returns `SearchResult` containing the package details.
     /// * `Err(OmaSearchError)` - If an error occurs during the search, returns an `OmaSearchError`.
     fn search_result(&self, i: &str, query: Option<&str>) -> Result<SearchResult, OmaSearchError> {
         let entry = self.pkg_map.get(i).unwrap();
@@ -354,11 +345,9 @@ impl<'a> IndiciumSearch<'a> {
     }
 }
 
-/// One of the searching methods which provided by oma.
-/// This searching method will be sorted based on string matching similarity (score).
-/// Based on `strsim`
+/// strsim: Sort search results based on based on string matching similarity (score).
 pub struct StrSimSearch<'a> {
-    /// The Cache from oma-apt (rust-apt), which contains the summary of all the apt operations.
+    /// Locally cached index.
     cache: &'a Cache,
 }
 
@@ -496,7 +485,6 @@ impl<'a> StrSimSearch<'a> {
     }
 }
 
-/// One of the searching methods which provided by oma.
 /// Text match search based on `memmem`
 pub struct TextSearch<'a> {
     cache: &'a Cache,
