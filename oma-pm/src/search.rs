@@ -266,11 +266,7 @@ impl<'a> IndiciumSearch<'a> {
         })
     }
 
-    pub fn search_result(
-        &self,
-        i: &str,
-        query: Option<&str>,
-    ) -> Result<SearchResult, OmaSearchError> {
+    fn search_result(&self, i: &str, query: Option<&str>) -> Result<SearchResult, OmaSearchError> {
         let entry = self.pkg_map.get(i).unwrap();
         let search_name = entry.name.clone();
         let desc = entry.description.clone();
