@@ -4,11 +4,7 @@ use std::{
 };
 
 use clap::Args;
-use oma_console::{
-    indicatif::ProgressBar,
-    pager::{exit_tui, prepare_create_tui},
-    pb::spinner_style,
-};
+use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs, Upgrade},
@@ -18,7 +14,11 @@ use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
 use tracing::info;
 use tui_inner::{Task, Tui as TuiInner};
 
-use crate::{args::CliExecuter, subcommand::utils::auth_config, GlobalOptions};
+use crate::{
+    args::CliExecuter,
+    subcommand::utils::{auth_config, create_progress_spinner},
+    GlobalOptions,
+};
 use crate::{
     config::Config,
     error::OutputError,
@@ -175,15 +175,7 @@ impl CliExecuter for Tui {
 
         let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
-        let (sty, inv) = spinner_style();
-        let pb = if no_progress {
-            None
-        } else {
-            let pb = ProgressBar::new_spinner().with_style(sty);
-            pb.enable_steady_tick(inv);
-            pb.set_message(fl!("reading-database"));
-            Some(pb)
-        };
+        let pb = create_progress_spinner(no_progress, fl!("reading-database"));
 
         let upgradable = apt.count_pending_upgradable_pkgs()?;
         let autoremovable = apt.count_pending_autoremovable_pkgs();
@@ -191,12 +183,13 @@ impl CliExecuter for Tui {
 
         let searcher = IndiciumSearch::new(&apt.cache, |n| {
             if let Some(ref pb) = pb {
-                pb.set_message(fl!("reading-database-with-count", count = n));
+                pb.inner
+                    .set_message(fl!("reading-database-with-count", count = n));
             }
         })?;
 
         if let Some(pb) = pb {
-            pb.finish_and_clear();
+            pb.inner.finish_and_clear();
         }
 
         let mut terminal = prepare_create_tui().map_err(|e| OutputError {

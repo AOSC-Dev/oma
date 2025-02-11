@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 
 use clap::Args;
-use oma_console::indicatif::ProgressBar;
-use oma_console::pb::spinner_style;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::info;
 
@@ -10,7 +8,7 @@ use crate::config::Config;
 use crate::{error::OutputError, utils::root};
 use crate::{fl, success, HTTP_CLIENT};
 
-use super::utils::{auth_config, Refresh as RefreshInner};
+use super::utils::{auth_config, create_progress_spinner, Refresh as RefreshInner};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -73,21 +71,13 @@ impl CliExecuter for Refresh {
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
-        let pb = if !no_progress {
-            let (style, inv) = spinner_style();
-            let pb = ProgressBar::new_spinner().with_style(style);
-            pb.enable_steady_tick(inv);
-            pb.set_message(fl!("reading-database"));
-            Some(pb)
-        } else {
-            None
-        };
+        let pb = create_progress_spinner(no_progress, fl!("reading-database"));
 
         let upgradable = apt.count_pending_upgradable_pkgs()?;
         let autoremovable = apt.count_pending_autoremovable_pkgs();
 
         if let Some(pb) = pb {
-            pb.finish_and_clear();
+            pb.inner.finish_and_clear();
         }
 
         let mut s = vec![];

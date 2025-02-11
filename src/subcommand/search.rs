@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{ArgAction, Args};
-use oma_console::{indicatif::ProgressBar, pager::Pager, pb::spinner_style};
+use oma_console::pager::Pager;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::SearchEngine,
@@ -13,6 +13,8 @@ use crate::{config::Config, error::OutputError, table::oma_display_with_normal_o
 use crate::{fl, utils::SearchResultDisplay};
 
 use crate::args::CliExecuter;
+
+use super::utils::create_progress_spinner;
 
 #[derive(Debug, Args)]
 pub struct Search {
@@ -52,18 +54,7 @@ impl CliExecuter for Search {
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-        let (sty, inv) = spinner_style();
-
-        let pb = if !no_progress && !json {
-            let pb = ProgressBar::new_spinner().with_style(sty);
-            pb.enable_steady_tick(inv);
-            pb.set_message(fl!("searching"));
-
-            Some(pb)
-        } else {
-            None
-        };
-
+        let pb = create_progress_spinner(no_progress || json, fl!("searching"));
         let res = search(
             &apt,
             &pattern,
@@ -79,7 +70,7 @@ impl CliExecuter for Search {
         )?;
 
         if let Some(pb) = pb {
-            pb.finish_and_clear();
+            pb.inner.finish_and_clear();
         }
 
         let mut pager = if !no_pager && !json {

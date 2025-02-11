@@ -46,6 +46,7 @@ use crate::HTTP_CLIENT;
 use crate::RT;
 
 use super::utils::auth_config;
+use super::utils::create_progress_spinner;
 use super::utils::select_tui_display_msg;
 use super::utils::tui_select_list_size;
 use super::utils::Refresh;
@@ -564,13 +565,7 @@ fn sort_mirrors(mirrors: &mut [(&str, &Mirror)], enabled: &indexmap::IndexMap<Bo
 }
 
 fn refresh_enabled_topics_sources_list(no_progress: bool) -> Result<(), OutputError> {
-    let pb = if !no_progress {
-        let pb = OmaProgressBar::new_spinner(Some(fl!("refreshing-topic-metadata")));
-
-        Some(pb)
-    } else {
-        None
-    };
+    let pb = create_progress_spinner(no_progress, fl!("refreshing-topic-metadata"));
 
     let try_refresh = Ok(()).and_then(|_| -> Result<(), OutputError> {
         let arch = dpkg_arch("/")?;

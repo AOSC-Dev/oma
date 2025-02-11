@@ -4,6 +4,7 @@ use std::path::Path;
 use std::thread;
 
 use crate::pb::RenderDownloadProgress;
+use crate::subcommand::utils::create_progress_spinner;
 use crate::subcommand::utils::display_suggest_tips;
 use crate::subcommand::utils::history_success_tips;
 use crate::subcommand::utils::undo_tips;
@@ -47,9 +48,7 @@ use crate::install_progress::NoInstallProgressManager;
 use crate::install_progress::OmaInstallProgressManager;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
-use crate::pb::OmaProgressBar;
 use crate::subcommand::utils::autoremovable_tips;
-use crate::subcommand::utils::is_terminal;
 use crate::table::table_for_install_pending;
 use crate::utils::dbus_check;
 use crate::utils::root;
@@ -191,7 +190,7 @@ impl CliExecuter for Upgrade {
         let (tx, rx) = unbounded();
 
         thread::spawn(move || {
-            let mut pb: Box<dyn RenderDownloadProgress> = if no_progress || !is_terminal() {
+            let mut pb: Box<dyn RenderDownloadProgress> = if no_progress {
                 Box::new(NoProgressBar::default())
             } else {
                 Box::new(OmaMultiProgressBar::default())
@@ -255,11 +254,7 @@ impl CliExecuter for Upgrade {
                 }
             }
 
-            let pb = if !no_progress && is_terminal() {
-                OmaProgressBar::new_spinner(Some(fl!("resolving-dependencies"))).into()
-            } else {
-                None
-            };
+            let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
 
             let res = Ok(()).and_then(|_| -> Result<(), OutputError> {
                 if !no_fixbroken {
@@ -338,7 +333,7 @@ impl CliExecuter for Upgrade {
             let start_time = Local::now().timestamp();
 
             match apt.commit(
-                if no_progress || !is_terminal() {
+                if no_progress {
                     Box::new(NoInstallProgressManager)
                 } else {
                     Box::new(OmaInstallProgressManager::new(yes))
