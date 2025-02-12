@@ -323,7 +323,7 @@ impl NoProgressBar {
                             "{} / {} ({}/s)",
                             HumanBytes(downloaded),
                             HumanBytes(*total_size),
-                            HumanBytes(downloaded - self.old_downloaded / elapsed.as_secs())
+                            HumanBytes((downloaded - self.old_downloaded) / elapsed.as_secs())
                         );
                         self.old_downloaded = downloaded;
                     } else {
