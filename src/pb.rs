@@ -428,7 +428,7 @@ impl NoProgressBar {
                     "{} / {} ({}/s)",
                     HumanBytes(self.progress),
                     HumanBytes(*total_size),
-                    HumanBytes(self.progress - self.old_downloaded / elapsed.as_secs())
+                    HumanBytes((self.progress - self.old_downloaded) / elapsed.as_secs())
                 );
                 self.old_downloaded = self.progress;
             } else {
