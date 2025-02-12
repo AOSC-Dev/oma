@@ -13,7 +13,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "derive", "env"] }
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
-tabled = { version = "0.17.0", features = ["ansi"] }
+tabled = { version = "0.18.0", features = ["ansi"] }
 dialoguer = "0.11.0"
 tokio = "1.40.0"
 oma-inquire = "0.2"
@@ -22,7 +22,7 @@ serde_json = "1.0.128"
 toml = "0.8.19"
 chrono = "0.4.38"
 rustix = { version = "0.38.37", features = ["process"] }
-colored = { version = "2.1.0", optional = true }
+colored = { version = "3", optional = true }
 image = { version = "0.25.2", optional = true }
 libc = "0.2.159"
 reqwest = { version = "0.12.8", default-features = false }

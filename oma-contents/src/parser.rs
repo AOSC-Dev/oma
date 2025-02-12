@@ -1,4 +1,4 @@
-use winnow::{combinator::separated, token::take_till, PResult, Parser};
+use winnow::{combinator::separated, token::take_till, ModalResult, Parser};
 
 use crate::OmaContentsError;
 
@@ -36,12 +36,12 @@ pub fn parse_contents_single_line(input: &str) -> Result<(&str, Vec<&str>), OmaC
 }
 
 #[inline]
-fn single_package<'a>(input: &mut &'a str) -> PResult<&'a str> {
+fn single_package<'a>(input: &mut &'a str) -> ModalResult<&'a str> {
     take_till(0.., |c| c == ',' || c == '\n').parse_next(input)
 }
 
 #[inline]
-fn multi_packages<'a>(input: &mut &'a str) -> PResult<Vec<&'a str>> {
+fn multi_packages<'a>(input: &mut &'a str) -> ModalResult<Vec<&'a str>> {
     separated(0.., single_package, ',').parse_next(input)
 }
 
