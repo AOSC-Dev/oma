@@ -1,6 +1,7 @@
 use oma_pm_operation_type::{InstallOperation, RemoveTag};
 use rusqlite::Connection;
 use serde::Deserialize;
+use serde_json::Value;
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -221,7 +222,10 @@ fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> 
             ))
         })
         .map_err(HistoryError::ExecuteError)?;
+
     let mut res = vec![];
+    let mut has_fail = false;
+
     for i in res_iter {
         let (
             id,
@@ -234,31 +238,63 @@ fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> 
             summary_type,
         ) = i.map_err(HistoryError::ExecuteError)?;
 
-        let install_packages =
-            match serde_json::from_str::<Vec<InstallHistoryEntry>>(&install_packages) {
-                Ok(i) => i,
-                Err(e) => {
-                    warn!("Failed to parse item: {e}");
-                    debug!("install packages: {}", install_packages);
-                    continue;
-                }
-            };
+        let install_packages = match serde_json::from_str::<Vec<InstallHistoryEntry>>(
+            &install_packages,
+        ) {
+            Ok(i) => i,
+            Err(e) => {
+                warn!("Unable to migrate a history database entry from unix timestamp {time}: {e}, skipping ...", );
+                debug!("install packages: {}", install_packages);
+                has_fail = true;
+                continue;
+            }
+        };
 
-        let remove_packages =
-            match serde_json::from_str::<Vec<RemoveHistoryEntry>>(&remove_packages) {
-                Ok(i) => i,
-                Err(e) => {
-                    warn!("Failed to parse item: {e}");
+        let remove_packages = match serde_json::from_str::<Vec<RemoveHistoryEntry>>(
+            &remove_packages,
+        ) {
+            Ok(i) => i,
+            Err(e) => {
+                let mut is_clean_configure = false;
+                let mut res = vec![];
+
+                if let Ok(value) = serde_json::from_str::<Vec<Value>>(&remove_packages) {
+                    for v in value {
+                        if let Ok(v) = serde_json::from_value::<RemoveHistoryEntry>(v.clone()) {
+                            res.push(v);
+                        } else if let Some(details) = v.get("details") {
+                            let details = serde_json::from_value::<Vec<RemoveTag>>(details.clone())
+                                .unwrap_or_default();
+                            if details.contains(&RemoveTag::Purge)
+                                && v.get("version").is_some_and(|v| v.is_null())
+                            {
+                                is_clean_configure = true;
+                            }
+                        }
+                    }
+                }
+
+                if !res.is_empty() {
+                    res
+                } else if is_clean_configure {
+                    warn!("`oma purge' entries from the old history database cannot be migrated from unix timestamp {time}, skipping ...");
                     debug!("remove packages: {}", &remove_packages);
                     continue;
+                } else {
+                    warn!("Unable to migrate a history database entry from unix timestamp {time}: {e}, skipping ...");
+                    debug!("remove packages: {}", &remove_packages);
+                    has_fail = true;
+                    continue;
                 }
-            };
+            }
+        };
 
         let summary_type = match serde_json::from_str::<OldSummaryType>(&summary_type) {
             Ok(s) => s,
             Err(e) => {
-                warn!("Failed to parse item: {e}");
+                warn!("Unable to migrate a history database entry from unix timestamp {time}: {e}, skipping ...", );
                 debug!("summary type: {}", &summary_type);
+                has_fail = true;
                 continue;
             }
         };
@@ -275,6 +311,16 @@ fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> 
             time,
             summary_type,
         })
+    }
+
+    if has_fail {
+        println!(
+            r#"oma ran into unexpected issues whilst migrating the history database, some entries were not migrated. Please consider sharing your oma history database file at:
+
+  `/var/lib/oma/history.db'
+
+with us to help with debugging."#
+        );
     }
 
     Ok(res)
