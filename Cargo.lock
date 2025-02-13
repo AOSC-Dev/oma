@@ -156,7 +156,7 @@ checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
 
 [[package]]
 name = "apt-auth-config"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "rust-netrc",
  "thiserror 2.0.11",
@@ -3008,7 +3008,7 @@ dependencies = [
  "oma-refresh",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.10.4",
+ "oma-utils 0.10.5",
  "ratatui",
  "reqwest",
  "rust-embed",
@@ -3053,7 +3053,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "aho-corasick",
  "ansi-to-tui",
@@ -3086,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "async-compression",
  "bon",
@@ -3094,7 +3094,7 @@ dependencies = [
  "flume",
  "futures",
  "md-5",
- "oma-utils 0.10.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "oma-utils 0.10.4",
  "reqwest",
  "serde",
  "sha2",
@@ -3107,7 +3107,7 @@ dependencies = [
 
 [[package]]
 name = "oma-history"
-version = "0.4.10"
+version = "0.5.0"
 dependencies = [
  "num_enum",
  "oma-pm-operation-type",
@@ -3135,7 +3135,7 @@ dependencies = [
 
 [[package]]
 name = "oma-mirror"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "ahash",
  "indexmap 2.7.1",
@@ -3149,7 +3149,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.45.5"
+version = "0.46.0"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3166,7 +3166,7 @@ dependencies = [
  "oma-console",
  "oma-fetch",
  "oma-pm-operation-type",
- "oma-utils 0.10.4",
+ "oma-utils 0.10.5",
  "once_cell",
  "serde",
  "strsim",
@@ -3178,17 +3178,17 @@ dependencies = [
 
 [[package]]
 name = "oma-pm-operation-type"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "bon",
  "num_enum",
- "oma-utils 0.10.4",
+ "oma-utils 0.10.5",
  "serde",
 ]
 
 [[package]]
 name = "oma-refresh"
-version = "0.40.1"
+version = "0.41.0"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3205,7 +3205,7 @@ dependencies = [
  "oma-fetch",
  "oma-repo-verify",
  "oma-topics",
- "oma-utils 0.10.4",
+ "oma-utils 0.10.5",
  "once_cell",
  "sequoia-openpgp",
  "sys-locale",
@@ -3229,7 +3229,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.20.0"
+version = "0.21.0"
 dependencies = [
  "ahash",
  "futures",
@@ -3249,6 +3249,19 @@ dependencies = [
 [[package]]
 name = "oma-utils"
 version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f5e099cd414f0fa91b788a617d428027edb89548ad0d325d85d485015b9d9fa"
+dependencies = [
+ "logind-zbus",
+ "os-release",
+ "thiserror 2.0.11",
+ "tracing",
+ "url-escape",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.10.5"
 dependencies = [
  "logind-zbus",
  "number_prefix",
@@ -3258,19 +3271,6 @@ dependencies = [
  "tracing",
  "url-escape",
  "zbus",
-]
-
-[[package]]
-name = "oma-utils"
-version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f5e099cd414f0fa91b788a617d428027edb89548ad0d325d85d485015b9d9fa"
-dependencies = [
- "logind-zbus",
- "os-release",
- "thiserror 2.0.11",
- "tracing",
- "url-escape",
 ]
 
 [[package]]

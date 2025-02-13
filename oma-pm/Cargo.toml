@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.45.5"
+version = "0.46.0"
 edition = "2021"
 description = "APT package manager API abstraction library"
 license = "GPL-3.0-or-later"
@@ -18,17 +18,17 @@ oma-utils = { version = "^0.10.0", path = "../oma-utils", features = [
     "url-no-escape",
     "human-bytes",
 ] }
-oma-fetch = { version = "^0.24.0", path = "../oma-fetch" }
+oma-fetch = { version = "^0.25.0", path = "../oma-fetch" }
 tokio = { version = "1.15", default-features = false, features = [
     "fs",
     "rt-multi-thread",
 ] }
-oma-console = { version = "^0.25.0", path = "../oma-console", default-features = false, features = [
+oma-console = { version = "^0.26.0", path = "../oma-console", default-features = false, features = [
     "print",
 ] }
 fs4 = "0.12"
 tracing = "0.1"
-oma-pm-operation-type = { version = "0.7", path = "../oma-pm-operation-type" }
+oma-pm-operation-type = { version = "0.8", path = "../oma-pm-operation-type" }
 zbus = { version = "5.1", features = ["tokio"] }
 cxx = "1.0.121"
 ahash = "0.8.11"
@@ -37,7 +37,7 @@ strsim = "0.11.1"
 indexmap = "2"
 memchr = "2"
 serde = { version = "1", features = ["derive"] }
-apt-auth-config = { version = "0.2.0", path = "../apt-auth-config" }
+apt-auth-config = { version = "0.3.0", path = "../apt-auth-config" }
 once_cell = "1.20"
 
 [dev-dependencies]

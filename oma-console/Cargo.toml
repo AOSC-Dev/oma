@@ -1,6 +1,6 @@
 [package]
 name = "oma-console"
-version = "0.25.0"
+version = "0.26.0"
 edition = "2021"
 description = "Console and terminal emulator handling library used by oma"
 license = "MIT"
