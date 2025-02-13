@@ -1,6 +1,6 @@
 [package]
 name = "oma"
-version = "1.14.514-alpha.0"
+version = "1.14.514-rc.1"
 edition = "2021"
 description = "User-friendly and performant package manager for APT repositories"
 license = "GPL-3.0-or-later"
@@ -19,7 +19,7 @@ tokio = "1.40.0"
 oma-inquire = "0.2"
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
-toml = "0.8.19"
+toml = "0.8.20"
 chrono = "0.4.38"
 rustix = { version = "0.38.37", features = ["process"] }
 colored = { version = "3", optional = true }
@@ -37,7 +37,7 @@ glob-match = "0.2.1"
 which = "7"
 strsim = "0.11.1"
 ahash = "0.8.11"
-indexmap = "2.7.0"
+indexmap = "2.7.1"
 faster-hex = "0.10"
 sha2 = "0.10"
 bon = "3"
