@@ -9,7 +9,7 @@ use oma_pm::{
 use tracing::info;
 
 use crate::{color_formatter, config::Config, error::OutputError, table::PagerPrinter};
-use crate::{fl, ALLOWCTRLC};
+use crate::{fl, NOT_DISPLAY_ABORT};
 use anyhow::anyhow;
 use smallvec::{smallvec, SmallVec};
 
@@ -108,7 +108,7 @@ impl CliExecuter for List {
         };
 
         let mut printer = PagerPrinter::new(stdout());
-        ALLOWCTRLC.store(true, Ordering::Relaxed);
+        NOT_DISPLAY_ABORT.store(true, Ordering::Relaxed);
 
         let mut display_tips = (false, 0);
 

@@ -1,6 +1,7 @@
 use std::fs;
 use std::fs::read_dir;
 use std::path::Path;
+use std::sync::atomic::Ordering;
 use std::thread;
 
 use crate::pb::RenderDownloadProgress;
@@ -9,6 +10,7 @@ use crate::subcommand::utils::display_suggest_tips;
 use crate::subcommand::utils::history_success_tips;
 use crate::subcommand::utils::undo_tips;
 use crate::subcommand::utils::write_oma_installed_status;
+use crate::NOT_ALLOW_CTRLC;
 use ahash::HashMap;
 use ahash::HashSet;
 use flume::unbounded;
@@ -345,6 +347,8 @@ impl CliExecuter for Upgrade {
                 },
             ) {
                 Ok(()) => {
+                    NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
+
                     write_oma_installed_status()?;
                     autoremovable_tips(ar_count, ar_size)?;
 
@@ -376,6 +380,8 @@ impl CliExecuter for Upgrade {
                     | OmaAptError::AptError(_)
                     | OmaAptError::AptCxxException(_) => {
                         if retry_times == 3 {
+                            NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
+
                             write_history_entry(
                                 {
                                     let db = create_db_file(sysroot)?;

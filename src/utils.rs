@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{color_formatter, fl, RT, WRITER};
-use crate::{error::OutputError, SPAWN_NEW_OMA};
+use crate::{error::OutputError, NOT_ALLOW_CTRLC};
 use anyhow::anyhow;
 use dialoguer::{console::style, theme::ColorfulTheme, Confirm};
 use oma_console::{
@@ -41,7 +41,7 @@ pub fn root() -> Result<()> {
         info!("{}", fl!("pkexec-tips-1"));
         info!("{}", fl!("pkexec-tips-2"));
 
-        SPAWN_NEW_OMA.store(true, Ordering::Relaxed);
+        NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
 
         let out = Command::new("pkexec")
             .args(args)

@@ -31,6 +31,7 @@ use crate::upgrade::get_matches_tum;
 use crate::upgrade::get_tum;
 use crate::HTTP_CLIENT;
 use crate::LOCKED;
+use crate::NOT_ALLOW_CTRLC;
 use crate::RT;
 use crate::WRITER;
 use ahash::HashSet;
@@ -452,6 +453,7 @@ impl CommitChanges<'_> {
 
         match res {
             Ok(_) => {
+                NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 write_oma_installed_status()?;
                 autoremovable_tips(ar_count, ar_size)?;
 
@@ -478,6 +480,7 @@ impl CommitChanges<'_> {
                 Ok(0)
             }
             Err(e) => {
+                NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 undo_tips();
                 write_history_entry(
                     {

@@ -55,9 +55,9 @@ use crate::egg::ailurus;
 use crate::error::Chain;
 use crate::subcommand::*;
 
-static ALLOWCTRLC: AtomicBool = AtomicBool::new(false);
+static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
-static SPAWN_NEW_OMA: AtomicBool = AtomicBool::new(false);
+static NOT_ALLOW_CTRLC: AtomicBool = AtomicBool::new(false);
 static APP_USER_AGENT: &str = concat!("oma/", env!("CARGO_PKG_VERSION"));
 static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
 static RT: LazyLock<Runtime> = LazyLock::new(|| {
@@ -444,11 +444,11 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
 }
 
 fn single_handler() {
-    if SPAWN_NEW_OMA.load(Ordering::Relaxed) {
+    if NOT_ALLOW_CTRLC.load(Ordering::Relaxed) {
         return;
     }
 
-    let allow_ctrlc = ALLOWCTRLC.load(Ordering::Relaxed);
+    let not_display_abort = NOT_DISPLAY_ABORT.load(Ordering::Relaxed);
 
     // Dealing with lock
     if LOCKED.load(Ordering::Relaxed) {
@@ -459,7 +459,7 @@ fn single_handler() {
     // This is not a big deal so we won't panic on this.
     let _ = WRITER.show_cursor();
 
-    if !allow_ctrlc {
+    if !not_display_abort {
         info!("{}", fl!("user-aborted-op"));
     }
 

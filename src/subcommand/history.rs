@@ -20,7 +20,7 @@ use crate::{
     error::OutputError,
     table::table_for_history_pending,
     utils::{dbus_check, root},
-    ALLOWCTRLC,
+    NOT_DISPLAY_ABORT,
 };
 
 use super::utils::{
@@ -47,7 +47,7 @@ impl CliExecuter for History {
             .map(|x| x.0)
             .collect::<Vec<_>>();
 
-        ALLOWCTRLC.store(true, Ordering::Relaxed);
+        NOT_DISPLAY_ABORT.store(true, Ordering::Relaxed);
 
         let mut old_selected = 0;
 

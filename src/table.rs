@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use crate::console::style;
 use crate::error::OutputError;
 use crate::upgrade::TopicUpdateEntryRef;
-use crate::{color_formatter, fl, ALLOWCTRLC, WRITER};
+use crate::{color_formatter, fl, NOT_DISPLAY_ABORT, WRITER};
 use ahash::HashMap;
 use ahash::HashSet;
 use oma_console::indicatif::HumanBytes;
@@ -204,7 +204,7 @@ pub fn oma_display_with_normal_output(
     len: usize,
 ) -> Result<Pager<'static>, OutputError> {
     if !is_question {
-        ALLOWCTRLC.store(true, Ordering::Relaxed);
+        NOT_DISPLAY_ABORT.store(true, Ordering::Relaxed);
     }
 
     let pager = if len < WRITER.get_height().into() {
