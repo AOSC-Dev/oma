@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use clap::Args;
-use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
 use crate::{
@@ -88,8 +87,8 @@ impl CliExecuter for FixBroken {
         CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
-            .request_type(SummaryType::FixBroken)
             .no_fixbroken(false)
+            .is_fixbroken(true)
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())
             .fix_dpkg_status(!no_fix_dpkg_status)

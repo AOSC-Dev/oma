@@ -1057,9 +1057,9 @@ impl OmaApt {
 
         let disk_size = self.cache.depcache().disk_size();
 
-        let disk_size = match disk_size {
-            DiskSpace::Require(n) => ("+".into(), n),
-            DiskSpace::Free(n) => ("-".into(), n),
+        let disk_size_delta = match disk_size {
+            DiskSpace::Require(n) => n as i64,
+            DiskSpace::Free(n) => (0 - n) as i64,
         };
 
         let total_download_size = self.cache.depcache().download_size();
@@ -1097,7 +1097,7 @@ impl OmaApt {
         Ok(OmaOperation {
             install,
             remove,
-            disk_size,
+            disk_size_delta,
             total_download_size,
             autoremovable,
             suggest,
@@ -1107,15 +1107,9 @@ impl OmaApt {
 
     /// Check available disk space
     pub fn check_disk_size(&self, op: &OmaOperation) -> OmaAptResult<()> {
-        let (symbol, n) = &op.disk_size;
-        let n = *n as i64;
         let download_size = op.total_download_size as i64;
 
-        let need_space = match symbol.as_ref() {
-            "+" => download_size + n,
-            "-" => download_size - n,
-            _ => unreachable!(),
-        };
+        let need_space = download_size + op.disk_size_delta;
 
         let available_disk_size =
             fs4::available_space(self.config.get("Dir").unwrap_or("/".to_string()))

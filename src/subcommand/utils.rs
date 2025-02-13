@@ -31,6 +31,7 @@ use crate::upgrade::get_matches_tum;
 use crate::upgrade::get_tum;
 use crate::HTTP_CLIENT;
 use crate::LOCKED;
+use crate::NOT_ALLOW_CTRLC;
 use crate::RT;
 use crate::WRITER;
 use ahash::HashSet;
@@ -53,7 +54,7 @@ use oma_contents::searcher::Mode;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
-use oma_history::SummaryType;
+use oma_history::HistoryInfo;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::FilterMode;
 use oma_pm::apt::OmaApt;
@@ -281,7 +282,10 @@ pub(crate) struct CommitChanges<'a> {
     apt: OmaApt,
     #[builder(default = true)]
     dry_run: bool,
-    request_type: SummaryType,
+    #[builder(default)]
+    is_fixbroken: bool,
+    #[builder(default)]
+    is_undo: bool,
     #[builder(default = true)]
     no_fixbroken: bool,
     #[builder(default)]
@@ -302,6 +306,10 @@ pub(crate) struct CommitChanges<'a> {
     network_thread: usize,
     #[builder(default)]
     check_update: bool,
+    #[builder(default)]
+    topics_enabled: Vec<String>,
+    #[builder(default)]
+    topics_disabled: Vec<String>,
 }
 
 impl CommitChanges<'_> {
@@ -309,7 +317,8 @@ impl CommitChanges<'_> {
         let CommitChanges {
             mut apt,
             dry_run,
-            request_type: typ,
+            is_fixbroken,
+            is_undo,
             no_fixbroken,
             no_progress,
             sysroot,
@@ -321,6 +330,8 @@ impl CommitChanges<'_> {
             auth_config,
             network_thread,
             check_update,
+            topics_enabled,
+            topics_disabled,
         } = self;
 
         let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
@@ -375,7 +386,7 @@ impl CommitChanges<'_> {
 
         let install = &op.install;
         let remove = &op.remove;
-        let disk_size = &op.disk_size;
+        let disk_size = &op.disk_size_delta;
         let (ar_count, ar_size) = op.autoremovable;
         let (suggest, recommend) = (&op.suggest, &op.recommend);
 
@@ -391,7 +402,7 @@ impl CommitChanges<'_> {
             match table_for_install_pending(
                 install,
                 remove,
-                disk_size,
+                *disk_size,
                 Some(matches_tum),
                 !yes,
                 dry_run,
@@ -401,7 +412,7 @@ impl CommitChanges<'_> {
                 x @ PagerExit::DryRun => return Ok(x.into()),
             }
         } else {
-            match table_for_install_pending(install, remove, disk_size, None, !yes, dry_run)? {
+            match table_for_install_pending(install, remove, *disk_size, None, !yes, dry_run)? {
                 PagerExit::NormalExit => {}
                 x @ PagerExit::Sigint => return Ok(x.into()),
                 x @ PagerExit::DryRun => return Ok(x.into()),
@@ -442,19 +453,25 @@ impl CommitChanges<'_> {
 
         match res {
             Ok(_) => {
+                NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 write_oma_installed_status()?;
                 autoremovable_tips(ar_count, ar_size)?;
 
                 write_history_entry(
-                    &op,
-                    typ,
                     {
                         let db = create_db_file(sysroot)?;
                         connect_db(db, true)?
                     },
                     dry_run,
-                    start_time,
-                    true,
+                    HistoryInfo {
+                        summary: &op,
+                        start_time,
+                        success: true,
+                        is_fix_broken: is_fixbroken,
+                        is_undo,
+                        topics_enabled,
+                        topics_disabled,
+                    },
                 )?;
 
                 history_success_tips(dry_run);
@@ -463,17 +480,23 @@ impl CommitChanges<'_> {
                 Ok(0)
             }
             Err(e) => {
+                NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 undo_tips();
                 write_history_entry(
-                    &op,
-                    typ,
                     {
                         let db = create_db_file(sysroot)?;
                         connect_db(db, true)?
                     },
                     dry_run,
-                    start_time,
-                    false,
+                    HistoryInfo {
+                        summary: &op,
+                        start_time,
+                        success: false,
+                        is_fix_broken: is_fixbroken,
+                        is_undo,
+                        topics_enabled,
+                        topics_disabled,
+                    },
                 )?;
                 Err(e.into())
             }

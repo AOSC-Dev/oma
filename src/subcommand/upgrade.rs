@@ -1,6 +1,7 @@
 use std::fs;
 use std::fs::read_dir;
 use std::path::Path;
+use std::sync::atomic::Ordering;
 use std::thread;
 
 use crate::pb::RenderDownloadProgress;
@@ -9,9 +10,11 @@ use crate::subcommand::utils::display_suggest_tips;
 use crate::subcommand::utils::history_success_tips;
 use crate::subcommand::utils::undo_tips;
 use crate::subcommand::utils::write_oma_installed_status;
+use crate::NOT_ALLOW_CTRLC;
 use ahash::HashMap;
 use ahash::HashSet;
 use flume::unbounded;
+use oma_history::HistoryInfo;
 use oma_pm::apt::OmaOperation;
 use oma_pm::CommitNetworkConfig;
 use serde::Deserialize;
@@ -26,7 +29,6 @@ use oma_console::pager::PagerExit;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
-use oma_history::SummaryType;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
@@ -297,7 +299,7 @@ impl CliExecuter for Upgrade {
 
             let install = &op.install;
             let remove = &op.remove;
-            let disk_size = &op.disk_size;
+            let disk_size = &op.disk_size_delta;
             let (ar_count, ar_size) = op.autoremovable;
             let (suggest, recommend) = (&op.suggest, &op.recommend);
 
@@ -313,7 +315,7 @@ impl CliExecuter for Upgrade {
                 match table_for_install_pending(
                     install,
                     remove,
-                    disk_size,
+                    *disk_size,
                     Some(matches_tum),
                     !yes,
                     dry_run,
@@ -323,12 +325,6 @@ impl CliExecuter for Upgrade {
                     x @ PagerExit::DryRun => return Ok(x.into()),
                 }
             }
-
-            let typ = SummaryType::Upgrade(
-                pkgs.iter()
-                    .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
-                    .collect::<Vec<_>>(),
-            );
 
             let start_time = Local::now().timestamp();
 
@@ -351,19 +347,26 @@ impl CliExecuter for Upgrade {
                 },
             ) {
                 Ok(()) => {
+                    NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
+
                     write_oma_installed_status()?;
                     autoremovable_tips(ar_count, ar_size)?;
 
                     write_history_entry(
-                        &op,
-                        typ,
                         {
                             let db = create_db_file(sysroot)?;
                             connect_db(db, true)?
                         },
                         dry_run,
-                        start_time,
-                        true,
+                        HistoryInfo {
+                            summary: &op,
+                            start_time,
+                            success: true,
+                            is_fix_broken: false,
+                            is_undo: false,
+                            topics_enabled: vec![],
+                            topics_disabled: vec![],
+                        },
                     )?;
 
                     history_success_tips(dry_run);
@@ -377,26 +380,23 @@ impl CliExecuter for Upgrade {
                     | OmaAptError::AptError(_)
                     | OmaAptError::AptCxxException(_) => {
                         if retry_times == 3 {
+                            NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
+
                             write_history_entry(
-                                &op,
-                                SummaryType::Upgrade(
-                                    pkgs.iter()
-                                        .map(|x| {
-                                            format!(
-                                                "{} {}",
-                                                x.raw_pkg.fullname(true),
-                                                x.version_raw.version()
-                                            )
-                                        })
-                                        .collect::<Vec<_>>(),
-                                ),
                                 {
                                     let db = create_db_file(sysroot)?;
                                     connect_db(db, true)?
                                 },
                                 dry_run,
-                                start_time,
-                                false,
+                                HistoryInfo {
+                                    summary: &op,
+                                    start_time,
+                                    success: false,
+                                    is_fix_broken: false,
+                                    is_undo: false,
+                                    topics_enabled: vec![],
+                                    topics_disabled: vec![],
+                                },
                             )?;
                             undo_tips();
 

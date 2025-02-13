@@ -5,7 +5,6 @@ use clap::Args;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
-use oma_history::SummaryType;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use tracing::{info, warn};
@@ -212,20 +211,6 @@ impl CliExecuter for Remove {
 
         let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
 
-        let remove_str = pkgs
-            .iter()
-            .map(|x| {
-                format!(
-                    "{} {}",
-                    x.raw_pkg.fullname(true),
-                    x.package(&apt.cache)
-                        .installed()
-                        .map(|x| x.version().to_string())
-                        .unwrap_or_default(),
-                )
-            })
-            .collect::<Vec<_>>();
-
         let context = apt.remove(pkgs, remove_config, no_autoremove)?;
 
         if let Some(pb) = pb {
@@ -246,7 +231,6 @@ impl CliExecuter for Remove {
         CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
-            .request_type(SummaryType::Remove(remove_str))
             .no_fixbroken(!fix_broken)
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())

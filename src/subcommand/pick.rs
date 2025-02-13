@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Args;
 use dialoguer::{theme::ColorfulTheme, Select};
-use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     pkginfo::OmaPackage,
@@ -204,11 +203,6 @@ impl CliExecuter for Pick {
         CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
-            .request_type(SummaryType::Remove(
-                pkgs.iter()
-                    .map(|x| format!("{} {}", x.raw_pkg.fullname(true), x.version_raw.version()))
-                    .collect::<Vec<_>>(),
-            ))
             .no_fixbroken(fix_broken)
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())

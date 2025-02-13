@@ -880,10 +880,6 @@ impl From<HistoryError> for OutputError {
                 description: fl!("failed-to-execute-query-stmt"),
                 source: Some(Box::new(e)),
             },
-            HistoryError::ParseError(e) => Self {
-                description: fl!("failed-to-parse-history-object"),
-                source: Some(Box::new(e)),
-            },
             HistoryError::ParseDbError(e) => Self {
                 description: fl!("failed-to-parse-history-object"),
                 source: Some(Box::new(e)),

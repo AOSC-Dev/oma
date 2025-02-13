@@ -7,7 +7,6 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
     MultiSelect,
 };
-use oma_history::SummaryType;
 use oma_pm::{
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs, Upgrade},
     matches::{GetArchMethod, PackagesMatcher},
@@ -229,10 +228,6 @@ impl CliExecuter for Topics {
             let code = CommitChanges::builder()
                 .apt(apt)
                 .dry_run(dry_run)
-                .request_type(SummaryType::TopicsChanged {
-                    add: opt_in,
-                    remove: opt_out,
-                })
                 .no_fixbroken(!no_fixbroken)
                 .no_progress(no_progress)
                 .sysroot(sysroot.to_string_lossy().to_string())
@@ -244,6 +239,8 @@ impl CliExecuter for Topics {
                 .network_thread(config.network_thread())
                 .maybe_auth_config(auth_config)
                 .check_update(true)
+                .topics_enabled(opt_in)
+                .topics_disabled(opt_out)
                 .build()
                 .run()?;
 
