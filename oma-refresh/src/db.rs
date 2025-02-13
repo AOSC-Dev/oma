@@ -27,7 +27,6 @@ use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     reqwest::{
-        self,
         header::{HeaderValue, CONTENT_LENGTH},
         Client, Response,
     },
@@ -39,8 +38,9 @@ use oma_fetch::{SingleDownloadError, Summary};
 use oma_topics::TopicManager;
 
 use oma_utils::dpkg::dpkg_arch;
+
 #[cfg(feature = "aosc")]
-use reqwest::StatusCode;
+use oma_fetch::reqwest::StatusCode;
 
 use sysinfo::{Pid, System};
 use tokio::{
