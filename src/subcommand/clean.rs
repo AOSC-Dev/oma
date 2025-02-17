@@ -129,6 +129,7 @@ impl CliExecuter for Clean {
     }
 }
 
+#[inline]
 fn remove_deb(i: &std::fs::DirEntry) {
     std::fs::remove_file(i.path()).ok();
 }
