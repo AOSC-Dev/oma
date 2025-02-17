@@ -20,6 +20,9 @@ pub struct Clean {
     /// Keep downloadable and installed packages
     #[arg(long, conflicts_with = "keep_downloadable")]
     keep_downloadable_and_installed: bool,
+    /// Keep installed packages
+    #[arg(long, conflicts_with = "keep_downloadable_and_installed")]
+    keep_installed: bool,
     /// Set sysroot target directory
     #[arg(from_global)]
     sysroot: PathBuf,
@@ -39,6 +42,7 @@ impl CliExecuter for Clean {
             dry_run,
             keep_downloadable,
             keep_downloadable_and_installed,
+            keep_installed,
         } = self;
 
         if dry_run {
@@ -69,8 +73,9 @@ impl CliExecuter for Clean {
             .flatten()
             .filter(|x| x.path().extension().is_some_and(|name| name == "deb"))
         {
-            if !keep_downloadable && !keep_downloadable_and_installed {
+            if !keep_downloadable && !keep_downloadable_and_installed && !keep_installed {
                 remove_deb(&i);
+                continue;
             }
 
             let file_name = i.file_name();
@@ -106,7 +111,9 @@ impl CliExecuter for Clean {
                 continue;
             }
 
-            if !version.is_downloadable() && keep_downloadable {
+            if (!version.is_downloadable() && keep_downloadable)
+                || (!version.is_installed() && keep_installed)
+            {
                 remove_deb(&i);
                 continue;
             }
