@@ -15,23 +15,19 @@ impl<T> StatefulList<T> {
 
     pub fn next(&mut self) {
         let i = match self.state.selected() {
-            Some(i) => {
-                if i < self.items.len() - 1 {
-                    i + 1
-                } else {
-                    i
-                }
-            }
-            None => 0,
+            Some(i) => Some(if i < self.items.len() - 1 { i + 1 } else { i }),
+            None if self.items.is_empty() => None,
+            None => Some(0),
         };
-        self.state.select(Some(i));
+        self.state.select(i);
     }
 
     pub fn previous(&mut self) {
         let i = match self.state.selected() {
-            Some(i) => i.saturating_sub(1),
-            None => 0,
+            Some(i) => Some(i.saturating_sub(1)),
+            None if self.items.is_empty() => None,
+            None => Some(0),
         };
-        self.state.select(Some(i));
+        self.state.select(i);
     }
 }
