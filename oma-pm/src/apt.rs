@@ -578,13 +578,27 @@ impl OmaApt {
         self.cache.fix_broken();
     }
 
-    pub fn fix_dpkg_status(&self) -> OmaAptResult<()> {
+    pub fn fix_dpkg_status(
+        &self,
+        need_reconfigure: bool,
+        need_retriggers: bool,
+    ) -> OmaAptResult<()> {
+        if need_reconfigure {
+            self.run_dpkg_configure()?;
+        }
+
+        if need_retriggers {
+            self.run_dpkg_triggers()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn is_needs_fix_dpkg_status(&self) -> Result<(bool, bool), OmaAptError> {
         let sort = PackageSort::default().installed();
         let pkgs = self.cache.packages(&sort);
-
         let mut need_reconfigure = false;
         let mut need_retriggers = false;
-
         let dpkg_update_path =
             Path::new(&self.config.get("Dir").unwrap_or_else(|| "/".to_string()))
                 .join("var/lib/dpkg/updates");
@@ -630,15 +644,7 @@ impl OmaApt {
             need_reconfigure, need_retriggers
         );
 
-        if need_reconfigure {
-            self.run_dpkg_configure()?;
-        }
-
-        if need_retriggers {
-            self.run_dpkg_triggers()?;
-        }
-
-        Ok(())
+        Ok((need_reconfigure, need_retriggers))
     }
 
     /// Resolve apt dependencies
