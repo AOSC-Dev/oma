@@ -346,7 +346,13 @@ impl CommitChanges<'_> {
             }
 
             if fix_dpkg_status {
-                apt.fix_dpkg_status()?;
+                let (needs_reconfigure, needs_retrigger) = apt.is_needs_fix_dpkg_status()?;
+                if needs_retrigger || needs_reconfigure {
+                    if let Some(ref pb) = pb {
+                        pb.inner.finish_and_clear()
+                    }
+                    apt.fix_dpkg_status(needs_reconfigure, needs_retrigger)?;
+                }
             }
 
             apt.resolve(no_fixbroken, remove_config)?;
