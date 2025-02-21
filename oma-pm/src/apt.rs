@@ -578,13 +578,27 @@ impl OmaApt {
         self.cache.fix_broken();
     }
 
-    pub fn fix_dpkg_status(&self) -> OmaAptResult<()> {
+    pub fn fix_dpkg_status(
+        &self,
+        need_reconfigure: bool,
+        need_retriggers: bool,
+    ) -> OmaAptResult<()> {
+        if need_reconfigure {
+            self.run_dpkg_configure()?;
+        }
+
+        if need_retriggers {
+            self.run_dpkg_triggers()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn is_needs_fix_dpkg_status(&self) -> Result<(bool, bool), OmaAptError> {
         let sort = PackageSort::default().installed();
         let pkgs = self.cache.packages(&sort);
-
         let mut need_reconfigure = false;
         let mut need_retriggers = false;
-
         let dpkg_update_path =
             Path::new(&self.config.get("Dir").unwrap_or_else(|| "/".to_string()))
                 .join("var/lib/dpkg/updates");
@@ -630,15 +644,7 @@ impl OmaApt {
             need_reconfigure, need_retriggers
         );
 
-        if need_reconfigure {
-            self.run_dpkg_configure()?;
-        }
-
-        if need_retriggers {
-            self.run_dpkg_triggers()?;
-        }
-
-        Ok(())
+        Ok((need_reconfigure, need_retriggers))
     }
 
     /// Resolve apt dependencies
@@ -686,14 +692,7 @@ impl OmaApt {
             .spawn()
             .map_err(OmaAptError::DpkgFailedConfigure)?;
 
-        if let Err(e) = cmd.wait_with_output() {
-            return Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
-                ErrorKind::Other,
-                format!("dpkg return non-zero code: {:?}", e),
-            )));
-        }
-
-        Ok(())
+        dpkg_exit_status(cmd)
     }
 
     pub(crate) fn run_dpkg_triggers(&self) -> OmaAptResult<()> {
@@ -707,14 +706,7 @@ impl OmaApt {
             .spawn()
             .map_err(OmaAptError::DpkgFailedConfigure)?;
 
-        if let Err(e) = cmd.wait_with_output() {
-            return Err(OmaAptError::DpkgTriggers(io::Error::new(
-                ErrorKind::Other,
-                format!("dpkg return non-zero code: {:?}", e),
-            )));
-        }
-
-        Ok(())
+        dpkg_exit_status(cmd)
     }
 
     /// Get apt archive dir
@@ -1151,6 +1143,26 @@ impl OmaApt {
         let pkgs = self.cache.packages(&sort);
 
         Ok(pkgs)
+    }
+}
+
+fn dpkg_exit_status(mut cmd: std::process::Child) -> Result<(), OmaAptError> {
+    match cmd.wait() {
+        Ok(status) => match status.code() {
+            Some(0) => Ok(()),
+            Some(x) => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
+                ErrorKind::Other,
+                format!("dpkg return non-zero code: {}", x),
+            ))),
+            None => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
+                ErrorKind::Other,
+                "Could not get dpkg exit status",
+            ))),
+        },
+        Err(e) => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
+            ErrorKind::Other,
+            e,
+        ))),
     }
 }
 

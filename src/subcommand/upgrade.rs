@@ -189,17 +189,6 @@ impl CliExecuter for Upgrade {
             .map(|x| x.to_owned())
             .collect::<Vec<_>>();
 
-        let (tx, rx) = unbounded();
-
-        thread::spawn(move || {
-            let mut pb: Box<dyn RenderDownloadProgress> = if no_progress {
-                Box::new(NoProgressBar::default())
-            } else {
-                Box::new(OmaMultiProgressBar::default())
-            };
-            pb.render_progress(&rx);
-        });
-
         let pkgs_unparse = packages.iter().map(|x| x.as_str()).collect::<Vec<_>>();
         let mut retry_times = 1;
 
@@ -264,7 +253,13 @@ impl CliExecuter for Upgrade {
                 }
 
                 if !no_fix_dpkg_status {
-                    apt.fix_dpkg_status()?;
+                    let (needs_reconfigure, needs_retrigger) = apt.is_needs_fix_dpkg_status()?;
+                    if needs_retrigger || needs_reconfigure {
+                        if let Some(ref pb) = pb {
+                            pb.inner.finish_and_clear()
+                        }
+                        apt.fix_dpkg_status(needs_reconfigure, needs_retrigger)?;
+                    }
                 }
 
                 apt.resolve(no_fixbroken, remove_config)?;
@@ -277,7 +272,7 @@ impl CliExecuter for Upgrade {
                 Ok(())
             });
 
-            if let Some(pb) = pb {
+            if let Some(ref pb) = pb {
                 pb.inner.finish_and_clear()
             }
 
@@ -328,6 +323,17 @@ impl CliExecuter for Upgrade {
 
             let start_time = Local::now().timestamp();
 
+            let (tx, rx) = unbounded();
+
+            let progress_worker = thread::spawn(move || {
+                let mut pb: Box<dyn RenderDownloadProgress> = if no_progress {
+                    Box::new(NoProgressBar::default())
+                } else {
+                    Box::new(OmaMultiProgressBar::default())
+                };
+                pb.render_progress(&rx);
+            });
+
             match apt.commit(
                 if no_progress {
                     Box::new(NoInstallProgressManager)
@@ -347,6 +353,7 @@ impl CliExecuter for Upgrade {
                 },
             ) {
                 Ok(()) => {
+                    progress_worker.join().unwrap();
                     NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
 
                     write_oma_installed_status()?;
@@ -379,6 +386,7 @@ impl CliExecuter for Upgrade {
                     OmaAptError::AptErrors(_)
                     | OmaAptError::AptError(_)
                     | OmaAptError::AptCxxException(_) => {
+                        progress_worker.join().unwrap();
                         if retry_times == 3 {
                             NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
 
