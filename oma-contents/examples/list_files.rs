@@ -1,4 +1,4 @@
-use oma_contents::searcher::{pure_search, Mode};
+use oma_contents::searcher::{Mode, pure_search};
 
 fn main() {
     pure_search("/var/lib/apt/lists", Mode::Files, "apt", |(pkg, file)| {

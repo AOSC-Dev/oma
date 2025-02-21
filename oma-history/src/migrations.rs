@@ -5,8 +5,8 @@ use serde_json::Value;
 use tracing::{debug, info, warn};
 
 use crate::{
-    HistoryEntryInner, HistoryError, HistoryResult, InstallHistoryEntry, RemoveHistoryEntry,
-    INSERT_INSTALL_TABLE, INSERT_NEW_MAIN_TABLE, INSERT_REMOVE_DETAIL_TABLE, INSERT_REMOVE_TABLE,
+    HistoryEntryInner, HistoryError, HistoryResult, INSERT_INSTALL_TABLE, INSERT_NEW_MAIN_TABLE,
+    INSERT_REMOVE_DETAIL_TABLE, INSERT_REMOVE_TABLE, InstallHistoryEntry, RemoveHistoryEntry,
 };
 
 pub fn create_and_maybe_migration_from_oma_db_v2(conn: &Connection) -> HistoryResult<()> {
@@ -243,7 +243,9 @@ fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> 
         ) {
             Ok(i) => i,
             Err(e) => {
-                warn!("Unable to migrate a history database entry from unix timestamp {time}: {e}, skipping ...", );
+                warn!(
+                    "Unable to migrate a history database entry from unix timestamp {time}: {e}, skipping ...",
+                );
                 debug!("install packages: {}", install_packages);
                 has_fail = true;
                 continue;
@@ -277,11 +279,15 @@ fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> 
                 if !res.is_empty() {
                     res
                 } else if is_clean_configure {
-                    warn!("`oma purge' entries from the old history database cannot be migrated from unix timestamp {time}, skipping ...");
+                    warn!(
+                        "`oma purge' entries from the old history database cannot be migrated from unix timestamp {time}, skipping ..."
+                    );
                     debug!("remove packages: {}", &remove_packages);
                     continue;
                 } else {
-                    warn!("Unable to migrate a history database entry from unix timestamp {time}: {e}, skipping ...");
+                    warn!(
+                        "Unable to migrate a history database entry from unix timestamp {time}: {e}, skipping ..."
+                    );
                     debug!("remove packages: {}", &remove_packages);
                     has_fail = true;
                     continue;
@@ -292,7 +298,9 @@ fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> 
         let summary_type = match serde_json::from_str::<OldSummaryType>(&summary_type) {
             Ok(s) => s,
             Err(e) => {
-                warn!("Unable to migrate a history database entry from unix timestamp {time}: {e}, skipping ...", );
+                warn!(
+                    "Unable to migrate a history database entry from unix timestamp {time}: {e}, skipping ...",
+                );
                 debug!("summary type: {}", &summary_type);
                 has_fail = true;
                 continue;

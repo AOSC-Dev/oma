@@ -1,6 +1,6 @@
 use std::env;
 use std::ffi::CString;
-use std::io::{self, stderr, stdin, IsTerminal};
+use std::io::{self, IsTerminal, stderr, stdin};
 use std::path::PathBuf;
 
 use std::process::exit;
@@ -21,27 +21,27 @@ mod utils;
 #[cfg(feature = "egg")]
 mod egg;
 
-use args::{print_version, CliExecuter, OhManagerAilurus};
+use args::{CliExecuter, OhManagerAilurus, print_version};
 use clap::builder::FalseyValueParser;
 use clap::{ArgAction, Args, ColorChoice, Parser};
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
-use oma_console::print::{termbg, OmaColorFormat};
-use oma_console::writer::{writeln_inner, MessageType, Writer};
 use oma_console::OmaLayer;
-use oma_utils::dbus::{create_dbus_connection, get_another_oma_status, OmaDbusError};
-use oma_utils::oma::{terminal_ring, unlock_oma};
+use oma_console::print::{OmaColorFormat, termbg};
+use oma_console::writer::{MessageType, Writer, writeln_inner};
 use oma_utils::OsRelease;
+use oma_utils::dbus::{OmaDbusError, create_dbus_connection, get_another_oma_status};
+use oma_utils::oma::{terminal_ring, unlock_oma};
 use reqwest::Client;
 use rustix::stdio::stdout;
-use subcommand::utils::{is_terminal, LockError};
+use subcommand::utils::{LockError, is_terminal};
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, EnvFilter, Layer};
+use tracing_subscriber::{EnvFilter, Layer, fmt};
 use tui::Tui;
 use utils::is_ssh_from_loginctl;
 
@@ -285,7 +285,7 @@ fn init_color_formatter(oma: &OhManagerAilurus, config: &Config) {
     let no_color = oma.global.color == ColorChoice::Never;
 
     if no_color {
-        env::set_var("NO_COLOR", "1");
+        unsafe { env::set_var("NO_COLOR", "1") };
     }
 
     COLOR_FORMATTER.get_or_init(|| {

@@ -3,10 +3,10 @@ use std::fmt::Display;
 use ahash::HashMap;
 use cxx::UniquePtr;
 use oma_apt::{
+    BaseDep, DepType, Dependency, Package, PackageFile, Version,
     cache::Cache,
     raw::{IntoRawIter, PkgIterator, VerIterator},
     records::RecordField,
-    BaseDep, DepType, Dependency, Package, PackageFile, Version,
 };
 use oma_utils::human_bytes::HumanBytes;
 use serde::{Deserialize, Serialize};

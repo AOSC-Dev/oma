@@ -9,8 +9,8 @@ use tracing::error;
 
 use crate::config::Config;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderDownloadProgress};
+use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
-use crate::{fl, success, HTTP_CLIENT};
 
 use crate::args::CliExecuter;
 

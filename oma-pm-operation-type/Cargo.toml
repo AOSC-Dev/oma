@@ -1,7 +1,7 @@
 [package]
 name = "oma-pm-operation-type"
 version = "0.8.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 description = "APT package management operation abstraction library"
 

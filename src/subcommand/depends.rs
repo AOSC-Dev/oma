@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    io::{stdout, Write},
+    io::{Write, stdout},
     path::PathBuf,
 };
 

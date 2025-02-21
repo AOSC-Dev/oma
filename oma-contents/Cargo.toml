@@ -1,7 +1,7 @@
 [package]
 name = "oma-contents"
 version = "0.16.0"
-edition = "2021"
+edition = "2024"
 description = "APT Contents metadata handling library"
 license = "MIT"
 

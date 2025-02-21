@@ -2,21 +2,21 @@ use std::{
     env,
     fmt::Display,
     path::Path,
-    process::{exit, Command},
+    process::{Command, exit},
     sync::atomic::Ordering,
 };
 
-use crate::{color_formatter, fl, RT, WRITER};
-use crate::{error::OutputError, NOT_ALLOW_CTRLC};
+use crate::{NOT_ALLOW_CTRLC, error::OutputError};
+use crate::{RT, WRITER, color_formatter, fl};
 use anyhow::anyhow;
-use dialoguer::{console::style, theme::ColorfulTheme, Confirm};
+use dialoguer::{Confirm, console::style, theme::ColorfulTheme};
 use oma_console::{
     print::Action,
-    writer::{gen_prefix, writeln_inner, MessageType},
+    writer::{MessageType, gen_prefix, writeln_inner},
 };
-use oma_pm::{search::SearchResult, PackageStatus};
+use oma_pm::{PackageStatus, search::SearchResult};
 use oma_utils::{
-    dbus::{create_dbus_connection, is_using_battery, session_name, take_wake_lock, Connection},
+    dbus::{Connection, create_dbus_connection, is_using_battery, session_name, take_wake_lock},
     oma::unlock_oma,
     zbus::zvariant::OwnedFd,
 };

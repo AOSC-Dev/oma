@@ -5,7 +5,7 @@ use std::{
 };
 
 use ahash::HashMap;
-use indexmap::{indexmap, IndexMap};
+use indexmap::{IndexMap, indexmap};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};

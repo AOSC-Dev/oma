@@ -17,8 +17,8 @@ use crate::{
 };
 
 use super::utils::{
-    auth_config, create_progress_spinner, handle_no_result, lock_oma, no_check_dbus_warn,
-    CommitChanges,
+    CommitChanges, auth_config, create_progress_spinner, handle_no_result, lock_oma,
+    no_check_dbus_warn,
 };
 use crate::args::CliExecuter;
 

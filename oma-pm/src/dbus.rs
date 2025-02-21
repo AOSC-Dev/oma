@@ -1,4 +1,4 @@
-use zbus::{interface, proxy, Connection, Result};
+use zbus::{Connection, Result, interface, proxy};
 
 pub struct OmaBus {
     pub status: Status,

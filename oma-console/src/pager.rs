@@ -1,5 +1,5 @@
 use std::{
-    io::{self, stderr, stdin, stdout, BufRead, ErrorKind, IsTerminal, Write},
+    io::{self, BufRead, ErrorKind, IsTerminal, Write, stderr, stdin, stdout},
     time::{Duration, Instant},
 };
 
@@ -8,16 +8,16 @@ use ansi_to_tui::IntoText;
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
     execute,
-    terminal::{enable_raw_mode, EnterAlternateScreen},
+    terminal::{EnterAlternateScreen, enable_raw_mode},
 };
 use ratatui::{
+    Frame, Terminal,
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Layout},
     restore,
     style::{Color, Stylize},
     text::Text,
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
-    Frame, Terminal,
 };
 use termbg::Theme;
 use tracing::debug;

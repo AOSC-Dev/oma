@@ -4,19 +4,19 @@ use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::thread;
 
+use crate::NOT_ALLOW_CTRLC;
 use crate::pb::RenderDownloadProgress;
 use crate::subcommand::utils::create_progress_spinner;
 use crate::subcommand::utils::display_suggest_tips;
 use crate::subcommand::utils::history_success_tips;
 use crate::subcommand::utils::undo_tips;
 use crate::subcommand::utils::write_oma_installed_status;
-use crate::NOT_ALLOW_CTRLC;
 use ahash::HashMap;
 use ahash::HashSet;
 use flume::unbounded;
 use oma_history::HistoryInfo;
-use oma_pm::apt::OmaOperation;
 use oma_pm::CommitNetworkConfig;
+use oma_pm::apt::OmaOperation;
 use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::debug;
@@ -43,6 +43,7 @@ use oma_pm::matches::PackagesMatcher;
 use tracing::info;
 use tracing::warn;
 
+use crate::HTTP_CLIENT;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
@@ -54,15 +55,14 @@ use crate::subcommand::utils::autoremovable_tips;
 use crate::table::table_for_install_pending;
 use crate::utils::dbus_check;
 use crate::utils::root;
-use crate::HTTP_CLIENT;
 
 use super::remove::ask_user_do_as_i_say;
+use super::utils::Refresh;
 use super::utils::handle_features;
 use super::utils::handle_no_result;
 use super::utils::is_nothing_to_do;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
-use super::utils::Refresh;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]

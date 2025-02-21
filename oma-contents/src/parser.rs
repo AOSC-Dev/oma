@@ -1,4 +1,4 @@
-use winnow::{combinator::separated, token::take_till, ModalResult, Parser};
+use winnow::{ModalResult, Parser, combinator::separated, token::take_till};
 
 use crate::OmaContentsError;
 

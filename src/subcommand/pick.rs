@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Args;
-use dialoguer::{theme::ColorfulTheme, Select};
+use dialoguer::{Select, theme::ColorfulTheme};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     pkginfo::OmaPackage,
@@ -9,15 +9,15 @@ use oma_pm::{
 
 use crate::fl;
 use crate::{
+    HTTP_CLIENT,
     config::Config,
     error::OutputError,
     utils::{dbus_check, root},
-    HTTP_CLIENT,
 };
 use anyhow::anyhow;
 
 use super::utils::{
-    auth_config, lock_oma, no_check_dbus_warn, tui_select_list_size, CommitChanges, Refresh,
+    CommitChanges, Refresh, auth_config, lock_oma, no_check_dbus_warn, tui_select_list_size,
 };
 use crate::args::CliExecuter;
 

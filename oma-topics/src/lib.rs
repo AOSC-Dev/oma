@@ -11,7 +11,7 @@ use futures::future::try_join_all;
 use itertools::Itertools;
 use oma_mirror::MirrorManager;
 use reqwest::Client;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::fs;
 use tracing::{debug, warn};
 use url::Url;

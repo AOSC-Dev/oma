@@ -2,7 +2,7 @@ use std::{path::Path, thread};
 
 use apt_auth_config::AuthConfig;
 use flume::unbounded;
-use oma_fetch::{reqwest::ClientBuilder, Event};
+use oma_fetch::{Event, reqwest::ClientBuilder};
 use oma_pm::{
     apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs, OmaAptError},
     matches::PackagesMatcher,

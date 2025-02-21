@@ -2,13 +2,13 @@ use std::cmp::Ordering as CmpOrdering;
 use std::env;
 use std::fmt::Display;
 use std::io::Write;
-use std::sync::atomic::Ordering;
 use std::sync::LazyLock;
+use std::sync::atomic::Ordering;
 
 use crate::console::style;
 use crate::error::OutputError;
 use crate::upgrade::TopicUpdateEntryRef;
-use crate::{color_formatter, fl, NOT_DISPLAY_ABORT, WRITER};
+use crate::{NOT_DISPLAY_ABORT, WRITER, color_formatter, fl};
 use ahash::HashMap;
 use ahash::HashSet;
 use oma_console::indicatif::HumanBytes;

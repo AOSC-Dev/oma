@@ -2,7 +2,7 @@ use std::io::Write;
 
 use oma_pm::{
     apt::AptConfig,
-    progress::{get_apt_progress_string, terminal_height, terminal_width, InstallProgressManager},
+    progress::{InstallProgressManager, get_apt_progress_string, terminal_height, terminal_width},
 };
 
 use crate::subcommand::utils::is_terminal;

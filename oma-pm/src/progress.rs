@@ -40,7 +40,7 @@ impl OmaAptInstallProgress {
         } = args;
 
         if pm.no_interactive() {
-            std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
+            unsafe { std::env::set_var("DEBIAN_FRONTEND", "noninteractive") };
         }
 
         if !pm.use_pty() {

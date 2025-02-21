@@ -6,17 +6,17 @@ use std::{
 use anyhow::bail;
 use oma_apt_sources_lists::Signature;
 use sequoia_openpgp::{
+    Cert, KeyHandle,
     cert::CertParser,
     parse::{
+        PacketParserBuilder, Parse,
         stream::{
             DetachedVerifierBuilder, MessageLayer, MessageStructure, VerificationError,
             VerificationHelper, VerifierBuilder,
         },
-        PacketParserBuilder, Parse,
     },
     policy::{AsymmetricAlgorithm, StandardPolicy},
     types::HashAlgorithm,
-    Cert, KeyHandle,
 };
 use tracing::debug;
 

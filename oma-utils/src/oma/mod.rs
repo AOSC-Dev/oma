@@ -1,5 +1,5 @@
 use std::{
-    io::{stderr, stdin, stdout, Error, ErrorKind, IsTerminal},
+    io::{Error, ErrorKind, IsTerminal, stderr, stdin, stdout},
     path::PathBuf,
     sync::LazyLock,
 };

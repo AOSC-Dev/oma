@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use colored::{ColoredString, Colorize};
 use image::{DynamicImage, GenericImageView};
 use oma_console::WRITER;

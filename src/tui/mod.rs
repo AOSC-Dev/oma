@@ -14,17 +14,17 @@ use tracing::info;
 use tui_inner::{Task, Tui as TuiInner};
 
 use crate::{
+    GlobalOptions,
     args::CliExecuter,
     subcommand::utils::{auth_config, create_progress_spinner},
-    GlobalOptions,
 };
 use crate::{
+    HTTP_CLIENT, RT,
     config::Config,
     error::OutputError,
     find_another_oma, fl,
-    subcommand::utils::{lock_oma, no_check_dbus_warn, CommitChanges, Refresh},
+    subcommand::utils::{CommitChanges, Refresh, lock_oma, no_check_dbus_warn},
     utils::{check_battery, root},
-    HTTP_CLIENT, RT,
 };
 
 mod state;

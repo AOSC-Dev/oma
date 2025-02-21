@@ -2,8 +2,8 @@ use std::{borrow::Cow, future::Future, path::Path};
 
 use oma_console::console;
 use oma_fetch::{
-    checksum::Checksum, reqwest::Client, DownloadEntry, DownloadManager, DownloadSource,
-    DownloadSourceType, Event, Summary,
+    DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event, Summary,
+    checksum::Checksum, reqwest::Client,
 };
 use oma_pm_operation_type::InstallEntry;
 use tracing::debug;
