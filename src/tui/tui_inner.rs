@@ -17,6 +17,7 @@ use oma_pm::{
 };
 
 use ratatui::{
+    Frame, Terminal,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     prelude::Backend,
     style::{Color, Style, Stylize},
@@ -25,10 +26,9 @@ use ratatui::{
         Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
         ScrollbarState,
     },
-    Frame, Terminal,
 };
 
-use crate::{fl, utils::SearchResultDisplay, WRITER};
+use crate::{WRITER, fl, utils::SearchResultDisplay};
 
 #[derive(PartialEq, Eq)]
 enum Mode {
@@ -72,7 +72,7 @@ impl Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Operation::Package { name, version } => {
-                if let Some(ref ver) = version {
+                if let Some(ver) = version {
                     writeln!(f, "+ {} ({})", name, ver)?;
                 } else {
                     writeln!(f, "- {}", name)?;

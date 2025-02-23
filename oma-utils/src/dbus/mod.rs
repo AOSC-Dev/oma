@@ -3,7 +3,7 @@ use logind_zbus::{
     session::SessionProxy,
 };
 use tracing::debug;
-use zbus::{proxy, zvariant::OwnedFd, Result as zResult};
+use zbus::{Result as zResult, proxy, zvariant::OwnedFd};
 
 pub use zbus::Connection;
 

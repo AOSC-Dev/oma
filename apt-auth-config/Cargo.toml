@@ -1,7 +1,7 @@
 [package]
 name = "apt-auth-config"
 version = "0.3.0"
-edition = "2021"
+edition = "2024"
 description = "Library to parse APT auth.conf.d configurations"
 license = "MIT"
 

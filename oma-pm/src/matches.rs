@@ -1,17 +1,17 @@
 use std::{borrow::Cow, path::Path};
 
-use bon::{builder, Builder};
+use bon::{Builder, builder};
 use cxx::UniquePtr;
 use glob_match::glob_match;
 use oma_apt::{
+    Package, Version,
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
     raw::{IntoRawIter, PkgIterator},
     records::RecordField,
-    Package, Version,
 };
 use oma_utils::{
-    dpkg::{dpkg_arch, DpkgError},
+    dpkg::{DpkgError, dpkg_arch},
     url_no_escape::url_no_escape,
 };
 use once_cell::sync::OnceCell;

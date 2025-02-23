@@ -6,15 +6,15 @@ use std::path::Path;
 use apt_auth_config::AuthConfigError;
 use oma_console::writer::{Writeln, Writer};
 use oma_contents::OmaContentsError;
-use oma_fetch::checksum::ChecksumError;
 use oma_fetch::SingleDownloadError;
+use oma_fetch::checksum::ChecksumError;
 use oma_history::HistoryError;
 
 #[cfg(feature = "aosc")]
 use oma_mirror::MirrorError;
 
-use oma_pm::search::OmaSearchError;
 use oma_pm::AptErrors;
+use oma_pm::search::OmaSearchError;
 use oma_pm::{apt::OmaAptError, matches::MatcherError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseError;
@@ -98,7 +98,8 @@ impl<'a> Iterator for Chain<'a> {
 impl DoubleEndedIterator for Chain<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         match &mut self.state {
-            Linked { mut next } => {
+            Linked { next } => {
+                let mut next = next.to_owned();
                 let mut rest = Vec::new();
                 while let Some(cause) = next {
                     next = cause.source();
@@ -117,8 +118,9 @@ impl DoubleEndedIterator for Chain<'_> {
 impl ExactSizeIterator for Chain<'_> {
     fn len(&self) -> usize {
         match &self.state {
-            Linked { mut next } => {
+            Linked { next } => {
                 let mut len = 0;
+                let mut next = next.to_owned();
                 while let Some(cause) = next {
                     next = cause.source();
                     len += 1;

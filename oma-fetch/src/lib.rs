@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, path::PathBuf, time::Duration};
 
-use bon::{builder, Builder};
+use bon::{Builder, builder};
 use checksum::Checksum;
 use download::{EmptySource, SingleDownloader, SuccessSummary};
 use futures::{Future, StreamExt};

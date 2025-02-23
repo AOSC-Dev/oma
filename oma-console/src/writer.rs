@@ -92,11 +92,7 @@ impl Writer {
         let len = self.get_length();
 
         if let Some(limit) = self.limit_max_len {
-            if len < limit {
-                len
-            } else {
-                limit
-            }
+            if len < limit { len } else { limit }
         } else {
             len
         }

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use oma_fetch::{
-    checksum::Checksum, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event,
+    DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event, checksum::Checksum,
 };
 use reqwest::ClientBuilder;
 

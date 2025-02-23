@@ -10,13 +10,13 @@ use oma_console::{
     indicatif::{MultiProgress, ProgressBar},
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
     print::Action,
-    writer::{gen_prefix, writeln_inner, MessageType, Writeln},
+    writer::{MessageType, Writeln, gen_prefix, writeln_inner},
 };
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
+use crate::{WRITER, error::Chain, fl, msg, utils::is_root};
 use crate::{color_formatter, error::OutputError};
-use crate::{error::Chain, fl, msg, utils::is_root, WRITER};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
 use tracing::{debug, error, info, warn};

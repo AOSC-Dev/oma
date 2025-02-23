@@ -3,12 +3,12 @@ use std::{io::Write, thread};
 use apt_auth_config::AuthConfig;
 use flume::unbounded;
 use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
-use oma_fetch::{reqwest::ClientBuilder, Event};
+use oma_fetch::{Event, reqwest::ClientBuilder};
 use oma_pm::{
+    CommitNetworkConfig,
     apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError, SummarySort},
     matches::PackagesMatcher,
     progress::InstallProgressManager,
-    CommitNetworkConfig,
 };
 
 struct MyInstallProgressManager;

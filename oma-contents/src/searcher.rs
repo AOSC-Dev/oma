@@ -4,8 +4,8 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
-        mpsc::{self, Sender},
         Arc,
+        mpsc::{self, Sender},
     },
     thread,
 };
@@ -17,7 +17,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::debug;
 use zstd::Decoder;
 
-use crate::{parser::parse_contents_single_line, OmaContentsError};
+use crate::{OmaContentsError, parser::parse_contents_single_line};
 
 const ZSTD_MAGIC: &[u8] = &[40, 181, 47, 253];
 const LZ4_MAGIC: &[u8] = &[0x04, 0x22, 0x4d, 0x18];

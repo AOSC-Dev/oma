@@ -5,10 +5,10 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::info;
 
 use crate::config::Config;
+use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, utils::root};
-use crate::{fl, success, HTTP_CLIENT};
 
-use super::utils::{auth_config, create_progress_spinner, Refresh as RefreshInner};
+use super::utils::{Refresh as RefreshInner, auth_config, create_progress_spinner};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]

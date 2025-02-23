@@ -9,16 +9,16 @@ use std::time::Instant;
 use anyhow::anyhow;
 use clap::Args;
 use clap::Subcommand;
+use dialoguer::Sort;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
-use dialoguer::Sort;
 use faster_hex::hex_string;
+use inquire::MultiSelect;
 use inquire::formatter::MultiOptionFormatter;
 use inquire::ui::Color;
 use inquire::ui::RenderConfig;
 use inquire::ui::StyleSheet;
 use inquire::ui::Styled;
-use inquire::MultiSelect;
 use oma_console::indicatif::HumanBytes;
 use oma_console::indicatif::ProgressBar;
 use oma_console::indicatif::ProgressStyle;
@@ -34,6 +34,9 @@ use tabled::Tabled;
 use tracing::warn;
 use tracing::{error, info};
 
+use crate::APP_USER_AGENT;
+use crate::HTTP_CLIENT;
+use crate::RT;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
@@ -41,15 +44,12 @@ use crate::pb::OmaProgressBar;
 use crate::success;
 use crate::table::PagerPrinter;
 use crate::utils::root;
-use crate::APP_USER_AGENT;
-use crate::HTTP_CLIENT;
-use crate::RT;
 
+use super::utils::Refresh;
 use super::utils::auth_config;
 use super::utils::create_progress_spinner;
 use super::utils::select_tui_display_msg;
 use super::utils::tui_select_list_size;
-use super::utils::Refresh;
 use crate::args::CliExecuter;
 
 const REPO_TEST_SHA256: &str = "1e2a82e7babb443b2b26b61ce5dd2bd25b06b30422b42ee709fddd2cc3ffe231";
@@ -62,7 +62,7 @@ impl Display for MirrorDisplay {
         write!(
             f,
             "{}",
-            select_tui_display_msg(&format!("{} ({})", self.0 .1.desc, self.0 .0), true)
+            select_tui_display_msg(&format!("{} ({})", self.0.1.desc, self.0.0), true)
         )?;
 
         Ok(())
@@ -291,7 +291,7 @@ pub fn tui(
         .prompt()
         .map_err(|_| anyhow::anyhow!(""))?;
 
-    let set = ans.iter().map(|x| x.0 .0.as_ref()).collect::<Vec<_>>();
+    let set = ans.iter().map(|x| x.0.0.as_ref()).collect::<Vec<_>>();
 
     mm.set(&set)?;
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
@@ -597,8 +597,8 @@ fn refresh_enabled_topics_sources_list(no_progress: bool) -> Result<(), OutputEr
 
 #[test]
 fn test_sort() {
-    use indexmap::indexmap;
     use indexmap::IndexMap;
+    use indexmap::indexmap;
 
     let enabled: IndexMap<Box<str>, Box<str>> = indexmap! {};
     let m1 = Mirror {

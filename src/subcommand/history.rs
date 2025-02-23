@@ -2,8 +2,8 @@ use anyhow::anyhow;
 use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
-use dialoguer::{theme::ColorfulTheme, Select};
-use oma_history::{connect_db, find_history_by_id, list_history, HistoryEntry, DATABASE_PATH};
+use dialoguer::{Select, theme::ColorfulTheme};
+use oma_history::{DATABASE_PATH, HistoryEntry, connect_db, find_history_by_id, list_history};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::pkginfo::PtrIsNone;
@@ -17,15 +17,15 @@ use std::sync::atomic::Ordering;
 
 use crate::config::Config;
 use crate::{
+    NOT_DISPLAY_ABORT,
     error::OutputError,
     table::table_for_history_pending,
     utils::{dbus_check, root},
-    NOT_DISPLAY_ABORT,
 };
 
 use super::utils::{
-    auth_config, handle_no_result, lock_oma, no_check_dbus_warn, select_tui_display_msg,
-    tui_select_list_size, CommitChanges,
+    CommitChanges, auth_config, handle_no_result, lock_oma, no_check_dbus_warn,
+    select_tui_display_msg, tui_select_list_size,
 };
 use crate::args::CliExecuter;
 
@@ -298,9 +298,5 @@ fn format_date(date: i64) -> DelayedFormat<StrftimeItems<'static>> {
 }
 
 fn format_success(is_success: bool) -> &'static str {
-    if is_success {
-        ""
-    } else {
-        "[FAIL] "
-    }
+    if is_success { "" } else { "[FAIL] " }
 }

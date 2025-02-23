@@ -9,19 +9,19 @@ use oma_pm::matches::PackagesMatcher;
 use tracing::info;
 use tracing::warn;
 
+use crate::HTTP_CLIENT;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
 use crate::utils::dbus_check;
 use crate::utils::root;
-use crate::HTTP_CLIENT;
 
+use super::utils::CommitChanges;
+use super::utils::Refresh;
 use super::utils::auth_config;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
-use super::utils::CommitChanges;
-use super::utils::Refresh;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]

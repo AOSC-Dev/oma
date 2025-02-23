@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use bon::{builder, Builder};
+use bon::{Builder, builder};
 use num_enum::{FromPrimitive, IntoPrimitive};
 use oma_utils::human_bytes::HumanBytes;
 use serde::{Deserialize, Serialize};

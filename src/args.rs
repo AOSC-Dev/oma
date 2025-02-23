@@ -1,9 +1,10 @@
 use std::env;
 
-use clap::{crate_name, crate_version, Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, crate_name, crate_version};
 use enum_dispatch::enum_dispatch;
 
 use crate::{
+    GlobalOptions,
     clean::Clean,
     command_not_found::CommandNotFound,
     config::Config,
@@ -26,7 +27,6 @@ use crate::{
     show::Show,
     tui::Tui,
     upgrade::Upgrade,
-    GlobalOptions,
 };
 
 #[cfg(feature = "aosc")]

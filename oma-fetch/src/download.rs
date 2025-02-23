@@ -10,11 +10,11 @@ use std::{
 
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
 use bon::Builder;
-use futures::{io::BufReader, AsyncRead, TryStreamExt};
+use futures::{AsyncRead, TryStreamExt, io::BufReader};
 use oma_utils::url_no_escape::url_no_escape;
 use reqwest::{
-    header::{HeaderValue, ACCEPT_RANGES, CONTENT_LENGTH, RANGE},
     Client, Method, RequestBuilder,
+    header::{ACCEPT_RANGES, CONTENT_LENGTH, HeaderValue, RANGE},
 };
 use snafu::{ResultExt, Snafu};
 use tokio::{

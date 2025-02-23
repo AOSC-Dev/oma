@@ -1,8 +1,8 @@
 use std::{borrow::Cow, collections::BTreeMap, time::Duration};
 
-use console::{style, Color, StyledObject};
+use console::{Color, StyledObject, style};
 use termbg::Theme;
-use tracing::{debug, field::Field, Level};
+use tracing::{Level, debug, field::Field};
 use tracing_subscriber::Layer;
 
 pub use termbg;

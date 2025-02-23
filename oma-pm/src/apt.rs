@@ -8,13 +8,14 @@ use std::{
 
 use ahash::HashSet;
 use apt_auth_config::AuthConfig;
-use bon::{builder, Builder};
+use bon::{Builder, builder};
 pub use oma_apt::cache::Upgrade;
 use std::future::Future;
 use tokio::runtime::Runtime;
 use zbus::Connection;
 
 use oma_apt::{
+    DepFlags, Dependency, Package, PkgCurrentState, Version,
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
     new_cache,
@@ -22,12 +23,11 @@ use oma_apt::{
     raw::IntoRawIter,
     records::RecordField,
     util::DiskSpace,
-    DepFlags, Dependency, Package, PkgCurrentState, Version,
 };
 
-use oma_fetch::{checksum::ChecksumError, reqwest::Client, Event, Summary};
+use oma_fetch::{Event, Summary, checksum::ChecksumError, reqwest::Client};
 use oma_utils::{
-    dpkg::{get_selections, is_hold, DpkgError},
+    dpkg::{DpkgError, get_selections, is_hold},
     human_bytes::HumanBytes,
 };
 
@@ -330,7 +330,7 @@ impl OmaApt {
         }
 
         if yes || force_yes {
-            std::env::set_var("DEBIAN_FRONTEND", "noninteractive");
+            unsafe { std::env::set_var("DEBIAN_FRONTEND", "noninteractive") };
         }
 
         let dir = config.get("Dir").unwrap_or("/".to_owned());

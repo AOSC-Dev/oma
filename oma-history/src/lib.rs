@@ -60,7 +60,7 @@ pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Conn
         Ok(conn) => conn,
         Err(e) => match e {
             Error::SqliteFailure(err, _) if [1, 14].contains(&err.extended_code) => {
-                return Err(HistoryError::HistoryEmpty)
+                return Err(HistoryError::HistoryEmpty);
             }
             e => return Err(HistoryError::ConnectError(e)),
         },
@@ -304,7 +304,7 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryEntry>> {
         Ok(stmt) => stmt,
         Err(e) => match e {
             Error::SqliteFailure(err, _) if [1, 14].contains(&err.extended_code) => {
-                return Err(HistoryError::HistoryEmpty)
+                return Err(HistoryError::HistoryEmpty);
             }
             e => return Err(HistoryError::ConnectError(e)),
         },

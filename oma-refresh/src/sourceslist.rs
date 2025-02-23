@@ -7,9 +7,8 @@ use oma_apt_sources_lists::{
     Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
 };
 use oma_fetch::{
-    build_request_with_basic_auth,
+    SingleDownloadError, build_request_with_basic_auth,
     reqwest::{Client, Method, Response},
-    SingleDownloadError,
 };
 use once_cell::sync::OnceCell;
 use tokio::{
@@ -20,7 +19,7 @@ use tracing::debug;
 use url::Url;
 
 use crate::{
-    db::{content_length, Event, RefreshError},
+    db::{Event, RefreshError, content_length},
     util::DatabaseFilenameReplacer,
 };
 use std::future::Future;
@@ -840,7 +839,10 @@ fn test_database_filename() {
     // Encode : as %3A.
     let s = "https://ci.deepin.com/repo/obs/deepin%3A/CI%3A/TestingIntegration%3A/test-integration-pr-1537/testing/./Packages";
     let res = replacer.replace(s).unwrap();
-    assert_eq!(res, "ci.deepin.com_repo_obs_deepin:_CI:_TestingIntegration:_test-integration-pr-1537_testing_._Packages");
+    assert_eq!(
+        res,
+        "ci.deepin.com_repo_obs_deepin:_CI:_TestingIntegration:_test-integration-pr-1537_testing_._Packages"
+    );
 
     // Encode _ as %5f
     let s = "https://repo.aosc.io/debs/dists/xorg-server-21.1.13-hyperv_drm-fix";

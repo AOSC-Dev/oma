@@ -1,9 +1,9 @@
 use std::path::Path;
 
 use inquire::{
+    MultiSelect,
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
-    MultiSelect,
 };
 
 use oma_topics::Result;

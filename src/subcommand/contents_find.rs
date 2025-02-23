@@ -3,8 +3,8 @@ use crate::table::oma_display_with_normal_output;
 use crate::{config::Config, error::OutputError};
 use clap::Args;
 use indexmap::IndexSet;
-use oma_contents::searcher::{search, Mode};
-use std::io::{stdout, Write};
+use oma_contents::searcher::{Mode, search};
+use std::io::{Write, stdout};
 use std::path::{Path, PathBuf};
 
 use crate::args::CliExecuter;

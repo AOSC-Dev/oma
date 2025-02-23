@@ -9,10 +9,10 @@ use indexmap::map::Entry;
 use indicium::simple::{Indexable, SearchIndex};
 use memchr::memmem;
 use oma_apt::{
+    Package,
     cache::{Cache, PackageSort},
     error::{AptError, AptErrors},
     raw::{IntoRawIter, PkgIterator},
-    Package,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

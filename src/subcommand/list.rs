@@ -3,15 +3,15 @@ use std::{borrow::Cow, io::stdout, path::PathBuf, sync::atomic::Ordering};
 use clap::Args;
 use oma_console::print::Action;
 use oma_pm::{
-    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
     PkgCurrentState,
+    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
 };
 use tracing::info;
 
+use crate::{NOT_DISPLAY_ABORT, fl};
 use crate::{color_formatter, config::Config, error::OutputError, table::PagerPrinter};
-use crate::{fl, NOT_DISPLAY_ABORT};
 use anyhow::anyhow;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 
 use crate::args::CliExecuter;
 
@@ -137,12 +137,13 @@ impl CliExecuter for List {
                 if let Some(version) = pkg.installed() {
                     vec![version]
                 } else {
-                    vec![pkg
-                        .candidate()
-                        .or_else(|| pkg.versions().next())
-                        .ok_or_else(|| {
-                            anyhow!("Has Package {} but no version?", pkg.fullname(true))
-                        })?]
+                    vec![
+                        pkg.candidate()
+                            .or_else(|| pkg.versions().next())
+                            .ok_or_else(|| {
+                                anyhow!("Has Package {} but no version?", pkg.fullname(true))
+                            })?,
+                    ]
                 }
             };
 

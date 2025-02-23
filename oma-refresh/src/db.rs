@@ -9,28 +9,27 @@ use std::{
 use ahash::{AHashMap, HashSet};
 use aho_corasick::BuildError;
 use apt_auth_config::AuthConfig;
-use bon::{builder, Builder};
+use bon::{Builder, builder};
 use chrono::Utc;
 use nix::{
     errno::Errno,
     fcntl::{
-        fcntl, open,
         FcntlArg::{F_GETLK, F_SETFD, F_SETLK},
-        FdFlag, OFlag,
+        FdFlag, OFlag, fcntl, open,
     },
-    libc::{flock, F_WRLCK, SEEK_SET},
+    libc::{F_WRLCK, SEEK_SET, flock},
     sys::stat::Mode,
     unistd::close,
 };
 use oma_apt::config::Config;
 use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
+    CompressFile, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
     checksum::{Checksum, ChecksumError},
     reqwest::{
-        header::{HeaderValue, CONTENT_LENGTH},
         Client, Response,
+        header::{CONTENT_LENGTH, HeaderValue},
     },
-    CompressFile, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
 };
 
 use oma_fetch::{SingleDownloadError, Summary};
@@ -54,10 +53,10 @@ use crate::sourceslist::{MirrorSource, MirrorSources};
 use crate::{
     config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
-        file_is_compress, split_ext_and_filename, verify_inrelease, ChecksumItem,
-        InReleaseChecksum, InReleaseError, Release,
+        ChecksumItem, InReleaseChecksum, InReleaseError, Release, file_is_compress,
+        split_ext_and_filename, verify_inrelease,
     },
-    sourceslist::{sources_lists, OmaSourceEntry, OmaSourceEntryFrom},
+    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, sources_lists},
     util::DatabaseFilenameReplacer,
 };
 
@@ -478,11 +477,7 @@ impl<'a> OmaRefresh<'a> {
         let archs_from_file = if let Ok(file) = archs_from_file {
             let res = file.lines().map(|x| x.to_string()).collect::<Vec<_>>();
 
-            if res.is_empty() {
-                None
-            } else {
-                Some(res)
-            }
+            if res.is_empty() { None } else { Some(res) }
         } else {
             None
         };

@@ -3,9 +3,9 @@ use std::{fmt::Display, path::PathBuf};
 use clap::{ArgAction, Args};
 use dialoguer::console::style;
 use inquire::{
+    MultiSelect,
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
-    MultiSelect,
 };
 use oma_pm::{
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs, Upgrade},
@@ -16,15 +16,15 @@ use tokio::task::spawn_blocking;
 use tracing::{error, warn};
 
 use crate::{
+    HTTP_CLIENT, RT,
     config::Config,
     error::OutputError,
     utils::{dbus_check, root},
-    HTTP_CLIENT, RT,
 };
 
 use super::utils::{
-    auth_config, create_progress_spinner, lock_oma, no_check_dbus_warn, select_tui_display_msg,
-    tui_select_list_size, CommitChanges, Refresh,
+    CommitChanges, Refresh, auth_config, create_progress_spinner, lock_oma, no_check_dbus_warn,
+    select_tui_display_msg, tui_select_list_size,
 };
 
 use crate::args::CliExecuter;

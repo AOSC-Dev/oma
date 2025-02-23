@@ -4,8 +4,8 @@ use std::io::stdout;
 use ahash::AHashMap;
 use clap::Args;
 use oma_console::print::Action;
-use oma_contents::searcher::{pure_search, ripgrep_search, Mode};
 use oma_contents::OmaContentsError;
+use oma_contents::searcher::{Mode, pure_search, ripgrep_search};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::error;
 
