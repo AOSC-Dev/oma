@@ -1232,9 +1232,11 @@ fn collect_suggest(
                 .flat_map(|pkg| cache.get(pkg))
                 .collect::<Vec<_>>();
 
-            let all_not_marked_install = pkgs.iter().all(|pkg| !pkg.marked_install());
+            let all_not_marked_install_and_is_installed = pkgs
+                .iter()
+                .all(|pkg| !pkg.marked_install() && !pkg.is_installed());
 
-            if all_not_marked_install {
+            if all_not_marked_install_and_is_installed {
                 for pkg in pkgs {
                     let Some(cand) = pkg.candidate() else {
                         continue;
