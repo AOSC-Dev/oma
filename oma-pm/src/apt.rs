@@ -842,8 +842,8 @@ impl OmaApt {
         let mut autoremovable = (0, 0);
         let changes = self.cache.get_changes(sort == SummarySort::Names);
 
-        let mut suggest = vec![];
-        let mut recommend = vec![];
+        let mut suggest = HashSet::with_hasher(ahash::RandomState::new());
+        let mut recommend = HashSet::with_hasher(ahash::RandomState::new());
 
         for pkg in changes {
             if pkg.marked_new_install() {
@@ -1092,8 +1092,8 @@ impl OmaApt {
             disk_size_delta,
             total_download_size,
             autoremovable,
-            suggest,
-            recommend,
+            suggest: suggest.into_iter().collect(),
+            recommend: recommend.into_iter().collect(),
         })
     }
 
@@ -1186,8 +1186,8 @@ fn get_package_url(cand: &Version<'_>) -> Vec<PackageUrl> {
 
 fn collect_recommends_and_suggests(
     cache: &Cache,
-    suggest: &mut Vec<(String, String)>,
-    recommend: &mut Vec<(String, String)>,
+    suggest: &mut HashSet<(String, String)>,
+    recommend: &mut HashSet<(String, String)>,
     version: &Version<'_>,
 ) {
     if let Some(s) = version.depends_map().get(&oma_apt::DepType::Suggests) {
@@ -1201,7 +1201,7 @@ fn collect_recommends_and_suggests(
 
 fn collect_suggest(
     cache: &Cache,
-    suggest: &mut Vec<(String, String)>,
+    suggest: &mut HashSet<(String, String)>,
     packages: &[Dependency<'_>],
 ) {
     for deps in OmaDependency::map_deps(packages).inner() {
@@ -1223,7 +1223,7 @@ fn collect_suggest(
                     continue;
                 };
 
-                suggest.push((pkg.fullname(true), desc));
+                suggest.insert((pkg.fullname(true), desc));
             }
         } else {
             let pkgs = deps
@@ -1244,7 +1244,7 @@ fn collect_suggest(
                         continue;
                     };
 
-                    suggest.push((pkg.fullname(true), desc));
+                    suggest.insert((pkg.fullname(true), desc));
                 }
             }
         }
@@ -1279,8 +1279,8 @@ fn pkg_delta(
     new_pkg: &Package,
     op: InstallOperation,
     cache: &Cache,
-    suggest: &mut Vec<(String, String)>,
-    recommend: &mut Vec<(String, String)>,
+    suggest: &mut HashSet<(String, String)>,
+    recommend: &mut HashSet<(String, String)>,
 ) -> OmaAptResult<InstallEntry> {
     let cand = new_pkg
         .candidate()
