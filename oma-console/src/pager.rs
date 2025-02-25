@@ -423,7 +423,7 @@ impl<'a> OmaPager<'a> {
                                 }
                                 TuiMode::Noemal => continue,
                             },
-                            KeyCode::Char(c) if c == 'u' || c == 'U' => {
+                            KeyCode::Char(c) if c == 'u' || c == 'U' || c == 'b' || c == 'B' => {
                                 if self.mode == TuiMode::SearchInputText {
                                     query.push(c);
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
@@ -431,7 +431,9 @@ impl<'a> OmaPager<'a> {
                                 }
                                 self.page_up();
                             }
-                            KeyCode::Char(c) if c == 'd' || c == 'D' => {
+                            KeyCode::Char(c)
+                                if c == 'd' || c == 'D' || c == ' ' || c == 'F' || c == 'f' =>
+                            {
                                 if self.mode == TuiMode::SearchInputText {
                                     query.push(c);
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
