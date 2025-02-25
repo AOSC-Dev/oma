@@ -174,7 +174,7 @@ pub trait PagerUIText {
 enum TuiMode {
     Search,
     SearchInputText,
-    Noemal,
+    Normal,
 }
 
 pub enum PagerExit {
@@ -213,7 +213,7 @@ impl<'a> OmaPager<'a> {
             theme,
             search_results: Vec::new(),
             current_result_index: 0,
-            mode: TuiMode::Noemal,
+            mode: TuiMode::Normal,
             ui_text,
             writer: Writer::default(),
         }
@@ -358,8 +358,8 @@ impl<'a> OmaPager<'a> {
                                 self.mode = TuiMode::Search;
                             }
                             KeyCode::Esc => {
-                                if self.mode != TuiMode::Noemal {
-                                    self.mode = TuiMode::Noemal;
+                                if self.mode != TuiMode::Normal {
+                                    self.mode = TuiMode::Normal;
                                 }
                                 // clear highlight
                                 self.clear_highlight();
@@ -400,7 +400,7 @@ impl<'a> OmaPager<'a> {
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
                                     continue;
                                 }
-                                TuiMode::Noemal => continue,
+                                TuiMode::Normal => continue,
                             },
                             KeyCode::Char('N') => match self.mode {
                                 TuiMode::Search => {
@@ -421,9 +421,9 @@ impl<'a> OmaPager<'a> {
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
                                     continue;
                                 }
-                                TuiMode::Noemal => continue,
+                                TuiMode::Normal => continue,
                             },
-                            KeyCode::Char(c) if c == 'u' || c == 'U' => {
+                            KeyCode::Char(c) if c == 'u' || c == 'U' || c == 'b' || c == 'B' => {
                                 if self.mode == TuiMode::SearchInputText {
                                     query.push(c);
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
@@ -431,7 +431,9 @@ impl<'a> OmaPager<'a> {
                                 }
                                 self.page_up();
                             }
-                            KeyCode::Char(c) if c == 'd' || c == 'D' => {
+                            KeyCode::Char(c)
+                                if c == 'd' || c == 'D' || c == ' ' || c == 'F' || c == 'f' =>
+                            {
                                 if self.mode == TuiMode::SearchInputText {
                                     query.push(c);
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
