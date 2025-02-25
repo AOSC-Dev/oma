@@ -2973,7 +2973,7 @@ dependencies = [
 
 [[package]]
 name = "oma"
-version = "1.14.517"
+version = "1.14.518"
 dependencies = [
  "ahash",
  "ansi-to-tui",
