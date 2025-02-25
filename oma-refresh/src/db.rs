@@ -514,7 +514,7 @@ impl<'a> OmaRefresh<'a> {
                 .parse()
                 .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
 
-            if m.is_flat() {
+            if !m.is_flat() {
                 let now = Utc::now();
 
                 release.check_date(&now).map_err(|e| {
