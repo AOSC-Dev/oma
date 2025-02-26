@@ -118,7 +118,11 @@ pub struct OmaRefresh<'a> {
     apt_config: &'a Config,
     topic_msg: &'a str,
     auth_config: Option<&'a AuthConfig>,
+    #[builder(default = true)]
+    use_etag: bool,
 }
+
+pub(crate) const ETAG_CACHE_DIR: &str = "/var/cache/oma/refresh";
 
 /// Create `apt update` file lock
 fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
@@ -205,6 +209,12 @@ impl<'a> OmaRefresh<'a> {
         if !self.download_dir.is_dir() {
             fs::create_dir_all(&self.download_dir).await.map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
+            })?;
+        }
+
+        if self.use_etag {
+            fs::create_dir_all(ETAG_CACHE_DIR).await.map_err(|e| {
+                RefreshError::FailedToOperateDirOrFile(ETAG_CACHE_DIR.to_string(), e)
             })?;
         }
 
@@ -355,6 +365,7 @@ impl<'a> OmaRefresh<'a> {
                 replacer,
                 &self.download_dir,
                 self.threads,
+                self.use_etag,
                 callback,
             )
             .await;

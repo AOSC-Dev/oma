@@ -8,7 +8,10 @@ use oma_apt_sources_lists::{
 };
 use oma_fetch::{
     SingleDownloadError, build_request_with_basic_auth,
-    reqwest::{Client, Method, Response},
+    reqwest::{
+        Client, Method, RequestBuilder, Response, StatusCode,
+        header::{ETAG, IF_NONE_MATCH},
+    },
 };
 use once_cell::sync::OnceCell;
 use tokio::{
@@ -19,7 +22,7 @@ use tracing::debug;
 use url::Url;
 
 use crate::{
-    db::{Event, RefreshError, content_length},
+    db::{ETAG_CACHE_DIR, Event, RefreshError, content_length},
     util::DatabaseFilenameReplacer,
 };
 use std::future::Future;
@@ -279,6 +282,7 @@ impl MirrorSource<'_, '_> {
         index: usize,
         total: usize,
         download_dir: &Path,
+        etag: bool,
         callback: &F,
     ) -> Result<(), RefreshError>
     where
@@ -287,8 +291,16 @@ impl MirrorSource<'_, '_> {
     {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
-                self.fetch_http_release(client, replacer, index, total, download_dir, callback)
-                    .await
+                self.fetch_http_release(
+                    client,
+                    replacer,
+                    index,
+                    total,
+                    download_dir,
+                    etag,
+                    callback,
+                )
+                .await
             }
             OmaSourceEntryFrom::Local => {
                 self.fetch_local_release(replacer, index, total, download_dir, callback)
@@ -304,6 +316,7 @@ impl MirrorSource<'_, '_> {
         index: usize,
         total: usize,
         download_dir: &Path,
+        etag: bool,
         callback: F,
     ) -> Result<(), RefreshError>
     where
@@ -321,14 +334,21 @@ impl MirrorSource<'_, '_> {
         .await;
 
         let mut url = format!("{}/InRelease", dist_path);
+        let mut file_name = replacer.replace(&url)?;
         let mut is_release = false;
 
-        let resp = match self.send_request(client, &url, Method::GET).await {
+        let resp = match self
+            .send_request(client, &url, &file_name, etag, Method::GET)
+            .await
+        {
             Ok(resp) => resp,
             Err(e) => {
                 debug!("{e}");
                 url = format!("{}/Release", dist_path);
-                let resp = self.send_request(client, &url, Method::GET).await;
+                file_name = replacer.replace(&url)?;
+                let resp = self
+                    .send_request(client, &url, &file_name, etag, Method::GET)
+                    .await;
 
                 if resp.is_err() && self.is_flat() {
                     // Flat repo no release
@@ -347,7 +367,14 @@ impl MirrorSource<'_, '_> {
 
         callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
-        let file_name = replacer.replace(&url)?;
+        if etag {
+            if resp.status() == StatusCode::NOT_MODIFIED {
+                self.set_release_file_name(file_name);
+                return Ok(());
+            }
+
+            save_etag(&file_name, &resp).await;
+        }
 
         self.download_file(&file_name, resp, index, total, download_dir, &callback)
             .await
@@ -357,8 +384,9 @@ impl MirrorSource<'_, '_> {
 
         if is_release && !self.trusted() {
             let url = format!("{}/{}", dist_path, "Release.gpg");
+            let file_name = replacer.replace(&url)?;
 
-            let request = build_request_with_basic_auth(
+            let mut request = build_request_with_basic_auth(
                 client,
                 Method::GET,
                 &self
@@ -367,6 +395,8 @@ impl MirrorSource<'_, '_> {
                 &url,
             );
 
+            request = etag_header(&file_name, etag, request).await;
+
             let resp = request
                 .send()
                 .await
@@ -374,7 +404,13 @@ impl MirrorSource<'_, '_> {
                 .map_err(|e| SingleDownloadError::ReqwestError { source: e })
                 .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
-            let file_name = replacer.replace(&url)?;
+            if etag {
+                if resp.status() == StatusCode::NOT_MODIFIED {
+                    return Ok(());
+                }
+
+                save_etag(&file_name, &resp).await;
+            }
 
             self.download_file(&file_name, resp, index, total, download_dir, &callback)
                 .await
@@ -388,9 +424,11 @@ impl MirrorSource<'_, '_> {
         &self,
         client: &Client,
         url: &str,
+        file_name: &str,
+        etag: bool,
         method: Method,
     ) -> Result<Response, oma_fetch::reqwest::Error> {
-        let request = build_request_with_basic_auth(
+        let mut request = build_request_with_basic_auth(
             client,
             method,
             &self
@@ -398,6 +436,8 @@ impl MirrorSource<'_, '_> {
                 .map(|x| (x.login.to_string(), x.password.to_string())),
             url,
         );
+
+        request = etag_header(file_name, etag, request).await;
 
         request
             .send()
@@ -570,6 +610,48 @@ impl MirrorSource<'_, '_> {
     }
 }
 
+async fn save_etag(file_name: &str, resp: &Response) {
+    if let Some(etag) = resp.headers().get(ETAG) {
+        match etag.to_str() {
+            Ok(etag) => {
+                if let Err(e) = fs::write(
+                    Path::new(ETAG_CACHE_DIR).join(format!("{}.etag", file_name)),
+                    etag,
+                )
+                .await
+                {
+                    debug!("Failed to write etag to {}.etag: {e}", file_name);
+                }
+            }
+            Err(e) => {
+                debug!("Failed to write etag to {}.etag: {e}", file_name);
+            }
+        }
+    }
+}
+
+pub(crate) async fn etag_header(
+    file_name: &str,
+    etag: bool,
+    mut request: RequestBuilder,
+) -> RequestBuilder {
+    if etag {
+        let path = Path::new(ETAG_CACHE_DIR).join(format!("{}.etag", file_name));
+        if path.exists() {
+            match fs::read_to_string(path).await {
+                Ok(etag) => {
+                    request = request.header(IF_NONE_MATCH, etag);
+                }
+                Err(e) => {
+                    debug!("Failed to read {}.etag: {}", file_name, e);
+                }
+            }
+        }
+    }
+
+    request
+}
+
 impl<'a, 'b> MirrorSources<'a, 'b> {
     pub fn from_sourcelist(
         sourcelist: &'a [OmaSourceEntry<'a>],
@@ -612,6 +694,7 @@ impl<'a, 'b> MirrorSources<'a, 'b> {
         replacer: &DatabaseFilenameReplacer,
         download_dir: &Path,
         threads: usize,
+        etag: bool,
         callback: F,
     ) -> Vec<Result<(), RefreshError>>
     where
@@ -625,6 +708,7 @@ impl<'a, 'b> MirrorSources<'a, 'b> {
                 index,
                 self.0.len(),
                 download_dir,
+                etag,
                 &callback,
             )
         });
