@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm-operation-type"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 license = "MIT"
 description = "APT package management operation abstraction library"
@@ -9,7 +9,7 @@ description = "APT package management operation abstraction library"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-oma-utils = { version = "^0.10.0", path = "../oma-utils", features = [
+oma-utils = { version = "^0.11.0", path = "../oma-utils", features = [
     "human-bytes",
 ] }
 bon = "3"
