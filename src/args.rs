@@ -78,7 +78,7 @@ pub enum SubCmd {
     Files(Files),
     /// Search for package(s) that provide(s) certain patterns in a path
     Provides(Provides),
-    /// Resolve broken system dependencies in the system
+    /// Resolve broken dependencies in the system
     FixBroken(FixBroken),
     /// Install specific version of a package
     Pick(Pick),

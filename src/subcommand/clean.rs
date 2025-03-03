@@ -29,7 +29,7 @@ pub struct Clean {
     /// Set apt options
     #[arg(from_global)]
     apt_options: Vec<String>,
-    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]
     dry_run: bool,
 }

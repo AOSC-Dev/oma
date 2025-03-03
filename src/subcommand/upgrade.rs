@@ -104,7 +104,7 @@ pub(crate) struct Upgrade {
     no_remove: bool,
     /// Package(s) to install
     packages: Vec<String>,
-    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]
     dry_run: bool,
     /// Run oma do not check dbus
