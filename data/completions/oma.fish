@@ -404,14 +404,17 @@ complete -c oma -n "__fish_oma_using_subcommand rdep" -l follow-terminal-color -
 complete -c oma -n "__fish_oma_using_subcommand rdep" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand rdep" -l no-check-dbus -d 'Run oma do not check dbus'
 complete -c oma -n "__fish_oma_using_subcommand rdep" -s h -l help -d 'Print help (see more with \'--help\')'
-complete -c oma -n "__fish_oma_using_subcommand clean" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand clean" -l sysroot -d 'Set sysroot target directory' -r -F
 complete -c oma -n "__fish_oma_using_subcommand clean" -l apt-options -d 'Set apt options' -r
-complete -c oma -n "__fish_oma_using_subcommand clean" -l dry-run -d 'Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system'
+complete -c oma -n "__fish_oma_using_subcommand clean" -l keep-downloadable -d 'Keep downloadable packages'
+complete -c oma -n "__fish_oma_using_subcommand clean" -l keep-downloadable-and-installed -d 'Keep downloadable and installed packages'
+complete -c oma -n "__fish_oma_using_subcommand clean" -l keep-installed -d 'Keep installed packages'
+complete -c oma -n "__fish_oma_using_subcommand clean" -l dry-run -d 'Run oma in “dry-run” mode'
 complete -c oma -n "__fish_oma_using_subcommand clean" -l debug -d 'Run oma with debug output'
 complete -c oma -n "__fish_oma_using_subcommand clean" -l follow-terminal-color -d 'Output result with terminal theme color'
 complete -c oma -n "__fish_oma_using_subcommand clean" -l no-progress -d 'Do not display progress bar'
 complete -c oma -n "__fish_oma_using_subcommand clean" -l no-check-dbus -d 'Run oma do not check dbus'
+complete -c oma -n "__fish_oma_using_subcommand clean" -l no-bell -d 'Don\'t ring if oma completes the transaction'
 complete -c oma -n "__fish_oma_using_subcommand clean" -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c oma -n "__fish_oma_using_subcommand history" -l color -d 'Represents the color preferences for program output' -r -f -a "{auto\t'',always\t'',never\t''}"
 complete -c oma -n "__fish_oma_using_subcommand history" -l sysroot -d 'Set sysroot target directory' -r -F

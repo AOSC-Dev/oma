@@ -317,7 +317,7 @@ _oma() {
             return 0
             ;;
         oma__clean)
-            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --keep-downloadable --keep-downloadable-and-installed --keep-installed --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --no-bell --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
