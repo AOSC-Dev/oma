@@ -48,7 +48,7 @@ where
             .iter()
             .map(|x| {
                 let source_type = if x.index_url.starts_with("file:") {
-                    DownloadSourceType::Local(false)
+                    DownloadSourceType::Local(true)
                 } else {
                     let auth = auth.and_then(|auth| auth.find(&x.index_url));
 
