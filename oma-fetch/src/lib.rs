@@ -227,33 +227,15 @@ impl DownloadManager<'_> {
             list.push(single);
         }
 
-        let file_download_source = list
-            .iter()
-            .filter(|x| {
-                x.entry
-                    .source
-                    .iter()
-                    .any(|x| matches!(x.source_type, DownloadSourceType::Local { .. }))
-            })
-            .count();
-
-        let http_download_source = list.len() - file_download_source;
-
         for single in list {
             tasks.push(single.try_download(&callback));
         }
-
-        let thread = if file_download_source >= http_download_source {
-            1
-        } else {
-            self.threads
-        };
 
         if self.total_size != 0 {
             callback(Event::NewGlobalProgressBar(self.total_size)).await;
         }
 
-        let stream = futures::stream::iter(tasks).buffer_unordered(thread);
+        let stream = futures::stream::iter(tasks).buffer_unordered(self.threads);
         let res = stream.collect::<Vec<_>>().await;
         callback(Event::AllDone).await;
 
