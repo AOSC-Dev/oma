@@ -306,8 +306,8 @@ impl From<RefreshError> for OutputError {
     fn from(value: RefreshError) -> Self {
         debug!("{:?}", value);
         match value {
-            RefreshError::InvalidUrl(_) => Self {
-                description: fl!("invalid-url"),
+            RefreshError::InvalidUrl(url) => Self {
+                description: fl!("invalid-url", url = url),
                 source: None,
             },
             RefreshError::ScanSourceError(e) => Self {
@@ -509,8 +509,8 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             description: fl!("failed-to-read", p = p),
             source: None,
         },
-        OmaTopicsError::ParseUrl(e) => OutputError {
-            description: fl!("invalid-url"),
+        OmaTopicsError::ParseUrl(e, url) => OutputError {
+            description: fl!("invalid-url", url = url),
             source: Some(Box::new(e)),
         },
         OmaTopicsError::UnsupportedProtocol(s) => OutputError {

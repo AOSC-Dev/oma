@@ -35,7 +35,7 @@ pub enum OmaTopicsError {
     #[error("file is broken")]
     BrokenFile(String),
     #[error("Failed to Parse Url: {0}")]
-    ParseUrl(url::ParseError),
+    ParseUrl(url::ParseError, String),
     #[error("Unsupported url protocol from url: {0}")]
     UnsupportedProtocol(String),
     #[error("Failed to open file {0}: {1}")]
@@ -393,7 +393,7 @@ async fn refresh_innter<'a>(
 ) -> Result<(&'a str, Vec<Topic>)> {
     let topics_metadata_url = Url::parse(url)
         .and_then(|url| url.join("debs/manifest/topics.json"))
-        .map_err(OmaTopicsError::ParseUrl)?;
+        .map_err(|e| OmaTopicsError::ParseUrl(e, url.to_string()))?;
 
     let json: Vec<Topic> = get(client, topics_metadata_url).await?;
     let json = json
