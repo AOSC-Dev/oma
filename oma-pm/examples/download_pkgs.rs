@@ -44,7 +44,6 @@ fn main() -> Result<(), OmaAptError> {
             download_dir: Some(Path::new("test")),
             auth: Some(&AuthConfig::system("/").unwrap()),
         },
-        false,
         |event| async {
             if let Err(e) = tx.send_async(event).await {
                 eprintln!("{:#?}", e);

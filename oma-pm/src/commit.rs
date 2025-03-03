@@ -90,7 +90,7 @@ impl<'a> DoInstall<'a> {
                 auth: self.config.auth_config,
             };
 
-            download_pkgs(self.client, download_pkg_list, config, callback).await
+            download_pkgs(self.client, download_pkg_list, config, false, callback).await
         })
     }
 
