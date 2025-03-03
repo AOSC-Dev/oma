@@ -291,7 +291,7 @@ _oma() {
 
     case "${cmd}" in
         oma)
-            opts="-v -h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --apt-options --help install add autoremove upgrade full-upgrade download remove del rm refresh show info search files provides fix-broken pick mark list depends dep rdepends rdep clean history log undo tui topics topic mirror mirrors purge command-not-found pkgnames generate help"
+            opts="-v -h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --version --sysroot --apt-options --no-bell --help install add upgrade full-upgrade download remove del rm autoremove refresh show info search files provides fix-broken pick mark list depends dep rdepends rdep clean history log undo tui version topics topic mirror mirrors purge command-not-found pkgnames generate help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -343,7 +343,7 @@ _oma() {
             return 0
             ;;
         oma__command__not__found)
-            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <KEYWORD>"
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -369,7 +369,7 @@ _oma() {
             return 0
             ;;
         oma__depends)
-            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -396,7 +396,7 @@ _oma() {
             return 0
             ;;
         oma__depends)
-            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -423,7 +423,7 @@ _oma() {
             return 0
             ;;
         oma__download)
-            opts="-p -h --path --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-p -h --path --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -458,7 +458,7 @@ _oma() {
             return 0
             ;;
         oma__files)
-            opts="-h --bin --println --no-pager --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <PACKAGE>"
+            opts="-h --bin --println --no-pager --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -485,7 +485,7 @@ _oma() {
             return 0
             ;;
         oma__fix__broken)
-            opts="--no-fix-dpkg-status -h --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="--no-fix-dpkg-status -h --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -511,7 +511,7 @@ _oma() {
             return 0
             ;;
         oma__generate)
-            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help shell man help"
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help shell man help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -593,7 +593,7 @@ _oma() {
             return 0
             ;;
         oma__generate__man)
-            opts="-p -h --path --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-p -h --path --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -627,7 +627,7 @@ _oma() {
             return 0
             ;;
         oma__generate__shell)
-            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help bash elvish fish powershell zsh"
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help bash elvish fish powershell zsh --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1129,7 +1129,7 @@ _oma() {
             return 0
             ;;
         oma__history)
-            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1155,7 +1155,7 @@ _oma() {
             return 0
             ;;
         oma__history)
-            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1181,7 +1181,7 @@ _oma() {
             return 0
             ;;
         oma__install)
-            opts="-y -f -h --install-recommends --reinstall --install-suggests --no-install-recommends --no-install-suggests --no-fix-dpkg-status --yes --install-dbg --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            opts="-y -f -h --install-recommends --reinstall --install-suggests --no-install-recommends --no-install-suggests --no-fix-dpkg-status --yes --install-dbg --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1208,7 +1208,7 @@ _oma() {
             return 0
             ;;
         oma__install)
-            opts="-y -f -h --install-recommends --reinstall --install-suggests --no-install-recommends --no-install-suggests --yes --install-dbg --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            opts="-y -f -h --install-recommends --reinstall --install-suggests --no-install-recommends --no-install-suggests --yes --install-dbg --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1235,7 +1235,7 @@ _oma() {
             return 0
             ;;
         oma__list)
-            opts="-i -u -m -h --all --installed --upgradable --manually-installed --automatic --autoremovable --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            opts="-i -u -m -h --all --installed --upgradable --manually-installed --automatic --autoremovable --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1262,7 +1262,7 @@ _oma() {
             return 0
             ;;
         oma__mark)
-            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help hold unhold manual auto"
+            opts="-h --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help hold unhold manual auto --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1288,7 +1288,7 @@ _oma() {
             return 0
             ;;
         oma__mirror)
-            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help set add remove sort-mirrors speedtest help"
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help set add remove sort-mirrors speedtest help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1314,7 +1314,7 @@ _oma() {
             return 0
             ;;
         oma__mirror)
-            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help set add remove sort-mirrors speedtest help"
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help set add remove sort-mirrors speedtest help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1340,7 +1340,7 @@ _oma() {
             return 0
             ;;
         oma__mirror__add)
-            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <NAMES>..."
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1464,7 +1464,7 @@ _oma() {
             return 0
             ;;
         oma__mirror__remove)
-            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <NAMES>..."
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1490,7 +1490,7 @@ _oma() {
             return 0
             ;;
         oma__mirror__set)
-            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <NAMES>..."
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1516,7 +1516,7 @@ _oma() {
             return 0
             ;;
         oma__mirror__sort__mirrors)
-            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1542,7 +1542,7 @@ _oma() {
             return 0
             ;;
         oma__mirror__speedtest)
-            opts="-h --set-fastest --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --set-fastest --no-refresh-topics --no-refresh --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1568,7 +1568,7 @@ _oma() {
             return 0
             ;;
         oma__pick)
-            opts="-f -h --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --no-fix-dpkg-status --help"
+            opts="-f -h --fix-broken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --no-fix-dpkg-status --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1595,7 +1595,7 @@ _oma() {
             return 0
             ;;
         oma__pkgnames)
-            opts="-h --installed --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help [KEYWORD]"
+            opts="-h --installed --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1621,7 +1621,7 @@ _oma() {
             return 0
             ;;
         oma__provides)
-            opts="-h --bin --println --no-pager --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <PATTERN>"
+            opts="-h --bin --println --no-pager --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1647,7 +1647,7 @@ _oma() {
             return 0
             ;;
         oma__purge)
-            opts="-y -f -h --yes --fix-broken --no-fix-dpkg-status --force-unsafe-io --force-yes --force-confnew --no-autoremove --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            opts="-y -f -h --yes --fix-broken --no-fix-dpkg-status --force-unsafe-io --force-yes --force-confnew --no-autoremove --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1674,7 +1674,7 @@ _oma() {
             return 0
             ;;
         oma__rdepends)
-            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1701,7 +1701,7 @@ _oma() {
             return 0
             ;;
         oma__rdepends)
-            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1728,7 +1728,7 @@ _oma() {
             return 0
             ;;
         oma__refresh)
-            opts="-h --no-refresh-topics --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --no-refresh-topics --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1754,7 +1754,7 @@ _oma() {
             return 0
             ;;
         oma__remove)
-            opts="-y -f -h --yes --fix-broken --no-fix-dpkg-status --force-unsafe-io --force-yes --force-confnew --no-autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            opts="-y -f -h --yes --fix-broken --no-fix-dpkg-status --force-unsafe-io --force-yes --force-confnew --no-autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1781,7 +1781,7 @@ _oma() {
             return 0
             ;;
         oma__search)
-            opts="-h --no-pager --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help <PATTERN>"
+            opts="-h --no-pager --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1808,7 +1808,7 @@ _oma() {
             return 0
             ;;
         oma__show)
-            opts="-a -h --all --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-a -h --all --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1835,7 +1835,7 @@ _oma() {
             return 0
             ;;
         oma__show)
-            opts="-a -h --all --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-a -h --all --json --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1862,7 +1862,7 @@ _oma() {
             return 0
             ;;
         oma__topics)
-            opts="-h --opt-in --no-fix-dpkg-status --opt-out --no-fixbroken --force-unsafe-io --force-yes --force-confnew --autoremove --always-write-status --all --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --opt-in --no-fix-dpkg-status --opt-out --no-fixbroken --force-unsafe-io --force-yes --force-confnew --autoremove --always-write-status --all --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1896,7 +1896,7 @@ _oma() {
             return 0
             ;;
         oma__topics)
-            opts="-h --opt-in --opt-out --no-fixbroken --force-unsafe-io --force-yes --force-confnew --autoremove --all --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --opt-in --opt-out --no-fixbroken --force-unsafe-io --force-yes --force-confnew --autoremove --all --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1930,7 +1930,7 @@ _oma() {
             return 0
             ;;
         oma__tui)
-            opts="-f -h --fix-broken --no-fix-dpkg-status --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-f -h --fix-broken --no-fix-dpkg-status --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1956,7 +1956,7 @@ _oma() {
             return 0
             ;;
         oma__undo)
-            opts="-h --no-fixbroken --no-fix-dpkg-status --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help"
+            opts="-h --no-fixbroken --no-fix-dpkg-status --force-unsafe-io --force-yes --force-confnew --autoremove --purge --remove-config --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1982,7 +1982,7 @@ _oma() {
             return 0
             ;;
         oma__upgrade)
-            opts="-y -h --no-fixbroken --no-fix-dpkg-status --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --yes --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            opts="-y -h --no-fixbroken --no-fix-dpkg-status --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --yes --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -2009,7 +2009,7 @@ _oma() {
             return 0
             ;;
         oma__upgrade)
-            opts="-y -h --no-fixbroken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --yes --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help "
+            opts="-y -h --no-fixbroken --force-unsafe-io --no-refresh --force-yes --force-confnew --no-refresh-topics --autoremove --purge --remove-config --yes --dry-run --debug --color --follow-terminal-color --no-progress --no-check-dbus --sysroot --apt-options --help --no-bell"
             if [[ ${cur} == -* ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
