@@ -423,7 +423,6 @@ impl OmaApt {
         client: &Client,
         pkgs: Vec<OmaPackage>,
         config: DownloadConfig<'_>,
-        dry_run: bool,
         callback: F,
     ) -> OmaAptResult<Summary>
     where
@@ -471,16 +470,20 @@ impl OmaApt {
             download_list.push(entry);
         }
 
-        if dry_run {
+        if self.dry_run {
             return Ok(Summary {
                 success: vec![],
                 failed: vec![],
             });
         }
 
-        let res = self
-            .tokio
-            .block_on(download_pkgs(client, &download_list, config, callback))?;
+        let res = self.tokio.block_on(download_pkgs(
+            client,
+            &download_list,
+            config,
+            true,
+            callback,
+        ))?;
 
         Ok(res)
     }

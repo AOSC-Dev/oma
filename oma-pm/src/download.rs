@@ -15,6 +15,7 @@ pub async fn download_pkgs<F, Fut>(
     client: &Client,
     download_pkg_list: &[InstallEntry],
     config: DownloadConfig<'_>,
+    download_only: bool,
     callback: F,
 ) -> OmaAptResult<Summary>
 where
@@ -48,7 +49,7 @@ where
             .iter()
             .map(|x| {
                 let source_type = if x.index_url.starts_with("file:") {
-                    DownloadSourceType::Local(false)
+                    DownloadSourceType::Local(!download_only)
                 } else {
                     let auth = auth.and_then(|auth| auth.find(&x.index_url));
 

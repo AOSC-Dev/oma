@@ -75,7 +75,6 @@ impl CliExecuter for Download {
                 download_dir: Some(&path),
                 auth: auth_config("/").as_ref(),
             },
-            dry_run,
             |event| async {
                 if let Err(e) = tx.send_async(event).await {
                     error!("{}", e);

@@ -1,4 +1,4 @@
-use crate::{CompressFile, DownloadSource, Event};
+use crate::{CompressFile, DownloadSource, Event, checksum::ChecksumValidator};
 use std::{
     fs::Permissions,
     future::Future,
@@ -228,9 +228,13 @@ impl SingleDownloader<'_> {
         let mut dest = None;
         let mut validator = None;
 
+        if file.is_symlink() {
+            tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
+        }
+
         // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
         // 如果不存在，则继续往下走
-        if file_exist {
+        if file_exist && !file.is_symlink() {
             debug!("File: {} exists", self.entry.filename);
 
             self.set_permission_with_path(&file).await?;
@@ -254,27 +258,9 @@ impl SingleDownloader<'_> {
 
                 debug!("Validator created.");
 
-                let mut buf = vec![0; 8192];
-                let mut read = 0;
+                let (read, finish) = checksum(callback, file_size, &mut f, &mut v).await;
 
-                loop {
-                    if read == file_size {
-                        break;
-                    }
-
-                    let Ok(read_count) = f.read(&mut buf[..]).await else {
-                        debug!("Read file get get fk, so re-download it");
-                        break;
-                    };
-
-                    v.update(&buf[..read_count]);
-
-                    callback(Event::GlobalProgressAdd(read_count as u64)).await;
-
-                    read += read_count as u64;
-                }
-
-                if v.finish() {
+                if finish {
                     debug!(
                         "{} checksum success, no need to download anything.",
                         self.entry.filename
@@ -633,6 +619,11 @@ impl SingleDownloader<'_> {
         .await;
 
         if as_symlink {
+            if let Some(hash) = &self.entry.hash {
+                self.checksum_local(callback, url_path, total_size, hash)
+                    .await?;
+            }
+
             let symlink = self.entry.dir.join(&*self.entry.filename);
             if symlink.exists() {
                 tokio::fs::remove_file(&symlink)
@@ -702,4 +693,61 @@ impl SingleDownloader<'_> {
 
         Ok(true)
     }
+
+    async fn checksum_local<F, Fut>(
+        &self,
+        callback: &F,
+        url_path: &Path,
+        total_size: u64,
+        hash: &crate::checksum::Checksum,
+    ) -> Result<(), SingleDownloadError>
+    where
+        F: Fn(Event) -> Fut,
+        Fut: Future<Output = ()>,
+    {
+        let mut f = fs::File::open(url_path).await.context(OpenSnafu)?;
+        let (size, finish) =
+            checksum(callback, total_size, &mut f, &mut hash.get_validator()).await;
+
+        if !finish {
+            callback(Event::GlobalProgressSub(size)).await;
+            callback(Event::ProgressDone(self.download_list_index)).await;
+            return Err(SingleDownloadError::ChecksumMismatch);
+        }
+
+        Ok(())
+    }
+}
+
+async fn checksum<F, Fut>(
+    callback: &F,
+    file_size: u64,
+    f: &mut File,
+    v: &mut ChecksumValidator,
+) -> (u64, bool)
+where
+    F: Fn(Event) -> Fut,
+    Fut: Future<Output = ()>,
+{
+    let mut buf = vec![0; 8192];
+    let mut read = 0;
+
+    loop {
+        if read == file_size {
+            break;
+        }
+
+        let Ok(read_count) = f.read(&mut buf[..]).await else {
+            debug!("Read file get fk, so re-download it");
+            break;
+        };
+
+        v.update(&buf[..read_count]);
+
+        callback(Event::GlobalProgressAdd(read_count as u64)).await;
+
+        read += read_count as u64;
+    }
+
+    (read, v.finish())
 }
