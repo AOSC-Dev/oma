@@ -635,7 +635,6 @@ impl SingleDownloader<'_> {
                 .await
                 .context(CreateSymlinkSnafu)?;
 
-            callback(Event::GlobalProgressAdd(total_size as u64)).await;
             callback(Event::ProgressDone(self.download_list_index)).await;
 
             return Ok(true);
@@ -669,10 +668,14 @@ impl SingleDownloader<'_> {
             self.entry.dir.join(&*self.entry.filename).display()
         );
 
+        let mut v = self.entry.hash.as_ref().map(|v| v.get_validator());
+
         let mut buf = vec![0u8; 8 * 1024];
+        let mut self_progress = 0;
 
         loop {
             let size = reader.read(&mut buf[..]).await.context(BrokenPipeSnafu)?;
+            self_progress += size;
 
             if size == 0 {
                 break;
@@ -686,7 +689,17 @@ impl SingleDownloader<'_> {
             })
             .await;
 
+            if let Some(ref mut v) = v {
+                v.update(&buf[..size]);
+            }
+
             callback(Event::GlobalProgressAdd(size as u64)).await;
+        }
+
+        if v.is_some_and(|v| !v.finish()) {
+            callback(Event::GlobalProgressSub(self_progress as u64)).await;
+            callback(Event::ProgressDone(self.download_list_index)).await;
+            return Err(SingleDownloadError::ChecksumMismatch);
         }
 
         callback(Event::ProgressDone(self.download_list_index)).await;
