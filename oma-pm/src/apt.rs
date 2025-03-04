@@ -442,12 +442,11 @@ impl OmaApt {
             let md5 = ver.get_record(RecordField::MD5sum);
             let sha512 = ver.sha512();
 
-            if ver.uris().all(|x| !x.starts_with("file"))
-                && sha256
-                    .as_ref()
-                    .or(md5.as_ref())
-                    .or(sha512.as_ref())
-                    .is_none()
+            if sha256
+                .as_ref()
+                .or(md5.as_ref())
+                .or(sha512.as_ref())
+                .is_none()
             {
                 return Err(OmaAptError::PkgNoChecksum(name));
             }
@@ -856,28 +855,10 @@ impl OmaApt {
 
                 let uri = get_package_url(&cand);
 
-                let not_local_source = uri.iter().all(|x| !x.index_url.starts_with("file:"));
                 let version = cand.version();
                 let size = cand.installed_size();
 
-                let mut sha256 = None;
-                let mut md5 = None;
-                let mut sha512 = None;
-
-                if not_local_source {
-                    sha256 = cand.get_record(RecordField::SHA256);
-                    md5 = cand.get_record(RecordField::MD5sum);
-                    sha512 = cand.sha512();
-
-                    if sha256
-                        .as_ref()
-                        .or(md5.as_ref())
-                        .or(sha512.as_ref())
-                        .is_none()
-                    {
-                        return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
-                    }
-                }
+                let (sha256, md5, sha512) = get_package_checksums(&pkg, &cand)?;
 
                 collect_recommends_and_suggests(&self.cache, &mut suggest, &mut recommend, &cand);
 
@@ -975,27 +956,8 @@ impl OmaApt {
                 // 如果一个包被标记为重装，则肯定已经安装
                 // 所以请求已安装版本应该直接 unwrap
                 let version = pkg.installed().unwrap();
-                let uri = version.uris().collect::<Vec<_>>();
-                let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
 
-                let mut sha256 = None;
-                let mut md5 = None;
-                let mut sha512 = None;
-
-                if not_local_source {
-                    sha256 = version.get_record(RecordField::SHA256);
-                    md5 = version.get_record(RecordField::MD5sum);
-                    sha512 = version.sha512();
-
-                    if sha256
-                        .as_ref()
-                        .or(md5.as_ref())
-                        .or(sha512.as_ref())
-                        .is_none()
-                    {
-                        return Err(OmaAptError::PkgNoChecksum(pkg.to_string()));
-                    }
-                }
+                let (sha256, md5, sha512) = get_package_checksums(&pkg, &version)?;
 
                 collect_recommends_and_suggests(
                     &self.cache,
@@ -1291,33 +1253,13 @@ fn pkg_delta(
         .candidate()
         .ok_or_else(|| OmaAptError::PkgNoCandidate(new_pkg.fullname(true)))?;
 
-    let uri = cand.uris().collect::<Vec<_>>();
-    let not_local_source = uri.iter().all(|x| !x.starts_with("file:"));
-
     let new_version = cand.version();
     // 如果一个包有版本修改，则肯定之前已经安装
     // 所以请求已安装版本应该直接 unwrap
     let installed = new_pkg.installed().unwrap();
     let old_version = installed.version();
 
-    let mut sha256 = None;
-    let mut md5 = None;
-    let mut sha512 = None;
-
-    if not_local_source {
-        sha256 = cand.get_record(RecordField::SHA256);
-        md5 = cand.get_record(RecordField::MD5sum);
-        sha512 = cand.sha512();
-
-        if sha256
-            .as_ref()
-            .or(md5.as_ref())
-            .or(sha512.as_ref())
-            .is_none()
-        {
-            return Err(OmaAptError::PkgNoChecksum(new_pkg.to_string()));
-        }
-    }
+    let (sha256, md5, sha512) = get_package_checksums(new_pkg, &cand)?;
 
     collect_recommends_and_suggests(cache, suggest, recommend, &cand);
 
@@ -1339,6 +1281,27 @@ fn pkg_delta(
         .build();
 
     Ok(install_entry)
+}
+
+type PkgChecksums = (Option<String>, Option<String>, Option<String>);
+
+fn get_package_checksums(
+    new_pkg: &Package<'_>,
+    cand: &Version<'_>,
+) -> Result<PkgChecksums, OmaAptError> {
+    let sha256 = cand.get_record(RecordField::SHA256);
+    let md5 = cand.get_record(RecordField::MD5sum);
+    let sha512 = cand.sha512();
+    if sha256
+        .as_ref()
+        .or(md5.as_ref())
+        .or(sha512.as_ref())
+        .is_none()
+    {
+        return Err(OmaAptError::PkgNoChecksum(new_pkg.to_string()));
+    }
+
+    Ok((sha256, md5, sha512))
 }
 
 /// Mark package as install.

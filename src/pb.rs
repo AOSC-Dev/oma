@@ -298,25 +298,29 @@ impl OmaMultiProgressBar {
                     self.info(&fl!("lack-auth-config-2"));
                 }
             }
-
-            let err = OutputError::from(error);
-            let errs = Chain::new(&err).collect::<Vec<_>>();
-            let first_cause = errs.first().unwrap().to_string();
-            let last = errs.iter().skip(1).last();
-
-            if let Some(last_cause) = last {
-                let reason = format!("{}: {}", first_cause, last_cause);
-                self.error(&fl!(
-                    "download-package-failed-with-reason",
-                    filename = file_name,
-                    reason = reason
-                ));
-            } else {
-                self.error(&fl!("download-failed", filename = file_name));
-            }
-
-            debug!("{:#?}", errs);
         }
+
+        let err = OutputError::from(error);
+        let errs = Chain::new(&err).collect::<Vec<_>>();
+        let first_cause = errs.first().unwrap().to_string();
+        let last = errs.iter().skip(1).last();
+
+        if let Some(last_cause) = last {
+            let reason = format!("{}: {}", first_cause, last_cause);
+            self.error(&fl!(
+                "download-package-failed-with-reason",
+                filename = file_name,
+                reason = reason
+            ));
+        } else {
+            self.error(&fl!(
+                "download-package-failed-with-reason",
+                filename = file_name,
+                reason = first_cause
+            ));
+        }
+
+        debug!("{:#?}", errs);
     }
 }
 
@@ -470,6 +474,13 @@ fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
             )
         );
     } else {
-        error!("{}", fl!("download-failed", filename = file_name));
+        error!(
+            "{}",
+            fl!(
+                "download-package-failed-with-reason",
+                filename = file_name,
+                reason = first_cause
+            )
+        );
     }
 }
