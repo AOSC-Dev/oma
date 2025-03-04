@@ -3092,7 +3092,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "async-compression",
  "bon",
@@ -3100,7 +3100,7 @@ dependencies = [
  "flume",
  "futures",
  "md-5",
- "oma-utils 0.10.5",
+ "oma-utils 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
  "sha2",
@@ -3155,7 +3155,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.48.0"
+version = "0.48.1"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3254,19 +3254,6 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cc949eb58cea030ee5a1565d0313476892e25025850e5c6946e69311151c5a1"
-dependencies = [
- "logind-zbus",
- "os-release",
- "thiserror 2.0.12",
- "tracing",
- "url-escape",
-]
-
-[[package]]
-name = "oma-utils"
 version = "0.11.0"
 dependencies = [
  "logind-zbus",
@@ -3277,6 +3264,19 @@ dependencies = [
  "tracing",
  "url-escape",
  "zbus",
+]
+
+[[package]]
+name = "oma-utils"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4844861a788a83a5d703952b795cacc9eccf71aa0bb08c982de9b91fe2b1efe"
+dependencies = [
+ "logind-zbus",
+ "os-release",
+ "thiserror 2.0.12",
+ "tracing",
+ "url-escape",
 ]
 
 [[package]]
