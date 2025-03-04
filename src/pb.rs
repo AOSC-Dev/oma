@@ -21,7 +21,7 @@ use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
 use tracing::{debug, error, info, warn};
 
-pub trait RenderDownloadProgress {
+pub trait RenderPackagesDownloadProgress {
     fn render_progress(&mut self, rx: &flume::Receiver<Event>);
 }
 
@@ -148,7 +148,7 @@ impl RenderRefreshProgress for OmaMultiProgressBar {
         while let Ok(event) = rx.recv() {
             match event {
                 RefreshEvent::DownloadEvent(event) => {
-                    self.download_event(event);
+                    self.download_event(event, true);
                 }
                 RefreshEvent::ScanningTopic => {
                     let (sty, inv) = spinner_style();
@@ -195,10 +195,10 @@ impl RenderRefreshProgress for OmaMultiProgressBar {
     }
 }
 
-impl RenderDownloadProgress for OmaMultiProgressBar {
+impl RenderPackagesDownloadProgress for OmaMultiProgressBar {
     fn render_progress(&mut self, rx: &flume::Receiver<Event>) {
         while let Ok(event) = rx.recv() {
-            if self.download_event(event) {
+            if self.download_event(event, false) {
                 break;
             }
         }
@@ -206,7 +206,7 @@ impl RenderDownloadProgress for OmaMultiProgressBar {
 }
 
 impl OmaMultiProgressBar {
-    fn download_event(&mut self, event: Event) -> bool {
+    fn download_event(&mut self, event: Event, is_refresh: bool) -> bool {
         match event {
             Event::ChecksumMismatch {
                 index: _,
@@ -258,7 +258,7 @@ impl OmaMultiProgressBar {
                 file_name,
                 err,
             } => {
-                self.handle_download_err(file_name, err);
+                self.handle_download_err(file_name, is_refresh, err);
                 self.info(&fl!("can-not-get-source-next-url"));
             }
             Event::DownloadDone { index: _, msg } => {
@@ -278,14 +278,19 @@ impl OmaMultiProgressBar {
                 self.pb_map.insert(0, pb);
             }
             Event::Failed { file_name, error } => {
-                self.handle_download_err(file_name, error);
+                self.handle_download_err(file_name, is_refresh, error);
             }
         };
 
         false
     }
 
-    fn handle_download_err(&mut self, file_name: String, error: SingleDownloadError) {
+    fn handle_download_err(
+        &mut self,
+        file_name: String,
+        is_refresh: bool,
+        error: SingleDownloadError,
+    ) {
         if let SingleDownloadError::ReqwestError { ref source } = error {
             if source
                 .status()
@@ -307,10 +312,24 @@ impl OmaMultiProgressBar {
 
         if let Some(last_cause) = last {
             let reason = format!("{}: {}", first_cause, last_cause);
+            if is_refresh {
+                self.error(&fl!(
+                    "download-file-failed-with-reason",
+                    filename = file_name,
+                    reason = reason
+                ));
+            } else {
+                self.error(&fl!(
+                    "download-package-failed-with-reason",
+                    filename = file_name,
+                    reason = reason
+                ));
+            }
+        } else if is_refresh {
             self.error(&fl!(
-                "download-package-failed-with-reason",
+                "download-file-failed-with-reason",
                 filename = file_name,
-                reason = reason
+                reason = first_cause
             ));
         } else {
             self.error(&fl!(
@@ -342,7 +361,7 @@ pub struct NoProgressBar {
     progress: u64,
 }
 
-impl RenderDownloadProgress for NoProgressBar {
+impl RenderPackagesDownloadProgress for NoProgressBar {
     fn render_progress(&mut self, rx: &flume::Receiver<Event>) {
         while let Ok(event) = rx.recv() {
             if self.download_event(event) {

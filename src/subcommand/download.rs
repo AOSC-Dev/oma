@@ -8,7 +8,7 @@ use oma_pm::matches::PackagesMatcher;
 use tracing::error;
 
 use crate::config::Config;
-use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderDownloadProgress};
+use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress};
 use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 
@@ -59,7 +59,7 @@ impl CliExecuter for Download {
         let (tx, rx) = unbounded();
 
         thread::spawn(move || {
-            let mut pb: Box<dyn RenderDownloadProgress> = if no_progress {
+            let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
                 Box::new(NoProgressBar::default())
             } else {
                 Box::new(OmaMultiProgressBar::default())

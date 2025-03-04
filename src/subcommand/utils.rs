@@ -28,7 +28,7 @@ use crate::msg;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
 use crate::pb::OmaProgressBar;
-use crate::pb::RenderDownloadProgress;
+use crate::pb::RenderPackagesDownloadProgress;
 use crate::pb::RenderRefreshProgress;
 use crate::success;
 use crate::table::table_for_install_pending;
@@ -430,7 +430,7 @@ impl CommitChanges<'_> {
         let (tx, rx) = unbounded();
 
         thread::spawn(move || {
-            let mut pb: Box<dyn RenderDownloadProgress> = if no_progress {
+            let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
                 Box::new(NoProgressBar::default())
             } else {
                 Box::new(OmaMultiProgressBar::default())
