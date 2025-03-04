@@ -79,7 +79,7 @@ pub struct CliMirror {
     /// Do not refresh repository metadata
     #[arg(long)]
     no_refresh: bool,
-    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]
     dry_run: bool,
 }

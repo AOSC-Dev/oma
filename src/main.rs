@@ -76,11 +76,11 @@ static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {
-    /// Run oma in “dry-run” mode
+    /// Run oma in "dry-run" mode
     #[arg(
         long,
         global = true,
-        long_help = "Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system",
+        long_help = "Run oma in \"dry-run\" mode. Useful for testing changes and operations without making changes to the system",
         env = "OMA_DRY_RUN",
         value_parser = FalseyValueParser::new()
     )]

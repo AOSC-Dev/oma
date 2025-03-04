@@ -32,7 +32,7 @@ pub struct FixBroken {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge")]
     remove_config: bool,
-    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]
     dry_run: bool,
     /// Run oma do not check dbus

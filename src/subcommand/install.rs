@@ -49,7 +49,7 @@ pub struct Install {
     /// Install debug symbol package
     #[arg(long)]
     install_dbg: bool,
-    /// Run oma in “dry-run” mode. Useful for testing changes and operations without making changes to the system
+    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]
     dry_run: bool,
     /// Run oma do not check dbus
@@ -61,7 +61,7 @@ pub struct Install {
     /// Set apt options
     #[arg(from_global)]
     apt_options: Vec<String>,
-    /// Fix apt resolver broken status
+    /// Resolve broken dependencies in the system
     #[arg(short, long)]
     fix_broken: bool,
     /// Do not fix dpkg broken status
