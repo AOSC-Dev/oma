@@ -1289,14 +1289,17 @@ fn get_package_checksums(
     new_pkg: &Package<'_>,
     cand: &Version<'_>,
 ) -> Result<PkgChecksums, OmaAptError> {
+    let not_local_source = cand.uris().all(|x| !x.starts_with("file:"));
+
     let sha256 = cand.get_record(RecordField::SHA256);
     let md5 = cand.get_record(RecordField::MD5sum);
     let sha512 = cand.sha512();
-    if sha256
-        .as_ref()
-        .or(md5.as_ref())
-        .or(sha512.as_ref())
-        .is_none()
+    if not_local_source
+        && sha256
+            .as_ref()
+            .or(md5.as_ref())
+            .or(sha512.as_ref())
+            .is_none()
     {
         return Err(OmaAptError::PkgNoChecksum(new_pkg.to_string()));
     }
