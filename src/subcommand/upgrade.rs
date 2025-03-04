@@ -5,7 +5,7 @@ use std::sync::atomic::Ordering;
 use std::thread;
 
 use crate::NOT_ALLOW_CTRLC;
-use crate::pb::RenderDownloadProgress;
+use crate::pb::RenderPackagesDownloadProgress;
 use crate::subcommand::utils::create_progress_spinner;
 use crate::subcommand::utils::display_suggest_tips;
 use crate::subcommand::utils::history_success_tips;
@@ -326,7 +326,7 @@ impl CliExecuter for Upgrade {
             let (tx, rx) = unbounded();
 
             let progress_worker = thread::spawn(move || {
-                let mut pb: Box<dyn RenderDownloadProgress> = if no_progress {
+                let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
                     Box::new(NoProgressBar::default())
                 } else {
                     Box::new(OmaMultiProgressBar::default())
