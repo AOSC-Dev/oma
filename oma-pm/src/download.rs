@@ -61,7 +61,7 @@ where
                         DownloadSourceType::Http {
                             auth: auth.map(|x| (x.login.to_owned(), x.password.to_owned())),
                         },
-                        x.index_url.to_string(),
+                        x.download_url.to_string(),
                     )
                 };
 
