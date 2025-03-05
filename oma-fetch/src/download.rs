@@ -610,13 +610,6 @@ impl SingleDownloader<'_> {
             .context(OpenSnafu)?
             .len();
 
-        callback(Event::NewProgressBar {
-            index: self.download_list_index,
-            msg,
-            size: total_size,
-        })
-        .await;
-
         let file = self.entry.dir.join(&*self.entry.filename);
         if file.is_symlink() || (as_symlink && file.is_file()) {
             tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
@@ -632,10 +625,15 @@ impl SingleDownloader<'_> {
                 .await
                 .context(CreateSymlinkSnafu)?;
 
-            callback(Event::ProgressDone(self.download_list_index)).await;
-
             return Ok(true);
         }
+
+        callback(Event::NewProgressBar {
+            index: self.download_list_index,
+            msg,
+            size: total_size,
+        })
+        .await;
 
         debug!("File path is: {}", url_path.display());
 
