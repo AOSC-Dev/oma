@@ -614,11 +614,9 @@ impl SingleDownloader<'_> {
         })
         .await;
 
-        let maybe_symlink = self.entry.dir.join(&*self.entry.filename);
-        if maybe_symlink.is_symlink() {
-            tokio::fs::remove_file(&maybe_symlink)
-                .await
-                .context(RemoveSnafu)?;
+        let file = self.entry.dir.join(&*self.entry.filename);
+        if file.is_symlink() || (as_symlink && file.is_file()) {
+            tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
         }
 
         if as_symlink {
@@ -627,7 +625,7 @@ impl SingleDownloader<'_> {
                     .await?;
             }
 
-            tokio::fs::symlink(url_path, maybe_symlink)
+            tokio::fs::symlink(url_path, file)
                 .await
                 .context(CreateSymlinkSnafu)?;
 
