@@ -18,7 +18,7 @@ use reqwest::{
 use snafu::{ResultExt, Snafu};
 use tokio::{
     fs::{self, File},
-    io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
+    io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
     time::timeout,
 };
 
@@ -26,6 +26,9 @@ use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use tracing::debug;
 
 use crate::{DownloadEntry, DownloadSourceType};
+
+const READ_FILE_BUFSIZE: usize = 65536;
+const DOWNLOAD_BUFSIZE: usize = 8192;
 
 #[derive(Snafu, Debug)]
 #[snafu(display("source list is empty"))]
@@ -257,7 +260,7 @@ impl SingleDownloader<'_> {
 
                 debug!("Validator created.");
 
-                let (read, finish) = checksum(callback, file_size, &mut f, &mut v).await;
+                let (read, finish) = checksum(callback, &mut f, &mut v).await;
 
                 if finish {
                     debug!(
@@ -472,7 +475,7 @@ impl SingleDownloader<'_> {
 
         let mut reader = reader.compat();
 
-        let mut buf = vec![0u8; 8 * 1024];
+        let mut buf = vec![0u8; DOWNLOAD_BUFSIZE];
 
         loop {
             let size = match timeout(self.timeout, reader.read(&mut buf[..])).await {
@@ -607,13 +610,6 @@ impl SingleDownloader<'_> {
             .context(OpenSnafu)?
             .len();
 
-        callback(Event::NewProgressBar {
-            index: self.download_list_index,
-            msg,
-            size: total_size,
-        })
-        .await;
-
         let file = self.entry.dir.join(&*self.entry.filename);
         if file.is_symlink() || (as_symlink && file.is_file()) {
             tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
@@ -621,18 +617,22 @@ impl SingleDownloader<'_> {
 
         if as_symlink {
             if let Some(hash) = &self.entry.hash {
-                self.checksum_local(callback, url_path, total_size, hash)
-                    .await?;
+                self.checksum_local(callback, url_path, hash).await?;
             }
 
             tokio::fs::symlink(url_path, file)
                 .await
                 .context(CreateSymlinkSnafu)?;
 
-            callback(Event::ProgressDone(self.download_list_index)).await;
-
             return Ok(true);
         }
+
+        callback(Event::NewProgressBar {
+            index: self.download_list_index,
+            msg,
+            size: total_size,
+        })
+        .await;
 
         debug!("File path is: {}", url_path.display());
 
@@ -664,7 +664,7 @@ impl SingleDownloader<'_> {
 
         let mut v = self.entry.hash.as_ref().map(|v| v.get_validator());
 
-        let mut buf = vec![0u8; 8 * 1024];
+        let mut buf = vec![0u8; READ_FILE_BUFSIZE];
         let mut self_progress = 0;
 
         loop {
@@ -705,7 +705,6 @@ impl SingleDownloader<'_> {
         &self,
         callback: &F,
         url_path: &Path,
-        total_size: u64,
         hash: &crate::checksum::Checksum,
     ) -> Result<(), SingleDownloadError>
     where
@@ -713,8 +712,7 @@ impl SingleDownloader<'_> {
         Fut: Future<Output = ()>,
     {
         let mut f = fs::File::open(url_path).await.context(OpenSnafu)?;
-        let (size, finish) =
-            checksum(callback, total_size, &mut f, &mut hash.get_validator()).await;
+        let (size, finish) = checksum(callback, &mut f, &mut hash.get_validator()).await;
 
         if !finish {
             callback(Event::GlobalProgressSub(size)).await;
@@ -726,34 +724,32 @@ impl SingleDownloader<'_> {
     }
 }
 
-async fn checksum<F, Fut>(
-    callback: &F,
-    file_size: u64,
-    f: &mut File,
-    v: &mut ChecksumValidator,
-) -> (u64, bool)
+async fn checksum<F, Fut>(callback: &F, f: &mut File, v: &mut ChecksumValidator) -> (u64, bool)
 where
     F: Fn(Event) -> Fut,
     Fut: Future<Output = ()>,
 {
-    let mut buf = vec![0; 8192];
+    let mut reader = tokio::io::BufReader::with_capacity(READ_FILE_BUFSIZE, f);
+
     let mut read = 0;
 
     loop {
-        if read == file_size {
-            break;
-        }
-
-        let Ok(read_count) = f.read(&mut buf[..]).await else {
+        let Ok(buffer) = reader.fill_buf().await else {
             debug!("Read file get fk, so re-download it");
             break;
         };
 
-        v.update(&buf[..read_count]);
+        if buffer.is_empty() {
+            break;
+        }
 
-        callback(Event::GlobalProgressAdd(read_count as u64)).await;
+        v.update(buffer);
 
-        read += read_count as u64;
+        callback(Event::GlobalProgressAdd(buffer.len() as u64)).await;
+        read += buffer.len() as u64;
+        let len = buffer.len();
+
+        reader.consume(len);
     }
 
     (read, v.finish())
