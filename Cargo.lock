@@ -188,6 +188,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "argon2"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3610892ee6e0cbce8ae2700349fcf8f98adb0dbfbee85aec3c9179d29cc072"
+dependencies = [
+ "base64ct",
+ "blake2",
+ "cpufeatures",
+ "password-hash",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -494,6 +506,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "base64ct"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
+
+[[package]]
 name = "basic-toml"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -564,6 +582,15 @@ name = "bitstream-io"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6099cdc01846bc367c4e7dd630dc5966dccf36b652fae7a74e17b640411a91b2"
+
+[[package]]
+name = "blake2"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
+dependencies = [
+ "digest",
+]
 
 [[package]]
 name = "block"
@@ -1225,6 +1252,7 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
+ "subtle",
 ]
 
 [[package]]
@@ -3092,7 +3120,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.26.1"
+version = "0.27.0"
 dependencies = [
  "async-compression",
  "bon",
@@ -3154,7 +3182,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.48.2"
+version = "0.48.3"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3193,7 +3221,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.42.0"
+version = "0.42.1"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3212,7 +3240,6 @@ dependencies = [
  "oma-topics",
  "oma-utils",
  "once_cell",
- "sequoia-openpgp",
  "sys-locale",
  "sysinfo",
  "thiserror 2.0.12",
@@ -3223,7 +3250,7 @@ dependencies = [
 
 [[package]]
 name = "oma-repo-verify"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "oma-apt-sources-lists",
@@ -3253,7 +3280,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "logind-zbus",
  "number_prefix",
@@ -3395,6 +3422,17 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "password-hash"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "346f04948ba92c43e8469c1ee6736c7563d71012b17d40745260fe106aac2166"
+dependencies = [
+ "base64ct",
+ "rand_core",
+ "subtle",
 ]
 
 [[package]]
@@ -4201,11 +4239,12 @@ checksum = "c2fdfc24bc566f839a2da4c4295b82db7d25a24253867d5c64355abb5799bdbe"
 
 [[package]]
 name = "sequoia-openpgp"
-version = "1.22.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e858e4e9e48ff079cede92e1b45c942a5466ce9a4e3cc0c2a7e66586a718ef59"
+checksum = "015e5fc3d023418b9db98ca9a7f3e90b305872eeafe5ca45c5c32b5eb335c1e8"
 dependencies = [
  "anyhow",
+ "argon2",
  "base64 0.22.1",
  "buffered-reader",
  "chrono",
@@ -4214,17 +4253,15 @@ dependencies = [
  "idna",
  "lalrpop",
  "lalrpop-util",
- "lazy_static",
  "libc",
  "memsec",
  "nettle",
- "once_cell",
  "openssl",
  "openssl-sys",
  "regex",
  "regex-syntax 0.8.5",
  "sha1collisiondetection",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "xxhash-rust",
 ]
 

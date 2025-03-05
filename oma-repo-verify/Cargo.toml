@@ -1,6 +1,6 @@
 [package]
 name = "oma-repo-verify"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2024"
 description = "Handle APT repository verify library"
 license = "MIT"
@@ -8,7 +8,7 @@ license = "MIT"
 [dependencies]
 anyhow = "1"
 thiserror = "2"
-sequoia-openpgp = { version = "1.20", default-features = false }
+sequoia-openpgp = { version = "2", default-features = false }
 tracing = "0.1"
 oma-apt-sources-lists = "0.9"
 
