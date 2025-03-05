@@ -614,20 +614,20 @@ impl SingleDownloader<'_> {
         })
         .await;
 
+        let maybe_symlink = self.entry.dir.join(&*self.entry.filename);
+        if maybe_symlink.is_symlink() {
+            tokio::fs::remove_file(&maybe_symlink)
+                .await
+                .context(RemoveSnafu)?;
+        }
+
         if as_symlink {
             if let Some(hash) = &self.entry.hash {
                 self.checksum_local(callback, url_path, total_size, hash)
                     .await?;
             }
 
-            let symlink = self.entry.dir.join(&*self.entry.filename);
-            if symlink.exists() {
-                tokio::fs::remove_file(&symlink)
-                    .await
-                    .context(RemoveSnafu)?;
-            }
-
-            tokio::fs::symlink(url_path, symlink)
+            tokio::fs::symlink(url_path, maybe_symlink)
                 .await
                 .context(CreateSymlinkSnafu)?;
 
