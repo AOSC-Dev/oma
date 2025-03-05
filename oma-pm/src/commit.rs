@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs::create_dir_all, os::unix::fs::PermissionsExt, path::Path};
 
 use apt_auth_config::AuthConfig;
 use chrono::Local;
@@ -78,6 +78,11 @@ impl<'a> DoInstall<'a> {
         Fut: std::future::Future<Output = ()>,
     {
         let path = self.apt.get_archive_dir();
+        create_dir_all(path)
+            .map_err(|e| OmaAptError::FailedOperateDirOrFile(path.display().to_string(), e))?;
+
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
+            .map_err(|e| OmaAptError::FailedOperateDirOrFile(path.display().to_string(), e))?;
 
         self.apt.tokio.block_on(async {
             if let Some(conn) = &self.apt.conn {
