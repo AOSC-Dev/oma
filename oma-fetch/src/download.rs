@@ -27,6 +27,9 @@ use tracing::debug;
 
 use crate::{DownloadEntry, DownloadSourceType};
 
+const READ_FILE_BUFSIZE: usize = 65536;
+const DOWNLOAD_BUFSIZE: usize = 8192;
+
 #[derive(Snafu, Debug)]
 #[snafu(display("source list is empty"))]
 pub struct EmptySource {
@@ -472,7 +475,7 @@ impl SingleDownloader<'_> {
 
         let mut reader = reader.compat();
 
-        let mut buf = vec![0u8; 8 * 1024];
+        let mut buf = vec![0u8; DOWNLOAD_BUFSIZE];
 
         loop {
             let size = match timeout(self.timeout, reader.read(&mut buf[..])).await {
@@ -664,7 +667,7 @@ impl SingleDownloader<'_> {
 
         let mut v = self.entry.hash.as_ref().map(|v| v.get_validator());
 
-        let mut buf = vec![0u8; 8 * 1024];
+        let mut buf = vec![0u8; READ_FILE_BUFSIZE];
         let mut self_progress = 0;
 
         loop {
@@ -736,7 +739,7 @@ where
     F: Fn(Event) -> Fut,
     Fut: Future<Output = ()>,
 {
-    let mut buf = vec![0; 8192];
+    let mut buf = vec![0; READ_FILE_BUFSIZE];
     let mut read = 0;
 
     loop {
