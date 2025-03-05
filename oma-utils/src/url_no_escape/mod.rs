@@ -17,3 +17,13 @@ pub fn url_no_escape(s: &str) -> String {
         c += 1;
     }
 }
+
+/// Get escape url for decode times
+pub fn url_no_escape_times(s: &str, times: usize) -> String {
+    let mut tmp = s.to_string();
+    for _ in 1..=times {
+        tmp = url_escape::decode(&tmp).to_string();
+    }
+
+    tmp
+}
