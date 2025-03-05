@@ -6,6 +6,7 @@ use oma_fetch::{
     checksum::Checksum, reqwest::Client,
 };
 use oma_pm_operation_type::InstallEntry;
+use oma_utils::url_no_escape::url_no_escape_times;
 use tracing::debug;
 
 use crate::apt::{DownloadConfig, OmaAptError, OmaAptResult};
@@ -48,20 +49,23 @@ where
         let sources = uris
             .iter()
             .map(|x| {
-                let source_type = if x.index_url.starts_with("file:") {
-                    DownloadSourceType::Local(!download_only)
+                let (source_type, url) = if x.index_url.starts_with("file:") {
+                    (
+                        DownloadSourceType::Local(!download_only),
+                        url_no_escape_times(&x.download_url, 1),
+                    )
                 } else {
                     let auth = auth.and_then(|auth| auth.find(&x.index_url));
 
-                    DownloadSourceType::Http {
-                        auth: auth.map(|x| (x.login.to_owned(), x.password.to_owned())),
-                    }
+                    (
+                        DownloadSourceType::Http {
+                            auth: auth.map(|x| (x.login.to_owned(), x.password.to_owned())),
+                        },
+                        x.download_url.clone(),
+                    )
                 };
 
-                DownloadSource {
-                    url: x.download_url.clone(),
-                    source_type,
-                }
+                DownloadSource { url, source_type }
             })
             .collect::<Vec<_>>();
 

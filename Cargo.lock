@@ -3128,7 +3128,6 @@ dependencies = [
  "flume",
  "futures",
  "md-5",
- "oma-utils",
  "reqwest",
  "serde",
  "sha2",
