@@ -18,7 +18,7 @@ use reqwest::{
 use snafu::{ResultExt, Snafu};
 use tokio::{
     fs::{self, File},
-    io::{AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
+    io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
     time::timeout,
 };
 
@@ -260,7 +260,7 @@ impl SingleDownloader<'_> {
 
                 debug!("Validator created.");
 
-                let (read, finish) = checksum(callback, file_size, &mut f, &mut v).await;
+                let (read, finish) = checksum(callback, &mut f, &mut v).await;
 
                 if finish {
                     debug!(
@@ -617,8 +617,7 @@ impl SingleDownloader<'_> {
 
         if as_symlink {
             if let Some(hash) = &self.entry.hash {
-                self.checksum_local(callback, url_path, total_size, hash)
-                    .await?;
+                self.checksum_local(callback, url_path, hash).await?;
             }
 
             tokio::fs::symlink(url_path, file)
@@ -706,7 +705,6 @@ impl SingleDownloader<'_> {
         &self,
         callback: &F,
         url_path: &Path,
-        total_size: u64,
         hash: &crate::checksum::Checksum,
     ) -> Result<(), SingleDownloadError>
     where
@@ -714,8 +712,7 @@ impl SingleDownloader<'_> {
         Fut: Future<Output = ()>,
     {
         let mut f = fs::File::open(url_path).await.context(OpenSnafu)?;
-        let (size, finish) =
-            checksum(callback, total_size, &mut f, &mut hash.get_validator()).await;
+        let (size, finish) = checksum(callback, &mut f, &mut hash.get_validator()).await;
 
         if !finish {
             callback(Event::GlobalProgressSub(size)).await;
@@ -727,34 +724,32 @@ impl SingleDownloader<'_> {
     }
 }
 
-async fn checksum<F, Fut>(
-    callback: &F,
-    file_size: u64,
-    f: &mut File,
-    v: &mut ChecksumValidator,
-) -> (u64, bool)
+async fn checksum<F, Fut>(callback: &F, f: &mut File, v: &mut ChecksumValidator) -> (u64, bool)
 where
     F: Fn(Event) -> Fut,
     Fut: Future<Output = ()>,
 {
-    let mut buf = vec![0; READ_FILE_BUFSIZE];
+    let mut reader = tokio::io::BufReader::with_capacity(READ_FILE_BUFSIZE, f);
+
     let mut read = 0;
 
     loop {
-        if read == file_size {
-            break;
-        }
-
-        let Ok(read_count) = f.read(&mut buf[..]).await else {
+        let Ok(buffer) = reader.fill_buf().await else {
             debug!("Read file get fk, so re-download it");
             break;
         };
 
-        v.update(&buf[..read_count]);
+        if buffer.is_empty() {
+            break;
+        }
 
-        callback(Event::GlobalProgressAdd(read_count as u64)).await;
+        v.update(buffer);
 
-        read += read_count as u64;
+        callback(Event::GlobalProgressAdd(buffer.len() as u64)).await;
+        read += buffer.len() as u64;
+        let len = buffer.len();
+
+        reader.consume(len);
     }
 
     (read, v.finish())
