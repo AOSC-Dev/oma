@@ -417,6 +417,7 @@ impl NoProgressBar {
             }
             Event::GlobalProgressSub(num) => {
                 self.progress = self.progress.saturating_sub(num);
+                self.old_downloaded = self.old_downloaded.saturating_sub(num);
                 self.print_progress();
             }
             Event::NextUrl {
