@@ -49,10 +49,10 @@ where
         let sources = uris
             .iter()
             .map(|x| {
-                let (source_type, url) = if let Some(url) = x.download_url.strip_prefix("file:") {
+                let (source_type, url) = if x.index_url.starts_with("file:") {
                     (
                         DownloadSourceType::Local(!download_only),
-                        url_no_escape_times(url, 1),
+                        url_no_escape_times(&x.download_url, 1),
                     )
                 } else {
                     let auth = auth.and_then(|auth| auth.find(&x.index_url));
@@ -61,7 +61,7 @@ where
                         DownloadSourceType::Http {
                             auth: auth.map(|x| (x.login.to_owned(), x.password.to_owned())),
                         },
-                        x.download_url.to_string(),
+                        x.download_url.clone(),
                     )
                 };
 
