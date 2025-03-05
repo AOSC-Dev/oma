@@ -11,7 +11,7 @@ use std::{
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
 use bon::Builder;
 use futures::{AsyncRead, TryStreamExt, io::BufReader};
-use oma_utils::url_no_escape::url_no_escape;
+use oma_utils::url_no_escape::url_no_escape_times;
 use reqwest::{
     Client, Method, RequestBuilder,
     header::{ACCEPT_RANGES, CONTENT_LENGTH, HeaderValue, RANGE},
@@ -219,25 +219,25 @@ impl SingleDownloader<'_> {
         F: Fn(Event) -> Fut,
         Fut: Future<Output = ()>,
     {
-        let file = self.entry.dir.join(&*self.entry.filename);
-        let file_exist = file.exists();
-        let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
+        let path = self.entry.dir.join(&*self.entry.filename);
+        let file_exist = path.exists();
+        let mut file_size = path.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
-        debug!("{} Exist file size is: {file_size}", file.display());
-        debug!("{} download url is: {}", file.display(), source.url);
+        debug!("{} Exist file size is: {file_size}", path.display());
+        debug!("{} download url is: {}", path.display(), source.url);
         let mut dest = None;
         let mut validator = None;
 
-        if file.is_symlink() {
-            tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
+        if path.is_symlink() {
+            tokio::fs::remove_file(&path).await.context(RemoveSnafu)?;
         }
 
         // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
         // 如果不存在，则继续往下走
-        if file_exist && !file.is_symlink() {
+        if file_exist && !path.is_symlink() {
             debug!("File: {} exists", self.entry.filename);
 
-            self.set_permission_with_path(&file).await?;
+            self.set_permission_with_path(&path).await?;
 
             if let Some(hash) = &self.entry.hash {
                 debug!("Hash exist! It is: {}", hash);
@@ -245,7 +245,7 @@ impl SingleDownloader<'_> {
                 let mut f = tokio::fs::OpenOptions::new()
                     .write(true)
                     .read(true)
-                    .open(&file)
+                    .open(&path)
                     .await
                     .context(OpenAsWriteModeSnafu)?;
 
@@ -399,7 +399,7 @@ impl SingleDownloader<'_> {
                 self.entry.filename
             );
 
-            let f = match File::create(&file).await {
+            let f = match File::create(&path).await {
                 Ok(f) => f,
                 Err(e) => {
                     callback(Event::ProgressDone(self.download_list_index)).await;
@@ -429,7 +429,7 @@ impl SingleDownloader<'_> {
                 self.entry.filename
             );
 
-            let f = match File::create(&file).await {
+            let f = match File::create(&path).await {
                 Ok(f) => f,
                 Err(e) => {
                     callback(Event::ProgressDone(self.download_list_index)).await;
@@ -602,8 +602,7 @@ impl SingleDownloader<'_> {
         let url = &source.url;
 
         // 传入的参数不对，应该 panic
-        let url_path = url_no_escape(url.strip_prefix("file:").unwrap());
-
+        let url_path = url_no_escape_times(url.strip_prefix("file:").unwrap(), 1);
         let url_path = Path::new(&url_path);
 
         let total_size = tokio::fs::metadata(url_path)
