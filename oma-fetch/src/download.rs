@@ -11,7 +11,6 @@ use std::{
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
 use bon::Builder;
 use futures::{AsyncRead, TryStreamExt, io::BufReader};
-use oma_utils::url_no_escape::url_no_escape_times;
 use reqwest::{
     Client, Method, RequestBuilder,
     header::{ACCEPT_RANGES, CONTENT_LENGTH, HeaderValue, RANGE},
@@ -599,11 +598,7 @@ impl SingleDownloader<'_> {
         debug!("{:?}", self.entry);
         let msg = self.progress_msg();
 
-        let url = &source.url;
-
-        // 传入的参数不对，应该 panic
-        let url_path = url_no_escape_times(url.strip_prefix("file:").unwrap(), 1);
-        let url_path = Path::new(&url_path);
+        let url_path = Path::new(&source.url);
 
         let total_size = tokio::fs::metadata(url_path)
             .await
