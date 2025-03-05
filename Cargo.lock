@@ -3120,7 +3120,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.27.0"
+version = "0.28.0"
 dependencies = [
  "async-compression",
  "bon",
@@ -3182,7 +3182,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.48.4"
+version = "0.48.5"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3221,7 +3221,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.42.1"
+version = "0.42.2"
 dependencies = [
  "ahash",
  "aho-corasick",
