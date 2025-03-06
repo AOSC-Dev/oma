@@ -10,7 +10,6 @@ use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::{Builder, builder};
 pub use oma_apt::cache::Upgrade;
-use std::future::Future;
 use tokio::runtime::Runtime;
 use zbus::Connection;
 
@@ -418,7 +417,7 @@ impl OmaApt {
     }
 
     /// Download packages
-    pub fn download<F, Fut>(
+    pub fn download<F>(
         &self,
         client: &Client,
         pkgs: Vec<OmaPackage>,
@@ -426,8 +425,7 @@ impl OmaApt {
         callback: F,
     ) -> OmaAptResult<Summary>
     where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
+        F: AsyncFn(Event),
     {
         let mut download_list = vec![];
         for pkg in pkgs {
@@ -551,18 +549,14 @@ impl OmaApt {
     }
 
     /// Commit changes
-    pub fn commit<F, Fut>(
+    pub fn commit(
         self,
         install_progress_manager: Box<dyn InstallProgressManager>,
         op: &OmaOperation,
         client: &Client,
         config: CommitNetworkConfig,
-        callback: F,
-    ) -> OmaAptResult<()>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+        callback: impl AsyncFn(Event),
+    ) -> OmaAptResult<()> {
         let sysroot = self.config.get("Dir").unwrap_or("/".to_string());
 
         if self.dry_run {

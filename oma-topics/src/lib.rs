@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    future::Future,
     hash::Hash,
     io,
     path::{Path, PathBuf},
@@ -255,16 +254,12 @@ impl<'a> TopicManager<'a> {
         Ok(())
     }
 
-    pub async fn write_sources_list<F, Fut>(
+    pub async fn write_sources_list(
         &self,
         source_list_comment: &str,
         revert: bool,
-        message_cb: F,
-    ) -> Result<()>
-    where
-        F: Fn(String, String) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+        message_cb: impl AsyncFn(String, String),
+    ) -> Result<()> {
         if self.dry_run {
             debug!("enabled: {:?}", self.enabled);
             return Ok(());

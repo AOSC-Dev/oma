@@ -575,7 +575,7 @@ fn refresh_enabled_topics_sources_list(no_progress: bool) -> Result<(), OutputEr
         RT.block_on(tm.write_sources_list(
             &fl!("do-not-edit-topic-sources-list"),
             false,
-            |topic, mirror| async {
+            async |topic, mirror| {
                 warn!(
                     "{}",
                     fl!("topic-not-in-mirror", topic = topic, mirror = mirror)

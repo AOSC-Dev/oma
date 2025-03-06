@@ -22,7 +22,6 @@ use crate::{
     db::{Event, RefreshError, content_length},
     util::DatabaseFilenameReplacer,
 };
-use std::future::Future;
 
 #[derive(Debug, Clone)]
 pub struct OmaSourceEntry<'a> {
@@ -34,15 +33,11 @@ pub struct OmaSourceEntry<'a> {
     from: OnceCell<OmaSourceEntryFrom>,
 }
 
-pub async fn sources_lists<F, Fut>(
+pub async fn sources_lists<'a>(
     sysroot: impl AsRef<Path>,
-    arch: &str,
-    cb: F,
-) -> Result<Vec<OmaSourceEntry<'_>>, SourcesListError>
-where
-    F: Fn(Event) -> Fut,
-    Fut: Future<Output = ()>,
-{
+    arch: &'a str,
+    cb: &'a impl AsyncFn(Event),
+) -> Result<Vec<OmaSourceEntry<'a>>, SourcesListError> {
     let mut res = Vec::new();
     let mut paths = vec![];
     let default = sysroot.as_ref().join("etc/apt/sources.list");
@@ -272,19 +267,15 @@ impl MirrorSource<'_, '_> {
         self.auth
     }
 
-    pub async fn fetch<F, Fut>(
+    pub async fn fetch(
         &self,
         client: &Client,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: &F,
-    ) -> Result<(), RefreshError>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+        callback: &impl AsyncFn(Event),
+    ) -> Result<(), RefreshError> {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
                 self.fetch_http_release(client, replacer, index, total, download_dir, callback)
@@ -297,19 +288,15 @@ impl MirrorSource<'_, '_> {
         }
     }
 
-    async fn fetch_http_release<F, Fut>(
+    async fn fetch_http_release(
         &self,
         client: &Client,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: F,
-    ) -> Result<(), RefreshError>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+        callback: impl AsyncFn(Event),
+    ) -> Result<(), RefreshError> {
         let dist_path = self.dist_path();
 
         let msg = self.get_human_download_message(None)?;
@@ -405,19 +392,15 @@ impl MirrorSource<'_, '_> {
             .and_then(|resp| resp.error_for_status())
     }
 
-    async fn download_file<F, Fut>(
+    async fn download_file(
         &self,
         file_name: &str,
         mut resp: Response,
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: F,
-    ) -> std::result::Result<(), SingleDownloadError>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+        callback: &impl AsyncFn(Event),
+    ) -> std::result::Result<(), SingleDownloadError> {
         let total_size = content_length(&resp);
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
@@ -429,7 +412,8 @@ impl MirrorSource<'_, '_> {
                 self.get_human_download_message(Some(file_name)).unwrap(),
             ),
             size: total_size,
-        }));
+        }))
+        .await;
 
         let mut f = File::create(download_dir.join(file_name))
             .await
@@ -464,18 +448,14 @@ impl MirrorSource<'_, '_> {
         Ok(())
     }
 
-    async fn fetch_local_release<F, Fut>(
+    async fn fetch_local_release(
         &self,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: F,
-    ) -> Result<(), RefreshError>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+        callback: &impl AsyncFn(Event),
+    ) -> Result<(), RefreshError> {
         let dist_path_with_protocol = self.dist_path();
         let dist_path = dist_path_with_protocol
             .strip_prefix("file:")
@@ -606,18 +586,14 @@ impl<'a, 'b> MirrorSources<'a, 'b> {
         Ok(Self(res))
     }
 
-    pub async fn fetch_all_release<F, Fut>(
+    pub async fn fetch_all_release(
         &self,
         client: &Client,
         replacer: &DatabaseFilenameReplacer,
         download_dir: &Path,
         threads: usize,
-        callback: F,
-    ) -> Vec<Result<(), RefreshError>>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+        callback: &impl AsyncFn(Event),
+    ) -> Vec<Result<(), RefreshError>> {
         let tasks = self.0.iter().enumerate().map(|(index, m)| {
             m.fetch(
                 client,
