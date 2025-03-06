@@ -1,4 +1,4 @@
-use std::{borrow::Cow, future::Future, path::Path};
+use std::{borrow::Cow, path::Path};
 
 use oma_console::console;
 use oma_fetch::{
@@ -12,17 +12,13 @@ use tracing::debug;
 use crate::apt::{DownloadConfig, OmaAptError, OmaAptResult};
 
 /// Download packages (inner)
-pub async fn download_pkgs<F, Fut>(
+pub async fn download_pkgs(
     client: &Client,
     download_pkg_list: &[InstallEntry],
     config: DownloadConfig<'_>,
     download_only: bool,
-    callback: F,
-) -> OmaAptResult<Summary>
-where
-    F: Fn(Event) -> Fut,
-    Fut: Future<Output = ()>,
-{
+    callback: impl AsyncFn(Event),
+) -> OmaAptResult<Summary> {
     let DownloadConfig {
         network_thread,
         download_dir,

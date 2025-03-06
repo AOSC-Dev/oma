@@ -3,7 +3,7 @@ use std::{cmp::Ordering, path::PathBuf, time::Duration};
 use bon::{Builder, builder};
 use checksum::Checksum;
 use download::{EmptySource, SingleDownloader, SuccessSummary};
-use futures::{Future, StreamExt};
+use futures::StreamExt;
 
 use reqwest::{Client, Method, RequestBuilder};
 use tracing::debug;
@@ -203,11 +203,10 @@ impl Summary {
 
 impl DownloadManager<'_> {
     /// Start download
-    pub async fn start_download<F, Fut>(&self, callback: F) -> Result<Summary, EmptySource>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+    pub async fn start_download(
+        &self,
+        callback: impl AsyncFn(Event),
+    ) -> Result<Summary, EmptySource> {
         let mut tasks = Vec::new();
         let mut list = vec![];
         for (i, c) in self.download_list.iter().enumerate() {

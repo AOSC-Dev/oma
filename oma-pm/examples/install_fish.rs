@@ -123,7 +123,7 @@ fn main() -> Result<(), OmaAptError> {
             network_thread: None,
             auth_config: Some(&AuthConfig::system("/").unwrap()),
         },
-        |event| async {
+        async |event| {
             if let Err(e) = tx.send_async(event).await {
                 eprintln!("{:#?}", e);
             }

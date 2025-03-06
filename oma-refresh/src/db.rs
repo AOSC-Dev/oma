@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::{
     borrow::Cow,
     fs::Permissions,
@@ -192,11 +191,7 @@ pub enum Event {
 }
 
 impl<'a> OmaRefresh<'a> {
-    pub async fn start<F, Fut>(mut self, callback: F) -> Result<()>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+    pub async fn start(mut self, callback: impl AsyncFn(Event)) -> Result<()> {
         let arch = dpkg_arch(&self.source)?;
         let sourcelist = sources_lists(&self.source, &arch, &callback)
             .await
@@ -261,16 +256,12 @@ impl<'a> OmaRefresh<'a> {
         Ok(())
     }
 
-    async fn download_release_data<F, Fut>(
+    async fn download_release_data(
         &self,
-        callback: &F,
+        callback: &impl AsyncFn(Event),
         tasks: &[DownloadEntry],
         total: u64,
-    ) -> Result<Summary>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: futures::Future,
-    {
+    ) -> Result<Summary> {
         let dm = DownloadManager::builder()
             .client(self.client)
             .download_list(tasks)
@@ -330,16 +321,12 @@ impl<'a> OmaRefresh<'a> {
         }
     }
 
-    async fn download_releases<'b, F, Fut>(
+    async fn download_releases<'b>(
         &mut self,
         sourcelist: &'b [OmaSourceEntry<'b>],
         replacer: &DatabaseFilenameReplacer,
-        callback: &F,
-    ) -> Result<MirrorSources<'b, 'a>>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+        callback: &impl AsyncFn(Event),
+    ) -> Result<MirrorSources<'b, 'a>> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
@@ -394,16 +381,12 @@ impl<'a> OmaRefresh<'a> {
     }
 
     #[cfg(feature = "aosc")]
-    async fn refresh_topics<'b, F, Fut>(
+    async fn refresh_topics<'b>(
         &self,
-        callback: &F,
+        callback: &impl AsyncFn(Event),
         not_found: Vec<url::Url>,
         sources: &mut MirrorSources<'b, 'a>,
-    ) -> Result<()>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+    ) -> Result<()> {
         if !self.refresh_topics || not_found.is_empty() {
             return Ok(());
         }
@@ -434,12 +417,8 @@ impl<'a> OmaRefresh<'a> {
         }
 
         tm.write_enabled().await?;
-        tm.write_sources_list(self.topic_msg, false, |topic, mirror| async move {
-            callback(Event::TopicNotInMirror {
-                topic: topic.to_string(),
-                mirror: mirror.to_string(),
-            })
-            .await
+        tm.write_sources_list(self.topic_msg, false, async move |topic, mirror| {
+            callback(Event::TopicNotInMirror { topic, mirror }).await
         })
         .await?;
 
@@ -449,16 +428,12 @@ impl<'a> OmaRefresh<'a> {
     }
 
     #[cfg(not(feature = "aosc"))]
-    async fn refresh_topics<'b, F, Fut>(
+    async fn refresh_topics<'b>(
         &self,
-        _callback: &F,
+        _callback: &impl AsyncFn(Event),
         _not_found: Vec<url::Url>,
         _sources: &mut MirrorSources<'b, 'a>,
-    ) -> Result<()>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: Future<Output = ()>,
-    {
+    ) -> Result<()> {
         Ok(())
     }
 

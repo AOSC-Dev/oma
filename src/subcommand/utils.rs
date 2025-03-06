@@ -258,7 +258,7 @@ impl Refresh<'_> {
 
         RT.block_on(async move {
             refresh
-                .start(|event| async {
+                .start(async |event| {
                     if let Err(e) = tx.send_async(event).await {
                         debug!("{}", e);
                     }
@@ -450,7 +450,7 @@ impl CommitChanges<'_> {
                 network_thread: Some(network_thread),
                 auth_config,
             },
-            |event| async {
+            async |event| {
                 if let Err(e) = tx.send_async(event).await {
                     debug!("Send progress channel got error: {}; maybe check archive work still in progress", e);
                 }

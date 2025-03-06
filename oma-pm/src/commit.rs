@@ -47,16 +47,12 @@ impl<'a> DoInstall<'a> {
         })
     }
 
-    pub fn commit<F, Fut>(
+    pub fn commit(
         self,
         op: &OmaOperation,
         install_progress_manager: Box<dyn InstallProgressManager>,
-        callback: F,
-    ) -> OmaAptResult<()>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: std::future::Future<Output = ()>,
-    {
+        callback: impl AsyncFn(Event),
+    ) -> OmaAptResult<()> {
         let summary = self.download_pkgs(&op.install, callback)?;
 
         if !summary.failed.is_empty() {
@@ -68,15 +64,11 @@ impl<'a> DoInstall<'a> {
         Ok(())
     }
 
-    fn download_pkgs<F, Fut>(
+    fn download_pkgs(
         &self,
         download_pkg_list: &[InstallEntry],
-        callback: F,
-    ) -> OmaAptResult<Summary>
-    where
-        F: Fn(Event) -> Fut,
-        Fut: std::future::Future<Output = ()>,
-    {
+        callback: impl AsyncFn(Event),
+    ) -> OmaAptResult<Summary> {
         let path = self.apt.get_archive_dir();
         create_dir_all(path)
             .map_err(|e| OmaAptError::FailedOperateDirOrFile(path.display().to_string(), e))?;

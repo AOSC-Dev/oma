@@ -160,7 +160,7 @@ impl CliExecuter for Topics {
             RT.block_on(tm.write_sources_list(
                 &fl!("do-not-edit-topic-sources-list"),
                 false,
-                |topic, mirror| async {
+                async |topic, mirror| {
                     warn!(
                         "{}",
                         fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
@@ -271,7 +271,7 @@ fn revert_sources_list(tm: &TopicManager<'_>) -> Result<(), OutputError> {
     RT.block_on(tm.write_sources_list(
         &fl!("do-not-edit-topic-sources-list"),
         true,
-        |topic, mirror| async {
+        async |topic, mirror| {
             warn!(
                 "{}",
                 fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
