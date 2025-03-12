@@ -82,7 +82,7 @@ default = ["aosc", "generic"]
 members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify", "oma-mirror", "apt-auth-config"]
 
 [package.metadata.deb]
-copyright = "2024, AOSC Dev <maintainers@aosc.io>"
+copyright = "2025, AOSC Dev <maintainers@aosc.io>"
 maintainer = "eatradish <sakiiily@aosc.io>"
 license-file = ["COPYING", "4"]
 extended-description = "User-friendly and performant package manager for APT repositories"
