@@ -3138,7 +3138,6 @@ dependencies = [
  "serde",
  "sha2",
  "snafu",
- "thiserror 2.0.12",
  "tokio",
  "tokio-util",
  "tracing",
