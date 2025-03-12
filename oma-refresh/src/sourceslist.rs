@@ -1,4 +1,6 @@
-use std::{fs::Permissions, os::unix::fs::PermissionsExt, path::Path};
+use std::{
+    borrow::Cow, fs::Permissions, mem::MaybeUninit, os::unix::fs::PermissionsExt, path::Path,
+};
 
 use ahash::HashMap;
 use apt_auth_config::{AuthConfig, Authenticator};
@@ -33,7 +35,7 @@ pub struct OmaSourceEntry<'a> {
     from: OnceCell<OmaSourceEntryFrom>,
 }
 
-pub async fn sources_lists<'a>(
+pub async fn scan_sources_lists<'a>(
     sysroot: impl AsRef<Path>,
     arch: &'a str,
     cb: &'a impl AsyncFn(Event),
@@ -90,6 +92,22 @@ pub async fn sources_lists<'a>(
 pub enum OmaSourceEntryFrom {
     Http,
     Local,
+    MirrorHttp,
+    MirrorFile,
+}
+
+#[derive(Debug)]
+pub struct MirrorTransportItem {
+    pub url: String,
+    pub priority: i64,
+    pub archs: Vec<String>,
+    pub item_type: MirrorTransportItemType,
+}
+
+#[derive(Debug)]
+pub enum MirrorTransportItemType {
+    Index,
+    Deb,
 }
 
 impl<'a> OmaSourceEntry<'a> {
@@ -106,12 +124,29 @@ impl<'a> OmaSourceEntry<'a> {
 
     pub fn from(&self) -> Result<&OmaSourceEntryFrom, RefreshError> {
         self.from.get_or_try_init(|| {
-            let url = Url::parse(self.url())
-                .map_err(|_| RefreshError::InvalidUrl(self.url().to_string()))?;
+            let (transport_type, url) = self
+                .url()
+                .split_once("+")
+                .unwrap_or_else(|| ("", self.url()));
 
-            match url.scheme() {
+            let url =
+                Url::parse(url).map_err(|_| RefreshError::InvalidUrl(self.url().to_string()))?;
+
+            let schema = if !transport_type.is_empty() {
+                let mut schema = "".to_string();
+                schema.push_str(transport_type);
+                schema.push_str("+");
+                schema.push_str(url.scheme());
+                Cow::Owned(schema)
+            } else {
+                url.scheme().into()
+            };
+
+            match schema.as_ref() {
                 "file" => Ok(OmaSourceEntryFrom::Local),
                 "http" | "https" => Ok(OmaSourceEntryFrom::Http),
+                "mirror" | "mirror+http" | "mirror+https" => Ok(OmaSourceEntryFrom::MirrorHttp),
+                "mirror+files" => Ok(OmaSourceEntryFrom::MirrorFile),
                 x => Err(RefreshError::UnsupportedProtocol(x.to_string())),
             }
         })
@@ -284,6 +319,17 @@ impl MirrorSource<'_, '_> {
             OmaSourceEntryFrom::Local => {
                 self.fetch_local_release(replacer, index, total, download_dir, callback)
                     .await
+            }
+            OmaSourceEntryFrom::MirrorHttp => todo!(),
+            OmaSourceEntryFrom::MirrorFile => {
+                let path = self.dist_path().strip_prefix("mirror+file:").unwrap();
+                let f = fs::read_to_string(path)
+                    .await
+                    .map_err(|e| RefreshError::FailedToOperateDirOrFile(path.to_string(), e))?;
+
+                let items = parse_mirror_transport_file(&f);
+
+                todo!()
             }
         }
     }
@@ -548,6 +594,45 @@ impl MirrorSource<'_, '_> {
 
         Ok(())
     }
+}
+
+fn parse_mirror_transport_file(f: &str) -> Vec<MirrorTransportItem> {
+    let mut res = vec![];
+
+    for i in f.lines() {
+        let mut line = i.split_ascii_whitespace();
+        let url = line.next().expect("File contains illegal item");
+        let mut priority = 0;
+        let mut archs = vec![];
+        let mut item_type = MirrorTransportItemType::Deb;
+
+        while let Some(entry) = line.next() {
+            match entry.split_once(':') {
+                Some((k, v)) => match k {
+                    "priority" => priority = v.parse::<i64>().expect("Failed to parse priority"),
+                    "arch" => archs.push(v.to_string()),
+                    "type" => {
+                        item_type = match v {
+                            "deb" => MirrorTransportItemType::Deb,
+                            "index" => MirrorTransportItemType::Index,
+                            x => panic!("Failed to parse type: {x}"),
+                        }
+                    }
+                    x => panic!("Failed to parse key: {x}"),
+                },
+                None => panic!("File contains illegal item"),
+            }
+        }
+
+        res.push(MirrorTransportItem {
+            url: url.to_string(),
+            archs,
+            priority,
+            item_type,
+        });
+    }
+
+    res
 }
 
 impl<'a, 'b> MirrorSources<'a, 'b> {
