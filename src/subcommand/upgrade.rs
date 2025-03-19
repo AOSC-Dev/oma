@@ -190,7 +190,6 @@ impl CliExecuter for Upgrade {
             .collect::<Vec<_>>();
 
         let pkgs_unparse = packages.iter().map(|x| x.as_str()).collect::<Vec<_>>();
-        let mut retry_times = 1;
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
@@ -201,163 +200,190 @@ impl CliExecuter for Upgrade {
             .dpkg_force_unsafe_io(force_unsafe_io)
             .build();
 
-        loop {
-            let mut apt = OmaApt::new(
-                local_debs.clone(),
-                oma_apt_args.clone(),
-                dry_run,
-                AptConfig::new(),
-            )?;
+        let mut apt = OmaApt::new(
+            local_debs.clone(),
+            oma_apt_args.clone(),
+            dry_run,
+            AptConfig::new(),
+        )?;
 
-            #[cfg(feature = "aosc")]
-            let mode = AptUpgrade::FullUpgrade;
+        #[cfg(feature = "aosc")]
+        let mode = AptUpgrade::FullUpgrade;
 
-            #[cfg(not(feature = "aosc"))]
-            let mode = if no_remove {
-                AptUpgrade::Upgrade
+        #[cfg(not(feature = "aosc"))]
+        let mode = if no_remove {
+            AptUpgrade::Upgrade
+        } else {
+            AptUpgrade::FullUpgrade
+        };
+
+        debug!("Upgrade mode is using: {:?}", mode);
+        apt.upgrade(mode)?;
+
+        let matcher = PackagesMatcher::builder()
+            .cache(&apt.cache)
+            .filter_candidate(true)
+            .filter_downloadable_candidate(false)
+            .select_dbg(false)
+            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+            .build();
+
+        let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;
+
+        handle_no_result(&sysroot, no_result, no_progress)?;
+
+        let no_marked_install = apt.install(&pkgs, false)?;
+
+        if !no_marked_install.is_empty() {
+            for (pkg, version) in no_marked_install {
+                info!(
+                    "{}",
+                    fl!("already-installed", name = pkg, version = version)
+                );
+            }
+        }
+
+        let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
+
+        let res = Ok(()).and_then(|_| -> Result<(), OutputError> {
+            if !no_fixbroken {
+                apt.fix_resolver_broken();
+            }
+
+            if !no_fix_dpkg_status {
+                let (needs_reconfigure, needs_retrigger) = apt.is_needs_fix_dpkg_status()?;
+                if needs_retrigger || needs_reconfigure {
+                    if let Some(ref pb) = pb {
+                        pb.inner.finish_and_clear()
+                    }
+                    apt.fix_dpkg_status(needs_reconfigure, needs_retrigger)?;
+                }
+            }
+
+            apt.resolve(no_fixbroken, remove_config)?;
+
+            if autoremove {
+                apt.autoremove(remove_config)?;
+                apt.resolve(false, remove_config)?;
+            }
+
+            Ok(())
+        });
+
+        if let Some(ref pb) = pb {
+            pb.inner.finish_and_clear()
+        }
+
+        res?;
+
+        let op = apt.summary(
+            SummarySort::Operation,
+            |pkg| {
+                if config.protect_essentials() {
+                    false
+                } else {
+                    ask_user_do_as_i_say(pkg).unwrap_or(false)
+                }
+            },
+            |features| handle_features(features, config.protect_essentials()).unwrap_or(false),
+        )?;
+
+        apt.check_disk_size(&op)?;
+
+        let install = &op.install;
+        let remove = &op.remove;
+        let disk_size = &op.disk_size_delta;
+        let (ar_count, ar_size) = op.autoremovable;
+        let (suggest, recommend) = (&op.suggest, &op.recommend);
+
+        if is_nothing_to_do(install, remove, !no_fixbroken) {
+            autoremovable_tips(ar_count, ar_size)?;
+            return Ok(0);
+        }
+
+        let tum = get_tum(&sysroot)?;
+        let matches_tum = get_matches_tum(&tum, &op);
+
+        match table_for_install_pending(
+            install,
+            remove,
+            *disk_size,
+            Some(matches_tum),
+            !yes,
+            dry_run,
+        )? {
+            PagerExit::NormalExit => {}
+            x @ PagerExit::Sigint => return Ok(x.into()),
+            x @ PagerExit::DryRun => return Ok(x.into()),
+        }
+
+        let start_time = Local::now().timestamp();
+
+        let (tx, rx) = unbounded();
+
+        let progress_worker = thread::spawn(move || {
+            let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
+                Box::new(NoProgressBar::default())
             } else {
-                AptUpgrade::FullUpgrade
+                Box::new(OmaMultiProgressBar::default())
             };
+            pb.render_progress(&rx);
+        });
 
-            debug!("Upgrade mode is using: {:?}", mode);
-            apt.upgrade(mode)?;
-
-            let matcher = PackagesMatcher::builder()
-                .cache(&apt.cache)
-                .filter_candidate(true)
-                .filter_downloadable_candidate(false)
-                .select_dbg(false)
-                .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
-                .build();
-
-            let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;
-
-            handle_no_result(&sysroot, no_result, no_progress)?;
-
-            let no_marked_install = apt.install(&pkgs, false)?;
-
-            if !no_marked_install.is_empty() {
-                for (pkg, version) in no_marked_install {
-                    info!(
-                        "{}",
-                        fl!("already-installed", name = pkg, version = version)
-                    );
+        match apt.commit(
+            if no_progress {
+                Box::new(NoInstallProgressManager)
+            } else {
+                Box::new(OmaInstallProgressManager::new(yes))
+            },
+            &op,
+            &HTTP_CLIENT,
+            CommitNetworkConfig {
+                network_thread: Some(config.network_thread()),
+                auth_config: Some(&auth_config),
+            },
+            async |event| {
+                if let Err(e) = tx.send_async(event).await {
+                    error!("{}", e);
                 }
-            }
+            },
+        ) {
+            Ok(()) => {
+                progress_worker.join().unwrap();
+                NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
 
-            let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
-
-            let res = Ok(()).and_then(|_| -> Result<(), OutputError> {
-                if !no_fixbroken {
-                    apt.fix_resolver_broken();
-                }
-
-                if !no_fix_dpkg_status {
-                    let (needs_reconfigure, needs_retrigger) = apt.is_needs_fix_dpkg_status()?;
-                    if needs_retrigger || needs_reconfigure {
-                        if let Some(ref pb) = pb {
-                            pb.inner.finish_and_clear()
-                        }
-                        apt.fix_dpkg_status(needs_reconfigure, needs_retrigger)?;
-                    }
-                }
-
-                apt.resolve(no_fixbroken, remove_config)?;
-
-                if autoremove {
-                    apt.autoremove(remove_config)?;
-                    apt.resolve(false, remove_config)?;
-                }
-
-                Ok(())
-            });
-
-            if let Some(ref pb) = pb {
-                pb.inner.finish_and_clear()
-            }
-
-            res?;
-
-            let op = apt.summary(
-                SummarySort::Operation,
-                |pkg| {
-                    if config.protect_essentials() {
-                        false
-                    } else {
-                        ask_user_do_as_i_say(pkg).unwrap_or(false)
-                    }
-                },
-                |features| handle_features(features, config.protect_essentials()).unwrap_or(false),
-            )?;
-
-            apt.check_disk_size(&op)?;
-
-            let install = &op.install;
-            let remove = &op.remove;
-            let disk_size = &op.disk_size_delta;
-            let (ar_count, ar_size) = op.autoremovable;
-            let (suggest, recommend) = (&op.suggest, &op.recommend);
-
-            if is_nothing_to_do(install, remove, !no_fixbroken) {
+                write_oma_installed_status()?;
                 autoremovable_tips(ar_count, ar_size)?;
-                return Ok(0);
-            }
 
-            if retry_times == 1 {
-                let tum = get_tum(&sysroot)?;
-                let matches_tum = get_matches_tum(&tum, &op);
-
-                match table_for_install_pending(
-                    install,
-                    remove,
-                    *disk_size,
-                    Some(matches_tum),
-                    !yes,
+                write_history_entry(
+                    {
+                        let db = create_db_file(sysroot)?;
+                        connect_db(db, true)?
+                    },
                     dry_run,
-                )? {
-                    PagerExit::NormalExit => {}
-                    x @ PagerExit::Sigint => return Ok(x.into()),
-                    x @ PagerExit::DryRun => return Ok(x.into()),
-                }
+                    HistoryInfo {
+                        summary: &op,
+                        start_time,
+                        success: true,
+                        is_fix_broken: false,
+                        is_undo: false,
+                        topics_enabled: vec![],
+                        topics_disabled: vec![],
+                    },
+                )?;
+
+                history_success_tips(dry_run);
+                display_suggest_tips(suggest, recommend);
+
+                drop(fds);
+                Ok(0)
             }
-
-            let start_time = Local::now().timestamp();
-
-            let (tx, rx) = unbounded();
-
-            let progress_worker = thread::spawn(move || {
-                let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
-                    Box::new(NoProgressBar::default())
-                } else {
-                    Box::new(OmaMultiProgressBar::default())
-                };
-                pb.render_progress(&rx);
-            });
-
-            match apt.commit(
-                if no_progress {
-                    Box::new(NoInstallProgressManager)
-                } else {
-                    Box::new(OmaInstallProgressManager::new(yes))
-                },
-                &op,
-                &HTTP_CLIENT,
-                CommitNetworkConfig {
-                    network_thread: Some(config.network_thread()),
-                    auth_config: Some(&auth_config),
-                },
-                async |event| {
-                    if let Err(e) = tx.send_async(event).await {
-                        error!("{}", e);
-                    }
-                },
-            ) {
-                Ok(()) => {
+            Err(e) => match e {
+                OmaAptError::AptErrors(_)
+                | OmaAptError::AptError(_)
+                | OmaAptError::AptCxxException(_) => {
                     progress_worker.join().unwrap();
                     NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
-
-                    write_oma_installed_status()?;
-                    autoremovable_tips(ar_count, ar_size)?;
 
                     write_history_entry(
                         {
@@ -368,57 +394,22 @@ impl CliExecuter for Upgrade {
                         HistoryInfo {
                             summary: &op,
                             start_time,
-                            success: true,
+                            success: false,
                             is_fix_broken: false,
                             is_undo: false,
                             topics_enabled: vec![],
                             topics_disabled: vec![],
                         },
                     )?;
+                    undo_tips();
 
-                    history_success_tips(dry_run);
-                    display_suggest_tips(suggest, recommend);
-
-                    drop(fds);
-                    return Ok(0);
+                    Err(OutputError::from(e))
                 }
-                Err(e) => match e {
-                    OmaAptError::AptErrors(_)
-                    | OmaAptError::AptError(_)
-                    | OmaAptError::AptCxxException(_) => {
-                        progress_worker.join().unwrap();
-                        if retry_times == 3 {
-                            NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
-
-                            write_history_entry(
-                                {
-                                    let db = create_db_file(sysroot)?;
-                                    connect_db(db, true)?
-                                },
-                                dry_run,
-                                HistoryInfo {
-                                    summary: &op,
-                                    start_time,
-                                    success: false,
-                                    is_fix_broken: false,
-                                    is_undo: false,
-                                    topics_enabled: vec![],
-                                    topics_disabled: vec![],
-                                },
-                            )?;
-                            undo_tips();
-
-                            return Err(OutputError::from(e));
-                        }
-                        warn!("{e}, retrying ...");
-                        retry_times += 1;
-                    }
-                    _ => {
-                        drop(fds);
-                        return Err(OutputError::from(e));
-                    }
-                },
-            }
+                _ => {
+                    drop(fds);
+                    Err(OutputError::from(e))
+                }
+            },
         }
     }
 }
