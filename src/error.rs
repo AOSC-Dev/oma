@@ -253,10 +253,6 @@ impl From<OmaDbusError> for OutputError {
 impl From<OmaSearchError> for OutputError {
     fn from(value: OmaSearchError) -> Self {
         match value {
-            OmaSearchError::AptError(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(e)),
-            },
             OmaSearchError::NoResult(e) => OutputError {
                 description: fl!("could-not-find-pkg-from-keyword", c = e),
                 source: None,
@@ -264,11 +260,6 @@ impl From<OmaSearchError> for OutputError {
             OmaSearchError::FailedGetCandidate(s) => OutputError {
                 description: fl!("no-candidate-ver", pkg = s),
                 source: None,
-            },
-            OmaSearchError::AptErrors(e) => OutputError::from(e),
-            OmaSearchError::AptCxxException(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(AptErrors::from(e))),
             },
             OmaSearchError::PtrIsNone(_) => OutputError {
                 description: value.to_string(),
@@ -745,14 +736,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: format!("Failed canonicalize path: {p}"),
             source: Some(Box::new(e)),
         },
-        OmaAptError::AptError(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(e)),
-        },
-        OmaAptError::AptCxxException(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(AptErrors::from(e))),
-        },
         OmaAptError::PtrIsNone(_) => OutputError {
             description: err.to_string(),
             source: None,
@@ -832,15 +815,6 @@ fn oma_checksum_error(e: ChecksumError) -> OutputError {
 fn oma_database_error(e: MatcherError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        MatcherError::AptError(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(e)),
-        },
-        MatcherError::AptErrors(e) => OutputError::from(e),
-        MatcherError::AptCxxException(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(AptErrors::from(e))),
-        },
         MatcherError::InvalidPattern(s) => OutputError {
             description: fl!("invalid-pattern", p = s),
             source: None,

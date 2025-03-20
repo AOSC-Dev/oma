@@ -11,7 +11,6 @@ use memchr::memmem;
 use oma_apt::{
     Package,
     cache::{Cache, PackageSort},
-    error::{AptError, AptErrors},
     raw::{IntoRawIter, PkgIterator},
 };
 use serde::{Deserialize, Serialize};
@@ -103,12 +102,6 @@ impl Indexable for SearchEntry {
 
 #[derive(Debug, thiserror::Error)]
 pub enum OmaSearchError {
-    #[error(transparent)]
-    AptErrors(#[from] AptErrors),
-    #[error(transparent)]
-    AptError(#[from] AptError),
-    #[error(transparent)]
-    AptCxxException(#[from] cxx::Exception),
     #[error("No result found: {0}")]
     NoResult(String),
     #[error("Failed to get candidate version: {0}")]

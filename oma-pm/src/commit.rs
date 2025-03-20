@@ -3,6 +3,7 @@ use std::{fs::create_dir_all, os::unix::fs::PermissionsExt, path::Path};
 use apt_auth_config::AuthConfig;
 use chrono::Local;
 use oma_apt::{
+    error::AptErrors,
     progress::{AcquireProgress, InstallProgress},
     util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner},
 };
@@ -106,7 +107,8 @@ impl<'a> DoInstall<'a> {
             .inspect_err(|e| {
                 debug!("Get exception: {e}. Try to unlock apt lock");
                 apt_unlock();
-            })?;
+            })
+            .map_err(AptErrors::from)?;
 
         let args = InstallProgressArgs {
             config: self.apt.config,
