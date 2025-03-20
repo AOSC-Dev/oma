@@ -6,8 +6,8 @@ use std::thread;
 
 use crate::NOT_ALLOW_CTRLC;
 use crate::pb::RenderPackagesDownloadProgress;
-use crate::subcommand::utils::create_progress_spinner;
 use crate::subcommand::utils::display_suggest_tips;
+use crate::subcommand::utils::fix_broken;
 use crate::subcommand::utils::history_success_tips;
 use crate::subcommand::utils::undo_tips;
 use crate::subcommand::utils::write_oma_installed_status;
@@ -243,38 +243,14 @@ impl CliExecuter for Upgrade {
             }
         }
 
-        let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
-
-        let res = Ok(()).and_then(|_| -> Result<(), OutputError> {
-            if !no_fixbroken {
-                apt.fix_resolver_broken();
-            }
-
-            if !no_fix_dpkg_status {
-                let (needs_reconfigure, needs_retrigger) = apt.is_needs_fix_dpkg_status()?;
-                if needs_retrigger || needs_reconfigure {
-                    if let Some(ref pb) = pb {
-                        pb.inner.finish_and_clear()
-                    }
-                    apt.fix_dpkg_status(needs_reconfigure, needs_retrigger)?;
-                }
-            }
-
-            apt.resolve(no_fixbroken, remove_config)?;
-
-            if autoremove {
-                apt.autoremove(remove_config)?;
-                apt.resolve(false, remove_config)?;
-            }
-
-            Ok(())
-        });
-
-        if let Some(ref pb) = pb {
-            pb.inner.finish_and_clear()
-        }
-
-        res?;
+        fix_broken(
+            &mut apt,
+            no_fixbroken,
+            no_progress,
+            !no_fix_dpkg_status,
+            remove_config,
+            autoremove,
+        )?;
 
         let op = apt.summary(
             SummarySort::Operation,
@@ -353,6 +329,7 @@ impl CliExecuter for Upgrade {
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
 
                 write_oma_installed_status()?;
+
                 autoremovable_tips(ar_count, ar_size)?;
 
                 write_history_entry(
