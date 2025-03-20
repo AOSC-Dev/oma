@@ -697,9 +697,12 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("invalid-filename", name = s),
             source: None,
         },
-        OmaAptError::DpkgFailedConfigure(e) => OutputError {
+        OmaAptError::DpkgFailedConfigure(_) => OutputError {
             description: fl!("dpkg-configure-a-non-zero"),
-            source: Some(Box::new(e)),
+            source: Some(Box::new(io::Error::new(
+                ErrorKind::Other,
+                fl!("dpkg-configure-failed-due-to-tips"),
+            ))),
         },
         OmaAptError::DiskSpaceInsufficient(need, avail) => OutputError {
             description: fl!(
