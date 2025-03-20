@@ -31,7 +31,7 @@ use oma_utils::{
 };
 
 pub use oma_apt::config::Config as AptConfig;
-use tracing::{debug, info};
+use tracing::debug;
 
 #[cfg(feature = "aosc")]
 use tracing::warn;
@@ -678,7 +678,7 @@ impl OmaApt {
     }
 
     pub(crate) fn run_dpkg_configure(&self) -> OmaAptResult<()> {
-        info!("Running `dpkg --configure -a' ...");
+        debug!("Running `dpkg --configure -a' ...");
 
         let cmd = Command::new("dpkg")
             .arg("--root")
@@ -692,7 +692,7 @@ impl OmaApt {
     }
 
     pub(crate) fn run_dpkg_triggers(&self) -> OmaAptResult<()> {
-        info!("Running `dpkg --triggers-only -a' ...");
+        debug!("Running `dpkg --triggers-only -a' ...");
 
         let cmd = Command::new("dpkg")
             .arg("--root")
