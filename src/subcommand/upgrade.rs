@@ -356,7 +356,7 @@ impl CliExecuter for Upgrade {
                 Ok(0)
             }
             Err(e) => match e {
-                OmaAptError::AptErrors(_) => {
+                OmaAptError::InstallPackages(_) => {
                     progress_worker.join().unwrap();
                     NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
 

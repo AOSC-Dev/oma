@@ -598,7 +598,6 @@ impl From<anyhow::Error> for OutputError {
 pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
     debug!("{:?}", err);
     match err {
-        OmaAptError::AptErrors(e) => OutputError::from(e),
         OmaAptError::OmaDatabaseError(e) => oma_database_error(e),
         OmaAptError::MarkReinstallError(pkg, version) => OutputError {
             description: fl!("can-not-mark-reinstall", name = pkg, version = version),
@@ -752,6 +751,22 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::FailedToDownload(len) => OutputError {
             description: fl!("download-failed-with-len", len = len),
             source: None,
+        },
+        OmaAptError::CreateCache(apt_errors) => OutputError {
+            description: fl!("failed-create-pkg-index-cache"),
+            source: Some(Box::new(apt_errors)),
+        },
+        OmaAptError::SetUpgradeMode(apt_errors) => OutputError {
+            description: fl!("failed-set-upgrade-mode"),
+            source: Some(Box::new(apt_errors)),
+        },
+        OmaAptError::LockApt(apt_errors) => OutputError {
+            description: fl!("failed-lock-apt"),
+            source: Some(Box::new(apt_errors)),
+        },
+        OmaAptError::InstallPackages(apt_errors) => OutputError {
+            description: fl!("failed-install-pkgs"),
+            source: Some(Box::new(apt_errors)),
         },
     }
 }

@@ -261,3 +261,7 @@ suggest = The following packages are recommended to enhance the functionality of
 tum-name = Name
 tum-notes = Notes
 fixing-status = oma has detected abnormal status in the local package database, attempting to correct ...
+failed-create-pkg-index-cache = Failed to create packages index file cache.
+failed-set-upgrade-mode = Upgrade operations cannot be performed.
+failed-lock-apt = Unable to lock apt lockfile.
+failed-install-pkgs = Unable to install Package(s).
