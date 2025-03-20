@@ -93,8 +93,14 @@ pub struct OmaApt {
 
 #[derive(Debug, thiserror::Error)]
 pub enum OmaAptError {
-    #[error(transparent)]
-    AptErrors(#[from] AptErrors),
+    #[error("Failed to create packages index cache")]
+    CreateCache(AptErrors),
+    #[error("Failed to set upgrade mode")]
+    SetUpgradeMode(AptErrors),
+    #[error("Failed to lock apt")]
+    LockApt(AptErrors),
+    #[error("Failed to install package(s)")]
+    InstallPackages(AptErrors),
     #[error(transparent)]
     OmaDatabaseError(#[from] MatcherError),
     #[error("Failed to mark package for reinstallation: {0}")]
@@ -208,7 +214,7 @@ impl OmaApt {
         });
 
         Ok(Self {
-            cache: new_cache!(&local_debs)?,
+            cache: new_cache!(&local_debs).map_err(OmaAptError::CreateCache)?,
             config,
             autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
@@ -373,7 +379,9 @@ impl OmaApt {
 
     /// Set apt manager status as upgrade
     pub fn upgrade(&self, mode: Upgrade) -> OmaAptResult<()> {
-        self.cache.upgrade(mode)?;
+        self.cache
+            .upgrade(mode)
+            .map_err(OmaAptError::SetUpgradeMode)?;
 
         Ok(())
     }

@@ -253,3 +253,7 @@ download-timeout = 下载文件超时
 checksum-mismatch = 校验文件失败
 suggest = 建议安装如下软件包，可增强您安装的软件包的功能：
 fixing-status = oma 检测到本地软件包数据库状态不正确，正在尝试修复 ...
+failed-create-pkg-index-cache = 无法建立包索引缓存。
+failed-set-upgrade-mode = 无法进行升级操作。
+failed-lock-apt = 无法为 apt 锁文件加锁。
+failed-install-pkgs = 无法安装软件包。
