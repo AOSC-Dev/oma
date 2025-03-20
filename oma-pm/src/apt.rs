@@ -1111,7 +1111,7 @@ fn dpkg_exit_status(mut cmd: std::process::Child) -> Result<(), OmaAptError> {
             Some(0) => Ok(()),
             Some(x) => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
                 ErrorKind::Other,
-                format!("dpkg return non-zero code: {}", x),
+                format!("dpkg returned non-zero code: {}", x),
             ))),
             None => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
                 ErrorKind::Other,
