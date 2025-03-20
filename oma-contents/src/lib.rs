@@ -44,7 +44,7 @@ pub enum OmaContentsError {
     RgWithError,
     #[error(transparent)]
     LzzzErr(#[from] lzzzz::lz4f::Error),
-    #[error("")]
+    #[error("No Result")]
     NoResult,
     #[error("Illegal file: {0}")]
     IllegalFile(String),
