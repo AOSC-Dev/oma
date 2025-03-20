@@ -16,7 +16,7 @@ use zbus::Connection;
 use oma_apt::{
     DepFlags, Dependency, Package, PkgCurrentState, Version,
     cache::{Cache, PackageSort},
-    error::{AptError, AptErrors},
+    error::AptErrors,
     new_cache,
     progress::{AcquireProgress, InstallProgress},
     raw::IntoRawIter,
@@ -95,10 +95,6 @@ pub struct OmaApt {
 pub enum OmaAptError {
     #[error(transparent)]
     AptErrors(#[from] AptErrors),
-    #[error(transparent)]
-    AptError(#[from] AptError),
-    #[error(transparent)]
-    AptCxxException(#[from] cxx::Exception),
     #[error(transparent)]
     OmaDatabaseError(#[from] MatcherError),
     #[error("Failed to mark package for reinstallation: {0}")]
