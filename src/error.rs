@@ -26,8 +26,8 @@ use oma_utils::dpkg::DpkgError;
 use oma_topics::OmaTopicsError;
 use tracing::{debug, error, info};
 
-use crate::fl;
 use crate::subcommand::utils::LockError;
+use crate::{due_to, fl, msg};
 
 use self::ChainState::*;
 
@@ -752,22 +752,72 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("download-failed-with-len", len = len),
             source: None,
         },
-        OmaAptError::CreateCache(apt_errors) => OutputError {
-            description: fl!("failed-create-pkg-index-cache"),
-            source: Some(Box::new(apt_errors)),
-        },
-        OmaAptError::SetUpgradeMode(apt_errors) => OutputError {
-            description: fl!("failed-set-upgrade-mode"),
-            source: Some(Box::new(apt_errors)),
-        },
-        OmaAptError::LockApt(apt_errors) => OutputError {
-            description: fl!("failed-lock-apt"),
-            source: Some(Box::new(apt_errors)),
-        },
-        OmaAptError::InstallPackages(apt_errors) => OutputError {
-            description: fl!("failed-install-pkgs"),
-            source: Some(Box::new(apt_errors)),
-        },
+        OmaAptError::CreateCache(apt_errors) => {
+            error!("{}", fl!("failed-create-pkg-index-cache"));
+
+            for_each_display_apt_err_messages(apt_errors);
+
+            due_to!("{}", fl!("failed-create-cache-tips"));
+
+            #[cfg(feature = "aosc")]
+            info!("{}", fl!("aosc-upload-issue-tips"));
+
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
+        OmaAptError::SetUpgradeMode(apt_errors) => {
+            error!("{}", fl!("failed-set-upgrade-mode"));
+
+            for_each_display_apt_err_messages(apt_errors);
+
+            due_to!("{}", fl!("failed-set-upgrade-mode-tips"));
+
+            #[cfg(feature = "aosc")]
+            info!("{}", fl!("aosc-upload-issue-tips"));
+
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
+        OmaAptError::LockApt(apt_errors) => {
+            error!("{}", fl!("failed-lock-apt"));
+
+            for_each_display_apt_err_messages(apt_errors);
+
+            due_to!("{}", fl!("failed-set-upgrade-mode-tips"));
+
+            #[cfg(feature = "aosc")]
+            info!("{}", fl!("aosc-upload-issue-tips"));
+
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
+        OmaAptError::InstallPackages(apt_errors) => {
+            error!("{}", fl!("failed-install-pkgs"));
+
+            for_each_display_apt_err_messages(apt_errors);
+
+            due_to!("{}", fl!("failed-install-pkgs-dueto"));
+
+            #[cfg(feature = "aosc")]
+            info!("{}", fl!("aosc-upload-issue-tips"));
+
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
+    }
+}
+
+fn for_each_display_apt_err_messages(apt_errors: AptErrors) {
+    for (i, e) in apt_errors.iter().enumerate() {
+        msg!("{}: {}", i + 1, e);
     }
 }
 
