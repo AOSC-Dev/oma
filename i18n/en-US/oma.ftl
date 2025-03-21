@@ -263,3 +263,5 @@ failed-create-pkg-index-cache = Failed to create packages index file cache.
 failed-set-upgrade-mode = Upgrade operations cannot be performed.
 failed-lock-apt = Unable to lock apt lockfile.
 failed-install-pkgs = Unable to install Package(s).
+failed-install-pkgs-dueto = This can be caused by problems with the quality of the software, corrupted system files or the system, or compatibility problems with the software.
+aosc-upload-issue-tips = Please share the above logs (screenshots) with AOSC OS maintainers so that we can investigate and make necessary improvements.

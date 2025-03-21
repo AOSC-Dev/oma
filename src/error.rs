@@ -26,8 +26,8 @@ use oma_utils::dpkg::DpkgError;
 use oma_topics::OmaTopicsError;
 use tracing::{debug, error, info};
 
-use crate::fl;
 use crate::subcommand::utils::LockError;
+use crate::{due_to, fl, msg};
 
 use self::ChainState::*;
 
@@ -764,10 +764,23 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("failed-lock-apt"),
             source: Some(Box::new(apt_errors)),
         },
-        OmaAptError::InstallPackages(apt_errors) => OutputError {
-            description: fl!("failed-install-pkgs"),
-            source: Some(Box::new(apt_errors)),
-        },
+        OmaAptError::InstallPackages(apt_errors) => {
+            error!("{}", fl!("failed-install-pkgs"));
+
+            for (i, e) in apt_errors.iter().enumerate() {
+                msg!("{}: {}", i + 1, e);
+            }
+
+            due_to!("{}", fl!("failed-install-pkgs-dueto"));
+
+            #[cfg(feature = "aosc")]
+            info!("{}", fl!("aosc-upload-issue-tips"));
+
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
     }
 }
 

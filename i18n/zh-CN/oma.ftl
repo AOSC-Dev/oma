@@ -256,4 +256,6 @@ fixing-status = oma 检测到本地软件包数据库状态不正确，正在尝
 failed-create-pkg-index-cache = 无法建立包索引缓存。
 failed-set-upgrade-mode = 无法进行升级操作。
 failed-lock-apt = 无法为 apt 锁文件加锁。
-failed-install-pkgs = 无法安装软件包。
+failed-install-pkgs = 无法完成软件包配置操作。APT 返回错误信息如下：
+failed-install-pkgs-dueto = 这可能是软件质量存在问题、系统文件损坏或系统，抑或软件存在兼容性问题导致的。
+aosc-upload-issue-tips = 请您将上述日志（截图）分享给 AOSC OS 维护者，以便我们进行调查并进行必要的改进工作。
