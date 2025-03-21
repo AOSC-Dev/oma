@@ -6,7 +6,6 @@ use glob_match::glob_match;
 use oma_apt::{
     Package, Version,
     cache::{Cache, PackageSort},
-    error::{AptError, AptErrors},
     raw::{IntoRawIter, PkgIterator},
     records::RecordField,
 };
@@ -21,12 +20,6 @@ use crate::pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone};
 
 #[derive(Debug, thiserror::Error)]
 pub enum MatcherError {
-    #[error(transparent)]
-    AptErrors(#[from] AptErrors),
-    #[error(transparent)]
-    AptError(#[from] AptError),
-    #[error(transparent)]
-    AptCxxException(#[from] cxx::Exception),
     #[error("Invalid pattern: {0}")]
     InvalidPattern(String),
     #[error("Can not find package {0} from database")]
