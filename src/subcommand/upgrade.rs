@@ -428,12 +428,12 @@ enum TopicUpdateEntry {
         security: bool,
         packages: HashMap<String, Option<String>>,
         name: HashMap<String, String>,
-        caution: HashMap<String, String>,
+        caution: Option<HashMap<String, String>>,
     },
     #[serde(rename = "cumulative")]
     Cumulative {
         name: HashMap<String, String>,
-        caution: HashMap<String, String>,
+        caution: Option<HashMap<String, String>>,
         topics: Vec<String>,
         #[serde(default)]
         security: bool,
@@ -445,11 +445,11 @@ pub enum TopicUpdateEntryRef<'a> {
         security: bool,
         packages: &'a HashMap<String, Option<String>>,
         name: &'a HashMap<String, String>,
-        caution: &'a HashMap<String, String>,
+        caution: Option<&'a HashMap<String, String>>,
     },
     Cumulative {
         name: &'a HashMap<String, String>,
-        caution: &'a HashMap<String, String>,
+        caution: Option<&'a HashMap<String, String>>,
         _topics: &'a [String],
         count_packages_changed: usize,
         security: bool,
@@ -488,7 +488,7 @@ impl<'a> From<&'a TopicUpdateEntry> for TopicUpdateEntryRef<'a> {
                 security: *security,
                 packages,
                 name,
-                caution,
+                caution: caution.as_ref(),
             },
             TopicUpdateEntry::Cumulative {
                 name,
@@ -497,7 +497,7 @@ impl<'a> From<&'a TopicUpdateEntry> for TopicUpdateEntryRef<'a> {
                 security,
             } => TopicUpdateEntryRef::Cumulative {
                 name,
-                caution,
+                caution: caution.as_ref(),
                 _topics: topics,
                 count_packages_changed: 0,
                 security: *security,

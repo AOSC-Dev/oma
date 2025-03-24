@@ -675,13 +675,12 @@ fn print_tum(
                         name.to_string()
                     };
 
-                    let caution = caution
-                        .get(lang)
-                        .unwrap_or_else(|| caution.get("default").unwrap());
+                    let caution =
+                        caution.map(|c| c.get(lang).unwrap_or_else(|| c.get("default").unwrap()));
 
                     tum_display.push(TumDisplay {
                         name,
-                        caution: caution.to_string(),
+                        caution: caution.map(|x| x.as_str()).unwrap_or("").to_string(),
                         security: *security,
                     });
                 }
@@ -701,13 +700,12 @@ fn print_tum(
                         name.to_string()
                     };
 
-                    let caution = caution
-                        .get(lang)
-                        .unwrap_or_else(|| caution.get("default").unwrap());
+                    let caution =
+                        caution.map(|c| c.get(lang).unwrap_or_else(|| c.get("default").unwrap()));
 
                     tum_display.push(TumDisplay {
                         name,
-                        caution: caution.to_string(),
+                        caution: caution.map(|x| x.as_str()).unwrap_or("").to_string(),
                         security: *security,
                     });
                 }
@@ -715,7 +713,12 @@ fn print_tum(
         }
 
         tum_display.sort_by(|a, b| b.security.cmp(&a.security));
-        printer.print_table(tum_display, vec!["Name", "Notes"]).ok();
+        printer
+            .print_table(
+                tum_display,
+                vec![fl!("tum-name").as_str(), fl!("tum-notes").as_str()],
+            )
+            .ok();
         printer.println("").ok();
         printer.println(fl!("tum-2")).ok();
         printer.println("").ok();
