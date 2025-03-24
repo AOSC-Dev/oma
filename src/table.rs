@@ -675,13 +675,12 @@ fn print_tum(
                         name.to_string()
                     };
 
-                    let caution = caution
-                        .get(lang)
-                        .unwrap_or_else(|| caution.get("default").unwrap());
+                    let caution =
+                        caution.map(|c| c.get(lang).unwrap_or_else(|| c.get("default").unwrap()));
 
                     tum_display.push(TumDisplay {
                         name,
-                        caution: caution.to_string(),
+                        caution: caution.map(|x| x.as_str()).unwrap_or("").to_string(),
                         security: *security,
                     });
                 }
@@ -701,13 +700,12 @@ fn print_tum(
                         name.to_string()
                     };
 
-                    let caution = caution
-                        .get(lang)
-                        .unwrap_or_else(|| caution.get("default").unwrap());
+                    let caution =
+                        caution.map(|c| c.get(lang).unwrap_or_else(|| c.get("default").unwrap()));
 
                     tum_display.push(TumDisplay {
                         name,
-                        caution: caution.to_string(),
+                        caution: caution.map(|x| x.as_str()).unwrap_or("").to_string(),
                         security: *security,
                     });
                 }
