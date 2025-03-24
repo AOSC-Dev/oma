@@ -713,7 +713,12 @@ fn print_tum(
         }
 
         tum_display.sort_by(|a, b| b.security.cmp(&a.security));
-        printer.print_table(tum_display, vec!["Name", "Notes"]).ok();
+        printer
+            .print_table(
+                tum_display,
+                vec![fl!("tum-name").as_str(), fl!("tum-notes").as_str()],
+            )
+            .ok();
         printer.println("").ok();
         printer.println(fl!("tum-2")).ok();
         printer.println("").ok();
