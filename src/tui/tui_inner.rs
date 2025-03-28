@@ -28,7 +28,7 @@ use ratatui::{
     },
 };
 
-use crate::{WRITER, fl, utils::SearchResultDisplay};
+use crate::{WRITER, fl, subcommand::search::SearchResultDisplay};
 
 #[derive(PartialEq, Eq)]
 enum Mode {
