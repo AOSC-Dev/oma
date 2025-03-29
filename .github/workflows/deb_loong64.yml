@@ -26,7 +26,7 @@ jobs:
             sed -e 's|https://community-packages.deepin.com|https://mirrors.bfsu.edu.cn/deepin|g' -i /etc/apt/sources.list;
           fi
           apt-get update
-          env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync nodejs libbz2-dev liblzma-dev
+          env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync libbz2-dev liblzma-dev libzstd-dev
       - name: Checkout repository
         uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -41,6 +41,7 @@ jobs:
       - name: Build deb package
         shell: bash
         run: |
+          export ZSTD_SYS_USE_PKG_CONFIG=1
           cargo deb -Z xz
           VER_SUFFIX="${TARGET_DISTRO/:/}"
           VER_SUFFIX="${VER_SUFFIX##*\/}"
