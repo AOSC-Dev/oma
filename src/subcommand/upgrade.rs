@@ -429,6 +429,11 @@ pub struct TopicUpdateManifest {
     entries: HashMap<String, TopicUpdateEntry>,
 }
 
+#[inline]
+const fn must_match_all_default() -> bool {
+    true
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 enum TopicUpdateEntry {
@@ -438,6 +443,8 @@ enum TopicUpdateEntry {
         packages: HashMap<String, Option<String>>,
         name: HashMap<String, String>,
         caution: Option<HashMap<String, String>>,
+        #[serde(default = "must_match_all_default")]
+        must_match_all: bool,
     },
     #[serde(rename = "cumulative")]
     Cumulative {
@@ -493,6 +500,7 @@ impl<'a> From<&'a TopicUpdateEntry> for TopicUpdateEntryRef<'a> {
                 packages,
                 name,
                 caution,
+                ..
             } => TopicUpdateEntryRef::Conventional {
                 security: *security,
                 packages,
@@ -567,8 +575,20 @@ pub fn get_matches_tum<'a>(
 
     for i in tum {
         'a: for (name, entry) in &i.entries {
-            if let TopicUpdateEntry::Conventional { packages, .. } = entry {
+            if let TopicUpdateEntry::Conventional {
+                must_match_all,
+                packages,
+                ..
+            } = entry
+            {
                 for (pkg_name, version) in packages {
+                    if !must_match_all
+                        && (install_pkg_on_topic(install_map, pkg_name, version)
+                            || remove_pkg_on_topic(remove_map, pkg_name, version))
+                    {
+                        break;
+                    }
+
                     if !install_pkg_on_topic(install_map, pkg_name, version)
                         && !remove_pkg_on_topic(remove_map, pkg_name, version)
                     {
