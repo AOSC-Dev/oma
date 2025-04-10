@@ -3124,7 +3124,7 @@ dependencies = [
 
 [[package]]
 name = "oma-contents"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "chrono",
  "flate2",
@@ -3160,7 +3160,7 @@ dependencies = [
 
 [[package]]
 name = "oma-history"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "num_enum",
  "oma-pm-operation-type",
@@ -3202,7 +3202,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.48.6"
+version = "0.49.0"
 dependencies = [
  "ahash",
  "apt-auth-config",
