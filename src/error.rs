@@ -26,8 +26,8 @@ use oma_utils::dpkg::DpkgError;
 use oma_topics::OmaTopicsError;
 use tracing::{debug, error, info};
 
-use crate::fl;
 use crate::subcommand::utils::LockError;
+use crate::{due_to, fl, msg};
 
 use self::ChainState::*;
 
@@ -253,10 +253,6 @@ impl From<OmaDbusError> for OutputError {
 impl From<OmaSearchError> for OutputError {
     fn from(value: OmaSearchError) -> Self {
         match value {
-            OmaSearchError::AptError(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(e)),
-            },
             OmaSearchError::NoResult(e) => OutputError {
                 description: fl!("could-not-find-pkg-from-keyword", c = e),
                 source: None,
@@ -264,11 +260,6 @@ impl From<OmaSearchError> for OutputError {
             OmaSearchError::FailedGetCandidate(s) => OutputError {
                 description: fl!("no-candidate-ver", pkg = s),
                 source: None,
-            },
-            OmaSearchError::AptErrors(e) => OutputError::from(e),
-            OmaSearchError::AptCxxException(e) => OutputError {
-                description: fl!("apt-error"),
-                source: Some(Box::new(AptErrors::from(e))),
             },
             OmaSearchError::PtrIsNone(_) => OutputError {
                 description: value.to_string(),
@@ -607,7 +598,6 @@ impl From<anyhow::Error> for OutputError {
 pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
     debug!("{:?}", err);
     match err {
-        OmaAptError::AptErrors(e) => OutputError::from(e),
         OmaAptError::OmaDatabaseError(e) => oma_database_error(e),
         OmaAptError::MarkReinstallError(pkg, version) => OutputError {
             description: fl!("can-not-mark-reinstall", name = pkg, version = version),
@@ -697,9 +687,12 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("invalid-filename", name = s),
             source: None,
         },
-        OmaAptError::DpkgFailedConfigure(e) => OutputError {
+        OmaAptError::DpkgFailedConfigure(_) => OutputError {
             description: fl!("dpkg-configure-a-non-zero"),
-            source: Some(Box::new(e)),
+            source: Some(Box::new(io::Error::new(
+                ErrorKind::Other,
+                fl!("dpkg-configure-failed-due-to-tips"),
+            ))),
         },
         OmaAptError::DiskSpaceInsufficient(need, avail) => OutputError {
             description: fl!(
@@ -742,14 +735,6 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: format!("Failed canonicalize path: {p}"),
             source: Some(Box::new(e)),
         },
-        OmaAptError::AptError(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(e)),
-        },
-        OmaAptError::AptCxxException(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(AptErrors::from(e))),
-        },
         OmaAptError::PtrIsNone(_) => OutputError {
             description: err.to_string(),
             source: None,
@@ -767,6 +752,72 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("download-failed-with-len", len = len),
             source: None,
         },
+        OmaAptError::CreateCache(apt_errors) => {
+            error!("{}", fl!("failed-create-pkg-index-cache"));
+
+            for_each_display_apt_err_messages(apt_errors);
+
+            due_to!("{}", fl!("failed-create-cache-tips"));
+
+            #[cfg(feature = "aosc")]
+            info!("{}", fl!("aosc-upload-issue-tips"));
+
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
+        OmaAptError::SetUpgradeMode(apt_errors) => {
+            error!("{}", fl!("failed-set-upgrade-mode"));
+
+            for_each_display_apt_err_messages(apt_errors);
+
+            due_to!("{}", fl!("failed-set-upgrade-mode-tips"));
+
+            #[cfg(feature = "aosc")]
+            info!("{}", fl!("aosc-upload-issue-tips"));
+
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
+        OmaAptError::LockApt(apt_errors) => {
+            error!("{}", fl!("failed-lock-apt"));
+
+            for_each_display_apt_err_messages(apt_errors);
+
+            due_to!("{}", fl!("failed-set-upgrade-mode-tips"));
+
+            #[cfg(feature = "aosc")]
+            info!("{}", fl!("aosc-upload-issue-tips"));
+
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
+        OmaAptError::InstallPackages(apt_errors) => {
+            error!("{}", fl!("failed-install-pkgs"));
+
+            for_each_display_apt_err_messages(apt_errors);
+
+            due_to!("{}", fl!("failed-install-pkgs-dueto"));
+
+            #[cfg(feature = "aosc")]
+            info!("{}", fl!("aosc-upload-issue-tips"));
+
+            OutputError {
+                description: "".to_string(),
+                source: None,
+            }
+        }
+    }
+}
+
+fn for_each_display_apt_err_messages(apt_errors: AptErrors) {
+    for (i, e) in apt_errors.iter().enumerate() {
+        msg!("{}: {}", i + 1, e);
     }
 }
 
@@ -829,15 +880,6 @@ fn oma_checksum_error(e: ChecksumError) -> OutputError {
 fn oma_database_error(e: MatcherError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        MatcherError::AptError(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(e)),
-        },
-        MatcherError::AptErrors(e) => OutputError::from(e),
-        MatcherError::AptCxxException(e) => OutputError {
-            description: fl!("apt-error"),
-            source: Some(Box::new(AptErrors::from(e))),
-        },
         MatcherError::InvalidPattern(s) => OutputError {
             description: fl!("invalid-pattern", p = s),
             source: None,

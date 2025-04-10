@@ -16,7 +16,7 @@ use zbus::Connection;
 use oma_apt::{
     DepFlags, Dependency, Package, PkgCurrentState, Version,
     cache::{Cache, PackageSort},
-    error::{AptError, AptErrors},
+    error::AptErrors,
     new_cache,
     progress::{AcquireProgress, InstallProgress},
     raw::IntoRawIter,
@@ -31,7 +31,7 @@ use oma_utils::{
 };
 
 pub use oma_apt::config::Config as AptConfig;
-use tracing::{debug, info};
+use tracing::debug;
 
 #[cfg(feature = "aosc")]
 use tracing::warn;
@@ -93,12 +93,14 @@ pub struct OmaApt {
 
 #[derive(Debug, thiserror::Error)]
 pub enum OmaAptError {
-    #[error(transparent)]
-    AptErrors(#[from] AptErrors),
-    #[error(transparent)]
-    AptError(#[from] AptError),
-    #[error(transparent)]
-    AptCxxException(#[from] cxx::Exception),
+    #[error("Failed to create packages index cache")]
+    CreateCache(AptErrors),
+    #[error("Failed to set upgrade mode")]
+    SetUpgradeMode(AptErrors),
+    #[error("Failed to lock apt")]
+    LockApt(AptErrors),
+    #[error("Failed to install package(s)")]
+    InstallPackages(AptErrors),
     #[error(transparent)]
     OmaDatabaseError(#[from] MatcherError),
     #[error("Failed to mark package for reinstallation: {0}")]
@@ -212,7 +214,7 @@ impl OmaApt {
         });
 
         Ok(Self {
-            cache: new_cache!(&local_debs)?,
+            cache: new_cache!(&local_debs).map_err(OmaAptError::CreateCache)?,
             config,
             autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
@@ -377,7 +379,9 @@ impl OmaApt {
 
     /// Set apt manager status as upgrade
     pub fn upgrade(&self, mode: Upgrade) -> OmaAptResult<()> {
-        self.cache.upgrade(mode)?;
+        self.cache
+            .upgrade(mode)
+            .map_err(OmaAptError::SetUpgradeMode)?;
 
         Ok(())
     }
@@ -678,7 +682,7 @@ impl OmaApt {
     }
 
     pub(crate) fn run_dpkg_configure(&self) -> OmaAptResult<()> {
-        info!("Running `dpkg --configure -a' ...");
+        debug!("Running `dpkg --configure -a' ...");
 
         let cmd = Command::new("dpkg")
             .arg("--root")
@@ -692,7 +696,7 @@ impl OmaApt {
     }
 
     pub(crate) fn run_dpkg_triggers(&self) -> OmaAptResult<()> {
-        info!("Running `dpkg --triggers-only -a' ...");
+        debug!("Running `dpkg --triggers-only -a' ...");
 
         let cmd = Command::new("dpkg")
             .arg("--root")
@@ -1111,7 +1115,7 @@ fn dpkg_exit_status(mut cmd: std::process::Child) -> Result<(), OmaAptError> {
             Some(0) => Ok(()),
             Some(x) => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
                 ErrorKind::Other,
-                format!("dpkg return non-zero code: {}", x),
+                format!("dpkg returned non-zero code: {}", x),
             ))),
             None => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
                 ErrorKind::Other,

@@ -334,37 +334,14 @@ impl CommitChanges<'_> {
             topics_disabled,
         } = self;
 
-        let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
-
-        let res = Ok(()).and_then(|_| -> Result<(), OmaAptError> {
-            if autoremove {
-                apt.autoremove(remove_config)?;
-            }
-
-            if !no_fixbroken {
-                apt.fix_resolver_broken();
-            }
-
-            if fix_dpkg_status {
-                let (needs_reconfigure, needs_retrigger) = apt.is_needs_fix_dpkg_status()?;
-                if needs_retrigger || needs_reconfigure {
-                    if let Some(ref pb) = pb {
-                        pb.inner.finish_and_clear()
-                    }
-                    apt.fix_dpkg_status(needs_reconfigure, needs_retrigger)?;
-                }
-            }
-
-            apt.resolve(no_fixbroken, remove_config)?;
-
-            Ok(())
-        });
-
-        if let Some(pb) = pb {
-            pb.inner.finish_and_clear();
-        }
-
-        res?;
+        fix_broken(
+            &mut apt,
+            no_fixbroken,
+            no_progress,
+            fix_dpkg_status,
+            remove_config,
+            autoremove,
+        )?;
 
         let op = apt.summary(
             SummarySort::Operation,
@@ -508,6 +485,50 @@ impl CommitChanges<'_> {
             }
         }
     }
+}
+
+pub fn fix_broken(
+    apt: &mut OmaApt,
+    no_fixbroken: bool,
+    no_progress: bool,
+    fix_dpkg_status: bool,
+    remove_config: bool,
+    autoremove: bool,
+) -> Result<(), OutputError> {
+    let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
+
+    let res = Ok(()).and_then(|_| -> Result<(), OmaAptError> {
+        if autoremove {
+            apt.autoremove(remove_config)?;
+        }
+
+        if !no_fixbroken {
+            apt.fix_resolver_broken();
+        }
+
+        if fix_dpkg_status {
+            let (needs_reconfigure, needs_retrigger) = apt.is_needs_fix_dpkg_status()?;
+            if needs_retrigger || needs_reconfigure {
+                if let Some(ref pb) = pb {
+                    pb.inner.finish_and_clear()
+                }
+                info!("{}", fl!("fixing-status"));
+                apt.fix_dpkg_status(needs_reconfigure, needs_retrigger)?;
+            }
+        }
+
+        apt.resolve(no_fixbroken, remove_config)?;
+
+        Ok(())
+    });
+
+    if let Some(pb) = pb {
+        pb.inner.finish_and_clear();
+    }
+
+    res?;
+
+    Ok(())
 }
 
 pub fn display_suggest_tips(suggest: &[(String, String)], recommend: &[(String, String)]) {
