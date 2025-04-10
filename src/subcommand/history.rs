@@ -3,10 +3,7 @@ use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
 use dialoguer::{Select, theme::ColorfulTheme};
-use oma_history::{
-    DATABASE_PATH, HistoryEntry, connect_db, find_history_by_id, find_history_topics_status_by_id,
-    list_history,
-};
+use oma_history::{DATABASE_PATH, HistoryEntry, connect_db, find_history_by_id, list_history};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::pkginfo::PtrIsNone;
@@ -14,15 +11,11 @@ use oma_pm::{
     apt::{FilterMode, OmaApt},
     pkginfo::OmaPackage,
 };
-use oma_topics::TopicManager;
-use oma_utils::dpkg::dpkg_arch;
-use tracing::warn;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
 use crate::config::Config;
-use crate::{HTTP_CLIENT, RT, fl};
 use crate::{
     NOT_DISPLAY_ABORT,
     error::OutputError,
@@ -156,7 +149,7 @@ impl CliExecuter for Undo {
         let op = find_history_by_id(&conn, id)?;
 
         #[cfg(feature = "aosc")]
-        let (opt_in, opt_out) = find_history_topics_status_by_id(&conn, id)?;
+        let (opt_in, opt_out) = oma_history::find_history_topics_status_by_id(&conn, id)?;
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
@@ -257,8 +250,18 @@ impl CliExecuter for Undo {
 
         #[cfg(feature = "aosc")]
         if code == 0 && (!opt_in.is_empty() || !opt_out.is_empty()) {
-            let arch = dpkg_arch(&sysroot)?;
-            let mut tm = TopicManager::new_blocking(&HTTP_CLIENT, sysroot, &arch, dry_run)?;
+            use crate::RT;
+            use crate::fl;
+            use tracing::warn;
+
+            let arch = oma_utils::dpkg::dpkg_arch(&sysroot)?;
+            let mut tm = oma_topics::TopicManager::new_blocking(
+                &crate::HTTP_CLIENT,
+                sysroot,
+                &arch,
+                dry_run,
+            )?;
+
             RT.block_on(tm.refresh())?;
 
             for i in opt_in {
