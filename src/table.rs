@@ -281,7 +281,12 @@ impl<W: Write> PagerPrinter<W> {
         writeln!(self.writer, "{d}")
     }
 
-    pub fn print_table<T, I>(&mut self, table: I, header: Vec<&str>) -> std::io::Result<()>
+    pub fn print_table<T, I>(
+        &mut self,
+        table: I,
+        header: Vec<&str>,
+        len: Option<usize>,
+    ) -> std::io::Result<()>
     where
         I: IntoIterator<Item = T>,
         T: Tabled,
@@ -299,7 +304,7 @@ impl<W: Write> PagerPrinter<W> {
             .modify(Columns::new(2..3), Alignment::left())
             .with(Style::psql())
             .with(
-                Width::wrap(WRITER.get_length() as usize)
+                Width::wrap(len.unwrap_or(WRITER.get_length() as usize))
                     .priority(PriorityMax::left())
                     .keep_words(true),
             );
@@ -475,6 +480,7 @@ fn print_pending_inner<W: Write>(
                     fl!("table-size").as_str(),
                     fl!("table-detail").as_str(),
                 ],
+                None,
             )
             .ok();
         printer.println("\n").ok();
@@ -504,6 +510,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
                     ],
+                    None,
                 )
                 .ok();
             printer.println("\n").ok();
@@ -532,6 +539,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
                     ],
+                    None,
                 )
                 .ok();
             printer.println("\n").ok();
@@ -560,6 +568,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
                     ],
+                    None,
                 )
                 .ok();
             printer.println("\n").ok();
@@ -588,6 +597,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
                     ],
+                    None,
                 )
                 .ok();
             printer.println("\n").ok();
@@ -717,6 +727,7 @@ fn print_tum(
             .print_table(
                 tum_display,
                 vec![fl!("tum-name").as_str(), fl!("tum-notes").as_str()],
+                Some(80),
             )
             .ok();
         printer.println("").ok();
