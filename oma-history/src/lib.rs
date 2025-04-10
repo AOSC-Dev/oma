@@ -377,6 +377,39 @@ pub fn list_history(conn: &Connection) -> HistoryResult<Vec<HistoryEntry>> {
     Ok(res)
 }
 
+pub fn find_history_topics_status_by_id(
+    conn: &Connection,
+    id: i64,
+) -> HistoryResult<(Vec<String>, Vec<String>)> {
+    let mut query_history_table = conn
+        .prepare(
+            "SELECT topic_name, enable FROM \"history_topic_oma_1.14\" WHERE history_id = (?1)",
+        )
+        .map_err(HistoryError::ExecuteError)?;
+
+    let res_iter = query_history_table
+        .query_map([id], |row| {
+            let topic_name: String = row.get(0)?;
+            let enabled: i64 = row.get(1)?;
+            Ok((topic_name, enabled == 1))
+        })
+        .map_err(HistoryError::ExecuteError)?;
+
+    let (mut enabled_topics, mut disabled) = (vec![], vec![]);
+
+    for i in res_iter {
+        let (name, enabled) = i.map_err(HistoryError::ParseDbError)?;
+
+        if enabled {
+            enabled_topics.push(name);
+        } else {
+            disabled.push(name);
+        }
+    }
+
+    Ok((enabled_topics, disabled))
+}
+
 pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<HistoryEntryInner> {
     let mut query_history_table = conn
         .prepare("SELECT is_success, disk_size, total_download_size FROM \"history_oma_1.14\" WHERE id = (?1)")
