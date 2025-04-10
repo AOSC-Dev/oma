@@ -3,7 +3,10 @@ use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
 use dialoguer::{Select, theme::ColorfulTheme};
-use oma_history::{DATABASE_PATH, HistoryEntry, connect_db, find_history_by_id, list_history};
+use oma_history::{
+    DATABASE_PATH, HistoryEntry, connect_db, find_history_by_id, find_history_topics_status_by_id,
+    list_history,
+};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::pkginfo::PtrIsNone;
@@ -11,11 +14,15 @@ use oma_pm::{
     apt::{FilterMode, OmaApt},
     pkginfo::OmaPackage,
 };
+use oma_topics::TopicManager;
+use oma_utils::dpkg::dpkg_arch;
+use tracing::warn;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
 use crate::config::Config;
+use crate::{HTTP_CLIENT, RT, fl};
 use crate::{
     NOT_DISPLAY_ABORT,
     error::OutputError,
@@ -148,6 +155,9 @@ impl CliExecuter for Undo {
         let id = selected.id;
         let op = find_history_by_id(&conn, id)?;
 
+        #[cfg(feature = "aosc")]
+        let (opt_in, opt_out) = find_history_topics_status_by_id(&conn, id)?;
+
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
             .another_apt_options(apt_options)
@@ -228,7 +238,7 @@ impl CliExecuter for Undo {
         let auth_config = auth_config(&sysroot);
         let auth_config = auth_config.as_ref();
 
-        CommitChanges::builder()
+        let code = CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
             .is_undo(true)
@@ -243,7 +253,41 @@ impl CliExecuter for Undo {
             .network_thread(config.network_thread())
             .maybe_auth_config(auth_config)
             .build()
-            .run()
+            .run()?;
+
+        #[cfg(feature = "aosc")]
+        if code == 0 && (!opt_in.is_empty() || !opt_out.is_empty()) {
+            let arch = dpkg_arch(&sysroot)?;
+            let mut tm = TopicManager::new_blocking(&HTTP_CLIENT, sysroot, &arch, dry_run)?;
+            RT.block_on(tm.refresh())?;
+
+            for i in opt_in {
+                if let Err(e) = tm.remove(&i) {
+                    warn!("Could not disable topic {i}: {e}");
+                }
+            }
+
+            for i in opt_out {
+                if let Err(e) = tm.add(&i) {
+                    warn!("Could not enable topic {i}: {e}");
+                }
+            }
+
+            RT.block_on(tm.write_enabled())?;
+            RT.block_on(tm.write_sources_list(
+                &fl!("do-not-edit-topic-sources-list"),
+                false,
+                async |topic, mirror| {
+                    warn!(
+                        "{}",
+                        fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                    );
+                    warn!("{}", fl!("skip-write-mirror"));
+                },
+            ))?;
+        }
+
+        Ok(code)
     }
 }
 
