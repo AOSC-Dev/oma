@@ -265,3 +265,4 @@ failed-create-cache-tips = 造成该问题的直接原因是本地软件包索�
 failed-set-upgrade-mode-tips = 该问题属于 APT 后端的内部错误，为保护您的系统完整性，oma 已中止操作。
 failed-lock-apt-tips = 请检查是否有其他相关进程，如另一个终端中的 oma 或 apt 命令，抑或图形化的软件包管理器等，并耐心等待其完成操作。
 path-not-exist = 路径 { $path } 不存在。
+not-allow-oma-pending-piped = 不允许搭配管道使用 oma 的交互模式界面。

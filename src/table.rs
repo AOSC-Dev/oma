@@ -7,6 +7,7 @@ use std::sync::atomic::Ordering;
 
 use crate::console::style;
 use crate::error::OutputError;
+use crate::subcommand::utils::is_terminal;
 use crate::upgrade::TopicUpdateEntryRef;
 use crate::{NOT_DISPLAY_ABORT, WRITER, color_formatter, fl};
 use ahash::HashMap;
@@ -326,6 +327,13 @@ pub fn table_for_install_pending(
     }
 
     let mut pager = if is_pager {
+        if !is_terminal() {
+            return Err(OutputError {
+                description: fl!("not-allow-oma-pending-piped"),
+                source: None,
+            });
+        }
+
         Pager::external(
             &OmaPagerUIText { is_question: true },
             Some(fl!("pending-op")),
