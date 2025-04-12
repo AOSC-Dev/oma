@@ -264,3 +264,4 @@ aosc-upload-issue-tips = 请您将上述日志（截图）分享给 AOSC OS 维�
 failed-create-cache-tips = 造成该问题的直接原因是本地软件包索引文件损坏或格式不正确，这可能是系统文件错误、系统服务或内核运行不稳定导致的，建议通过 dmesg 或 journalctl 等命令查阅日志，必要时可考虑重启您的电脑。
 failed-set-upgrade-mode-tips = 该问题属于 APT 后端的内部错误，为保护您的系统完整性，oma 已中止操作。
 failed-lock-apt-tips = 请检查是否有其他相关进程，如另一个终端中的 oma 或 apt 命令，抑或图形化的软件包管理器等，并耐心等待其完成操作。
+path-not-exist = 路径 { $path } 不存在。

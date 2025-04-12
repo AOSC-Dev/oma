@@ -812,6 +812,10 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 source: None,
             }
         }
+        OmaAptError::PathNotExist(path) => OutputError {
+            description: fl!("path-not-exist", path = path),
+            source: None,
+        },
     }
 }
 
