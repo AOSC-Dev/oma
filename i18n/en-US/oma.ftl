@@ -270,3 +270,4 @@ aosc-upload-issue-tips = Please share the above logs (screenshots) with AOSC OS 
 failed-create-cache-tips = The direct cause of this problem is a corrupted or incorrectly formatted local package index file, which can be caused by system file errors, system services, or unstable kernel operation. It is recommended to check the logs via commands such as dmesg or journalctl, and consider restarting your computer if necessary.
 failed-set-upgrade-mode-tips = This issue is an internal error in the APT backend and oma has aborted the operation to protect the integrity of your system.
 failed-lock-apt-tips = Check for other related processes, such as the oma or apt commands in another terminal, or a graphical package manager, and wait for them to complete their operations.
+path-not-exist = Path { $path } does not exist.

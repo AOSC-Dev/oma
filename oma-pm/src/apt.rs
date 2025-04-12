@@ -95,6 +95,8 @@ pub struct OmaApt {
 pub enum OmaAptError {
     #[error("Failed to create packages index cache")]
     CreateCache(AptErrors),
+    #[error("Path {0} does not exist.")]
+    PathNotExist(String),
     #[error("Failed to set upgrade mode")]
     SetUpgradeMode(AptErrors),
     #[error("Failed to lock apt")]
@@ -195,6 +197,12 @@ impl OmaApt {
         dry_run: bool,
         config: AptConfig,
     ) -> OmaAptResult<Self> {
+        for path in &local_debs {
+            if !Path::new(&path).exists() {
+                return Err(OmaAptError::PathNotExist(path.to_string()));
+            }
+        }
+
         let config = Self::init_config(config, args)?;
 
         let tokio = tokio::runtime::Builder::new_multi_thread()
