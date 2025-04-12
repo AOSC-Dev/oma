@@ -271,3 +271,4 @@ failed-create-cache-tips = The direct cause of this problem is a corrupted or in
 failed-set-upgrade-mode-tips = This issue is an internal error in the APT backend and oma has aborted the operation to protect the integrity of your system.
 failed-lock-apt-tips = Check for other related processes, such as the oma or apt commands in another terminal, or a graphical package manager, and wait for them to complete their operations.
 path-not-exist = Path { $path } does not exist.
+not-allow-oma-pending-piped = oma cannot run with piped output in interactive mode.
