@@ -322,7 +322,7 @@ pub fn table_for_install_pending(
     dry_run: bool,
 ) -> Result<PagerExit, OutputError> {
     if dry_run {
-        return Ok(PagerExit::NormalExit);
+        return Ok(PagerExit::DryRun);
     }
 
     let mut pager = if is_pager {
