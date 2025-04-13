@@ -3019,7 +3019,7 @@ dependencies = [
 
 [[package]]
 name = "oma"
-version = "1.16.0-rc.5"
+version = "1.16.0-rc.6"
 dependencies = [
  "ahash",
  "ansi-to-tui",
