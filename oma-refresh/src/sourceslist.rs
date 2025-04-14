@@ -2,7 +2,9 @@ use std::{fs::Permissions, os::unix::fs::PermissionsExt, path::Path};
 
 use ahash::HashMap;
 use apt_auth_config::{AuthConfig, Authenticator};
+use fancy_regex::Regex;
 use futures::StreamExt;
+use oma_apt::config::Config;
 use oma_apt_sources_lists::{
     Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
 };
@@ -15,7 +17,7 @@ use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
 };
-use tracing::debug;
+use tracing::{debug, warn};
 use url::Url;
 
 use crate::{
@@ -33,9 +35,10 @@ pub struct OmaSourceEntry<'a> {
     from: OnceCell<OmaSourceEntryFrom>,
 }
 
-pub async fn sources_lists<'a>(
+pub async fn scan_sources_lists<'a>(
     sysroot: impl AsRef<Path>,
     arch: &'a str,
+    config: &Config,
     cb: &'a impl AsyncFn(Event),
 ) -> Result<Vec<OmaSourceEntry<'a>>, SourcesListError> {
     let mut res = Vec::new();
@@ -58,6 +61,16 @@ pub async fn sources_lists<'a>(
         }
     }
 
+    let ignores = config.find_vector("Dir::Ignore-Files-Silently");
+    let ignores = ignores
+        .iter()
+        .filter_map(|re| Regex::new(re)
+            .inspect_err(|e|
+                warn!("Failed to parse regex {} in ignore rule list (Dir::Ignore-Files-Silently): {}", re, e)).ok())
+        .collect::<Vec<_>>();
+
+    debug!("Supplied ignore list: {:?}", ignores);
+
     for p in paths {
         match SourcesList::new(p) {
             Ok(s) => match s.entries {
@@ -76,6 +89,19 @@ pub async fn sources_lists<'a>(
             },
             Err(e) => match e {
                 SourcesListError::UnknownFile { path } => {
+                    let Some(file_name) = path.file_name() else {
+                        cb(Event::SourceListFileNotSupport { path }).await;
+                        continue;
+                    };
+
+                    if ignores
+                        .iter()
+                        .any(|re| re.is_match(&file_name.to_string_lossy()).unwrap_or(false))
+                    {
+                        debug!("{:?} matches ignore list", file_name);
+                        continue;
+                    }
+
                     cb(Event::SourceListFileNotSupport { path }).await;
                 }
                 e => return Err(e),

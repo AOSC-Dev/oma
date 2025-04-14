@@ -55,7 +55,7 @@ use crate::{
         ChecksumItem, InReleaseChecksum, InReleaseError, Release, file_is_compress,
         split_ext_and_filename, verify_inrelease,
     },
-    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, sources_lists},
+    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, scan_sources_lists},
     util::DatabaseFilenameReplacer,
 };
 
@@ -193,7 +193,7 @@ pub enum Event {
 impl<'a> OmaRefresh<'a> {
     pub async fn start(mut self, callback: impl AsyncFn(Event)) -> Result<()> {
         let arch = dpkg_arch(&self.source)?;
-        let sourcelist = sources_lists(&self.source, &arch, &callback)
+        let sourcelist = scan_sources_lists(&self.source, &arch, self.apt_config, &callback)
             .await
             .map_err(RefreshError::ScanSourceError)?;
 
