@@ -22,7 +22,7 @@ futures = "0.3"
 # xz(1) is called) - there seems to be some strange ABI incompatibilities
 # between liblzma 5.2 and liblzma >= 5.6.
 # 
-# Hold async-compression at 0.14.19 for now (which uses xz2 that allows
+# Hold async-compression at 0.4.19 for now (which uses xz2 that allows
 # dynamic linking with older xz/liblzma versions).
 async-compression = { version = "=0.4.19", features = ["gzip", "xz", "futures-io", "bzip2", "zstd"] }
 tracing = "0.1"
