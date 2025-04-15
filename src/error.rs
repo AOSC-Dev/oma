@@ -702,9 +702,9 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             ),
             source: None,
         },
-        OmaAptError::CommitErr(e) => OutputError {
-            description: e,
-            source: None,
+        OmaAptError::MarkStatus(e) => OutputError {
+            description: "Failed to mark package status".to_string(),
+            source: Some(Box::new(e)),
         },
         OmaAptError::MarkPkgNotInstalled(pkg) => OutputError {
             description: fl!("pkg-is-not-installed", pkg = pkg),

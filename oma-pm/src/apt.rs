@@ -131,8 +131,8 @@ pub enum OmaAptError {
     DpkgTriggers(std::io::Error),
     #[error("Insufficient disk space: {0} needed, but only {1} is available.")]
     DiskSpaceInsufficient(HumanBytes, HumanBytes),
-    #[error("Unable to commit change(s): {0}")]
-    CommitErr(String),
+    #[error("Unable to mark package status")]
+    MarkStatus(AptErrors),
     #[error("Failed to mark package status: {0} is not installed")]
     MarkPkgNotInstalled(String),
     #[error(transparent)]
@@ -827,7 +827,7 @@ impl OmaApt {
 
         self.cache
             .commit(&mut AcquireProgress::quiet(), &mut InstallProgress::apt())
-            .map_err(|e| OmaAptError::CommitErr(e.to_string()))?;
+            .map_err(OmaAptError::MarkStatus)?;
 
         Ok(res)
     }
