@@ -121,7 +121,7 @@ impl CliExecuter for CommandNotFound {
                     );
                     let mut printer = PagerPrinter::new(stdout());
                     printer
-                        .print_table(res, vec!["Name", "Path", "Description"], None)
+                        .print_table(res, vec!["Name", "Path", "Description"])
                         .ok();
 
                     if too_many {
