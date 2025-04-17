@@ -572,8 +572,11 @@ fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {
     };
 
     let human_space = HumanBytes(archive_dir_space).to_string();
+    let cmd = color_formatter()
+        .color_str("oma clean", Action::Secondary)
+        .to_string();
 
-    warn!("{}", fl!("space-warn", size = human_space));
+    warn!("{}", fl!("space-warn", size = human_space, cmd = cmd));
 }
 
 pub fn display_suggest_tips(suggest: &[(String, String)], recommend: &[(String, String)]) {
