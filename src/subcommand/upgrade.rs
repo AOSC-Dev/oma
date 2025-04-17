@@ -422,6 +422,7 @@ enum TopicUpdateEntry {
     },
 }
 
+#[derive(Debug)]
 pub enum TopicUpdateEntryRef<'a> {
     Conventional {
         security: bool,
@@ -547,18 +548,20 @@ pub fn get_matches_tum<'a>(
                 ..
             } = entry
             {
-                for (pkg_name, version) in packages {
+                'b: for (index, (pkg_name, version)) in packages.iter().enumerate() {
                     if !must_match_all
                         && (install_pkg_on_topic(install_map, pkg_name, version)
                             || remove_pkg_on_topic(remove_map, pkg_name, version))
                     {
-                        break;
-                    }
-
-                    if !install_pkg_on_topic(install_map, pkg_name, version)
+                        break 'b;
+                    } else if !install_pkg_on_topic(install_map, pkg_name, version)
                         && !remove_pkg_on_topic(remove_map, pkg_name, version)
                     {
-                        continue 'a;
+                        if *must_match_all || index == packages.len() - 1 {
+                            continue 'a;
+                        } else {
+                            continue 'b;
+                        }
                     }
                 }
                 matches.insert(name.as_str(), TopicUpdateEntryRef::from(entry));
