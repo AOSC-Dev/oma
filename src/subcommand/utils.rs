@@ -374,7 +374,7 @@ impl CommitChanges<'_> {
         let (suggest, recommend) = (&op.suggest, &op.recommend);
 
         if is_nothing_to_do(install, remove, !no_fixbroken) {
-            autoremovable_tips(ar_count, ar_size)?;
+            autoremovable_tips(ar_count, ar_size);
             return Ok(0);
         }
 
@@ -438,7 +438,7 @@ impl CommitChanges<'_> {
             Ok(_) => {
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 write_oma_installed_status()?;
-                autoremovable_tips(ar_count, ar_size)?;
+                autoremovable_tips(ar_count, ar_size);
 
                 write_history_entry(
                     {
@@ -562,9 +562,9 @@ pub fn create_progress_spinner(no_progress: bool, msg: String) -> Option<OmaProg
     }
 }
 
-pub fn autoremovable_tips(count: u64, total_size: u64) -> Result<(), OutputError> {
+pub fn autoremovable_tips(count: u64, total_size: u64) {
     if count == 0 {
-        return Ok(());
+        return;
     }
 
     let total_size = HumanBytes(total_size).to_string();
@@ -593,8 +593,6 @@ pub fn autoremovable_tips(count: u64, total_size: u64) -> Result<(), OutputError
         )
     );
     info!("{}", fl!("autoremove-tips-2", cmd1 = cmd2, cmd2 = cmd3));
-
-    Ok(())
 }
 
 pub(crate) fn is_nothing_to_do(

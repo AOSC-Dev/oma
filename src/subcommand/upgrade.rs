@@ -273,7 +273,7 @@ impl CliExecuter for Upgrade {
         let (suggest, recommend) = (&op.suggest, &op.recommend);
 
         if is_nothing_to_do(install, remove, !no_fixbroken) {
-            autoremovable_tips(ar_count, ar_size)?;
+            autoremovable_tips(ar_count, ar_size);
             return Ok(0);
         }
 
@@ -330,7 +330,7 @@ impl CliExecuter for Upgrade {
 
                 write_oma_installed_status()?;
 
-                autoremovable_tips(ar_count, ar_size)?;
+                autoremovable_tips(ar_count, ar_size);
 
                 write_history_entry(
                     {
