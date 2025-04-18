@@ -44,6 +44,7 @@ use dialoguer::console;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use flume::unbounded;
+use fs_extra::dir::get_size as get_dir_size;
 use indexmap::IndexSet;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::PagerExit;
@@ -437,12 +438,21 @@ impl CommitChanges<'_> {
         match res {
             Ok(_) => {
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
-                write_oma_installed_status()?;
+
+                let apt = OmaApt::new(
+                    vec![],
+                    OmaAptArgs::builder().build(),
+                    false,
+                    AptConfig::new(),
+                )?;
+
+                write_oma_installed_status(&apt)?;
+
                 autoremovable_tips(ar_count, ar_size);
 
                 write_history_entry(
                     {
-                        let db = create_db_file(sysroot)?;
+                        let db = create_db_file(&sysroot)?;
                         connect_db(db, true)?
                     },
                     dry_run,
@@ -459,15 +469,23 @@ impl CommitChanges<'_> {
 
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
+                space_tips(&apt, sysroot);
 
                 Ok(0)
             }
             Err(e) => {
+                let apt = OmaApt::new(
+                    vec![],
+                    OmaAptArgs::builder().build(),
+                    false,
+                    AptConfig::new(),
+                )?;
+
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 undo_tips();
                 write_history_entry(
                     {
-                        let db = create_db_file(sysroot)?;
+                        let db = create_db_file(&sysroot)?;
                         connect_db(db, true)?
                     },
                     dry_run,
@@ -481,6 +499,7 @@ impl CommitChanges<'_> {
                         topics_disabled,
                     },
                 )?;
+                space_tips(&apt, sysroot);
                 Err(e.into())
             }
         }
@@ -529,6 +548,39 @@ pub fn fix_broken(
     res?;
 
     Ok(())
+}
+
+pub fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {
+    let space = match fs4::available_space(&sysroot) {
+        Ok(space) => space,
+        Err(e) => {
+            warn!("Unable to get available space: {e}");
+            return;
+        }
+    };
+
+    if space >= 5 * 1024 * 1024 * 1024 {
+        return;
+    }
+
+    let archive_dir_space = match get_dir_size(apt.get_archive_dir()) {
+        Ok(size) => size,
+        Err(e) => {
+            warn!("Unable to get archive dir space: {e}");
+            return;
+        }
+    };
+
+    if archive_dir_space != 0 {
+        let human_space = HumanBytes(archive_dir_space).to_string();
+        let cmd = color_formatter()
+            .color_str("oma clean", Action::Secondary)
+            .to_string();
+
+        warn!("{}", fl!("space-warn", size = human_space, cmd = cmd));
+    } else {
+        warn!("{}", fl!("space-warn-with-zero"));
+    }
 }
 
 pub fn display_suggest_tips(suggest: &[(String, String)], recommend: &[(String, String)]) {
@@ -700,7 +752,7 @@ pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
     Ok(res)
 }
 
-pub fn write_oma_installed_status() -> anyhow::Result<()> {
+pub fn write_oma_installed_status(apt: &OmaApt) -> anyhow::Result<()> {
     let status_file = Path::new("/var/lib/oma/installed");
     let status_file_manual = Path::new("/var/lib/oma/installed-manual");
     let parent = status_file.parent().unwrap();
@@ -708,13 +760,6 @@ pub fn write_oma_installed_status() -> anyhow::Result<()> {
     if !parent.is_dir() {
         fs::create_dir_all(parent)?;
     }
-
-    let apt = OmaApt::new(
-        vec![],
-        OmaAptArgs::builder().build(),
-        false,
-        AptConfig::new(),
-    )?;
 
     let pkgs = apt
         .filter_pkgs(&[FilterMode::Installed])?

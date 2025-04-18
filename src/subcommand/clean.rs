@@ -1,10 +1,13 @@
-use std::fs::remove_dir_all;
-use std::path::PathBuf;
+use std::fs::{self};
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 
 use crate::subcommand::utils::create_progress_spinner;
-use crate::success;
 use crate::{config::Config, fl};
+use crate::{error, success};
 use clap::Args;
+use fs_extra::dir::get_size;
+use oma_console::indicatif::HumanBytes;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::{debug, info};
 
@@ -60,21 +63,23 @@ impl CliExecuter for Clean {
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
         let download_dir = apt.get_archive_dir();
-        let dir = std::fs::read_dir(download_dir).map_err(|e| OutputError {
+        let dir = fs::read_dir(download_dir).map_err(|e| OutputError {
             description: format!("Failed to read dir: {}", download_dir.display()),
             source: Some(Box::new(e)),
         })?;
 
         let pb = create_progress_spinner(no_progress, fl!("cleaning"));
 
-        remove_dir_all(download_dir.join("partial")).ok();
+        let mut total_clean_size = 0;
+
+        remove(&download_dir.join("partial"), &mut total_clean_size);
 
         for i in dir
             .flatten()
             .filter(|x| x.path().extension().is_some_and(|name| name == "deb"))
         {
             if !keep_downloadable && !keep_downloadable_and_installed && !keep_installed {
-                remove_deb(&i);
+                remove(&i.path(), &mut total_clean_size);
                 continue;
             }
 
@@ -92,14 +97,14 @@ impl CliExecuter for Clean {
                     "Failed to get package name or version: {}, will delete this file",
                     i.path().display()
                 );
-                remove_deb(&i);
+                remove(&i.path(), &mut total_clean_size);
                 continue;
             };
 
             let version = version.replace("%3a", ":");
 
             let Some(version) = apt.cache.get(pkg).and_then(|pkg| pkg.get_version(&version)) else {
-                remove_deb(&i);
+                remove(&i.path(), &mut total_clean_size);
                 continue;
             };
 
@@ -107,14 +112,14 @@ impl CliExecuter for Clean {
                 && !version.is_downloadable()
                 && keep_downloadable_and_installed
             {
-                remove_deb(&i);
+                remove(&i.path(), &mut total_clean_size);
                 continue;
             }
 
             if (!version.is_downloadable() && keep_downloadable)
                 || (!version.is_installed() && keep_installed)
             {
-                remove_deb(&i);
+                remove(&i.path(), &mut total_clean_size);
                 continue;
             }
         }
@@ -123,13 +128,38 @@ impl CliExecuter for Clean {
             pb.inner.finish_and_clear();
         }
 
-        success!("{}", fl!("clean-successfully"));
+        if total_clean_size != 0 {
+            let size = HumanBytes(total_clean_size).to_string();
+            success!("{}", fl!("clean-successfully", size = size));
+        } else {
+            info!("{}", fl!("clean-zero"));
+        }
 
         Ok(0)
     }
 }
 
-#[inline]
-fn remove_deb(i: &std::fs::DirEntry) {
-    std::fs::remove_file(i.path()).ok();
+fn remove(i: &Path, total_size: &mut u64) {
+    let size = get_size(i);
+
+    let result = if i.is_dir() {
+        fs::remove_dir(i)
+    } else {
+        fs::remove_file(i)
+    };
+
+    match result {
+        Ok(_) => *total_size += size.unwrap_or(0),
+        Err(e) => {
+            if e.kind() == ErrorKind::NotFound {
+                return;
+            }
+            error!(
+                "Failed to delete {} {}: {}",
+                if i.is_dir() { "dir" } else { "file" },
+                i.display(),
+                e
+            );
+        }
+    }
 }
