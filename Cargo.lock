@@ -3204,7 +3204,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3243,7 +3243,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.43.0"
+version = "0.43.1"
 dependencies = [
  "ahash",
  "aho-corasick",
