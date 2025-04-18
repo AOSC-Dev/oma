@@ -272,4 +272,5 @@ failed-set-upgrade-mode-tips = This issue is an internal error in the APT backen
 failed-lock-apt-tips = Check for other related processes, such as the oma or apt commands in another terminal, or a graphical package manager, and wait for them to complete their operations.
 path-not-exist = Path { $path } does not exist.
 not-allow-oma-pending-piped = oma cannot run with piped output in interactive mode.
-space-warn = You seem to be running out of space. Consider using { $cmd } to purge the package cache, which will free up { $size } in storage space.
+space-warn = You seem to be running out of space. Consider using { $cmd } to purge the package cache, which will free up { $size } in storage space; Please also consider cleaning up your rarely used software or personal data.
+space-warn-with-zero = You seem to be running out of space, Please consider cleaning up your rarely used software or personal data.

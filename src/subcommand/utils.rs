@@ -571,12 +571,16 @@ pub fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {
         }
     };
 
-    let human_space = HumanBytes(archive_dir_space).to_string();
-    let cmd = color_formatter()
-        .color_str("oma clean", Action::Secondary)
-        .to_string();
+    if archive_dir_space != 0 {
+        let human_space = HumanBytes(archive_dir_space).to_string();
+        let cmd = color_formatter()
+            .color_str("oma clean", Action::Secondary)
+            .to_string();
 
-    warn!("{}", fl!("space-warn", size = human_space, cmd = cmd));
+        warn!("{}", fl!("space-warn", size = human_space, cmd = cmd));
+    } else {
+        warn!("{}", fl!("space-warn-with-zero"));
+    }
 }
 
 pub fn display_suggest_tips(suggest: &[(String, String)], recommend: &[(String, String)]) {
