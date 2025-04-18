@@ -41,6 +41,7 @@ mod commit;
 mod dbus;
 mod download;
 pub use commit::CommitNetworkConfig;
+pub mod sort;
 
 #[cfg(test)]
 mod test {

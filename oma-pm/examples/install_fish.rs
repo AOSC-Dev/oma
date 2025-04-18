@@ -6,9 +6,10 @@ use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
 use oma_fetch::{Event, reqwest::ClientBuilder};
 use oma_pm::{
     CommitNetworkConfig,
-    apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError, SummarySort},
+    apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError},
     matches::PackagesMatcher,
     progress::InstallProgressManager,
+    sort::SummarySort,
 };
 
 struct MyInstallProgressManager;
@@ -102,7 +103,11 @@ fn main() -> Result<(), OmaAptError> {
 
     apt.resolve(false, false)?;
 
-    let op = apt.summary(SummarySort::Operation, |_| false, |_| false)?;
+    let op = apt.summary(
+        SummarySort::default().operation().names(),
+        |_| false,
+        |_| false,
+    )?;
 
     let (tx, rx) = unbounded();
 
