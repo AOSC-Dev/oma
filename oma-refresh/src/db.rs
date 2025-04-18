@@ -3,6 +3,7 @@ use std::{
     fs::Permissions,
     os::{fd::AsRawFd, unix::fs::PermissionsExt},
     path::{Path, PathBuf},
+    process::Command,
 };
 
 use ahash::{AHashMap, HashSet};
@@ -43,8 +44,7 @@ use oma_fetch::reqwest::StatusCode;
 use sysinfo::{Pid, System};
 use tokio::{
     fs::{self},
-    process::Command,
-    task::spawn_blocking,
+    task::block_in_place,
 };
 use tracing::{debug, warn};
 
@@ -198,24 +198,21 @@ impl<'a> OmaRefresh<'a> {
             .map_err(RefreshError::ScanSourceError)?;
 
         if !self.download_dir.is_dir() {
-            fs::create_dir_all(&self.download_dir).await.map_err(|e| {
+            block_in_place(|| std::fs::create_dir_all(&self.download_dir)).map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
             })?;
         }
 
         debug!("Setting {} permission as 0755", self.download_dir.display());
 
-        fs::set_permissions(&self.download_dir, Permissions::from_mode(0o755))
-            .await
-            .map_err(|e| {
-                RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
-            })?;
+        block_in_place(|| {
+            std::fs::set_permissions(&self.download_dir, Permissions::from_mode(0o755))
+        })
+        .map_err(|e| {
+            RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
+        })?;
 
-        let download_dir: Box<Path> = Box::from(self.download_dir.as_path());
-
-        spawn_blocking(move || get_apt_update_lock(&download_dir))
-            .await
-            .unwrap()?;
+        block_in_place(|| get_apt_update_lock(&self.download_dir))?;
 
         detect_duplicate_repositories(&sourcelist)?;
 
@@ -228,9 +225,8 @@ impl<'a> OmaRefresh<'a> {
 
         download_list.extend(mirror_sources.0.iter().flat_map(|x| x.file_name()));
 
-        let (tasks, total) = self
-            .collect_all_release_entry(&replacer, &mirror_sources)
-            .await?;
+        let (tasks, total) =
+            block_in_place(|| self.collect_all_release_entry(&replacer, &mirror_sources))?;
 
         for i in &tasks {
             download_list.push(i.filename.as_str());
@@ -248,7 +244,7 @@ impl<'a> OmaRefresh<'a> {
 
         if should_run_invoke {
             callback(Event::RunInvokeScript).await;
-            self.run_success_post_invoke().await;
+            block_in_place(|| self.run_success_post_invoke());
         }
 
         callback(Event::Done).await;
@@ -281,27 +277,17 @@ impl<'a> OmaRefresh<'a> {
             return Err(RefreshError::DownloadFailed(None));
         }
 
-        // 有元数据更新才执行 success invoke
-        let should_run_invoke = res.has_wrote();
-
-        if should_run_invoke {
-            callback(Event::RunInvokeScript).await;
-            self.run_success_post_invoke().await;
-        }
-
-        callback(Event::Done).await;
-
         Ok(res)
     }
 
-    async fn run_success_post_invoke(&self) {
+    fn run_success_post_invoke(&self) {
         let cmds = self
             .apt_config
             .find_vector("APT::Update::Post-Invoke-Success");
 
         for cmd in &cmds {
             debug!("Running post-invoke script: {cmd}");
-            let output = Command::new("sh").arg("-c").arg(cmd).output().await;
+            let output = Command::new("sh").arg("-c").arg(cmd).output();
 
             match output {
                 Ok(output) => {
@@ -437,7 +423,7 @@ impl<'a> OmaRefresh<'a> {
         Ok(())
     }
 
-    async fn collect_all_release_entry<'b>(
+    fn collect_all_release_entry<'b>(
         &self,
         replacer: &DatabaseFilenameReplacer,
         mirror_sources: &MirrorSources<'b, 'a>,
@@ -447,7 +433,7 @@ impl<'a> OmaRefresh<'a> {
 
         let index_target_config = IndexTargetConfig::new(self.apt_config, &self.arch);
 
-        let archs_from_file = fs::read_to_string("/var/lib/dpkg/arch").await;
+        let archs_from_file = std::fs::read_to_string("/var/lib/dpkg/arch");
 
         let archs_from_file = if let Ok(file) = archs_from_file {
             let res = file.lines().map(|x| x.to_string()).collect::<Vec<_>>();
@@ -472,7 +458,7 @@ impl<'a> OmaRefresh<'a> {
 
             let mut handle = HashSet::with_hasher(ahash::RandomState::new());
 
-            let inrelease = fs::read_to_string(&inrelease_path).await.map_err(|e| {
+            let inrelease = std::fs::read_to_string(&inrelease_path).map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
             })?;
 

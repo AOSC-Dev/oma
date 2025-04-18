@@ -41,26 +41,6 @@ pub async fn scan_sources_lists<'a>(
     config: &Config,
     cb: &'a impl AsyncFn(Event),
 ) -> Result<Vec<OmaSourceEntry<'a>>, SourcesListError> {
-    let mut res = Vec::new();
-    let mut paths = vec![];
-    let default = sysroot.as_ref().join("etc/apt/sources.list");
-
-    if default.exists() {
-        paths.push(default);
-    }
-
-    if sysroot.as_ref().join("etc/apt/sources.list.d/").exists() {
-        let mut dir = tokio::fs::read_dir(sysroot.as_ref().join("etc/apt/sources.list.d/")).await?;
-        while let Some(entry) = dir.next_entry().await? {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-
-            paths.push(path);
-        }
-    }
-
     let ignores = config.find_vector("Dir::Ignore-Files-Silently");
     let ignores = ignores
         .iter()
@@ -71,8 +51,43 @@ pub async fn scan_sources_lists<'a>(
 
     debug!("Supplied ignore list: {:?}", ignores);
 
-    for p in paths {
-        match SourcesList::new(p) {
+    let sources = tokio::task::block_in_place(move || -> Result<_, SourcesListError> {
+        let mut sources = Vec::new();
+
+        let mut paths = vec![];
+        let default = sysroot.as_ref().join("etc/apt/sources.list");
+
+        if default.exists() {
+            paths.push(default);
+        }
+
+        if sysroot.as_ref().join("etc/apt/sources.list.d/").exists() {
+            let mut dir = std::fs::read_dir(sysroot.as_ref().join("etc/apt/sources.list.d/"))?;
+
+            while let Some(entry) = dir.next() {
+                let Ok(entry) = entry else {
+                    continue;
+                };
+
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+
+                paths.push(path);
+            }
+        }
+
+        for p in paths {
+            sources.push(SourcesList::new(p));
+        }
+
+        Ok(sources)
+    })?;
+
+    let mut res = vec![];
+    for s in sources {
+        match s {
             Ok(s) => match s.entries {
                 SourceListType::SourceLine(source_list_line_style) => {
                     for i in source_list_line_style.0 {
