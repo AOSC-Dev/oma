@@ -550,7 +550,7 @@ pub fn fix_broken(
     Ok(())
 }
 
-fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {
+pub fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {
     let space = match fs4::available_space(&sysroot) {
         Ok(space) => space,
         Err(e) => {

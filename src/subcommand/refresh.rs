@@ -8,7 +8,7 @@ use crate::config::Config;
 use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, utils::root};
 
-use super::utils::{Refresh as RefreshInner, auth_config, create_progress_spinner};
+use super::utils::{Refresh as RefreshInner, auth_config, create_progress_spinner, space_tips};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -96,6 +96,8 @@ impl CliExecuter for Refresh {
             let s = s.join(&fl!("comma"));
             success!("{}", fl!("successfully-refresh-with-tips", s = s));
         }
+
+        space_tips(&apt, sysroot);
 
         Ok(0)
     }
