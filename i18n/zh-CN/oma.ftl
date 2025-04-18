@@ -55,6 +55,7 @@ setting-auto = 成功标记软件包 { $name } 属性：自动安装。
 command-not-found-with-result = { $kw }：找不到命令。该命令可能由如下软件包提供：
 command-not-found = { $kw }：找不到命令。
 clean-successfully = 成功清理 oma 本机数据库和缓存，已释放 { $size } 空间。
+clean-zero = 没有需要清理的缓存数据。
 dpkg-configure-a-non-zero = 无法修正软件包数据库。
 dpkg-configure-failed-due-to-tips = 这有可能是 AOSC OS 与某些软件的兼容性存在问题导致的，请您将上述日志分享给 AOSC OS 维护者，以协助我们改善软件兼容性。
 dpkg-triggers-only-a-non-zero = `dpkg --triggers-only -a' 返回错误。

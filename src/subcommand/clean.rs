@@ -128,8 +128,12 @@ impl CliExecuter for Clean {
             pb.inner.finish_and_clear();
         }
 
-        let size = HumanBytes(total_clean_size).to_string();
-        success!("{}", fl!("clean-successfully", size = size));
+        if total_clean_size != 0 {
+            let size = HumanBytes(total_clean_size).to_string();
+            success!("{}", fl!("clean-successfully", size = size));
+        } else {
+            info!("{}", fl!("clean-zero"));
+        }
 
         Ok(0)
     }
