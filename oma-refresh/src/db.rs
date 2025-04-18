@@ -281,16 +281,6 @@ impl<'a> OmaRefresh<'a> {
             return Err(RefreshError::DownloadFailed(None));
         }
 
-        // 有元数据更新才执行 success invoke
-        let should_run_invoke = res.has_wrote();
-
-        if should_run_invoke {
-            callback(Event::RunInvokeScript).await;
-            self.run_success_post_invoke().await;
-        }
-
-        callback(Event::Done).await;
-
         Ok(res)
     }
 
