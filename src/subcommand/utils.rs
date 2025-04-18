@@ -62,8 +62,8 @@ use oma_pm::apt::FilterMode;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::OmaAptError;
-use oma_pm::apt::SummarySort;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
+use oma_pm::sort::SummarySort;
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg::dpkg_arch;
 use oma_utils::oma::lock_oma_inner;
@@ -345,7 +345,7 @@ impl CommitChanges<'_> {
         )?;
 
         let op = apt.summary(
-            SummarySort::Operation,
+            SummarySort::default().names().operation(),
             |pkg| {
                 if dry_run {
                     true

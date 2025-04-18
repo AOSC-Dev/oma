@@ -45,6 +45,7 @@ use crate::{
     matches::MatcherError,
     pkginfo::{OmaDependency, OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::InstallProgressManager,
+    sort::SummarySort,
 };
 
 #[derive(Debug, Clone, Builder)]
@@ -163,14 +164,6 @@ pub enum FilterMode {
     Manual,
     Names,
     AutoRemovable,
-}
-
-/// Keys for sorting results in the summary view.
-#[derive(PartialEq, Eq)]
-pub enum SummarySort {
-    Names,
-    Operation,
-    NoSort,
 }
 
 pub struct DownloadConfig<'a> {
@@ -848,7 +841,7 @@ impl OmaApt {
         let mut install = vec![];
         let mut remove = vec![];
         let mut autoremovable = (0, 0);
-        let changes = self.cache.get_changes(sort == SummarySort::Names);
+        let changes = self.cache.get_changes(sort.names);
 
         let mut suggest = HashSet::with_hasher(ahash::RandomState::new());
         let mut recommend = HashSet::with_hasher(ahash::RandomState::new());
@@ -1027,7 +1020,7 @@ impl OmaApt {
 
         let total_download_size = self.cache.depcache().download_size();
 
-        if sort == SummarySort::Operation {
+        if sort.operation {
             let mut is_resolver_delete = vec![];
             for (index, i) in remove.iter().enumerate() {
                 if i.details().contains(&RemoveTag::Resolver) {
