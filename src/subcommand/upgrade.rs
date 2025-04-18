@@ -1,40 +1,20 @@
 use std::fs;
 use std::fs::read_dir;
 use std::path::Path;
-use std::sync::atomic::Ordering;
-use std::thread;
 
-use crate::NOT_ALLOW_CTRLC;
-use crate::pb::RenderPackagesDownloadProgress;
-use crate::subcommand::utils::display_suggest_tips;
-use crate::subcommand::utils::fix_broken;
-use crate::subcommand::utils::history_success_tips;
-use crate::subcommand::utils::undo_tips;
-use crate::subcommand::utils::write_oma_installed_status;
+use crate::subcommand::utils::CommitChanges;
 use ahash::HashMap;
 use ahash::HashSet;
-use flume::unbounded;
-use oma_history::HistoryInfo;
-use oma_pm::CommitNetworkConfig;
 use oma_pm::apt::OmaOperation;
 use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::debug;
-use tracing::error;
 
 use apt_auth_config::AuthConfig;
-use chrono::Local;
 use clap::Args;
-use oma_console::pager::PagerExit;
-use oma_history::connect_db;
-use oma_history::create_db_file;
-use oma_history::write_history_entry;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
-use oma_pm::apt::OmaAptError;
-
-use oma_pm::apt::SummarySort;
 use oma_pm::apt::Upgrade as AptUpgrade;
 
 use oma_pm::matches::GetArchMethod;
@@ -47,20 +27,11 @@ use crate::HTTP_CLIENT;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
-use crate::install_progress::NoInstallProgressManager;
-use crate::install_progress::OmaInstallProgressManager;
-use crate::pb::NoProgressBar;
-use crate::pb::OmaMultiProgressBar;
-use crate::subcommand::utils::autoremovable_tips;
-use crate::table::table_for_install_pending;
 use crate::utils::dbus_check;
 use crate::utils::root;
 
-use super::remove::ask_user_do_as_i_say;
 use super::utils::Refresh;
-use super::utils::handle_features;
 use super::utils::handle_no_result;
-use super::utils::is_nothing_to_do;
 use super::utils::lock_oma;
 use super::utils::no_check_dbus_warn;
 use crate::args::CliExecuter;
@@ -146,7 +117,7 @@ impl CliExecuter for Upgrade {
             lock_oma()?;
         }
 
-        let fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
+        let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
             Some(dbus_check(yes)?)
         } else {
             no_check_dbus_warn();
@@ -243,149 +214,21 @@ impl CliExecuter for Upgrade {
             }
         }
 
-        fix_broken(
-            &mut apt,
-            no_fixbroken,
-            no_progress,
-            !no_fix_dpkg_status,
-            remove_config,
-            autoremove,
-        )?;
-
-        let op = apt.summary(
-            SummarySort::Operation,
-            |pkg| {
-                if config.protect_essentials() {
-                    false
-                } else {
-                    ask_user_do_as_i_say(pkg).unwrap_or(false)
-                }
-            },
-            |features| handle_features(features, config.protect_essentials()).unwrap_or(false),
-        )?;
-
-        apt.check_disk_size(&op)?;
-
-        let install = &op.install;
-        let remove = &op.remove;
-        let disk_size = &op.disk_size_delta;
-        let (ar_count, ar_size) = op.autoremovable;
-        let (suggest, recommend) = (&op.suggest, &op.recommend);
-
-        if is_nothing_to_do(install, remove, !no_fixbroken) {
-            autoremovable_tips(ar_count, ar_size);
-            return Ok(0);
-        }
-
-        let tum = get_tum(&sysroot)?;
-        let matches_tum = get_matches_tum(&tum, &op);
-
-        match table_for_install_pending(
-            install,
-            remove,
-            *disk_size,
-            Some(matches_tum),
-            !yes,
-            dry_run,
-        )? {
-            PagerExit::NormalExit => {}
-            x @ PagerExit::Sigint => return Ok(x.into()),
-            x @ PagerExit::DryRun => return Ok(x.into()),
-        }
-
-        let start_time = Local::now().timestamp();
-
-        let (tx, rx) = unbounded();
-
-        let progress_worker = thread::spawn(move || {
-            let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
-                Box::new(NoProgressBar::default())
-            } else {
-                Box::new(OmaMultiProgressBar::default())
-            };
-            pb.render_progress(&rx);
-        });
-
-        match apt.commit(
-            if no_progress {
-                Box::new(NoInstallProgressManager)
-            } else {
-                Box::new(OmaInstallProgressManager::new(yes))
-            },
-            &op,
-            &HTTP_CLIENT,
-            CommitNetworkConfig {
-                network_thread: Some(config.network_thread()),
-                auth_config: Some(&auth_config),
-            },
-            async |event| {
-                if let Err(e) = tx.send_async(event).await {
-                    error!("{}", e);
-                }
-            },
-        ) {
-            Ok(()) => {
-                progress_worker.join().unwrap();
-                NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
-
-                write_oma_installed_status()?;
-
-                autoremovable_tips(ar_count, ar_size);
-
-                write_history_entry(
-                    {
-                        let db = create_db_file(sysroot)?;
-                        connect_db(db, true)?
-                    },
-                    dry_run,
-                    HistoryInfo {
-                        summary: &op,
-                        start_time,
-                        success: true,
-                        is_fix_broken: false,
-                        is_undo: false,
-                        topics_enabled: vec![],
-                        topics_disabled: vec![],
-                    },
-                )?;
-
-                history_success_tips(dry_run);
-                display_suggest_tips(suggest, recommend);
-
-                drop(fds);
-                Ok(0)
-            }
-            Err(e) => match e {
-                OmaAptError::InstallPackages(_) => {
-                    progress_worker.join().unwrap();
-                    NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
-
-                    write_history_entry(
-                        {
-                            let db = create_db_file(sysroot)?;
-                            connect_db(db, true)?
-                        },
-                        dry_run,
-                        HistoryInfo {
-                            summary: &op,
-                            start_time,
-                            success: false,
-                            is_fix_broken: false,
-                            is_undo: false,
-                            topics_enabled: vec![],
-                            topics_disabled: vec![],
-                        },
-                    )?;
-                    undo_tips();
-
-                    Err(OutputError::from(e))
-                }
-                _ => {
-                    drop(fds);
-                    Err(OutputError::from(e))
-                }
-            },
-        }
+        CommitChanges::builder()
+            .apt(apt)
+            .dry_run(dry_run)
+            .no_fixbroken(no_fixbroken)
+            .no_progress(no_progress)
+            .sysroot(sysroot.to_string_lossy().to_string())
+            .protect_essential(config.protect_essentials())
+            .yes(yes)
+            .remove_config(remove_config)
+            .autoremove(autoremove)
+            .network_thread(config.network_thread())
+            .maybe_auth_config(Some(&auth_config))
+            .fix_dpkg_status(!no_fix_dpkg_status)
+            .build()
+            .run()
     }
 }
 
