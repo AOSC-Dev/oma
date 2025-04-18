@@ -220,7 +220,7 @@ impl Display for PackageInfo {
             }
         }
 
-        writeln!(f, "Description: {}", description)?;
+        writeln!(f, "description: {}", description)?;
 
         Ok(())
     }
