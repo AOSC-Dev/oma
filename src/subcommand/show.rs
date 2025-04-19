@@ -55,6 +55,7 @@ impl CliExecuter for Show {
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+            .filter_candidate(false)
             .build();
 
         let (pkgs, no_result) =
