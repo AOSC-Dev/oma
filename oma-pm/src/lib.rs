@@ -42,6 +42,7 @@ mod dbus;
 mod download;
 pub use commit::CommitNetworkConfig;
 pub mod sort;
+pub use oma_apt::records::RecordField;
 
 #[cfg(test)]
 mod test {
