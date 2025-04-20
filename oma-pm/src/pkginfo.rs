@@ -177,6 +177,15 @@ pub struct PackageInfo {
     pub description: String,
     /// Brief description of the package.
     pub short_description: String,
+    /// Package install status
+    pub install_status: InstallStatus,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum InstallStatus {
+    NotInstall,
+    AutoInstalled,
+    ManualInstalled,
 }
 
 impl Display for PackageInfo {
@@ -203,6 +212,13 @@ impl Display for PackageInfo {
             writeln!(f, "{k}: {v}")?;
         }
         writeln!(f, "Download-Size: {}", HumanBytes(*download_size))?;
+
+        match self.install_status {
+            InstallStatus::NotInstall => {}
+            InstallStatus::AutoInstalled => writeln!(f, "APT-Manual-Installed: no")?,
+            InstallStatus::ManualInstalled => writeln!(f, "APT-Manual-Installed: yes")?,
+        }
+
         write!(f, "APT-Sources:")?;
         let apt_sources_without_dpkg = apt_sources
             .iter()
@@ -312,6 +328,14 @@ impl OmaPackage {
                 .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?,
             cache,
         );
+
+        let pkg = Package::new(
+            cache,
+            unsafe { self.raw_pkg.unique() }
+                .make_safe()
+                .ok_or(OmaAptError::PtrIsNone(PtrIsNone))?,
+        );
+
         let section: Box<str> = Box::from(ver.section().unwrap_or("unknown"));
         let maintainer = ver
             .get_record(RecordField::Maintainer)
@@ -343,6 +367,13 @@ impl OmaPackage {
             apt_sources: pkg_files,
             description,
             short_description,
+            install_status: if !ver.is_installed() {
+                InstallStatus::NotInstall
+            } else if pkg.is_auto_installed() {
+                InstallStatus::AutoInstalled
+            } else {
+                InstallStatus::ManualInstalled
+            },
         })
     }
 
