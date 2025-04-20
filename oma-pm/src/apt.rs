@@ -11,7 +11,6 @@ use apt_auth_config::AuthConfig;
 use bon::{Builder, builder};
 pub use oma_apt::cache::Upgrade;
 use tokio::runtime::Runtime;
-use zbus::Connection;
 
 use oma_apt::{
     DepFlags, Dependency, Package, PkgCurrentState, Version,
@@ -40,7 +39,6 @@ pub use oma_pm_operation_type::*;
 
 use crate::{
     commit::{CommitNetworkConfig, DoInstall},
-    dbus::{OmaBus, Status},
     download::download_pkgs,
     matches::MatcherError,
     pkginfo::{OmaDependency, OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
@@ -89,7 +87,6 @@ pub struct OmaApt {
     /// The path for archive.
     archive_dir: OnceCell<PathBuf>,
     pub(crate) tokio: Runtime,
-    pub(crate) conn: Option<Connection>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -204,16 +201,6 @@ impl OmaApt {
             .build()
             .map_err(OmaAptError::FailedCreateAsyncRuntime)?;
 
-        let conn = tokio.block_on(async {
-            match Self::create_session().await {
-                Ok(conn) => Some(conn),
-                Err(e) => {
-                    debug!("Failed to create D-Bus session: {:?}", e);
-                    None
-                }
-            }
-        });
-
         Ok(Self {
             cache: new_cache!(&local_debs).map_err(OmaAptError::CreateCache)?,
             config,
@@ -223,25 +210,7 @@ impl OmaApt {
             unmet: vec![],
             archive_dir: OnceCell::new(),
             tokio,
-            conn,
         })
-    }
-
-    async fn create_session() -> Result<Connection, zbus::Error> {
-        let conn = zbus::connection::Builder::system()?
-            .name("io.aosc.Oma")?
-            .serve_at(
-                "/io/aosc/Oma",
-                OmaBus {
-                    status: Status::Pending,
-                },
-            )?
-            .build()
-            .await?;
-
-        debug!("zbus session created");
-
-        Ok(conn)
     }
 
     /// Init apt config (before create new apt manager)
