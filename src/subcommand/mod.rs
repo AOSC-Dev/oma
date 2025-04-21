@@ -17,6 +17,7 @@ pub mod refresh;
 pub mod remove;
 pub mod search;
 pub mod show;
+pub mod size_analyzer;
 #[cfg(feature = "aosc")]
 pub mod topics;
 pub mod upgrade;
