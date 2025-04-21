@@ -77,8 +77,8 @@ impl<'a> DoInstall<'a> {
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
             .map_err(|e| OmaAptError::FailedOperateDirOrFile(path.display().to_string(), e))?;
 
-        self.apt.tokio.block_on(async {
-            if let Some(conn) = &self.apt.conn {
+        self.apt.get_or_init_async_runtime()?.block_on(async {
+            if let Some(conn) = self.apt.conn.get() {
                 change_status(conn, "Downloading").await.ok();
             }
 

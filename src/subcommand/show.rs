@@ -1,10 +1,13 @@
 use std::{io::stdout, path::PathBuf};
 
 use clap::Args;
+use dialoguer::console::style;
+use oma_console::indicatif::HumanBytes;
 use oma_pm::{
+    RecordField,
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
-    pkginfo::OmaPackage,
+    pkginfo::{AptSource, OmaPackage},
 };
 use tracing::info;
 
@@ -35,6 +38,24 @@ pub struct Show {
     apt_options: Vec<String>,
 }
 
+const RECORDS: &[&str] = &[
+    RecordField::Package,
+    RecordField::Version,
+    RecordField::Section,
+    RecordField::Maintainer,
+    RecordField::InstalledSize,
+    RecordField::PreDepends,
+    RecordField::Depends,
+    RecordField::Breaks,
+    RecordField::Conflicts,
+    RecordField::Replaces,
+    RecordField::Recommends,
+    RecordField::Suggests,
+    RecordField::Provides,
+    RecordField::Size,
+    RecordField::Description,
+];
+
 impl CliExecuter for Show {
     fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
         let Show {
@@ -55,7 +76,7 @@ impl CliExecuter for Show {
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
-            .filter_candidate(false)
+            .filter_candidate(!all)
             .build();
 
         let (pkgs, no_result) =
@@ -66,72 +87,120 @@ impl CliExecuter for Show {
         let mut stdout = stdout();
 
         if !all {
-            let mut filter_pkgs: Vec<OmaPackage> = vec![];
-            let pkgs_len = pkgs.len();
-            for pkg in pkgs {
-                if !filter_pkgs
-                    .iter()
-                    .any(|x| pkg.raw_pkg.fullname(true) == x.raw_pkg.fullname(true))
-                {
-                    filter_pkgs.push(pkg);
-                }
-            }
+            for_each_show_package(json, &apt, &mut stdout, &pkgs)?;
 
-            if filter_pkgs.is_empty() {
-                return Ok(1);
-            }
+            if pkgs.len() == 1 && !json {
+                let pkg = &pkgs[0];
+                let pkg = pkg.package(&apt.cache);
+                let other_version_count = pkg.versions().count() - 1;
 
-            for (i, pkg) in filter_pkgs.iter().enumerate() {
-                if json {
-                    writeln!(
-                        stdout,
-                        "{}",
-                        serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| {
-                            OutputError {
-                                description: e.to_string(),
-                                source: None,
-                            }
-                        })?
-                    )
-                    .ok();
-                } else {
-                    writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
-                    if i != filter_pkgs.len() - 1 {
-                        writeln!(stdout).ok();
-                    }
-                }
-            }
-
-            if filter_pkgs.len() == 1 && !json {
-                let other_version = pkgs_len - 1;
-
-                if other_version > 0 {
-                    info!("{}", fl!("additional-version", len = other_version));
+                if other_version_count > 0 {
+                    info!("{}", fl!("additional-version", len = other_version_count));
                 }
             }
         } else {
-            for (i, pkg) in pkgs.iter().enumerate() {
-                if json {
-                    writeln!(
-                        stdout,
-                        "{}",
-                        serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| {
-                            OutputError {
-                                description: e.to_string(),
-                                source: None,
-                            }
-                        })?
-                    )
-                    .ok();
-                } else if i != pkgs.len() - 1 {
-                    writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
-                    writeln!(stdout).ok();
-                } else {
-                    writeln!(stdout, "{}", pkg.pkg_info(&apt.cache)?).ok();
-                }
-            }
+            for_each_show_package(json, &apt, &mut stdout, &pkgs)?;
         }
 
         Ok(0)
+    }
+}
+
+fn for_each_show_package(
+    json: bool,
+    apt: &OmaApt,
+    stdout: &mut std::io::Stdout,
+    pkgs: &[OmaPackage],
+) -> Result<(), OutputError> {
+    for (i, pkg) in pkgs.iter().enumerate() {
+        if json {
+            display_to_json(stdout, pkg, apt)?;
+        } else {
+            display_records(stdout, pkg, apt);
+        }
+
+        if i != pkgs.len() - 1 {
+            writeln!(stdout).ok();
+        }
+    }
+
+    Ok(())
+}
+
+fn display_to_json(
+    stdout: &mut std::io::Stdout,
+    pkg: &OmaPackage,
+    apt: &OmaApt,
+) -> Result<(), OutputError> {
+    writeln!(
+        stdout,
+        "{}",
+        serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| {
+            OutputError {
+                description: e.to_string(),
+                source: None,
+            }
+        })?
+    )
+    .ok();
+
+    Ok(())
+}
+
+fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt) {
+    let version = pkg.version(&apt.cache);
+    for i in RECORDS {
+        let Some(mut v) = version.get_record(i) else {
+            continue;
+        };
+
+        if *i == RecordField::InstalledSize {
+            v = HumanBytes(v.parse::<u64>().unwrap() * 1024).to_string();
+        } else if *i == RecordField::Size {
+            v = HumanBytes(v.parse().unwrap()).to_string();
+        }
+
+        let i = if *i == RecordField::Size {
+            style("Download-Size:").bold().to_string()
+        } else {
+            style(format!("{}:", i)).bold().to_string()
+        };
+
+        writeln!(stdout, "{} {}", i, v).ok();
+    }
+
+    let apt_sources = version
+        .package_files()
+        .map(AptSource::from)
+        .collect::<Vec<_>>();
+
+    write!(stdout, "{}", style("APT-Sources:").bold()).ok();
+    let apt_sources_without_dpkg = apt_sources
+        .iter()
+        .filter(|x| x.index_type.as_deref() != Some("Debian dpkg status file"))
+        .collect::<Vec<_>>();
+
+    match apt_sources_without_dpkg.len() {
+        0 => {
+            writeln!(stdout, " {}", &apt_sources[0]).ok();
+        }
+        1 => {
+            writeln!(stdout, " {}", &apt_sources_without_dpkg[0]).ok();
+        }
+        2.. => {
+            writeln!(stdout).ok();
+            for i in apt_sources_without_dpkg {
+                writeln!(stdout, "  {}", i).ok();
+            }
+        }
+    }
+
+    if version.is_installed() {
+        write!(stdout, "{}", style("APT-Manual-Installed: ").bold()).ok();
+        if version.parent().is_auto_installed() {
+            writeln!(stdout, "no").ok();
+        } else {
+            writeln!(stdout, "yes").ok();
+        }
     }
 }

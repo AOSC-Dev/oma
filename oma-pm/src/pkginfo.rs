@@ -228,11 +228,11 @@ impl Display for PackageInfo {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AptSource {
-    archive: Option<Box<str>>,
-    component: Option<Box<str>>,
-    arch: Option<Box<str>>,
-    index_type: Option<Box<str>>,
-    archive_uri: String,
+    pub archive: Option<Box<str>>,
+    pub component: Option<Box<str>>,
+    pub arch: Option<Box<str>>,
+    pub index_type: Option<Box<str>>,
+    pub archive_uri: String,
 }
 
 impl From<PackageFile<'_>> for AptSource {
