@@ -406,7 +406,7 @@ impl<'a> OmaRefresh<'a> {
             callback(Event::ClosingTopic(suite)).await;
         }
 
-        tm.write_enabled().await?;
+        tm.write_enabled(false).await?;
         tm.write_sources_list(self.topic_msg, false, async move |topic, mirror| {
             callback(Event::TopicNotInMirror { topic, mirror }).await
         })

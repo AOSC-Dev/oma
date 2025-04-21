@@ -276,7 +276,7 @@ impl CliExecuter for Undo {
                 }
             }
 
-            RT.block_on(tm.write_enabled())?;
+            RT.block_on(tm.write_enabled(false))?;
             RT.block_on(tm.write_sources_list(
                 &fl!("do-not-edit-topic-sources-list"),
                 false,
