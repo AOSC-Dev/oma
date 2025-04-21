@@ -1,4 +1,8 @@
-use std::{fmt::Display, path::{Path, PathBuf}};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+    sync::atomic::Ordering,
+};
 
 use clap::{ArgAction, Args};
 use dialoguer::console::style;
@@ -16,7 +20,7 @@ use tokio::task::spawn_blocking;
 use tracing::{error, warn};
 
 use crate::{
-    HTTP_CLIENT, RT,
+    HTTP_CLIENT, NOT_ALLOW_CTRLC, RT,
     config::Config,
     error::OutputError,
     utils::{dbus_check, root},
@@ -168,6 +172,7 @@ impl CliExecuter for Topics {
                     warn!("{}", fl!("skip-write-mirror"));
                 },
             ))?;
+            RT.block_on(tm.write_enabled(false))?;
         }
 
         let auth_config = auth_config(&sysroot);
@@ -247,8 +252,10 @@ impl CliExecuter for Topics {
         match code {
             Ok(x) => {
                 if x != 0 && !always_write_status {
+                    NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
+                    RT.block_on(tm.write_enabled(true))?;
                     refresh(
                         config,
                         no_progress,
@@ -257,13 +264,12 @@ impl CliExecuter for Topics {
                         &AptConfig::new(),
                         auth_config,
                     )?;
-                } else {
-                    RT.block_on(tm.write_enabled())?;
                 }
             }
             Err(e) => {
                 error!("{}", fl!("topics-unchanged"));
                 revert_sources_list(&tm)?;
+                RT.block_on(tm.write_enabled(true))?;
                 return Err(e);
             }
         };
