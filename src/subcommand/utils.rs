@@ -379,6 +379,8 @@ impl CommitChanges<'_> {
             return Ok(0);
         }
 
+        apt.init_dbus_status()?;
+
         if check_update {
             let tum = get_tum(Path::new(&sysroot))?;
             let matches_tum = get_matches_tum(&tum, &op);

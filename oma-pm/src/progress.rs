@@ -1,5 +1,6 @@
 use crate::{apt::AptConfig, dbus::change_status};
 use oma_apt::progress::DynInstallProgress;
+use once_cell::sync::OnceCell;
 use tokio::runtime::Runtime;
 use zbus::Connection;
 
@@ -14,14 +15,14 @@ pub struct NoProgress {
 
 pub(crate) struct InstallProgressArgs {
     pub config: AptConfig,
-    pub tokio: Runtime,
-    pub connection: Option<Connection>,
+    pub tokio: OnceCell<Runtime>,
+    pub connection: OnceCell<Connection>,
 }
 
 pub(crate) struct OmaAptInstallProgress {
     config: AptConfig,
-    tokio: Runtime,
-    connection: Option<Connection>,
+    tokio: OnceCell<Runtime>,
+    connection: OnceCell<Connection>,
     pm: Box<dyn InstallProgressManager>,
 }
 
@@ -69,11 +70,13 @@ impl DynInstallProgress for OmaAptInstallProgress {
         self.pm
             .status_change(&pkgname, steps_done, total_steps, &self.config);
 
-        self.tokio.block_on(async move {
-            if let Some(conn) = conn {
-                change_status(conn, &format!("i {pkgname}")).await.ok();
-            }
-        });
+        if let Some(tokio) = self.tokio.get() {
+            tokio.block_on(async move {
+                if let Some(conn) = conn.get() {
+                    change_status(conn, &format!("i {pkgname}")).await.ok();
+                }
+            });
+        }
     }
 
     fn error(&mut self, _pkgname: String, _steps_done: u64, _total_steps: u64, _error: String) {}

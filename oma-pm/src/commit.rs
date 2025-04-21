@@ -11,11 +11,10 @@ use oma_fetch::{Event, Summary, reqwest::Client};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
 use std::io::Write;
 use tracing::debug;
-use zbus::Connection;
 
 use crate::{
     apt::{DownloadConfig, OmaApt, OmaAptError, OmaAptResult},
-    dbus::{OmaBus, Status, change_status},
+    dbus::change_status,
     download::download_pkgs,
     progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
 };
@@ -32,24 +31,6 @@ pub struct DoInstall<'a> {
     client: &'a Client,
     sysroot: &'a str,
     config: CommitNetworkConfig<'a>,
-    conn: Option<Connection>,
-}
-
-async fn create_session() -> Result<Connection, zbus::Error> {
-    let conn = zbus::connection::Builder::system()?
-        .name("io.aosc.Oma")?
-        .serve_at(
-            "/io/aosc/Oma",
-            OmaBus {
-                status: Status::Pending,
-            },
-        )?
-        .build()
-        .await?;
-
-    debug!("zbus session created");
-
-    Ok(conn)
 }
 
 impl<'a> DoInstall<'a> {
@@ -59,22 +40,11 @@ impl<'a> DoInstall<'a> {
         sysroot: &'a str,
         config: CommitNetworkConfig<'a>,
     ) -> Result<Self, OmaAptError> {
-        let conn = apt.tokio.block_on(async {
-            match create_session().await {
-                Ok(conn) => Some(conn),
-                Err(e) => {
-                    debug!("Failed to create D-Bus session: {:?}", e);
-                    None
-                }
-            }
-        });
-
         Ok(Self {
             apt,
             sysroot,
             client,
             config,
-            conn,
         })
     }
 
@@ -107,8 +77,8 @@ impl<'a> DoInstall<'a> {
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
             .map_err(|e| OmaAptError::FailedOperateDirOrFile(path.display().to_string(), e))?;
 
-        self.apt.tokio.block_on(async {
-            if let Some(conn) = &self.conn {
+        self.apt.get_or_init_async_runtime()?.block_on(async {
+            if let Some(conn) = self.apt.conn.get() {
                 change_status(conn, "Downloading").await.ok();
             }
 
@@ -144,7 +114,7 @@ impl<'a> DoInstall<'a> {
         let args = InstallProgressArgs {
             config: self.apt.config,
             tokio: self.apt.tokio,
-            connection: self.conn,
+            connection: self.apt.conn,
         };
 
         let mut progress =

@@ -1,3 +1,4 @@
+use tracing::debug;
 use zbus::{Connection, Result, interface, proxy};
 
 pub struct OmaBus {
@@ -47,4 +48,21 @@ pub async fn change_status(connection: &Connection, status: &str) -> Result<()> 
     proxy.change_status(status).await?;
 
     Ok(())
+}
+
+pub(crate) async fn create_session() -> Result<Connection> {
+    let conn = zbus::connection::Builder::system()?
+        .name("io.aosc.Oma")?
+        .serve_at(
+            "/io/aosc/Oma",
+            OmaBus {
+                status: Status::Pending,
+            },
+        )?
+        .build()
+        .await?;
+
+    debug!("zbus session created");
+
+    Ok(conn)
 }
