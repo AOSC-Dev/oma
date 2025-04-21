@@ -365,23 +365,10 @@ impl SingleDownloader<'_> {
 
         let source = resp;
 
-        // 初始化 checksum 验证器
-        // 如果文件存在，则 checksum 验证器已经初试过一次，因此进度条加已经验证过的文件大小
         let hash = &self.entry.hash;
-        let mut validator = if let Some(v) = validator {
-            callback(Event::ProgressInc {
-                index: self.download_list_index,
-                size: file_size,
-            })
-            .await;
-
-            Some(v)
-        } else {
-            hash.as_ref().map(|hash| hash.get_validator())
-        };
 
         let mut self_progress = 0;
-        let mut dest = if !can_resume || !allow_resume {
+        let (mut dest, mut validator) = if !can_resume || !allow_resume {
             // 如果不能 resume，则使用创建模式
             debug!(
                 "oma will open file: {} as create mode.",
@@ -396,6 +383,10 @@ impl SingleDownloader<'_> {
                 }
             };
 
+            if file_size > 0 {
+                callback(Event::GlobalProgressSub(file_size)).await;
+            }
+
             if let Err(e) = f.set_len(0).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(SingleDownloadError::Create { source: e });
@@ -403,15 +394,21 @@ impl SingleDownloader<'_> {
 
             self.set_permission(&f).await?;
 
-            f
-        } else if let Some(dest) = dest {
+            (f, hash.as_ref().map(|hash| hash.get_validator()))
+        } else if let Some((dest, validator)) = dest.zip(validator) {
+            callback(Event::ProgressInc {
+                index: self.download_list_index,
+                size: file_size,
+            })
+            .await;
+
             debug!(
                 "oma will re use opened dest file for {}",
                 self.entry.filename
             );
             self_progress += file_size;
 
-            dest
+            (dest, Some(validator))
         } else {
             debug!(
                 "oma will open file: {} as create mode.",
@@ -433,7 +430,7 @@ impl SingleDownloader<'_> {
 
             self.set_permission(&f).await?;
 
-            f
+            (f, hash.as_ref().map(|hash| hash.get_validator()))
         };
 
         if can_resume && allow_resume {
