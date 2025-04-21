@@ -234,8 +234,14 @@ impl<'a> TopicManager<'a> {
     }
 
     /// Write topic changes to mirror list
-    pub async fn write_enabled(&self) -> Result<()> {
-        let s = serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)?;
+    pub async fn write_enabled(&self, revert: bool) -> Result<()> {
+        let enabled = if revert {
+            &self.old_enabled
+        } else {
+            &self.enabled
+        };
+
+        let s = serde_json::to_vec(enabled).map_err(|_| OmaTopicsError::FailedSer)?;
 
         if self.dry_run {
             debug!("ATM State:\n{}", String::from_utf8_lossy(&s));
