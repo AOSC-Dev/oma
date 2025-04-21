@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::PathBuf};
+use std::{fmt::Display, path::{Path, PathBuf}};
 
 use clap::{ArgAction, Args};
 use dialoguer::console::style;
@@ -170,22 +170,19 @@ impl CliExecuter for Topics {
             ))?;
         }
 
-        let code = Ok(()).and_then(|_| -> Result<i32, OutputError> {
-            let apt_config = AptConfig::new();
-            let auth_config = auth_config(&sysroot);
-            let auth_config = auth_config.as_ref();
+        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config.as_ref();
+        let apt_config = AptConfig::new();
 
-            Refresh::builder()
-                .client(&HTTP_CLIENT)
-                .dry_run(dry_run)
-                .no_progress(no_progress)
-                .network_thread(config.network_thread())
-                .sysroot(&sysroot.to_string_lossy())
-                .refresh_topics(true)
-                .config(&apt_config)
-                .maybe_auth_config(auth_config)
-                .build()
-                .run()?;
+        let code = Ok(()).and_then(|_| -> Result<i32, OutputError> {
+            refresh(
+                config,
+                no_progress,
+                dry_run,
+                &sysroot,
+                &apt_config,
+                auth_config,
+            )?;
 
             let oma_apt_args = OmaAptArgs::builder()
                 .sysroot(sysroot.to_string_lossy().to_string())
@@ -252,6 +249,14 @@ impl CliExecuter for Topics {
                 if x != 0 && !always_write_status {
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
+                    refresh(
+                        config,
+                        no_progress,
+                        dry_run,
+                        &sysroot,
+                        &AptConfig::new(),
+                        auth_config,
+                    )?;
                 } else {
                     RT.block_on(tm.write_enabled())?;
                 }
@@ -265,6 +270,27 @@ impl CliExecuter for Topics {
 
         code
     }
+}
+
+fn refresh<'a>(
+    config: &'a Config,
+    no_progress: bool,
+    dry_run: bool,
+    sysroot: &'a Path,
+    apt_config: &'a AptConfig,
+    auth_config: Option<&'a apt_auth_config::AuthConfig>,
+) -> Result<(), OutputError> {
+    Refresh::builder()
+        .client(&HTTP_CLIENT)
+        .dry_run(dry_run)
+        .no_progress(no_progress)
+        .network_thread(config.network_thread())
+        .sysroot(&sysroot.to_string_lossy())
+        .refresh_topics(true)
+        .config(apt_config)
+        .maybe_auth_config(auth_config)
+        .build()
+        .run()
 }
 
 fn revert_sources_list(tm: &TopicManager<'_>) -> Result<(), OutputError> {
