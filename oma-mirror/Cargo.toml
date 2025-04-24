@@ -6,7 +6,7 @@ description = "Library to handle AOSC OS APT configuration (sources.list)"
 license = "MIT"
 
 [dependencies]
-serde_yaml = "0.9"
+serde_yaml = { version = "0.10", package = "serde_yaml_ng" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 snafu = "0.8.5"
