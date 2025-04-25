@@ -508,7 +508,11 @@ pub fn speedtest(
     success!("{}\n", fl!("speedtest-complete"));
 
     printer
-        .print_table(score_table, vec![&fl!("mirror-name"), &fl!("mirror-score")])
+        .print_table(
+            score_table,
+            vec![&fl!("mirror-name"), &fl!("mirror-score")],
+            None,
+        )
         .ok();
 
     if set_fastest {
