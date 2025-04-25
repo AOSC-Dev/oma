@@ -264,13 +264,7 @@ impl MirrorSource<'_, '_> {
     }
 
     pub fn signed_by(&self) -> Option<&Signature> {
-        self.sources.iter().find_map(|x| {
-            if let Some(x) = &x.signed_by() {
-                Some(x)
-            } else {
-                None
-            }
-        })
+        self.sources.iter().find_map(|x| x.signed_by().as_ref())
     }
 
     pub fn url(&self) -> &str {

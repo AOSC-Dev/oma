@@ -197,16 +197,6 @@ fn find_certs(
 ) -> VerifyResult<(Vec<PathBuf>, Option<&str>)> {
     let rootfs = rootfs.as_ref();
 
-    let mut dir = std::fs::read_dir(rootfs.join("etc/apt/trusted.gpg.d"))
-        .map_err(|_| VerifyError::TrustedDirNotExist)?
-        .collect::<Vec<_>>();
-
-    let etc_keyring = std::fs::read_dir(rootfs.join("etc/apt/keyrings"));
-
-    if let Ok(keyring) = etc_keyring {
-        dir.extend(keyring);
-    }
-
     let mut certs = vec![];
     let mut deb822_inner_signed_by_str = None;
 
@@ -217,6 +207,10 @@ fn find_certs(
                 debug!(deb822_inner_signed_by_str);
             }
             Signature::KeyPath(paths) => {
+                if paths.is_empty() {
+                    certs = find_default_dir_certs(rootfs)?;
+                }
+
                 for p in paths {
                     if p.is_absolute() {
                         certs.push(p.to_path_buf());
@@ -227,20 +221,36 @@ fn find_certs(
             }
         }
     } else {
-        for i in dir.iter().flatten() {
-            let path = i.path();
-            let ext = path.extension().and_then(|x| x.to_str());
-            if ext == Some("gpg") || ext == Some("asc") {
-                certs.push(i.path().to_path_buf());
-            }
-        }
-
-        let trust_main = rootfs.join("etc/apt/trusted.gpg").to_path_buf();
-
-        if trust_main.is_file() {
-            certs.push(trust_main);
-        }
+        certs = find_default_dir_certs(rootfs)?;
     }
 
     Ok((certs, deb822_inner_signed_by_str))
+}
+
+fn find_default_dir_certs(rootfs: &Path) -> Result<Vec<PathBuf>, VerifyError> {
+    let mut certs = vec![];
+    let mut dir = std::fs::read_dir(rootfs.join("etc/apt/trusted.gpg.d"))
+        .map_err(|_| VerifyError::TrustedDirNotExist)?
+        .collect::<Vec<_>>();
+    let etc_keyring = std::fs::read_dir(rootfs.join("etc/apt/keyrings"));
+
+    if let Ok(keyring) = etc_keyring {
+        dir.extend(keyring);
+    }
+
+    for i in dir.iter().flatten() {
+        let path = i.path();
+        let ext = path.extension().and_then(|x| x.to_str());
+        if ext == Some("gpg") || ext == Some("asc") {
+            certs.push(i.path().to_path_buf());
+        }
+    }
+
+    let trust_main = rootfs.join("etc/apt/trusted.gpg").to_path_buf();
+
+    if trust_main.is_file() {
+        certs.push(trust_main);
+    }
+
+    Ok(certs)
 }
