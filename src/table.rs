@@ -299,13 +299,21 @@ impl<W: Write> PagerPrinter<W> {
             t.build()
         };
 
+        let mut display_len = WRITER.get_length() as usize;
+
+        if let Some(len) = len {
+            if display_len > len {
+                display_len = len;
+            }
+        }
+
         table
             .with(Padding::new(2, 2, 0, 0))
             .with(Alignment::left())
             .modify(Columns::new(2..3), Alignment::left())
             .with(Style::psql())
             .with(
-                Width::wrap(len.unwrap_or(WRITER.get_length() as usize))
+                Width::wrap(display_len)
                     .priority(PriorityMax::left())
                     .keep_words(true),
             );
