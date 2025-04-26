@@ -237,7 +237,9 @@ update-available = System Update(s) Available
 update-available-2 = oma has found the following updates are available for your system:
 tum-1 = oma has found { $updates } updates available for your system:
 tum-1-with-security =  oma has found { $updates } updates available for your system ({ $security } security updates are marked in { $security_str }):
-tum-2 = In order to fulfill the operations you specified, oma will need to perform the following changes to your system components. The details are as follows.Details of the component changes for this operation are as follows:
+tum-2 = In order to fulfill the operations you specified, oma will need to perform the
+    following changes to your system components. The details are as follows.Details of
+    the component changes for this operation are as follows:
 security = security update(s)
 verify-error = An error occurred while verifying the signature for { $p }.
 sources-list-empty = Mirror source configuration is empty.
