@@ -154,8 +154,20 @@ impl<'a> Tui<'a> {
                         }
                     }
 
+                    if key.modifiers == KeyModifiers::ALT {
+                        if let KeyCode::Char('d') = key.code {
+                            self.delete_word_forward()
+                        }
+                        continue;
+                    }
+
                     if key.modifiers == KeyModifiers::CONTROL {
                         match key.code {
+                            KeyCode::Right => self.goto_next_word(),
+                            KeyCode::Left => self.goto_previous_word(),
+                            KeyCode::Char('p') => self.handle_up(),
+                            KeyCode::Char('n') => self.handle_down(),
+                            KeyCode::Char('w') => self.delete_word_backward(),
                             KeyCode::Char('c') => {
                                 return Ok(Task {
                                     execute_apt: false,
@@ -586,6 +598,104 @@ impl<'a> Tui<'a> {
                     self.pending_result_state.previous();
                 }
             }
+        }
+    }
+
+    fn delete_word_backward(&mut self) {
+        if self.input_cursor_position > 0 && self.mode == Mode::Search {
+            let previous_char = self.input.chars().nth(self.input_cursor_position - 1);
+            let pos = match self.input[..self.input_cursor_position].rfind(|c: char| {
+                if previous_char.unwrap().is_alphanumeric() {
+                    !c.is_alphanumeric()
+                } else {
+                    c.is_alphanumeric()
+                }
+            }) {
+                Some(s) => s + 1,
+                None => 0,
+            };
+
+            self.input
+                .replace_range(pos..self.input_cursor_position, "");
+            self.input_cursor_position = pos;
+
+            update_search_result(
+                &self.searcher,
+                &self.input,
+                &mut self.pkg_result_state,
+                &mut self.pkg_results,
+            );
+
+            self.result_scroll = self
+                .result_scroll
+                .content_length(self.pkg_result_state.items.len());
+        }
+    }
+
+    fn delete_word_forward(&mut self) {
+        if self.input_cursor_position < self.input.len() && self.mode == Mode::Search {
+            let next_char = self.input.chars().nth(self.input_cursor_position);
+            let pos = self.input[self.input_cursor_position..]
+                .find(|c: char| {
+                    if next_char.unwrap().is_alphanumeric() {
+                        !c.is_alphanumeric()
+                    } else {
+                        c.is_alphanumeric()
+                    }
+                })
+                .unwrap_or(self.input.len() - self.input_cursor_position);
+
+            self.input.replace_range(
+                self.input_cursor_position..self.input_cursor_position + pos,
+                "",
+            );
+
+            update_search_result(
+                &self.searcher,
+                &self.input,
+                &mut self.pkg_result_state,
+                &mut self.pkg_results,
+            );
+
+            self.result_scroll = self
+                .result_scroll
+                .content_length(self.pkg_result_state.items.len());
+        }
+    }
+
+    fn goto_next_word(&mut self) {
+        if self.input_cursor_position < self.input.len() && self.mode == Mode::Search {
+            let next_char = self.input.chars().nth(self.input_cursor_position);
+            let pos = match self.input[self.input_cursor_position..].find(|c: char| {
+                if next_char.unwrap().is_alphanumeric() {
+                    !c.is_alphanumeric()
+                } else {
+                    c.is_alphanumeric()
+                }
+            }) {
+                Some(s) => self.input_cursor_position + s,
+                None => self.input.len(),
+            };
+
+            self.input_cursor_position = pos;
+        }
+    }
+
+    fn goto_previous_word(&mut self) {
+        if self.input_cursor_position > 0 && self.mode == Mode::Search {
+            let previous_char = self.input.chars().nth(self.input_cursor_position - 1);
+            let pos = match self.input[..self.input_cursor_position].rfind(|c: char| {
+                if previous_char.unwrap().is_alphanumeric() {
+                    !c.is_alphanumeric()
+                } else {
+                    c.is_alphanumeric()
+                }
+            }) {
+                Some(s) => s + 1,
+                None => 0,
+            };
+
+            self.input_cursor_position = pos;
         }
     }
 

@@ -264,10 +264,15 @@ impl<'a> OmaPager<'a> {
             if crossterm::event::poll(timeout)? {
                 match event::read()? {
                     Event::Key(key) => {
-                        if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c')
-                        {
-                            return Ok(PagerExit::Sigint);
-                        }
+                        if key.modifiers == KeyModifiers::CONTROL {
+                            match key.code {
+                                KeyCode::Char('c') => return Ok(PagerExit::Sigint),
+                                KeyCode::Char('p') => self.up(),
+                                KeyCode::Char('n') => self.down(),
+                                _ => {}
+                            }
+                        };
+
                         match key.code {
                             KeyCode::Char(c) if c == 'q' || c == 'Q' => {
                                 if self.mode == TuiMode::SearchInputText {
