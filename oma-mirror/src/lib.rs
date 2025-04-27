@@ -72,6 +72,7 @@ pub struct MirrorManager {
     status_file_path: PathBuf,
     mirrors_file_path: PathBuf,
     apt_status_file: PathBuf,
+    apt_status_file_new: PathBuf,
 }
 
 impl MirrorManager {
@@ -81,6 +82,7 @@ impl MirrorManager {
             .as_ref()
             .join("usr/share/distro-repository-data/mirrors.yml");
         let apt_status_file = rootfs.as_ref().join("etc/apt/sources.list");
+        let apt_status_file_new = rootfs.as_ref().join("etc/apt/sources.list.d/aosc.sources");
 
         let status: Status = if status_file_path.is_file() {
             let f = fs::read(&status_file_path).context(ReadFileSnafu {
@@ -105,6 +107,7 @@ impl MirrorManager {
             status_file_path,
             mirrors_file_path,
             apt_status_file,
+            apt_status_file_new,
         })
     }
 
@@ -250,23 +253,49 @@ impl MirrorManager {
         result.push_str(tips);
         result.push('\n');
 
-        for (_, url) in &self.status.mirror {
-            result.push_str("deb ");
-            result.push_str(url);
-
-            if !url.ends_with('/') {
-                result.push('/');
+        let is_deb822 = if self.apt_status_file_new.exists() {
+            if self.apt_status_file.exists() {
+                let bak = self.apt_status_file.with_file_name("sources.list.bak");
+                fs::rename(&self.apt_status_file, &bak).context(WriteFileSnafu { path: bak })?;
             }
 
-            result.push_str("debs");
-            result.push(' ');
-            result.push_str(&self.status.branch);
-            result.push(' ');
-            result.push_str(&self.status.component.join(" "));
-            result.push('\n');
+            true
+        } else {
+            false
+        };
+
+        for (_, url) in &self.status.mirror {
+            if !is_deb822 {
+                result.push_str("deb ");
+                result.push_str(url);
+
+                if !url.ends_with('/') {
+                    result.push('/');
+                }
+
+                result.push_str("debs");
+                result.push(' ');
+                result.push_str(&self.status.branch);
+                result.push(' ');
+                result.push_str(&self.status.component.join(" "));
+                result.push('\n');
+            } else {
+                result.push_str(&format!(
+                    "Types: deb\nURIs: {}debs\nSuites: {}\nComponents: {}\n\n",
+                    url,
+                    &self.status.branch,
+                    &self.status.component.join(" ")
+                ));
+            }
         }
 
-        fs::write(&self.apt_status_file, result).context(WriteFileSnafu {
+        let path = if is_deb822 {
+            &self.apt_status_file_new
+        } else {
+            &self.apt_status_file
+        };
+
+        fs::write(path, result).context(WriteFileSnafu {
             path: self.apt_status_file.to_path_buf(),
         })?;
 
