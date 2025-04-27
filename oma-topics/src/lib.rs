@@ -79,6 +79,7 @@ pub struct TopicManager<'a> {
     arch: &'a str,
     atm_state_path: PathBuf,
     atm_source_list_path: PathBuf,
+    atm_source_list_path_new: PathBuf,
     dry_run: bool,
     old_enabled: Vec<Topic>,
     mm: MirrorManager,
@@ -87,6 +88,7 @@ pub struct TopicManager<'a> {
 impl<'a> TopicManager<'a> {
     const ATM_STATE_PATH_SUFFIX: &'a str = "var/lib/atm/state";
     const ATM_SOURCE_LIST_PATH_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.list";
+    const ATM_SOURCE_LIST_PATH_NEW_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.sources";
 
     pub fn new_blocking(
         client: &'a Client,
@@ -155,6 +157,7 @@ impl<'a> TopicManager<'a> {
             atm_state_path,
             dry_run,
             atm_source_list_path: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_SUFFIX),
+            atm_source_list_path_new: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_NEW_SUFFIX),
             old_enabled: enabled,
             mm: tokio::task::spawn_blocking(move || MirrorManager::new(sysroot_box))
                 .await
@@ -271,6 +274,23 @@ impl<'a> TopicManager<'a> {
             return Ok(());
         }
 
+        let is_deb822 = if self.atm_source_list_path_new.exists() {
+            if self.atm_source_list_path.exists() {
+                tokio::fs::remove_file(&self.atm_source_list_path)
+                    .await
+                    .map_err(|e| {
+                        OmaTopicsError::FailedToOperateDirOrFile(
+                            self.atm_source_list_path.display().to_string(),
+                            e,
+                        )
+                    })?;
+            }
+
+            true
+        } else {
+            false
+        };
+
         let mut new_source_list = String::new();
 
         new_source_list.push_str(&format!("{}\n", source_list_comment));
@@ -289,22 +309,34 @@ impl<'a> TopicManager<'a> {
                     continue;
                 }
 
-                new_source_list.push_str(&format!(
-                    "deb {}debs {} main\n",
-                    url_with_suffix(mirror),
-                    i.name
-                ));
+                if !is_deb822 {
+                    new_source_list.push_str(&format!(
+                        "deb {}debs {} main\n",
+                        url_with_suffix(mirror),
+                        i.name
+                    ));
+                } else {
+                    new_source_list.push_str(&format!(
+                        "Types: deb\nURIs: {}debs\nSuites: {}\nComponents: main\n\n",
+                        url_with_suffix(mirror),
+                        i.name
+                    ));
+                }
             }
         }
 
-        tokio::fs::write(&self.atm_source_list_path, new_source_list)
-            .await
-            .map_err(|e| {
-                OmaTopicsError::FailedToOperateDirOrFile(
-                    self.atm_source_list_path.display().to_string(),
-                    e,
-                )
-            })?;
+        let path = if is_deb822 {
+            &self.atm_source_list_path_new
+        } else {
+            &self.atm_source_list_path
+        };
+
+        tokio::fs::write(path, new_source_list).await.map_err(|e| {
+            OmaTopicsError::FailedToOperateDirOrFile(
+                self.atm_source_list_path.display().to_string(),
+                e,
+            )
+        })?;
 
         Ok(())
     }
