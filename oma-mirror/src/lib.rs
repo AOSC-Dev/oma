@@ -296,7 +296,7 @@ impl MirrorManager {
         };
 
         fs::write(path, result).context(WriteFileSnafu {
-            path: self.apt_status_file.to_path_buf(),
+            path: path.display().to_string(),
         })?;
 
         Ok(())
