@@ -16,6 +16,7 @@ use ahash::HashSet;
 use flume::unbounded;
 use oma_history::HistoryInfo;
 use oma_pm::CommitNetworkConfig;
+use oma_pm::apt::InstallOperation;
 use oma_pm::apt::OmaOperation;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -535,6 +536,7 @@ pub fn get_matches_tum<'a>(
     let install_map = &op
         .install
         .iter()
+        .filter(|x| *x.op() != InstallOperation::Downgrade)
         .map(|x| (x.name_without_arch(), x.new_version()))
         .collect::<HashMap<_, _>>();
 
