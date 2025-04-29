@@ -331,12 +331,9 @@ impl<'a> TopicManager<'a> {
             &self.atm_source_list_path
         };
 
-        tokio::fs::write(path, new_source_list).await.map_err(|e| {
-            OmaTopicsError::FailedToOperateDirOrFile(
-                self.atm_source_list_path.display().to_string(),
-                e,
-            )
-        })?;
+        tokio::fs::write(path, new_source_list)
+            .await
+            .map_err(|e| OmaTopicsError::FailedToOperateDirOrFile(path.display().to_string(), e))?;
 
         Ok(())
     }
