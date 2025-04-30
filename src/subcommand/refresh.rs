@@ -23,6 +23,9 @@ pub struct Refresh {
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]
     dry_run: bool,
+    /// Setup download threads (default as 4)
+    #[arg(from_global)]
+    download_threads: Option<usize>,
 }
 
 impl CliExecuter for Refresh {
@@ -32,6 +35,7 @@ impl CliExecuter for Refresh {
             no_refresh_topics,
             sysroot,
             dry_run,
+            download_threads,
         } = self;
 
         if dry_run {
@@ -50,7 +54,7 @@ impl CliExecuter for Refresh {
             .client(&HTTP_CLIENT)
             .dry_run(false)
             .no_progress(no_progress)
-            .network_thread(config.network_thread())
+            .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
             .sysroot(&sysroot_str)
             .config(&apt_config)
             .maybe_auth_config(auth_config);

@@ -123,6 +123,9 @@ pub struct GlobalOptions {
     #[arg(long, global = true, env = "OMA_NO_BELL", value_parser = FalseyValueParser::new()
 )]
     no_bell: bool,
+    /// Setup download threads (default as 4)
+    #[arg(long, short = 't', global = true, env = "OMA_DOWNLOAD_THREADS")]
+    download_threads: Option<usize>,
 }
 
 fn main() {

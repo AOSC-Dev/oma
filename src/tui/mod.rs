@@ -69,6 +69,9 @@ pub struct Tui {
     /// Set apt options
     #[arg(from_global)]
     apt_options: Vec<String>,
+    /// Setup download threads (default as 4)
+    #[arg(from_global)]
+    download_threads: Option<usize>,
 }
 
 impl From<&GlobalOptions> for Tui {
@@ -87,6 +90,7 @@ impl From<&GlobalOptions> for Tui {
             no_check_dbus: value.no_check_dbus,
             sysroot: value.sysroot.clone(),
             apt_options: value.apt_options.clone(),
+            download_threads: value.download_threads,
         }
     }
 }
@@ -107,6 +111,7 @@ impl CliExecuter for Tui {
             sysroot,
             apt_options,
             no_fix_dpkg_status,
+            download_threads,
         } = self;
 
         if dry_run {
@@ -148,7 +153,7 @@ impl CliExecuter for Tui {
                 .client(&HTTP_CLIENT)
                 .dry_run(false)
                 .no_progress(no_progress)
-                .network_thread(config.network_thread())
+                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
                 .sysroot(&sysroot)
                 .config(&apt_config)
                 .maybe_auth_config(auth_config);
@@ -253,7 +258,7 @@ impl CliExecuter for Tui {
                 .remove_config(remove_config)
                 .autoremove(autoremove)
                 .maybe_auth_config(auth_config)
-                .network_thread(config.network_thread())
+                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
                 .check_update(upgrade)
                 .build()
                 .run()?;

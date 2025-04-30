@@ -44,6 +44,9 @@ pub struct FixBroken {
     /// Set apt options
     #[arg(from_global)]
     apt_options: Vec<String>,
+    /// Setup download threads (default as 4)
+    #[arg(from_global)]
+    download_threads: Option<usize>,
 }
 
 impl CliExecuter for FixBroken {
@@ -62,6 +65,7 @@ impl CliExecuter for FixBroken {
             sysroot,
             apt_options,
             no_fix_dpkg_status,
+            download_threads,
         } = self;
 
         let mut _fds = None;
@@ -97,7 +101,7 @@ impl CliExecuter for FixBroken {
             .autoremove(autoremove)
             .remove_config(remove_config)
             .maybe_auth_config(auth_config)
-            .network_thread(config.network_thread())
+            .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
             .build()
             .run()
     }

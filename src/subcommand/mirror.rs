@@ -82,6 +82,9 @@ pub struct CliMirror {
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]
     dry_run: bool,
+    /// Setup download threads (default as 4)
+    #[arg(from_global)]
+    download_threads: Option<usize>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -161,6 +164,7 @@ impl CliExecuter for CliMirror {
             no_refresh_topics,
             no_refresh,
             dry_run,
+            download_threads,
         } = self;
 
         if dry_run {
@@ -178,7 +182,7 @@ impl CliExecuter for CliMirror {
                 } => operate(
                     no_progress,
                     !no_refresh_topics && !config.no_refresh_topics(),
-                    config.network_thread(),
+                    download_threads.unwrap_or_else(|| config.network_thread()),
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
                     sysroot,
@@ -193,7 +197,7 @@ impl CliExecuter for CliMirror {
                     no_progress,
                     set_fastest,
                     !no_refresh_topics && !config.no_refresh_topics(),
-                    config.network_thread(),
+                    download_threads.unwrap_or_else(|| config.network_thread()),
                     no_refresh,
                 ),
                 MirrorSubCmd::Add {
@@ -204,7 +208,7 @@ impl CliExecuter for CliMirror {
                 } => operate(
                     no_progress,
                     !no_refresh_topics && !config.no_refresh_topics(),
-                    config.network_thread(),
+                    download_threads.unwrap_or_else(|| config.network_thread()),
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
                     sysroot,
@@ -218,7 +222,7 @@ impl CliExecuter for CliMirror {
                 } => operate(
                     no_progress,
                     !no_refresh_topics && !config.no_refresh_topics(),
-                    config.network_thread(),
+                    download_threads.unwrap_or_else(|| config.network_thread()),
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
                     sysroot,
@@ -230,7 +234,7 @@ impl CliExecuter for CliMirror {
                 } => set_order(
                     no_progress,
                     !no_refresh_topics && !config.no_refresh_topics(),
-                    config.network_thread(),
+                    download_threads.unwrap_or_else(|| config.network_thread()),
                     no_refresh,
                 ),
             }
@@ -238,7 +242,7 @@ impl CliExecuter for CliMirror {
             tui(
                 no_progress,
                 !no_refresh_topics && !config.no_refresh_topics(),
-                config.network_thread(),
+                download_threads.unwrap_or_else(|| config.network_thread()),
                 no_refresh,
             )
         }
