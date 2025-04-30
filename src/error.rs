@@ -8,6 +8,7 @@ use oma_console::writer::{Writeln, Writer};
 use oma_contents::OmaContentsError;
 use oma_fetch::SingleDownloadError;
 use oma_fetch::checksum::ChecksumError;
+use oma_fetch::download::BuilderError;
 use oma_history::HistoryError;
 
 #[cfg(feature = "aosc")]
@@ -436,6 +437,20 @@ impl From<RefreshError> for OutputError {
             RefreshError::OperateFile(path, error) => Self {
                 description: fl!("failed-to-operate-path", p = path.display().to_string()),
                 source: Some(Box::new(error)),
+            },
+            RefreshError::WrongThreadCount(count) => Self {
+                description: fl!("wrong-thread-count", count = count),
+                source: None,
+            },
+            RefreshError::DownloadManagerBuilderError(builder_error) => match builder_error {
+                BuilderError::EmptySource { file_name } => Self {
+                    description: format!("BUG: task {} should is not empty", file_name),
+                    source: None,
+                },
+                BuilderError::IllegalDownloadThread { count } => Self {
+                    description: fl!("wrong-thread-count", count = count),
+                    source: None,
+                },
             },
         }
     }
