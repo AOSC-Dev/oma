@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     fs::Permissions,
-    os::{fd::AsRawFd, unix::fs::PermissionsExt},
+    os::{fd::OwnedFd, unix::fs::PermissionsExt},
     path::{Path, PathBuf},
 };
 
@@ -120,7 +120,7 @@ pub struct OmaRefresh<'a> {
 }
 
 /// Create `apt update` file lock
-fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
+fn get_apt_update_lock(download_dir: &Path) -> Result<OwnedFd> {
     let lock_path = download_dir.join("lock");
 
     let fd = open(
@@ -130,10 +130,7 @@ fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
     )
     .map_err(RefreshError::SetLock)?;
 
-    fcntl(fd, F_SETFD(FdFlag::FD_CLOEXEC)).map_err(|e| {
-        close(fd).ok();
-        RefreshError::SetLock(e)
-    })?;
+    fcntl(&fd, F_SETFD(FdFlag::FD_CLOEXEC)).map_err(RefreshError::SetLock)?;
 
     // From apt libapt-pkg/fileutil.cc:287
     let mut fl = flock {
@@ -144,7 +141,7 @@ fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
         l_pid: -1,
     };
 
-    if let Err(e) = fcntl(fd.as_raw_fd(), F_SETLK(&fl)) {
+    if let Err(e) = fcntl(&fd, F_SETLK(&fl)) {
         debug!("{e}");
 
         if e == Errno::EACCES || e == Errno::EAGAIN {
@@ -153,7 +150,7 @@ fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
             fl.l_len = 0;
             fl.l_start = 0;
             fl.l_pid = -1;
-            fcntl(fd.as_raw_fd(), F_GETLK(&mut fl)).ok();
+            fcntl(&fd, F_GETLK(&mut fl)).ok();
         } else {
             fl.l_pid = -1;
         }
@@ -176,7 +173,7 @@ fn get_apt_update_lock(download_dir: &Path) -> Result<()> {
         return Err(RefreshError::SetLock(e));
     }
 
-    Ok(())
+    Ok(fd)
 }
 
 #[derive(Debug)]
@@ -213,7 +210,7 @@ impl<'a> OmaRefresh<'a> {
 
         let download_dir: Box<Path> = Box::from(self.download_dir.as_path());
 
-        spawn_blocking(move || get_apt_update_lock(&download_dir))
+        let _fd = spawn_blocking(move || get_apt_update_lock(&download_dir))
             .await
             .unwrap()?;
 
