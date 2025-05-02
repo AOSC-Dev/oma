@@ -18,7 +18,6 @@ use crate::{
     list::List,
     mark::Mark,
     pick::Pick,
-    pkgnames::Pkgnames,
     rdepends::Rdepends,
     refresh::Refresh,
     remove::{Purge, Remove},
@@ -117,9 +116,6 @@ pub enum SubCmd {
     /// command-not-found
     #[command(hide = true)]
     CommandNotFound(CommandNotFound),
-    #[command(hide = true)]
-    /// Pkgnames (used for completion)
-    Pkgnames(Pkgnames),
     #[command(hide = true)]
     /// Generate manpages
     GenerateManpages(GenerateManpages),

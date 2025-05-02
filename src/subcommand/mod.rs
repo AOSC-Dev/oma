@@ -12,7 +12,6 @@ pub mod mark;
 #[cfg(feature = "aosc")]
 pub mod mirror;
 pub mod pick;
-pub mod pkgnames;
 pub mod rdepends;
 pub mod refresh;
 pub mod remove;
