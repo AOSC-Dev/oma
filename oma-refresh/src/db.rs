@@ -197,7 +197,7 @@ pub enum Event {
 
 impl<'a> OmaRefresh<'a> {
     pub async fn start(mut self, callback: impl AsyncFn(Event)) -> Result<()> {
-        if self.threads == 0 {
+        if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
 

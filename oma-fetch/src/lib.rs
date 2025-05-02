@@ -207,7 +207,7 @@ impl DownloadManager<'_> {
         &self,
         callback: impl AsyncFn(Event),
     ) -> Result<Summary, BuilderError> {
-        if self.threads == 0 {
+        if self.threads == 0 || self.threads > 255 {
             return Err(BuilderError::IllegalDownloadThread {
                 count: self.threads,
             });
