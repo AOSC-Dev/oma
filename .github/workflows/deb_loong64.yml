@@ -43,8 +43,8 @@ jobs:
         run: |
           export ZSTD_SYS_USE_PKG_CONFIG=1
           cargo build --release
-          COMPLETE=bash oma > completions/oma.bash
-          COMPLETE=fish oma > completions/oma.fish
+          COMPLETE=bash ./target/release/oma > completions/oma.bash
+          COMPLETE=fish ./target/release/oma > completions/oma.fish
           ./target/release/oma generate-manpages
           cargo deb -Z xz
           VER_SUFFIX="${TARGET_DISTRO/:/}"
