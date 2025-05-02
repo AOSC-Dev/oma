@@ -269,4 +269,4 @@ path-not-exist = 路径 { $path } 不存在。
 not-allow-oma-pending-piped = 不允许搭配管道使用 oma 的交互模式界面。
 space-warn = 检测到您的存储空间告急，您可以使用 { $cmd } 清除软件安装包缓存，可释放 { $size } 存储空间；也请考虑删除不必要的软件包或个人数据。
 space-warn-with-zero = 检测到您的存储空间告急，请考虑删除不必要的软件包或个人数据。
-wrong-thread-count = 下载线程参数不允许为 { $count }。
+wrong-thread-count = 您指定的线程数 { $count } 不合法（最小：1，最大：255）。

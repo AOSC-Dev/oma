@@ -280,4 +280,4 @@ path-not-exist = Path { $path } does not exist.
 not-allow-oma-pending-piped = oma cannot run with piped output in interactive mode.
 space-warn = You seem to be running out of space. Consider using { $cmd } to purge the package cache, which will free up { $size } in storage space; Please also consider cleaning up your rarely used software or personal data.
 space-warn-with-zero = You seem to be running out of space, Please consider cleaning up your rarely used software or personal data.
-wrong-thread-count = The download thread parameter is not allowed to be { $count }.
+wrong-thread-count = The specified number of threads { $count } is not allowed (min: 1, max: 255).
