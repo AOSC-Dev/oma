@@ -1,5 +1,5 @@
 deb:
-    cargo build --release
+    cargo build --release --no-default-features --features generic
     mkdir -pv completions
     COMPLETE=bash ./target/release/oma > completions/oma.bash
     COMPLETE=fish ./target/release/oma > completions/oma.fish
