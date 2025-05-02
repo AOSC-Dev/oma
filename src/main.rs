@@ -128,7 +128,9 @@ pub struct GlobalOptions {
 
 fn main() {
     // 补全
-    CompleteEnv::with_factory(OhManagerAilurus::command).complete();
+    CompleteEnv::with_factory(OhManagerAilurus::command)
+        .completer("oma")
+        .complete();
 
     // 使系统错误使用系统 locale 语言输出
     unsafe {
