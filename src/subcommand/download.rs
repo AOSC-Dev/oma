@@ -29,6 +29,9 @@ pub struct Download {
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]
     dry_run: bool,
+    /// Setup download threads (default as 4)
+    #[arg(from_global)]
+    download_threads: Option<usize>,
 }
 
 impl CliExecuter for Download {
@@ -37,6 +40,7 @@ impl CliExecuter for Download {
             packages,
             path,
             dry_run,
+            download_threads,
         } = self;
 
         let path = path.canonicalize().map_err(|e| OutputError {
@@ -73,7 +77,7 @@ impl CliExecuter for Download {
             &HTTP_CLIENT,
             pkgs,
             DownloadConfig {
-                network_thread: Some(config.network_thread()),
+                network_thread: Some(download_threads.unwrap_or_else(|| config.network_thread())),
                 download_dir: Some(&path),
                 auth: auth_config("/").as_ref(),
             },

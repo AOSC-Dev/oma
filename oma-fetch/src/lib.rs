@@ -2,14 +2,14 @@ use std::{cmp::Ordering, path::PathBuf, time::Duration};
 
 use bon::{Builder, builder};
 use checksum::Checksum;
-use download::{EmptySource, SingleDownloader, SuccessSummary};
+use download::{BuilderError, SingleDownloader, SuccessSummary};
 use futures::StreamExt;
 
 use reqwest::{Client, Method, RequestBuilder};
 use tracing::debug;
 
 pub mod checksum;
-mod download;
+pub mod download;
 pub use crate::download::SingleDownloadError;
 
 pub use reqwest;
@@ -206,7 +206,13 @@ impl DownloadManager<'_> {
     pub async fn start_download(
         &self,
         callback: impl AsyncFn(Event),
-    ) -> Result<Summary, EmptySource> {
+    ) -> Result<Summary, BuilderError> {
+        if self.threads == 0 || self.threads > 255 {
+            return Err(BuilderError::IllegalDownloadThread {
+                count: self.threads,
+            });
+        }
+
         let mut tasks = Vec::new();
         let mut list = vec![];
         for (i, c) in self.download_list.iter().enumerate() {
@@ -215,13 +221,13 @@ impl DownloadManager<'_> {
                 .client(self.client)
                 .maybe_msg(msg)
                 .download_list_index(i)
-                .entry(c)?
+                .entry(c)
                 .progress((i + 1, self.download_list.len()))
                 .retry_times(self.retry_times)
                 .file_type(c.file_type)
                 .maybe_set_permission(self.set_permission)
                 .timeout(self.timeout)
-                .build();
+                .build()?;
 
             list.push(single);
         }

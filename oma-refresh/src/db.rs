@@ -25,6 +25,7 @@ use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
     CompressFile, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
     checksum::{Checksum, ChecksumError},
+    download::BuilderError,
     reqwest::{
         Client, Response,
         header::{CONTENT_LENGTH, HeaderValue},
@@ -100,6 +101,10 @@ pub enum RefreshError {
     SourceListsEmpty,
     #[error("Failed to operate file: {0}")]
     OperateFile(PathBuf, std::io::Error),
+    #[error("thread count is not illegal: {0}")]
+    WrongThreadCount(usize),
+    #[error("Failed to build download manager")]
+    DownloadManagerBuilderError(BuilderError),
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -189,6 +194,10 @@ pub enum Event {
 
 impl<'a> OmaRefresh<'a> {
     pub async fn start(mut self, callback: impl AsyncFn(Event)) -> Result<()> {
+        if self.threads == 0 || self.threads > 255 {
+            return Err(RefreshError::WrongThreadCount(self.threads));
+        }
+
         let arch = dpkg_arch(&self.source)?;
         let sourcelist = scan_sources_lists(&self.source, &arch, self.apt_config, &callback)
             .await
@@ -272,7 +281,7 @@ impl<'a> OmaRefresh<'a> {
                 callback(Event::DownloadEvent(event)).await;
             })
             .await
-            .unwrap();
+            .map_err(RefreshError::DownloadManagerBuilderError)?;
 
         if !res.is_download_success() {
             return Err(RefreshError::DownloadFailed(None));

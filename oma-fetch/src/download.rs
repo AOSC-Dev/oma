@@ -8,7 +8,7 @@ use std::{
 };
 
 use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
-use bon::Builder;
+use bon::bon;
 use futures::{AsyncRead, TryStreamExt, io::BufReader};
 use reqwest::{
     Client, Method, RequestBuilder,
@@ -29,22 +29,16 @@ use crate::{DownloadEntry, DownloadSourceType};
 const READ_FILE_BUFSIZE: usize = 65536;
 const DOWNLOAD_BUFSIZE: usize = 8192;
 
-#[derive(Snafu, Debug)]
-#[snafu(display("source list is empty"))]
-pub struct EmptySource {
-    file_name: String,
+#[derive(Debug, Snafu)]
+pub enum BuilderError {
+    #[snafu(display("Download task {file_name} sources is empty"))]
+    EmptySource { file_name: String },
+    #[snafu(display("Not allow set illegal download threads: {count}"))]
+    IllegalDownloadThread { count: usize },
 }
 
-#[derive(Builder)]
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
-    #[builder(with = |entry: &'a DownloadEntry| -> Result<_, EmptySource> {
-        if entry.source.is_empty() {
-            return Err(EmptySource { file_name: entry.filename.to_string() });
-        } else {
-            return Ok(entry);
-        }
-    })]
     pub entry: &'a DownloadEntry,
     progress: (usize, usize),
     retry_times: usize,
@@ -99,7 +93,39 @@ pub enum SingleDownloadError {
     ChecksumMismatch,
 }
 
-impl SingleDownloader<'_> {
+#[bon]
+impl<'a> SingleDownloader<'a> {
+    #[builder]
+    pub(crate) fn new(
+        client: &'a Client,
+        entry: &'a DownloadEntry,
+        progress: (usize, usize),
+        retry_times: usize,
+        msg: Option<String>,
+        download_list_index: usize,
+        file_type: CompressFile,
+        set_permission: Option<u32>,
+        timeout: Duration,
+    ) -> Result<SingleDownloader<'a>, BuilderError> {
+        if entry.source.is_empty() {
+            return Err(BuilderError::EmptySource {
+                file_name: entry.filename.to_string(),
+            });
+        }
+
+        Ok(Self {
+            client,
+            entry,
+            progress,
+            retry_times,
+            msg,
+            download_list_index,
+            file_type,
+            set_permission,
+            timeout,
+        })
+    }
+
     pub(crate) async fn try_download(self, callback: &impl AsyncFn(Event)) -> DownloadResult {
         let mut sources = self.entry.source.clone();
         assert!(!sources.is_empty());

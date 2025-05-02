@@ -84,6 +84,9 @@ pub struct Topics {
     /// Always write status to atm file and sources.list
     #[arg(long)]
     always_write_status: bool,
+    /// Setup download threads (default as 4)
+    #[arg(from_global)]
+    download_threads: Option<usize>,
 }
 
 struct TopicChanged {
@@ -132,6 +135,7 @@ impl CliExecuter for Topics {
             all,
             no_fix_dpkg_status,
             always_write_status,
+            download_threads,
         } = self;
 
         if !dry_run {
@@ -181,7 +185,7 @@ impl CliExecuter for Topics {
 
         let code = Ok(()).and_then(|_| -> Result<i32, OutputError> {
             refresh(
-                config,
+                download_threads.unwrap_or_else(|| config.network_thread()),
                 no_progress,
                 dry_run,
                 &sysroot,
@@ -238,7 +242,7 @@ impl CliExecuter for Topics {
                 .yes(false)
                 .remove_config(remove_config)
                 .autoremove(autoremove)
-                .network_thread(config.network_thread())
+                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
                 .maybe_auth_config(auth_config)
                 .check_update(true)
                 .topics_enabled(opt_in)
@@ -257,7 +261,7 @@ impl CliExecuter for Topics {
                     revert_sources_list(&tm)?;
                     RT.block_on(tm.write_enabled(true))?;
                     refresh(
-                        config,
+                        download_threads.unwrap_or_else(|| config.network_thread()),
                         no_progress,
                         dry_run,
                         &sysroot,
@@ -279,7 +283,7 @@ impl CliExecuter for Topics {
 }
 
 fn refresh<'a>(
-    config: &'a Config,
+    network_threads: usize,
     no_progress: bool,
     dry_run: bool,
     sysroot: &'a Path,
@@ -290,7 +294,7 @@ fn refresh<'a>(
         .client(&HTTP_CLIENT)
         .dry_run(dry_run)
         .no_progress(no_progress)
-        .network_thread(config.network_thread())
+        .network_thread(network_threads)
         .sysroot(&sysroot.to_string_lossy())
         .refresh_topics(true)
         .config(apt_config)

@@ -64,6 +64,9 @@ pub struct Remove {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge")]
     remove_config: bool,
+    /// Setup download threads (default as 4)
+    #[arg(from_global)]
+    download_threads: Option<usize>,
 }
 
 #[derive(Debug, Args)]
@@ -104,6 +107,9 @@ pub struct Purge {
     /// Do not auto remove unnecessary package(s)
     #[arg(long)]
     no_autoremove: bool,
+    /// Setup download threads (default as 4)
+    #[arg(from_global)]
+    download_threads: Option<usize>,
 }
 
 impl From<Purge> for Remove {
@@ -121,6 +127,7 @@ impl From<Purge> for Remove {
             force_confnew,
             no_autoremove,
             no_fix_dpkg_status,
+            download_threads,
         } = value;
 
         Self {
@@ -137,6 +144,7 @@ impl From<Purge> for Remove {
             no_autoremove,
             no_fix_dpkg_status,
             remove_config: true,
+            download_threads,
         }
     }
 }
@@ -164,6 +172,7 @@ impl CliExecuter for Remove {
             no_autoremove,
             remove_config,
             no_fix_dpkg_status,
+            download_threads,
         } = self;
 
         if !dry_run {
@@ -241,7 +250,7 @@ impl CliExecuter for Remove {
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(!no_autoremove)
-            .network_thread(config.network_thread())
+            .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
             .maybe_auth_config(auth_config)
             .fix_dpkg_status(!no_fix_dpkg_status)
             .build()
