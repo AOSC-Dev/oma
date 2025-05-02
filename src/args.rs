@@ -4,7 +4,29 @@ use clap::{Args, Parser, Subcommand, crate_name, crate_version};
 use enum_dispatch::enum_dispatch;
 
 use crate::{
-    clean::Clean, command_not_found::CommandNotFound, config::Config, contents_find::{Files, Provides}, depends::Depends, download::Download, error::OutputError, fix_broken::FixBroken, history::{History, Undo}, install::Install, list::List, mark::Mark, pick::Pick, pkgnames::Pkgnames, rdepends::Rdepends, refresh::Refresh, remove::{Purge, Remove}, search::Search, show::Show, subcommand::generate::GenerateManpages, tui::Tui, upgrade::Upgrade, GlobalOptions
+    GlobalOptions,
+    clean::Clean,
+    command_not_found::CommandNotFound,
+    config::Config,
+    contents_find::{Files, Provides},
+    depends::Depends,
+    download::Download,
+    error::OutputError,
+    fix_broken::FixBroken,
+    history::{History, Undo},
+    install::Install,
+    list::List,
+    mark::Mark,
+    pick::Pick,
+    pkgnames::Pkgnames,
+    rdepends::Rdepends,
+    refresh::Refresh,
+    remove::{Purge, Remove},
+    search::Search,
+    show::Show,
+    subcommand::generate::GenerateManpages,
+    tui::Tui,
+    upgrade::Upgrade,
 };
 
 #[cfg(feature = "aosc")]
