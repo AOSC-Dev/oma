@@ -2,7 +2,7 @@ name: deb-build
 
 on:
   push:
-    branches: [ '*' ]
+    branches: [ "*" ]
 
 jobs:
   package:
@@ -83,6 +83,12 @@ jobs:
           echo "CODENAME=${CODENAME}" >> "${GITHUB_ENV}"
         env:
           TARGET_DISTRO: "${{ matrix.target }}"
+      - name: Check for release
+        id: is-release
+        shell: bash
+        run: |
+          unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
+          echo "IS_RELEASE=${IS_RELEASE}" >> $GITHUB_OUTPUT
       - name: Setup SSH private key
         env:
           KEY: ${{ secrets.KEY }}
@@ -94,6 +100,7 @@ jobs:
           chmod 0600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
       - name: Upload packages (repository)
         shell: bash
+        if: steps.is-release.outputs.IS_RELEASE
         run: |
           rsync \
               --ignore-existing \
@@ -112,12 +119,6 @@ jobs:
         env:
           TARGET_DISTRO: "${{ matrix.target }}"
           USER: ${{ secrets.USER }}
-      - name: Check for release
-        id: is-release
-        shell: bash
-        run: |
-          unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
-          echo "IS_RELEASE=${IS_RELEASE}" >> $GITHUB_OUTPUT
       - name: Upload packages (GitHub Release)
         uses: actions/upload-artifact@v4
         if: steps.is-release.outputs.IS_RELEASE
