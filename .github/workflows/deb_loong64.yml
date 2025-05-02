@@ -2,7 +2,7 @@ name: deb-build
 
 on:
   push:
-    tags: [ "v*" ]
+    branches: [ '*' ]
 
 jobs:
   package:
@@ -42,6 +42,10 @@ jobs:
         shell: bash
         run: |
           export ZSTD_SYS_USE_PKG_CONFIG=1
+          cargo build --release
+          COMPLETE=bash oma > completions/oma.bash
+          COMPLETE=fish oma > completions/oma.fish
+          ./target/release/oma generate-manpages
           cargo deb -Z xz
           VER_SUFFIX="${TARGET_DISTRO/:/}"
           VER_SUFFIX="${VER_SUFFIX##*\/}"
@@ -91,8 +95,15 @@ jobs:
         env:
           TARGET_DISTRO: "${{ matrix.target }}"
           USER: ${{ secrets.USER }}
+      - name: Check for release
+        id: is-release
+        shell: bash
+        run: |
+            unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
+            echo "IS_RELEASE=${IS_RELEASE}" >> $GITHUB_OUTPUT
       - name: Upload packages (GitHub Release)
         uses: actions/upload-artifact@v4
+        if: steps.is-release.outputs.IS_RELEASE
         with:
           name: ${{ env.VER_SUFFIX }}
           path: "target/debian/*.deb"
