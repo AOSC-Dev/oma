@@ -1,6 +1,7 @@
 use std::{borrow::Cow, io::stdout, path::PathBuf, sync::atomic::Ordering};
 
 use clap::Args;
+use clap_complete::ArgValueCompleter;
 use oma_console::print::Action;
 use oma_pm::{
     PkgCurrentState,
@@ -8,7 +9,7 @@ use oma_pm::{
 };
 use tracing::info;
 
-use crate::{NOT_DISPLAY_ABORT, fl};
+use crate::{NOT_DISPLAY_ABORT, fl, utils::pkgnames_completions};
 use crate::{color_formatter, config::Config, error::OutputError, table::PagerPrinter};
 use anyhow::anyhow;
 use smallvec::{SmallVec, smallvec};
@@ -18,6 +19,7 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct List {
     /// Package(s) to list
+    #[arg(add = ArgValueCompleter::new(pkgnames_completions))]
     packages: Vec<String>,
     /// List all available version(s) of (a) package(s) from all repository(ies)
     #[arg(short, long)]

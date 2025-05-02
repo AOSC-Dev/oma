@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::thread;
 
 use clap::Args;
+use clap_complete::ArgValueCompleter;
 use flume::unbounded;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
@@ -9,6 +10,7 @@ use tracing::error;
 
 use crate::config::Config;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress};
+use crate::utils::pkgnames_completions;
 use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 
@@ -19,7 +21,7 @@ use super::utils::auth_config;
 #[derive(Debug, Args)]
 pub struct Download {
     /// Package(s) to download
-    #[arg(required = true)]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
     packages: Vec<String>,
     /// The path where package(s) should be downloaded to
     #[arg(short, long, default_value = ".")]

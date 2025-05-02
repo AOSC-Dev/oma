@@ -1,12 +1,7 @@
 use std::path::PathBuf;
 
-use clap::{Args, Command, CommandFactory, Subcommand};
+use clap::{Args, Command, CommandFactory};
 
-#[cfg(not(feature = "generate-completion"))]
-use clap::builder::PossibleValue;
-
-#[cfg(feature = "generate-completion")]
-use clap_complete::Shell;
 use clap_mangen::Man;
 
 use crate::{
@@ -16,81 +11,16 @@ use crate::{
 };
 
 #[derive(Debug, Args)]
-pub struct Generate {
-    #[command(subcommand)]
-    subcmd: Subcmd,
+pub struct GenerateManpages {
+    #[arg(short, long, default_value = ".")]
+    path: PathBuf,
 }
 
-#[cfg(not(feature = "generate-completion"))]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Shell {
-    Bash,
-    Fish,
-}
-
-#[cfg(all(not(feature = "generate-completion"), feature = "aosc"))]
-const BASH_COMPLETION: &str = include_str!("../../data/completions/oma.bash");
-
-#[cfg(all(not(feature = "generate-completion"), feature = "aosc"))]
-const FISH_COMPLETION: &str = include_str!("../../data/completions/oma.fish");
-
-#[cfg(all(not(feature = "generate-completion"), not(feature = "aosc")))]
-const BASH_COMPLETION: &str = include_str!("../../data/completions/oma.bash.debian");
-
-#[cfg(all(not(feature = "generate-completion"), not(feature = "aosc")))]
-const FISH_COMPLETION: &str = include_str!("../../data/completions/oma.fish.debian");
-
-#[cfg(not(feature = "generate-completion"))]
-impl clap::ValueEnum for Shell {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Bash, Self::Fish]
-    }
-
-    fn to_possible_value(&self) -> Option<PossibleValue> {
-        Some(match self {
-            Shell::Bash => PossibleValue::new("bash"),
-            Shell::Fish => PossibleValue::new("fish"),
-        })
-    }
-}
-
-#[derive(Debug, Subcommand)]
-pub enum Subcmd {
-    Shell {
-        #[arg(required = true)]
-        shell: Shell,
-    },
-    Man {
-        #[arg(short, long, default_value = ".")]
-        path: PathBuf,
-    },
-}
-
-impl CliExecuter for Generate {
+impl CliExecuter for GenerateManpages {
     fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
-        let mut cmd = OhManagerAilurus::command();
-
-        match self.subcmd {
-            Subcmd::Shell { shell } => generate_shell(&mut cmd, shell),
-            Subcmd::Man { path } => Ok(build_man(&cmd, path)?),
-        }
+        let cmd = OhManagerAilurus::command();
+        Ok(build_man(&cmd, self.path)?)
     }
-}
-
-#[cfg(feature = "generate-completion")]
-fn generate_shell(cmd: &mut Command, shell: Shell) -> Result<i32, OutputError> {
-    clap_complete::generate(shell, cmd, "oma", &mut std::io::stdout());
-    Ok(0)
-}
-
-#[cfg(not(feature = "generate-completion"))]
-fn generate_shell(_cmd: &mut Command, shell: Shell) -> Result<i32, OutputError> {
-    match shell {
-        Shell::Bash => println!("{}", BASH_COMPLETION),
-        Shell::Fish => println!("{}", FISH_COMPLETION),
-    }
-
-    Ok(0)
 }
 
 fn build_man(cmd: &Command, path: PathBuf) -> Result<i32, anyhow::Error> {

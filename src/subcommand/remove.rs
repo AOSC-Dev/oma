@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use clap::Args;
+use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
@@ -11,6 +12,7 @@ use tracing::{info, warn};
 
 use crate::config::Config;
 use crate::fl;
+use crate::utils::pkgnames_remove_completions;
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},
@@ -67,6 +69,7 @@ pub struct Remove {
 #[derive(Debug, Args)]
 pub struct Purge {
     /// Package(s) to remove
+    #[arg(add = ArgValueCompleter::new(pkgnames_remove_completions))]
     packages: Vec<String>,
     /// Bypass confirmation prompts
     #[arg(short, long)]

@@ -23,7 +23,8 @@ mod egg;
 
 use args::{CliExecuter, OhManagerAilurus, print_version};
 use clap::builder::FalseyValueParser;
-use clap::{ArgAction, Args, ColorChoice, Parser};
+use clap::{ArgAction, Args, ColorChoice, CommandFactory, Parser};
+use clap_complete::CompleteEnv;
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
@@ -126,6 +127,9 @@ pub struct GlobalOptions {
 }
 
 fn main() {
+    // 补全
+    CompleteEnv::with_factory(OhManagerAilurus::command).complete();
+
     // 使系统错误使用系统 locale 语言输出
     unsafe {
         let s = CString::new("").unwrap();

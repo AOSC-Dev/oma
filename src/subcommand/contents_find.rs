@@ -1,7 +1,9 @@
 use crate::fl;
 use crate::table::oma_display_with_normal_output;
+use crate::utils::pkgnames_completions;
 use crate::{config::Config, error::OutputError};
 use clap::Args;
+use clap_complete::ArgValueCompleter;
 use indexmap::IndexSet;
 use oma_contents::searcher::{Mode, search};
 use std::io::{Write, stdout};
@@ -22,6 +24,7 @@ pub struct Files {
     #[arg(long)]
     bin: bool,
     /// Package to display a list files of
+    #[arg(add = ArgValueCompleter::new(pkgnames_completions))]
     package: String,
     /// Output result to stdout, not pager
     #[arg(long, visible_alias = "println")]

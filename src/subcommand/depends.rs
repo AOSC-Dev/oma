@@ -5,12 +5,13 @@ use std::{
 };
 
 use clap::Args;
+use clap_complete::ArgValueCompleter;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
 
-use crate::{config::Config, error::OutputError};
+use crate::{config::Config, error::OutputError, utils::pkgnames_completions};
 
 use super::utils::{check_unsupported_stmt, handle_no_result};
 
@@ -19,7 +20,7 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Depends {
     /// Package(s) to query dependency(ies) for
-    #[arg(required = true)]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
     packages: Vec<String>,
     /// Set output format as JSON
     #[arg(long)]

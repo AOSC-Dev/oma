@@ -1,6 +1,7 @@
 use std::{borrow::Cow, path::PathBuf};
 
 use clap::{Args, ValueEnum};
+use clap_complete::ArgValueCompleter;
 use oma_console::print::Action;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
@@ -8,7 +9,13 @@ use oma_pm::{
 };
 use tracing::info;
 
-use crate::{color_formatter, config::Config, error::OutputError, success, utils::root};
+use crate::{
+    color_formatter,
+    config::Config,
+    error::OutputError,
+    success,
+    utils::{pkgnames_completions, root},
+};
 
 use super::utils::handle_no_result;
 use crate::args::CliExecuter;
@@ -35,7 +42,7 @@ pub struct Mark {
     )]
     action: MarkAction,
     /// Package(s) to mark status for
-    #[arg(required = true)]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
     packages: Vec<String>,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]

@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Args;
+use clap_complete::ArgValueCompleter;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
@@ -14,6 +15,7 @@ use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
 use crate::utils::dbus_check;
+use crate::utils::pkgnames_completions;
 use crate::utils::root;
 
 use super::utils::CommitChanges;
@@ -27,6 +29,7 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Install {
     /// Package(s) to install
+    #[arg(add = ArgValueCompleter::new(pkgnames_completions))]
     packages: Vec<String>,
     /// Install recommended package(s)
     #[arg(long)]

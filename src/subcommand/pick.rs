@@ -1,19 +1,20 @@
 use std::path::PathBuf;
 
 use clap::Args;
+use clap_complete::ArgValueCompleter;
 use dialoguer::{Select, theme::ColorfulTheme};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     pkginfo::OmaPackage,
 };
 
-use crate::fl;
 use crate::{
     HTTP_CLIENT,
     config::Config,
     error::OutputError,
     utils::{dbus_check, root},
 };
+use crate::{fl, utils::pkgnames_completions};
 use anyhow::anyhow;
 
 use super::utils::{
@@ -24,7 +25,7 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Pick {
     /// Package to pick specific version for
-    #[arg(required = true)]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
     package: String,
     /// Fix apt broken status
     #[arg(short, long)]
