@@ -27,6 +27,7 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Remove {
     /// Package(s) to remove
+    #[arg(add = ArgValueCompleter::new(pkgnames_remove_completions))]
     packages: Vec<String>,
     /// Bypass confirmation prompts
     #[arg(short, long)]
