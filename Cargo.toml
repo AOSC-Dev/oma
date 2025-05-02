@@ -44,7 +44,7 @@ bon = "3"
 flume = "0.11"
 enum_dispatch = "0.3"
 clap_mangen = "0.2.23"
-clap_complete = { version = "4.5.29", optional = true }
+clap_complete = { version = "4.5", features = ["unstable-dynamic"] }
 fs4 = "0.13.1"
 fs_extra = "1.3.0"
 
@@ -77,7 +77,6 @@ tokio-console = ["dep:console-subscriber"]
 rustls = ["reqwest/rustls-tls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-topics/rustls", "oma-repo-verify/sequoia-nettle-backend"]
 openssl = ["reqwest/native-tls", "oma-fetch/native-tls", "oma-refresh/native-tls", "oma-topics/native-tls", "oma-repo-verify/sequoia-openssl-backend"]
 generic = ["sequoia-nettle-backend", "rustls"]
-generate-completion = ["dep:clap_complete"]
 default = ["aosc", "generic"]
 
 [workspace]
@@ -98,9 +97,10 @@ assets = [
     ["data/apt.conf.d/50oma.conf", "etc/apt/apt.conf.d/50oma.conf", "644"],
     ["data/dbus/oma-dbus.conf", "usr/share/dbus-1/system.d/oma-dbus.conf", "644"],
     ["data/policykit/io.aosc.oma.apply.policy", "usr/share/polkit-1/actions/io.aosc.oma.apply.policy", "644" ],
-    ["data/completions/oma.bash.debian", "usr/share/bash-completion/completions/oma.bash", "644"],
-    ["data/completions/oma.fish.debian", "usr/share/fish/vendor_completions.d/oma.fish", "644"],
-    ["data/man/*.1", "usr/share/man/man1/", "644"]
+    ["completions/oma.bash", "usr/share/bash-completion/completions/oma.bash", "644"],
+    ["completions/oma.fish", "usr/share/fish/vendor_completions.d/oma.fish", "644"],
+    ["completions/_oma", "usr/share/zsh/functions/Completion/Linux/_oma", "644"],
+    ["man/*.1", "usr/share/man/man1/", "644"]
 ]
 features = ["generic"]
 default-features = false

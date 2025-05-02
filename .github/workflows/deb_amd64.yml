@@ -2,7 +2,7 @@ name: deb-build
 
 on:
   push:
-    tags: [ "v*" ]
+    branches: [ "*" ]
 
 jobs:
   package:
@@ -43,7 +43,8 @@ jobs:
         shell: bash
         run: |
           export ZSTD_SYS_USE_PKG_CONFIG=1
-          cargo deb -Z xz
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+          just
           VER_SUFFIX="${TARGET_DISTRO/:/}"
           VER_SUFFIX="${VER_SUFFIX##*\/}"
           case "${TARGET_DISTRO}" in
@@ -82,6 +83,12 @@ jobs:
           echo "CODENAME=${CODENAME}" >> "${GITHUB_ENV}"
         env:
           TARGET_DISTRO: "${{ matrix.target }}"
+      - name: Check for release
+        id: is-release
+        shell: bash
+        run: |
+          unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
+          echo "IS_RELEASE=${IS_RELEASE}" >> $GITHUB_OUTPUT
       - name: Setup SSH private key
         env:
           KEY: ${{ secrets.KEY }}
@@ -93,6 +100,7 @@ jobs:
           chmod 0600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
       - name: Upload packages (repository)
         shell: bash
+        if: steps.is-release.outputs.IS_RELEASE
         run: |
           rsync \
               --ignore-existing \
@@ -113,6 +121,7 @@ jobs:
           USER: ${{ secrets.USER }}
       - name: Upload packages (GitHub Release)
         uses: actions/upload-artifact@v4
+        if: steps.is-release.outputs.IS_RELEASE
         with:
           name: ${{ env.VER_SUFFIX }}
           path: "target/debian/*.deb"

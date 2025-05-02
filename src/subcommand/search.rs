@@ -1,6 +1,7 @@
 use std::{fmt::Display, path::PathBuf};
 
 use clap::{ArgAction, Args};
+use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
 use oma_console::{
     pager::Pager,
@@ -15,7 +16,7 @@ use oma_pm::{
 };
 use tracing::warn;
 
-use crate::{WRITER, color_formatter, fl};
+use crate::{WRITER, color_formatter, fl, utils::pkgnames_completions};
 use crate::{config::Config, error::OutputError, table::oma_display_with_normal_output};
 
 use crate::args::CliExecuter;
@@ -25,7 +26,7 @@ use super::utils::create_progress_spinner;
 #[derive(Debug, Args)]
 pub struct Search {
     /// Keywords to search
-    #[arg(required = true, action = ArgAction::Append)]
+    #[arg(required = true, action = ArgAction::Append, add = ArgValueCompleter::new(pkgnames_completions))]
     pattern: Vec<String>,
     /// Output result to stdout, not pager
     #[arg(long)]

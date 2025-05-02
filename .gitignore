@@ -1,5 +1,6 @@
 /target
-/completions
 test
 /oma-fetcher-test
 /*.deb
+/completions
+/man

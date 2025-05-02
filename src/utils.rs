@@ -9,7 +9,9 @@ use crate::{NOT_ALLOW_CTRLC, error::OutputError};
 use crate::{RT, fl};
 
 use anyhow::anyhow;
+use clap_complete::CompletionCandidate;
 use dialoguer::{Confirm, theme::ColorfulTheme};
+use oma_pm::apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs};
 use oma_utils::{
     dbus::{Connection, create_dbus_connection, is_using_battery, session_name, take_wake_lock},
     oma::unlock_oma,
@@ -152,4 +154,59 @@ macro_rules! due_to {
         use oma_console::writer::Writeln as _;
         $crate::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
     };
+}
+
+pub fn pkgnames_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let mut completions = vec![];
+    let Some(current) = current.to_str() else {
+        return completions;
+    };
+
+    pkgnames_complete_impl(&mut completions, current, &[FilterMode::Names]);
+
+    completions
+}
+
+fn pkgnames_complete_impl(
+    completions: &mut Vec<CompletionCandidate>,
+    current: &str,
+    filter_mode: &[FilterMode],
+) {
+    let Ok(apt) = OmaApt::new(
+        vec![],
+        OmaAptArgs::builder().build(),
+        false,
+        AptConfig::new(),
+    ) else {
+        return;
+    };
+
+    let Ok(pkgs) = apt.filter_pkgs(filter_mode) else {
+        return;
+    };
+
+    if current.is_empty() {
+        for i in pkgs {
+            completions.push(i.name().into());
+        }
+    } else {
+        for i in pkgs.filter(|i| i.name().starts_with(current)) {
+            completions.push(i.name().into());
+        }
+    }
+}
+
+pub fn pkgnames_remove_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let mut completions = vec![];
+    let Some(current) = current.to_str() else {
+        return completions;
+    };
+
+    pkgnames_complete_impl(
+        &mut completions,
+        current,
+        &[FilterMode::Names, FilterMode::Installed],
+    );
+
+    completions
 }

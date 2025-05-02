@@ -30,6 +30,7 @@ impl CliExecuter for Pkgnames {
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
             .build();
+
         let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
         let mut modes = vec![FilterMode::Names];
 

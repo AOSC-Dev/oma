@@ -13,7 +13,6 @@ use crate::{
     download::Download,
     error::OutputError,
     fix_broken::FixBroken,
-    generate::Generate,
     history::{History, Undo},
     install::Install,
     list::List,
@@ -25,6 +24,7 @@ use crate::{
     remove::{Purge, Remove},
     search::Search,
     show::Show,
+    subcommand::generate::GenerateManpages,
     tui::Tui,
     upgrade::Upgrade,
 };
@@ -121,8 +121,8 @@ pub enum SubCmd {
     /// Pkgnames (used for completion)
     Pkgnames(Pkgnames),
     #[command(hide = true)]
-    /// Generate shell completions and manpages
-    Generate(Generate),
+    /// Generate manpages
+    GenerateManpages(GenerateManpages),
 }
 
 #[derive(Debug, Args)]
