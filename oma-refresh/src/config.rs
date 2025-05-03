@@ -267,6 +267,10 @@ fn get_matches_language(locales: impl IntoIterator<Item = String>) -> Vec<String
         langs.push(locale);
     }
 
+    if langs.is_empty() {
+        langs.push("en".to_string());
+    }
+
     langs
 }
 
