@@ -3233,7 +3233,7 @@ dependencies = [
 
 [[package]]
 name = "oma-mirror"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "ahash",
  "indexmap 2.9.0",
@@ -3286,7 +3286,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.43.3"
+version = "0.43.4"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3327,7 +3327,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "ahash",
  "futures",
