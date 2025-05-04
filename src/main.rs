@@ -1,7 +1,8 @@
 use std::env;
 use std::ffi::CString;
+use std::fs::create_dir_all;
 use std::io::{self, IsTerminal, stderr, stdin};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use std::process::exit;
 use std::sync::{LazyLock, OnceLock};
@@ -39,12 +40,12 @@ use rustix::stdio::stdout;
 use subcommand::utils::{LockError, is_terminal};
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
-use tracing_subscriber::filter::LevelFilter;
+use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer, fmt};
 use tui::Tui;
-use utils::is_ssh_from_loginctl;
+use utils::{is_root, is_ssh_from_loginctl};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -158,7 +159,7 @@ fn main() {
     console_subscriber::init();
 
     #[cfg(not(feature = "tokio-console"))]
-    init_logger(&oma);
+    let _guard = init_logger(&oma);
 
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
@@ -200,57 +201,72 @@ fn init_localizer() {
     LANGUAGE_LOADER.set_use_isolating(false);
 }
 
-fn init_logger(oma: &OhManagerAilurus) {
-    let debug = oma.global.debug;
-    let dry_run = oma.global.dry_run;
-    if !debug && !dry_run {
-        let no_i18n_embd_info: EnvFilter = "i18n_embed=off,info".parse().unwrap();
-
-        tracing_subscriber::registry()
-            .with(
-                OmaLayer::new()
-                    .with_ansi(oma.global.color != ColorChoice::Never && stderr().is_terminal())
-                    .with_filter(no_i18n_embd_info)
-                    .and_then(LevelFilter::INFO),
-            )
-            .init();
-    } else {
-        let env_log = EnvFilter::try_from_default_env();
-
-        if let Ok(filter) = env_log {
-            tracing_subscriber::registry()
-                .with(
-                    fmt::layer()
-                        .event_format(
-                            tracing_subscriber::fmt::format()
-                                .with_file(true)
-                                .with_line_number(true)
-                                .with_ansi(
-                                    oma.global.color != ColorChoice::Never
-                                        && stderr().is_terminal(),
-                                ),
-                        )
-                        .with_filter(filter),
-                )
-                .init();
-        } else {
+macro_rules! init_with_file_logger {
+    ($ta:ident, $context:ident) => {{
+        if let Some((non_blocking, guard)) = $ta {
             let debug_filter: EnvFilter = "hyper=off,rustls=off,debug".parse().unwrap();
-            tracing_subscriber::registry()
+            $context
                 .with(
                     fmt::layer()
-                        .event_format(
-                            tracing_subscriber::fmt::format()
-                                .with_file(true)
-                                .with_line_number(true)
-                                .with_ansi(
-                                    oma.global.color != ColorChoice::Never
-                                        && stderr().is_terminal(),
-                                ),
-                        )
+                        .with_file(true)
+                        .with_writer(non_blocking)
                         .with_filter(debug_filter),
                 )
                 .init();
+            Some(guard)
+        } else {
+            $context.init();
+            None
         }
+    }};
+}
+
+fn init_logger(oma: &OhManagerAilurus) -> Option<WorkerGuard> {
+    let debug = oma.global.debug;
+    let dry_run = oma.global.dry_run;
+
+    let log_dir = Path::new("/var/log/oma");
+
+    if is_root() {
+        create_dir_all(log_dir).expect("Failed to create log dir");
+    }
+
+    let ta = if log_dir.exists() {
+        let file_appender = tracing_appender::rolling::never("/var/log/oma", "oma.log");
+        let ta = tracing_appender::non_blocking(file_appender);
+        Some(ta)
+    } else {
+        None
+    };
+
+    if !debug && !dry_run {
+        let no_i18n_embd: EnvFilter = "i18n_embed=off,info".parse().unwrap();
+
+        let context = tracing_subscriber::registry().with(
+            OmaLayer::new()
+                .with_ansi(oma.global.color != ColorChoice::Never && stderr().is_terminal())
+                .with_filter(no_i18n_embd),
+        );
+
+        init_with_file_logger!(ta, context)
+    } else {
+        let filter = EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "hyper=off,rustls=off,debug".parse().unwrap());
+
+        let context = tracing_subscriber::registry().with(
+            fmt::layer()
+                .event_format(
+                    tracing_subscriber::fmt::format()
+                        .with_file(true)
+                        .with_line_number(true)
+                        .with_ansi(
+                            oma.global.color != ColorChoice::Never && stderr().is_terminal(),
+                        ),
+                )
+                .with_filter(filter),
+        );
+
+        init_with_file_logger!(ta, context)
     }
 }
 
