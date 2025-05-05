@@ -3101,6 +3101,7 @@ dependencies = [
  "crossterm",
  "ctrlc",
  "dialoguer",
+ "dirs",
  "enum_dispatch",
  "faster-hex",
  "flume",

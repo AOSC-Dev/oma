@@ -2,7 +2,7 @@ use std::env::{self, args};
 use std::ffi::CString;
 use std::fs::create_dir_all;
 use std::io::{self, IsTerminal, stderr, stdin};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use std::process::exit;
 use std::sync::{LazyLock, OnceLock};
@@ -205,39 +205,34 @@ fn init_localizer() {
 }
 
 macro_rules! init_with_file_logger {
-    ($ta:ident, $context:ident) => {{
-        if let Some((non_blocking, guard)) = $ta {
-            let debug_filter: EnvFilter = "hyper=off,rustls=off,debug".parse().unwrap();
-            $context
-                .with(
-                    fmt::layer()
-                        .with_file(true)
-                        .with_writer(non_blocking)
-                        .with_filter(debug_filter),
-                )
-                .init();
-            Some(guard)
-        } else {
-            $context.init();
-            None
-        }
+    ($context:ident, $non_blocking:ident) => {{
+        let debug_filter: EnvFilter = "hyper=off,rustls=off,debug".parse().unwrap();
+        $context
+            .with(
+                fmt::layer()
+                    .with_file(true)
+                    .with_writer($non_blocking)
+                    .with_filter(debug_filter),
+            )
+            .init()
     }};
 }
 
-fn init_logger(oma: &OhManagerAilurus) -> Option<WorkerGuard> {
+fn init_logger(oma: &OhManagerAilurus) -> WorkerGuard {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
 
-    let log_dir = Path::new("/var/log/oma");
-
-    let ta = if is_root() {
-        create_dir_all(log_dir).expect("Failed to create log dir");
-        let file_appender = tracing_appender::rolling::never(log_dir, "oma.log");
-        let ta = tracing_appender::non_blocking(file_appender);
-        Some(ta)
+    let log_dir = if is_root() {
+        PathBuf::from("/var/log/oma")
     } else {
-        None
+        dirs::state_dir()
+            .expect("Failed to get data dir")
+            .join("oma")
     };
+
+    create_dir_all(&log_dir).expect("Failed to create log dir");
+    let file_appender = tracing_appender::rolling::never(log_dir, "oma.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
     if !debug && !dry_run {
         let no_i18n_embd: EnvFilter = "i18n_embed=off,info".parse().unwrap();
@@ -248,7 +243,7 @@ fn init_logger(oma: &OhManagerAilurus) -> Option<WorkerGuard> {
                 .with_filter(no_i18n_embd),
         );
 
-        init_with_file_logger!(ta, context)
+        init_with_file_logger!(context, non_blocking);
     } else {
         let filter = EnvFilter::try_from_default_env()
             .unwrap_or_else(|_| "hyper=off,rustls=off,debug".parse().unwrap());
@@ -264,8 +259,10 @@ fn init_logger(oma: &OhManagerAilurus) -> Option<WorkerGuard> {
                 .with_filter(filter),
         );
 
-        init_with_file_logger!(ta, context)
+        init_with_file_logger!(context, non_blocking);
     }
+
+    guard
 }
 
 #[inline]
