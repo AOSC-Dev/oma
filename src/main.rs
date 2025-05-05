@@ -232,7 +232,7 @@ fn init_logger(oma: &OhManagerAilurus) -> Option<WorkerGuard> {
     }
 
     let ta = if log_dir.exists() {
-        let file_appender = tracing_appender::rolling::never("/var/log/oma", "oma.log");
+        let file_appender = tracing_appender::rolling::never(log_dir, "oma.log");
         let ta = tracing_appender::non_blocking(file_appender);
         Some(ta)
     } else {
@@ -244,7 +244,7 @@ fn init_logger(oma: &OhManagerAilurus) -> Option<WorkerGuard> {
 
         let context = tracing_subscriber::registry().with(
             OmaLayer::new()
-                .with_ansi(oma.global.color != ColorChoice::Never && stderr().is_terminal())
+                .with_ansi(enable_ansi(oma))
                 .with_filter(no_i18n_embd),
         );
 
@@ -259,15 +259,19 @@ fn init_logger(oma: &OhManagerAilurus) -> Option<WorkerGuard> {
                     tracing_subscriber::fmt::format()
                         .with_file(true)
                         .with_line_number(true)
-                        .with_ansi(
-                            oma.global.color != ColorChoice::Never && stderr().is_terminal(),
-                        ),
+                        .with_ansi(enable_ansi(oma)),
                 )
                 .with_filter(filter),
         );
 
         init_with_file_logger!(ta, context)
     }
+}
+
+#[inline]
+fn enable_ansi(oma: &OhManagerAilurus) -> bool {
+    (oma.global.color != ColorChoice::Never && stderr().is_terminal())
+        || oma.global.color == ColorChoice::Always
 }
 
 fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
