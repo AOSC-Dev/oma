@@ -230,11 +230,8 @@ fn init_logger(oma: &OhManagerAilurus) -> Option<WorkerGuard> {
 
     let log_dir = Path::new("/var/log/oma");
 
-    if is_root() {
+    let ta = if is_root() {
         create_dir_all(log_dir).expect("Failed to create log dir");
-    }
-
-    let ta = if log_dir.exists() {
         let file_appender = tracing_appender::rolling::never(log_dir, "oma.log");
         let ta = tracing_appender::non_blocking(file_appender);
         Some(ta)
