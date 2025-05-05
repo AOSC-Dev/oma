@@ -1,4 +1,4 @@
-use std::env;
+use std::env::{self, args};
 use std::ffi::CString;
 use std::fs::create_dir_all;
 use std::io::{self, IsTerminal, stderr, stdin};
@@ -160,7 +160,10 @@ fn main() {
 
     #[cfg(not(feature = "tokio-console"))]
     let _guard = init_logger(&oma);
-
+    debug!(
+        "Run oma with args: {}",
+        args().collect::<Vec<_>>().join(" ")
+    );
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
 
