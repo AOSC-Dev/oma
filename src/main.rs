@@ -159,7 +159,7 @@ fn main() {
     console_subscriber::init();
 
     #[cfg(not(feature = "tokio-console"))]
-    let _guard = init_logger(&oma);
+    let (_guard, log_file) = init_logger(&oma);
     debug!(
         "Run oma with args: {} (pid: {})",
         args().collect::<Vec<_>>().join(" "),
@@ -167,6 +167,7 @@ fn main() {
     );
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
+    debug!("Log file: {}", log_file);
 
     let code = match try_main(oma) {
         Ok(exit_code) => {
@@ -219,7 +220,7 @@ macro_rules! init_with_file_logger {
     }};
 }
 
-fn init_logger(oma: &OhManagerAilurus) -> WorkerGuard {
+fn init_logger(oma: &OhManagerAilurus) -> (WorkerGuard, String) {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
 
@@ -232,16 +233,14 @@ fn init_logger(oma: &OhManagerAilurus) -> WorkerGuard {
     };
 
     create_dir_all(&log_dir).expect("Failed to create log dir");
-    let file_appender = tracing_appender::rolling::never(
-        log_dir,
-        format!(
-            "oma.log.{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        ),
+    let log_file = format!(
+        "oma.log.{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
     );
+    let file_appender = tracing_appender::rolling::never(log_dir, &log_file);
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
     if !debug && !dry_run {
@@ -272,7 +271,7 @@ fn init_logger(oma: &OhManagerAilurus) -> WorkerGuard {
         init_with_file_logger!(context, non_blocking);
     }
 
-    guard
+    (guard, log_file)
 }
 
 #[inline]
