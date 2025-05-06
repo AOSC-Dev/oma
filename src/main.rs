@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use std::process::exit;
 use std::sync::{LazyLock, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod args;
 mod config;
@@ -161,8 +161,9 @@ fn main() {
     #[cfg(not(feature = "tokio-console"))]
     let _guard = init_logger(&oma);
     debug!(
-        "Run oma with args: {}",
-        args().collect::<Vec<_>>().join(" ")
+        "Run oma with args: {} (pid: {})",
+        args().collect::<Vec<_>>().join(" "),
+        std::process::id()
     );
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
@@ -231,7 +232,16 @@ fn init_logger(oma: &OhManagerAilurus) -> WorkerGuard {
     };
 
     create_dir_all(&log_dir).expect("Failed to create log dir");
-    let file_appender = tracing_appender::rolling::never(log_dir, "oma.log");
+    let file_appender = tracing_appender::rolling::never(
+        log_dir,
+        format!(
+            "oma.log.{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        ),
+    );
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
     if !debug && !dry_run {
