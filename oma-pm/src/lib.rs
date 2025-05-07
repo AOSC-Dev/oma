@@ -44,6 +44,8 @@ pub use commit::CommitNetworkConfig;
 pub mod sort;
 pub use oma_apt::records::RecordField;
 
+pub use oma_apt::Package;
+
 #[cfg(test)]
 mod test {
     use std::sync::{LazyLock, Mutex};
