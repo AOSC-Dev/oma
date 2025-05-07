@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
-use crate::fl;
-use anyhow::Result;
+use crate::{error, fl};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -33,6 +32,8 @@ pub struct GeneralConfig {
     pub bell: bool,
     #[serde(default = "GeneralConfig::default_search_engine")]
     pub search_engine: String,
+    #[serde(default = "GeneralConfig::default_save_log_count")]
+    pub save_log_count: usize,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -79,18 +80,23 @@ impl GeneralConfig {
             String::from("strsim")
         }
     }
+
+    pub const fn default_save_log_count() -> usize {
+        10
+    }
 }
 
 impl Config {
-    pub fn read() -> Result<Self> {
-        let s = std::fs::read_to_string("/etc/oma.toml");
+    pub fn read() -> Self {
+        let Ok(s) = std::fs::read_to_string("/etc/oma.toml") else {
+            warn!("{}", fl!("config-invalid"));
+            return toml::from_str::<Self>(DEFAULT_CONFIG).unwrap();
+        };
 
-        Ok(match s {
-            Ok(s) => toml::from_str(&s)?,
-            Err(_) => {
-                warn!("{}", fl!("config-invalid"));
-                toml::from_str(DEFAULT_CONFIG)?
-            }
+        toml::from_str(&s).unwrap_or_else(|e| {
+            error!("Failed to read config: {e}");
+            warn!("{}", fl!("config-invalid"));
+            toml::from_str(DEFAULT_CONFIG).unwrap()
         })
     }
 
@@ -149,5 +155,12 @@ impl Config {
             .as_ref()
             .map(|x| x.bell)
             .unwrap_or_else(GeneralConfig::default_bell)
+    }
+
+    pub fn save_log_count(&self) -> usize {
+        self.general
+            .as_ref()
+            .map(|x| x.save_log_count)
+            .unwrap_or_else(GeneralConfig::default_save_log_count)
     }
 }

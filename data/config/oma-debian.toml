@@ -22,6 +22,8 @@ search_contents_println = false
 search_engine = "strsim"
 # Ring the terminal bell when oma completes a transaction.
 bell = true
+# Number of log entries to save.
+save_log_count = 10
 
 [network]
 # Number of network threads to use when downloading metadata and packages.

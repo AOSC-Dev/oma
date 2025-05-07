@@ -134,7 +134,9 @@ pub fn is_ssh_from_loginctl() -> bool {
 macro_rules! msg {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
-        $crate::WRITER.writeln("", &format!($($arg)+)).ok();
+        let s = format!($($arg)+);
+        tracing::debug!("{s}");
+        $crate::WRITER.writeln("", &s).ok();
     };
 }
 
@@ -143,7 +145,9 @@ macro_rules! msg {
 macro_rules! success {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
-        $crate::WRITER.writeln(&oma_console::console::style("SUCCESS").green().bold().to_string(), &format!($($arg)+)).ok();
+        let s = format!($($arg)+);
+        tracing::debug!("{s}");
+        $crate::WRITER.writeln(&oma_console::console::style("SUCCESS").green().bold().to_string(), &s).ok();
     };
 }
 
@@ -152,7 +156,9 @@ macro_rules! success {
 macro_rules! due_to {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
-        $crate::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &format!($($arg)+)).ok();
+        let s = format!($($arg)+);
+        tracing::debug!("{s}");
+        $crate::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &s).ok();
     };
 }
 
