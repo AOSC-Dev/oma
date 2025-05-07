@@ -1,11 +1,12 @@
 use std::env::{self, args};
 use std::ffi::CString;
-use std::fs::create_dir_all;
+use std::fs::{create_dir_all, read_dir, remove_file};
 use std::io::{self, IsTerminal, stderr, stdin};
 use std::path::PathBuf;
 
 use std::process::exit;
 use std::sync::{LazyLock, OnceLock};
+use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod args;
@@ -155,20 +156,6 @@ fn main() {
         exit(0);
     }
 
-    #[cfg(feature = "tokio-console")]
-    console_subscriber::init();
-
-    #[cfg(not(feature = "tokio-console"))]
-    let (_guard, log_file) = init_logger(&oma);
-    debug!(
-        "Run oma with args: {} (pid: {})",
-        args().collect::<Vec<_>>().join(" "),
-        std::process::id()
-    );
-    debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
-    debug!("OS: {:?}", OsRelease::new());
-    debug!("Log file: {}", log_file);
-
     let code = match try_main(oma) {
         Ok(exit_code) => {
             unlock_oma().ok();
@@ -220,7 +207,7 @@ macro_rules! init_with_file_logger {
     }};
 }
 
-fn init_logger(oma: &OhManagerAilurus) -> (WorkerGuard, String) {
+fn init_logger(oma: &OhManagerAilurus, config: &Config) -> (WorkerGuard, String) {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
 
@@ -228,7 +215,7 @@ fn init_logger(oma: &OhManagerAilurus) -> (WorkerGuard, String) {
         PathBuf::from("/var/log/oma")
     } else {
         dirs::state_dir()
-            .expect("Failed to get data dir")
+            .expect("Failed to get state dir")
             .join("oma")
     };
 
@@ -240,7 +227,7 @@ fn init_logger(oma: &OhManagerAilurus) -> (WorkerGuard, String) {
             .unwrap()
             .as_secs()
     );
-    let file_appender = tracing_appender::rolling::never(log_dir, &log_file);
+    let file_appender = tracing_appender::rolling::never(&log_dir, &log_file);
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
     if !debug && !dry_run {
@@ -271,6 +258,52 @@ fn init_logger(oma: &OhManagerAilurus) -> (WorkerGuard, String) {
         init_with_file_logger!(context, non_blocking);
     }
 
+    thread::scope(|s| {
+        s.spawn(|| {
+            let mut v = vec![];
+            let dirs = read_dir(&log_dir)
+                .expect("Failed to read log dir")
+                .collect::<Vec<_>>();
+
+            for p in &dirs {
+                let Ok(p) = p else {
+                    continue;
+                };
+
+                let file_name = p.file_name();
+                let file_name = file_name.to_string_lossy();
+                let Some((prefix, timestamp)) = file_name.rsplit_once('.') else {
+                    continue;
+                };
+
+                if prefix != "oma.log" {
+                    continue;
+                }
+
+                let Ok(timestamp) = timestamp.parse::<usize>() else {
+                    continue;
+                };
+
+                v.push(timestamp);
+            }
+
+            if v.len() > config.save_log_count() {
+                v.sort_unstable_by(|a, b| b.cmp(a));
+
+                for _ in 1..=(v.len() - config.save_log_count()) {
+                    let Some(pop) = v.pop() else {
+                        break;
+                    };
+
+                    let log_path = log_dir.join(format!("oma.log.{}", pop));
+                    if let Err(e) = remove_file(&log_path) {
+                        debug!("Failed to remove file {}: {}", log_path.display(), e);
+                    }
+                }
+            }
+        });
+    });
+
     (guard, log_file)
 }
 
@@ -297,6 +330,20 @@ fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
 
     // Init config file
     let config = Config::read()?;
+
+    #[cfg(feature = "tokio-console")]
+    console_subscriber::init();
+
+    #[cfg(not(feature = "tokio-console"))]
+    let (_guard, log_file) = init_logger(&oma, &config);
+    debug!(
+        "Run oma with args: {} (pid: {})",
+        args().collect::<Vec<_>>().join(" "),
+        std::process::id()
+    );
+    debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
+    debug!("OS: {:?}", OsRelease::new());
+    debug!("Log file: {}", log_file);
 
     init_color_formatter(&oma, &config);
 

@@ -33,6 +33,8 @@ pub struct GeneralConfig {
     pub bell: bool,
     #[serde(default = "GeneralConfig::default_search_engine")]
     pub search_engine: String,
+    #[serde(default = "GeneralConfig::default_save_log_count")]
+    pub save_log_count: usize,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -78,6 +80,10 @@ impl GeneralConfig {
         } else {
             String::from("strsim")
         }
+    }
+
+    pub const fn default_save_log_count() -> usize {
+        10
     }
 }
 
@@ -149,5 +155,12 @@ impl Config {
             .as_ref()
             .map(|x| x.bell)
             .unwrap_or_else(GeneralConfig::default_bell)
+    }
+
+    pub fn save_log_count(&self) -> usize {
+        self.general
+            .as_ref()
+            .map(|x| x.save_log_count)
+            .unwrap_or_else(GeneralConfig::default_save_log_count)
     }
 }
