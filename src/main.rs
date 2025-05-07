@@ -246,6 +246,7 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> (WorkerGuard, String)
     );
     let file_appender = tracing_appender::rolling::never(&log_dir, &log_file);
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    let log_file = log_dir.join(log_file).to_string_lossy().to_string();
 
     if !debug && !dry_run {
         let no_i18n_embd: EnvFilter = "i18n_embed=off,info".parse().unwrap();
