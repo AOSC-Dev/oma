@@ -156,7 +156,24 @@ fn main() {
         exit(0);
     }
 
-    let code = match try_main(oma) {
+    // Init config file
+    let config = Config::read();
+
+    #[cfg(feature = "tokio-console")]
+    console_subscriber::init();
+
+    #[cfg(not(feature = "tokio-console"))]
+    let (_guard, log_file) = init_logger(&oma, &config);
+    debug!(
+        "Run oma with args: {} (pid: {})",
+        args().collect::<Vec<_>>().join(" "),
+        std::process::id()
+    );
+    debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
+    debug!("OS: {:?}", OsRelease::new());
+    debug!("Log file: {}", log_file);
+
+    let code = match try_main(oma, &config) {
         Ok(exit_code) => {
             unlock_oma().ok();
             exit_code
@@ -313,7 +330,7 @@ fn enable_ansi(oma: &OhManagerAilurus) -> bool {
         || oma.global.color == ColorChoice::Always
 }
 
-fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
+fn try_main(oma: OhManagerAilurus, config: &Config) -> Result<i32, OutputError> {
     // Egg
     #[cfg(feature = "egg")]
     {
@@ -328,31 +345,14 @@ fn try_main(oma: OhManagerAilurus) -> Result<i32, OutputError> {
         }
     }
 
-    // Init config file
-    let config = Config::read()?;
-
-    #[cfg(feature = "tokio-console")]
-    console_subscriber::init();
-
-    #[cfg(not(feature = "tokio-console"))]
-    let (_guard, log_file) = init_logger(&oma, &config);
-    debug!(
-        "Run oma with args: {} (pid: {})",
-        args().collect::<Vec<_>>().join(" "),
-        std::process::id()
-    );
-    debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
-    debug!("OS: {:?}", OsRelease::new());
-    debug!("Log file: {}", log_file);
-
-    init_color_formatter(&oma, &config);
+    init_color_formatter(&oma, config);
 
     let no_progress =
         oma.global.no_progress || !is_terminal() || oma.global.debug || oma.global.dry_run;
 
     let code = match oma.subcmd {
-        Some(subcmd) => subcmd.execute(&config, no_progress),
-        None => Tui::from(&oma.global).execute(&config, no_progress),
+        Some(subcmd) => subcmd.execute(config, no_progress),
+        None => Tui::from(&oma.global).execute(config, no_progress),
     };
 
     if !oma.global.no_bell && config.bell() {

@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
-use crate::fl;
-use anyhow::Result;
+use crate::{error, fl};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -88,15 +87,16 @@ impl GeneralConfig {
 }
 
 impl Config {
-    pub fn read() -> Result<Self> {
-        let s = std::fs::read_to_string("/etc/oma.toml");
+    pub fn read() -> Self {
+        let Ok(s) = std::fs::read_to_string("/etc/oma.toml") else {
+            warn!("{}", fl!("config-invalid"));
+            return toml::from_str::<Self>(DEFAULT_CONFIG).unwrap();
+        };
 
-        Ok(match s {
-            Ok(s) => toml::from_str(&s)?,
-            Err(_) => {
-                warn!("{}", fl!("config-invalid"));
-                toml::from_str(DEFAULT_CONFIG)?
-            }
+        toml::from_str(&s).unwrap_or_else(|e| {
+            error!("Failed to read config: {e}");
+            warn!("{}", fl!("config-invalid"));
+            toml::from_str(DEFAULT_CONFIG).unwrap()
         })
     }
 
