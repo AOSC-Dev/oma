@@ -306,12 +306,17 @@ impl<'a> PkgWrapper<'a> {
         let not_allow_delete = self.is_not_allow_delete();
 
         let hb_fmt = format_human_size(size);
+        let percent_str = format!("{:.1}%", get_percent(size, total_installed_size));
 
         Line::from_iter(vec![
             Span::styled(hb_fmt, Style::new().green()),
             Span::raw(" "),
             Span::styled(
-                format!("{:.1}%", get_percent(size, total_installed_size)),
+                format!(
+                    "{}{}",
+                    " ".repeat(6usize.saturating_sub(percent_str.len())),
+                    percent_str
+                ),
                 Style::new().gray(),
             ),
             Span::raw(" "),
