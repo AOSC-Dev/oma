@@ -24,6 +24,7 @@ use crate::{
     search::Search,
     show::Show,
     subcommand::generate::GenerateManpages,
+    subcommand::size_analyzer::SizeAnalyzer,
     tui::Tui,
     upgrade::Upgrade,
 };
@@ -119,6 +120,8 @@ pub enum SubCmd {
     #[command(hide = true)]
     /// Generate manpages
     GenerateManpages(GenerateManpages),
+    /// Packages size analyzer
+    SizeAnalyzer(SizeAnalyzer),
 }
 
 #[derive(Debug, Args)]
