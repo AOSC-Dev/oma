@@ -17,7 +17,6 @@ oma-apt-sources-lists = "0.9"
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.24.0", path = "../oma-topics", optional = true, default-features = false }
-oma-utils = { version = "^0.11.0", path = "../oma-utils", features = ["dpkg"] }
 tracing ="0.1"
 oma-repo-verify = { version = "^0.7.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
@@ -45,3 +44,4 @@ default = ["aosc", "sequoia-nettle-backend", "rustls"]
 [dev-dependencies]
 tokio = { version = "1.28", default-features = false, features = ["rt-multi-thread"] }
 flume = "0.11.1"
+oma-utils = { version = "^0.11.0", path = "../oma-utils", features = ["dpkg"] }

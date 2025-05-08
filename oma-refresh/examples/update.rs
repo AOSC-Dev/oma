@@ -21,7 +21,7 @@ async fn main() -> Result<(), RefreshError> {
     let refresh = OmaRefresh::builder()
         .client(&client)
         .apt_config(&apt_config)
-        .arch(dpkg_arch("/")?)
+        .arch(dpkg_arch("/").unwrap())
         .download_dir(p.to_path_buf())
         .source("/".into())
         .topic_msg("test")
