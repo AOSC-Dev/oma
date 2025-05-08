@@ -132,12 +132,11 @@ impl CliExecuter for SizeAnalyzer {
             let res = installed.iter().map(|pkg| pkg.to_table_line(total_size));
 
             let mut table = Builder::default();
-            res.for_each(|r| table.push_record([r.0, r.1, r.2, r.3]));
+            res.for_each(|r| table.push_record([r.0, r.1, r.3]));
 
             table.push_record([
                 style(HumanBytes(total_size)).green().to_string(),
                 "100%".to_string(),
-                make_bar(1.0, BAR_BLOCK_LENGTH),
                 fl!("psa-total"),
             ]);
 
