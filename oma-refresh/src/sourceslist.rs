@@ -1,4 +1,8 @@
-use std::{fs::Permissions, os::unix::fs::PermissionsExt, path::Path};
+use std::{
+    fs::Permissions,
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
+};
 
 use ahash::HashMap;
 use apt_auth_config::{AuthConfig, Authenticator};
@@ -35,13 +39,10 @@ pub struct OmaSourceEntry<'a> {
     from: OnceCell<OmaSourceEntryFrom>,
 }
 
-pub async fn scan_sources_lists<'a>(
+pub(crate) async fn scan_sources_lists_paths_from_sysroot(
     sysroot: impl AsRef<Path>,
-    arch: &'a str,
     config: &Config,
-    cb: &'a impl AsyncFn(Event),
-) -> Result<Vec<OmaSourceEntry<'a>>, SourcesListError> {
-    let mut res = Vec::new();
+) -> Result<(Vec<PathBuf>, Vec<Regex>), SourcesListError> {
     let mut paths = vec![];
     let default = sysroot.as_ref().join("etc/apt/sources.list");
 
@@ -70,6 +71,17 @@ pub async fn scan_sources_lists<'a>(
         .collect::<Vec<_>>();
 
     debug!("Supplied ignore list: {:?}", ignores);
+
+    Ok((paths, ignores))
+}
+
+pub async fn scan_sources_list_from_paths<'a>(
+    paths: &[impl AsRef<Path>],
+    arch: &'a str,
+    ignores: &[Regex],
+    cb: &'a impl AsyncFn(Event),
+) -> Result<Vec<OmaSourceEntry<'a>>, SourcesListError> {
+    let mut res = vec![];
 
     for p in paths {
         match SourcesList::new(p) {
@@ -224,16 +236,16 @@ impl<'a> OmaSourceEntry<'a> {
 }
 
 #[derive(Debug)]
-pub struct MirrorSources<'a, 'b>(pub Vec<MirrorSource<'a, 'b>>);
+pub struct MirrorSources<'a>(pub Vec<MirrorSource<'a>>);
 
 #[derive(Debug)]
-pub struct MirrorSource<'a, 'b> {
+pub struct MirrorSource<'a> {
     pub sources: Vec<&'a OmaSourceEntry<'a>>,
     release_file_name: OnceCell<String>,
-    auth: Option<&'b Authenticator>,
+    auth: Option<&'a Authenticator>,
 }
 
-impl MirrorSource<'_, '_> {
+impl MirrorSource<'_> {
     pub fn set_release_file_name(&self, file_name: String) {
         self.release_file_name
             .set(file_name)
@@ -570,11 +582,11 @@ impl MirrorSource<'_, '_> {
     }
 }
 
-impl<'a, 'b> MirrorSources<'a, 'b> {
+impl<'a> MirrorSources<'a> {
     pub fn from_sourcelist(
         sourcelist: &'a [OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
-        auth_config: Option<&'b AuthConfig>,
+        auth_config: Option<&'a AuthConfig>,
     ) -> Result<Self, RefreshError> {
         let mut map: HashMap<String, Vec<&OmaSourceEntry>> =
             HashMap::with_hasher(ahash::RandomState::new());
