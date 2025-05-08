@@ -36,8 +36,6 @@ use oma_fetch::{SingleDownloadError, Summary};
 #[cfg(feature = "aosc")]
 use oma_topics::TopicManager;
 
-use oma_utils::dpkg::dpkg_arch;
-
 #[cfg(feature = "aosc")]
 use oma_fetch::reqwest::StatusCode;
 
@@ -49,14 +47,14 @@ use tokio::{
 };
 use tracing::{debug, warn};
 
-use crate::sourceslist::{MirrorSource, MirrorSources};
+use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
 use crate::{
     config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
         ChecksumItem, InReleaseChecksum, InReleaseError, Release, file_is_compress,
         split_ext_and_filename, verify_inrelease,
     },
-    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, scan_sources_lists},
+    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, scan_sources_lists_paths_from_sysroot},
     util::DatabaseFilenameReplacer,
 };
 
@@ -75,8 +73,6 @@ pub enum RefreshError {
     TopicsError(#[from] oma_topics::OmaTopicsError),
     #[error("Failed to download InRelease from URL {0}: Remote file not found (HTTP 404).")]
     NoInReleaseFile(String),
-    #[error(transparent)]
-    DpkgArchError(#[from] oma_utils::dpkg::DpkgError),
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
     #[error(transparent)]
@@ -122,6 +118,7 @@ pub struct OmaRefresh<'a> {
     apt_config: &'a Config,
     topic_msg: &'a str,
     auth_config: Option<&'a AuthConfig>,
+    sources_lists_paths: Option<Vec<PathBuf>>,
 }
 
 /// Create `apt update` file lock
@@ -193,13 +190,20 @@ pub enum Event {
 }
 
 impl<'a> OmaRefresh<'a> {
-    pub async fn start(mut self, callback: impl AsyncFn(Event)) -> Result<()> {
+    pub async fn start(self, callback: impl AsyncFn(Event)) -> Result<()> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
 
-        let arch = dpkg_arch(&self.source)?;
-        let sourcelist = scan_sources_lists(&self.source, &arch, self.apt_config, &callback)
+        let (paths, ignores) = if let Some(ref paths) = self.sources_lists_paths {
+            (paths.to_vec(), vec![])
+        } else {
+            scan_sources_lists_paths_from_sysroot(&self.source, self.apt_config)
+                .await
+                .map_err(RefreshError::ScanSourceError)?
+        };
+
+        let sourcelist = scan_sources_list_from_paths(&paths, &self.arch, &ignores, &callback)
             .await
             .map_err(RefreshError::ScanSourceError)?;
 
@@ -317,12 +321,12 @@ impl<'a> OmaRefresh<'a> {
         }
     }
 
-    async fn download_releases<'b>(
-        &mut self,
-        sourcelist: &'b [OmaSourceEntry<'b>],
+    async fn download_releases(
+        &self,
+        sourcelist: &'a [OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
         callback: &impl AsyncFn(Event),
-    ) -> Result<MirrorSources<'b, 'a>> {
+    ) -> Result<MirrorSources<'a>> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
@@ -377,11 +381,11 @@ impl<'a> OmaRefresh<'a> {
     }
 
     #[cfg(feature = "aosc")]
-    async fn refresh_topics<'b>(
+    async fn refresh_topics(
         &self,
         callback: &impl AsyncFn(Event),
         not_found: Vec<url::Url>,
-        sources: &mut MirrorSources<'b, 'a>,
+        sources: &mut MirrorSources<'a>,
     ) -> Result<()> {
         if !self.refresh_topics || not_found.is_empty() {
             return Ok(());
@@ -424,19 +428,19 @@ impl<'a> OmaRefresh<'a> {
     }
 
     #[cfg(not(feature = "aosc"))]
-    async fn refresh_topics<'b>(
+    async fn refresh_topics(
         &self,
         _callback: &impl AsyncFn(Event),
         _not_found: Vec<url::Url>,
-        _sources: &mut MirrorSources<'b, 'a>,
+        _sources: &mut MirrorSources<'a>,
     ) -> Result<()> {
         Ok(())
     }
 
-    async fn collect_all_release_entry<'b>(
+    async fn collect_all_release_entry(
         &self,
         replacer: &DatabaseFilenameReplacer,
-        mirror_sources: &MirrorSources<'b, 'a>,
+        mirror_sources: &MirrorSources<'a>,
     ) -> Result<(Vec<DownloadEntry>, u64)> {
         let mut total = 0;
         let mut tasks = vec![];
@@ -695,7 +699,7 @@ fn collect_flat_repo_no_release(
 
 fn collect_download_task(
     c: &ChecksumDownloadEntry,
-    mirror_source: &MirrorSource<'_, '_>,
+    mirror_source: &MirrorSource<'_>,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     release: &Release,

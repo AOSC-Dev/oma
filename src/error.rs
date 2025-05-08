@@ -380,7 +380,6 @@ impl From<RefreshError> for OutputError {
                     source: Some(Box::new(error)),
                 },
             },
-            RefreshError::DpkgArchError(e) => OutputError::from(e),
             RefreshError::JoinError(e) => Self {
                 description: e.to_string(),
                 source: None,
