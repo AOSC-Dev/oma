@@ -41,7 +41,6 @@ pub async fn scan_sources_lists<'a>(
     config: &Config,
     cb: &'a impl AsyncFn(Event),
 ) -> Result<Vec<OmaSourceEntry<'a>>, SourcesListError> {
-    let mut res = Vec::new();
     let mut paths = vec![];
     let default = sysroot.as_ref().join("etc/apt/sources.list");
 
@@ -70,6 +69,17 @@ pub async fn scan_sources_lists<'a>(
         .collect::<Vec<_>>();
 
     debug!("Supplied ignore list: {:?}", ignores);
+
+    scan_sources_list_from_paths(&paths, arch, &ignores, cb).await
+}
+
+pub async fn scan_sources_list_from_paths<'a>(
+    paths: &[impl AsRef<Path>],
+    arch: &'a str,
+    ignores: &[Regex],
+    cb: &'a impl AsyncFn(Event),
+) -> Result<Vec<OmaSourceEntry<'a>>, SourcesListError> {
+    let mut res = vec![];
 
     for p in paths {
         match SourcesList::new(p) {
