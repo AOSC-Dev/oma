@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.45.0"
+version = "0.46.0"
 edition = "2024"
 description = "APT repository refresh handler library"
 license = "GPL-3.0-or-later"
@@ -18,7 +18,7 @@ anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.24.0", path = "../oma-topics", optional = true, default-features = false }
 tracing ="0.1"
-oma-repo-verify = { version = "^0.7.0", path = "../oma-repo-verify", default-features = false }
+oma-repo-verify = { version = "^0.8.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
 oma-apt = "0.8.0"
 aho-corasick = "1.1.3"
