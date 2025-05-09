@@ -59,6 +59,7 @@ pub struct SuccessSummary {
     pub file_name: String,
     pub index: usize,
     pub wrote: bool,
+    pub url: String,
 }
 
 #[derive(Debug, Snafu)]
@@ -154,6 +155,7 @@ impl<'a> SingleDownloader<'a> {
 
                     return DownloadResult::Success(SuccessSummary {
                         file_name: self.entry.filename.to_string(),
+                        url: c.url.clone(),
                         index: self.download_list_index,
                         wrote: b,
                     });
