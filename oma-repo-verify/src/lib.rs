@@ -127,7 +127,7 @@ impl VerificationHelper for InReleaseVerifier {
 }
 
 /// Verify InRelease PGP signature
-pub fn verify_inrelease(
+pub fn verify_inrelease_by_sysroot(
     inrelease: &str,
     signed_by: Option<&Signature>,
     rootfs: impl AsRef<Path>,
@@ -135,17 +135,25 @@ pub fn verify_inrelease(
 ) -> VerifyResult<String> {
     debug!("signed_by: {:?}", signed_by);
 
-    let (certs, deb822_inner_signed_by_str) = find_certs(rootfs, signed_by)?;
+    let kob = find_certs(rootfs, signed_by)?;
+    let res = verify_inrelease_inner(inrelease, trusted, kob)?;
 
+    Ok(res)
+}
+
+pub fn verify_inrelease_inner(
+    inrelease: &str,
+    trusted: bool,
+    kob: KeyBlockOrPaths<'_>,
+) -> Result<String, VerifyError> {
     let p = policy();
 
     let mut v = VerifierBuilder::from_bytes(inrelease.as_bytes())?.with_policy(
         &p,
         None,
-        if let Some(deb822_inner_signed_by_str) = deb822_inner_signed_by_str {
-            InReleaseVerifier::from_key_block(deb822_inner_signed_by_str, trusted)?
-        } else {
-            InReleaseVerifier::from_paths(&certs, trusted)?
+        match kob {
+            KeyBlockOrPaths::Block(block) => InReleaseVerifier::from_key_block(block, trusted)?,
+            KeyBlockOrPaths::Paths(certs) => InReleaseVerifier::from_paths(&certs, trusted)?,
         },
     )?;
 
@@ -170,20 +178,34 @@ fn policy() -> StandardPolicy<'static> {
     p
 }
 
-pub fn verify_release(
+pub fn verify_release_by_sysroot(
     release: &str,
     detached: &[u8],
     signed_by: Option<&Signature>,
     rootfs: impl AsRef<Path>,
     trusted: bool,
 ) -> VerifyResult<()> {
-    let (certs, _) = find_certs(rootfs, signed_by)?;
+    let kob = find_certs(rootfs, signed_by)?;
+    verify_release_inner(release, detached, trusted, kob)?;
+
+    Ok(())
+}
+
+pub fn verify_release_inner(
+    release: &str,
+    detached: &[u8],
+    trusted: bool,
+    bop: KeyBlockOrPaths<'_>,
+) -> Result<(), VerifyError> {
     let p = policy();
 
     let mut v = DetachedVerifierBuilder::from_bytes(detached)?.with_policy(
         &p,
         None,
-        InReleaseVerifier::from_paths(&certs, trusted)?,
+        match bop {
+            KeyBlockOrPaths::Block(block) => InReleaseVerifier::from_key_block(block, trusted)?,
+            KeyBlockOrPaths::Paths(certs) => InReleaseVerifier::from_paths(&certs, trusted)?,
+        },
     )?;
 
     v.verify_bytes(release)?;
@@ -191,20 +213,23 @@ pub fn verify_release(
     Ok(())
 }
 
+pub enum KeyBlockOrPaths<'a> {
+    Block(&'a str),
+    Paths(Vec<PathBuf>),
+}
+
 fn find_certs(
     rootfs: impl AsRef<Path>,
     signed_by: Option<&Signature>,
-) -> VerifyResult<(Vec<PathBuf>, Option<&str>)> {
+) -> VerifyResult<KeyBlockOrPaths> {
     let rootfs = rootfs.as_ref();
 
     let mut certs = vec![];
-    let mut deb822_inner_signed_by_str = None;
 
     if let Some(signed_by) = signed_by {
         match signed_by {
             Signature::KeyBlock(block) => {
-                deb822_inner_signed_by_str = Some(block.as_str());
-                debug!(deb822_inner_signed_by_str);
+                return Ok(KeyBlockOrPaths::Block(block));
             }
             Signature::KeyPath(paths) => {
                 if paths.is_empty() {
@@ -224,7 +249,7 @@ fn find_certs(
         certs = find_default_dir_certs(rootfs)?;
     }
 
-    Ok((certs, deb822_inner_signed_by_str))
+    Ok(KeyBlockOrPaths::Paths(certs))
 }
 
 fn find_default_dir_certs(rootfs: &Path) -> Result<Vec<PathBuf>, VerifyError> {
