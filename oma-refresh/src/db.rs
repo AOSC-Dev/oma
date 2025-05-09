@@ -25,7 +25,7 @@ use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
     CompressFile, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
     checksum::{Checksum, ChecksumError},
-    download::BuilderError,
+    download::{BuilderError, SuccessSummary},
     reqwest::{
         Client, Response,
         header::{CONTENT_LENGTH, HeaderValue},
@@ -190,7 +190,7 @@ pub enum Event {
 }
 
 impl<'a> OmaRefresh<'a> {
-    pub async fn start(self, callback: impl AsyncFn(Event)) -> Result<()> {
+    pub async fn start(self, callback: impl AsyncFn(Event)) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
@@ -254,7 +254,8 @@ impl<'a> OmaRefresh<'a> {
         );
 
         // 有元数据更新才执行 success invoke
-        let should_run_invoke = res?.has_wrote();
+        let res = res?;
+        let should_run_invoke = res.has_wrote();
 
         if should_run_invoke {
             callback(Event::RunInvokeScript).await;
@@ -263,7 +264,7 @@ impl<'a> OmaRefresh<'a> {
 
         callback(Event::Done).await;
 
-        Ok(())
+        Ok(res.success)
     }
 
     async fn download_release_data(
