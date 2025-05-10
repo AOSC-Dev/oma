@@ -163,13 +163,15 @@ macro_rules! due_to {
 }
 
 pub fn pkgnames_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    let mut completions = PathCompleter::file().complete(current);
+    let path_completions = PathCompleter::file()
+        .filter(|x| x.extension().is_some_and(|y| y == "deb"))
+        .complete(current);
 
-    let Some(current) = current.to_str() else {
-        return completions;
-    };
-
+    let mut completions = vec![];
+    let current = &current.to_string_lossy();
     pkgnames_complete_impl(&mut completions, current, &[FilterMode::Names]);
+
+    completions.extend(path_completions);
 
     completions
 }
@@ -205,13 +207,11 @@ fn pkgnames_complete_impl(
 
 pub fn pkgnames_remove_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     let mut completions = vec![];
-    let Some(current) = current.to_str() else {
-        return completions;
-    };
+    let current = current.to_string_lossy();
 
     pkgnames_complete_impl(
         &mut completions,
-        current,
+        &current,
         &[FilterMode::Names, FilterMode::Installed],
     );
 
