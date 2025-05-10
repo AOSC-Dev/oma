@@ -5,11 +5,11 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use crate::{NOT_ALLOW_CTRLC, error::OutputError};
+use crate::{NOT_ALLOW_CTRLC, error::OutputError, path_completions::PathCompleter};
 use crate::{RT, fl};
 
 use anyhow::anyhow;
-use clap_complete::CompletionCandidate;
+use clap_complete::{CompletionCandidate, engine::ValueCompleter};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use oma_pm::apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs};
 use oma_utils::{
@@ -163,7 +163,8 @@ macro_rules! due_to {
 }
 
 pub fn pkgnames_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    let mut completions = vec![];
+    let mut completions = PathCompleter::file().complete(current);
+
     let Some(current) = current.to_str() else {
         return completions;
     };

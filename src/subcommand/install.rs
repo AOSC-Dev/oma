@@ -14,7 +14,6 @@ use crate::HTTP_CLIENT;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
-use crate::path_completions::PathCompleter;
 use crate::utils::dbus_check;
 use crate::utils::pkgnames_completions;
 use crate::utils::root;
@@ -30,7 +29,7 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Install {
     /// Package(s) to install
-    #[arg(add = ArgValueCompleter::new(pkgnames_completions), add = ArgValueCompleter::new(PathCompleter::file()))]
+    #[arg(add = ArgValueCompleter::new(pkgnames_completions))]
     packages: Vec<String>,
     /// Install recommended package(s)
     #[arg(long)]
