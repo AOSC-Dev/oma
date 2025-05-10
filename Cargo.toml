@@ -78,7 +78,7 @@ egg = ["dep:colored", "dep:image"]
 tokio-console = ["dep:console-subscriber"]
 rustls = ["reqwest/rustls-tls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-topics/rustls", "oma-repo-verify/sequoia-nettle-backend"]
 openssl = ["reqwest/native-tls", "oma-fetch/native-tls", "oma-refresh/native-tls", "oma-topics/native-tls", "oma-repo-verify/sequoia-openssl-backend"]
-generic = ["sequoia-nettle-backend", "rustls"]
+generic = ["sequoia-nettle-backend", "rustls", "oma-refresh/apt"]
 default = ["aosc", "generic"]
 
 [workspace]
