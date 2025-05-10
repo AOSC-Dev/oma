@@ -1,22 +1,21 @@
-use std::{
-    borrow::Cow,
-    collections::{HashMap, VecDeque},
-    path::Path,
-};
+use std::{borrow::Cow, collections::HashMap, path::Path};
 
 use ahash::AHashMap;
 use aho_corasick::AhoCorasick;
+#[cfg(feature = "apt")]
 use oma_apt::config::{Config, ConfigTree};
 use oma_fetch::CompressFile;
 use tracing::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
 
+#[cfg(feature = "apt")]
 fn modify_result(
     tree: ConfigTree,
     res: &mut HashMap<String, HashMap<String, String>>,
     root_path: String,
 ) {
+    use std::collections::VecDeque;
     let mut stack = VecDeque::new();
     stack.push_back((tree, root_path));
 
@@ -46,6 +45,7 @@ fn modify_result(
     }
 }
 
+#[cfg(feature = "apt")]
 pub fn get_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
     let mut res = HashMap::new();
     let tree = config.tree(key);
@@ -74,13 +74,26 @@ pub struct IndexTargetConfig<'a> {
 }
 
 impl<'a> IndexTargetConfig<'a> {
-    pub fn new(config: &Config, native_arch: &'a str) -> Self {
+    #[cfg(feature = "apt")]
+    pub fn new_from_apt_config(config: &Config, native_arch: &'a str) -> Self {
+        Self::new(
+            get_index_target_tree(config, "Acquire::IndexTargets::deb"),
+            get_index_target_tree(config, "Acquire::IndexTargets::deb-src"),
+            native_arch,
+        )
+    }
+
+    pub fn new(
+        deb: Vec<(String, HashMap<String, String>)>,
+        deb_src: Vec<(String, HashMap<String, String>)>,
+        native_arch: &'a str,
+    ) -> Self {
         let locales = sys_locale::get_locales();
         let langs = get_matches_language(locales);
 
         Self {
-            deb: get_index_target_tree(config, "Acquire::IndexTargets::deb"),
-            deb_src: get_index_target_tree(config, "Acquire::IndexTargets::deb-src"),
+            deb,
+            deb_src,
             replacer: AhoCorasick::new([
                 "$(ARCHITECTURE)",
                 "$(COMPONENT)",
@@ -98,12 +111,14 @@ impl<'a> IndexTargetConfig<'a> {
         checksums: &[ChecksumItem],
         is_source: bool,
         is_flat: bool,
-        archs: &mut Vec<&str>,
+        archs: Vec<&str>,
         components: &[String],
     ) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
         let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
         let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
         let tree = if is_source { &self.deb_src } else { &self.deb };
+
+        let mut archs = archs;
 
         if !archs.contains(&"all") {
             archs.push("all");
@@ -119,7 +134,7 @@ impl<'a> IndexTargetConfig<'a> {
                 if is_flat {
                     flat_repo_template_match(&mut res_map, c, config, template);
                 } else {
-                    self.normal_repo_match(archs, components, &mut res_map, c, config, template);
+                    self.normal_repo_match(&archs, components, &mut res_map, c, config, template);
                 }
             }
         }
@@ -230,6 +245,7 @@ fn uncompress_file_name(target: &str) -> Cow<'_, str> {
     name
 }
 
+#[cfg(feature = "apt")]
 fn get_index_target_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
     get_tree(config, key)
         .into_iter()
@@ -298,6 +314,7 @@ fn test_get_matches_language() {
     );
 }
 
+#[cfg(feature = "apt")]
 #[test]
 fn test_get_tree() {
     let t = get_tree(&Config::new(), "Acquire::IndexTargets::deb");

@@ -8,7 +8,6 @@ use ahash::HashMap;
 use apt_auth_config::{AuthConfig, Authenticator};
 use fancy_regex::Regex;
 use futures::StreamExt;
-use oma_apt::config::Config;
 use oma_apt_sources_lists::{
     Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
 };
@@ -21,7 +20,7 @@ use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
 };
-use tracing::{debug, warn};
+use tracing::debug;
 use url::Url;
 
 use crate::{
@@ -41,8 +40,7 @@ pub struct OmaSourceEntry<'a> {
 
 pub(crate) async fn scan_sources_lists_paths_from_sysroot(
     sysroot: impl AsRef<Path>,
-    config: &Config,
-) -> Result<(Vec<PathBuf>, Vec<Regex>), SourcesListError> {
+) -> Result<Vec<PathBuf>, SourcesListError> {
     let mut paths = vec![];
     let default = sysroot.as_ref().join("etc/apt/sources.list");
 
@@ -62,6 +60,13 @@ pub(crate) async fn scan_sources_lists_paths_from_sysroot(
         }
     }
 
+    Ok(paths)
+}
+
+#[cfg(feature = "apt")]
+pub fn ignores(config: &oma_apt::config::Config) -> Vec<Regex> {
+    use tracing::warn;
+
     let ignores = config.find_vector("Dir::Ignore-Files-Silently");
     let ignores = ignores
         .iter()
@@ -69,10 +74,7 @@ pub(crate) async fn scan_sources_lists_paths_from_sysroot(
             .inspect_err(|e|
                 warn!("Failed to parse regex {} in ignore rule list (Dir::Ignore-Files-Silently): {}", re, e)).ok())
         .collect::<Vec<_>>();
-
-    debug!("Supplied ignore list: {:?}", ignores);
-
-    Ok((paths, ignores))
+    ignores
 }
 
 pub async fn scan_sources_list_from_paths<'a>(

@@ -20,6 +20,7 @@ use nix::{
     sys::stat::Mode,
     unistd::close,
 };
+#[cfg(feature = "apt")]
 use oma_apt::config::Config;
 use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
@@ -42,10 +43,9 @@ use oma_fetch::reqwest::StatusCode;
 use sysinfo::{Pid, System};
 use tokio::{
     fs::{self},
-    process::Command,
     task::spawn_blocking,
 };
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
 use crate::{
@@ -115,7 +115,10 @@ pub struct OmaRefresh<'a> {
     client: &'a Client,
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
+    #[cfg(feature = "apt")]
     apt_config: &'a Config,
+    #[cfg(not(feature = "apt"))]
+    manifest_config: Vec<(String, std::collections::HashMap<String, String>)>,
     topic_msg: &'a str,
     auth_config: Option<&'a AuthConfig>,
     sources_lists_paths: Option<Vec<PathBuf>>,
@@ -195,13 +198,19 @@ impl<'a> OmaRefresh<'a> {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
 
-        let (paths, ignores) = if let Some(ref paths) = self.sources_lists_paths {
-            (paths.to_vec(), vec![])
+        let paths = if let Some(ref paths) = self.sources_lists_paths {
+            paths.to_vec()
         } else {
-            scan_sources_lists_paths_from_sysroot(&self.source, self.apt_config)
+            scan_sources_lists_paths_from_sysroot(&self.source)
                 .await
                 .map_err(RefreshError::ScanSourceError)?
         };
+
+        #[cfg(feature = "apt")]
+        let ignores = crate::sourceslist::ignores(self.apt_config);
+
+        #[cfg(not(feature = "apt"))]
+        let ignores = vec![];
 
         let sourcelist = scan_sources_list_from_paths(&paths, &self.arch, &ignores, &callback)
             .await
@@ -259,6 +268,7 @@ impl<'a> OmaRefresh<'a> {
 
         if should_run_invoke {
             callback(Event::RunInvokeScript).await;
+            #[cfg(feature = "apt")]
             self.run_success_post_invoke().await;
         }
 
@@ -295,7 +305,11 @@ impl<'a> OmaRefresh<'a> {
         Ok(res)
     }
 
+    #[cfg(feature = "apt")]
     async fn run_success_post_invoke(&self) {
+        use tokio::process::Command;
+        use tracing::warn;
+
         let cmds = self
             .apt_config
             .find_vector("APT::Update::Post-Invoke-Success");
@@ -446,7 +460,13 @@ impl<'a> OmaRefresh<'a> {
         let mut total = 0;
         let mut tasks = vec![];
 
-        let index_target_config = IndexTargetConfig::new(self.apt_config, &self.arch);
+        #[cfg(feature = "apt")]
+        let index_target_config =
+            IndexTargetConfig::new_from_apt_config(self.apt_config, &self.arch);
+
+        #[cfg(not(feature = "apt"))]
+        let index_target_config =
+            IndexTargetConfig::new(self.manifest_config.clone(), vec![], &self.arch);
 
         let archs_from_file = fs::read_to_string("/var/lib/dpkg/arch").await;
 
@@ -510,7 +530,7 @@ impl<'a> OmaRefresh<'a> {
             for ose in &m.sources {
                 debug!("Getted oma source entry: {:#?}", ose);
 
-                let mut archs = if let Some(archs) = ose.archs() {
+                let archs = if let Some(archs) = ose.archs() {
                     archs.iter().map(|x| x.as_str()).collect::<Vec<_>>()
                 } else if let Some(ref f) = archs_from_file {
                     f.iter().map(|x| x.as_str()).collect::<Vec<_>>()
@@ -524,7 +544,7 @@ impl<'a> OmaRefresh<'a> {
                     checksums,
                     ose.is_source(),
                     ose.is_flat(),
-                    &mut archs,
+                    archs,
                     ose.components(),
                 )?;
 
