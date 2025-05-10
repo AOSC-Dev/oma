@@ -70,6 +70,7 @@ impl ValueCompleter for PathCompleter {
         });
 
         let mut current = current.to_string_lossy().to_string();
+
         if current.starts_with("~") {
             if let Some(home) = home_dir() {
                 current.replace_range(..1, &home.to_string_lossy());
