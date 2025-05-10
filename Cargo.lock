@@ -3223,7 +3223,7 @@ dependencies = [
 
 [[package]]
 name = "oma-mirror"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "ahash",
  "indexmap 2.9.0",

@@ -1,6 +1,6 @@
 [package]
 name = "oma-mirror"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 description = "Library to handle AOSC OS APT configuration (sources.list)"
 license = "MIT"
