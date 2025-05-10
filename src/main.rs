@@ -14,6 +14,7 @@ mod config;
 mod error;
 mod install_progress;
 mod lang;
+mod path_completions;
 mod pb;
 mod subcommand;
 mod table;

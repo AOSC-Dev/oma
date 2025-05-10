@@ -3068,6 +3068,7 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
+ "clap_lex",
  "clap_mangen",
  "colored",
  "console-subscriber",
