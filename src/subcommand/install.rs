@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
+use clap_complete::PathCompleter;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
@@ -29,7 +30,7 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Install {
     /// Package(s) to install
-    #[arg(add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(add = ArgValueCompleter::new(pkgnames_completions), add = ArgValueCompleter::new(PathCompleter::file()))]
     packages: Vec<String>,
     /// Install recommended package(s)
     #[arg(long)]
