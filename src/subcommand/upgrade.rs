@@ -2,12 +2,12 @@ use std::fs;
 use std::fs::read_dir;
 use std::path::Path;
 
+use crate::path_completions::PathCompleter;
 use crate::subcommand::utils::CommitChanges;
 use crate::utils::pkgnames_completions;
 use ahash::HashMap;
 use ahash::HashSet;
 use clap_complete::ArgValueCompleter;
-use clap_complete::PathCompleter;
 use oma_pm::apt::InstallOperation;
 use oma_pm::apt::OmaOperation;
 use serde::Deserialize;

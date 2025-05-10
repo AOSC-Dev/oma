@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
-use clap_complete::PathCompleter;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
@@ -15,6 +14,7 @@ use crate::HTTP_CLIENT;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
+use crate::path_completions::PathCompleter;
 use crate::utils::dbus_check;
 use crate::utils::pkgnames_completions;
 use crate::utils::root;
