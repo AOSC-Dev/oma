@@ -60,6 +60,9 @@ use crate::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
+    #[cfg(feature = "blocking")]
+    #[error("Failed to create tokio runtime")]
+    CreateTokioRuntime(std::io::Error),
     #[error("Invalid URL: {0}")]
     InvalidUrl(String),
     #[error("Scan sources.list failed: {0}")]
@@ -193,6 +196,15 @@ pub enum Event {
 }
 
 impl<'a> OmaRefresh<'a> {
+    #[cfg(feature = "blocking")]
+    pub fn start_blocking(self, callback: impl AsyncFn(Event)) -> Result<Vec<SuccessSummary>> {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .map_err(RefreshError::CreateTokioRuntime)?
+            .block_on(self.start(callback))
+    }
+
     pub async fn start(self, callback: impl AsyncFn(Event)) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
