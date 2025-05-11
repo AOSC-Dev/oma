@@ -40,6 +40,7 @@ sequoia-nettle-backend = ["oma-repo-verify/sequoia-nettle-backend"]
 rustls = ["oma-fetch/rustls", "oma-topics/rustls"]
 native-tls = ["oma-fetch/native-tls", "oma-topics/native-tls"]
 apt = ["dep:oma-apt"]
+blocking = ["tokio/rt", "tokio/rt-multi-thread"]
 default = ["aosc", "sequoia-nettle-backend", "rustls", "apt"]
 
 [dev-dependencies]
