@@ -66,8 +66,8 @@ pub fn get_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, Stri
 }
 
 pub struct IndexTargetConfig<'a> {
-    deb: Vec<(String, HashMap<String, String>)>,
-    deb_src: Vec<(String, HashMap<String, String>)>,
+    deb: Vec<HashMap<String, String>>,
+    deb_src: Vec<HashMap<String, String>>,
     replacer: AhoCorasick,
     native_arch: &'a str,
     langs: Vec<String>,
@@ -84,8 +84,8 @@ impl<'a> IndexTargetConfig<'a> {
     }
 
     pub fn new(
-        deb: Vec<(String, HashMap<String, String>)>,
-        deb_src: Vec<(String, HashMap<String, String>)>,
+        deb: Vec<HashMap<String, String>>,
+        deb_src: Vec<HashMap<String, String>>,
         native_arch: &'a str,
     ) -> Self {
         let locales = sys_locale::get_locales();
@@ -125,7 +125,7 @@ impl<'a> IndexTargetConfig<'a> {
         }
 
         for c in checksums {
-            'a: for (template, config) in tree.iter().map(|x| (x.1.get(key), &x.1)) {
+            'a: for (template, config) in tree.iter().map(|x| (x.get(key), x)) {
                 let Some(template) = template else {
                     debug!("{:?} config has no key: {}", config, key);
                     continue 'a;
@@ -246,11 +246,12 @@ fn uncompress_file_name(target: &str) -> Cow<'_, str> {
 }
 
 #[cfg(feature = "apt")]
-fn get_index_target_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
+fn get_index_target_tree(config: &Config, key: &str) -> Vec<HashMap<String, String>> {
     get_tree(config, key)
         .into_iter()
+        .map(|x| x.1)
         .filter(|x| {
-            x.1.get("DefaultEnabled")
+            x.get("DefaultEnabled")
                 .and_then(|x| x.parse::<bool>().ok())
                 .unwrap_or(true)
         })
