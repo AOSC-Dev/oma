@@ -14,14 +14,14 @@ os-release = "0.1"
 oma-console = { version = "^0.28", path = "../oma-console", optional = true, default-features = false, features = [
     "print",
 ] }
-zbus = { version = "5.1", optional = true }
+zbus = { version = "5.1", optional = true, default-features = false, features = ["tokio"] }
 url-escape = { version = "0.1", optional = true }
 tracing = "0.1"
-logind-zbus = "5.1"
+logind-zbus = { version = "5.1", optional = true, default-features = false, features = ["tokio"], package = "logind-zbus-tokio" }
 
 [features]
 dpkg = []
-human-bytes = ["number_prefix"]
-dbus = ["zbus"]
+human-bytes = ["dep:number_prefix"]
+dbus = ["dep:zbus", "dep:logind-zbus"]
 oma = ["dep:oma-console"]
-url-no-escape = ["url-escape"]
+url-no-escape = ["dep:url-escape"]
