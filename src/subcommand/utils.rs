@@ -226,8 +226,6 @@ impl Refresh<'_> {
 
         let sysroot = PathBuf::from(sysroot);
 
-        let msg = fl!("do-not-edit-topic-sources-list");
-
         let arch = dpkg_arch(&sysroot)?;
 
         let refresh = OmaRefresh::builder()
@@ -237,11 +235,16 @@ impl Refresh<'_> {
             .arch(arch)
             .apt_config(config)
             .client(client)
-            .maybe_auth_config(auth_config)
-            .topic_msg(&msg);
+            .maybe_auth_config(auth_config);
 
         #[cfg(feature = "aosc")]
-        let refresh = refresh.refresh_topics(refresh_topics).build();
+        let msg = fl!("do-not-edit-topic-sources-list");
+
+        #[cfg(feature = "aosc")]
+        let refresh = refresh
+            .refresh_topics(refresh_topics)
+            .topic_msg(&msg)
+            .build();
 
         #[cfg(not(feature = "aosc"))]
         let refresh = refresh.build();
