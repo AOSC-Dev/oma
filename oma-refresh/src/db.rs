@@ -122,6 +122,7 @@ pub struct OmaRefresh<'a> {
     apt_config: &'a Config,
     #[cfg(not(feature = "apt"))]
     manifest_config: Vec<std::collections::HashMap<String, String>>,
+    #[cfg(feature = "aosc")]
     topic_msg: &'a str,
     auth_config: Option<&'a AuthConfig>,
     sources_lists_paths: Option<Vec<PathBuf>>,
@@ -397,9 +398,6 @@ impl<'a> OmaRefresh<'a> {
 
         #[cfg(not(feature = "aosc"))]
         results.into_iter().collect::<Result<Vec<_>>>()?;
-
-        #[cfg(not(feature = "aosc"))]
-        let _ = self.topic_msg;
 
         self.refresh_topics(callback, not_found, &mut mirror_sources)
             .await?;
