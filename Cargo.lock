@@ -3239,6 +3239,7 @@ dependencies = [
  "indexmap 2.9.0",
  "indicium",
  "memchr",
+ "nix",
  "oma-apt",
  "oma-console",
  "oma-fetch",
