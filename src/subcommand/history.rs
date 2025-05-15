@@ -15,6 +15,7 @@ use oma_pm::{
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
+use crate::HTTP_CLIENT;
 use crate::config::Config;
 use crate::{
     NOT_DISPLAY_ABORT,
@@ -24,7 +25,7 @@ use crate::{
 };
 
 use super::utils::{
-    CommitChanges, auth_config, handle_no_result, lock_oma, no_check_dbus_warn,
+    CommitChanges, Refresh, auth_config, handle_no_result, lock_oma, no_check_dbus_warn,
     select_tui_display_msg, tui_select_list_size,
 };
 use crate::args::CliExecuter;
@@ -106,6 +107,12 @@ pub struct Undo {
     /// Setup download threads (default as 4)
     #[arg(from_global)]
     download_threads: Option<usize>,
+    /// Do not refresh repository metadata
+    #[arg(long)]
+    no_refresh: bool,
+    /// Do not refresh topics manifest.json file
+    #[arg(long)]
+    no_refresh_topics: bool,
 }
 
 impl CliExecuter for Undo {
@@ -126,6 +133,8 @@ impl CliExecuter for Undo {
             apt_options,
             no_fix_dpkg_status,
             download_threads,
+            no_refresh,
+            no_refresh_topics,
         } = self;
 
         let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
@@ -154,6 +163,31 @@ impl CliExecuter for Undo {
 
         #[cfg(feature = "aosc")]
         let (opt_in, opt_out) = oma_history::find_history_topics_status_by_id(&conn, id)?;
+
+        let apt_config = AptConfig::new();
+        let auth_config = auth_config(&sysroot);
+
+        if !no_refresh {
+            let sysroot = sysroot.to_string_lossy();
+            let builder = Refresh::builder()
+                .client(&HTTP_CLIENT)
+                .dry_run(dry_run)
+                .no_progress(no_progress)
+                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+                .sysroot(&sysroot)
+                .config(&apt_config)
+                .maybe_auth_config(auth_config.as_ref());
+
+            #[cfg(feature = "aosc")]
+            let refresh = builder
+                .refresh_topics(!no_refresh_topics && !config.no_refresh_topics())
+                .build();
+
+            #[cfg(not(feature = "aosc"))]
+            let refresh = builder.build();
+
+            refresh.run()?;
+        }
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
@@ -232,9 +266,6 @@ impl CliExecuter for Undo {
 
         apt.install(&install, false)?;
 
-        let auth_config = auth_config(&sysroot);
-        let auth_config = auth_config.as_ref();
-
         let code = CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
@@ -248,7 +279,7 @@ impl CliExecuter for Undo {
             .remove_config(remove_config)
             .autoremove(autoremove)
             .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
-            .maybe_auth_config(auth_config)
+            .maybe_auth_config(auth_config.as_ref())
             .build()
             .run()?;
 
