@@ -1,5 +1,6 @@
 use std::{borrow::Cow, path::Path};
 
+use nix::unistd::{Uid, User, seteuid};
 use oma_console::console;
 use oma_fetch::{
     DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event, Summary,
@@ -7,7 +8,7 @@ use oma_fetch::{
 };
 use oma_pm_operation_type::InstallEntry;
 use oma_utils::url_no_escape::url_no_escape_times;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::apt::{DownloadConfig, OmaAptError, OmaAptResult};
 
@@ -103,6 +104,24 @@ pub async fn download_pkgs(
         download_list.push(download_entry);
     }
 
+    let current = Uid::current();
+    let is_root = current.is_root();
+
+    let uid = if let Ok(user) = User::from_name("_apt") {
+        Some(user.unwrap().uid)
+    } else {
+        warn!("User _apt does not exist, Use current user to download file");
+        None
+    };
+
+    if let Some(uid) = uid {
+        if is_root {
+            if let Err(e) = seteuid(uid) {
+                warn!("Failed to set euid for user _apt: {e}, Use current user to download file");
+            }
+        }
+    }
+
     let downloader = DownloadManager::builder()
         .client(client)
         .download_list(&download_list)
@@ -119,6 +138,10 @@ pub async fn download_pkgs(
 
     if !res.is_download_success() {
         return Err(OmaAptError::FailedToDownload(res.failed.len()));
+    }
+
+    if is_root {
+        seteuid(current).unwrap();
     }
 
     Ok(res)
