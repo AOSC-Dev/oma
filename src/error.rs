@@ -450,6 +450,10 @@ impl From<RefreshError> for OutputError {
                     description: fl!("wrong-thread-count", count = count),
                     source: None,
                 },
+                BuilderError::IllegalPath { path, source } => Self {
+                    description: format!("Illegal path: {}", path.display()),
+                    source: Some(Box::new(source)),
+                },
             },
         }
     }

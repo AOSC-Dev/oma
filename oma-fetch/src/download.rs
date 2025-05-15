@@ -3,7 +3,7 @@ use std::{
     fs::Permissions,
     io::{self, ErrorKind, SeekFrom},
     os::unix::fs::PermissionsExt,
-    path::Path,
+    path::{self, Path, PathBuf},
     time::Duration,
 };
 
@@ -35,6 +35,8 @@ pub enum BuilderError {
     EmptySource { file_name: String },
     #[snafu(display("Not allow set illegal download threads: {count}"))]
     IllegalDownloadThread { count: usize },
+    #[snafu(display("Path is illegal: {}", path.display()))]
+    IllegalPath { path: PathBuf, source: io::Error },
 }
 
 pub(crate) struct SingleDownloader<'a> {
@@ -111,6 +113,18 @@ impl<'a> SingleDownloader<'a> {
         if entry.source.is_empty() {
             return Err(BuilderError::EmptySource {
                 file_name: entry.filename.to_string(),
+            });
+        }
+
+        let download_path = entry.dir.join(&entry.filename);
+        let download_path = path::absolute(&download_path).context(IllegalPathSnafu {
+            path: download_path,
+        })?;
+
+        if download_path.parent().is_none_or(|p| p != entry.dir) {
+            return Err(BuilderError::IllegalPath {
+                path: download_path,
+                source: io::Error::new(ErrorKind::Other, "Path must parent dir as download dir"),
             });
         }
 
