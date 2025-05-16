@@ -2,7 +2,7 @@ name: deb-build
 
 on:
   push:
-    tags: [ "v*" ]
+    branches: [ '*' ]
 
 jobs:
   package:
@@ -11,7 +11,7 @@ jobs:
       matrix:
         target:
           [
-            "lcr.loongnix.cn/library/debian",
+            "lcr.loongnix.cn/library/debian:sid",
             # "linuxdeepin/deepin:beige-loong64-v1.4.0", 编译 cargo-deb 会卡住
           ]
     container:
@@ -26,7 +26,7 @@ jobs:
             sed -e 's|https://community-packages.deepin.com|https://mirrors.bfsu.edu.cn/deepin|g' -i /etc/apt/sources.list;
           fi
           apt-get update
-          env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync libbz2-dev liblzma-dev libzstd-dev nodejs
+          env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync libbz2-dev liblzma-dev libzstd-dev nodejs lld
       - name: Checkout repository
         uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
