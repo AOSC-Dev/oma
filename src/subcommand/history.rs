@@ -111,6 +111,7 @@ pub struct Undo {
     /// Do not refresh repository metadata
     #[arg(long)]
     no_refresh: bool,
+    #[cfg(feature = "aosc")]
     /// Do not refresh topics manifest.json file
     #[arg(long)]
     no_refresh_topics: bool,
@@ -135,6 +136,7 @@ impl CliExecuter for Undo {
             no_fix_dpkg_status,
             download_threads,
             no_refresh,
+            #[cfg(feature = "aosc")]
             no_refresh_topics,
         } = self;
 
