@@ -350,8 +350,7 @@ fn dialoguer_select_history(
 }
 
 fn format_summary_log(list: &[HistoryEntry], undo: bool) -> Vec<(String, usize)> {
-    let display_list = list
-        .iter()
+    list.iter()
         .enumerate()
         .filter(|(_, log)| {
             if undo {
@@ -369,9 +368,7 @@ fn format_summary_log(list: &[HistoryEntry], undo: bool) -> Vec<(String, usize)>
 
             (s, index)
         })
-        .collect::<Vec<_>>();
-
-    display_list
+        .collect::<Vec<_>>()
 }
 
 fn format_date(date: i64) -> DelayedFormat<StrftimeItems<'static>> {

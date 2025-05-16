@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt::Display;
-use std::io::{self, ErrorKind};
+use std::io::{self};
 use std::path::Path;
 
 use apt_auth_config::AuthConfigError;
@@ -320,11 +320,11 @@ impl From<RefreshError> for OutputError {
                 InReleaseError::VerifyError(e) => match e {
                     VerifyError::CertParseFileError(p, e) => Self {
                         description: fl!("fail-load-certs-from-file", path = p),
-                        source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
+                        source: Some(Box::new(io::Error::other(e))),
                     },
                     VerifyError::BadCertFile(p, e) => Self {
                         description: fl!("cert-file-is-bad", path = p),
-                        source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
+                        source: Some(Box::new(io::Error::other(e))),
                     },
                     VerifyError::TrustedDirNotExist => Self {
                         description: e.to_string(),
@@ -332,7 +332,7 @@ impl From<RefreshError> for OutputError {
                     },
                     VerifyError::Anyhow(e) => Self {
                         description: fl!("verify-error", p = file_name(&path)),
-                        source: Some(Box::new(io::Error::new(ErrorKind::Other, e))),
+                        source: Some(Box::new(io::Error::other(e))),
                     },
                     VerifyError::FailedToReadInRelease(e) => Self {
                         description: fl!("failed-to-read-decode-inrelease"),
@@ -407,10 +407,11 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::SetLockWithProcess(cmd, pid) => Self {
                 description: fl!("oma-refresh-lock"),
-                source: Some(Box::new(io::Error::new(
-                    ErrorKind::Other,
-                    fl!("oma-refresh-lock-dueto", exec = cmd, pid = pid),
-                ))),
+                source: Some(Box::new(io::Error::other(fl!(
+                    "oma-refresh-lock-dueto",
+                    exec = cmd,
+                    pid = pid
+                )))),
             },
             RefreshError::DuplicateComponents(url, component) => Self {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
@@ -703,10 +704,9 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         },
         OmaAptError::DpkgFailedConfigure(_) => OutputError {
             description: fl!("dpkg-configure-a-non-zero"),
-            source: Some(Box::new(io::Error::new(
-                ErrorKind::Other,
-                fl!("dpkg-configure-failed-due-to-tips"),
-            ))),
+            source: Some(Box::new(io::Error::other(fl!(
+                "dpkg-configure-failed-due-to-tips"
+            )))),
         },
         OmaAptError::DiskSpaceInsufficient(need, avail) => OutputError {
             description: fl!(

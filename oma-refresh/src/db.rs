@@ -581,13 +581,11 @@ pub fn content_length(resp: &Response) -> u64 {
         .map(Cow::Borrowed)
         .unwrap_or(Cow::Owned(HeaderValue::from(0)));
 
-    let total_size = content_length
+    content_length
         .to_str()
         .ok()
         .and_then(|x| x.parse::<u64>().ok())
-        .unwrap_or_default();
-
-    total_size
+        .unwrap_or_default()
 }
 
 fn detect_duplicate_repositories(sourcelist: &[OmaSourceEntry<'_>]) -> Result<()> {

@@ -234,15 +234,13 @@ fn flat_repo_template_match(
 }
 
 fn uncompress_file_name(target: &str) -> Cow<'_, str> {
-    let name = if compress_file(target) == CompressFile::Nothing {
+    if compress_file(target) == CompressFile::Nothing {
         Cow::Borrowed(target)
     } else {
         let compress_target_without_ext = Path::new(target).with_extension("");
         let compress_target_without_ext = compress_target_without_ext.to_string_lossy().to_string();
         compress_target_without_ext.into()
-    };
-
-    name
+    }
 }
 
 #[cfg(feature = "apt")]
