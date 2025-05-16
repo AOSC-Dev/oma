@@ -26,13 +26,15 @@ type HistoryResult<T> = Result<T, HistoryError>;
 
 #[derive(Debug, Error)]
 pub enum HistoryError {
-    #[error("Failed to create dir or file: {0}: {1}")]
+    #[error("Failed to create dir or file: {0}")]
     FailedOperateDirOrFile(String, std::io::Error),
-    #[error("Failed to connect database: {0}")]
+    #[error("Failed to connect database")]
     ConnectError(Error),
-    #[error("Failed to execute sqlte stmt, kind: {0}")]
+    #[error("Failed to create transaction")]
+    CreateTransaction(Error),
+    #[error("Failed to execute sqlte stmt")]
     ExecuteError(Error),
-    #[error("Failed to parser object: {0}")]
+    #[error("Failed to parser object")]
     ParseDbError(Error),
     #[error("History database is empty")]
     HistoryEmpty,
@@ -56,7 +58,7 @@ pub(crate) const INSERT_REMOVE_DETAIL_TABLE: &str = r#"INSERT INTO "history_remo
 pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Connection> {
     let conn = Connection::open(db_path);
 
-    let conn = match conn {
+    let mut conn = match conn {
         Ok(conn) => conn,
         Err(e) => match e {
             Error::SqliteFailure(err, _) if [1, 14].contains(&err.extended_code) => {
@@ -67,7 +69,7 @@ pub fn connect_db<P: AsRef<Path>>(db_path: P, write: bool) -> HistoryResult<Conn
     };
 
     if write {
-        create_and_maybe_migration_from_oma_db_v2(&conn)?;
+        create_and_maybe_migration_from_oma_db_v2(&mut conn)?;
     }
 
     Ok(conn)
@@ -103,7 +105,7 @@ pub struct HistoryInfo<'a> {
 }
 
 pub fn write_history_entry(
-    conn: Connection,
+    mut conn: Connection,
     dry_run: bool,
     info: HistoryInfo<'_>,
 ) -> HistoryResult<()> {
@@ -122,9 +124,13 @@ pub fn write_history_entry(
         return Ok(());
     }
 
+    let transaction = conn
+        .transaction()
+        .map_err(HistoryError::CreateTransaction)?;
+
     let command = args().collect::<Vec<_>>().join(" ");
 
-    let id: i64 = conn
+    let id: i64 = transaction
         .query_row(
             INSERT_NEW_MAIN_TABLE,
             (
@@ -169,21 +175,22 @@ pub fn write_history_entry(
         let op: u8 = (*i.op()).into();
         let op = op as i64;
 
-        conn.execute(
-            INSERT_INSTALL_TABLE,
-            (
-                id,
-                i.name(),
-                i.old_version(),
-                i.new_version(),
-                i.old_size(),
-                i.new_size(),
-                i.download_size(),
-                i.arch(),
-                op,
-            ),
-        )
-        .map_err(HistoryError::ExecuteError)?;
+        transaction
+            .execute(
+                INSERT_INSTALL_TABLE,
+                (
+                    id,
+                    i.name(),
+                    i.old_version(),
+                    i.new_version(),
+                    i.old_size(),
+                    i.new_size(),
+                    i.download_size(),
+                    i.arch(),
+                    op,
+                ),
+            )
+            .map_err(HistoryError::ExecuteError)?;
     }
 
     for i in &summary.remove {
@@ -192,56 +199,62 @@ pub fn write_history_entry(
             continue;
         };
 
-        conn.execute(
-            INSERT_REMOVE_TABLE,
-            (id, i.name(), version, i.size(), i.arch()),
-        )
-        .map_err(HistoryError::ExecuteError)?;
+        transaction
+            .execute(
+                INSERT_REMOVE_TABLE,
+                (id, i.name(), version, i.size(), i.arch()),
+            )
+            .map_err(HistoryError::ExecuteError)?;
 
-        conn.execute(
-            INSERT_REMOVE_DETAIL_TABLE,
-            (
-                id,
-                i.name(),
-                if i.details().contains(&RemoveTag::AutoRemove) {
-                    1
-                } else {
-                    0
-                },
-                if i.details().contains(&RemoveTag::Purge) {
-                    1
-                } else {
-                    0
-                },
-                if i.details().contains(&RemoveTag::Resolver) {
-                    1
-                } else {
-                    0
-                },
-            ),
-        )
-        .map_err(HistoryError::ExecuteError)?;
+        transaction
+            .execute(
+                INSERT_REMOVE_DETAIL_TABLE,
+                (
+                    id,
+                    i.name(),
+                    if i.details().contains(&RemoveTag::AutoRemove) {
+                        1
+                    } else {
+                        0
+                    },
+                    if i.details().contains(&RemoveTag::Purge) {
+                        1
+                    } else {
+                        0
+                    },
+                    if i.details().contains(&RemoveTag::Resolver) {
+                        1
+                    } else {
+                        0
+                    },
+                ),
+            )
+            .map_err(HistoryError::ExecuteError)?;
     }
 
     if !topics_enabled.is_empty() || !topics_disabled.is_empty() {
         for i in topics_enabled {
-            conn.execute(
-                r#"INSERT INTO "history_topic_oma_1.14" (history_id, topic_name, enable)
+            transaction
+                .execute(
+                    r#"INSERT INTO "history_topic_oma_1.14" (history_id, topic_name, enable)
                         VALUES (?1, ?2, ?3)"#,
-                (id, i, 1),
-            )
-            .map_err(HistoryError::ExecuteError)?;
+                    (id, i, 1),
+                )
+                .map_err(HistoryError::ExecuteError)?;
         }
 
         for i in topics_disabled {
-            conn.execute(
-                r#"INSERT INTO "history_topic_oma_1.14" (history_id, topic_name, enable)
+            transaction
+                .execute(
+                    r#"INSERT INTO "history_topic_oma_1.14" (history_id, topic_name, enable)
                         VALUES (?1, ?2, ?3)"#,
-                (id, i, 0),
-            )
-            .map_err(HistoryError::ExecuteError)?;
+                    (id, i, 0),
+                )
+                .map_err(HistoryError::ExecuteError)?;
         }
     }
+
+    transaction.commit().map_err(HistoryError::ExecuteError)?;
 
     Ok(())
 }

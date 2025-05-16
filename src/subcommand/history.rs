@@ -11,6 +11,7 @@ use oma_pm::{
     apt::{FilterMode, OmaApt},
     pkginfo::OmaPackage,
 };
+use tracing::warn;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -199,20 +200,17 @@ impl CliExecuter for Undo {
 
         let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-        let mut glob = vec![];
+        let mut remove = vec![];
         let mut install = vec![];
 
         if !op.install.is_empty() {
             for i in &op.install {
                 match i.operation {
                     InstallOperation::Default | InstallOperation::Download => unreachable!(),
-                    InstallOperation::Install => glob.push(&i.pkg_name),
+                    InstallOperation::Install => remove.push(&i.pkg_name),
                     InstallOperation::ReInstall => continue,
-                    InstallOperation::Upgrade => {
-                        install.push((i.pkg_name.clone(), i.old_version.clone().unwrap()))
-                    }
-                    InstallOperation::Downgrade => {
-                        install.push((i.pkg_name.clone(), i.old_version.clone().unwrap()))
+                    InstallOperation::Upgrade | InstallOperation::Downgrade => {
+                        install.push((&i.pkg_name, i.old_version.as_ref().unwrap()))
                     }
                 }
             }
@@ -220,7 +218,7 @@ impl CliExecuter for Undo {
 
         if !op.remove.is_empty() {
             for i in &op.remove {
-                install.push((i.pkg_name.clone(), i.version.clone()));
+                install.push((&i.pkg_name, &i.version));
             }
         }
 
@@ -231,7 +229,7 @@ impl CliExecuter for Undo {
 
         let mut delete = vec![];
         let mut no_result = vec![];
-        for i in glob {
+        for i in remove {
             let res = matcher.match_pkgs_from_glob(i)?;
             if res.is_empty() {
                 no_result.push(i.as_str());
@@ -249,11 +247,17 @@ impl CliExecuter for Undo {
         let install = install
             .iter()
             .filter_map(|(pkg, ver)| {
-                let pkg = pkgs.iter().find(move |y| y.name() == pkg);
+                let select = pkgs.iter().find(move |y| y.name() == *pkg);
 
-                if let Some(pkg) = pkg {
-                    Some((pkg, pkg.get_version(ver)?))
+                if let Some(pkg) = select {
+                    if let Some(v) = pkg.get_version(ver) {
+                        Some((pkg, v))
+                    } else {
+                        warn!("Failed to get package {} version: {}", pkg, ver);
+                        None
+                    }
                 } else {
+                    warn!("Failed to get package: {} {}", pkg, ver);
                     None
                 }
             })

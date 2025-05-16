@@ -9,7 +9,7 @@ use crate::{
     INSERT_REMOVE_DETAIL_TABLE, INSERT_REMOVE_TABLE, InstallHistoryEntry, RemoveHistoryEntry,
 };
 
-pub fn create_and_maybe_migration_from_oma_db_v2(conn: &Connection) -> HistoryResult<()> {
+pub fn create_and_maybe_migration_from_oma_db_v2(conn: &mut Connection) -> HistoryResult<()> {
     create_history_table(conn)?;
 
     let old_db_count: i32 = conn
@@ -54,8 +54,12 @@ fn handle_packages_items(items: &[String]) -> String {
         .join(" ")
 }
 
-fn migration_from_oma_db_v2(conn: &Connection) -> HistoryResult<()> {
+fn migration_from_oma_db_v2(conn: &mut Connection) -> HistoryResult<()> {
     let table = get_old_table(conn)?;
+
+    let transaction = conn
+        .transaction()
+        .map_err(HistoryError::CreateTransaction)?;
 
     for entry in table {
         let command = match &entry.summary_type {
@@ -83,7 +87,7 @@ fn migration_from_oma_db_v2(conn: &Connection) -> HistoryResult<()> {
             OldSummaryType::Undo => "oma undo".to_string(),
         };
 
-        let id: i64 = conn
+        let id: i64 = transaction
             .query_row(
                 INSERT_NEW_MAIN_TABLE,
                 (
@@ -128,55 +132,60 @@ fn migration_from_oma_db_v2(conn: &Connection) -> HistoryResult<()> {
             let op: u8 = i.operation.into();
             let op = op as i64;
 
-            conn.execute(
-                INSERT_INSTALL_TABLE,
-                (
-                    id,
-                    &i.pkg_name,
-                    &i.old_version,
-                    &i.new_version,
-                    i.old_size,
-                    i.new_size,
-                    i.download_size,
-                    &i.arch,
-                    op,
-                ),
-            )
-            .map_err(HistoryError::ExecuteError)?;
+            transaction
+                .execute(
+                    INSERT_INSTALL_TABLE,
+                    (
+                        id,
+                        &i.pkg_name,
+                        &i.old_version,
+                        &i.new_version,
+                        i.old_size,
+                        i.new_size,
+                        i.download_size,
+                        &i.arch,
+                        op,
+                    ),
+                )
+                .map_err(HistoryError::ExecuteError)?;
         }
 
         for j in &entry.inner.remove {
-            conn.execute(
-                INSERT_REMOVE_TABLE,
-                (id, &j.pkg_name, &j.version, j.size, &j.arch),
-            )
-            .map_err(HistoryError::ExecuteError)?;
+            transaction
+                .execute(
+                    INSERT_REMOVE_TABLE,
+                    (id, &j.pkg_name, &j.version, j.size, &j.arch),
+                )
+                .map_err(HistoryError::ExecuteError)?;
 
-            conn.execute(
-                INSERT_REMOVE_DETAIL_TABLE,
-                (
-                    id,
-                    &j.pkg_name,
-                    if j.tags.contains(&RemoveTag::AutoRemove) {
-                        1
-                    } else {
-                        0
-                    },
-                    if j.tags.contains(&RemoveTag::Purge) {
-                        1
-                    } else {
-                        0
-                    },
-                    if j.tags.contains(&RemoveTag::Resolver) {
-                        1
-                    } else {
-                        0
-                    },
-                ),
-            )
-            .map_err(HistoryError::ExecuteError)?;
+            transaction
+                .execute(
+                    INSERT_REMOVE_DETAIL_TABLE,
+                    (
+                        id,
+                        &j.pkg_name,
+                        if j.tags.contains(&RemoveTag::AutoRemove) {
+                            1
+                        } else {
+                            0
+                        },
+                        if j.tags.contains(&RemoveTag::Purge) {
+                            1
+                        } else {
+                            0
+                        },
+                        if j.tags.contains(&RemoveTag::Resolver) {
+                            1
+                        } else {
+                            0
+                        },
+                    ),
+                )
+                .map_err(HistoryError::ExecuteError)?;
         }
     }
+
+    transaction.commit().map_err(HistoryError::ExecuteError)?;
 
     Ok(())
 }
