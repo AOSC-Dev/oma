@@ -1,6 +1,6 @@
 use std::{
     fmt,
-    io::{self, ErrorKind},
+    io::{self},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -334,9 +334,8 @@ impl OmaApt {
     /// Get autoremovable packages count
     pub fn count_pending_autoremovable_pkgs(&self) -> usize {
         let sort = PackageSort::default().auto_removable();
-        let auto_removable = self.cache.packages(&sort).count();
 
-        auto_removable
+        self.cache.packages(&sort).count()
     }
 
     pub fn count_installed_packages(&self) -> usize {
@@ -1103,25 +1102,20 @@ fn dpkg_exit_status(mut cmd: std::process::Child) -> Result<(), OmaAptError> {
     match cmd.wait() {
         Ok(status) => match status.code() {
             Some(0) => Ok(()),
-            Some(x) => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
-                ErrorKind::Other,
-                format!("dpkg returned non-zero code: {}", x),
-            ))),
-            None => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
-                ErrorKind::Other,
+            Some(x) => Err(OmaAptError::DpkgFailedConfigure(io::Error::other(format!(
+                "dpkg returned non-zero code: {}",
+                x
+            )))),
+            None => Err(OmaAptError::DpkgFailedConfigure(io::Error::other(
                 "Could not get dpkg exit status",
             ))),
         },
-        Err(e) => Err(OmaAptError::DpkgFailedConfigure(io::Error::new(
-            ErrorKind::Other,
-            e,
-        ))),
+        Err(e) => Err(OmaAptError::DpkgFailedConfigure(io::Error::other(e))),
     }
 }
 
 fn get_package_url(cand: &Version<'_>) -> Vec<PackageUrl> {
-    let uri = cand
-        .version_files()
+    cand.version_files()
         .filter_map(|v| {
             let pkg_file = v.package_file();
             if !pkg_file.is_downloadable() {
@@ -1133,8 +1127,7 @@ fn get_package_url(cand: &Version<'_>) -> Vec<PackageUrl> {
                 index_url: pkg_file.index_file().archive_uri(""),
             })
         })
-        .collect::<Vec<_>>();
-    uri
+        .collect::<Vec<_>>()
 }
 
 fn collect_recommends_and_suggests(

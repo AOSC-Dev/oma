@@ -399,13 +399,11 @@ pub fn has_dbg(cache: &Cache, pkg: &Package<'_>, ver: &Version) -> bool {
     let dbg_pkg = format!("{}-dbg:{}", pkg.name(), ver.arch());
     let dbg_pkg = cache.get(&dbg_pkg);
 
-    let has_dbg = if let Some(dbg_pkg) = dbg_pkg {
+    if let Some(dbg_pkg) = dbg_pkg {
         dbg_pkg.versions().any(|x| x.version() == ver.version())
     } else {
         false
-    };
-
-    has_dbg
+    }
 }
 
 #[cfg(test)]

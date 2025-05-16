@@ -67,14 +67,12 @@ pub(crate) async fn scan_sources_lists_paths_from_sysroot(
 pub fn ignores(config: &oma_apt::config::Config) -> Vec<Regex> {
     use tracing::warn;
 
-    let ignores = config.find_vector("Dir::Ignore-Files-Silently");
-    let ignores = ignores
+    config.find_vector("Dir::Ignore-Files-Silently")
         .iter()
         .filter_map(|re| Regex::new(re)
             .inspect_err(|e|
                 warn!("Failed to parse regex {} in ignore rule list (Dir::Ignore-Files-Silently): {}", re, e)).ok())
-        .collect::<Vec<_>>();
-    ignores
+        .collect::<Vec<_>>()
 }
 
 pub async fn scan_sources_list_from_paths<'a>(

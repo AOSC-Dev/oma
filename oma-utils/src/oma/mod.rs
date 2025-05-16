@@ -1,5 +1,5 @@
 use std::{
-    io::{Error, ErrorKind, IsTerminal, stderr, stdin, stdout},
+    io::{Error, IsTerminal, stderr, stdin, stdout},
     path::PathBuf,
     sync::LazyLock,
 };
@@ -15,7 +15,7 @@ pub fn lock_oma_inner() -> IOResult<()> {
         return Ok(());
     }
 
-    Err(Error::new(ErrorKind::Other, ""))
+    Err(Error::other(""))
 }
 
 /// Unlock oma

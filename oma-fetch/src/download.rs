@@ -1,7 +1,7 @@
 use crate::{CompressFile, DownloadSource, Event, checksum::ChecksumValidator};
 use std::{
     fs::Permissions,
-    io::{self, ErrorKind, SeekFrom},
+    io::{self, SeekFrom},
     os::unix::fs::PermissionsExt,
     path::Path,
     time::Duration,
@@ -474,7 +474,7 @@ impl<'a> SingleDownloader<'a> {
 
         let bytes_stream = source
             .bytes_stream()
-            .map_err(|e| io::Error::new(ErrorKind::Other, e))
+            .map_err(io::Error::other)
             .into_async_read();
 
         let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {

@@ -1,5 +1,5 @@
 use std::{
-    io::{self, BufRead, ErrorKind, IsTerminal, Write, stderr, stdin, stdout},
+    io::{self, BufRead, IsTerminal, Write, stderr, stdin, stdout},
     time::{Duration, Instant},
 };
 
@@ -150,7 +150,7 @@ impl Write for OmaPager<'_> {
         match self.inner {
             PagerInner::Working(ref mut v) => v.extend_from_slice(buf),
             PagerInner::Finished(_) => {
-                return Err(io::Error::new(ErrorKind::Other, "write is finished"));
+                return Err(io::Error::other("write is finished"));
             }
         }
 
@@ -238,7 +238,7 @@ impl<'a> OmaPager<'a> {
         self.inner = if let PagerInner::Working(v) = self.inner {
             PagerInner::Finished(v.lines().map_while(Result::ok).collect::<Vec<_>>())
         } else {
-            return Err(io::Error::new(ErrorKind::Other, "write is finished"));
+            return Err(io::Error::other("write is finished"));
         };
 
         let PagerInner::Finished(ref text) = self.inner else {

@@ -152,7 +152,7 @@ impl CliExecuter for Search {
         let res = search(
             &apt,
             &pattern,
-            match config.search_engine().as_str() {
+            match config.search_engine().into_owned().as_str() {
                 "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
                 "strsim" => SearchEngine::Strsim,
                 "text" => SearchEngine::Text,

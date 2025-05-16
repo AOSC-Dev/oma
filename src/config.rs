@@ -143,10 +143,10 @@ impl Config {
             .unwrap_or_else(GeneralConfig::default_search_contents_println)
     }
 
-    pub fn search_engine(&self) -> Cow<String> {
+    pub fn search_engine(&self) -> Cow<str> {
         self.general
             .as_ref()
-            .map(|x| Cow::Borrowed(&x.search_engine))
+            .map(|x| Cow::Borrowed(x.search_engine.as_str()))
             .unwrap_or_else(|| Cow::Owned(GeneralConfig::default_search_engine()))
     }
 
