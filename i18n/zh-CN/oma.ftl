@@ -276,3 +276,4 @@ psa-remove-window = 待删除（软件包数：{ $count }, 大小: { $size }）
 psa-autoremove = 清理无用软件包
 psa-without-root-tips = 若要启动磁盘分析器的管理界面，请以管理员权限运行 `oma size-analyzer'
 psa-total = 总占用
+mirrors-setting-empty = 未配置任何软件源，拒绝保存配置。
