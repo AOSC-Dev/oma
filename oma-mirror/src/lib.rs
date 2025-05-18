@@ -62,6 +62,8 @@ pub enum MirrorError {
     WriteFile { path: PathBuf, source: io::Error },
     #[snafu(display("Failed to create status file: {}", path.display()))]
     CreateFile { path: PathBuf, source: io::Error },
+    #[snafu(display("Not allow apply empty mirrors settings"))]
+    ApplyEmptySettings,
 }
 
 pub struct MirrorManager {
@@ -169,6 +171,10 @@ impl MirrorManager {
     }
 
     pub fn set(&mut self, mirror_names: &[&str]) -> Result<(), MirrorError> {
+        if mirror_names.is_empty() {
+            return Err(MirrorError::ApplyEmptySettings);
+        }
+
         let mirrors = self.try_mirrors()?;
 
         for i in mirror_names {
@@ -207,14 +213,18 @@ impl MirrorManager {
         Ok(true)
     }
 
-    pub fn remove(&mut self, mirror_name: &str) -> bool {
+    pub fn remove(&mut self, mirror_name: &str) -> Result<bool, MirrorError> {
+        if self.status.mirror.len() == 1 {
+            return Err(MirrorError::ApplyEmptySettings);
+        }
+
         if !self.status.mirror.contains_key(mirror_name) {
-            return false;
+            return Ok(false);
         }
 
         self.status.mirror.shift_remove(mirror_name);
 
-        true
+        Ok(true)
     }
 
     pub fn mirrors_iter(&self) -> Result<impl Iterator<Item = (&str, &Mirror)>, MirrorError> {

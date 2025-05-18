@@ -338,7 +338,7 @@ pub fn operate(
         }
         Operate::Remove => {
             for i in args {
-                mm.remove(i);
+                mm.remove(i)?;
             }
         }
     }

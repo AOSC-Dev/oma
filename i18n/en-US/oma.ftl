@@ -287,3 +287,4 @@ psa-remove-window = Pending removal ({ $count } packages, size: { $size })
 psa-autoremove = Remove unused packages
 psa-without-root-tips = To launch the disk usage analyzer with administrative features, please run `oma size-analyzer' with elevated privileges.
 psa-total = Total
+mirrors-setting-empty = No mirror specified, refusing to save configuration.

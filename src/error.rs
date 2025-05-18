@@ -212,6 +212,10 @@ impl From<MirrorError> for OutputError {
                 description: fl!("failed-to-create-file", p = path.display().to_string()),
                 source: Some(Box::new(source)),
             },
+            MirrorError::ApplyEmptySettings => Self {
+                description: fl!("mirrors-setting-empty"),
+                source: None,
+            },
         }
     }
 }
