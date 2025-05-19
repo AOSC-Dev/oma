@@ -271,9 +271,11 @@ impl CliExecuter for Topics {
                 }
             }
             Err(e) => {
-                error!("{}", fl!("topics-unchanged"));
-                revert_sources_list(&tm)?;
-                RT.block_on(tm.write_enabled(true))?;
+                if !always_write_status {
+                    error!("{}", fl!("topics-unchanged"));
+                    revert_sources_list(&tm)?;
+                    RT.block_on(tm.write_enabled(true))?;
+                }
                 return Err(e);
             }
         };
