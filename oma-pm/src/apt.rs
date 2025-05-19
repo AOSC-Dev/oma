@@ -572,6 +572,11 @@ impl OmaApt {
         need_reconfigure: bool,
         need_retriggers: bool,
     ) -> OmaAptResult<()> {
+        if self.dry_run {
+            debug!("In dry-run mode, no fix dpkg status");
+            return Ok(());
+        }
+
         if need_reconfigure {
             self.run_dpkg_configure()?;
         }
