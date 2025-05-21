@@ -12,7 +12,7 @@ use oma_pm::{
 };
 use tracing::info;
 
-use crate::{config::Config, error::OutputError, utils::pkgnames_completions};
+use crate::{config::Config, error::OutputError, utils::pkgnames_and_path_completions};
 
 use super::utils::handle_no_result;
 use crate::args::CliExecuter;
@@ -29,7 +29,7 @@ pub struct Show {
     #[arg(long)]
     json: bool,
     /// Package(s) to show
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions))]
     packages: Vec<String>,
     /// Set sysroot target directory
     #[arg(from_global)]
