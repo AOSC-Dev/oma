@@ -3097,6 +3097,7 @@ dependencies = [
  "strsim",
  "sys-locale",
  "tabled",
+ "termtree",
  "tokio",
  "toml 0.8.22",
  "tracing",
@@ -4859,6 +4860,12 @@ dependencies = [
  "rustix 1.0.7",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "termtree"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 
 [[package]]
 name = "testing_table"
