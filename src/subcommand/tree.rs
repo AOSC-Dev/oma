@@ -30,7 +30,7 @@ pub struct Tree {
     packages: Vec<String>,
     /// Invert the tree direction and focus on the given package
     #[arg(short, long)]
-    invert: bool,
+    reverse: bool,
     /// Maximum display depth of the dependency tree
     #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=16))]
     depth: u8,
@@ -70,7 +70,7 @@ impl CliExecuter for Tree {
     fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
         let Tree {
             packages,
-            invert,
+            reverse: invert,
             depth: limit,
             sysroot,
             no_pager,
