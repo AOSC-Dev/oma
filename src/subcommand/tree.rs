@@ -15,11 +15,11 @@ use oma_pm::{
 };
 
 use crate::{
-    CliExecuter, config::Config, error::OutputError, table::oma_display_with_normal_output,
+    CliExecuter, config::Config, error::OutputError, fl, table::oma_display_with_normal_output,
     utils::pkgnames_completions,
 };
 
-use super::utils::handle_no_result;
+use super::utils::{create_progress_spinner, handle_no_result};
 
 use termtree::Tree as TermTree;
 
@@ -136,6 +136,8 @@ impl CliExecuter for Tree {
 
         let mut res = vec![];
 
+        let pb = create_progress_spinner(no_progress || no_pager, fl!("loading-tree"));
+
         for p in pkgs {
             let depth = 1;
             let tree = if !invert {
@@ -167,6 +169,10 @@ impl CliExecuter for Tree {
             } else {
                 res.push(tree);
             }
+        }
+
+        if let Some(pb) = pb {
+            pb.inner.finish_and_clear();
         }
 
         if no_pager {
@@ -217,30 +223,15 @@ fn dep_tree<'a>(
     let deps = cand.depends_map();
 
     for (t, deps) in deps {
-        match t.into() {
-            OmaDepType::Depends | OmaDepType::PreDepends => {
+        let t = t.into();
+        match t {
+            OmaDepType::Depends | OmaDepType::PreDepends | OmaDepType::Recommends => {
                 for dep in deps {
                     if let Some(dep) = apt.cache.get(dep.first().name()) {
                         res.push(dep_tree(
                             PkgWrapper {
                                 package: dep,
-                                is_recommend: false,
-                                comp_and_version: None,
-                            },
-                            apt,
-                            depth + 1,
-                            limit,
-                        ));
-                    }
-                }
-            }
-            OmaDepType::Recommends => {
-                for dep in deps {
-                    if let Some(dep) = apt.cache.get(dep.first().name()) {
-                        res.push(dep_tree(
-                            PkgWrapper {
-                                package: dep,
-                                is_recommend: true,
+                                is_recommend: t == OmaDepType::Recommends,
                                 comp_and_version: None,
                             },
                             apt,
