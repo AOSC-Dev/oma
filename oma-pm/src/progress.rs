@@ -1,5 +1,6 @@
 use crate::{apt::AptConfig, dbus::change_status};
 use oma_apt::progress::DynInstallProgress;
+use oma_utils::zbus;
 use once_cell::sync::OnceCell;
 use tokio::runtime::Runtime;
 use zbus::Connection;
