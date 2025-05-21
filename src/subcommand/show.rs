@@ -12,7 +12,7 @@ use oma_pm::{
 };
 use tracing::info;
 
-use crate::{config::Config, error::OutputError, utils::pkgnames_completions};
+use crate::{config::Config, error::OutputError, utils::pkgnames_and_path_completions};
 
 use super::utils::handle_no_result;
 use crate::args::CliExecuter;
@@ -29,7 +29,7 @@ pub struct Show {
     #[arg(long)]
     json: bool,
     /// Package(s) to show
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions))]
     packages: Vec<String>,
     /// Set sysroot target directory
     #[arg(from_global)]
@@ -72,7 +72,13 @@ impl CliExecuter for Show {
             .sysroot(sysroot.to_string_lossy().to_string())
             .build();
 
-        let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+        let local_debs = packages
+            .iter()
+            .filter(|x| x.ends_with(".deb"))
+            .map(|x| x.to_owned())
+            .collect::<Vec<_>>();
+
+        let apt = OmaApt::new(local_debs, oma_apt_args, false, AptConfig::new())?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)

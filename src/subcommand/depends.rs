@@ -11,7 +11,7 @@ use oma_pm::{
     matches::{GetArchMethod, PackagesMatcher},
 };
 
-use crate::{config::Config, error::OutputError, utils::pkgnames_completions};
+use crate::{config::Config, error::OutputError, utils::pkgnames_and_path_completions};
 
 use super::utils::{check_unsupported_stmt, handle_no_result};
 
@@ -20,7 +20,7 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Depends {
     /// Package(s) to query dependency(ies) for
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions))]
     packages: Vec<String>,
     /// Set output format as JSON
     #[arg(long)]
@@ -42,6 +42,12 @@ impl CliExecuter for Depends {
             apt_options,
         } = self;
 
+        let local_debs = packages
+            .iter()
+            .filter(|x| x.ends_with(".deb"))
+            .map(|x| x.to_owned())
+            .collect::<Vec<_>>();
+
         for pkg in &packages {
             check_unsupported_stmt(pkg);
         }
@@ -51,7 +57,7 @@ impl CliExecuter for Depends {
             .sysroot(sysroot.to_string_lossy().to_string())
             .another_apt_options(apt_options)
             .build();
-        let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+        let apt = OmaApt::new(local_debs, oma_apt_args, false, apt_config)?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
