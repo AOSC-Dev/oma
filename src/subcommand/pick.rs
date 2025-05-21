@@ -8,13 +8,13 @@ use oma_pm::{
     pkginfo::OmaPackage,
 };
 
+use crate::fl;
 use crate::{
     HTTP_CLIENT,
     config::Config,
     error::OutputError,
-    utils::{dbus_check, root},
+    utils::{dbus_check, pkgnames_completions, root},
 };
-use crate::{fl, utils::pkgnames_completions};
 use anyhow::anyhow;
 
 use super::utils::{
