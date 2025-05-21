@@ -20,5 +20,6 @@ pub mod show;
 pub mod size_analyzer;
 #[cfg(feature = "aosc")]
 pub mod topics;
+pub mod tree;
 pub mod upgrade;
 pub mod utils;

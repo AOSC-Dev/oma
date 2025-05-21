@@ -23,8 +23,7 @@ use crate::{
     remove::{Purge, Remove},
     search::Search,
     show::Show,
-    subcommand::generate::GenerateManpages,
-    subcommand::size_analyzer::SizeAnalyzer,
+    subcommand::{generate::GenerateManpages, size_analyzer::SizeAnalyzer, tree::Tree},
     tui::Tui,
     upgrade::Upgrade,
 };
@@ -122,6 +121,8 @@ pub enum SubCmd {
     GenerateManpages(GenerateManpages),
     /// Packages size analyzer
     SizeAnalyzer(SizeAnalyzer),
+    /// Display a tree visualization of a dependency graph
+    Tree(Tree),
 }
 
 #[derive(Debug, Args)]
