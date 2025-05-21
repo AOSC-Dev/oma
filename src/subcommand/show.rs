@@ -72,7 +72,13 @@ impl CliExecuter for Show {
             .sysroot(sysroot.to_string_lossy().to_string())
             .build();
 
-        let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+        let local_debs = packages
+            .iter()
+            .filter(|x| x.ends_with(".deb"))
+            .map(|x| x.to_owned())
+            .collect::<Vec<_>>();
+
+        let apt = OmaApt::new(local_debs, oma_apt_args, false, AptConfig::new())?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
