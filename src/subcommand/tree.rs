@@ -42,6 +42,47 @@ pub struct Tree {
     no_pager: bool,
 }
 
+#[derive(Debug, Args)]
+pub struct Why {
+    /// Query Package(s) name
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
+    packages: Vec<String>,
+    /// Maximum display depth of the dependency tree
+    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=16))]
+    depth: u8,
+    /// Set sysroot target directory
+    #[arg(from_global)]
+    sysroot: PathBuf,
+    /// Output result to stdout, not pager
+    #[arg(long)]
+    no_pager: bool,
+}
+
+impl From<Why> for Tree {
+    fn from(value: Why) -> Self {
+        let Why {
+            packages,
+            depth,
+            sysroot,
+            no_pager,
+        } = value;
+
+        Self {
+            packages,
+            reverse: true,
+            depth,
+            sysroot,
+            no_pager,
+        }
+    }
+}
+
+impl CliExecuter for Why {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+        Tree::from(self).execute(config, no_progress)
+    }
+}
+
 struct PkgWrapper<'a> {
     package: Package<'a>,
     is_recommend: bool,

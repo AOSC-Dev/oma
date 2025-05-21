@@ -23,7 +23,11 @@ use crate::{
     remove::{Purge, Remove},
     search::Search,
     show::Show,
-    subcommand::{generate::GenerateManpages, size_analyzer::SizeAnalyzer, tree::Tree},
+    subcommand::{
+        generate::GenerateManpages,
+        size_analyzer::SizeAnalyzer,
+        tree::{Tree, Why},
+    },
     tui::Tui,
     upgrade::Upgrade,
 };
@@ -123,6 +127,8 @@ pub enum SubCmd {
     SizeAnalyzer(SizeAnalyzer),
     /// Display a tree visualization of a dependency graph
     Tree(Tree),
+    /// Why package is installed
+    Why(Why),
 }
 
 #[derive(Debug, Args)]
