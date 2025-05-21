@@ -5,7 +5,7 @@ use ahash::AHashMap;
 use clap::Args;
 use oma_console::print::Action;
 use oma_contents::OmaContentsError;
-use oma_contents::searcher::{Mode, pure_search, ripgrep_search};
+use oma_contents::searcher::{Mode, search};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::error;
 
@@ -34,17 +34,13 @@ impl CliExecuter for CommandNotFound {
 
         let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
-        let cb = |line| {
-            if !res.contains(&line) {
+        let cb = |line: (String, String)| {
+            if !res.contains(&line) && line.1.starts_with("/usr/bin") {
                 res.insert(line);
             }
         };
 
-        let search_res = if which::which("rg").is_ok() {
-            ripgrep_search(APT_LIST_PATH, Mode::BinProvides, &keyword, cb)
-        } else {
-            pure_search(APT_LIST_PATH, Mode::BinProvides, &keyword, cb)
-        };
+        let search_res = search(APT_LIST_PATH, Mode::BinProvides, &keyword, cb);
 
         match search_res {
             Ok(()) if res.is_empty() => {
