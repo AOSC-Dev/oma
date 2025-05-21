@@ -162,7 +162,7 @@ macro_rules! due_to {
     };
 }
 
-pub fn pkgnames_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+pub fn pkgnames_and_path_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     let path_completions = PathCompleter::file()
         .filter(|x| x.extension().is_some_and(|y| y == "deb"))
         .complete(current);
@@ -172,6 +172,14 @@ pub fn pkgnames_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidat
     pkgnames_complete_impl(&mut completions, current, &[FilterMode::Names]);
 
     completions.extend(path_completions);
+
+    completions
+}
+
+pub fn pkgnames_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let mut completions = vec![];
+    let current = &current.to_string_lossy();
+    pkgnames_complete_impl(&mut completions, current, &[FilterMode::Names]);
 
     completions
 }

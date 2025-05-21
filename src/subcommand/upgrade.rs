@@ -3,7 +3,7 @@ use std::fs::read_dir;
 use std::path::Path;
 
 use crate::subcommand::utils::CommitChanges;
-use crate::utils::pkgnames_completions;
+use crate::utils::pkgnames_and_path_completions;
 use ahash::HashMap;
 use ahash::HashSet;
 use clap_complete::ArgValueCompleter;
@@ -77,7 +77,7 @@ pub(crate) struct Upgrade {
     #[arg(long)]
     no_remove: bool,
     /// Package(s) to install
-    #[arg(add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(add = ArgValueCompleter::new(pkgnames_and_path_completions))]
     packages: Vec<String>,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global)]
