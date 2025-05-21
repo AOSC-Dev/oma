@@ -32,7 +32,7 @@ pub struct Tree {
     #[arg(short, long)]
     reverse: bool,
     /// Maximum display depth of the dependency tree
-    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=16))]
+    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5))]
     depth: u8,
     /// Set sysroot target directory
     #[arg(from_global)]
@@ -48,7 +48,7 @@ pub struct Why {
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
     packages: Vec<String>,
     /// Maximum display depth of the dependency tree
-    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=16))]
+    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5))]
     depth: u8,
     /// Set sysroot target directory
     #[arg(from_global)]
