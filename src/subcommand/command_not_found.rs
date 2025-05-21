@@ -34,8 +34,8 @@ impl CliExecuter for CommandNotFound {
 
         let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
-        let cb = |line| {
-            if !res.contains(&line) {
+        let cb = |line: (String, String)| {
+            if !res.contains(&line) && line.1.starts_with("/usr/bin") {
                 res.insert(line);
             }
         };
