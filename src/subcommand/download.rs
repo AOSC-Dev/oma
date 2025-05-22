@@ -16,7 +16,7 @@ use crate::{error::OutputError, subcommand::utils::handle_no_result};
 
 use crate::args::CliExecuter;
 
-use super::utils::auth_config;
+use super::utils::{auth_config, download_message};
 
 #[derive(Debug, Args)]
 pub struct Download {
@@ -81,6 +81,7 @@ impl CliExecuter for Download {
                 download_dir: Some(&path),
                 auth: auth_config("/").as_ref(),
             },
+            download_message(),
             |event| async {
                 if let Err(e) = tx.send_async(event).await {
                     error!("{}", e);

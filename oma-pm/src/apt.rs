@@ -39,7 +39,7 @@ pub use oma_pm_operation_type::*;
 use zbus::Connection;
 
 use crate::{
-    commit::{CommitNetworkConfig, DoInstall},
+    commit::{CommitNetworkConfig, CustomDownloadMessage, DoInstall},
     dbus::create_session,
     download::download_pkgs,
     matches::MatcherError,
@@ -415,6 +415,7 @@ impl OmaApt {
         client: &Client,
         pkgs: Vec<OmaPackage>,
         config: DownloadConfig<'_>,
+        custom_download_message: Option<CustomDownloadMessage>,
         callback: F,
     ) -> OmaAptResult<Summary>
     where
@@ -472,6 +473,9 @@ impl OmaApt {
             &download_list,
             config,
             true,
+            custom_download_message.unwrap_or(Box::new(|i: &InstallEntry| {
+                format!("{} {} {}", i.name(), i.new_version(), i.arch())
+            })),
             callback,
         ))?;
 
@@ -548,6 +552,7 @@ impl OmaApt {
         op: &OmaOperation,
         client: &Client,
         config: CommitNetworkConfig,
+        custom_download_message: Option<CustomDownloadMessage>,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<()> {
         let sysroot = self.config.get("Dir").unwrap_or("/".to_string());
@@ -558,7 +563,14 @@ impl OmaApt {
         }
 
         let commit = DoInstall::new(self, client, &sysroot, config)?;
-        commit.commit(op, install_progress_manager, callback)?;
+        commit.commit(
+            op,
+            install_progress_manager,
+            custom_download_message.unwrap_or_else(|| {
+                Box::new(|i| format!("{} {} {}", i.name(), i.new_version(), i.arch()))
+            }),
+            callback,
+        )?;
 
         Ok(())
     }
