@@ -1,5 +1,6 @@
 use crate::{CompressFile, DownloadSource, Event, checksum::ChecksumValidator};
 use std::{
+    borrow::Cow,
     fs::Permissions,
     io::{self, SeekFrom},
     os::unix::fs::PermissionsExt,
@@ -42,7 +43,7 @@ pub(crate) struct SingleDownloader<'a> {
     pub entry: &'a DownloadEntry,
     progress: (usize, usize),
     retry_times: usize,
-    msg: Option<String>,
+    msg: Option<Cow<'static, str>>,
     download_list_index: usize,
     file_type: CompressFile,
     set_permission: Option<u32>,
@@ -102,7 +103,7 @@ impl<'a> SingleDownloader<'a> {
         entry: &'a DownloadEntry,
         progress: (usize, usize),
         retry_times: usize,
-        msg: Option<String>,
+        msg: Option<Cow<'static, str>>,
         download_list_index: usize,
         file_type: CompressFile,
         set_permission: Option<u32>,

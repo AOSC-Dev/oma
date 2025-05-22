@@ -521,7 +521,7 @@ pub fn download_message() -> Option<CustomDownloadMessage> {
             Cow::Borrowed(entry.new_version())
         };
 
-        format!("{} {} ({})", entry.name(), new_version, entry.arch())
+        format!("{} {} ({})", entry.name(), new_version, entry.arch()).into()
     }))
 }
 

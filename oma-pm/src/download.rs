@@ -8,7 +8,10 @@ use oma_pm_operation_type::InstallEntry;
 use oma_utils::url_no_escape::url_no_escape_times;
 use tracing::debug;
 
-use crate::apt::{DownloadConfig, OmaAptError, OmaAptResult};
+use crate::{
+    CustomDownloadMessage,
+    apt::{DownloadConfig, OmaAptError, OmaAptResult},
+};
 
 /// Download packages (inner)
 pub async fn download_pkgs(
@@ -16,7 +19,7 @@ pub async fn download_pkgs(
     download_pkg_list: &[InstallEntry],
     config: DownloadConfig<'_>,
     download_only: bool,
-    custom_download_message: Box<dyn Fn(&InstallEntry) -> String>,
+    custom_download_message: CustomDownloadMessage,
     callback: impl AsyncFn(Event),
 ) -> OmaAptResult<Summary> {
     let DownloadConfig {

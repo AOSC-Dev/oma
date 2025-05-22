@@ -474,7 +474,7 @@ impl OmaApt {
             config,
             true,
             custom_download_message.unwrap_or(Box::new(|i: &InstallEntry| {
-                format!("{} {} {}", i.name(), i.new_version(), i.arch())
+                format!("{} {} {}", i.name(), i.new_version(), i.arch()).into()
             })),
             callback,
         ))?;
@@ -567,7 +567,7 @@ impl OmaApt {
             op,
             install_progress_manager,
             custom_download_message.unwrap_or_else(|| {
-                Box::new(|i| format!("{} {} {}", i.name(), i.new_version(), i.arch()))
+                Box::new(|i| format!("{} {} {}", i.name(), i.new_version(), i.arch()).into())
             }),
             callback,
         )?;

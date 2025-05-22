@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, path::PathBuf, time::Duration};
+use std::{borrow::Cow, cmp::Ordering, path::PathBuf, time::Duration};
 
 use bon::{Builder, builder};
 use checksum::Checksum;
@@ -21,7 +21,7 @@ pub struct DownloadEntry {
     dir: PathBuf,
     hash: Option<Checksum>,
     allow_resume: bool,
-    msg: Option<String>,
+    msg: Option<Cow<'static, str>>,
     #[builder(default)]
     file_type: CompressFile,
 }

@@ -1,4 +1,4 @@
-use std::{fs::create_dir_all, os::unix::fs::PermissionsExt, path::Path};
+use std::{borrow::Cow, fs::create_dir_all, os::unix::fs::PermissionsExt, path::Path};
 
 use apt_auth_config::AuthConfig;
 use chrono::Local;
@@ -33,7 +33,7 @@ pub struct DoInstall<'a> {
     config: CommitNetworkConfig<'a>,
 }
 
-pub type CustomDownloadMessage = Box<dyn Fn(&InstallEntry) -> String>;
+pub type CustomDownloadMessage = Box<dyn Fn(&InstallEntry) -> Cow<'static, str>>;
 
 impl<'a> DoInstall<'a> {
     pub fn new(
