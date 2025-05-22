@@ -278,3 +278,5 @@ psa-without-root-tips = 若要启动磁盘分析器的管理界面，请以管�
 psa-total = 总占用
 mirrors-setting-empty = 未配置任何软件源，拒绝保存配置。
 loading-tree = 正在分析依赖树
+cnf-entry = 命令 { $cmd } 来自于软件包 { $pkg }
+cnf-install = 请使用 `oma install PACKAGE' 安装您想要的软件包

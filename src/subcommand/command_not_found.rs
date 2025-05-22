@@ -1,22 +1,17 @@
 use std::error::Error;
-use std::io::stdout;
+use std::path::Path;
 
-use ahash::AHashMap;
 use clap::Args;
-use oma_console::print::Action;
 use oma_contents::OmaContentsError;
 use oma_contents::searcher::{Mode, search};
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use tracing::error;
 
 use crate::config::Config;
 use crate::error::OutputError;
-use crate::table::PagerPrinter;
-use crate::{color_formatter, due_to, fl};
+use crate::{due_to, fl};
 
 use crate::args::CliExecuter;
 
-const FILTER_JARO_NUM: u8 = 204;
 const APT_LIST_PATH: &str = "/var/lib/apt/lists";
 
 type IndexSet<T> = indexmap::IndexSet<T, ahash::RandomState>;
@@ -47,84 +42,39 @@ impl CliExecuter for CommandNotFound {
                 error!("{}", fl!("command-not-found", kw = keyword));
             }
             Ok(()) => {
-                let apt_config = AptConfig::new();
-                let oma_apt_args = OmaAptArgs::builder().build();
-                let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+                println!(
+                    "{}",
+                    fl!("command-not-found-with-result", kw = keyword.as_str())
+                );
 
-                let mut jaro = jaro_nums(res, &keyword);
+                let res = sort(res, &keyword);
+                let res_len = res.len();
 
-                let all_match = jaro
-                    .iter()
-                    .filter(|x| x.2 == u8::MAX)
-                    .map(|x| x.to_owned())
-                    .collect::<Vec<_>>();
+                let mut count = 0;
 
-                if !all_match.is_empty() {
-                    jaro = all_match;
-                }
-
-                let mut res = vec![];
-
-                let mut too_many = false;
-
-                let mut map: AHashMap<String, String> = AHashMap::new();
-
-                for (pkg, file, jaro) in jaro {
-                    if res.len() == 10 {
-                        too_many = true;
+                for (pkg, file) in res.into_iter().map(|x| {
+                    (
+                        x.0,
+                        Path::new(&x.1)
+                            .file_name()
+                            .map(|s| s.to_string_lossy().to_string())
+                            .unwrap_or(x.1),
+                    )
+                }) {
+                    if count > 10 {
                         break;
                     }
 
-                    if jaro < FILTER_JARO_NUM {
-                        break;
-                    }
-
-                    let desc = if let Some(desc) = map.get(&pkg) {
-                        desc.to_string()
-                    } else if let Some(pkg) = apt.cache.get(&pkg) {
-                        let desc = pkg
-                            .candidate()
-                            .and_then(|x| x.summary())
-                            .unwrap_or_else(|| "no description.".to_string());
-
-                        map.insert(pkg.fullname(true), desc.to_string());
-
-                        desc
-                    } else {
-                        continue;
-                    };
-
-                    let entry = (
-                        color_formatter()
-                            .color_str(pkg, Action::Emphasis)
-                            .bold()
-                            .to_string(),
-                        color_formatter()
-                            .color_str(file, Action::Secondary)
-                            .to_string(),
-                        desc,
-                    );
-
-                    res.push(entry);
+                    count += 1;
+                    println!("  {}", fl!("cnf-entry", cmd = file, pkg = pkg));
                 }
 
-                if res.is_empty() {
-                    error!("{}", fl!("command-not-found", kw = keyword));
-                } else {
-                    println!(
-                        "{}\n",
-                        fl!("command-not-found-with-result", kw = keyword.as_str())
-                    );
-                    let mut printer = PagerPrinter::new(stdout());
-                    printer
-                        .print_table(res, vec!["Name", "Path", "Description"], None)
-                        .ok();
-
-                    if too_many {
-                        println!("\n{}", fl!("cnf-too-many-query"));
-                        println!("{}", fl!("cnf-too-many-query-2", query = keyword));
-                    }
+                if res_len > 10 {
+                    println!("\n{}", fl!("cnf-too-many-query"));
+                    println!("{}", fl!("cnf-too-many-query-2", query = keyword));
                 }
+
+                println!("{}", fl!("cnf-install"));
             }
             Err(e) => {
                 if let OmaContentsError::NoResult = e {
@@ -145,7 +95,7 @@ impl CliExecuter for CommandNotFound {
     }
 }
 
-fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, String, u8)> {
+fn sort(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, String, u8)> {
     let mut output = vec![];
 
     for (pkg, file) in input {
