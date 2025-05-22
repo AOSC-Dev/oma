@@ -9,7 +9,7 @@ use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs, Upgrade},
     search::IndiciumSearch,
 };
-use oma_utils::dbus::{create_dbus_connection, take_wake_lock};
+use oma_utils::dbus::take_wake_lock;
 use tracing::info;
 use tui_inner::{Task, Tui as TuiInner};
 
@@ -17,6 +17,7 @@ use crate::{
     GlobalOptions,
     args::CliExecuter,
     subcommand::utils::{auth_config, create_progress_spinner},
+    utils::connect_dbus_impl,
 };
 use crate::{
     HTTP_CLIENT, RT,
@@ -136,9 +137,13 @@ impl CliExecuter for Tui {
         root()?;
 
         let conn = if !no_check_dbus && !config.no_check_dbus() {
-            let conn = RT.block_on(create_dbus_connection())?;
-            check_battery(&conn, false);
-            Some(conn)
+            let conn = connect_dbus_impl();
+
+            if let Some(conn) = &conn {
+                check_battery(conn, false);
+            }
+
+            conn
         } else {
             None
         };
@@ -220,12 +225,7 @@ impl CliExecuter for Tui {
 
         if execute_apt {
             let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-                let fds = RT.block_on(take_wake_lock(
-                    &conn.unwrap(),
-                    &fl!("changing-system"),
-                    "oma",
-                ))?;
-                Some(fds)
+                conn.map(|conn| RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma")))
             } else {
                 no_check_dbus_warn();
                 None

@@ -73,7 +73,10 @@ fn file_path_canonicalize(args: &mut Vec<String>) {
 }
 
 pub fn dbus_check(yes: bool) -> Result<Vec<OwnedFd>> {
-    let conn = RT.block_on(create_dbus_connection())?;
+    let Some(conn) = connect_dbus_impl() else {
+        return Ok(vec![]);
+    };
+
     check_battery(&conn, yes);
 
     // 需要保留 fd
@@ -81,6 +84,30 @@ pub fn dbus_check(yes: bool) -> Result<Vec<OwnedFd>> {
     let fds = RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
 
     Ok(fds)
+}
+
+pub fn connect_dbus_impl() -> Option<Connection> {
+    let Ok(conn) = RT.block_on(create_dbus_connection()) else {
+        warn!("{}", fl!("failed-check-dbus"));
+        warn!("{}", fl!("failed-check-dbus-tips-1"));
+        info!("{}", fl!("failed-check-dbus-tips-2"));
+        info!("{}", fl!("failed-check-dbus-tips-3"));
+
+        let theme = ColorfulTheme::default();
+        let ans = Confirm::with_theme(&theme)
+            .with_prompt(fl!("continue"))
+            .default(false)
+            .interact()
+            .unwrap_or(false);
+
+        if !ans {
+            exit(0);
+        }
+
+        return None;
+    };
+
+    Some(conn)
 }
 
 // From `is_wsl` crate
