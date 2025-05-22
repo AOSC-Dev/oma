@@ -1,0 +1,4 @@
+[target.loongarch64-unknown-linux-gnu]
+rustflags = [
+    "-C", "link-arg=-fuse-ld=lld",
+]
