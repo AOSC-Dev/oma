@@ -514,14 +514,19 @@ impl CommitChanges<'_> {
 }
 
 pub fn download_message() -> Option<CustomDownloadMessage> {
+    const NAME_VERSION_LENGTH_LIMIT: usize = 35;
+
     Some(Box::new(|entry| {
-        let new_version = if console::measure_text_width(entry.new_version()) > 25 {
-            console::truncate_str(entry.new_version(), 25, "...")
+        let name_and_version = format!("{} {}", entry.name(), entry.new_version());
+        let name_and_version = if console::measure_text_width(&name_and_version)
+            > NAME_VERSION_LENGTH_LIMIT
+        {
+            console::truncate_str(&name_and_version, NAME_VERSION_LENGTH_LIMIT, "...").to_string()
         } else {
-            Cow::Borrowed(entry.new_version())
+            name_and_version
         };
 
-        format!("{} {} ({})", entry.name(), new_version, entry.arch()).into()
+        format!("{} ({})", name_and_version, entry.arch()).into()
     }))
 }
 
