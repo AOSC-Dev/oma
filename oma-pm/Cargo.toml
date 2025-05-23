@@ -23,9 +23,6 @@ tokio = { version = "1.15", default-features = false, features = [
     "fs",
     "rt-multi-thread",
 ] }
-oma-console = { version = "^0.28.0", path = "../oma-console", default-features = false, features = [
-    "print",
-] }
 fs4 = "0.13"
 tracing = "0.1"
 oma-pm-operation-type = { version = "0.9", path = "../oma-pm-operation-type" }

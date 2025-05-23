@@ -1,4 +1,4 @@
-use std::{fs::create_dir_all, os::unix::fs::PermissionsExt, path::Path};
+use std::{borrow::Cow, fs::create_dir_all, os::unix::fs::PermissionsExt, path::Path};
 
 use apt_auth_config::AuthConfig;
 use chrono::Local;
@@ -33,6 +33,8 @@ pub struct DoInstall<'a> {
     config: CommitNetworkConfig<'a>,
 }
 
+pub type CustomDownloadMessage = Box<dyn Fn(&InstallEntry) -> Cow<'static, str>>;
+
 impl<'a> DoInstall<'a> {
     pub fn new(
         apt: OmaApt,
@@ -52,9 +54,10 @@ impl<'a> DoInstall<'a> {
         self,
         op: &OmaOperation,
         install_progress_manager: Box<dyn InstallProgressManager>,
+        custom_download_message: CustomDownloadMessage,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<()> {
-        let summary = self.download_pkgs(&op.install, callback)?;
+        let summary = self.download_pkgs(&op.install, custom_download_message, callback)?;
 
         if !summary.failed.is_empty() {
             return Err(OmaAptError::FailedToDownload(summary.failed.len()));
@@ -68,6 +71,7 @@ impl<'a> DoInstall<'a> {
     fn download_pkgs(
         &self,
         download_pkg_list: &[InstallEntry],
+        custom_download_message: CustomDownloadMessage,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<Summary> {
         let path = self.apt.get_archive_dir();
@@ -88,7 +92,15 @@ impl<'a> DoInstall<'a> {
                 auth: self.config.auth_config,
             };
 
-            download_pkgs(self.client, download_pkg_list, config, false, callback).await
+            download_pkgs(
+                self.client,
+                download_pkg_list,
+                config,
+                false,
+                custom_download_message,
+                callback,
+            )
+            .await
         })
     }
 

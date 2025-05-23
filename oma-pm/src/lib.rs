@@ -44,6 +44,7 @@ pub use commit::CommitNetworkConfig;
 pub mod sort;
 pub use oma_apt::records::RecordField;
 
+pub use commit::CustomDownloadMessage;
 pub use oma_apt::Package;
 
 #[cfg(test)]

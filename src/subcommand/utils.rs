@@ -57,6 +57,7 @@ use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
 use oma_pm::CommitNetworkConfig;
+use oma_pm::CustomDownloadMessage;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::FilterMode;
 use oma_pm::apt::OmaApt;
@@ -433,6 +434,7 @@ impl CommitChanges<'_> {
                 network_thread: Some(network_thread),
                 auth_config,
             },
+            download_message(),
             async |event| {
                 if let Err(e) = tx.send_async(event).await {
                     debug!("Send progress channel got error: {}; maybe check archive work still in progress", e);
@@ -509,6 +511,23 @@ impl CommitChanges<'_> {
             }
         }
     }
+}
+
+pub fn download_message() -> Option<CustomDownloadMessage> {
+    const NAME_VERSION_LENGTH_LIMIT: usize = 35;
+
+    Some(Box::new(|entry| {
+        let name_and_version = format!("{} {}", entry.name(), entry.new_version());
+        let name_and_version = if console::measure_text_width(&name_and_version)
+            > NAME_VERSION_LENGTH_LIMIT
+        {
+            console::truncate_str(&name_and_version, NAME_VERSION_LENGTH_LIMIT, "...").to_string()
+        } else {
+            name_and_version
+        };
+
+        format!("{} ({})", name_and_version, entry.arch()).into()
+    }))
 }
 
 pub fn fix_broken(

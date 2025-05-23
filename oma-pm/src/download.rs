@@ -1,6 +1,5 @@
-use std::{borrow::Cow, path::Path};
+use std::path::Path;
 
-use oma_console::console;
 use oma_fetch::{
     DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event, Summary,
     checksum::Checksum, reqwest::Client,
@@ -9,7 +8,10 @@ use oma_pm_operation_type::InstallEntry;
 use oma_utils::url_no_escape::url_no_escape_times;
 use tracing::debug;
 
-use crate::apt::{DownloadConfig, OmaAptError, OmaAptResult};
+use crate::{
+    CustomDownloadMessage,
+    apt::{DownloadConfig, OmaAptError, OmaAptResult},
+};
 
 /// Download packages (inner)
 pub async fn download_pkgs(
@@ -17,6 +19,7 @@ pub async fn download_pkgs(
     download_pkg_list: &[InstallEntry],
     config: DownloadConfig<'_>,
     download_only: bool,
+    custom_download_message: CustomDownloadMessage,
     callback: impl AsyncFn(Event),
 ) -> OmaAptResult<Summary> {
     let DownloadConfig {
@@ -67,13 +70,7 @@ pub async fn download_pkgs(
 
         debug!("Sources is: {:?}", sources);
 
-        let new_version = if console::measure_text_width(entry.new_version()) > 25 {
-            console::truncate_str(entry.new_version(), 25, "...")
-        } else {
-            Cow::Borrowed(entry.new_version())
-        };
-
-        let msg = format!("{} {new_version} ({})", entry.name(), entry.arch());
+        let msg = custom_download_message(entry);
 
         let download_entry = DownloadEntry::builder()
             .source(sources)

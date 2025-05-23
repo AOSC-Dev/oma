@@ -716,7 +716,7 @@ fn collect_flat_repo_no_release(
         .filename(replacer.replace(&file_path)?)
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
-        .msg(msg)
+        .msg(msg.into())
         .file_type(CompressFile::Nothing)
         .build();
 
@@ -810,7 +810,7 @@ fn collect_download_task(
         .filename(file_name)
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
-        .msg(msg)
+        .msg(msg.into())
         .file_type({
             if c.keep_compress {
                 CompressFile::Nothing
