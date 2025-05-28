@@ -689,19 +689,6 @@ pub(crate) fn is_nothing_to_do(
     false
 }
 
-pub(crate) fn check_unsupported_stmt(s: &str) {
-    for i in s.chars() {
-        if !i.is_ascii_alphabetic()
-            && !i.is_ascii_alphanumeric()
-            && i != '-'
-            && i != '.'
-            && i != ':'
-        {
-            warn!("Unexpected pattern: {s}");
-        }
-    }
-}
-
 pub(crate) fn no_check_dbus_warn() {
     warn!("{}", fl!("no-check-dbus-tips"));
 }

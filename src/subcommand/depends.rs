@@ -13,7 +13,7 @@ use oma_pm::{
 
 use crate::{config::Config, error::OutputError, utils::pkgnames_and_path_completions};
 
-use super::utils::{check_unsupported_stmt, handle_no_result};
+use super::utils::handle_no_result;
 
 use crate::args::CliExecuter;
 
@@ -47,10 +47,6 @@ impl CliExecuter for Depends {
             .filter(|x| x.ends_with(".deb"))
             .map(|x| x.to_owned())
             .collect::<Vec<_>>();
-
-        for pkg in &packages {
-            check_unsupported_stmt(pkg);
-        }
 
         let apt_config = AptConfig::new();
         let oma_apt_args = OmaAptArgs::builder()
