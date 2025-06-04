@@ -289,3 +289,5 @@ psa-without-root-tips = To launch the disk usage analyzer with administrative fe
 psa-total = Total
 mirrors-setting-empty = No mirror specified, refusing to save configuration.
 loading-tree = Analyzing dependency tree
+cnf-entry = The command { $cmd } comes from the package { $pkg }
+cnf-install = Use `oma install PACKAGE' to install the package you want.
