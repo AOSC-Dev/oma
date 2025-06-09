@@ -481,6 +481,10 @@ impl CommitChanges<'_> {
                 Ok(0)
             }
             Err(e) => {
+                if let OmaAptError::FailedToDownload(_) = e {
+                    return Err(e.into());
+                }
+
                 let apt = OmaApt::new(
                     vec![],
                     OmaAptArgs::builder().build(),
