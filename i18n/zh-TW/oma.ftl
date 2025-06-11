@@ -281,3 +281,5 @@ psa-remove-window = 待刪除（軟體套件數：{ $count }，大小：{ $size 
 psa-autoremove = 清理未使用的軟體套件
 psa-without-root-tips = 若要啟動磁碟分析器的管理介面，請以管理者權限執行 `oma size-analyzer`。
 psa-total = 總佔用
+loading-tree = 正在分析依賴樹
+mirrors-setting-empty = 未指定任何鏡像源，不儲存設定。
