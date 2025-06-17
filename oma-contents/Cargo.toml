@@ -16,7 +16,7 @@ flate2 = "1.0"
 rayon = "1.8"
 lzzzz = "2.0"
 tracing = "0.1"
-which = "7"
+which = "8"
 zstd = "0.13"
 memchr = "2"
 

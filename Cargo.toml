@@ -14,7 +14,7 @@ clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "derive"
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
 dialoguer = "0.11.0"
-tabled = { version = "0.19", features = ["ansi"] }
+tabled = { version = "0.20", features = ["ansi"] }
 tokio = "1.40.0"
 oma-inquire = "0.2"
 serde = { version = "1.0.210", features = ["derive"] }
@@ -34,7 +34,7 @@ ratatui = "0.29.0"
 crossterm = "0.28"
 ansi-to-tui = "7.0.0"
 glob-match = "0.2.1"
-which = "7"
+which = "8"
 strsim = "0.11.1"
 ahash = "0.8.11"
 indexmap = "2.9"
