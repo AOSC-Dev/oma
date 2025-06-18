@@ -24,6 +24,9 @@ use tracing::debug;
 
 use crate::{print::OmaColorFormat, writer::Writer};
 
+const ADD_HIGHLIGHT: &str = "\x1b[7m";
+const REMOVE_HIGHLIGHT: &str = "\x1b[49m";
+
 pub enum Pager<'a> {
     Plain,
     External(Box<OmaPager<'a>>),
@@ -705,8 +708,13 @@ impl<'a> Highlight<'a> {
     }
 
     fn replace(&self, input: &str) -> String {
-        self.ac
-            .replace_all(input, &[format!("\x1b[47m{}\x1b[49m", self.pattern)])
+        self.ac.replace_all(
+            input,
+            &[format!(
+                "{}{}{}",
+                ADD_HIGHLIGHT, self.pattern, REMOVE_HIGHLIGHT
+            )],
+        )
     }
 }
 
@@ -714,7 +722,7 @@ struct ClearHighlight(AhoCorasick);
 
 impl ClearHighlight {
     fn new() -> Self {
-        Self(AhoCorasick::new(["\x1b[47m", "\x1b[49m"]).unwrap())
+        Self(AhoCorasick::new([ADD_HIGHLIGHT, REMOVE_HIGHLIGHT]).unwrap())
     }
 
     fn replace(&self, input: &str) -> String {

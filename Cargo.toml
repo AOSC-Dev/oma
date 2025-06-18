@@ -1,6 +1,6 @@
 [package]
 name = "oma"
-version = "1.18.0-rc.3"
+version = "1.18.0"
 edition = "2024"
 description = "User-friendly and performant package manager for APT repositories"
 license = "GPL-3.0-or-later"
@@ -14,7 +14,7 @@ clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "derive"
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
 dialoguer = "0.11.0"
-tabled = { version = "0.19", features = ["ansi"] }
+tabled = { version = "0.20", features = ["ansi"] }
 tokio = "1.40.0"
 oma-inquire = "0.2"
 serde = { version = "1.0.210", features = ["derive"] }
@@ -34,7 +34,7 @@ ratatui = "0.29.0"
 crossterm = "0.28"
 ansi-to-tui = "7.0.0"
 glob-match = "0.2.1"
-which = "7"
+which = "8"
 strsim = "0.11.1"
 ahash = "0.8.11"
 indexmap = "2.9"
@@ -98,7 +98,7 @@ assets = [
     ["target/release/oma", "usr/bin/", "755"],
     ["README.md", "usr/share/doc/oma/README", "644"],
     ["data/config/oma-debian.toml", "etc/oma.toml", "644"],
-    ["data/apt.conf.d/50oma.conf", "etc/apt/apt.conf.d/50oma.conf", "644"],
+    ["data/apt.conf.d/50oma-debian.conf", "etc/apt/apt.conf.d/50oma.conf", "644"],
     ["data/dbus/oma-dbus.conf", "usr/share/dbus-1/system.d/oma-dbus.conf", "644"],
     ["data/policykit/io.aosc.oma.apply.policy", "usr/share/polkit-1/actions/io.aosc.oma.apply.policy", "644" ],
     ["completions/oma.bash", "usr/share/bash-completion/completions/oma.bash", "644"],

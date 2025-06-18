@@ -54,7 +54,7 @@ already-auto = Package { $name } is already marked as automatically installed.
 setting-auto = Marked package { $name } as automatically installed.
 command-not-found-with-result = { $kw }: command not found. The following package(s) may provide this command:
 command-not-found = { $kw }: command not found.
-clean-successfully = Successfully cleaned oma database and cache, free up { $size } in storage space.
+clean-successfully = Successfully cleaned oma database and cache, freeing up { $size } in storage space.
 clean-zero = No cache to clear.
 dpkg-configure-a-non-zero = Unable to correct the local package database.
 dpkg-configure-failed-due-to-tips = This may have been caused by the software's incompatibility with AOSC OS. Please consider sharing the output log above with AOSC OS maintainers to help us improve compatibility.
@@ -133,8 +133,8 @@ config-invalid = oma configuration file appears to be broken (/etc/oma.toml)! Fa
 cleaning = Clearing packages cache ...
 download-failed-with-len = { $len } package(s) failed to download.
 download-failed = Failed to download { $filename }!
-download-package-failed-with-reason  = Failed to download package { $filename }, Reason: { $reason }.
-download-file-failed-with-reason  = Failed to download file { $filename }, Reason: { $reason }.
+download-package-failed-with-reason = Failed to download package { $filename }, Reason: { $reason }.
+download-file-failed-with-reason = Failed to download file { $filename }, Reason: { $reason }.
 download-failed-no-name = Failed to download required file(s)!
 need-more-size = Insufficient storage space: { $a } is available, but { $n } is needed.
 successfully-download-to-path = Successfully downloaded { $len } package(s) to path: { $path }.
@@ -227,7 +227,7 @@ search-tips-not-found = Your search did not return any match (press [/] to retry
 doplicate-component = Duplicate sources entries found in source configuration: { $url } { $c }.
 resolving-dependencies = Resolving dependencies ...
 auth-need-permission = The repository shipping the package(s) may require authorization. Please run oma with elevated privileges, as it needs to read the authorization configurations.
-lack-auth-config-1 = oma is unable to access the specified package(s) from the repository due to missing authorization configurations. 
+lack-auth-config-1 = oma is unable to access the specified package(s) from the repository due to missing authorization configurations.
 lack-auth-config-2 = Please verify if your APT authorization configurations (/etc/apt/auth.conf.d) were set up correctly.
 success = The operation was completed successfully.
 topics-unchanged = oma was unable complete topic opt-out operation(s) and has kept the topic status unchanged.
@@ -237,9 +237,7 @@ status-package = Processing package { $pkg }
 update-available = System Update(s) Available
 update-available-2 = oma has found the following updates are available for your system:
 tum-1 = oma has found { $updates } updates available for your system:
-tum-1-with-security =
-    oma has found { $updates } updates available for your system ({ $security } security updates are
-    marked in { $security_str }):
+tum-1-with-security = oma has found { $updates } updates available for your system (including { $security } { $security_str }):
 tum-2 =
     In order to fulfill the operations you specified, oma will need to perform the
     following changes to your system components. Details of the component changes
