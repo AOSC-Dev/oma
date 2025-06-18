@@ -53,7 +53,7 @@ jobs:
         run: sudo apt-get -y update && sudo apt-get -y install libapt-pkg-dev nettle-dev libssl-dev libclang-dev clang llvm
       - name: Build
         run: cargo build
-      - name: Build with generic feature
-        run: cargo build --no-default-features --features generic
+      - name: Build without aosc feature
+        run: cargo build --no-default-features --features nice-setup
       - name: Test
         run: cargo test --workspace
