@@ -73,9 +73,9 @@ impl Display for Operation {
         match self {
             Operation::Package { name, version } => {
                 if let Some(ver) = version {
-                    writeln!(f, "+ {} ({})", name, ver)?;
+                    writeln!(f, "+ {name} ({ver})")?;
                 } else {
-                    writeln!(f, "- {}", name)?;
+                    writeln!(f, "- {name}")?;
                 }
             }
             Operation::Upgrade => writeln!(f, "{}", fl!("tui-upgrade"))?,

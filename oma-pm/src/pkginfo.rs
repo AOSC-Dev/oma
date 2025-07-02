@@ -118,7 +118,7 @@ pub enum OmaDepType {
 
 impl Display for OmaDepType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -194,10 +194,10 @@ impl Display for PackageInfo {
             ..
         } = self;
 
-        writeln!(f, "Package: {}", package)?;
-        writeln!(f, "Version: {}", version)?;
-        writeln!(f, "Section: {}", section)?;
-        writeln!(f, "Maintainer: {}", maintainer)?;
+        writeln!(f, "Package: {package}")?;
+        writeln!(f, "Version: {version}")?;
+        writeln!(f, "Section: {section}")?;
+        writeln!(f, "Maintainer: {maintainer}")?;
         writeln!(f, "Install-Size: {}", HumanBytes(*install_size))?;
         for (k, v) in dep_map {
             writeln!(f, "{k}: {v}")?;
@@ -215,12 +215,12 @@ impl Display for PackageInfo {
             2.. => {
                 writeln!(f)?;
                 for i in apt_sources_without_dpkg {
-                    writeln!(f, "  {}", i)?;
+                    writeln!(f, "  {i}")?;
                 }
             }
         }
 
-        writeln!(f, "Description: {}", description)?;
+        writeln!(f, "Description: {description}")?;
 
         Ok(())
     }
@@ -255,15 +255,15 @@ impl Display for AptSource {
         write!(f, "{}", &self.archive_uri)?;
 
         if let Some(archive) = &self.archive {
-            write!(f, " {}", archive)?;
+            write!(f, " {archive}")?;
         }
 
         if let Some(comp) = &self.component {
-            write!(f, "/{}", comp)?;
+            write!(f, "/{comp}")?;
         }
 
         if let Some(arch) = &self.arch {
-            write!(f, " {}", arch)?;
+            write!(f, " {arch}")?;
         }
 
         if let Some(ft) = &self.index_type {
@@ -273,7 +273,7 @@ impl Display for AptSource {
                 _ => "",
             };
 
-            write!(f, " {}", ft)?;
+            write!(f, " {ft}")?;
         }
 
         Ok(())

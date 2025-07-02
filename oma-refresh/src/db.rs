@@ -703,8 +703,8 @@ fn collect_flat_repo_no_release(
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
     };
 
-    let download_url = format!("{}/Packages", dist_url);
-    let file_path = format!("{}Packages", dist_url);
+    let download_url = format!("{dist_url}/Packages");
+    let file_path = format!("{dist_url}Packages");
 
     let sources = vec![DownloadSource {
         url: download_url.clone(),
@@ -793,14 +793,14 @@ fn collect_download_task(
 
     let file_path = if c.keep_compress {
         if release.acquire_by_hash() {
-            Cow::Owned(format!("{}/{}", dist_url, c.item.name))
+            Cow::Owned(format!("{dist_url}/{}", c.item.name))
         } else {
             Cow::Borrowed(&download_url)
         }
     } else if dist_url.ends_with('/') {
-        Cow::Owned(format!("{}{}", dist_url, not_compress_filename_before))
+        Cow::Owned(format!("{dist_url}{not_compress_filename_before}"))
     } else {
-        Cow::Owned(format!("{}/{}", dist_url, not_compress_filename_before))
+        Cow::Owned(format!("{dist_url}/{not_compress_filename_before}"))
     };
 
     let file_name = replacer.replace(&file_path)?;

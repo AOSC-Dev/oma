@@ -98,7 +98,7 @@ impl Display for PkgWrapper<'_> {
         f.write_str(&self.package.fullname(true))?;
 
         if let Some(comp_and_version) = &self.comp_and_version {
-            write!(f, " {}", style(format!("({})", comp_and_version)).yellow())?;
+            write!(f, " {}", style(format!("({comp_and_version})")).yellow())?;
         } else if let Some(cand) = self.package.candidate() {
             write!(f, " {}", style(format!("({})", cand.version())).yellow())?;
         }
@@ -165,7 +165,7 @@ impl CliExecuter for Tree {
             };
 
             if no_pager {
-                writeln!(stdout(), "{}", tree).ok();
+                writeln!(stdout(), "{tree}").ok();
             } else {
                 res.push(tree);
             }

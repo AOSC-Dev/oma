@@ -311,7 +311,7 @@ impl OmaMultiProgressBar {
         let last = errs.iter().skip(1).last();
 
         if let Some(last_cause) = last {
-            let reason = format!("{}: {}", first_cause, last_cause);
+            let reason = format!("{first_cause}: {last_cause}");
             if is_refresh {
                 self.error(&fl!(
                     "download-file-failed-with-reason",
@@ -484,7 +484,7 @@ fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
     let last = errs.iter().skip(1).last();
 
     if let Some(last_cause) = last {
-        let reason = format!("{}: {}", first_cause, last_cause);
+        let reason = format!("{first_cause}: {last_cause}");
         error!(
             "{}",
             fl!(

@@ -2,8 +2,8 @@ use std::{fmt::Display, path::PathBuf};
 
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
-use dialoguer::console::style;
 use oma_console::{
+    console::style,
     pager::Pager,
     print::Action,
     writer::{MessageType, gen_prefix, writeln_inner},

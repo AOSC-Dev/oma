@@ -111,7 +111,7 @@ impl Display for TopicDisplay<'_> {
 
         let s = select_tui_display_msg(&s, true);
 
-        write!(f, "{}", s)?;
+        write!(f, "{s}")?;
 
         Ok(())
     }

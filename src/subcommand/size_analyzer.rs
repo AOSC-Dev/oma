@@ -354,7 +354,7 @@ impl<'a> PkgWrapper<'a> {
 
         let human_size = style(HumanBytes(size).to_string()).green().to_string();
         let percent = get_percent(size, total_installed_size);
-        let percent_str = format!("{:.1}%", percent);
+        let percent_str = format!("{percent:.1}%");
         let bar = make_bar(size as f64 / total_installed_size as f64, BAR_BLOCK_LENGTH);
         let mut name = self.pkg.fullname(true);
 
