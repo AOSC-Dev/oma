@@ -71,7 +71,7 @@ impl From<&InstallHistoryEntry> for InstallEntryDisplay {
                 new_version.replace_range(new.., &style(&new_version[new..]).green().to_string());
             }
 
-            format!("{} -> {}", old_version, new_version)
+            format!("{old_version} -> {new_version}")
         } else {
             value.new_version.to_string()
         };
@@ -174,7 +174,7 @@ impl From<&InstallEntry> for InstallEntryDisplay {
                 new_version.replace_range(new.., &style(&new_version[new..]).green().to_string());
             }
 
-            format!("{} -> {}", old_version, new_version)
+            format!("{old_version} -> {new_version}")
         } else {
             value.new_version().to_string()
         };

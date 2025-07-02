@@ -39,7 +39,7 @@ impl DatabaseFilenameReplacer {
         };
 
         let url = if let Some(host) = host {
-            Cow::Owned(format!("{}{}", host, path))
+            Cow::Owned(format!("{host}{path}"))
         } else {
             Cow::Borrowed(path)
         };

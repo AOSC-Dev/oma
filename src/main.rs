@@ -202,7 +202,7 @@ fn init_localizer() {
     let requested_languages = DesktopLanguageRequester::requested_languages();
 
     if let Err(error) = localizer.select(&requested_languages) {
-        eprintln!("Error while loading languages for library_fluent {}", error);
+        eprintln!("Error while loading languages for library_fluent {error}");
     }
 
     // Windows Terminal doesn't support bidirectional (BiDi) text, and renders the isolate characters incorrectly.
@@ -314,7 +314,7 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> (WorkerGuard, String)
                         break;
                     };
 
-                    let log_path = log_dir.join(format!("oma.log.{}", pop));
+                    let log_path = log_dir.join(format!("oma.log.{pop}"));
                     if let Err(e) = remove_file(&log_path) {
                         debug!("Failed to remove file {}: {}", log_path.display(), e);
                     }

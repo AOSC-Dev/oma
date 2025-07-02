@@ -293,7 +293,7 @@ impl<'a> TopicManager<'a> {
 
         let mut new_source_list = String::new();
 
-        new_source_list.push_str(&format!("{}\n", source_list_comment));
+        new_source_list.push_str(&format!("{source_list_comment}\n"));
 
         let write_source = if revert {
             &self.old_enabled

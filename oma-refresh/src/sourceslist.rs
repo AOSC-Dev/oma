@@ -197,14 +197,14 @@ impl<'a> OmaSourceEntry<'a> {
             if self.is_flat() {
                 if suite == "/" {
                     if !url.ends_with('/') {
-                        format!("{}{}", url, suite)
+                        format!("{url}{suite}")
                     } else {
                         url.to_string()
                     }
                 } else if url.ends_with('/') {
-                    format!("{}{}", url, suite)
+                    format!("{url}{suite}")
                 } else {
-                    format!("{}/{}", url, suite)
+                    format!("{url}/{suite}")
                 }
             } else {
                 self.source.dist_path()
@@ -335,18 +335,18 @@ impl MirrorSource<'_> {
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
             index,
-            msg: format!("({}/{}) {}", index, total, msg),
+            msg: format!("({index}/{total}) {msg}"),
         }))
         .await;
 
-        let mut url = format!("{}/InRelease", dist_path);
+        let mut url = format!("{dist_path}/InRelease");
         let mut is_release = false;
 
         let resp = match self.send_request(client, &url, Method::GET).await {
             Ok(resp) => resp,
             Err(e) => {
                 debug!("{e}");
-                url = format!("{}/Release", dist_path);
+                url = format!("{dist_path}/Release");
                 let resp = self.send_request(client, &url, Method::GET).await;
 
                 if resp.is_err() && self.is_flat() {
@@ -500,7 +500,7 @@ impl MirrorSource<'_> {
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
             index,
-            msg: format!("({}/{}) {}", index, total, msg),
+            msg: format!("({index}/{total}) {msg}"),
         }))
         .await;
 
@@ -510,9 +510,9 @@ impl MirrorSource<'_> {
             let p = dist_path.join(entry);
 
             let dst = if dist_path_with_protocol.ends_with('/') {
-                format!("{}{}", dist_path_with_protocol, entry)
+                format!("{dist_path_with_protocol}{entry}")
             } else {
-                format!("{}/{}", dist_path_with_protocol, entry)
+                format!("{dist_path_with_protocol}/{entry}")
             };
 
             let file_name = replacer.replace(&dst)?;
@@ -551,9 +551,9 @@ impl MirrorSource<'_> {
             let entry = "Release.gpg";
 
             let dst = if dist_path_with_protocol.ends_with('/') {
-                format!("{}{}", dist_path_with_protocol, entry)
+                format!("{dist_path_with_protocol}{entry}")
             } else {
-                format!("{}/{}", dist_path_with_protocol, entry)
+                format!("{dist_path_with_protocol}/{entry}")
             };
 
             let file_name = replacer.replace(&dst)?;

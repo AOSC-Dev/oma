@@ -170,10 +170,10 @@ fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt)
         let i = if *i == RecordField::Size {
             style("Download-Size:").bold().to_string()
         } else {
-            style(format!("{}:", i)).bold().to_string()
+            style(format!("{i}:")).bold().to_string()
         };
 
-        writeln!(stdout, "{} {}", i, v).ok();
+        writeln!(stdout, "{i} {v}").ok();
     }
 
     let apt_sources = version
@@ -197,7 +197,7 @@ fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt)
         2.. => {
             writeln!(stdout).ok();
             for i in apt_sources_without_dpkg {
-                writeln!(stdout, "  {}", i).ok();
+                writeln!(stdout, "  {i}").ok();
             }
         }
     }

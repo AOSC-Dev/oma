@@ -369,7 +369,7 @@ impl<'a> SingleDownloader<'a> {
 
             // 发送 RANGE 的头，传入的是已经下载的文件的大小
             debug!("oma will set header range as bytes={file_size}-");
-            req = req.header(RANGE, format!("bytes={}-", file_size));
+            req = req.header(RANGE, format!("bytes={file_size}-"));
         }
 
         debug!("Can resume? {can_resume}");

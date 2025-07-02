@@ -118,7 +118,7 @@ pub(crate) fn handle_no_result(
                 Mode::BinProvides,
                 word,
                 |(pkg, file)| {
-                    if file == format!("/usr/bin/{}", word) {
+                    if file == format!("/usr/bin/{word}") {
                         bin.insert((pkg, word));
                     }
                 },
@@ -754,9 +754,9 @@ pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
     for (index, f) in features.iter().enumerate() {
         if let Some(v) = features_data.get(f) {
             let text = v.get(lang).unwrap_or_else(|| v.get("en_US").unwrap());
-            res.push_str(&format!("  * {}", text));
+            res.push_str(&format!("  * {text}"));
         } else {
-            res.push_str(&format!("  * {}", f));
+            res.push_str(&format!("  * {f}"));
         }
 
         if index != features.len() - 1 {

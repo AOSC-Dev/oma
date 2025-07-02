@@ -466,7 +466,7 @@ pub fn speedtest(
                         info!("{}", msg);
                     }
                 } else {
-                    let msg = format!("{}: Checksum verification failed.", name);
+                    let msg = format!("{name}: Checksum verification failed.");
                     if let Some(ref pb) = pb {
                         pb.writeln(&style("ERROR").red().bold().to_string(), &msg)
                             .ok();

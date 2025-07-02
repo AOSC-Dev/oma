@@ -448,7 +448,7 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::DownloadManagerBuilderError(builder_error) => match builder_error {
                 BuilderError::EmptySource { file_name } => Self {
-                    description: format!("BUG: task {} should is not empty", file_name),
+                    description: format!("BUG: task {file_name} should is not empty"),
                     source: None,
                 },
                 BuilderError::IllegalDownloadThread { count } => Self {
@@ -657,7 +657,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                         let readson = &dep[0].reason;
 
                         if let Some(reason) = readson {
-                            output += &format!(" {}", reason);
+                            output += &format!(" {reason}");
                         }
 
                         if dep.len() > 1 {
