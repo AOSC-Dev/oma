@@ -60,15 +60,21 @@ During runtime, oma requires or recommends the following:
    cd oma
    ```
 
-2. Build the binary as an installable .deb package (Ubuntu/Debian):
+2. Install build dependencies:
 
    ```bash
    apt install build-essential zlib1g-dev libssl-dev pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang libbz2-dev liblzma-dev
+   curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
    cargo install cargo-deb
-   cargo deb -Z xz
    ```
 
-3. Install and profit!
+3. Build the binary as an installable .deb package (Ubuntu/Debian):
+
+   ```bash
+   just deb
+   ```
+
+4. Install and profit!
 
 ## Usage
 
