@@ -51,7 +51,7 @@ During runtime, oma requires or recommends the following:
 
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (optional, accelerates `oma provides`, `oma files`, and `oma command-not-found`)
 
-#### Build Procedure
+#### Build Procedure (Ubuntu/Debian)
 
 1. Clone the repository:
 
@@ -68,7 +68,7 @@ During runtime, oma requires or recommends the following:
    cargo install cargo-deb
    ```
 
-3. Build the binary as an installable .deb package (Ubuntu/Debian):
+3. Build the binary as an installable .deb package:
 
    ```bash
    just deb
