@@ -9,7 +9,7 @@ pub mod history;
 pub mod install;
 pub mod list;
 pub mod mark;
-#[cfg(feature = "aosc")]
+#[cfg(feature = "mirror")]
 pub mod mirror;
 pub mod pick;
 pub mod rdepends;

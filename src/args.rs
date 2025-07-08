@@ -33,9 +33,6 @@ use crate::{
 };
 
 #[cfg(feature = "aosc")]
-use crate::mirror::CliMirror;
-
-#[cfg(feature = "aosc")]
 use crate::topics::Topics;
 
 #[enum_dispatch]
@@ -110,10 +107,10 @@ pub enum SubCmd {
     /// Manage testing topics enrollment
     #[command(visible_alias = "topic")]
     Topics(Topics),
-    #[cfg(feature = "aosc")]
+    #[cfg(feature = "mirror")]
     /// Manage Mirrors enrollment
     #[command(visible_alias = "mirrors")]
-    Mirror(CliMirror),
+    Mirror(crate::mirror::CliMirror),
     /// purge (like apt purge) the specified package(s)
     #[command(hide = true)]
     Purge(Purge),
