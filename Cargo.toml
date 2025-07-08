@@ -73,7 +73,8 @@ unic-langid = "0.9.5"
 sys-locale = "0.3"
 
 [features]
-aosc = ["dep:oma-topics", "dep:oma-mirror", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "reqwest/blocking"]
+aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "dep:oma-mirror", "reqwest/blocking"]
+mirror = []
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
 egg = ["dep:colored", "dep:image"]
@@ -82,7 +83,7 @@ rustls = ["reqwest/rustls-tls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-t
 openssl = ["reqwest/native-tls", "oma-fetch/native-tls", "oma-refresh/native-tls", "oma-topics/native-tls"]
 nice-setup = ["sequoia-nettle-backend", "rustls", "oma-refresh/apt"]
 openssl-setup = ["sequoia-openssl-backend", "openssl", "oma-refresh/apt"]
-default = ["aosc", "nice-setup"]
+default = ["aosc", "nice-setup", "mirror"]
 
 [workspace]
 members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify", "oma-mirror", "apt-auth-config"]
