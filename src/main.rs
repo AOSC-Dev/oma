@@ -2,7 +2,7 @@ use std::env::{self, args};
 use std::ffi::CString;
 use std::fs::{create_dir_all, read_dir, remove_file};
 use std::io::{self, IsTerminal, stderr, stdin};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use std::process::exit;
 use std::sync::{LazyLock, OnceLock};
@@ -41,7 +41,7 @@ use reqwest::Client;
 use rustix::stdio::stdout;
 use subcommand::utils::{LockError, is_terminal};
 use tokio::runtime::Runtime;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -164,7 +164,8 @@ fn main() {
     console_subscriber::init();
 
     #[cfg(not(feature = "tokio-console"))]
-    let (_guard, log_file) = init_logger(&oma, &config);
+    let (_guard, file) = init_logger(&oma, &config);
+
     debug!(
         "Run oma with args: {} (pid: {})",
         args().collect::<Vec<_>>().join(" "),
@@ -172,7 +173,15 @@ fn main() {
     );
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
     debug!("OS: {:?}", OsRelease::new());
-    debug!("Log file: {}", log_file);
+
+    match file {
+        Ok(file) => {
+            debug!("Log file: {}", file);
+        }
+        Err(e) => {
+            warn!("Failed to write log to file: {e}");
+        }
+    }
 
     let code = match try_main(oma, &config) {
         Ok(exit_code) => {
@@ -211,7 +220,7 @@ fn init_localizer() {
     LANGUAGE_LOADER.set_use_isolating(false);
 }
 
-macro_rules! init_with_file_logger {
+macro_rules! init_logger_inner {
     ($context:ident, $non_blocking:ident) => {{
         let debug_filter: EnvFilter = "hyper=off,rustls=off,debug".parse().unwrap();
         $context
@@ -223,9 +232,13 @@ macro_rules! init_with_file_logger {
             )
             .init()
     }};
+    ($context:ident) => {{ $context.init() }};
 }
 
-fn init_logger(oma: &OhManagerAilurus, config: &Config) -> (WorkerGuard, String) {
+fn init_logger(
+    oma: &OhManagerAilurus,
+    config: &Config,
+) -> (Option<WorkerGuard>, anyhow::Result<String>) {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
 
@@ -237,17 +250,8 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> (WorkerGuard, String)
             .join("oma")
     };
 
-    create_dir_all(&log_dir).expect("Failed to create log dir");
-    let log_file = format!(
-        "oma.log.{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-    );
-    let file_appender = tracing_appender::rolling::never(&log_dir, &log_file);
-    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-    let log_file = log_dir.join(log_file).to_string_lossy().to_string();
+    let log_file = create_log_file(&log_dir);
+    let mut log_guard = None;
 
     if !debug && !dry_run {
         let no_i18n_embd: EnvFilter = "i18n_embed=off,info".parse().unwrap();
@@ -258,7 +262,14 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> (WorkerGuard, String)
                 .with_filter(no_i18n_embd),
         );
 
-        init_with_file_logger!(context, non_blocking);
+        if let Ok(log_file) = &log_file {
+            let file_appender = tracing_appender::rolling::never(&log_dir, log_file);
+            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+            init_logger_inner!(context, non_blocking);
+            log_guard = Some(guard);
+        } else {
+            init_logger_inner!(context);
+        }
     } else {
         let filter = EnvFilter::try_from_default_env()
             .unwrap_or_else(|_| "hyper=off,rustls=off,debug".parse().unwrap());
@@ -274,56 +285,82 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> (WorkerGuard, String)
                 .with_filter(filter),
         );
 
-        init_with_file_logger!(context, non_blocking);
+        if let Ok(log_file) = &log_file {
+            let file_appender = tracing_appender::rolling::never(&log_dir, log_file);
+            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+            init_logger_inner!(context, non_blocking);
+            log_guard = Some(guard);
+        } else {
+            init_logger_inner!(context);
+        }
     }
 
-    thread::scope(|s| {
-        s.spawn(|| {
-            let mut v = vec![];
-            let dirs = read_dir(&log_dir)
-                .expect("Failed to read log dir")
-                .collect::<Vec<_>>();
+    // 日志文件创建成功再去遍历文件
+    if log_file.is_ok() {
+        thread::scope(|s| {
+            s.spawn(|| {
+                let mut v = vec![];
+                let dirs = read_dir(&log_dir)
+                    .expect("Failed to read log dir")
+                    .collect::<Vec<_>>();
 
-            for p in &dirs {
-                let Ok(p) = p else {
-                    continue;
-                };
-
-                let file_name = p.file_name();
-                let file_name = file_name.to_string_lossy();
-                let Some((prefix, timestamp)) = file_name.rsplit_once('.') else {
-                    continue;
-                };
-
-                if prefix != "oma.log" {
-                    continue;
-                }
-
-                let Ok(timestamp) = timestamp.parse::<usize>() else {
-                    continue;
-                };
-
-                v.push(timestamp);
-            }
-
-            if v.len() > config.save_log_count() {
-                v.sort_unstable_by(|a, b| b.cmp(a));
-
-                for _ in 1..=(v.len() - config.save_log_count()) {
-                    let Some(pop) = v.pop() else {
-                        break;
+                for p in &dirs {
+                    let Ok(p) = p else {
+                        continue;
                     };
 
-                    let log_path = log_dir.join(format!("oma.log.{}", pop));
-                    if let Err(e) = remove_file(&log_path) {
-                        debug!("Failed to remove file {}: {}", log_path.display(), e);
+                    let file_name = p.file_name();
+                    let file_name = file_name.to_string_lossy();
+                    let Some((prefix, timestamp)) = file_name.rsplit_once('.') else {
+                        continue;
+                    };
+
+                    if prefix != "oma.log" {
+                        continue;
+                    }
+
+                    let Ok(timestamp) = timestamp.parse::<usize>() else {
+                        continue;
+                    };
+
+                    v.push(timestamp);
+                }
+
+                if v.len() > config.save_log_count() {
+                    v.sort_unstable_by(|a, b| b.cmp(a));
+
+                    for _ in 1..=(v.len() - config.save_log_count()) {
+                        let Some(pop) = v.pop() else {
+                            break;
+                        };
+
+                        let log_path = log_dir.join(format!("oma.log.{pop}"));
+                        if let Err(e) = remove_file(&log_path) {
+                            debug!("Failed to remove file {}: {}", log_path.display(), e);
+                        }
                     }
                 }
-            }
+            });
         });
-    });
+    }
 
-    (guard, log_file)
+    (log_guard, log_file)
+}
+
+fn create_log_file(log_dir: &Path) -> anyhow::Result<String> {
+    create_dir_all(log_dir)?;
+
+    let log_file = format!(
+        "oma.log.{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    );
+
+    let log_file = log_dir.join(log_file).to_string_lossy().to_string();
+
+    Ok(log_file)
 }
 
 #[inline]
