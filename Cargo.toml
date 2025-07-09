@@ -66,8 +66,8 @@ oma-mirror = { path = "./oma-mirror", optional = true }
 apt-auth-config = { path = "./apt-auth-config" }
 
 # i18n
-i18n-embed = { version = "0.15.0", features = ["fluent-system", "desktop-requester"]}
-i18n-embed-fl = "0.9.1"
+i18n-embed = { version = "0.16.0", features = ["fluent-system", "desktop-requester"]}
+i18n-embed-fl = "0.10"
 rust-embed = "8.5.0"
 unic-langid = "0.9.5"
 sys-locale = "0.3"
