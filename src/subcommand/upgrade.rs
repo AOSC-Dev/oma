@@ -424,33 +424,33 @@ pub fn get_matches_tum<'a>(
 
     for i in tum {
         for (name, entry) in &i.entries {
-            if let TopicUpdateEntry::Cumulative { topics, .. } = entry {
-                if topics.iter().all(|x| matches.contains_key(x.as_str())) {
-                    let mut count_packages_changed_tmp = 0;
+            if let TopicUpdateEntry::Cumulative { topics, .. } = entry
+                && topics.iter().all(|x| matches.contains_key(x.as_str()))
+            {
+                let mut count_packages_changed_tmp = 0;
 
-                    for t in topics {
-                        let t = matches.remove(t.as_str()).unwrap();
+                for t in topics {
+                    let t = matches.remove(t.as_str()).unwrap();
 
-                        let TopicUpdateEntryRef::Conventional { packages, .. } = t else {
-                            unreachable!()
-                        };
-
-                        count_packages_changed_tmp += packages.len();
-                    }
-
-                    let mut entry = TopicUpdateEntryRef::from(entry);
-
-                    let TopicUpdateEntryRef::Cumulative {
-                        count_packages_changed,
-                        ..
-                    } = &mut entry
-                    else {
+                    let TopicUpdateEntryRef::Conventional { packages, .. } = t else {
                         unreachable!()
                     };
 
-                    *count_packages_changed = count_packages_changed_tmp;
-                    matches.insert(name.as_str(), entry);
+                    count_packages_changed_tmp += packages.len();
                 }
+
+                let mut entry = TopicUpdateEntryRef::from(entry);
+
+                let TopicUpdateEntryRef::Cumulative {
+                    count_packages_changed,
+                    ..
+                } = &mut entry
+                else {
+                    unreachable!()
+                };
+
+                *count_packages_changed = count_packages_changed_tmp;
+                matches.insert(name.as_str(), entry);
             }
         }
     }
@@ -473,12 +473,10 @@ fn install_pkg_on_topic(
         None => return false,
     };
 
-    if let Some((prefix, suffix)) = install_ver.rsplit_once("~pre") {
-        if is_topic_preversion(suffix) {
-            return tum_version == prefix;
-        } else {
-            return tum_version == install_ver;
-        }
+    if let Some((prefix, suffix)) = install_ver.rsplit_once("~pre")
+        && is_topic_preversion(suffix)
+    {
+        return tum_version == prefix;
     }
 
     tum_version == install_ver
