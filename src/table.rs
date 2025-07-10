@@ -273,6 +273,12 @@ pub struct PagerPrinter<W> {
     writer: W,
 }
 
+#[allow(dead_code)]
+pub enum TableStyle {
+    Psql,
+    Modern,
+}
+
 impl<W: Write> PagerPrinter<W> {
     pub fn new(writer: W) -> PagerPrinter<W> {
         PagerPrinter { writer }
@@ -282,11 +288,16 @@ impl<W: Write> PagerPrinter<W> {
         writeln!(self.writer, "{d}")
     }
 
+    pub fn print<D: Display>(&mut self, d: D) -> std::io::Result<()> {
+        write!(self.writer, "{d}")
+    }
+
     pub fn print_table<T, I>(
         &mut self,
         table: I,
         header: Vec<&str>,
         len: Option<usize>,
+        style: Option<TableStyle>,
     ) -> std::io::Result<()>
     where
         I: IntoIterator<Item = T>,
@@ -307,11 +318,18 @@ impl<W: Write> PagerPrinter<W> {
             }
         }
 
+        match style {
+            Some(s) => match s {
+                TableStyle::Psql => table.with(Style::psql()),
+                TableStyle::Modern => table.with(Style::modern()),
+            },
+            None => table.with(Style::psql()),
+        };
+
         table
             .with(Padding::new(2, 2, 0, 0))
             .with(Alignment::left())
             .modify(Columns::new(2..3), Alignment::left())
-            .with(Style::psql())
             .with(
                 Width::wrap(display_len)
                     .priority(PriorityMax::left())
@@ -460,12 +478,32 @@ pub fn table_for_history_pending(
     Ok(())
 }
 
-#[derive(Debug, Tabled)]
+#[derive(Debug)]
 struct TumDisplay {
     name: String,
     caution: String,
-    #[tabled(skip)]
     security: bool,
+}
+
+impl Display for TumDisplay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.security {
+            writeln!(f, "  # {}", style(&self.name).bold().red())?;
+        } else {
+            writeln!(f, "  # {}", style(&self.name).bold().blue())?;
+        }
+
+        let length = WRITER.get_length();
+        let length = if length > 80 { 80 } else { length } as usize;
+
+        if !self.caution.is_empty() {
+            for i in textwrap::wrap(&self.caution, length) {
+                writeln!(f, "    {i}")?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 fn print_pending_inner<W: Write>(
@@ -497,6 +535,7 @@ fn print_pending_inner<W: Write>(
                     fl!("table-detail").as_str(),
                 ],
                 None,
+                None,
             )
             .ok();
         printer.println("\n").ok();
@@ -527,6 +566,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-size").as_str(),
                     ],
                     None,
+                    None,
                 )
                 .ok();
             printer.println("\n").ok();
@@ -555,6 +595,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
                     ],
+                    None,
                     None,
                 )
                 .ok();
@@ -585,6 +626,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-size").as_str(),
                     ],
                     None,
+                    None,
                 )
                 .ok();
             printer.println("\n").ok();
@@ -613,6 +655,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
                     ],
+                    None,
                     None,
                 )
                 .ok();
@@ -739,13 +782,11 @@ fn print_tum(
         }
 
         tum_display.sort_by(|a, b| b.security.cmp(&a.security));
-        printer
-            .print_table(
-                tum_display,
-                vec![fl!("tum-name").as_str(), fl!("tum-notes").as_str()],
-                Some(80),
-            )
-            .ok();
+
+        for i in tum_display {
+            printer.print(i).ok();
+        }
+
         printer.println("").ok();
         printer.println(fl!("tum-2")).ok();
         printer.println("").ok();
