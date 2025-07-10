@@ -2775,6 +2775,7 @@ dependencies = [
  "sys-locale",
  "tabled",
  "termtree",
+ "textwrap",
  "tokio",
  "toml 0.9.0",
  "tracing",

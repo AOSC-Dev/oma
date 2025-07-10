@@ -288,6 +288,10 @@ impl<W: Write> PagerPrinter<W> {
         writeln!(self.writer, "{d}")
     }
 
+    pub fn print<D: Display>(&mut self, d: D) -> std::io::Result<()> {
+        write!(self.writer, "{d}")
+    }
+
     pub fn print_table<T, I>(
         &mut self,
         table: I,
@@ -474,12 +478,32 @@ pub fn table_for_history_pending(
     Ok(())
 }
 
-#[derive(Debug, Tabled)]
+#[derive(Debug)]
 struct TumDisplay {
     name: String,
     caution: String,
-    #[tabled(skip)]
     security: bool,
+}
+
+impl Display for TumDisplay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.security {
+            writeln!(f, "  # {}", style(&self.name).bold().red())?;
+        } else {
+            writeln!(f, "  # {}", style(&self.name).bold().blue())?;
+        }
+
+        let length = WRITER.get_length();
+        let length = if length > 80 { 80 } else { length } as usize;
+
+        if !self.caution.is_empty() {
+            for i in textwrap::wrap(&self.caution, length) {
+                writeln!(f, "    {i}")?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 fn print_pending_inner<W: Write>(
@@ -758,14 +782,11 @@ fn print_tum(
         }
 
         tum_display.sort_by(|a, b| b.security.cmp(&a.security));
-        printer
-            .print_table(
-                tum_display,
-                vec![fl!("tum-name").as_str(), fl!("tum-notes").as_str()],
-                Some(80),
-                Some(TableStyle::Modern),
-            )
-            .ok();
+
+        for i in tum_display {
+            printer.print(i).ok();
+        }
+
         printer.println("").ok();
         printer.println(fl!("tum-2")).ok();
         printer.println("").ok();
