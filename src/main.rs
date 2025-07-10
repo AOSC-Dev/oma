@@ -21,9 +21,6 @@ mod table;
 mod tui;
 mod utils;
 
-#[cfg(feature = "egg")]
-mod egg;
-
 use args::{CliExecuter, OhManagerAilurus, print_version};
 use clap::builder::FalseyValueParser;
 use clap::{ArgAction, Args, ColorChoice, CommandFactory, Parser};
@@ -54,8 +51,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use oma_console::console;
 
 use crate::config::Config;
-#[cfg(feature = "egg")]
-use crate::egg::ailurus;
 use crate::error::Chain;
 use crate::subcommand::*;
 
@@ -370,20 +365,6 @@ fn enable_ansi(oma: &OhManagerAilurus) -> bool {
 }
 
 fn try_main(oma: OhManagerAilurus, config: &Config) -> Result<i32, OutputError> {
-    // Egg
-    #[cfg(feature = "egg")]
-    {
-        let a = matches.get_count("ailurus");
-        if a != 0 {
-            ailurus()?;
-            if a == 3 {
-                AILURUS.store(true, Ordering::Relaxed);
-            } else {
-                return Ok(3);
-            }
-        }
-    }
-
     init_color_formatter(&oma, config);
 
     let no_progress =
