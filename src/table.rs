@@ -273,6 +273,12 @@ pub struct PagerPrinter<W> {
     writer: W,
 }
 
+#[allow(dead_code)]
+pub enum TableStyle {
+    Psql,
+    Modern,
+}
+
 impl<W: Write> PagerPrinter<W> {
     pub fn new(writer: W) -> PagerPrinter<W> {
         PagerPrinter { writer }
@@ -287,6 +293,7 @@ impl<W: Write> PagerPrinter<W> {
         table: I,
         header: Vec<&str>,
         len: Option<usize>,
+        style: Option<TableStyle>,
     ) -> std::io::Result<()>
     where
         I: IntoIterator<Item = T>,
@@ -307,11 +314,18 @@ impl<W: Write> PagerPrinter<W> {
             }
         }
 
+        match style {
+            Some(s) => match s {
+                TableStyle::Psql => table.with(Style::psql()),
+                TableStyle::Modern => table.with(Style::modern()),
+            },
+            None => table.with(Style::psql()),
+        };
+
         table
             .with(Padding::new(2, 2, 0, 0))
             .with(Alignment::left())
             .modify(Columns::new(2..3), Alignment::left())
-            .with(Style::psql())
             .with(
                 Width::wrap(display_len)
                     .priority(PriorityMax::left())
@@ -497,6 +511,7 @@ fn print_pending_inner<W: Write>(
                     fl!("table-detail").as_str(),
                 ],
                 None,
+                None,
             )
             .ok();
         printer.println("\n").ok();
@@ -527,6 +542,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-size").as_str(),
                     ],
                     None,
+                    None,
                 )
                 .ok();
             printer.println("\n").ok();
@@ -555,6 +571,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
                     ],
+                    None,
                     None,
                 )
                 .ok();
@@ -585,6 +602,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-size").as_str(),
                     ],
                     None,
+                    None,
                 )
                 .ok();
             printer.println("\n").ok();
@@ -613,6 +631,7 @@ fn print_pending_inner<W: Write>(
                         fl!("table-version").as_str(),
                         fl!("table-size").as_str(),
                     ],
+                    None,
                     None,
                 )
                 .ok();
@@ -744,6 +763,7 @@ fn print_tum(
                 tum_display,
                 vec![fl!("tum-name").as_str(), fl!("tum-notes").as_str()],
                 Some(80),
+                Some(TableStyle::Modern),
             )
             .ok();
         printer.println("").ok();

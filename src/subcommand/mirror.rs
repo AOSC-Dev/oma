@@ -516,6 +516,7 @@ pub fn speedtest(
             score_table,
             vec![&fl!("mirror-name"), &fl!("mirror-score")],
             None,
+            None,
         )
         .ok();
 
