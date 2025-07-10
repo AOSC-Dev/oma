@@ -344,12 +344,11 @@ fn pure_search_foreach_result(
         let (file, pkgs) = parse_contents_single_line(&buffer)?;
 
         for pkg in pkgs {
-            if let Some(pkg) = pkg_name(pkg) {
-                if next(pkg, file, query) {
-                    let line = (pkg.to_string(), prefix(file));
-
-                    tx.send(line).unwrap();
-                }
+            if let Some(pkg) = pkg_name(pkg)
+                && next(pkg, file, query)
+            {
+                let line = (pkg.to_string(), prefix(file));
+                tx.send(line).unwrap();
             }
         }
 

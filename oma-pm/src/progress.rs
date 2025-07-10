@@ -70,11 +70,11 @@ impl DynInstallProgress for OmaAptInstallProgress {
         self.pm
             .status_change(&pkgname, steps_done, total_steps, &self.config);
 
-        if let Some(tokio) = self.tokio.get() {
+        if let Some(tokio) = self.tokio.get()
+            && let Some(conn) = conn.get()
+        {
             tokio.block_on(async move {
-                if let Some(conn) = conn.get() {
-                    change_status(conn, &format!("i {pkgname}")).await.ok();
-                }
+                change_status(conn, &format!("i {pkgname}")).await.ok();
             });
         }
     }

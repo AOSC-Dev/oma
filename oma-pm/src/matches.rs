@@ -302,10 +302,10 @@ impl<'a> PackagesMatcher<'a> {
         for i in pkg.versions() {
             let item = i.get_record(RecordField::Filename);
 
-            if let Some(item) = item {
-                if item.split('/').nth(1) == Some(branch) {
-                    sort.push(i)
-                }
+            if let Some(item) = item
+                && item.split('/').nth(1) == Some(branch)
+            {
+                sort.push(i)
             }
         }
 
@@ -347,15 +347,13 @@ impl<'a> PackagesMatcher<'a> {
         res: &mut Vec<OmaPackage>,
     ) -> MatcherResult<()> {
         let dbg_pkg_name = format!("{}-dbg:{}", pkg.name(), version.arch());
-        let dbg_pkg = self.cache.get(&dbg_pkg_name);
         let version_str = version.version();
 
-        if let Some(dbg_pkg) = dbg_pkg {
-            let dbg_ver = dbg_pkg.get_version(version_str);
-            if let Some(dbg_ver) = dbg_ver {
-                let pkginfo_dbg = OmaPackage::new(&dbg_ver, &dbg_pkg)?;
-                res.push(pkginfo_dbg);
-            }
+        if let Some(dbg_pkg) = self.cache.get(&dbg_pkg_name)
+            && let Some(dbg_ver) = dbg_pkg.get_version(version_str)
+        {
+            let pkginfo_dbg = OmaPackage::new(&dbg_ver, &dbg_pkg)?;
+            res.push(pkginfo_dbg);
         }
 
         Ok(())
