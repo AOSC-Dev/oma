@@ -22,8 +22,6 @@ serde_json = "1.0.128"
 toml = "0.9"
 chrono = "0.4.38"
 rustix = { version = "1", features = ["process", "stdio"] }
-colored = { version = "3", optional = true }
-image = { version = "0.25.2", optional = true }
 libc = "0.2.159"
 reqwest = { version = "0.12.8", default-features = false }
 tracing = "0.1.40"
@@ -77,7 +75,6 @@ aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc"
 mirror = []
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
-egg = ["dep:colored", "dep:image"]
 tokio-console = ["dep:console-subscriber"]
 rustls = ["reqwest/rustls-tls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-topics/rustls"]
 openssl = ["reqwest/native-tls", "oma-fetch/native-tls", "oma-refresh/native-tls", "oma-topics/native-tls"]
