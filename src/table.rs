@@ -500,6 +500,8 @@ impl Display for TumDisplay {
             for i in textwrap::wrap(&self.caution, length) {
                 writeln!(f, "    {i}")?;
             }
+        } else {
+            writeln!(f)?;
         }
 
         Ok(())
