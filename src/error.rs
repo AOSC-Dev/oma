@@ -20,6 +20,7 @@ use oma_pm::{apt::OmaAptError, matches::MatcherError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseError;
 use oma_repo_verify::VerifyError;
+use oma_tum::TumError;
 use oma_utils::dbus::OmaDbusError;
 use oma_utils::dpkg::DpkgError;
 
@@ -251,6 +252,29 @@ impl From<OmaDbusError> for OutputError {
                 description: value.to_string(),
                 source: None,
             },
+        }
+    }
+}
+
+impl From<TumError> for OutputError {
+    fn from(value: TumError) -> Self {
+        let p1 = "/var/lib/apt/lists".to_string();
+        match value {
+            TumError::ReadAptListDir { source } => Self {
+                description: fl!("failed-to-operate-path", p = p1),
+                source: Some(Box::new(source)),
+            },
+            TumError::ReadDirEntry { source } => Self {
+                description: "Failed to read dir entry".to_string(),
+                source: Some(Box::new(source)),
+            },
+            TumError::ReadFile { path, source } => {
+                let path = path.to_string_lossy().to_string();
+                Self {
+                    description: fl!("failed-to-operate-path", p = path),
+                    source: Some(Box::new(source)),
+                }
+            }
         }
     }
 }
