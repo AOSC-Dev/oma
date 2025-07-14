@@ -135,7 +135,7 @@ pub fn get_tum(sysroot: &Path) -> Result<Vec<TopicUpdateManifest>, TumError> {
                 path: i.path().to_path_buf(),
             })?;
 
-            let entry: TopicUpdateManifest = match serde_json::from_slice(&f) {
+            let entry = match parse_single_tum(&f) {
                 Ok(entry) => entry,
                 Err(e) => {
                     warn!("Parse {} got error: {}", i.path().display(), e);
@@ -148,6 +148,10 @@ pub fn get_tum(sysroot: &Path) -> Result<Vec<TopicUpdateManifest>, TumError> {
     }
 
     Ok(entries)
+}
+
+pub fn parse_single_tum(bytes: &[u8]) -> Result<TopicUpdateManifest, serde_json::Error> {
+    serde_json::from_slice(bytes)
 }
 
 pub fn get_matches_tum<'a>(
