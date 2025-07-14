@@ -2762,6 +2762,7 @@ dependencies = [
  "oma-refresh",
  "oma-repo-verify",
  "oma-topics",
+ "oma-tum",
  "oma-utils",
  "ratatui",
  "reqwest",
@@ -2999,6 +3000,18 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "oma-tum"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "oma-pm-operation-type",
+ "serde",
+ "serde_json",
+ "snafu",
+ "tracing",
 ]
 
 [[package]]
