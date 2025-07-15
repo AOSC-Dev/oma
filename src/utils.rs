@@ -29,6 +29,8 @@ pub fn root() -> Result<()> {
 
     let mut args = std::env::args().collect::<Vec<_>>();
 
+    // 检测是否有 DISPLAY，如果有，则在提权时使用 pkexec
+    // 通常情况下 SSH 连接不会有 DISPLAY 环境变量，除非开启 X11 Forwarding
     if (env::var("DISPLAY").is_ok() || env::var("WAYLAND_DISPLAY").is_ok()) && !is_wsl() {
         // Workaround: 使用 pkexec 执行其它程序时，若你指定了相对路径
         // pkexec 并不会以当前路径作为起点寻求这个位置
