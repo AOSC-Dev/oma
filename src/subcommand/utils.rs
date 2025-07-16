@@ -404,8 +404,7 @@ impl CommitChanges<'_> {
         } else {
             match table_for_install_pending(install, remove, *disk_size, None, !yes, dry_run)? {
                 PagerExit::NormalExit => {}
-                x @ PagerExit::Sigint => return Ok(x.into()),
-                x @ PagerExit::DryRun => return Ok(x.into()),
+                x => return Ok(x.into()),
             }
         }
 

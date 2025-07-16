@@ -29,7 +29,7 @@ pub trait RenderRefreshProgress {
     fn render_refresh_progress(&mut self, rx: &flume::Receiver<RefreshEvent>);
 }
 
-trait Print {
+pub trait Print {
     fn info(&self, msg: &str);
     fn warn(&self, msg: &str);
     fn error(&self, msg: &str);
@@ -37,6 +37,26 @@ trait Print {
 
 pub struct OmaProgressBar {
     pub inner: ProgressBar,
+}
+
+impl Print for OmaProgressBar {
+    #[inline]
+    fn info(&self, msg: &str) {
+        self.writeln(&style("INFO").blue().bold().to_string(), msg)
+            .ok();
+    }
+
+    #[inline]
+    fn warn(&self, msg: &str) {
+        self.writeln(&style("WARNING").yellow().bold().to_string(), msg)
+            .ok();
+    }
+
+    #[inline]
+    fn error(&self, msg: &str) {
+        self.writeln(&style("ERROR").red().bold().to_string(), msg)
+            .ok();
+    }
 }
 
 impl OmaProgressBar {
