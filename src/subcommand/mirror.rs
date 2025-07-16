@@ -41,6 +41,7 @@ use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
 use crate::pb::OmaProgressBar;
+use crate::pb::Print;
 use crate::success;
 use crate::table::PagerPrinter;
 use crate::utils::root;
@@ -460,26 +461,23 @@ pub fn speedtest(
                         HumanBytes((10.0 * 1024.0 * 1024.0 / dur.as_secs_f64()) as u64)
                     );
                     if let Some(ref pb) = pb {
-                        pb.writeln(&style("INFO").blue().bold().to_string(), &msg)
-                            .ok();
+                        pb.info(&msg);
                     } else {
-                        info!("{}", msg);
+                        info!("{msg}");
                     }
                 } else {
                     let msg = format!("{name}: Checksum verification failed.");
                     if let Some(ref pb) = pb {
-                        pb.writeln(&style("ERROR").red().bold().to_string(), &msg)
-                            .ok();
+                        pb.error(&msg);
                     } else {
-                        error!("{}", msg);
+                        error!("{msg}");
                     }
                 }
             }
             Err(e) => {
                 let msg = format!("{}: {}", name, e.without_url());
                 if let Some(ref pb) = pb {
-                    pb.writeln(&style("ERROR").red().bold().to_string(), &msg)
-                        .ok();
+                    pb.error(&msg);
                 } else {
                     error!("{}", msg);
                 }
