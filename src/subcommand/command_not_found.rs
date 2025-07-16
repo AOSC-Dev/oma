@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::io::stdout;
+use std::io::stderr;
 
 use ahash::AHashMap;
 use clap::Args;
@@ -111,18 +111,18 @@ impl CliExecuter for CommandNotFound {
                 if res.is_empty() {
                     error!("{}", fl!("command-not-found", kw = keyword));
                 } else {
-                    println!(
+                    eprintln!(
                         "{}\n",
                         fl!("command-not-found-with-result", kw = keyword.as_str())
                     );
-                    let mut printer = PagerPrinter::new(stdout());
+                    let mut printer = PagerPrinter::new(stderr());
                     printer
                         .print_table(res, vec!["Name", "Path", "Description"], None)
                         .ok();
 
                     if too_many {
-                        println!("\n{}", fl!("cnf-too-many-query"));
-                        println!("{}", fl!("cnf-too-many-query-2", query = keyword));
+                        eprintln!("\n{}", fl!("cnf-too-many-query"));
+                        eprintln!("{}", fl!("cnf-too-many-query-2", query = keyword));
                     }
                 }
             }
