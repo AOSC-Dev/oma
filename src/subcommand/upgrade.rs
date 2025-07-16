@@ -170,12 +170,7 @@ impl CliExecuter for Upgrade {
             .dpkg_force_unsafe_io(force_unsafe_io)
             .build();
 
-        let mut apt = OmaApt::new(
-            local_debs.clone(),
-            oma_apt_args.clone(),
-            dry_run,
-            AptConfig::new(),
-        )?;
+        let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, AptConfig::new())?;
 
         #[cfg(feature = "aosc")]
         let mode = AptUpgrade::FullUpgrade;
