@@ -13,7 +13,7 @@ use tracing::warn;
 #[derive(Deserialize, Debug)]
 pub struct TopicUpdateManifest {
     #[serde(flatten)]
-    entries: HashMap<String, TopicUpdateEntry>,
+    pub entries: HashMap<String, TopicUpdateEntry>,
 }
 
 #[inline]
