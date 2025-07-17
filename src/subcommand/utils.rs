@@ -742,17 +742,24 @@ pub fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bo
 }
 
 pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
+    const DEFAULT_LANGUAGE: &str = "en_US";
+
     let mut res = String::new();
     let features_data = std::fs::read_to_string("/usr/share/aosc-os/features.toml")?;
     let features_data: HashMap<Box<str>, HashMap<Box<str>, Box<str>>> =
         toml::from_str(&features_data)?;
 
-    let lang = std::env::var("LANG")?;
-    let lang = lang.split_once('.').unwrap_or(("en_US", "")).0;
+    let lang = sys_locale::get_locale()
+        .map(|x| x.replace("-", "_"))
+        .map(Cow::Owned)
+        .unwrap_or_else(|| Cow::Borrowed(DEFAULT_LANGUAGE));
 
     for (index, f) in features.iter().enumerate() {
         if let Some(v) = features_data.get(f) {
-            let text = v.get(lang).unwrap_or_else(|| v.get("en_US").unwrap());
+            let text = v
+                .get(&*lang)
+                .unwrap_or_else(|| v.get(DEFAULT_LANGUAGE).unwrap());
+
             res.push_str(&format!("  * {text}"));
         } else {
             res.push_str(&format!("  * {f}"));
