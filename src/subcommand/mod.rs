@@ -23,3 +23,4 @@ pub mod topics;
 pub mod tree;
 pub mod upgrade;
 pub mod utils;
+pub mod dbus;

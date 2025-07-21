@@ -2817,6 +2817,7 @@ dependencies = [
  "tracing-subscriber",
  "unic-langid",
  "which",
+ "zbus",
 ]
 
 [[package]]
