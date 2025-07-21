@@ -1,8 +1,8 @@
-use crossterm::style::Stylize;
 use oma_console::{
     pager::{OmaPager, Pager, PagerUIText},
     print::OmaColorFormat,
 };
+use ratatui::crossterm::style::Stylize;
 use std::{io, time::Duration};
 
 struct OmaPagerUIText;

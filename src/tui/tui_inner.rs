@@ -8,13 +8,13 @@ use std::{
 
 use super::state::StatefulList;
 use ansi_to_tui::IntoText;
-use crossterm::event::{self, KeyCode, KeyModifiers};
 use dialoguer::console;
 use oma_pm::{
     apt::OmaApt,
     pkginfo::OmaPackage,
     search::{IndiciumSearch, OmaSearch, SearchResult},
 };
+use ratatui::crossterm::event::{self, KeyCode, KeyModifiers};
 
 use ratatui::{
     Frame, Terminal,

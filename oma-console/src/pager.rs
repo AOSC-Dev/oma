@@ -5,7 +5,8 @@ use std::{
 
 use aho_corasick::{AhoCorasick, BuildError};
 use ansi_to_tui::IntoText;
-use crossterm::{
+use ratatui::crossterm::{
+    self,
     event::{self, Event, KeyCode, KeyModifiers},
     execute,
     terminal::{EnterAlternateScreen, enable_raw_mode},
