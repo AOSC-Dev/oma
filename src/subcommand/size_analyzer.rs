@@ -5,13 +5,13 @@ use std::time::{Duration, Instant};
 
 use anyhow::anyhow;
 use clap::Args;
-use crossterm::event::{self, KeyCode, KeyModifiers};
 use dialoguer::console::{self, style};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::Package;
 use oma_pm::apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs};
 use oma_pm::pkginfo::OmaPackageWithoutVersion;
+use ratatui::crossterm::event::{self, KeyCode, KeyModifiers};
 use ratatui::layout::{Flex, Rect};
 use ratatui::prelude::Constraint;
 use ratatui::style::{Color, Style, Stylize};
