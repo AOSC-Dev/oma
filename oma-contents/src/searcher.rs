@@ -405,24 +405,18 @@ fn prefix(s: &str) -> String {
 fn test_rg_filter_line() {
     let s = "usr/bin/yakuake   Trinity/yakuake-trinity,utils/yakuake";
     let res = rg_filter_line(s, false, "yakuake");
-    assert_eq!(
-        res.unwrap(),
-        vec![
-            (
-                "yakuake-trinity".to_string(),
-                "/usr/bin/yakuake".to_string()
-            ),
-            ("yakuake".to_string(), "/usr/bin/yakuake".to_string())
-        ]
-    );
+    assert_eq!(res.unwrap(), vec![
+        (
+            "yakuake-trinity".to_string(),
+            "/usr/bin/yakuake".to_string()
+        ),
+        ("yakuake".to_string(), "/usr/bin/yakuake".to_string())
+    ]);
 
     let s = "usr/bin/yakuake   Trinity/yakuake-trinity";
     let res = rg_filter_line(s, false, "yakuake");
-    assert_eq!(
-        res.unwrap(),
-        vec![(
-            "yakuake-trinity".to_string(),
-            "/usr/bin/yakuake".to_string()
-        )]
-    );
+    assert_eq!(res.unwrap(), vec![(
+        "yakuake-trinity".to_string(),
+        "/usr/bin/yakuake".to_string()
+    )]);
 }

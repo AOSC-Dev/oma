@@ -381,13 +381,9 @@ fn test_split_name_and_ext() {
 #[test]
 fn test_checksum_parse() {
     let entry = "87c803ffdc2655fd4df8779707ae7713b8e1e2dba44fea4a68b4783b7d8aa6c9           392728 Contents-amd64";
-    assert_eq!(
-        ChecksumItem::from_str(entry).unwrap(),
-        ChecksumItem {
-            name: "Contents-amd64".to_string(),
-            size: 392728,
-            checksum: "87c803ffdc2655fd4df8779707ae7713b8e1e2dba44fea4a68b4783b7d8aa6c9"
-                .to_string()
-        }
-    );
+    assert_eq!(ChecksumItem::from_str(entry).unwrap(), ChecksumItem {
+        name: "Contents-amd64".to_string(),
+        size: 392728,
+        checksum: "87c803ffdc2655fd4df8779707ae7713b8e1e2dba44fea4a68b4783b7d8aa6c9".to_string()
+    });
 }

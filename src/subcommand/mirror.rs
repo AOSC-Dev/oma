@@ -627,18 +627,16 @@ fn test_sort() {
 
     sort_mirrors(&mut mirrors, &enabled);
 
-    assert_eq!(
-        mirrors.iter().map(|x| x.0).collect::<Vec<_>>(),
-        vec!["a", "b"]
-    );
+    assert_eq!(mirrors.iter().map(|x| x.0).collect::<Vec<_>>(), vec![
+        "a", "b"
+    ]);
 
     let enabled: IndexMap<Box<str>, Box<str>> = indexmap! {"c".into() => "baka".into()};
     let mut mirrors = vec![("b", &m1), ("a", &m2), ("c", &m3)];
 
     sort_mirrors(&mut mirrors, &enabled);
 
-    assert_eq!(
-        mirrors.iter().map(|x| x.0).collect::<Vec<_>>(),
-        vec!["c", "a", "b"]
-    );
+    assert_eq!(mirrors.iter().map(|x| x.0).collect::<Vec<_>>(), vec![
+        "c", "a", "b"
+    ]);
 }

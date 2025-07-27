@@ -246,11 +246,10 @@ pub fn pkgnames_remove_completions(current: &std::ffi::OsStr) -> Vec<CompletionC
     let mut completions = vec![];
     let current = current.to_string_lossy();
 
-    pkgnames_complete_impl(
-        &mut completions,
-        &current,
-        &[FilterMode::Names, FilterMode::Installed],
-    );
+    pkgnames_complete_impl(&mut completions, &current, &[
+        FilterMode::Names,
+        FilterMode::Installed,
+    ]);
 
     completions
 }

@@ -53,12 +53,9 @@ pub async fn change_status(connection: &Connection, status: &str) -> Result<()> 
 pub(crate) async fn create_session() -> Result<Connection> {
     let conn = zbus::connection::Builder::system()?
         .name("io.aosc.Oma")?
-        .serve_at(
-            "/io/aosc/Oma",
-            OmaBus {
-                status: Status::Pending,
-            },
-        )?
+        .serve_at("/io/aosc/Oma", OmaBus {
+            status: Status::Pending,
+        })?
         .build()
         .await?;
 

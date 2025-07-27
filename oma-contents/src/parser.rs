@@ -63,15 +63,12 @@ fn test_single_line_multi_packages() {
 
     assert_eq!(
         res.unwrap(),
-        (
-            "opt/32/libexec",
-            vec![
-                "devel/gcc+32",
-                "devel/llvm+32",
-                "gnome/gconf+32",
-                "libs/gdk-pixbuf+32"
-            ]
-        )
+        ("opt/32/libexec", vec![
+            "devel/gcc+32",
+            "devel/llvm+32",
+            "gnome/gconf+32",
+            "libs/gdk-pixbuf+32"
+        ])
     )
 }
 

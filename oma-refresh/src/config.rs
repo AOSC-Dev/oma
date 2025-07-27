@@ -181,8 +181,12 @@ impl<'a> IndexTargetConfig<'a> {
                                 msg: config
                                     .get("ShortDescription")
                                     .map(|x| {
-                                        self.replacer
-                                            .replace_all(x, &[*a, comp, l, self.native_arch])
+                                        self.replacer.replace_all(x, &[
+                                            *a,
+                                            comp,
+                                            l,
+                                            self.native_arch,
+                                        ])
                                     })
                                     .unwrap_or_else(|| "Other".to_string()),
                             });
@@ -303,14 +307,12 @@ fn compress_file(name: &str) -> CompressFile {
 #[test]
 fn test_get_matches_language() {
     assert_eq!(get_matches_language(vec!["C".to_string()]), vec!["en"]);
-    assert_eq!(
-        get_matches_language(vec!["zh-CN".to_string()]),
-        vec!["zh", "zh_CN"]
-    );
-    assert_eq!(
-        get_matches_language(vec!["en-US".to_string()]),
-        vec!["en", "en_US"]
-    );
+    assert_eq!(get_matches_language(vec!["zh-CN".to_string()]), vec![
+        "zh", "zh_CN"
+    ]);
+    assert_eq!(get_matches_language(vec!["en-US".to_string()]), vec![
+        "en", "en_US"
+    ]);
 }
 
 #[cfg(feature = "apt")]

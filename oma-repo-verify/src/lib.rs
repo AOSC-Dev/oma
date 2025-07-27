@@ -148,14 +148,11 @@ pub fn verify_inrelease_inner(
 ) -> Result<String, VerifyError> {
     let p = policy();
 
-    let mut v = VerifierBuilder::from_bytes(inrelease.as_bytes())?.with_policy(
-        &p,
-        None,
-        match kob {
+    let mut v =
+        VerifierBuilder::from_bytes(inrelease.as_bytes())?.with_policy(&p, None, match kob {
             KeyBlockOrPaths::Block(block) => InReleaseVerifier::from_key_block(block, trusted)?,
             KeyBlockOrPaths::Paths(certs) => InReleaseVerifier::from_paths(&certs, trusted)?,
-        },
-    )?;
+        })?;
 
     let mut res = String::new();
     v.read_to_string(&mut res)
@@ -199,14 +196,11 @@ pub fn verify_release_inner(
 ) -> Result<(), VerifyError> {
     let p = policy();
 
-    let mut v = DetachedVerifierBuilder::from_bytes(detached)?.with_policy(
-        &p,
-        None,
-        match bop {
+    let mut v =
+        DetachedVerifierBuilder::from_bytes(detached)?.with_policy(&p, None, match bop {
             KeyBlockOrPaths::Block(block) => InReleaseVerifier::from_key_block(block, trusted)?,
             KeyBlockOrPaths::Paths(certs) => InReleaseVerifier::from_paths(&certs, trusted)?,
-        },
-    )?;
+        })?;
 
     v.verify_bytes(release)?;
 

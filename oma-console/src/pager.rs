@@ -709,13 +709,10 @@ impl<'a> Highlight<'a> {
     }
 
     fn replace(&self, input: &str) -> String {
-        self.ac.replace_all(
-            input,
-            &[format!(
-                "{}{}{}",
-                ADD_HIGHLIGHT, self.pattern, REMOVE_HIGHLIGHT
-            )],
-        )
+        self.ac.replace_all(input, &[format!(
+            "{}{}{}",
+            ADD_HIGHLIGHT, self.pattern, REMOVE_HIGHLIGHT
+        )])
     }
 }
 

@@ -229,7 +229,6 @@ impl CliExecuter for Topics {
             }
 
             apt.install(&pkgs, false)?;
-            apt.upgrade(Upgrade::FullUpgrade)?;
 
             let code = CommitChanges::builder()
                 .apt(apt)
