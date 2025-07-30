@@ -212,7 +212,10 @@ pub fn oma_display_with_normal_output(
         Pager::plain()
     } else {
         Pager::external(
-            &OmaPagerUIText { is_question: false },
+            Box::new(OmaPagerUIText {
+                is_question: false,
+                download_and_install_size: None,
+            }),
             None,
             color_formatter(),
         )
@@ -227,11 +230,30 @@ pub fn oma_display_with_normal_output(
 
 struct OmaPagerUIText {
     is_question: bool,
+    download_and_install_size: Option<(u64, i64)>,
 }
 
 impl PagerUIText for OmaPagerUIText {
     fn normal_tips(&self) -> String {
-        tips(self.is_question)
+        if let Some((download_size, install_size)) = self.download_and_install_size {
+            let (symbol, abs_install_size_change) = if install_size >= 0 {
+                ("+", install_size as u64)
+            } else {
+                ("-", (0 - install_size) as u64)
+            };
+
+            format!(
+                "{}{}\n{}{}{}\n\n{}",
+                fl!("total-download-size"),
+                HumanBytes(download_size),
+                fl!("change-storage-usage"),
+                symbol,
+                HumanBytes(abs_install_size_change),
+                tips(self.is_question)
+            )
+        } else {
+            tips(self.is_question)
+        }
     }
 
     fn search_tips_with_result(&self) -> String {
@@ -352,6 +374,12 @@ pub fn table_for_install_pending(
         return Ok(PagerExit::DryRun);
     }
 
+    let total_download_size = install
+        .iter()
+        .filter(|x| x.op() == &InstallOperation::Install || x.op() == &InstallOperation::Upgrade)
+        .map(|x| x.download_size())
+        .sum();
+
     let mut pager = if is_pager {
         if !is_terminal() {
             return Err(OutputError {
@@ -361,7 +389,10 @@ pub fn table_for_install_pending(
         }
 
         Pager::external(
-            &OmaPagerUIText { is_question: true },
+            Box::new(OmaPagerUIText {
+                is_question: true,
+                download_and_install_size: Some((total_download_size, disk_size)),
+            }),
             Some(fl!("pending-op")),
             color_formatter(),
         )
@@ -383,12 +414,6 @@ pub fn table_for_install_pending(
         review_msg(&mut printer);
     }
 
-    let total_download_size = install
-        .iter()
-        .filter(|x| x.op() == &InstallOperation::Install || x.op() == &InstallOperation::Upgrade)
-        .map(|x| x.download_size())
-        .sum();
-
     let install = install.iter().map(|x| x.into()).collect::<Vec<_>>();
     let remove = remove.iter().map(|x| x.into()).collect::<Vec<_>>();
 
@@ -399,6 +424,7 @@ pub fn table_for_install_pending(
         disk_size,
         total_download_size,
         &tum,
+        is_pager,
     );
     let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
@@ -421,6 +447,7 @@ pub fn table_for_install_pending(
                 disk_size,
                 total_download_size,
                 &tum,
+                false,
             );
             Ok(exit)
         }
@@ -434,7 +461,10 @@ pub fn table_for_history_pending(
     disk_size: i64,
 ) -> Result<(), OutputError> {
     let mut pager = Pager::external(
-        &OmaPagerUIText { is_question: false },
+        Box::new(OmaPagerUIText {
+            is_question: false,
+            download_and_install_size: None,
+        }),
         Some(fl!("pending-op")),
         color_formatter(),
     )
@@ -469,6 +499,7 @@ pub fn table_for_history_pending(
         disk_size,
         total_download_size,
         &None,
+        false,
     );
     pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
@@ -515,6 +546,7 @@ fn print_pending_inner<W: Write>(
     disk_size: i64,
     total_download_size: u64,
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
+    no_display_size_message: bool,
 ) {
     print_tum(&mut printer, tum);
 
@@ -665,29 +697,31 @@ fn print_pending_inner<W: Write>(
         }
     }
 
-    printer
-        .println(format!(
-            "{}{}",
-            style(fl!("total-download-size")).bold(),
-            HumanBytes(total_download_size)
-        ))
-        .ok();
+    if !no_display_size_message {
+        printer
+            .println(format!(
+                "{}{}",
+                style(fl!("total-download-size")).bold(),
+                HumanBytes(total_download_size)
+            ))
+            .ok();
 
-    let (symbol, abs_install_size_change) = if disk_size >= 0 {
-        ("+", disk_size as u64)
-    } else {
-        ("-", (0 - disk_size) as u64)
-    };
+        let (symbol, abs_install_size_change) = if disk_size >= 0 {
+            ("+", disk_size as u64)
+        } else {
+            ("-", (0 - disk_size) as u64)
+        };
 
-    printer
-        .println(format!(
-            "{}{}{}",
-            style(fl!("change-storage-usage")).bold(),
-            symbol,
-            HumanBytes(abs_install_size_change)
-        ))
-        .ok();
-    printer.println("").ok();
+        printer
+            .println(format!(
+                "{}{}{}",
+                style(fl!("change-storage-usage")).bold(),
+                symbol,
+                HumanBytes(abs_install_size_change)
+            ))
+            .ok();
+        printer.println("").ok();
+    }
 }
 
 fn print_tum(
@@ -813,25 +847,6 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
             )
         ))
         .ok();
-
-    let has_x11 = std::env::var("DISPLAY");
-
-    let line1 = format!("    {}", fl!("end-review"));
-    let line2 = format!("    {}", fl!("cc-to-abort"));
-
-    if has_x11.is_ok() {
-        let line3 = format!("    {}\n\n", fl!("how-to-op-with-x"));
-
-        printer.println(format!("{}", style(line1).bold())).ok();
-        printer.println(format!("{}", style(line2).bold())).ok();
-        printer.println(format!("{}", style(line3).bold())).ok();
-    } else {
-        let line3 = format!("    {}\n\n", fl!("how-to-op"));
-
-        printer.println(format!("{}", style(line1).bold())).ok();
-        printer.println(format!("{}", style(line2).bold())).ok();
-        printer.println(format!("{}", style(line3).bold())).ok();
-    }
 }
 
 fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<usize>) {

@@ -5,20 +5,22 @@ use std::{
 
 use aho_corasick::{AhoCorasick, BuildError};
 use ansi_to_tui::IntoText;
-use ratatui::crossterm::{
-    self,
-    event::{self, Event, KeyCode, KeyModifiers},
-    execute,
-    terminal::{EnterAlternateScreen, enable_raw_mode},
-};
 use ratatui::{
     Frame, Terminal,
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Layout},
     restore,
     style::{Color, Stylize},
-    text::Text,
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+};
+use ratatui::{
+    crossterm::{
+        self,
+        event::{self, Event, KeyCode, KeyModifiers},
+        execute,
+        terminal::{EnterAlternateScreen, enable_raw_mode},
+    },
+    widgets::Borders,
 };
 use termbg::Theme;
 use tracing::debug;
@@ -39,7 +41,7 @@ impl<'a> Pager<'a> {
     }
 
     pub fn external(
-        ui_text: &'a dyn PagerUIText,
+        ui_text: Box<dyn PagerUIText>,
         title: Option<String>,
         color_format: &'a OmaColorFormat,
     ) -> io::Result<Self> {
@@ -144,7 +146,7 @@ pub struct OmaPager<'a> {
     /// The current mode of the pager, which can be either `Normal`, `Search` and `SearchInputText`.
     mode: TuiMode,
     /// A reference to a trait object that provides UI text for the pager.
-    ui_text: &'a dyn PagerUIText,
+    ui_text: Box<dyn PagerUIText>,
     /// A terminal writer to print oma-style message
     writer: Writer,
 }
@@ -201,7 +203,7 @@ impl<'a> OmaPager<'a> {
     pub fn new(
         title: Option<String>,
         theme: &'a OmaColorFormat,
-        ui_text: &'a dyn PagerUIText,
+        ui_text: Box<dyn PagerUIText>,
     ) -> Self {
         Self {
             inner: PagerInner::Working(vec![]),
@@ -593,7 +595,11 @@ impl<'a> OmaPager<'a> {
     /// Render and fresh the UI
     fn ui(&mut self, f: &mut Frame) {
         let area = f.area();
-        let mut layout = vec![Constraint::Min(0), Constraint::Length(1)];
+        let mut layout = vec![
+            Constraint::Min(0),
+            // 2 是 block 的两条线
+            Constraint::Length(self.tips.lines().count() as u16 + 2),
+        ];
 
         let mut has_title = false;
         if self.title.is_some() {
@@ -684,12 +690,16 @@ impl<'a> OmaPager<'a> {
             &mut self.vertical_scroll_state,
         );
 
+        let text = match self.tips.into_text() {
+            Ok(t) => t,
+            Err(e) => {
+                debug!("{e}");
+                return;
+            }
+        };
+
         f.render_widget(
-            Paragraph::new(
-                Text::from(self.tips.clone())
-                    .bg(Color::White)
-                    .fg(Color::Black),
-            ),
+            Paragraph::new(text).block(Block::default().borders(Borders::ALL)),
             if has_title { chunks[2] } else { chunks[1] },
         );
     }

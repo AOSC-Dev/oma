@@ -26,10 +26,10 @@ pkg-is-essential = Package { $name } is essential. Refusing to remove.
 pkg-no-checksum = oma is unable to repair { $name }: unable find checksum for this local or 3rd-party package.
 pkg-unavailable = Version { $ver } of { $pkg } is not available from any configured repository.
 # pager
-question-tips-with-gui = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
-normal-tips-with-gui = Press [q] or [Ctrl-c] to exit, [PgUp/Dn], arrow keys, or mouse wheel to scroll.
-question-tips = Press [q] to end review, [Ctrl-c] to abort, [PgUp/Dn] or arrow keys to scroll.
-normal-tips = Press [q] or [Ctrl-c] to exit, [PgUp/Dn] or arrow keys to scroll.
+question-tips-with-gui = [q] => Apply Changes, [Ctrl-c] => Abort, [PgUp/Dn]/[↑↓←→]/[wheel] => Scroll
+normal-tips-with-gui = [q]/[Ctrl-c] => Exit, [PgUp/Dn]/[↑↓←→]/[wheel] => Scroll
+question-tips = [q] => Apply Changes, [Ctrl-c] => Abort, [PgUp/Dn]/[↑↓←→] => Scroll
+normal-tips = [q]/[Ctrl-c] => Exit, [PgUp/Dn]/[↑↓←→] => Scroll
 # oma
 no-need-to-do-anything = No need to do anything.
 apt-error = `apt' returned an error.
