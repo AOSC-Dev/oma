@@ -462,7 +462,7 @@ pub fn table_for_history_pending(
 ) -> Result<(), OutputError> {
     let mut pager = Pager::external(
         Box::new(OmaPagerUIText {
-            is_question: true,
+            is_question: false,
             download_and_install_size: None,
         }),
         Some(fl!("pending-op")),
