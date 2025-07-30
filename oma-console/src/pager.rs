@@ -593,7 +593,10 @@ impl<'a> OmaPager<'a> {
     /// Render and fresh the UI
     fn ui(&mut self, f: &mut Frame) {
         let area = f.area();
-        let mut layout = vec![Constraint::Min(0), Constraint::Length(1)];
+        let mut layout = vec![
+            Constraint::Min(0),
+            Constraint::Length(self.tips.lines().count() as u16),
+        ];
 
         let mut has_title = false;
         if self.title.is_some() {
