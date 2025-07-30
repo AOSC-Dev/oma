@@ -692,13 +692,8 @@ impl<'a> OmaPager<'a> {
         );
 
         f.render_widget(
-            Paragraph::new(
-                self.tips
-                    .lines()
-                    .map(Line::from)
-                    .collect::<Vec<_>>(),
-            )
-            .block(Block::default().borders(Borders::ALL)),
+            Paragraph::new(self.tips.lines().map(Line::from).collect::<Vec<_>>())
+                .block(Block::default().borders(Borders::ALL)),
             if has_title { chunks[2] } else { chunks[1] },
         );
     }

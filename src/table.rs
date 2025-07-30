@@ -424,7 +424,7 @@ pub fn table_for_install_pending(
         disk_size,
         total_download_size,
         &tum,
-        true,
+        is_pager,
     );
     let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
@@ -499,7 +499,7 @@ pub fn table_for_history_pending(
         disk_size,
         total_download_size,
         &None,
-        true,
+        false,
     );
     pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
@@ -546,7 +546,7 @@ fn print_pending_inner<W: Write>(
     disk_size: i64,
     total_download_size: u64,
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
-    is_pager: bool,
+    no_display_size_message: bool,
 ) {
     print_tum(&mut printer, tum);
 
@@ -697,7 +697,7 @@ fn print_pending_inner<W: Write>(
         }
     }
 
-    if !is_pager {
+    if !no_display_size_message {
         printer
             .println(format!(
                 "{}{}",
@@ -847,25 +847,6 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
             )
         ))
         .ok();
-
-    let has_x11 = std::env::var("DISPLAY");
-
-    let line1 = format!("    {}", fl!("end-review"));
-    let line2 = format!("    {}", fl!("cc-to-abort"));
-
-    if has_x11.is_ok() {
-        let line3 = format!("    {}\n\n", fl!("how-to-op-with-x"));
-
-        printer.println(format!("{}", style(line1).bold())).ok();
-        printer.println(format!("{}", style(line2).bold())).ok();
-        printer.println(format!("{}", style(line3).bold())).ok();
-    } else {
-        let line3 = format!("    {}\n\n", fl!("how-to-op"));
-
-        printer.println(format!("{}", style(line1).bold())).ok();
-        printer.println(format!("{}", style(line2).bold())).ok();
-        printer.println(format!("{}", style(line3).bold())).ok();
-    }
 }
 
 fn version_diff(old_version: &str, new_version: &str) -> (Option<usize>, Option<usize>) {
