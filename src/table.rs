@@ -243,7 +243,7 @@ impl PagerUIText for OmaPagerUIText {
             };
 
             format!(
-                "{}{} {}{}{}\n{}",
+                "{}{}\n{}{}{}\n{}",
                 fl!("total-download-size"),
                 HumanBytes(download_size),
                 fl!("change-storage-usage"),

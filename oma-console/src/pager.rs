@@ -5,20 +5,23 @@ use std::{
 
 use aho_corasick::{AhoCorasick, BuildError};
 use ansi_to_tui::IntoText;
-use ratatui::crossterm::{
-    self,
-    event::{self, Event, KeyCode, KeyModifiers},
-    execute,
-    terminal::{EnterAlternateScreen, enable_raw_mode},
-};
 use ratatui::{
     Frame, Terminal,
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Layout},
     restore,
     style::{Color, Stylize},
-    text::Text,
+    text::{Line, Text},
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+};
+use ratatui::{
+    crossterm::{
+        self,
+        event::{self, Event, KeyCode, KeyModifiers},
+        execute,
+        terminal::{EnterAlternateScreen, enable_raw_mode},
+    },
+    widgets::{Borders, Padding},
 };
 use termbg::Theme;
 use tracing::debug;
@@ -595,7 +598,8 @@ impl<'a> OmaPager<'a> {
         let area = f.area();
         let mut layout = vec![
             Constraint::Min(0),
-            Constraint::Length(self.tips.lines().count() as u16),
+            // 2 是 block 的两条线
+            Constraint::Length(self.tips.lines().count() as u16 + 2),
         ];
 
         let mut has_title = false;
@@ -689,10 +693,12 @@ impl<'a> OmaPager<'a> {
 
         f.render_widget(
             Paragraph::new(
-                Text::from(self.tips.clone())
-                    .bg(Color::White)
-                    .fg(Color::Black),
-            ),
+                self.tips
+                    .lines()
+                    .map(Line::from)
+                    .collect::<Vec<_>>(),
+            )
+            .block(Block::default().borders(Borders::ALL)),
             if has_title { chunks[2] } else { chunks[1] },
         );
     }
