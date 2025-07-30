@@ -11,7 +11,6 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout},
     restore,
     style::{Color, Stylize},
-    text::Line,
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use ratatui::{
@@ -691,9 +690,16 @@ impl<'a> OmaPager<'a> {
             &mut self.vertical_scroll_state,
         );
 
+        let text = match self.tips.into_text() {
+            Ok(t) => t,
+            Err(e) => {
+                debug!("{e}");
+                return;
+            }
+        };
+
         f.render_widget(
-            Paragraph::new(self.tips.lines().map(Line::from).collect::<Vec<_>>())
-                .block(Block::default().borders(Borders::ALL)),
+            Paragraph::new(text).block(Block::default().borders(Borders::ALL)),
             if has_title { chunks[2] } else { chunks[1] },
         );
     }

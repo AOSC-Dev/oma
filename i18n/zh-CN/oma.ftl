@@ -26,10 +26,10 @@ pkg-is-essential = 软件包 { $name } 是不允许删除的关键组件。
 pkg-no-checksum = oma 无法修复软件包 { $name }：找不到该本地或第三方软件包的校验和。
 pkg-unavailable = 软件源中找不到 { $ver } 版本的软件包 { $pkg }。
 # pager
-question-tips-with-gui = 按 [q] 结束审阅并应用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。
-normal-tips-with-gui = 按 [q] 或 [Ctrl-c] 退出，按 [PgUp/Dn]、方向键或使用鼠标滚轮翻页。
-question-tips = 按 [q] 结束审阅并应用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn] 或方向键翻页。
-normal-tips = 按 [q] 或 [Ctrl-c] 退出，按 [PgUp/Dn] 或方向键翻页。
+question-tips-with-gui = [q] => 应用更改, [Ctrl-c] => 中止操作, [PgUp/Dn]/[↑↓←→]/[滚轮] => 翻页
+normal-tips-with-gui = [q]/[Ctrl-c] => 退出，[PgUp/Dn]/[↑↓←→]/[滚轮] => 翻页
+question-tips = [q] => 应用更改, [Ctrl-c] => 中止操作, [PgUp/Dn]/[↑↓←→] => 翻页
+normal-tips = [q]/[Ctrl-c] => 退出，[PgUp/Dn]/[↑↓←→] => 翻页
 # oma
 no-need-to-do-anything = 无需进行任何操作。
 apt-error = `apt' 返回了错误。
