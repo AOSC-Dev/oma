@@ -31,7 +31,7 @@ impl PagerUIText for OmaPagerUIText {
 
 fn main() -> io::Result<()> {
     let cf = OmaColorFormat::new(true, Duration::from_millis(100));
-    let pager = OmaPager::new(Some("QAQ".to_string()), &cf, &OmaPagerUIText);
+    let pager = OmaPager::new(Some("QAQ".to_string()), &cf, Box::new(OmaPagerUIText));
     let mut p = Pager::External(Box::new(pager));
     let mut w = p.get_writer()?;
     w.write_all("QAQ\n".cyan().to_string().as_bytes()).ok();

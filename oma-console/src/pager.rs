@@ -39,7 +39,7 @@ impl<'a> Pager<'a> {
     }
 
     pub fn external(
-        ui_text: &'a dyn PagerUIText,
+        ui_text: Box<dyn PagerUIText>,
         title: Option<String>,
         color_format: &'a OmaColorFormat,
     ) -> io::Result<Self> {
@@ -144,7 +144,7 @@ pub struct OmaPager<'a> {
     /// The current mode of the pager, which can be either `Normal`, `Search` and `SearchInputText`.
     mode: TuiMode,
     /// A reference to a trait object that provides UI text for the pager.
-    ui_text: &'a dyn PagerUIText,
+    ui_text: Box<dyn PagerUIText>,
     /// A terminal writer to print oma-style message
     writer: Writer,
 }
@@ -201,7 +201,7 @@ impl<'a> OmaPager<'a> {
     pub fn new(
         title: Option<String>,
         theme: &'a OmaColorFormat,
-        ui_text: &'a dyn PagerUIText,
+        ui_text: Box<dyn PagerUIText>,
     ) -> Self {
         Self {
             inner: PagerInner::Working(vec![]),

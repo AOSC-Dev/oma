@@ -212,7 +212,10 @@ pub fn oma_display_with_normal_output(
         Pager::plain()
     } else {
         Pager::external(
-            &OmaPagerUIText { is_question: false },
+            Box::new(OmaPagerUIText {
+                is_question: false,
+                download_and_install_size: None,
+            }),
             None,
             color_formatter(),
         )
@@ -227,11 +230,30 @@ pub fn oma_display_with_normal_output(
 
 struct OmaPagerUIText {
     is_question: bool,
+    download_and_install_size: Option<(u64, i64)>,
 }
 
 impl PagerUIText for OmaPagerUIText {
     fn normal_tips(&self) -> String {
-        tips(self.is_question)
+        if let Some((download_size, install_size)) = self.download_and_install_size {
+            let (symbol, abs_install_size_change) = if install_size >= 0 {
+                ("+", install_size as u64)
+            } else {
+                ("-", (0 - install_size) as u64)
+            };
+
+            format!(
+                "{}{} {}{}{}\n{}",
+                fl!("total-download-size"),
+                HumanBytes(download_size),
+                fl!("change-storage-usage"),
+                symbol,
+                HumanBytes(abs_install_size_change),
+                tips(self.is_question)
+            )
+        } else {
+            tips(self.is_question)
+        }
     }
 
     fn search_tips_with_result(&self) -> String {
@@ -352,6 +374,12 @@ pub fn table_for_install_pending(
         return Ok(PagerExit::DryRun);
     }
 
+    let total_download_size = install
+        .iter()
+        .filter(|x| x.op() == &InstallOperation::Install || x.op() == &InstallOperation::Upgrade)
+        .map(|x| x.download_size())
+        .sum();
+
     let mut pager = if is_pager {
         if !is_terminal() {
             return Err(OutputError {
@@ -361,7 +389,10 @@ pub fn table_for_install_pending(
         }
 
         Pager::external(
-            &OmaPagerUIText { is_question: true },
+            Box::new(OmaPagerUIText {
+                is_question: true,
+                download_and_install_size: Some((total_download_size, disk_size)),
+            }),
             Some(fl!("pending-op")),
             color_formatter(),
         )
@@ -382,12 +413,6 @@ pub fn table_for_install_pending(
     if is_pager {
         review_msg(&mut printer);
     }
-
-    let total_download_size = install
-        .iter()
-        .filter(|x| x.op() == &InstallOperation::Install || x.op() == &InstallOperation::Upgrade)
-        .map(|x| x.download_size())
-        .sum();
 
     let install = install.iter().map(|x| x.into()).collect::<Vec<_>>();
     let remove = remove.iter().map(|x| x.into()).collect::<Vec<_>>();
@@ -434,7 +459,10 @@ pub fn table_for_history_pending(
     disk_size: i64,
 ) -> Result<(), OutputError> {
     let mut pager = Pager::external(
-        &OmaPagerUIText { is_question: false },
+        Box::new(OmaPagerUIText {
+            is_question: true,
+            download_and_install_size: None,
+        }),
         Some(fl!("pending-op")),
         color_formatter(),
     )
