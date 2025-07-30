@@ -20,7 +20,6 @@ use crate::{
 
 use super::utils::{
     CommitChanges, auth_config, create_progress_spinner, handle_no_result, lock_oma,
-    no_check_dbus_warn,
 };
 use crate::args::CliExecuter;
 
@@ -181,12 +180,7 @@ impl CliExecuter for Remove {
             lock_oma()?;
         }
 
-        let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-            Some(dbus_check(yes))
-        } else {
-            no_check_dbus_warn();
-            None
-        };
+        let _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
 
         if yes {
             warn!("{}", fl!("automatic-mode-warn"));

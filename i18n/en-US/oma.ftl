@@ -287,3 +287,5 @@ psa-without-root-tips = To launch the disk usage analyzer with administrative fe
 psa-total = Total
 mirrors-setting-empty = No mirror specified, refusing to save configuration.
 loading-tree = Analyzing dependency tree
+battery-check-disabled = The power monitoring feature has been disabled and oma may cause system failure and data loss if, for example, an unexpected power failure occurs while system changes are being performed.
+session-check-disabled = The session monitoring feature has been disabled. oma may be interrupted by desktop power management, scheduled tasks, etc. while performing tasks, resulting in system failure and data loss.

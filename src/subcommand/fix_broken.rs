@@ -9,7 +9,7 @@ use crate::{
     utils::{dbus_check, root},
 };
 
-use super::utils::{CommitChanges, auth_config, lock_oma, no_check_dbus_warn};
+use super::utils::{CommitChanges, auth_config, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -68,13 +68,7 @@ impl CliExecuter for FixBroken {
             download_threads,
         } = self;
 
-        let mut _fds = None;
-
-        if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-            _fds = Some(dbus_check(false)?);
-        } else {
-            no_check_dbus_warn();
-        }
+        let mut _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
 
         let auth_config = auth_config(&sysroot);
         let auth_config = auth_config.as_ref();

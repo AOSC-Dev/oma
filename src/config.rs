@@ -22,6 +22,10 @@ pub struct GeneralConfig {
     pub protect_essentials: bool,
     #[serde(default = "GeneralConfig::default_no_check_dbus")]
     pub no_check_dbus: bool,
+    #[serde(default = "GeneralConfig::default_no_check_battery")]
+    pub no_check_battery: bool,
+    #[serde(default = "GeneralConfig::default_no_take_wake_lock")]
+    pub no_take_wake_lock: bool,
     #[serde(default = "GeneralConfig::default_no_refresh_topics")]
     pub no_refresh_topics: bool,
     #[serde(default = "GeneralConfig::default_follow_terminal_color")]
@@ -73,6 +77,14 @@ impl GeneralConfig {
         true
     }
 
+    pub const fn default_no_check_battery() -> bool {
+        false
+    }
+
+    pub const fn default_no_take_wake_lock() -> bool {
+        false
+    }
+
     pub fn default_search_engine() -> String {
         if cfg!(feature = "aosc") {
             String::from("indicium")
@@ -119,6 +131,20 @@ impl Config {
             .as_ref()
             .map(|x| x.no_check_dbus)
             .unwrap_or_else(GeneralConfig::default_no_check_dbus)
+    }
+
+    pub fn no_check_battery(&self) -> bool {
+        self.general
+            .as_ref()
+            .map(|x| x.no_check_battery)
+            .unwrap_or_else(GeneralConfig::default_no_check_battery)
+    }
+
+    pub fn no_take_wake_lock(&self) -> bool {
+        self.general
+            .as_ref()
+            .map(|x| x.no_take_wake_lock)
+            .unwrap_or_else(GeneralConfig::default_no_take_wake_lock)
     }
 
     #[cfg(feature = "aosc")]

@@ -16,7 +16,7 @@ use tui_inner::{Task, Tui as TuiInner};
 use crate::{
     GlobalOptions,
     args::CliExecuter,
-    subcommand::utils::{auth_config, create_progress_spinner},
+    subcommand::utils::{auth_config, create_progress_spinner, no_check_dbus_warn},
     utils::connect_dbus_impl,
 };
 use crate::{
@@ -24,7 +24,7 @@ use crate::{
     config::Config,
     error::OutputError,
     find_another_oma, fl,
-    subcommand::utils::{CommitChanges, Refresh, lock_oma, no_check_dbus_warn},
+    subcommand::utils::{CommitChanges, Refresh, lock_oma},
     utils::{check_battery, root},
 };
 

@@ -27,7 +27,6 @@ use crate::utils::root;
 use super::utils::Refresh;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
-use super::utils::no_check_dbus_warn;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -116,12 +115,7 @@ impl CliExecuter for Upgrade {
             lock_oma()?;
         }
 
-        let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-            Some(dbus_check(yes)?)
-        } else {
-            no_check_dbus_warn();
-            None
-        };
+        let _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
 
         let apt_config = AptConfig::new();
 

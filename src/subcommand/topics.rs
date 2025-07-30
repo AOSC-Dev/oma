@@ -27,8 +27,8 @@ use crate::{
 };
 
 use super::utils::{
-    CommitChanges, Refresh, auth_config, create_progress_spinner, lock_oma, no_check_dbus_warn,
-    select_tui_display_msg, tui_select_list_size,
+    CommitChanges, Refresh, auth_config, create_progress_spinner, lock_oma, select_tui_display_msg,
+    tui_select_list_size,
 };
 
 use crate::args::CliExecuter;
@@ -143,12 +143,7 @@ impl CliExecuter for Topics {
             lock_oma()?;
         }
 
-        let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-            Some(dbus_check(false)?)
-        } else {
-            no_check_dbus_warn();
-            None
-        };
+        let _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
 
         let dpkg_arch = dpkg_arch(&sysroot)?;
         let mut tm = TopicManager::new_blocking(&HTTP_CLIENT, &sysroot, &dpkg_arch, dry_run)?;

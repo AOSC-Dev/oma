@@ -17,9 +17,7 @@ use crate::{
 };
 use anyhow::anyhow;
 
-use super::utils::{
-    CommitChanges, Refresh, auth_config, lock_oma, no_check_dbus_warn, tui_select_list_size,
-};
+use super::utils::{CommitChanges, Refresh, auth_config, lock_oma, tui_select_list_size};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -98,12 +96,7 @@ impl CliExecuter for Pick {
             lock_oma()?;
         }
 
-        let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-            Some(dbus_check(false)?)
-        } else {
-            no_check_dbus_warn();
-            None
-        };
+        let _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
 
         let apt_config = AptConfig::new();
 

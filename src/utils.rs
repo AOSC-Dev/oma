@@ -5,7 +5,10 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use crate::{NOT_ALLOW_CTRLC, error::OutputError, path_completions::PathCompleter};
+use crate::{
+    NOT_ALLOW_CTRLC, config::Config, error::OutputError, path_completions::PathCompleter,
+    subcommand::utils::no_check_dbus_warn,
+};
 use crate::{RT, fl};
 
 use anyhow::anyhow;
@@ -74,18 +77,35 @@ fn file_path_canonicalize(args: &mut Vec<String>) {
     }
 }
 
-pub fn dbus_check(yes: bool) -> Result<Vec<OwnedFd>> {
+pub fn dbus_check(
+    yes: bool,
+    config: &Config,
+    no_check_dbus: bool,
+    dry_run: bool,
+) -> Result<Vec<OwnedFd>> {
+    if config.no_check_dbus() || no_check_dbus || dry_run {
+        no_check_dbus_warn();
+        return Ok(vec![]);
+    }
+
     let Some(conn) = connect_dbus_impl() else {
         return Ok(vec![]);
     };
 
-    check_battery(&conn, yes);
+    if !config.no_check_battery() {
+        check_battery(&conn, yes);
+    } else {
+        warn!("{}", fl!("battery-check-disabled"));
+    }
 
     // 需要保留 fd
     // login1 根据 fd 来判断是否关闭 inhibit
-    let fds = RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
-
-    Ok(fds)
+    if !config.no_take_wake_lock() {
+        Ok(RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?)
+    } else {
+        warn!("{}", fl!("session-check-disabled"));
+        Ok(vec![])
+    }
 }
 
 pub fn connect_dbus_impl() -> Option<Connection> {
