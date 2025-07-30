@@ -11,7 +11,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout},
     restore,
     style::{Color, Stylize},
-    text::{Line, Text},
+    text::Line,
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use ratatui::{
@@ -21,7 +21,7 @@ use ratatui::{
         execute,
         terminal::{EnterAlternateScreen, enable_raw_mode},
     },
-    widgets::{Borders, Padding},
+    widgets::Borders,
 };
 use termbg::Theme;
 use tracing::debug;

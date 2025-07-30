@@ -424,6 +424,7 @@ pub fn table_for_install_pending(
         disk_size,
         total_download_size,
         &tum,
+        true,
     );
     let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
@@ -446,6 +447,7 @@ pub fn table_for_install_pending(
                 disk_size,
                 total_download_size,
                 &tum,
+                false,
             );
             Ok(exit)
         }
@@ -497,6 +499,7 @@ pub fn table_for_history_pending(
         disk_size,
         total_download_size,
         &None,
+        true,
     );
     pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
@@ -543,6 +546,7 @@ fn print_pending_inner<W: Write>(
     disk_size: i64,
     total_download_size: u64,
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
+    is_pager: bool,
 ) {
     print_tum(&mut printer, tum);
 
@@ -693,29 +697,31 @@ fn print_pending_inner<W: Write>(
         }
     }
 
-    printer
-        .println(format!(
-            "{}{}",
-            style(fl!("total-download-size")).bold(),
-            HumanBytes(total_download_size)
-        ))
-        .ok();
+    if !is_pager {
+        printer
+            .println(format!(
+                "{}{}",
+                style(fl!("total-download-size")).bold(),
+                HumanBytes(total_download_size)
+            ))
+            .ok();
 
-    let (symbol, abs_install_size_change) = if disk_size >= 0 {
-        ("+", disk_size as u64)
-    } else {
-        ("-", (0 - disk_size) as u64)
-    };
+        let (symbol, abs_install_size_change) = if disk_size >= 0 {
+            ("+", disk_size as u64)
+        } else {
+            ("-", (0 - disk_size) as u64)
+        };
 
-    printer
-        .println(format!(
-            "{}{}{}",
-            style(fl!("change-storage-usage")).bold(),
-            symbol,
-            HumanBytes(abs_install_size_change)
-        ))
-        .ok();
-    printer.println("").ok();
+        printer
+            .println(format!(
+                "{}{}{}",
+                style(fl!("change-storage-usage")).bold(),
+                symbol,
+                HumanBytes(abs_install_size_change)
+            ))
+            .ok();
+        printer.println("").ok();
+    }
 }
 
 fn print_tum(
