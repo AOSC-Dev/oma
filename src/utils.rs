@@ -82,6 +82,8 @@ pub fn dbus_check(
     config: &Config,
     no_check_dbus: bool,
     dry_run: bool,
+    no_take_wake_lock: bool,
+    no_check_battery: bool,
 ) -> Result<Vec<OwnedFd>> {
     if config.no_check_dbus() || no_check_dbus || dry_run {
         no_check_dbus_warn();
@@ -92,20 +94,30 @@ pub fn dbus_check(
         return Ok(vec![]);
     };
 
-    if !config.no_check_battery() {
+    if !config.no_check_battery() && !no_check_battery {
         check_battery(&conn, yes);
     } else {
-        warn!("{}", fl!("battery-check-disabled"));
+        check_battery_disabled_warn();
     }
 
     // 需要保留 fd
     // login1 根据 fd 来判断是否关闭 inhibit
-    if !config.no_take_wake_lock() {
+    if !config.no_take_wake_lock() && !no_take_wake_lock {
         Ok(RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?)
     } else {
-        warn!("{}", fl!("session-check-disabled"));
+        no_take_wake_lock_warn();
         Ok(vec![])
     }
+}
+
+#[inline]
+pub(crate) fn check_battery_disabled_warn() {
+    warn!("{}", fl!("battery-check-disabled"));
+}
+
+#[inline]
+pub(crate) fn no_take_wake_lock_warn() {
+    warn!("{}", fl!("session-check-disabled"));
 }
 
 pub fn connect_dbus_impl() -> Option<Connection> {

@@ -84,6 +84,12 @@ pub struct SizeAnalyzer {
     /// Setup download threads (default as 4)
     #[arg(from_global)]
     download_threads: Option<usize>,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_check_battery: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_take_wake_lock: bool,
 }
 
 impl CliExecuter for SizeAnalyzer {
@@ -102,6 +108,8 @@ impl CliExecuter for SizeAnalyzer {
             remove_config,
             download_threads,
             details,
+            no_check_battery,
+            no_take_wake_lock,
         } = self;
 
         let detail = if !is_root() { false } else { !details };
@@ -154,7 +162,14 @@ impl CliExecuter for SizeAnalyzer {
             writeln!(stdout()).ok();
             info!("{}", fl!("psa-without-root-tips"));
         } else {
-            let _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
+            let _fds = dbus_check(
+                false,
+                config,
+                no_check_dbus,
+                dry_run,
+                no_take_wake_lock,
+                no_check_battery,
+            )?;
 
             let tui = PkgSizeAnalyzer::new(&apt);
             let mut terminal =

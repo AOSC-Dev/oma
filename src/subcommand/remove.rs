@@ -67,6 +67,12 @@ pub struct Remove {
     /// Setup download threads (default as 4)
     #[arg(from_global)]
     download_threads: Option<usize>,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_check_battery: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_take_wake_lock: bool,
 }
 
 #[derive(Debug, Args)]
@@ -110,6 +116,12 @@ pub struct Purge {
     /// Setup download threads (default as 4)
     #[arg(from_global)]
     download_threads: Option<usize>,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_check_battery: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_take_wake_lock: bool,
 }
 
 impl From<Purge> for Remove {
@@ -128,6 +140,8 @@ impl From<Purge> for Remove {
             no_autoremove,
             no_fix_dpkg_status,
             download_threads,
+            no_check_battery,
+            no_take_wake_lock,
         } = value;
 
         Self {
@@ -145,6 +159,8 @@ impl From<Purge> for Remove {
             no_fix_dpkg_status,
             remove_config: true,
             download_threads,
+            no_check_battery,
+            no_take_wake_lock,
         }
     }
 }
@@ -173,6 +189,8 @@ impl CliExecuter for Remove {
             remove_config,
             no_fix_dpkg_status,
             download_threads,
+            no_check_battery,
+            no_take_wake_lock,
         } = self;
 
         if !dry_run {
@@ -180,7 +198,14 @@ impl CliExecuter for Remove {
             lock_oma()?;
         }
 
-        let _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
+        let _fds = dbus_check(
+            false,
+            config,
+            no_check_dbus,
+            dry_run,
+            no_take_wake_lock,
+            no_check_battery,
+        )?;
 
         if yes {
             warn!("{}", fl!("automatic-mode-warn"));

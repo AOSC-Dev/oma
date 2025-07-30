@@ -87,6 +87,12 @@ pub struct Topics {
     /// Setup download threads (default as 4)
     #[arg(from_global)]
     download_threads: Option<usize>,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_check_battery: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_take_wake_lock: bool,
 }
 
 struct TopicChanged {
@@ -136,6 +142,8 @@ impl CliExecuter for Topics {
             no_fix_dpkg_status,
             always_write_status,
             download_threads,
+            no_check_battery,
+            no_take_wake_lock,
         } = self;
 
         if !dry_run {
@@ -143,7 +151,14 @@ impl CliExecuter for Topics {
             lock_oma()?;
         }
 
-        let _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
+        let _fds = dbus_check(
+            false,
+            config,
+            no_check_dbus,
+            dry_run,
+            no_take_wake_lock,
+            no_check_battery,
+        )?;
 
         let dpkg_arch = dpkg_arch(&sysroot)?;
         let mut tm = TopicManager::new_blocking(&HTTP_CLIENT, &sysroot, &dpkg_arch, dry_run)?;

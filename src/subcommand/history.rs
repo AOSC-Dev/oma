@@ -115,6 +115,12 @@ pub struct Undo {
     /// Do not refresh topics manifest.json file
     #[arg(long)]
     no_refresh_topics: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_check_battery: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_take_wake_lock: bool,
 }
 
 impl CliExecuter for Undo {
@@ -138,9 +144,18 @@ impl CliExecuter for Undo {
             no_refresh,
             #[cfg(feature = "aosc")]
             no_refresh_topics,
+            no_check_battery,
+            no_take_wake_lock,
         } = self;
 
-        let _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
+        let _fds = dbus_check(
+            false,
+            config,
+            no_check_dbus,
+            dry_run,
+            no_take_wake_lock,
+            no_check_battery,
+        )?;
 
         let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
 

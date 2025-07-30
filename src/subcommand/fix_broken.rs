@@ -38,6 +38,12 @@ pub struct FixBroken {
     /// Run oma do not check dbus
     #[arg(from_global)]
     no_check_dbus: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_check_battery: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_take_wake_lock: bool,
     /// Set sysroot target directory
     #[arg(from_global)]
     sysroot: PathBuf,
@@ -66,9 +72,18 @@ impl CliExecuter for FixBroken {
             apt_options,
             no_fix_dpkg_status,
             download_threads,
+            no_check_battery,
+            no_take_wake_lock,
         } = self;
 
-        let mut _fds = dbus_check(false, config, no_check_dbus, dry_run)?;
+        let mut _fds = dbus_check(
+            false,
+            config,
+            no_check_dbus,
+            dry_run,
+            no_take_wake_lock,
+            no_check_battery,
+        )?;
 
         let auth_config = auth_config(&sysroot);
         let auth_config = auth_config.as_ref();
