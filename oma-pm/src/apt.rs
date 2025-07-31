@@ -164,6 +164,7 @@ pub enum FilterMode {
     Manual,
     Names,
     AutoRemovable,
+    Hold,
 }
 
 pub struct DownloadConfig<'a> {
@@ -1105,6 +1106,7 @@ impl OmaApt {
                 FilterMode::Names => sort.names(),
                 FilterMode::Manual => sort.manually_installed(),
                 FilterMode::AutoRemovable => sort.auto_removable(),
+                FilterMode::Hold => sort.hold_installed(),
                 _ => sort,
             };
         }
