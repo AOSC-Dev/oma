@@ -16,6 +16,7 @@ use tui_inner::{Task, Tui as TuiInner};
 use crate::{
     GlobalOptions,
     args::CliExecuter,
+    config::{BatteryTristate, TakeWakeLockTristate},
     subcommand::utils::{auth_config, create_progress_spinner, no_check_dbus_warn},
     utils::{check_battery_disabled_warn, connect_dbus_impl, is_battery, no_take_wake_lock_warn},
 };
@@ -149,11 +150,22 @@ impl CliExecuter for Tui {
         let conn = if !no_check_dbus && !config.no_check_dbus() {
             let conn = connect_dbus_impl();
 
-            if let Some(conn) = &conn {
-                if !no_check_battery && !config.no_check_battery() {
-                    ask_continue_no_use_battery(conn, false);
-                } else if is_battery(conn) {
-                    check_battery_disabled_warn();
+            if no_check_battery {
+                check_battery_disabled_warn();
+            } else {
+                match config.check_battery() {
+                    BatteryTristate::Ask => {
+                        conn.as_ref()
+                            .map(|conn| ask_continue_no_use_battery(conn, false));
+                    }
+                    BatteryTristate::Warn => {
+                        conn.as_ref().map(|conn| {
+                            if is_battery(conn) {
+                                check_battery_disabled_warn();
+                            }
+                        });
+                    }
+                    BatteryTristate::Ignore => {}
                 }
             }
 
@@ -239,13 +251,21 @@ impl CliExecuter for Tui {
 
         if execute_apt {
             let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-                if !config.no_take_wake_lock() && no_take_wake_lock {
-                    conn.map(|conn| {
-                        RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))
-                    })
-                } else {
+                if no_take_wake_lock {
                     no_take_wake_lock_warn();
                     None
+                } else {
+                    match config.take_wake_lock() {
+                        TakeWakeLockTristate::Yes => conn.map(|conn| {
+                            RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))
+                                .ok()
+                        }),
+                        TakeWakeLockTristate::Warn => {
+                            no_take_wake_lock_warn();
+                            None
+                        }
+                        TakeWakeLockTristate::Ignore => None,
+                    }
                 }
             } else {
                 no_check_dbus_warn();

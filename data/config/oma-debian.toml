@@ -24,10 +24,8 @@ search_engine = "strsim"
 bell = true
 # Number of log entries to save.
 save_log_count = 10
-# Set to true to disable battery status check
-no_check_battery = false
-# Set to true to disable take wake lock
-no_take_wake_lock = false
+check_battery = "ask"
+take_wake_lock = "yes"
 
 [network]
 # Number of network threads to use when downloading metadata and packages.

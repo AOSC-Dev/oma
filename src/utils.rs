@@ -6,7 +6,10 @@ use std::{
 };
 
 use crate::{
-    NOT_ALLOW_CTRLC, config::Config, error::OutputError, path_completions::PathCompleter,
+    NOT_ALLOW_CTRLC,
+    config::{BatteryTristate, Config, TakeWakeLockTristate},
+    error::OutputError,
+    path_completions::PathCompleter,
     subcommand::utils::no_check_dbus_warn,
 };
 use crate::{RT, fl};
@@ -94,19 +97,38 @@ pub fn dbus_check(
         return Ok(vec![]);
     };
 
-    if !config.no_check_battery() && !no_check_battery {
-        ask_continue_no_use_battery(&conn, yes);
-    } else if is_battery(&conn) {
+    if no_check_battery {
         check_battery_disabled_warn();
+    } else {
+        match config.check_battery() {
+            BatteryTristate::Ask => {
+                ask_continue_no_use_battery(&conn, yes);
+            }
+            BatteryTristate::Warn => {
+                if is_battery(&conn) {
+                    check_battery_disabled_warn();
+                }
+            }
+            BatteryTristate::Ignore => {}
+        }
     }
 
     // 需要保留 fd
     // login1 根据 fd 来判断是否关闭 inhibit
-    if !config.no_take_wake_lock() && !no_take_wake_lock {
-        Ok(RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?)
-    } else {
+    if no_take_wake_lock {
         no_take_wake_lock_warn();
         Ok(vec![])
+    } else {
+        match config.take_wake_lock() {
+            TakeWakeLockTristate::Yes => {
+                Ok(RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?)
+            }
+            TakeWakeLockTristate::Warn => {
+                no_take_wake_lock_warn();
+                Ok(vec![])
+            }
+            TakeWakeLockTristate::Ignore => Ok(vec![]),
+        }
     }
 }
 
