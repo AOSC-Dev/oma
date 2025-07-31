@@ -24,10 +24,7 @@ use oma_apt::{
 };
 
 use oma_fetch::{Event, Summary, checksum::ChecksumError, reqwest::Client};
-use oma_utils::{
-    dpkg::{DpkgError, get_selections, is_hold},
-    human_bytes::HumanBytes,
-};
+use oma_utils::{dpkg::DpkgError, human_bytes::HumanBytes};
 
 pub use oma_apt::config::Config as AptConfig;
 use tracing::{debug, error};
@@ -164,6 +161,7 @@ pub enum FilterMode {
     Manual,
     Names,
     AutoRemovable,
+    Hold,
 }
 
 pub struct DownloadConfig<'a> {
@@ -319,14 +317,8 @@ impl OmaApt {
 
     /// Get upgradable packages count
     pub fn count_pending_upgradable_pkgs(&self) -> OmaAptResult<usize> {
-        let sort = PackageSort::default().upgradable();
-        let dir = self.config.get("Dir").unwrap_or_else(|| "/".to_string());
-        let selection_status = get_selections(dir)?;
-        let upgradable = self
-            .cache
-            .packages(&sort)
-            .filter(|pkg| !is_hold(&pkg.fullname(true), &selection_status))
-            .count();
+        let sort = PackageSort::default().upgradable().not_hold_installed();
+        let upgradable = self.cache.packages(&sort).count();
 
         Ok(upgradable)
     }
@@ -1105,6 +1097,7 @@ impl OmaApt {
                 FilterMode::Names => sort.names(),
                 FilterMode::Manual => sort.manually_installed(),
                 FilterMode::AutoRemovable => sort.auto_removable(),
+                FilterMode::Hold => sort.hold_installed(),
                 _ => sort,
             };
         }

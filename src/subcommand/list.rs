@@ -1,14 +1,12 @@
-use std::{borrow::Cow, collections::HashSet, io::stdout, path::PathBuf, sync::atomic::Ordering};
+use std::{borrow::Cow, io::stdout, path::PathBuf, sync::atomic::Ordering};
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use oma_console::print::Action;
 use oma_pm::{
-    PkgCurrentState,
+    PkgCurrentState, PkgSelectedState,
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
 };
-use oma_utils::dpkg::get_selections;
-use once_cell::sync::OnceCell;
 use tracing::info;
 
 use crate::{NOT_DISPLAY_ABORT, fl, utils::pkgnames_completions};
@@ -100,7 +98,9 @@ impl CliExecuter for List {
             filter_mode.push(FilterMode::AutoRemovable);
         }
 
-        let mark_hold_list = OnceCell::new();
+        if hold {
+            filter_mode.push(FilterMode::Hold);
+        }
 
         let filter_pkgs = apt.filter_pkgs(&filter_mode)?;
         let filter_pkgs: Box<dyn Iterator<Item = _>> = if packages.is_empty() {
@@ -124,21 +124,9 @@ impl CliExecuter for List {
 
         let mut pkg_count = 0;
 
-        let sysroot_ref = &sysroot;
-
         for pkg in filter_pkgs {
             let name = pkg.fullname(true);
             pkg_count += 1;
-
-            if hold
-                && !mark_hold_list
-                    .get_or_try_init(move || -> Result<HashSet<String>, OutputError> {
-                        hold_list(sysroot_ref)
-                    })?
-                    .contains(&name)
-            {
-                continue;
-            }
 
             let versions = if all {
                 pkg.versions().collect()
@@ -203,6 +191,7 @@ impl CliExecuter for List {
 
                 let upgradable = pkg.is_upgradable();
                 let automatic = pkg.is_auto_installed();
+                let hold = pkg.selected_state() == PkgSelectedState::Hold;
 
                 let mut status = vec![];
 
@@ -219,6 +208,10 @@ impl CliExecuter for List {
 
                 if automatic {
                     status.push("automatic");
+                }
+
+                if hold {
+                    status.push("held");
                 }
 
                 if pkg.current_state() == PkgCurrentState::ConfigFiles {
@@ -270,11 +263,4 @@ impl CliExecuter for List {
 
         Ok(0)
     }
-}
-
-fn hold_list(sysroot_ref: &PathBuf) -> Result<HashSet<String>, OutputError> {
-    Ok(get_selections(sysroot_ref)?
-        .into_iter()
-        .filter_map(|(pkg, status)| if status == "hold" { Some(pkg) } else { None })
-        .collect::<HashSet<_>>())
 }
