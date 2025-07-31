@@ -4,7 +4,7 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use oma_console::print::Action;
 use oma_pm::{
-    PkgCurrentState,
+    PkgCurrentState, PkgSelectedState,
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
 };
 use tracing::info;
@@ -191,6 +191,7 @@ impl CliExecuter for List {
 
                 let upgradable = pkg.is_upgradable();
                 let automatic = pkg.is_auto_installed();
+                let hold = pkg.selected_state() == PkgSelectedState::Hold;
 
                 let mut status = vec![];
 
@@ -207,6 +208,10 @@ impl CliExecuter for List {
 
                 if automatic {
                     status.push("automatic");
+                }
+
+                if hold {
+                    status.push("held");
                 }
 
                 if pkg.current_state() == PkgCurrentState::ConfigFiles {

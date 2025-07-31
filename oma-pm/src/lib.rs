@@ -34,7 +34,7 @@ pub mod matches;
 pub mod pkginfo;
 pub mod progress;
 pub mod search;
-pub use oma_apt::PkgCurrentState;
+pub use oma_apt::{PkgCurrentState, PkgSelectedState};
 pub use oma_apt::error::AptErrors;
 pub use search::PackageStatus;
 mod commit;
