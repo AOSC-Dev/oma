@@ -24,7 +24,20 @@ search_engine = "strsim"
 bell = true
 # Number of log entries to save.
 save_log_count = 10
+# Whether oma should check for battery power:
+#
+# - ask:     Ask whether to proceed and warn about potential risks in case
+#            of accidental power loss (default).
+# - warn:    Warn about potential risks in case of accidental power loss.
+# - ignore:  Keep quiet about battery warning (not recommended).
 check_battery = "ask"
+# Whether oma should take session lock, in order to prevent unwanted
+# screen locking, suspend entry, shutdown, etc. during system operations:
+#
+# - yes:     Take session lock and prevent screen locking, suspend entry,
+#            and shutdown (default).
+# - warn:    Do not take session lock, but warn about potential risks.
+# - ignore:  Do not take session lock and say nothing (not recommended).
 take_wake_lock = "yes"
 
 [network]
