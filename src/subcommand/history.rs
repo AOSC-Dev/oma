@@ -26,8 +26,8 @@ use crate::{
 };
 
 use super::utils::{
-    CommitChanges, Refresh, auth_config, handle_no_result, lock_oma, no_check_dbus_warn,
-    select_tui_display_msg, tui_select_list_size,
+    CommitChanges, Refresh, auth_config, handle_no_result, lock_oma, select_tui_display_msg,
+    tui_select_list_size,
 };
 use crate::args::CliExecuter;
 
@@ -115,6 +115,12 @@ pub struct Undo {
     /// Do not refresh topics manifest.json file
     #[arg(long)]
     no_refresh_topics: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_check_battery: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_take_wake_lock: bool,
 }
 
 impl CliExecuter for Undo {
@@ -138,14 +144,18 @@ impl CliExecuter for Undo {
             no_refresh,
             #[cfg(feature = "aosc")]
             no_refresh_topics,
+            no_check_battery,
+            no_take_wake_lock,
         } = self;
 
-        let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-            Some(dbus_check(false)?)
-        } else {
-            no_check_dbus_warn();
-            None
-        };
+        let _fds = dbus_check(
+            false,
+            config,
+            no_check_dbus,
+            dry_run,
+            no_take_wake_lock,
+            no_check_battery,
+        )?;
 
         let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
 

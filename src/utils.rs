@@ -5,7 +5,13 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use crate::{NOT_ALLOW_CTRLC, error::OutputError, path_completions::PathCompleter};
+use crate::{
+    NOT_ALLOW_CTRLC,
+    config::{BatteryTristate, Config, TakeWakeLockTristate},
+    error::OutputError,
+    path_completions::PathCompleter,
+    subcommand::utils::no_check_dbus_warn,
+};
 use crate::{RT, fl};
 
 use anyhow::anyhow;
@@ -74,18 +80,66 @@ fn file_path_canonicalize(args: &mut Vec<String>) {
     }
 }
 
-pub fn dbus_check(yes: bool) -> Result<Vec<OwnedFd>> {
+pub fn dbus_check(
+    yes: bool,
+    config: &Config,
+    no_check_dbus: bool,
+    dry_run: bool,
+    no_take_wake_lock: bool,
+    no_check_battery: bool,
+) -> Result<Vec<OwnedFd>> {
+    if config.no_check_dbus() || no_check_dbus || dry_run {
+        no_check_dbus_warn();
+        return Ok(vec![]);
+    }
+
     let Some(conn) = connect_dbus_impl() else {
         return Ok(vec![]);
     };
 
-    check_battery(&conn, yes);
+    if no_check_battery {
+        check_battery_disabled_warn();
+    } else {
+        match config.check_battery() {
+            BatteryTristate::Ask => {
+                ask_continue_no_use_battery(&conn, yes);
+            }
+            BatteryTristate::Warn => {
+                if is_battery(&conn) {
+                    check_battery_disabled_warn();
+                }
+            }
+            BatteryTristate::Ignore => {}
+        }
+    }
 
     // 需要保留 fd
     // login1 根据 fd 来判断是否关闭 inhibit
-    let fds = RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?;
+    if no_take_wake_lock {
+        no_take_wake_lock_warn();
+        Ok(vec![])
+    } else {
+        match config.take_wake_lock() {
+            TakeWakeLockTristate::Yes => {
+                Ok(RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?)
+            }
+            TakeWakeLockTristate::Warn => {
+                no_take_wake_lock_warn();
+                Ok(vec![])
+            }
+            TakeWakeLockTristate::Ignore => Ok(vec![]),
+        }
+    }
+}
 
-    Ok(fds)
+#[inline]
+pub(crate) fn check_battery_disabled_warn() {
+    warn!("{}", fl!("battery-check-disabled"));
+}
+
+#[inline]
+pub(crate) fn no_take_wake_lock_warn() {
+    warn!("{}", fl!("session-check-disabled"));
 }
 
 pub fn connect_dbus_impl() -> Option<Connection> {
@@ -124,8 +178,8 @@ fn is_wsl() -> bool {
     false
 }
 
-pub fn check_battery(conn: &Connection, yes: bool) {
-    let is_battery = RT.block_on(is_using_battery(conn)).unwrap_or(false);
+pub fn ask_continue_no_use_battery(conn: &Connection, yes: bool) {
+    let is_battery = is_battery(conn);
 
     if is_battery {
         if yes {
@@ -143,6 +197,10 @@ pub fn check_battery(conn: &Connection, yes: bool) {
             exit(0);
         }
     }
+}
+
+pub fn is_battery(conn: &Connection) -> bool {
+    RT.block_on(is_using_battery(conn)).unwrap_or(false)
 }
 
 pub fn is_ssh_from_loginctl() -> bool {

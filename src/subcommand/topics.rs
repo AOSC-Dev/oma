@@ -27,8 +27,8 @@ use crate::{
 };
 
 use super::utils::{
-    CommitChanges, Refresh, auth_config, create_progress_spinner, lock_oma, no_check_dbus_warn,
-    select_tui_display_msg, tui_select_list_size,
+    CommitChanges, Refresh, auth_config, create_progress_spinner, lock_oma, select_tui_display_msg,
+    tui_select_list_size,
 };
 
 use crate::args::CliExecuter;
@@ -87,6 +87,12 @@ pub struct Topics {
     /// Setup download threads (default as 4)
     #[arg(from_global)]
     download_threads: Option<usize>,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_check_battery: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_take_wake_lock: bool,
 }
 
 struct TopicChanged {
@@ -136,6 +142,8 @@ impl CliExecuter for Topics {
             no_fix_dpkg_status,
             always_write_status,
             download_threads,
+            no_check_battery,
+            no_take_wake_lock,
         } = self;
 
         if !dry_run {
@@ -143,12 +151,14 @@ impl CliExecuter for Topics {
             lock_oma()?;
         }
 
-        let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-            Some(dbus_check(false)?)
-        } else {
-            no_check_dbus_warn();
-            None
-        };
+        let _fds = dbus_check(
+            false,
+            config,
+            no_check_dbus,
+            dry_run,
+            no_take_wake_lock,
+            no_check_battery,
+        )?;
 
         let dpkg_arch = dpkg_arch(&sysroot)?;
         let mut tm = TopicManager::new_blocking(&HTTP_CLIENT, &sysroot, &dpkg_arch, dry_run)?;

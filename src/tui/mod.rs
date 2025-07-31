@@ -16,16 +16,17 @@ use tui_inner::{Task, Tui as TuiInner};
 use crate::{
     GlobalOptions,
     args::CliExecuter,
-    subcommand::utils::{auth_config, create_progress_spinner},
-    utils::connect_dbus_impl,
+    config::{BatteryTristate, TakeWakeLockTristate},
+    subcommand::utils::{auth_config, create_progress_spinner, no_check_dbus_warn},
+    utils::{check_battery_disabled_warn, connect_dbus_impl, is_battery, no_take_wake_lock_warn},
 };
 use crate::{
     HTTP_CLIENT, RT,
     config::Config,
     error::OutputError,
     find_another_oma, fl,
-    subcommand::utils::{CommitChanges, Refresh, lock_oma, no_check_dbus_warn},
-    utils::{check_battery, root},
+    subcommand::utils::{CommitChanges, Refresh, lock_oma},
+    utils::{ask_continue_no_use_battery, root},
 };
 
 mod state;
@@ -73,6 +74,12 @@ pub struct Tui {
     /// Setup download threads (default as 4)
     #[arg(from_global)]
     download_threads: Option<usize>,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_check_battery: bool,
+    /// Run oma do not check battery status
+    #[arg(from_global)]
+    no_take_wake_lock: bool,
 }
 
 impl From<&GlobalOptions> for Tui {
@@ -92,6 +99,8 @@ impl From<&GlobalOptions> for Tui {
             sysroot: value.sysroot.clone(),
             apt_options: value.apt_options.clone(),
             download_threads: value.download_threads,
+            no_check_battery: value.no_check_battery,
+            no_take_wake_lock: value.no_take_wake_lock,
         }
     }
 }
@@ -113,6 +122,8 @@ impl CliExecuter for Tui {
             apt_options,
             no_fix_dpkg_status,
             download_threads,
+            no_check_battery,
+            no_take_wake_lock,
         } = self;
 
         if dry_run {
@@ -139,8 +150,24 @@ impl CliExecuter for Tui {
         let conn = if !no_check_dbus && !config.no_check_dbus() {
             let conn = connect_dbus_impl();
 
-            if let Some(conn) = &conn {
-                check_battery(conn, false);
+            if no_check_battery {
+                check_battery_disabled_warn();
+            } else {
+                match config.check_battery() {
+                    BatteryTristate::Ask => {
+                        if let Some(conn) = conn.as_ref() {
+                            ask_continue_no_use_battery(conn, false)
+                        }
+                    }
+                    BatteryTristate::Warn => {
+                        if let Some(conn) = conn.as_ref()
+                            && is_battery(conn)
+                        {
+                            check_battery_disabled_warn();
+                        }
+                    }
+                    BatteryTristate::Ignore => {}
+                }
             }
 
             conn
@@ -225,7 +252,22 @@ impl CliExecuter for Tui {
 
         if execute_apt {
             let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
-                conn.map(|conn| RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma")))
+                if no_take_wake_lock {
+                    no_take_wake_lock_warn();
+                    None
+                } else {
+                    match config.take_wake_lock() {
+                        TakeWakeLockTristate::Yes => conn.map(|conn| {
+                            RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))
+                                .ok()
+                        }),
+                        TakeWakeLockTristate::Warn => {
+                            no_take_wake_lock_warn();
+                            None
+                        }
+                        TakeWakeLockTristate::Ignore => None,
+                    }
+                }
             } else {
                 no_check_dbus_warn();
                 None

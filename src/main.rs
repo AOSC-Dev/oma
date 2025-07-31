@@ -108,6 +108,14 @@ pub struct GlobalOptions {
     #[arg(long, global = true, env = "OMA_NO_CHECK_DBUS", value_parser = FalseyValueParser::new()
 )]
     no_check_dbus: bool,
+    /// Run oma do not check battery status
+    #[arg(long, global = true, env = "OMA_NO_CHECK_BATTERY", value_parser = FalseyValueParser::new()
+)]
+    no_check_battery: bool,
+    /// Run oma do not take wake lock
+    #[arg(long, global = true, env = "OMA_NO_TAKE_WAKE_LOCK", value_parser = FalseyValueParser::new()
+)]
+    no_take_wake_lock: bool,
     /// Print version
     // FIXME: ArgAcrion::Version buggy
     #[arg(short, long)]

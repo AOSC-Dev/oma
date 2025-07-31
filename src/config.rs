@@ -22,6 +22,10 @@ pub struct GeneralConfig {
     pub protect_essentials: bool,
     #[serde(default = "GeneralConfig::default_no_check_dbus")]
     pub no_check_dbus: bool,
+    #[serde(default = "GeneralConfig::default_check_battery")]
+    pub check_battery: BatteryTristate,
+    #[serde(default = "GeneralConfig::default_take_wake_lock")]
+    pub take_wake_lock: TakeWakeLockTristate,
     #[serde(default = "GeneralConfig::default_no_refresh_topics")]
     pub no_refresh_topics: bool,
     #[serde(default = "GeneralConfig::default_follow_terminal_color")]
@@ -34,6 +38,22 @@ pub struct GeneralConfig {
     pub search_engine: String,
     #[serde(default = "GeneralConfig::default_save_log_count")]
     pub save_log_count: usize,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum BatteryTristate {
+    Ask,
+    Warn,
+    Ignore,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum TakeWakeLockTristate {
+    Yes,
+    Warn,
+    Ignore,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -71,6 +91,14 @@ impl GeneralConfig {
 
     pub const fn default_bell() -> bool {
         true
+    }
+
+    pub const fn default_check_battery() -> BatteryTristate {
+        BatteryTristate::Ask
+    }
+
+    pub const fn default_take_wake_lock() -> TakeWakeLockTristate {
+        TakeWakeLockTristate::Yes
     }
 
     pub fn default_search_engine() -> String {
@@ -119,6 +147,20 @@ impl Config {
             .as_ref()
             .map(|x| x.no_check_dbus)
             .unwrap_or_else(GeneralConfig::default_no_check_dbus)
+    }
+
+    pub fn check_battery(&self) -> BatteryTristate {
+        self.general
+            .as_ref()
+            .map(|x| x.check_battery)
+            .unwrap_or_else(GeneralConfig::default_check_battery)
+    }
+
+    pub fn take_wake_lock(&self) -> TakeWakeLockTristate {
+        self.general
+            .as_ref()
+            .map(|x| x.take_wake_lock)
+            .unwrap_or_else(GeneralConfig::default_take_wake_lock)
     }
 
     #[cfg(feature = "aosc")]
