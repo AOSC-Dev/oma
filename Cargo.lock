@@ -2796,6 +2796,7 @@ dependencies = [
  "oma-topics",
  "oma-tum",
  "oma-utils",
+ "once_cell",
  "ratatui",
  "reqwest",
  "rust-embed",
