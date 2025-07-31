@@ -17,7 +17,7 @@ use crate::{
     GlobalOptions,
     args::CliExecuter,
     subcommand::utils::{auth_config, create_progress_spinner, no_check_dbus_warn},
-    utils::{check_battery_disabled_warn, connect_dbus_impl, no_take_wake_lock_warn},
+    utils::{check_battery_disabled_warn, connect_dbus_impl, is_battery, no_take_wake_lock_warn},
 };
 use crate::{
     HTTP_CLIENT, RT,
@@ -25,7 +25,7 @@ use crate::{
     error::OutputError,
     find_another_oma, fl,
     subcommand::utils::{CommitChanges, Refresh, lock_oma},
-    utils::{check_battery, root},
+    utils::{ask_continue_no_use_battery, root},
 };
 
 mod state;
@@ -151,8 +151,8 @@ impl CliExecuter for Tui {
 
             if let Some(conn) = &conn {
                 if !no_check_battery && !config.no_check_battery() {
-                    check_battery(conn, false);
-                } else {
+                    ask_continue_no_use_battery(conn, false);
+                } else if is_battery(conn) {
                     check_battery_disabled_warn();
                 }
             }

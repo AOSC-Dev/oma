@@ -95,8 +95,8 @@ pub fn dbus_check(
     };
 
     if !config.no_check_battery() && !no_check_battery {
-        check_battery(&conn, yes);
-    } else {
+        ask_continue_no_use_battery(&conn, yes);
+    } else if is_battery(&conn) {
         check_battery_disabled_warn();
     }
 
@@ -156,8 +156,8 @@ fn is_wsl() -> bool {
     false
 }
 
-pub fn check_battery(conn: &Connection, yes: bool) {
-    let is_battery = RT.block_on(is_using_battery(conn)).unwrap_or(false);
+pub fn ask_continue_no_use_battery(conn: &Connection, yes: bool) {
+    let is_battery = is_battery(conn);
 
     if is_battery {
         if yes {
@@ -175,6 +175,10 @@ pub fn check_battery(conn: &Connection, yes: bool) {
             exit(0);
         }
     }
+}
+
+pub fn is_battery(conn: &Connection) -> bool {
+    RT.block_on(is_using_battery(conn)).unwrap_or(false)
 }
 
 pub fn is_ssh_from_loginctl() -> bool {
