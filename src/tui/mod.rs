@@ -155,15 +155,16 @@ impl CliExecuter for Tui {
             } else {
                 match config.check_battery() {
                     BatteryTristate::Ask => {
-                        conn.as_ref()
-                            .map(|conn| ask_continue_no_use_battery(conn, false));
+                        if let Some(conn) = conn.as_ref() {
+                            ask_continue_no_use_battery(conn, false)
+                        }
                     }
                     BatteryTristate::Warn => {
-                        conn.as_ref().map(|conn| {
-                            if is_battery(conn) {
-                                check_battery_disabled_warn();
-                            }
-                        });
+                        if let Some(conn) = conn.as_ref()
+                            && is_battery(conn)
+                        {
+                            check_battery_disabled_warn();
+                        }
                     }
                     BatteryTristate::Ignore => {}
                 }
