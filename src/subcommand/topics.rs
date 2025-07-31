@@ -12,7 +12,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
 use oma_pm::{
-    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs, Upgrade},
+    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
 use oma_utils::dpkg::dpkg_arch;
@@ -218,6 +218,7 @@ impl CliExecuter for Topics {
             let matcher = PackagesMatcher::builder()
                 .cache(&apt.cache)
                 .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+                .select_dbg(false)
                 .build();
 
             for pkg in downgrade_pkgs {
@@ -232,14 +233,27 @@ impl CliExecuter for Topics {
 
                     if pkg.is_installed() {
                         let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
-
                         pkgs.push(pkginfo);
                     }
                 }
             }
 
+            for pkg in enabled_pkgs {
+                let mut f = apt
+                    .filter_pkgs(&[FilterMode::Default])?
+                    .filter(|x| x.name() == pkg);
+
+                if let Some(pkg) = f.next() {
+                    if !pkg.is_installed() {
+                        continue;
+                    }
+
+                    let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
+                    pkgs.push(pkginfo);
+                }
+            }
+
             apt.install(&pkgs, false)?;
-            apt.upgrade(Upgrade::FullUpgrade)?;
 
             let code = CommitChanges::builder()
                 .apt(apt)
