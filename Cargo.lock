@@ -2844,7 +2844,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "aho-corasick",
  "ansi-to-tui",
@@ -2966,7 +2966,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm-operation-type"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "bon",
  "num_enum",
@@ -3048,7 +3048,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "logind-zbus",
  "number_prefix",
