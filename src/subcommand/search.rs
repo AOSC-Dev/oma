@@ -14,9 +14,11 @@ use oma_pm::{
     matches::SearchEngine,
     search::{IndiciumSearch, OmaSearch, SearchResult, StrSimSearch, TextSearch},
 };
-use tracing::warn;
 
-use crate::{WRITER, color_formatter, fl, utils::pkgnames_completions};
+use crate::{
+    WRITER, color_formatter, config::SearchEngine as ConfigSearchEngine, fl,
+    utils::pkgnames_completions,
+};
 use crate::{config::Config, error::OutputError, table::oma_display_with_normal_output};
 
 use crate::args::CliExecuter;
@@ -152,14 +154,10 @@ impl CliExecuter for Search {
         let res = search(
             &apt,
             &pattern,
-            match config.search_engine().into_owned().as_str() {
-                "indicium" => SearchEngine::Indicium(Box::new(|_| {})),
-                "strsim" => SearchEngine::Strsim,
-                "text" => SearchEngine::Text,
-                x => {
-                    warn!("Unsupported mode: {x}, fallback to indicium ...");
-                    SearchEngine::Indicium(Box::new(|_| {}))
-                }
+            match config.search_engine() {
+                ConfigSearchEngine::Indicium => SearchEngine::Indicium(Box::new(|_| {})),
+                ConfigSearchEngine::StrSim => SearchEngine::Strsim,
+                ConfigSearchEngine::Text => SearchEngine::Text,
             },
         )?;
 
