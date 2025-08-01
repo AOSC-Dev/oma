@@ -168,11 +168,11 @@ pub fn connect_dbus_impl() -> Option<Connection> {
 
 // From `is_wsl` crate
 fn is_wsl() -> bool {
-    if let Ok(b) = std::fs::read("/proc/sys/kernel/osrelease") {
-        if let Ok(s) = std::str::from_utf8(&b) {
-            let a = s.to_ascii_lowercase();
-            return a.contains("microsoft") || a.contains("wsl");
-        }
+    if let Ok(b) = std::fs::read("/proc/sys/kernel/osrelease")
+        && let Ok(s) = std::str::from_utf8(&b)
+    {
+        let a = s.to_ascii_lowercase();
+        return a.contains("microsoft") || a.contains("wsl");
     }
 
     false

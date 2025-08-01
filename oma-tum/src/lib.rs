@@ -54,7 +54,7 @@ pub enum TopicUpdateEntryRef<'a> {
     Cumulative {
         name: &'a HashMap<String, String>,
         caution: Option<&'a HashMap<String, String>>,
-        _topics: &'a [String],
+        topics: &'a [String],
         count_packages_changed: usize,
         security: bool,
     },
@@ -68,7 +68,6 @@ impl TopicUpdateEntryRef<'_> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn count_packages(&self) -> usize {
         match self {
             TopicUpdateEntryRef::Conventional { packages, .. } => packages.len(),
@@ -103,7 +102,7 @@ impl<'a> From<&'a TopicUpdateEntry> for TopicUpdateEntryRef<'a> {
             } => TopicUpdateEntryRef::Cumulative {
                 name,
                 caution: caution.as_ref(),
-                _topics: topics,
+                topics,
                 count_packages_changed: 0,
                 security: *security,
             },
@@ -239,22 +238,18 @@ fn install_pkg_on_topic(
     pkg_name: &str,
     tum_version: &Option<String>,
 ) -> bool {
-    let install_ver = match install_map.get(pkg_name) {
-        Some(v) => v,
-        None => return false,
+    let Some(install_ver) = install_map.get(pkg_name) else {
+        return false;
     };
 
-    let tum_version = match tum_version {
-        Some(v) => v,
-        None => return false,
+    let Some(tum_version) = tum_version else {
+        return false;
     };
 
-    if let Some((prefix, suffix)) = install_ver.rsplit_once("~pre") {
-        if is_topic_preversion(suffix) {
-            return tum_version == prefix;
-        } else {
-            return tum_version == install_ver;
-        }
+    if let Some((prefix, suffix)) = install_ver.rsplit_once("~pre")
+        && is_topic_preversion(suffix)
+    {
+        return tum_version == prefix;
     }
 
     tum_version == install_ver
