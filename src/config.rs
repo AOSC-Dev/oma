@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use crate::{error, fl};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -35,7 +33,7 @@ pub struct GeneralConfig {
     #[serde(default = "GeneralConfig::default_bell")]
     pub bell: bool,
     #[serde(default = "GeneralConfig::default_search_engine")]
-    pub search_engine: String,
+    pub search_engine: SearchEngine,
     #[serde(default = "GeneralConfig::default_save_log_count")]
     pub save_log_count: usize,
 }
@@ -46,6 +44,14 @@ pub enum BatteryTristate {
     Ask,
     Warn,
     Ignore,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchEngine {
+    Indicium,
+    StrSim,
+    Text,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
@@ -101,11 +107,11 @@ impl GeneralConfig {
         TakeWakeLockTristate::Yes
     }
 
-    pub fn default_search_engine() -> String {
+    pub const fn default_search_engine() -> SearchEngine {
         if cfg!(feature = "aosc") {
-            String::from("indicium")
+            SearchEngine::Indicium
         } else {
-            String::from("strsim")
+            SearchEngine::StrSim
         }
     }
 
@@ -185,11 +191,11 @@ impl Config {
             .unwrap_or_else(GeneralConfig::default_search_contents_println)
     }
 
-    pub fn search_engine(&self) -> Cow<str> {
+    pub fn search_engine(&self) -> SearchEngine {
         self.general
             .as_ref()
-            .map(|x| Cow::Borrowed(x.search_engine.as_str()))
-            .unwrap_or_else(|| Cow::Owned(GeneralConfig::default_search_engine()))
+            .map(|x| x.search_engine)
+            .unwrap_or_else(GeneralConfig::default_search_engine)
     }
 
     pub fn bell(&self) -> bool {
