@@ -233,6 +233,32 @@ pub fn get_matches_tum<'a>(
     matches
 }
 
+pub fn collection_all_matches_security_tum_pkgs<'a>(
+    matches_tum: &HashMap<&str, TopicUpdateEntryRef<'a>>,
+) -> HashMap<&'a str, &'a Option<String>> {
+    let mut res = HashMap::with_hasher(ahash::RandomState::new());
+    for v in matches_tum.values() {
+        let TopicUpdateEntryRef::Conventional {
+            security, packages, ..
+        } = v
+        else {
+            continue;
+        };
+
+        if !*security {
+            continue;
+        }
+
+        res.extend(
+            packages
+                .iter()
+                .map(|(pkg, version)| (pkg.as_str(), version)),
+        );
+    }
+
+    res
+}
+
 fn install_pkg_on_topic(
     install_map: &HashMap<&str, &str>,
     pkg_name: &str,
