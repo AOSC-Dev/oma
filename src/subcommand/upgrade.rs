@@ -221,7 +221,7 @@ impl CliExecuter for Upgrade {
             .apt(apt)
             .dry_run(dry_run)
             .no_fixbroken(no_fixbroken)
-            .check_update(true)
+            .check_tum(true)
             .no_progress(no_progress)
             .sysroot(sysroot.to_string_lossy().to_string())
             .protect_essential(config.protect_essentials())

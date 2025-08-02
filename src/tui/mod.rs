@@ -301,7 +301,7 @@ impl CliExecuter for Tui {
                 .autoremove(autoremove)
                 .maybe_auth_config(auth_config)
                 .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
-                .check_update(upgrade)
+                .check_tum(upgrade)
                 .build()
                 .run()?;
         }
