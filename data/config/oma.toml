@@ -1,11 +1,13 @@
 [general]
 # Set to false to allow removal of "Essential" packages.
 protect_essentials = true
-# Set to true to no check dbus with install package
+# Set to true to disable check for D-Bus availability. This is used for
+# power and session status monitoring, see the `check_battery' and
+# `take_wake_lock' options below.
 no_check_dbus = false
-# Set to true to do not refresh topic manifest data
+# Set to true to skip refreshing topic manifest.
 no_refresh_topics = false
-# Follow system theme as oma color output
+# Follow system terminal color scheme for oma output.
 follow_terminal_color = false
 # Print search contents results directly without sorting and paging
 # recommended for devices with small RAM capacities.
