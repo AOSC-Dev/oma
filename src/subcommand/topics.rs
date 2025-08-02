@@ -226,16 +226,16 @@ impl CliExecuter for Topics {
                     .filter_pkgs(&[FilterMode::Default])?
                     .filter(|x| x.name() == pkg);
 
-                if let Some(pkg) = f.next() {
-                    if enabled_pkgs.contains(&pkg.name().to_string()) {
-                        continue;
-                    }
+                let Some(pkg) = f.next() else {
+                    continue;
+                };
 
-                    if pkg.is_installed() {
-                        let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
-                        pkgs.push(pkginfo);
-                    }
+                if enabled_pkgs.contains(&pkg.name().to_string()) || !pkg.is_installed() {
+                    continue;
                 }
+
+                let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
+                pkgs.push(pkginfo);
             }
 
             for pkg in enabled_pkgs {
@@ -243,14 +243,16 @@ impl CliExecuter for Topics {
                     .filter_pkgs(&[FilterMode::Default])?
                     .filter(|x| x.name() == pkg);
 
-                if let Some(pkg) = f.next() {
-                    if !pkg.is_installed() {
-                        continue;
-                    }
+                let Some(pkg) = f.next() else {
+                    continue;
+                };
 
-                    let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
-                    pkgs.push(pkginfo);
+                if !pkg.is_installed() {
+                    continue;
                 }
+
+                let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
+                pkgs.push(pkginfo);
             }
 
             apt.install(&pkgs, false)?;
