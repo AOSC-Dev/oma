@@ -93,6 +93,9 @@ pub struct Topics {
     /// Run oma do not check battery status
     #[arg(from_global)]
     no_take_wake_lock: bool,
+    /// Only apply topics change to sources list file, not apply system change
+    #[arg(long)]
+    only_apply_sources_list: bool,
 }
 
 struct TopicChanged {
@@ -144,6 +147,7 @@ impl CliExecuter for Topics {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
+            only_apply_sources_list,
         } = self;
 
         if !dry_run {
@@ -202,6 +206,10 @@ impl CliExecuter for Topics {
                 &apt_config,
                 auth_config,
             )?;
+
+            if only_apply_sources_list {
+                return Ok(0);
+            }
 
             let oma_apt_args = OmaAptArgs::builder()
                 .sysroot(sysroot.to_string_lossy().to_string())
