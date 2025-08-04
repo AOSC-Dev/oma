@@ -217,7 +217,7 @@ impl CliExecuter for Upgrade {
             }
         }
 
-        CommitChanges::builder()
+        let code = CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
             .no_fixbroken(no_fixbroken)
@@ -232,6 +232,24 @@ impl CliExecuter for Upgrade {
             .maybe_auth_config(Some(&auth_config))
             .fix_dpkg_status(!no_fix_dpkg_status)
             .build()
-            .run()
+            .run()?;
+
+        let apt = OmaApt::new(
+            vec![],
+            OmaAptArgs::builder().build(),
+            dry_run,
+            AptConfig::new(),
+        )?;
+
+        let (_, upgradable_but_held) = apt.count_pending_upgradable_pkgs();
+
+        if upgradable_but_held != 0 {
+            info!(
+                "{}",
+                fl!("upgrade-after-held-tips", count = upgradable_but_held)
+            );
+        }
+
+        Ok(code)
     }
 }
