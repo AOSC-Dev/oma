@@ -310,7 +310,7 @@ pub(crate) struct CommitChanges<'a> {
     auth_config: Option<&'a AuthConfig>,
     network_thread: usize,
     #[builder(default)]
-    check_update: bool,
+    check_tum: bool,
     #[builder(default)]
     topics_enabled: Vec<String>,
     #[builder(default)]
@@ -334,7 +334,7 @@ impl CommitChanges<'_> {
             autoremove,
             auth_config,
             network_thread,
-            check_update,
+            check_tum,
             topics_enabled,
             topics_disabled,
         } = self;
@@ -385,7 +385,7 @@ impl CommitChanges<'_> {
 
         apt.init_dbus_status()?;
 
-        if check_update {
+        if check_tum {
             let tum = get_tum(Path::new(&sysroot))?;
             let matches_tum = get_matches_tum(&tum, &op);
 

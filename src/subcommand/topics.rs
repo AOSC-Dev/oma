@@ -12,7 +12,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
 use oma_pm::{
-    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs, Upgrade},
+    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
 use oma_utils::dpkg::dpkg_arch;
@@ -93,6 +93,9 @@ pub struct Topics {
     /// Run oma do not check battery status
     #[arg(from_global)]
     no_take_wake_lock: bool,
+    /// Only apply topics change to sources list file, not apply system change
+    #[arg(long)]
+    only_apply_sources_list: bool,
 }
 
 struct TopicChanged {
@@ -144,6 +147,7 @@ impl CliExecuter for Topics {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
+            only_apply_sources_list,
         } = self;
 
         if !dry_run {
@@ -203,6 +207,10 @@ impl CliExecuter for Topics {
                 auth_config,
             )?;
 
+            if only_apply_sources_list {
+                return Ok(0);
+            }
+
             let oma_apt_args = OmaAptArgs::builder()
                 .sysroot(sysroot.to_string_lossy().to_string())
                 .another_apt_options(apt_options)
@@ -218,6 +226,7 @@ impl CliExecuter for Topics {
             let matcher = PackagesMatcher::builder()
                 .cache(&apt.cache)
                 .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+                .select_dbg(false)
                 .build();
 
             for pkg in downgrade_pkgs {
@@ -225,21 +234,36 @@ impl CliExecuter for Topics {
                     .filter_pkgs(&[FilterMode::Default])?
                     .filter(|x| x.name() == pkg);
 
-                if let Some(pkg) = f.next() {
-                    if enabled_pkgs.contains(&pkg.name().to_string()) {
-                        continue;
-                    }
+                let Some(pkg) = f.next() else {
+                    continue;
+                };
 
-                    if pkg.is_installed() {
-                        let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
-
-                        pkgs.push(pkginfo);
-                    }
+                if enabled_pkgs.contains(&pkg.name().to_string()) || !pkg.is_installed() {
+                    continue;
                 }
+
+                let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
+                pkgs.push(pkginfo);
+            }
+
+            for pkg in enabled_pkgs {
+                let mut f = apt
+                    .filter_pkgs(&[FilterMode::Default])?
+                    .filter(|x| x.name() == pkg);
+
+                let Some(pkg) = f.next() else {
+                    continue;
+                };
+
+                if !pkg.is_installed() {
+                    continue;
+                }
+
+                let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
+                pkgs.push(pkginfo);
             }
 
             apt.install(&pkgs, false)?;
-            apt.upgrade(Upgrade::FullUpgrade)?;
 
             let code = CommitChanges::builder()
                 .apt(apt)
@@ -254,7 +278,7 @@ impl CliExecuter for Topics {
                 .autoremove(autoremove)
                 .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
                 .maybe_auth_config(auth_config)
-                .check_update(true)
+                .check_tum(true)
                 .topics_enabled(opt_in)
                 .topics_disabled(opt_out)
                 .build()
