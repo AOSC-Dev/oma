@@ -291,3 +291,4 @@ loading-tree = Analyzing dependency tree
 battery-check-disabled = Power status monitoring has been disabled. System failure or data loss may occur, should an accidental power loss take place while oma is performing system changes.
 session-check-disabled = Session lock has been disabled. System failure or data loss may occur if oma was interrupted by desktop power management, scheduled tasks, etc. as it performs system changes.
 upgrade-after-held-tips = { $count } packages marked for version hold were not upgraded.
+topics-held-tips = The topic(s) you have enabled affects { $count } packages which were marked for version hold, these packages are not upgraded.
