@@ -77,9 +77,8 @@ impl CliExecuter for Refresh {
 
         let pb = create_progress_spinner(no_progress, fl!("reading-database"));
 
-        let upgradable = apt.count_pending_upgradable_pkgs();
+        let upgradable = apt.count_pending_upgradable_pkgs()?;
         let autoremovable = apt.count_pending_autoremovable_pkgs();
-        let upgradable_but_held = apt.count_pending_upgradable_but_held_pkgs();
 
         if let Some(pb) = pb {
             pb.inner.finish_and_clear();
@@ -93,10 +92,6 @@ impl CliExecuter for Refresh {
 
         if autoremovable != 0 {
             s.push(fl!("packages-can-be-removed", len = autoremovable));
-        }
-
-        if upgradable_but_held != 0 {
-            s.push(fl!("packages-can-be-upgrade-but-held", len = upgradable_but_held));
         }
 
         if s.is_empty() {

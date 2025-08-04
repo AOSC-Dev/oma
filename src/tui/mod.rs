@@ -213,7 +213,7 @@ impl CliExecuter for Tui {
 
         let pb = create_progress_spinner(no_progress, fl!("reading-database"));
 
-        let upgradable = apt.count_pending_upgradable_pkgs();
+        let upgradable = apt.count_pending_upgradable_pkgs()?;
         let autoremovable = apt.count_pending_autoremovable_pkgs();
         let installed = apt.count_installed_packages();
 

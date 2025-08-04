@@ -316,19 +316,11 @@ impl OmaApt {
     }
 
     /// Get upgradable packages count
-    pub fn count_pending_upgradable_pkgs(&self) -> usize {
+    pub fn count_pending_upgradable_pkgs(&self) -> OmaAptResult<usize> {
         let sort = PackageSort::default().upgradable().not_hold_installed();
         let upgradable = self.cache.packages(&sort).count();
 
-        upgradable
-    }
-
-    /// Get upgradable packages but held count
-    pub fn count_pending_upgradable_but_held_pkgs(&self) -> usize {
-        let sort = PackageSort::default().upgradable().hold_installed();
-        let upgradable_but_held = self.cache.packages(&sort).count();
-
-        upgradable_but_held
+        Ok(upgradable)
     }
 
     /// Get autoremovable packages count
