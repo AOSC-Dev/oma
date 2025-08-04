@@ -77,7 +77,7 @@ impl CliExecuter for Refresh {
 
         let pb = create_progress_spinner(no_progress, fl!("reading-database"));
 
-        let upgradable = apt.count_pending_upgradable_pkgs()?;
+        let (upgradable, upgradable_but_held) = apt.count_pending_upgradable_pkgs();
         let autoremovable = apt.count_pending_autoremovable_pkgs();
 
         if let Some(pb) = pb {
@@ -86,8 +86,14 @@ impl CliExecuter for Refresh {
 
         let mut s = vec![];
 
-        if upgradable != 0 {
+        if upgradable != 0 && upgradable_but_held == 0 {
             s.push(fl!("packages-can-be-upgrade", len = upgradable));
+        } else if upgradable != 0 {
+            s.push(fl!(
+                "packages-can-be-upgrade-has-held",
+                len = upgradable,
+                held_count = upgradable_but_held
+            ));
         }
 
         if autoremovable != 0 {

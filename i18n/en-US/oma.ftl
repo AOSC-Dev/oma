@@ -38,6 +38,7 @@ additional-version = { $len } additional version(s) available. Please use the `-
 could-not-find-pkg-from-keyword = Could not find any package for keyword { $c }.
 no-need-to-remove = Package { $name } is not installed. No need to remove.
 packages-can-be-upgrade = { $len } package(s) can be upgraded
+packages-can-be-upgrade-has-held = { $len } package(s) can be upgraded ({ $held_count } marked for version hold)
 packages-can-be-removed = { $len } package(s) can be removed
 comma = { ", " }
 successfully-refresh-with-tips = Successfully refreshed the package database. { $s }

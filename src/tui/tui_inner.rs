@@ -54,9 +54,7 @@ pub struct Tui<'a> {
     input_cursor_position: usize,
     display_pending_detail: bool,
     input: String,
-    upgradable: usize,
-    autoremovable: usize,
-    installed: usize,
+    status: PackageStatus,
     pkg_results: Vec<SearchResult>,
     pkg_result_state: StatefulList<Text<'static>>,
     pending_result_state: StatefulList<Operation>,
@@ -100,14 +98,22 @@ pub struct Task {
     pub autoremove: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PackageStatus {
+    pub(crate) installed: usize,
+    pub(crate) upgradable: usize,
+    pub(crate) upgradable_but_held: usize,
+    pub(crate) autoremove: usize,
+}
+
+impl PackageStatus {
+    fn available_upgrade_package_count(&self) -> usize {
+        self.upgradable - self.upgradable_but_held
+    }
+}
+
 impl<'a> Tui<'a> {
-    pub fn new(
-        apt: &'a OmaApt,
-        installed: usize,
-        upgradable: usize,
-        autoremovable: usize,
-        searcher: IndiciumSearch<'a>,
-    ) -> Self {
+    pub fn new(apt: &'a OmaApt, status: PackageStatus, searcher: IndiciumSearch<'a>) -> Self {
         let pkg_results = vec![];
         let pkg_result_state = StatefulList::with_items(vec![]);
 
@@ -118,9 +124,7 @@ impl<'a> Tui<'a> {
             input_cursor_position: 0,
             display_pending_detail: false,
             input: String::new(),
-            upgradable,
-            autoremovable,
-            installed,
+            status,
             pkg_result_state,
             pending_result_state: StatefulList::with_items(vec![]),
             pkg_results,
@@ -188,7 +192,7 @@ impl<'a> Tui<'a> {
                                     self.upgrade = false;
                                     self.pending_result_state.items.remove(pos);
                                 } else {
-                                    if self.upgradable == 0 {
+                                    if self.status.available_upgrade_package_count() == 0 {
                                         self.popup = Some(fl!("tui-no-system-update"));
                                         continue;
                                     }
@@ -207,7 +211,7 @@ impl<'a> Tui<'a> {
                                     self.autoremove = false;
                                     self.pending_result_state.items.remove(pos);
                                 } else {
-                                    if self.autoremovable == 0 {
+                                    if self.status.autoremove == 0 {
                                         self.popup = Some(fl!("tui-no-package-clean-up"));
                                         continue;
                                     }
@@ -733,8 +737,7 @@ impl<'a> Tui<'a> {
             } else {
                 main_layout[2]
             },
-            (self.upgradable, self.autoremovable),
-            self.installed,
+            self.status,
         );
 
         if self.display_pending_detail {
@@ -870,9 +873,10 @@ fn show_packages(
     display_list: &mut StatefulList<Text<'_>>,
     mode: &Mode,
     area: Rect,
-    upgradable_and_autoremovable: (usize, usize),
-    installed: usize,
+    status: PackageStatus,
 ) {
+    let u = status.available_upgrade_package_count();
+
     if !result.is_empty() {
         frame.render_stateful_widget(
             List::new(display_list.items.clone())
@@ -881,9 +885,9 @@ fn show_packages(
                         .borders(Borders::ALL)
                         .title(fl!(
                             "tui-packages",
-                            u = upgradable_and_autoremovable.0,
-                            r = upgradable_and_autoremovable.1,
-                            i = installed
+                            u = u,
+                            r = status.autoremove,
+                            i = status.installed
                         ))
                         .style(highlight_window(mode, &Mode::Packages)),
                 )
@@ -931,9 +935,9 @@ fn show_packages(
                 Line::from(""),
                 Line::from(fl!(
                     "tui-packages",
-                    u = upgradable_and_autoremovable.0,
-                    r = upgradable_and_autoremovable.1,
-                    i = installed
+                    u = u,
+                    r = status.autoremove,
+                    i = status.installed
                 )),
             ])
             .block(
