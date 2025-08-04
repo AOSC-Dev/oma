@@ -249,6 +249,8 @@ impl MirrorManager {
     }
 
     pub fn write_status(&self, custom_mirror_tips: Option<&str>) -> Result<(), MirrorError> {
+        const AOSC_GPG_KEY_FILEPATH: &str = "/usr/share/keyrings/aosc-archive-keyring.gpg";
+
         fs::write(
             &self.status_file_path,
             serde_json::to_vec(&self.status).context(SerializeJsonSnafu)?,
@@ -277,6 +279,14 @@ impl MirrorManager {
         for (_, url) in &self.status.mirror {
             if !is_deb822 {
                 result.push_str("deb ");
+
+                if fs::exists(AOSC_GPG_KEY_FILEPATH).unwrap_or(false) {
+                    result.push_str("[signed-by=");
+                    result.push_str(AOSC_GPG_KEY_FILEPATH);
+                    result.push(']');
+                    result.push(' ');
+                }
+
                 result.push_str(url);
 
                 if !url.ends_with('/') {
@@ -291,11 +301,19 @@ impl MirrorManager {
                 result.push('\n');
             } else {
                 result.push_str(&format!(
-                    "Types: deb\nURIs: {}debs\nSuites: {}\nComponents: {}\n\n",
+                    "Types: deb\nURIs: {}debs\nSuites: {}\nComponents: {}\n",
                     url,
                     &self.status.branch,
                     &self.status.component.join(" ")
                 ));
+
+                if fs::exists(AOSC_GPG_KEY_FILEPATH).unwrap_or(false) {
+                    result.push_str("Signed-By: ");
+                    result.push_str(AOSC_GPG_KEY_FILEPATH);
+                    result.push('\n');
+                }
+
+                result.push('\n');
             }
         }
 
