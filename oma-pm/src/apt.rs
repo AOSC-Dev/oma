@@ -1351,13 +1351,14 @@ fn mark_install(
 
     mark_install_inner(&pkg);
 
-    debug!("marked_install: {}", pkg.marked_new_install());
+    debug!("pkg: {}", pkg.fullname(true));
+    debug!("marked_new_install: {}", pkg.marked_new_install());
+    debug!("marked_install: {}", pkg.marked_install());
     debug!("marked_downgrade: {}", pkg.marked_downgrade());
     debug!("marked_upgrade: {}", pkg.marked_upgrade());
     debug!("marked_keep: {}", pkg.marked_keep());
-    debug!("{} will marked install", pkg.fullname(true));
 
-    Ok(true)
+    Ok(pkg.marked_install())
 }
 
 fn mark_install_inner(pkg: &Package) -> bool {
