@@ -113,7 +113,7 @@ fn main() -> Result<(), OmaAptError> {
 
     thread::spawn(move || {
         while let Ok(v) = rx.recv() {
-            println!("{:#?}", v);
+            println!("{v:#?}");
             if let Event::AllDone = v {
                 break;
             }
@@ -131,7 +131,7 @@ fn main() -> Result<(), OmaAptError> {
         None,
         async |event| {
             if let Err(e) = tx.send_async(event).await {
-                eprintln!("{:#?}", e);
+                eprintln!("{e:#?}");
             }
         },
     )?;

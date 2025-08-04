@@ -18,6 +18,7 @@ use crate::{
     args::CliExecuter,
     config::{BatteryTristate, TakeWakeLockTristate},
     subcommand::utils::{auth_config, create_progress_spinner, no_check_dbus_warn},
+    tui::tui_inner::PackageStatus,
     utils::{check_battery_disabled_warn, connect_dbus_impl, is_battery, no_take_wake_lock_warn},
 };
 use crate::{
@@ -213,8 +214,8 @@ impl CliExecuter for Tui {
 
         let pb = create_progress_spinner(no_progress, fl!("reading-database"));
 
-        let upgradable = apt.count_pending_upgradable_pkgs()?;
-        let autoremovable = apt.count_pending_autoremovable_pkgs();
+        let (upgradable, upgradable_but_held) = apt.count_pending_upgradable_pkgs();
+        let autoremove = apt.count_pending_autoremovable_pkgs();
         let installed = apt.count_installed_packages();
 
         let searcher = IndiciumSearch::new(&apt.cache, |n| {
@@ -233,7 +234,16 @@ impl CliExecuter for Tui {
             source: Some(Box::new(e)),
         })?;
 
-        let tui = TuiInner::new(&apt, installed, upgradable, autoremovable, searcher);
+        let tui = TuiInner::new(
+            &apt,
+            PackageStatus {
+                installed,
+                upgradable,
+                upgradable_but_held,
+                autoremove,
+            },
+            searcher,
+        );
 
         let Task {
             execute_apt,
