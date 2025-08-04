@@ -281,3 +281,4 @@ mirrors-setting-empty = 未配置任何软件源，拒绝保存配置。
 loading-tree = 正在分析依赖树
 battery-check-disabled = 电源监测功能已被禁用，oma 在执行系统更改时如发生意外断电等情况，可能导致系统故障和数据丢失。
 session-check-disabled = 会话监测功能已被禁用，oma 在执行任务时可能会被桌面电源管理、计划任务等打断，导致系统故障和数据丢失。
+upgrade-after-held-tips = 本次操作未更新 { $count } 个被标记为版本锁定的软件包。
