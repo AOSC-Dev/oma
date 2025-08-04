@@ -12,12 +12,13 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
 use oma_pm::{
+    PkgSelectedState,
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
 use oma_utils::dpkg::dpkg_arch;
 use tokio::task::spawn_blocking;
-use tracing::{error, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     HTTP_CLIENT, NOT_ALLOW_CTRLC, RT,
@@ -229,6 +230,8 @@ impl CliExecuter for Topics {
                 .select_dbg(false)
                 .build();
 
+            let mut held_packages = vec![];
+
             for pkg in downgrade_pkgs {
                 let mut f = apt
                     .filter_pkgs(&[FilterMode::Default])?
@@ -242,7 +245,13 @@ impl CliExecuter for Topics {
                     continue;
                 }
 
+                if pkg.selected_state() == PkgSelectedState::Hold {
+                    held_packages.push(pkg.fullname(true));
+                    continue;
+                }
+
                 let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
+
                 pkgs.push(pkginfo);
             }
 
@@ -259,7 +268,13 @@ impl CliExecuter for Topics {
                     continue;
                 }
 
+                if pkg.selected_state() == PkgSelectedState::Hold {
+                    held_packages.push(pkg.fullname(true));
+                    continue;
+                }
+
                 let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
+
                 pkgs.push(pkginfo);
             }
 
@@ -283,6 +298,12 @@ impl CliExecuter for Topics {
                 .topics_disabled(opt_out)
                 .build()
                 .run()?;
+
+            if !held_packages.is_empty() {
+                let count = held_packages.len();
+                info!("{}", fl!("topics-held-tips", count = count));
+                debug!("held packages: {held_packages:?}");
+            }
 
             Ok(code)
         });
