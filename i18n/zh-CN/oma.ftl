@@ -38,6 +38,7 @@ additional-version = 另有 { $len } 个可用版本。请使用 `-a' 列出所�
 could-not-find-pkg-from-keyword = 无法找到匹配关键字 { $c } 的软件包。
 no-need-to-remove = 软件包 { $name } 尚未安装，因此无需卸载。
 packages-can-be-upgrade = 有 { $len } 个可升级的软件包
+packages-can-be-upgrade-but-held = 有 { $len } 个可升级的软件包，但被设置为保留状态。
 packages-can-be-removed = 有 { $len } 个可删除的软件包
 comma = ，
 successfully-refresh-with-tips = 成功刷新本机软件包数据库。{ $s }
