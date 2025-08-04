@@ -269,6 +269,8 @@ impl<'a> TopicManager<'a> {
         revert: bool,
         message_cb: impl AsyncFn(String, String),
     ) -> Result<()> {
+        const AOSC_GPG_KEY_FILEPATH: &str = "/usr/share/keyrings/aosc-archive-keyring.gpg";
+
         if self.dry_run {
             debug!("enabled: {:?}", self.enabled);
             return Ok(());
@@ -310,11 +312,25 @@ impl<'a> TopicManager<'a> {
                 }
 
                 if !is_deb822 {
+                    if fs::try_exists(AOSC_GPG_KEY_FILEPATH).await.unwrap_or(false) {
+                        new_source_list.push_str(&format!(
+                            "deb [signed-by={AOSC_GPG_KEY_FILEPATH}] {}debs {} main\n",
+                            url_with_suffix(mirror),
+                            i.name
+                        ));
+                    } else {
+                        new_source_list.push_str(&format!(
+                            "deb {}debs {} main\n",
+                            url_with_suffix(mirror),
+                            i.name
+                        ));
+                    }
+                } else if fs::try_exists(AOSC_GPG_KEY_FILEPATH).await.unwrap_or(false) {
                     new_source_list.push_str(&format!(
-                        "deb {}debs {} main\n",
-                        url_with_suffix(mirror),
-                        i.name
-                    ));
+                    "Types: deb\nURIs: {}debs\nSuites: {}\nComponents: main\nSigned-By: {AOSC_GPG_KEY_FILEPATH}\n\n",
+                    url_with_suffix(mirror),
+                    i.name,
+                ));
                 } else {
                     new_source_list.push_str(&format!(
                         "Types: deb\nURIs: {}debs\nSuites: {}\nComponents: main\n\n",

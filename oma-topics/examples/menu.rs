@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
 
     for i in &ans {
         let index = all_names.iter().position(|x| x == i).unwrap();
-        if !enabled_names.contains(&all_names[index]) {
+        if !enabled_names.contains(all_names[index]) {
             opt_in.push(all_names[index].clone());
         }
     }
