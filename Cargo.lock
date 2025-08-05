@@ -2641,15 +2641,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
-name = "newline-converter"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47b6b097ecb1cbfed438542d16e84fd7ad9b0c76c8a65b7f9039212a3d14dc7f"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
 name = "nix"
 version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2794,7 +2785,7 @@ dependencies = [
  "oma-contents",
  "oma-fetch",
  "oma-history",
- "oma-inquire 0.3.1",
+ "oma-inquire",
  "oma-mirror",
  "oma-pm",
  "oma-refresh",
@@ -2910,21 +2901,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.12",
  "tracing",
-]
-
-[[package]]
-name = "oma-inquire"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cbba79c2a26ba235327bf0c80b28c7045d50b7ebe750f20e2323df7854fafc7"
-dependencies = [
- "bitflags",
- "crossterm",
- "dyn-clone",
- "newline-converter",
- "thiserror 2.0.12",
- "unicode-segmentation",
- "unicode-width 0.2.0",
 ]
 
 [[package]]
@@ -3046,7 +3022,7 @@ dependencies = [
  "futures",
  "itertools 0.14.0",
  "oma-console",
- "oma-inquire 0.2.1",
+ "oma-inquire",
  "oma-mirror",
  "reqwest",
  "serde",

@@ -226,72 +226,8 @@ impl MirrorManager {
         };
 
         for (_, url) in &self.status.mirror {
-            let url = if !url.ends_with('/') {
-                format!("{url}/")
-            } else {
-                url.to_string()
-            };
-
             for config in &template.config {
-                if !is_deb822 {
-                    result.push_str("deb ");
-
-                    let mut opts_str = vec![];
-
-                    if config.always_trusted {
-                        opts_str.push(Cow::Borrowed("trusted=yes"));
-                    }
-
-                    if !config.signed_by.is_empty() {
-                        opts_str.push(format!("signed-by={}", config.signed_by.join(",")).into());
-                    }
-
-                    if !config.architectures.is_empty() {
-                        opts_str.push(format!("arch={}", config.architectures.join(",")).into());
-                    }
-
-                    result.push_str(&format!("[{}] ", opts_str.join(" ")));
-                    result.push_str(&url);
-                    result.push_str("debs");
-                    result.push(' ');
-                    result.push_str("stable");
-                    result.push(' ');
-                    result.push_str(&config.components.join(" "));
-                    result.push('\n');
-                } else {
-                    result.push_str(&format!(
-                        "Types: deb\nURIs: {url}debs\nSuites: stable\nComponents: {}\n",
-                        config.components.join(" ")
-                    ));
-
-                    if !config.signed_by.is_empty() {
-                        result.push_str("Signed-By:");
-
-                        if config.signed_by.len() == 1 {
-                            result.push(' ');
-                            result.push_str(&config.signed_by[0]);
-                            result.push('\n');
-                        } else {
-                            result.push('\n');
-                            for i in &config.signed_by {
-                                result.push_str(&format!(" {i}\n"));
-                            }
-                        }
-                    }
-
-                    if config.always_trusted {
-                        result.push_str("Trusted: yes\n");
-                    }
-
-                    if !config.architectures.is_empty() {
-                        result.push_str(&format!(
-                            "Architectures: {}\n",
-                            config.architectures.join(" ")
-                        ));
-                    }
-
-                    result.push('\n');
-                }
+                write_sources_inner(&mut result, is_deb822, url, config, "stable");
             }
         }
 
@@ -306,6 +242,80 @@ impl MirrorManager {
         })?;
 
         Ok(())
+    }
+}
+
+pub fn write_sources_inner(
+    result: &mut String,
+    is_deb822: bool,
+    url: &str,
+    config: &parser::MirrorConfigTemplate,
+    branch: &str,
+) {
+    let url = if !url.ends_with('/') {
+        format!("{url}/").into()
+    } else {
+        Cow::Borrowed(url)
+    };
+
+    if !is_deb822 {
+        result.push_str("deb ");
+
+        let mut opts_str = vec![];
+
+        if config.always_trusted {
+            opts_str.push(Cow::Borrowed("trusted=yes"));
+        }
+
+        if !config.signed_by.is_empty() {
+            opts_str.push(format!("signed-by={}", config.signed_by.join(",")).into());
+        }
+
+        if !config.architectures.is_empty() {
+            opts_str.push(format!("arch={}", config.architectures.join(",")).into());
+        }
+
+        result.push_str(&format!("[{}] ", opts_str.join(" ")));
+        result.push_str(&url);
+        result.push_str("debs");
+        result.push(' ');
+        result.push_str(branch);
+        result.push(' ');
+        result.push_str(&config.components.join(" "));
+        result.push('\n');
+    } else {
+        result.push_str(&format!(
+            "Types: deb\nURIs: {url}debs\nSuites: {branch}\nComponents: {}\n",
+            config.components.join(" ")
+        ));
+
+        if !config.signed_by.is_empty() {
+            result.push_str("Signed-By:");
+
+            if config.signed_by.len() == 1 {
+                result.push(' ');
+                result.push_str(&config.signed_by[0]);
+                result.push('\n');
+            } else {
+                result.push('\n');
+                for i in &config.signed_by {
+                    result.push_str(&format!(" {i}\n"));
+                }
+            }
+        }
+
+        if config.always_trusted {
+            result.push_str("Trusted: yes\n");
+        }
+
+        if !config.architectures.is_empty() {
+            result.push_str(&format!(
+                "Architectures: {}\n",
+                config.architectures.join(" ")
+            ));
+        }
+
+        result.push('\n');
     }
 }
 
