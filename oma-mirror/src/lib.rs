@@ -70,6 +70,7 @@ pub struct MirrorManager {
     apt_status_file: PathBuf,
     apt_status_file_new: PathBuf,
     template: PathBuf,
+    custom_mirrors_file_path: PathBuf,
 }
 
 impl MirrorManager {
@@ -78,6 +79,7 @@ impl MirrorManager {
         let mirrors_file_path = rootfs
             .as_ref()
             .join("usr/share/repository-data/mirrors.toml");
+        let custom_mirrors_file_path = rootfs.as_ref().join("etc/repository-data/mirrors.toml");
         let apt_status_file = rootfs.as_ref().join("etc/apt/sources.list");
         let apt_status_file_new = rootfs.as_ref().join("etc/apt/sources.list.d/aosc.sources");
         let template = rootfs
@@ -109,13 +111,23 @@ impl MirrorManager {
             apt_status_file,
             apt_status_file_new,
             template,
+            custom_mirrors_file_path,
         })
     }
 
     fn try_mirrors(&self) -> Result<&MirrorsConfig, MirrorError> {
         self.mirrors_data
             .get_or_try_init(|| -> Result<MirrorsConfig, MirrorError> {
-                MirrorsConfig::parse_from_file(&self.mirrors_file_path).context(ParseConfigSnafu)
+                let mut m = MirrorsConfig::parse_from_file(&self.mirrors_file_path)
+                    .context(ParseConfigSnafu)?;
+
+                if self.custom_mirrors_file_path.exists() {
+                    let custom = MirrorsConfig::parse_from_file(&self.custom_mirrors_file_path)
+                        .context(ParseConfigSnafu)?;
+                    m.0.extend(custom.0);
+                }
+
+                Ok(m)
             })
     }
 
