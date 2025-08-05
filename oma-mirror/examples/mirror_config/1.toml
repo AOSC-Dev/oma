@@ -1,0 +1,4 @@
+[origin]
+description.default = "AOSC main repository (auto-redirect)"
+description.zh_CN = "安同开源社区官方源（自动重定向）"
+url = "https://repo.aosc.io/anthon/"

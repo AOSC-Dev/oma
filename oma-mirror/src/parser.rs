@@ -3,16 +3,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use ahash::HashMap;
 use serde::Deserialize;
 use snafu::{ResultExt, Snafu};
 
 #[derive(Debug, Deserialize)]
 pub struct MirrorsConfigTemplate {
-    pub config: Vec<MirrorConfig>,
+    pub config: Vec<MirrorConfigTemplate>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct MirrorConfig {
+pub struct MirrorConfigTemplate {
     pub components: Vec<String>,
     #[serde(default, rename = "signed-by")]
     pub signed_by: Vec<String>,
@@ -31,6 +32,29 @@ pub enum TemplateParseError {
 }
 
 impl MirrorsConfigTemplate {
+    pub fn parse_from_file(path: impl AsRef<Path>) -> Result<Self, TemplateParseError> {
+        let s = fs::read(path.as_ref()).context(ReadFileSnafu {
+            path: path.as_ref().to_path_buf(),
+        })?;
+
+        Self::parse_from_slice(&s)
+    }
+
+    pub fn parse_from_slice(slice: &[u8]) -> Result<Self, TemplateParseError> {
+        toml::from_slice(slice).context(ParseSnafu)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MirrorsConfig(pub HashMap<String, MirrorConfig>);
+
+#[derive(Debug, Deserialize)]
+pub struct MirrorConfig {
+    pub description: HashMap<String, String>,
+    pub url: String,
+}
+
+impl MirrorsConfig {
     pub fn parse_from_file(path: impl AsRef<Path>) -> Result<Self, TemplateParseError> {
         let s = fs::read(path.as_ref()).context(ReadFileSnafu {
             path: path.as_ref().to_path_buf(),
