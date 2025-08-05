@@ -2,7 +2,7 @@
 can-not-run-dpkg-print-arch = 無法執行 `dpkg --print-architecture'。
 execute-pkexec-fail = 無法執行 `pkexec' 指令：{ $e }。
 # history
-history-tips-1 = oma 已成功套用對系統的更改。
+history-tips-1 = oma 已成功套用對系統的變更。
 history-tips-2 = 如需取消本次操作，請使用 { $cmd } 指令。
 # verify
 fail-load-certs-from-file = 無法從 { $path } 載入軟體庫簽章。
@@ -11,7 +11,7 @@ cert-file-is-bad = 位於 { $path } 的軟體庫簽章無效。
 can-not-find-specified-topic = 找不到測試庫：{ $topic }。
 do-not-edit-topic-sources-list = # 本檔案使用 oma 產生，請勿編輯！
 select-topics-dialog = 打開測試庫以取得實驗性更新，關閉測試庫以回退到穩定版本：
-tips = 按 [Space]/[Enter] 開關測試庫，按 [Esc] 套用更改，按 [Ctrl-c] 結束。
+tips = 按 [Space]/[Enter] 開關測試庫，按 [Esc] 套用變更，按 [Ctrl-c] 結束。
 scan-topic-is-removed = 測試庫 { $name } 已從軟體庫移除，現將關閉……
 refreshing-topic-metadata = 正在重新整理測試庫資料……
 failed-to-read = 無法讀取狀態檔案 ({ $p })。
@@ -28,8 +28,8 @@ pkg-unavailable = 軟體庫中找不到 { $ver } 版本的軟體套件 { $pkg }�
 # pager
 question-tips-with-x11 = 按 [q] 結束檢閱並套用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
 normal-tips-with-x11 = 按 [q] 或 [Ctrl-c] 結束，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
-question-tips = 按 [q] 結束檢閱並套用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn] 或方向鍵翻頁。
-normal-tips = 按 [q] 或 [Ctrl-c] 結束，按 [PgUp/Dn] 或方向鍵翻頁。
+question-tips = { "[" }q] => 套用變更，[Ctrl-c] => 中止操作，[PgUp/Dn]/[↑↓←→] => 翻頁
+normal-tips = { "[" }q]/[Ctrl-c] => 結束，[PgUp/Dn]/[↑↓←→] => 翻頁
 # oma
 no-need-to-do-anything = 無需進行任何操作。
 apt-error = `apt' 回傳了錯誤。
@@ -61,7 +61,7 @@ removed-as-unneed-dep = 清理未使用的依賴
 purge-file = 清理設定檔
 semicolon = ；
 pick-tips = 請指定要安裝的 { $pkgname } 的版本：
-battery = 您的電腦目前似乎正在使用電池供電。oma 在執行任務時可能消耗大量電量，建議插電以防斷電導致資料損壞。
+battery = 您的電腦目前似乎正在使用電池供電。oma 在執行任務時可能消耗大量電量，建議插電以防意外斷電導致資料損壞。
 continue = 您確定要繼續嗎？
 changing-system = oma 正在更改您的系統。
 failed-to-lock-oma = 無法解鎖 oma 行程鎖檔案 (/run/lock/oma.lock)
@@ -130,7 +130,7 @@ download-failed = 下載 { $filename } 檔案失敗！
 download-failed-no-name = 下載檔案失敗！
 need-more-size = 儲存空間不足：{ $a } 可用，但需要 { $n }。
 successfully-download-to-path = 已下載 { $len } 個軟體套件到該路徑：{ $path }。
-oma-may = 為套用您指定的更改，oma 可能 { $a }、{ $b }、{ $c }、{ $d } 或 { $e } 軟體套件。
+oma-may = 為套用您指定的變更，oma 可能 { $a }、{ $b }、{ $c }、{ $d } 或 { $e } 軟體套件。
 failed-to-read-decode-inrelease = 無法讀取解密後的 InRelease 檔案。
 failed-to-operate-path = 無法在路徑 { $p } 中執行檔案操作。
 failed-to-get-parent-path = 無法取得路徑 { $p } 的上層目錄。
@@ -155,7 +155,7 @@ tui-packages = 軟體套件列表（{ $u } 可更新，{ $r } 可移除，{ $i }
 tui-start-1 = 歡迎使用小熊貓套件管理器！
 tui-start-2 = 切換面板
 tui-start-3 = 顯示/隱藏待辦事項
-tui-start-4 = 套用更改
+tui-start-4 = 套用變更
 tui-start-5 = 添加/移除操作條目
 tui-start-6 = 搜尋
 tui-start-7 = 結束
@@ -168,8 +168,8 @@ table-detail = 註記
 reading-database = 正在為軟體套件資料庫構建索引……
 has-error-on-top = 您指定的操作未成功完成，請參閱上方輸出取得更多資訊。
 # pager
-question-tips-with-gui = 按 [q] 結束檢閱並套用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
-normal-tips-with-gui = 按 [q] 或 [Ctrl-c] 退出， 按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
+question-tips-with-gui = { "[" }q] => 套用變更，[Ctrl-c] => 中止操作，[PgUp/Dn]/[↑↓←→]/[滾輪] => 翻頁
+normal-tips-with-gui = { "[" }q]/[Ctrl-c] => 退出，[PgUp/Dn]/[↑↓←→]/[滾輪] => 翻頁
 mirror-is-not-trusted = 鏡像源 { $mirror } 未簽署或未受信任，請檢查您的軟體庫設定。
 please-run-me-as-root = oma 需執行系統管理操作，請使用管理者權限執行 oma 指令。
 topic-not-in-mirror = 測試庫 { $topic } 在鏡像源 { $mirror } 上無法使用。
@@ -283,3 +283,8 @@ psa-without-root-tips = 若要啟動磁碟分析器的管理介面，請以管�
 psa-total = 總佔用
 loading-tree = 正在分析依賴樹
 mirrors-setting-empty = 未指定任何鏡像源，不儲存設定。
+packages-can-be-upgrade-has-held = 有 { $len } 個可升級的軟體套件（其中 { $held_count } 個被標記為版本鎖定）
+battery-check-disabled = 電源監測功能已被停用，oma 在執行系統變更時若發生意外斷電等情況，可能導致系統故障和資料丟失。
+session-check-disabled = 會話監測功能已被停用，oma 在執行系統變更時可能會被桌面電源管理、排程作業等中斷，導致系統故障和資料丟失。
+upgrade-after-held-tips = 本次操作未更新 { $count } 個標記為版本鎖定的軟體套件。
+topics-held-tips = 您打開的測試庫涉及 { $count } 個被標記為版本鎖定的軟體套件，本次操作未更新這些軟體套件。
