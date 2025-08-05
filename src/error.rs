@@ -217,6 +217,10 @@ impl From<MirrorError> for OutputError {
                 description: fl!("mirrors-setting-empty"),
                 source: None,
             },
+            MirrorError::ParseConfig { source } => Self {
+                description: "Parse file got error".to_string(),
+                source: Some(Box::new(source)),
+            },
         }
     }
 }

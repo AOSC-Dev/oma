@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -10,7 +11,6 @@ use anyhow::anyhow;
 use clap::Args;
 use clap::Subcommand;
 use dialoguer::Sort;
-use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use faster_hex::hex_string;
 use inquire::MultiSelect;
@@ -22,8 +22,8 @@ use inquire::ui::Styled;
 use oma_console::indicatif::HumanBytes;
 use oma_console::indicatif::ProgressBar;
 use oma_console::indicatif::ProgressStyle;
-use oma_mirror::Mirror;
 use oma_mirror::MirrorManager;
+use oma_mirror::parser::MirrorConfig;
 use oma_pm::apt::AptConfig;
 use oma_topics::TopicManager;
 use oma_utils::dpkg::dpkg_arch;
@@ -56,14 +56,26 @@ use crate::args::CliExecuter;
 const REPO_TEST_SHA256: &str = "1e2a82e7babb443b2b26b61ce5dd2bd25b06b30422b42ee709fddd2cc3ffe231";
 const TEST_FILE_PREFIX: &str = ".repotest";
 
-struct MirrorDisplay((Box<str>, Mirror));
+struct MirrorDisplay((Box<str>, MirrorConfig));
 
 impl Display for MirrorDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let lang = sys_locale::get_locale()
+            .map(|s| s.replace("-", "_"))
+            .map(Cow::Owned)
+            .unwrap_or("default".into());
+
+        let desc = self
+            .0
+            .1
+            .description
+            .get(lang.as_ref())
+            .unwrap_or_else(|| self.0.1.description.get("default").unwrap());
+
         write!(
             f,
             "{}",
-            select_tui_display_msg(&format!("{} ({})", self.0.1.desc, self.0.0), true)
+            select_tui_display_msg(&format!("{} ({})", desc, self.0.0), true)
         )?;
 
         Ok(())
@@ -433,11 +445,7 @@ pub fn speedtest(
     let mut score_map = HashMap::new();
 
     if let Some(ref pb) = pb {
-        pb.writeln(
-            &style("INFO").blue().bold().to_string(),
-            &fl!("mirror-speedtest-start"),
-        )
-        .ok();
+        pb.info(&fl!("mirror-speedtest-start"));
     }
 
     for (name, mirror) in mirrors {
@@ -559,7 +567,10 @@ fn refresh(
     Ok(())
 }
 
-fn sort_mirrors(mirrors: &mut [(&str, &Mirror)], enabled: &indexmap::IndexMap<Box<str>, Box<str>>) {
+fn sort_mirrors(
+    mirrors: &mut [(&str, &MirrorConfig)],
+    enabled: &indexmap::IndexMap<Box<str>, Box<str>>,
+) {
     mirrors.sort_unstable_by(|a, b| {
         if enabled.contains_key(a.0) && !enabled.contains_key(b.0) {
             Ordering::Less
@@ -608,18 +619,18 @@ fn test_sort() {
     use indexmap::indexmap;
 
     let enabled: IndexMap<Box<str>, Box<str>> = indexmap! {};
-    let m1 = Mirror {
-        desc: "baka".into(),
+    let m1 = MirrorConfig {
+        description: [("default".into(), "baka".into())].into_iter().collect(),
         url: "bala".into(),
     };
 
-    let m2 = Mirror {
-        desc: "baka".into(),
+    let m2 = MirrorConfig {
+        description: [("default".into(), "baka".into())].into_iter().collect(),
         url: "bala".into(),
     };
 
-    let m3 = Mirror {
-        desc: "baka".into(),
+    let m3 = MirrorConfig {
+        description: [("default".into(), "baka".into())].into_iter().collect(),
         url: "bala".into(),
     };
 

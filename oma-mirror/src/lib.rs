@@ -1,6 +1,7 @@
 pub mod parser;
 
 use std::{
+    borrow::Cow,
     fs,
     io::{self},
     path::{Path, PathBuf},
@@ -12,12 +13,10 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use tracing::debug;
 
-use crate::parser::{MirrorConfig, MirrorsConfig};
+use crate::parser::{MirrorConfig, MirrorsConfig, MirrorsConfigTemplate};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Status {
-    branch: Box<str>,
-    component: Vec<Box<str>>,
     mirror: IndexMap<Box<str>, Box<str>>,
 }
 
@@ -30,8 +29,6 @@ struct Branch {
 impl Default for Status {
     fn default() -> Self {
         Self {
-            branch: Box::from("stable"),
-            component: vec![Box::from("main")],
             mirror: indexmap! { Box::from("origin") => Box::from("https://repo.aosc.io/") },
         }
     }
@@ -67,13 +64,12 @@ pub enum MirrorError {
 
 pub struct MirrorManager {
     status: Status,
-    // branches_data: OnceCell<HashMap<Box<str>, Branch>>,
-    // components_data: OnceCell<HashMap<Box<str>, Box<str>>>,
     mirrors_data: OnceCell<MirrorsConfig>,
     status_file_path: PathBuf,
     mirrors_file_path: PathBuf,
     apt_status_file: PathBuf,
     apt_status_file_new: PathBuf,
+    template: PathBuf,
 }
 
 impl MirrorManager {
@@ -81,9 +77,12 @@ impl MirrorManager {
         let status_file_path = rootfs.as_ref().join("var/lib/apt/gen/status.json");
         let mirrors_file_path = rootfs
             .as_ref()
-            .join("usr/share/distro-repository-data/mirrors.toml");
+            .join("usr/share/repository-data/mirrors.toml");
         let apt_status_file = rootfs.as_ref().join("etc/apt/sources.list");
         let apt_status_file_new = rootfs.as_ref().join("etc/apt/sources.list.d/aosc.sources");
+        let template = rootfs
+            .as_ref()
+            .join("usr/share/repository-data/template.toml");
 
         let status: Status = if status_file_path.is_file() {
             let f = fs::read(&status_file_path).context(ReadFileSnafu {
@@ -109,49 +108,9 @@ impl MirrorManager {
             mirrors_file_path,
             apt_status_file,
             apt_status_file_new,
+            template,
         })
     }
-
-    // fn try_branches_data(&self) -> Result<&HashMap<Box<str>, Branch>, MirrorError> {
-    //     self.branches_data
-    //         .get_or_try_init(|| -> Result<HashMap<Box<str>, Branch>, MirrorError> {
-    //             let f = fs::read(Self::BRANCHES_FILE).context(ReadFileSnafu {
-    //                 path: Self::BRANCHES_FILE,
-    //             })?;
-
-    //             let branches_data: HashMap<Box<str>, Branch> =
-    //                 serde_json::from_slice(&f).context(ParseSnafu {
-    //                     path: Self::BRANCHES_FILE,
-    //                 })?;
-
-    //             Ok(branches_data)
-    //         })
-    // }
-
-    // fn branches_data(&self) -> &HashMap<Box<str>, Branch> {
-    //     self.branches_data.get().unwrap()
-    // }
-
-    // fn try_comps(&self) -> Result<&HashMap<Box<str>, Box<str>>, MirrorError> {
-    //     self.components_data.get_or_try_init(
-    //         || -> Result<HashMap<Box<str>, Box<str>>, MirrorError> {
-    //             let f = fs::read(Self::COMPS_FILE).context(ReadFileSnafu {
-    //                 path: Self::COMPS_FILE,
-    //             })?;
-
-    //             let comps: HashMap<Box<str>, Box<str>> =
-    //                 serde_json::from_slice(&f).context(ParseSnafu {
-    //                     path: Self::COMPS_FILE,
-    //                 })?;
-
-    //             Ok(comps)
-    //         },
-    //     )
-    // }
-
-    // fn comps(&self) -> &HashMap<Box<str>, Box<str>> {
-    //     self.components_data.get().unwrap()
-    // }
 
     fn try_mirrors(&self) -> Result<&MirrorsConfig, MirrorError> {
         self.mirrors_data
@@ -239,8 +198,6 @@ impl MirrorManager {
     }
 
     pub fn write_status(&self, custom_mirror_tips: Option<&str>) -> Result<(), MirrorError> {
-        const AOSC_GPG_KEY_FILEPATH: &str = "/usr/share/keyrings/aosc-archive-keyring.gpg";
-
         fs::write(
             &self.status_file_path,
             serde_json::to_vec(&self.status).context(SerializeJsonSnafu)?,
@@ -249,6 +206,8 @@ impl MirrorManager {
             path: self.status_file_path.to_path_buf(),
         })?;
 
+        let template =
+            MirrorsConfigTemplate::parse_from_file(&self.template).context(ParseConfigSnafu)?;
         let mut result = String::new();
 
         let tips = custom_mirror_tips.unwrap_or("# Generate by oma-mirror, DO NOT EDIT!");
@@ -267,43 +226,72 @@ impl MirrorManager {
         };
 
         for (_, url) in &self.status.mirror {
-            if !is_deb822 {
-                result.push_str("deb ");
-
-                if fs::exists(AOSC_GPG_KEY_FILEPATH).unwrap_or(false) {
-                    result.push_str("[signed-by=");
-                    result.push_str(AOSC_GPG_KEY_FILEPATH);
-                    result.push(']');
-                    result.push(' ');
-                }
-
-                result.push_str(url);
-
-                if !url.ends_with('/') {
-                    result.push('/');
-                }
-
-                result.push_str("debs");
-                result.push(' ');
-                result.push_str(&self.status.branch);
-                result.push(' ');
-                result.push_str(&self.status.component.join(" "));
-                result.push('\n');
+            let url = if !url.ends_with('/') {
+                format!("{url}/")
             } else {
-                result.push_str(&format!(
-                    "Types: deb\nURIs: {}debs\nSuites: {}\nComponents: {}\n",
-                    url,
-                    &self.status.branch,
-                    &self.status.component.join(" ")
-                ));
+                url.to_string()
+            };
 
-                if fs::exists(AOSC_GPG_KEY_FILEPATH).unwrap_or(false) {
-                    result.push_str("Signed-By: ");
-                    result.push_str(AOSC_GPG_KEY_FILEPATH);
+            for config in &template.config {
+                if !is_deb822 {
+                    result.push_str("deb ");
+
+                    let mut opts_str = vec![];
+
+                    if config.always_trusted {
+                        opts_str.push(Cow::Borrowed("trusted=yes"));
+                    }
+
+                    if !config.signed_by.is_empty() {
+                        opts_str.push(format!("signed-by={}", config.signed_by.join(",")).into());
+                    }
+
+                    if !config.architectures.is_empty() {
+                        opts_str.push(format!("arch={}", config.architectures.join(",")).into());
+                    }
+
+                    result.push_str(&format!("[{}] ", opts_str.join(" ")));
+                    result.push_str(&url);
+                    result.push_str("debs");
+                    result.push(' ');
+                    result.push_str("stable");
+                    result.push(' ');
+                    result.push_str(&config.components.join(" "));
+                    result.push('\n');
+                } else {
+                    result.push_str(&format!(
+                        "Types: deb\nURIs: {url}debs\nSuites: stable\nComponents: {}\n",
+                        config.components.join(" ")
+                    ));
+
+                    if !config.signed_by.is_empty() {
+                        result.push_str("Signed-By:");
+
+                        if config.signed_by.len() == 1 {
+                            result.push(' ');
+                            result.push_str(&config.signed_by[0]);
+                            result.push('\n');
+                        } else {
+                            result.push('\n');
+                            for i in &config.signed_by {
+                                result.push_str(&format!(" {i}\n"));
+                            }
+                        }
+                    }
+
+                    if config.always_trusted {
+                        result.push_str("Trusted: yes\n");
+                    }
+
+                    if !config.architectures.is_empty() {
+                        result.push_str(&format!(
+                            "Architectures: {}\n",
+                            config.architectures.join(" ")
+                        ));
+                    }
+
                     result.push('\n');
                 }
-
-                result.push('\n');
             }
         }
 

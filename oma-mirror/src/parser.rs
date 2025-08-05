@@ -45,12 +45,12 @@ impl MirrorsConfigTemplate {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct MirrorsConfig(pub HashMap<Box<str>, MirrorConfig>);
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct MirrorConfig {
-    pub description: HashMap<Box<str>, Box<str>>,
+    pub description: HashMap<String, String>,
     pub url: Box<str>,
 }
 
