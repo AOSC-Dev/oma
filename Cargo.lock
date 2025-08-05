@@ -3045,6 +3045,7 @@ dependencies = [
  "anyhow",
  "oma-apt-sources-lists",
  "sequoia-openpgp",
+ "sequoia-policy-config",
  "thiserror 2.0.12",
  "tracing",
 ]
@@ -4011,6 +4012,20 @@ dependencies = [
  "sha1collisiondetection",
  "thiserror 2.0.12",
  "xxhash-rust",
+]
+
+[[package]]
+name = "sequoia-policy-config"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e016b708d64857b6a97e1a331d9471b73e30ed450d247628e1a0ce236b1e597"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "sequoia-openpgp",
+ "serde",
+ "thiserror 1.0.69",
+ "toml 0.5.11",
 ]
 
 [[package]]

@@ -15,9 +15,9 @@ use sequoia_openpgp::{
             VerificationHelper, VerifierBuilder,
         },
     },
-    policy::{AsymmetricAlgorithm, StandardPolicy},
-    types::HashAlgorithm,
+    policy::StandardPolicy,
 };
+use sequoia_policy_config::ConfiguredStandardPolicy;
 use tracing::debug;
 
 #[derive(Debug)]
@@ -165,17 +165,27 @@ pub fn verify_inrelease_inner(
 }
 
 fn policy() -> StandardPolicy<'static> {
-    // Derive p to allow configuring sequoia_openpgp's StandardPolicy.
-    let mut p = StandardPolicy::new();
-    // Allow SHA-1 (considering it safe, whereas sequoia_openpgp's standard
-    // policy forbids it), as many third party APT repositories still uses
-    // SHA-1 to sign their repository metadata (such as InRelease).
-    p.accept_hash(HashAlgorithm::SHA1);
+    // https://salsa.debian.org/apt-team/apt/-/blob/main/debian/default-sequoia.config
+    let policy_config = &b"[asymmetric_algorithms]
+dsa2048 = 2024-02-01
+dsa3072 = 2024-02-01
+dsa4096 = 2024-02-01
+brainpoolp256 = 2028-02-01
+brainpoolp384 = 2028-02-01
+brainpoolp512 = 2028-02-01
+rsa2048  = 2030-02-01
 
-    // Allow RSA-1024
-    p.accept_asymmetric_algo(AsymmetricAlgorithm::RSA1024);
+[hash_algorithms]
+sha1.second_preimage_resistance = 2026-02-01    # Extend the expiry for legacy repositories
+sha224 = 2026-02-01
 
-    p
+[packets]
+signature.v3 = 2026-02-01   # Extend the expiry"[..];
+
+    let mut p = ConfiguredStandardPolicy::new();
+    p.parse_bytes(policy_config).unwrap();
+
+    p.build()
 }
 
 pub fn verify_release_by_sysroot(
