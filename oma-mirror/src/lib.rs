@@ -6,12 +6,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ahash::HashMap;
 use indexmap::{IndexMap, indexmap};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use tracing::debug;
+
+use crate::parser::{MirrorConfig, MirrorsConfig};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Status {
@@ -24,12 +25,6 @@ struct Status {
 struct Branch {
     desc: Box<str>,
     suites: Vec<Box<str>>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Mirror {
-    pub desc: Box<str>,
-    pub url: Box<str>,
 }
 
 impl Default for Status {
@@ -66,13 +61,15 @@ pub enum MirrorError {
     CreateFile { path: PathBuf, source: io::Error },
     #[snafu(display("Not allow apply empty mirrors settings"))]
     ApplyEmptySettings,
+    #[snafu(display("Parse Error"))]
+    ParseConfig { source: parser::TemplateParseError },
 }
 
 pub struct MirrorManager {
     status: Status,
     // branches_data: OnceCell<HashMap<Box<str>, Branch>>,
     // components_data: OnceCell<HashMap<Box<str>, Box<str>>>,
-    mirrors_data: OnceCell<HashMap<Box<str>, Mirror>>,
+    mirrors_data: OnceCell<MirrorsConfig>,
     status_file_path: PathBuf,
     mirrors_file_path: PathBuf,
     apt_status_file: PathBuf,
@@ -84,7 +81,7 @@ impl MirrorManager {
         let status_file_path = rootfs.as_ref().join("var/lib/apt/gen/status.json");
         let mirrors_file_path = rootfs
             .as_ref()
-            .join("usr/share/distro-repository-data/mirrors.yml");
+            .join("usr/share/distro-repository-data/mirrors.toml");
         let apt_status_file = rootfs.as_ref().join("etc/apt/sources.list");
         let apt_status_file_new = rootfs.as_ref().join("etc/apt/sources.list.d/aosc.sources");
 
@@ -156,19 +153,10 @@ impl MirrorManager {
     //     self.components_data.get().unwrap()
     // }
 
-    fn try_mirrors(&self) -> Result<&HashMap<Box<str>, Mirror>, MirrorError> {
+    fn try_mirrors(&self) -> Result<&MirrorsConfig, MirrorError> {
         self.mirrors_data
-            .get_or_try_init(|| -> Result<HashMap<Box<str>, Mirror>, MirrorError> {
-                let f = fs::read(&self.mirrors_file_path).context(ReadFileSnafu {
-                    path: self.mirrors_file_path.to_path_buf(),
-                })?;
-
-                let mirrors: HashMap<Box<str>, Mirror> =
-                    serde_yaml::from_slice(&f).context(ParseYamlSnafu {
-                        path: self.mirrors_file_path.to_path_buf(),
-                    })?;
-
-                Ok(mirrors)
+            .get_or_try_init(|| -> Result<MirrorsConfig, MirrorError> {
+                MirrorsConfig::parse_from_file(&self.mirrors_file_path).context(ParseConfigSnafu)
             })
     }
 
@@ -177,7 +165,7 @@ impl MirrorManager {
             return Err(MirrorError::ApplyEmptySettings);
         }
 
-        let mirrors = self.try_mirrors()?;
+        let mirrors = &self.try_mirrors()?.0;
 
         for i in mirror_names {
             if !mirrors.contains_key(*i) {
@@ -200,7 +188,7 @@ impl MirrorManager {
             return Ok(false);
         }
 
-        let mirrors = self.try_mirrors()?;
+        let mirrors = &self.try_mirrors()?.0;
 
         let mirror_url = if let Some(mirror) = mirrors.get(mirror_name) {
             mirror.url.clone()
@@ -229,8 +217,8 @@ impl MirrorManager {
         Ok(true)
     }
 
-    pub fn mirrors_iter(&self) -> Result<impl Iterator<Item = (&str, &Mirror)>, MirrorError> {
-        let mirrors = self.try_mirrors()?;
+    pub fn mirrors_iter(&self) -> Result<impl Iterator<Item = (&str, &MirrorConfig)>, MirrorError> {
+        let mirrors = &self.try_mirrors()?.0;
         let iter = mirrors.iter().map(|x| (x.0.as_ref(), x.1));
 
         Ok(iter)
