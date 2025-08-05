@@ -1,0 +1,9 @@
+[[config]]
+components = ["bsp-loongarch64-nosimd"]
+signed-by = ["/usr/share/keyrings/aosc-archive-keyring.gpg"]
+architectures = ["loongarch64"]
+
+[[config]]
+components = ["main"]
+signed-by = ["/usr/share/keyrings/aosc-archive-keyring.gpg"]
+architectures = ["all"]

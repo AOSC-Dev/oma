@@ -1,0 +1,3 @@
+[[config]]
+components = ["main"]
+signed-by = ["/usr/share/keyrings/aosc-archive-keyring.gpg"]
