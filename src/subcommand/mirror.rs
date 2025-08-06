@@ -1,12 +1,12 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::stdout;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
+use ahash::HashMap;
 use anyhow::anyhow;
 use clap::Args;
 use clap::Subcommand;
@@ -271,10 +271,30 @@ pub fn tui(
     root()?;
 
     let mut mm = MirrorManager::new("/")?;
-    let mut mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
+    let mut mirrors = mm
+        .mirrors_iter()?
+        .map(|x| (x.0, x.1.to_owned()))
+        .collect::<Vec<_>>();
+
     let enabled = mm.enabled_mirrors();
 
     sort_mirrors(&mut mirrors, enabled);
+
+    // 把已启用但自定义配置文件中已经删除的源靠前
+    for (name, url) in enabled {
+        if mirrors.iter().all(|(n, _)| name.as_ref() != *n) {
+            mirrors.insert(
+                0,
+                (
+                    url,
+                    MirrorConfig {
+                        description: [("default".into(), url.to_string())].into_iter().collect(),
+                        url: url.to_owned(),
+                    },
+                ),
+            );
+        }
+    }
 
     let mirrors = mirrors
         .iter()
@@ -442,7 +462,7 @@ pub fn speedtest(
         .timeout(Duration::from_secs(120))
         .build()?;
 
-    let mut score_map = HashMap::new();
+    let mut score_map = HashMap::with_hasher(ahash::RandomState::new());
 
     if let Some(ref pb) = pb {
         pb.info(&fl!("mirror-speedtest-start"));
@@ -568,7 +588,7 @@ fn refresh(
 }
 
 fn sort_mirrors(
-    mirrors: &mut [(&str, &MirrorConfig)],
+    mirrors: &mut Vec<(&str, MirrorConfig)>,
     enabled: &indexmap::IndexMap<Box<str>, Box<str>>,
 ) {
     mirrors.sort_unstable_by(|a, b| {
@@ -634,7 +654,7 @@ fn test_sort() {
         url: "bala".into(),
     };
 
-    let mut mirrors = vec![("b", &m1), ("a", &m2)];
+    let mut mirrors = vec![("b", m1.clone()), ("a", m2.clone())];
 
     sort_mirrors(&mut mirrors, &enabled);
 
@@ -644,7 +664,7 @@ fn test_sort() {
     );
 
     let enabled: IndexMap<Box<str>, Box<str>> = indexmap! {"c".into() => "baka".into()};
-    let mut mirrors = vec![("b", &m1), ("a", &m2), ("c", &m3)];
+    let mut mirrors = vec![("b", m1), ("a", m2), ("c", m3)];
 
     sort_mirrors(&mut mirrors, &enabled);
 
