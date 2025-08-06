@@ -27,7 +27,7 @@ pub struct MirrorConfigTemplate {
 pub enum TemplateParseError {
     #[snafu(display("Failed to read file: {}", path.display()))]
     ReadFile { source: io::Error, path: PathBuf },
-    #[snafu(display("Failed to parse string to MirrorConfigTemplate"))]
+    #[snafu(transparent)]
     Parse { source: toml::de::Error },
     #[snafu(display("The ID of your custom mirror `{name}' conflicts with an existing mirror"))]
     ConflictName { name: Box<str> },
@@ -43,7 +43,7 @@ impl MirrorsConfigTemplate {
     }
 
     pub fn parse_from_slice(slice: &[u8]) -> Result<Self, TemplateParseError> {
-        toml::from_slice(slice).context(ParseSnafu)
+        Ok(toml::from_slice(slice)?)
     }
 }
 
@@ -66,6 +66,6 @@ impl MirrorsConfig {
     }
 
     pub fn parse_from_slice(slice: &[u8]) -> Result<Self, TemplateParseError> {
-        toml::from_slice(slice).context(ParseSnafu)
+        Ok(toml::from_slice(slice)?)
     }
 }
