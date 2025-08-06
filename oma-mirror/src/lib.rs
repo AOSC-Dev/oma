@@ -13,7 +13,9 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use tracing::debug;
 
-use crate::parser::{MirrorConfig, MirrorsConfig, MirrorsConfigTemplate, TemplateParseError};
+use crate::parser::{
+    MirrorConfig, MirrorConfigTemplate, MirrorsConfig, MirrorsConfigTemplate, TemplateParseError,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Status {
@@ -272,9 +274,13 @@ pub fn write_sources_inner(
     result: &mut String,
     is_deb822: bool,
     url: &str,
-    config: &parser::MirrorConfigTemplate,
+    config: &MirrorConfigTemplate,
     branch: &str,
 ) {
+    if !config.enabled {
+        return;
+    }
+
     let url = if !url.ends_with('/') {
         format!("{url}/").into()
     } else {

@@ -21,6 +21,8 @@ pub struct MirrorConfigTemplate {
     pub architectures: Vec<String>,
     #[serde(rename = "always-trusted", default)]
     pub always_trusted: bool,
+    #[serde(default = "MirrorsConfigTemplate::default_enabled")]
+    pub enabled: bool,
 }
 
 #[derive(Debug, Snafu)]
@@ -34,6 +36,10 @@ pub enum TemplateParseError {
 }
 
 impl MirrorsConfigTemplate {
+    const fn default_enabled() -> bool {
+        true
+    }
+
     pub fn parse_from_file(path: impl AsRef<Path>) -> Result<Self, TemplateParseError> {
         let s = fs::read(path.as_ref()).context(ReadFileSnafu {
             path: path.as_ref().to_path_buf(),
