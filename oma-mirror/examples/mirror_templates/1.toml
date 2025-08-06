@@ -5,7 +5,7 @@
 #   components = ["main"]
 #   # Keyring to be used for signing (array).
 #   signed-by = ["/usr/share/keyrings/aosc-archive-keyring.gpg"]
-#   # Whether to always trust a repository (no signature verfication),
+#   # Whether to always trust a repository (no signature verification),
 #   # defaults to false.
 #   always-trusted = <true|false>
 #   # Architectures enabled by a repository defaults to
