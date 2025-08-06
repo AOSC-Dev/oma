@@ -21,7 +21,7 @@ ahash = "0.8.11"
 itertools = "0.14"
 
 [dev-dependencies]
-oma-inquire = "0.2"
+oma-inquire = "0.3"
 oma-console = { path = "../oma-console" }
 tokio = { version = "1.28", default-features = false, features = ["macros", "rt-multi-thread"] }
 

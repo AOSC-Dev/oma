@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     hash::Hash,
     io,
     path::{Path, PathBuf},
@@ -8,7 +7,7 @@ use std::{
 use ahash::{HashMap, HashSet};
 use futures::future::try_join_all;
 use itertools::Itertools;
-use oma_mirror::MirrorManager;
+use oma_mirror::{MirrorError, MirrorManager, parser::MirrorsConfigTemplate, write_sources_inner};
 use reqwest::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::fs;
@@ -83,6 +82,7 @@ pub struct TopicManager<'a> {
     dry_run: bool,
     old_enabled: Vec<Topic>,
     mm: MirrorManager,
+    template: PathBuf,
 }
 
 impl<'a> TopicManager<'a> {
@@ -162,6 +162,9 @@ impl<'a> TopicManager<'a> {
             mm: tokio::task::spawn_blocking(move || MirrorManager::new(sysroot_box))
                 .await
                 .unwrap()?,
+            template: sysroot
+                .as_ref()
+                .join("usr/share/repository-data/template.toml"),
         })
     }
 
@@ -269,8 +272,6 @@ impl<'a> TopicManager<'a> {
         revert: bool,
         message_cb: impl AsyncFn(String, String),
     ) -> Result<()> {
-        const AOSC_GPG_KEY_FILEPATH: &str = "/usr/share/keyrings/aosc-archive-keyring.gpg";
-
         if self.dry_run {
             debug!("enabled: {:?}", self.enabled);
             return Ok(());
@@ -303,40 +304,19 @@ impl<'a> TopicManager<'a> {
             &self.enabled
         };
 
+        let template = MirrorsConfigTemplate::parse_from_file(&self.template)
+            .map_err(|e| MirrorError::ParseConfig { source: e })?;
+
         for i in write_source {
             new_source_list.push_str(&format!("# Topic `{}`\n", i.name));
-            for (_, mirror) in self.mm.enabled_mirrors() {
-                if !self.all.get(mirror).is_some_and(|x| x.contains(i)) {
-                    message_cb(i.name.to_string(), mirror.to_string()).await;
-                    continue;
-                }
-
-                if !is_deb822 {
-                    if fs::try_exists(AOSC_GPG_KEY_FILEPATH).await.unwrap_or(false) {
-                        new_source_list.push_str(&format!(
-                            "deb [signed-by={AOSC_GPG_KEY_FILEPATH}] {}debs {} main\n",
-                            url_with_suffix(mirror),
-                            i.name
-                        ));
-                    } else {
-                        new_source_list.push_str(&format!(
-                            "deb {}debs {} main\n",
-                            url_with_suffix(mirror),
-                            i.name
-                        ));
+            for config in &template.config {
+                for (_, mirror) in self.mm.enabled_mirrors() {
+                    if !self.all.get(mirror).is_some_and(|x| x.contains(i)) {
+                        message_cb(i.name.to_string(), mirror.to_string()).await;
+                        continue;
                     }
-                } else if fs::try_exists(AOSC_GPG_KEY_FILEPATH).await.unwrap_or(false) {
-                    new_source_list.push_str(&format!(
-                    "Types: deb\nURIs: {}debs\nSuites: {}\nComponents: main\nSigned-By: {AOSC_GPG_KEY_FILEPATH}\n\n",
-                    url_with_suffix(mirror),
-                    i.name,
-                ));
-                } else {
-                    new_source_list.push_str(&format!(
-                        "Types: deb\nURIs: {}debs\nSuites: {}\nComponents: main\n\n",
-                        url_with_suffix(mirror),
-                        i.name
-                    ));
+
+                    write_sources_inner(&mut new_source_list, is_deb822, mirror, config, &i.name);
                 }
             }
         }
@@ -421,14 +401,6 @@ async fn get<T: DeserializeOwned>(client: &Client, url: Url) -> Result<T> {
             Ok(res)
         }
         _ => Err(OmaTopicsError::UnsupportedProtocol(url.to_string())),
-    }
-}
-
-fn url_with_suffix(url: &str) -> Cow<str> {
-    if url.ends_with('/') {
-        Cow::Borrowed(url)
-    } else {
-        Cow::Owned(format!("{url}/"))
     }
 }
 
