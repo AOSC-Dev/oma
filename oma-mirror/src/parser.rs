@@ -29,6 +29,8 @@ pub enum TemplateParseError {
     ReadFile { source: io::Error, path: PathBuf },
     #[snafu(display("Failed to parse string to MirrorConfigTemplate"))]
     Parse { source: toml::de::Error },
+    #[snafu(display("The ID of your custom mirror {name} conflicts with an existing mirror"))]
+    ConflictName { name: Box<str> },
 }
 
 impl MirrorsConfigTemplate {

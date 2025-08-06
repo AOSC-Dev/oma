@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use tracing::debug;
 
-use crate::parser::{MirrorConfig, MirrorsConfig, MirrorsConfigTemplate};
+use crate::parser::{MirrorConfig, MirrorsConfig, MirrorsConfigTemplate, TemplateParseError};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Status {
@@ -124,6 +124,17 @@ impl MirrorManager {
                 if self.custom_mirrors_file_path.exists() {
                     let custom = MirrorsConfig::parse_from_file(&self.custom_mirrors_file_path)
                         .context(ParseConfigSnafu)?;
+
+                    for k1 in m.0.keys() {
+                        if custom.0.contains_key(k1) {
+                            return Err(MirrorError::ParseConfig {
+                                source: TemplateParseError::ConflictName {
+                                    name: k1.to_owned(),
+                                },
+                            });
+                        }
+                    }
+
                     m.0.extend(custom.0);
                 }
 
