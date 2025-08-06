@@ -218,7 +218,7 @@ impl From<MirrorError> for OutputError {
                 source: None,
             },
             MirrorError::ParseConfig { source } => Self {
-                description: "Parse file got error".to_string(),
+                description: "Failed to parse file".to_string(),
                 source: Some(Box::new(source)),
             },
         }
