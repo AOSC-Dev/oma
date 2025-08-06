@@ -146,7 +146,7 @@ pub fn verify_inrelease_inner(
     trusted: bool,
     kob: KeyBlockOrPaths<'_>,
 ) -> Result<String, VerifyError> {
-    let p = policy();
+    let p = policy()?;
 
     let mut v = VerifierBuilder::from_bytes(inrelease.as_bytes())?.with_policy(
         &p,
@@ -164,9 +164,20 @@ pub fn verify_inrelease_inner(
     Ok(res)
 }
 
-fn policy() -> StandardPolicy<'static> {
-    // https://salsa.debian.org/apt-team/apt/-/blob/main/debian/default-sequoia.config
-    let policy_config = &b"[asymmetric_algorithms]
+fn policy() -> Result<StandardPolicy<'static>, anyhow::Error> {
+    let mut p = ConfiguredStandardPolicy::new();
+    let custom_configure_path = Path::new("/etc/crypto-policies/back-ends/apt-sequoia.config");
+
+    if custom_configure_path.exists() {
+        if !p.parse_config_file(custom_configure_path)? {
+            bail!(
+                "configure {} does not exist",
+                custom_configure_path.display()
+            );
+        }
+    } else {
+        // https://salsa.debian.org/apt-team/apt/-/blob/main/debian/default-sequoia.config
+        let policy_config = &b"[asymmetric_algorithms]
 dsa2048 = 2024-02-01
 dsa3072 = 2024-02-01
 dsa4096 = 2024-02-01
@@ -182,10 +193,10 @@ sha224 = 2026-02-01
 [packets]
 signature.v3 = 2026-02-01   # Extend the expiry"[..];
 
-    let mut p = ConfiguredStandardPolicy::new();
-    p.parse_bytes(policy_config).unwrap();
+        p.parse_bytes(policy_config).unwrap();
+    }
 
-    p.build()
+    Ok(p.build())
 }
 
 pub fn verify_release_by_sysroot(
@@ -207,7 +218,7 @@ pub fn verify_release_inner(
     trusted: bool,
     bop: KeyBlockOrPaths<'_>,
 ) -> Result<(), VerifyError> {
-    let p = policy();
+    let p = policy()?;
 
     let mut v = DetachedVerifierBuilder::from_bytes(detached)?.with_policy(
         &p,
