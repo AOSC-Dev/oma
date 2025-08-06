@@ -1,3 +1,23 @@
+# Configuration for custom mirror templates, content as follows:
+#
+#   [[config]]
+#   # Component(s) to enabled (array).
+#   components = ["main"]
+#   # Keyring to be used for signing (array).
+#   signed-by = ["/usr/share/keyrings/aosc-archive-keyring.gpg"]
+#   # Whether to always trust a repository (no signature verfication),
+#   # defaults to false.
+#   always-trusted = <true|false>
+#   # Architectures enabled by a repository defaults to
+#   `dpkg --print-architecture' (native architecture) plus `all' (noarch).
+#   architectures = ["amd64","arm64"]
+#   # Whether to enable the architecture, defaults to true.
+#   enabled = <true|false>
+#
+# The following example enables the `bsp-loongarch-nosimd' component to
+# supply the `loongarch64' packages and uses the `main' component to
+# supply the `all' (noarch) packages.
+
 [[config]]
 components = ["bsp-loongarch64-nosimd"]
 signed-by = ["/usr/share/keyrings/aosc-archive-keyring.gpg"]

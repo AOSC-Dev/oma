@@ -1,3 +1,24 @@
+# Configuration for custom mirror templates, content as follows:
+#
+#   [[config]]
+#   # Component(s) to enabled (array).
+#   components = ["main"]
+#   # Keyring to be used for signing (array).
+#   signed-by = ["/usr/share/keyrings/aosc-archive-keyring.gpg"]
+#   # Whether to always trust a repository (no signature verfication),
+#   # defaults to false.
+#   always-trusted = <true|false>
+#   # Architectures enabled by a repository defaults to
+#   `dpkg --print-architecture' (native architecture) plus `all' (noarch).
+#   architectures = ["amd64","arm64"]
+#   # Whether to enable the architecture, defaults to true.
+#   enabled = <true|false>
+#
+# The following example enables the `main' component to supply native and
+# `all' (noarch) packages.
+#
+# This is the common configuration that AOSC OS uses.
+
 [[config]]
 components = ["main"]
 signed-by = ["/usr/share/keyrings/aosc-archive-keyring.gpg"]

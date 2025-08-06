@@ -1,3 +1,20 @@
+# Configuration for custom mirrors, template as follows:
+#
+#   [some-mirror]
+#   description.default = "Description or pretty name for the mirror"
+#   description.zh_CN = "本地化后的镜像简介或名称"
+#   url = "https://localhost:8888/anthon/"
+#
+# As such, the `description' field may be localised - after the dot `.'
+# goes the locale code without encoding (i.e., "en_US", not "en_US.UTF-8")
+# and `default' corresponds to "not localised."
+#
+# The `url' field is used to define the root directory of your mirror,
+# where the `debs' directory resides.
+#
+# The following example defines the "origin" (official) repository used by
+# AOSC OS installations.
+
 [origin]
 description.default = "AOSC main repository (auto-redirect)"
 description.zh_CN = "安同开源社区官方源（自动重定向）"
