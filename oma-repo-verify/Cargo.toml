@@ -11,6 +11,7 @@ thiserror = "2"
 sequoia-openpgp = { version = "2", default-features = false }
 tracing = "0.1"
 oma-apt-sources-lists = "0.9"
+sequoia-policy-config = "0.8"
 
 [features]
 sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]
