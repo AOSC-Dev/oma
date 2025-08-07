@@ -42,6 +42,8 @@ pub enum HistoryError {
     NoResult(i64),
     #[error("Failed to get parent path: {0}")]
     FailedParentPath(String),
+    #[error("Has no upgrade system log in this machine")]
+    NoUpgradeSystemLog,
 }
 
 pub const DATABASE_PATH: &str = "var/lib/oma/history.db";
@@ -568,4 +570,24 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<HistoryEn
     }
 
     res.ok_or_else(|| HistoryError::NoResult(id))
+}
+
+pub fn last_upgrade_timestamp(conn: &Connection) -> HistoryResult<i64> {
+    let mut prepare = conn
+        .prepare(
+            r#"SELECT command, time FROM "history_oma_1.14"
+    WHERE command LIKE ?"#,
+        )
+        .map_err(HistoryError::ExecuteError)?;
+
+    let query_str = "% upgrade%";
+    let res_iter = prepare
+        .query_map([query_str], |row| row.get(1))
+        .map_err(HistoryError::ExecuteError)?;
+
+    if let Some(Ok(n)) = res_iter.last() {
+        return Ok(n);
+    }
+
+    Err(HistoryError::NoUpgradeSystemLog)
 }

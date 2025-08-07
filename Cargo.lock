@@ -2894,6 +2894,7 @@ dependencies = [
 name = "oma-history"
 version = "0.7.0"
 dependencies = [
+ "chrono",
  "num_enum",
  "oma-pm-operation-type",
  "rusqlite",

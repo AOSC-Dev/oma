@@ -994,6 +994,7 @@ impl From<HistoryError> for OutputError {
                 description: fl!("failed-to-execute-query-stmt"),
                 source: Some(Box::new(error)),
             },
+            HistoryError::NoUpgradeSystemLog => unreachable!(),
         }
     }
 }
