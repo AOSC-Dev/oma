@@ -193,10 +193,6 @@ impl From<MirrorError> for OutputError {
                 description: fl!("failed-to-parse-file", p = path.display().to_string()),
                 source: Some(Box::new(source)),
             },
-            MirrorError::ParseYaml { path, source } => Self {
-                description: fl!("failed-to-parse-file", p = path.display().to_string()),
-                source: Some(Box::new(source)),
-            },
             MirrorError::MirrorNotExist { mirror_name } => Self {
                 description: fl!("mirror-not-found", mirror = mirror_name.as_ref()),
                 source: None,
