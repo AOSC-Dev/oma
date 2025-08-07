@@ -283,3 +283,4 @@ battery-check-disabled = 电源监测功能已被禁用，oma 在执行系统更
 session-check-disabled = 会话监测功能已被禁用，oma 在执行任务时可能会被桌面电源管理、计划任务等打断，导致系统故障和数据丢失。
 upgrade-after-held-tips = 本次操作未更新 { $count } 个被标记为版本锁定的软件包。
 topics-held-tips = 您开启的测试源涉及 { $count } 个被标记为版本锁定的软件包，本次操作未更新这些软件包。
+successfully-refresh-without-status = 成功刷新本机软件包数据库。
