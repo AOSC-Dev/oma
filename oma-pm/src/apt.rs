@@ -1089,7 +1089,7 @@ impl OmaApt {
     pub fn filter_pkgs(
         &self,
         query_mode: &[FilterMode],
-    ) -> OmaAptResult<impl Iterator<Item = Package>> {
+    ) -> OmaAptResult<impl Iterator<Item = Package<'_>>> {
         let mut sort = PackageSort::default();
 
         debug!("Filter Mode: {query_mode:?}");

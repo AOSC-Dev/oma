@@ -23,10 +23,8 @@ fn modify_result(
 
     while let Some((node, tree_path)) = stack.pop_back() {
         // 跳过要遍历根节点的相邻节点
-        if !first {
-            if let Some(entry) = node.sibling() {
-                stack.push_back((entry, tree_path.clone()));
-            }
+        if !first && let Some(entry) = node.sibling() {
+            stack.push_back((entry, tree_path.clone()));
         }
 
         let Some(tag) = node.tag() else {

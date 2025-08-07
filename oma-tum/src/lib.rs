@@ -246,42 +246,42 @@ pub fn get_matches_tum<'a>(
 
     for i in tum {
         for (name, entry) in &i.entries {
-            if let TopicUpdateEntry::Cumulative { topics, .. } = entry {
-                if topics.iter().all(|x| matches.contains_key(x.as_str())) {
-                    let mut count_packages_changed_tmp = 0;
+            if let TopicUpdateEntry::Cumulative { topics, .. } = entry
+                && topics.iter().all(|x| matches.contains_key(x.as_str()))
+            {
+                let mut count_packages_changed_tmp = 0;
 
-                    for t in topics {
-                        let t = matches.remove(t.as_str()).unwrap();
+                for t in topics {
+                    let t = matches.remove(t.as_str()).unwrap();
 
-                        let TopicUpdateEntryRef::Conventional {
-                            packages,
-                            packages_v2,
-                            ..
-                        } = t
-                        else {
-                            unreachable!()
-                        };
-
-                        if !packages_v2.is_empty() {
-                            count_packages_changed_tmp += packages_v2.len();
-                        } else {
-                            count_packages_changed_tmp += packages.len();
-                        }
-                    }
-
-                    let mut entry = TopicUpdateEntryRef::from(entry);
-
-                    let TopicUpdateEntryRef::Cumulative {
-                        count_packages_changed,
+                    let TopicUpdateEntryRef::Conventional {
+                        packages,
+                        packages_v2,
                         ..
-                    } = &mut entry
+                    } = t
                     else {
                         unreachable!()
                     };
 
-                    *count_packages_changed = count_packages_changed_tmp;
-                    matches.insert(name.as_str(), entry);
+                    if !packages_v2.is_empty() {
+                        count_packages_changed_tmp += packages_v2.len();
+                    } else {
+                        count_packages_changed_tmp += packages.len();
+                    }
                 }
+
+                let mut entry = TopicUpdateEntryRef::from(entry);
+
+                let TopicUpdateEntryRef::Cumulative {
+                    count_packages_changed,
+                    ..
+                } = &mut entry
+                else {
+                    unreachable!()
+                };
+
+                *count_packages_changed = count_packages_changed_tmp;
+                matches.insert(name.as_str(), entry);
             }
         }
     }

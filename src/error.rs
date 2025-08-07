@@ -886,13 +886,13 @@ impl From<reqwest::Error> for OutputError {
             };
         }
 
-        if let Some(filename) = filename {
-            if filename.len() <= 256 {
-                return Self {
-                    description: fl!("download-failed", filename = filename.to_string()),
-                    source: Some(Box::new(e)),
-                };
-            }
+        if let Some(filename) = filename
+            && filename.len() <= 256
+        {
+            return Self {
+                description: fl!("download-failed", filename = filename.to_string()),
+                source: Some(Box::new(e)),
+            };
         }
 
         Self {

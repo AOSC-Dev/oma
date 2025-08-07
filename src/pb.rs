@@ -311,17 +311,16 @@ impl OmaMultiProgressBar {
         is_refresh: bool,
         error: SingleDownloadError,
     ) {
-        if let SingleDownloadError::ReqwestError { ref source } = error {
-            if source
+        if let SingleDownloadError::ReqwestError { ref source } = error
+            && source
                 .status()
                 .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
-            {
-                if !is_root() {
-                    self.info(&fl!("auth-need-permission"));
-                } else {
-                    self.info(&fl!("lack-auth-config-1"));
-                    self.info(&fl!("lack-auth-config-2"));
-                }
+        {
+            if !is_root() {
+                self.info(&fl!("auth-need-permission"));
+            } else {
+                self.info(&fl!("lack-auth-config-1"));
+                self.info(&fl!("lack-auth-config-2"));
             }
         }
 
@@ -484,17 +483,16 @@ impl NoProgressBar {
 }
 
 fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
-    if let SingleDownloadError::ReqwestError { ref source } = error {
-        if source
+    if let SingleDownloadError::ReqwestError { ref source } = error
+        && source
             .status()
             .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
-        {
-            if !is_root() {
-                info!("{}", fl!("auth-need-permission"));
-            } else {
-                info!("{}", fl!("lack-auth-config-1"));
-                info!("{}", fl!("lack-auth-config-2"));
-            }
+    {
+        if !is_root() {
+            info!("{}", fl!("auth-need-permission"));
+        } else {
+            info!("{}", fl!("lack-auth-config-1"));
+            info!("{}", fl!("lack-auth-config-2"));
         }
     }
 
