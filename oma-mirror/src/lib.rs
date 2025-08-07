@@ -45,11 +45,6 @@ pub enum MirrorError {
         path: PathBuf,
         source: serde_json::Error,
     },
-    #[snafu(display("Failed to parse file: {}", path.display()))]
-    ParseYaml {
-        path: PathBuf,
-        source: serde_yaml::Error,
-    },
     #[snafu(display("mirror does not exist in mirrors file: {mirror_name}"))]
     MirrorNotExist { mirror_name: Box<str> },
     #[snafu(display("Serialize struct failed"))]
