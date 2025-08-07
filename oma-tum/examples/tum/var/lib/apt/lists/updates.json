@@ -1,0 +1,20 @@
+{
+    "7-zip-25.00": {
+        "security": true,
+        "name": {
+            "default": "7-Zip 25.00",
+            "zh_CN": "7-Zip 25.00"
+        },
+        "caution": {
+            "default": "Fixes a heap buffer overflow vulnerability - CVE-2025-53816 (Severity: Medium); Fixes a null pointer dereference vulnerability - CVE-2025-53817 (Severity: Medium)",
+            "zh_CN": "修复一处堆缓冲区溢出漏洞，漏洞编号 CVE-2025-53816（严重性：中）；修复一处空指针解引用漏洞，漏洞编号 CVE-2025-53817（严重性：中）"
+        },
+        "packages": {
+            "7-zip": "25.00"
+        },
+        "packages_v2": {
+            "7-zip": ">=25.00"
+        },
+        "type": "conventional"
+    }
+}
