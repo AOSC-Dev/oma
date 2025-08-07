@@ -584,6 +584,8 @@ fn refresh(
         .build()
         .run()?;
 
+    success!("{}", fl!("successfully-refresh-without-status"));
+
     Ok(())
 }
 
