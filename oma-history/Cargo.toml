@@ -15,3 +15,6 @@ serde_json = "1.0"
 tracing = "0.1"
 thiserror = "2"
 num_enum = "0.7.3"
+
+[dev-dependencies]
+chrono = "0.4"
