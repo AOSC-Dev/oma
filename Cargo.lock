@@ -2959,7 +2959,7 @@ dependencies = [
 
 [[package]]
 name = "oma-history"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "num_enum",
@@ -2989,7 +2989,7 @@ dependencies = [
 
 [[package]]
 name = "oma-mirror"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "ahash",
  "indexmap 2.10.0",
@@ -3003,7 +3003,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.54.0"
+version = "0.55.0"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3041,7 +3041,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.48.5"
+version = "0.48.6"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3083,7 +3083,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.24.1"
+version = "0.25.0"
 dependencies = [
  "ahash",
  "futures",
@@ -3102,7 +3102,7 @@ dependencies = [
 
 [[package]]
 name = "oma-tum"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "ahash",
  "debversion",

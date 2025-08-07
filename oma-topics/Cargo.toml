@@ -1,6 +1,6 @@
 [package]
 name = "oma-topics"
-version = "0.24.1"
+version = "0.25.0"
 edition = "2024"
 description = "AOSC OS topic (testing) repository manager used by oma"
 license = "MIT"
@@ -16,7 +16,7 @@ thiserror = "2.0"
 futures = "0.3"
 tracing = "0.1"
 url = "2.5"
-oma-mirror = { version = "0.6.0", path = "../oma-mirror" }
+oma-mirror = { version = "0.7.0", path = "../oma-mirror" }
 ahash = "0.8.11"
 itertools = "0.14"
 

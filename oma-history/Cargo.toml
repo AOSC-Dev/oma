@@ -1,6 +1,6 @@
 [package]
 name = "oma-history"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 description = "Package manager operations history database management library"
 license = "MIT"
