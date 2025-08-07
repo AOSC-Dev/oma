@@ -383,11 +383,10 @@ impl<'a> PackagesMatcher<'a> {
 
 /// Get real pkg from real pkg or virtual package
 pub fn real_pkg(pkg: &Package) -> Option<UniquePtr<PkgIterator>> {
-    if !pkg.has_versions() {
-        if let Some(provide) = pkg.provides().next() {
+    if !pkg.has_versions()
+        && let Some(provide) = pkg.provides().next() {
             return unsafe { provide.target_pkg() }.make_safe();
         }
-    }
 
     unsafe { pkg.unique() }.make_safe()
 }

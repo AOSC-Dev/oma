@@ -242,7 +242,7 @@ pub enum KeyBlockOrPaths<'a> {
 fn find_certs(
     rootfs: impl AsRef<Path>,
     signed_by: Option<&Signature>,
-) -> VerifyResult<KeyBlockOrPaths> {
+) -> VerifyResult<KeyBlockOrPaths<'_>> {
     let rootfs = rootfs.as_ref();
 
     let mut certs = vec![];

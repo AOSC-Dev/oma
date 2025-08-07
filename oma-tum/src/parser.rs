@@ -111,7 +111,7 @@ pub enum VersionParseError {
     UnmatchedLeft { span: Span },
 }
 
-pub fn parse_version_expr(input: &str) -> Result<Vec<VersionToken>, VersionParseError> {
+pub fn parse_version_expr(input: &str) -> Result<Vec<VersionToken<'_>>, VersionParseError> {
     let mut lexer = VersionToken::lexer(input);
     let mut stack: Vec<VersionToken> = Vec::with_capacity(8);
     let mut operators: Vec<VersionToken> = Vec::with_capacity(8);
@@ -138,14 +138,14 @@ pub fn parse_version_expr(input: &str) -> Result<Vec<VersionToken>, VersionParse
             | VersionToken::Lt
             | VersionToken::Or
             | VersionToken::And => {
-                if let Some(last_op) = operators.last() {
-                    if last_op.precedence() >= token.precedence() {
-                        let last = operators.pop().unwrap();
-                        stack.push(last);
-                        operators.push(token);
-                        prev_is_op = token.is_op();
-                        continue;
-                    }
+                if let Some(last_op) = operators.last()
+                    && last_op.precedence() >= token.precedence()
+                {
+                    let last = operators.pop().unwrap();
+                    stack.push(last);
+                    operators.push(token);
+                    prev_is_op = token.is_op();
+                    continue;
                 }
                 operators.push(token);
             }

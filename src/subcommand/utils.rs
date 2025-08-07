@@ -815,7 +815,7 @@ pub fn tui_select_list_size() -> u16 {
     }
 }
 
-pub fn select_tui_display_msg(s: &str, is_inquire: bool) -> Cow<str> {
+pub fn select_tui_display_msg(s: &str, is_inquire: bool) -> Cow<'_, str> {
     let term_width = WRITER.get_length() as usize;
 
     // 4 是 inquire 前面有四个空格缩进

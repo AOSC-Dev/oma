@@ -146,8 +146,8 @@ impl<'a> Tui<'a> {
         loop {
             terminal.draw(|f| self.ui(f))?;
 
-            if event::poll(tick_rate)? {
-                if let event::Event::Key(key) = event::read()? {
+            if event::poll(tick_rate)?
+                && let event::Event::Key(key) = event::read()? {
                     if self.popup.is_some() {
                         match key.code {
                             KeyCode::Char('c') => {
@@ -268,7 +268,6 @@ impl<'a> Tui<'a> {
                         _ => {}
                     }
                 }
-            }
 
             if last_tick.elapsed() >= tick_rate {
                 last_tick = Instant::now();

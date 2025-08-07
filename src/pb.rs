@@ -311,8 +311,8 @@ impl OmaMultiProgressBar {
         is_refresh: bool,
         error: SingleDownloadError,
     ) {
-        if let SingleDownloadError::ReqwestError { ref source } = error {
-            if source
+        if let SingleDownloadError::ReqwestError { ref source } = error
+            && source
                 .status()
                 .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
             {
@@ -323,7 +323,6 @@ impl OmaMultiProgressBar {
                     self.info(&fl!("lack-auth-config-2"));
                 }
             }
-        }
 
         let err = OutputError::from(error);
         let errs = Chain::new(&err).collect::<Vec<_>>();
@@ -484,8 +483,8 @@ impl NoProgressBar {
 }
 
 fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
-    if let SingleDownloadError::ReqwestError { ref source } = error {
-        if source
+    if let SingleDownloadError::ReqwestError { ref source } = error
+        && source
             .status()
             .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
         {
@@ -496,7 +495,6 @@ fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
                 info!("{}", fl!("lack-auth-config-2"));
             }
         }
-    }
 
     let err = OutputError::from(error);
     let errs = Chain::new(&err).collect::<Vec<_>>();

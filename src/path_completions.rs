@@ -71,11 +71,10 @@ impl ValueCompleter for PathCompleter {
 
         let mut current = current.to_string_lossy().to_string();
 
-        if current.starts_with("~") {
-            if let Some(home) = home_dir() {
+        if current.starts_with("~")
+            && let Some(home) = home_dir() {
                 current.replace_range(..1, &home.to_string_lossy());
             }
-        }
 
         let mut candidates = complete_path(&current, current_dir, filter);
         if self.stdio && current.is_empty() {
