@@ -315,14 +315,14 @@ impl OmaMultiProgressBar {
             && source
                 .status()
                 .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
-            {
-                if !is_root() {
-                    self.info(&fl!("auth-need-permission"));
-                } else {
-                    self.info(&fl!("lack-auth-config-1"));
-                    self.info(&fl!("lack-auth-config-2"));
-                }
+        {
+            if !is_root() {
+                self.info(&fl!("auth-need-permission"));
+            } else {
+                self.info(&fl!("lack-auth-config-1"));
+                self.info(&fl!("lack-auth-config-2"));
             }
+        }
 
         let err = OutputError::from(error);
         let errs = Chain::new(&err).collect::<Vec<_>>();
@@ -487,14 +487,14 @@ fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
         && source
             .status()
             .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
-        {
-            if !is_root() {
-                info!("{}", fl!("auth-need-permission"));
-            } else {
-                info!("{}", fl!("lack-auth-config-1"));
-                info!("{}", fl!("lack-auth-config-2"));
-            }
+    {
+        if !is_root() {
+            info!("{}", fl!("auth-need-permission"));
+        } else {
+            info!("{}", fl!("lack-auth-config-1"));
+            info!("{}", fl!("lack-auth-config-2"));
         }
+    }
 
     let err = OutputError::from(error);
     let errs = Chain::new(&err).collect::<Vec<_>>();

@@ -147,127 +147,128 @@ impl<'a> Tui<'a> {
             terminal.draw(|f| self.ui(f))?;
 
             if event::poll(tick_rate)?
-                && let event::Event::Key(key) = event::read()? {
-                    if self.popup.is_some() {
-                        match key.code {
-                            KeyCode::Char('c') => {
-                                self.popup = None;
-                                continue;
-                            }
-                            _ => continue,
-                        }
-                    }
-
-                    if key.modifiers == KeyModifiers::ALT {
-                        if let KeyCode::Char('d') = key.code {
-                            self.delete_word_forward()
-                        }
-                        continue;
-                    }
-
-                    if key.modifiers == KeyModifiers::CONTROL {
-                        match key.code {
-                            KeyCode::Right => self.goto_next_word(),
-                            KeyCode::Left => self.goto_previous_word(),
-                            KeyCode::Char('p') => self.handle_up(),
-                            KeyCode::Char('n') => self.handle_down(),
-                            KeyCode::Char('w') => self.delete_word_backward(),
-                            KeyCode::Char('c') => {
-                                return Ok(Task {
-                                    execute_apt: false,
-                                    install: vec![],
-                                    remove: vec![],
-                                    upgrade: false,
-                                    autoremove: false,
-                                });
-                            }
-                            KeyCode::Char('u') => {
-                                if let Some(pos) = self
-                                    .pending_result_state
-                                    .items
-                                    .iter()
-                                    .position(|x| *x == Operation::Upgrade)
-                                {
-                                    self.display_pending_detail = true;
-                                    self.upgrade = false;
-                                    self.pending_result_state.items.remove(pos);
-                                } else {
-                                    if self.status.available_upgrade_package_count() == 0 {
-                                        self.popup = Some(fl!("tui-no-system-update"));
-                                        continue;
-                                    }
-                                    self.display_pending_detail = true;
-                                    self.upgrade = true;
-                                    self.pending_result_state.items.push(Operation::Upgrade);
-                                }
-                            }
-                            KeyCode::Char('a') => {
-                                if let Some(pos) = self
-                                    .pending_result_state
-                                    .items
-                                    .iter()
-                                    .position(|x| *x == Operation::AutoRemove)
-                                {
-                                    self.autoremove = false;
-                                    self.pending_result_state.items.remove(pos);
-                                } else {
-                                    if self.status.autoremove == 0 {
-                                        self.popup = Some(fl!("tui-no-package-clean-up"));
-                                        continue;
-                                    }
-                                    self.display_pending_detail = true;
-                                    self.autoremove = true;
-                                    self.pending_result_state.items.push(Operation::AutoRemove);
-                                }
-                            }
-                            _ => {}
-                        }
-
-                        continue;
-                    }
-
+                && let event::Event::Key(key) = event::read()?
+            {
+                if self.popup.is_some() {
                     match key.code {
-                        KeyCode::Up => self.handle_up(),
-                        KeyCode::Down => self.handle_down(),
-                        KeyCode::Esc => break,
-                        KeyCode::Char(' ') => {
-                            if let ControlFlow::Break(_) = self.handle_space() {
-                                continue;
-                            }
+                        KeyCode::Char('c') => {
+                            self.popup = None;
+                            continue;
                         }
-                        KeyCode::Char('/') => self.mode = Mode::Search,
-                        KeyCode::Char(c) => {
-                            if self.mode != Mode::Search {
-                                continue;
-                            }
-
-                            self.handle_input_text(c);
-                        }
-                        KeyCode::Tab => self.handle_tab(),
-                        KeyCode::Backspace => {
-                            if self.mode != Mode::Search {
-                                continue;
-                            }
-
-                            if let ControlFlow::Break(_) = self.handle_input_backspace() {
-                                continue;
-                            }
-                        }
-                        KeyCode::Delete => {
-                            if self.mode != Mode::Search {
-                                continue;
-                            }
-
-                            if let ControlFlow::Break(_) = self.handle_input_delete() {
-                                continue;
-                            }
-                        }
-                        KeyCode::Left => self.handle_left(),
-                        KeyCode::Right => self.handle_right(),
-                        KeyCode::F(1) => self.display_pending_detail = !self.display_pending_detail,
-                        _ => {}
+                        _ => continue,
                     }
                 }
+
+                if key.modifiers == KeyModifiers::ALT {
+                    if let KeyCode::Char('d') = key.code {
+                        self.delete_word_forward()
+                    }
+                    continue;
+                }
+
+                if key.modifiers == KeyModifiers::CONTROL {
+                    match key.code {
+                        KeyCode::Right => self.goto_next_word(),
+                        KeyCode::Left => self.goto_previous_word(),
+                        KeyCode::Char('p') => self.handle_up(),
+                        KeyCode::Char('n') => self.handle_down(),
+                        KeyCode::Char('w') => self.delete_word_backward(),
+                        KeyCode::Char('c') => {
+                            return Ok(Task {
+                                execute_apt: false,
+                                install: vec![],
+                                remove: vec![],
+                                upgrade: false,
+                                autoremove: false,
+                            });
+                        }
+                        KeyCode::Char('u') => {
+                            if let Some(pos) = self
+                                .pending_result_state
+                                .items
+                                .iter()
+                                .position(|x| *x == Operation::Upgrade)
+                            {
+                                self.display_pending_detail = true;
+                                self.upgrade = false;
+                                self.pending_result_state.items.remove(pos);
+                            } else {
+                                if self.status.available_upgrade_package_count() == 0 {
+                                    self.popup = Some(fl!("tui-no-system-update"));
+                                    continue;
+                                }
+                                self.display_pending_detail = true;
+                                self.upgrade = true;
+                                self.pending_result_state.items.push(Operation::Upgrade);
+                            }
+                        }
+                        KeyCode::Char('a') => {
+                            if let Some(pos) = self
+                                .pending_result_state
+                                .items
+                                .iter()
+                                .position(|x| *x == Operation::AutoRemove)
+                            {
+                                self.autoremove = false;
+                                self.pending_result_state.items.remove(pos);
+                            } else {
+                                if self.status.autoremove == 0 {
+                                    self.popup = Some(fl!("tui-no-package-clean-up"));
+                                    continue;
+                                }
+                                self.display_pending_detail = true;
+                                self.autoremove = true;
+                                self.pending_result_state.items.push(Operation::AutoRemove);
+                            }
+                        }
+                        _ => {}
+                    }
+
+                    continue;
+                }
+
+                match key.code {
+                    KeyCode::Up => self.handle_up(),
+                    KeyCode::Down => self.handle_down(),
+                    KeyCode::Esc => break,
+                    KeyCode::Char(' ') => {
+                        if let ControlFlow::Break(_) = self.handle_space() {
+                            continue;
+                        }
+                    }
+                    KeyCode::Char('/') => self.mode = Mode::Search,
+                    KeyCode::Char(c) => {
+                        if self.mode != Mode::Search {
+                            continue;
+                        }
+
+                        self.handle_input_text(c);
+                    }
+                    KeyCode::Tab => self.handle_tab(),
+                    KeyCode::Backspace => {
+                        if self.mode != Mode::Search {
+                            continue;
+                        }
+
+                        if let ControlFlow::Break(_) = self.handle_input_backspace() {
+                            continue;
+                        }
+                    }
+                    KeyCode::Delete => {
+                        if self.mode != Mode::Search {
+                            continue;
+                        }
+
+                        if let ControlFlow::Break(_) = self.handle_input_delete() {
+                            continue;
+                        }
+                    }
+                    KeyCode::Left => self.handle_left(),
+                    KeyCode::Right => self.handle_right(),
+                    KeyCode::F(1) => self.display_pending_detail = !self.display_pending_detail,
+                    _ => {}
+                }
+            }
 
             if last_tick.elapsed() >= tick_rate {
                 last_tick = Instant::now();

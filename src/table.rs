@@ -335,9 +335,10 @@ impl<W: Write> PagerPrinter<W> {
         let mut display_len = WRITER.get_length() as usize;
 
         if let Some(len) = len
-            && display_len > len {
-                display_len = len;
-            }
+            && display_len > len
+        {
+            display_len = len;
+        }
 
         match style {
             Some(s) => match s {
