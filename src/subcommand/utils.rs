@@ -58,6 +58,7 @@ use oma_pm::CommitNetworkConfig;
 use oma_pm::CustomDownloadMessage;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::FilterMode;
+use oma_pm::apt::InstallProgressOpt;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::OmaAptError;
@@ -422,11 +423,11 @@ impl CommitChanges<'_> {
         });
 
         let res = apt.commit(
-            if no_progress {
+            InstallProgressOpt::TermLike(if no_progress {
                 Box::new(NoInstallProgressManager)
             } else {
                 Box::new(OmaInstallProgressManager::new(yes))
-            },
+            }),
             &op,
             &HTTP_CLIENT,
             CommitNetworkConfig {

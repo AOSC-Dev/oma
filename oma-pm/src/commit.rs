@@ -13,10 +13,10 @@ use std::io::Write;
 use tracing::debug;
 
 use crate::{
-    apt::{DownloadConfig, OmaApt, OmaAptError, OmaAptResult},
+    apt::{DownloadConfig, InstallProgressOpt, OmaApt, OmaAptError, OmaAptResult},
     dbus::change_status,
     download::download_pkgs,
-    progress::{InstallProgressArgs, InstallProgressManager, OmaAptInstallProgress},
+    progress::{InstallProgressArgs, OmaAptInstallProgress},
 };
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
@@ -53,7 +53,7 @@ impl<'a> DoInstall<'a> {
     pub fn commit(
         self,
         op: &OmaOperation,
-        install_progress_manager: Box<dyn InstallProgressManager>,
+        install_progress_manager: InstallProgressOpt,
         custom_download_message: CustomDownloadMessage,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<()> {
@@ -106,7 +106,7 @@ impl<'a> DoInstall<'a> {
 
     fn do_install(
         self,
-        install_progress_manager: Box<dyn InstallProgressManager>,
+        install_progress_manager: InstallProgressOpt,
         op: &OmaOperation,
     ) -> OmaAptResult<()> {
         apt_lock().map_err(OmaAptError::LockApt)?;
@@ -129,8 +129,12 @@ impl<'a> DoInstall<'a> {
             connection: self.apt.conn,
         };
 
-        let mut progress =
-            InstallProgress::new(OmaAptInstallProgress::new(args, install_progress_manager));
+        let mut progress = match install_progress_manager {
+            InstallProgressOpt::TermLike(install_progress_manager) => {
+                InstallProgress::new(OmaAptInstallProgress::new(args, install_progress_manager))
+            }
+            InstallProgressOpt::Fd(fd) => InstallProgress::Fd(fd),
+        };
 
         debug!("Try to unlock apt lock inner");
 

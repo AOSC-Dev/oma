@@ -6,7 +6,7 @@ use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
 use oma_fetch::{Event, reqwest::ClientBuilder};
 use oma_pm::{
     CommitNetworkConfig,
-    apt::{AptConfig, OmaApt, OmaAptArgs, OmaAptError},
+    apt::{AptConfig, InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError},
     matches::PackagesMatcher,
     progress::InstallProgressManager,
     sort::SummarySort,
@@ -121,7 +121,7 @@ fn main() -> Result<(), OmaAptError> {
     });
 
     apt.commit(
-        Box::new(MyInstallProgressManager),
+        InstallProgressOpt::TermLike(Box::new(MyInstallProgressManager)),
         &op,
         &client,
         CommitNetworkConfig {
