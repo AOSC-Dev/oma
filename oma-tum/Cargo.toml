@@ -14,3 +14,6 @@ ahash = "0.8.12"
 tracing = "0.1"
 logos = "0.15"
 debversion = "0.4.5"
+
+[dev-dependencies]
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }

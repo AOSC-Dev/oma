@@ -9,10 +9,10 @@ use ahash::{HashMap, HashSet};
 use debversion::Version;
 use oma_pm_operation_type::{InstallOperation, OmaOperation};
 use serde::Deserialize;
-use snafu::{ResultExt, Snafu};
+use snafu::{ResultExt, Snafu, Whatever};
 use tracing::warn;
 
-use crate::parser::{VersionParseError, VersionToken, parse_version_expr};
+use crate::parser::{VersionToken, parse_version_expr};
 
 #[derive(Deserialize, Debug)]
 pub struct TopicUpdateManifest {
@@ -138,8 +138,6 @@ pub enum TumError {
     ReadDirEntry { source: io::Error },
     #[snafu(display("Failed to read file: {}", path.display()))]
     ReadFile { path: PathBuf, source: io::Error },
-    #[snafu(display("Parse version expr got error"))]
-    ParseVersionExpr { source: VersionParseError },
 }
 
 pub fn get_tum(sysroot: &Path) -> Result<Vec<TopicUpdateManifest>, TumError> {
@@ -202,14 +200,25 @@ pub fn get_matches_tum<'a>(
                 if !packages_v2.is_empty() {
                     // v2
                     'b: for (index, (pkg_name, version)) in packages_v2.iter().enumerate() {
+                        let install_pkg_on_topic =
+                            match install_pkg_on_topic_v2(install_map, pkg_name, version) {
+                                Ok(b) => b,
+                                Err(e) => {
+                                    warn!("{e}");
+                                    if *must_match_all {
+                                        continue 'a;
+                                    } else {
+                                        continue 'b;
+                                    }
+                                }
+                            };
+
                         if !must_match_all
-                            && (install_pkg_on_topic_v2(install_map, pkg_name, version)
-                                .unwrap_or(false)
+                            && (install_pkg_on_topic
                                 || remove_pkg_on_topic(remove_map, pkg_name, version))
                         {
                             break 'b;
-                        } else if !install_pkg_on_topic_v2(install_map, pkg_name, version)
-                            .unwrap_or(false)
+                        } else if !install_pkg_on_topic
                             && !remove_pkg_on_topic(remove_map, pkg_name, version)
                         {
                             if *must_match_all || index == packages_v2.len() - 1 {
@@ -222,12 +231,25 @@ pub fn get_matches_tum<'a>(
                 } else if !packages.is_empty() {
                     // v1
                     'b: for (index, (pkg_name, version)) in packages.iter().enumerate() {
+                        let install_pkg_on_topic =
+                            match install_pkg_on_topic(install_map, pkg_name, version) {
+                                Ok(b) => b,
+                                Err(e) => {
+                                    warn!("{e}");
+                                    if *must_match_all {
+                                        continue 'a;
+                                    } else {
+                                        continue 'b;
+                                    }
+                                }
+                            };
+
                         if !must_match_all
-                            && (install_pkg_on_topic(install_map, pkg_name, version)
+                            && (install_pkg_on_topic
                                 || remove_pkg_on_topic(remove_map, pkg_name, version))
                         {
                             break 'b;
-                        } else if !install_pkg_on_topic(install_map, pkg_name, version)
+                        } else if !install_pkg_on_topic
                             && !remove_pkg_on_topic(remove_map, pkg_name, version)
                         {
                             if *must_match_all || index == packages.len() - 1 {
@@ -330,19 +352,23 @@ fn install_pkg_on_topic(
     install_map: &HashMap<&str, (Option<&str>, &str)>,
     pkg_name: &str,
     tum_version: &Option<String>,
-) -> bool {
+) -> Result<bool, Whatever> {
     let Some((_, new_version)) = install_map.get(pkg_name) else {
-        return false;
+        return Ok(false);
     };
 
     let Some(tum_version) = tum_version else {
-        return false;
+        return Ok(false);
     };
 
     compare_version(new_version, tum_version, VersionToken::Eq)
 }
 
-fn compare_version(install_ver: &str, tum_version: &str, op: VersionToken) -> bool {
+fn compare_version(
+    install_ver: &str,
+    tum_version: &str,
+    op: VersionToken,
+) -> Result<bool, Whatever> {
     if let Some((prefix, suffix)) = install_ver.rsplit_once("~pre")
         && is_topic_preversion(suffix)
     {
@@ -352,11 +378,20 @@ fn compare_version(install_ver: &str, tum_version: &str, op: VersionToken) -> bo
     compare_version_inner(install_ver, tum_version, op)
 }
 
-fn compare_version_inner(another_ver: &str, tum_version: &str, op: VersionToken<'_>) -> bool {
-    let another_ver: Version = another_ver.parse().unwrap();
-    let tum_version: Version = tum_version.parse().unwrap();
+fn compare_version_inner(
+    another_ver: &str,
+    tum_version: &str,
+    op: VersionToken<'_>,
+) -> Result<bool, Whatever> {
+    let another_ver: Version = another_ver.parse().with_whatever_context(|e| {
+        format!("Parse string '{another_ver}' to debversion got error: {e}")
+    })?;
 
-    match op {
+    let tum_version: Version = tum_version.parse().with_whatever_context(|e| {
+        format!("Parse string '{tum_version}' to debversion got error: {e}")
+    })?;
+
+    Ok(match op {
         VersionToken::Eq | VersionToken::EqEq => tum_version == another_ver,
         VersionToken::NotEq => tum_version != another_ver,
         VersionToken::GtEq => another_ver >= tum_version,
@@ -364,14 +399,14 @@ fn compare_version_inner(another_ver: &str, tum_version: &str, op: VersionToken<
         VersionToken::Gt => another_ver > tum_version,
         VersionToken::Lt => another_ver < tum_version,
         _ => unreachable!(),
-    }
+    })
 }
 
 fn install_pkg_on_topic_v2(
     install_map: &HashMap<&str, (Option<&str>, &str)>,
     pkg_name: &str,
     tum_version: &Option<String>,
-) -> Result<bool, TumError> {
+) -> Result<bool, Whatever> {
     let Some((Some(old_version), _)) = install_map.get(pkg_name) else {
         return Ok(false);
     };
@@ -380,12 +415,14 @@ fn install_pkg_on_topic_v2(
         return Ok(false);
     };
 
-    let tokens = parse_version_expr(tum_version_expr).context(ParseVersionExprSnafu)?;
+    let tokens = parse_version_expr(tum_version_expr).with_whatever_context(|e| {
+        format!("Parse version expr '{tum_version_expr}' got error: {e}")
+    })?;
 
-    Ok(is_right_version(tokens, old_version))
+    is_right_version(tokens, old_version)
 }
 
-fn is_right_version(tokens: Vec<VersionToken<'_>>, install_ver: &str) -> bool {
+fn is_right_version(tokens: Vec<VersionToken<'_>>, install_ver: &str) -> Result<bool, Whatever> {
     let tokens: Vec<_> = tokens
         .into_iter()
         .map(|x| {
@@ -407,7 +444,7 @@ fn is_right_version(tokens: Vec<VersionToken<'_>>, install_ver: &str) -> bool {
                     unreachable!()
                 };
 
-                let b = compare_version(install_ver, tum_version, tokens[index + 2]);
+                let b = compare_version(install_ver, tum_version, tokens[index + 2])?;
 
                 stack.push(b);
                 index += 3;
@@ -430,7 +467,7 @@ fn is_right_version(tokens: Vec<VersionToken<'_>>, install_ver: &str) -> bool {
 
     assert!(stack.len() == 1);
 
-    stack[0]
+    Ok(stack[0])
 }
 
 fn is_topic_preversion(suffix: &str) -> bool {
@@ -475,27 +512,27 @@ fn test_is_right_version() {
     let ver1 = "4.5.6";
     let ver2 = "1.2.3";
     let tokens = parse_version_expr(input_expr).unwrap();
-    assert!(is_right_version(tokens.clone(), ver1));
-    assert!(is_right_version(tokens, ver2));
+    assert!(is_right_version(tokens.clone(), ver1).unwrap());
+    assert!(is_right_version(tokens, ver2).unwrap());
 
     let input_expr = "<=7.8.9";
     let ver1 = "1.2.3";
     let ver2 = "7.8.9";
     let tokens = parse_version_expr(input_expr).unwrap();
-    assert!(is_right_version(tokens.clone(), ver1));
-    assert!(is_right_version(tokens, ver2));
+    assert!(is_right_version(tokens.clone(), ver1).unwrap());
+    assert!(is_right_version(tokens, ver2).unwrap());
 
     let input_expr = ">=7.8.9";
     let ver1 = "11.0.0";
     let ver2 = "7.8.9";
     let tokens = parse_version_expr(input_expr).unwrap();
-    assert!(is_right_version(tokens.clone(), ver1));
-    assert!(is_right_version(tokens, ver2));
+    assert!(is_right_version(tokens.clone(), ver1).unwrap());
+    assert!(is_right_version(tokens, ver2).unwrap());
 
     let input_expr = "=7.8.9";
     let ver1 = "7.8.9";
     let ver2 = "1.2.3";
     let tokens = parse_version_expr(input_expr).unwrap();
-    assert!(is_right_version(tokens.clone(), ver1));
-    assert!(!is_right_version(tokens, ver2));
+    assert!(is_right_version(tokens.clone(), ver1).unwrap());
+    assert!(!is_right_version(tokens, ver2).unwrap());
 }

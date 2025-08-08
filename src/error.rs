@@ -275,10 +275,6 @@ impl From<TumError> for OutputError {
                     source: Some(Box::new(source)),
                 }
             }
-            TumError::ParseVersionExpr { source } => Self {
-                description: "Failed to parse version expr on tum file".to_string(),
-                source: Some(Box::new(source)),
-            },
         }
     }
 }

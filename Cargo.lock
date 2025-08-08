@@ -3112,6 +3112,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
