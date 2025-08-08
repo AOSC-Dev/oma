@@ -13,7 +13,7 @@
             "7-zip": "25.00"
         },
         "packages_v2": {
-            "7-zip": ">=25.00"
+            "7-zip": "<25.00"
         },
         "type": "conventional"
     }
