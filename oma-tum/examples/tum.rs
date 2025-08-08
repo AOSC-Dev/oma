@@ -13,7 +13,8 @@ fn main() {
                 InstallEntry::builder()
                     .name("7-zip".to_string())
                     .name_without_arch("7-zip".to_string())
-                    .new_version("25.10".to_string())
+                    .old_version("24.00".to_string())
+                    .new_version("25.00".to_string())
                     .new_size(0)
                     .pkg_urls(vec![PackageUrl {
                         download_url: Default::default(),

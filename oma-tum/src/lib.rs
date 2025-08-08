@@ -185,7 +185,7 @@ pub fn get_matches_tum<'a>(
         .install
         .iter()
         .filter(|x| *x.op() != InstallOperation::Downgrade)
-        .map(|x| (x.name_without_arch(), x.new_version()))
+        .map(|x| (x.name_without_arch(), (x.old_version(), x.new_version())))
         .collect::<HashMap<_, _>>();
 
     let remove_map = &op.remove.iter().map(|x| (x.name())).collect::<HashSet<_>>();
@@ -327,11 +327,11 @@ pub fn collection_all_matches_security_tum_pkgs<'a>(
 }
 
 fn install_pkg_on_topic(
-    install_map: &HashMap<&str, &str>,
+    install_map: &HashMap<&str, (Option<&str>, &str)>,
     pkg_name: &str,
     tum_version: &Option<String>,
 ) -> bool {
-    let Some(install_ver) = install_map.get(pkg_name) else {
+    let Some((_, new_version)) = install_map.get(pkg_name) else {
         return false;
     };
 
@@ -339,7 +339,7 @@ fn install_pkg_on_topic(
         return false;
     };
 
-    compare_version(install_ver, tum_version, VersionToken::Eq)
+    compare_version(new_version, tum_version, VersionToken::Eq)
 }
 
 fn compare_version(install_ver: &str, tum_version: &str, op: VersionToken) -> bool {
@@ -368,11 +368,11 @@ fn compare_version_inner(another_ver: &str, tum_version: &str, op: VersionToken<
 }
 
 fn install_pkg_on_topic_v2(
-    install_map: &HashMap<&str, &str>,
+    install_map: &HashMap<&str, (Option<&str>, &str)>,
     pkg_name: &str,
     tum_version: &Option<String>,
 ) -> Result<bool, TumError> {
-    let Some(install_ver) = install_map.get(pkg_name) else {
+    let Some((Some(old_version), _)) = install_map.get(pkg_name) else {
         return Ok(false);
     };
 
@@ -382,7 +382,7 @@ fn install_pkg_on_topic_v2(
 
     let tokens = parse_version_expr(tum_version_expr).context(ParseVersionExprSnafu)?;
 
-    Ok(is_right_version(tokens, install_ver))
+    Ok(is_right_version(tokens, old_version))
 }
 
 fn is_right_version(tokens: Vec<VersionToken<'_>>, install_ver: &str) -> bool {
