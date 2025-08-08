@@ -2,8 +2,11 @@ use std::path::Path;
 
 use oma_pm_operation_type::{InstallEntry, InstallOperation, OmaOperation, PackageUrl};
 use oma_tum::{get_matches_tum, get_tum};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 fn main() {
+    tracing_subscriber::registry().with(fmt::layer()).init();
+
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let tum = get_tum(&dir.join("examples/tum")).unwrap();
     let tum = get_matches_tum(
