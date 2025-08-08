@@ -45,6 +45,11 @@ use crate::{
     sort::SummarySort,
 };
 
+pub enum InstallProgressOpt {
+    TermLike(Box<dyn InstallProgressManager>),
+    Fd(i32),
+}
+
 #[derive(Debug, Clone, Builder)]
 pub struct OmaAptArgs {
     #[builder(default = true)]
@@ -545,7 +550,7 @@ impl OmaApt {
     /// Commit changes
     pub fn commit(
         self,
-        install_progress_manager: Box<dyn InstallProgressManager>,
+        install_progress_manager: InstallProgressOpt,
         op: &OmaOperation,
         client: &Client,
         config: CommitNetworkConfig,
