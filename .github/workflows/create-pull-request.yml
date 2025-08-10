@@ -3,7 +3,7 @@ name: create-pull-request
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*.*.*-ci-test*"
 
 jobs:
   create-abbs-pr:
@@ -34,18 +34,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           cd ./aosc-os-abbs/app-admin/oma
-          source ./spec
           git config user.name "eatradish"
           git config user.email "sakiiily@aosc.io"
           # Check if the `oma-preview' branch exists, create if not.
-          if ! git rev-parse --verify origin/oma-preview > /dev/null; then
-              git checkout -b oma-preview
+          if ! git rev-parse --verify origin/oma-preview-ci-test > /dev/null; then
+              git checkout -b oma-preview-ci-test
           else
               # Checkout the existing branch.
-              git checkout oma-preview
+              git checkout oma-preview-ci-test
               # Rebase the branch. Failing rebases will need to be handled manually.
               git rebase stable
           fi
+          # Get the baseline version.
+          source ./spec
           # Note: Use tilde (~) to denote pre-release, allowing users to upgrade to a final release later.
           export DPKG_VER=$(echo ${RELEASE_VERSION} | sed -e 's|v||g' | sed -e 's|-|~|g')
           sed -e "s|VER=$VER|VER=${DPKG_VER}|g" -i spec
@@ -54,7 +55,7 @@ jobs:
           git add .
           git commit -m "oma: update to ${DPKG_VER}"
           # Note: Git not allow tilde (~) in branch names, so use dash here.
-          git push --set-upstream --force origin oma-preview
+          git push --set-upstream --force origin oma-preview-ci-test
           uri=$(echo -e "Topic Description\n-----------------\n\n- oma: update to ${DPKG_VER}\n\nPackage(s) Affected\n-------------------\n\n- oma: ${DPKG_VER}\n\nSecurity Update?\n----------------\n\nNo\n\nBuild Order\n-----------\n\n\`\`\`\n#buildit oma\n\`\`\`\n\nTest Build(s) Done\n------------------\n\n**Primary Architectures**\n\n- [ ] AMD64 \`amd64\`\n- [ ] AArch64 \`arm64\`\n- [ ] LoongArch 64-bit \`loongarch64\`\n\n**Secondary Architectures**\n\n- [ ] Loongson 3 \`loongson3\`\n- [ ] PowerPC 64-bit (Little Endian) \`ppc64el\`\n- [ ] RISC-V 64-bit \`riscv64\`\n\n\n" | \
                 gh pr create -d --title "oma: update to ${DPKG_VER}" -l "upgrade,preview" -F -)
           num=$(basename ${uri})
