@@ -33,7 +33,7 @@ pub enum TopicUpdateEntry {
         security: bool,
         #[serde(default)]
         packages: HashMap<String, Option<String>>,
-        #[serde(default)]
+        #[serde(default, rename = "packages-v2")]
         packages_v2: HashMap<String, Option<String>>,
         name: HashMap<String, String>,
         caution: Option<HashMap<String, String>>,
