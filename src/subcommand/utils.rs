@@ -65,8 +65,6 @@ use oma_pm::apt::OmaAptError;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_pm::sort::SummarySort;
 use oma_refresh::db::OmaRefresh;
-use oma_tum::get_matches_tum;
-use oma_tum::get_tum;
 use oma_utils::dpkg::dpkg_arch;
 use oma_utils::oma::lock_oma_inner;
 use oma_utils::oma::unlock_oma;
@@ -387,14 +385,20 @@ impl CommitChanges<'_> {
         apt.init_dbus_status()?;
 
         if check_tum {
-            let tum = get_tum(Path::new(&sysroot))?;
-            let matches_tum = get_matches_tum(&tum, &op);
+            #[cfg(feature = "aosc")]
+            let tum = oma_tum::get_tum(Path::new(&sysroot))?;
+
+            #[cfg(feature = "aosc")]
+            let matches_tum = Some(oma_tum::get_matches_tum(&tum, &op));
+
+            #[cfg(not(feature = "aosc"))]
+            let matches_tum = None;
 
             match table_for_install_pending(
                 install,
                 remove,
                 *disk_size,
-                Some(matches_tum),
+                matches_tum,
                 !yes,
                 dry_run,
             )? {

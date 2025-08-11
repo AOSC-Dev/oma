@@ -1,5 +1,4 @@
 use std::cmp::Ordering as CmpOrdering;
-use std::env;
 use std::fmt::Display;
 use std::io::Write;
 use std::sync::LazyLock;
@@ -16,11 +15,17 @@ use oma_console::pager::{Pager, PagerExit, PagerUIText};
 use oma_console::print::Action;
 use oma_history::{InstallHistoryEntry, RemoveHistoryEntry};
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
+
+#[cfg(feature = "aosc")]
 use oma_tum::TopicUpdateEntryRef;
 use tabled::settings::object::Columns;
 use tabled::settings::peaker::PriorityMax;
 use tabled::settings::{Alignment, Padding, Style, Width};
 use tabled::{Table, Tabled};
+
+#[cfg(not(feature = "aosc"))]
+#[allow(dead_code)]
+pub struct TopicUpdateEntryRef<'a>(&'a ());
 
 /// Debian version format, see https://www.debian.org/doc/debian-policy/ch-controlfields.html#version
 /// for more information
@@ -310,6 +315,7 @@ impl<W: Write> PagerPrinter<W> {
         writeln!(self.writer, "{d}")
     }
 
+    #[allow(dead_code)]
     pub fn print<D: Display>(&mut self, d: D) -> std::io::Result<()> {
         write!(self.writer, "{d}")
     }
@@ -509,6 +515,7 @@ pub fn table_for_history_pending(
     Ok(())
 }
 
+#[cfg(feature = "aosc")]
 #[derive(Debug)]
 struct TumDisplay {
     name: String,
@@ -516,6 +523,7 @@ struct TumDisplay {
     security: bool,
 }
 
+#[cfg(feature = "aosc")]
 impl Display for TumDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.security {
@@ -724,6 +732,14 @@ fn print_pending_inner<W: Write>(
     }
 }
 
+#[cfg(not(feature = "aosc"))]
+fn print_tum(
+    _printer: &mut PagerPrinter<impl Write>,
+    _tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
+) {
+}
+
+#[cfg(feature = "aosc")]
 fn print_tum(
     printer: &mut PagerPrinter<impl Write>,
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
@@ -737,7 +753,7 @@ fn print_tum(
 
         tum.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
-        let lang = env::var("LANG").unwrap_or("en_US".into());
+        let lang = std::env::var("LANG").unwrap_or("en_US".into());
         let (lang, _) = lang.split_once('.').unwrap_or(("en_US", ""));
         let lang = if lang == "en_US" { "default" } else { lang };
 
