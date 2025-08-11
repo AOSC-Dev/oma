@@ -6,7 +6,7 @@ use std::sync::atomic::Ordering;
 
 use crate::console::style;
 use crate::error::OutputError;
-use crate::subcommand::utils::is_terminal;
+use crate::subcommand::utils::{get_locale, is_terminal};
 use crate::{NOT_DISPLAY_ABORT, WRITER, color_formatter, fl};
 use ahash::HashMap;
 use ahash::HashSet;
@@ -753,10 +753,7 @@ fn print_tum(
 
         tum.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
-        let lang = std::env::var("LANG").unwrap_or("en_US".into());
-        let (lang, _) = lang.split_once('.').unwrap_or(("en_US", ""));
-        let lang = if lang == "en_US" { "default" } else { lang };
-
+        let lang = get_locale();
         let mut tum_display = vec![];
 
         let security_count = tum.iter().filter(|x| x.1.is_security()).count();
@@ -787,7 +784,7 @@ fn print_tum(
                     ..
                 } => {
                     let name = name
-                        .get(lang)
+                        .get(lang.as_ref())
                         .unwrap_or_else(|| name.get("default").unwrap());
 
                     let name = if *security {
@@ -796,8 +793,10 @@ fn print_tum(
                         name.to_string()
                     };
 
-                    let caution =
-                        caution.map(|c| c.get(lang).unwrap_or_else(|| c.get("default").unwrap()));
+                    let caution = caution.map(|c| {
+                        c.get(lang.as_ref())
+                            .unwrap_or_else(|| c.get("default").unwrap())
+                    });
 
                     tum_display.push(TumDisplay {
                         name,
@@ -812,7 +811,7 @@ fn print_tum(
                     ..
                 } => {
                     let name = name
-                        .get(lang)
+                        .get(lang.as_ref())
                         .unwrap_or_else(|| name.get("default").unwrap());
 
                     let name = if *security {
@@ -821,8 +820,10 @@ fn print_tum(
                         name.to_string()
                     };
 
-                    let caution =
-                        caution.map(|c| c.get(lang).unwrap_or_else(|| c.get("default").unwrap()));
+                    let caution = caution.map(|c| {
+                        c.get(lang.as_ref())
+                            .unwrap_or_else(|| c.get("default").unwrap())
+                    });
 
                     tum_display.push(TumDisplay {
                         name,
