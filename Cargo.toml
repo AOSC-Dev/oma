@@ -62,7 +62,7 @@ oma-history = { path = "./oma-history" }
 oma-repo-verify = { path = "./oma-repo-verify", default-features = false }
 oma-mirror = { path = "./oma-mirror", optional = true }
 apt-auth-config = { path = "./apt-auth-config" }
-oma-tum = { path = "./oma-tum" }
+oma-tum = { path = "./oma-tum", optional = true }
 
 # i18n
 i18n-embed = { version = "0.16.0", features = ["fluent-system", "desktop-requester"]}
@@ -72,7 +72,7 @@ unic-langid = "0.9.5"
 sys-locale = "0.3"
 
 [features]
-aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "dep:oma-mirror", "reqwest/blocking"]
+aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "dep:oma-mirror", "reqwest/blocking", "dep:oma-tum"]
 mirror = []
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]

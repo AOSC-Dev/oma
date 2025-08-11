@@ -20,7 +20,10 @@ use oma_pm::{apt::OmaAptError, matches::MatcherError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseError;
 use oma_repo_verify::VerifyError;
+
+#[cfg(feature = "aosc")]
 use oma_tum::TumError;
+
 use oma_utils::dbus::OmaDbusError;
 use oma_utils::dpkg::DpkgError;
 
@@ -256,6 +259,7 @@ impl From<OmaDbusError> for OutputError {
     }
 }
 
+#[cfg(feature = "aosc")]
 impl From<TumError> for OutputError {
     fn from(value: TumError) -> Self {
         let p1 = "/var/lib/apt/lists".to_string();
