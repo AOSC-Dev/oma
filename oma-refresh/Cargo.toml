@@ -25,7 +25,7 @@ aho-corasick = "1.1.3"
 # https://github.com/bytecodealliance/rustix/pull/1077
 # rustix = { version = "0.38", features = ["fs"] }
 nix = { version = "0.30", features = ["fs"] }
-sysinfo = "0.36"
+sysinfo = "0.37"
 bon = "3"
 once_cell = "1.19"
 apt-auth-config = { version = "0.4.0", path = "../apt-auth-config" }
