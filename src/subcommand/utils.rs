@@ -11,6 +11,7 @@ use std::io::stdout;
 use std::panic;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
 use std::thread;
 
@@ -76,6 +77,14 @@ use tracing::info;
 use tracing::warn;
 
 use super::remove::ask_user_do_as_i_say;
+
+pub const DEFAULT_LANGUAGE: &str = "en_US";
+pub static SYSTEM_LANG: LazyLock<Cow<'static, str>> = LazyLock::new(|| {
+    sys_locale::get_locale()
+        .map(|x| x.replace("-", "_"))
+        .map(Cow::Owned)
+        .unwrap_or_else(|| Cow::Borrowed(DEFAULT_LANGUAGE))
+});
 
 pub(crate) fn handle_no_result(
     sysroot: impl AsRef<Path>,
@@ -747,22 +756,17 @@ pub fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bo
 }
 
 pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
-    const DEFAULT_LANGUAGE: &str = "en_US";
-
     let mut res = String::new();
     let features_data = std::fs::read_to_string("/usr/share/aosc-os/features.toml")?;
     let features_data: HashMap<Box<str>, HashMap<Box<str>, Box<str>>> =
         toml::from_str(&features_data)?;
 
-    let lang = sys_locale::get_locale()
-        .map(|x| x.replace("-", "_"))
-        .map(Cow::Owned)
-        .unwrap_or_else(|| Cow::Borrowed(DEFAULT_LANGUAGE));
+    let lang = &*SYSTEM_LANG;
 
     for (index, f) in features.iter().enumerate() {
         if let Some(v) = features_data.get(f) {
             let text = v
-                .get(&*lang)
+                .get(lang.as_ref())
                 .unwrap_or_else(|| v.get(DEFAULT_LANGUAGE).unwrap());
 
             res.push_str(&format!("  * {text}"));
