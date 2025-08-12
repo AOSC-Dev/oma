@@ -15,6 +15,7 @@ use crate::{
     fix_broken::FixBroken,
     history::{History, Undo},
     install::Install,
+    lang::SYSTEM_LANG,
     list::List,
     mark::Mark,
     pick::Pick,
@@ -144,11 +145,7 @@ pub fn print_version() {
 }
 
 fn after_help() -> &'static str {
-    let Some(lang) = sys_locale::get_locale() else {
-        return "";
-    };
-
-    if lang.starts_with("zh") {
+    if SYSTEM_LANG.starts_with("zh") {
         "本 oma 具有超级小熊猫力！"
     } else {
         ""

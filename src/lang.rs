@@ -1,10 +1,18 @@
-use std::sync::LazyLock;
+use std::{borrow::Cow, sync::LazyLock};
 
 use i18n_embed::{
     DefaultLocalizer, LanguageLoader,
     fluent::{FluentLanguageLoader, fluent_language_loader},
 };
 use rust_embed::RustEmbed;
+
+pub const DEFAULT_LANGUAGE: &str = "en_US";
+pub static SYSTEM_LANG: LazyLock<Cow<'static, str>> = LazyLock::new(|| {
+    sys_locale::get_locale()
+        .map(|x| x.replace("-", "_"))
+        .map(Cow::Owned)
+        .unwrap_or_else(|| Cow::Borrowed(DEFAULT_LANGUAGE))
+});
 
 #[derive(RustEmbed)]
 #[folder = "./i18n/"]
