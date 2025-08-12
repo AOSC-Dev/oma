@@ -1,9 +1,9 @@
-name: create-pull-request
+name: create-pull-request (release candidates)
 
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*.*.*-rc*"
 
 jobs:
   create-abbs-pr:
