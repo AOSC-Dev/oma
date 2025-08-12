@@ -11,6 +11,7 @@ use std::io::stdout;
 use std::panic;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
 use std::thread;
 
@@ -78,6 +79,12 @@ use tracing::warn;
 use super::remove::ask_user_do_as_i_say;
 
 pub const DEFAULT_LANGUAGE: &str = "en_US";
+pub static SYSTEM_LANG: LazyLock<Cow<'static, str>> = LazyLock::new(|| {
+    sys_locale::get_locale()
+        .map(|x| x.replace("-", "_"))
+        .map(Cow::Owned)
+        .unwrap_or_else(|| Cow::Borrowed(DEFAULT_LANGUAGE))
+});
 
 pub(crate) fn handle_no_result(
     sysroot: impl AsRef<Path>,
@@ -754,12 +761,12 @@ pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
     let features_data: HashMap<Box<str>, HashMap<Box<str>, Box<str>>> =
         toml::from_str(&features_data)?;
 
-    let lang = get_locale();
+    let lang = &*SYSTEM_LANG;
 
     for (index, f) in features.iter().enumerate() {
         if let Some(v) = features_data.get(f) {
             let text = v
-                .get(&*lang)
+                .get(lang.as_ref())
                 .unwrap_or_else(|| v.get(DEFAULT_LANGUAGE).unwrap());
 
             res.push_str(&format!("  * {text}"));
@@ -773,13 +780,6 @@ pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
     }
 
     Ok(res)
-}
-
-pub fn get_locale() -> Cow<'static, str> {
-    sys_locale::get_locale()
-        .map(|x| x.replace("-", "_"))
-        .map(Cow::Owned)
-        .unwrap_or_else(|| Cow::Borrowed(DEFAULT_LANGUAGE))
 }
 
 pub fn write_oma_installed_status(apt: &OmaApt) -> anyhow::Result<()> {

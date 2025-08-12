@@ -6,7 +6,7 @@ use std::sync::atomic::Ordering;
 
 use crate::console::style;
 use crate::error::OutputError;
-use crate::subcommand::utils::{get_locale, is_terminal};
+use crate::subcommand::utils::is_terminal;
 use crate::{NOT_DISPLAY_ABORT, WRITER, color_formatter, fl};
 use ahash::HashMap;
 use ahash::HashSet;
@@ -745,6 +745,8 @@ fn print_tum(
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
 ) {
     if let Some(tum) = tum {
+        use crate::subcommand::utils::SYSTEM_LANG;
+
         if tum.is_empty() {
             return;
         }
@@ -753,7 +755,7 @@ fn print_tum(
 
         tum.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
-        let lang = get_locale();
+        let lang = &*SYSTEM_LANG;
         let mut tum_display = vec![];
 
         let security_count = tum.iter().filter(|x| x.1.is_security()).count();
