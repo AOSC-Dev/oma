@@ -11,7 +11,6 @@ use std::io::stdout;
 use std::panic;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
 use std::thread;
 
@@ -25,6 +24,8 @@ use crate::error::OutputError;
 use crate::fl;
 use crate::install_progress::NoInstallProgressManager;
 use crate::install_progress::OmaInstallProgressManager;
+use crate::lang::DEFAULT_LANGUAGE;
+use crate::lang::SYSTEM_LANG;
 use crate::msg;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
@@ -77,14 +78,6 @@ use tracing::info;
 use tracing::warn;
 
 use super::remove::ask_user_do_as_i_say;
-
-pub const DEFAULT_LANGUAGE: &str = "en_US";
-pub static SYSTEM_LANG: LazyLock<Cow<'static, str>> = LazyLock::new(|| {
-    sys_locale::get_locale()
-        .map(|x| x.replace("-", "_"))
-        .map(Cow::Owned)
-        .unwrap_or_else(|| Cow::Borrowed(DEFAULT_LANGUAGE))
-});
 
 pub(crate) fn handle_no_result(
     sysroot: impl AsRef<Path>,

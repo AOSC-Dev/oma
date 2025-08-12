@@ -745,8 +745,6 @@ fn print_tum(
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
 ) {
     if let Some(tum) = tum {
-        use crate::subcommand::utils::SYSTEM_LANG;
-
         if tum.is_empty() {
             return;
         }
@@ -755,7 +753,7 @@ fn print_tum(
 
         tum.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
-        let lang = &*SYSTEM_LANG;
+        let lang = &*crate::lang::SYSTEM_LANG;
         let mut tum_display = vec![];
 
         let security_count = tum.iter().filter(|x| x.1.is_security()).count();
