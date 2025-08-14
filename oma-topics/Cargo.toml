@@ -18,7 +18,6 @@ tracing = "0.1"
 url = "2.5"
 oma-mirror = { version = "0.7.0", path = "../oma-mirror" }
 ahash = "0.8.11"
-itertools = "0.14"
 
 [dev-dependencies]
 oma-inquire = "0.3"

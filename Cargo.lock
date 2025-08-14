@@ -2880,6 +2880,7 @@ dependencies = [
  "oma-topics",
  "oma-tum",
  "oma-utils",
+ "once_cell",
  "ratatui",
  "reqwest",
  "rust-embed",
@@ -2890,6 +2891,7 @@ dependencies = [
  "smallvec",
  "strsim",
  "sys-locale",
+ "sysinfo",
  "tabled",
  "termtree",
  "textwrap",
@@ -3107,7 +3109,6 @@ version = "0.25.0"
 dependencies = [
  "ahash",
  "futures",
- "itertools 0.14.0",
  "oma-console",
  "oma-inquire",
  "oma-mirror",
