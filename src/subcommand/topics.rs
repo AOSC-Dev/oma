@@ -608,6 +608,7 @@ async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<
 
     tm.refresh().await?;
     tm.remove_closed_topics()?;
+    tm.write_enabled(false).await?;
 
     if let Some(pb) = pb {
         pb.inner.finish_and_clear();
