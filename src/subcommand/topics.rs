@@ -1,5 +1,6 @@
 use std::{
     fmt::Display,
+    fs,
     path::{Path, PathBuf},
     sync::atomic::Ordering,
 };
@@ -15,8 +16,11 @@ use oma_pm::{
     PkgSelectedState,
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
+    pkginfo::OmaPackageWithoutVersion,
 };
 use oma_utils::dpkg::dpkg_arch;
+use once_cell::sync::OnceCell;
+use sysinfo::System;
 use tokio::task::spawn_blocking;
 use tracing::{debug, error, info, warn};
 
@@ -35,7 +39,7 @@ use super::utils::{
 use crate::args::CliExecuter;
 
 use crate::fl;
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use oma_topics::{Topic, TopicManager};
 
 #[derive(Debug, Args)]
@@ -179,6 +183,9 @@ impl CliExecuter for Topics {
         let enabled_pkgs = topics_changed.enabled_pkgs;
         let downgrade_pkgs = topics_changed.downgrade_pkgs;
 
+        debug!("enabled_pkgs = {enabled_pkgs:?}");
+        debug!("downgrade_pkgs = {downgrade_pkgs:?}");
+
         if !opt_in.is_empty() || !opt_out.is_empty() {
             RT.block_on(tm.write_sources_list(
                 &fl!("do-not-edit-topic-sources-list"),
@@ -223,6 +230,7 @@ impl CliExecuter for Topics {
             let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
 
             let mut pkgs = vec![];
+            let mut remove_pkgs = vec![];
 
             let matcher = PackagesMatcher::builder()
                 .cache(&apt.cache)
@@ -231,6 +239,9 @@ impl CliExecuter for Topics {
                 .build();
 
             let mut held_packages = vec![];
+
+            let image_name = OnceCell::new();
+            let kernel_ver = OnceCell::new();
 
             for pkg in downgrade_pkgs {
                 let mut f = apt
@@ -250,7 +261,63 @@ impl CliExecuter for Topics {
                     continue;
                 }
 
-                let pkginfo = matcher.find_candidate_by_pkgname(pkg.name())?;
+                let pkg_name = pkg.name();
+
+                // linux-kernel-VER 包在关闭 topic 的时候应该直接删除
+                if pkg_name.starts_with("linux-kernel-") {
+                    let kernel_ver = kernel_ver.get_or_try_init(|| {
+                        System::kernel_version().context("Failed to get kernel version")
+                    })?;
+
+                    debug!("kernel version = {kernel_ver}");
+
+                    let image_name = image_name.get_or_init(get_kernel_image_filename);
+                    debug!("image name = {image_name:?}");
+
+                    let mut is_current_kernel = false;
+
+                    if let Some(image_name) = image_name {
+                        is_current_kernel =
+                            is_installed_pkg_contains_file(pkg_name, image_name, &sysroot)
+                                .unwrap_or_else(|e| {
+                                    warn!("{e}");
+                                    false
+                                });
+                    } else {
+                        for i in ["vmlinuz", "vmlinux"] {
+                            if is_installed_pkg_contains_file(
+                                pkg_name,
+                                &format!("{i}-{kernel_ver}"),
+                                &sysroot,
+                            )
+                            .unwrap_or_else(|e| {
+                                warn!("{e}");
+                                false
+                            }) {
+                                is_current_kernel = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    debug!("Deleting kernel package name = {pkg_name}");
+
+                    // 如果现在删除的版本是正在使用的内核版本，将拒绝操作
+                    if is_current_kernel {
+                        return Err(OutputError {
+                            description: fl!("not-allow-delete-using-kernel", ver = kernel_ver),
+                            source: None,
+                        });
+                    }
+
+                    remove_pkgs.push(OmaPackageWithoutVersion {
+                        raw_pkg: unsafe { pkg.unique() },
+                    });
+
+                    continue;
+                }
+
+                let pkginfo = matcher.find_candidate_by_pkgname(pkg_name)?;
 
                 pkgs.push(pkginfo);
             }
@@ -279,6 +346,7 @@ impl CliExecuter for Topics {
             }
 
             apt.install(&pkgs, false)?;
+            apt.remove(remove_pkgs, remove_config, !autoremove)?;
 
             let code = CommitChanges::builder()
                 .apt(apt)
@@ -337,6 +405,44 @@ impl CliExecuter for Topics {
 
         code
     }
+}
+
+fn is_installed_pkg_contains_file(
+    pkg_name: &str,
+    file_name: &str,
+    sysroot: &Path,
+) -> anyhow::Result<bool> {
+    let p = sysroot.join(format!("var/lib/dpkg/info/{pkg_name}.list"));
+    let file = fs::read_to_string(&p)
+        .with_context(|| format!("Failed to read dpkg list file: {}", p.display()))?;
+
+    for line in file.lines() {
+        if Path::new(line)
+            .file_name()
+            .is_some_and(|n| n.to_string_lossy() == file_name)
+        {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+fn get_kernel_image_filename() -> Option<String> {
+    let cmdline = fs::read_to_string("/proc/cmdline").ok()?;
+
+    for i in cmdline.split_ascii_whitespace() {
+        if let Some(image_path) = i.strip_prefix("BOOT_IMAGE=") {
+            return Some(
+                Path::new(image_path)
+                    .file_name()
+                    .map(|x| x.to_string_lossy().to_string())
+                    .unwrap_or_else(|| image_path.to_string()),
+            );
+        }
+    }
+
+    None
 }
 
 fn refresh<'a>(
