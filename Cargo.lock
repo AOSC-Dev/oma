@@ -3109,7 +3109,6 @@ version = "0.25.0"
 dependencies = [
  "ahash",
  "futures",
- "itertools 0.14.0",
  "oma-console",
  "oma-inquire",
  "oma-mirror",

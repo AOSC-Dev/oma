@@ -6,7 +6,6 @@ use std::{
 
 use ahash::{HashMap, HashSet};
 use futures::future::try_join_all;
-use itertools::Itertools;
 use oma_mirror::{MirrorError, MirrorManager, parser::MirrorsConfigTemplate, write_sources_inner};
 use reqwest::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -168,8 +167,21 @@ impl<'a> TopicManager<'a> {
         })
     }
 
-    pub fn available_topics(&self) -> impl Iterator<Item = &Topic> {
-        self.all.values().flatten().unique()
+    pub fn available_topics(&self) -> Vec<&Topic> {
+        let mut res: Vec<&Topic> = vec![];
+        for topics in self.all.values() {
+            for t in topics {
+                if let Some(topic) = res.iter_mut().find(|topic| topic.name == t.name) {
+                    if topic.date < t.date {
+                        *topic = t;
+                    }
+                } else {
+                    res.push(t);
+                }
+            }
+        }
+
+        res
     }
 
     pub fn enabled_topics(&self) -> &[Topic] {
@@ -200,6 +212,7 @@ impl<'a> TopicManager<'a> {
 
         let index = self
             .available_topics()
+            .into_iter()
             .find(|x| x.name.eq_ignore_ascii_case(topic));
 
         let enabled_names = self.enabled.iter().map(|x| &x.name).collect::<Vec<_>>();
@@ -240,14 +253,25 @@ impl<'a> TopicManager<'a> {
     }
 
     /// Write topic changes to mirror list
-    pub async fn write_enabled(&self, revert: bool) -> Result<()> {
-        let enabled = if revert {
-            &self.old_enabled
+    pub async fn write_enabled(&mut self, revert: bool) -> Result<()> {
+        let mut enabled = if revert {
+            self.old_enabled.to_owned()
         } else {
-            &self.enabled
+            self.enabled.to_owned()
         };
 
-        let s = serde_json::to_vec(enabled).map_err(|_| OmaTopicsError::FailedSer)?;
+        // 处理包列表中途增加/删除的情况
+        for i in &mut enabled {
+            if self.all.is_empty() {
+                self.refresh().await?;
+            }
+
+            if let Some(t) = self.available_topics().into_iter().find(|t| *t == i) {
+                *i = t.clone();
+            }
+        }
+
+        let s = serde_json::to_vec(&enabled).map_err(|_| OmaTopicsError::FailedSer)?;
 
         if self.dry_run {
             debug!("ATM State:\n{}", String::from_utf8_lossy(&s));
@@ -262,6 +286,8 @@ impl<'a> TopicManager<'a> {
                     e,
                 )
             })?;
+
+        self.enabled = enabled;
 
         Ok(())
     }
@@ -337,6 +363,7 @@ impl<'a> TopicManager<'a> {
     pub fn remove_closed_topics(&mut self) -> Result<Vec<String>> {
         let all = self
             .available_topics()
+            .into_iter()
             .map(|x| x.to_owned())
             .collect::<HashSet<_>>();
 

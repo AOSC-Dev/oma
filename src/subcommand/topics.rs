@@ -492,8 +492,10 @@ async fn topics_inner(
 
     let all_topics = tm
         .available_topics()
+        .into_iter()
         .map(|x| x.to_owned())
         .collect::<Vec<_>>();
+
     let enabled_topics = Box::from(tm.enabled_topics());
 
     if opt_in.is_empty() && opt_out.is_empty() {
