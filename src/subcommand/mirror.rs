@@ -13,7 +13,6 @@ use clap::Subcommand;
 use dialoguer::Sort;
 use dialoguer::theme::ColorfulTheme;
 use faster_hex::hex_string;
-use inquire::MultiSelect;
 use inquire::formatter::MultiOptionFormatter;
 use inquire::ui::Color;
 use inquire::ui::RenderConfig;
@@ -42,6 +41,7 @@ use crate::error::OutputError;
 use crate::fl;
 use crate::pb::OmaProgressBar;
 use crate::pb::Print;
+use crate::subcommand::utils::multiselect;
 use crate::success;
 use crate::table::PagerPrinter;
 use crate::utils::root;
@@ -319,14 +319,14 @@ pub fn tui(
 
     let default = (0..enabled.len()).collect::<Vec<_>>();
 
-    let ans = MultiSelect::new(&fl!("select-mirror-prompt"), mirrors)
-        .with_help_message(&fl!("tips"))
-        .with_formatter(formatter)
-        .with_default(&default)
-        .with_page_size(page_size as usize)
-        .with_render_config(render_config)
-        .prompt()
-        .map_err(|_| anyhow::anyhow!(""))?;
+    let ans = multiselect(
+        &fl!("select-mirror-prompt"),
+        mirrors,
+        formatter,
+        render_config,
+        page_size,
+        default,
+    )?;
 
     let set = ans.iter().map(|x| x.0.0.as_ref()).collect::<Vec<_>>();
 

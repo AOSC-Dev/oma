@@ -7,7 +7,6 @@ use std::{
 use clap::{ArgAction, Args};
 use dialoguer::console::style;
 use inquire::{
-    MultiSelect,
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
@@ -24,6 +23,7 @@ use crate::{
     HTTP_CLIENT, NOT_ALLOW_CTRLC, RT,
     config::Config,
     error::OutputError,
+    subcommand::utils::multiselect,
     utils::{dbus_check, root},
 };
 
@@ -35,7 +35,6 @@ use super::utils::{
 use crate::args::CliExecuter;
 
 use crate::fl;
-use anyhow::anyhow;
 use oma_topics::{Topic, TopicManager};
 
 #[derive(Debug, Args)]
@@ -483,14 +482,14 @@ fn select_prompt(
     // 空行（最多两行）+ tips (最多两行) + prompt（最多两行）
     let page_size = tui_select_list_size();
 
-    let ans = MultiSelect::new(&fl!("select-topics-dialog"), display)
-        .with_help_message(&fl!("tips"))
-        .with_formatter(formatter)
-        .with_default(&default)
-        .with_page_size(page_size as usize)
-        .with_render_config(render_config)
-        .prompt()
-        .map_err(|_| anyhow!(""))?;
+    let ans = multiselect(
+        &fl!("select-topics-dialog"),
+        display,
+        formatter,
+        render_config,
+        page_size,
+        default,
+    )?;
 
     for i in &ans {
         if !enabled_topics.contains(i.topic) {
