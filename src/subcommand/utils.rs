@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use std::fs;
 use std::io;
 use std::io::IsTerminal;
+use std::io::Write;
 use std::io::stderr;
 use std::io::stdin;
 use std::io::stdout;
@@ -46,6 +47,8 @@ use dialoguer::theme::ColorfulTheme;
 use flume::unbounded;
 use fs_extra::dir::get_size as get_dir_size;
 use indexmap::IndexSet;
+use inquire::MultiSelect;
+use inquire::ui::RenderConfig;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::PagerExit;
 use oma_console::print::Action;
@@ -626,6 +629,31 @@ pub fn display_suggest_tips(suggest: &[(String, String)], recommend: &[(String, 
             msg!("{}: {}", pkg, desc);
         }
     }
+}
+
+#[inline]
+pub fn multiselect<T: Display>(
+    msg: &str,
+    opts: Vec<T>,
+    formatter: &dyn Fn(&[inquire::list_option::ListOption<&T>]) -> String,
+    render_config: RenderConfig<'_>,
+    page_size: u16,
+    default: Vec<usize>,
+) -> Result<Vec<T>, anyhow::Error> {
+    MultiSelect::new(msg, opts)
+        .with_help_message(&fl!("tips"))
+        .with_formatter(formatter)
+        .with_default(&default)
+        .with_page_size(page_size as usize)
+        .with_render_config(render_config)
+        .prompt()
+        .map_err(|e| match e {
+            inquire::InquireError::OperationInterrupted => {
+                stderr().write_all(b"\n").ok();
+                anyhow::anyhow!("")
+            }
+            e => e.into(),
+        })
 }
 
 pub fn history_success_tips(dry_run: bool) {
