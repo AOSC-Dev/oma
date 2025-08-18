@@ -52,6 +52,7 @@ use oma_console::console;
 
 use crate::config::Config;
 use crate::error::Chain;
+use crate::install_progress::osc94_progress;
 use crate::subcommand::*;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
@@ -544,6 +545,9 @@ fn single_handler() {
     if NOT_ALLOW_CTRLC.load(Ordering::Relaxed) {
         return;
     }
+
+    // Force drop osc94 progress
+    osc94_progress(0.0, true);
 
     let not_display_abort = NOT_DISPLAY_ABORT.load(Ordering::Relaxed);
 
