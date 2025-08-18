@@ -70,7 +70,7 @@ impl CliExecuter for Download {
             } else {
                 Box::new(OmaMultiProgressBar::default())
             };
-            pb.render_progress(&rx);
+            pb.render_progress(&rx, true);
         });
 
         let summary = apt.download(

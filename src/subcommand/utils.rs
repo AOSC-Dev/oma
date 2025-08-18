@@ -25,6 +25,7 @@ use crate::error::OutputError;
 use crate::fl;
 use crate::install_progress::NoInstallProgressManager;
 use crate::install_progress::OmaInstallProgressManager;
+use crate::install_progress::osc94_progress;
 use crate::lang::DEFAULT_LANGUAGE;
 use crate::lang::SYSTEM_LANG;
 use crate::msg;
@@ -428,7 +429,7 @@ impl CommitChanges<'_> {
             } else {
                 Box::new(OmaMultiProgressBar::default())
             };
-            pb.render_progress(&rx);
+            pb.render_progress(&rx, false);
         });
 
         let res = apt.commit(
@@ -450,6 +451,8 @@ impl CommitChanges<'_> {
                 }
             },
         );
+
+        osc94_progress(100.0, true);
 
         match res {
             Ok(_) => {

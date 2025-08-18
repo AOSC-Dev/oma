@@ -15,14 +15,14 @@ use oma_console::{
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
-use crate::{WRITER, error::Chain, fl, msg, utils::is_root};
+use crate::{WRITER, error::Chain, fl, install_progress::osc94_progress, msg, utils::is_root};
 use crate::{color_formatter, error::OutputError};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
 use tracing::{debug, error, info, warn};
 
 pub trait RenderPackagesDownloadProgress {
-    fn render_progress(&mut self, rx: &flume::Receiver<Event>);
+    fn render_progress(&mut self, rx: &flume::Receiver<Event>, download_only: bool);
 }
 
 pub trait RenderRefreshProgress {
@@ -168,7 +168,7 @@ impl RenderRefreshProgress for OmaMultiProgressBar {
         while let Ok(event) = rx.recv() {
             match event {
                 RefreshEvent::DownloadEvent(event) => {
-                    self.download_event(event, true);
+                    self.download_event(event, true, false);
                 }
                 RefreshEvent::ScanningTopic => {
                     let (sty, inv) = spinner_style();
@@ -216,9 +216,9 @@ impl RenderRefreshProgress for OmaMultiProgressBar {
 }
 
 impl RenderPackagesDownloadProgress for OmaMultiProgressBar {
-    fn render_progress(&mut self, rx: &flume::Receiver<Event>) {
+    fn render_progress(&mut self, rx: &flume::Receiver<Event>, download_only: bool) {
         while let Ok(event) = rx.recv() {
-            if self.download_event(event, false) {
+            if self.download_event(event, false, download_only) {
                 break;
             }
         }
@@ -226,7 +226,7 @@ impl RenderPackagesDownloadProgress for OmaMultiProgressBar {
 }
 
 impl OmaMultiProgressBar {
-    fn download_event(&mut self, event: Event, is_refresh: bool) -> bool {
+    fn download_event(&mut self, event: Event, is_refresh: bool, download_only: bool) -> bool {
         match event {
             Event::ChecksumMismatch {
                 index: _,
@@ -238,12 +238,14 @@ impl OmaMultiProgressBar {
             Event::GlobalProgressAdd(num) => {
                 if let Some(gpb) = self.pb_map.get(&0) {
                     gpb.inc(num);
+                    let pos = gpb.position();
+                    osc94(is_refresh, download_only, pos, gpb);
                 }
             }
             Event::GlobalProgressSub(num) => {
                 if let Some(gpb) = self.pb_map.get(&0) {
-                    let position = gpb.position();
-                    gpb.set_position(position.saturating_sub(num));
+                    gpb.set_position(gpb.position().saturating_sub(num));
+                    osc94(is_refresh, download_only, gpb.position(), gpb);
                 }
             }
             Event::ProgressDone(index) => {
@@ -287,6 +289,9 @@ impl OmaMultiProgressBar {
             Event::AllDone => {
                 if let Some(gpb) = &self.pb_map.get(&0) {
                     gpb.finish_and_clear();
+                }
+                if download_only {
+                    osc94_progress(100.0, true);
                 }
                 return true;
             }
@@ -362,6 +367,18 @@ impl OmaMultiProgressBar {
     }
 }
 
+fn osc94(is_refresh: bool, download_only: bool, pos: u64, gpb: &ProgressBar) {
+    if let Some(len) = gpb.length()
+        && !is_refresh
+    {
+        let mut pos = (pos as f32 / len as f32) * 100.0;
+        if !download_only {
+            pos *= 0.5;
+        }
+        osc94_progress(pos, false);
+    }
+}
+
 impl Default for NoProgressBar {
     fn default() -> Self {
         Self {
@@ -381,7 +398,7 @@ pub struct NoProgressBar {
 }
 
 impl RenderPackagesDownloadProgress for NoProgressBar {
-    fn render_progress(&mut self, rx: &flume::Receiver<Event>) {
+    fn render_progress(&mut self, rx: &flume::Receiver<Event>, _download_only: bool) {
         while let Ok(event) = rx.recv() {
             if self.download_event(event) {
                 break;

@@ -37,8 +37,13 @@ impl InstallProgressManager for OmaInstallProgressManager {
         std::io::stderr().flush().unwrap();
 
         // Convert the float to a percentage string.
-        let percent = steps_done as f32 / total_steps as f32;
-        let mut percent_str = (percent * 100.0).round().to_string();
+        let percent_1 = steps_done as f32 / total_steps as f32;
+        let percent_100 = (percent_1 * 100.0).round();
+        let percent_for_dpkg = 50.0 + percent_100 * 0.5;
+
+        osc94_progress(percent_for_dpkg, false);
+
+        let mut percent_str = percent_100.to_string();
 
         let percent_padding = match percent_str.len() {
             1 => "  ",
@@ -68,7 +73,7 @@ impl InstallProgressManager for OmaInstallProgressManager {
         eprint!(
             "{}",
             get_apt_progress_string(
-                percent,
+                percent_1,
                 (term_width - Self::PROGRESS_STR_LEN).try_into().unwrap()
             )
         );
@@ -91,6 +96,21 @@ impl InstallProgressManager for OmaInstallProgressManager {
     fn use_pty(&self) -> bool {
         is_terminal()
     }
+}
+
+#[inline]
+pub fn osc94_progress(percent: f32, finish: bool) {
+    // From https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
+    // ESC ] 9 ; 4 ; st ; pr ST
+    // When st is 0: remove progress.
+    // When st is 1: set progress value to pr (number, 0-100).
+    // When st is 2: set error state in taskbar, pr is optional.
+    // When st is 3: set indeterminate state, pr is ignored.
+    // When st is 4: set paused state, pr is optional.
+    eprint!(
+        "\x1b]9;4;{};{percent:.0}\x1b\\",
+        if !finish { 1 } else { 0 }
+    );
 }
 
 pub struct NoInstallProgressManager;
