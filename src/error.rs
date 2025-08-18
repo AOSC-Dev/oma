@@ -484,6 +484,10 @@ impl From<RefreshError> for OutputError {
                     source: None,
                 },
             },
+            RefreshError::NoMetadataToDownload => Self {
+                description: fl!("oma-refresh-no-metadata-to-download"),
+                source: None,
+            },
         }
     }
 }

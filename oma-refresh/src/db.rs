@@ -104,6 +104,8 @@ pub enum RefreshError {
     WrongThreadCount(usize),
     #[error("Failed to build download manager")]
     DownloadManagerBuilderError(BuilderError),
+    #[error("No metadata file to download")]
+    NoMetadataToDownload,
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
@@ -263,6 +265,10 @@ impl<'a> OmaRefresh<'a> {
         let (tasks, total) = self
             .collect_all_release_entry(&replacer, &mirror_sources)
             .await?;
+
+        if tasks.is_empty() {
+            return Err(RefreshError::NoMetadataToDownload);
+        }
 
         for i in &tasks {
             download_list.push(i.filename.as_str());
