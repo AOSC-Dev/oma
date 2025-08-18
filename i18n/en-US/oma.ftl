@@ -294,3 +294,4 @@ upgrade-after-held-tips = { $count } packages marked for version hold were not u
 topics-held-tips = The topic(s) you have enabled affects { $count } packages which were marked for version hold, these packages are not upgraded.
 successfully-refresh-without-status = Successfully refreshed the package database.
 not-allow-delete-using-kernel = Not allow deletion of the Linux kernel version in use: { $ver }.
+yes-mode-conflict-ui = `--yes` mode will not be applied in UI mode.
