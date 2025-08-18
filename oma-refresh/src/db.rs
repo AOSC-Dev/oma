@@ -45,7 +45,7 @@ use tokio::{
     fs::{self},
     task::spawn_blocking,
 };
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
 use crate::{
@@ -537,15 +537,39 @@ impl<'a> OmaRefresh<'a> {
                 .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?
                 .1;
 
+            let arch_from_local_configure = if let Some(ref f) = archs_from_file {
+                f.iter().map(|x| x.as_str()).collect::<Vec<_>>()
+            } else {
+                vec![self.arch.as_str()]
+            };
+
             for ose in &m.sources {
                 debug!("Getted oma source entry: {:#?}", ose);
 
-                let archs = if let Some(archs) = ose.archs() {
-                    archs.iter().map(|x| x.as_str()).collect::<Vec<_>>()
-                } else if let Some(ref f) = archs_from_file {
-                    f.iter().map(|x| x.as_str()).collect::<Vec<_>>()
+                let archs = if let Some(archs) = ose.archs()
+                    && !archs.is_empty()
+                {
+                    let archs = archs.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+                    if arch_from_local_configure.iter().all(|x| !archs.contains(x)) {
+                        warn!(
+                            "Mirror {} does not contain architectures enabled in local configuration ({} enabled, {} available from the mirror)",
+                            ose.url(),
+                            arch_from_local_configure
+                                .iter()
+                                .map(|x| format!("'{x}'"))
+                                .collect::<Vec<_>>()
+                                .join(" "),
+                            archs
+                                .iter()
+                                .map(|x| format!("'{x}'"))
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                        );
+                    }
+
+                    archs
                 } else {
-                    vec![self.arch.as_str()]
+                    arch_from_local_configure.clone()
                 };
 
                 debug!("archs: {:?}", archs);
