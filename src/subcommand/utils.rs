@@ -631,6 +631,7 @@ pub fn display_suggest_tips(suggest: &[(String, String)], recommend: &[(String, 
     }
 }
 
+#[allow(dead_code)]
 #[inline]
 pub fn multiselect<T: Display>(
     msg: &str,
