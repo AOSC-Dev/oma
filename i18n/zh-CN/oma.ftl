@@ -284,3 +284,6 @@ session-check-disabled = 会话监测功能已被禁用，oma 在执行任务时
 upgrade-after-held-tips = 本次操作未更新 { $count } 个被标记为版本锁定的软件包。
 topics-held-tips = 您开启的测试源涉及 { $count } 个被标记为版本锁定的软件包，本次操作未更新这些软件包。
 successfully-refresh-without-status = 成功刷新本机软件包数据库。
+update-available = 有可用的系统升级
+update-available-2 = oma 已检测到您的系统有以下可用更新：
+yes-mode-conflict-ui = UI 模式下将不会应用 `--yes` 模式。

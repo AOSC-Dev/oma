@@ -293,3 +293,4 @@ session-check-disabled = Session lock has been disabled. System failure or data 
 upgrade-after-held-tips = { $count } packages marked for version hold were not upgraded.
 topics-held-tips = The topic(s) you have enabled affects { $count } packages which were marked for version hold, these packages are not upgraded.
 successfully-refresh-without-status = Successfully refreshed the package database.
+yes-mode-conflict-ui = `--yes` mode will not be applied in UI mode.

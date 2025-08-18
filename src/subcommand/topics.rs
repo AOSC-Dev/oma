@@ -97,6 +97,11 @@ pub struct Topics {
     /// Only apply topics change to sources list file, not apply system change
     #[arg(long)]
     only_apply_sources_list: bool,
+    /// Bypass confirmation prompts
+    ///
+    /// Note that this parameter depends on the `--opt-out` or `--opt-in` parameter, otherwise it is invalid.
+    #[arg(short, long)]
+    yes: bool,
 }
 
 struct TopicChanged {
@@ -149,7 +154,14 @@ impl CliExecuter for Topics {
             no_check_battery,
             no_take_wake_lock,
             only_apply_sources_list,
+            yes,
         } = self;
+
+        let is_ui = opt_in.is_empty() && opt_out.is_empty();
+
+        if is_ui && yes {
+            warn!("{}", fl!("yes-mode-conflict-ui"));
+        }
 
         if !dry_run {
             root()?;
@@ -288,7 +300,7 @@ impl CliExecuter for Topics {
                 .sysroot(sysroot.to_string_lossy().to_string())
                 .fix_dpkg_status(!no_fix_dpkg_status)
                 .protect_essential(config.protect_essentials())
-                .yes(false)
+                .yes(!is_ui && yes)
                 .remove_config(remove_config)
                 .autoremove(autoremove)
                 .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
