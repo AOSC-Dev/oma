@@ -125,8 +125,7 @@ impl Release {
             self.source
                 .acquire_by_hash
                 .as_ref()
-                .map(|x| x.to_lowercase() == "yes")
-                .unwrap_or(false)
+                .is_some_and(|x| x.eq_ignore_ascii_case("yes"))
         })
     }
 
