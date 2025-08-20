@@ -300,6 +300,14 @@ impl<'a> OmaPager<'a> {
                             KeyCode::Right => {
                                 self.right();
                             }
+                            KeyCode::Char('y') => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('y');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                self.up();
+                            }
                             KeyCode::Char('j') => {
                                 if self.mode == TuiMode::SearchInputText {
                                     query.push('j');
