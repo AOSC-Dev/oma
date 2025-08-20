@@ -350,6 +350,7 @@ impl<'a> OmaPager<'a> {
                             }
                             KeyCode::Enter => {
                                 if self.mode != TuiMode::SearchInputText {
+                                    self.down();
                                     continue;
                                 }
                                 if query.trim().is_empty() {
