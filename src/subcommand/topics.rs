@@ -50,7 +50,7 @@ pub struct Topics {
     /// Withdraw from one or more topic(s) and rollback to stable versions, delimited by space
     #[arg(long, action = ArgAction::Append)]
     opt_out: Vec<String>,
-    /// Fix apt broken status
+    /// Do not fix apt broken status
     #[arg(long)]
     no_fixbroken: bool,
     /// Do not fix dpkg broken status
