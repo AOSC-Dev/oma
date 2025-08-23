@@ -12,7 +12,7 @@ use std::{
     str::FromStr,
 };
 use thiserror::Error;
-use tracing::debug;
+use tracing::{debug, trace};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChecksumItem {
@@ -169,7 +169,7 @@ impl FromStr for ChecksumItem {
     type Err = InReleaseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        debug!("Parsing line: {s}");
+        trace!("Parsing line: {s}");
 
         let mut line = s.split_ascii_whitespace();
 
@@ -178,11 +178,11 @@ impl FromStr for ChecksumItem {
             .ok_or(InReleaseError::BrokenInRelease)?
             .to_string();
 
-        debug!("checksum is: {checksum}");
+        trace!("checksum is: {checksum}");
 
         let size = line.next().ok_or(InReleaseError::BrokenInRelease)?;
 
-        debug!("size is: {size}");
+        trace!("size is: {size}");
 
         let size = size.parse::<u64>().map_err(InReleaseError::ParseIntError)?;
 

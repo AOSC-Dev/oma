@@ -1,11 +1,11 @@
-use std::{borrow::Cow, cmp::Ordering, path::PathBuf, time::Duration};
+use std::{borrow::Cow, cmp::Ordering, fmt::Debug, path::PathBuf, time::Duration};
 
 use bon::{Builder, builder};
 use checksum::Checksum;
 use download::{BuilderError, SingleDownloader, SuccessSummary};
 use futures::StreamExt;
 
-use reqwest::{Client, Method, RequestBuilder};
+use reqwest::{Client, Method, RequestBuilder, Response};
 use tracing::debug;
 
 pub mod checksum;
@@ -14,7 +14,7 @@ pub use crate::download::SingleDownloadError;
 
 pub use reqwest;
 
-#[derive(Debug, Clone, Default, Builder)]
+#[derive(Clone, Default, Builder)]
 pub struct DownloadEntry {
     pub source: Vec<DownloadSource>,
     pub filename: String,
@@ -24,6 +24,20 @@ pub struct DownloadEntry {
     msg: Option<Cow<'static, str>>,
     #[builder(default)]
     file_type: CompressFile,
+}
+
+impl Debug for DownloadEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DownloadEntry")
+            .field("source", &self.source)
+            .field("filename", &self.filename)
+            .field("dir", &self.dir)
+            .field("hash", &self.hash.as_ref().map(|c| c.to_string()))
+            .field("allow_resume", &self.allow_resume)
+            .field("msg", &self.msg)
+            .field("file_type", &self.file_type)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Copy)]
@@ -275,4 +289,18 @@ pub fn build_request_with_basic_auth(
     }
 
     req
+}
+
+pub async fn send_request(url: &str, request: RequestBuilder) -> Result<Response, reqwest::Error> {
+    let resp = request.send().await?;
+    let headers = resp.headers();
+
+    debug!(
+        "\nDownload url: {url}\nStatus: {}\nHeaders: {headers:#?}",
+        resp.status()
+    );
+
+    let resp = resp.error_for_status()?;
+
+    Ok(resp)
 }

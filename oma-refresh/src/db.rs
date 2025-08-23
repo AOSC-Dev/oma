@@ -266,6 +266,8 @@ impl<'a> OmaRefresh<'a> {
             .collect_all_release_entry(&replacer, &mirror_sources)
             .await?;
 
+        debug!("oma will download source metadata entry: {tasks:#?}");
+
         if tasks.is_empty() {
             return Err(RefreshError::NoMetadataToDownload);
         }
@@ -549,9 +551,9 @@ impl<'a> OmaRefresh<'a> {
                 vec![self.arch.as_str()]
             };
 
-            for ose in &m.sources {
-                debug!("Getted oma source entry: {:#?}", ose);
+            debug!("Get download source entries: {:#?}", m.sources);
 
+            for ose in &m.sources {
                 let archs = if let Some(archs) = ose.archs()
                     && !archs.is_empty()
                 {
@@ -750,7 +752,6 @@ fn collect_flat_repo_no_release(
         .file_type(CompressFile::Nothing)
         .build();
 
-    debug!("oma will download source database: {download_url}");
     tasks.push(task);
 
     Ok(())
@@ -865,7 +866,6 @@ fn collect_download_task(
         })
         .build();
 
-    debug!("oma will download source database: {download_url}");
     tasks.push(task);
 
     Ok(())
