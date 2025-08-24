@@ -23,7 +23,7 @@ mod utils;
 
 use args::{CliExecuter, OhManagerAilurus, print_version};
 use clap::builder::FalseyValueParser;
-use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches};
+use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches, arg};
 use clap_complete::CompleteEnv;
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
@@ -80,6 +80,7 @@ pub struct GlobalOptions {
     #[arg(
         long,
         global = true,
+        help = fl!("clap-dry-run-help"),
         long_help = "Run oma in \"dry-run\" mode. Useful for testing changes and operations without making changes to the system",
         env = "OMA_DRY_RUN",
         value_parser = FalseyValueParser::new()
@@ -89,25 +90,40 @@ pub struct GlobalOptions {
     #[arg(
         long,
         global = true,
+        help = fl!("clap-debug-help"),
         long_help = "Run oma with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues",
         env = "OMA_DEBUG",
         value_parser = FalseyValueParser::new()
     )]
     debug: bool,
     /// Represents the color preferences for program output
-    #[arg(long, global = true, default_value = "auto")]
+    #[arg(long, global = true, default_value = "auto", help = fl!("clap-color-help"))]
     color: ColorChoice,
     /// Output result with terminal theme color
-    #[arg(long, global = true, env = "OMA_FOLLOW_TERMINAL_COLOR", value_parser = FalseyValueParser::new()
-)]
+    #[arg(
+        long,
+        global = true,
+        env = "OMA_FOLLOW_TERMINAL_COLOR",
+        value_parser = FalseyValueParser::new(),
+        help = fl!("clap-follow-terminal-color-help")
+    )]
     follow_terminal_color: bool,
     /// Do not display progress bar
-    #[arg(long, global = true, env = "OMA_NO_PROGRESS", value_parser = FalseyValueParser::new()
-)]
+    #[arg(
+        long,
+        global = true,
+        env = "OMA_NO_PROGRESS",
+        value_parser = FalseyValueParser::new(),
+    )]
     no_progress: bool,
     /// Run oma do not check dbus
-    #[arg(long, global = true, env = "OMA_NO_CHECK_DBUS", value_parser = FalseyValueParser::new()
-)]
+    #[arg(
+        long,
+        global = true,
+        env = "OMA_NO_CHECK_DBUS",
+        help = fl!("clap-no-check-dbus-help"),
+        value_parser = FalseyValueParser::new()
+    )]
     no_check_dbus: bool,
     /// Run oma do not check battery status
     #[arg(long, global = true, env = "OMA_NO_CHECK_BATTERY", value_parser = FalseyValueParser::new()
@@ -159,6 +175,11 @@ fn main() {
         print_version();
         exit(0);
     }
+
+    // if oma.global.help {
+    //     OhManagerAilurus::command().print_long_help().unwrap();
+    //     exit(0);
+    // }
 
     // Init config file
     let config = Config::read();
