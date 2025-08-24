@@ -13,7 +13,7 @@ use oma_apt_sources_lists::{
 };
 use oma_fetch::{
     SingleDownloadError, build_request_with_basic_auth,
-    reqwest::{Client, Method, Response},
+    reqwest::{Client, Method, Response, StatusCode},
 };
 use once_cell::sync::OnceCell;
 use tokio::{
@@ -344,8 +344,7 @@ impl MirrorSource<'_> {
 
         let resp = match self.send_request(client, &url, Method::GET).await {
             Ok(resp) => resp,
-            Err(e) => {
-                debug!("{e}");
+            Err(e) if e.status().is_some_and(|e| e == StatusCode::NOT_FOUND) => {
                 url = format!("{dist_path}/Release");
                 let resp = self.send_request(client, &url, Method::GET).await;
 
@@ -361,6 +360,11 @@ impl MirrorSource<'_> {
 
                 resp.map_err(|e| SingleDownloadError::ReqwestError { source: e })
                     .map_err(|e| RefreshError::DownloadFailed(Some(e)))?
+            }
+            Err(e) => {
+                return Err(RefreshError::DownloadFailed(Some(
+                    SingleDownloadError::ReqwestError { source: e },
+                )));
             }
         };
 
