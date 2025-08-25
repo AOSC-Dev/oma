@@ -137,7 +137,7 @@ impl Release {
             .ok_or(InReleaseError::BadInReleaseData)?;
 
         let date = parse_date(date).map_err(|e| {
-            debug!("Parse data failed: {}", e);
+            debug!("Failed to parse data: {}", e);
             InReleaseError::BadInReleaseData
         })?;
 
@@ -152,7 +152,7 @@ impl Release {
         // Check if the `Valid-Until` field is valid only when it is defined.
         if let Some(valid_until_date) = &self.source.valid_until {
             let valid_until = parse_date(valid_until_date).map_err(|e| {
-                debug!("Parse valid_until failed: {}", e);
+                debug!("Failed to parse the valid_until field: {}", e);
                 InReleaseError::BadInReleaseValidUntil
             })?;
 
@@ -178,11 +178,11 @@ impl FromStr for ChecksumItem {
             .ok_or(InReleaseError::BrokenInRelease)?
             .to_string();
 
-        trace!("checksum is: {checksum}");
+        trace!("Checksum: {checksum}");
 
         let size = line.next().ok_or(InReleaseError::BrokenInRelease)?;
 
-        trace!("size is: {size}");
+        trace!("Size: {size}");
 
         let size = size.parse::<u64>().map_err(InReleaseError::ParseIntError)?;
 
@@ -243,7 +243,7 @@ pub fn verify_inrelease<'a>(
 
         let pub_file = inrelease_path.with_file_name(&file_name);
 
-        debug!("Read GPG file: {}", pub_file.display());
+        debug!("Reading GPG file: {}", pub_file.display());
         let bytes = fs::read(pub_file)
             .map_err(|e| InReleaseError::ReadGPGFileName(e, file_name.to_string()))?;
 
@@ -287,7 +287,7 @@ fn parse_date(date: &str) -> Result<DateTime<FixedOffset>, ParseDateError> {
     match DateTime::parse_from_rfc2822(date) {
         Ok(res) => Ok(res),
         Err(e) => {
-            debug!("Parse {} failed: {e}, try to use date hack.", date);
+            debug!("Failed to parse {}: {e}, trying to use date hack ...", date);
             let hack_date = date_hack(date).map_err(ParseDateError::BadDate)?;
             Ok(DateTime::parse_from_rfc2822(&hack_date)?)
         }

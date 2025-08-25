@@ -125,7 +125,7 @@ pub async fn scan_sources_list_from_paths<'a>(
                         .iter()
                         .any(|re| re.is_match(&file_name.to_string_lossy()).unwrap_or(false))
                     {
-                        debug!("{:?} matches ignore list", file_name);
+                        debug!("File {:?} matches ignore list.", file_name);
                         continue;
                     }
 
@@ -539,13 +539,13 @@ impl MirrorSource<'_> {
 
             if p.exists() {
                 if dst.exists() {
-                    debug!("get_release_file: Removing {}", dst.display());
+                    debug!("get_release_file: Removing {} ...", dst.display());
                     fs::remove_file(&dst)
                         .await
                         .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
                 }
 
-                debug!("get_release_file: Symlink {}", dst.display());
+                debug!("get_release_file: Symlinking {} ...", dst.display());
                 fs::symlink(p, &dst)
                     .await
                     .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;

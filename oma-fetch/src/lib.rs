@@ -284,7 +284,7 @@ pub fn build_request_with_basic_auth(
     let mut req = client.request(method, url);
 
     if let Some((user, password)) = auth {
-        debug!("auth user: {}", user);
+        debug!("Authenticating as user: {} ...", user);
         req = req.basic_auth(user, Some(password));
     }
 
@@ -296,7 +296,7 @@ pub async fn send_request(url: &str, request: RequestBuilder) -> Result<Response
     let headers = resp.headers();
 
     debug!(
-        "\nDownload url: {url}\nStatus: {}\nHeaders: {headers:#?}",
+        "\nDownload URL: {url}\nStatus: {}\nHeaders: {headers:#?}",
         resp.status()
     );
 
