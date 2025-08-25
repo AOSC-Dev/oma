@@ -237,7 +237,10 @@ impl<'a> OmaRefresh<'a> {
             })?;
         }
 
-        debug!("Setting permission for {} as 0755", self.download_dir.display());
+        debug!(
+            "Setting permission for {} as 0755",
+            self.download_dir.display()
+        );
 
         fs::set_permissions(&self.download_dir, Permissions::from_mode(0o755))
             .await

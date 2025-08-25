@@ -253,7 +253,10 @@ impl<'a> SingleDownloader<'a> {
         // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
         // 如果不存在，则继续往下走
         if file_exist && !file.is_symlink() {
-            trace!("File {} already exists, verifying checksum ...", self.entry.filename);
+            trace!(
+                "File {} already exists, verifying checksum ...",
+                self.entry.filename
+            );
 
             self.set_permission_with_path(&file).await?;
 
@@ -267,10 +270,7 @@ impl<'a> SingleDownloader<'a> {
                     .await
                     .context(OpenAsWriteModeSnafu)?;
 
-                trace!(
-                    "oma opened file {} read/write.",
-                    self.entry.filename
-                );
+                trace!("oma opened file {} read/write.", self.entry.filename);
 
                 let mut v = hash.get_validator();
 
@@ -279,10 +279,7 @@ impl<'a> SingleDownloader<'a> {
                 let (read, finish) = checksum(callback, &mut f, &mut v).await;
 
                 if finish {
-                    trace!(
-                        "Checksum {} matches, cache hit!",
-                        self.entry.filename
-                    );
+                    trace!("Checksum {} matches, cache hit!", self.entry.filename);
 
                     callback(Event::ProgressDone(self.download_list_index)).await;
 
@@ -364,7 +361,9 @@ impl<'a> SingleDownloader<'a> {
             // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
             // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
             if total_size <= file_size {
-                trace!("Resetting size indicator for file to 0, as the file to download is larger that the one that already exists.");
+                trace!(
+                    "Resetting size indicator for file to 0, as the file to download is larger that the one that already exists."
+                );
                 callback(Event::GlobalProgressSub(file_size)).await;
                 file_size = 0;
                 resume = false;
@@ -548,7 +547,10 @@ impl<'a> SingleDownloader<'a> {
                 return Err(SingleDownloadError::ChecksumMismatch);
             }
 
-            trace!("Checksum verification successful for file {}", self.entry.filename);
+            trace!(
+                "Checksum verification successful for file {}",
+                self.entry.filename
+            );
         }
 
         callback(Event::ProgressDone(self.download_list_index)).await;
@@ -558,7 +560,10 @@ impl<'a> SingleDownloader<'a> {
 
     async fn set_permission(&self, f: &File) -> Result<(), SingleDownloadError> {
         if let Some(mode) = self.set_permission {
-            trace!("Setting permission for file {} to {:#o} ...", self.entry.filename, mode);
+            trace!(
+                "Setting permission for file {} to {:#o} ...",
+                self.entry.filename, mode
+            );
             f.set_permissions(Permissions::from_mode(mode))
                 .await
                 .context(SetPermissionSnafu)?;
@@ -569,7 +574,10 @@ impl<'a> SingleDownloader<'a> {
 
     async fn set_permission_with_path(&self, path: &Path) -> Result<(), SingleDownloadError> {
         if let Some(mode) = self.set_permission {
-            trace!("Setting permission for file {} to {:#o} ...", self.entry.filename, mode);
+            trace!(
+                "Setting permission for file {} to {:#o} ...",
+                self.entry.filename, mode
+            );
 
             fs::set_permissions(path, Permissions::from_mode(mode))
                 .await
