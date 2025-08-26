@@ -10,6 +10,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod args;
+mod clap_err;
 mod config;
 mod error;
 mod install_progress;
@@ -50,6 +51,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
 
+use crate::clap_err::OmaClapRichFormatter;
 use crate::config::Config;
 use crate::error::Chain;
 use crate::install_progress::osc94_progress;
@@ -170,7 +172,12 @@ fn main() {
         "Oma could not initialize SIGINT handler. Please restart your installation environment.",
     );
 
-    let oma = OhManagerAilurus::parse();
+    let oma = OhManagerAilurus::try_parse()
+        .map_err(|e| {
+            let e = e.apply::<OmaClapRichFormatter>();
+            e.exit();
+        })
+        .unwrap();
 
     if oma.global.version {
         print_version();
