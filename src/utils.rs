@@ -290,12 +290,16 @@ fn pkgnames_complete_impl(
     };
 
     if current.is_empty() {
-        for i in pkgs {
-            completions.push(i.name().into());
+        for pkg in pkgs {
+            completions.push(pkg.fullname(true).into());
         }
     } else {
-        for i in pkgs.filter(|i| i.name().starts_with(current)) {
-            completions.push(i.name().into());
+        for pkg in pkgs {
+            let pkgname = pkg.fullname(true);
+            if !pkgname.starts_with(current) {
+                continue;
+            }
+            completions.push(pkgname.into());
         }
     }
 }
